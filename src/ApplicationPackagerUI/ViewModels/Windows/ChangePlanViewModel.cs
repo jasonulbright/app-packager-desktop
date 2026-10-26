@@ -77,6 +77,8 @@ public sealed partial class ChangePlanViewModel : ObservableObject
     public string ConfirmContent => _plan.ActionName.Replace("_", "__", StringComparison.Ordinal);
 
     public bool IsDestructive => _plan.IsDestructive;
+    public bool HasExtraConfirmation => _plan.ExtraConfirmation is not null;
+    public string ExtraConfirmationText => _plan.ExtraConfirmation ?? "";
     public ObservableCollection<ChangePlanItem> Items { get; }
     public ObservableCollection<ChangePlanItemResult> ResultRows { get; } = [];
 
@@ -92,6 +94,13 @@ public sealed partial class ChangePlanViewModel : ObservableObject
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(ConfirmCommand))]
     private bool _destructiveAcknowledged;
+
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(ConfirmCommand))]
+    private bool _extraAcknowledged;
+
+    /// <summary>The last step a running change reported; empty when no run works.</summary>
+    [ObservableProperty] private string _stepText = "";
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsBusy), nameof(CanClose), nameof(ShowPlan), nameof(ShowResult), nameof(ShowConfirm), nameof(ShowCancel), nameof(ShowUndo), nameof(ShowClose))]
@@ -111,15 +120,15 @@ public sealed partial class ChangePlanViewModel : ObservableObject
     public bool ShowConfirm => Stage is ChangePlanStage.Review or ChangePlanStage.Running;
     public bool ShowCancel => Stage is ChangePlanStage.Review or ChangePlanStage.Running or ChangePlanStage.Undoing;
     public bool ShowClose => Stage is ChangePlanStage.Done or ChangePlanStage.Undone;
-    public bool ShowUndo => _plan.HasUndo && (Stage is ChangePlanStage.Done or ChangePlanStage.Undoing or ChangePlanStage.Undone);
+    public bool ShowUndo => _plan.HasUndo && Outcome.Result?.UndoAvailable != false && (Stage is ChangePlanStage.Done or ChangePlanStage.Undoing or ChangePlanStage.Undone);
 
-    private bool CanConfirm() => Stage == ChangePlanStage.Review && (!IsDestructive || DestructiveAcknowledged);
+    private bool CanConfirm() => Stage == ChangePlanStage.Review && (!IsDestructive || DestructiveAcknowledged) && (!HasExtraConfirmation || ExtraAcknowledged);
 
     [RelayCommand(CanExecute = nameof(CanConfirm))]
     private async Task ConfirmAsync()
     {
         if (!CanConfirm()) return;
-        _confirmed = ConfirmedChangePlan.Issue(s_issueKey!, _plan, DestructiveAcknowledged);
+        _confirmed = ConfirmedChangePlan.Issue(s_issueKey!, _plan, DestructiveAcknowledged, ExtraAcknowledged);
         Stage = ChangePlanStage.Running;
         ResultText = "Running...";
         var result = await RunAsync(_run, "");
@@ -129,7 +138,7 @@ public sealed partial class ChangePlanViewModel : ObservableObject
     }
 
     private bool CanUndo() =>
-        _undo is not null && _confirmed is not null && Stage == ChangePlanStage.Done && Outcome.Result is { SucceededCount: > 0 };
+        _undo is not null && _confirmed is not null && Stage == ChangePlanStage.Done && Outcome.Result is { UndoAvailable: not false } and ({ SucceededCount: > 0 } or { PartialCount: > 0 });
 
     [RelayCommand(CanExecute = nameof(CanUndo))]
     private async Task UndoAsync()
@@ -202,7 +211,13 @@ public sealed partial class ChangePlanViewModel : ObservableObject
     private async Task<ChangePlanResult> RunAsync(ChangePlanRun operation, string prefix)
     {
         var cts = new CancellationTokenSource();
-        var reported = new ReportedItems();
+        var context = SynchronizationContext.Current;
+        ReportedItems? reported = null;
+        reported = new ReportedItems(text =>
+        {
+            if (context is null) StepText = text;
+            else context.Post(_ => { if (ReferenceEquals(_reported, reported) && _cts is not null) StepText = text; }, null);
+        });
         _cts = cts;
         _reported = reported;
         _cancelRequested = false;
@@ -222,7 +237,7 @@ public sealed partial class ChangePlanViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            _log?.Error(LogArea, $"{prefix}{_plan.Title} failed: {SecretMask.Apply(ex.ToString())}");
+            _log?.Error(LogArea, $"{prefix}{_plan.LogName ?? "A change plan"} failed: {SecretMask.Apply(ex.ToString())}");
             result = Partial(reported.Snapshot(), ChangePlanStop.Failed, FailedReason);
             text = FailedText + ReportedBefore(reported.Snapshot(), "failure");
         }
@@ -230,6 +245,7 @@ public sealed partial class ChangePlanViewModel : ObservableObject
         {
             _cts = null;
             ShowForceClose = false;
+            StepText = "";
             cts.Dispose();
         }
 
@@ -264,13 +280,18 @@ public sealed partial class ChangePlanViewModel : ObservableObject
 
     // Unlike Progress<T>, a report is stored on the reporting thread before Report returns,
     // so an outcome reported just before a throw is never lost to a pending post.
-    private sealed class ReportedItems : IProgress<ChangePlanItemResult>
+    private sealed class ReportedItems(Action<string> step) : IProgress<ChangePlanItemResult>
     {
         private readonly List<ChangePlanItemResult> _items = [];
 
         public void Report(ChangePlanItemResult value)
         {
             ArgumentNullException.ThrowIfNull(value);
+            if (value.Interim)
+            {
+                step(SecretMask.Apply(value.Message));
+                return;
+            }
             lock (_items) _items.Add(value);
         }
 

@@ -144,11 +144,13 @@ public sealed class SuiteToolLauncherTests
     private void InstallTool(SuiteTool tool, string root = Install) => _files.Add(Path.Combine(root, tool.Folder, tool.EntryScript));
 
     [Fact]
-    public void TheSixToolsNameTheSuiteFoldersAndEntryScripts()
+    public void TheFiveSidebarToolsNameTheSuiteFoldersAndEntryScripts()
     {
+        Assert.DoesNotContain(SuiteTools.All, t => t.Id == SidebarIds.CollectionCompliance);
+        Assert.DoesNotContain(SuiteTools.All, t => t.Folder == "collection-and-compliance-manager");
+        Assert.Null(typeof(SuiteTools).GetProperty("CollectionAndCompliance"));
         Assert.Equal(
         [
-            ("collection-and-compliance", "collection-and-compliance-manager", "start-ccm.ps1"),
             ("installer-analysis", "installer-analysis", "start-installeranalysis.ps1"),
             ("deployment-helper", "deployment-helper", "start-deploymenthelper.ps1"),
             ("dp-content-manager", "dp-content-manager", "start-dpcontentmgr.ps1"),
@@ -815,10 +817,26 @@ public sealed class SuiteToolRegistryTests
     }
 
     [Fact]
+    public void TheCollectionAndComplianceEntryIsAMovablePageWithItsSavedIdIconAndPlace()
+    {
+        var registry = SidebarRegistry.CreateDefault();
+        var item = registry.Find("collection-and-compliance")!;
+        Assert.Equal(SidebarIds.CollectionCompliance, item.Id);
+        Assert.Equal("Collection and Compliance", item.Title);
+        Assert.Equal(SidebarItemKind.Page, item.Kind);
+        Assert.Equal(typeof(ApplicationPackagerUI.Views.Pages.CollectionCompliancePage), item.PageType);
+        Assert.Null(item.Activate);
+        Assert.False(item.IsPinned);
+        Assert.Equal("ShieldCheckmark24", item.Symbol);
+        Assert.Equal(6, registry.Items.ToList().IndexOf(item));
+        Assert.DoesNotContain(registry.Items, i => i.Title == "Collection Manager");
+    }
+
+    [Fact]
     public void EveryOtherToolEntryIsAMovableToolWithAnAction()
     {
-        var tools = SidebarRegistry.CreateDefault().Items.Skip(6).ToList();
-        Assert.Equal(6, tools.Count);
+        var tools = SidebarRegistry.CreateDefault().Items.Skip(7).ToList();
+        Assert.Equal(5, tools.Count);
         foreach (var item in tools)
         {
             Assert.Equal(SidebarItemKind.Tool, item.Kind);
