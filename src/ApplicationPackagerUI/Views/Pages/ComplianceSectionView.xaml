@@ -249,35 +249,41 @@
                                   ResizeBehavior="PreviousAndNext" ResizeDirection="Rows" Background="Transparent" Focusable="True"
                                   Visibility="{Binding ShowDeployments, Converter={StaticResource BoolToVisibility}}"
                                   AutomationProperties.Name="Deployments height" AutomationProperties.AutomationId="splitLiveDeployments" />
-                    <DockPanel Grid.Row="3" Visibility="{Binding ShowDeployments, Converter={StaticResource BoolToVisibility}}">
-                        <TextBlock DockPanel.Dock="Top" Text="{Binding DeploymentsTitle}" Style="{StaticResource FieldLabel}" AutomationProperties.AutomationId="txtDeploymentsTitle" />
-                        <WrapPanel>
-                            <ui:Button Content="Enable remediation" Icon="{ui:SymbolIcon ShieldCheckmark24}" Command="{Binding EnableRemediationCommand}" Style="{StaticResource ToolButton}"
-                                       AutomationProperties.AutomationId="btnEnableRemediation" />
-                            <ui:Button Content="Disable remediation" Icon="{ui:SymbolIcon Shield24}" Command="{Binding DisableRemediationCommand}" Style="{StaticResource ToolButton}"
-                                       AutomationProperties.AutomationId="btnDisableRemediation" />
-                            <ui:Button Content="Redeploy" Icon="{ui:SymbolIcon ArrowRepeatAll24}" Command="{Binding RedeployCommand}" Style="{StaticResource ToolButton}"
-                                       AutomationProperties.AutomationId="btnRedeploy" />
-                            <ui:Button Content="Reassign" Icon="{ui:SymbolIcon ArrowSwap24}" Command="{Binding ReassignCommand}" Style="{StaticResource ToolButton}"
-                                       ToolTip="Moves one deployment to another collection." AutomationProperties.AutomationId="btnReassign" />
-                            <ui:Button Content="Delete" Icon="{ui:SymbolIcon Delete24}" Command="{Binding DeleteDeploymentsCommand}" Style="{StaticResource ToolButton}"
-                                       AutomationProperties.AutomationId="btnDeleteDeployments" />
-                        </WrapPanel>
-                    </DockPanel>
-                    <DataGrid Grid.Row="4" x:Name="dgDeployments" Style="{StaticResource GridBase}" ItemsSource="{Binding Deployments}" SelectionMode="Extended"
-                              SelectionChanged="OnDeploymentsSelectionChanged" Visibility="{Binding ShowDeployments, Converter={StaticResource BoolToVisibility}}"
-                              AutomationProperties.AutomationId="dgDeployments" AutomationProperties.Name="Deployments">
-                        <DataGrid.Columns>
-                            <DataGridTextColumn Header="Baseline" Binding="{Binding BaselineName}" Width="2*" MinWidth="140" ElementStyle="{StaticResource TrimmedCell}" />
-                            <DataGridTextColumn Header="Collection" Binding="{Binding Collection}" Width="2*" MinWidth="140" ElementStyle="{StaticResource TrimmedCell}" />
-                            <DataGridTextColumn Header="Mode" Binding="{Binding Mode}" Width="104" MinWidth="104" ElementStyle="{StaticResource TrimmedCell}" />
-                            <DataGridTextColumn Header="Compliant" Binding="{Binding Compliant}" Width="100" MinWidth="100" ElementStyle="{StaticResource TrimmedCell}" />
-                            <DataGridTextColumn Header="Non-compliant" Binding="{Binding NonCompliant}" Width="128" MinWidth="128" ElementStyle="{StaticResource TrimmedCell}" />
-                            <DataGridTextColumn Header="Error" Binding="{Binding Error}" Width="92" MinWidth="92" ElementStyle="{StaticResource TrimmedCell}" />
-                            <DataGridTextColumn Header="Unknown" Binding="{Binding Unknown}" Width="92" MinWidth="92" ElementStyle="{StaticResource TrimmedCell}" />
-                            <DataGridTextColumn Header="Last evaluated" Binding="{Binding LastEvaluated}" Width="140" MinWidth="140" ElementStyle="{StaticResource TrimmedCell}" />
-                        </DataGrid.Columns>
-                    </DataGrid>
+                    <Grid Grid.Row="3" x:Name="gridLiveDeployments" Visibility="{Binding ShowDeployments, Converter={StaticResource BoolToVisibility}}">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+                        <DockPanel Grid.Row="0">
+                            <TextBlock DockPanel.Dock="Top" Text="{Binding DeploymentsTitle}" Style="{StaticResource FieldLabel}" AutomationProperties.AutomationId="txtDeploymentsTitle" />
+                            <WrapPanel>
+                                <ui:Button Content="Enable remediation" Icon="{ui:SymbolIcon ShieldCheckmark24}" Command="{Binding EnableRemediationCommand}" Style="{StaticResource ToolButton}"
+                                           AutomationProperties.AutomationId="btnEnableRemediation" />
+                                <ui:Button Content="Disable remediation" Icon="{ui:SymbolIcon Shield24}" Command="{Binding DisableRemediationCommand}" Style="{StaticResource ToolButton}"
+                                           AutomationProperties.AutomationId="btnDisableRemediation" />
+                                <ui:Button Content="Redeploy" Icon="{ui:SymbolIcon ArrowRepeatAll24}" Command="{Binding RedeployCommand}" Style="{StaticResource ToolButton}"
+                                           AutomationProperties.AutomationId="btnRedeploy" />
+                                <ui:Button Content="Reassign" Icon="{ui:SymbolIcon ArrowSwap24}" Command="{Binding ReassignCommand}" Style="{StaticResource ToolButton}"
+                                           ToolTip="Moves one deployment to another collection." AutomationProperties.AutomationId="btnReassign" />
+                                <ui:Button Content="Delete" Icon="{ui:SymbolIcon Delete24}" Command="{Binding DeleteDeploymentsCommand}" Style="{StaticResource ToolButton}"
+                                           AutomationProperties.AutomationId="btnDeleteDeployments" />
+                            </WrapPanel>
+                        </DockPanel>
+                        <DataGrid Grid.Row="1" x:Name="dgDeployments" Style="{StaticResource GridBase}" ItemsSource="{Binding Deployments}" SelectionMode="Extended"
+                                  SelectionChanged="OnDeploymentsSelectionChanged"
+                                  AutomationProperties.AutomationId="dgDeployments" AutomationProperties.Name="Deployments">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Baseline" Binding="{Binding BaselineName}" Width="2*" MinWidth="140" ElementStyle="{StaticResource TrimmedCell}" />
+                                <DataGridTextColumn Header="Collection" Binding="{Binding Collection}" Width="2*" MinWidth="140" ElementStyle="{StaticResource TrimmedCell}" />
+                                <DataGridTextColumn Header="Mode" Binding="{Binding Mode}" Width="104" MinWidth="104" ElementStyle="{StaticResource TrimmedCell}" />
+                                <DataGridTextColumn Header="Compliant" Binding="{Binding Compliant}" Width="100" MinWidth="100" ElementStyle="{StaticResource TrimmedCell}" />
+                                <DataGridTextColumn Header="Non-compliant" Binding="{Binding NonCompliant}" Width="128" MinWidth="128" ElementStyle="{StaticResource TrimmedCell}" />
+                                <DataGridTextColumn Header="Error" Binding="{Binding Error}" Width="92" MinWidth="92" ElementStyle="{StaticResource TrimmedCell}" />
+                                <DataGridTextColumn Header="Unknown" Binding="{Binding Unknown}" Width="92" MinWidth="92" ElementStyle="{StaticResource TrimmedCell}" />
+                                <DataGridTextColumn Header="Last evaluated" Binding="{Binding LastEvaluated}" Width="140" MinWidth="140" ElementStyle="{StaticResource TrimmedCell}" />
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </Grid>
                 </Grid>
                 </ScrollViewer>
             </TabItem>

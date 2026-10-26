@@ -48,6 +48,7 @@ public static class BitRockProjectReader
 {
     public const int MaxRuntimeBytes = 64 * 1024 * 1024;
     public const int MaxProjectBytes = 16 * 1024 * 1024;
+    private const int MaxResolvedCharacters = MaxProjectBytes;
     private const int SearchWindowBytes = 96 * 1024 * 1024;
     private const int ChunkBytes = 4 * 1024 * 1024;
     private const string DefaultUninstallerName = "uninstall";
@@ -184,21 +185,56 @@ public static class BitRockProjectReader
         }
 
         var programFiles = is64 == true ? "%ProgramW6432%" : "%ProgramFiles(x86)%";
-        string Resolve(string text, int depth = 0)
+        string Resolve(string text, int depth, ref bool exceededLimit)
         {
             if (depth > 4) return text;
-            return Variable.Replace(text, m => m.Groups[1].Value switch
+            var output = new StringBuilder(Math.Min(text.Length, MaxResolvedCharacters));
+            var position = 0;
+            foreach (Match match in Variable.Matches(text))
             {
-                "product_fullname" or "project.fullName" => fullName,
-                "product_shortname" or "project.shortName" => shortName,
-                "product_version" or "project.version" => version,
-                "platform_name" => "windows",
-                "platform_install_prefix" => programFiles,
-                var other when variables.TryGetValue(other, out var v) && !v.Contains("${" + other + "}", StringComparison.Ordinal) => Resolve(v, depth + 1),
-                _ => m.Value
-            });
+                var literalLength = match.Index - position;
+                if (literalLength > MaxResolvedCharacters - output.Length)
+                {
+                    exceededLimit = true;
+                    return "";
+                }
+                output.Append(text, position, literalLength);
+                var name = match.Groups[1].Value;
+                var replacement = name switch
+                {
+                    "product_fullname" or "project.fullName" => fullName,
+                    "product_shortname" or "project.shortName" => shortName,
+                    "product_version" or "project.version" => version,
+                    "platform_name" => "windows",
+                    "platform_install_prefix" => programFiles,
+                    var other when variables.TryGetValue(other, out var value) && !value.Contains("${" + other + "}", StringComparison.Ordinal)
+                        => Resolve(value, depth + 1, ref exceededLimit),
+                    _ => match.Value
+                };
+                if (exceededLimit || replacement.Length > MaxResolvedCharacters - output.Length)
+                {
+                    exceededLimit = true;
+                    return "";
+                }
+                output.Append(replacement);
+                position = match.Index + match.Length;
+            }
+
+            var remainingLength = text.Length - position;
+            if (remainingLength > MaxResolvedCharacters - output.Length)
+            {
+                exceededLimit = true;
+                return "";
+            }
+            output.Append(text, position, remainingLength);
+            return output.ToString();
         }
-        string Resolved(string text) { var r = Resolve(text); return r.Contains("${", StringComparison.Ordinal) ? "" : r; }
+        string Resolved(string text)
+        {
+            var exceededLimit = false;
+            var resolved = Resolve(text, 0, ref exceededLimit);
+            return exceededLimit || resolved.Contains("${", StringComparison.Ordinal) ? "" : resolved;
+        }
 
         var prefix = Top(root, "windowsARPRegistryPrefix");
         var arpKey = prefix.Length > 0 ? Resolved(prefix) : Resolved("${project.fullName} ${project.version}");

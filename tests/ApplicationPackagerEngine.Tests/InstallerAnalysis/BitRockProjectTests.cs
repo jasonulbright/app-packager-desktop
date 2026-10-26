@@ -142,6 +142,25 @@ public sealed class BitRockProjectTests : IDisposable
     }
 
     [Fact]
+    public void IndirectVariableExpansionStopsAtTheResolvedValueLimit()
+    {
+        var fanout = string.Concat(Enumerable.Repeat("${next}", 128));
+        var project = "<project>"
+            + "<setInstallerVariable><name>first</name><value>" + fanout.Replace("next", "second", StringComparison.Ordinal) + "</value></setInstallerVariable>"
+            + "<setInstallerVariable><name>second</name><value>" + fanout.Replace("next", "third", StringComparison.Ordinal) + "</value></setInstallerVariable>"
+            + "<setInstallerVariable><name>third</name><value>" + fanout.Replace("next", "fourth", StringComparison.Ordinal) + "</value></setInstallerVariable>"
+            + "<setInstallerVariable><name>fourth</name><value>" + fanout.Replace("next", "fifth", StringComparison.Ordinal) + "</value></setInstallerVariable>"
+            + "<setInstallerVariable><name>fifth</name><value>x</value></setInstallerVariable>"
+            + "<productDisplayName>${first}</productDisplayName></project>";
+        var path = WriteSetup("fanout.exe", project);
+
+        var result = BitRockProjectReader.Read(path, CancellationToken.None);
+
+        Assert.NotNull(result);
+        Assert.Equal("", result.DisplayName);
+    }
+
+    [Fact]
     public void AnArpPrefixAndAnUninstallerNameInTheProjectAreReadAsGiven()
     {
         var path = WriteSetup("app.exe", """

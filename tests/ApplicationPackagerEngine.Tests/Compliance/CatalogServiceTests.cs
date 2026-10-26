@@ -43,6 +43,18 @@ public sealed class CatalogServiceTests
     }
 
     [Fact]
+    public void LsaProtectionAcceptsBothEnabledValuesWithoutRewritingTheUefiChoice()
+    {
+        var catalog = new CatalogService();
+        var entry = catalog.Find("lsa-protection-runasppl")!;
+        var builder = Encoding.UTF8.GetString(catalog.ReadBuilder(entry)!);
+
+        Assert.Contains("Expected = @('1', '2')", builder);
+        Assert.Contains("ExpressionOperator = 'OneOf'; ExpectedValue = $s.Expected", builder);
+        Assert.Contains("RemediateDword = $true", builder);
+    }
+
+    [Fact]
     public void SpecExecTakesTwoCollectionsAndProducesTwoPairs()
     {
         var entry = new CatalogService().Find("specexec-mitigations")!;

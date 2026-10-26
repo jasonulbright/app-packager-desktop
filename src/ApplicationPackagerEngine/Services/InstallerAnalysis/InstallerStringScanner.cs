@@ -135,6 +135,7 @@ public static class InstallerStringScanner
         }
         Emit(ascii, asciiStart, "Ascii");
         Emit(wide, wideStart, "Utf16");
+        tracked = seen.Count;
         return results;
     }
 }
