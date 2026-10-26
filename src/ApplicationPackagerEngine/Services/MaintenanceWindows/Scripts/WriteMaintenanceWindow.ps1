@@ -43,12 +43,13 @@ function ConvertTo-WindowRow {
 }
 
 function Write-Result {
-    param([string]$Status, [object]$Window = $null, [string]$Detail = '')
+    param([string]$Status, [object]$Window = $null, [string]$Detail = '', [bool]$AccessDenied = $false)
     [pscustomobject]@{
         Kind   = 'Result'
         Status = $Status
         Detail = $Detail
         Window = (ConvertTo-WindowRow $Window)
+        AccessDenied = $AccessDenied
     }
 }
 
@@ -218,7 +219,7 @@ function Write-Partial {
             $window = Get-Window $ServiceWindowId
         }
     } catch { }
-    Write-Result 'partial' $window $Failure.Exception.Message
+    Write-Result -Status 'partial' -Window $window -Detail $Failure.Exception.Message -AccessDenied (Test-AccessDenied $Failure)
 }
 
 $collection = @(Get-CMDeviceCollection -Id $CollectionId)
