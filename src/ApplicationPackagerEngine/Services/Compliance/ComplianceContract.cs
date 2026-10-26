@@ -12,6 +12,7 @@ public sealed record CatalogDependency(string Type, string Name, string? Created
 /// <param name="BuilderResource">The logical name of the embedded builder script.</param>
 /// <param name="BuilderSha256">The SHA-256 of the embedded builder script, upper-case hexadecimal.</param>
 /// <param name="TenablePlugins">Vulnerability scanner plugin IDs the entry addresses.</param>
+/// <param name="RemediationSupported">Whether this entry can deploy with remediation enabled.</param>
 public sealed record CatalogEntry(
     string Id,
     string Version,
@@ -32,7 +33,8 @@ public sealed record CatalogEntry(
     IReadOnlyList<string> ProducesConfigurationItems,
     IReadOnlyList<string> ProducesBaselines,
     string BuilderResource,
-    string BuilderSha256)
+    string BuilderSha256,
+    bool RemediationSupported = true)
 {
     /// <summary>The names of the parameters that take a collection name, in parameter order.</summary>
     public IReadOnlyList<string> CollectionParameters =>
