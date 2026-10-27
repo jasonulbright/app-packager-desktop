@@ -180,6 +180,30 @@ public sealed class CatalogWindowTests
         });
     }
 
+    [Fact]
+    public void TheVendorCheckBoxChangesOnlyTheApplicationsTheSearchShows()
+    {
+        WithApplication(ApplicationTheme.Light, () =>
+        {
+            var (viewModel, _) = Catalog();
+            var window = new CatalogWindow(viewModel);
+            Show(window);
+            try
+            {
+                viewModel.SearchText = "grepwin";
+                Settle(window);
+                var box = Descendants(window).OfType<System.Windows.Controls.CheckBox>().Single(c => AutomationPropertiesName(c) == "Show every application of Stefan Kueng");
+                box.IsChecked = false;
+                box.RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent));
+                StaTestHelper.Flush();
+                Assert.False(App(viewModel, "grepwin").IsVisible);
+                Assert.True(App(viewModel, "tortoisegit").IsVisible);
+                Assert.Equal(3, viewModel.VisibleCount);
+            }
+            finally { window.Close(); }
+        });
+    }
+
     private static string AutomationPropertiesName(DependencyObject element) => System.Windows.Automation.AutomationProperties.GetName(element);
 
     [Fact]

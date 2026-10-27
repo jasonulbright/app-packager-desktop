@@ -22,11 +22,7 @@ public partial class CatalogWindow
         if (sender is System.Windows.Controls.CheckBox cb && cb.Tag is VendorGroup group)
         {
             // The click has already toggled IsChecked, so IsChecked holds the new state.
-            var newState = cb.IsChecked == true;
-            foreach (var app in group.Apps)
-                app.IsVisible = newState;
-            group.UpdateGroupState();
-            ViewModel.UpdateCountsPublic();
+            ViewModel.SetVendor(group, cb.IsChecked == true);
         }
     }
 

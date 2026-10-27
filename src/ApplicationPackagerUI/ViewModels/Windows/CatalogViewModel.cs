@@ -205,7 +205,14 @@ public partial class CatalogViewModel : ObservableObject
         UpdateCounts();
     }
 
-    public void UpdateCountsPublic() => UpdateCounts();
+    /// <summary>The vendor checkbox changes the applications of the vendor that match the search, as Show all and Hide all do.</summary>
+    public void SetVendor(VendorGroup group, bool visible)
+    {
+        foreach (var app in group.Apps.Where(a => a.MatchesSearch))
+            app.IsVisible = visible;
+        group.UpdateGroupState();
+        UpdateCounts();
+    }
 
     private void UpdateCounts()
     {
