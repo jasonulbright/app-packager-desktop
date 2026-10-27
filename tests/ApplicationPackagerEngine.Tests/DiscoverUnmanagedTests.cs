@@ -782,7 +782,7 @@ public sealed class DiscoveryRunnerTests
 
         Assert.Equal(DiscoveryAction.EnableAll, choice!.Action);
         Assert.Equal(1, store.Saves);
-        Assert.Equal("Discover unmanaged software: the choice was saved, but the lists could not be refreshed. Open the catalog from the App Packager page to see them.", status[^1]);
+        Assert.Equal("Discover unmanaged software: the choice was saved, but the lists could not be refreshed. Select Catalog on the App Packager page to see them.", status[^1]);
         Assert.Contains(status[^1], log);
         Assert.DoesNotContain(log.Concat(status), line => line.Contains("secret"));
     }
@@ -804,15 +804,15 @@ public sealed class DiscoveryReloadTests
     public async Task AFailedReloadIsLoggedWithoutTheExceptionText()
     {
         var log = new List<string>();
-        await ApplicationsViewModel.ReloadLoggedAsync(() => throw new IOException("C:\\secret"), log.Add);
-        Assert.Equal(["Applications page: the list could not be reloaded. Open the page again to retry."], log);
+        await CatalogViewModel.ReloadLoggedAsync(() => throw new IOException("C:\\secret"), log.Add);
+        Assert.Equal(["Catalog: the list could not be reloaded. Open Catalog again to retry."], log);
     }
 
     [Fact]
     public async Task AFailedAsynchronousReloadIsLogged()
     {
         var log = new List<string>();
-        await ApplicationsViewModel.ReloadLoggedAsync(async () => { await Task.Yield(); throw new InvalidOperationException("C:\\secret"); }, log.Add);
+        await CatalogViewModel.ReloadLoggedAsync(async () => { await Task.Yield(); throw new InvalidOperationException("C:\\secret"); }, log.Add);
         Assert.Single(log);
         Assert.DoesNotContain("secret", log[0]);
     }
@@ -821,12 +821,12 @@ public sealed class DiscoveryReloadTests
     public async Task ASuccessfulReloadLogsNothing()
     {
         var log = new List<string>();
-        await ApplicationsViewModel.ReloadLoggedAsync(() => Task.CompletedTask, log.Add);
+        await CatalogViewModel.ReloadLoggedAsync(() => Task.CompletedTask, log.Add);
         Assert.Empty(log);
     }
 }
 
-public sealed class ApplicationsPageSaveTests
+public sealed class CatalogSaveTests
 {
     private readonly Queue<Task<IReadOnlyList<PackagerInfo>?>> _loads = new();
     private readonly List<string> _saved = [];
@@ -840,7 +840,7 @@ public sealed class ApplicationsPageSaveTests
         new PackagerInfo { Uid = "gsudo", Vendor = "Gerardo Grignoli", Application = "gsudo", Script = "gsudo.json", IsJsonDefined = true },
     ];
 
-    private ApplicationsViewModel Page(InMemorySettings store) => new(new ApplicationsPageServices(
+    private CatalogViewModel Page(InMemorySettings store) => new(new CatalogServices(
         store.Load,
         store.Save,
         () => { _loadCalls++; return _loads.Dequeue(); },
@@ -855,7 +855,7 @@ public sealed class ApplicationsPageSaveTests
         return load;
     }
 
-    private static bool Visible(ApplicationsViewModel page, string uid) =>
+    private static bool Visible(CatalogViewModel page, string uid) =>
         page.VendorGroups.SelectMany(g => g.Apps).Single(a => a.Uid == uid).IsVisible;
 
     private static void SetHidden(InMemorySettings store, params string[] hidden)
@@ -935,7 +935,7 @@ public sealed class ApplicationsPageSaveTests
         Assert.False(Visible(page, "grepwin"));
         Assert.Equal(["grepwin"], store.Load().HiddenApplications);
         Assert.Equal(["Saved. 2 of 3 visible."], _saved);
-        Assert.Equal(["Applications page: the list could not be reloaded. Open the page again to retry."], _log);
+        Assert.Equal(["Catalog: the list could not be reloaded. Open Catalog again to retry."], _log);
     }
 
     [Fact]
@@ -954,12 +954,12 @@ public sealed class ApplicationsPageSaveTests
 }
 
 [Collection(ProcessEnvironmentCollection.Name)]
-public sealed class ApplicationsPageWithoutPackagersFolderTests : IDisposable
+public sealed class CatalogWithoutPackagersFolderTests : IDisposable
 {
     private readonly string _root = Path.Combine(Path.GetTempPath(), "apkg-apps-" + Guid.NewGuid().ToString("N"));
     private readonly Dictionary<string, string?> _saved = [];
 
-    public ApplicationsPageWithoutPackagersFolderTests()
+    public CatalogWithoutPackagersFolderTests()
     {
         foreach (var name in new[] { AppDataPaths.DataRootVariable, ApplicationPackagerEngine.Services.Workbench.WorkbenchPaths.DataRootVariable })
             _saved[name] = Environment.GetEnvironmentVariable(name);
@@ -984,8 +984,8 @@ public sealed class ApplicationsPageWithoutPackagersFolderTests : IDisposable
         var store = new InMemorySettings(new AppSettings { HiddenApplications = ["labtool"] });
         var shown = new List<string>();
 
-        var page = new ApplicationsViewModel(new ApplicationsPageServices(
-            store.Load, store.Save, ApplicationsViewModel.LoadPackagersFrom(discovery), () => Task.CompletedTask, shown.Add, _ => { }));
+        var page = new CatalogViewModel(new CatalogServices(
+            store.Load, store.Save, CatalogViewModel.LoadPackagersFrom(discovery), () => Task.CompletedTask, shown.Add, _ => { }));
         await page.SaveCommand.ExecuteAsync(null);
 
         var apps = page.VendorGroups.SelectMany(g => g.Apps).ToList();
@@ -1008,8 +1008,8 @@ public sealed class PackagesGridLoadTests
         var load = await PackagesViewModel.ReadGridAsync(() => Task.FromResult(Rows()), () => Task.FromResult(Rows("git", "gsudo")));
 
         Assert.Empty(load.Rows);
-        Assert.Equal("All applications are hidden. Open the catalog from the App Packager page to show applications again.", load.StatusText);
-        Assert.Equal("All applications are hidden. Open the catalog from the App Packager page to show applications again.", load.LogLine);
+        Assert.Equal("All applications are hidden. Select Catalog to show applications.", load.StatusText);
+        Assert.Equal("All applications are hidden. Select Catalog to show applications.", load.LogLine);
     }
 
     [Fact]

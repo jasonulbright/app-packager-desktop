@@ -50,7 +50,7 @@ public sealed class SidebarGroupRenderTests : IDisposable
         services.AddSingleton<Wpf.Ui.ISnackbarService, Wpf.Ui.SnackbarService>();
         services.AddSingleton<Wpf.Ui.IContentDialogService, Wpf.Ui.ContentDialogService>();
         services.AddSingleton<MainWindow>();
-        foreach (var type in new[] { typeof(PackagesPage), typeof(ApplicationsPage), typeof(AddAppPage), typeof(AddFilePage), typeof(SettingsPage),
+        foreach (var type in new[] { typeof(PackagesPage), typeof(AddAppPage), typeof(AddFilePage), typeof(SettingsPage),
                      typeof(DetectionTesterPage), typeof(MaintenanceWindowsPage), typeof(CollectionCompliancePage), typeof(InstallerAnalysisPage),
                      typeof(DeploymentHelperPage), typeof(DpContentManagerPage), typeof(PivotsScriptsPage), typeof(SiteHygienePage) })
             services.AddSingleton(type, _ => new System.Windows.Controls.Page { Tag = type });

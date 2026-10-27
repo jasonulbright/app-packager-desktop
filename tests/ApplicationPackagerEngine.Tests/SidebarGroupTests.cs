@@ -19,7 +19,7 @@ internal static class SidebarGroupFixtures
         registry.RegisterGroup(Main);
         registry.RegisterGroup(More);
         registry.Register(new SidebarItemDefinition(Id: "home", Title: "Home", Symbol: "Home24", Kind: SidebarItemKind.Page) { PageType = typeof(PackagesPage), IsPinned = true, Group = Main.Id });
-        registry.Register(new SidebarItemDefinition(Id: "a", Title: "Alpha", Symbol: "Apps24", Kind: SidebarItemKind.Page) { PageType = typeof(ApplicationsPage), Group = Main.Id });
+        registry.Register(new SidebarItemDefinition(Id: "a", Title: "Alpha", Symbol: "Apps24", Kind: SidebarItemKind.Page) { PageType = typeof(InstallerAnalysisPage), Group = Main.Id });
         registry.Register(new SidebarItemDefinition(Id: "b", Title: "Bravo", Symbol: "Add24", Kind: SidebarItemKind.Page) { PageType = typeof(AddAppPage), Group = Main.Id });
         registry.Register(new SidebarItemDefinition(Id: "w", Title: "Window", Symbol: "Wrench24", Kind: SidebarItemKind.Window) { Activate = _ => { }, Group = More.Id });
         registry.Register(new SidebarItemDefinition(Id: "t", Title: "Tool", Symbol: "Toolbox24", Kind: SidebarItemKind.Tool) { Activate = _ => { }, Group = More.Id });
@@ -83,7 +83,7 @@ public sealed class SidebarGroupRegistryTests
     {
         var registry = SidebarRegistry.CreateDefault();
         Assert.Null(registry.Find(SidebarIds.Applications));
-        Assert.DoesNotContain(registry.Items, i => i.PageType == typeof(ApplicationsPage));
+        Assert.Null(typeof(PackagesPage).Assembly.GetType("ApplicationPackagerUI.Views.Pages.ApplicationsPage"));
         Assert.DoesNotContain(registry.Items, i => i.Title is "Applications" or "Add App" or "Catalog" or "Packages" or "Application Workbench");
     }
 

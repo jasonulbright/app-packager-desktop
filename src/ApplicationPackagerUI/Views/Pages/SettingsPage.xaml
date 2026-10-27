@@ -110,8 +110,8 @@
             <Border Style="{StaticResource SectionDivider}" />
 
             <TextBlock Text="Systems in use" Style="{StaticResource SectionHeader}"
-                       ToolTip="The Packages page has a publish button for each system. A system that is not in use keeps its buttons disabled." />
-            <TextBlock Text="The Packages page has a publish button for each system. A system that is not in use keeps its buttons disabled."
+                       ToolTip="The App Packager page has a publish button for each system. A system that is not in use keeps its buttons disabled." />
+            <TextBlock Text="The App Packager page has a publish button for each system. A system that is not in use keeps its buttons disabled."
                        Foreground="{DynamicResource TextFillColorSecondaryBrush}" Margin="0,0,0,8" TextWrapping="Wrap" />
             <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
                 <CheckBox Content="ConfigMgr" IsChecked="{Binding UseConfigMgr}" Margin="0,0,24,0"
@@ -230,7 +230,7 @@
             <Border Style="{StaticResource SectionDivider}" />
 
             <TextBlock Text="One Click Settings" Style="{StaticResource SectionHeader}" />
-            <TextBlock Text="One Click opens a plan of the apps you track here, then runs Check (and optionally Stage / Publish) without further prompts. Each row publishes to its own destinations; a row with no box checked is skipped. Rows that keep the default follow it when the default changes. The publish buttons on the Packages page choose their own destination per run."
+            <TextBlock Text="One Click opens a plan of the apps you track here, then runs Check (and optionally Stage / Publish) without further prompts. Each row publishes to its own destinations; a row with no box checked is skipped. Rows that keep the default follow it when the default changes. The publish buttons on the App Packager page choose their own destination per run."
                        Foreground="{DynamicResource TextFillColorSecondaryBrush}" Margin="0,0,0,8" TextWrapping="Wrap" />
 
             <Grid Margin="0,0,0,8">
@@ -243,7 +243,7 @@
                     <TextBlock Text="Action on update" Style="{StaticResource FieldLabel}" />
                     <ComboBox SelectedValue="{Binding OneClickAction}" SelectedValuePath="Tag" HorizontalAlignment="Stretch"
                               AutomationProperties.Name="Action on update" AutomationProperties.AutomationId="cboOneClickAction"
-                              ToolTip="Report only lists the newer versions. Stage downloads and prepares them. Stage and Publish also publishes each application to its destinations, using the comment on the Packages page.">
+                              ToolTip="Report only lists the newer versions. Stage downloads and prepares them. Stage and Publish also publishes each application to its destinations, using the comment on the App Packager page.">
                         <ComboBoxItem Content="Report only" Tag="Report" />
                         <ComboBoxItem Content="Stage" Tag="Stage" />
                         <ComboBoxItem Content="Stage and Publish" Tag="StageAndPackage" />
@@ -283,7 +283,7 @@
                 <ui:Button DockPanel.Dock="Right" Content="Track all" Command="{Binding TrackAllOneClickCommand}" Margin="8,0,0,0" />
                 <ui:Button DockPanel.Dock="Right" Content="Refresh list" Icon="{ui:SymbolIcon ArrowSync24}"
                            Command="{Binding RefreshOneClickRowsCommand}" Margin="8,0,0,0"
-                           ToolTip="Rebuilds the list from the applications the Packages page shows." />
+                           ToolTip="Rebuilds the list from the applications the App Packager page shows." />
                 <TextBlock VerticalAlignment="Center" Foreground="{DynamicResource TextFillColorSecondaryBrush}">
                     <Run Text="{Binding OneClickTrackedCount, Mode=OneWay}" /><Run Text=" tracked" />
                 </TextBlock>
@@ -452,7 +452,7 @@
 
             <TextBlock Text="WSUS Publishing" Style="{StaticResource SectionHeader}" />
             <TextBlock Foreground="{DynamicResource TextFillColorSecondaryBrush}" Margin="0,0,0,12" TextWrapping="Wrap"
-                       Text="Publish to WSUS publishes the installer of each checked app as a locally published update. WSUS Updates on the Packages page lists and manages the published updates. This computer needs the WSUS console or RSAT WSUS tools at the server's version, an account in the WSUS Administrators group, and file-share access to the server. When this computer is not the WSUS server, it must also trust the signing certificate." />
+                       Text="Publish to WSUS publishes the installer of each checked app as a locally published update. WSUS Updates on the App Packager page lists and manages the published updates. This computer needs the WSUS console or RSAT WSUS tools at the server's version, an account in the WSUS Administrators group, and file-share access to the server. When this computer is not the WSUS server, it must also trust the signing certificate." />
 
             <TextBlock Text="Server" Style="{StaticResource SubHeader}" />
             <TextBlock Text="WSUS server" Style="{StaticResource FieldLabel}" />
@@ -512,7 +512,7 @@
                            ToolTip="Lists the computer groups of the server in the box." />
                 <ComboBox IsEditable="True" ItemsSource="{Binding Wsus.Groups}" Text="{Binding Wsus.ApprovalGroup, UpdateSourceTrigger=PropertyChanged}"
                           AutomationProperties.Name="Approve for group" AutomationProperties.AutomationId="cboWsusGroup"
-                          ToolTip="Computer group the update is approved for right after it publishes. Leave empty to approve later from WSUS Updates on the Packages page: the WSUS console does not list locally published updates." />
+                          ToolTip="Computer group the update is approved for right after it publishes. Leave empty to approve later from WSUS Updates on the App Packager page: the WSUS console does not list locally published updates." />
             </DockPanel>
             <CheckBox Content="Decline earlier versions of the same application after publishing" IsChecked="{Binding Wsus.DeclineSuperseded}" Margin="0,0,0,8"
                       AutomationProperties.AutomationId="chkWsusDecline"

@@ -1,12 +1,13 @@
 using System.ComponentModel;
 using ApplicationPackagerUI.Models;
 using ApplicationPackagerUI.Services;
+using ApplicationPackagerUI.ViewModels.Pages;
 
-namespace ApplicationPackagerUI.ViewModels.Pages;
+namespace ApplicationPackagerUI.ViewModels.Windows;
 
-/// <summary>What the Applications page reads and writes; the page logic depends on nothing else.</summary>
-/// <param name="LoadPackagers">Every application, hidden ones included; null leaves the page unchanged.</param>
-public sealed record ApplicationsPageServices(
+/// <summary>What the Catalog window reads and writes; the window logic depends on nothing else.</summary>
+/// <param name="LoadPackagers">Every application, hidden ones included; null leaves the list unchanged.</param>
+public sealed record CatalogServices(
     Func<AppSettings> LoadSettings,
     Action<AppSettings> SaveSettings,
     Func<Task<IReadOnlyList<PackagerInfo>?>> LoadPackagers,
@@ -14,9 +15,12 @@ public sealed record ApplicationsPageServices(
     Action<string> ShowSaved,
     Action<string> Log);
 
-public partial class ApplicationsViewModel : ObservableObject
+/// <summary>Shows and hides applications in the App Packager grid. Save writes the hidden list and reloads the grid.</summary>
+public partial class CatalogViewModel : ObservableObject
 {
-    private readonly ApplicationsPageServices _services;
+    public const string Title = "Catalog";
+
+    private readonly CatalogServices _services;
     private readonly object _reloadLock = new();
     private Task _reload = Task.CompletedTask;
     private int _reloadRequest;
@@ -24,25 +28,42 @@ public partial class ApplicationsViewModel : ObservableObject
     [ObservableProperty] private ObservableCollection<VendorGroup> _vendorGroups = [];
     [ObservableProperty] private int _totalCount;
     [ObservableProperty] private int _visibleCount;
+    [ObservableProperty] private string _searchText = "";
+    [ObservableProperty] private int _matchCount;
 
-    public ApplicationsViewModel(SettingsService settingsService, PackagerDiscoveryService discoveryService, ISnackbarService snackbarService, PackagesViewModel packagesViewModel)
-        : this(new ApplicationsPageServices(
-            settingsService.Load,
-            settingsService.Save,
-            LoadPackagersFrom(discoveryService),
-            () => packagesViewModel.LoadPackagersCommand.ExecuteAsync(null),
-            message => snackbarService.Show("Applications", message,
+    public CatalogViewModel(SettingsService settingsService, PackagerDiscoveryService discoveryService, ISnackbarService snackbarService, PackagesViewModel packagesViewModel)
+        : this(new CatalogServices(
+            LoadSettings: settingsService.Load,
+            SaveSettings: settingsService.Save,
+            LoadPackagers: LoadPackagersFrom(discoveryService),
+            RefreshGrid: () => packagesViewModel.LoadPackagersCommand.ExecuteAsync(null),
+            ShowSaved: message => snackbarService.Show(Title, message,
                 Wpf.Ui.Controls.ControlAppearance.Success,
                 new SymbolIcon(SymbolRegular.Checkmark24), TimeSpan.FromSeconds(2)),
-            packagesViewModel.AppendLog))
+            Log: packagesViewModel.AppendLog))
     {
         packagesViewModel.HiddenApplicationsChanged += (_, _) => ReloadAfterSettingsChange();
     }
 
-    public ApplicationsViewModel(ApplicationsPageServices services)
+    public CatalogViewModel(CatalogServices services)
     {
         _services = services;
         ReloadAfterSettingsChange();
+    }
+
+    /// <summary>The line under the window title.</summary>
+    public string CountText => SearchText.Trim().Length == 0
+        ? $"{VisibleCount} of {TotalCount} applications are visible in the App Packager grid."
+        : $"{VisibleCount} of {TotalCount} applications are visible in the App Packager grid. {MatchCount} match the search.";
+
+    partial void OnVisibleCountChanged(int value) => OnPropertyChanged(nameof(CountText));
+    partial void OnTotalCountChanged(int value) => OnPropertyChanged(nameof(CountText));
+    partial void OnMatchCountChanged(int value) => OnPropertyChanged(nameof(CountText));
+
+    partial void OnSearchTextChanged(string value)
+    {
+        ApplySearch();
+        OnPropertyChanged(nameof(CountText));
     }
 
     /// <summary>Every application the discovery service finds, hidden ones included.</summary>
@@ -58,7 +79,7 @@ public partial class ApplicationsViewModel : ObservableObject
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            log("Applications page: the list could not be reloaded. Open the page again to retry.");
+            log("Catalog: the list could not be reloaded. Open Catalog again to retry.");
         }
     }
 
@@ -82,7 +103,8 @@ public partial class ApplicationsViewModel : ObservableObject
         await ReloadLoggedAsync(LoadAsync, _services.Log);
     }
 
-    private async Task WaitForReloadAsync()
+    /// <summary>Completes when the last queued reload has ended.</summary>
+    public async Task WaitForReloadAsync()
     {
         while (true)
         {
@@ -140,7 +162,29 @@ public partial class ApplicationsViewModel : ObservableObject
             .ToList();
 
         VendorGroups = new ObservableCollection<VendorGroup>(groups);
+        ApplySearch();
         UpdateCounts();
+    }
+
+    /// <summary>
+    /// An application matches when its name or its vendor contains the search text. A vendor
+    /// group shows while one of its applications matches.
+    /// </summary>
+    private void ApplySearch()
+    {
+        var text = SearchText.Trim();
+        var matches = 0;
+        foreach (var group in VendorGroups)
+        {
+            var vendorMatches = text.Length == 0 || group.Vendor.Contains(text, StringComparison.OrdinalIgnoreCase);
+            foreach (var app in group.Apps)
+            {
+                app.MatchesSearch = vendorMatches || app.Application.Contains(text, StringComparison.OrdinalIgnoreCase);
+                if (app.MatchesSearch) matches++;
+            }
+            group.MatchesSearch = group.Apps.Any(a => a.MatchesSearch);
+        }
+        MatchCount = matches;
     }
 
     private void OnAppVisibilityChanged(object? sender, PropertyChangedEventArgs e)
@@ -181,29 +225,23 @@ public partial class ApplicationsViewModel : ObservableObject
         UpdateCounts();
     }
 
-    [RelayCommand]
-    private void ShowAll()
+    /// <summary>Show all and Hide all change the applications that match the search, every application when the search is empty.</summary>
+    private void SetMatching(bool visible)
     {
         foreach (var group in VendorGroups)
         {
-            foreach (var app in group.Apps)
-                app.IsVisible = true;
+            foreach (var app in group.Apps.Where(a => a.MatchesSearch))
+                app.IsVisible = visible;
             group.UpdateGroupState();
         }
         UpdateCounts();
     }
 
     [RelayCommand]
-    private void HideAll()
-    {
-        foreach (var group in VendorGroups)
-        {
-            foreach (var app in group.Apps)
-                app.IsVisible = false;
-            group.UpdateGroupState();
-        }
-        UpdateCounts();
-    }
+    private void ShowAll() => SetMatching(visible: true);
+
+    [RelayCommand]
+    private void HideAll() => SetMatching(visible: false);
 
     [RelayCommand]
     private async Task Save()

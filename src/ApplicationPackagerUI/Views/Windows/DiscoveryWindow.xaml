@@ -26,7 +26,7 @@
             <TextBlock x:Name="txtStatus" Text="{Binding StatusText}" FontSize="12" TextWrapping="Wrap" Margin="0,4,0,0"
                        AutomationProperties.AutomationId="txtDiscoverStatus" Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
             <TextBlock FontSize="12" TextWrapping="Wrap" Margin="0,4,0,0" Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                       Text="Each app is hidden in the catalog, has no ConfigMgr application, and is installed on at least one client. Enabled apps join the grid for Check, Stage and Publish." />
+                       Text="Each app is hidden in Catalog on the App Packager page, has no ConfigMgr application, and is installed on at least one client. Enabled apps join the App Packager grid for Check, Stage and Publish." />
             <TextBlock x:Name="txtNote" Text="{Binding NoteText}" FontSize="12" TextWrapping="Wrap" Margin="0,4,0,0"
                        AutomationProperties.AutomationId="txtDiscoverNote" Foreground="{DynamicResource SystemFillColorCautionBrush}"
                        Visibility="{Binding HasNote, Converter={StaticResource BooleanToVisibilityConverter}}" />
@@ -77,10 +77,10 @@
             <WrapPanel HorizontalAlignment="Right">
                 <ui:Button x:Name="btnEnableSelected" Content="_Enable selected" Appearance="Primary" MinWidth="130" Margin="0,0,8,0" IsDefault="True"
                            Command="{Binding EnableSelectedCommand}" AutomationProperties.AutomationId="btnEnableSelected"
-                           ToolTip="Show the checked apps in the main grid." />
+                           ToolTip="Show the checked apps in the App Packager grid." />
                 <ui:Button x:Name="btnEnableAll" Content="Enable _all" MinWidth="110" Margin="0,0,8,0"
                            Command="{Binding EnableAllCommand}" AutomationProperties.AutomationId="btnEnableAll"
-                           ToolTip="Show every app in this list in the main grid." />
+                           ToolTip="Show every app in this list in the App Packager grid." />
                 <ui:Button x:Name="btnNotNow" Content="_Not now" MinWidth="100" Margin="0,0,8,0" IsCancel="True"
                            Command="{Binding NotNowCommand}" AutomationProperties.AutomationId="btnNotNow"
                            ToolTip="Close without a change. The next discovery offers these apps again." />

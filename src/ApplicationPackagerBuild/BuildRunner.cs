@@ -217,7 +217,7 @@ public sealed class BuildRunner(
 
         var scripts = await discoveryService.DiscoverAllAsync(ct);
         return scripts.FirstOrDefault(p => !p.IsJsonDefined && string.Equals(p.FullPath, source.SourcePath, StringComparison.OrdinalIgnoreCase))
-               ?? throw new BuildRefusal($"The packager script {source.SourcePath} has no UID header, so the Packages page does not list it.");
+               ?? throw new BuildRefusal($"The packager script {source.SourcePath} has no UID header, so the App Packager page does not list it.");
     }
 
     private static readonly JsonSerializerOptions DefinitionJson = new() { PropertyNameCaseInsensitive = true };

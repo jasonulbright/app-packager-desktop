@@ -224,7 +224,7 @@ public partial class PackagesViewModel : ObservableObject
     {
         var dialog = new Microsoft.Win32.SaveFileDialog
         {
-            Title = "Export Packages to CSV",
+            Title = "Export the App Packager grid to CSV",
             Filter = "CSV files (*.csv)|*.csv",
             FileName = $"AppPackager-Export-{DateTime.Now:yyyyMMdd}.csv"
         };
@@ -347,7 +347,7 @@ public partial class PackagesViewModel : ObservableObject
     /// <summary>The rows the grid shows and, when it shows none, the status and the log line that say why.</summary>
     public sealed record GridLoad(IReadOnlyList<PackagerInfo> Rows, string? StatusText, string? LogLine);
 
-    public const string AllHiddenMessage = "All applications are hidden. Open the catalog from the App Packager page to show applications again.";
+    public const string AllHiddenMessage = "All applications are hidden. Select Catalog to show applications.";
 
     /// <summary>Reads every application, hidden ones included, only when no visible one exists.</summary>
     public static async Task<GridLoad> ReadGridAsync(Func<Task<List<PackagerInfo>>> visible, Func<Task<List<PackagerInfo>>> all)

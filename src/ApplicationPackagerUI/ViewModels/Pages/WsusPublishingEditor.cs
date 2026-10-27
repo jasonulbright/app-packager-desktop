@@ -22,7 +22,7 @@ public sealed record WsusClassificationOption(string Name, string Label)
 public partial class WsusPublishingEditor : ObservableObject
 {
     public const string IntroText =
-        "Publish to WSUS publishes the installer of each checked app as a locally published update. WSUS Updates on the Packages page lists and manages the published updates. This computer needs the WSUS console or RSAT WSUS tools at the server's version, an account in the WSUS Administrators group, and file-share access to the server. When this computer is not the WSUS server, it must also trust the signing certificate.";
+        "Publish to WSUS publishes the installer of each checked app as a locally published update. WSUS Updates on the App Packager page lists and manages the published updates. This computer needs the WSUS console or RSAT WSUS tools at the server's version, an account in the WSUS Administrators group, and file-share access to the server. When this computer is not the WSUS server, it must also trust the signing certificate.";
 
     public const string ClientTrustText =
         "Clients install locally published updates only when the signing certificate is in their Trusted Publishers store (and Trusted Root Certification Authorities when it is self-signed) and the policy Allow signed updates from an intranet Microsoft update service location is enabled: HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\WindowsUpdate, AcceptTrustedPublisherCerts = 1 (DWORD).";
