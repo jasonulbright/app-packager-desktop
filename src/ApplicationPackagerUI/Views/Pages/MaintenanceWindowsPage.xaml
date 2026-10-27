@@ -109,7 +109,7 @@
                                    Style="{StaticResource ToolButton}" AutomationProperties.AutomationId="btnEditWindow" />
                         <ui:Button Content="Toggle Enabled" Icon="{ui:SymbolIcon ToggleLeft24}" Command="{Binding ToggleEnabledCommand}"
                                    Style="{StaticResource ToolButton}" AutomationProperties.AutomationId="btnToggleEnabled" />
-                        <ui:Button Content="Remove" Icon="{ui:SymbolIcon Delete24}" Command="{Binding RemoveWindowsCommand}"
+                        <ui:Button Content="Remove" Icon="{ui:SymbolIcon Delete24}" Appearance="Danger" Command="{Binding RemoveWindowsCommand}"
                                    ToolTip="{Binding RemoveTooltip}" ToolTipService.ShowOnDisabled="True"
                                    Style="{StaticResource ToolButton}" AutomationProperties.AutomationId="btnRemoveWindow" />
                         <ui:Button Content="Refresh" Icon="{ui:SymbolIcon ArrowSync24}" Command="{Binding RefreshCommand}"

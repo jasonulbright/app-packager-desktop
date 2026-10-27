@@ -158,12 +158,12 @@
                                            ToolTip="Shows the plan that approves the selected script. The site refuses an approval by the author by default." AutomationProperties.AutomationId="btnApproveScript" />
                                 <ui:Button Content="Deny" Icon="{ui:SymbolIcon DismissCircle24}" Command="{Binding DenyScriptCommand}" Style="{StaticResource ToolButton}"
                                            ToolTip="Asks for a comment, then shows the plan that declines the selected script." AutomationProperties.AutomationId="btnDenyScript" />
-                                <ui:Button Content="Remove" Icon="{ui:SymbolIcon Delete24}" Command="{Binding RemoveScriptCommand}" Style="{StaticResource ToolButton}"
+                                <ui:Button Content="Remove" Icon="{ui:SymbolIcon Delete24}" Appearance="Danger" Command="{Binding RemoveScriptCommand}" Style="{StaticResource ToolButton}"
                                            ToolTip="Shows the plan that removes the selected script and its run history." AutomationProperties.AutomationId="btnRemoveScript" />
                             </WrapPanel>
                             <Border Style="{StaticResource Caution}" Visibility="{Binding HasLeftover, Converter={StaticResource BoolToVisibility}}" AutomationProperties.AutomationId="pnlLeftover">
                                 <DockPanel>
-                                    <ui:Button DockPanel.Dock="Right" Content="Remove created script" Icon="{ui:SymbolIcon Delete24}" Command="{Binding RemoveLeftoverCommand}" Margin="8,0,0,0"
+                                    <ui:Button DockPanel.Dock="Right" Content="Remove created script" Icon="{ui:SymbolIcon Delete24}" Appearance="Danger" Command="{Binding RemoveLeftoverCommand}" Margin="8,0,0,0"
                                                ToolTip="Shows the plan that removes only the script the failed submit created." AutomationProperties.AutomationId="btnRemoveLeftover" />
                                     <TextBlock TextWrapping="Wrap" VerticalAlignment="Center" Foreground="{DynamicResource TextFillColorPrimaryBrush}" AutomationProperties.AutomationId="txtLeftover">
                                         <Run Text="The last submit created a script on the site and then failed. GUID:" />

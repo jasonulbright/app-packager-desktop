@@ -181,7 +181,7 @@
                                    ToolTipService.ShowOnDisabled="True" Style="{StaticResource ToolButton}" AutomationProperties.AutomationId="btnEditCollection" />
                         <ui:Button Content="Evaluate" Icon="{ui:SymbolIcon ArrowClockwise24}" Command="{Binding EvaluateCommand}"
                                    ToolTip="Update the membership of the selected collections now." Style="{StaticResource ToolButton}" AutomationProperties.AutomationId="btnEvaluate" />
-                        <ui:Button Content="Remove" Icon="{ui:SymbolIcon Delete24}" Command="{Binding RemoveCollectionCommand}" ToolTip="{Binding BuiltInTooltip}"
+                        <ui:Button Content="Remove" Icon="{ui:SymbolIcon Delete24}" Appearance="Danger" Command="{Binding RemoveCollectionCommand}" ToolTip="{Binding BuiltInTooltip}"
                                    ToolTipService.ShowOnDisabled="True" Style="{StaticResource ToolButton}" AutomationProperties.AutomationId="btnRemoveCollection" />
                         <ui:Button Content="Refresh" Icon="{ui:SymbolIcon ArrowSync24}" Command="{Binding RefreshCommand}"
                                    Style="{StaticResource ToolButton}" AutomationProperties.AutomationId="btnRefresh" />

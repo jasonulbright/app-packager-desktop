@@ -250,7 +250,7 @@
                                        AutomationProperties.AutomationId="btnRedistributeFailed" />
                             <ui:Button Content="Redistribute selected DPs" Icon="{ui:SymbolIcon ArrowRepeatAll24}" Command="{Binding RedistributeSelectedDpsCommand}" Style="{StaticResource ToolButton}"
                                        ToolTip="Redistributes the selected content to the DPs selected in its status list." AutomationProperties.AutomationId="btnRedistributeSelectedDps" />
-                            <ui:Button Content="Remove from DP" Icon="{ui:SymbolIcon Delete24}" Command="{Binding RemoveFromDpCommand}" Style="{StaticResource ToolButton}"
+                            <ui:Button Content="Remove from DP" Icon="{ui:SymbolIcon Delete24}" Appearance="Danger" Command="{Binding RemoveFromDpCommand}" Style="{StaticResource ToolButton}"
                                        ToolTip="Shows the DPs of the selected content to remove it from, then a plan with the remaining DPs." AutomationProperties.AutomationId="btnRemoveFromDp" />
                             <ui:Button Content="Validate" Icon="{ui:SymbolIcon CheckmarkCircle24}" Command="{Binding ValidateCommand}" Style="{StaticResource ToolButton}"
                                        ToolTip="Shows the DPs of the selected content, then a plan that validates the content on them." AutomationProperties.AutomationId="btnValidate" />
@@ -306,7 +306,7 @@
                         <WrapPanel Grid.Row="1" Margin="0,0,0,4" KeyboardNavigation.TabNavigation="Local" KeyboardNavigation.TabIndex="2">
                             <ui:Button Content="Redistribute selected" Icon="{ui:SymbolIcon ArrowSync24}" Command="{Binding RedistributeIssuesCommand}" Style="{StaticResource ToolButton}"
                                        ToolTip="Shows a plan that redistributes the content of the selected rows to their DPs." AutomationProperties.AutomationId="btnRedistributeIssues" />
-                            <ui:Button Content="Remove failures" Icon="{ui:SymbolIcon Delete24}" Command="{Binding RemoveFailuresCommand}" Style="{StaticResource ToolButton}"
+                            <ui:Button Content="Remove failures" Icon="{ui:SymbolIcon Delete24}" Appearance="Danger" Command="{Binding RemoveFailuresCommand}" Style="{StaticResource ToolButton}"
                                        ToolTip="Shows a plan that removes the content of the selected failed rows from their DPs." AutomationProperties.AutomationId="btnRemoveFailures" />
                             <TextBlock Text="Select several rows with Shift or Ctrl." Style="{StaticResource Note}" VerticalAlignment="Center" Margin="0,0,0,8" />
                         </WrapPanel>

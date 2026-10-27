@@ -451,7 +451,7 @@
                                        AutomationProperties.AutomationId="btnHistoryRefresh" />
                             <ui:Button Content="Cancel" Icon="{ui:SymbolIcon Dismiss24}" Command="{Binding CancelLoadCommand}" Style="{StaticResource ToolButton}"
                                        ToolTip="Stops the read of the audit log." AutomationProperties.Name="Cancel the read" AutomationProperties.AutomationId="btnHistoryCancel" />
-                            <ui:Button Content="Remove deployment" Icon="{ui:SymbolIcon Delete24}" Command="{Binding RemoveDeploymentCommand}" Style="{StaticResource ToolButton}"
+                            <ui:Button Content="Remove deployment" Icon="{ui:SymbolIcon Delete24}" Appearance="Danger" Command="{Binding RemoveDeploymentCommand}" Style="{StaticResource ToolButton}"
                                        ToolTip="Shows a plan that removes the deployment of the selected create record." AutomationProperties.AutomationId="btnRemoveDeployment" />
                             <ui:Button Content="Export CSV" Icon="{ui:SymbolIcon DocumentTable24}" Command="{Binding ExportCsvCommand}" Style="{StaticResource ToolButton}"
                                        ToolTip="Saves the rows the filters show as a CSV file." AutomationProperties.AutomationId="btnHistoryCsv" />

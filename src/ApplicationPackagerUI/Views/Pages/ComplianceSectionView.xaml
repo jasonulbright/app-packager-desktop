@@ -264,7 +264,7 @@
                                            AutomationProperties.AutomationId="btnRedeploy" />
                                 <ui:Button Content="Reassign" Icon="{ui:SymbolIcon ArrowSwap24}" Command="{Binding ReassignCommand}" Style="{StaticResource ToolButton}"
                                            ToolTip="Moves one deployment to another collection." AutomationProperties.AutomationId="btnReassign" />
-                                <ui:Button Content="Delete" Icon="{ui:SymbolIcon Delete24}" Command="{Binding DeleteDeploymentsCommand}" Style="{StaticResource ToolButton}"
+                                <ui:Button Content="Delete" Icon="{ui:SymbolIcon Delete24}" Appearance="Danger" Command="{Binding DeleteDeploymentsCommand}" Style="{StaticResource ToolButton}"
                                            AutomationProperties.AutomationId="btnDeleteDeployments" />
                             </WrapPanel>
                         </DockPanel>
