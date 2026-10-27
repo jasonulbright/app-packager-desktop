@@ -41,6 +41,10 @@ public sealed class ArchiveExtractionService
         {
             return new BoundedExtractionResult(Success: false, Extraction: null, ErrorMessage: ex.Message);
         }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return new BoundedExtractionResult(Success: false, Extraction: null, ErrorMessage: "The analysis sandbox folder could not be created.");
+        }
     }
     /// <summary>
     /// Lists archive contents without extracting. Returns file entries with names and sizes.
