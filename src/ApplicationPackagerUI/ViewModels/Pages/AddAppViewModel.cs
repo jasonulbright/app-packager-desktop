@@ -32,6 +32,9 @@ public partial class AddAppViewModel : ObservableObject
     private string? _displayVersion;
     private bool _applying;
     private bool _accepted;
+    private bool _installerTypeSet;
+    private bool _architectureSet;
+    private bool _installContextSet;
 
     [ObservableProperty] private int _currentStep = 1;
     [ObservableProperty] private string _stepTitle = Title(1);
@@ -84,7 +87,7 @@ public partial class AddAppViewModel : ObservableObject
 
     public string[] ArchitectureOptions { get; } = ["x64", "x86"];
     public string[] ScraperTypeOptions { get; } = ["HttpRegex", "JsonQuery", "FileVersion"];
-    public string[] InstallerTypeOptions { get; } = ["MSI", "EXE", "ZIP", "MSIX", "ODT"];
+    public string[] InstallerTypeOptions { get; } = ["MSI", "EXE", "ZIP", "MSIX", "MSP", "ODT"];
     public string[] InstallContextOptions { get; } = ["Machine", "User"];
 
     public ObservableCollection<ProposalRow> AnalysisRows { get; } = [];
@@ -142,8 +145,14 @@ public partial class AddAppViewModel : ObservableObject
 
     partial void OnInstallContextChanged(string value)
     {
-        if (!_applying && InstallContextEvidence is not null) InstallContextEvidence = Evidence.Manual;
+        if (_applying) return;
+        _installContextSet = true;
+        if (InstallContextEvidence is not null) InstallContextEvidence = Evidence.Manual;
     }
+
+    partial void OnInstallerTypeChanged(string value) => _installerTypeSet = true;
+
+    partial void OnArchitectureChanged(string value) => _architectureSet = true;
 
     [RelayCommand]
     private void NextStep()
@@ -337,6 +346,7 @@ public partial class AddAppViewModel : ObservableObject
                 {
                     case "Installer type" when InstallerTypeOptions.Contains(row.Value):
                         InstallerType = row.Value;
+                        _installerTypeSet = true;
                         break;
                     case "Framework":
                         InstallerFramework = row.Value;
@@ -351,6 +361,7 @@ public partial class AddAppViewModel : ObservableObject
                         break;
                     case "Install context" when InstallContextOptions.Contains(row.Value):
                         InstallContext = row.Value;
+                        _installContextSet = true;
                         InstallContextEvidence = row.Evidence;
                         break;
                 }
@@ -448,13 +459,13 @@ public partial class AddAppViewModel : ObservableObject
         {
             ApplicationName = ApplicationName,
             Vendor = Vendor,
-            Architecture = Architecture,
+            Architecture = _architectureSet ? Architecture : null,
             InstallerFileName = string.IsNullOrWhiteSpace(InstallerFileName) ? null : InstallerFileName,
-            InstallerType = InstallerType,
+            InstallerType = _installerTypeSet ? InstallerType : null,
             InstallerFramework = string.IsNullOrWhiteSpace(InstallerFramework) ? null : InstallerFramework,
-            InstallContext = InstallContext,
-            InstallArgs = InstallArgs,
-            UninstallArgs = UninstallArgs,
+            InstallContext = _installContextSet ? InstallContext : null,
+            InstallArgs = InstallArgsEvidence is not null || InstallArgs.Length > 0 ? InstallArgs : null,
+            UninstallArgs = UninstallArgsEvidence is not null || UninstallArgs.Length > 0 ? UninstallArgs : null,
             DownloadUrl = DownloadUrl,
             VersionScraper = ScraperConfig(),
             VendorUrl = string.IsNullOrWhiteSpace(VendorUrl) ? null : VendorUrl,
@@ -564,6 +575,7 @@ public partial class AddAppViewModel : ObservableObject
         }
         finally { _applying = false; }
         InstallArgsEvidence = UninstallArgsEvidence = InstallContextEvidence = null;
+        _installerTypeSet = _architectureSet = _installContextSet = false;
         ClearAnalysis();
         AnalysisStatus = AnalysisProgress = "";
         Detection.Load(new DetectionProposal(Kind: DetectionKind.None, Description: "", Values: new Dictionary<string, string>(), Evidence: Evidence.None, Source: null));

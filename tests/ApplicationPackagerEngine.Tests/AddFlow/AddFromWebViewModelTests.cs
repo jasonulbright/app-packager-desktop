@@ -194,6 +194,78 @@ public sealed class AddFromWebViewModelTests : IDisposable
         Assert.False(h.ViewModel.ShowDetectionWarning);
     });
 
+    private static AddAnalysisResult Analyzed(string type, string context = "User") => FakeAddService.Result() with
+    {
+        InstallerType = type,
+        InstallContext = new ProposedValue<string>(Value: context, Evidence: Evidence.Confirmed, Source: "analysis"),
+        Architecture = new ProposedValue<string>(Value: "ARM64", Evidence: Evidence.Confirmed, Source: "pe-header")
+    };
+
+    private static (AddAnalysisResult Reviewed, AddSaveOptions Options) SaveOnce(Harness h)
+    {
+        h.GoTo(7);
+        var save = h.ViewModel.SaveDefinitionCommand.ExecuteAsync(null);
+        StaTestHelper.PumpUntil(() => save.IsCompleted);
+        return Assert.Single(h.Service.Saves);
+    }
+
+    [Fact]
+    public void ValuesNobodyAcceptedOrChanged_AreNotSentSoTheAnalysisValuesStay() => OnSta(h =>
+    {
+        h.Scrape();
+        h.Analyze(Analyzed("MSP"));
+        foreach (var row in h.ViewModel.AnalysisRows) row.IsAccepted = false;
+        h.ViewModel.AnalysisRows.Single(r => r.Label == "Framework").IsAccepted = true;
+        h.ViewModel.AcceptProposalsCommand.Execute(null);
+
+        var (_, options) = SaveOnce(h);
+
+        Assert.Null(options.InstallerType);
+        Assert.Null(options.Architecture);
+        Assert.Null(options.InstallContext);
+        Assert.Null(options.InstallArgs);
+        Assert.Null(options.UninstallArgs);
+    });
+
+    [Theory]
+    [InlineData("MSI")]
+    [InlineData("EXE")]
+    [InlineData("ZIP")]
+    [InlineData("MSIX")]
+    [InlineData("MSP")]
+    [InlineData("ODT")]
+    public void AnAcceptedInstallerTypeIsSent_ForEveryTypeTheAnalysisCanReturn(string type) => OnSta(h =>
+    {
+        h.Scrape();
+        h.Analyze(Analyzed(type));
+        Assert.Equal(type, h.ViewModel.AnalysisRows.Single(r => r.Label == "Installer type").Value);
+        Assert.True(h.ViewModel.AnalysisRows.Single(r => r.Label == "Installer type").IsChoice);
+        h.ViewModel.AcceptProposalsCommand.Execute(null);
+
+        var (_, options) = SaveOnce(h);
+
+        Assert.Equal(type, options.InstallerType);
+    });
+
+    [Fact]
+    public void ChangedValues_AreSent() => OnSta(h =>
+    {
+        h.Scrape();
+        h.Analyze(Analyzed("EXE", context: "Machine"));
+        foreach (var row in h.ViewModel.AnalysisRows) row.IsAccepted = false;
+        h.ViewModel.AcceptProposalsCommand.Execute(null);
+        h.ViewModel.Architecture = "x86";
+        h.ViewModel.InstallerType = "ZIP";
+        h.ViewModel.InstallContext = "User";
+        h.ViewModel.InstallArgs = "/S";
+        h.ViewModel.UninstallArgs = "/S /remove";
+
+        var (_, options) = SaveOnce(h);
+
+        Assert.Equal(("x86", "ZIP", "User", "/S", "/S /remove"),
+            (options.Architecture, options.InstallerType, options.InstallContext, options.InstallArgs, options.UninstallArgs));
+    });
+
     private static AppDefinition ReadDefinition(string path) => JsonSerializer.Deserialize<AppDefinition>(File.ReadAllText(path))!;
 
     [Fact]
@@ -214,7 +286,7 @@ public sealed class AddFromWebViewModelTests : IDisposable
         Assert.Equal(DetectionKind.MsiProductCode, reviewed.Detection.Kind);
         Assert.False(reviewed.Detection.IsDefault);
         Assert.Equal(("/qn /norestart", "/x {ProductCode} /qn", "Machine"), (options.InstallArgs, options.UninstallArgs, options.InstallContext));
-        Assert.Equal(("Contoso App", "Contoso", "x64"), (options.ApplicationName, options.Vendor, options.Architecture));
+        Assert.Equal(("Contoso App", "Contoso", null), (options.ApplicationName, options.Vendor, options.Architecture));
         Assert.Equal(("MSI", "NativeMSI", "contoso-{version}.msi"), (options.InstallerType, options.InstallerFramework, options.InstallerFileName));
         Assert.Equal("https://example.com/contoso-{display_version}.msi", options.DownloadUrl);
         Assert.Equal("https://example.com/releases", options.VersionScraper!.Url);
