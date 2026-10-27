@@ -84,7 +84,8 @@ public sealed class SidebarRegistry
         _items.Add(item);
     }
 
-    public static bool SameGroup(string? a, string? b) => string.Equals(a, b, StringComparison.OrdinalIgnoreCase);
+    /// <summary>Group ids compare as <see cref="FindGroup"/> looks them up: trimmed and without regard to case.</summary>
+    public static bool SameGroup(string? a, string? b) => string.Equals(a?.Trim(), b?.Trim(), StringComparison.OrdinalIgnoreCase);
 
     public static SidebarRegistry CreateDefault()
     {

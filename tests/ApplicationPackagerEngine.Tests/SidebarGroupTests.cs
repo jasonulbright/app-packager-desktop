@@ -92,8 +92,11 @@ public sealed class SidebarGroupRegistryTests
         Assert.Throws<InvalidOperationException>(() =>
             registry.Register(new SidebarItemDefinition(Id: "late", Title: "Late", Symbol: "Apps24", Kind: SidebarItemKind.Tool) { Activate = _ => { }, Group = "MAIN" }));
         Assert.Throws<InvalidOperationException>(() => registry.RegisterGroup(new SidebarGroup(Id: "More", Caption: "AGAIN", AutomationName: "Again group")));
-        registry.Register(new SidebarItemDefinition(Id: "y", Title: "Yankee", Symbol: "Apps24", Kind: SidebarItemKind.Tool) { Activate = _ => { }, Group = "More" });
+        registry.Register(new SidebarItemDefinition(Id: "y", Title: "Yankee", Symbol: "Apps24", Kind: SidebarItemKind.Tool) { Activate = _ => { }, Group = " More " });
         Assert.Equal("y", registry.Items[^1].Id);
+        var service = new SidebarService(registry, new InMemorySidebarStore(new SidebarLayout { Order = ["y", "w"], Hidden = [] }));
+        Assert.Equal(["home", "a", "b", "y", "w", "t", "x"], SidebarFixtures.Ids(service.All));
+        Assert.False(service.Move("y", 1));
     }
 }
 
