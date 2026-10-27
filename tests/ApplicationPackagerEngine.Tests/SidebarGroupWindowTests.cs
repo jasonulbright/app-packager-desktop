@@ -1,0 +1,276 @@
+using System.Windows;
+using System.Windows.Automation;
+using System.Windows.Automation.Peers;
+using System.Windows.Controls;
+using System.Windows.Input;
+using System.Windows.Media;
+using ApplicationPackagerUI.Models;
+using ApplicationPackagerUI.Services;
+using ApplicationPackagerUI.Views.Windows;
+using Wpf.Ui.Appearance;
+using Wpf.Ui.Markup;
+using MenuItem = System.Windows.Controls.MenuItem;
+using NavigationView = Wpf.Ui.Controls.NavigationView;
+using NavigationViewItem = Wpf.Ui.Controls.NavigationViewItem;
+using Point = System.Windows.Point;
+
+namespace ApplicationPackagerEngine.Tests;
+
+/// <summary>The grouped sidebar in a real window: caption rows, moves that stay in a group, keyboard and automation.</summary>
+public sealed class SidebarGroupWindowTests
+{
+    private sealed class Harness
+    {
+        public required Window Window { get; init; }
+        public required NavigationView Navigation { get; init; }
+        public required SidebarService Service { get; init; }
+        public required SidebarPresenter Presenter { get; init; }
+
+        public ItemsControl List => Presenter.Drag!.List;
+
+        /// <summary>The menu as ids, with a caption shown as "[group id]".</summary>
+        public string[] Menu() => Navigation.MenuItems.Cast<object>()
+            .Select(o => o switch { SidebarGroupCaption c => "[" + c.Group.Id + "]", NavigationViewItem i => (string)i.Tag, _ => "?" }).ToArray();
+
+        public Point Center(string id)
+        {
+            var item = Presenter.ItemFor(id);
+            return item.TranslatePoint(new Point(item.ActualWidth / 2, item.ActualHeight / 2), List);
+        }
+
+        public Point Top(string id) => Presenter.ItemFor(id).TranslatePoint(new Point(10, 2), List);
+
+        public Point Bottom(string id)
+        {
+            var item = Presenter.ItemFor(id);
+            return item.TranslatePoint(new Point(10, item.ActualHeight - 2), List);
+        }
+    }
+
+    private static void WithSidebar(Action<Harness> test, SidebarLayout? layout = null, ApplicationTheme theme = ApplicationTheme.Dark, SidebarRegistry? registry = null)
+    {
+        StaTestHelper.Run(() =>
+        {
+            var service = new SidebarService(registry ?? SidebarGroupFixtures.Registry(), new InMemorySidebarStore(layout));
+            var navigation = new NavigationView { PaneDisplayMode = Wpf.Ui.Controls.NavigationViewPaneDisplayMode.Left, IsPaneOpen = true, OpenPaneLength = 220 };
+            var presenter = new SidebarPresenter(navigation, service, _ => { });
+            var window = new Window
+            {
+                Width = 900, Height = 700, Left = -32000, Top = -32000, ShowInTaskbar = false, ShowActivated = false,
+                WindowStyle = WindowStyle.None, Content = navigation
+            };
+            window.Resources.MergedDictionaries.Add(new ThemesDictionary { Theme = theme });
+            window.Resources.MergedDictionaries.Add(new ControlsDictionary());
+            window.Show();
+            try
+            {
+                window.UpdateLayout();
+                StaTestHelper.Flush();
+                test(new Harness { Window = window, Navigation = navigation, Service = service, Presenter = presenter });
+            }
+            finally { window.Close(); }
+        });
+    }
+
+    private static string[] Headers(System.Windows.Controls.ContextMenu menu) => menu.Items.OfType<MenuItem>().Select(m => (string)m.Header).ToArray();
+
+    [Fact]
+    public void ACaptionRowStandsBeforeEachGroupAndKeepsItsInstance()
+    {
+        WithSidebar(h =>
+        {
+            Assert.Equal(["[main]", "home", "a", "b", "[more]", "w", "t", "x"], h.Menu());
+            var more = h.Presenter.CaptionFor("more");
+            Assert.Equal("MORE", more.Text.Text);
+
+            h.Service.Hide("w");
+            h.Service.Hide("t");
+            h.Service.Hide("x");
+            Assert.Equal(["[main]", "home", "a", "b"], h.Menu());
+
+            h.Service.Show("t");
+            Assert.Equal(["[main]", "home", "a", "b", "[more]", "t"], h.Menu());
+            Assert.Same(more, h.Navigation.MenuItems[4]);
+        });
+    }
+
+    [Fact]
+    public void AnEntryWithoutAGroupHasNoCaption()
+    {
+        WithSidebar(h =>
+        {
+            Assert.Equal(["home", "a", "b", "w", "t"], h.Menu());
+        }, registry: SidebarFixtures.Registry());
+    }
+
+    [Fact]
+    public void TheCaptionTakesNoFocusAndAScreenReaderReadsItsGroupName()
+    {
+        WithSidebar(h =>
+        {
+            var caption = h.Presenter.CaptionFor("main");
+            Assert.False(caption.Focusable);
+            Assert.False(KeyboardNavigation.GetIsTabStop(caption));
+            Assert.False(caption.IsHitTestVisible && caption.Child.IsHitTestVisible);
+            Assert.False(caption.Focus());
+
+            var peer = UIElementAutomationPeer.CreatePeerForElement(caption);
+            Assert.Equal("Main group", peer.GetName());
+            Assert.Equal(AutomationControlType.Text, peer.GetAutomationControlType());
+            Assert.True(peer.IsControlElement());
+            Assert.False(peer.IsKeyboardFocusable());
+            Assert.Null(peer.GetChildren());
+
+            var alpha = h.Presenter.ItemFor("a");
+            Assert.Equal("Alpha", AutomationProperties.GetName(alpha));
+            Assert.Equal("Alpha", alpha.ToolTip);
+            Assert.Equal("Alpha", UIElementAutomationPeer.CreatePeerForElement(alpha).GetName());
+        });
+    }
+
+    [Fact]
+    public void TabMovesThroughTheEntriesInOrderAndNeverStopsOnACaption()
+    {
+        WithSidebar(h =>
+        {
+            h.Window.Activate();
+            var home = h.Presenter.ItemFor("home");
+            Assert.True(home.Focus());
+            Assert.True(home.IsKeyboardFocused);
+
+            var order = h.Service.Items.Select(d => h.Presenter.ItemFor(d.Id)).ToList();
+            var visited = new List<NavigationViewItem> { home };
+            for (var step = 0; step < 20; step++)
+            {
+                var focused = (DependencyObject)Keyboard.FocusedElement;
+                if (!((UIElement)focused).MoveFocus(new TraversalRequest(FocusNavigationDirection.Next))) break;
+                StaTestHelper.Flush();
+                var now = (DependencyObject)Keyboard.FocusedElement;
+                Assert.False(now is SidebarGroupCaption || h.Navigation.MenuItems.OfType<SidebarGroupCaption>().Any(c => c.IsAncestorOf(now)),
+                    $"Tab step {step} stopped on a caption.");
+                if (now is NavigationViewItem item && order.Contains(item) && !visited.Contains(item)) visited.Add(item);
+                if (ReferenceEquals(now, focused) || !h.List.IsAncestorOf(now)) break;
+            }
+            var indexes = visited.Select(i => order.IndexOf(i)).ToList();
+            Assert.Equal(indexes.Order(), indexes);
+        });
+    }
+
+    [Fact]
+    public void AltUpAndAltDownStopAtTheEdgesOfTheGroup()
+    {
+        WithSidebar(h =>
+        {
+            var window = h.Presenter.ItemFor("w");
+            Assert.False(h.Presenter.HandleMoveKey(window, Key.Up, ModifierKeys.Alt));
+            Assert.False(h.Presenter.HandleMoveKey(h.Presenter.ItemFor("b"), Key.Down, ModifierKeys.Alt));
+            Assert.False(h.Presenter.HandleMoveKey(h.Presenter.ItemFor("a"), Key.Up, ModifierKeys.Alt));
+            Assert.Equal(["[main]", "home", "a", "b", "[more]", "w", "t", "x"], h.Menu());
+
+            Assert.True(h.Presenter.HandleMoveKey(window, Key.Down, ModifierKeys.Alt));
+            Assert.Equal(["[main]", "home", "a", "b", "[more]", "t", "w", "x"], h.Menu());
+            Assert.True(h.Presenter.HandleMoveKey(window, Key.Down, ModifierKeys.Alt));
+            Assert.False(h.Presenter.HandleMoveKey(window, Key.Down, ModifierKeys.Alt));
+            Assert.Equal(["[main]", "home", "a", "b", "[more]", "t", "x", "w"], h.Menu());
+        });
+    }
+
+    [Fact]
+    public void ADragIntoAnotherGroupDropsAtTheNearestPlaceInsideItsOwnGroup()
+    {
+        WithSidebar(h =>
+        {
+            var drag = h.Presenter.Drag!;
+            drag.Press(h.Presenter.ItemFor("x"), h.Center("x"));
+            drag.MoveTo(h.Top("a"));
+            Assert.True(drag.IsDragging);
+            Assert.Equal(3, drag.InsertionIndex);
+            drag.Release(h.Top("a"));
+            Assert.Equal(["home", "a", "b", "x", "w", "t"], SidebarFixtures.Ids(h.Service.Items));
+
+            drag.Press(h.Presenter.ItemFor("a"), h.Center("a"));
+            drag.MoveTo(h.Bottom("t"));
+            Assert.Equal(3, drag.InsertionIndex);
+            drag.Release(h.Bottom("t"));
+            Assert.Equal(["home", "b", "a", "x", "w", "t"], SidebarFixtures.Ids(h.Service.Items));
+            Assert.Equal(["[main]", "home", "b", "a", "[more]", "x", "w", "t"], h.Menu());
+        });
+    }
+
+    [Fact]
+    public void TheDropMarkerAtTheEndOfAGroupSitsAboveTheNextCaption()
+    {
+        WithSidebar(h =>
+        {
+            var drag = h.Presenter.Drag!;
+            drag.Press(h.Presenter.ItemFor("a"), h.Center("a"));
+            drag.MoveTo(h.Bottom("x"));
+            Assert.True(drag.MarkerShown);
+            var bravo = h.Presenter.ItemFor("b");
+            var bravoBottom = bravo.TranslatePoint(new Point(0, bravo.ActualHeight), h.List).Y;
+            var captionTop = h.Presenter.CaptionFor("more").TranslatePoint(new Point(0, 0), h.List).Y;
+            Assert.InRange(drag.MarkerY!.Value, bravoBottom - 0.5, captionTop + 0.5);
+            drag.Cancel();
+        });
+    }
+
+    [Fact]
+    public void TheEntryMenuNamesTheEntryAndKeepsShowAndReset()
+    {
+        WithSidebar(h =>
+        {
+            Assert.Equal(["Hide Xray", "Show tool", "Reset sidebar"], Headers(h.Presenter.ItemFor("x").ContextMenu!));
+            Assert.Equal(["Show tool", "Reset sidebar"], Headers(h.Presenter.PaneMenu!));
+            h.Service.Reset();
+            Assert.Equal(["[main]", "home", "a", "b", "[more]", "w", "t", "x"], h.Menu());
+        }, layout: new SidebarLayout { Order = [], Hidden = ["w"] });
+    }
+
+    [Fact]
+    public void AClosedPaneShowsADividerInPlaceOfEachCaption()
+    {
+        WithSidebar(h =>
+        {
+            var caption = h.Presenter.CaptionFor("more");
+            Assert.True(caption.Text.IsVisible);
+            Assert.False(caption.Divider.IsVisible);
+
+            h.Navigation.IsPaneOpen = false;
+            h.Window.UpdateLayout();
+            StaTestHelper.Flush();
+            Assert.False(caption.IsPaneOpen);
+            Assert.False(caption.Text.IsVisible);
+            Assert.True(caption.Divider.IsVisible);
+            Assert.True(caption.Divider.ActualHeight > 0);
+
+            h.Navigation.IsPaneOpen = true;
+            h.Window.UpdateLayout();
+            Assert.True(caption.Text.IsVisible);
+            Assert.False(caption.Divider.IsVisible);
+        });
+    }
+
+    [Fact]
+    public void TheDefaultSidebarShowsTheAppPackagerAndToolsCaptionsAndTheCatalogEntry()
+    {
+        WithSidebar(h =>
+        {
+            Assert.Equal(
+            [
+                "[app-packager]", SidebarIds.Packages, SidebarIds.Applications, SidebarIds.AddApp, SidebarIds.Workbench,
+                "[tools]", SidebarIds.DetectionTester, SidebarIds.MaintenanceWindows, SidebarIds.CollectionCompliance, SidebarIds.InstallerAnalysis,
+                SidebarIds.DeploymentHelper, SidebarIds.DpContentManager, SidebarIds.PivotsScripts, SidebarIds.SiteHygiene
+            ], h.Menu());
+            Assert.Equal("APP PACKAGER", h.Presenter.CaptionFor(SidebarGroupIds.AppPackager).Text.Text);
+            Assert.Equal("App Packager group", AutomationProperties.GetName(h.Presenter.CaptionFor(SidebarGroupIds.AppPackager)));
+            Assert.Equal("Tools group", AutomationProperties.GetName(h.Presenter.CaptionFor(SidebarGroupIds.Tools)));
+
+            var catalog = h.Presenter.ItemFor(SidebarIds.Applications);
+            Assert.Equal("Catalog", catalog.Content);
+            Assert.Equal("Catalog", catalog.ToolTip);
+            Assert.Equal("Catalog", AutomationProperties.GetName(catalog));
+            Assert.Equal("nav-applications", AutomationProperties.GetAutomationId(catalog));
+            Assert.Equal(["Hide Catalog", "Reset sidebar"], Headers(catalog.ContextMenu!));
+        }, registry: SidebarRegistry.CreateDefault());
+    }
+}

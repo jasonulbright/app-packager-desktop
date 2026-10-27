@@ -120,10 +120,11 @@ public sealed class SidebarWindowTests
     {
         WithSidebar(h =>
         {
-            var first = (NavigationViewItem)h.Navigation.MenuItems[0]!;
+            Assert.IsType<SidebarGroupCaption>(h.Navigation.MenuItems[0]);
+            var first = (NavigationViewItem)h.Navigation.MenuItems[1]!;
             Assert.Equal(SidebarIds.Packages, first.Tag);
             Assert.Equal(typeof(PackagesPage), first.TargetPageType);
-            Assert.Equal(SidebarRegistry.CreateDefault().Items.Count - 1, h.Navigation.MenuItems.Count);
+            Assert.Equal(SidebarRegistry.CreateDefault().Items.Count - 1, h.Navigation.MenuItems.OfType<NavigationViewItem>().Count());
         }, SidebarRegistry.CreateDefault(), new SidebarLayout { Order = [SidebarIds.Workbench, SidebarIds.Packages], Hidden = [SidebarIds.Packages, SidebarIds.AddApp] });
     }
 

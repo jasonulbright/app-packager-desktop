@@ -50,7 +50,7 @@ public sealed class SidebarSettingsPageTests
     /// runs, and WPF throws. The application object is removed afterwards so no other test
     /// sees Application.Current.
     /// </summary>
-    private static void WithPage(Action<Harness> test, SidebarLayout? layout = null, ApplicationTheme theme = ApplicationTheme.Dark)
+    private static void WithPage(Action<Harness> test, SidebarLayout? layout = null, ApplicationTheme theme = ApplicationTheme.Dark, SidebarRegistry? registry = null)
     {
         StaTestHelper.Run(() =>
         {
@@ -61,7 +61,7 @@ public sealed class SidebarSettingsPageTests
                 application.Resources.MergedDictionaries.Add(new ThemesDictionary { Theme = theme });
                 application.Resources.MergedDictionaries.Add(new ControlsDictionary());
                 application.Resources.MergedDictionaries.Add(new ResourceDictionary { Source = new Uri(ApplicationPackagerEngine.Tests.Compliance.RenderKit.ToolTipStyles, UriKind.Absolute) });
-                var service = new SidebarService(SidebarFixtures.Registry(), new InMemorySidebarStore(layout));
+                var service = new SidebarService(registry ?? SidebarFixtures.Registry(), new InMemorySidebarStore(layout));
                 var editor = new SidebarSettingsEditor(service);
                 var page = CompiledPage(new { Sidebar = editor });
                 var window = new Window
@@ -184,6 +184,43 @@ public sealed class SidebarSettingsPageTests
             Assert.Equal(["home", "a", "t", "b"], SidebarFixtures.Ids(h.Service.Items));
             Assert.Same(button, Keyboard.FocusedElement);
         }, new SidebarLayout { Order = [], Hidden = ["w"] });
+    }
+
+    private static string[] ShownCaptions(Harness h) =>
+        Descendants(SidebarList(h)).OfType<TextBlock>().Where(t => t.IsVisible && t.Text is "MAIN" or "MORE" or "APP PACKAGER" or "TOOLS").Select(t => t.Text).ToArray();
+
+    [Theory]
+    [InlineData(ApplicationTheme.Light)]
+    [InlineData(ApplicationTheme.Dark)]
+    public void TheSidebarSectionShowsEachGroupCaptionAboveItsRowsAndMovesStayInTheGroup(ApplicationTheme theme)
+    {
+        WithPage(h =>
+        {
+            Assert.Equal(["MAIN", "MORE"], ShownCaptions(h));
+            var captions = Descendants(SidebarList(h)).OfType<TextBlock>().Where(t => t.IsVisible && t.Text is "MAIN" or "MORE").ToList();
+            Assert.Equal(["Main group", "More group"], captions.Select(AutomationProperties.GetName));
+            var boxes = Descendants(SidebarList(h)).OfType<CheckBox>().ToList();
+            Assert.True(captions[1].TranslatePoint(new System.Windows.Point(0, 0), h.Page).Y >= boxes[2].TranslatePoint(new System.Windows.Point(0, boxes[2].ActualHeight), h.Page).Y);
+            Assert.True(captions[1].TranslatePoint(new System.Windows.Point(0, captions[1].ActualHeight), h.Page).Y <= boxes[3].TranslatePoint(new System.Windows.Point(0, 0), h.Page).Y);
+
+            Assert.False(RowButton(h, "Move Window up").IsEnabled);
+            Assert.False(RowButton(h, "Move Bravo down").IsEnabled);
+            Press(RowButton(h, "Move Tool up"));
+            Assert.Equal(["home", "a", "b", "t", "w", "x"], SidebarFixtures.Ids(h.Service.All));
+            Assert.Equal(["MAIN", "MORE"], ShownCaptions(h));
+        }, theme: theme, registry: SidebarGroupFixtures.Registry());
+    }
+
+    [Fact]
+    public void TheDefaultSidebarSectionShowsTheCatalogRowUnderTheAppPackagerCaption()
+    {
+        WithPage(h =>
+        {
+            Assert.Equal(["APP PACKAGER", "TOOLS"], ShownCaptions(h));
+            var boxes = Descendants(SidebarList(h)).OfType<CheckBox>().Select(b => (string)b.Content).ToList();
+            Assert.Equal(["Packages", "Catalog", "Add App", "Application Workbench"], boxes.Take(4));
+            Assert.Contains(Descendants(SidebarList(h)).OfType<Wpf.Ui.Controls.Button>(), b => AutomationProperties.GetName(b) == "Move Catalog down");
+        }, registry: SidebarRegistry.CreateDefault());
     }
 
     [Fact]

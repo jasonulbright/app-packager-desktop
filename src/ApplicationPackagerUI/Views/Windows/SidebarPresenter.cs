@@ -27,6 +27,7 @@ public sealed class SidebarPresenter
     private readonly SidebarService _service;
     private readonly Action<SidebarItemDefinition> _activate;
     private readonly Dictionary<string, NavigationViewItem> _items = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, SidebarGroupCaption> _captions = new(StringComparer.OrdinalIgnoreCase);
     private bool _attached;
 
     public SidebarPresenter(NavigationView navigation, SidebarService service, Action<SidebarItemDefinition> activate)
@@ -50,7 +51,9 @@ public sealed class SidebarPresenter
 
     public NavigationViewItem ItemFor(string id) => _items[id];
 
-    /// <summary>Alt+Up and Alt+Down move the focused entry one place among the shown entries.</summary>
+    public SidebarGroupCaption CaptionFor(string groupId) => _captions[groupId];
+
+    /// <summary>Alt+Up and Alt+Down move the focused entry one place among the shown entries of its group.</summary>
     public bool HandleMoveKey(NavigationViewItem item, Key key, ModifierKeys modifiers)
     {
         if (modifiers != ModifierKeys.Alt || key is not (Key.Up or Key.Down) || item.Tag is not string id) return false;
@@ -105,27 +108,41 @@ public sealed class SidebarPresenter
         };
     }
 
+    /// <summary>The shown entries with the caption of each captioned group before its first shown entry.</summary>
+    private List<object> MenuRows(IReadOnlyList<SidebarItemDefinition> shown)
+    {
+        var rows = new List<object>();
+        for (var i = 0; i < shown.Count; i++)
+        {
+            var definition = shown[i];
+            if ((i == 0 || !SidebarRegistry.SameGroup(shown[i - 1].Group, definition.Group)) && _service.GroupOf(definition) is { } group)
+                rows.Add(Caption(group));
+            rows.Add(Item(definition));
+        }
+        return rows;
+    }
+
     private void Sync()
     {
         var focused = ItemFrom(Keyboard.FocusedElement);
         var menu = (ObservableCollection<object>)_navigation.MenuItems;
         var shown = _service.Items;
+        var rows = MenuRows(shown);
         var leaving = menu.OfType<NavigationViewItem>()
-            .Where(item => !shown.Any(d => ReferenceEquals(Item(d), item))).ToList();
+            .Where(item => !rows.Contains(item)).ToList();
         if (leaving.Any(item => ReferenceEquals(_navigation.SelectedItem, item)) && shown.FirstOrDefault()?.PageType is { } start)
             _navigation.Navigate(start);
         // A failed navigation leaves the item active, and an active item that leaves the
         // menu keeps its highlight when it is shown again.
         foreach (var item in leaving)
             if (item.IsActive) item.Deactivate(_navigation);
-        for (var i = 0; i < shown.Count; i++)
+        for (var i = 0; i < rows.Count; i++)
         {
-            var item = Item(shown[i]);
-            var current = menu.IndexOf(item);
-            if (current < 0) menu.Insert(i, item);
+            var current = menu.IndexOf(rows[i]);
+            if (current < 0) menu.Insert(i, rows[i]);
             else if (current != i) menu.Move(current, i);
         }
-        while (menu.Count > shown.Count) menu.RemoveAt(menu.Count - 1);
+        while (menu.Count > rows.Count) menu.RemoveAt(menu.Count - 1);
 
         foreach (var definition in _service.All)
             Item(definition).ContextMenu = EntryMenu(definition);
@@ -145,9 +162,11 @@ public sealed class SidebarPresenter
             Content = definition.Title,
             Icon = new SymbolIcon { Symbol = symbol },
             Tag = definition.Id,
-            TargetPageTag = definition.Id
+            TargetPageTag = definition.Id,
+            ToolTip = definition.Title
         };
         AutomationProperties.SetAutomationId(item, "nav-" + definition.Id);
+        AutomationProperties.SetName(item, definition.Title);
         if (definition.Kind == SidebarItemKind.Page)
         {
             item.TargetPageType = definition.PageType;
@@ -163,6 +182,15 @@ public sealed class SidebarPresenter
         }
         _items[definition.Id] = item;
         return item;
+    }
+
+    private SidebarGroupCaption Caption(SidebarGroup group)
+    {
+        if (_captions.TryGetValue(group.Id, out var existing)) return existing;
+        var caption = new SidebarGroupCaption(group);
+        caption.SetBinding(SidebarGroupCaption.IsPaneOpenProperty, new System.Windows.Data.Binding(nameof(NavigationView.IsPaneOpen)) { Source = _navigation });
+        _captions[group.Id] = caption;
+        return caption;
     }
 
     private ContextMenu EntryMenu(SidebarItemDefinition definition)
@@ -201,8 +229,9 @@ public readonly record struct SidebarPointer(Point Position, bool LeftPressed);
 /// Drag and drop reorder over the navigation view's entry list. A press starts nothing
 /// until the pointer passes the system drag distance; the drag then owns the mouse, shows
 /// an insertion marker and drops on release over the list. Escape, a release outside the
-/// list or a lost capture cancels. A pinned entry never starts a drag and no gap above it
-/// is a target. A press and release on a Window or Tool entry opens it.
+/// list or a lost capture cancels. A pinned entry never starts a drag, no gap above it is a
+/// target, and no gap outside the group of the dragged entry is a target. A press and release
+/// on a Window or Tool entry opens it.
 /// </summary>
 public sealed class SidebarDragBehavior
 {
@@ -251,6 +280,9 @@ public sealed class SidebarDragBehavior
     public int? InsertionIndex { get; private set; }
 
     public Brush? MarkerBrush => _marker?.Brush;
+
+    /// <summary>The vertical position of the insertion marker in list coordinates; null without a marker.</summary>
+    public double? MarkerY => _marker?.Y;
 
     public void Press(NavigationViewItem item, Point position)
     {
@@ -391,10 +423,13 @@ public sealed class SidebarDragBehavior
         if (items.Count == 0) return;
         var tops = items.Select(i => i.TranslatePoint(new Point(0, 0), List).Y).ToList();
         var midpoints = items.Select((item, i) => tops[i] + item.ActualHeight / 2).ToList();
-        var pinned = _service.Items.TakeWhile(d => d.IsPinned).Count();
-        var gap = SidebarDropMath.InsertionIndex(midpoints, position.Y, pinned);
+        var (first, last) = _pressedDefinition is { } dragged
+            ? _service.MoveRange(dragged, _service.Items.Select(d => d.Id).ToList())
+            : (0, items.Count - 1);
+        var gap = SidebarDropMath.InsertionIndex(midpoints, position.Y, first, last + 1);
         InsertionIndex = gap;
-        var y = gap < items.Count ? tops[gap] : tops[^1] + items[^1].ActualHeight;
+        // The gap after the last entry of a group is drawn under that entry, above the next caption.
+        var y = gap <= last ? tops[gap] : tops[gap - 1] + items[gap - 1].ActualHeight;
 
         if (_marker is null)
         {

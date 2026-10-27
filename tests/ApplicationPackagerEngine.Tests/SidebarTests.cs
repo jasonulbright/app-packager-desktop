@@ -54,7 +54,7 @@ public sealed class SidebarRegistryTests
     {
         var registry = SidebarRegistry.CreateDefault();
         Assert.Equal([SidebarIds.Packages, SidebarIds.Applications, SidebarIds.AddApp, SidebarIds.Workbench], SidebarFixtures.Ids(registry.Items.Take(4)));
-        Assert.Equal(["Packages", "Applications", "Add App", "Application Workbench"], registry.Items.Take(4).Select(i => i.Title));
+        Assert.Equal(["Packages", "Catalog", "Add App", "Application Workbench"], registry.Items.Take(4).Select(i => i.Title));
         Assert.True(registry.Items[0].IsPinned);
         Assert.Equal(typeof(PackagesPage), registry.Items[0].PageType);
         Assert.All(registry.Items.Skip(1), i => Assert.False(i.IsPinned));

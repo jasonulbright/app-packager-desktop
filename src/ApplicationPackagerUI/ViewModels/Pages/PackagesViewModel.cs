@@ -345,7 +345,7 @@ public partial class PackagesViewModel : ObservableObject
     /// <summary>The rows the grid shows and, when it shows none, the status and the log line that say why.</summary>
     public sealed record GridLoad(IReadOnlyList<PackagerInfo> Rows, string? StatusText, string? LogLine);
 
-    public const string AllHiddenMessage = "All applications are hidden. Show applications on the Applications page.";
+    public const string AllHiddenMessage = "All applications are hidden. Show applications on the Catalog page.";
 
     /// <summary>Reads every application, hidden ones included, only when no visible one exists.</summary>
     public static async Task<GridLoad> ReadGridAsync(Func<Task<List<PackagerInfo>>> visible, Func<Task<List<PackagerInfo>>> all)

@@ -782,7 +782,7 @@ public sealed class DiscoveryRunnerTests
 
         Assert.Equal(DiscoveryAction.EnableAll, choice!.Action);
         Assert.Equal(1, store.Saves);
-        Assert.Equal("Discover unmanaged software: the choice was saved, but the lists could not be refreshed. Open the Applications page to see them.", status[^1]);
+        Assert.Equal("Discover unmanaged software: the choice was saved, but the lists could not be refreshed. Open the Catalog page to see them.", status[^1]);
         Assert.Contains(status[^1], log);
         Assert.DoesNotContain(log.Concat(status), line => line.Contains("secret"));
     }
@@ -805,7 +805,7 @@ public sealed class DiscoveryReloadTests
     {
         var log = new List<string>();
         await ApplicationsViewModel.ReloadLoggedAsync(() => throw new IOException("C:\\secret"), log.Add);
-        Assert.Equal(["Applications page: the list could not be reloaded. Open the page again to retry."], log);
+        Assert.Equal(["Catalog page: the list could not be reloaded. Open the page again to retry."], log);
     }
 
     [Fact]
@@ -935,7 +935,7 @@ public sealed class ApplicationsPageSaveTests
         Assert.False(Visible(page, "grepwin"));
         Assert.Equal(["grepwin"], store.Load().HiddenApplications);
         Assert.Equal(["Saved. 2 of 3 visible."], _saved);
-        Assert.Equal(["Applications page: the list could not be reloaded. Open the page again to retry."], _log);
+        Assert.Equal(["Catalog page: the list could not be reloaded. Open the page again to retry."], _log);
     }
 
     [Fact]
@@ -1008,8 +1008,8 @@ public sealed class PackagesGridLoadTests
         var load = await PackagesViewModel.ReadGridAsync(() => Task.FromResult(Rows()), () => Task.FromResult(Rows("git", "gsudo")));
 
         Assert.Empty(load.Rows);
-        Assert.Equal("All applications are hidden. Show applications on the Applications page.", load.StatusText);
-        Assert.Equal("All applications are hidden. Show applications on the Applications page.", load.LogLine);
+        Assert.Equal("All applications are hidden. Show applications on the Catalog page.", load.StatusText);
+        Assert.Equal("All applications are hidden. Show applications on the Catalog page.", load.LogLine);
     }
 
     [Fact]

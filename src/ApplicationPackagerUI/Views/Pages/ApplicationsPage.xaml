@@ -27,7 +27,7 @@
                            Command="{Binding SaveCommand}" />
             </StackPanel>
             <StackPanel>
-                <TextBlock Text="Applications" FontSize="28" FontWeight="Bold"
+                <TextBlock Text="Catalog" FontSize="28" FontWeight="Bold"
                            Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
                 <TextBlock FontSize="12" Margin="0,4,0,0"
                            Foreground="{DynamicResource TextFillColorSecondaryBrush}">

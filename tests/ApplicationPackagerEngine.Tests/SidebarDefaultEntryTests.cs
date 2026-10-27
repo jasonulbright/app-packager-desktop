@@ -90,10 +90,11 @@ public sealed class SidebarDefaultEntryTests
             Hidden = ["installer-analysis"]
         };
         var service = new SidebarService(SidebarRegistry.CreateDefault(), new InMemorySidebarStore(layout));
-        Assert.Equal([SidebarIds.Packages, "installer-analysis", SidebarIds.Applications], SidebarFixtures.Ids(service.All).Take(3));
+        Assert.Equal([SidebarIds.Packages, SidebarIds.Applications, SidebarIds.AddApp, SidebarIds.Workbench, "installer-analysis"], SidebarFixtures.Ids(service.All).Take(5));
         Assert.True(service.IsHidden("installer-analysis"));
         Assert.True(service.Show("installer-analysis"));
-        Assert.Equal(SidebarItemKind.Page, service.Items[1].Kind);
+        Assert.Equal("installer-analysis", service.Items[4].Id);
+        Assert.Equal(SidebarItemKind.Page, service.Items[4].Kind);
     }
 
     [Fact]
@@ -175,10 +176,11 @@ public sealed class SidebarDefaultEntryTests
             Hidden = [SidebarIds.DetectionTester]
         };
         var service = new SidebarService(SidebarRegistry.CreateDefault(), new InMemorySidebarStore(layout));
-        Assert.Equal([SidebarIds.Packages, "site-hygiene", SidebarIds.DetectionTester, SidebarIds.Applications], SidebarFixtures.Ids(service.All).Take(4));
+        Assert.Equal([SidebarIds.Packages, SidebarIds.Applications, SidebarIds.AddApp, SidebarIds.Workbench, "site-hygiene", SidebarIds.DetectionTester],
+            SidebarFixtures.Ids(service.All).Take(6));
         Assert.True(service.IsHidden(SidebarIds.DetectionTester));
         Assert.True(service.Show(SidebarIds.DetectionTester));
-        Assert.Equal(SidebarIds.DetectionTester, service.Items[2].Id);
+        Assert.Equal(SidebarIds.DetectionTester, service.Items[5].Id);
     }
 
     [Fact]
@@ -207,8 +209,10 @@ public sealed class SidebarDefaultEntryTests
         Assert.DoesNotContain(service.Items, i => i.Id == "site-hygiene");
         Assert.True(service.Show("site-hygiene"));
         Assert.Equal("site-hygiene", service.Items[^1].Id);
-        Assert.True(service.Move("detection-tester", 1));
-        Assert.Equal("detection-tester", service.Items[1].Id);
+        Assert.False(service.Move("detection-tester", 1));
+        Assert.True(service.Move("site-hygiene", 1));
+        Assert.Equal("site-hygiene", service.Items[4].Id);
+        Assert.Equal(SidebarIds.Workbench, service.Items[3].Id);
         Assert.Equal(SidebarIds.Packages, service.Items[0].Id);
     }
 
