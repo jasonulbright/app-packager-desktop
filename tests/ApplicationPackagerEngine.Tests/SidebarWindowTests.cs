@@ -568,6 +568,28 @@ public sealed class SidebarWindowTests
     }
 
     [Fact]
+    public void ANavigationToTheTypeOfAnEntryHiddenFromTheStartShowsThatPage()
+    {
+        WithSidebar(h =>
+        {
+            Assert.DoesNotContain("a", h.Shown());
+            Assert.True(h.Navigation.Navigate(typeof(DetectionTesterPage)));
+            Assert.Equal(typeof(DetectionTesterPage), ShownPage(h.Navigation));
+        }, layout: new SidebarLayout { Hidden = ["a"] });
+    }
+
+    [Fact]
+    public void ANavigationToTheTypeOfAnEntryHiddenLaterShowsThatPage()
+    {
+        WithSidebar(h =>
+        {
+            h.Service.Hide("a");
+            Assert.True(h.Navigation.Navigate(typeof(DetectionTesterPage)));
+            Assert.Equal(typeof(DetectionTesterPage), ShownPage(h.Navigation));
+        });
+    }
+
+    [Fact]
     public void HidingTheShownPagesEntryThroughItsMenuOpensTheStartPage()
     {
         WithSidebar(h =>
