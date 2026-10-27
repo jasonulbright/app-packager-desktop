@@ -357,4 +357,46 @@ public sealed class AddFileViewModelTests
         Assert.True(h.ViewModel.Result.IsVisible);
         Assert.Contains("The grid is not loaded.", h.ViewModel.Result.StageStatus);
     });
+
+    private static void SaveToTheResultPanel(Harness h)
+    {
+        h.ViewModel.AnalyzeFileCommand.Execute(@"C:\in\contoso.msi");
+        Analyze(h, FakeAddService.Result());
+        h.ViewModel.PredictedAccepted = true;
+        var save = h.ViewModel.SaveCommand.ExecuteAsync(null);
+        StaTestHelper.PumpUntil(() => save.IsCompleted);
+        Assert.Equal(AddFileStage.Result, h.ViewModel.Stage);
+    }
+
+    [Fact]
+    public void AFileDroppedWhileTheResultShows_StartsNoAnalysis() => OnSta(h =>
+    {
+        SaveToTheResultPanel(h);
+
+        h.ViewModel.DropFiles([@"C:\in\other.msi"]);
+        h.ViewModel.AnalyzeFileCommand.Execute(@"C:\in\other.msi");
+        h.ViewModel.OpenInstallerCommand.Execute(null);
+        StaTestHelper.Flush();
+
+        Assert.Single(h.Service.Analyses);
+        Assert.Equal(AddFileStage.Result, h.ViewModel.Stage);
+        Assert.True(h.ViewModel.Result.IsVisible);
+    });
+
+    [Fact]
+    public void DoneCancelsARunningAnalysisAndALateResultDoesNotPullThePageBackToTheReview() => OnSta(h =>
+    {
+        h.ViewModel.AnalyzeFileCommand.Execute(@"C:\in\contoso.msi");
+        var pending = h.Service.WaitForAnalysis(0);
+        Assert.True(h.ViewModel.IsBusy);
+
+        h.ViewModel.Result.DoneCommand.Execute(null);
+        pending.Result.TrySetResult(FakeAddService.Result());
+        StaTestHelper.Flush();
+
+        Assert.True(pending.Token.IsCancellationRequested);
+        Assert.False(h.ViewModel.IsBusy);
+        Assert.Equal(AddFileStage.Pick, h.ViewModel.Stage);
+        Assert.Empty(h.ViewModel.Rows);
+    });
 }

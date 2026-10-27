@@ -73,7 +73,7 @@ public sealed partial class AddFileViewModel : ObservableObject
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsPickStage), nameof(IsAnalyzingStage), nameof(IsReviewStage), nameof(IsResultStage))]
-    [NotifyCanExecuteChangedFor(nameof(SaveCommand))]
+    [NotifyCanExecuteChangedFor(nameof(SaveCommand), nameof(OpenInstallerCommand))]
     private AddFileStage _stage = AddFileStage.Pick;
 
     [ObservableProperty]
@@ -105,7 +105,7 @@ public sealed partial class AddFileViewModel : ObservableObject
     public bool IsReviewStage => Stage == AddFileStage.Review;
     public bool IsResultStage => Stage == AddFileStage.Result;
 
-    private bool CanOpen() => !IsBusy;
+    private bool CanOpen() => !IsBusy && Stage != AddFileStage.Result;
 
     [RelayCommand(CanExecute = nameof(CanOpen))]
     private void OpenInstaller()
@@ -117,7 +117,7 @@ public sealed partial class AddFileViewModel : ObservableObject
     /// <summary>A drop on this page or on the App Packager grid. One installer is analysed at a time.</summary>
     public void DropFiles(IReadOnlyList<string>? paths)
     {
-        if (paths is null || paths.Count == 0) return;
+        if (paths is null || paths.Count == 0 || Stage == AddFileStage.Result) return;
         if (paths.Count > 1)
         {
             StatusText = $"{paths.Count} files were dropped. Drop one installer at a time.";
@@ -130,7 +130,7 @@ public sealed partial class AddFileViewModel : ObservableObject
     [RelayCommand]
     private async Task AnalyzeFileAsync(string? path)
     {
-        if (string.IsNullOrWhiteSpace(path)) return;
+        if (string.IsNullOrWhiteSpace(path) || Stage == AddFileStage.Result) return;
         if (_saving)
         {
             StatusText = "The definition is being saved. Add the next file when the save ends.";
@@ -191,13 +191,7 @@ public sealed partial class AddFileViewModel : ObservableObject
 
     /// <summary>Leaves the review without saving.</summary>
     [RelayCommand]
-    private void Discard()
-    {
-        _operation?.Cancel();
-        _generation++;
-        IsBusy = false;
-        Reset();
-    }
+    private void Discard() => Reset();
 
     private void LoadReview(AddAnalysisResult analysis)
     {
@@ -395,6 +389,10 @@ public sealed partial class AddFileViewModel : ObservableObject
 
     private void Reset()
     {
+        _operation?.Cancel();
+        _generation++;
+        IsBusy = false;
+        ProgressText = "";
         ClearReview();
         FilePath = "";
         StatusText = "";
