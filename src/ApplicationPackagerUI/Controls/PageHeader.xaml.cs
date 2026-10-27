@@ -19,10 +19,6 @@ public partial class PageHeader
         DependencyProperty.Register(nameof(Description), typeof(string), typeof(PageHeader),
             new PropertyMetadata("", (d, _) => ((PageHeader)d).UpdateParts()));
 
-    public static readonly DependencyProperty IsDescriptionVisibleProperty =
-        DependencyProperty.Register(nameof(IsDescriptionVisible), typeof(bool), typeof(PageHeader),
-            new PropertyMetadata(true, (d, _) => ((PageHeader)d).UpdateParts()));
-
     public static readonly DependencyProperty StatusProperty =
         DependencyProperty.Register(nameof(Status), typeof(string), typeof(PageHeader),
             new PropertyMetadata("", (d, _) => ((PageHeader)d).UpdateParts()));
@@ -58,13 +54,6 @@ public partial class PageHeader
     {
         get => (string)GetValue(DescriptionProperty);
         set => SetValue(DescriptionProperty, value);
-    }
-
-    /// <summary>False hides the description although it has text, for a page that needs the height on a short window.</summary>
-    public bool IsDescriptionVisible
-    {
-        get => (bool)GetValue(IsDescriptionVisibleProperty);
-        set => SetValue(IsDescriptionVisibleProperty, value);
     }
 
     /// <summary>A caption line under the description, for example a count or the state of a connection.</summary>
@@ -104,7 +93,7 @@ public partial class PageHeader
     private void UpdateParts()
     {
         if (DescriptionText is null) return;
-        DescriptionText.Visibility = string.IsNullOrWhiteSpace(Description) || !IsDescriptionVisible ? Visibility.Collapsed : Visibility.Visible;
+        DescriptionText.Visibility = string.IsNullOrWhiteSpace(Description) ? Visibility.Collapsed : Visibility.Visible;
         StatusText.Visibility = string.IsNullOrWhiteSpace(Status) ? Visibility.Collapsed : Visibility.Visible;
         ActionsPresenter.Visibility = Actions is null ? Visibility.Collapsed : Visibility.Visible;
         var compact = IsCompact;

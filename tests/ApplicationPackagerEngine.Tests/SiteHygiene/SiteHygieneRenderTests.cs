@@ -246,9 +246,9 @@ public sealed class SiteHygieneRenderTests
 
     public static TheoryData<ApplicationTheme, double, double> Sizes() => new()
     {
-        { ApplicationTheme.Light, 900 - NavigationPaneWidth, 600 - 48 },
-        { ApplicationTheme.Dark, 900 - NavigationPaneWidth, 600 - 48 },
-        { ApplicationTheme.Light, 900 - CollapsedPaneWidth, 600 - 48 },
+        { ApplicationTheme.Light, 1024 - NavigationPaneWidth, 720 - 48 },
+        { ApplicationTheme.Dark, 1024 - NavigationPaneWidth, 720 - 48 },
+        { ApplicationTheme.Light, 1024 - CollapsedPaneWidth, 720 - 48 },
         { ApplicationTheme.Light, 1440 - NavigationPaneWidth, 900 - 48 },
         { ApplicationTheme.Dark, 1440 - CollapsedPaneWidth, 900 - 48 }
     };
@@ -360,7 +360,7 @@ public sealed class SiteHygieneRenderTests
     {
         var data = new TheoryData<ApplicationTheme, double, double, int>();
         foreach (var theme in new[] { ApplicationTheme.Light, ApplicationTheme.Dark })
-        foreach (var (width, height) in new[] { (1440 - CollapsedPaneWidth, 900 - 48), (1440 - NavigationPaneWidth, 900 - 48), (900 - CollapsedPaneWidth, 600 - 48), (900 - NavigationPaneWidth, 600 - 48) })
+        foreach (var (width, height) in new[] { (1440 - CollapsedPaneWidth, 900 - 48), (1440 - NavigationPaneWidth, 900 - 48), (1024 - CollapsedPaneWidth, 720 - 48), (1024 - NavigationPaneWidth, 720 - 48) })
         foreach (var objects in new[] { 2, HygieneHistoryRow.DetailObjects, HygieneAuditLog.MaxObjectsPerRecord })
             data.Add(theme, width, height, objects);
         return data;
@@ -412,7 +412,7 @@ public sealed class SiteHygieneRenderTests
 
     /// <summary>
     /// After a fix run in the session the result card is on the page. At 1440x900 the History tab must not scroll and the
-    /// detail box shows every line up to its limit inside the tab. At 900x600 the tab scrolls; the detail box keeps its full
+    /// detail box shows every line up to its limit inside the tab. At 1024x720 the tab scrolls; the detail box keeps its full
     /// height of lines and the tab scrolls to it.
     /// </summary>
     [Theory]
@@ -446,7 +446,7 @@ public sealed class SiteHygieneRenderTests
                 return;
             }
 
-            // 900x600: the tab scrolls, and the scroll shows the whole detail box.
+            // 1024x720: the tab scrolls, and the scroll shows the whole detail box.
             Assert.True(tab.ScrollableHeight >= 1, $"The History tab does not scroll at {width}x{height}; the test does not show the scroll.");
             box.BringIntoView();
             Settle(window);
@@ -468,7 +468,7 @@ public sealed class SiteHygieneRenderTests
     {
         var data = new TheoryData<ApplicationTheme, double, double, int, bool>();
         foreach (var theme in new[] { ApplicationTheme.Light, ApplicationTheme.Dark })
-        foreach (var (width, height) in new[] { (1440 - CollapsedPaneWidth, 900 - 48), (1440 - NavigationPaneWidth, 900 - 48), (900 - NavigationPaneWidth, 600 - 48) })
+        foreach (var (width, height) in new[] { (1440 - CollapsedPaneWidth, 900 - 48), (1440 - NavigationPaneWidth, 900 - 48), (1024 - NavigationPaneWidth, 720 - 48) })
         foreach (var objects in new[] { 2, 10, 100 })
             data.Add(theme, width, height, objects, objects == 10);
         return data;
@@ -539,7 +539,7 @@ public sealed class SiteHygieneRenderTests
     /// <summary>
     /// After a fix run of 2, 10 and 100 objects the result card is collapsed to one line. At 1440x900, with the sidebar
     /// collapsed and open, the Findings, History and Relationships tabs do not scroll and the detail of the selected finding
-    /// shows in full. At 900x600 the tab scrolls, and the scroll shows every part of the detail in full.
+    /// shows in full. At 1024x720 the tab scrolls, and the scroll shows every part of the detail in full.
     /// </summary>
     [Theory]
     [MemberData(nameof(FixRunCases))]
@@ -620,7 +620,7 @@ public sealed class SiteHygieneRenderTests
             }
             else
             {
-                // 900x600: the tab scrolls to the whole detail box, which keeps its lines.
+                // 1024x720: the tab scrolls to the whole detail box, which keeps its lines.
                 box.BringIntoView();
                 Settle(window);
                 AssertReachable(history, box, "txtHygieneHistoryDetail");
@@ -1352,10 +1352,10 @@ public sealed class SiteHygieneRenderTests
 
     public static TheoryData<ApplicationTheme, double, double> TreeSizes() => new()
     {
-        { ApplicationTheme.Light, 900 - NavigationPaneWidth, 600 - 48 },
-        { ApplicationTheme.Dark, 900 - NavigationPaneWidth, 600 - 48 },
-        { ApplicationTheme.Light, 900 - CollapsedPaneWidth, 600 - 48 },
-        { ApplicationTheme.Dark, 900 - CollapsedPaneWidth, 600 - 48 },
+        { ApplicationTheme.Light, 1024 - NavigationPaneWidth, 720 - 48 },
+        { ApplicationTheme.Dark, 1024 - NavigationPaneWidth, 720 - 48 },
+        { ApplicationTheme.Light, 1024 - CollapsedPaneWidth, 720 - 48 },
+        { ApplicationTheme.Dark, 1024 - CollapsedPaneWidth, 720 - 48 },
         { ApplicationTheme.Light, 1440 - NavigationPaneWidth, 900 - 48 },
         { ApplicationTheme.Dark, 1440 - NavigationPaneWidth, 900 - 48 },
         { ApplicationTheme.Light, 1440 - CollapsedPaneWidth, 900 - 48 },
@@ -1432,5 +1432,26 @@ public sealed class SiteHygieneRenderTests
             }
             finally { window.Close(); }
         });
+    }
+
+    [Theory]
+    [InlineData(ApplicationTheme.Light)]
+    [InlineData(ApplicationTheme.Dark)]
+    public void EveryMainGridShowsAtLeastThreeWholeRowsAtTheMinimumSize(ApplicationTheme theme)
+    {
+        WithPage(theme, (window, page, viewModel, harness) =>
+        {
+            Fill(window, viewModel);
+            var rows = new MinimumSizeRows();
+            foreach (var (tab, id) in new[] { (VM.FindingsTab, "dgFindings"), (VM.RelationsTab, "dgEdges"), (VM.LiveTab, "dgLive"), (VM.HistoryTab, "dgHygieneHistory") })
+            {
+                ShowTab(window, viewModel, tab);
+                var grid = ById<DataGrid>(page, id);
+                grid.BringIntoView();
+                Settle(window);
+                rows.Add(id, grid);
+            }
+            rows.AssertEnough($"Site Hygiene {theme}");
+        }, MinimumSizeRows.Width - NavigationPaneWidth, MinimumSizeRows.Height - 48);
     }
 }

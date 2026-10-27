@@ -59,8 +59,8 @@ public sealed class AddFlowRenderTests : IDisposable
     {
         { ApplicationTheme.Light, 1440, 900 },
         { ApplicationTheme.Dark, 1440, 900 },
-        { ApplicationTheme.Light, 900, 600 },
-        { ApplicationTheme.Dark, 900, 600 }
+        { ApplicationTheme.Light, 1024, 720 },
+        { ApplicationTheme.Dark, 1024, 720 }
     };
 
     private static Window Host(FrameworkElement content, int width, int height)

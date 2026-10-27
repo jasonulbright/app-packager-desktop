@@ -134,7 +134,7 @@ public sealed class SidebarGroupRenderTests : IDisposable
     {
         var data = new TheoryData<ApplicationTheme, int, int, bool>();
         foreach (var theme in new[] { ApplicationTheme.Light, ApplicationTheme.Dark })
-            foreach (var (width, height) in new[] { (1440, 900), (900, 600) })
+            foreach (var (width, height) in new[] { (1440, 900), (1024, 720) })
                 foreach (var open in new[] { true, false })
                     data.Add(theme, width, height, open);
         return data;

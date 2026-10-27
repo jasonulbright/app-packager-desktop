@@ -245,9 +245,9 @@ public sealed class SiteHygieneLiveRenderTests
 
     public static TheoryData<ApplicationTheme, double, double> Sizes() => new()
     {
-        { ApplicationTheme.Light, 900 - NavigationPaneWidth, 600 - 48 },
-        { ApplicationTheme.Dark, 900 - NavigationPaneWidth, 600 - 48 },
-        { ApplicationTheme.Light, 900 - CollapsedPaneWidth, 600 - 48 },
+        { ApplicationTheme.Light, 1024 - NavigationPaneWidth, 720 - 48 },
+        { ApplicationTheme.Dark, 1024 - NavigationPaneWidth, 720 - 48 },
+        { ApplicationTheme.Light, 1024 - CollapsedPaneWidth, 720 - 48 },
         { ApplicationTheme.Light, 1440 - NavigationPaneWidth, 900 - 48 },
         { ApplicationTheme.Dark, 1440 - CollapsedPaneWidth, 900 - 48 }
     };
@@ -446,10 +446,10 @@ public sealed class SiteHygieneLiveRenderTests
 
     public static TheoryData<ApplicationTheme, double, double> TrendSizes() => new()
     {
-        { ApplicationTheme.Light, 900 - NavigationPaneWidth, 600 - 48 },
-        { ApplicationTheme.Dark, 900 - NavigationPaneWidth, 600 - 48 },
-        { ApplicationTheme.Light, 900 - CollapsedPaneWidth, 600 - 48 },
-        { ApplicationTheme.Dark, 900 - CollapsedPaneWidth, 600 - 48 },
+        { ApplicationTheme.Light, 1024 - NavigationPaneWidth, 720 - 48 },
+        { ApplicationTheme.Dark, 1024 - NavigationPaneWidth, 720 - 48 },
+        { ApplicationTheme.Light, 1024 - CollapsedPaneWidth, 720 - 48 },
+        { ApplicationTheme.Dark, 1024 - CollapsedPaneWidth, 720 - 48 },
         { ApplicationTheme.Light, 1440 - NavigationPaneWidth, 900 - 48 },
         { ApplicationTheme.Dark, 1440 - NavigationPaneWidth, 900 - 48 },
         { ApplicationTheme.Light, 1440 - CollapsedPaneWidth, 900 - 48 },

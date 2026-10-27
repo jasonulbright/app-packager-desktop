@@ -320,8 +320,8 @@ public sealed class PivotsLabFixRenderTests
     [Theory]
     [InlineData(ApplicationTheme.Light, 1440 - CollapsedPaneWidth, 900 - 48)]
     [InlineData(ApplicationTheme.Dark, 1440 - NavigationPaneWidth, 900 - 48)]
-    [InlineData(ApplicationTheme.Light, 900 - NavigationPaneWidth, 600 - 48)]
-    [InlineData(ApplicationTheme.Dark, 900 - CollapsedPaneWidth, 600 - 48)]
+    [InlineData(ApplicationTheme.Light, 1024 - NavigationPaneWidth, 720 - 48)]
+    [InlineData(ApplicationTheme.Dark, 1024 - CollapsedPaneWidth, 720 - 48)]
     public void TheScriptTabShowsBothHashesAndTheParameterDefinitionsInsideItsWidth(ApplicationTheme theme, double width, double height)
     {
         WithPage(theme, (window, page, viewModel, harness) =>

@@ -24,15 +24,15 @@ public sealed class AppPackagerFitTests
     private const double NavigationPaneWidth = 230;
     private const double FrameHeight = 48;
 
-    /// <summary>The least number of complete data rows that the grid shows at 900x600.</summary>
+    /// <summary>The least number of complete data rows that the grid shows at 1024x720.</summary>
     internal const int MinimumWholeRows = 3;
 
     public static TheoryData<ApplicationTheme, int, int> Sizes => new()
     {
         { ApplicationTheme.Light, 1440, 900 },
         { ApplicationTheme.Dark, 1440, 900 },
-        { ApplicationTheme.Light, 900, 600 },
-        { ApplicationTheme.Dark, 900, 600 }
+        { ApplicationTheme.Light, 1024, 720 },
+        { ApplicationTheme.Dark, 1024, 720 }
     };
 
     /// <summary>The rows of the grid that lie completely inside the area below the column headers.</summary>

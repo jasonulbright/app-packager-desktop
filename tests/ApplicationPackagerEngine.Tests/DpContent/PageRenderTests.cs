@@ -169,8 +169,8 @@ public sealed class PageRenderTests
 
     public static TheoryData<ApplicationTheme, double, double> Sizes() => new()
     {
-        { ApplicationTheme.Light, 900 - NavigationPaneWidth, 600 - 48 },
-        { ApplicationTheme.Dark, 900 - NavigationPaneWidth, 600 - 48 },
+        { ApplicationTheme.Light, 1024 - NavigationPaneWidth, 720 - 48 },
+        { ApplicationTheme.Dark, 1024 - NavigationPaneWidth, 720 - 48 },
         { ApplicationTheme.Light, 1440 - NavigationPaneWidth, 900 - 48 },
         { ApplicationTheme.Dark, 1440 - CollapsedPaneWidth, 900 - 48 }
     };
@@ -604,7 +604,7 @@ public sealed class PageRenderTests
     [Theory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
-    public void At900By600AWrappedMessageTakesAtMostTwoLinesSoTheHistoryShowsSeveralRows(ApplicationTheme theme)
+    public void AtTheMinimumSizeAWrappedMessageTakesAtMostTwoLinesSoTheHistoryShowsSeveralRows(ApplicationTheme theme)
     {
         WithPage(theme, (window, page, viewModel, harness) =>
         {
@@ -613,19 +613,19 @@ public sealed class PageRenderTests
             grid.BringIntoView();
             Settle(window);
             var rows = Descendants(grid).OfType<DataGridRow>().Where(r => r.IsVisible).ToList();
-            Assert.True(rows.Count >= 3, $"The History shows {rows.Count} rows at 900x600.");
+            Assert.True(rows.Count >= 3, $"The History shows {rows.Count} rows at 1024x720.");
             var block = Descendants(rows[0]).OfType<DataGridCell>().Where(c => Equals(c.Column.Header, "Message")).SelectMany(c => Descendants(c).OfType<TextBlock>()).First();
             Assert.True(block.ActualHeight <= 2 * block.LineHeight + 0.5, $"The message is {block.ActualHeight:0} px tall.");
             Assert.All(rows, r => Assert.True(r.ActualHeight <= 2 * block.LineHeight + 16, $"A History row is {r.ActualHeight:0} px tall."));
             var message = grid.Columns.Single(c => Equals(c.Header, "Message"));
-            Assert.True(message.ActualWidth >= 220, $"The Message column is {message.ActualWidth:0} px at 900x600.");
+            Assert.True(message.ActualWidth >= 220, $"The Message column is {message.ActualWidth:0} px at 1024x720.");
             var scroller = Descendants(grid).OfType<ScrollViewer>().First();
             scroller.ScrollToRightEnd();
             Settle(window);
             var cell = Descendants(rows[0]).OfType<DataGridCell>().Single(c => ReferenceEquals(c.Column, message));
             var bounds = cell.TransformToAncestor(grid).TransformBounds(new Rect(cell.RenderSize));
             Assert.True(bounds.Right <= grid.ActualWidth + 0.5 && bounds.Left >= -0.5, $"The scrolled Message cell spans {bounds.Left:0} to {bounds.Right:0} px in a {grid.ActualWidth:0} px grid.");
-        }, 900 - NavigationPaneWidth, 600 - 48);
+        }, 1024 - NavigationPaneWidth, 720 - 48);
     }
 
     [Theory]
@@ -643,5 +643,26 @@ public sealed class PageRenderTests
             var scroller = Descendants(box).OfType<ScrollViewer>().First();
             Assert.True(scroller.ExtentHeight <= scroller.ViewportHeight + 0.5, $"The details need {scroller.ExtentHeight:0} px and the box shows {scroller.ViewportHeight:0} px.");
         }, 1440 - CollapsedPaneWidth);
+    }
+
+    [Theory]
+    [InlineData(ApplicationTheme.Light)]
+    [InlineData(ApplicationTheme.Dark)]
+    public void EveryMainGridShowsAtLeastThreeWholeRowsAtTheMinimumSize(ApplicationTheme theme)
+    {
+        WithPage(theme, (window, page, viewModel, harness) =>
+        {
+            Fill(window, viewModel);
+            var rows = new MinimumSizeRows();
+            foreach (var (tab, id) in new[] { (VM.DpsTab, "dgDps"), (VM.ContentTab, "dgContent"), (VM.IssuesTab, "dgIssues"), (VM.HistoryTab, "dgDpHistory") })
+            {
+                ShowTab(window, viewModel, tab);
+                var grid = ById<DataGrid>(page, id);
+                grid.BringIntoView();
+                Settle(window);
+                rows.Add(id, grid);
+            }
+            rows.AssertEnough($"DP Content {theme}");
+        }, MinimumSizeRows.Width - NavigationPaneWidth, MinimumSizeRows.Height - 48);
     }
 }

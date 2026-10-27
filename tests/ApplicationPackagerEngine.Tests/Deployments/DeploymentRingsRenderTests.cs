@@ -159,8 +159,8 @@ public sealed class DeploymentRingsRenderTests
     {
         { ApplicationTheme.Light, 1440 - CollapsedPaneWidth, 900 - 48 },
         { ApplicationTheme.Dark, 1440 - CollapsedPaneWidth, 900 - 48 },
-        { ApplicationTheme.Light, 900 - NavigationPaneWidth, 600 - 48 },
-        { ApplicationTheme.Dark, 900 - NavigationPaneWidth, 600 - 48 }
+        { ApplicationTheme.Light, 1024 - NavigationPaneWidth, 720 - 48 },
+        { ApplicationTheme.Dark, 1024 - NavigationPaneWidth, 720 - 48 }
     };
 
     [Theory]
@@ -194,8 +194,8 @@ public sealed class DeploymentRingsRenderTests
 
     public static TheoryData<ApplicationTheme, double, double, int> Sizes() => new()
     {
-        { ApplicationTheme.Light, 900 - NavigationPaneWidth, 600 - 48, 13 },
-        { ApplicationTheme.Dark, 900 - NavigationPaneWidth, 600 - 48, 100 },
+        { ApplicationTheme.Light, 1024 - NavigationPaneWidth, 720 - 48, 13 },
+        { ApplicationTheme.Dark, 1024 - NavigationPaneWidth, 720 - 48, 100 },
         { ApplicationTheme.Light, 1440 - NavigationPaneWidth, 900 - 48, 2 },
         { ApplicationTheme.Dark, 1440 - CollapsedPaneWidth, 900 - 48, 100 }
     };

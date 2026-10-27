@@ -209,8 +209,8 @@ public sealed class InstallerAnalysisRenderTests
 
     public static TheoryData<ApplicationTheme, double, double> Sizes() => new()
     {
-        { ApplicationTheme.Light, 900 - NavigationPaneWidth, 600 - 48 },
-        { ApplicationTheme.Dark, 900 - NavigationPaneWidth, 600 - 48 },
+        { ApplicationTheme.Light, 1024 - NavigationPaneWidth, 720 - 48 },
+        { ApplicationTheme.Dark, 1024 - NavigationPaneWidth, 720 - 48 },
         { ApplicationTheme.Light, 1440 - NavigationPaneWidth, 900 - 48 },
         { ApplicationTheme.Dark, 1440 - NavigationPaneWidth, 900 - 48 }
     };
@@ -566,7 +566,7 @@ public sealed class InstallerAnalysisRenderTests
     }
 
     [Theory]
-    [InlineData(ApplicationTheme.Light, 900 - NavigationPaneWidth, 600 - 48)]
+    [InlineData(ApplicationTheme.Light, 1024 - NavigationPaneWidth, 720 - 48)]
     [InlineData(ApplicationTheme.Dark, 1440 - NavigationPaneWidth, 900 - 48)]
     public void TheHashShowsInAReadOnlyBoxWithACopyButton(ApplicationTheme theme, double width, double height)
     {
@@ -598,5 +598,19 @@ public sealed class InstallerAnalysisRenderTests
             Assert.Equal([@"C:\drop\setup.exe"], InstallerAnalysisPage.DroppedPaths(files));
             Assert.Null(InstallerAnalysisPage.DroppedPaths(new DataObject(DataFormats.Text, @"C:\drop\setup.exe")));
         });
+    }
+
+    [Theory]
+    [InlineData(ApplicationTheme.Light)]
+    [InlineData(ApplicationTheme.Dark)]
+    public void EveryMainGridShowsAtLeastThreeWholeRowsAtTheMinimumSize(ApplicationTheme theme)
+    {
+        WithPage(theme, (window, page, viewModel) =>
+        {
+            var rows = new MinimumSizeRows();
+            foreach (var id in new[] { "dgMsi", "dgPayload", "dgInner", "dgFiles", "dgRegistry", "dgStrings" })
+                rows.Add(id, ShowGrid(window, page, viewModel, id));
+            rows.AssertEnough($"Installer Analysis {theme}");
+        }, MinimumSizeRows.Width - NavigationPaneWidth, MinimumSizeRows.Height - 48);
     }
 }

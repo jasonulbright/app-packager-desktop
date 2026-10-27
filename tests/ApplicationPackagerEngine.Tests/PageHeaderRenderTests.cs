@@ -261,4 +261,30 @@ public sealed class PageHeaderRenderTests : IDisposable
         var differing = places.Where(p => !p.Value.SameAs(reference)).Select(p => $"{p.Key}: {p.Value}").ToList();
         Assert.True(differing.Count == 0, $"{theme}: App Packager has {reference}. Different: {string.Join("; ", differing)}.");
     }
+
+    [Theory]
+    [InlineData(ApplicationTheme.Light)]
+    [InlineData(ApplicationTheme.Dark)]
+    public void TheSiteHygieneDescriptionShowsWholeOnOneLineAtTheMinimumSize(ApplicationTheme theme)
+    {
+        WithApplication(theme, () =>
+        {
+            var (page, owner) = Create("Site Hygiene");
+            var window = new Window { Width = 1024 - NavigationPaneWidth, Height = 720 - FrameHeight, WindowStyle = WindowStyle.None, Content = page };
+            Show(window);
+            try
+            {
+                Settle(window);
+                var description = Descendants(page).OfType<PageHeader>().First().DescriptionElement;
+                Assert.True(description.IsVisible, "The Site Hygiene description is hidden.");
+                var needed = PageChromeKit.TextWidth(description);
+                Assert.True(description.ActualWidth + 0.5 >= needed, $"The description needs {needed:0.0} px and has {description.ActualWidth:0.0} px.");
+            }
+            finally
+            {
+                window.Close();
+                owner?.Dispose();
+            }
+        });
+    }
 }

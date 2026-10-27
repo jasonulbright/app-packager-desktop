@@ -193,7 +193,7 @@
         </Grid.RowDefinitions>
 
         <controls:PageHeader x:Name="pageHeader" Grid.Row="0" Title="Site Hygiene" TitleAutomationId="txtHygieneTitle" DescriptionAutomationId="txtHygieneIntro"
-                             Description="Scans the site for unused, broken and misconfigured objects and fixes a finding with a typed change. Every fix checks the finding again and shows a plan first. A delete cannot be undone." />
+                             Description="Finds unused, broken and misconfigured objects in the site. Every fix shows a plan first. A delete cannot be undone." />
 
         <StackPanel Grid.Row="1">
             <Border Style="{StaticResource Caution}" Visibility="{Binding HasConnectionMessage, Converter={StaticResource BoolToVisibility}}"

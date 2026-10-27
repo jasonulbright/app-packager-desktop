@@ -188,8 +188,8 @@ public sealed class DeploymentHelperRenderTests
 
     public static TheoryData<ApplicationTheme, double, double> Sizes() => new()
     {
-        { ApplicationTheme.Light, 900 - NavigationPaneWidth, 600 - 48 },
-        { ApplicationTheme.Dark, 900 - NavigationPaneWidth, 600 - 48 },
+        { ApplicationTheme.Light, 1024 - NavigationPaneWidth, 720 - 48 },
+        { ApplicationTheme.Dark, 1024 - NavigationPaneWidth, 720 - 48 },
         { ApplicationTheme.Light, 1440 - NavigationPaneWidth, 900 - 48 },
         { ApplicationTheme.Dark, 1440 - CollapsedPaneWidth, 900 - 48 }
     };
@@ -748,8 +748,8 @@ public sealed class DeploymentHelperRenderTests
     {
         { ApplicationTheme.Light, 1440 - NavigationPaneWidth, 900 - 48 },
         { ApplicationTheme.Dark, 1440 - NavigationPaneWidth, 900 - 48 },
-        { ApplicationTheme.Light, 900 - NavigationPaneWidth, 600 - 48 },
-        { ApplicationTheme.Dark, 900 - NavigationPaneWidth, 600 - 48 }
+        { ApplicationTheme.Light, 1024 - NavigationPaneWidth, 720 - 48 },
+        { ApplicationTheme.Dark, 1024 - NavigationPaneWidth, 720 - 48 }
     };
 
     /// <summary>A primary action lies in the page, outside every scroll viewer, so no scroll position hides it.</summary>
@@ -778,5 +778,26 @@ public sealed class DeploymentHelperRenderTests
             AssertPinned(window, page, "btnRingCreate", where);
             AssertPinned(window, page, "btnRingValidate", where);
         }, width, height);
+    }
+
+    [Theory]
+    [InlineData(ApplicationTheme.Light)]
+    [InlineData(ApplicationTheme.Dark)]
+    public void EveryMainGridShowsAtLeastThreeWholeRowsAtTheMinimumSize(ApplicationTheme theme)
+    {
+        WithPage(theme, (window, page, viewModel, harness) =>
+        {
+            Fill(window, viewModel, harness);
+            var rows = new MinimumSizeRows();
+            foreach (var (tab, id) in new[] { (0, "dgObjects"), (0, "dgCollections"), (2, "dgHistory") })
+            {
+                ShowTab(window, viewModel, tab);
+                var grid = ById<DataGrid>(page, id);
+                grid.BringIntoView();
+                Settle(window);
+                rows.Add(id, grid);
+            }
+            rows.AssertEnough($"Deployment Helper {theme}");
+        }, MinimumSizeRows.Width - NavigationPaneWidth, MinimumSizeRows.Height - 48);
     }
 }

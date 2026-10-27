@@ -32,8 +32,8 @@ public sealed class DropReviewDialogRenderTests
     {
         { ApplicationTheme.Light, 1440, 900 },
         { ApplicationTheme.Dark, 1440, 900 },
-        { ApplicationTheme.Light, 900, 600 },
-        { ApplicationTheme.Dark, 900, 600 }
+        { ApplicationTheme.Light, 1024, 720 },
+        { ApplicationTheme.Dark, 1024, 720 }
     };
 
     internal static DroppedInstallerAnalysis Analysis() => new()

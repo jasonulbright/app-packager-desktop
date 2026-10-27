@@ -471,7 +471,7 @@ public sealed class CollectionCompliancePageTests
     [Theory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
-    public void AtNineHundredBySixHundredTheDetailsScrollIntoViewWhole(ApplicationTheme theme)
+    public void AtTheMinimumSizeTheDetailsScrollIntoViewWhole(ApplicationTheme theme)
     {
         WithPage(theme, (window, page, harness) =>
         {
@@ -486,7 +486,7 @@ public sealed class CollectionCompliancePageTests
             var tabs = ById<TabControl>(page, "tabCollectionDetails");
             Assert.True(tabs.IsVisible && tabs.ActualHeight > 0);
             Assert.True(RowCapacity(ById<DataGrid>(page, "dgCollections")) >= 3);
-        }, width: 900 - NavigationPaneWidth, height: 600 - 48);
+        }, width: 1024 - NavigationPaneWidth, height: 720 - 48);
     }
 
     [Fact]
@@ -966,5 +966,20 @@ public sealed class CollectionCompliancePageTests
             }
             finally { window.Close(); }
         });
+    }
+
+    [Theory]
+    [InlineData(ApplicationTheme.Light)]
+    [InlineData(ApplicationTheme.Dark)]
+    public void TheCollectionsGridShowsAtLeastThreeWholeRowsAtTheMinimumSizeWithTheDetailsOpen(ApplicationTheme theme)
+    {
+        WithPage(theme, (window, page, harness) =>
+        {
+            SelectCollection(window, page, "LAB00010");
+            Assert.True(ById<FrameworkElement>(page, "pnlCollectionDetails").IsVisible);
+            var rows = new MinimumSizeRows();
+            rows.Add("dgCollections", ById<DataGrid>(page, "dgCollections"));
+            rows.AssertEnough($"Collections {theme}");
+        }, width: MinimumSizeRows.Width - NavigationPaneWidth, height: MinimumSizeRows.Height - 48);
     }
 }

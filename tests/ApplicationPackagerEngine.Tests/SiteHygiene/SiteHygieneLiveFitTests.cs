@@ -24,7 +24,7 @@ using VM = ApplicationPackagerUI.ViewModels.Pages.SiteHygieneViewModel;
 namespace ApplicationPackagerEngine.Tests.SiteHygiene;
 
 /// <summary>
-/// The Live grids with the values the CM01 site returns, at 1440x900 and 900x600 with the navigation pane open and
+/// The Live grids with the values the CM01 site returns, at 1440x900 and 1024x720 with the navigation pane open and
 /// collapsed, in both themes: what shows cut, what wraps, what scrolls, and the keyboard and UI Automation paths.
 /// </summary>
 [Collection(ProcessEnvironmentCollection.Name)]
@@ -301,13 +301,13 @@ public sealed class SiteHygieneLiveFitTests
 
     public static TheoryData<ApplicationTheme, double> SmallSizes() => new()
     {
-        { ApplicationTheme.Light, 900 - NavigationPaneWidth },
-        { ApplicationTheme.Dark, 900 - NavigationPaneWidth },
-        { ApplicationTheme.Light, 900 - CollapsedPaneWidth },
-        { ApplicationTheme.Dark, 900 - CollapsedPaneWidth }
+        { ApplicationTheme.Light, 1024 - NavigationPaneWidth },
+        { ApplicationTheme.Dark, 1024 - NavigationPaneWidth },
+        { ApplicationTheme.Light, 1024 - CollapsedPaneWidth },
+        { ApplicationTheme.Dark, 1024 - CollapsedPaneWidth }
     };
 
-    /// <summary>At 900x600 a grid whose least column widths exceed it scrolls sideways; a value is never cut, a name of typical length wraps whole, and an alert message wraps whole.</summary>
+    /// <summary>At 1024x720 a grid whose least column widths exceed it scrolls sideways; a value is never cut, a name of typical length wraps whole, and an alert message wraps whole.</summary>
     [Theory]
     [MemberData(nameof(SmallSizes))]
     public void At900By600EveryGridWrapsOrScrollsAndCutsNoValue(ApplicationTheme theme, double width)
@@ -337,7 +337,7 @@ public sealed class SiteHygieneLiveFitTests
     }
 
     /// <summary>
-    /// At 900x600 the Deployments grid scrolls sideways, so each name column is wide enough to show every real name on
+    /// At 1024x720 the Deployments grid scrolls sideways, so each name column is wide enough to show every real name on
     /// at most <see cref="LiveColumnFit.NameLines"/> lines without a cut and without a word broken inside.
     /// </summary>
     [Theory]
@@ -380,7 +380,7 @@ public sealed class SiteHygieneLiveFitTests
         });
     }
 
-    /// <summary>At 900x600 and 1440x900 a column that holds server names or IDs never breaks a value inside a word.</summary>
+    /// <summary>At 1024x720 and 1440x900 a column that holds server names or IDs never breaks a value inside a word.</summary>
     [Theory]
     [MemberData(nameof(SmallSizes))]
     [InlineData(ApplicationTheme.Light, 1440 - CollapsedPaneWidth)]
