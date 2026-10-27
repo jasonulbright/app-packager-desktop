@@ -8,7 +8,7 @@ public enum OutcomeKind { None, Success, Caution, Critical }
 
 /// <summary>
 /// Gives the text of a status cell the theme brush of its outcome. The glyph in front of the text decides first; a text
-/// without a glyph is read by its words. No other text changes color, so the cell keeps the foreground of its row.
+/// without a glyph is read by its words. Any other text takes the primary text brush, because a style setter that yields no value leaves the cell black.
 /// </summary>
 public sealed class OutcomeBrushConverter : IValueConverter
 {
@@ -42,9 +42,9 @@ public sealed class OutcomeBrushConverter : IValueConverter
             OutcomeKind.Success => "SystemFillColorSuccessBrush",
             OutcomeKind.Caution => "SystemFillColorCautionBrush",
             OutcomeKind.Critical => "SystemFillColorCriticalBrush",
-            _ => null
+            _ => "TextFillColorPrimaryBrush"
         };
-        return key is not null && Application.Current?.TryFindResource(key) is { } brush ? brush : DependencyProperty.UnsetValue;
+        return key is not null && Application.Current?.TryFindResource(key) is { } brush ? brush : Binding.DoNothing;
     }
 
     public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) => Binding.DoNothing;

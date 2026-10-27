@@ -93,11 +93,26 @@
                 <Setter Property="ToolTip" Value="{Binding VerifiedText}" />
                 <Setter Property="AutomationProperties.Name" Value="{Binding VerifiedText}" />
             </Style>
-            <Style x:Key="StatusCell" TargetType="TextBlock" BasedOn="{StaticResource TrimmedCell}">
+            <Style x:Key="StatusCell" TargetType="TextBlock" BasedOn="{x:Static DataGridTextColumn.DefaultElementStyle}">
+                <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+                <Setter Property="ToolTip" Value="{Binding Text, RelativeSource={RelativeSource Self}}" />
                 <Setter Property="Foreground" Value="{Binding Text, RelativeSource={RelativeSource Self}, Converter={x:Static helpers:OutcomeBrushConverter.Instance}}" />
+                <Style.Triggers>
+                    <DataTrigger Binding="{Binding IsSelected, RelativeSource={RelativeSource AncestorType=DataGridRow}}" Value="True">
+                        <Setter Property="Foreground" Value="{Binding Foreground, RelativeSource={RelativeSource AncestorType=DataGridCell}}" />
+                    </DataTrigger>
+                </Style.Triggers>
             </Style>
-            <Style x:Key="VerifiedStatusCell" TargetType="TextBlock" BasedOn="{StaticResource VerifiedCell}">
+            <Style x:Key="VerifiedStatusCell" TargetType="TextBlock" BasedOn="{x:Static DataGridTextColumn.DefaultElementStyle}">
+                <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+                <Setter Property="ToolTip" Value="{Binding VerifiedText}" />
+                <Setter Property="AutomationProperties.Name" Value="{Binding VerifiedText}" />
                 <Setter Property="Foreground" Value="{Binding Text, RelativeSource={RelativeSource Self}, Converter={x:Static helpers:OutcomeBrushConverter.Instance}}" />
+                <Style.Triggers>
+                    <DataTrigger Binding="{Binding IsSelected, RelativeSource={RelativeSource AncestorType=DataGridRow}}" Value="True">
+                        <Setter Property="Foreground" Value="{Binding Foreground, RelativeSource={RelativeSource AncestorType=DataGridCell}}" />
+                    </DataTrigger>
+                </Style.Triggers>
             </Style>
 
             <!-- The cells of a row form a Local Tab group, so only the first cell is a Tab stop: Tab enters the grid once and the next Tab leaves it. -->
