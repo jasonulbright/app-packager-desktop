@@ -431,8 +431,12 @@ public sealed class StagingService
                 if (!signature.SignatureValid)
                     throw new InvalidOperationException("MSIX signature is not valid.");
                 onProgress?.Invoke($"MSIX signer thumbprint       : {signature.Thumbprint}");
-                if (!signature.ChainTrusted)
+                if (signature.CertificateExpired)
+                    onProgress?.Invoke("MSIX signing certificate expired and the signature has no valid timestamp from before that date; Windows refuses the package.");
+                else if (!signature.ChainTrusted)
                     onProgress?.Invoke("MSIX signer does not chain to a trusted root on this machine; the target device must trust it.");
+                else if (signature.Timestamp is { } stamped)
+                    onProgress?.Invoke($"MSIX signing certificate expired after the timestamp of {stamped:yyyy-MM-dd}; the signature stays valid.");
 
                 msixPackage = new StageMsixPackage
                 {

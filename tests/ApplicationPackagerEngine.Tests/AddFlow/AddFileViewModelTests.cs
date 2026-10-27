@@ -195,6 +195,7 @@ public sealed class AddFileViewModelTests
     [Theory]
     [InlineData(PackageTrust.Unsigned, "Not signed")]
     [InlineData(PackageTrust.Untrusted, "Signed, not trusted on this computer")]
+    [InlineData(PackageTrust.Expired, "Signed, the certificate expired and has no timestamp")]
     public void APackageShowsItsIdentityAndAProminentTrustWarning(PackageTrust trust, string signature) => OnSta(h =>
     {
         h.ViewModel.AnalyzeFileCommand.Execute(@"C:\in\app.msix");

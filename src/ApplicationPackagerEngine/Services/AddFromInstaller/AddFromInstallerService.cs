@@ -34,7 +34,8 @@ public sealed class AddFromInstallerService : IAddFromInstallerService
     private readonly DroppedInstallerAnalysisService _deployment;
     private readonly AnalysisLimits _limits;
     private readonly DownloadService _downloads;
-    private readonly MsixPackageReader _msix = new();
+    /// <summary>The package reader; a test sets one that builds chains against its own root.</summary>
+    internal MsixPackageReader Msix { get; set; } = new();
 
     public AddFromInstallerService(IInstallerAnalysisService analysis, DroppedInstallerAnalysisService deployment,
         AnalysisLimits? limits = null, DownloadService? downloads = null)
@@ -426,6 +427,7 @@ public sealed class AddFromInstallerService : IAddFromInstallerService
             PackageTrust.Invalid => "The package signature is not valid. Do not deploy this package.",
             PackageTrust.Untrusted => "This computer does not trust the certificate that signed the package. Each target device must trust the certificate, or the install fails.",
             PackageTrust.Unknown => "The package signature could not be checked.",
+            PackageTrust.Expired => "The certificate that signed the package expired, and the signature has no valid timestamp from before that date. Windows does not install the package. Sign the package again before you deploy it.",
             _ => null
         };
         if (trustWarning is not null) notes.Add(trustWarning);
@@ -512,9 +514,14 @@ public sealed class AddFromInstallerService : IAddFromInstallerService
     {
         try
         {
-            var signature = _msix.ReadSignature(path);
+            var signature = Msix.ReadSignature(path);
             if (signature is null) return (PackageTrust.Unsigned, null, null);
-            var trust = !signature.SignatureValid ? PackageTrust.Invalid : signature.ChainTrusted ? PackageTrust.Trusted : PackageTrust.Untrusted;
+            var trust = !signature.SignatureValid ? PackageTrust.Invalid
+                : signature.ChainTrusted ? PackageTrust.Trusted
+                : signature.CertificateExpired ? PackageTrust.Expired
+                : PackageTrust.Untrusted;
+            if (trust == PackageTrust.Trusted && signature.Timestamp is { } stamped)
+                notes.Add($"The signing certificate is outside its validity period now. The signature has a timestamp of {stamped:yyyy-MM-dd} inside that period, so Windows accepts the signature.");
             return (trust, signature.Subject, signature.Thumbprint);
         }
         catch (Exception ex) when (ex is InvalidOperationException or IOException or InvalidDataException or System.Security.Cryptography.CryptographicException or InstallerAnalysisException)

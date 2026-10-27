@@ -1,5 +1,7 @@
 using System.IO.Compression;
+using System.Security.Cryptography;
 using System.Security.Cryptography.Pkcs;
+using System.Security.Cryptography.X509Certificates;
 using System.Xml.Linq;
 
 namespace ApplicationPackagerEngine.Services;
@@ -26,8 +28,20 @@ public sealed class MsixSignature
     /// not compared with the package files.
     /// </summary>
     public bool SignatureValid { get; init; }
-    /// <summary>True when the signer certificate chains to a trusted root on this machine.</summary>
+    /// <summary>
+    /// True when the signer certificate chains to a trusted root on this machine, at the current time or, for an
+    /// expired certificate, at the time of a valid timestamp that falls inside the validity of the certificate.
+    /// </summary>
     public bool ChainTrusted { get; init; }
+
+    /// <summary>The time of the valid timestamp the trust decision used; null when none was used.</summary>
+    public DateTimeOffset? Timestamp { get; init; }
+
+    /// <summary>
+    /// True when the chain fails only because the signer certificate is outside its validity period and no valid
+    /// timestamp inside that period exists, or the certificate has the lifetime signing usage.
+    /// </summary>
+    public bool CertificateExpired { get; init; }
 }
 
 /// <summary>
@@ -43,6 +57,13 @@ public sealed class MsixPackageReader
 
     /// <summary>The largest AppxSignature.p7x read. A real part is a few kilobytes; the cap keeps a crafted part from exhausting memory.</summary>
     public const int MaxSignatureBytes = 1024 * 1024;
+
+    /// <summary>The roots a chain is built against instead of the machine stores; null uses the machine stores.</summary>
+    private readonly X509Certificate2Collection? _customRoots;
+
+    public MsixPackageReader() { }
+
+    internal MsixPackageReader(X509Certificate2Collection customRoots) => _customRoots = customRoots;
 
     /// <summary>
     /// Throws unless the file starts with the zip local-file header. A vendor
@@ -148,22 +169,86 @@ public sealed class MsixPackageReader
         try { cms.CheckSignature(verifySignatureOnly: true); }
         catch (System.Security.Cryptography.CryptographicException) { signatureValid = false; }
 
-        var chainTrusted = false;
-        try
+        var (chainTrusted, onlyTime) = BuildChain(cert, cms.Certificates, at: null, CodeSigningOid);
+        DateTimeOffset? timestamp = null;
+        var expired = false;
+        if (!chainTrusted && onlyTime)
         {
-            using var chain = new System.Security.Cryptography.X509Certificates.X509Chain();
-            chain.ChainPolicy.RevocationMode = System.Security.Cryptography.X509Certificates.X509RevocationMode.NoCheck;
-            chainTrusted = chain.Build(cert);
+            timestamp = HasUsage(cert, LifetimeSigningOid) ? null : ValidTimestamp(signer!, cms.Certificates);
+            chainTrusted = timestamp is { } at && BuildChain(cert, cms.Certificates, at, CodeSigningOid).Trusted;
+            if (!chainTrusted) timestamp = null;
+            expired = !chainTrusted;
         }
-        catch (System.Security.Cryptography.CryptographicException) { }
 
         return new MsixSignature
         {
             Thumbprint = cert.Thumbprint,
             Subject = cert.Subject,
             SignatureValid = signatureValid,
-            ChainTrusted = chainTrusted
+            ChainTrusted = chainTrusted,
+            Timestamp = timestamp,
+            CertificateExpired = expired
         };
+    }
+
+    private const string CodeSigningOid = "1.3.6.1.5.5.7.3.3";
+    private const string TimeStampingOid = "1.3.6.1.5.5.7.3.8";
+    private const string LifetimeSigningOid = "1.3.6.1.4.1.311.10.3.13";
+
+    /// <summary>The RFC 3161 timestamp token attribute of Authenticode, and the one of RFC 5544.</summary>
+    private static readonly string[] TimestampTokenOids = ["1.3.6.1.4.1.311.3.3.1", "1.2.840.113549.1.9.16.2.14"];
+
+    private const X509ChainStatusFlags TimeFlags = X509ChainStatusFlags.NotTimeValid | X509ChainStatusFlags.NotTimeNested;
+
+    /// <summary>
+    /// Builds the chain of <paramref name="certificate"/> at <paramref name="at"/> (now when null) for the usage.
+    /// OnlyTime is true when the chain fails and every failure is a validity-period failure.
+    /// </summary>
+    private (bool Trusted, bool OnlyTime) BuildChain(X509Certificate2 certificate, X509Certificate2Collection extra, DateTimeOffset? at, string usage)
+    {
+        try
+        {
+            using var chain = new X509Chain();
+            chain.ChainPolicy.RevocationMode = X509RevocationMode.NoCheck;
+            chain.ChainPolicy.ExtraStore.AddRange(extra);
+            chain.ChainPolicy.ApplicationPolicy.Add(new Oid(usage));
+            if (at is { } time) chain.ChainPolicy.VerificationTime = time.UtcDateTime;
+            if (_customRoots is not null)
+            {
+                chain.ChainPolicy.TrustMode = X509ChainTrustMode.CustomRootTrust;
+                chain.ChainPolicy.CustomTrustStore.AddRange(_customRoots);
+            }
+            if (chain.Build(certificate)) return (true, false);
+            var flags = chain.ChainStatus.Aggregate(X509ChainStatusFlags.NoError, (all, s) => all | s.Status);
+            return (false, (flags & TimeFlags) != 0 && (flags & ~TimeFlags) == 0);
+        }
+        catch (CryptographicException)
+        {
+            return (false, false);
+        }
+    }
+
+    private static bool HasUsage(X509Certificate2 certificate, string usage) =>
+        certificate.Extensions.OfType<X509EnhancedKeyUsageExtension>().Any(e => e.EnhancedKeyUsages.Cast<Oid>().Any(o => o.Value == usage));
+
+    /// <summary>
+    /// The time of the first timestamp token that signs this signer's signature, whose TSA certificate has the time
+    /// stamping usage and chains at that time; null when there is none.
+    /// </summary>
+    private DateTimeOffset? ValidTimestamp(SignerInfo signer, X509Certificate2Collection extra)
+    {
+        foreach (var attribute in signer.UnsignedAttributes)
+        {
+            if (!TimestampTokenOids.Contains(attribute.Oid?.Value)) continue;
+            foreach (var value in attribute.Values)
+            {
+                if (!Rfc3161TimestampToken.TryDecode(value.RawData, out var token, out _)) continue;
+                if (!token.VerifySignatureForSignerInfo(signer, out var tsa, extra) || tsa is null) continue;
+                var time = token.TokenInfo.Timestamp;
+                if (HasUsage(tsa, TimeStampingOid) && BuildChain(tsa, extra, time, TimeStampingOid).Trusted) return time;
+            }
+        }
+        return null;
     }
 
     private static InvalidDataException TooLarge() =>

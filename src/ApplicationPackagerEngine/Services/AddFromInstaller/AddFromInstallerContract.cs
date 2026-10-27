@@ -78,7 +78,9 @@ public enum PackageTrust
     Unsigned,
     /// <summary>The signature is not valid: it does not verify over its own signed data.</summary>
     Invalid,
-    Unknown
+    Unknown,
+    /// <summary>The signing certificate is outside its validity period and the signature has no valid timestamp inside it.</summary>
+    Expired
 }
 
 /// <summary>Facts of an MSIX or APPX package or bundle.</summary>
