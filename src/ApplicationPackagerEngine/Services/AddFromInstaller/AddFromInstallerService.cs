@@ -604,7 +604,7 @@ public sealed class AddFromInstallerService : IAddFromInstallerService
             definition.InstallArgs = r.InstallArguments.Value;
             definition.InstallerSettings = null;
         }
-        if (r.UninstallArguments.Evidence == Evidence.Manual) definition.UninstallArgs = r.UninstallArguments.Value;
+        if (r.UninstallArguments.Evidence == Evidence.Manual) definition.UninstallArgs = RestoreProductCodeToken(r, r.UninstallArguments.Value);
         if (r.Architecture is { Evidence: Evidence.Manual, Value.Length: > 0 }) definition.Architecture = r.Architecture.Value;
         if (!string.IsNullOrWhiteSpace(options.InstallerType)) definition.InstallerType = options.InstallerType.Trim();
         if (!string.IsNullOrWhiteSpace(options.InstallerFramework) && r.Framework.Evidence != Evidence.Manual) definition.InstallerFramework = options.InstallerFramework.Trim();
@@ -623,6 +623,17 @@ public sealed class AddFromInstallerService : IAddFromInstallerService
         if (r.Patch is not null) warnings.Add(r.Patch.BaseProductWarning);
         if (r.Package?.TrustWarning is { } trust) warnings.Add(trust);
         return definition;
+    }
+
+    /// <summary>
+    /// An MSI uninstall names the product by the {ProductCode} token. A literal code belongs to one version and the next
+    /// version has another code, so the literal code of the analysed product becomes the token.
+    /// </summary>
+    private static string RestoreProductCodeToken(AddAnalysisResult r, string arguments)
+    {
+        if (r.InstallerType != "MSI") return arguments;
+        var code = r.Deployment?.ProductCode is { HasValue: true } field ? field.Value : r.ProductCode?.Value;
+        return string.IsNullOrEmpty(code) ? arguments : arguments.Replace(code, "{ProductCode}", StringComparison.OrdinalIgnoreCase);
     }
 
     private AppDefinition InstallerDefinition(AddAnalysisResult r, AddSaveOptions options, string name, string version)
