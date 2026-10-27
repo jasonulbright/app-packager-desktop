@@ -132,6 +132,22 @@ public partial class PackagesPage
     private void PackagerGrid_SelectionChanged(object sender, SelectionChangedEventArgs e) =>
         btnOperationHistory.IsEnabled = GetSelectedPackager() is not null;
 
+    private Views.Windows.CatalogWindow? _catalog;
+
+    /// <summary>Opens the Catalog window, or brings the open one to the front.</summary>
+    private void Catalog_Click(object sender, RoutedEventArgs e)
+    {
+        if (_catalog is { IsVisible: true })
+        {
+            _catalog.Activate();
+            return;
+        }
+        _catalog = App.Services.GetRequiredService<Views.Windows.CatalogWindow>();
+        _catalog.Owner = Window.GetWindow(this);
+        _catalog.Closed += (_, _) => _catalog = null;
+        _catalog.Show();
+    }
+
     private void ViewHistory_Click(object sender, RoutedEventArgs e) => OpenHistoryForSelection();
 
     private void ContextMenu_ViewHistory(object sender, RoutedEventArgs e) => OpenHistoryForSelection();

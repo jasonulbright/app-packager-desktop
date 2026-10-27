@@ -37,7 +37,7 @@ public interface IWorkbenchBuildLauncher
 }
 
 /// <summary>
-/// Runs a Workbench Stage or publish through the Packages page, so the run lands the same
+/// Runs a Workbench Stage or publish through the App Packager page, so the run lands the same
 /// log, status and history a grid run does. Stage writes a new run snapshot through
 /// <see cref="WorkbenchStore.CreateRunSnapshot"/>; Package reads the snapshot of the
 /// selected sealed build, so it packages exactly the stage that carries that BuildId.
@@ -59,10 +59,10 @@ public sealed class WorkbenchBuildLauncher(
             string.Equals(WorkbenchApplicationCatalog.ApplicationIdFor(p), request.ApplicationId, StringComparison.OrdinalIgnoreCase));
         if (row is null)
             return new WorkbenchLaunchRefusal(title,
-                "This application is not in the main grid, so it cannot run through the grid pipeline.");
+                "This application is not in the App Packager grid, so it cannot run through the grid pipeline.");
         if (packagesViewModel.IsOperationRunning)
             return new WorkbenchLaunchRefusal(title,
-                "Another operation is running on the Packages page. Wait for it to finish, then run this again.");
+                "Another operation is running on the App Packager page. Wait for it to finish, then run this again.");
         if (package && string.IsNullOrWhiteSpace(request.BuildId))
             return new WorkbenchLaunchRefusal(title, NoSealedBuildMessage);
 
@@ -98,7 +98,7 @@ public sealed class WorkbenchBuildLauncher(
     {
         if (packagesViewModel.IsOperationRunning)
             return new WorkbenchLaunchRefusal(title,
-                "Another operation is running on the Packages page. Wait for it to finish, then run this again.");
+                "Another operation is running on the App Packager page. Wait for it to finish, then run this again.");
         var settings = settingsService.Load();
         var store = WorkbenchStore.Open();
         RunSnapshot NewSnapshot() =>

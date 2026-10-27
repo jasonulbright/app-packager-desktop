@@ -37,7 +37,7 @@ internal static class SidebarFixtures
     {
         var registry = new SidebarRegistry();
         registry.Register(new SidebarItemDefinition("home", "Home", "Home24", SidebarItemKind.Page) { PageType = typeof(PackagesPage), IsPinned = true });
-        registry.Register(new SidebarItemDefinition("a", "Alpha", "Apps24", SidebarItemKind.Page) { PageType = typeof(ApplicationsPage) });
+        registry.Register(new SidebarItemDefinition("a", "Alpha", "Apps24", SidebarItemKind.Page) { PageType = typeof(DetectionTesterPage) });
         registry.Register(new SidebarItemDefinition("b", "Bravo", "Add24", SidebarItemKind.Page) { PageType = typeof(AddAppPage) });
         registry.Register(new SidebarItemDefinition("w", "Window", "Wrench24", SidebarItemKind.Window) { Activate = _ => { } });
         registry.Register(new SidebarItemDefinition("t", "Tool", "Toolbox24", SidebarItemKind.Tool) { Activate = _ => { } });

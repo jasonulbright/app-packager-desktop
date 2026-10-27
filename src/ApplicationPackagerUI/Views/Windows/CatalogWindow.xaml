@@ -1,0 +1,113 @@
+<ui:FluentWindow
+    x:Class="ApplicationPackagerUI.Views.Windows.CatalogWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+    xmlns:controls="clr-namespace:ApplicationPackagerUI.Controls"
+    Title="Catalog"
+    Width="680" Height="720"
+    MinWidth="480" MinHeight="420"
+    WindowStartupLocation="CenterOwner"
+    ExtendsContentIntoTitleBar="True"
+    WindowBackdropType="Mica">
+
+    <ui:FluentWindow.Resources>
+        <BooleanToVisibilityConverter x:Key="CatalogBoolToVisibility" />
+    </ui:FluentWindow.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <ui:TitleBar Grid.Row="0" Title="Catalog" ShowMinimize="False" />
+
+        <Grid Grid.Row="1" Margin="24,8,24,16">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <controls:PageHeader Grid.Row="0" Title="Catalog" Description="{Binding CountText}" TitleAutomationId="txtCatalogTitle" />
+
+            <ui:TextBox x:Name="txtCatalogSearch" Grid.Row="1" Margin="0,0,0,8"
+                        Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
+                        PlaceholderText="Search applications and vendors..."
+                        Icon="{ui:SymbolIcon Search24}"
+                        AutomationProperties.AutomationId="txtCatalogSearch"
+                        AutomationProperties.Name="Search applications and vendors" />
+
+            <ScrollViewer x:Name="scrollCatalog" Grid.Row="2" VerticalScrollBarVisibility="Auto" Focusable="False"
+                          AutomationProperties.AutomationId="scrollCatalog">
+                <ItemsControl ItemsSource="{Binding VendorGroups}" Focusable="False" AutomationProperties.AutomationId="lstCatalogVendors">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Expander IsExpanded="{Binding IsExpanded}" Margin="0,0,0,2"
+                                      Visibility="{Binding MatchesSearch, Converter={StaticResource CatalogBoolToVisibility}}"
+                                      AutomationProperties.Name="{Binding Vendor}">
+                                <Expander.Resources>
+                                    <Style TargetType="ToggleButton" BasedOn="{StaticResource {x:Type ToggleButton}}">
+                                        <Setter Property="AutomationProperties.Name" Value="{Binding Vendor, StringFormat=Expand or collapse {0}}" />
+                                    </Style>
+                                </Expander.Resources>
+                                <Expander.Header>
+                                    <StackPanel Orientation="Horizontal">
+                                        <CheckBox IsThreeState="True"
+                                                  IsChecked="{Binding IsAllVisible}"
+                                                  Click="VendorCheckBox_Click"
+                                                  Tag="{Binding}"
+                                                  AutomationProperties.Name="{Binding Vendor, StringFormat=Show every application of {0}}"
+                                                  VerticalAlignment="Center" Margin="0,0,8,0" />
+                                        <TextBlock Text="{Binding Vendor}" FontWeight="SemiBold" FontSize="13"
+                                                   VerticalAlignment="Center"
+                                                   Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
+                                    </StackPanel>
+                                </Expander.Header>
+                                <ItemsControl ItemsSource="{Binding Apps}" Margin="28,4,0,4" Focusable="False">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <StackPanel Orientation="Horizontal" Margin="0,2,0,2"
+                                                        Visibility="{Binding MatchesSearch, Converter={StaticResource CatalogBoolToVisibility}}">
+                                                <CheckBox IsChecked="{Binding IsVisible}"
+                                                          Content="{Binding Application}"
+                                                          VerticalAlignment="Center" />
+                                                <Border CornerRadius="4" Padding="6,0" Margin="8,0,0,0" BorderThickness="1"
+                                                        VerticalAlignment="Center"
+                                                        BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}"
+                                                        Background="{DynamicResource ControlFillColorSecondaryBrush}"
+                                                        ToolTip="{Binding Script}">
+                                                    <TextBlock Text="{Binding TypeLabel}" FontSize="12"
+                                                               Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                                                </Border>
+                                            </StackPanel>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </Expander>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </ScrollViewer>
+
+            <Border Grid.Row="3" BorderThickness="0,1,0,0" BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}" Padding="0,12,0,0" Margin="0,8,0,0">
+                <WrapPanel HorizontalAlignment="Right">
+                    <ui:Button x:Name="btnCatalogShowAll" Content="Show all" Command="{Binding ShowAllCommand}" MinWidth="96" Margin="0,0,8,0"
+                               AutomationProperties.AutomationId="btnCatalogShowAll"
+                               ToolTip="Show the applications that match the search. Select Save to apply." />
+                    <ui:Button x:Name="btnCatalogHideAll" Content="Hide all" Command="{Binding HideAllCommand}" MinWidth="96" Margin="0,0,8,0"
+                               AutomationProperties.AutomationId="btnCatalogHideAll"
+                               ToolTip="Hide the applications that match the search. Select Save to apply." />
+                    <ui:Button x:Name="btnCatalogSave" Content="Save" Appearance="Primary" Icon="{ui:SymbolIcon Save24}" Command="{Binding SaveCommand}" MinWidth="96" Margin="0,0,8,0"
+                               AutomationProperties.AutomationId="btnCatalogSave"
+                               ToolTip="Save the list and reload the App Packager grid." />
+                    <ui:Button x:Name="btnCatalogClose" Content="Close" IsCancel="True" MinWidth="96" Click="Close_Click"
+                               AutomationProperties.AutomationId="btnCatalogClose"
+                               ToolTip="Close the window. A change that is not saved stays in the window until you save it." />
+                </WrapPanel>
+            </Border>
+        </Grid>
+    </Grid>
+</ui:FluentWindow>

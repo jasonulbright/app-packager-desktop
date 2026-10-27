@@ -41,7 +41,7 @@ public sealed class SidebarWiringTests : IDisposable
     /// <summary>A plain page per page type, so navigation needs none of the real pages' services.</summary>
     private static void AddPlainPages(IServiceCollection services)
     {
-        foreach (var type in new[] { typeof(ApplicationPackagerUI.Views.Pages.PackagesPage), typeof(ApplicationPackagerUI.Views.Pages.ApplicationsPage),
+        foreach (var type in new[] { typeof(ApplicationPackagerUI.Views.Pages.PackagesPage),
                      typeof(ApplicationPackagerUI.Views.Pages.AddAppPage), typeof(ApplicationPackagerUI.Views.Pages.AddFilePage), typeof(ApplicationPackagerUI.Views.Pages.SettingsPage),
                      typeof(ApplicationPackagerUI.Views.Pages.DetectionTesterPage), typeof(ApplicationPackagerUI.Views.Pages.MaintenanceWindowsPage),
                      typeof(ApplicationPackagerUI.Views.Pages.CollectionCompliancePage), typeof(ApplicationPackagerUI.Views.Pages.InstallerAnalysisPage),

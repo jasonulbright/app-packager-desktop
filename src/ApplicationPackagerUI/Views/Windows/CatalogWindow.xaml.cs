@@ -1,16 +1,21 @@
 using System.Windows;
+using System.Windows.Input;
 using ApplicationPackagerUI.Models;
-using ApplicationPackagerUI.ViewModels.Pages;
+using ApplicationPackagerUI.ViewModels.Windows;
 
-namespace ApplicationPackagerUI.Views.Pages;
+namespace ApplicationPackagerUI.Views.Windows;
 
-public partial class ApplicationsPage
+/// <summary>Shows and hides applications in the App Packager grid; opened by the Catalog button.</summary>
+public partial class CatalogWindow
 {
-    public ApplicationsPage(ApplicationsViewModel viewModel)
+    public CatalogWindow(CatalogViewModel viewModel)
     {
         DataContext = viewModel;
         InitializeComponent();
+        Loaded += (_, _) => Keyboard.Focus(txtCatalogSearch);
     }
+
+    public CatalogViewModel ViewModel => (CatalogViewModel)DataContext;
 
     private void VendorCheckBox_Click(object sender, RoutedEventArgs e)
     {
@@ -21,9 +26,9 @@ public partial class ApplicationsPage
             foreach (var app in group.Apps)
                 app.IsVisible = newState;
             group.UpdateGroupState();
-
-            var vm = (ApplicationsViewModel)DataContext!;
-            vm.UpdateCountsPublic();
+            ViewModel.UpdateCountsPublic();
         }
     }
+
+    private void Close_Click(object sender, RoutedEventArgs e) => Close();
 }
