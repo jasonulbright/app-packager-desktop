@@ -9,41 +9,39 @@ namespace ApplicationPackagerEngine.Services;
 public sealed class ArchiveExtractionService
 {
     private readonly string _sevenZipPath;
+    private readonly IAnalysisSandbox _sandbox;
+    private readonly AnalysisLimits _limits;
 
-    public ArchiveExtractionService(string? sevenZipPath = null)
+    public ArchiveExtractionService(string? sevenZipPath = null, IAnalysisSandbox? sandbox = null, AnalysisLimits? limits = null)
     {
         _sevenZipPath = sevenZipPath
             ?? FindSevenZip()
             ?? throw new FileNotFoundException("7z.exe not found. Install 7-Zip or set the path in Settings.");
+        _sandbox = sandbox ?? new AnalysisSandbox();
+        _limits = limits ?? AnalysisLimits.Default;
     }
 
     /// <summary>
-    /// Extracts all contents of an archive to a target directory.
+    /// Extracts the whole payload into a new analysis sandbox session with the Installer Analysis limits
+    /// (size, entries, compression ratio, time), its 7-Zip version gate and its link rules. A refused or
+    /// failed extraction returns Success false with a plain message; nothing is written outside the session.
+    /// Dispose the result to delete the session.
     /// </summary>
-    public async Task<ExtractionResult> ExtractAsync(string archivePath, string outputDir, CancellationToken ct = default)
+    public async Task<BoundedExtractionResult> ExtractAsync(string archivePath, CancellationToken ct = default)
     {
         if (!File.Exists(archivePath))
-            return new ExtractionResult { Success = false, ErrorMessage = $"Archive not found: {archivePath}" };
-
-        Directory.CreateDirectory(outputDir);
-
-        var (exitCode, stdout, stderr) = await RunAsync(
-            $"x \"{archivePath}\" -o\"{outputDir}\" -y",
-            ct);
-
-        if (exitCode != 0)
-            return new ExtractionResult { Success = false, ErrorMessage = $"7z exit code {exitCode}: {stderr}" };
-
-        var files = Directory.GetFiles(outputDir, "*", SearchOption.AllDirectories);
-        return new ExtractionResult
+            return new BoundedExtractionResult(Success: false, Extraction: null, ErrorMessage: "The installer file does not exist.");
+        var analysis = new InstallerAnalysisService(_sandbox, () => _sevenZipPath);
+        try
         {
-            Success = true,
-            OutputDirectory = outputDir,
-            FileCount = files.Length,
-            Files = files.Select(f => Path.GetRelativePath(outputDir, f)).ToArray()
-        };
+            var extraction = await analysis.ExtractToSandboxAsync(archivePath, _limits, ct).ConfigureAwait(false);
+            return new BoundedExtractionResult(Success: true, Extraction: extraction, ErrorMessage: null);
+        }
+        catch (InstallerAnalysisException ex)
+        {
+            return new BoundedExtractionResult(Success: false, Extraction: null, ErrorMessage: ex.Message);
+        }
     }
-
     /// <summary>
     /// Lists archive contents without extracting. Returns file entries with names and sizes.
     /// </summary>
@@ -102,18 +100,6 @@ public sealed class ArchiveExtractionService
                 entries.Add(name);
         }
         return entries;
-    }
-
-    /// <summary>
-    /// Extracts a single file from an archive to a target directory.
-    /// </summary>
-    public async Task<bool> ExtractFileAsync(string archivePath, string fileName, string outputDir, CancellationToken ct = default)
-    {
-        Directory.CreateDirectory(outputDir);
-        var (exitCode, _, _) = await RunAsync(
-            $"e \"{archivePath}\" -o\"{outputDir}\" \"{fileName}\" -y",
-            ct);
-        return exitCode == 0;
     }
 
     /// <summary>
@@ -195,13 +181,12 @@ public sealed class ArchiveExtractionService
     }
 }
 
-public sealed class ExtractionResult
+/// <summary>The result of a bounded extraction. Dispose deletes the sandbox session of a successful extraction.</summary>
+public sealed record BoundedExtractionResult(bool Success, SandboxExtraction? Extraction, string? ErrorMessage) : IDisposable
 {
-    public bool Success { get; init; }
-    public string? OutputDirectory { get; init; }
-    public int FileCount { get; init; }
-    public string[]? Files { get; init; }
-    public string? ErrorMessage { get; init; }
+    public string? OutputDirectory => Extraction?.Folder;
+
+    public void Dispose() => Extraction?.Dispose();
 }
 
 public sealed class ArchiveListResult

@@ -75,12 +75,11 @@ public sealed class InstallerIdentificationService
 
     private async Task<InstallerMetadata> ExtractNsisMetadataAsync(string exePath, CancellationToken ct)
     {
-        var tempDir = Path.Combine(Path.GetTempPath(), $"packr-nsis-{Guid.NewGuid():N}");
-        try
+        using var result = await _archiveService.ExtractAsync(exePath, ct);
+        if (!result.Success)
+            return new InstallerMetadata { Framework = "NSIS" };
+        var tempDir = result.OutputDirectory!;
         {
-            var result = await _archiveService.ExtractAsync(exePath, tempDir, ct);
-            if (!result.Success)
-                return new InstallerMetadata { Framework = "NSIS" };
 
             // JetBrains product-info.json
             var productInfoPath = Path.Combine(tempDir, "product-info.json");
@@ -132,21 +131,16 @@ public sealed class InstallerIdentificationService
 
             return new InstallerMetadata { Framework = "NSIS" };
         }
-        finally
-        {
-            try { Directory.Delete(tempDir, true); } catch { }
-        }
     }
 
     private async Task<InstallerMetadata> ExtractInnoSetupMetadataAsync(string exePath, CancellationToken ct)
     {
         // An Inno Setup uninstall key is <AppId>_is1, and AppId defaults to AppName.
-        var tempDir = Path.Combine(Path.GetTempPath(), $"packr-inno-{Guid.NewGuid():N}");
-        try
+        using var result = await _archiveService.ExtractAsync(exePath, ct);
+        if (!result.Success)
+            return new InstallerMetadata { Framework = "InnoSetup" };
+        var tempDir = result.OutputDirectory!;
         {
-            var result = await _archiveService.ExtractAsync(exePath, tempDir, ct);
-            if (!result.Success)
-                return new InstallerMetadata { Framework = "InnoSetup" };
 
             var appDir = Path.Combine(tempDir, "{app}");
             if (Directory.Exists(appDir))
@@ -174,22 +168,17 @@ public sealed class InstallerIdentificationService
 
             return new InstallerMetadata { Framework = "InnoSetup" };
         }
-        finally
-        {
-            try { Directory.Delete(tempDir, true); } catch { }
-        }
     }
 
     private async Task<InstallerMetadata> ExtractWixBurnMetadataAsync(string exePath, CancellationToken ct)
     {
         // WiX Burn: extract EXE → parse BurnManifest XML for ProductCode,
         // or find inner .msi and read MSI tables as fallback.
-        var tempDir = Path.Combine(Path.GetTempPath(), $"packr-burn-{Guid.NewGuid():N}");
-        try
+        using var result = await _archiveService.ExtractAsync(exePath, ct);
+        if (!result.Success)
+            return new InstallerMetadata { Framework = "WixBurn" };
+        var tempDir = result.OutputDirectory!;
         {
-            var result = await _archiveService.ExtractAsync(exePath, tempDir, ct);
-            if (!result.Success)
-                return new InstallerMetadata { Framework = "WixBurn" };
 
             // Strategy 1: Parse BurnManifest XML (file "0") for MsiPackage ProductCode.
             // Burn EXEs extract to numbered files without extensions. File "0" is the manifest.
@@ -260,59 +249,35 @@ public sealed class InstallerIdentificationService
                 MetadataSource = $"inner-msi:{Path.GetFileName(mainMsi)}"
             };
         }
-        finally
-        {
-            try { Directory.Delete(tempDir, true); } catch { }
-        }
     }
 
-    private async Task<InstallerMetadata> ExtractMsixMetadataAsync(string msixPath, CancellationToken ct)
+    private static Task<InstallerMetadata> ExtractMsixMetadataAsync(string msixPath, CancellationToken ct)
     {
-        var tempDir = Path.Combine(Path.GetTempPath(), $"packr-msix-{Guid.NewGuid():N}");
-        try
+        ct.ThrowIfCancellationRequested();
+        MsixIdentity identity;
+        try { identity = new MsixPackageReader().ReadIdentity(msixPath); }
+        catch (Exception ex) when (ex is InvalidOperationException or IOException or InvalidDataException or System.Xml.XmlException or InstallerAnalysisException)
         {
-            var extracted = await _archiveService.ExtractFileAsync(msixPath, "AppxManifest.xml", tempDir, ct);
-            if (!extracted)
-                return new InstallerMetadata { Framework = "MSIX" };
-
-            var manifestPath = Path.Combine(tempDir, "AppxManifest.xml");
-            if (!File.Exists(manifestPath))
-                return new InstallerMetadata { Framework = "MSIX" };
-
-            var doc = new System.Xml.XmlDocument();
-            doc.Load(manifestPath);
-            var nsMgr = new System.Xml.XmlNamespaceManager(doc.NameTable);
-            nsMgr.AddNamespace("x", "http://schemas.microsoft.com/appx/manifest/foundation/windows10");
-
-            var identity = doc.SelectSingleNode("//x:Identity", nsMgr);
-            var name = identity?.Attributes?["Name"]?.Value;
-            var version = identity?.Attributes?["Version"]?.Value;
-            var publisher = identity?.Attributes?["Publisher"]?.Value;
-
-            return new InstallerMetadata
-            {
-                Framework = "MSIX",
-                ProductName = name,
-                ProductVersion = version,
-                Manufacturer = publisher,
-                DetectionType = "MSIX",
-                MetadataSource = "AppxManifest.xml"
-            };
+            return Task.FromResult(new InstallerMetadata { Framework = "MSIX" });
         }
-        finally
+        return Task.FromResult(new InstallerMetadata
         {
-            try { Directory.Delete(tempDir, true); } catch { }
-        }
+            Framework = "MSIX",
+            ProductName = identity.Name,
+            ProductVersion = identity.Version,
+            Manufacturer = identity.Publisher,
+            DetectionType = "MSIX",
+            MetadataSource = "AppxManifest.xml"
+        });
     }
 
     private async Task<InstallerMetadata> ExtractZipMetadataAsync(string zipPath, CancellationToken ct)
     {
-        var tempDir = Path.Combine(Path.GetTempPath(), $"packr-zip-{Guid.NewGuid():N}");
-        try
+        using var result = await _archiveService.ExtractAsync(zipPath, ct);
+        if (!result.Success)
+            return new InstallerMetadata { Framework = "ZIP" };
+        var tempDir = result.OutputDirectory!;
         {
-            var result = await _archiveService.ExtractAsync(zipPath, tempDir, ct);
-            if (!result.Success)
-                return new InstallerMetadata { Framework = "ZIP" };
 
             var exes = Directory.GetFiles(tempDir, "*.exe", SearchOption.AllDirectories);
             if (exes.Length > 0)
@@ -331,10 +296,6 @@ public sealed class InstallerIdentificationService
             }
 
             return new InstallerMetadata { Framework = "ZIP" };
-        }
-        finally
-        {
-            try { Directory.Delete(tempDir, true); } catch { }
         }
     }
 }
