@@ -18,6 +18,7 @@ public sealed class AddFromInstallerService : IAddFromInstallerService
     public const string UninstallKeySource = "https://learn.microsoft.com/windows/win32/msi/uninstall-registry-key";
     public const string RegistryViewSource = "https://learn.microsoft.com/windows/win32/winprog64/registry-redirector";
     public const string AddAppxPackageSource = "https://learn.microsoft.com/powershell/module/appx/add-appxpackage";
+    public const string PatchXmlSource = "https://learn.microsoft.com/windows/win32/msi/extracting-patch-information-as-xml";
     public const string RemoveProvisionedPackageSource = "https://learn.microsoft.com/powershell/module/dism/remove-appxprovisionedpackage";
 
     private const string ArpRelative = @"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall";
@@ -342,9 +343,12 @@ public sealed class AddFromInstallerService : IAddFromInstallerService
         var vendor = Fact("ManufacturerName") is { Length: > 0 } maker
             ? new ProposedValue<string?>(Value: maker, Evidence: Evidence.Confirmed, Source: "msi-patch-metadata")
             : new ProposedValue<string?>(Value: null, Evidence: Evidence.None, Source: null);
-        var version = postVersion.Length > 0
-            ? new ProposedValue<string?>(Value: postVersion, Evidence: Evidence.Predicted, Source: "msi-patch-metadata: the version in parentheses in the patch DisplayName")
-            : new ProposedValue<string?>(Value: null, Evidence: Evidence.None, Source: null);
+        var fromXml = facts.FirstOrDefault(f => f.Name == "Post-patch version") is { Confidence: "Confirmed", Source: "msi-patch-xml" } xmlFact && xmlFact.Value == postVersion;
+        var version = postVersion.Length == 0
+            ? new ProposedValue<string?>(Value: null, Evidence: Evidence.None, Source: null)
+            : fromXml
+                ? new ProposedValue<string?>(Value: postVersion, Evidence: Evidence.Confirmed, Source: PatchXmlSource)
+                : new ProposedValue<string?>(Value: postVersion, Evidence: Evidence.Predicted, Source: "msi-patch-metadata: the version in parentheses in the patch DisplayName");
         var switches = SilentSwitchDatabase.Lookup("MSP");
         var uninstallCommand = patchCode.Length > 0 && productCode.Length > 0 && ProposedCommand.IsProductCode(patchCode)
             ? new ProposedValue<string>(Value: $"msiexec.exe /package {productCode} /uninstall {patchCode} /qn /norestart", Evidence: Evidence.Predicted, Source: SilentSwitchDatabase.MspUninstallSource)

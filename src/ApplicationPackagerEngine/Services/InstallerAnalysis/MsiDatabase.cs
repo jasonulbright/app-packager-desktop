@@ -59,6 +59,9 @@ internal static class MsiNative
 
     [DllImport("msi.dll", ExactSpelling = true)]
     public static extern uint MsiCloseHandle(IntPtr hAny);
+
+    [DllImport("msi.dll", CharSet = CharSet.Unicode, ExactSpelling = true)]
+    public static extern uint MsiExtractPatchXMLDataW(string szPatchPath, uint dwReserved, [Out] char[]? szXMLData, ref uint pcchXMLData);
 }
 
 /// <summary>
@@ -121,6 +124,88 @@ internal sealed class MsiDatabase : IDisposable
     }
 
     public void Dispose() => _handle.Dispose();
+
+    /// <summary>The largest patch applicability XML read; a patch with many targets and sequences stays far below it.</summary>
+    private const uint MaxPatchXmlChars = 1024 * 1024;
+
+    /// <summary>The applicability XML MsiExtractPatchXMLData returns for a patch, or null when it fails.</summary>
+    public static string? ReadPatchXml(string path)
+    {
+        uint length = 0;
+        if (MsiNative.MsiExtractPatchXMLDataW(path, 0, null, ref length) != MsiNative.Success || length == 0 || length > MaxPatchXmlChars) return null;
+        var buffer = new char[length + 1];
+        length++;
+        return MsiNative.MsiExtractPatchXMLDataW(path, 0, buffer, ref length) == MsiNative.Success ? new string(buffer, 0, (int)length) : null;
+    }
+
+    /// <summary>
+    /// The UpdatedVersion of the target product with <paramref name="productCode"/>: its ProductVersion after the patch.
+    /// With <paramref name="baseVersion"/>, only the targets whose TargetVersion condition (ComparisonType,
+    /// ComparisonFilter, Validate) the base version meets count. The counted targets must all carry the same
+    /// UpdatedVersion; null otherwise, because a target with no UpdatedVersion is a small update that keeps the
+    /// ProductVersion.
+    /// </summary>
+    public static string? PatchUpdatedVersion(string? xml, string productCode, string? baseVersion = null)
+    {
+        if (string.IsNullOrWhiteSpace(xml) || string.IsNullOrWhiteSpace(productCode)) return null;
+        var updated = new HashSet<string>(StringComparer.Ordinal);
+        try
+        {
+            var settings = new System.Xml.XmlReaderSettings { DtdProcessing = System.Xml.DtdProcessing.Prohibit, XmlResolver = null, MaxCharactersInDocument = MaxPatchXmlChars };
+            using var reader = System.Xml.XmlReader.Create(new StringReader(xml), settings);
+            var root = System.Xml.Linq.XDocument.Load(reader).Root;
+            foreach (var target in root?.Elements().Where(e => e.Name.LocalName == "TargetProduct") ?? [])
+            {
+                var children = target.Elements().ToList();
+                if (!children.Any(e => e.Name.LocalName == "TargetProductCode" && string.Equals(e.Value.Trim(), productCode, StringComparison.OrdinalIgnoreCase))) continue;
+                var targetVersion = children.FirstOrDefault(e => e.Name.LocalName == "TargetVersion");
+                if (!string.IsNullOrWhiteSpace(baseVersion) && (targetVersion is null || !MeetsTargetVersion(targetVersion, baseVersion))) continue;
+                updated.Add(children.FirstOrDefault(e => e.Name.LocalName == "UpdatedVersion")?.Value.Trim() ?? "");
+            }
+        }
+        catch (System.Xml.XmlException)
+        {
+            return null;
+        }
+        return updated.Count == 1 && updated.First() is var only && System.Text.RegularExpressions.Regex.IsMatch(only, @"^\d{1,5}(\.\d{1,5}){0,3}$") ? only : null;
+    }
+
+    /// <summary>
+    /// True when <paramref name="baseVersion"/> meets the TargetVersion condition of the patch applicability schema:
+    /// Validate false, or ComparisonType or ComparisonFilter None, always meets it; the filter names how many leading
+    /// fields count (Major 1, MajorMinor 2, MajorMinorUpdate 3).
+    /// </summary>
+    private static bool MeetsTargetVersion(System.Xml.Linq.XElement targetVersion, string baseVersion)
+    {
+        string Attribute(string name, string fallback) => (string?)targetVersion.Attribute(name) ?? fallback;
+        if (string.Equals(Attribute("Validate", "true"), "false", StringComparison.OrdinalIgnoreCase)) return true;
+        var type = Attribute("ComparisonType", "Equal");
+        var filter = Attribute("ComparisonFilter", "MajorMinorUpdate");
+        if (type == "None" || filter == "None") return true;
+        var count = filter switch { "Major" => 1, "MajorMinor" => 2, _ => 3 };
+        if (Fields(baseVersion, count) is not { } current || Fields(targetVersion.Value, count) is not { } wanted) return false;
+        var compared = current.Zip(wanted, (a, b) => a.CompareTo(b)).FirstOrDefault(c => c != 0);
+        return type switch
+        {
+            "LessThan" => compared < 0,
+            "LessThanOrEqual" => compared <= 0,
+            "Equal" => compared == 0,
+            "GreaterThanOrEqual" => compared >= 0,
+            "GreaterThan" => compared > 0,
+            _ => false
+        };
+    }
+
+    /// <summary>The first <paramref name="count"/> numeric fields of a version; a missing field counts as 0.</summary>
+    private static int[]? Fields(string version, int count)
+    {
+        var parts = version.Trim().Split('.');
+        if (parts.Length > 4) return null;
+        var fields = new int[count];
+        for (var i = 0; i < Math.Min(count, parts.Length); i++)
+            if (!int.TryParse(parts[i], System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out fields[i])) return null;
+        return fields;
+    }
 
     /// <summary>The summary information stream: string and integer properties by property id.</summary>
     public static Dictionary<int, string> ReadSummary(string path)
