@@ -11,6 +11,7 @@ using TextBlock = System.Windows.Controls.TextBlock;
 namespace ApplicationPackagerEngine.Tests;
 
 /// <summary>The Catalog window and its view model: search, show and hide, counts, save, and the window in both themes.</summary>
+[Collection(ProcessEnvironmentCollection.Name)]
 public sealed class CatalogWindowTests
 {
     private sealed class Store

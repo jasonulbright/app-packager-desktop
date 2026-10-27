@@ -7,6 +7,7 @@ using static ApplicationPackagerEngine.Tests.Compliance.RenderKit;
 namespace ApplicationPackagerEngine.Tests;
 
 /// <summary>The status cells of the DP Content, Site Hygiene and Pivots grids take their color from the outcome, with theme brushes.</summary>
+[Collection(ProcessEnvironmentCollection.Name)]
 public sealed class OutcomeColorTests
 {
     private static readonly XNamespace Presentation = "http://schemas.microsoft.com/winfx/2006/xaml/presentation";
