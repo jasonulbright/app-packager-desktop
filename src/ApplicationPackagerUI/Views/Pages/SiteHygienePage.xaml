@@ -192,7 +192,7 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <controls:PageHeader x:Name="pageHeader" Grid.Row="0" Margin="0,0,0,8" Title="Site Hygiene" TitleAutomationId="txtHygieneTitle" DescriptionAutomationId="txtHygieneIntro"
+        <controls:PageHeader x:Name="pageHeader" Grid.Row="0" Title="Site Hygiene" TitleAutomationId="txtHygieneTitle" DescriptionAutomationId="txtHygieneIntro"
                              Description="Scans the site for unused, broken and misconfigured objects and fixes a finding with a typed change. Every fix checks the finding again and shows a plan first. A delete cannot be undone." />
 
         <StackPanel Grid.Row="1">

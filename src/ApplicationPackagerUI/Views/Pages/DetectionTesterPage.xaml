@@ -60,7 +60,7 @@
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
-        <controls:PageHeader Grid.Row="0" Margin="0,0,0,8" Title="Detection Tester" TitleAutomationId="txtDetectionTesterTitle"
+        <controls:PageHeader Grid.Row="0" Title="Detection Tester" TitleAutomationId="txtDetectionTesterTitle"
                              Description="Author ConfigMgr detection clauses and test them on this computer. No ConfigMgr connection is used." />
 
         <TabControl Grid.Row="1" SelectedIndex="{Binding SelectedTabIndex}" AutomationProperties.AutomationId="tabDetectionTester">

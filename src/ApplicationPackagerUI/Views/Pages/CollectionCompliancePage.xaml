@@ -112,7 +112,7 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <controls:PageHeader Grid.Row="0" Margin="0,0,0,8" Title="Collection and Compliance" TitleAutomationId="txtCollectionComplianceTitle"
+        <controls:PageHeader Grid.Row="0" Title="Collection and Compliance" TitleAutomationId="txtCollectionComplianceTitle"
                              Description="Show, create and change device collections, their rules and saved queries, and the configuration items and baselines of the site. Every change shows a plan first.">
             <controls:PageHeader.Actions>
                 <StackPanel Orientation="Horizontal" AutomationProperties.Name="Section" AutomationProperties.AutomationId="pnlSection">

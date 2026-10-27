@@ -141,7 +141,7 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <controls:PageHeader Grid.Row="0" Margin="0,0,0,8" Title="Deployment Helper" TitleAutomationId="txtDeploymentTitle" DescriptionAutomationId="txtDeploymentIntro"
+        <controls:PageHeader Grid.Row="0" Title="Deployment Helper" TitleAutomationId="txtDeploymentTitle" DescriptionAutomationId="txtDeploymentIntro"
                              Description="Creates deployments of an application, a package, a task sequence or a software update group to device collections, one at a time or in rings. Every write shows a plan first." />
 
         <Border Grid.Row="1" Style="{StaticResource Caution}" Visibility="{Binding Shared.HasConnectionMessage, Converter={StaticResource BoolToVisibility}}"

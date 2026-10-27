@@ -20,6 +20,8 @@ using ApplicationPackagerUI.Models;
 using ApplicationPackagerUI.Services;
 using ApplicationPackagerUI.ViewModels.Pages;
 using ApplicationPackagerUI.Views.Pages;
+using ApplicationPackagerUI.Views.Windows;
+using ApplicationPackagerUI.ViewModels.Windows;
 using Wpf.Ui.Appearance;
 using Wpf.Ui.Markup;
 using static ApplicationPackagerEngine.Tests.Compliance.RenderKit;
@@ -27,11 +29,13 @@ using Application = System.Windows.Application;
 using DataGrid = System.Windows.Controls.DataGrid;
 using DataGridRow = System.Windows.Controls.DataGridRow;
 using Page = System.Windows.Controls.Page;
+using Panel = System.Windows.Controls.Panel;
+using Point = System.Windows.Point;
 
 namespace ApplicationPackagerEngine.Tests;
 
 /// <summary>
-/// Every sidebar page in a real window, in both themes and at both sizes: the shared page header shows the title in the
+/// Every sidebar page in a real window, in both themes at the default and the minimum audit size: the shared page header shows the title in the
 /// primary text color, and the header leaves the rest of the page to the content.
 /// </summary>
 [Collection(ProcessEnvironmentCollection.Name)]
@@ -43,7 +47,7 @@ public sealed class PageHeaderRenderTests : IDisposable
     /// <summary>The height of the window frame the main window keeps around the page.</summary>
     private const double FrameHeight = 48;
 
-    /// <summary>The header never takes more height than this on a 900x600 window.</summary>
+    /// <summary>The header never takes more height than this on a 1024x720 window.</summary>
     private const double CompactHeaderMaximum = 96;
 
     private readonly string _root = Path.Combine(Path.GetTempPath(), "apkg-header-render-" + Guid.NewGuid().ToString("N"));
@@ -72,7 +76,7 @@ public sealed class PageHeaderRenderTests : IDisposable
         var data = new TheoryData<string, ApplicationTheme, int, int>();
         foreach (var name in PageNames)
             foreach (var theme in new[] { ApplicationTheme.Light, ApplicationTheme.Dark })
-                foreach (var (width, height) in new[] { (1440, 900), (900, 600) })
+                foreach (var (width, height) in new[] { (1440, 900), (1024, 720) })
                     data.Add(name, theme, width, height);
         return data;
     }
@@ -177,7 +181,7 @@ public sealed class PageHeaderRenderTests : IDisposable
                 var header = Descendants(page).OfType<PageHeader>().First();
                 Assert.Equal(TitleOf(name), header.Title);
                 PageChromeKit.AssertTitle(window, header.TitleElement, where);
-                if (height <= 600)
+                if (height <= 720)
                     Assert.True(header.ActualHeight <= CompactHeaderMaximum, $"{where}: the page header is {header.ActualHeight:0} px tall; the limit is {CompactHeaderMaximum} px.");
             }
             finally
@@ -186,5 +190,75 @@ public sealed class PageHeaderRenderTests : IDisposable
                 owner?.Dispose();
             }
         });
+    }
+
+    private sealed record HeaderPlace(double Top, double Left, double TitleTop, double TitleLeft, double Gap)
+    {
+        public override string ToString() => $"top {Top:0.#}, left {Left:0.#}, title top {TitleTop:0.#}, title left {TitleLeft:0.#}, gap to content {Gap:0.#}";
+
+        public bool SameAs(HeaderPlace other) =>
+            Math.Abs(Top - other.Top) < 0.5 && Math.Abs(Left - other.Left) < 0.5 && Math.Abs(TitleTop - other.TitleTop) < 0.5
+            && Math.Abs(TitleLeft - other.TitleLeft) < 0.5 && Math.Abs(Gap - other.Gap) < 0.5;
+    }
+
+    /// <summary>Positions are relative to the area under the window title bar; the gap runs from the header to the first visible sibling below it.</summary>
+    private static HeaderPlace Measure(PageHeader header, UIElement relativeTo, Vector origin)
+    {
+        Point At(UIElement element) => element.TranslatePoint(new Point(0, 0), relativeTo) - origin;
+        var bottom = At(header).Y + header.ActualHeight;
+        var siblings = VisualTreeHelper.GetParent(header) is Panel panel
+            ? panel.Children.OfType<FrameworkElement>().Where(e => e != header && e.IsVisible && e.ActualHeight > 0 && At(e).Y >= bottom - 0.5)
+            : [];
+        var next = siblings.Select(e => At(e).Y).DefaultIfEmpty(bottom).Min();
+        return new HeaderPlace(At(header).Y, At(header).X, At(header.TitleElement).Y, At(header.TitleElement).X, next - bottom);
+    }
+
+    [Theory]
+    [InlineData(ApplicationTheme.Light)]
+    [InlineData(ApplicationTheme.Dark)]
+    public void EveryPageHeaderSitsAtTheSamePlaceWithTheSameGapToTheContent(ApplicationTheme theme)
+    {
+        var places = new Dictionary<string, HeaderPlace>();
+        foreach (var name in PageNames)
+            With(name, theme, () =>
+            {
+                var (page, owner) = Create(name);
+                var window = new Window { Width = 1440 - NavigationPaneWidth, Height = 900 - FrameHeight, WindowStyle = WindowStyle.None, Content = page };
+                Show(window);
+                try
+                {
+                    Settle(window);
+                    places[name] = Measure(Descendants(page).OfType<PageHeader>().First(), window, new Vector());
+                }
+                finally
+                {
+                    window.Close();
+                    owner?.Dispose();
+                }
+            });
+        WithApplication(theme, () =>
+        {
+            var window = new CatalogWindow(new CatalogViewModel(new CatalogServices(
+                LoadSettings: () => new AppSettings(), SaveSettings: _ => { },
+                LoadPackagers: () => Task.FromResult<IReadOnlyList<PackagerInfo>?>([new PackagerInfo { Uid = "git", Vendor = "Git", Application = "Git" }]),
+                RefreshGrid: () => Task.CompletedTask, ShowSaved: _ => { }, Log: _ => { })));
+            window.Left = -32000;
+            window.Top = -32000;
+            window.ShowInTaskbar = false;
+            window.Show();
+            try
+            {
+                Settle(window);
+                var header = Descendants(window).OfType<PageHeader>().First();
+                var body = (Grid)VisualTreeHelper.GetParent(header);
+                var slot = body.TranslatePoint(new Point(0, 0), window) - new Vector(body.Margin.Left, body.Margin.Top);
+                places["Catalog"] = Measure(header, window, new Vector(slot.X, slot.Y));
+            }
+            finally { window.Close(); }
+        });
+
+        var reference = places["App Packager"];
+        var differing = places.Where(p => !p.Value.SameAs(reference)).Select(p => $"{p.Key}: {p.Value}").ToList();
+        Assert.True(differing.Count == 0, $"{theme}: App Packager has {reference}. Different: {string.Join("; ", differing)}.");
     }
 }

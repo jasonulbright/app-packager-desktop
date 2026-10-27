@@ -142,7 +142,7 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <controls:PageHeader Grid.Row="0" Margin="0,0,0,8" Title="DP Content Manager" TitleAutomationId="txtDpContentTitle" DescriptionAutomationId="txtDpContentIntro"
+        <controls:PageHeader Grid.Row="0" Title="DP Content Manager" TitleAutomationId="txtDpContentTitle" DescriptionAutomationId="txtDpContentIntro"
                              Description="Shows the content status of every distribution point and redistributes, validates or removes content. Every write shows a plan first." />
 
         <Border Grid.Row="1" Style="{StaticResource Caution}" Visibility="{Binding HasConnectionMessage, Converter={StaticResource BoolToVisibility}}"
