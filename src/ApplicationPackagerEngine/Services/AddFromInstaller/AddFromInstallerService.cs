@@ -415,7 +415,7 @@ public sealed class AddFromInstallerService : IAddFromInstallerService
         var trustWarning = trust switch
         {
             PackageTrust.Unsigned => "The package is not signed. Windows does not install an unsigned package. Sign the package before you deploy it.",
-            PackageTrust.Invalid => "The package signature does not agree with the package contents. Do not deploy this package.",
+            PackageTrust.Invalid => "The package signature is not valid. Do not deploy this package.",
             PackageTrust.Untrusted => "This computer does not trust the certificate that signed the package. Each target device must trust the certificate, or the install fails.",
             PackageTrust.Unknown => "The package signature could not be checked.",
             _ => null

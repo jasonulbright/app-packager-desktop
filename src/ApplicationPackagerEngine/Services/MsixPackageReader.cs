@@ -21,7 +21,10 @@ public sealed class MsixSignature
 {
     public string Thumbprint { get; init; } = "";
     public string Subject { get; init; } = "";
-    /// <summary>True when the CMS signature verifies over the package's signed content.</summary>
+    /// <summary>
+    /// True when the CMS signature is well formed and verifies over the signed data it carries. The digests in that data are
+    /// not compared with the package files.
+    /// </summary>
     public bool SignatureValid { get; init; }
     /// <summary>True when the signer certificate chains to a trusted root on this machine.</summary>
     public bool ChainTrusted { get; init; }
@@ -37,6 +40,9 @@ public sealed class MsixPackageReader
     private const string ManifestEntry = "AppxManifest.xml";
     private const string BundleManifestEntry = "AppxMetadata/AppxBundleManifest.xml";
     private const string SignatureEntry = "AppxSignature.p7x";
+
+    /// <summary>The largest AppxSignature.p7x read. A real part is a few kilobytes; the cap keeps a crafted part from exhausting memory.</summary>
+    public const int MaxSignatureBytes = 1024 * 1024;
 
     /// <summary>
     /// Throws unless the file starts with the zip local-file header. A vendor
@@ -117,9 +123,11 @@ public sealed class MsixPackageReader
         {
             var entry = zip.GetEntry(SignatureEntry);
             if (entry is null) return null;
+            if (entry.Length > MaxSignatureBytes) throw TooLarge();
             using var stream = entry.Open();
             using var buffer = new MemoryStream();
-            stream.CopyTo(buffer);
+            // The declared length can understate the stream, so the read stops one byte past the cap.
+            stream.CopyTo(new LimitedWriter(buffer, MaxSignatureBytes, TooLarge));
             p7x = buffer.ToArray();
         }
 
@@ -156,6 +164,35 @@ public sealed class MsixPackageReader
             SignatureValid = signatureValid,
             ChainTrusted = chainTrusted
         };
+    }
+
+    private static InvalidDataException TooLarge() =>
+        new($"{SignatureEntry} is larger than {MaxSignatureBytes} bytes.");
+
+    /// <summary>A write-only stream that throws once more than the limit has been written.</summary>
+    private sealed class LimitedWriter(Stream inner, long limit, Func<Exception> exceeded) : Stream
+    {
+        public override void Write(byte[] buffer, int offset, int count)
+        {
+            if (inner.Length + count > limit) throw exceeded();
+            inner.Write(buffer, offset, count);
+        }
+
+        public override void Write(ReadOnlySpan<byte> buffer)
+        {
+            if (inner.Length + buffer.Length > limit) throw exceeded();
+            inner.Write(buffer);
+        }
+
+        public override bool CanRead => false;
+        public override bool CanSeek => false;
+        public override bool CanWrite => true;
+        public override long Length => throw new NotSupportedException();
+        public override long Position { get => throw new NotSupportedException(); set => throw new NotSupportedException(); }
+        public override void Flush() { }
+        public override int Read(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+        public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+        public override void SetLength(long value) => throw new NotSupportedException();
     }
 
     private const string CrockfordBase32 = "0123456789abcdefghjkmnpqrstvwxyz";

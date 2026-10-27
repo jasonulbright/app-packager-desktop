@@ -405,7 +405,7 @@ public sealed class StagingService
                 var signature = _msixReader.ReadSignature(installerPath)
                     ?? throw new InvalidOperationException("MSIX package carries no signature; refusing to stage an unsigned package.");
                 if (!signature.SignatureValid)
-                    throw new InvalidOperationException("MSIX signature did not verify against the package contents.");
+                    throw new InvalidOperationException("MSIX signature is not valid.");
                 onProgress?.Invoke($"MSIX signer thumbprint       : {signature.Thumbprint}");
                 if (!signature.ChainTrusted)
                     onProgress?.Invoke("MSIX signer does not chain to a trusted root on this machine; the target device must trust it.");

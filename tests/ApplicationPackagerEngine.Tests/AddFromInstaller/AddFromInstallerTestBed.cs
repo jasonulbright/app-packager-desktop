@@ -64,7 +64,7 @@ internal sealed class AddFromInstallerTestBed : IDisposable
         return path;
     }
 
-    public string Msix(string fileName = "contoso.msix", string name = "Contoso.Tool", bool withDependency = true, string architecture = "x64")
+    public string Msix(string fileName = "contoso.msix", string name = "Contoso.Tool", bool withDependency = true, string architecture = "x64", byte[]? signature = null)
     {
         var dependency = withDependency
             ? "<Dependencies><TargetDeviceFamily Name=\"Windows.Desktop\" MinVersion=\"10.0.17763.0\" MaxVersionTested=\"10.0.22621.0\"/><PackageDependency Name=\"Microsoft.VCLibs.140.00.UWPDesktop\" MinVersion=\"14.0.30704.0\" Publisher=\"CN=Microsoft Corporation\"/></Dependencies>"
@@ -75,10 +75,14 @@ internal sealed class AddFromInstallerTestBed : IDisposable
             + "<Properties><DisplayName>Contoso Tool</DisplayName><PublisherDisplayName>Contoso Ltd</PublisherDisplayName></Properties>"
             + dependency
             + "<Applications><Application Id=\"App\" Executable=\"Contoso.exe\"/></Applications></Package>";
-        return InstallerAnalysisTestFiles.WriteZip(PathOf(fileName),
+        var entries = new List<(string Name, byte[] Data)>
+        {
             ("AppxManifest.xml", InstallerAnalysisTestFiles.Text(manifest)),
             ("[Content_Types].xml", InstallerAnalysisTestFiles.Text("<Types/>")),
-            ("Contoso.exe", [(byte)'M', (byte)'Z', 0, 0]));
+            ("Contoso.exe", [(byte)'M', (byte)'Z', 0, 0])
+        };
+        if (signature is not null) entries.Add(("AppxSignature.p7x", signature));
+        return InstallerAnalysisTestFiles.WriteZip(PathOf(fileName), [.. entries]);
     }
 
     public static AnalysisReport Report(string path, string type, IReadOnlyList<AnalysisFact> deployment,

@@ -70,13 +70,13 @@ public sealed record PatchFacts(string PatchCode, string Title, IReadOnlyList<st
 
 public enum PackageTrust
 {
-    /// <summary>Signed, the signature verifies and the certificate chains to a root this machine trusts.</summary>
+    /// <summary>Signed, the signature is valid and the certificate chains to a root this machine trusts.</summary>
     Trusted,
-    /// <summary>Signed and the signature verifies, but this machine does not trust the certificate.</summary>
+    /// <summary>Signed and the signature is valid, but this machine does not trust the certificate.</summary>
     Untrusted,
     /// <summary>The package carries no signature.</summary>
     Unsigned,
-    /// <summary>The signature does not verify against the package contents.</summary>
+    /// <summary>The signature is not valid: it does not verify over its own signed data.</summary>
     Invalid,
     Unknown
 }

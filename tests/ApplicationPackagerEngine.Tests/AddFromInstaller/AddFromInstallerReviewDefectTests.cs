@@ -1,6 +1,7 @@
 using System.Text.Json;
 using ApplicationPackagerEngine.Models;
 using ApplicationPackagerEngine.Services.AddFromInstaller;
+using ApplicationPackagerEngine.Tests;
 using static ApplicationPackagerEngine.Tests.AddFromInstaller.AddFromInstallerTestBed;
 
 namespace ApplicationPackagerEngine.Tests.AddFromInstaller;
@@ -104,5 +105,35 @@ public sealed class AddFromInstallerReviewDefectTests : IDisposable
 
         await Assert.ThrowsAsync<AddFromInstallerRefusedException>(() =>
             service.SaveAsync(edited, new AddSaveOptions(DefinitionsFolder: _bed.Definitions), CancellationToken.None));
+    }
+
+    // ---- the package signature is bounded and described as what was checked -------------------
+
+    [Fact]
+    public async Task AnOversizedSignaturePart_GivesUnknownTrustAndNoException()
+    {
+        var service = _bed.Real();
+        var big = new byte[ApplicationPackagerEngine.Services.MsixPackageReader.MaxSignatureBytes + 1];
+        Random.Shared.NextBytes(big);
+
+        var r = await service.AnalyzeAsync(_bed.Msix(signature: big), NoProgress, CancellationToken.None);
+
+        Assert.Equal(PackageTrust.Unknown, r.Package!.Trust);
+        Assert.Contains(r.Notes, n => n.Contains("signature could not be read"));
+    }
+
+    [Fact]
+    public async Task AnInvalidSignature_IsNotDescribedAsADigestCheckOfThePackageContents()
+    {
+        var service = _bed.Real();
+        var (blob, _) = MsixFixture.SignatureBlob();
+        blob[^1] ^= 0xFF;
+
+        var r = await service.AnalyzeAsync(_bed.Msix(signature: blob), NoProgress, CancellationToken.None);
+
+        Assert.Equal(PackageTrust.Invalid, r.Package!.Trust);
+        Assert.DoesNotContain("contents", r.Package.TrustWarning, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("not valid", r.Package.TrustWarning);
+        Assert.True(r.NeedsReview);
     }
 }

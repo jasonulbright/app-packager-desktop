@@ -275,7 +275,7 @@ public sealed partial class AddFileViewModel : ObservableObject
         PackageTrust.Trusted => "Signed and trusted on this computer",
         PackageTrust.Untrusted => "Signed, not trusted on this computer",
         PackageTrust.Unsigned => "Not signed",
-        PackageTrust.Invalid => "The signature does not verify",
+        PackageTrust.Invalid => "The signature is not valid",
         _ => "Not known"
     };
 
