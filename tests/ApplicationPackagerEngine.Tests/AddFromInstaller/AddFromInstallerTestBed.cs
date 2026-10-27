@@ -64,14 +64,14 @@ internal sealed class AddFromInstallerTestBed : IDisposable
         return path;
     }
 
-    public string Msix(string fileName = "contoso.msix", string name = "Contoso.Tool", bool withDependency = true)
+    public string Msix(string fileName = "contoso.msix", string name = "Contoso.Tool", bool withDependency = true, string architecture = "x64")
     {
         var dependency = withDependency
             ? "<Dependencies><TargetDeviceFamily Name=\"Windows.Desktop\" MinVersion=\"10.0.17763.0\" MaxVersionTested=\"10.0.22621.0\"/><PackageDependency Name=\"Microsoft.VCLibs.140.00.UWPDesktop\" MinVersion=\"14.0.30704.0\" Publisher=\"CN=Microsoft Corporation\"/></Dependencies>"
             : "<Dependencies><TargetDeviceFamily Name=\"Windows.Desktop\" MinVersion=\"10.0.17763.0\" MaxVersionTested=\"10.0.22621.0\"/></Dependencies>";
         var manifest = "<?xml version=\"1.0\" encoding=\"utf-8\"?>"
             + "<Package xmlns=\"http://schemas.microsoft.com/appx/manifest/foundation/windows10\">"
-            + $"<Identity Name=\"{name}\" Publisher=\"CN=Contoso Ltd\" Version=\"2.3.4.0\" ProcessorArchitecture=\"x64\"/>"
+            + $"<Identity Name=\"{name}\" Publisher=\"CN=Contoso Ltd\" Version=\"2.3.4.0\" ProcessorArchitecture=\"{architecture}\"/>"
             + "<Properties><DisplayName>Contoso Tool</DisplayName><PublisherDisplayName>Contoso Ltd</PublisherDisplayName></Properties>"
             + dependency
             + "<Applications><Application Id=\"App\" Executable=\"Contoso.exe\"/></Applications></Package>";

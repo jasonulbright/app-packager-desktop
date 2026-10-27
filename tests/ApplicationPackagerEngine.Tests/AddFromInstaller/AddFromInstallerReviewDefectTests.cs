@@ -55,4 +55,54 @@ public sealed class AddFromInstallerReviewDefectTests : IDisposable
 
         Assert.Equal($"/x {other} /qn", def.UninstallArgs);
     }
+
+    // ---- the saved architecture is one the stage accepts -------------------------------------
+
+    [Theory]
+    [InlineData("x64", "x64")]
+    [InlineData("X86", "x86")]
+    [InlineData("arm64", "ARM64")]
+    [InlineData("neutral", "x64")]
+    [InlineData("NEUTRAL", "x64")]
+    [InlineData("", "x64")]
+    public async Task MsixArchitecture_IsSavedAsOneTheStageAccepts(string declared, string expected)
+    {
+        var service = _bed.Real();
+        var r = await service.AnalyzeAsync(_bed.Msix(architecture: declared), NoProgress, CancellationToken.None);
+
+        var def = Read((await service.SaveAsync(r, new AddSaveOptions(DefinitionsFolder: _bed.Definitions), CancellationToken.None)).FilePath);
+
+        Assert.Equal(expected, def.Architecture);
+        Assert.Equal(expected, InstallerArchitectures.Resolve(def.Architecture));
+        if (declared.Equals("neutral", StringComparison.OrdinalIgnoreCase))
+            Assert.Contains(r.Notes, n => n.Contains("neutral", StringComparison.OrdinalIgnoreCase) && n.Contains("x64"));
+    }
+
+    [Theory]
+    [InlineData("arm")]
+    [InlineData("ARM")]
+    [InlineData("riscv")]
+    public async Task MsixArchitecture_TheStageCannotUse_NeedsReviewAndIsRefusedAtSave(string declared)
+    {
+        var service = _bed.Real();
+        var r = await service.AnalyzeAsync(_bed.Msix(architecture: declared), NoProgress, CancellationToken.None);
+
+        Assert.True(r.NeedsReview);
+        Assert.Contains("architecture", r.ReviewReason, StringComparison.OrdinalIgnoreCase);
+        var ex = await Assert.ThrowsAsync<AddFromInstallerRefusedException>(() =>
+            service.SaveAsync(r, new AddSaveOptions(DefinitionsFolder: _bed.Definitions), CancellationToken.None));
+        Assert.Contains("x86, x64 and ARM64", ex.Message);
+        Assert.False(Directory.Exists(_bed.Definitions) && Directory.EnumerateFiles(_bed.Definitions).Any());
+    }
+
+    [Fact]
+    public async Task AnArchitectureTypedInTheReview_ThatTheStageCannotUse_IsRefused()
+    {
+        var service = _bed.Real();
+        var r = await service.AnalyzeAsync(_bed.Msi(), NoProgress, CancellationToken.None);
+        var edited = r with { Architecture = new ProposedValue<string>(Value: "sparc", Evidence: Evidence.Manual, Source: null) };
+
+        await Assert.ThrowsAsync<AddFromInstallerRefusedException>(() =>
+            service.SaveAsync(edited, new AddSaveOptions(DefinitionsFolder: _bed.Definitions), CancellationToken.None));
+    }
 }

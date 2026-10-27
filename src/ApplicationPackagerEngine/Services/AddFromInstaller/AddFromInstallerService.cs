@@ -434,6 +434,9 @@ public sealed class AddFromInstallerService : IAddFromInstallerService
             : DetectionProposal.NoneDerived("The package identity name is not valid, so no detection rule could be derived.");
 
         var reasons = new List<string>();
+        var (architectureValue, architectureNote) = PackageArchitecture(architecture);
+        if (architectureNote is not null) notes.Add(architectureNote);
+        if (architectureValue is { Length: > 0 } && !IsSupportedArchitecture(architectureValue)) reasons.Add(architectureNote!);
         if (trust is PackageTrust.Unsigned or PackageTrust.Invalid) reasons.Add(trustWarning!);
         if (dependencies.Count > 0) reasons.Add("The package needs other packages that the deployment does not install.");
         var displayName = report.Deployment.FirstOrDefault(f => f.Name == "DisplayName")?.Value ?? identity;
@@ -458,7 +461,7 @@ public sealed class AddFromInstallerService : IAddFromInstallerService
             Notes: notes.Where(n => !string.IsNullOrWhiteSpace(n)).Distinct().ToList())
         {
             InstallerTypeName = report.TypeName,
-            Architecture = architecture.Length > 0 ? new ProposedValue<string>(Value: architecture, Evidence: Evidence.Confirmed, Source: source) : null,
+            Architecture = architectureValue.Length > 0 ? new ProposedValue<string>(Value: architectureValue, Evidence: Evidence.Confirmed, Source: source) : null,
             UninstallCommand = report.Deployment.FirstOrDefault(f => f.Name == "UninstallCommand") is { Value.Length: > 0 } u
                 ? new ProposedValue<string>(Value: u.Value, Evidence: Evidence.Predicted, Source: AddAppxPackageSource) : null,
             ProductCode = identity.Length > 0 ? new ProposedValue<string?>(Value: identity, Evidence: Evidence.Confirmed, Source: source) : null,
@@ -474,6 +477,27 @@ public sealed class AddFromInstallerService : IAddFromInstallerService
                 TrustWarning = trustWarning
             }
         };
+    }
+
+    private static bool IsSupportedArchitecture(string architecture)
+    {
+        try { InstallerArchitectures.Resolve(architecture); return true; }
+        catch (InvalidOperationException) { return false; }
+    }
+
+    /// <summary>
+    /// The definition architecture of a manifest architecture. A neutral package runs on every architecture and takes x64.
+    /// A value outside x86, x64 and ARM64 stays as declared with a note, because the stage refuses it.
+    /// </summary>
+    private static (string Value, string? Note) PackageArchitecture(string declared)
+    {
+        var value = declared.Trim();
+        if (value.Length == 0) return ("", null);
+        if (value.Equals("neutral", StringComparison.OrdinalIgnoreCase))
+            return (InstallerArchitectures.X64, "The package architecture is neutral. The definition uses x64.");
+        return IsSupportedArchitecture(value)
+            ? (InstallerArchitectures.Resolve(value), null)
+            : (value, $"The package architecture {value} is not supported. App Packager supports the architectures x86, x64 and ARM64.");
     }
 
     private (PackageTrust Trust, string? Subject, string? Thumbprint) ReadTrust(string path, List<string> notes)
@@ -606,6 +630,12 @@ public sealed class AddFromInstallerService : IAddFromInstallerService
         }
         if (r.UninstallArguments.Evidence == Evidence.Manual) definition.UninstallArgs = RestoreProductCodeToken(r, r.UninstallArguments.Value);
         if (r.Architecture is { Evidence: Evidence.Manual, Value.Length: > 0 }) definition.Architecture = r.Architecture.Value;
+        try { definition.Architecture = InstallerArchitectures.Resolve(definition.Architecture); }
+        catch (InvalidOperationException)
+        {
+            throw new AddFromInstallerRefusedException(
+                $"The architecture {definition.Architecture} is not supported. App Packager supports the architectures x86, x64 and ARM64.");
+        }
         if (!string.IsNullOrWhiteSpace(options.InstallerType)) definition.InstallerType = options.InstallerType.Trim();
         if (!string.IsNullOrWhiteSpace(options.InstallerFramework) && r.Framework.Evidence != Evidence.Manual) definition.InstallerFramework = options.InstallerFramework.Trim();
         if (!string.IsNullOrWhiteSpace(options.InstallerFileName)) definition.InstallerFileName = options.InstallerFileName.Trim();
