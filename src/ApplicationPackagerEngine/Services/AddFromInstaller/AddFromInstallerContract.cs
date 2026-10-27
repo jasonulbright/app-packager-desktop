@@ -203,6 +203,9 @@ public interface IAddFromInstallerService
     /// <summary>Writes a new user definition. An existing file is never overwritten.</summary>
     Task<AddSaveResult> SaveAsync(AddAnalysisResult reviewed, AddSaveOptions options, CancellationToken ct);
 
-    /// <summary>Downloads the installer once under the download root and returns its path.</summary>
+    /// <summary>Downloads the installer once under the download root and returns its path. A download that fails or passes the analysis file limit leaves no folder.</summary>
     Task<string> FetchInstallerAsync(DownloadRequest request, IProgress<string> progress, CancellationToken ct);
+
+    /// <summary>Deletes the folder of an installer that <see cref="FetchInstallerAsync"/> returned. A path outside those folders is left alone.</summary>
+    void DiscardFetched(string installerPath);
 }

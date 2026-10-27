@@ -11,6 +11,9 @@ internal sealed class FakeAddService : IAddFromInstallerService
     public List<PendingAnalysis> Analyses { get; } = [];
     public List<(AddAnalysisResult Reviewed, AddSaveOptions Options)> Saves { get; } = [];
     public List<DownloadRequest> Fetches { get; } = [];
+    public List<string> Discarded { get; } = [];
+
+    public void DiscardFetched(string installerPath) => Discarded.Add(installerPath);
     public Func<DownloadRequest, string> FetchResult { get; set; } = r => Path.Combine(r.DownloadRoot, "setup.msi");
     public Func<AddAnalysisResult, AddSaveResult> SaveResult { get; set; } =
         r => new AddSaveResult(FilePath: @"C:\defs\contoso.json", DefinitionId: "contoso0001", Warnings: []);

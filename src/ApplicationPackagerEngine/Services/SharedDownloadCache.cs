@@ -25,8 +25,10 @@ public static class SharedDownloadCache
     }
 
     /// <summary>curl options for the conditional refresh of a cached file into a side file; the URL is added by <see cref="CurlProcess"/>.</summary>
-    public static IReadOnlyList<string> RefreshArguments(string cachedPath, string refreshPath, IReadOnlyList<string>? headers = null) =>
-        ["-L", "--fail", "--silent", "--show-error", .. CurlHeaders.Arguments(headers), "-R", "-z", cachedPath, "-o", refreshPath];
+    public static IReadOnlyList<string> RefreshArguments(string cachedPath, string refreshPath, IReadOnlyList<string>? headers = null, long? maxBytes = null) =>
+        ["-L", "--fail", "--silent", "--show-error", .. CurlHeaders.Arguments(headers),
+            .. maxBytes is { } limit ? ["--max-filesize", limit.ToString(System.Globalization.CultureInfo.InvariantCulture)] : (string[])[],
+            "-R", "-z", cachedPath, "-o", refreshPath];
 
     /// <summary>
     /// Fills or refreshes the cache entry for <paramref name="url"/>, then copies it to
@@ -35,11 +37,12 @@ public static class SharedDownloadCache
     /// <paramref name="keepCachedOnFailedRefresh"/> is true and throws otherwise: a version
     /// read from the vendor's page names a release the cached file may not be.
     /// One exclusive lock per cache entry serializes concurrent stages of one URL.
+    /// A <paramref name="maxBytes"/> limit bounds the first download, a refresh and the file copied out; a file above it throws <see cref="DownloadTooLargeException"/> and a cached copy is not returned in its place.
     /// </summary>
     public static async Task<string> FetchAsync(
         DownloadService downloads, string url, string outFile, string cacheRoot,
         IReadOnlyList<string>? headers = null, Action<string>? onProgress = null, CancellationToken ct = default,
-        bool keepCachedOnFailedRefresh = true)
+        bool keepCachedOnFailedRefresh = true, long? maxBytes = null)
     {
         CurlProcess.ValidateUrl(url);
         Directory.CreateDirectory(cacheRoot);
@@ -50,13 +53,25 @@ public static class SharedDownloadCache
         if (!File.Exists(cached) || new FileInfo(cached).Length == 0)
         {
             onProgress?.Invoke($"Downloading                  : {url}");
-            await downloads.DownloadAsync(url, cached, onProgress: onProgress, ct: ct, headers: headers, extraArguments: ["-R"]);
+            await downloads.DownloadAsync(url, cached, onProgress: onProgress, ct: ct, headers: headers, extraArguments: ["-R"], maxBytes: maxBytes);
         }
         else
         {
             onProgress?.Invoke("Cached download present; refreshing only if newer.");
             var refresh = $"{cached}.{Guid.NewGuid():N}.refresh";
-            var (succeeded, error) = await RunCurlAsync(RefreshArguments(cached, refresh, headers), url, ct);
+            (bool succeeded, string error, int exitCode) result;
+            try { result = await RunCurlAsync(RefreshArguments(cached, refresh, headers, maxBytes), url, ct, refresh, maxBytes); }
+            catch (DownloadTooLargeException)
+            {
+                FileVersionScraper.ApplyRefresh(cached, refresh, requestSucceeded: false);
+                throw;
+            }
+            var (succeeded, error, exitCode) = result;
+            if (maxBytes is { } cap && (exitCode == CurlMaxFileSizeExceeded || (File.Exists(refresh) && new FileInfo(refresh).Length > cap)))
+            {
+                FileVersionScraper.ApplyRefresh(cached, refresh, requestSucceeded: false);
+                throw new DownloadTooLargeException(cap);
+            }
             var outcome = FileVersionScraper.ApplyRefresh(cached, refresh, succeeded);
             if (outcome == FileVersionScraper.CacheRefresh.Kept && !keepCachedOnFailedRefresh)
                 throw new InvalidOperationException(
@@ -71,6 +86,7 @@ public static class SharedDownloadCache
             });
         }
 
+        if (maxBytes is { } limit && new FileInfo(cached).Length > limit) throw new DownloadTooLargeException(limit);
         CopyWithTimestamp(cached, outFile);
         return cached;
     }
@@ -185,21 +201,24 @@ public static class SharedDownloadCache
         File.SetLastWriteTimeUtc(outFile, File.GetLastWriteTimeUtc(cachedPath));
     }
 
-    private static async Task<(bool Succeeded, string Error)> RunCurlAsync(IReadOnlyList<string> arguments, string url, CancellationToken ct)
+    private const int CurlMaxFileSizeExceeded = 63;
+
+    private static async Task<(bool Succeeded, string Error, int ExitCode)> RunCurlAsync(
+        IReadOnlyList<string> arguments, string url, CancellationToken ct, string? outputFile = null, long? maxBytes = null)
     {
         using var process = CurlProcess.Start(arguments, url);
         var stderr = process.StandardError.ReadToEndAsync(CancellationToken.None);
         try
         {
-            await process.WaitForExitAsync(ct);
+            await DownloadService.WaitForExitAsync(process, outputFile ?? "", maxBytes, ct);
         }
-        catch (OperationCanceledException)
+        catch (Exception ex) when (ex is OperationCanceledException or DownloadTooLargeException)
         {
             BoundedProcessRunner.Terminate(process);
             throw;
         }
         string error;
         try { error = (await stderr).Trim(); } catch (Exception) { error = ""; }
-        return (process.ExitCode == 0, error);
+        return (process.ExitCode == 0, error, process.ExitCode);
     }
 }

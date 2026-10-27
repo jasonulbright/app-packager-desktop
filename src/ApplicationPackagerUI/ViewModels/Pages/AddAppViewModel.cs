@@ -32,6 +32,7 @@ public partial class AddAppViewModel : ObservableObject
     private string? _displayVersion;
     private bool _applying;
     private bool _accepted;
+    private string? _fetchedPath;
     private bool _installerTypeSet;
     private bool _architectureSet;
     private bool _installContextSet;
@@ -249,6 +250,7 @@ public partial class AddAppViewModel : ObservableObject
         var generation = ++_generation;
         var context = SynchronizationContext.Current;
         ClearAnalysis();
+        DiscardDownload();
         IsBusy = true;
         AnalysisStatus = "Downloading the installer.";
         var progress = new CurrentProgress(report: text =>
@@ -270,7 +272,12 @@ public partial class AddAppViewModel : ObservableObject
         try
         {
             var path = await Task.Run(() => _service.FetchInstallerAsync(request: request, progress: progress, ct: operation.Token), operation.Token);
-            if (generation != _generation) return;
+            if (generation != _generation)
+            {
+                _service.DiscardFetched(path);
+                return;
+            }
+            _fetchedPath = path;
             AnalysisStatus = $"Analyzing {Path.GetFileName(path)}.";
             result = await Task.Run(() => _service.AnalyzeAsync(installerPath: path, progress: progress, ct: operation.Token), operation.Token);
         }
@@ -283,10 +290,19 @@ public partial class AddAppViewModel : ObservableObject
         AnalysisProgress = "";
         if (result is null)
         {
+            DiscardDownload();
             AnalysisStatus = failure ?? "";
             return;
         }
         LoadAnalysis(result);
+    }
+
+    /// <summary>Deletes the folder of the downloaded installer; the analysis rows stay.</summary>
+    private void DiscardDownload()
+    {
+        if (_fetchedPath is null) return;
+        _service.DiscardFetched(_fetchedPath);
+        _fetchedPath = null;
     }
 
     private bool CanCancelAnalysis() => IsBusy;
@@ -429,6 +445,7 @@ public partial class AddAppViewModel : ObservableObject
 
         var saved = _accepted && _analysisResult is not null ? await SaveAnalyzedAsync(_analysisResult) : SaveManual();
         if (saved is null) return;
+        DiscardDownload();
 
         var reasons = new List<string>();
         if (!string.IsNullOrWhiteSpace(saved.ReviewReason)) reasons.Add(saved.ReviewReason!);
@@ -558,6 +575,7 @@ public partial class AddAppViewModel : ObservableObject
     private void Reset()
     {
         _analysis?.Cancel();
+        DiscardDownload();
         _generation++;
         IsBusy = false;
         _rawVersion = _displayVersion = null;

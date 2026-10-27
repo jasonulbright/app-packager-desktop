@@ -18,10 +18,12 @@ public sealed class DownloadService
         Action<string>? onProgress = null,
         CancellationToken ct = default,
         IReadOnlyList<string>? headers = null,
-        IReadOnlyList<string>? extraArguments = null)
+        IReadOnlyList<string>? extraArguments = null,
+        long? maxBytes = null)
     {
         CurlProcess.ValidateUrl(url);
-        var headerArguments = CurlHeaders.Arguments(headers).Concat(extraArguments ?? []).ToList();
+        var headerArguments = CurlHeaders.Arguments(headers).Concat(extraArguments ?? [])
+            .Concat(maxBytes is { } limit ? ["--max-filesize", limit.ToString(System.Globalization.CultureInfo.InvariantCulture)] : []).ToList();
         var dir = Path.GetDirectoryName(outFile);
         if (dir is not null && !Directory.Exists(dir))
             Directory.CreateDirectory(dir);
@@ -48,11 +50,11 @@ public sealed class DownloadService
                 var stderrTask = process.StandardError.ReadToEndAsync(CancellationToken.None);
                 try
                 {
-                    await process.WaitForExitAsync(ct);
+                    await WaitForExitAsync(process, partFile, maxBytes, ct).ConfigureAwait(false);
                 }
-                catch (OperationCanceledException)
+                catch (Exception ex) when (ex is OperationCanceledException or DownloadTooLargeException)
                 {
-                    // A cancelled download has to stop writing. Letting the handle fall out
+                    // A cancelled or oversized download has to stop writing. Letting the handle fall out
                     // of scope leaves curl running and the file still growing.
                     BoundedProcessRunner.Terminate(process);
                     // Terminating ends the stream; observing the reader keeps it from
@@ -62,6 +64,10 @@ public sealed class DownloadService
                 }
 
                 var stderr = await SafeRead(stderrTask).ConfigureAwait(false);
+
+                if (maxBytes is { } cap && (process.ExitCode == CurlMaxFileSizeExceeded
+                        || (File.Exists(partFile) && new FileInfo(partFile).Length > cap)))
+                    throw new DownloadTooLargeException(cap);
 
                 if (process.ExitCode == 0 && File.Exists(partFile) && new FileInfo(partFile).Length > 0)
                 {
@@ -86,6 +92,31 @@ public sealed class DownloadService
         }
 
         throw new InvalidOperationException($"Download failed after {maxAttempts} attempts: {url}");
+    }
+
+    /// <summary>The curl exit code for a transfer above --max-filesize.</summary>
+    private const int CurlMaxFileSizeExceeded = 63;
+
+    private static readonly TimeSpan SizePollInterval = TimeSpan.FromMilliseconds(250);
+
+    /// <summary>
+    /// Waits for curl to exit. With a size limit, the part file is also checked while curl runs, because a
+    /// server that sends no length is not stopped by --max-filesize.
+    /// </summary>
+    internal static async Task WaitForExitAsync(System.Diagnostics.Process process, string partFile, long? maxBytes, CancellationToken ct)
+    {
+        if (maxBytes is not { } limit)
+        {
+            await process.WaitForExitAsync(ct).ConfigureAwait(false);
+            return;
+        }
+        var exited = process.WaitForExitAsync(ct);
+        while (await Task.WhenAny(exited, Task.Delay(SizePollInterval, ct)).ConfigureAwait(false) != exited)
+        {
+            ct.ThrowIfCancellationRequested();
+            if (File.Exists(partFile) && new FileInfo(partFile).Length > limit) throw new DownloadTooLargeException(limit);
+        }
+        await exited.ConfigureAwait(false);
     }
 
     /// <summary>Moves a finished transfer onto the destination, replacing what was there.</summary>
@@ -125,4 +156,11 @@ public sealed class DownloadService
         try { return await readTask.ConfigureAwait(false); }
         catch (Exception) { return ""; }
     }
+}
+
+/// <summary>A download that passed the size limit it was given.</summary>
+public sealed class DownloadTooLargeException(long maxBytes)
+    : InvalidOperationException($"The download is larger than the limit of {maxBytes} bytes.")
+{
+    public long MaxBytes { get; } = maxBytes;
 }

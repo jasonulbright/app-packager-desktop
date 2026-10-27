@@ -22,6 +22,12 @@ public sealed class AddFromInstallerService : IAddFromInstallerService
     private const string ArpRelative = @"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall";
     private const int ManifestLimitBytes = 4 * 1024 * 1024;
 
+    /// <summary>The folder under the download root that holds one folder of eight hex digits per fetched installer.</summary>
+    private const string FetchFolderName = "AddFromWeb";
+
+    /// <summary>The folders FetchInstallerAsync returned and DiscardFetched has not deleted; only these are deleted.</summary>
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<string, byte> _fetchedFolders = new(StringComparer.OrdinalIgnoreCase);
+
     private static readonly string[] Accepted = [".msi", ".exe", ".msp", ".msix", ".appx", ".msixbundle", ".appxbundle"];
 
     private readonly IInstallerAnalysisService _analysis;
@@ -886,18 +892,41 @@ public sealed class AddFromInstallerService : IAddFromInstallerService
         catch (InvalidOperationException) { throw new AddFromInstallerRefusedException("The installer file name is not a plain file name."); }
         if (RefusalReason(fileName) is { } reason) throw new AddFromInstallerRefusedException(reason);
 
-        var folder = Path.Combine(request.DownloadRoot, "AddFromWeb", Guid.NewGuid().ToString("N")[..8]);
+        var folder = Path.Combine(request.DownloadRoot, FetchFolderName, Guid.NewGuid().ToString("N")[..8]);
         var target = Path.Combine(folder, fileName);
         Directory.CreateDirectory(folder);
-        void Report(string line) => progress.Report(line);
         try
         {
-            var cacheRoot = Workbench.WorkbenchPaths.GetSharedDownloadCacheRoot(request.DownloadRoot);
-            await SharedDownloadCache.FetchAsync(_downloads, request.Url, target, cacheRoot, request.Headers, Report, ct).ConfigureAwait(false);
+            await FetchToAsync(request, target, fileName, progress, ct).ConfigureAwait(false);
+_fetchedFolders[Path.GetFullPath(folder)] = 0;
+            return target;
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException)
+        catch
         {
-            await _downloads.DownloadAsync(request.Url, target, onProgress: Report, ct: ct, headers: request.Headers).ConfigureAwait(false);
+            DeleteFolder(folder);
+            throw;
+        }
+    }
+
+    private async Task FetchToAsync(DownloadRequest request, string target, string fileName, IProgress<string> progress, CancellationToken ct)
+    {
+        void Report(string line) => progress.Report(line);
+        var limit = _limits.MaxFileBytes;
+        try
+        {
+            try
+            {
+                var cacheRoot = Workbench.WorkbenchPaths.GetSharedDownloadCacheRoot(request.DownloadRoot);
+                await SharedDownloadCache.FetchAsync(_downloads, request.Url, target, cacheRoot, request.Headers, Report, ct, maxBytes: limit).ConfigureAwait(false);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException)
+            {
+                await _downloads.DownloadAsync(request.Url, target, onProgress: Report, ct: ct, headers: request.Headers, maxBytes: limit).ConfigureAwait(false);
+            }
+        }
+        catch (DownloadTooLargeException)
+        {
+            throw new AddFromInstallerRefusedException($"The download is larger than the limit of {limit} bytes.");
         }
         var type = Path.GetExtension(fileName).ToLowerInvariant() switch
         {
@@ -909,10 +938,29 @@ public sealed class AddFromInstallerService : IAddFromInstallerService
         try { StagingService.ValidateInstallerMagic(target, type); }
         catch (InvalidOperationException ex)
         {
-            try { File.Delete(target); } catch (IOException) { }
             throw new AddFromInstallerRefusedException("The download is not an installer: " + ex.Message);
         }
-        return target;
+    }
+
+    public void DiscardFetched(string installerPath)
+    {
+        if (string.IsNullOrWhiteSpace(installerPath)) return;
+        var folder = Path.GetDirectoryName(Path.GetFullPath(installerPath));
+        if (folder is not null && _fetchedFolders.ContainsKey(folder) && DeleteFolder(folder)) _fetchedFolders.TryRemove(folder, out _);
+    }
+
+    /// <summary>True when the folder is gone.</summary>
+    private static bool DeleteFolder(string folder)
+    {
+        try
+        {
+            if (Directory.Exists(folder)) Directory.Delete(folder, recursive: true);
+            return true;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return false;
+        }
     }
 
 }

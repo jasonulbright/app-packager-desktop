@@ -341,6 +341,82 @@ public sealed class AddFromWebViewModelTests : IDisposable
         Assert.Contains("The grid is not loaded.", h.ViewModel.Result.StageStatus);
     });
 
+    private string Downloaded => Path.Combine(_root, "downloads", "setup.msi");
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void TheDownloadIsDiscardedWhenTheDefinitionIsSaved_WhetherOrNotTheAnalysisWasAccepted(bool accept) => OnSta(h =>
+    {
+        h.Scrape();
+        h.Analyze(FakeAddService.Result());
+        Assert.Empty(h.Service.Discarded);
+        if (accept) h.ViewModel.AcceptProposalsCommand.Execute(null);
+
+        var save = h.ViewModel.SaveDefinitionCommand;
+        h.GoTo(7);
+        var run = save.ExecuteAsync(null);
+        StaTestHelper.PumpUntil(() => run.IsCompleted);
+
+        Assert.Equal([Downloaded], h.Service.Discarded);
+    });
+
+    [Fact]
+    public void AFailedSave_KeepsTheDownload() => OnSta(h =>
+    {
+        h.Scrape();
+        h.Analyze(FakeAddService.Result());
+        h.ViewModel.AcceptProposalsCommand.Execute(null);
+        h.Service.SaveResult = _ => throw new AddFromInstallerRefusedException("A definition file named contoso.json already exists.");
+        h.GoTo(7);
+
+        var run = h.ViewModel.SaveDefinitionCommand.ExecuteAsync(null);
+        StaTestHelper.PumpUntil(() => run.IsCompleted);
+
+        Assert.Empty(h.Service.Discarded);
+        Assert.False(h.ViewModel.IsResultVisible);
+    });
+
+    [Fact]
+    public void ACancelledAnalysisDiscardsTheDownload() => OnSta(h =>
+    {
+        h.Scrape();
+        h.ViewModel.AnalyzeCommand.Execute(null);
+        h.Service.WaitForAnalysis(0);
+
+        h.ViewModel.CancelAnalysisCommand.Execute(null);
+        StaTestHelper.PumpUntil(() => !h.ViewModel.IsBusy);
+
+        Assert.Equal([Downloaded], h.Service.Discarded);
+    });
+
+    [Fact]
+    public void ARepeatedAnalysisDiscardsTheDownloadOfThePreviousRun() => OnSta(h =>
+    {
+        h.Scrape();
+        h.ViewModel.AnalyzeCommand.Execute(null);
+        var first = h.Service.WaitForAnalysis(0);
+        StaTestHelper.PumpUntil(() => h.ViewModel.AnalysisStatus.StartsWith("Analyzing"));
+
+        h.ViewModel.AnalyzeCommand.Execute(null);
+        h.Service.WaitForAnalysis(1);
+        first.Result.TrySetResult(FakeAddService.Result());
+        StaTestHelper.Flush();
+
+        Assert.Equal([Downloaded], h.Service.Discarded);
+    });
+
+    [Fact]
+    public void AFailedAnalysisDiscardsTheDownload() => OnSta(h =>
+    {
+        h.Scrape();
+        h.ViewModel.AnalyzeCommand.Execute(null);
+        h.Service.WaitForAnalysis(0).Result.SetException(new InstallerAnalysisException("The file is not an MSI database."));
+        StaTestHelper.PumpUntil(() => !h.ViewModel.IsBusy);
+
+        Assert.Equal([Downloaded], h.Service.Discarded);
+    });
+
     [Fact]
     public void DoneStartsANewWizard() => OnSta(h =>
     {
