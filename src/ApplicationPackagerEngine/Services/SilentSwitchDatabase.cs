@@ -14,19 +14,22 @@ public static class SilentSwitchDatabase
             Uninstall = "msiexec.exe /x \"<ProductCode>\" /qn /norestart",
             InstallArgs = "/qn /norestart",
             UninstallArgs = "/qn /norestart",
-            Notes = "ProductCode required for uninstall. Add /L*v \"<log>\" for verbose logging."
+            Notes = "ProductCode required for uninstall. Add /L*v \"<log>\" for verbose logging.",
+            Source = MsiexecSource
         },
         ["NSIS"] = new()
         {
             Install = "\"<EXE>\" /S",
             Uninstall = "\"<UninstallEXE>\" /S",
-            Notes = "/S is case sensitive (uppercase S). Some NSIS installers also support /D=<path> for install directory."
+            Notes = "/S is case sensitive (uppercase S). Some NSIS installers also support /D=<path> for install directory.",
+            Source = "https://nsis.sourceforge.io/Docs/Chapter3.html"
         },
         ["InnoSetup"] = new()
         {
             Install = "\"<EXE>\" /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP-",
             Uninstall = "\"<UninstallEXE>\" /VERYSILENT /SUPPRESSMSGBOXES /NORESTART",
-            Notes = "/SP- suppresses the initial \"This will install...\" prompt. /DIR=\"<path>\" for a custom directory."
+            Notes = "/SP- suppresses the initial \"This will install...\" prompt. /DIR=\"<path>\" for a custom directory.",
+            Source = "https://jrsoftware.org/ishelp/topic_setupcmdline.htm"
         },
         ["InstallShield"] = new()
         {
@@ -42,9 +45,10 @@ public static class SilentSwitchDatabase
         },
         ["AdvancedInstaller"] = new()
         {
-            Install = "\"<EXE>\" /i /qn",
-            Uninstall = "\"<EXE>\" /x /qn",
-            Notes = "Based on MSI technology. May also accept msiexec.exe switches on the embedded MSI."
+            Install = "\"<EXE>\" /exenoui /qn /norestart",
+            Uninstall = "\"<EXE>\" /exenoui /x // /qn /norestart",
+            Notes = "Advanced Installer EXE bootstrapper: /exenoui runs it without UI, then the msiexec switches follow; // stands for the embedded MSI.",
+            Source = "https://docs.advancedinstaller.com/exe-setup-file.html"
         },
         ["BitRock"] = new()
         {
@@ -68,13 +72,15 @@ public static class SilentSwitchDatabase
         {
             Install = "Add-AppxPackage -Path \"<EXE>\"",
             Uninstall = "Remove-AppxPackage -Package \"<PackageFullName>\"",
-            Notes = "Per-user: Add-AppxPackage. All-users: Add-AppxProvisionedPackage -Online -PackagePath \"<msix>\" -SkipLicense."
+            Notes = "Per-user: Add-AppxPackage. All-users: Add-AppxProvisionedPackage -Online -PackagePath \"<msix>\" -SkipLicense.",
+            Source = MsixProvisionSource
         },
         ["MsixBundle"] = new()
         {
             Install = "Add-AppxPackage -Path \"<EXE>\"",
             Uninstall = "Remove-AppxPackage -Package \"<PackageFullName>\"",
-            Notes = "Same cmdlets as a single MSIX. The bundle targets multiple architectures and/or language resource packs; AppxBundleManifest.xml lists which."
+            Notes = "Same cmdlets as a single MSIX. The bundle targets multiple architectures and/or language resource packs; AppxBundleManifest.xml lists which.",
+            Source = MsixProvisionSource
         },
         ["PsadtV3"] = new()
         {
@@ -126,11 +132,12 @@ public static class SilentSwitchDatabase
         },
         ["MSP"] = new()
         {
-            Install = "msiexec.exe /p \"<MSI>\" /qn /norestart",
-            Uninstall = "msiexec.exe /package \"<ProductCode>\" /uninstall \"<MSI>\" /qn /norestart",
-            InstallArgs = "/qn /norestart",
+            Install = "msiexec.exe /p \"<MSI>\" /qn /norestart REINSTALLMODE=ecmus REINSTALL=ALL",
+            Uninstall = "msiexec.exe /package \"<ProductCode>\" /uninstall \"<PatchCode>\" /qn /norestart",
+            InstallArgs = "/qn /norestart REINSTALLMODE=ecmus REINSTALL=ALL",
             UninstallArgs = "/qn /norestart",
-            Notes = "Patches apply against an installed base MSI; an .msp is not a standalone deployment."
+            Notes = "A patch applies to an installed base product; the base product must exist on the device.",
+            Source = MspSource
         },
         ["Unknown"] = new()
         {
@@ -139,6 +146,11 @@ public static class SilentSwitchDatabase
             Notes = "Installer engine not recognized. Common switches to try: /S, /silent, /quiet, /q, /VERYSILENT."
         }
     };
+
+    public const string MsiexecSource = "https://learn.microsoft.com/windows/win32/msi/command-line-options";
+    public const string MspSource = "https://learn.microsoft.com/windows-server/administration/windows-commands/msiexec#update-options";
+    public const string MspUninstallSource = "https://learn.microsoft.com/windows/win32/msi/uninstalling-patches";
+    public const string MsixProvisionSource = "https://learn.microsoft.com/windows/msix/desktop/deploy-preinstalled-apps";
 
     /// <summary>Whether the engine has a switch entry of its own.</summary>
     public static bool IsKnownEngine(string engine) => Table.ContainsKey(engine);
@@ -168,7 +180,8 @@ public static class SilentSwitchDatabase
             UninstallCommand = uninstall,
             InstallArgs = installArgs,
             UninstallArgs = uninstallArgs,
-            Notes = entry.Notes
+            Notes = entry.Notes,
+            Source = entry.Source
         };
     }
 
@@ -238,6 +251,8 @@ public sealed class SilentSwitchEntry
     public string? InstallArgs { get; init; }
     public string? UninstallArgs { get; init; }
     public string Notes { get; init; } = "";
+    /// <summary>The vendor or Microsoft documentation the switches are taken from; empty when the entry has none.</summary>
+    public string Source { get; init; } = "";
 }
 
 public sealed class ResolvedSwitches
@@ -248,4 +263,5 @@ public sealed class ResolvedSwitches
     public string InstallArgs { get; init; } = "";
     public string UninstallArgs { get; init; } = "";
     public string Notes { get; init; } = "";
+    public string Source { get; init; } = "";
 }

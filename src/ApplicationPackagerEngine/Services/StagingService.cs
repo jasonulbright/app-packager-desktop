@@ -54,7 +54,7 @@ public sealed class StagingService
             MsixPackageReader.ValidateContainer(path);
             return;
         }
-        if (type is not ("EXE" or "MSI" or "ZIP")) return;
+        if (type is not ("EXE" or "MSI" or "MSP" or "ZIP")) return;
         if (!File.Exists(path)) return;
 
         Span<byte> head = stackalloc byte[8];
@@ -551,6 +551,10 @@ public sealed class StagingService
             {
                 wrappers.GenerateMsiWrappers(contentPath, installerFileName, uninstallCommand, installArgs,
                     def.ExpandInstallArgs);
+            }
+            else if (def.InstallerType.Equals("MSP", StringComparison.OrdinalIgnoreCase))
+            {
+                wrappers.GenerateMspWrappers(contentPath, installerFileName, installArgs, uninstallCommand);
             }
             else if (def.ExtractSetup is not null)
             {
@@ -1757,7 +1761,13 @@ public sealed class StagingService
             return urlFileName;
 
         var safeName = def.Application.Replace(" ", "").Replace("(", "").Replace(")", "");
-        var ext = def.InstallerType.Equals("MSI", StringComparison.OrdinalIgnoreCase) ? ".msi" : ".exe";
+        var ext = def.InstallerType.ToUpperInvariant() switch
+        {
+            "MSI" => ".msi",
+            "MSP" => ".msp",
+            "MSIX" => ".msix",
+            _ => ".exe"
+        };
         return $"{safeName}-{version}{ext}";
     }
 
