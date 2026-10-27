@@ -94,4 +94,21 @@ public sealed class DetectionEditorRoundTripTests
         var inCompound = AddFromInstallerService.Compound("And", Proposal(DetectionKind.RegistryExists, "HKLM", "IsEquals"), rule);
         Assert.Throws<AddFromInstallerRefusedException>(() => AddFromInstallerService.ToDetectionConfig(inCompound, null, null, ""));
     }
+
+    [Theory]
+    [InlineData(DetectionKind.RegistryVersion)]
+    [InlineData(DetectionKind.MsiProductCode)]
+    [InlineData(DetectionKind.FileVersion)]
+    public void TheWarningNamesTheMissingVersionWhenTheKeyOrFileIsSet(DetectionKind kind)
+    {
+        var editor = new DetectionEditorViewModel();
+        editor.Load(Proposal(kind, "HKLM", "IsEquals", expected: ""));
+
+        Assert.Contains("expected version", editor.WarningText);
+        Assert.DoesNotContain("no registry key or file", editor.WarningText);
+
+        editor.Kind = DetectionKind.RegistryExists;
+        editor.Key = "";
+        Assert.Contains("no registry key or file", editor.WarningText);
+    }
 }

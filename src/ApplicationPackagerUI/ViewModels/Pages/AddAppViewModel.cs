@@ -376,9 +376,9 @@ public partial class AddAppViewModel : ObservableObject
     private void RefreshDetectionWarning()
     {
         ShowDetectionWarning = Detection.IsDefault;
-        DetectionWarning = Detection.IsDefault
-            ? "Detection is still the default: the definition has no registry key or file to detect. Set a rule on step 6, or open the definition in the Workbench after the save."
-            : "";
+        DetectionWarning = !Detection.IsDefault ? ""
+            : Detection.IsMissingVersion ? "Detection is still the default: the version rule has no expected version. Enter the version on step 6, or open the definition in the Workbench after the save."
+            : "Detection is still the default: the definition has no registry key or file to detect. Set a rule on step 6, or open the definition in the Workbench after the save.";
     }
 
     private void BuildReviewSummary()

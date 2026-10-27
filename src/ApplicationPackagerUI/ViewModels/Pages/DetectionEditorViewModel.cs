@@ -104,11 +104,18 @@ public sealed partial class DetectionEditorViewModel : ObservableObject
     /// <summary>True when the rule gives no detection: kind None, a registry rule with an empty key, or a file rule without a folder or a name.</summary>
     public bool IsDefault => ToConfig(Build()) is null;
 
+    /// <summary>A version rule whose key or file is set but whose expected version is empty.</summary>
+    public bool IsMissingVersion => Kind is DetectionKind.RegistryVersion or DetectionKind.FileVersion or DetectionKind.MsiProductCode
+        && string.IsNullOrWhiteSpace(Expected) && ToConfig(WithExpected(Build(), "0")) is not null;
+
+    private static DetectionProposal WithExpected(DetectionProposal proposal, string expected) =>
+        proposal with { Values = new Dictionary<string, string>(proposal.Values) { [DetectionValueKeys.Expected] = expected } };
+
     public string WarningText => Kind == DetectionKind.Compound
         ? "The analysis proposes a compound rule. Open the definition in the Workbench to review the rule."
-        : IsDefault
-            ? "Detection is still the default: the rule has no registry key or file. Set a rule here or in the Workbench."
-            : "";
+        : !IsDefault ? ""
+        : IsMissingVersion ? "Detection is still the default: the version rule has no expected version. Enter the version or choose another rule."
+        : "Detection is still the default: the rule has no registry key or file. Set a rule here or in the Workbench.";
 
     public bool HasWarning => WarningText.Length > 0;
 
@@ -213,13 +220,14 @@ public sealed partial class DetectionEditorViewModel : ObservableObject
         OnPropertyChanged(nameof(IsDefault));
         OnPropertyChanged(nameof(WarningText));
         OnPropertyChanged(nameof(HasWarning));
+        OnPropertyChanged(nameof(IsMissingVersion));
     }
 
     private static readonly HashSet<string> StateProperties =
     [
         nameof(Evidence), nameof(MarkerText), nameof(MarkerToolTip), nameof(IsDefault), nameof(WarningText), nameof(HasWarning),
         nameof(ShowRegistry), nameof(ShowValueName), nameof(ShowProductCode), nameof(ShowFile), nameof(ShowVersion), nameof(Show64Bit),
-        nameof(IsFixedRule), nameof(KindOptions), nameof(SelectedKind), nameof(Description), nameof(FixedRuleText)
+        nameof(IsFixedRule), nameof(KindOptions), nameof(SelectedKind), nameof(Description), nameof(FixedRuleText), nameof(IsMissingVersion)
     ];
 
     protected override void OnPropertyChanged(System.ComponentModel.PropertyChangedEventArgs e)
