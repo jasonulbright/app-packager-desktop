@@ -124,7 +124,7 @@ public partial class DropReviewPanel : UserControl
     {
         ConfirmHintText.Text = IsConfirmed
             ? _gatedActionsConfirmed
-            : _gatedActionsPending + " Staging a wrong silent switch produces a package that fails on every target device.";
+            : _gatedActionsPending;
         SaveApplicationButton.IsEnabled = IsConfirmed;
     }
 
@@ -212,21 +212,12 @@ public partial class DropReviewPanel : UserControl
         return $"Registry {detection.Type}: {key} — {detection.ValueName} {detection.Operator} version ({view})";
     }
 
-    /// <summary>
-    /// Window height that the dialog chrome and the fixed rows of this panel take: dialog
-    /// margins and title, file header, confirmation, Save as Application and the footer buttons.
-    /// </summary>
-    public const double ReservedHeight = 500;
-
+    /// <summary>The fields keep at least this height, so a very small host scrolls the whole dialog instead of the fields alone.</summary>
     public const double MinFieldsHeight = 120;
 
-    /// <summary>The height the scrolled fields may take in a window of <paramref name="windowHeight"/>.</summary>
-    public static double FieldsMaxHeight(double windowHeight) =>
-        double.IsFinite(windowHeight) ? Math.Max(MinFieldsHeight, windowHeight - ReservedHeight) : double.PositiveInfinity;
-
     /// <summary>
-    /// True caps the fields to the window height, so the rows below them stay in view inside
-    /// a dialog. False lets the fields take their full height inside a host that scrolls.
+    /// True caps the fields to the room the dialog gives its content, so the rows below them stay in view.
+    /// False lets the fields take their full height inside a host that scrolls.
     /// </summary>
     public bool FitToWindow { get; set; }
 
@@ -237,7 +228,7 @@ public partial class DropReviewPanel : UserControl
         if (!FitToWindow || Window.GetWindow(this) is not { } window) return;
         _fitWindow = window;
         window.SizeChanged += OnWindowSizeChanged;
-        FieldsScroller.MaxHeight = FieldsMaxHeight(window.ActualHeight);
+        QueueFit();
     }
 
     private void OnUnloaded(object sender, RoutedEventArgs e)
@@ -246,9 +237,31 @@ public partial class DropReviewPanel : UserControl
         _fitWindow = null;
     }
 
-    private void OnWindowSizeChanged(object sender, SizeChangedEventArgs e) =>
-        FieldsScroller.MaxHeight = FieldsMaxHeight(e.NewSize.Height);
+    private void OnWindowSizeChanged(object sender, SizeChangedEventArgs e) => QueueFit();
 
+    private void QueueFit() => Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Loaded, FitFields);
+
+    /// <summary>
+    /// Lifts the cap, lets the layout run, and takes from the fields exactly the height that the scroll viewer of
+    /// the dialog reports as overflow. The result follows the real chrome of the dialog, not an assumed size.
+    /// </summary>
+    private void FitFields()
+    {
+        if (!IsLoaded || !FitToWindow) return;
+        FieldsScroller.MaxHeight = double.PositiveInfinity;
+        UpdateLayout();
+        var outer = OuterScroller();
+        if (outer is null || outer.ScrollableHeight < 0.5) return;
+        FieldsScroller.MaxHeight = Math.Max(MinFieldsHeight, FieldsScroller.ActualHeight - outer.ScrollableHeight);
+    }
+
+    /// <summary>The nearest scroll viewer above the panel: the one the dialog puts around its content.</summary>
+    private ScrollViewer? OuterScroller()
+    {
+        for (DependencyObject? parent = System.Windows.Media.VisualTreeHelper.GetParent(this); parent is not null; parent = System.Windows.Media.VisualTreeHelper.GetParent(parent))
+            if (parent is ScrollViewer viewer) return viewer;
+        return null;
+    }
     private void InstallModeBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (_loadingMode || Analysis is null || !Analysis.HasInstallModeChoice) return;
