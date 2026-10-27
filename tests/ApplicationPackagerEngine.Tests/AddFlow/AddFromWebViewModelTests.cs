@@ -328,6 +328,20 @@ public sealed class AddFromWebViewModelTests : IDisposable
     });
 
     [Fact]
+    public void AGridThatCannotSelectTheNewRow_DoesNotFailTheSaveAfterTheDefinitionIsWritten() => OnSta(h =>
+    {
+        h.Actions.SelectFails = new InvalidOperationException("The grid is not loaded.");
+        h.GoTo(7);
+
+        var save = h.ViewModel.SaveDefinitionCommand.ExecuteAsync(null);
+        StaTestHelper.PumpUntil(() => save.IsCompleted);
+
+        Assert.True(save.IsCompletedSuccessfully);
+        Assert.True(h.ViewModel.IsResultVisible);
+        Assert.Contains("The grid is not loaded.", h.ViewModel.Result.StageStatus);
+    });
+
+    [Fact]
     public void DoneStartsANewWizard() => OnSta(h =>
     {
         h.GoTo(7);

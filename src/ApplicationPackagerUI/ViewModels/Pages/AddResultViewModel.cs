@@ -63,7 +63,11 @@ public sealed partial class AddResultViewModel(IAddResultActions actions) : Obse
         WarningsText = string.Join(Environment.NewLine, added.Warnings);
         StageStatus = "";
         IsVisible = true;
-        await actions.SelectRowAsync(added.DefinitionId);
+        try { await actions.SelectRowAsync(added.DefinitionId); }
+        catch (Exception ex) when (ex is not OperationCanceledException and not OutOfMemoryException)
+        {
+            StageStatus = $"{added.DisplayName} was saved. The grid could not select the new row: {ex.Message}";
+        }
     }
 
     [RelayCommand]

@@ -339,4 +339,22 @@ public sealed class AddFileViewModelTests
         Assert.Equal(AddFileStage.Pick, h.ViewModel.Stage);
         Assert.Equal("The analysis failed: The file is not an MSI database.", h.ViewModel.StatusText);
     });
+
+    [Fact]
+    public void AGridThatCannotSelectTheNewRow_DoesNotFailTheSaveAfterTheDefinitionIsWritten() => OnSta(h =>
+    {
+        h.Actions.SelectFails = new InvalidOperationException("The grid is not loaded.");
+        h.ViewModel.AnalyzeFileCommand.Execute(@"C:\in\contoso.msi");
+        Analyze(h, FakeAddService.Result());
+        h.ViewModel.PredictedAccepted = true;
+
+        var save = h.ViewModel.SaveCommand.ExecuteAsync(null);
+        StaTestHelper.PumpUntil(() => save.IsCompleted);
+
+        Assert.True(save.IsCompletedSuccessfully);
+        Assert.Single(h.Service.Saves);
+        Assert.Equal(AddFileStage.Result, h.ViewModel.Stage);
+        Assert.True(h.ViewModel.Result.IsVisible);
+        Assert.Contains("The grid is not loaded.", h.ViewModel.Result.StageStatus);
+    });
 }

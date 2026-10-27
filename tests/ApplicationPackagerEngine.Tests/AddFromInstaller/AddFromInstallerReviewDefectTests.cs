@@ -1,7 +1,9 @@
 using System.Text.Json;
 using ApplicationPackagerEngine.Models;
 using ApplicationPackagerEngine.Services.AddFromInstaller;
+using ApplicationPackagerEngine.Services;
 using ApplicationPackagerEngine.Tests;
+using ApplicationPackagerEngine.Tests.InstallerAnalysis;
 using static ApplicationPackagerEngine.Tests.AddFromInstaller.AddFromInstallerTestBed;
 
 namespace ApplicationPackagerEngine.Tests.AddFromInstaller;
@@ -183,5 +185,61 @@ public sealed class AddFromInstallerReviewDefectTests : IDisposable
             new AddSaveOptions(DefinitionsFolder: _bed.Definitions) { InstallMode = "AllUsers" }, CancellationToken.None)).FilePath);
 
         Assert.Null(def.Detection.RegistryKeyTemplate);
+    }
+
+    // ---- a predicted detection and an untrusted signer need review --------------------------------
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task AMsixSignerThisComputerDoesNotTrust_NeedsReviewInTheAnalysisAndAfterTheSave(bool oversizedSignature)
+    {
+        var service = _bed.Real();
+        var signature = oversizedSignature
+            ? new byte[ApplicationPackagerEngine.Services.MsixPackageReader.MaxSignatureBytes + 1]
+            : MsixFixture.SignatureBlob().P7x;
+        var r = await service.AnalyzeAsync(_bed.Msix(withDependency: false, signature: signature), NoProgress, CancellationToken.None);
+
+        Assert.Equal(oversizedSignature ? PackageTrust.Unknown : PackageTrust.Untrusted, r.Package!.Trust);
+        Assert.True(r.NeedsReview);
+        Assert.Contains(r.Package.TrustWarning!, r.ReviewReason);
+
+        var saved = await service.SaveAsync(r, new AddSaveOptions(DefinitionsFolder: _bed.Definitions), CancellationToken.None);
+
+        Assert.True(saved.NeedsReview);
+        Assert.Contains(r.Package.TrustWarning!, saved.ReviewReason);
+    }
+
+    [Fact]
+    public async Task APredictedDetection_WithADocumentedSource_NeedsReviewUntilTheUserEditsIt()
+    {
+        const string patchCode = "{AAAABBBB-0000-4000-8000-000000000002}";
+        var path = _bed.PathOf("contoso-update.msp");
+        File.WriteAllBytes(path, [0xD0, 0xCF, 0x11, 0xE0, 0xA1, 0xB1, 0x1A, 0xE1]);
+        var fake = new FakeInstallerAnalysisService();
+        fake.Reports[path] = Report(path, "MSP", [],
+            metadata:
+            [
+                new MetadataBlock(Title: "MSI patch (contoso-update.msp)", Facts:
+                [
+                    Fact("DisplayName", "Contoso Tool Update (4.5.7)", "Confirmed", "msi-patch-metadata"),
+                    Fact("ManufacturerName", "Contoso Ltd", "Confirmed", "msi-patch-metadata"),
+                    Fact("Post-patch version", "4.5.7", "Predicted", "msi-patch-metadata"),
+                    Fact("Primary PatchCode", patchCode, "Confirmed", "msi-summary-information"),
+                    Fact("Target ProductCodes", ProductCode, "Confirmed", "msi-summary-information")
+                ])
+            ]);
+        var service = _bed.Over(fake);
+
+        var r = await service.AnalyzeAsync(path, NoProgress, CancellationToken.None);
+
+        Assert.Equal(Evidence.Predicted, r.Detection.Evidence);
+        Assert.False(AddFromInstallerService.IsUndocumented(r.Detection.Source));
+        Assert.True(r.NeedsReview);
+        Assert.Contains("Detection needs review", r.ReviewReason);
+
+        var edited = r with { Detection = r.Detection with { Evidence = Evidence.Manual, Source = null } };
+        var saved = await service.SaveAsync(edited with { Version = r.Version with { Evidence = Evidence.Manual } }, new AddSaveOptions(DefinitionsFolder: _bed.Definitions), CancellationToken.None);
+        Assert.DoesNotContain("Detection needs review", saved.ReviewReason ?? "");
     }
 }

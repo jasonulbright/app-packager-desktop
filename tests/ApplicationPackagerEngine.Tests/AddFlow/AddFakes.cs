@@ -77,10 +77,12 @@ internal sealed class FakeResultActions : IAddResultActions
     public List<string> Selected { get; } = [];
     public List<string> Opened { get; } = [];
     public List<string> Staged { get; } = [];
+    public Exception? SelectFails { get; set; }
 
     public Task SelectRowAsync(string definitionId)
     {
         Selected.Add(definitionId);
+        if (SelectFails is not null) return Task.FromException(SelectFails);
         return Task.CompletedTask;
     }
 

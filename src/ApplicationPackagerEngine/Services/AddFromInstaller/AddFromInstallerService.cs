@@ -228,8 +228,10 @@ public sealed class AddFromInstallerService : IAddFromInstallerService
         if (install is { Evidence: Evidence.Predicted } && IsUndocumented(install.Source))
             reasons.Add("The silent switches come from a table with no documented source; test them before you deploy.");
         if (detection.IsDefault) reasons.Add(DefaultDetectionReason);
-        else if (detection.Evidence == Evidence.Predicted && IsUndocumented(detection.Source))
-            reasons.Add("Detection needs review: the uninstall key is predicted from the installer type, not read from the installer.");
+        else if (detection.Evidence == Evidence.Predicted)
+            reasons.Add(IsUndocumented(detection.Source)
+                ? "Detection needs review: the uninstall key is predicted from the installer type, not read from the installer."
+                : "Detection needs review: the rule is predicted, not read from the installer.");
     }
 
     // ---- detection -------------------------------------------------------------------------
@@ -437,7 +439,7 @@ public sealed class AddFromInstallerService : IAddFromInstallerService
         var (architectureValue, architectureNote) = PackageArchitecture(architecture);
         if (architectureNote is not null) notes.Add(architectureNote);
         if (architectureValue is { Length: > 0 } && !IsSupportedArchitecture(architectureValue)) reasons.Add(architectureNote!);
-        if (trust is PackageTrust.Unsigned or PackageTrust.Invalid) reasons.Add(trustWarning!);
+        if (trust is not PackageTrust.Trusted) reasons.Add(trustWarning!);
         if (dependencies.Count > 0) reasons.Add("The package needs other packages that the deployment does not install.");
         var displayName = report.Deployment.FirstOrDefault(f => f.Name == "DisplayName")?.Value ?? identity;
         var name = displayName.Length > 0 ? new ProposedValue<string?>(Value: displayName, Evidence: Evidence.Confirmed, Source: source) : new ProposedValue<string?>(Value: null, Evidence: Evidence.None, Source: null);
@@ -578,7 +580,7 @@ public sealed class AddFromInstallerService : IAddFromInstallerService
         var reasons = new List<string>();
         if (r.InstallerType is not ("MSI" or "MSIX" or "MSP") && string.IsNullOrWhiteSpace(r.InstallArguments.Value)) reasons.Add(NoSilentSwitchReason);
         AddCriticalReasons(reasons, r.Name, r.Version, r.InstallerType is "MSIX" or "MSP" ? null : r.InstallArguments, r.Detection);
-        if (r.Package?.Trust is PackageTrust.Unsigned or PackageTrust.Invalid && r.Package.TrustWarning is not null) reasons.Add(r.Package.TrustWarning);
+        if (r.Package is { Trust: not PackageTrust.Trusted, TrustWarning: { } warning }) reasons.Add(warning);
         return reasons;
     }
 

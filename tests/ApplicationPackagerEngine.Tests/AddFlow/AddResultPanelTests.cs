@@ -74,4 +74,18 @@ public sealed class AddResultPanelTests
         Assert.False(panel.IsVisible);
         Assert.Equal(1, closed);
     }
+
+    [Fact]
+    public async Task AGridThatCannotSelectTheRow_StillShowsThePanelWithAStatusLine()
+    {
+        var actions = new FakeResultActions { SelectFails = new InvalidOperationException("The grid is not loaded.") };
+        var panel = new AddResultViewModel(actions);
+
+        await panel.ShowAsync(Added(needsReview: true));
+
+        Assert.True(panel.IsVisible);
+        Assert.Contains("The grid is not loaded.", panel.StageStatus);
+        Assert.Contains("was saved", panel.StageStatus);
+        Assert.True(panel.IsWorkbenchDefault);
+    }
 }
