@@ -5,7 +5,7 @@
     xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
     xmlns:helpers="clr-namespace:ApplicationPackagerUI.Helpers"
     xmlns:controls="clr-namespace:ApplicationPackagerUI.Controls"
-    Margin="24,0,24,24"
+    Margin="24,16,24,16"
     ScrollViewer.CanContentScroll="False">
 
     <Page.Resources>
@@ -40,12 +40,18 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <StackPanel Grid.Row="0" Margin="0,0,0,16">
-            <TextBlock Text="Add from web" Style="{StaticResource AddPageTitle}" AutomationProperties.AutomationId="txtAddWebHeader" />
-            <TextBlock Text="{Binding StepTitle}" FontSize="14" Foreground="{DynamicResource TextFillColorSecondaryBrush}" Margin="0,4,0,0"
-                       Visibility="{Binding IsWizardVisible, Converter={StaticResource BooleanToVisibilityConverter}}"
-                       AutomationProperties.AutomationId="txtAddWebStep" />
-        </StackPanel>
+        <controls:PageHeader Grid.Row="0" Title="Add from web" TitleAutomationId="txtAddWebHeader" DescriptionAutomationId="txtAddWebStep">
+            <controls:PageHeader.Style>
+                <Style TargetType="controls:PageHeader">
+                    <Setter Property="Description" Value="{Binding StepTitle}" />
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding IsWizardVisible}" Value="False">
+                            <Setter Property="Description" Value="" />
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </controls:PageHeader.Style>
+        </controls:PageHeader>
 
         <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Focusable="False"
                       Visibility="{Binding IsWizardVisible, Converter={StaticResource BooleanToVisibilityConverter}}"

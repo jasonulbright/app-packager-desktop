@@ -3,6 +3,7 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+    xmlns:controls="clr-namespace:ApplicationPackagerUI.Controls"
     xmlns:pages="clr-namespace:ApplicationPackagerUI.Views.Pages"
     ScrollViewer.CanContentScroll="False">
 
@@ -28,11 +29,8 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <StackPanel Grid.Row="0" Margin="0,0,0,8">
-            <TextBlock Text="Pivots and Scripts" FontSize="28" FontWeight="Bold" Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
-            <TextBlock Text="Runs a CMPivot query or an approved site script on resolved devices, and submits, approves, denies or removes site scripts. Every action shows a plan first. A run cannot be undone."
-                       Style="{StaticResource Note}" Margin="0,4,0,0" AutomationProperties.AutomationId="txtPivotsIntro" />
-        </StackPanel>
+        <controls:PageHeader Grid.Row="0" Margin="0,0,0,8" Title="Pivots and Scripts" TitleAutomationId="txtPivotsTitle" DescriptionAutomationId="txtPivotsIntro"
+                             Description="Runs a CMPivot query or an approved site script on resolved devices, and submits, approves, denies or removes site scripts. Every action shows a plan first. A run cannot be undone." />
 
         <Border Grid.Row="1" Style="{StaticResource Caution}" Visibility="{Binding HasConnectionMessage, Converter={StaticResource BoolToVisibility}}"
                 AutomationProperties.AutomationId="pnlPivotsConnection">

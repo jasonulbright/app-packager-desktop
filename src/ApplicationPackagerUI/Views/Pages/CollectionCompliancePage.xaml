@@ -3,6 +3,7 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+    xmlns:controls="clr-namespace:ApplicationPackagerUI.Controls"
     xmlns:helpers="clr-namespace:ApplicationPackagerUI.Helpers"
     xmlns:pages="clr-namespace:ApplicationPackagerUI.ViewModels.Pages"
     xmlns:views="clr-namespace:ApplicationPackagerUI.Views.Pages"
@@ -111,20 +112,17 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <DockPanel Grid.Row="0" Margin="0,0,0,8">
-            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Top" AutomationProperties.Name="Section"
-                        AutomationProperties.AutomationId="pnlSection">
-                <RadioButton Content="Collections" GroupName="CollectionComplianceSection" IsChecked="{Binding IsCollectionsSection}" Margin="0,0,12,0"
-                             AutomationProperties.AutomationId="rbSectionCollections" />
-                <RadioButton Content="Compliance" GroupName="CollectionComplianceSection" IsChecked="{Binding IsComplianceSection}"
-                             AutomationProperties.AutomationId="rbSectionCompliance" />
-            </StackPanel>
-            <StackPanel>
-                <TextBlock Text="Collection and Compliance" FontSize="28" FontWeight="Bold" Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
-                <TextBlock Text="Show, create and change device collections, their rules and saved queries, and the configuration items and baselines of the site. Every change shows a plan first."
-                           FontSize="12" Margin="0,4,0,0" TextWrapping="Wrap" Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
-            </StackPanel>
-        </DockPanel>
+        <controls:PageHeader Grid.Row="0" Margin="0,0,0,8" Title="Collection and Compliance" TitleAutomationId="txtCollectionComplianceTitle"
+                             Description="Show, create and change device collections, their rules and saved queries, and the configuration items and baselines of the site. Every change shows a plan first.">
+            <controls:PageHeader.Actions>
+                <StackPanel Orientation="Horizontal" AutomationProperties.Name="Section" AutomationProperties.AutomationId="pnlSection">
+                    <RadioButton Content="Collections" GroupName="CollectionComplianceSection" IsChecked="{Binding IsCollectionsSection}" Margin="0,0,12,0"
+                                 AutomationProperties.AutomationId="rbSectionCollections" />
+                    <RadioButton Content="Compliance" GroupName="CollectionComplianceSection" IsChecked="{Binding IsComplianceSection}"
+                                 AutomationProperties.AutomationId="rbSectionCompliance" />
+                </StackPanel>
+            </controls:PageHeader.Actions>
+        </controls:PageHeader>
 
         <Border Grid.Row="1" Grid.RowSpan="4" Visibility="{Binding IsComplianceSection, Converter={StaticResource BoolToVisibility}}">
             <views:ComplianceSectionView x:Name="viewCompliance" AutomationProperties.AutomationId="viewCompliance" />

@@ -1,4 +1,4 @@
-﻿using System.ComponentModel;
+using System.ComponentModel;
 using System.Windows;
 using System.Windows.Controls;
 using ApplicationPackagerEngine.Services;
@@ -180,7 +180,7 @@ public partial class SiteHygienePage : INavigationAware
     private void ApplyLayout(bool compact)
     {
         _compact = compact;
-        txtHygieneIntro.Visibility = compact ? Visibility.Collapsed : Visibility.Visible;
+        pageHeader.IsDescriptionVisible = !compact;
         pageRoot.Margin = compact ? CompactMargin : RegularMargin;
         txtHygieneResultSummary.Visibility = _viewModel.HasAuditWarning ? Visibility.Collapsed : Visibility.Visible;
         FitResults();

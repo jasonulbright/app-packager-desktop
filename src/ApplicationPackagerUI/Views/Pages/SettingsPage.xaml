@@ -34,24 +34,30 @@
         </Style>
     </Page.Resources>
 
-    <ScrollViewer VerticalScrollBarVisibility="Auto">
-        <StackPanel Margin="32,24,32,32" MaxWidth="760" HorizontalAlignment="Left">
+    <Grid Margin="24,16,24,0">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
 
-            <DockPanel Margin="0,0,0,16">
-                <ui:Button DockPanel.Dock="Right" Content="Save Settings"
-                           Appearance="Primary"
-                           Icon="{ui:SymbolIcon Save24}"
-                           Command="{Binding SaveSettingsCommand}"
-                           VerticalAlignment="Center" />
-                <ui:Button DockPanel.Dock="Right" Content="Discard changes"
-                           Icon="{ui:SymbolIcon ArrowUndo24}"
-                           Command="{Binding DiscardChangesCommand}"
-                           Margin="0,0,8,0" VerticalAlignment="Center"
-                           ToolTip="Reloads every setting on this page from the saved settings. Unsaved edits are lost." />
-                <TextBlock Text="Settings" FontSize="28" FontWeight="Bold"
-                           Foreground="{DynamicResource TextFillColorPrimaryBrush}"
-                           VerticalAlignment="Center" />
-            </DockPanel>
+        <controls:PageHeader Grid.Row="0" Title="Settings" TitleAutomationId="txtSettingsTitle" MaxWidth="760" HorizontalAlignment="Left">
+            <controls:PageHeader.Actions>
+                <StackPanel Orientation="Horizontal">
+                    <ui:Button Content="Discard changes"
+                               Icon="{ui:SymbolIcon ArrowUndo24}"
+                               Command="{Binding DiscardChangesCommand}"
+                               Margin="0,0,8,0"
+                               ToolTip="Reloads every setting on this page from the saved settings. Unsaved edits are lost." />
+                    <ui:Button Content="Save Settings"
+                               Appearance="Primary"
+                               Icon="{ui:SymbolIcon Save24}"
+                               Command="{Binding SaveSettingsCommand}" />
+                </StackPanel>
+            </controls:PageHeader.Actions>
+        </controls:PageHeader>
+
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+        <StackPanel Margin="0,0,0,32" MaxWidth="760" HorizontalAlignment="Left">
 
             <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
                 <RadioButton Content="Dark" Margin="0,0,16,0"
@@ -843,5 +849,6 @@
             <Border Height="32" />
 
         </StackPanel>
-    </ScrollViewer>
+        </ScrollViewer>
+    </Grid>
 </Page>
