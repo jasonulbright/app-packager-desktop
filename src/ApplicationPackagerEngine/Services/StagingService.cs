@@ -185,6 +185,9 @@ public sealed class StagingService
     /// <summary>Gets the latest version for a JSON-defined app without downloading.</summary>
     public async Task<string?> GetLatestVersionAsync(AppDefinition def, CancellationToken ct = default)
     {
+        if (StagesFromSavedInstaller(def))
+            return string.IsNullOrWhiteSpace(def.LocalInstaller?.Version) ? null : def.LocalInstaller.Version.Trim();
+
         var (raw, display) = await _scrapers.GetLatestVersionWithTransformAsync(def.VersionScraper, ct);
 
         if (!string.IsNullOrEmpty(def.DisplayVersionOverride) && raw is not null)
@@ -276,11 +279,16 @@ public sealed class StagingService
             if (def.LocalSource is not null
                 && (def.LocalSource.IsRequired || !string.IsNullOrWhiteSpace(inputs?.LocalSourceFolder)))
                 localInstaller = LocalSourceResolver.Resolve(inputs?.LocalSourceFolder, def.LocalSource, def.Application);
+            var savedInstaller = localInstaller is null ? SavedLocalInstaller(def, onProgress) : null;
 
             // A version from Check Latest is reused, except under a VersionTransform: knownVersion
             // is then the display version, and the download URL needs the raw version.
             string? rawVersion, version;
-            if (!string.IsNullOrEmpty(knownVersion) && string.IsNullOrEmpty(def.VersionScraper.VersionTransform))
+            if (savedInstaller is not null)
+            {
+                version = rawVersion = savedInstaller.Version.Trim();
+            }
+            else if (!string.IsNullOrEmpty(knownVersion) && string.IsNullOrEmpty(def.VersionScraper.VersionTransform))
             {
                 onProgress?.Invoke($"Checking latest version for {def.Application}...");
                 version = knownVersion;
@@ -297,7 +305,7 @@ public sealed class StagingService
             // version stays the transformed value the download URL substitutes; displayVersion
             // names the folder and the detection and is the version the operator sees.
             var displayVersion = version;
-            if (!string.IsNullOrEmpty(def.DisplayVersionOverride))
+            if (savedInstaller is null && !string.IsNullOrEmpty(def.DisplayVersionOverride))
                 displayVersion = def.DisplayVersionOverride
                     .Replace("{version}", rawVersion, StringComparison.OrdinalIgnoreCase);
 
@@ -332,6 +340,16 @@ public sealed class StagingService
                 installerPath = Workbench.WorkbenchPaths.CombineUnder(contentPath, installerFileName);
                 StageLocalInstaller(localInstaller, installerPath, onProgress);
                 AuthenticodeVerifier.RequireValid(installerPath, onProgress);
+            }
+            else if (savedInstaller is not null)
+            {
+                downloadUrl = "";
+                installerFileName = AssertPlainFileName(string.IsNullOrWhiteSpace(def.InstallerFileName)
+                    ? Path.GetFileName(savedInstaller.Path)
+                    : def.InstallerFileName);
+                installerPath = Workbench.WorkbenchPaths.CombineUnder(contentPath, installerFileName);
+                CopySavedInstaller(savedInstaller, installerPath, onProgress);
+                if (def.RequireValidSignature) AuthenticodeVerifier.RequireValid(installerPath, onProgress);
             }
             else
             {
@@ -394,7 +412,9 @@ public sealed class StagingService
                 onProgress?.Invoke($"MSIX identity version        : {identity.Version}");
                 onProgress?.Invoke($"MSIX architecture            : {identity.ProcessorArchitecture}");
 
+                // A neutral package runs on every architecture the definition can declare.
                 if (!string.IsNullOrWhiteSpace(identity.ProcessorArchitecture)
+                    && !identity.ProcessorArchitecture.Equals("neutral", StringComparison.OrdinalIgnoreCase)
                     && !string.IsNullOrWhiteSpace(def.Architecture)
                     && !identity.ProcessorArchitecture.Equals(def.Architecture, StringComparison.OrdinalIgnoreCase))
                     throw new InvalidOperationException(
@@ -659,7 +679,7 @@ public sealed class StagingService
                 Version = version,
                 ContentPath = contentPath,
                 ManifestPath = manifestPath,
-                FromLocalSource = localInstaller is not null
+                FromLocalSource = localInstaller is not null || savedInstaller is not null
             };
         }
         // Cancellation is not a staging failure. Returning it as one lets a caller read an
@@ -901,6 +921,61 @@ public sealed class StagingService
         }
         File.Copy(localInstaller, installerPath, overwrite: true);
         onProgress?.Invoke($"Staged installer differed from the local source; replaced: {name}");
+    }
+
+    /// <summary>
+    /// The saved installer of a definition with no download source, after a check that the file
+    /// still exists and still has the saved SHA-256; null for a definition with a download source.
+    /// Throws with the step the operator takes when the definition cannot stage.
+    /// </summary>
+    public static LocalInstallerConfig? SavedLocalInstaller(AppDefinition def, Action<string>? onProgress)
+    {
+        if (!StagesFromSavedInstaller(def)) return null;
+        var saved = def.LocalInstaller;
+        if (saved is null || string.IsNullOrWhiteSpace(saved.Path) || string.IsNullOrWhiteSpace(saved.Sha256) || string.IsNullOrWhiteSpace(saved.Version))
+            throw new InvalidOperationException(
+                $"{def.Application} has no download source and no saved installer. Add the installer again with Add from file, " +
+                "or set a version source and a download URL in the Workbench.");
+        if (!File.Exists(saved.Path))
+            throw new InvalidOperationException(
+                $"The installer that Add from file saved for {def.Application} is not found: {saved.Path}. " +
+                "Put the file back in that folder, or add the installer again with Add from file.");
+        RequireSavedHash(saved, saved.Path, "Nothing was staged.");
+        onProgress?.Invoke($"Saved installer              : {saved.Path}");
+        return saved;
+    }
+
+    /// <summary>True for a definition with no download source and no local installer folder: the saved installer is its only payload.</summary>
+    public static bool StagesFromSavedInstaller(AppDefinition def) =>
+        def.LocalSource is null && AddFromInstaller.AddFromInstallerService.IsLocalFileDefinition(def);
+
+    /// <summary>
+    /// Copies the saved installer to its staged path through a side file that replaces the staged
+    /// path only when its SHA-256 equals the saved one, so the stage never seals another file.
+    /// </summary>
+    public static void CopySavedInstaller(LocalInstallerConfig saved, string installerPath, Action<string>? onProgress)
+    {
+        var copy = $"{installerPath}.{Guid.NewGuid():N}.partial";
+        try
+        {
+            File.Copy(saved.Path, copy, overwrite: false);
+            RequireSavedHash(saved, copy, "The copy was removed.");
+            File.Move(copy, installerPath, overwrite: true);
+        }
+        finally
+        {
+            if (File.Exists(copy)) File.Delete(copy);
+        }
+        onProgress?.Invoke($"Copied saved installer: {Path.GetFileName(installerPath)}");
+    }
+
+    private static void RequireSavedHash(LocalInstallerConfig saved, string file, string outcome)
+    {
+        var actual = ComputeSha256(file);
+        if (!string.Equals(actual, saved.Sha256.Trim(), StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException(
+                $"The installer {saved.Path} changed after Add from file saved it: its SHA-256 is {actual}, the saved SHA-256 is {saved.Sha256}. " +
+                $"{outcome} Add the installer again with Add from file.");
     }
 
     /// <summary>

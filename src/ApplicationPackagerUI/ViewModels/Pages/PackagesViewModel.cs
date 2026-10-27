@@ -762,6 +762,7 @@ public partial class PackagesViewModel : ObservableObject
                         }
                         p.Status = "Stage error";
                         p.IsSelected = false;
+                        _stageFailures[p] = result.StdErr;
                         AddLogLine($"Stage FAILED (exit {result.ExitCode})");
                         LogStdErr(result.StdErr);
                     }
@@ -774,11 +775,13 @@ public partial class PackagesViewModel : ObservableObject
                         break;
                     }
                     p.Status = "Stage error";
+                    _stageFailures[p] = ex.Message;
                     AddLogLine($"ERROR: {ex.Message}");
                 }
                 catch (Exception ex)
                 {
                     p.Status = "Stage error";
+                    _stageFailures[p] = ex.Message;
                     tally.RecordFailure();
                     AddLogLine($"ERROR: {ex.Message}");
                 }
@@ -1071,8 +1074,19 @@ public partial class PackagesViewModel : ObservableObject
         if (!StageCommand.CanExecute(null)) return "Another operation is running. Select Stage now again when it ends.";
         foreach (var p in Packagers) p.IsSelected = ReferenceEquals(p, row);
         FocusedPackager = row;
+        _stageFailures.Remove(row);
         await StageCommand.ExecuteAsync(null);
-        return StatusText;
+        return StageNowStatus(StatusText, _stageFailures.GetValueOrDefault(row));
+    }
+
+    /// <summary>The reason of the last failed stage of each row in this session.</summary>
+    private readonly Dictionary<PackagerInfo, string> _stageFailures = new(ReferenceEqualityComparer.Instance);
+
+    /// <summary>The status line of Stage now: the run status, then the first line of the failure reason when the stage failed.</summary>
+    public static string StageNowStatus(string status, string? failure)
+    {
+        var reason = (failure ?? "").Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).FirstOrDefault();
+        return string.IsNullOrEmpty(reason) ? status : $"{status} Reason: {reason}";
     }
 
     /// <summary>

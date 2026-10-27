@@ -91,7 +91,7 @@ internal sealed class AddFromInstallerTestBed : IDisposable
         Path: path,
         FileName: Path.GetFileName(path),
         Size: new FileInfo(path).Length,
-        Sha256: new string('A', 64),
+        Sha256: StagingService.ComputeSha256(path),
         Type: type,
         Architecture: architecture,
         Signature: null,

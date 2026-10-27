@@ -558,6 +558,7 @@ public sealed class AddFromInstallerService : IAddFromInstallerService
             var warnings = new List<string>();
             var effective = WithWizardValues(reviewed, options);
             var definition = BuildDefinition(effective, options, warnings);
+            if (IsLocalFileDefinition(definition)) definition.LocalInstaller = LocalInstallerOf(effective);
             var name = definition.Application;
             string target;
             try { target = UserDefinitionFiles.GetPath(options.DefinitionsFolder, name); }
@@ -578,6 +579,18 @@ public sealed class AddFromInstallerService : IAddFromInstallerService
                 ReviewReason = reasons.Count > 0 ? string.Join(" ", reasons.Distinct()) : null
             };
         }, ct);
+    }
+
+    /// <summary>The analysed file as the stage of a definition with no download source finds it: full path, SHA-256 and reviewed version.</summary>
+    private static LocalInstallerConfig LocalInstallerOf(AddAnalysisResult r)
+    {
+        var path = Path.GetFullPath(r.FilePath);
+        if (!File.Exists(path))
+            throw new AddFromInstallerRefusedException($"The installer file is not found: {path}. Open the installer file again.");
+        var sha256 = StagingService.ComputeSha256(path);
+        if (!string.IsNullOrWhiteSpace(r.Sha256) && !string.Equals(sha256, r.Sha256.Trim(), StringComparison.OrdinalIgnoreCase))
+            throw new AddFromInstallerRefusedException($"The installer file changed after the analysis: {path}. Open the installer file again.");
+        return new LocalInstallerConfig { Path = path, Sha256 = sha256, Version = r.Version.Value?.Trim() ?? "" };
     }
 
     /// <summary>The review state of the saved values: a value the user entered counts as reviewed.</summary>
