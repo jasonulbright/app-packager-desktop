@@ -29,10 +29,14 @@ internal sealed class FakeAddService : IAddFromInstallerService
         lock (Analyses) return Analyses[index];
     }
 
-    public Task<AddSaveResult> SaveAsync(AddAnalysisResult reviewed, AddSaveOptions options, CancellationToken ct)
+    /// <summary>When set, a save completes only after the test completes the gate.</summary>
+    public TaskCompletionSource? SaveGate { get; set; }
+
+    public async Task<AddSaveResult> SaveAsync(AddAnalysisResult reviewed, AddSaveOptions options, CancellationToken ct)
     {
         Saves.Add((reviewed, options));
-        return Task.FromResult(SaveResult(reviewed));
+        if (SaveGate is not null) await SaveGate.Task;
+        return SaveResult(reviewed);
     }
 
     public Task<string> FetchInstallerAsync(DownloadRequest request, IProgress<string> progress, CancellationToken ct)

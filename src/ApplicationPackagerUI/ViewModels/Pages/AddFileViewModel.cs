@@ -42,6 +42,7 @@ public sealed partial class AddFileViewModel : ObservableObject
     private CancellationTokenSource? _operation;
     private int _generation;
     private AddAnalysisResult? _analysis;
+    private bool _saving;
 
     public AddFileViewModel(IAddFromInstallerService service, IAddFilePrompts prompts, AddResultViewModel results)
     {
@@ -113,6 +114,11 @@ public sealed partial class AddFileViewModel : ObservableObject
     private async Task AnalyzeFileAsync(string? path)
     {
         if (string.IsNullOrWhiteSpace(path)) return;
+        if (_saving)
+        {
+            StatusText = "The definition is being saved. Add the next file when the save ends.";
+            return;
+        }
         if (!AddFileFormats.IsAccepted(path))
         {
             StatusText = AddFileFormats.RefusalText(path);
@@ -255,6 +261,7 @@ public sealed partial class AddFileViewModel : ObservableObject
         };
 
         IsBusy = true;
+        _saving = true;
         StatusText = "Saving the definition.";
         _operation = new CancellationTokenSource();
         AddSaveResult saved;
@@ -273,7 +280,11 @@ public sealed partial class AddFileViewModel : ObservableObject
             StatusText = "The definition was not saved: " + ex.Message;
             return;
         }
-        finally { IsBusy = false; }
+        finally
+        {
+            IsBusy = false;
+            _saving = false;
+        }
 
         Stage = AddFileStage.Result;
         StatusText = "";

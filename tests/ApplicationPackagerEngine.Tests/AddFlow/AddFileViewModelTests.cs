@@ -196,6 +196,26 @@ public sealed class AddFileViewModelTests
     });
 
     [Fact]
+    public void ADropDuringTheSaveIsIgnored() => OnSta(h =>
+    {
+        h.ViewModel.AnalyzeFileCommand.Execute(@"C:\in\contoso.msi");
+        Analyze(h, FakeAddService.Result());
+        h.ViewModel.PredictedAccepted = true;
+        h.Service.SaveGate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var save = h.ViewModel.SaveCommand.ExecuteAsync(null);
+        StaTestHelper.PumpUntil(() => h.Service.Saves.Count == 1);
+
+        h.ViewModel.DropFiles([@"C:\in\other.msi"]);
+        StaTestHelper.Flush();
+        Assert.Single(h.Service.Analyses);
+        Assert.Contains("being saved", h.ViewModel.StatusText);
+
+        h.Service.SaveGate.SetResult();
+        StaTestHelper.PumpUntil(() => save.IsCompleted);
+        Assert.Equal(AddFileStage.Result, h.ViewModel.Stage);
+    });
+
+    [Fact]
     public void DoneReturnsToThePicker() => OnSta(h =>
     {
         h.ViewModel.AnalyzeFileCommand.Execute(@"C:\in\contoso.msi");
