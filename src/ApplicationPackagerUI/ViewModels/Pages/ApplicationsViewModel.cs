@@ -31,7 +31,7 @@ public partial class ApplicationsViewModel : ObservableObject
             settingsService.Save,
             LoadPackagersFrom(discoveryService),
             () => packagesViewModel.LoadPackagersCommand.ExecuteAsync(null),
-            message => snackbarService.Show("Catalog", message,
+            message => snackbarService.Show("Applications", message,
                 Wpf.Ui.Controls.ControlAppearance.Success,
                 new SymbolIcon(SymbolRegular.Checkmark24), TimeSpan.FromSeconds(2)),
             packagesViewModel.AppendLog))
@@ -58,7 +58,7 @@ public partial class ApplicationsViewModel : ObservableObject
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            log("Catalog page: the list could not be reloaded. Open the page again to retry.");
+            log("Applications page: the list could not be reloaded. Open the page again to retry.");
         }
     }
 

@@ -34,28 +34,34 @@ public sealed class SidebarGroupRegistryTests
 {
     private static readonly string[] ToolIds =
     [
-        SidebarIds.DetectionTester, SidebarIds.MaintenanceWindows, SidebarIds.CollectionCompliance, SidebarIds.InstallerAnalysis,
-        SidebarIds.DeploymentHelper, SidebarIds.DpContentManager, SidebarIds.PivotsScripts, SidebarIds.SiteHygiene
+        SidebarIds.InstallerAnalysis, SidebarIds.DetectionTester, SidebarIds.DeploymentHelper, SidebarIds.PivotsScripts,
+        SidebarIds.CollectionCompliance, SidebarIds.MaintenanceWindows, SidebarIds.DpContentManager, SidebarIds.SiteHygiene
     ];
 
     [Fact]
-    public void TheDefaultRegistryHasTheAppPackagerAndToolsGroupsInThatOrder()
+    public void TheDefaultRegistryHasOneCaptionedGroupTools()
     {
         var registry = SidebarRegistry.CreateDefault();
-        Assert.Equal([SidebarGroupIds.AppPackager, SidebarGroupIds.Tools], registry.Groups.Select(g => g.Id));
-        Assert.Equal(["APP PACKAGER", "TOOLS"], registry.Groups.Select(g => g.Caption));
-        Assert.Equal(["App Packager group", "Tools group"], registry.Groups.Select(g => g.AutomationName));
+        Assert.Equal([SidebarGroupIds.Tools], registry.Groups.Select(g => g.Id));
+        Assert.Equal(["TOOLS"], registry.Groups.Select(g => g.Caption));
+        Assert.Equal(["Tools group"], registry.Groups.Select(g => g.AutomationName));
         Assert.All(registry.Groups, g => Assert.Equal(g.Caption.ToUpperInvariant(), g.Caption));
     }
 
     [Fact]
-    public void TheAppPackagerGroupHoldsPackagesCatalogAddAppAndTheWorkbenchInThatOrder()
+    public void TheFirstGroupHasNoCaptionAndHoldsAppPackagerTheAddEntriesAndTheWorkbenchInThatOrder()
     {
         var registry = SidebarRegistry.CreateDefault();
-        var packager = registry.Items.Where(i => i.Group == SidebarGroupIds.AppPackager).ToList();
-        Assert.Equal([SidebarIds.Packages, SidebarIds.Applications, SidebarIds.AddApp, SidebarIds.Workbench], SidebarFixtures.Ids(packager));
-        Assert.Equal(["Packages", "Catalog", "Add App", "Application Workbench"], packager.Select(i => i.Title));
-        Assert.Equal(packager, registry.Items.Take(4));
+        var first = registry.Items.Where(i => i.Group is null).ToList();
+        Assert.Equal([SidebarIds.Packages, SidebarIds.AddApp, SidebarIds.AddFile, SidebarIds.Workbench], SidebarFixtures.Ids(first));
+        Assert.Equal(["App Packager", "Add from web", "Add from file", "Workbench"], first.Select(i => i.Title));
+        Assert.Equal(first, registry.Items.Take(4));
+        Assert.True(first[0].IsPinned);
+        Assert.Equal(typeof(PackagesPage), first[0].PageType);
+        Assert.Equal(typeof(AddAppPage), first[1].PageType);
+        Assert.Equal(typeof(AddFilePage), first[2].PageType);
+        Assert.Equal("addfile", first[2].Id);
+        Assert.Equal(SidebarItemKind.Window, first[3].Kind);
     }
 
     [Fact]
@@ -66,21 +72,19 @@ public sealed class SidebarGroupRegistryTests
         Assert.Equal(ToolIds, SidebarFixtures.Ids(tools));
         Assert.Equal(
         [
-            "Detection Tester", "Maintenance Windows", "Collection and Compliance", "Installer Analysis",
-            "Deployment Helper", "DP Content Manager", "Pivots and Scripts", "Site Hygiene"
+            "Installer Analysis", "Detection Tester", "Deployment Helper", "Pivots and Scripts",
+            "Collection and Compliance", "Maintenance Windows", "DP Content Manager", "Site Hygiene"
         ], tools.Select(i => i.Title));
         Assert.Equal(tools, registry.Items.Skip(4));
     }
 
     [Fact]
-    public void TheCatalogEntryKeepsTheSavedIdOfTheApplicationsEntry()
+    public void TheApplicationsEntryIsNotInTheSidebar()
     {
-        var catalog = SidebarRegistry.CreateDefault().Find("applications")!;
-        Assert.Equal(SidebarIds.Applications, catalog.Id);
-        Assert.Equal("applications", SidebarIds.Applications);
-        Assert.Equal("Catalog", catalog.Title);
-        Assert.Equal(typeof(ApplicationsPage), catalog.PageType);
-        Assert.DoesNotContain(SidebarRegistry.CreateDefault().Items, i => i.Title == "Applications");
+        var registry = SidebarRegistry.CreateDefault();
+        Assert.Null(registry.Find(SidebarIds.Applications));
+        Assert.DoesNotContain(registry.Items, i => i.PageType == typeof(ApplicationsPage));
+        Assert.DoesNotContain(registry.Items, i => i.Title is "Applications" or "Add App" or "Catalog" or "Packages" or "Application Workbench");
     }
 
     [Fact]
@@ -194,11 +198,12 @@ public sealed class SidebarGroupServiceTests
     }
 
     [Fact]
-    public void ADefaultSidebarMoveOfAToolIntoTheAppPackagerGroupStopsAtTheFirstTool()
+    public void ADefaultSidebarMoveOfAToolIntoTheFirstGroupStopsAtTheFirstTool()
     {
         var service = new SidebarService(SidebarRegistry.CreateDefault(), new InMemorySidebarStore());
         Assert.True(service.Move(SidebarIds.SiteHygiene, 1));
-        Assert.Equal([SidebarIds.Packages, SidebarIds.Applications, SidebarIds.AddApp, SidebarIds.Workbench, SidebarIds.SiteHygiene], SidebarFixtures.Ids(service.All.Take(5)));
+        Assert.Equal([SidebarIds.Packages, SidebarIds.AddApp, SidebarIds.AddFile, SidebarIds.Workbench, SidebarIds.SiteHygiene], SidebarFixtures.Ids(service.All.Take(5)));
+        Assert.False(service.Move(SidebarIds.Workbench, 5));
     }
 }
 
@@ -291,11 +296,11 @@ public sealed class SidebarGroupMigrationTests : IDisposable
         { "SiteCode": "PS1", "FirstRunCompleted": true,
           "Sidebar": {
             "Order": ["site-hygiene", "detection-tester", "applications", "packages", "workbench", "installer-analysis", "suite-launcher", "add-app"],
-            "Hidden": ["detection-tester", "suite-launcher", "packages"] } }
+            "Hidden": ["detection-tester", "suite-launcher", "packages", "applications", "add-app"] } }
         """;
 
     [Fact]
-    public void ASettingsFileWithToolsOrderedBeforeThePackagerEntriesLoadsGroupByGroup()
+    public void ASettingsFileWithToolsOrderedBeforeTheFirstGroupAndRemovedEntriesLoadsGroupByGroup()
     {
         Directory.CreateDirectory(Path.GetDirectoryName(SettingsService.SettingsPath)!);
         File.WriteAllText(SettingsService.SettingsPath, OldSettings);
@@ -303,18 +308,19 @@ public sealed class SidebarGroupMigrationTests : IDisposable
         var service = new SidebarService(SidebarRegistry.CreateDefault(), new SettingsSidebarLayoutStore(new SettingsService()));
         Assert.Equal(
         [
-            SidebarIds.Packages, SidebarIds.Applications, SidebarIds.Workbench, SidebarIds.AddApp,
+            SidebarIds.Packages, SidebarIds.Workbench, SidebarIds.AddApp, SidebarIds.AddFile,
             SidebarIds.SiteHygiene, SidebarIds.DetectionTester, SidebarIds.InstallerAnalysis,
-            SidebarIds.MaintenanceWindows, SidebarIds.CollectionCompliance, SidebarIds.DeploymentHelper, SidebarIds.DpContentManager, SidebarIds.PivotsScripts
+            SidebarIds.DeploymentHelper, SidebarIds.PivotsScripts, SidebarIds.CollectionCompliance, SidebarIds.MaintenanceWindows, SidebarIds.DpContentManager
         ], SidebarFixtures.Ids(service.All));
-        Assert.Equal([SidebarIds.DetectionTester], SidebarFixtures.Ids(service.Hidden));
+        Assert.Equal([SidebarIds.AddApp, SidebarIds.DetectionTester], SidebarFixtures.Ids(service.Hidden));
         Assert.Equal(SidebarIds.Packages, service.Items[0].Id);
         Assert.Equal(OldSettings, File.ReadAllText(SettingsService.SettingsPath));
 
-        Assert.True(service.Hide(SidebarIds.AddApp));
+        Assert.True(service.Hide(SidebarIds.Workbench));
         var stored = JsonNode.Parse(File.ReadAllText(SettingsService.SettingsPath))!["Sidebar"]!;
+        Assert.DoesNotContain(SidebarIds.Applications, stored["Order"]!.AsArray().Select(n => (string)n!));
         Assert.Equal(SidebarFixtures.Ids(service.All), stored["Order"]!.AsArray().Select(n => (string)n!));
-        Assert.Equal([SidebarIds.AddApp, SidebarIds.DetectionTester], stored["Hidden"]!.AsArray().Select(n => (string)n!));
+        Assert.Equal([SidebarIds.Workbench, SidebarIds.AddApp, SidebarIds.DetectionTester], stored["Hidden"]!.AsArray().Select(n => (string)n!));
         Assert.Equal("PS1", (string?)JsonNode.Parse(File.ReadAllText(SettingsService.SettingsPath))!["SiteCode"]);
     }
 }

@@ -251,26 +251,80 @@ public sealed class SidebarGroupWindowTests
     }
 
     [Fact]
-    public void TheDefaultSidebarShowsTheAppPackagerAndToolsCaptionsAndTheCatalogEntry()
+    public void TheDefaultSidebarShowsTheFirstGroupWithoutACaptionThenTheToolsCaption()
     {
         WithSidebar(h =>
         {
             Assert.Equal(
             [
-                "[app-packager]", SidebarIds.Packages, SidebarIds.Applications, SidebarIds.AddApp, SidebarIds.Workbench,
-                "[tools]", SidebarIds.DetectionTester, SidebarIds.MaintenanceWindows, SidebarIds.CollectionCompliance, SidebarIds.InstallerAnalysis,
-                SidebarIds.DeploymentHelper, SidebarIds.DpContentManager, SidebarIds.PivotsScripts, SidebarIds.SiteHygiene
+                SidebarIds.Packages, SidebarIds.AddApp, SidebarIds.AddFile, SidebarIds.Workbench,
+                "[tools]", SidebarIds.InstallerAnalysis, SidebarIds.DetectionTester, SidebarIds.DeploymentHelper, SidebarIds.PivotsScripts,
+                SidebarIds.CollectionCompliance, SidebarIds.MaintenanceWindows, SidebarIds.DpContentManager, SidebarIds.SiteHygiene
             ], h.Menu());
-            Assert.Equal("APP PACKAGER", h.Presenter.CaptionFor(SidebarGroupIds.AppPackager).Text.Text);
-            Assert.Equal("App Packager group", AutomationProperties.GetName(h.Presenter.CaptionFor(SidebarGroupIds.AppPackager)));
+            Assert.Equal("TOOLS", h.Presenter.CaptionFor(SidebarGroupIds.Tools).Text.Text);
             Assert.Equal("Tools group", AutomationProperties.GetName(h.Presenter.CaptionFor(SidebarGroupIds.Tools)));
 
-            var catalog = h.Presenter.ItemFor(SidebarIds.Applications);
-            Assert.Equal("Catalog", catalog.Content);
-            Assert.Equal("Catalog", catalog.ToolTip);
-            Assert.Equal("Catalog", AutomationProperties.GetName(catalog));
-            Assert.Equal("nav-applications", AutomationProperties.GetAutomationId(catalog));
-            Assert.Equal(["Hide Catalog", "Reset sidebar"], Headers(catalog.ContextMenu!));
+            var packager = h.Presenter.ItemFor(SidebarIds.Packages);
+            Assert.Equal("App Packager", packager.Content);
+            Assert.Equal("App Packager", packager.ToolTip);
+            Assert.Equal("App Packager", AutomationProperties.GetName(packager));
+            Assert.Equal("nav-packages", AutomationProperties.GetAutomationId(packager));
+            Assert.Equal(["Reset sidebar"], Headers(packager.ContextMenu!));
+
+            var workbench = h.Presenter.ItemFor(SidebarIds.Workbench);
+            Assert.Equal("Workbench", workbench.Content);
+            Assert.Equal("Workbench", workbench.ToolTip);
+            Assert.Equal("Workbench", AutomationProperties.GetName(workbench));
+            Assert.Equal(["Hide Workbench", "Reset sidebar"], Headers(workbench.ContextMenu!));
+
+            var web = h.Presenter.ItemFor(SidebarIds.AddApp);
+            Assert.Equal("Add from web", web.Content);
+            Assert.Equal("Add from web", AutomationProperties.GetName(web));
+            Assert.Equal(["Hide Add from web", "Reset sidebar"], Headers(web.ContextMenu!));
+            var file = h.Presenter.ItemFor(SidebarIds.AddFile);
+            Assert.Equal("Add from file", file.ToolTip);
+            Assert.Equal("nav-addfile", AutomationProperties.GetAutomationId(file));
+
+            Assert.False(h.Presenter.HandleMoveKey(workbench, Key.Down, ModifierKeys.Alt));
+            Assert.False(h.Presenter.HandleMoveKey(web, Key.Up, ModifierKeys.Alt));
+            Assert.False(h.Presenter.HandleMoveKey(h.Presenter.ItemFor(SidebarIds.InstallerAnalysis), Key.Up, ModifierKeys.Alt));
+            Assert.True(h.Presenter.HandleMoveKey(web, Key.Down, ModifierKeys.Alt));
+            Assert.True(h.Presenter.HandleMoveKey(web, Key.Down, ModifierKeys.Alt));
+            Assert.False(h.Presenter.HandleMoveKey(web, Key.Down, ModifierKeys.Alt));
+            Assert.Equal([SidebarIds.Packages, SidebarIds.AddFile, SidebarIds.Workbench, SidebarIds.AddApp, "[tools]"], h.Menu().Take(5));
+
+            Assert.True(h.Service.Hide(SidebarIds.AddFile));
+            Assert.True(h.Service.Hide(SidebarIds.Workbench));
+            Assert.True(h.Service.Hide(SidebarIds.AddApp));
+            Assert.Equal([SidebarIds.Packages, "[tools]"], h.Menu().Take(2));
+            h.Service.Reset();
+            Assert.Equal([SidebarIds.Packages, SidebarIds.AddApp, SidebarIds.AddFile, SidebarIds.Workbench, "[tools]", SidebarIds.InstallerAnalysis], h.Menu().Take(6));
+        }, registry: SidebarRegistry.CreateDefault());
+    }
+
+    [Fact]
+    public void ADefaultSidebarDragOfAToolAboveTheWorkbenchStaysFirstInTheTools()
+    {
+        WithSidebar(h =>
+        {
+            var drag = h.Presenter.Drag!;
+            drag.Press(h.Presenter.ItemFor(SidebarIds.SiteHygiene), h.Center(SidebarIds.SiteHygiene));
+            drag.MoveTo(h.Top(SidebarIds.Workbench));
+            Assert.Equal(4, drag.InsertionIndex);
+            drag.Release(h.Top(SidebarIds.Workbench));
+            Assert.Equal([SidebarIds.Packages, SidebarIds.AddApp, SidebarIds.AddFile, SidebarIds.Workbench, "[tools]", SidebarIds.SiteHygiene], h.Menu().Take(6));
+
+            drag.Press(h.Presenter.ItemFor(SidebarIds.Workbench), h.Center(SidebarIds.Workbench));
+            drag.MoveTo(h.Top(SidebarIds.AddApp));
+            Assert.Equal(1, drag.InsertionIndex);
+            drag.Release(h.Top(SidebarIds.AddApp));
+            Assert.Equal([SidebarIds.Packages, SidebarIds.Workbench, SidebarIds.AddApp, SidebarIds.AddFile, "[tools]"], h.Menu().Take(5));
+
+            drag.Press(h.Presenter.ItemFor(SidebarIds.AddFile), h.Center(SidebarIds.AddFile));
+            drag.MoveTo(h.Bottom(SidebarIds.SiteHygiene));
+            Assert.Equal(4, drag.InsertionIndex);
+            drag.Release(h.Bottom(SidebarIds.SiteHygiene));
+            Assert.Equal([SidebarIds.Packages, SidebarIds.Workbench, SidebarIds.AddApp, SidebarIds.AddFile, "[tools]"], h.Menu().Take(5));
         }, registry: SidebarRegistry.CreateDefault());
     }
 }

@@ -50,7 +50,7 @@ public sealed class SidebarGroupRenderTests : IDisposable
         services.AddSingleton<Wpf.Ui.ISnackbarService, Wpf.Ui.SnackbarService>();
         services.AddSingleton<Wpf.Ui.IContentDialogService, Wpf.Ui.ContentDialogService>();
         services.AddSingleton<MainWindow>();
-        foreach (var type in new[] { typeof(PackagesPage), typeof(ApplicationsPage), typeof(AddAppPage), typeof(SettingsPage),
+        foreach (var type in new[] { typeof(PackagesPage), typeof(ApplicationsPage), typeof(AddAppPage), typeof(AddFilePage), typeof(SettingsPage),
                      typeof(DetectionTesterPage), typeof(MaintenanceWindowsPage), typeof(CollectionCompliancePage), typeof(InstallerAnalysisPage),
                      typeof(DeploymentHelperPage), typeof(DpContentManagerPage), typeof(PivotsScriptsPage), typeof(SiteHygienePage) })
             services.AddSingleton(type, _ => new System.Windows.Controls.Page { Tag = type });
@@ -149,13 +149,18 @@ public sealed class SidebarGroupRenderTests : IDisposable
             Assert.Equal(open, navigation.IsPaneOpen);
             var root = (FrameworkElement)window.Content;
             var captions = navigation.MenuItems.OfType<SidebarGroupCaption>().ToList();
-            Assert.Equal([SidebarGroupIds.AppPackager, SidebarGroupIds.Tools], captions.Select(c => c.Group.Id));
+            Assert.Equal([SidebarGroupIds.Tools], captions.Select(c => c.Group.Id));
             var entries = navigation.MenuItems.OfType<NavigationViewItem>().ToList();
             var packages = entries[0];
+            Assert.Same(packages, navigation.MenuItems[0]);
+            Assert.Equal("App Packager", packages.Content);
             var entryBounds = Bounds(packages, root);
             var workbench = entries.Single(i => (string)i.Tag == SidebarIds.Workbench);
-            var catalog = entries.Single(i => (string)i.Tag == SidebarIds.Applications);
-            var addApp = entries.Single(i => (string)i.Tag == SidebarIds.AddApp);
+            Assert.Equal("Workbench", workbench.Content);
+            var tester = entries.Single(i => (string)i.Tag == SidebarIds.DetectionTester);
+            var maintenance = entries.Single(i => (string)i.Tag == SidebarIds.MaintenanceWindows);
+            var firstTool = entries.Single(i => (string)i.Tag == SidebarIds.InstallerAnalysis);
+            Assert.Equal(["App Packager", "Add from web", "Add from file", "Workbench"], entries.Take(4).Select(e => (string)e.Content));
 
             foreach (var caption in captions)
             {
@@ -196,17 +201,17 @@ public sealed class SidebarGroupRenderTests : IDisposable
                 }
             }
 
-            var tools = Bounds(captions[1], root);
+            var tools = Bounds(captions[0], root);
             Assert.True(tools.Top >= Bounds(workbench, root).Bottom - 0.5, $"{where}: the Tools caption is above the workbench entry.");
-            Assert.True(Bounds(captions[0], root).Bottom <= entryBounds.Top + 0.5, $"{where}: the App Packager caption is below the Packages entry.");
+            Assert.True(tools.Bottom <= Bounds(firstTool, root).Top + 0.5, $"{where}: the Tools caption is below the first tool.");
 
-            Assert.True(navigation.Navigate(typeof(ApplicationsPage)));
+            Assert.True(navigation.Navigate(typeof(DetectionTesterPage)));
             RenderKit.Settle(window);
-            Assert.Same(catalog, navigation.SelectedItem);
-            Assert.True(catalog.IsActive);
-            Assert.False(addApp.IsActive);
-            var selected = Pixels(window, catalog, $"sidebar-{theme}-{width}x{height}-{(open ? "open" : "closed")}-selected");
-            var plain = Pixels(window, addApp);
+            Assert.Same(tester, navigation.SelectedItem);
+            Assert.True(tester.IsActive);
+            Assert.False(maintenance.IsActive);
+            var selected = Pixels(window, tester, $"sidebar-{theme}-{width}x{height}-{(open ? "open" : "closed")}-selected");
+            var plain = Pixels(window, maintenance);
             Assert.NotEqual(RenderKit.MostCommon(plain), RenderKit.MostCommon(selected));
             Assert.True(MaxContrast(selected) >= MarkContrastMinimum, $"{where}: the selected entry has a contrast of {MaxContrast(selected):0.00}.");
         });
@@ -215,22 +220,24 @@ public sealed class SidebarGroupRenderTests : IDisposable
     [Theory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
-    public void TheCatalogPageHeaderNamesTheCatalog(ApplicationTheme theme)
+    public void TheWorkbenchWindowTitleIsWorkbench(ApplicationTheme theme)
     {
         RenderKit.WithApplication(theme, () =>
         {
-            var page = (ApplicationsPage)RuntimeHelpers.GetUninitializedObject(typeof(ApplicationsPage));
-            typeof(System.Windows.Controls.Page).GetConstructor(Type.EmptyTypes)!.Invoke(page, null);
-            page.InitializeComponent();
-            var window = new Window { Width = 900, Height = 600, WindowStyle = WindowStyle.None, Content = page };
-            RenderKit.Show(window);
-            try
-            {
-                var texts = RenderKit.Descendants(page).OfType<TextBlock>().Select(t => t.Text).ToList();
-                Assert.Contains("Catalog", texts);
-                Assert.DoesNotContain("Applications", texts);
-            }
-            finally { window.Close(); }
+            var window = (WorkbenchWindow)RuntimeHelpers.GetUninitializedObject(typeof(WorkbenchWindow));
+            typeof(WorkbenchWindow).BaseType!.GetConstructor(Type.EmptyTypes)!.Invoke(window, null);
+            window.InitializeComponent();
+            Assert.Equal("Workbench", window.Title);
+            var titleBar = Assert.Single(LogicalTree(window).OfType<Wpf.Ui.Controls.TitleBar>());
+            Assert.Equal("Workbench", titleBar.Title);
         });
+    }
+
+    private static IEnumerable<object> LogicalTree(object root)
+    {
+        yield return root;
+        if (root is not DependencyObject node) yield break;
+        foreach (var child in LogicalTreeHelper.GetChildren(node))
+            foreach (var d in LogicalTree(child)) yield return d;
     }
 }

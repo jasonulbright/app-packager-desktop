@@ -65,7 +65,7 @@
             <Border Style="{StaticResource SectionDivider}" />
 
             <TextBlock Text="Sidebar" Style="{StaticResource SectionHeader}" />
-            <TextBlock Text="Select the entries that the sidebar shows and set their order. Each change applies at once; Save Settings is not necessary. An entry moves only inside its group. Packages is the start page and stays first."
+            <TextBlock Text="Select the entries that the sidebar shows and set their order. Each change applies at once; Save Settings is not necessary. An entry moves only inside its group. App Packager is the start page and stays first."
                        Foreground="{DynamicResource TextFillColorSecondaryBrush}" Margin="0,0,0,8" TextWrapping="Wrap" />
             <ItemsControl ItemsSource="{Binding Sidebar.Rows}" Focusable="False" Margin="0,0,0,8"
                           AutomationProperties.AutomationId="lstSidebar">
@@ -624,10 +624,10 @@
             <TextBlock Text="Application title" Style="{StaticResource FieldLabel}"
                        ToolTip="Default application naming for every Package run." />
             <CheckBox Content="Include version in application name" IsChecked="{Binding TitleOptions.IncludeVersionInTitle}" Margin="0,0,0,4"
-                      ToolTip="Adds the version to every application name, creating one ConfigMgr application per release. A per-application choice in the Application Workbench overrides this. Existing applications are not renamed." />
+                      ToolTip="Adds the version to every application name, creating one ConfigMgr application per release. A per-application choice in the Workbench overrides this. Existing applications are not renamed." />
             <CheckBox Content="Remove version from application name" IsChecked="{Binding TitleOptions.RemoveVersionFromTitle}"
                       IsEnabled="{Binding TitleOptions.RemoveVersionFromTitleAvailable}" Margin="0,0,0,8"
-                      ToolTip="Strips the release version from a vendor product name that carries it (7-Zip 26.03, Slido 2.3.1, Tableau 2026.2). Available while the version is not added to the name. A per-application choice in the Application Workbench overrides this." />
+                      ToolTip="Strips the release version from a vendor product name that carries it (7-Zip 26.03, Slido 2.3.1, Tableau 2026.2). Available while the version is not added to the name. A per-application choice in the Workbench overrides this." />
 
             <Border Style="{StaticResource SectionDivider}" />
 

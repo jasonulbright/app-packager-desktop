@@ -4,7 +4,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
     xmlns:helpers="clr-namespace:ApplicationPackagerUI.Helpers"
-    Title="Application Workbench"
+    Title="Workbench"
     Width="1280" Height="820"
     MinWidth="1024" MinHeight="700"
     WindowStartupLocation="CenterOwner"
@@ -134,7 +134,7 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <ui:TitleBar Grid.Row="0" Title="Application Workbench" />
+        <ui:TitleBar Grid.Row="0" Title="Workbench" />
 
         <Grid Grid.Row="1" Margin="16,4,16,10">
             <Grid.ColumnDefinitions>

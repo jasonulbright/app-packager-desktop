@@ -191,7 +191,7 @@ public partial class WorkbenchWindowViewModel : ObservableObject
         if (applications.Count == 0)
         {
             if (Prompts is not null)
-                await Prompts.InfoAsync("Application Workbench", "No applications were found. Load packagers or save a bring-your-own installer first.");
+                await Prompts.InfoAsync("Workbench", "No applications were found. Load packagers or save a bring-your-own installer first.");
             CloseRequested?.Invoke(this, EventArgs.Empty);
             return;
         }

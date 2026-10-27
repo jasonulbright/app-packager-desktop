@@ -42,7 +42,7 @@ public sealed class SidebarWiringTests : IDisposable
     private static void AddPlainPages(IServiceCollection services)
     {
         foreach (var type in new[] { typeof(ApplicationPackagerUI.Views.Pages.PackagesPage), typeof(ApplicationPackagerUI.Views.Pages.ApplicationsPage),
-                     typeof(ApplicationPackagerUI.Views.Pages.AddAppPage), typeof(ApplicationPackagerUI.Views.Pages.SettingsPage),
+                     typeof(ApplicationPackagerUI.Views.Pages.AddAppPage), typeof(ApplicationPackagerUI.Views.Pages.AddFilePage), typeof(ApplicationPackagerUI.Views.Pages.SettingsPage),
                      typeof(ApplicationPackagerUI.Views.Pages.DetectionTesterPage), typeof(ApplicationPackagerUI.Views.Pages.MaintenanceWindowsPage),
                      typeof(ApplicationPackagerUI.Views.Pages.CollectionCompliancePage), typeof(ApplicationPackagerUI.Views.Pages.InstallerAnalysisPage),
                      typeof(ApplicationPackagerUI.Views.Pages.DeploymentHelperPage), typeof(ApplicationPackagerUI.Views.Pages.DpContentManagerPage),
@@ -102,7 +102,7 @@ public sealed class SidebarWiringTests : IDisposable
             var navigation = window.GetNavigation();
             var registry = provider.GetRequiredService<SidebarRegistry>();
             Assert.Equal(registry.Items.Select(i => i.Title), Titles(window));
-            Assert.Equal(["APP PACKAGER", "TOOLS"], navigation.MenuItems.OfType<ApplicationPackagerUI.Views.Windows.SidebarGroupCaption>().Select(c => c.Text.Text));
+            Assert.Equal(["TOOLS"], navigation.MenuItems.OfType<ApplicationPackagerUI.Views.Windows.SidebarGroupCaption>().Select(c => c.Text.Text));
             var settings = Assert.IsType<Wpf.Ui.Controls.NavigationViewItem>(Assert.Single(navigation.FooterMenuItems.Cast<object>()));
             Assert.Equal("Settings", settings.Content);
             Assert.Equal(typeof(ApplicationPackagerUI.Views.Pages.SettingsPage), settings.TargetPageType);
@@ -121,7 +121,7 @@ public sealed class SidebarWiringTests : IDisposable
             using (var provider = MainWindowServices(s => s.AddSingleton<Wpf.Ui.ISnackbarService>(snackbar)))
             {
                 var window = provider.GetRequiredService<ApplicationPackagerUI.Views.Windows.MainWindow>();
-                provider.GetRequiredService<SidebarService>().Hide(SidebarIds.AddApp);
+                provider.GetRequiredService<SidebarService>().Hide(SidebarIds.SiteHygiene);
                 Assert.Empty(snackbar.Shown);
                 window.Close();
             }
@@ -130,7 +130,7 @@ public sealed class SidebarWiringTests : IDisposable
             using (var provider = MainWindowServices(s => s.AddSingleton<Wpf.Ui.ISnackbarService>(snackbar)))
             {
                 var window = provider.GetRequiredService<ApplicationPackagerUI.Views.Windows.MainWindow>();
-                provider.GetRequiredService<SidebarService>().Hide(SidebarIds.Applications);
+                provider.GetRequiredService<SidebarService>().Hide(SidebarIds.Workbench);
                 var shown = Assert.Single(snackbar.Shown);
                 Assert.Equal("Sidebar", shown.Title);
                 Assert.Equal("The sidebar layout could not be saved. The change lasts until the application closes.", shown.Message);
@@ -155,12 +155,13 @@ public sealed class SidebarWiringTests : IDisposable
             ApplicationPackagerUI.Services.ApplicationHostService.ShowMainWindow(window);
             var navigation = window.GetNavigation();
             var first = navigation.MenuItems.OfType<Wpf.Ui.Controls.NavigationViewItem>().First();
-            Assert.Equal("Packages", first.Content);
+            Assert.Equal("App Packager", first.Content);
             Assert.Same(first, navigation.SelectedItem);
             Assert.True(first.IsActive);
             Assert.Equal(typeof(ApplicationPackagerUI.Views.Pages.PackagesPage), ShownPage(navigation));
-            Assert.DoesNotContain("Catalog", Titles(window));
-            Assert.Equal("Application Workbench", Titles(window)[1]);
+            Assert.DoesNotContain("Applications", Titles(window));
+            Assert.Contains("Add from web", Titles(window));
+            Assert.Equal("Workbench", Titles(window)[1]);
         });
     }
 
@@ -175,25 +176,25 @@ public sealed class SidebarWiringTests : IDisposable
             ApplicationPackagerUI.Services.ApplicationHostService.ShowMainWindow(window);
             var navigation = window.GetNavigation();
             var items = navigation.MenuItems.OfType<Wpf.Ui.Controls.NavigationViewItem>().ToList();
-            var packages = items.Single(i => (string)i.Content == "Packages");
-            var applications = items.Single(i => (string)i.Content == "Catalog");
+            var packages = items.Single(i => (string)i.Content == "App Packager");
+            var tester = items.Single(i => (string)i.Content == "Detection Tester");
 
-            Assert.True(navigation.Navigate(typeof(ApplicationPackagerUI.Views.Pages.ApplicationsPage)));
-            Assert.Equal(typeof(ApplicationPackagerUI.Views.Pages.ApplicationsPage), ShownPage(navigation));
-            Assert.True(applications.IsActive);
+            Assert.True(navigation.Navigate(typeof(ApplicationPackagerUI.Views.Pages.DetectionTesterPage)));
+            Assert.Equal(typeof(ApplicationPackagerUI.Views.Pages.DetectionTesterPage), ShownPage(navigation));
+            Assert.True(tester.IsActive);
 
-            var hide = applications.ContextMenu!.Items.OfType<System.Windows.Controls.MenuItem>().Single(m => (string)m.Header == "Hide Catalog");
+            var hide = tester.ContextMenu!.Items.OfType<System.Windows.Controls.MenuItem>().Single(m => (string)m.Header == "Hide Detection Tester");
             hide.RaiseEvent(new System.Windows.RoutedEventArgs(System.Windows.Controls.MenuItem.ClickEvent, hide));
-            Assert.DoesNotContain("Catalog", Titles(window));
+            Assert.DoesNotContain("Detection Tester", Titles(window));
             Assert.Equal(typeof(ApplicationPackagerUI.Views.Pages.PackagesPage), ShownPage(navigation));
             Assert.Same(packages, navigation.SelectedItem);
-            Assert.False(applications.IsActive);
+            Assert.False(tester.IsActive);
 
             var show = packages.ContextMenu!.Items.OfType<System.Windows.Controls.MenuItem>().Single(m => (string)m.Header == "Show tool");
-            var entry = show.Items.OfType<System.Windows.Controls.MenuItem>().Single(m => (string)m.Header == "Catalog");
+            var entry = show.Items.OfType<System.Windows.Controls.MenuItem>().Single(m => (string)m.Header == "Detection Tester");
             entry.RaiseEvent(new System.Windows.RoutedEventArgs(System.Windows.Controls.MenuItem.ClickEvent, entry));
-            Assert.Equal("Catalog", Titles(window)[1]);
-            Assert.False(applications.IsActive);
+            Assert.Equal("Detection Tester", Titles(window)[5]);
+            Assert.False(tester.IsActive);
             Assert.True(packages.IsActive);
             Assert.Equal(typeof(ApplicationPackagerUI.Views.Pages.PackagesPage), ShownPage(navigation));
         });
@@ -201,8 +202,8 @@ public sealed class SidebarWiringTests : IDisposable
 
     private static readonly string[] ToolTitles =
     [
-        "Detection Tester", "Maintenance Windows", "Collection and Compliance", "Installer Analysis",
-        "Deployment Helper", "DP Content Manager", "Pivots and Scripts", "Site Hygiene"
+        "Installer Analysis", "Detection Tester", "Deployment Helper", "Pivots and Scripts",
+        "Collection and Compliance", "Maintenance Windows", "DP Content Manager", "Site Hygiene"
     ];
 
     private static string[] Titles(ApplicationPackagerUI.Views.Windows.MainWindow window) =>
@@ -217,13 +218,13 @@ public sealed class SidebarWiringTests : IDisposable
 
             var window = provider.GetRequiredService<ApplicationPackagerUI.Views.Windows.MainWindow>();
             var items = window.GetNavigation().MenuItems.OfType<Wpf.Ui.Controls.NavigationViewItem>().ToList();
-            Assert.Equal(["Packages", "Catalog", "Add App", "Application Workbench", .. ToolTitles], items.Select(i => (string)i.Content));
+            Assert.Equal(["App Packager", "Add from web", "Add from file", "Workbench", .. ToolTitles], items.Select(i => (string)i.Content));
             Assert.Equal(typeof(ApplicationPackagerUI.Views.Pages.PackagesPage), items[0].TargetPageType);
             Assert.Null(items[3].TargetPageType);
 
-            provider.GetRequiredService<SidebarService>().Hide(SidebarIds.AddApp);
+            provider.GetRequiredService<SidebarService>().Hide(SidebarIds.SiteHygiene);
             Assert.Equal(11, Titles(window).Length);
-            Assert.Equal(13, window.GetNavigation().MenuItems.Count);
+            Assert.Equal(12, window.GetNavigation().MenuItems.Count);
             window.Close();
         });
     }
@@ -238,13 +239,13 @@ public sealed class SidebarWiringTests : IDisposable
             Assert.Equal(ToolTitles, Titles(window).Skip(4));
 
             var items = window.GetNavigation().MenuItems.OfType<Wpf.Ui.Controls.NavigationViewItem>().Skip(4).ToList();
-            Assert.Equal(typeof(ApplicationPackagerUI.Views.Pages.DetectionTesterPage), items[0].TargetPageType);
-            Assert.Equal(typeof(ApplicationPackagerUI.Views.Pages.MaintenanceWindowsPage), items[1].TargetPageType);
-            Assert.Equal(typeof(ApplicationPackagerUI.Views.Pages.CollectionCompliancePage), items[2].TargetPageType);
-            Assert.Equal(typeof(ApplicationPackagerUI.Views.Pages.InstallerAnalysisPage), items[3].TargetPageType);
-            Assert.Equal(typeof(ApplicationPackagerUI.Views.Pages.DeploymentHelperPage), items[4].TargetPageType);
-            Assert.Equal(typeof(ApplicationPackagerUI.Views.Pages.DpContentManagerPage), items[5].TargetPageType);
-            Assert.Equal(typeof(ApplicationPackagerUI.Views.Pages.PivotsScriptsPage), items[6].TargetPageType);
+            Assert.Equal(typeof(ApplicationPackagerUI.Views.Pages.InstallerAnalysisPage), items[0].TargetPageType);
+            Assert.Equal(typeof(ApplicationPackagerUI.Views.Pages.DetectionTesterPage), items[1].TargetPageType);
+            Assert.Equal(typeof(ApplicationPackagerUI.Views.Pages.DeploymentHelperPage), items[2].TargetPageType);
+            Assert.Equal(typeof(ApplicationPackagerUI.Views.Pages.PivotsScriptsPage), items[3].TargetPageType);
+            Assert.Equal(typeof(ApplicationPackagerUI.Views.Pages.CollectionCompliancePage), items[4].TargetPageType);
+            Assert.Equal(typeof(ApplicationPackagerUI.Views.Pages.MaintenanceWindowsPage), items[5].TargetPageType);
+            Assert.Equal(typeof(ApplicationPackagerUI.Views.Pages.DpContentManagerPage), items[6].TargetPageType);
             Assert.Equal(typeof(ApplicationPackagerUI.Views.Pages.SiteHygienePage), items[7].TargetPageType);
             Assert.Equal(8, items.Count);
             Assert.Equal(8, items.Select(i => ((Wpf.Ui.Controls.SymbolIcon)i.Icon!).Symbol).Distinct().Count());
@@ -260,8 +261,43 @@ public sealed class SidebarWiringTests : IDisposable
             var show = first.ContextMenu!.Items.OfType<System.Windows.Controls.MenuItem>().Single(m => (string)m.Header == "Show tool");
             var entry = show.Items.OfType<System.Windows.Controls.MenuItem>().Single(m => (string)m.Header == "DP Content Manager");
             entry.RaiseEvent(new System.Windows.RoutedEventArgs(System.Windows.Controls.MenuItem.ClickEvent, entry));
-            Assert.Equal(["Packages", "Catalog", "Add App", "Application Workbench", .. ToolTitles], Titles(window));
+            Assert.Equal(["App Packager", "Add from web", "Add from file", "Workbench", .. ToolTitles], Titles(window));
             window.Close();
+        });
+    }
+
+    [Theory]
+    [InlineData("Add from web", typeof(ApplicationPackagerUI.Views.Pages.AddAppPage))]
+    [InlineData("Add from file", typeof(ApplicationPackagerUI.Views.Pages.AddFilePage))]
+    public void TheAddEntriesOpenTheirPages(string title, Type page)
+    {
+        StaTestHelper.Run(() =>
+        {
+            WriteSettings("{ \"FirstRunCompleted\": true }");
+            using var provider = MainWindowServices(AddPlainPages);
+            var window = OffScreenMainWindow(provider);
+            ApplicationPackagerUI.Services.ApplicationHostService.ShowMainWindow(window);
+            var navigation = window.GetNavigation();
+            var item = navigation.MenuItems.OfType<Wpf.Ui.Controls.NavigationViewItem>().Single(i => (string)i.Content == title);
+
+            typeof(Wpf.Ui.Controls.NavigationViewItem).GetMethod("OnClick", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
+                .Invoke(item, null);
+
+            Assert.Equal(page, ShownPage(navigation));
+            Assert.True(item.IsActive);
+            Assert.Equal(["Hide " + title, "Reset sidebar"], item.ContextMenu!.Items.OfType<System.Windows.Controls.MenuItem>().Select(m => (string)m.Header));
+        });
+    }
+
+    [Fact]
+    public void TheAddFromFilePlaceholderPageShowsItsHeader()
+    {
+        StaTestHelper.Run(() =>
+        {
+            var page = new ApplicationPackagerUI.Views.Pages.AddFilePage();
+            var header = Assert.Single(System.Windows.LogicalTreeHelper.GetChildren((System.Windows.DependencyObject)page.Content).OfType<System.Windows.Controls.TextBlock>());
+            Assert.Equal("Add from file", header.Text);
+            Assert.Equal("txtAddFileHeader", System.Windows.Automation.AutomationProperties.GetAutomationId(header));
         });
     }
 
@@ -374,7 +410,7 @@ public sealed class SidebarWiringTests : IDisposable
             """);
         using var provider = new ServiceCollection().AddPackagerServices().AddSidebar().BuildServiceProvider();
         var service = provider.GetRequiredService<SidebarService>();
-        Assert.Equal([SidebarIds.Packages, SidebarIds.Applications, SidebarIds.AddApp, SidebarIds.Workbench, SidebarIds.DeploymentHelper], SidebarFixtures.Ids(service.All).Take(5));
+        Assert.Equal([SidebarIds.Packages, SidebarIds.AddApp, SidebarIds.AddFile, SidebarIds.Workbench, SidebarIds.DeploymentHelper], SidebarFixtures.Ids(service.All).Take(5));
         Assert.True(service.IsHidden(SidebarIds.DeploymentHelper));
         Assert.True(service.Show(SidebarIds.DeploymentHelper));
         Assert.Equal(ApplicationPackagerUI.Models.SidebarItemKind.Page, service.Items[4].Kind);
@@ -410,7 +446,7 @@ public sealed class SidebarWiringTests : IDisposable
             """);
         using var provider = new ServiceCollection().AddPackagerServices().AddSidebar().BuildServiceProvider();
         var service = provider.GetRequiredService<SidebarService>();
-        Assert.Equal([SidebarIds.Packages, SidebarIds.Applications, SidebarIds.AddApp, SidebarIds.Workbench, SidebarIds.DpContentManager], SidebarFixtures.Ids(service.All).Take(5));
+        Assert.Equal([SidebarIds.Packages, SidebarIds.AddApp, SidebarIds.AddFile, SidebarIds.Workbench, SidebarIds.DpContentManager], SidebarFixtures.Ids(service.All).Take(5));
         Assert.True(service.IsHidden(SidebarIds.DpContentManager));
         Assert.True(service.Show(SidebarIds.DpContentManager));
         Assert.Equal(ApplicationPackagerUI.Models.SidebarItemKind.Page, service.Items[4].Kind);
@@ -446,7 +482,7 @@ public sealed class SidebarWiringTests : IDisposable
             """);
         using var provider = new ServiceCollection().AddPackagerServices().AddSidebar().BuildServiceProvider();
         var service = provider.GetRequiredService<SidebarService>();
-        Assert.Equal([SidebarIds.Packages, SidebarIds.Applications, SidebarIds.AddApp, SidebarIds.Workbench, SidebarIds.PivotsScripts], SidebarFixtures.Ids(service.All).Take(5));
+        Assert.Equal([SidebarIds.Packages, SidebarIds.AddApp, SidebarIds.AddFile, SidebarIds.Workbench, SidebarIds.PivotsScripts], SidebarFixtures.Ids(service.All).Take(5));
         Assert.True(service.IsHidden(SidebarIds.PivotsScripts));
         Assert.True(service.Show(SidebarIds.PivotsScripts));
         Assert.Equal(ApplicationPackagerUI.Models.SidebarItemKind.Page, service.Items[4].Kind);
@@ -461,7 +497,7 @@ public sealed class SidebarWiringTests : IDisposable
             """);
         using var provider = new ServiceCollection().AddPackagerServices().AddSidebar().BuildServiceProvider();
         var service = provider.GetRequiredService<SidebarService>();
-        Assert.Equal([SidebarIds.Packages, SidebarIds.Applications, SidebarIds.AddApp, SidebarIds.Workbench, SidebarIds.MaintenanceWindows], SidebarFixtures.Ids(service.All).Take(5));
+        Assert.Equal([SidebarIds.Packages, SidebarIds.AddApp, SidebarIds.AddFile, SidebarIds.Workbench, SidebarIds.MaintenanceWindows], SidebarFixtures.Ids(service.All).Take(5));
         Assert.True(service.IsHidden(SidebarIds.MaintenanceWindows));
         Assert.True(service.Show(SidebarIds.MaintenanceWindows));
         Assert.Equal(ApplicationPackagerUI.Models.SidebarItemKind.Page, service.Items[4].Kind);
@@ -497,7 +533,7 @@ public sealed class SidebarWiringTests : IDisposable
             """);
         using var provider = new ServiceCollection().AddPackagerServices().AddSidebar().BuildServiceProvider();
         var service = provider.GetRequiredService<SidebarService>();
-        Assert.Equal([SidebarIds.Packages, SidebarIds.Applications, SidebarIds.AddApp, SidebarIds.Workbench, SidebarIds.SiteHygiene], SidebarFixtures.Ids(service.All).Take(5));
+        Assert.Equal([SidebarIds.Packages, SidebarIds.AddApp, SidebarIds.AddFile, SidebarIds.Workbench, SidebarIds.SiteHygiene], SidebarFixtures.Ids(service.All).Take(5));
         Assert.True(service.IsHidden(SidebarIds.SiteHygiene));
         Assert.True(service.Show(SidebarIds.SiteHygiene));
         Assert.Equal(ApplicationPackagerUI.Models.SidebarItemKind.Page, service.Items[4].Kind);

@@ -120,8 +120,7 @@ public sealed class SidebarWindowTests
     {
         WithSidebar(h =>
         {
-            Assert.IsType<SidebarGroupCaption>(h.Navigation.MenuItems[0]);
-            var first = (NavigationViewItem)h.Navigation.MenuItems[1]!;
+            var first = Assert.IsType<NavigationViewItem>(h.Navigation.MenuItems[0]);
             Assert.Equal(SidebarIds.Packages, first.Tag);
             Assert.Equal(typeof(PackagesPage), first.TargetPageType);
             Assert.Equal(SidebarRegistry.CreateDefault().Items.Count - 1, h.Navigation.MenuItems.OfType<NavigationViewItem>().Count());

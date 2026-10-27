@@ -133,7 +133,7 @@
             <ui:Button Grid.Column="1" x:Name="SaveApplicationButton" Content="Save as Application" MinWidth="150"
                        AutomationProperties.AutomationId="DropReviewSaveApplication"
                        Click="SaveApplicationButton_Click"
-                       ToolTip="Keep this installer as a durable application so it reopens in the Application Workbench without a download script. Its update source stays manual." />
+                       ToolTip="Keep this installer as a durable application so it reopens in the Workbench without a download script. Its update source stays manual." />
         </Grid>
     </StackPanel>
 </UserControl>

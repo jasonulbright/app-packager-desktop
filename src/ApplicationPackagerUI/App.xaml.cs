@@ -70,6 +70,7 @@ public partial class App : Application
                 services.AddSingleton<ISettingsReload>(sp => sp.GetRequiredService<SettingsViewModel>());
                 services.AddSingleton<AddAppPage>();
                 services.AddSingleton<AddAppViewModel>();
+                services.AddSingleton<AddFilePage>();
                 services.AddDetectionTesterPage();
                 services.AddMaintenanceWindowsPage();
                 services.AddCollectionCompliancePage();

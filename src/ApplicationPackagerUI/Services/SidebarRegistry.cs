@@ -5,12 +5,16 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace ApplicationPackagerUI.Services;
 
-/// <summary>The ids of the built-in sidebar entries, as saved in settings.json.</summary>
+/// <summary>
+/// The ids of the sidebar entries, as saved in settings.json. Applications names an entry
+/// that the sidebar no longer has; a saved layout that names it loads without it.
+/// </summary>
 public static class SidebarIds
 {
     public const string Packages = "packages";
     public const string Applications = "applications";
     public const string AddApp = "add-app";
+    public const string AddFile = "addfile";
     public const string Workbench = "workbench";
     public const string DetectionTester = "detection-tester";
     public const string MaintenanceWindows = "maintenance-windows";
@@ -25,7 +29,6 @@ public static class SidebarIds
 /// <summary>The ids of the built-in sidebar groups.</summary>
 public static class SidebarGroupIds
 {
-    public const string AppPackager = "app-packager";
     public const string Tools = "tools";
 }
 
@@ -90,38 +93,33 @@ public sealed class SidebarRegistry
     public static SidebarRegistry CreateDefault()
     {
         var registry = new SidebarRegistry();
-        registry.RegisterGroup(new SidebarGroup(Id: SidebarGroupIds.AppPackager, Caption: "APP PACKAGER", AutomationName: "App Packager group"));
         registry.RegisterGroup(new SidebarGroup(Id: SidebarGroupIds.Tools, Caption: "TOOLS", AutomationName: "Tools group"));
 
-        registry.Register(new SidebarItemDefinition(Id: SidebarIds.Packages, Title: "Packages", Symbol: "Box24", Kind: SidebarItemKind.Page)
+        registry.Register(new SidebarItemDefinition(Id: SidebarIds.Packages, Title: "App Packager", Symbol: "Box24", Kind: SidebarItemKind.Page)
         {
             PageType = typeof(PackagesPage),
-            IsPinned = true,
-            Group = SidebarGroupIds.AppPackager
+            IsPinned = true
         });
-        registry.Register(new SidebarItemDefinition(Id: SidebarIds.Applications, Title: "Catalog", Symbol: "Apps24", Kind: SidebarItemKind.Page)
+        registry.Register(new SidebarItemDefinition(Id: SidebarIds.AddApp, Title: "Add from web", Symbol: "Globe24", Kind: SidebarItemKind.Page)
         {
-            PageType = typeof(ApplicationsPage),
-            Group = SidebarGroupIds.AppPackager
+            PageType = typeof(AddAppPage)
         });
-        registry.Register(new SidebarItemDefinition(Id: SidebarIds.AddApp, Title: "Add App", Symbol: "Add24", Kind: SidebarItemKind.Page)
+        registry.Register(new SidebarItemDefinition(Id: SidebarIds.AddFile, Title: "Add from file", Symbol: "DocumentAdd24", Kind: SidebarItemKind.Page)
         {
-            PageType = typeof(AddAppPage),
-            Group = SidebarGroupIds.AppPackager
+            PageType = typeof(AddFilePage)
         });
-        registry.Register(new SidebarItemDefinition(Id: SidebarIds.Workbench, Title: "Application Workbench", Symbol: "Wrench24", Kind: SidebarItemKind.Window)
+        registry.Register(new SidebarItemDefinition(Id: SidebarIds.Workbench, Title: "Workbench", Symbol: "Wrench24", Kind: SidebarItemKind.Window)
         {
-            Activate = services => services.GetRequiredService<MainWindow>().OpenWorkbenchForGridSelection(),
-            Group = SidebarGroupIds.AppPackager
+            Activate = services => services.GetRequiredService<MainWindow>().OpenWorkbenchForGridSelection()
         });
 
-        Tool(registry, SidebarIds.DetectionTester, "Detection Tester", "Beaker24", typeof(DetectionTesterPage));
-        Tool(registry, SidebarIds.MaintenanceWindows, "Maintenance Windows", "CalendarClock24", typeof(MaintenanceWindowsPage));
-        Tool(registry, SidebarIds.CollectionCompliance, "Collection and Compliance", "ShieldCheckmark24", typeof(CollectionCompliancePage));
         Tool(registry, SidebarIds.InstallerAnalysis, "Installer Analysis", "BoxSearch24", typeof(InstallerAnalysisPage));
+        Tool(registry, SidebarIds.DetectionTester, "Detection Tester", "Beaker24", typeof(DetectionTesterPage));
         Tool(registry, SidebarIds.DeploymentHelper, "Deployment Helper", "Rocket24", typeof(DeploymentHelperPage));
-        Tool(registry, SidebarIds.DpContentManager, "DP Content Manager", "Server24", typeof(DpContentManagerPage));
         Tool(registry, SidebarIds.PivotsScripts, "Pivots and Scripts", "Code24", typeof(PivotsScriptsPage));
+        Tool(registry, SidebarIds.CollectionCompliance, "Collection and Compliance", "ShieldCheckmark24", typeof(CollectionCompliancePage));
+        Tool(registry, SidebarIds.MaintenanceWindows, "Maintenance Windows", "CalendarClock24", typeof(MaintenanceWindowsPage));
+        Tool(registry, SidebarIds.DpContentManager, "DP Content Manager", "Server24", typeof(DpContentManagerPage));
         Tool(registry, SidebarIds.SiteHygiene, "Site Hygiene", "Broom24", typeof(SiteHygienePage));
         return registry;
     }

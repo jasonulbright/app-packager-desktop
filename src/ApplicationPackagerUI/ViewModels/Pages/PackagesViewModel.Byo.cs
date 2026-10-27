@@ -47,7 +47,7 @@ public partial class PackagesViewModel
         var answer = await _contentDialogService.ShowAsync(new ContentDialog
         {
             Title = "Saved",
-            Content = $"\"{overrides.AppName}\" is saved as an application. Open it in the Application Workbench now?",
+            Content = $"\"{overrides.AppName}\" is saved as an application. Open it in the Workbench now?",
             PrimaryButtonText = "Yes",
             CloseButtonText = "No",
             DefaultButton = ContentDialogButton.Primary

@@ -27,7 +27,7 @@ public sealed record SidebarItemDefinition(string Id, string Title, string Symbo
 
     public bool IsPinned { get; init; }
 
-    /// <summary>The id of the group; null puts the entry in a group without a caption.</summary>
+    /// <summary>The id of a captioned group; null puts the entry in the group without a caption.</summary>
     public string? Group { get; init; }
 }
 

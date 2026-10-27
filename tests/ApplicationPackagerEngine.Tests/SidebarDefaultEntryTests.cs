@@ -6,19 +6,19 @@ public sealed class SidebarDefaultEntryTests
 {
     private static readonly string[] ToolIds =
     [
-        "detection-tester", "maintenance-windows", "collection-and-compliance", "installer-analysis",
-        "deployment-helper", "dp-content-manager", "pivots-and-scripts", "site-hygiene"
+        "installer-analysis", "detection-tester", "deployment-helper", "pivots-and-scripts",
+        "collection-and-compliance", "maintenance-windows", "dp-content-manager", "site-hygiene"
     ];
 
     [Fact]
     public void TheEightToolEntriesFollowTheWorkbenchInTheDefaultOrder()
     {
         var registry = SidebarRegistry.CreateDefault();
-        Assert.Equal([SidebarIds.Packages, SidebarIds.Applications, SidebarIds.AddApp, SidebarIds.Workbench, .. ToolIds], SidebarFixtures.Ids(registry.Items));
+        Assert.Equal([SidebarIds.Packages, SidebarIds.AddApp, SidebarIds.AddFile, SidebarIds.Workbench, .. ToolIds], SidebarFixtures.Ids(registry.Items));
         Assert.Equal(
         [
-            "Detection Tester", "Maintenance Windows", "Collection and Compliance", "Installer Analysis",
-            "Deployment Helper", "DP Content Manager", "Pivots and Scripts", "Site Hygiene"
+            "Installer Analysis", "Detection Tester", "Deployment Helper", "Pivots and Scripts",
+            "Collection and Compliance", "Maintenance Windows", "DP Content Manager", "Site Hygiene"
         ], registry.Items.Skip(4).Select(i => i.Title));
     }
 
@@ -46,7 +46,7 @@ public sealed class SidebarDefaultEntryTests
         Assert.Null(item.Activate);
         Assert.False(item.IsPinned);
         Assert.Equal("CalendarClock24", item.Symbol);
-        Assert.Equal(5, registry.Items.ToList().IndexOf(item));
+        Assert.Equal(9, registry.Items.ToList().IndexOf(item));
     }
 
     [Fact]
@@ -61,7 +61,7 @@ public sealed class SidebarDefaultEntryTests
         Assert.Null(item.Activate);
         Assert.False(item.IsPinned);
         Assert.Equal("ShieldCheckmark24", item.Symbol);
-        Assert.Equal(6, registry.Items.ToList().IndexOf(item));
+        Assert.Equal(8, registry.Items.ToList().IndexOf(item));
         Assert.DoesNotContain(registry.Items, i => i.Title == "Collection Manager");
     }
 
@@ -77,7 +77,7 @@ public sealed class SidebarDefaultEntryTests
         Assert.Null(item.Activate);
         Assert.False(item.IsPinned);
         Assert.Equal("BoxSearch24", item.Symbol);
-        Assert.Equal(7, registry.Items.ToList().IndexOf(item));
+        Assert.Equal(4, registry.Items.ToList().IndexOf(item));
     }
 
     [Fact]
@@ -90,7 +90,7 @@ public sealed class SidebarDefaultEntryTests
             Hidden = ["installer-analysis"]
         };
         var service = new SidebarService(SidebarRegistry.CreateDefault(), new InMemorySidebarStore(layout));
-        Assert.Equal([SidebarIds.Packages, SidebarIds.Applications, SidebarIds.AddApp, SidebarIds.Workbench, "installer-analysis"], SidebarFixtures.Ids(service.All).Take(5));
+        Assert.Equal([SidebarIds.Packages, SidebarIds.AddApp, SidebarIds.Workbench, SidebarIds.AddFile, "installer-analysis"], SidebarFixtures.Ids(service.All).Take(5));
         Assert.True(service.IsHidden("installer-analysis"));
         Assert.True(service.Show("installer-analysis"));
         Assert.Equal("installer-analysis", service.Items[4].Id);
@@ -108,7 +108,7 @@ public sealed class SidebarDefaultEntryTests
         Assert.Null(item.Activate);
         Assert.False(item.IsPinned);
         Assert.Equal("Rocket24", item.Symbol);
-        Assert.Equal(8, registry.Items.ToList().IndexOf(item));
+        Assert.Equal(6, registry.Items.ToList().IndexOf(item));
     }
 
     [Fact]
@@ -122,7 +122,7 @@ public sealed class SidebarDefaultEntryTests
         Assert.Null(item.Activate);
         Assert.False(item.IsPinned);
         Assert.Equal("Server24", item.Symbol);
-        Assert.Equal(9, registry.Items.ToList().IndexOf(item));
+        Assert.Equal(10, registry.Items.ToList().IndexOf(item));
         Assert.Equal(registry.Items.Count, registry.Items.Select(i => i.Symbol).Distinct().Count());
     }
 
@@ -138,7 +138,7 @@ public sealed class SidebarDefaultEntryTests
         Assert.Null(item.Activate);
         Assert.False(item.IsPinned);
         Assert.Equal("Code24", item.Symbol);
-        Assert.Equal(10, registry.Items.ToList().IndexOf(item));
+        Assert.Equal(7, registry.Items.ToList().IndexOf(item));
     }
 
     [Fact]
@@ -176,7 +176,7 @@ public sealed class SidebarDefaultEntryTests
             Hidden = [SidebarIds.DetectionTester]
         };
         var service = new SidebarService(SidebarRegistry.CreateDefault(), new InMemorySidebarStore(layout));
-        Assert.Equal([SidebarIds.Packages, SidebarIds.Applications, SidebarIds.AddApp, SidebarIds.Workbench, "site-hygiene", SidebarIds.DetectionTester],
+        Assert.Equal([SidebarIds.Packages, SidebarIds.AddApp, SidebarIds.Workbench, SidebarIds.AddFile, "site-hygiene", SidebarIds.DetectionTester],
             SidebarFixtures.Ids(service.All).Take(6));
         Assert.True(service.IsHidden(SidebarIds.DetectionTester));
         Assert.True(service.Show(SidebarIds.DetectionTester));
@@ -209,7 +209,7 @@ public sealed class SidebarDefaultEntryTests
         Assert.DoesNotContain(service.Items, i => i.Id == "site-hygiene");
         Assert.True(service.Show("site-hygiene"));
         Assert.Equal("site-hygiene", service.Items[^1].Id);
-        Assert.False(service.Move("detection-tester", 1));
+        Assert.False(service.Move("installer-analysis", 1));
         Assert.True(service.Move("site-hygiene", 1));
         Assert.Equal("site-hygiene", service.Items[4].Id);
         Assert.Equal(SidebarIds.Workbench, service.Items[3].Id);
@@ -221,6 +221,7 @@ public sealed class SidebarDefaultEntryTests
     {
         var layout = new SidebarLayout { Order = [SidebarIds.Packages, SidebarIds.Workbench, SidebarIds.Applications, SidebarIds.AddApp], Hidden = [SidebarIds.AddApp] };
         var service = new SidebarService(SidebarRegistry.CreateDefault(), new InMemorySidebarStore(layout));
-        Assert.Equal([SidebarIds.Packages, SidebarIds.Workbench, SidebarIds.Applications, .. ToolIds], SidebarFixtures.Ids(service.Items));
+        Assert.Equal([SidebarIds.Packages, SidebarIds.Workbench, SidebarIds.AddFile, .. ToolIds], SidebarFixtures.Ids(service.Items));
+        Assert.Equal([SidebarIds.AddApp], SidebarFixtures.Ids(service.Hidden));
     }
 }

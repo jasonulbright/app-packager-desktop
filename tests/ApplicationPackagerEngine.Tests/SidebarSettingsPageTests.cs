@@ -187,7 +187,7 @@ public sealed class SidebarSettingsPageTests
     }
 
     private static string[] ShownCaptions(Harness h) =>
-        Descendants(SidebarList(h)).OfType<TextBlock>().Where(t => t.IsVisible && t.Text is "MAIN" or "MORE" or "APP PACKAGER" or "TOOLS").Select(t => t.Text).ToArray();
+        Descendants(SidebarList(h)).OfType<TextBlock>().Where(t => t.IsVisible && t.Text is "MAIN" or "MORE" or "TOOLS").Select(t => t.Text).ToArray();
 
     [Theory]
     [InlineData(ApplicationTheme.Light)]
@@ -212,14 +212,29 @@ public sealed class SidebarSettingsPageTests
     }
 
     [Fact]
-    public void TheDefaultSidebarSectionShowsTheCatalogRowUnderTheAppPackagerCaption()
+    public void TheDefaultSidebarSectionShowsTheFirstGroupWithoutACaptionAndTheToolsUnderTheirCaption()
     {
         WithPage(h =>
         {
-            Assert.Equal(["APP PACKAGER", "TOOLS"], ShownCaptions(h));
-            var boxes = Descendants(SidebarList(h)).OfType<CheckBox>().Select(b => (string)b.Content).ToList();
-            Assert.Equal(["Packages", "Catalog", "Add App", "Application Workbench"], boxes.Take(4));
-            Assert.Contains(Descendants(SidebarList(h)).OfType<Wpf.Ui.Controls.Button>(), b => AutomationProperties.GetName(b) == "Move Catalog down");
+            Assert.Equal(["TOOLS"], ShownCaptions(h));
+            var boxes = Descendants(SidebarList(h)).OfType<CheckBox>().ToList();
+            Assert.Equal(["App Packager", "Add from web", "Add from file", "Workbench", "Installer Analysis", "Detection Tester", "Deployment Helper",
+                "Pivots and Scripts", "Collection and Compliance", "Maintenance Windows", "DP Content Manager", "Site Hygiene"], boxes.Select(b => (string)b.Content));
+            var tools = Descendants(SidebarList(h)).OfType<TextBlock>().Single(t => t.IsVisible && t.Text == "TOOLS");
+            Assert.True(tools.TranslatePoint(new System.Windows.Point(0, 0), h.Page).Y >= boxes[3].TranslatePoint(new System.Windows.Point(0, boxes[3].ActualHeight), h.Page).Y);
+            Assert.True(tools.TranslatePoint(new System.Windows.Point(0, tools.ActualHeight), h.Page).Y <= boxes[4].TranslatePoint(new System.Windows.Point(0, 0), h.Page).Y);
+            Assert.False(RowButton(h, "Move Add from web up").IsEnabled);
+            Assert.True(RowButton(h, "Move Add from web down").IsEnabled);
+            Assert.False(RowButton(h, "Move Workbench down").IsEnabled);
+            Assert.False(RowButton(h, "Move Installer Analysis up").IsEnabled);
+
+            Press(RowButton(h, "Move Workbench up"));
+            Assert.Equal([SidebarIds.Packages, SidebarIds.AddApp, SidebarIds.Workbench, SidebarIds.AddFile], SidebarFixtures.Ids(h.Service.All.Take(4)));
+            boxes = Descendants(SidebarList(h)).OfType<CheckBox>().ToList();
+            boxes[1].IsChecked = false;
+            Assert.True(h.Service.IsHidden(SidebarIds.AddApp));
+            Press(Descendants(h.Page).OfType<Wpf.Ui.Controls.Button>().Single(b => AutomationProperties.GetAutomationId(b) == "btnResetSidebar"));
+            Assert.Equal(SidebarFixtures.Ids(SidebarRegistry.CreateDefault().Items), SidebarFixtures.Ids(h.Service.Items));
         }, registry: SidebarRegistry.CreateDefault());
     }
 
