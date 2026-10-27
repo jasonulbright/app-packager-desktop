@@ -200,6 +200,7 @@ public sealed class AddFromWebViewModelTests : IDisposable
     public void SaveWritesTheDetectionAndEndsOnTheResultPanel() => OnSta(h =>
     {
         h.Scrape();
+        h.ViewModel.InstallerFileName = "contoso-{version}.msi";
         h.Analyze(FakeAddService.Result());
         h.ViewModel.AcceptProposalsCommand.Execute(null);
         h.GoTo(7);
@@ -212,8 +213,9 @@ public sealed class AddFromWebViewModelTests : IDisposable
         var (reviewed, options) = Assert.Single(h.Service.Saves);
         Assert.Equal(DetectionKind.MsiProductCode, reviewed.Detection.Kind);
         Assert.False(reviewed.Detection.IsDefault);
-        Assert.Equal(("/qn /norestart", Evidence.Confirmed), (reviewed.InstallArguments.Value, reviewed.InstallArguments.Evidence));
-        Assert.Equal(("Contoso App", "Contoso"), (reviewed.Name.Value, reviewed.Vendor.Value));
+        Assert.Equal(("/qn /norestart", "/x {ProductCode} /qn", "Machine"), (options.InstallArgs, options.UninstallArgs, options.InstallContext));
+        Assert.Equal(("Contoso App", "Contoso", "x64"), (options.ApplicationName, options.Vendor, options.Architecture));
+        Assert.Equal(("MSI", "NativeMSI", "contoso-{version}.msi"), (options.InstallerType, options.InstallerFramework, options.InstallerFileName));
         Assert.Equal("https://example.com/contoso-{display_version}.msi", options.DownloadUrl);
         Assert.Equal("https://example.com/releases", options.VersionScraper!.Url);
         Assert.Equal(Path.Combine(_root, "definitions"), options.DefinitionsFolder);

@@ -114,7 +114,7 @@ public sealed partial class DetectionEditorViewModel : ObservableObject
     /// <summary>The definition rule of a proposal, or null when the proposal gives no rule. A null or empty registry key never gives a rule.</summary>
     public static DetectionConfig? ToConfig(DetectionProposal proposal)
     {
-        if (proposal.Kind == DetectionKind.None || proposal.IsDefault) return null;
+        if (proposal.Kind == DetectionKind.None || proposal.IsDefault || proposal is { Kind: DetectionKind.Compound, Clauses.Count: 0 }) return null;
         try { return AddFromInstallerService.ToDetectionConfig(proposal, msiProductCode: null, expectedToken: null, version: ""); }
         catch (InstallerAnalysisException) { return null; }
     }

@@ -434,27 +434,27 @@ public partial class AddAppViewModel : ObservableObject
         if (openWorkbench) Result.OpenInWorkbenchCommand.Execute(null);
     }
 
-    private static ProposedValue<string> Field(string value, Evidence? evidence, ProposedValue<string> proposed) =>
-        new(Value: value, Evidence: evidence ?? Evidence.Manual, Source: evidence is null or Evidence.Manual ? null : proposed.Source);
-
-    /// <summary>Saves through the analysis service: the accepted analysis, the wizard fields and the web source of the wizard.</summary>
+    /// <summary>
+    /// Saves through the analysis service. The wizard values go in the options and win over the analysis; the
+    /// detection of step 6 is the reviewed rule. Install arguments are saved as typed.
+    /// </summary>
     private async Task<AddSaveResult?> SaveAnalyzedAsync(AddAnalysisResult analysis)
     {
         var version = string.IsNullOrWhiteSpace(analysis.Version.Value) && _displayVersion is not null
             ? new ProposedValue<string?>(Value: _displayVersion, Evidence: Evidence.Manual, Source: null)
             : analysis.Version;
-        var reviewed = analysis with
-        {
-            Vendor = new ProposedValue<string?>(Value: Vendor, Evidence: Vendor == analysis.Vendor.Value ? analysis.Vendor.Evidence : Evidence.Manual, Source: analysis.Vendor.Source),
-            Name = new ProposedValue<string?>(Value: ApplicationName, Evidence: ApplicationName == analysis.Name.Value ? analysis.Name.Evidence : Evidence.Manual, Source: analysis.Name.Source),
-            Version = version,
-            InstallArguments = Field(InstallArgs, InstallArgsEvidence, analysis.InstallArguments),
-            UninstallArguments = Field(UninstallArgs, UninstallArgsEvidence, analysis.UninstallArguments),
-            InstallContext = Field(InstallContext, InstallContextEvidence, analysis.InstallContext),
-            Detection = Detection.ToProposal()
-        };
+        var reviewed = analysis with { Version = version, Detection = Detection.ToProposal() };
         var options = new AddSaveOptions(DefinitionsFolder: DefinitionsRoot)
         {
+            ApplicationName = ApplicationName,
+            Vendor = Vendor,
+            Architecture = Architecture,
+            InstallerFileName = string.IsNullOrWhiteSpace(InstallerFileName) ? null : InstallerFileName,
+            InstallerType = InstallerType,
+            InstallerFramework = string.IsNullOrWhiteSpace(InstallerFramework) ? null : InstallerFramework,
+            InstallContext = InstallContext,
+            InstallArgs = InstallArgs,
+            UninstallArgs = UninstallArgs,
             DownloadUrl = DownloadUrl,
             VersionScraper = ScraperConfig(),
             VendorUrl = string.IsNullOrWhiteSpace(VendorUrl) ? null : VendorUrl,

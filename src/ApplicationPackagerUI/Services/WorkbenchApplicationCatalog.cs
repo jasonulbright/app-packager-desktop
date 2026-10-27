@@ -19,7 +19,7 @@ public sealed class WorkbenchApplicationItem
     public string? SourcePath { get; init; }
     public bool IsJsonDefinition { get; init; }
 
-    /// <summary>The definition has a download URL or a version scraper URL.</summary>
+    /// <summary>The definition has a download source; false for a definition made from a local file.</summary>
     public bool HasRemoteSource { get; init; }
     public bool Runnable { get; init; }
     public IReadOnlyList<string> SupportsVariants { get; init; } = [];
@@ -94,7 +94,7 @@ public sealed class WorkbenchApplicationCatalog(SettingsService settingsService,
                     Publisher = definition.Vendor,
                     SourcePath = definition.SourcePath,
                     IsJsonDefinition = true,
-                    HasRemoteSource = !string.IsNullOrWhiteSpace(definition.DownloadUrl) || !string.IsNullOrWhiteSpace(definition.VersionScraper?.Url),
+                    HasRemoteSource = !ApplicationPackagerEngine.Services.AddFromInstaller.AddFromInstallerService.IsLocalFileDefinition(definition),
                     Runnable = true,
                     SupportsVariants = definition.SupportsVariants ?? [],
                     SupportsInstallModes = definition.SupportsInstallModes ?? [],

@@ -87,6 +87,15 @@ public sealed class AddProposalTests
     }
 
     [Fact]
+    public void AnEmptyCompoundRuleIsDefault()
+    {
+        var editor = new DetectionEditorViewModel();
+        editor.Load(new DetectionProposal(Kind: DetectionKind.Compound, Description: "None", Values: new Dictionary<string, string>(), Evidence: Evidence.Predicted, Source: null));
+        Assert.True(editor.IsDefault);
+        Assert.True(editor.ToProposal().IsDefault);
+    }
+
+    [Fact]
     public void ARuleThatTheAnalysisMarksAsDefaultIsDefault()
     {
         var editor = new DetectionEditorViewModel();
