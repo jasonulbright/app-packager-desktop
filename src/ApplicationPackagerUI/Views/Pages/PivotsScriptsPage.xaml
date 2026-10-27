@@ -144,7 +144,7 @@
                                   AutomationProperties.AutomationId="dgSiteScripts" AutomationProperties.Name="Site scripts">
                             <DataGrid.Columns>
                                 <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="2*" MinWidth="160" ElementStyle="{StaticResource TrimmedCell}" />
-                                <DataGridTextColumn Header="State" Binding="{Binding State}" Width="170" MinWidth="170" ElementStyle="{StaticResource TrimmedCell}" />
+                                <DataGridTextColumn Header="State" Binding="{Binding State}" Width="170" MinWidth="170" ElementStyle="{StaticResource StatusCell}" />
                                 <DataGridTextColumn Header="Version" Binding="{Binding Version}" Width="84" MinWidth="80" ElementStyle="{StaticResource TrimmedCell}" />
                                 <DataGridTextColumn Header="Author" Binding="{Binding Author}" Width="*" MinWidth="170" ElementStyle="{StaticResource TrimmedCell}" />
                                 <DataGridTextColumn Header="Approver" Binding="{Binding Approver}" Width="*" MinWidth="170" ElementStyle="{StaticResource TrimmedCell}" />
@@ -244,7 +244,7 @@
                                 <DataGridTextColumn Header="Action" Binding="{Binding Action}" Width="150" MinWidth="150" ElementStyle="{StaticResource TrimmedCell}" />
                                 <DataGridTextColumn Header="Target" Binding="{Binding Target}" Width="3*" MinWidth="200" ElementStyle="{StaticResource TrimmedCell}" />
                                 <DataGridTextColumn Header="Devices" Binding="{Binding Devices}" Width="96" MinWidth="90" ElementStyle="{StaticResource TrimmedCell}" />
-                                <DataGridTextColumn Header="State" Binding="{Binding State}" Width="216" MinWidth="216" ElementStyle="{StaticResource TrimmedCell}" />
+                                <DataGridTextColumn Header="State" Binding="{Binding State}" Width="216" MinWidth="216" ElementStyle="{StaticResource StatusCell}" />
                             </DataGrid.Columns>
                         </DataGrid>
                         <StackPanel Grid.Row="2" Margin="0,8,0,8" KeyboardNavigation.TabIndex="2" KeyboardNavigation.TabNavigation="Local">
@@ -263,8 +263,8 @@
                                 <!-- Each fixed width holds its longest real value with room for other display scalings; the target and the script hash are in the details box. -->
                                 <DataGridTextColumn Header="Time" Binding="{Binding Time}" Width="166" MinWidth="166" ElementStyle="{StaticResource TrimmedCell}" />
                                 <DataGridTextColumn Header="Action" Binding="{Binding Action}" Width="150" MinWidth="150" ElementStyle="{StaticResource TrimmedCell}" />
-                                <DataGridTextColumn Header="Result" Binding="{Binding Result}" Width="112" MinWidth="112" ElementStyle="{StaticResource TrimmedCell}" />
-                                <DataGridTextColumn Header="Verified" Binding="{Binding Verified}" Width="124" MinWidth="124" ElementStyle="{StaticResource VerifiedCell}" />
+                                <DataGridTextColumn Header="Result" Binding="{Binding Result}" Width="112" MinWidth="112" ElementStyle="{StaticResource StatusCell}" />
+                                <DataGridTextColumn Header="Verified" Binding="{Binding Verified}" Width="124" MinWidth="124" ElementStyle="{StaticResource VerifiedStatusCell}" />
                                 <DataGridTextColumn Header="Devices" Binding="{Binding Devices}" Width="96" MinWidth="90" ElementStyle="{StaticResource TrimmedCell}" />
                                 <DataGridTextColumn Header="User" Binding="{Binding User}" Width="176" MinWidth="176" ElementStyle="{StaticResource TrimmedCell}" />
                                 <DataGridTextColumn Header="Message" Binding="{Binding Message}" Width="*" MinWidth="240" ElementStyle="{StaticResource WrappedCell}" />

@@ -27,12 +27,12 @@
                                     VerticalAlignment="Top" HorizontalAlignment="Left">
                                 <Border.Style>
                                     <Style TargetType="Border">
-                                        <Setter Property="Background" Value="#26E8A317" />
-                                        <Setter Property="BorderBrush" Value="#E8A317" />
+                                        <Setter Property="Background" Value="{DynamicResource SystemFillColorCautionBackgroundBrush}" />
+                                        <Setter Property="BorderBrush" Value="{DynamicResource SystemFillColorCautionBrush}" />
                                         <Style.Triggers>
                                             <DataTrigger Binding="{Binding SeverityText}" Value="Blocking">
-                                                <Setter Property="Background" Value="#26D13438" />
-                                                <Setter Property="BorderBrush" Value="#D13438" />
+                                                <Setter Property="Background" Value="{DynamicResource SystemFillColorCriticalBackgroundBrush}" />
+                                                <Setter Property="BorderBrush" Value="{DynamicResource SystemFillColorCriticalBrush}" />
                                             </DataTrigger>
                                         </Style.Triggers>
                                     </Style>
@@ -41,10 +41,10 @@
                                            AutomationProperties.AutomationId="ByoReplacementSeverity">
                                     <TextBlock.Style>
                                         <Style TargetType="TextBlock">
-                                            <Setter Property="Foreground" Value="#E8A317" />
+                                            <Setter Property="Foreground" Value="{DynamicResource SystemFillColorCautionBrush}" />
                                             <Style.Triggers>
                                                 <DataTrigger Binding="{Binding SeverityText}" Value="Blocking">
-                                                    <Setter Property="Foreground" Value="#E8484C" />
+                                                    <Setter Property="Foreground" Value="{DynamicResource SystemFillColorCriticalBrush}" />
                                                 </DataTrigger>
                                             </Style.Triggers>
                                         </Style>

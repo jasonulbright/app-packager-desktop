@@ -404,16 +404,16 @@
                         <Setter Property="Foreground" Value="{DynamicResource TextFillColorTertiaryBrush}" />
                         <Style.Triggers>
                             <DataTrigger Binding="{Binding MecmConnectionStatus}" Value="Connected">
-                                <Setter Property="Foreground" Value="#2D7D46" />
+                                <Setter Property="Foreground" Value="{DynamicResource SystemFillColorSuccessBrush}" />
                             </DataTrigger>
                             <DataTrigger Binding="{Binding MecmConnectionStatus}" Value="Failed">
-                                <Setter Property="Foreground" Value="#C0392B" />
+                                <Setter Property="Foreground" Value="{DynamicResource SystemFillColorCriticalBrush}" />
                             </DataTrigger>
                             <DataTrigger Binding="{Binding MecmConnectionStatus}" Value="Testing...">
-                                <Setter Property="Foreground" Value="#E8A317" />
+                                <Setter Property="Foreground" Value="{DynamicResource SystemFillColorCautionBrush}" />
                             </DataTrigger>
                             <DataTrigger Binding="{Binding MecmConnectionStatus}" Value="Not configured">
-                                <Setter Property="Foreground" Value="#999999" />
+                                <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
                             </DataTrigger>
                         </Style.Triggers>
                     </Style>

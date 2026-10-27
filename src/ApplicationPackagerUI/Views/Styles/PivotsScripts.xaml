@@ -111,6 +111,12 @@
         <Setter Property="ToolTip" Value="{Binding VerifiedText}" />
         <Setter Property="AutomationProperties.Name" Value="{Binding VerifiedText}" />
     </Style>
+    <Style x:Key="StatusCell" TargetType="TextBlock" BasedOn="{StaticResource TrimmedCell}">
+        <Setter Property="Foreground" Value="{Binding Text, RelativeSource={RelativeSource Self}, Converter={x:Static helpers:OutcomeBrushConverter.Instance}}" />
+    </Style>
+    <Style x:Key="VerifiedStatusCell" TargetType="TextBlock" BasedOn="{StaticResource VerifiedCell}">
+        <Setter Property="Foreground" Value="{Binding Text, RelativeSource={RelativeSource Self}, Converter={x:Static helpers:OutcomeBrushConverter.Instance}}" />
+    </Style>
 
     <!-- The cells of a row form a Local Tab group, so only the first cell is a Tab stop: Tab enters the grid once and the next Tab leaves it. -->
     <Style x:Key="TabStopCell" TargetType="DataGridCell" BasedOn="{StaticResource FocusableCell}">
