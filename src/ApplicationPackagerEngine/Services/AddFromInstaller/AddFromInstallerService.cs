@@ -187,9 +187,14 @@ public sealed class AddFromInstallerService : IAddFromInstallerService
         ? new ProposedValue<string>(Value: engine, Evidence: Evidence.None, Source: null)
         : new ProposedValue<string>(Value: engine, Evidence: Evidence.Confirmed, Source: "installer-signature");
 
+    /// <summary>
+    /// The MSI Template names the platform of the product. The PE header of an EXE names the platform of the installer
+    /// program only: a 32-bit installer can install a 64-bit product, so that value is predicted.
+    /// </summary>
     private static ProposedValue<string>? Architecture(AnalysisReport report, string architecture) =>
-        string.IsNullOrEmpty(architecture) ? null : new ProposedValue<string>(Value: architecture, Evidence: Evidence.Confirmed,
-            Source: report.Type == "NativeMSI" ? "msi-summary-information" : "pe-header");
+        string.IsNullOrEmpty(architecture) ? null : report.Type == "NativeMSI"
+            ? new ProposedValue<string>(Value: architecture, Evidence: Evidence.Confirmed, Source: "msi-summary-information")
+            : new ProposedValue<string>(Value: architecture, Evidence: Evidence.Predicted, Source: "pe-header: the platform of the installer program");
 
     private static Evidence ContextEvidence(AnalysisReport report, DroppedInstallerAnalysis drop)
     {
@@ -667,7 +672,9 @@ public sealed class AddFromInstallerService : IAddFromInstallerService
         }
         if (!string.IsNullOrWhiteSpace(options.InstallerType)) definition.InstallerType = options.InstallerType.Trim();
         if (!string.IsNullOrWhiteSpace(options.InstallerFramework) && r.Framework.Evidence != Evidence.Manual) definition.InstallerFramework = options.InstallerFramework.Trim();
+        // The analysed file name carries the analysed version; with no typed name the stage takes the name from the resolved download URL.
         if (!string.IsNullOrWhiteSpace(options.InstallerFileName)) definition.InstallerFileName = options.InstallerFileName.Trim();
+        else if (!string.IsNullOrWhiteSpace(options.DownloadUrl)) definition.InstallerFileName = null;
         if (!string.IsNullOrWhiteSpace(options.DownloadUrl)) definition.DownloadUrl = options.DownloadUrl.Trim();
         if (options.VersionScraper is not null) definition.VersionScraper = options.VersionScraper;
         if (!string.IsNullOrWhiteSpace(options.VendorUrl)) definition.VendorUrl = options.VendorUrl.Trim();

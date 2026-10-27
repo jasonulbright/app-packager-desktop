@@ -249,6 +249,63 @@ public sealed class AddFromWebViewModelTests : IDisposable
     });
 
     [Fact]
+    public void TheReviewShowsTheAnalysisValuesTheSaveKeeps() => OnSta(h =>
+    {
+        h.Scrape();
+        h.Analyze(Analyzed("EXE"));
+        foreach (var row in h.ViewModel.AnalysisRows) row.IsAccepted = false;
+        h.ViewModel.AcceptProposalsCommand.Execute(null);
+
+        var (reviewed, options) = SaveOnce(h);
+
+        Assert.Null(options.Architecture);
+        Assert.Contains("Architecture:        ARM64", h.ViewModel.ReviewSummary);
+        Assert.Contains("Installer type:      EXE", h.ViewModel.ReviewSummary);
+        Assert.Contains("Install context:     User", h.ViewModel.ReviewSummary);
+        Assert.Contains($"Install arguments:   {reviewed.InstallArguments.Value}", h.ViewModel.ReviewSummary);
+        Assert.Contains($"Uninstall arguments: {reviewed.UninstallArguments.Value}", h.ViewModel.ReviewSummary);
+    });
+
+    [Theory]
+    [InlineData("MSP")]
+    [InlineData("MSIX")]
+    public void TheReviewOfAPatchOrAPackage_ShowsTheValuesOfTheDefinitionTheSaveBuilds(string type) => OnSta(h =>
+    {
+        h.Scrape();
+        h.Analyze(Analyzed(type));
+        foreach (var row in h.ViewModel.AnalysisRows) row.IsAccepted = false;
+        h.ViewModel.AcceptProposalsCommand.Execute(null);
+
+        var (reviewed, options) = SaveOnce(h);
+        var service = new AddFromInstallerService(new ApplicationPackagerEngine.Tests.InstallerAnalysis.FakeInstallerAnalysisService(), new DroppedInstallerAnalysisService(new MsiInspectionService()));
+        var definition = service.BuildDefinition(AddFromInstallerService.WithWizardValues(reviewed, options), options, []);
+
+        Assert.Contains($"Architecture:        {definition.Architecture}", h.ViewModel.ReviewSummary);
+        Assert.Contains($"Installer type:      {definition.InstallerType}", h.ViewModel.ReviewSummary);
+        Assert.Contains($"Install context:     {definition.InstallContext}", h.ViewModel.ReviewSummary);
+        Assert.Contains($"Install arguments:   {definition.InstallArgs}", h.ViewModel.ReviewSummary);
+    });
+
+    [Theory]
+    [InlineData(Evidence.Predicted)]
+    [InlineData(Evidence.None)]
+    public void AnInstallerArchitectureThatIsNotConfirmed_LeavesTheArchitectureOfStep1(Evidence evidence) => OnSta(h =>
+    {
+        h.Scrape();
+        h.Analyze(FakeAddService.Result() with
+        {
+            InstallerType = "EXE",
+            Architecture = evidence == Evidence.None ? null : new ProposedValue<string>(Value: "x86", Evidence: evidence, Source: "pe-header")
+        });
+        h.ViewModel.AcceptProposalsCommand.Execute(null);
+
+        var (_, options) = SaveOnce(h);
+
+        Assert.Equal("x64", options.Architecture);
+        Assert.Contains("Architecture:        x64", h.ViewModel.ReviewSummary);
+    });
+
+    [Fact]
     public void ChangedValues_AreSent() => OnSta(h =>
     {
         h.Scrape();
@@ -287,7 +344,7 @@ public sealed class AddFromWebViewModelTests : IDisposable
         Assert.Equal(DetectionKind.MsiProductCode, reviewed.Detection.Kind);
         Assert.False(reviewed.Detection.IsDefault);
         Assert.Equal(("/qn /norestart", "/x {ProductCode} /qn", "Machine"), (options.InstallArgs, options.UninstallArgs, options.InstallContext));
-        Assert.Equal(("Contoso App", "Contoso", null), (options.ApplicationName, options.Vendor, options.Architecture));
+        Assert.Equal(("Contoso App", "Contoso", "x64"), (options.ApplicationName, options.Vendor, options.Architecture));
         Assert.Equal(("MSI", "NativeMSI", "contoso-{version}.msi"), (options.InstallerType, options.InstallerFramework, options.InstallerFileName));
         Assert.Equal("https://example.com/contoso-{display_version}.msi", options.DownloadUrl);
         Assert.Equal("https://example.com/releases", options.VersionScraper!.Url);
@@ -301,6 +358,7 @@ public sealed class AddFromWebViewModelTests : IDisposable
     [Fact]
     public void AnEmptyRegistryKeyIsNeverSavedAndTheResultAsksForReview() => OnSta(h =>
     {
+        h.ViewModel.InstallArgs = "/S";
         h.ViewModel.Detection.Kind = DetectionKind.RegistryVersion;
         h.ViewModel.Detection.Key = "";
         h.GoTo(7);
@@ -312,6 +370,22 @@ public sealed class AddFromWebViewModelTests : IDisposable
         Assert.Null(definition.Detection.RegistryKeyTemplate);
         Assert.True(h.ViewModel.Result.IsWorkbenchDefault);
         Assert.Equal("Detection needs review.", h.ViewModel.Result.ReasonText);
+    });
+
+    [Theory]
+    [InlineData("EXE", true)]
+    [InlineData("MSI", false)]
+    public void AnExeSavedWithoutAnalysisAndWithoutSilentArguments_NeedsReview(string type, bool flagged) => OnSta(h =>
+    {
+        h.ViewModel.InstallerType = type;
+        h.ViewModel.InstallArgs = "";
+        h.GoTo(7);
+
+        var save = h.ViewModel.SaveDefinitionCommand.ExecuteAsync(null);
+        StaTestHelper.PumpUntil(() => save.IsCompleted);
+
+        Assert.True(h.ViewModel.Result.IsWorkbenchDefault);
+        Assert.Equal(flagged, h.ViewModel.Result.ReasonText.Contains(AddFromInstallerService.NoSilentSwitchReason, StringComparison.Ordinal));
     });
 
     [Fact]

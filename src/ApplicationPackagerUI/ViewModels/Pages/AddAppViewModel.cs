@@ -404,11 +404,12 @@ public partial class AddAppViewModel : ObservableObject
             ? "(default, needs review)"
             : detection.Type == "File" ? $"File {detection.FilePath}\\{detection.FileName} ({detection.PropertyType})"
             : $"{detection.Type} {detection.RegistryHive}\\{detection.RegistryKeyTemplate}" + (detection.ValueName is null ? "" : $" [{detection.ValueName}]");
+        var saved = SavedValues();
         ReviewSummary = $"""
             Vendor:              {Vendor}
             Application:         {ApplicationName}
             CM name:             {(string.IsNullOrWhiteSpace(CmName) ? ApplicationName : CmName)}
-            Architecture:        {Architecture}
+            Architecture:        {saved.Architecture}
             Vendor URL:          {VendorUrl}
 
             Scraper type:        {ScraperType}
@@ -417,12 +418,12 @@ public partial class AddAppViewModel : ObservableObject
             Version transform:   {(string.IsNullOrWhiteSpace(VersionTransform) ? "(none)" : VersionTransform)}
 
             Download URL:        {DownloadUrl}
-            Installer type:      {InstallerType}
+            Installer type:      {saved.InstallerType}
             Installer framework: {InstallerFramework}
-            Install context:     {InstallContext}
+            Install context:     {saved.InstallContext}
 
-            Install arguments:   {InstallArgs}
-            Uninstall arguments: {UninstallArgs}
+            Install arguments:   {saved.InstallArgs}
+            Uninstall arguments: {saved.UninstallArgs}
             Detection:           {detectionText}
             """;
     }
@@ -472,22 +473,7 @@ public partial class AddAppViewModel : ObservableObject
             ? new ProposedValue<string?>(Value: _displayVersion, Evidence: Evidence.Manual, Source: null)
             : analysis.Version;
         var reviewed = analysis with { Version = version, Detection = Detection.ToProposal() };
-        var options = new AddSaveOptions(DefinitionsFolder: DefinitionsRoot)
-        {
-            ApplicationName = ApplicationName,
-            Vendor = Vendor,
-            Architecture = _architectureSet ? Architecture : null,
-            InstallerFileName = string.IsNullOrWhiteSpace(InstallerFileName) ? null : InstallerFileName,
-            InstallerType = _installerTypeSet ? InstallerType : null,
-            InstallerFramework = string.IsNullOrWhiteSpace(InstallerFramework) ? null : InstallerFramework,
-            InstallContext = _installContextSet ? InstallContext : null,
-            InstallArgs = InstallArgsEvidence is not null || InstallArgs.Length > 0 ? InstallArgs : null,
-            UninstallArgs = UninstallArgsEvidence is not null || UninstallArgs.Length > 0 ? UninstallArgs : null,
-            DownloadUrl = DownloadUrl,
-            VersionScraper = ScraperConfig(),
-            VendorUrl = string.IsNullOrWhiteSpace(VendorUrl) ? null : VendorUrl,
-            CMName = string.IsNullOrWhiteSpace(CmName) ? null : CmName
-        };
+        var options = AnalyzedOptions(analysis);
         IsBusy = true;
         try
         {
@@ -504,6 +490,43 @@ public partial class AddAppViewModel : ObservableObject
             return null;
         }
         finally { IsBusy = false; }
+    }
+
+    /// <summary>
+    /// The wizard values the save of an accepted analysis sends; null keeps the analysis value. Step 1 shows an
+    /// architecture, so it is sent unless the analysis read a confirmed one and step 1 was not changed.
+    /// </summary>
+    private AddSaveOptions AnalyzedOptions(AddAnalysisResult analysis) => new(DefinitionsFolder: DefinitionsRoot)
+    {
+        ApplicationName = ApplicationName,
+        Vendor = Vendor,
+        Architecture = _architectureSet || analysis.Architecture is not { Evidence: Evidence.Confirmed, Value.Length: > 0 } ? Architecture : null,
+        InstallerFileName = string.IsNullOrWhiteSpace(InstallerFileName) ? null : InstallerFileName,
+        InstallerType = _installerTypeSet ? InstallerType : null,
+        InstallerFramework = string.IsNullOrWhiteSpace(InstallerFramework) ? null : InstallerFramework,
+        InstallContext = _installContextSet ? InstallContext : null,
+        InstallArgs = InstallArgsEvidence is not null || InstallArgs.Length > 0 ? InstallArgs : null,
+        UninstallArgs = UninstallArgsEvidence is not null || UninstallArgs.Length > 0 ? UninstallArgs : null,
+        DownloadUrl = DownloadUrl,
+        VersionScraper = ScraperConfig(),
+        VendorUrl = string.IsNullOrWhiteSpace(VendorUrl) ? null : VendorUrl,
+        CMName = string.IsNullOrWhiteSpace(CmName) ? null : CmName
+    };
+
+    /// <summary>The values the save writes, which the review shows: a value the options do not send is the analysis value.</summary>
+    private (string Architecture, string InstallerType, string InstallContext, string InstallArgs, string UninstallArgs) SavedValues()
+    {
+        if (!_accepted || _analysisResult is not { } analysis) return (Architecture, InstallerType, InstallContext, InstallArgs, UninstallArgs);
+        var o = AnalyzedOptions(analysis);
+        var type = o.InstallerType ?? analysis.InstallerType;
+        // A patch and a package definition install in the machine context, and take x64 when no architecture is given.
+        return analysis.InstallerType switch
+        {
+            "MSP" => (o.Architecture ?? "x64", type, "Machine", o.InstallArgs ?? analysis.InstallArguments.Value, o.UninstallArgs ?? ""),
+            "MSIX" => (o.Architecture ?? analysis.Architecture?.Value ?? "x64", type, "Machine", o.InstallArgs ?? "", o.UninstallArgs ?? ""),
+            _ => (o.Architecture ?? analysis.Architecture?.Value ?? Architecture, type, o.InstallContext ?? analysis.InstallContext.Value,
+                o.InstallArgs ?? analysis.InstallArguments.Value, o.UninstallArgs ?? analysis.UninstallArguments.Value)
+        };
     }
 
     /// <summary>Writes the wizard fields as a definition when no analysis was accepted. A rule without a key or a file is saved as the empty default.</summary>
@@ -563,7 +586,13 @@ public partial class AddAppViewModel : ObservableObject
             Warn("Save failed", ex.Message);
             return null;
         }
-        return new AddSaveResult(FilePath: filePath, DefinitionId: def.Id, Warnings: []) { NeedsReview = detection is null };
+        // The MSI wrapper adds /qn /norestart to empty arguments; an EXE wrapper runs the installer with no switch.
+        var noSwitch = InstallerType == "EXE" && string.IsNullOrWhiteSpace(InstallArgs);
+        return new AddSaveResult(FilePath: filePath, DefinitionId: def.Id, Warnings: [])
+        {
+            NeedsReview = detection is null || noSwitch,
+            ReviewReason = noSwitch ? AddFromInstallerService.NoSilentSwitchReason + " Type the silent install arguments in the Workbench before you deploy." : null
+        };
     }
     private void Warn(string title, string message)
     {

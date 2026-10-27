@@ -74,7 +74,7 @@ public sealed class LocalFileGridStageTests : IDisposable
         var (row, _) = await SavedRowAsync();
         var service = Service();
 
-        row.LatestVersion = await service.GetLatestVersionAsync(row, CancellationToken.None);
+        row.LatestVersion = await service.GetLatestVersionAsync(row, CancellationToken.None) ?? "";
         var staged = await service.StageAsync(row);
 
         Assert.Equal("4.5.6", row.LatestVersion);

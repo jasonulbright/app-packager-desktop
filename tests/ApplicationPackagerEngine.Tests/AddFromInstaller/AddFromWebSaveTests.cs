@@ -138,6 +138,40 @@ public sealed class AddFromWebSaveTests : IDisposable
     }
 
     [Fact]
+    public async Task TheArchitectureOfAnExeInstaller_IsPredicted_AndTheArchitectureOfAnMsi_IsConfirmed()
+    {
+        var path = _bed.Fixture("nsis-u-pf-hklm-wow.bin", "TestApp-Setup.exe");
+        var fake = new ApplicationPackagerEngine.Tests.InstallerAnalysis.FakeInstallerAnalysisService();
+        fake.Reports[path] = AddFromInstallerTestBed.Report(path, "NSIS", [], architecture: "x86");
+
+        var exe = await _bed.Over(fake).AnalyzeAsync(path, NoProgress, CancellationToken.None);
+        var msi = await _bed.Real().AnalyzeAsync(_bed.Msi(), NoProgress, CancellationToken.None);
+
+        Assert.Equal(Evidence.Predicted, exe.Architecture!.Evidence);
+        Assert.Equal(Evidence.Confirmed, msi.Architecture!.Evidence);
+    }
+
+    public static TheoryData<string, string?> WebFileNames => new()
+    {
+        { "https://example.invalid/TestApp-Setup-{version}.exe", null },
+        { "https://example.invalid/download?id=testapp", "TestApp-Setup-{version}.exe" }
+    };
+
+    [Theory]
+    [MemberData(nameof(WebFileNames))]
+    public async Task AWebDefinition_DoesNotKeepTheFileNameOfTheAnalysedVersion(string downloadUrl, string? typedFileName)
+    {
+        var service = _bed.Real();
+        var r = await service.AnalyzeAsync(_bed.Fixture("nsis-u-pf-hklm-wow.bin", "TestApp-Setup-1.2.3.exe"), NoProgress, CancellationToken.None);
+        var options = Wizard(_bed.Definitions, new VersionScraperConfig { Type = "HttpRegex", Url = "https://example.invalid/", Pattern = "x" })
+            with { DownloadUrl = downloadUrl, InstallerFileName = typedFileName };
+
+        var saved = Read((await service.SaveAsync(r, options, CancellationToken.None)).FilePath);
+
+        Assert.Equal(typedFileName, saved.InstallerFileName);
+    }
+
+    [Fact]
     public void CompoundWithNoClauses_IsTheDefault()
     {
         var empty = new DetectionProposal(Kind: DetectionKind.Compound, Description: "", Values: new Dictionary<string, string> { ["Connector"] = "And" }, Evidence: Evidence.Manual, Source: null);
