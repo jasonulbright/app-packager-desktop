@@ -69,7 +69,25 @@
             </controls:PageHeader.Actions>
         </controls:PageHeader>
 
-        <WrapPanel Grid.Row="1" Margin="0,0,0,8" VerticalAlignment="Center" AutomationProperties.AutomationId="pnlAppPackagerToolbar">
+        <WrapPanel Grid.Row="1" x:Name="AppPackagerToolbar" Margin="0,0,0,8" VerticalAlignment="Center" AutomationProperties.AutomationId="pnlAppPackagerToolbar">
+            <WrapPanel.Resources>
+                <!-- Tag "Compact" drops the labels; the tooltip then names the button. -->
+                <Style TargetType="ui:Button" BasedOn="{StaticResource {x:Type ui:Button}}">
+                    <Setter Property="ToolTip" Value="{Binding Content, RelativeSource={RelativeSource Self}}" />
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding Tag, RelativeSource={RelativeSource AncestorType=WrapPanel}}" Value="Compact">
+                            <Setter Property="Padding" Value="8,5" />
+                            <Setter Property="ContentTemplate">
+                                <Setter.Value>
+                                    <DataTemplate>
+                                        <Rectangle Width="0" Height="0" />
+                                    </DataTemplate>
+                                </Setter.Value>
+                            </Setter>
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </WrapPanel.Resources>
             <ui:Button Content="Check Latest"
                        Icon="{ui:SymbolIcon ArrowDownload24}"
                        Command="{Binding CheckLatestCommand}"
