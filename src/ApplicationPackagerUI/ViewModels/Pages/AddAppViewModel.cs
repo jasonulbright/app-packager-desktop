@@ -60,6 +60,7 @@ public partial class AddAppViewModel : ObservableObject
     [ObservableProperty] private string _analyzedFile = "";
     [ObservableProperty] private bool _hasAnalysis;
     [ObservableProperty] private bool _acceptDetection;
+    [ObservableProperty] private string _proposedDetectionText = "";
     [ObservableProperty] private string _analysisWarning = "";
 
     [ObservableProperty] private string _installArgs = "";
@@ -308,6 +309,8 @@ public partial class AddAppViewModel : ObservableObject
             source: result.InstallContext.Source, options: InstallContextOptions, automationId: "cboAddWebProposedContext"));
         foreach (var note in result.Notes) AnalysisNotes.Add(note);
         AcceptDetection = result.Detection.Kind != DetectionKind.None;
+        ProposedDetectionText = "Use the proposed detection: " + (string.IsNullOrWhiteSpace(result.Detection.Description) ? "none" : result.Detection.Description)
+            + " (" + EvidenceMarkers.Text(result.Detection.Evidence) + ")";
         AnalysisWarning = result.NeedsReview
             ? "This installer needs review. " + (string.IsNullOrWhiteSpace(result.ReviewReason) ? "The analysis has low confidence." : result.ReviewReason)
             : "";

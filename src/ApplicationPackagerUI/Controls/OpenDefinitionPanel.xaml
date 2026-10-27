@@ -1,0 +1,54 @@
+<UserControl
+    x:Class="ApplicationPackagerUI.Controls.OpenDefinitionPanel"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+    AutomationProperties.Name="Open definition">
+
+    <UserControl.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="/ApplicationPackagerUI;component/Views/Styles/SelectableRows.xaml" />
+                <ResourceDictionary Source="/ApplicationPackagerUI;component/Views/Styles/AddFlow.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+            <Style x:Key="TrimmedCell" TargetType="TextBlock" BasedOn="{x:Static DataGridTextColumn.DefaultElementStyle}">
+                <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+                <Setter Property="ToolTip" Value="{Binding Text, RelativeSource={RelativeSource Self}}" />
+            </Style>
+        </ResourceDictionary>
+    </UserControl.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+        <TextBlock Grid.Row="0" Style="{StaticResource AddNote}" Margin="0,0,0,8"
+                   Text="Local file: made by Add from file. Shipped: included with the App Packager. From web: made by Add from web." />
+        <Grid Grid.Row="1" Margin="0,0,0,8">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="12" />
+                <ColumnDefinition Width="Auto" MinWidth="150" />
+            </Grid.ColumnDefinitions>
+            <ui:TextBox x:Name="txtFilter" Grid.Column="0" Text="{Binding FilterText, UpdateSourceTrigger=PropertyChanged}" ClearButtonEnabled="False"
+                        PlaceholderText="Filter by name or publisher" Icon="{ui:SymbolIcon Search24}"
+                        AutomationProperties.Name="Filter by name or publisher" AutomationProperties.AutomationId="txtOpenDefinitionFilter" />
+            <ComboBox Grid.Column="2" ItemsSource="{Binding SourceOptions}" SelectedItem="{Binding SelectedSource}"
+                      ToolTip="Shows the definitions of one source." AutomationProperties.Name="Source" AutomationProperties.AutomationId="cboOpenDefinitionSource" />
+        </Grid>
+        <DataGrid Grid.Row="2" x:Name="DefinitionGrid" ItemsSource="{Binding Rows}" SelectedItem="{Binding SelectedRow}"
+                  AutoGenerateColumns="False" CanUserAddRows="False" CanUserDeleteRows="False" CanUserResizeColumns="True" IsReadOnly="True"
+                  SelectionMode="Single" HeadersVisibility="Column" GridLinesVisibility="Horizontal" RowHeaderWidth="0"
+                  RowStyle="{StaticResource SelectableRow}" CellStyle="{StaticResource FocusableCell}"
+                  MouseDoubleClick="DefinitionGrid_MouseDoubleClick"
+                  AutomationProperties.Name="Definitions" AutomationProperties.AutomationId="gridOpenDefinition">
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="2*" MinWidth="120" ElementStyle="{StaticResource TrimmedCell}" />
+                <DataGridTextColumn Header="Publisher" Binding="{Binding Publisher}" Width="*" MinWidth="100" ElementStyle="{StaticResource TrimmedCell}" />
+                <DataGridTextColumn Header="Source" Binding="{Binding SourceText}" Width="Auto" MinWidth="100" ElementStyle="{StaticResource TrimmedCell}" />
+            </DataGrid.Columns>
+        </DataGrid>
+    </Grid>
+</UserControl>

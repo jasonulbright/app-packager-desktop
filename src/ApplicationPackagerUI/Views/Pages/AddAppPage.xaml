@@ -52,7 +52,12 @@
                       AutomationProperties.AutomationId="scrollAddWeb">
             <Grid Margin="0,0,12,0">
                 <StackPanel Visibility="{Binding CurrentStep, Converter={StaticResource StepVisibilityConverter}, ConverterParameter=1}">
-                    <ui:CardExpander Header="Basic information" IsExpanded="True" Icon="{ui:SymbolIcon Info24}">
+                    <Border Style="{StaticResource AddCard}" Padding="12" Margin="0,0,0,8">
+                        <StackPanel>
+                        <StackPanel Orientation="Horizontal" Margin="8,0,0,4">
+                            <ui:SymbolIcon Symbol="Info24" FontSize="20" VerticalAlignment="Center" Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
+                            <TextBlock Text="Basic information" Style="{StaticResource AddHeading}" Margin="8,0,0,0" VerticalAlignment="Center" />
+                        </StackPanel>
                         <StackPanel Margin="8">
                             <TextBlock Text="Vendor" Style="{StaticResource FieldLabel}" />
                             <ui:TextBox Text="{Binding Vendor, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource WizardField}"
@@ -90,11 +95,17 @@
                                 </StackPanel>
                             </Grid>
                         </StackPanel>
-                    </ui:CardExpander>
+                    </StackPanel>
+                    </Border>
                 </StackPanel>
 
                 <StackPanel Visibility="{Binding CurrentStep, Converter={StaticResource StepVisibilityConverter}, ConverterParameter=2}">
-                    <ui:CardExpander Header="Version source" IsExpanded="True" Icon="{ui:SymbolIcon Search24}">
+                    <Border Style="{StaticResource AddCard}" Padding="12" Margin="0,0,0,8">
+                        <StackPanel>
+                        <StackPanel Orientation="Horizontal" Margin="8,0,0,4">
+                            <ui:SymbolIcon Symbol="Search24" FontSize="20" VerticalAlignment="Center" Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
+                            <TextBlock Text="Version source" Style="{StaticResource AddHeading}" Margin="8,0,0,0" VerticalAlignment="Center" />
+                        </StackPanel>
                         <StackPanel Margin="8">
                             <TextBlock Text="Scraper type" Style="{StaticResource FieldLabel}" />
                             <ComboBox ItemsSource="{Binding ScraperTypeOptions}" SelectedItem="{Binding ScraperType}" Style="{StaticResource WizardCombo}"
@@ -125,11 +136,17 @@
                                             AutomationProperties.Name="Scrape result" AutomationProperties.AutomationId="txtAddWebScrapeResult" />
                             </DockPanel>
                         </StackPanel>
-                    </ui:CardExpander>
+                    </StackPanel>
+                    </Border>
                 </StackPanel>
 
                 <StackPanel Visibility="{Binding CurrentStep, Converter={StaticResource StepVisibilityConverter}, ConverterParameter=3}">
-                    <ui:CardExpander Header="Download configuration" IsExpanded="True" Icon="{ui:SymbolIcon ArrowDownload24}">
+                    <Border Style="{StaticResource AddCard}" Padding="12" Margin="0,0,0,8">
+                        <StackPanel>
+                        <StackPanel Orientation="Horizontal" Margin="8,0,0,4">
+                            <ui:SymbolIcon Symbol="ArrowDownload24" FontSize="20" VerticalAlignment="Center" Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
+                            <TextBlock Text="Download configuration" Style="{StaticResource AddHeading}" Margin="8,0,0,0" VerticalAlignment="Center" />
+                        </StackPanel>
                         <StackPanel Margin="8">
                             <TextBlock Text="Download URL template" Style="{StaticResource FieldLabel}" />
                             <ui:TextBox Text="{Binding DownloadUrl, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource WizardField}"
@@ -162,11 +179,17 @@
                                 </StackPanel>
                             </Grid>
                         </StackPanel>
-                    </ui:CardExpander>
+                    </StackPanel>
+                    </Border>
                 </StackPanel>
 
                 <StackPanel Visibility="{Binding CurrentStep, Converter={StaticResource StepVisibilityConverter}, ConverterParameter=4}">
-                    <ui:CardExpander Header="Installer analysis" IsExpanded="True" Icon="{ui:SymbolIcon BoxSearch24}">
+                    <Border Style="{StaticResource AddCard}" Padding="12" Margin="0,0,0,8">
+                        <StackPanel>
+                        <StackPanel Orientation="Horizontal" Margin="8,0,0,4">
+                            <ui:SymbolIcon Symbol="BoxSearch24" FontSize="20" VerticalAlignment="Center" Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
+                            <TextBlock Text="Installer analysis" Style="{StaticResource AddHeading}" Margin="8,0,0,0" VerticalAlignment="Center" />
+                        </StackPanel>
                         <StackPanel Margin="8">
                             <TextBlock Style="{StaticResource AddNote}" Margin="0,0,0,8"
                                        Text="Downloads the installer one time to the download root and reads it. Nothing in the installer is started. This step is optional." />
@@ -193,7 +216,7 @@
                                 <ItemsControl ItemsSource="{Binding AnalysisRows}" ItemTemplate="{StaticResource ProposalAcceptRowTemplate}" Grid.IsSharedSizeScope="True"
                                               Focusable="False" AutomationProperties.Name="Proposed values" AutomationProperties.AutomationId="lstAddWebProposals" />
                                 <CheckBox IsChecked="{Binding AcceptDetection}" Margin="0,0,0,8" AutomationProperties.AutomationId="chkAddWebAcceptDetection"
-                                          Content="{Binding Detection.Description, StringFormat=Use the proposed detection: {0}}" />
+                                          Content="{Binding ProposedDetectionText}" AutomationProperties.Name="Use the proposed detection" />
                                 <ItemsControl ItemsSource="{Binding AnalysisNotes}" Focusable="False" Margin="0,0,0,8" AutomationProperties.Name="Notes">
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
@@ -205,11 +228,17 @@
                                            ToolTip="Copies the selected values into steps 5 and 6." AutomationProperties.AutomationId="btnAddWebAccept" />
                             </StackPanel>
                         </StackPanel>
-                    </ui:CardExpander>
+                    </StackPanel>
+                    </Border>
                 </StackPanel>
 
                 <StackPanel Visibility="{Binding CurrentStep, Converter={StaticResource StepVisibilityConverter}, ConverterParameter=5}">
-                    <ui:CardExpander Header="Install and uninstall" IsExpanded="True" Icon="{ui:SymbolIcon WrenchScrewdriver24}">
+                    <Border Style="{StaticResource AddCard}" Padding="12" Margin="0,0,0,8">
+                        <StackPanel>
+                        <StackPanel Orientation="Horizontal" Margin="8,0,0,4">
+                            <ui:SymbolIcon Symbol="WrenchScrewdriver24" FontSize="20" VerticalAlignment="Center" Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
+                            <TextBlock Text="Install and uninstall" Style="{StaticResource AddHeading}" Margin="8,0,0,0" VerticalAlignment="Center" />
+                        </StackPanel>
                         <Grid Margin="8">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*" />
@@ -241,13 +270,20 @@
                                       AutomationProperties.Name="Install context" AutomationProperties.AutomationId="cboAddWebInstallContext" />
                             <TextBlock Grid.Row="5" Grid.Column="1" Text="{Binding InstallContextMarker}" Style="{StaticResource FieldMarker}" AutomationProperties.AutomationId="txtAddWebInstallContextMarker" />
                         </Grid>
-                    </ui:CardExpander>
+                    </StackPanel>
+                    </Border>
                 </StackPanel>
 
                 <StackPanel Visibility="{Binding CurrentStep, Converter={StaticResource StepVisibilityConverter}, ConverterParameter=6}">
-                    <ui:CardExpander Header="Detection" IsExpanded="True" Icon="{ui:SymbolIcon CheckboxChecked24}">
+                    <Border Style="{StaticResource AddCard}" Padding="12" Margin="0,0,0,8">
+                        <StackPanel>
+                        <StackPanel Orientation="Horizontal" Margin="8,0,0,4">
+                            <ui:SymbolIcon Symbol="CheckboxChecked24" FontSize="20" VerticalAlignment="Center" Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
+                            <TextBlock Text="Detection" Style="{StaticResource AddHeading}" Margin="8,0,0,0" VerticalAlignment="Center" />
+                        </StackPanel>
                         <controls:DetectionEditorPanel Margin="8" DataContext="{Binding Detection}" AutomationProperties.AutomationId="pnlAddWebDetection" />
-                    </ui:CardExpander>
+                    </StackPanel>
+                    </Border>
                 </StackPanel>
 
                 <StackPanel Visibility="{Binding CurrentStep, Converter={StaticResource StepVisibilityConverter}, ConverterParameter=7}">
@@ -255,11 +291,17 @@
                             AutomationProperties.AutomationId="pnlAddWebDetectionWarning">
                         <TextBlock Text="{Binding DetectionWarning}" Style="{StaticResource AddWarningText}" AutomationProperties.AutomationId="txtAddWebDetectionWarning" />
                     </Border>
-                    <ui:CardExpander Header="Review" IsExpanded="True" Icon="{ui:SymbolIcon Checkmark24}">
+                    <Border Style="{StaticResource AddCard}" Padding="12" Margin="0,0,0,8">
+                        <StackPanel>
+                        <StackPanel Orientation="Horizontal" Margin="8,0,0,4">
+                            <ui:SymbolIcon Symbol="Checkmark24" FontSize="20" VerticalAlignment="Center" Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
+                            <TextBlock Text="Review" Style="{StaticResource AddHeading}" Margin="8,0,0,0" VerticalAlignment="Center" />
+                        </StackPanel>
                         <ui:TextBox Text="{Binding ReviewSummary, Mode=OneWay}" IsReadOnly="True" AcceptsReturn="True"
                                     FontFamily="Cascadia Code,Consolas,Courier New" MinHeight="300"
                                     AutomationProperties.Name="Review" AutomationProperties.AutomationId="txtAddWebReview" />
-                    </ui:CardExpander>
+                    </StackPanel>
+                    </Border>
                 </StackPanel>
             </Grid>
         </ScrollViewer>

@@ -18,6 +18,9 @@ public sealed class WorkbenchApplicationItem
     public string DisplayLabel => string.IsNullOrWhiteSpace(Publisher) ? DisplayName : Publisher + " - " + DisplayName;
     public string? SourcePath { get; init; }
     public bool IsJsonDefinition { get; init; }
+
+    /// <summary>The definition has a download URL or a version scraper URL.</summary>
+    public bool HasRemoteSource { get; init; }
     public bool Runnable { get; init; }
     public IReadOnlyList<string> SupportsVariants { get; init; } = [];
     public IReadOnlyList<string> SupportsInstallModes { get; init; } = [];
@@ -91,6 +94,7 @@ public sealed class WorkbenchApplicationCatalog(SettingsService settingsService,
                     Publisher = definition.Vendor,
                     SourcePath = definition.SourcePath,
                     IsJsonDefinition = true,
+                    HasRemoteSource = !string.IsNullOrWhiteSpace(definition.DownloadUrl) || !string.IsNullOrWhiteSpace(definition.VersionScraper?.Url),
                     Runnable = true,
                     SupportsVariants = definition.SupportsVariants ?? [],
                     SupportsInstallModes = definition.SupportsInstallModes ?? [],

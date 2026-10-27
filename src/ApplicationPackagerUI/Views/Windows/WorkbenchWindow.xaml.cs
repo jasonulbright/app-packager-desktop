@@ -99,6 +99,30 @@ public partial class WorkbenchWindow : IWorkbenchPrompts
 
     private void SiteCondition_LostFocus(object sender, RoutedEventArgs e) => _viewModel.SaveSiteConditions();
 
+    private async void OpenDefinition_Click(object sender, RoutedEventArgs e)
+    {
+        var picker = new OpenDefinitionViewModel(await _viewModel.LoadDefinitionsAsync());
+        var panel = new Controls.OpenDefinitionPanel { DataContext = picker, Width = 640, Height = 420 };
+        var dialog = new ContentDialog
+        {
+            Title = "Open definition",
+            Content = panel,
+            PrimaryButtonText = "Open",
+            CloseButtonText = "Cancel",
+            DefaultButton = ContentDialogButton.Primary,
+            IsPrimaryButtonEnabled = false,
+            DialogMaxWidth = 720
+        };
+        picker.PropertyChanged += (_, args) =>
+        {
+            if (args.PropertyName == nameof(OpenDefinitionViewModel.CanOpen)) dialog.IsPrimaryButtonEnabled = picker.CanOpen;
+        };
+        panel.OpenRequested += (_, _) => dialog.Hide(ContentDialogResult.Primary);
+        panel.Loaded += (_, _) => panel.txtFilter.Focus();
+        if (await ShowAsync(dialog) != ContentDialogResult.Primary || picker.SelectedRow is not { } row) return;
+        await _viewModel.OpenDefinitionAsync(row.ApplicationId);
+    }
+
     private void ExportBundle_Click(object sender, RoutedEventArgs e) => _viewModel.ExportBundleCommand.Execute(null);
 
     private void ImportBundle_Click(object sender, RoutedEventArgs e) => _viewModel.ImportBundleCommand.Execute(null);

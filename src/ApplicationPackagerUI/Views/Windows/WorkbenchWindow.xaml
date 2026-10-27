@@ -161,6 +161,10 @@
                       ItemsSource="{Binding Profiles}" SelectedItem="{Binding SelectedProfile}" DisplayMemberPath="Name"
                       ToolTip="Packager default is read-only. Save as creates a named profile; one profile is active per application." />
             <StackPanel Grid.Column="4" Orientation="Horizontal">
+                <ui:Button x:Name="btnOpenDefinition" Content="Open definition..." Icon="{ui:SymbolIcon FolderOpen24}" Margin="0,0,8,0"
+                           Click="OpenDefinition_Click"
+                           ToolTip="Lists the definitions made by Add from file, the shipped definitions and the definitions made by Add from web."
+                           AutomationProperties.AutomationId="btnOpenDefinition" />
                 <ui:Button x:Name="btnProfileRename" Content="Rename" MinWidth="90"
                            Command="{Binding RenameProfileCommand}" ToolTip="Rename the selected custom profile." />
                 <ui:DropDownButton x:Name="btnBundle" Content="Bundle" Margin="8,0,0,0"
