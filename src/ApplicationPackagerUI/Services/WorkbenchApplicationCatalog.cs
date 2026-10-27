@@ -56,6 +56,9 @@ public sealed class WorkbenchApplicationCatalog(SettingsService settingsService,
         ? ApplicationIds.New(packager.DefinitionOrigin, name: packager.Uid)
         : ApplicationIds.New(ApplicationOrigin.Catalog, path: packager.FullPath);
 
+    /// <summary>The workbench application id of a definition that Add from file or Add from web saved to the user definitions folder.</summary>
+    public static string ApplicationIdForDefinition(string definitionId) => ApplicationIds.New(ApplicationOrigin.Custom, name: definitionId);
+
     public async Task<IReadOnlyList<WorkbenchApplicationItem>> LoadAsync(WorkbenchStore store, CancellationToken ct = default)
     {
         var settings = settingsService.Load();

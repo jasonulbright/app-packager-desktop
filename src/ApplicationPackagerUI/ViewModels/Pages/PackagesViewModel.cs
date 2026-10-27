@@ -80,8 +80,10 @@ public partial class PackagesViewModel : ObservableObject
         ApplicationPackagerEngine.Services.ApplicationInventoryService inventory,
         ApplicationInventoryProjection inventoryProjection,
         ApplicationPackagerEngine.Services.IDiscoveryService discovery,
-        IDiscoveryPrompt discoveryPrompt)
+        IDiscoveryPrompt discoveryPrompt,
+        IAddFileRoute addFileRoute)
     {
+        AddFileRoute = addFileRoute;
         _publishRuns = publishRuns;
         _dropAnalysisService = dropAnalysisService;
         _stagingService = stagingService;
@@ -1035,32 +1037,42 @@ public partial class PackagesViewModel : ObservableObject
         return new ConflictAnswer(behavior, applyToAll.IsChecked == true);
     }
 
-    private static readonly string[] DroppableExtensions = [".msi", ".exe"];
+    /// <summary>The route of a file drop on the grid to the Add from file page.</summary>
+    public IAddFileRoute? AddFileRoute { get; set; }
 
     /// <summary>
-    /// Entry point for a file drop. Only a single .msi or .exe is analysable; anything else
-    /// is logged and ignored rather than guessed at.
+    /// Entry point for a file drop: the files go to the Add from file page, which checks the file
+    /// type and runs the same analysis and review as its picker.
     /// </summary>
     [RelayCommand]
-    private async Task HandleDroppedFilesAsync(string[]? paths)
+    private Task HandleDroppedFilesAsync(string[]? paths)
     {
-        if (paths is null || paths.Length == 0) return;
+        if (paths is null || paths.Length == 0 || AddFileRoute is null) return Task.CompletedTask;
+        AddFileRoute.Route(paths);
+        return Task.CompletedTask;
+    }
 
-        if (paths.Length > 1)
-        {
-            AddLogLine($"Drop ignored: {paths.Length} files dropped, one installer at a time.");
-            return;
-        }
+    /// <summary>The grid row the result panel of an add flow selects.</summary>
+    [ObservableProperty] private PackagerInfo? _focusedPackager;
 
-        var path = paths[0];
-        var extension = Path.GetExtension(path);
-        if (!DroppableExtensions.Contains(extension, StringComparer.OrdinalIgnoreCase))
-        {
-            AddLogLine($"Drop ignored: {Path.GetFileName(path)} is not an .msi or .exe.");
-            return;
-        }
+    /// <summary>Loads the grid again, clears the search and selects the row of the definition.</summary>
+    public async Task SelectDefinitionAsync(string definitionId)
+    {
+        await LoadPackagersCommand.ExecuteAsync(null);
+        SearchText = "";
+        FocusedPackager = Packagers.FirstOrDefault(p => string.Equals(p.Uid, definitionId, StringComparison.OrdinalIgnoreCase));
+    }
 
-        await AnalyzeDroppedInstallerAsync(path);
+    /// <summary>Runs the Stage command on the row of the definition only; returns the status line.</summary>
+    public async Task<string> StageDefinitionAsync(string definitionId)
+    {
+        var row = Packagers.FirstOrDefault(p => string.Equals(p.Uid, definitionId, StringComparison.OrdinalIgnoreCase));
+        if (row is null) return "The new row is not in the App Packager. Press F5 on the App Packager to load it.";
+        if (!StageCommand.CanExecute(null)) return "Another operation is running. Select Stage now again when it ends.";
+        foreach (var p in Packagers) p.IsSelected = ReferenceEquals(p, row);
+        FocusedPackager = row;
+        await StageCommand.ExecuteAsync(null);
+        return StatusText;
     }
 
     /// <summary>

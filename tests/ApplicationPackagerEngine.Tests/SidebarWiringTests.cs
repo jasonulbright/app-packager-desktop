@@ -1,4 +1,4 @@
-﻿using ApplicationPackagerEngine.Services;
+using ApplicationPackagerEngine.Services;
 using ApplicationPackagerUI.Services;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -290,14 +290,18 @@ public sealed class SidebarWiringTests : IDisposable
     }
 
     [Fact]
-    public void TheAddFromFilePlaceholderPageShowsItsHeader()
+    public void TheAddFromFilePageShowsItsHeader()
     {
-        StaTestHelper.Run(() =>
+        Compliance.RenderKit.WithApplication(Wpf.Ui.Appearance.ApplicationTheme.Light, () =>
         {
-            var page = new ApplicationPackagerUI.Views.Pages.AddFilePage();
-            var header = Assert.Single(System.Windows.LogicalTreeHelper.GetChildren((System.Windows.DependencyObject)page.Content).OfType<System.Windows.Controls.TextBlock>());
+            var viewModel = new ApplicationPackagerUI.ViewModels.Pages.AddFileViewModel(service: new UnavailableAddFromInstallerService(),
+                prompts: new AddFlow.FakeAddPrompts(), results: new ApplicationPackagerUI.ViewModels.Pages.AddResultViewModel(new AddFlow.FakeResultActions()));
+            var page = new ApplicationPackagerUI.Views.Pages.AddFilePage(viewModel);
+            static IEnumerable<object> All(object node) =>
+                node is System.Windows.DependencyObject d ? System.Windows.LogicalTreeHelper.GetChildren(d).Cast<object>().SelectMany(c => All(c).Prepend(c)) : [];
+            var header = Assert.Single(All(page).OfType<System.Windows.Controls.TextBlock>(),
+                t => System.Windows.Automation.AutomationProperties.GetAutomationId(t) == "txtAddFileHeader");
             Assert.Equal("Add from file", header.Text);
-            Assert.Equal("txtAddFileHeader", System.Windows.Automation.AutomationProperties.GetAutomationId(header));
         });
     }
 

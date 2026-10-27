@@ -96,7 +96,19 @@ public sealed partial class AddFileViewModel : ObservableObject
         if (path is not null) _ = AnalyzeFileAsync(path);
     }
 
-    /// <summary>Starts the analysis of one file; a drop on the App Packager grid comes here too.</summary>
+    /// <summary>A drop on this page or on the App Packager grid. One installer is analysed at a time.</summary>
+    public void DropFiles(IReadOnlyList<string>? paths)
+    {
+        if (paths is null || paths.Count == 0) return;
+        if (paths.Count > 1)
+        {
+            StatusText = $"{paths.Count} files were dropped. Drop one installer at a time.";
+            return;
+        }
+        _ = AnalyzeFileAsync(paths[0]);
+    }
+
+    /// <summary>Starts the analysis of one file.</summary>
     [RelayCommand]
     private async Task AnalyzeFileAsync(string? path)
     {

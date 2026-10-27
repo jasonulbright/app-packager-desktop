@@ -148,6 +148,8 @@ public sealed partial class DetectionEditorViewModel : ObservableObject
             ? "Detection is still the default: the rule has no registry key or file. Set a rule here or in the Workbench."
             : "";
 
+    public bool HasWarning => WarningText.Length > 0;
+
     public void Load(DetectionProposal proposal)
     {
         _loading = true;
@@ -171,6 +173,7 @@ public sealed partial class DetectionEditorViewModel : ObservableObject
         finally { _loading = false; }
         OnPropertyChanged(nameof(IsDefault));
         OnPropertyChanged(nameof(WarningText));
+        OnPropertyChanged(nameof(HasWarning));
         OnPropertyChanged(nameof(MarkerToolTip));
     }
 
@@ -206,12 +209,13 @@ public sealed partial class DetectionEditorViewModel : ObservableObject
     protected override void OnPropertyChanged(System.ComponentModel.PropertyChangedEventArgs e)
     {
         base.OnPropertyChanged(e);
-        if (_loading || e.PropertyName is nameof(Evidence) or nameof(MarkerText) or nameof(MarkerToolTip) or nameof(IsDefault) or nameof(WarningText)
+        if (_loading || e.PropertyName is nameof(Evidence) or nameof(MarkerText) or nameof(MarkerToolTip) or nameof(IsDefault) or nameof(WarningText) or nameof(HasWarning)
             or nameof(ShowRegistry) or nameof(ShowValueName) or nameof(ShowProductCode) or nameof(ShowFile) or nameof(ShowVersion)
             or nameof(IsCompound) or nameof(KindOptions) or nameof(SelectedKind) or nameof(Description))
             return;
         Evidence = Evidence.Manual;
         OnPropertyChanged(nameof(IsDefault));
         OnPropertyChanged(nameof(WarningText));
+        OnPropertyChanged(nameof(HasWarning));
     }
 }

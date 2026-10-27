@@ -98,6 +98,11 @@ public partial class PackagesPage
         {
             ColIntune.Visibility = ((PackagesViewModel)DataContext!).ShowIntuneColumn ? Visibility.Visible : Visibility.Collapsed;
         }
+        else if (e.PropertyName == nameof(PackagesViewModel.FocusedPackager) && ((PackagesViewModel)DataContext!).FocusedPackager is { } row)
+        {
+            PackagerGrid.SelectedItem = row;
+            PackagerGrid.ScrollIntoView(row);
+        }
     }
 
     private void LogTextBox_TextChanged(object sender, TextChangedEventArgs e)
