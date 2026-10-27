@@ -782,7 +782,7 @@ public sealed class DiscoveryRunnerTests
 
         Assert.Equal(DiscoveryAction.EnableAll, choice!.Action);
         Assert.Equal(1, store.Saves);
-        Assert.Equal("Discover unmanaged software: the choice was saved, but the lists could not be refreshed. Open the Applications page to see them.", status[^1]);
+        Assert.Equal("Discover unmanaged software: the choice was saved, but the lists could not be refreshed. Open the catalog from the App Packager page to see them.", status[^1]);
         Assert.Contains(status[^1], log);
         Assert.DoesNotContain(log.Concat(status), line => line.Contains("secret"));
     }
@@ -1008,8 +1008,8 @@ public sealed class PackagesGridLoadTests
         var load = await PackagesViewModel.ReadGridAsync(() => Task.FromResult(Rows()), () => Task.FromResult(Rows("git", "gsudo")));
 
         Assert.Empty(load.Rows);
-        Assert.Equal("All applications are hidden. Show applications on the Applications page.", load.StatusText);
-        Assert.Equal("All applications are hidden. Show applications on the Applications page.", load.LogLine);
+        Assert.Equal("All applications are hidden. Open the catalog from the App Packager page to show applications again.", load.StatusText);
+        Assert.Equal("All applications are hidden. Open the catalog from the App Packager page to show applications again.", load.LogLine);
     }
 
     [Fact]

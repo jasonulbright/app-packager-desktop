@@ -106,6 +106,24 @@ public sealed class SidebarGroupRenderTests : IDisposable
         return pixels;
     }
 
+    /// <summary>
+    /// The navigation view animates the width of its pane grid from the compact length to the
+    /// open length when the window first shows. The animation runs on the clock, not on the
+    /// dispatcher queue, so a settled layout can still hold a part-open pane; the wait ends when
+    /// the animated width holds its final value and the layout follows it.
+    /// </summary>
+    private static void WaitForPaneAnimation(Window window, Wpf.Ui.Controls.NavigationView navigation)
+    {
+        var pane = (FrameworkElement)navigation.Template.FindName("PaneGrid", navigation);
+        var target = navigation.IsPaneOpen ? navigation.OpenPaneLength : navigation.CompactPaneLength;
+        StaTestHelper.PumpUntil(() =>
+        {
+            window.UpdateLayout();
+            return pane.Width.Equals(target);
+        });
+        RenderKit.Settle(window);
+    }
+
     private static double MaxContrast(List<Color> pixels)
     {
         var background = RenderKit.MostCommon(pixels);
@@ -147,6 +165,7 @@ public sealed class SidebarGroupRenderTests : IDisposable
 
             var navigation = window.GetNavigation();
             Assert.Equal(open, navigation.IsPaneOpen);
+            WaitForPaneAnimation(window, navigation);
             var root = (FrameworkElement)window.Content;
             var captions = navigation.MenuItems.OfType<SidebarGroupCaption>().ToList();
             Assert.Equal([SidebarGroupIds.Tools], captions.Select(c => c.Group.Id));
@@ -181,7 +200,8 @@ public sealed class SidebarGroupRenderTests : IDisposable
                     var pixel = 1 / VisualTreeHelper.GetDpi(text).DpiScaleX;
                     Assert.True(text.ActualWidth + pixel >= TextWidth(text), $"{name}: the caption needs {TextWidth(text):0.0} px and has {text.ActualWidth:0.0} px.");
                     Assert.True(text.ActualHeight + pixel >= measure.Height, $"{name}: the caption needs {measure.Height:0.0} px high and has {text.ActualHeight:0.0} px.");
-                    Assert.Null(LayoutInformation.GetLayoutClip(text));
+                    Assert.True(LayoutInformation.GetLayoutClip(text) is null,
+                        $"{name}: the caption is clipped to {LayoutInformation.GetLayoutClip(text)?.Bounds}; it needs {text.DesiredSize.Width:0.0} px with its margin.");
                     var textBox = Bounds(text, root);
                     Assert.True(textBox.Left >= entryBounds.Left - pixel && textBox.Right <= entryBounds.Right + pixel,
                         $"{name}: the caption runs from {textBox.Left:0.0} to {textBox.Right:0.0}; the entries run from {entryBounds.Left:0.0} to {entryBounds.Right:0.0}.");

@@ -26,7 +26,7 @@
             <TextBlock x:Name="txtStatus" Text="{Binding StatusText}" FontSize="12" TextWrapping="Wrap" Margin="0,4,0,0"
                        AutomationProperties.AutomationId="txtDiscoverStatus" Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
             <TextBlock FontSize="12" TextWrapping="Wrap" Margin="0,4,0,0" Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                       Text="Each app is hidden on the Applications page, has no ConfigMgr application, and is installed on at least one client. Enabled apps join the grid for Check, Stage and Publish." />
+                       Text="Each app is hidden in the catalog, has no ConfigMgr application, and is installed on at least one client. Enabled apps join the grid for Check, Stage and Publish." />
             <TextBlock x:Name="txtNote" Text="{Binding NoteText}" FontSize="12" TextWrapping="Wrap" Margin="0,4,0,0"
                        AutomationProperties.AutomationId="txtDiscoverNote" Foreground="{DynamicResource SystemFillColorCautionBrush}"
                        Visibility="{Binding HasNote, Converter={StaticResource BooleanToVisibilityConverter}}" />
