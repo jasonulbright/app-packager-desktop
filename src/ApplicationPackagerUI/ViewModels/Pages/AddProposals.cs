@@ -32,9 +32,10 @@ public sealed partial class ProposalRow : ObservableObject
     private readonly string? _proposedValue;
     private readonly Evidence _proposedEvidence;
 
-    public ProposalRow(string label, string? value, Evidence evidence, string? source, IReadOnlyList<string>? options = null, string? automationId = null)
+    public ProposalRow(string label, string? value, Evidence evidence, string? source, IReadOnlyList<string>? options = null, string? automationId = null, bool isReadOnly = false)
     {
         Label = label;
+        IsReadOnly = isReadOnly;
         Source = source;
         Options = options;
         AutomationId = automationId ?? "";
@@ -49,10 +50,13 @@ public sealed partial class ProposalRow : ObservableObject
     public string? Source { get; }
     public string AutomationId { get; }
 
+    /// <summary>A value the review shows but does not change; it is read from the file or follows from other values.</summary>
+    public bool IsReadOnly { get; }
+
     /// <summary>The choices of a value picked from a list; null for a free text value.</summary>
     public IReadOnlyList<string>? Options { get; }
-    public bool IsChoice => Options is not null;
-    public bool IsText => Options is null;
+    public bool IsChoice => Options is not null && !IsReadOnly;
+    public bool IsText => Options is null || IsReadOnly;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(MarkerText), nameof(MarkerToolTip), nameof(MarkerAutomationName), nameof(IsPredicted))]
@@ -77,145 +81,3 @@ public sealed partial class ProposalRow : ObservableObject
         new(Value: string.IsNullOrWhiteSpace(Value) ? null : Value, Evidence: Evidence, Source: Evidence == Evidence.Manual ? null : Source);
 }
 
-public sealed record DetectionKindOption(DetectionKind Kind, string Label)
-{
-    public override string ToString() => Label;
-}
-
-/// <summary>The detection rule in the review: the kind and the fields of that kind, with the evidence of the proposal.</summary>
-public sealed partial class DetectionEditorViewModel : ObservableObject
-{
-    private bool _loading;
-    private string? _proposedSource;
-
-    public static IReadOnlyList<DetectionKindOption> EditableKinds { get; } =
-    [
-        new(Kind: DetectionKind.RegistryVersion, Label: "Registry value (version)"),
-        new(Kind: DetectionKind.MsiProductCode, Label: "MSI product code"),
-        new(Kind: DetectionKind.FileVersion, Label: "File version"),
-        new(Kind: DetectionKind.FileExists, Label: "File exists"),
-        new(Kind: DetectionKind.RegistryExists, Label: "Registry key exists"),
-        new(Kind: DetectionKind.None, Label: "None")
-    ];
-
-    public IReadOnlyList<DetectionKindOption> KindOptions => IsCompound
-        ? [.. EditableKinds, new DetectionKindOption(Kind: DetectionKind.Compound, Label: "Compound (edit in the Workbench)")]
-        : EditableKinds;
-
-    public IReadOnlyList<string> HiveOptions { get; } = ["HKLM", "HKCU"];
-
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(ShowRegistry), nameof(ShowValueName), nameof(ShowProductCode), nameof(ShowFile), nameof(ShowVersion),
-        nameof(IsCompound), nameof(KindOptions), nameof(SelectedKind))]
-    private DetectionKind _kind = DetectionKind.None;
-
-    [ObservableProperty] private string _description = "";
-    [ObservableProperty] private string _hive = "HKLM";
-    [ObservableProperty] private string _key = "";
-    [ObservableProperty] private string _valueName = "DisplayVersion";
-    [ObservableProperty] private string _expectedValue = "";
-    [ObservableProperty] private bool _is64Bit = true;
-    [ObservableProperty] private string _productCode = "";
-    [ObservableProperty] private string _filePath = "";
-    [ObservableProperty] private string _fileName = "";
-    [ObservableProperty] private string _version = "";
-
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(MarkerText), nameof(MarkerToolTip))]
-    private Evidence _evidence = Evidence.None;
-
-    public DetectionKindOption? SelectedKind
-    {
-        get => KindOptions.FirstOrDefault(o => o.Kind == Kind);
-        set { if (value is not null) Kind = value.Kind; }
-    }
-
-    public bool ShowRegistry => Kind is DetectionKind.RegistryVersion or DetectionKind.RegistryExists;
-    public bool ShowValueName => Kind == DetectionKind.RegistryVersion;
-    public bool ShowProductCode => Kind == DetectionKind.MsiProductCode;
-    public bool ShowFile => Kind is DetectionKind.FileVersion or DetectionKind.FileExists;
-    public bool ShowVersion => Kind is DetectionKind.FileVersion or DetectionKind.MsiProductCode;
-    public bool IsCompound => Kind == DetectionKind.Compound;
-
-    public string MarkerText => EvidenceMarkers.Text(Evidence);
-    public string MarkerToolTip => EvidenceMarkers.ToolTip(Evidence, Evidence == Evidence.Manual ? null : _proposedSource);
-
-    public bool IsDefault => DetectionProposalMapping.IsDefault(ToProposal());
-
-    public string WarningText => IsCompound
-        ? "The analysis proposes a compound rule. Open the definition in the Workbench to review the rule."
-        : IsDefault
-            ? "Detection is still the default: the rule has no registry key or file. Set a rule here or in the Workbench."
-            : "";
-
-    public bool HasWarning => WarningText.Length > 0;
-
-    public void Load(DetectionProposal proposal)
-    {
-        _loading = true;
-        try
-        {
-            string Read(string key, string fallback = "") => proposal.Values.TryGetValue(key, out var v) && v is not null ? v : fallback;
-            Kind = proposal.Kind;
-            Description = proposal.Description;
-            Hive = Read(DetectionValueKeys.Hive, "HKLM");
-            Key = Read(DetectionValueKeys.Key);
-            ValueName = Read(DetectionValueKeys.ValueName, "DisplayVersion");
-            ExpectedValue = Read(DetectionValueKeys.ExpectedValue);
-            Is64Bit = !string.Equals(Read(DetectionValueKeys.Is64Bit), "false", StringComparison.OrdinalIgnoreCase);
-            ProductCode = Read(DetectionValueKeys.ProductCode);
-            FilePath = Read(DetectionValueKeys.Path);
-            FileName = Read(DetectionValueKeys.FileName);
-            Version = Read(DetectionValueKeys.Version);
-            _proposedSource = proposal.Source;
-            Evidence = proposal.Evidence;
-        }
-        finally { _loading = false; }
-        OnPropertyChanged(nameof(IsDefault));
-        OnPropertyChanged(nameof(WarningText));
-        OnPropertyChanged(nameof(HasWarning));
-        OnPropertyChanged(nameof(MarkerToolTip));
-    }
-
-    public DetectionProposal ToProposal()
-    {
-        var values = new Dictionary<string, string>(StringComparer.Ordinal);
-        void Put(string key, string value)
-        {
-            if (!string.IsNullOrWhiteSpace(value)) values[key] = value.Trim();
-        }
-        if (ShowRegistry)
-        {
-            Put(DetectionValueKeys.Hive, Hive);
-            Put(DetectionValueKeys.Key, Key);
-            if (ShowValueName)
-            {
-                Put(DetectionValueKeys.ValueName, ValueName);
-                Put(DetectionValueKeys.ExpectedValue, ExpectedValue);
-            }
-        }
-        if (ShowProductCode) Put(DetectionValueKeys.ProductCode, ProductCode);
-        if (ShowFile)
-        {
-            Put(DetectionValueKeys.Path, FilePath);
-            Put(DetectionValueKeys.FileName, FileName);
-        }
-        if (ShowVersion) Put(DetectionValueKeys.Version, Version);
-        if (Kind != DetectionKind.None) values[DetectionValueKeys.Is64Bit] = Is64Bit ? "true" : "false";
-        return new DetectionProposal(Kind: Kind, Description: Description, Values: values, Evidence: Evidence,
-            Source: Evidence == Evidence.Manual ? null : _proposedSource);
-    }
-
-    protected override void OnPropertyChanged(System.ComponentModel.PropertyChangedEventArgs e)
-    {
-        base.OnPropertyChanged(e);
-        if (_loading || e.PropertyName is nameof(Evidence) or nameof(MarkerText) or nameof(MarkerToolTip) or nameof(IsDefault) or nameof(WarningText) or nameof(HasWarning)
-            or nameof(ShowRegistry) or nameof(ShowValueName) or nameof(ShowProductCode) or nameof(ShowFile) or nameof(ShowVersion)
-            or nameof(IsCompound) or nameof(KindOptions) or nameof(SelectedKind) or nameof(Description))
-            return;
-        Evidence = Evidence.Manual;
-        OnPropertyChanged(nameof(IsDefault));
-        OnPropertyChanged(nameof(WarningText));
-        OnPropertyChanged(nameof(HasWarning));
-    }
-}

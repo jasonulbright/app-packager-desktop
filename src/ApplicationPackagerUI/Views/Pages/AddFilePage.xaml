@@ -4,6 +4,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
     xmlns:controls="clr-namespace:ApplicationPackagerUI.Controls"
+    xmlns:vm="clr-namespace:ApplicationPackagerUI.ViewModels.Pages"
     Margin="24,0,24,24"
     ScrollViewer.CanContentScroll="False"
     AllowDrop="True" PreviewDragOver="OnPreviewDragOver" PreviewDragEnter="OnPreviewDragOver" PreviewDrop="OnPreviewDrop">
@@ -37,7 +38,7 @@
                 <ui:SymbolIcon Symbol="DocumentArrowUp20" FontSize="40" HorizontalAlignment="Center" Margin="0,0,0,8"
                                Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
                 <TextBlock Text="Drop an installer here" Style="{StaticResource AddHeading}" HorizontalAlignment="Center" Margin="0,0,0,4" />
-                <TextBlock Text=".msi, .exe, .msp, .msix, .appx, .msixbundle or .appxbundle" Style="{StaticResource AddNote}"
+                <TextBlock Text="{Binding FormatsText}" Style="{StaticResource AddNote}" AutomationProperties.AutomationId="txtAddFileFormats"
                            HorizontalAlignment="Center" TextAlignment="Center" Margin="0,0,0,12" />
                 <ui:Button Content="Open installer file..." Icon="{ui:SymbolIcon FolderOpen24}" Appearance="Primary" HorizontalAlignment="Center"
                            Command="{Binding OpenInstallerCommand}" IsDefault="{Binding IsPickStage}"
@@ -89,6 +90,34 @@
                             AutomationProperties.AutomationId="pnlAddFileReviewWarning">
                         <TextBlock Text="{Binding ReviewWarning}" Style="{StaticResource AddWarningText}" AutomationProperties.AutomationId="txtAddFileReviewWarning" />
                     </Border>
+
+                    <Border Style="{StaticResource AddCaution}" Visibility="{Binding ShowNoSilentSwitch, Converter={StaticResource AddBoolToVisibility}}"
+                            AutomationProperties.AutomationId="pnlAddFileNoSwitch">
+                        <TextBlock Text="{x:Static vm:AddFileViewModel.NoSilentSwitchText}" Style="{StaticResource AddWarningText}" AutomationProperties.AutomationId="txtAddFileNoSwitch" />
+                    </Border>
+
+                    <StackPanel Visibility="{Binding HasPackage, Converter={StaticResource AddBoolToVisibility}}" AutomationProperties.AutomationId="pnlAddFilePackage">
+                        <TextBlock Text="Package" Style="{StaticResource AddHeading}" Margin="0,4,0,6" />
+                        <Border Style="{StaticResource AddCaution}" BorderThickness="2" Visibility="{Binding HasTrustWarning, Converter={StaticResource AddBoolToVisibility}}"
+                                AutomationProperties.AutomationId="pnlAddFileTrustWarning">
+                            <StackPanel Orientation="Horizontal">
+                                <ui:SymbolIcon Symbol="ShieldError24" FontSize="20" Margin="0,0,8,0" VerticalAlignment="Top" Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
+                                <TextBlock Text="{Binding TrustWarning}" Style="{StaticResource AddWarningText}" FontWeight="SemiBold" MaxWidth="900"
+                                           AutomationProperties.AutomationId="txtAddFileTrustWarning" />
+                            </StackPanel>
+                        </Border>
+                        <ItemsControl ItemsSource="{Binding PackageFacts}" ItemTemplate="{StaticResource FactRowTemplate}" Grid.IsSharedSizeScope="True" Focusable="False"
+                                      AutomationProperties.Name="Package facts" AutomationProperties.AutomationId="lstAddFilePackage" />
+                    </StackPanel>
+
+                    <StackPanel Visibility="{Binding HasPatch, Converter={StaticResource AddBoolToVisibility}}" AutomationProperties.AutomationId="pnlAddFilePatch">
+                        <TextBlock Text="Patch" Style="{StaticResource AddHeading}" Margin="0,4,0,6" />
+                        <Border Style="{StaticResource AddCaution}" AutomationProperties.AutomationId="pnlAddFilePatchWarning">
+                            <TextBlock Text="{Binding PatchWarning}" Style="{StaticResource AddWarningText}" AutomationProperties.AutomationId="txtAddFilePatchWarning" />
+                        </Border>
+                        <ItemsControl ItemsSource="{Binding PatchFacts}" ItemTemplate="{StaticResource FactRowTemplate}" Grid.IsSharedSizeScope="True" Focusable="False"
+                                      AutomationProperties.Name="Patch facts" AutomationProperties.AutomationId="lstAddFilePatch" />
+                    </StackPanel>
 
                     <TextBlock Text="Proposed values" Style="{StaticResource AddHeading}" Margin="0,4,0,6" />
                     <ItemsControl ItemsSource="{Binding Rows}" ItemTemplate="{StaticResource ProposalRowTemplate}" Grid.IsSharedSizeScope="True"

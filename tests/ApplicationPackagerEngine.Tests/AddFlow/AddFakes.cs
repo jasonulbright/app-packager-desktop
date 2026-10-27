@@ -13,7 +13,12 @@ internal sealed class FakeAddService : IAddFromInstallerService
     public List<DownloadRequest> Fetches { get; } = [];
     public Func<DownloadRequest, string> FetchResult { get; set; } = r => Path.Combine(r.DownloadRoot, "setup.msi");
     public Func<AddAnalysisResult, AddSaveResult> SaveResult { get; set; } =
-        r => new AddSaveResult(DefinitionPath: @"C:\defs\contoso.json", DefinitionId: "contoso0001", Warnings: []);
+        r => new AddSaveResult(FilePath: @"C:\defs\contoso.json", DefinitionId: "contoso0001", Warnings: []);
+
+    public IReadOnlyList<string> AcceptedExtensions { get; } = [".msi", ".exe", ".msp", ".msix", ".appx", ".msixbundle", ".appxbundle"];
+
+    public string? RefusalReason(string installerPath) =>
+        AcceptedExtensions.Contains(Path.GetExtension(installerPath).ToLowerInvariant()) ? null : "Add from file does not take this file. Use an .msi, .exe, .msp, .msix, .appx, .msixbundle or .appxbundle file.";
 
     public Task<AddAnalysisResult> AnalyzeAsync(string installerPath, IProgress<string> progress, CancellationToken ct)
     {
@@ -58,14 +63,13 @@ internal sealed class FakeAddService : IAddFromInstallerService
         UninstallArguments: new ProposedValue<string>(Value: "/x {ProductCode} /qn", Evidence: Evidence.Predicted, Source: "https://learn.microsoft.com/windows/win32/msi/command-line-options"),
         InstallContext: new ProposedValue<string>(Value: "Machine", Evidence: Evidence.Confirmed, Source: "ALLUSERS"),
         Detection: detection ?? new DetectionProposal(Kind: DetectionKind.MsiProductCode, Description: "MSI product code",
-            Values: new Dictionary<string, string> { [DetectionValueKeys.ProductCode] = "{11111111-2222-3333-4444-555555555555}" },
+            Values: new Dictionary<string, string> { [DetectionValueKeys.ProductCode] = "{11111111-2222-3333-4444-555555555555}", [DetectionValueKeys.Hive] = "HKLM", [DetectionValueKeys.Key] = @"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\{11111111-2222-3333-4444-555555555555}" },
             Evidence: Evidence.Confirmed, Source: "ProductCode"),
         NeedsReview: needsReview,
         ReviewReason: reason,
         Notes: ["Read from the MSI database."]);
 
-    public static DetectionProposal DefaultDetection { get; } =
-        new(Kind: DetectionKind.None, Description: "", Values: new Dictionary<string, string>(), Evidence: Evidence.None, Source: null);
+    public static DetectionProposal DefaultDetection { get; } = DetectionProposal.NoneDerived("No rule could be derived.");
 }
 
 internal sealed class FakeResultActions : IAddResultActions
@@ -94,8 +98,11 @@ internal sealed class FakeAddPrompts : IAddFilePrompts
     public string? Pick { get; set; }
     public int Picks { get; private set; }
 
-    public string? PickInstaller()
+    public string? Filter { get; private set; }
+
+    public string? PickInstaller(string filter)
     {
+        Filter = filter;
         Picks++;
         return Pick;
     }

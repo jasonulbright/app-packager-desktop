@@ -31,6 +31,7 @@ public partial class AddAppViewModel : ObservableObject
     private string? _rawVersion;
     private string? _displayVersion;
     private bool _applying;
+    private bool _accepted;
 
     [ObservableProperty] private int _currentStep = 1;
     [ObservableProperty] private string _stepTitle = Title(1);
@@ -251,10 +252,9 @@ public partial class AddAppViewModel : ObservableObject
         });
 
         var request = new DownloadRequest(
-            Url: ResolveTokens(DownloadUrl.Trim()),
+            Url: HasVersionToken(DownloadUrl) ? AddFromInstallerService.ResolveDownloadUrl(DownloadUrl.Trim(), _displayVersion ?? "", _rawVersion) : DownloadUrl.Trim(),
             FileName: string.IsNullOrWhiteSpace(InstallerFileName) ? null : ResolveTokens(InstallerFileName.Trim()),
-            DownloadRoot: downloadRoot,
-            Headers: null);
+            DownloadRoot: downloadRoot);
 
         AddAnalysisResult? result = null;
         string? failure = null;
@@ -266,6 +266,7 @@ public partial class AddAppViewModel : ObservableObject
             result = await Task.Run(() => _service.AnalyzeAsync(installerPath: path, progress: progress, ct: operation.Token), operation.Token);
         }
         catch (OperationCanceledException) { failure = "The analysis was cancelled."; }
+        catch (AddFromInstallerRefusedException ex) { failure = ex.Message; }
         catch (Exception ex) { failure = "The analysis failed: " + ex.Message; }
 
         if (generation != _generation) return;
@@ -287,6 +288,7 @@ public partial class AddAppViewModel : ObservableObject
     private void ClearAnalysis()
     {
         _analysisResult = null;
+        _accepted = false;
         HasAnalysis = false;
         AnalyzedFile = "";
         AnalysisRows.Clear();
@@ -356,6 +358,7 @@ public partial class AddAppViewModel : ObservableObject
         }
         finally { _applying = false; }
         if (AcceptDetection) Detection.Load(_analysisResult.Detection);
+        _accepted = true;
         AnalysisStatus = "The selected values are in steps 5 and 6. Review them there.";
     }
 
@@ -369,7 +372,7 @@ public partial class AddAppViewModel : ObservableObject
 
     private void BuildReviewSummary()
     {
-        var detection = DetectionProposalMapping.ToConfig(Detection.ToProposal());
+        var detection = DetectionEditorViewModel.ToConfig(Detection.ToProposal());
         var detectionText = detection is null
             ? "(default, needs review)"
             : detection.Type == "File" ? $"File {detection.FilePath}\\{detection.FileName} ({detection.PropertyType})"
@@ -413,8 +416,72 @@ public partial class AddAppViewModel : ObservableObject
             return;
         }
 
-        var proposal = Detection.ToProposal();
-        var detection = DetectionProposalMapping.ToConfig(proposal);
+        var saved = _accepted && _analysisResult is not null ? await SaveAnalyzedAsync(_analysisResult) : SaveManual();
+        if (saved is null) return;
+
+        var reasons = new List<string>();
+        if (!string.IsNullOrWhiteSpace(saved.ReviewReason)) reasons.Add(saved.ReviewReason!);
+        if (_analysisResult?.NeedsReview == true && reasons.Count == 0)
+            reasons.Add(string.IsNullOrWhiteSpace(_analysisResult.ReviewReason) ? "The analysis has low confidence." : _analysisResult.ReviewReason!);
+        if (Detection.IsDefault && !reasons.Any(r => r.Contains("Detection", StringComparison.OrdinalIgnoreCase)))
+            reasons.Add("Detection needs review.");
+        var needsReview = saved.NeedsReview || reasons.Count > 0;
+
+        StatusText = "";
+        IsResultVisible = true;
+        await Result.ShowAsync(new AddedDefinition(DefinitionId: saved.DefinitionId, DefinitionPath: saved.FilePath, DisplayName: ApplicationName,
+            NeedsReview: needsReview, ReviewReason: needsReview ? string.Join(" ", reasons) : null, Warnings: saved.Warnings));
+        if (openWorkbench) Result.OpenInWorkbenchCommand.Execute(null);
+    }
+
+    private static ProposedValue<string> Field(string value, Evidence? evidence, ProposedValue<string> proposed) =>
+        new(Value: value, Evidence: evidence ?? Evidence.Manual, Source: evidence is null or Evidence.Manual ? null : proposed.Source);
+
+    /// <summary>Saves through the analysis service: the accepted analysis, the wizard fields and the web source of the wizard.</summary>
+    private async Task<AddSaveResult?> SaveAnalyzedAsync(AddAnalysisResult analysis)
+    {
+        var version = string.IsNullOrWhiteSpace(analysis.Version.Value) && _displayVersion is not null
+            ? new ProposedValue<string?>(Value: _displayVersion, Evidence: Evidence.Manual, Source: null)
+            : analysis.Version;
+        var reviewed = analysis with
+        {
+            Vendor = new ProposedValue<string?>(Value: Vendor, Evidence: Vendor == analysis.Vendor.Value ? analysis.Vendor.Evidence : Evidence.Manual, Source: analysis.Vendor.Source),
+            Name = new ProposedValue<string?>(Value: ApplicationName, Evidence: ApplicationName == analysis.Name.Value ? analysis.Name.Evidence : Evidence.Manual, Source: analysis.Name.Source),
+            Version = version,
+            InstallArguments = Field(InstallArgs, InstallArgsEvidence, analysis.InstallArguments),
+            UninstallArguments = Field(UninstallArgs, UninstallArgsEvidence, analysis.UninstallArguments),
+            InstallContext = Field(InstallContext, InstallContextEvidence, analysis.InstallContext),
+            Detection = Detection.ToProposal()
+        };
+        var options = new AddSaveOptions(DefinitionsFolder: DefinitionsRoot)
+        {
+            DownloadUrl = DownloadUrl,
+            VersionScraper = ScraperConfig(),
+            VendorUrl = string.IsNullOrWhiteSpace(VendorUrl) ? null : VendorUrl,
+            CMName = string.IsNullOrWhiteSpace(CmName) ? null : CmName
+        };
+        IsBusy = true;
+        try
+        {
+            return await Task.Run(() => _service.SaveAsync(reviewed: reviewed, options: options, ct: CancellationToken.None));
+        }
+        catch (AddFromInstallerRefusedException ex)
+        {
+            Warn("Save refused", ex.Message);
+            return null;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException or ArgumentException)
+        {
+            Warn("Save failed", ex.Message);
+            return null;
+        }
+        finally { IsBusy = false; }
+    }
+
+    /// <summary>Writes the wizard fields as a definition when no analysis was accepted. A rule without a key or a file is saved as the empty default.</summary>
+    private AddSaveResult? SaveManual()
+    {
+        var detection = DetectionEditorViewModel.ToConfig(Detection.ToProposal());
         var def = new AppDefinition
         {
             Schema = 1,
@@ -432,7 +499,7 @@ public partial class AddAppViewModel : ObservableObject
             InstallerFileName = string.IsNullOrWhiteSpace(InstallerFileName) ? null : InstallerFileName,
             InstallArgs = InstallArgs,
             UninstallArgs = UninstallArgs,
-            Detection = detection ?? new DetectionConfig(),
+            Detection = detection ?? new DetectionConfig { RegistryKeyTemplate = null },
             RunningProcess = []
         };
 
@@ -444,14 +511,14 @@ public partial class AddAppViewModel : ObservableObject
         catch (Exception ex) when (ex is InvalidOperationException or UnauthorizedAccessException or ArgumentException)
         {
             Warn("Save failed", ex.Message);
-            return;
+            return null;
         }
 
         var exists = $"A user definition named {Path.GetFileName(filePath)} already exists. Existing definitions are never overwritten.";
         if (File.Exists(filePath))
         {
             Warn("Save refused", exists);
-            return;
+            return null;
         }
 
         try
@@ -461,27 +528,15 @@ public partial class AddAppViewModel : ObservableObject
         catch (IOException) when (File.Exists(filePath))
         {
             Warn("Save refused", exists);
-            return;
+            return null;
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException or ArgumentException)
         {
             Warn("Save failed", ex.Message);
-            return;
+            return null;
         }
-
-        var reasons = new List<string>();
-        if (_analysisResult?.NeedsReview == true)
-            reasons.Add(string.IsNullOrWhiteSpace(_analysisResult.ReviewReason) ? "The analysis has low confidence." : _analysisResult.ReviewReason!);
-        if (detection is null && !reasons.Any(r => r.Contains("Detection", StringComparison.OrdinalIgnoreCase)))
-            reasons.Add("Detection needs review.");
-
-        StatusText = "";
-        IsResultVisible = true;
-        await Result.ShowAsync(new AddedDefinition(DefinitionId: def.Id, DefinitionPath: filePath, DisplayName: ApplicationName,
-            NeedsReview: reasons.Count > 0, ReviewReason: reasons.Count > 0 ? string.Join(" ", reasons) : null, Warnings: []));
-        if (openWorkbench) Result.OpenInWorkbenchCommand.Execute(null);
+        return new AddSaveResult(FilePath: filePath, DefinitionId: def.Id, Warnings: []) { NeedsReview = detection is null };
     }
-
     private void Warn(string title, string message)
     {
         _snackbarService.Show(title, message, ControlAppearance.Caution, new SymbolIcon(SymbolRegular.Warning24), TimeSpan.FromSeconds(4));

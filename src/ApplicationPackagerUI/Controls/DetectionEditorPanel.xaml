@@ -61,7 +61,7 @@
                         Visibility="{Binding ShowValueName, Converter={StaticResource AddBoolToVisibility}}"
                         AutomationProperties.Name="Registry value name" AutomationProperties.AutomationId="txtDetectionValueName" />
             <TextBlock Grid.Row="3" Text="Expected value" Style="{StaticResource AddLabel}" Visibility="{Binding ShowValueName, Converter={StaticResource AddBoolToVisibility}}" />
-            <ui:TextBox Grid.Row="3" Grid.Column="1" Text="{Binding ExpectedValue, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource AddField}"
+            <ui:TextBox Grid.Row="3" Grid.Column="1" Text="{Binding Expected, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource AddField}"
                         PlaceholderText="Empty: the staged version"
                         ToolTip="The value to compare. Empty compares the staged version. The tokens {version} and {ProductVersion} are allowed."
                         Visibility="{Binding ShowValueName, Converter={StaticResource AddBoolToVisibility}}"
@@ -103,12 +103,18 @@
                 <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
             <TextBlock Text="Version" Style="{StaticResource AddLabel}" />
-            <ui:TextBox Grid.Column="1" Text="{Binding Version, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource AddField}"
+            <ui:TextBox Grid.Column="1" Text="{Binding Expected, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource AddField}"
                         PlaceholderText="Empty: the staged version"
                         AutomationProperties.Name="Detection version" AutomationProperties.AutomationId="txtDetectionVersion" />
         </Grid>
 
+        <Border Style="{StaticResource AddCard}" Padding="12,8" Margin="0,0,0,8" Visibility="{Binding IsFixedRule, Converter={StaticResource AddBoolToVisibility}}"
+                AutomationProperties.AutomationId="pnlDetectionFixed">
+            <TextBlock Text="{Binding FixedRuleText}" Style="{StaticResource AddWarningText}" AutomationProperties.AutomationId="txtDetectionFixed" />
+        </Border>
+
         <CheckBox Content="64-bit registry and file view" IsChecked="{Binding Is64Bit}" Margin="0,0,0,8"
+                  Visibility="{Binding Show64Bit, Converter={StaticResource AddBoolToVisibility}}"
                   ToolTip="Clear for a 32-bit application on a 64-bit computer."
                   AutomationProperties.AutomationId="chkDetection64Bit" />
     </StackPanel>

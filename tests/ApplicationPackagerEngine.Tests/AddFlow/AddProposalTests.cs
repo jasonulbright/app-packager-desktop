@@ -63,7 +63,36 @@ public sealed class AddProposalTests
         editor.Key = "";
         Assert.True(editor.IsDefault);
         Assert.Equal(Evidence.Manual, editor.ToProposal().Evidence);
-        Assert.Null(DetectionProposalMapping.ToConfig(editor.ToProposal()));
+        Assert.True(editor.ToProposal().IsDefault);
+        Assert.Null(DetectionEditorViewModel.ToConfig(editor.ToProposal()));
+    }
+
+    [Fact]
+    public void PatchAndPackageRulesAreShownAsProposedAndKept()
+    {
+        var editor = new DetectionEditorViewModel();
+        var patch = new DetectionProposal(Kind: DetectionKind.MsiPatchCode, Description: "Patch applied",
+            Values: new Dictionary<string, string>
+            {
+                [DetectionValueKeys.PatchCode] = "{AAAAAAAA-0000-0000-0000-000000000001}",
+                [DetectionValueKeys.ProductCode] = "{BBBBBBBB-0000-0000-0000-000000000002}"
+            }, Evidence: Evidence.Predicted, Source: "https://learn.microsoft.com/windows/win32/api/msi/nf-msi-msienumpatchesexw");
+        editor.Load(patch);
+
+        Assert.True(editor.IsFixedRule);
+        Assert.False(editor.IsDefault);
+        Assert.Contains("{AAAAAAAA-0000-0000-0000-000000000001}", editor.FixedRuleText);
+        Assert.Equal(patch.Values, editor.ToProposal().Values);
+        Assert.Contains("learn.microsoft.com", editor.MarkerToolTip);
+    }
+
+    [Fact]
+    public void ARuleThatTheAnalysisMarksAsDefaultIsDefault()
+    {
+        var editor = new DetectionEditorViewModel();
+        editor.Load(DetectionProposal.NoneDerived("No rule could be derived."));
+        Assert.True(editor.IsDefault);
+        Assert.True(editor.HasWarning);
     }
 
     [Fact]
@@ -82,10 +111,18 @@ public sealed class AddProposalTests
     public void ACompoundProposalStaysForTheWorkbench()
     {
         var editor = new DetectionEditorViewModel();
-        editor.Load(new DetectionProposal(Kind: DetectionKind.Compound, Description: "Two keys", Values: new Dictionary<string, string>(),
-            Evidence: Evidence.Predicted, Source: null));
-        Assert.True(editor.IsCompound);
-        Assert.True(editor.IsDefault);
+        DetectionProposal Clause(string key) => new(Kind: DetectionKind.RegistryExists, Description: key,
+            Values: new Dictionary<string, string> { [DetectionValueKeys.Key] = key }, Evidence: Evidence.Predicted, Source: null);
+        var compound = new DetectionProposal(Kind: DetectionKind.Compound, Description: "Two keys",
+            Values: new Dictionary<string, string> { [DetectionValueKeys.Connector] = "Or" }, Evidence: Evidence.Predicted, Source: null)
+        { Clauses = [Clause(@"SOFTWARE\A"), Clause(@"SOFTWARE\B")] };
+        editor.Load(compound);
+
+        Assert.True(editor.IsFixedRule);
+        Assert.False(editor.IsDefault);
         Assert.Contains("Workbench", editor.WarningText);
+        Assert.Equal(@"SOFTWARE\A or SOFTWARE\B", editor.FixedRuleText);
+        Assert.Equal(2, editor.ToProposal().Clauses.Count);
+        Assert.Contains(editor.KindOptions, o => o.Kind == DetectionKind.Compound);
     }
 }

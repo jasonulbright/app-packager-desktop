@@ -51,7 +51,7 @@ public sealed class ArpLookupUninstallTests : IDisposable
         var script = Generate("InnoSetup");
 
         Assert.DoesNotContain("Join-Path $PSScriptRoot 'ShareX-21.0.0-setup-x64.exe'", script);
-        Assert.EndsWith("exit 0", script.TrimEnd());
+        Assert.EndsWith("exit 1", script.TrimEnd());
         // Every Start-Process in the body is gated on a resolved match.
         Assert.Single(System.Text.RegularExpressions.Regex.Matches(script, "Start-Process"));
         Assert.Contains("if ($match) {", script);
@@ -65,6 +65,23 @@ public sealed class ArpLookupUninstallTests : IDisposable
         Assert.Contains("$displayName = '*Notepad++*'", script);
         Assert.DoesNotContain("'*unins*'", script);
         Assert.EndsWith("exit 1", script.TrimEnd());
+    }
+
+    [Theory]
+    [InlineData("InnoSetup")]
+    [InlineData("NSIS")]
+    [InlineData("WixBurn")]
+    [InlineData("BitRock")]
+    [InlineData("Squirrel")]
+    [InlineData("Unknown")]
+    public void EveryEngine_SearchesMachineAndUserEntriesInBothViews(string framework)
+    {
+        var script = Generate(framework);
+
+        Assert.Contains(@"'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall'", script);
+        Assert.Contains(@"'HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall'", script);
+        Assert.Contains(@"'HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall'", script);
+        Assert.Contains(@"'HKCU:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall'", script);
     }
 
     [Fact]
@@ -128,10 +145,10 @@ public sealed class ArpLookupUninstallTests : IDisposable
     /// <summary>
     /// Runs the generated body in Windows PowerShell with hints no product can
     /// carry, so the lookup walks every step against the live registry and
-    /// reaches the no-match exit without starting anything.
+    /// reaches the no-match exit without starting anything. Exit 1 reports that nothing was removed.
     /// </summary>
     [Fact]
-    public void Inno_BodyParsesAndExitsZeroWhenNothingMatches()
+    public void Inno_BodyParsesAndExitsOneWhenNothingMatches()
     {
         var dir = Path.Combine(_dir, Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(dir);
@@ -151,7 +168,7 @@ public sealed class ArpLookupUninstallTests : IDisposable
         var stderr = process.StandardError.ReadToEnd();
         process.WaitForExit();
 
-        Assert.True(process.ExitCode == 0, $"exit {process.ExitCode}: {stderr}");
+        Assert.True(process.ExitCode == 1, $"exit {process.ExitCode}: {stderr}");
         Assert.Equal("", stderr.Trim());
     }
 }

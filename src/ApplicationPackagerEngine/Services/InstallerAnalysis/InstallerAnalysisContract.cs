@@ -77,6 +77,9 @@ public sealed record AnalysisReport(string Path, string FileName, long Size, str
 
     /// <summary>The payload list when the analysis already listed it (to find an inner patch); null otherwise.</summary>
     public IReadOnlyList<PayloadEntry>? Payload { get; init; }
+
+    /// <summary>The generic deployment proposal the report's deployment fields start from; null when it could not be read.</summary>
+    public DroppedInstallerAnalysis? DeploymentProposal { get; init; }
 }
 
 /// <summary>One payload entry. Kind is File or InnerInstaller; InnerType names the inner format (MSI, MSP, EXE, CAB, ...).</summary>
@@ -107,6 +110,19 @@ public sealed record InterestingString(string Text, string Encoding, long Offset
 
 /// <summary>What a payload extraction to a chosen folder wrote.</summary>
 public sealed record PayloadExtractResult(string Folder, int Files, long Bytes, IReadOnlyList<string> Skipped);
+
+/// <summary>A payload extracted into a sandbox session. Dispose deletes the session folder.</summary>
+public sealed class SandboxExtraction(string folder, int files, long bytes, IReadOnlyList<string> skipped, Action release) : IDisposable
+{
+    private Action? _release = release;
+
+    public string Folder { get; } = folder;
+    public int Files { get; } = files;
+    public long Bytes { get; } = bytes;
+    public IReadOnlyList<string> Skipped { get; } = skipped;
+
+    public void Dispose() => Interlocked.Exchange(ref _release, null)?.Invoke();
+}
 
 /// <summary>A failure with a fixed, plain message that the page shows as it is.</summary>
 public class InstallerAnalysisException(string message, Exception? inner = null) : Exception(message, inner);

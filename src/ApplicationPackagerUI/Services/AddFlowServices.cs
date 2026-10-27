@@ -1,11 +1,9 @@
 using System.Windows;
 using ApplicationPackagerEngine.Models.Workbench;
-using ApplicationPackagerEngine.Services.AddFromInstaller;
 using ApplicationPackagerUI.ViewModels.Pages;
 using ApplicationPackagerUI.Views.Pages;
 using ApplicationPackagerUI.Views.Windows;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace ApplicationPackagerUI.Services;
 
@@ -40,12 +38,12 @@ public sealed class AddResultActions(IServiceProvider services) : IAddResultActi
 
 public sealed class AddFilePrompts : IAddFilePrompts
 {
-    public string? PickInstaller()
+    public string? PickInstaller(string filter)
     {
         var dialog = new Microsoft.Win32.OpenFileDialog
         {
             Title = "Open an installer file",
-            Filter = AddFileFormats.DialogFilter,
+            Filter = filter,
             CheckFileExists = true,
             DereferenceLinks = false
         };
@@ -53,24 +51,11 @@ public sealed class AddFilePrompts : IAddFilePrompts
     }
 }
 
-/// <summary>Stands in until the analysis service is registered; every call fails with a plain message.</summary>
-public sealed class UnavailableAddFromInstallerService : IAddFromInstallerService
-{
-    private static Exception Unavailable() => new InvalidOperationException("The installer analysis service is not available in this build.");
-
-    public Task<AddAnalysisResult> AnalyzeAsync(string installerPath, IProgress<string> progress, CancellationToken ct) => Task.FromException<AddAnalysisResult>(Unavailable());
-
-    public Task<AddSaveResult> SaveAsync(AddAnalysisResult reviewed, AddSaveOptions options, CancellationToken ct) => Task.FromException<AddSaveResult>(Unavailable());
-
-    public Task<string> FetchInstallerAsync(DownloadRequest request, IProgress<string> progress, CancellationToken ct) => Task.FromException<string>(Unavailable());
-}
-
 public static class AddFlowRegistration
 {
-    /// <summary>The two add pages, their result panels, the drop route and the analysis service when none is registered yet.</summary>
+    /// <summary>The two add pages, their result panels and the drop route. The analysis service is registered with the packager services.</summary>
     public static IServiceCollection AddAddFlows(this IServiceCollection services)
     {
-        services.TryAddSingleton<IAddFromInstallerService, UnavailableAddFromInstallerService>();
         services.AddSingleton<IAddResultActions, AddResultActions>();
         services.AddSingleton<IAddFilePrompts, AddFilePrompts>();
         services.AddTransient<AddResultViewModel>();

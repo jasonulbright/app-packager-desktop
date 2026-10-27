@@ -50,15 +50,27 @@ public sealed class AddFileViewModelTests
         Assert.Equal(AddFileStage.Pick, h.ViewModel.Stage);
     });
 
+    [Fact]
+    public void ThePickerFilterAndTheDropZoneNameEveryAcceptedFormat() => OnSta(h =>
+    {
+        h.ViewModel.OpenInstallerCommand.Execute(null);
+        foreach (var extension in new[] { ".msi", ".exe", ".msp", ".msix", ".appx", ".msixbundle", ".appxbundle" })
+        {
+            Assert.Contains("*" + extension, h.Prompts.Filter);
+            Assert.Contains(extension, h.ViewModel.FormatsText);
+        }
+        Assert.DoesNotContain("*.*", h.Prompts.Filter);
+    });
+
     [Theory]
-    [InlineData("setup.msi")]
-    [InlineData("setup.EXE")]
     [InlineData("patch.msp")]
     [InlineData("app.msix")]
-    [InlineData("app.appx")]
-    [InlineData("app.msixbundle")]
     [InlineData("app.appxbundle")]
-    public void EveryFormatWithAFlowIsAccepted(string file) => Assert.True(AddFileFormats.IsAccepted(file));
+    public void PatchesAndPackagesAreAnalyzed(string file) => OnSta(h =>
+    {
+        h.ViewModel.AnalyzeFileCommand.Execute(@"C:\in\" + file);
+        Assert.Equal(@"C:\in\" + file, h.Service.WaitForAnalysis(0).Path);
+    });
 
     [Theory]
     [InlineData("payload.zip")]
@@ -70,7 +82,7 @@ public sealed class AddFileViewModelTests
         StaTestHelper.Flush();
         Assert.Empty(h.Service.Analyses);
         Assert.Equal(AddFileStage.Pick, h.ViewModel.Stage);
-        Assert.Contains("cannot be added", h.ViewModel.StatusText);
+        Assert.Contains("does not take", h.ViewModel.StatusText);
         Assert.Contains(".msixbundle", h.ViewModel.StatusText);
     });
 
@@ -144,6 +156,95 @@ public sealed class AddFileViewModelTests
     });
 
     [Fact]
+    public void AnInstallerWithNoSilentSwitchGetsAManualFieldAndAWarning() => OnSta(h =>
+    {
+        h.ViewModel.AnalyzeFileCommand.Execute(@"C:\in\setup.exe");
+        Analyze(h, FakeAddService.Result(path: @"C:\in\setup.exe", needsReview: true, reason: AddFromInstallerService.NoSilentSwitchReason,
+            argumentsEvidence: Evidence.None) with { InstallerType = "EXE", InstallArguments = new ProposedValue<string>(Value: "", Evidence: Evidence.None, Source: null) });
+
+        var install = h.ViewModel.Rows.Single(r => r.Label == "Install arguments");
+        Assert.True(h.ViewModel.ShowNoSilentSwitch);
+        Assert.Equal("No value", install.MarkerText);
+        Assert.False(install.IsReadOnly);
+
+        install.Value = "/quiet";
+        Assert.Equal(Evidence.Manual, install.Evidence);
+        Assert.False(h.ViewModel.ShowNoSilentSwitch);
+        Assert.True(h.ViewModel.ShowReviewWarning);
+    });
+
+    [Fact]
+    public void APatchShowsItsFactsAndTheBaseProductWarning() => OnSta(h =>
+    {
+        h.ViewModel.AnalyzeFileCommand.Execute(@"C:\in\fix.msp");
+        var patch = new PatchFacts(PatchCode: "{AAAAAAAA-0000-0000-0000-000000000001}", Title: "Contoso fix 1",
+            TargetProductCodes: ["{BBBBBBBB-0000-0000-0000-000000000002}"], TargetProductName: "Contoso App", PostPatchVersion: "1.2.4",
+            BaseProductWarning: "Install Contoso App before this patch.");
+        Analyze(h, FakeAddService.Result(path: @"C:\in\fix.msp") with { InstallerType = "MSP", Patch = patch });
+
+        Assert.True(h.ViewModel.HasPatch);
+        Assert.False(h.ViewModel.HasPackage);
+        Assert.Equal("Install Contoso App before this patch.", h.ViewModel.PatchWarning);
+        var facts = h.ViewModel.PatchFacts.ToDictionary(f => f.Label, f => f.Value);
+        Assert.Equal("{AAAAAAAA-0000-0000-0000-000000000001}", facts["Patch code"]);
+        Assert.Equal("Contoso fix 1", facts["Title"]);
+        Assert.Equal("{BBBBBBBB-0000-0000-0000-000000000002}", facts["Target product codes"]);
+        Assert.Equal("1.2.4", facts["Version after the patch"]);
+    });
+
+    [Theory]
+    [InlineData(PackageTrust.Unsigned, "Not signed")]
+    [InlineData(PackageTrust.Untrusted, "Signed, not trusted on this computer")]
+    public void APackageShowsItsIdentityAndAProminentTrustWarning(PackageTrust trust, string signature) => OnSta(h =>
+    {
+        h.ViewModel.AnalyzeFileCommand.Execute(@"C:\in\app.msix");
+        var package = new PackageFacts(IdentityName: "Contoso.App", Publisher: "CN=Contoso", Version: "1.2.3.0", Architecture: "x64",
+            Dependencies: ["Microsoft.VCLibs.140.00"], IsBundle: false, Trust: trust) { TrustWarning = "The package is not trusted on the target." };
+        Analyze(h, FakeAddService.Result(path: @"C:\in\app.msix") with { InstallerType = "MSIX", Package = package });
+
+        Assert.True(h.ViewModel.HasPackage);
+        Assert.True(h.ViewModel.HasTrustWarning);
+        Assert.Equal("The package is not trusted on the target.", h.ViewModel.TrustWarning);
+        var facts = h.ViewModel.PackageFacts.ToDictionary(f => f.Label, f => f.Value);
+        Assert.Equal(("Contoso.App", "CN=Contoso", "1.2.3.0", "x64"), (facts["Identity name"], facts["Publisher"], facts["Version"], facts["Architecture"]));
+        Assert.Equal("Microsoft.VCLibs.140.00", facts["Dependencies"]);
+        Assert.Equal(signature, facts["Signature"]);
+    });
+
+    [Fact]
+    public void ExtraValuesShowWithTheirMarkersAndTheInstallModeIsSaved() => OnSta(h =>
+    {
+        h.ViewModel.AnalyzeFileCommand.Execute(@"C:\in\setup.exe");
+        Analyze(h, FakeAddService.Result(path: @"C:\in\setup.exe") with
+        {
+            UninstallCommand = new ProposedValue<string>(Value: "\"unins000.exe\" /VERYSILENT", Evidence: Evidence.Confirmed, Source: "inno-script"),
+            Architecture = new ProposedValue<string>(Value: "x64", Evidence: Evidence.Confirmed, Source: "pe-header"),
+            InstallModes = ["AllUsers", "CurrentUser"],
+            DefaultInstallMode = "AllUsers"
+        });
+        Assert.Equal(["Vendor", "Name", "Version", "Install arguments", "Uninstall arguments", "Uninstall command", "Install context", "Install for", "Architecture"],
+            h.ViewModel.Rows.Select(r => r.Label));
+        Assert.True(h.ViewModel.Rows.Single(r => r.Label == "Architecture").IsReadOnly);
+        h.ViewModel.Rows.Single(r => r.Label == "Install for").Value = "CurrentUser";
+        h.ViewModel.PredictedAccepted = true;
+
+        var save = h.ViewModel.SaveCommand.ExecuteAsync(null);
+        StaTestHelper.PumpUntil(() => save.IsCompleted);
+        var (reviewed, options) = Assert.Single(h.Service.Saves);
+        Assert.Equal("CurrentUser", options.InstallMode);
+        Assert.Equal("\"unins000.exe\" /VERYSILENT", reviewed.UninstallCommand!.Value);
+    });
+
+    [Fact]
+    public void ARefusalOfTheServiceIsShownAsItIs() => OnSta(h =>
+    {
+        h.ViewModel.AnalyzeFileCommand.Execute(@"C:\in\contoso.msi");
+        h.Service.WaitForAnalysis(0).Result.SetException(new AddFromInstallerRefusedException("The path is a folder. Add from file takes one installer file."));
+        StaTestHelper.PumpUntil(() => !h.ViewModel.IsBusy);
+        Assert.Equal("The path is a folder. Add from file takes one installer file.", h.ViewModel.StatusText);
+    });
+
+    [Fact]
     public void SaveNeedsThePredictedValuesAccepted() => OnSta(h =>
     {
         h.ViewModel.AnalyzeFileCommand.Execute(@"C:\in\contoso.msi");
@@ -171,7 +272,7 @@ public sealed class AddFileViewModelTests
         Assert.Equal(("Contoso App", Evidence.Confirmed), (reviewed.Name.Value, reviewed.Name.Evidence));
         Assert.Equal(DetectionKind.MsiProductCode, reviewed.Detection.Kind);
         Assert.False(reviewed.NeedsReview);
-        Assert.Equal(new AddSaveOptions(DefinitionsRoot: @"C:\defs", AcceptPredicted: true), options);
+        Assert.Equal(@"C:\defs", options.DefinitionsFolder);
         Assert.Equal(AddFileStage.Result, h.ViewModel.Stage);
         Assert.True(h.ViewModel.Result.IsVisible);
         Assert.True(h.ViewModel.Result.IsDoneDefault);

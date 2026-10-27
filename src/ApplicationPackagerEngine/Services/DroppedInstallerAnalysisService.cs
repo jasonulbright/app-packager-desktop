@@ -153,22 +153,42 @@ public sealed class DroppedInstallerAnalysisService
 
     private readonly IMsiInspector _msiInspector;
     private readonly InstallerIdentificationService? _identificationService;
+    private readonly Func<IInstallerAnalysisService> _fullAnalysis;
 
+    /// <param name="fullAnalysis">The Installer Analysis service a deep analysis runs through; the default uses the data-root sandbox.</param>
     public DroppedInstallerAnalysisService(
         IMsiInspector msiInspector,
-        InstallerIdentificationService? identificationService = null)
+        InstallerIdentificationService? identificationService = null,
+        Func<IInstallerAnalysisService>? fullAnalysis = null)
     {
         _msiInspector = msiInspector;
         _identificationService = identificationService;
+        _fullAnalysis = fullAnalysis ?? (() => new InstallerAnalysisService(new AnalysisSandbox()));
     }
 
     /// <summary>
-    /// Analyses one dropped .msi or .exe. When <paramref name="deepInspect"/> is set and an
-    /// identification service was supplied, the engine's payload is also unpacked for
-    /// framework manifest data (JetBrains product-info.json, the Burn manifest, AppxManifest.xml).
+    /// Analyses one installer. With <paramref name="deepInspect"/> the analysis is the Add from file analysis:
+    /// bounded, sandboxed and off the calling thread, with the format readers of the Installer Analysis
+    /// (BitRock project, Burn bundle) applied, and a file type with no defined flow is refused with a plain
+    /// <see cref="AddFromInstaller.AddFromInstallerRefusedException"/>. Without it, only the file head and the
+    /// compiled script are read.
     /// </summary>
     public async Task<DroppedInstallerAnalysis> AnalyzeAsync(
         string path, bool deepInspect = false, CancellationToken ct = default)
+    {
+        if (!deepInspect) return await AnalyzeLocalAsync(path, deepInspect: false, ct).ConfigureAwait(false);
+        var unified = new AddFromInstaller.AddFromInstallerService(_fullAnalysis(), this);
+        var result = await unified.AnalyzeAsync(path, new Progress<string>(), ct).ConfigureAwait(false);
+        return result.Deployment ?? throw new InstallerAnalysisException("The deployment fields could not be read from this file.");
+    }
+
+    /// <summary>
+    /// The generic proposal from the file head, the compiled script and the MSI Property table. With
+    /// <paramref name="deepInspect"/> and an identification service, the payload is also extracted (bounded,
+    /// in the analysis sandbox) for framework manifest data (JetBrains product-info.json, the Burn manifest).
+    /// </summary>
+    internal async Task<DroppedInstallerAnalysis> AnalyzeLocalAsync(
+        string path, bool deepInspect, CancellationToken ct)
     {
         if (!File.Exists(path))
             throw new FileNotFoundException("Installer not found", path);
@@ -361,6 +381,9 @@ public sealed class DroppedInstallerAnalysisService
         if (analysis.Engine == "MSP")
             throw new InvalidOperationException(
                 "MSI patches (.msp) apply against an installed base MSI and cannot be staged as a standalone deployment.");
+        if (analysis.Engine is "MSIX" or "MsixBundle")
+            throw new InvalidOperationException(
+                "An MSIX or APPX package is staged through its definition. Save it as a definition, then stage the definition.");
 
         if (analysis.RequiresConfirmation && !confirmed)
             throw new InvalidOperationException(
@@ -456,6 +479,9 @@ public sealed class DroppedInstallerAnalysisService
             ? $@"{ArpRelative}\{{ProductCode}}"
             : manifest.Detection.RegistryKeyRelative;
 
+        var settings = InstallerSettingsGenerator.AlignWithArgs(
+            InstallerSettingsGenerator.GenerateDefaults(analysis.Engine), manifest.InstallArgs, out var remainingArgs);
+
         return new AppDefinition
         {
             Schema = 1,
@@ -468,7 +494,7 @@ public sealed class DroppedInstallerAnalysisService
             InstallerFramework = analysis.Engine,
             InstallContext = manifest.InstallContext,
             InstallerFileName = manifest.InstallerFile,
-            InstallArgs = manifest.InstallArgs,
+            InstallArgs = settings is null ? manifest.InstallArgs : remainingArgs,
             UninstallArgs = uninstallArgs,
             // The definition field holds the wrapper's uninstall expression, not a
             // bare command line; a bare line would run without capturing $proc.
@@ -476,7 +502,7 @@ public sealed class DroppedInstallerAnalysisService
                 || WrapperGeneratorService.UninstallExpressionFromCommandLine(manifest.UninstallCommand) is not { Length: > 0 } expression
                 ? null
                 : expression,
-            InstallerSettings = InstallerSettingsGenerator.GenerateDefaults(analysis.Engine),
+            InstallerSettings = settings,
             RunningProcess = manifest.RunningProcess ?? [],
             Detection = new DetectionConfig
             {
@@ -488,8 +514,68 @@ public sealed class DroppedInstallerAnalysisService
                 FilePath = manifest.Detection.FilePath,
                 FileName = manifest.Detection.FileName,
                 PropertyType = manifest.Detection.PropertyType,
-                Is64Bit = manifest.Detection.Is64Bit
+                Is64Bit = manifest.Detection.Is64Bit,
+                ExpectedValue = manifest.Detection.Type == "RegistryKeyValue" ? ExpectedValueFor(analysis, manifest.SoftwareVersion, overrides?.SoftwareVersion) : manifest.Detection.ExpectedValue
             }
+        };
+    }
+
+    /// <summary>
+    /// The DisplayVersion the rule compares. A version read from the MSI Property table or the compiled script
+    /// becomes the stage token that reads the same field of the staged payload, so a later version of the same
+    /// installer still matches; an edited or predicted version stays a literal.
+    /// </summary>
+    internal static string ExpectedValueFor(DroppedInstallerAnalysis analysis, string version, string? editedVersion)
+    {
+        if (!string.IsNullOrWhiteSpace(editedVersion) && editedVersion != analysis.SoftwareVersion.Value) return version;
+        if (analysis.SoftwareVersion.Confidence != AnalysisConfidence.Confirmed) return version;
+        if (analysis.SoftwareVersion.Source == "msi-property-table") return StageTokens.ProductVersionToken;
+        if (analysis.SoftwareVersion.Source == CompiledScriptFacts.SourceName(analysis.Engine)) return StageTokens.HeaderDisplayVersionToken;
+        return version;
+    }
+
+    /// <summary>
+    /// A copy of the proposal with the values a format reader read better (BitRock project, Burn bundle, MSIX
+    /// manifest). A new uninstall key moves the detection rule, its hive and view, and the install context with it.
+    /// </summary>
+    public static DroppedInstallerAnalysis Overlay(DroppedInstallerAnalysis a, DeploymentOverlay o)
+    {
+        var appName = o.AppName ?? a.AppName;
+        var version = o.SoftwareVersion ?? a.SoftwareVersion;
+        var key = o.UninstallRegistryKey ?? a.UninstallRegistryKey;
+        var architecture = string.IsNullOrEmpty(o.Architecture) ? a.Architecture : o.Architecture;
+        var keyMoved = o.UninstallRegistryKey is { HasValue: true } && o.UninstallRegistryKey.Value != a.UninstallRegistryKey.Value;
+        var detection = keyMoved && a.Detection.Type == "RegistryKeyValue"
+            ? BuildDetection(a.Engine, isMsi: false, a.ProductCode.Value, key.Value, appName.Value, version.Value, architecture, msi: null)
+            : CloneDetection(a.Detection);
+        if (!keyMoved && detection.Type == "RegistryKeyValue" && o.SoftwareVersion is not null) detection.ExpectedValue = version.Value;
+        var context = o.InstallContext ?? (keyMoved ? (key.Value.StartsWith("HKCU", StringComparison.OrdinalIgnoreCase) ? "User" : "Machine") : a.InstallContext);
+        return new DroppedInstallerAnalysis
+        {
+            Path = a.Path,
+            FileName = a.FileName,
+            FileSize = a.FileSize,
+            Engine = a.Engine,
+            InstallerType = a.InstallerType,
+            Architecture = architecture,
+            InstallContext = context,
+            PackageId = a.PackageId,
+            PackageVersion = a.PackageVersion,
+            AppName = appName,
+            Publisher = o.Publisher ?? a.Publisher,
+            SoftwareVersion = version,
+            ProductCode = a.ProductCode,
+            InstallArgs = o.InstallArgs ?? a.InstallArgs,
+            UninstallArgs = a.UninstallArgs,
+            UninstallCommand = o.UninstallCommand ?? a.UninstallCommand,
+            UninstallRegistryKey = key,
+            InstallCommand = a.InstallCommand,
+            Notes = string.Join(" ", new[] { a.Notes, o.Notes }.Where(s => !string.IsNullOrWhiteSpace(s)).Distinct()),
+            DetectionHint = o.DetectionHint ?? a.DetectionHint,
+            Detection = detection,
+            InstallModes = keyMoved ? [] : a.InstallModes,
+            DefaultInstallMode = keyMoved ? "" : a.DefaultInstallMode,
+            ModeBranches = keyMoved ? new Dictionary<string, InstallBranch>() : a.ModeBranches
         };
     }
 
@@ -769,6 +855,23 @@ public sealed class DroppedInstallerAnalysisService
         public string? FileVersion { get; init; }
         public string? CompanyName { get; init; }
     }
+}
+
+/// <summary>Values that replace those of a proposal; null keeps the proposal's value.</summary>
+public sealed record DeploymentOverlay
+{
+    public ProposedField? AppName { get; init; }
+    public ProposedField? Publisher { get; init; }
+    public ProposedField? SoftwareVersion { get; init; }
+    public ProposedField? InstallArgs { get; init; }
+    public ProposedField? UninstallCommand { get; init; }
+    /// <summary>The key with its hive prefix (HKLM:\ or HKCU:\).</summary>
+    public ProposedField? UninstallRegistryKey { get; init; }
+    /// <summary>Machine or User.</summary>
+    public string? InstallContext { get; init; }
+    public string? Architecture { get; init; }
+    public string? Notes { get; init; }
+    public string? DetectionHint { get; init; }
 }
 
 /// <summary>A predicted Add/Remove Programs key with the reasoning behind it.</summary>

@@ -62,6 +62,30 @@ public sealed class WrapperGeneratorService
     }
 
     /// <summary>
+    /// Generates all 4 wrapper files for an MSI patch: msiexec /p applies it to the installed base product.
+    /// The uninstall runs the given expression (it assigns $proc); without one it exits 1, because a patch
+    /// is removed only by its patch code and the base product code.
+    /// </summary>
+    public void GenerateMspWrappers(string outputPath, string mspFileName, string? installArgs, string? uninstallCommand)
+    {
+        var args = string.IsNullOrWhiteSpace(installArgs) ? "/qn /norestart" : installArgs;
+        var installPs1 = $"""
+            $mspPath = Join-Path $PSScriptRoot '{EscapePsLiteral(mspFileName)}'
+            $proc = Start-Process -FilePath 'msiexec.exe' -ArgumentList @('/p', "`"$mspPath`"", '{EscapePsLiteral(args)}') -Wait -PassThru -NoNewWindow
+            $proc.ExitCode | Out-File (Join-Path $PSScriptRoot 'exitcode.txt') -NoNewline
+            exit $proc.ExitCode
+            """;
+        var uninstallPs1 = string.IsNullOrWhiteSpace(uninstallCommand)
+            ? "Write-Output 'The patch has no uninstall command; nothing was uninstalled.'\r\nexit 1"
+            : $$"""
+                {{uninstallCommand}}
+                $proc.ExitCode | Out-File (Join-Path $PSScriptRoot 'exitcode.txt') -NoNewline
+                exit $proc.ExitCode
+                """;
+        WriteWrappers(outputPath, GuardNullProcess(installPs1), GuardNullProcess(uninstallPs1));
+    }
+
+    /// <summary>
     /// Generates all 4 wrapper files for an EXE installer.
     /// Uninstall runs the definition's command when it has one; otherwise it
     /// resolves the product's Add/Remove Programs entry (see
@@ -208,6 +232,8 @@ public sealed class WrapperGeneratorService
             });
     }
 
+    public const string NoArpEntryExit = "Write-Output 'No Add/Remove Programs entry of this product was found; nothing was uninstalled.'\r\nexit 1";
+
     /// <summary>
     /// Uninstall body that locates this product's own Add/Remove Programs
     /// entry before running its uninstaller. Candidates are tried from most
@@ -215,12 +241,15 @@ public sealed class WrapperGeneratorService
     /// detection folder, then a display-name match. A scan that ran the
     /// first uninstaller found removes an unrelated product on any machine
     /// carrying more than one product of the same installer engine.
-    /// Inno Setup entries must name an unins*.exe; with no match the body
-    /// exits 0 because re-running the setup with silent switches installs.
-    /// NSIS exits 1 with no match. Other engines fall back to the staged
-    /// installer with the uninstall arguments, which is how a Burn bundle
-    /// removes itself.
+    /// The entries of the machine (both registry views) and of the running
+    /// account are searched, so a per-user product is found too.
+    /// Inno Setup entries must name an unins*.exe. With no match, Inno Setup
+    /// and NSIS exit 1: re-running the setup with silent switches installs,
+    /// and exit 0 reports an uninstall that removed nothing. Other engines
+    /// fall back to the staged installer with the uninstall arguments, which
+    /// is how a Burn bundle removes itself.
     /// </summary>
+
     public static string BuildArpLookupUninstall(string exeFileName, string uninstallArgs,
         string? installerFramework, string? applicationName, string? arpKeyName, string? installFolder)
     {
@@ -235,8 +264,7 @@ public sealed class WrapperGeneratorService
 
         var noMatch = installerFramework switch
         {
-            "InnoSetup" => "exit 0",
-            "NSIS" => "exit 1",
+            "InnoSetup" or "NSIS" => NoArpEntryExit,
             _ => $$"""
                 $exePath = Join-Path $PSScriptRoot '{{EscapePsLiteral(exeFileName)}}'
                 $proc = Start-Process -FilePath $exePath{{ArgumentList(uninstallArgs)}} -Wait -PassThru -NoNewWindow
@@ -248,7 +276,9 @@ public sealed class WrapperGeneratorService
         return $$"""
             $arpPaths = @(
                 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall',
-                'HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall'
+                'HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall',
+                'HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall',
+                'HKCU:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall'
             )
             function Get-UninstallerPath([string]$command) {
                 if ($command -match '^\s*"([^"]+)"') { return $matches[1] }

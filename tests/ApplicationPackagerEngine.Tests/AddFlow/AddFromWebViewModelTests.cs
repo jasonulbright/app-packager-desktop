@@ -209,11 +209,16 @@ public sealed class AddFromWebViewModelTests : IDisposable
 
         Assert.True(h.ViewModel.IsResultVisible);
         Assert.True(h.ViewModel.Result.IsDoneDefault);
-        var path = h.ViewModel.Result.DefinitionPath;
-        var definition = ReadDefinition(path);
-        Assert.Equal(@"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\{11111111-2222-3333-4444-555555555555}", definition.Detection.RegistryKeyTemplate);
-        Assert.Equal("NativeMSI", definition.InstallerFramework);
-        Assert.Equal([definition.Id], h.Actions.Selected);
+        var (reviewed, options) = Assert.Single(h.Service.Saves);
+        Assert.Equal(DetectionKind.MsiProductCode, reviewed.Detection.Kind);
+        Assert.False(reviewed.Detection.IsDefault);
+        Assert.Equal(("/qn /norestart", Evidence.Confirmed), (reviewed.InstallArguments.Value, reviewed.InstallArguments.Evidence));
+        Assert.Equal(("Contoso App", "Contoso"), (reviewed.Name.Value, reviewed.Vendor.Value));
+        Assert.Equal("https://example.com/contoso-{display_version}.msi", options.DownloadUrl);
+        Assert.Equal("https://example.com/releases", options.VersionScraper!.Url);
+        Assert.Equal(Path.Combine(_root, "definitions"), options.DefinitionsFolder);
+        Assert.Equal(@"C:\defs\contoso.json", h.ViewModel.Result.DefinitionPath);
+        Assert.Equal(["contoso0001"], h.Actions.Selected);
         Assert.Empty(h.Actions.Opened);
         Assert.Empty(h.Actions.Staged);
     });

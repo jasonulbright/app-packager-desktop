@@ -107,7 +107,7 @@
                 <ColumnDefinition Width="Auto" SharedSizeGroup="ProposalMarker" />
             </Grid.ColumnDefinitions>
             <TextBlock Grid.Column="0" Text="{Binding Label}" Style="{StaticResource AddLabel}" />
-            <ui:TextBox Grid.Column="1" Text="{Binding Value, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource AddField}"
+            <ui:TextBox Grid.Column="1" Text="{Binding Value, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource AddField}" IsReadOnly="{Binding IsReadOnly}"
                         Visibility="{Binding IsText, Converter={StaticResource AddBoolToVisibility}}"
                         AutomationProperties.Name="{Binding Label}" AutomationProperties.AutomationId="{Binding AutomationId}" />
             <ComboBox Grid.Column="1" ItemsSource="{Binding Options}" SelectedItem="{Binding Value}" Style="{StaticResource AddCombo}"
@@ -117,6 +117,20 @@
                     AutomationProperties.Name="{Binding MarkerAutomationName}">
                 <TextBlock Text="{Binding MarkerText}" Style="{StaticResource EvidenceChipText}" />
             </Border>
+        </Grid>
+    </DataTemplate>
+
+    <!-- A fact read from the file: label and selectable text. -->
+    <DataTemplate x:Key="FactRowTemplate">
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" SharedSizeGroup="FactLabel" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <TextBlock Grid.Column="0" Text="{Binding Label}" Style="{StaticResource AddLabel}" VerticalAlignment="Top" Margin="0,4,12,8" />
+            <TextBox Grid.Column="1" Text="{Binding Value, Mode=OneWay}" IsReadOnly="True" TextWrapping="Wrap" BorderThickness="0" Background="Transparent"
+                     Foreground="{DynamicResource TextFillColorPrimaryBrush}" Margin="0,0,0,8" Padding="0,4"
+                     AutomationProperties.Name="{Binding Label}" AutomationProperties.AutomationId="{Binding AutomationId}" />
         </Grid>
     </DataTemplate>
 
@@ -132,7 +146,7 @@
             <CheckBox Grid.Column="0" IsChecked="{Binding IsAccepted}" Margin="0,0,8,8" VerticalAlignment="Center" MinWidth="0"
                       ToolTip="Copies this value into the wizard fields." AutomationProperties.Name="{Binding Label, StringFormat=Accept {0}}" />
             <TextBlock Grid.Column="1" Text="{Binding Label}" Style="{StaticResource AddLabel}" />
-            <ui:TextBox Grid.Column="2" Text="{Binding Value, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource AddField}"
+            <ui:TextBox Grid.Column="2" Text="{Binding Value, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource AddField}" IsReadOnly="{Binding IsReadOnly}"
                         Visibility="{Binding IsText, Converter={StaticResource AddBoolToVisibility}}"
                         AutomationProperties.Name="{Binding Label}" AutomationProperties.AutomationId="{Binding AutomationId}" />
             <ComboBox Grid.Column="2" ItemsSource="{Binding Options}" SelectedItem="{Binding Value}" Style="{StaticResource AddCombo}"

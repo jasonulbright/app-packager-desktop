@@ -1089,7 +1089,12 @@ public partial class PackagesViewModel : ObservableObject
         ApplicationPackagerEngine.Services.DroppedInstallerAnalysis analysis;
         try
         {
-            analysis = await _dropAnalysisService.AnalyzeAsync(path, deepInspect: true);
+            analysis = await _dropAnalysisService.AnalyzeAsync(path, deepInspect: true, ct: CancellationToken.None);
+        }
+        catch (ApplicationPackagerEngine.Services.AddFromInstaller.AddFromInstallerRefusedException ex)
+        {
+            AddLogLine($"Drop refused: {ex.Message}");
+            return;
         }
         catch (Exception ex)
         {

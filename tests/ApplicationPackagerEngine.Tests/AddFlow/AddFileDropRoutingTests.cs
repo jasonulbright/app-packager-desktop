@@ -54,6 +54,6 @@ public sealed class AddFileDropRoutingTests
         StaTestHelper.Flush();
 
         Assert.Empty(service.Analyses);
-        Assert.Contains("cannot be added", addFile.StatusText);
+        Assert.Contains("does not take", addFile.StatusText);
     });
 }

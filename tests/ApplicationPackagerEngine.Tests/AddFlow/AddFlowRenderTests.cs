@@ -197,6 +197,47 @@ public sealed class AddFlowRenderTests : IDisposable
     }
 
     [Theory]
+    [MemberData(nameof(Sizes))]
+    public void ThePackageAndPatchSectionsFitAndTheTrustWarningShows(ApplicationTheme theme, int width, int height)
+    {
+        WithApplication(theme, () =>
+        {
+            var (viewModel, service, _) = AddFile();
+            var page = new AddFilePage(viewModel);
+            var window = Host(page, width, height);
+            var where = $"Add from file package {theme} {width}x{height}";
+            try
+            {
+                var package = new PackageFacts(IdentityName: "Contoso.App", Publisher: "CN=Contoso Ltd, O=Contoso Ltd, L=Redmond, S=Washington, C=US", Version: "1.2.3.0",
+                    Architecture: "x64", Dependencies: ["Microsoft.VCLibs.140.00.UWPDesktop", "Microsoft.WindowsAppRuntime.1.5"], IsBundle: true, Trust: PackageTrust.Unsigned)
+                { TrustWarning = "The package is not signed. Windows installs it only when sideloading of unsigned packages is allowed on the target." };
+                ToReview(viewModel, service, FakeAddService.Result(path: @"C:\in\app.msixbundle") with { InstallerType = "MSIX", Package = package });
+                Settle(window);
+                var warning = Id<Border>(page, "pnlAddFileTrustWarning");
+                Assert.True(warning.IsVisible, $"{where}: the trust warning is hidden.");
+                var scroller = Id<ScrollViewer>(page, "scrollAddFileReview");
+                var top = warning.TransformToAncestor(scroller).Transform(new System.Windows.Point(0, 0)).Y;
+                Assert.True(top + warning.ActualHeight <= scroller.ViewportHeight + 0.5, $"{where}: the trust warning is below the first screen of the review.");
+                Assert.True(warning.ActualWidth <= scroller.ViewportWidth + 0.5, $"{where}: the trust warning is wider than the review.");
+                AssertNothingClipped(page, where);
+                AssertAutomationNames(page, where);
+
+                ToReview(viewModel, service, FakeAddService.Result(path: @"C:\in\fix.msp") with
+                {
+                    InstallerType = "MSP",
+                    Patch = new PatchFacts(PatchCode: "{AAAAAAAA-0000-0000-0000-000000000001}", Title: "Contoso fix 1", TargetProductCodes: ["{BBBBBBBB-0000-0000-0000-000000000002}"],
+                        TargetProductName: "Contoso App", PostPatchVersion: "1.2.4", BaseProductWarning: "Install Contoso App before this patch.")
+                });
+                Settle(window);
+                Assert.True(Id<Border>(page, "pnlAddFilePatchWarning").IsVisible);
+                Assert.False(Id<StackPanel>(page, "pnlAddFilePackage").IsVisible);
+                AssertNothingClipped(page, where + " patch");
+                AssertAutomationNames(page, where + " patch");
+            }
+            finally { window.Close(); }
+        });
+    }
+    [Theory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
     public void TheResultPanelMakesDoneTheDefaultForAConfidentResult(ApplicationTheme theme)

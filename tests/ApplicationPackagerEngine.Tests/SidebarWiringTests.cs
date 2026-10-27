@@ -294,7 +294,7 @@ public sealed class SidebarWiringTests : IDisposable
     {
         Compliance.RenderKit.WithApplication(Wpf.Ui.Appearance.ApplicationTheme.Light, () =>
         {
-            var viewModel = new ApplicationPackagerUI.ViewModels.Pages.AddFileViewModel(service: new UnavailableAddFromInstallerService(),
+            var viewModel = new ApplicationPackagerUI.ViewModels.Pages.AddFileViewModel(service: new AddFlow.FakeAddService(),
                 prompts: new AddFlow.FakeAddPrompts(), results: new ApplicationPackagerUI.ViewModels.Pages.AddResultViewModel(new AddFlow.FakeResultActions()));
             var page = new ApplicationPackagerUI.Views.Pages.AddFilePage(viewModel);
             static IEnumerable<object> All(object node) =>
