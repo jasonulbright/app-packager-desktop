@@ -690,7 +690,8 @@ public sealed class AddFromInstallerService : IAddFromInstallerService
 
         var modeChanged = !string.IsNullOrWhiteSpace(options.InstallMode)
             && !string.Equals(options.InstallMode, drop.DefaultInstallMode, StringComparison.OrdinalIgnoreCase);
-        if (!modeChanged && !r.Detection.IsDefault)
+        // The proposal describes the default mode. After a mode change only a rule the user edited replaces the rule of the chosen mode.
+        if (!r.Detection.IsDefault && (!modeChanged || r.Detection.Evidence == Evidence.Manual))
         {
             var expectedToken = DroppedInstallerAnalysisService.ExpectedValueFor(drop, version, version);
             definition.Detection = ToDetectionConfig(r.Detection, isMsi && drop.ProductCode.HasValue ? drop.ProductCode.Value : null,

@@ -136,4 +136,52 @@ public sealed class AddFromInstallerReviewDefectTests : IDisposable
         Assert.Contains("not valid", r.Package.TrustWarning);
         Assert.True(r.NeedsReview);
     }
+
+    // ---- a detection the user edited survives a change of the install mode -----------------------
+
+    private static DetectionProposal EditedRule() => new(
+        Kind: DetectionKind.RegistryVersion, Description: "edited",
+        Values: new Dictionary<string, string>
+        {
+            ["Hive"] = "HKLM", ["Key"] = @"SOFTWARE\Edited\Key", ["ValueName"] = "DisplayVersion", ["Operator"] = "GreaterEquals", ["Expected"] = "9.9", ["Is64Bit"] = "true"
+        },
+        Evidence: Evidence.Manual, Source: null);
+
+    [Fact]
+    public async Task ChangedInstallMode_KeepsTheDetectionTheUserEdited()
+    {
+        var service = _bed.Real();
+        var r = await service.AnalyzeAsync(_bed.Fixture("nsis-u-multimode.bin", "TestApp-Setup.exe"), NoProgress, CancellationToken.None);
+        Assert.NotEqual("AllUsers", r.DefaultInstallMode);
+
+        var def = Read((await service.SaveAsync(r with { Detection = EditedRule() },
+            new AddSaveOptions(DefinitionsFolder: _bed.Definitions) { InstallMode = "AllUsers" }, CancellationToken.None)).FilePath);
+
+        Assert.Equal(@"SOFTWARE\Edited\Key", def.Detection.RegistryKeyTemplate);
+        Assert.Equal("9.9", def.Detection.ExpectedValue);
+        Assert.Equal("GreaterEquals", def.Detection.Operator);
+    }
+
+    [Fact]
+    public async Task ChangedInstallMode_WithAnUneditedDetection_TakesTheDetectionOfThatMode()
+    {
+        var service = _bed.Real();
+        var r = await service.AnalyzeAsync(_bed.Fixture("nsis-u-multimode.bin", "TestApp-Setup.exe"), NoProgress, CancellationToken.None);
+
+        var def = Read((await service.SaveAsync(r, new AddSaveOptions(DefinitionsFolder: _bed.Definitions) { InstallMode = "AllUsers" }, CancellationToken.None)).FilePath);
+
+        Assert.Equal("HKLM", def.Detection.RegistryHive);
+    }
+
+    [Fact]
+    public async Task ChangedInstallMode_WithADefaultDetection_SavesNoRule()
+    {
+        var service = _bed.Real();
+        var r = await service.AnalyzeAsync(_bed.Fixture("nsis-u-multimode.bin", "TestApp-Setup.exe"), NoProgress, CancellationToken.None);
+
+        var def = Read((await service.SaveAsync(r with { Detection = DetectionProposal.NoneDerived("none") },
+            new AddSaveOptions(DefinitionsFolder: _bed.Definitions) { InstallMode = "AllUsers" }, CancellationToken.None)).FilePath);
+
+        Assert.Null(def.Detection.RegistryKeyTemplate);
+    }
 }
