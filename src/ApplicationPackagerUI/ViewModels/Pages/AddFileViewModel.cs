@@ -270,7 +270,7 @@ public sealed partial class AddFileViewModel : ObservableObject
         PackageTrust.Untrusted => "Signed, not trusted on this computer",
         PackageTrust.Unsigned => "Not signed",
         PackageTrust.Invalid => "The signature is not valid",
-        PackageTrust.Expired => "Signed, the certificate expired and has no timestamp",
+        PackageTrust.Expired => "Signed, the certificate expired and has no valid timestamp",
         _ => "Not known"
     };
 

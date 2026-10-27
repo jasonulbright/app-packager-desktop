@@ -566,7 +566,7 @@ public sealed partial class InstallerAnalysisService
         if (ProposedCommand.IsMsixName(name))
         {
             o.DetectionHint = $"MSIX family-name detection: Get-AppxPackage -Name {name}" + (family.Length > 0 ? $" (family {family})." : ".");
-            o.UninstallCommand = $"Get-AppxPackage -Name '{name}' | Remove-AppxPackage";
+            o.UninstallCommand = MsixUninstallCommand(name, publisher.Length > 0 ? MsixPackageReader.PublisherHash(publisher) : null, bundle);
         }
         else if (name.Length > 0)
         {
@@ -574,6 +574,20 @@ public sealed partial class InstallerAnalysisService
             o.DetectionHint = "MSIX family-name detection; the identity name is not valid and is not shown in a command.";
             notes.Add("The MSIX identity name is not a valid package name (3 to 50 letters, digits, dots and dashes); no uninstall command is proposed.");
         }
+    }
+
+    /// <summary>
+    /// Removes the provisioning entry, then the package for every user. Remove-AppxProvisionedPackage leaves the
+    /// existing user registrations, and a provisioned package stays detected while its entry exists. With a publisher
+    /// id, only packages of that publisher match: the provisioned PackageName ends with it and an installed package
+    /// carries it as PublisherId. A bundle is removed as its Bundle package, which removes the packages it holds.
+    /// </summary>
+    public static string MsixUninstallCommand(string identityName, string? publisherId, bool bundle)
+    {
+        var provisioned = publisherId is null ? "" : $" -and $_.PackageName.EndsWith('_{publisherId}')";
+        var installed = publisherId is null ? "" : $" | Where-Object {{ $_.PublisherId -eq '{publisherId}' }}";
+        return $"Get-AppxProvisionedPackage -Online | Where-Object {{ $_.DisplayName -eq '{identityName}'{provisioned} }} | ForEach-Object {{ Remove-AppxProvisionedPackage -Online -PackageName $_.PackageName }}; "
+            + $"Get-AppxPackage -AllUsers -Name '{identityName}' -PackageTypeFilter {(bundle ? "Bundle" : "Main, Framework, Resource, Optional")}{installed} | ForEach-Object {{ Remove-AppxPackage -Package $_.PackageFullName -AllUsers }}";
     }
 
     private static void ReadNuspec(BoundedZip zip, IReadOnlyList<System.IO.Compression.ZipArchiveEntry> entries, string engine, List<MetadataBlock> metadata, DeploymentOverrides o, List<string> notes)

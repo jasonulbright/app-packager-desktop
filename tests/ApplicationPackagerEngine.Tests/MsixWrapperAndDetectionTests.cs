@@ -84,9 +84,9 @@ public sealed class MsixWrapperAndDetectionTests : IDisposable
         var (_, uninstall) = Generate();
 
         Assert.Contains("$entry = $zip.GetEntry('AppxManifest.xml')", uninstall);
-        Assert.Contains("$identity = $manifest.Package.Identity", uninstall);
+        Assert.Contains("$identity = $manifest.DocumentElement.Identity", uninstall);
         Assert.Contains("Remove-AppxProvisionedPackage -Online -PackageName $p.PackageName", uninstall);
-        Assert.Contains("Get-AppxPackage -AllUsers -Name $identity.Name | ForEach-Object { Remove-AppxPackage -Package $_.PackageFullName -AllUsers }", uninstall);
+        Assert.Contains("Get-AppxPackage -AllUsers -Name $identity.Name -PackageTypeFilter $packageType | ForEach-Object { Remove-AppxPackage -Package $_.PackageFullName -AllUsers }", uninstall);
         Assert.Contains("Exit-Wrapper 4", uninstall); // manifest missing from the container
     }
 
@@ -97,7 +97,7 @@ public sealed class MsixWrapperAndDetectionTests : IDisposable
 
         Assert.Contains("Add-AppxPackage -Path $msixPath", install);
         Assert.DoesNotContain("Add-AppxProvisionedPackage", install);
-        Assert.Contains("Get-AppxPackage -Name $identity.Name | Remove-AppxPackage", uninstall);
+        Assert.Contains("Get-AppxPackage -Name $identity.Name -PackageTypeFilter $packageType | Remove-AppxPackage", uninstall);
         Assert.DoesNotContain("Remove-AppxProvisionedPackage", uninstall);
     }
 

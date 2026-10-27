@@ -569,7 +569,8 @@ public sealed class StagingService
             if (isMsix)
             {
                 wrappers.GenerateMsixWrappers(contentPath, installerFileName,
-                    msixPackage!.SignerThumbprint, msixPackage.Provisioned);
+                    msixPackage!.SignerThumbprint, msixPackage.Provisioned,
+                    string.IsNullOrWhiteSpace(msixPackage.Publisher) ? null : MsixPackageReader.PublisherHash(msixPackage.Publisher));
             }
             else if (def.ZipPayload is not null)
             {

@@ -18,6 +18,7 @@ public sealed class AddFromInstallerService : IAddFromInstallerService
     public const string UninstallKeySource = "https://learn.microsoft.com/windows/win32/msi/uninstall-registry-key";
     public const string RegistryViewSource = "https://learn.microsoft.com/windows/win32/winprog64/registry-redirector";
     public const string AddAppxPackageSource = "https://learn.microsoft.com/powershell/module/appx/add-appxpackage";
+    public const string RemoveProvisionedPackageSource = "https://learn.microsoft.com/powershell/module/dism/remove-appxprovisionedpackage";
 
     private const string ArpRelative = @"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall";
     private const int ManifestLimitBytes = 4 * 1024 * 1024;
@@ -473,7 +474,7 @@ public sealed class AddFromInstallerService : IAddFromInstallerService
             InstallerTypeName = report.TypeName,
             Architecture = architectureValue.Length > 0 ? new ProposedValue<string>(Value: architectureValue, Evidence: Evidence.Confirmed, Source: source) : null,
             UninstallCommand = report.Deployment.FirstOrDefault(f => f.Name == "UninstallCommand") is { Value.Length: > 0 } u
-                ? new ProposedValue<string>(Value: u.Value, Evidence: Evidence.Predicted, Source: AddAppxPackageSource) : null,
+                ? new ProposedValue<string>(Value: u.Value, Evidence: Evidence.Predicted, Source: RemoveProvisionedPackageSource) : null,
             ProductCode = identity.Length > 0 ? new ProposedValue<string?>(Value: identity, Evidence: Evidence.Confirmed, Source: source) : null,
             Sha256 = report.Sha256,
             FileSize = report.Size,

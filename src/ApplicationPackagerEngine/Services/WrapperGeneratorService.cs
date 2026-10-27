@@ -382,10 +382,12 @@ public sealed class WrapperGeneratorService
     /// assemblies because Windows PowerShell 5.1 does not load them implicitly
     /// and the uninstall path re-reads the package manifest on the client.
     /// A signer thumbprint recorded at stage time is pinned into the install
-    /// wrapper, which refuses a package signed by anything else.
+    /// wrapper, which refuses a package signed by anything else. With a
+    /// publisher id, uninstall removes only packages of that publisher; a
+    /// bundle is removed as its Bundle package.
     /// </summary>
     public void GenerateMsixWrappers(string outputPath, string msixFileName,
-        string? signerThumbprint = null, bool provisioned = true)
+        string? signerThumbprint = null, bool provisioned = true, string? publisherId = null)
     {
         var file = EscapePsLiteral(msixFileName);
 
@@ -421,22 +423,28 @@ public sealed class WrapperGeneratorService
             "$zip = [System.IO.Compression.ZipFile]::OpenRead($msixPath)",
             "try {",
             "    $entry = $zip.GetEntry('AppxManifest.xml')",
+            "    $packageType = 'Main, Framework, Resource, Optional'",
+            // A bundle carries its identity in the bundle manifest and has no AppxManifest.xml at its root.
+            "    if (-not $entry) { $entry = $zip.GetEntry('AppxMetadata/AppxBundleManifest.xml'); $packageType = 'Bundle' }",
             "    if (-not $entry) { Write-Error 'AppxManifest.xml not found in MSIX'; Exit-Wrapper 4 }",
             "    $reader = New-Object System.IO.StreamReader($entry.Open())",
             "    try { [xml]$manifest = $reader.ReadToEnd() } finally { $reader.Dispose() }",
             "} finally { $zip.Dispose() }",
-            "$identity = $manifest.Package.Identity"
+            "$identity = $manifest.DocumentElement.Identity"
         };
 
+        var publisher = string.IsNullOrWhiteSpace(publisherId) ? null : EscapePsLiteral(publisherId!);
+        var provisionedMatch = publisher is null ? "" : $" -and $_.PackageName.EndsWith('_{publisher}')";
+        var installedMatch = publisher is null ? "" : $" | Where-Object {{ $_.PublisherId -eq '{publisher}' }}";
         if (provisioned)
         {
-            uninstall.Add("$prov = Get-AppxProvisionedPackage -Online | Where-Object { $_.DisplayName -eq $identity.Name }");
+            uninstall.Add($"$prov = Get-AppxProvisionedPackage -Online | Where-Object {{ $_.DisplayName -eq $identity.Name{provisionedMatch} }}");
             uninstall.Add("foreach ($p in $prov) { Remove-AppxProvisionedPackage -Online -PackageName $p.PackageName | Out-Null }");
-            uninstall.Add("Get-AppxPackage -AllUsers -Name $identity.Name | ForEach-Object { Remove-AppxPackage -Package $_.PackageFullName -AllUsers }");
+            uninstall.Add($"Get-AppxPackage -AllUsers -Name $identity.Name -PackageTypeFilter $packageType{installedMatch} | ForEach-Object {{ Remove-AppxPackage -Package $_.PackageFullName -AllUsers }}");
         }
         else
         {
-            uninstall.Add("Get-AppxPackage -Name $identity.Name | Remove-AppxPackage");
+            uninstall.Add($"Get-AppxPackage -Name $identity.Name -PackageTypeFilter $packageType{installedMatch} | Remove-AppxPackage");
         }
         uninstall.Add("Exit-Wrapper 0");
 

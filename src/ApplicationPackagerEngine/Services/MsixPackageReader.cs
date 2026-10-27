@@ -245,7 +245,9 @@ public sealed class MsixPackageReader
                 if (!Rfc3161TimestampToken.TryDecode(value.RawData, out var token, out _)) continue;
                 if (!token.VerifySignatureForSignerInfo(signer, out var tsa, extra) || tsa is null) continue;
                 var time = token.TokenInfo.Timestamp;
-                if (HasUsage(tsa, TimeStampingOid) && BuildChain(tsa, extra, time, TimeStampingOid).Trusted) return time;
+                var pool = new X509Certificate2Collection(extra);
+                pool.AddRange(token.AsSignedCms().Certificates);
+                if (HasUsage(tsa, TimeStampingOid) && BuildChain(tsa, pool, time, TimeStampingOid).Trusted) return time;
             }
         }
         return null;
