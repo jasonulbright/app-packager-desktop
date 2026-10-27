@@ -96,7 +96,12 @@
         </ResourceDictionary>
     </UserControl.Resources>
 
-    <ScrollViewer x:Name="scrollRingsTab" Margin="0,12,0,0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+    <ScrollViewer Grid.Row="0" x:Name="scrollRingsTab" Margin="0,12,0,0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
                   AutomationProperties.AutomationId="scrollRingsTab">
         <StackPanel>
             <Border Style="{StaticResource Card}" AutomationProperties.AutomationId="pnlRingNewRun">
@@ -201,13 +206,6 @@
                                AutomationProperties.LiveSetting="Polite" />
                     <TextBlock Text="{Binding FormMessage}" Style="{StaticResource Warning}" Margin="0,8,0,0" Visibility="{Binding HasFormMessage, Converter={StaticResource BoolToVisibility}}"
                                AutomationProperties.AutomationId="txtRingFormMessage" AutomationProperties.LiveSetting="Assertive" />
-                    <WrapPanel Margin="0,12,0,0">
-                        <ui:Button x:Name="btnRingValidate" Content="Validate" Icon="{ui:SymbolIcon CheckmarkCircle24}" Command="{Binding ValidateCommand}" Style="{StaticResource ToolButton}"
-                                   ToolTip="Runs the checks of each ring and the plan rules. Nothing is changed." AutomationProperties.Name="Validate the run"
-                                   AutomationProperties.AutomationId="btnRingValidate" />
-                        <ui:Button Content="Create run" Appearance="Primary" Icon="{ui:SymbolIcon Rocket24}" Command="{Binding CreateRunCommand}" Style="{StaticResource ToolButton}"
-                                   ToolTip="Shows the plan with every deployment of the run. Nothing is changed before you confirm it." AutomationProperties.AutomationId="btnRingCreate" />
-                    </WrapPanel>
                 </StackPanel>
             </Border>
 
@@ -311,4 +309,12 @@
             </Border>
         </StackPanel>
     </ScrollViewer>
+        <WrapPanel Grid.Row="1" Margin="0,8,0,0" AutomationProperties.AutomationId="pnlRingActions">
+                        <ui:Button x:Name="btnRingValidate" Content="Validate" Icon="{ui:SymbolIcon CheckmarkCircle24}" Command="{Binding ValidateCommand}" Style="{StaticResource ToolButton}"
+                                   ToolTip="Runs the checks of each ring and the plan rules. Nothing is changed." AutomationProperties.Name="Validate the run"
+                                   AutomationProperties.AutomationId="btnRingValidate" />
+                        <ui:Button Content="Create run" Appearance="Primary" Icon="{ui:SymbolIcon Rocket24}" Command="{Binding CreateRunCommand}" Style="{StaticResource ToolButton}"
+                                   ToolTip="Shows the plan with every deployment of the run. Nothing is changed before you confirm it." AutomationProperties.AutomationId="btnRingCreate" />
+        </WrapPanel>
+    </Grid>
 </UserControl>

@@ -217,7 +217,7 @@ public sealed class DeploymentHelperRenderTests
             }
 
             Check(DeploymentHelperViewModel.DeployTab, "scrollDeployTab", "lstObjectType", "cboTemplate", "btnSaveTemplate", "btnDeployRefresh", "btnDeployCancel", "dgObjects", "dgCollections", "cboNotification",
-                "chkRebootOutside", "txtRequiredOnlyNote", "dgDpGroups", "btnDistribute", "chkDistributeFirst", "dgChecks", "btnValidate", "btnDeploy");
+                "chkRebootOutside", "txtRequiredOnlyNote", "dgDpGroups", "btnDistribute", "chkDistributeFirst", "dgChecks");
             Check(DeploymentHelperViewModel.HistoryTab, "scrollHistoryTab", "txtHistoryFilter", "btnHistoryCancel", "btnHistoryFolder", "btnRemoveDeployment", "dgHistory");
             Check(DeploymentHelperViewModel.OptionsTab, "scrollOptionsTab", "btnOptionsRefresh", "btnOptionsCancel", "txtAuditLogPath", "btnCheckAuditLog", "btnDeleteTemplate", "dgTemplates", "txtConnection");
             var header = ById<FrameworkElement>(page, "txtDeploymentIntro");
@@ -742,5 +742,41 @@ public sealed class DeploymentHelperRenderTests
             }
             finally { window.Close(); }
         });
+    }
+
+    public static TheoryData<ApplicationTheme, double, double> ActionSizes => new()
+    {
+        { ApplicationTheme.Light, 1440 - NavigationPaneWidth, 900 - 48 },
+        { ApplicationTheme.Dark, 1440 - NavigationPaneWidth, 900 - 48 },
+        { ApplicationTheme.Light, 900 - NavigationPaneWidth, 600 - 48 },
+        { ApplicationTheme.Dark, 900 - NavigationPaneWidth, 600 - 48 }
+    };
+
+    /// <summary>A primary action lies in the page, outside every scroll viewer, so no scroll position hides it.</summary>
+    private static void AssertPinned(Window window, DependencyObject page, string id, string where)
+    {
+        var button = ById<FrameworkElement>(page, id);
+        Assert.True(button.IsVisible, $"{where}: {id} is not visible.");
+        for (DependencyObject? parent = VisualTreeHelper.GetParent(button); parent is not null && !ReferenceEquals(parent, page); parent = VisualTreeHelper.GetParent(parent))
+            Assert.False(parent is ScrollViewer, $"{where}: {id} sits inside a scroll viewer, so a scroll position can hide it.");
+        var bounds = button.TransformToAncestor(window).TransformBounds(new Rect(button.RenderSize));
+        Assert.True(bounds.Top >= 0 && bounds.Bottom <= window.ActualHeight + 0.5 && bounds.Right <= window.ActualWidth + 0.5,
+            $"{where}: {id} lies at {bounds} in a {window.ActualWidth:0}x{window.ActualHeight:0} px window.");
+    }
+
+    [Theory]
+    [MemberData(nameof(ActionSizes))]
+    public void DeployAndCreateRunStayVisibleWithoutScrolling(ApplicationTheme theme, double width, double height)
+    {
+        WithPage(theme, (window, page, viewModel, harness) =>
+        {
+            var where = $"Deployment Helper {theme} {width:0}x{height:0}";
+            Fill(window, viewModel, harness);
+            AssertPinned(window, page, "btnDeploy", where);
+            AssertPinned(window, page, "btnValidate", where);
+            ShowTab(window, viewModel, DeploymentHelperViewModel.RingsTab);
+            AssertPinned(window, page, "btnRingCreate", where);
+            AssertPinned(window, page, "btnRingValidate", where);
+        }, width, height);
     }
 }

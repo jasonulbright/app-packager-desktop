@@ -227,7 +227,7 @@ public sealed class DeploymentRingsRenderTests
             var scroller = ById<ScrollViewer>(page, "scrollRingsTab");
             Assert.True(scroller.ScrollableWidth < 1, $"The Rings tab scrolls sideways by {scroller.ScrollableWidth:0} px at {width}x{height}.");
             foreach (var id in new[] { "lstRingObjectType", "btnRingsRefresh", "btnRingsCancel", "txtRingObjectFilter", "dgRingObjects", "cboRingPlan", "dpRingStart", "txtRingStartTime",
-                         "chkRingHold", "btnRingExpand", "btnRingSetCollection", "dgRingPreview", "dgRingChecks", "btnRingValidate", "btnRingCreate", "btnRingPlanNew",
+                         "chkRingHold", "btnRingExpand", "btnRingSetCollection", "dgRingPreview", "dgRingChecks", "btnRingPlanNew",
                          "btnRingPlanDelete", "dgRingPlans", "btnRingReconcile", "btnRingPromote", "btnRingUndo", "btnRingClose", "chkRingShowClosed", "dgRingRuns", "dgRingRunRings" })
             {
                 var element = ById<FrameworkElement>(page, id);

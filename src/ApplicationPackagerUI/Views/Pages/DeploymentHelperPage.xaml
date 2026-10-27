@@ -152,7 +152,12 @@
 
         <TabControl Grid.Row="2" SelectedIndex="{Binding SelectedTabIndex}" AutomationProperties.AutomationId="tabDeploymentHelper">
             <TabItem Header="Deploy" AutomationProperties.AutomationId="tabDeploy" DataContext="{Binding Deploy}">
-                <ScrollViewer x:Name="scrollDeployTab" Margin="0,12,0,0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                <ScrollViewer Grid.Row="0" x:Name="scrollDeployTab" Margin="0,12,0,0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
                               AutomationProperties.AutomationId="scrollDeployTab">
                     <StackPanel x:Name="pnlDeploy" SizeChanged="OnDeploySizeChanged">
                         <WrapPanel Margin="0,0,0,4">
@@ -402,16 +407,17 @@
                                            AutomationProperties.LiveSetting="Polite" />
                                 <TextBlock Text="{Binding FormMessage}" Style="{StaticResource Warning}" Margin="0,8,0,0" Visibility="{Binding HasFormMessage, Converter={StaticResource BoolToVisibility}}"
                                            AutomationProperties.AutomationId="txtFormMessage" AutomationProperties.LiveSetting="Assertive" />
-                                <WrapPanel Margin="0,12,0,0">
-                                    <ui:Button x:Name="btnValidate" Content="Validate" Icon="{ui:SymbolIcon CheckmarkCircle24}" Command="{Binding ValidateCommand}" Style="{StaticResource ToolButton}"
-                                               ToolTip="Runs the checks and the schedule rules. Nothing is changed." AutomationProperties.AutomationId="btnValidate" />
-                                    <ui:Button Content="Deploy" Appearance="Primary" Icon="{ui:SymbolIcon Rocket24}" Command="{Binding DeployCommand}" Style="{StaticResource ToolButton}"
-                                               ToolTip="Shows the plan of the deployment. Nothing is changed before you confirm it." AutomationProperties.AutomationId="btnDeploy" />
-                                </WrapPanel>
                             </StackPanel>
                         </Border>
                     </StackPanel>
                 </ScrollViewer>
+                <WrapPanel Grid.Row="1" Margin="0,8,0,0" AutomationProperties.AutomationId="pnlDeployActions">
+                    <ui:Button x:Name="btnValidate" Content="Validate" Icon="{ui:SymbolIcon CheckmarkCircle24}" Command="{Binding ValidateCommand}" Style="{StaticResource ToolButton}"
+                               ToolTip="Runs the checks and the schedule rules. Nothing is changed." AutomationProperties.AutomationId="btnValidate" />
+                    <ui:Button Content="Deploy" Appearance="Primary" Icon="{ui:SymbolIcon Rocket24}" Command="{Binding DeployCommand}" Style="{StaticResource ToolButton}"
+                               ToolTip="Shows the plan of the deployment. Nothing is changed before you confirm it." AutomationProperties.AutomationId="btnDeploy" />
+                </WrapPanel>
+                </Grid>
             </TabItem>
 
             <TabItem Header="Rings" AutomationProperties.AutomationId="tabRings" DataContext="{Binding Rings}">
