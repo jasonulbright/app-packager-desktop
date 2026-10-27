@@ -191,7 +191,7 @@
             <DockPanel Margin="0,0,0,12">
                 <ui:Button DockPanel.Dock="Right" Content="Browse"
                            Command="{Binding BrowseDownloadRootCommand}" Margin="8,0,0,0" />
-                <ui:TextBox Text="{Binding DownloadRoot, UpdateSourceTrigger=PropertyChanged}"
+                <ui:TextBox Text="{Binding DownloadRoot, UpdateSourceTrigger=PropertyChanged}" ToolTip="{Binding DownloadRoot}"
                             PlaceholderText="C:\temp\ap" />
             </DockPanel>
 
