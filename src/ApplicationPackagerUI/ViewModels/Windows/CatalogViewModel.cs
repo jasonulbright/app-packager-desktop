@@ -51,11 +51,25 @@ public partial class CatalogViewModel : ObservableObject
         ReloadAfterSettingsChange();
     }
 
-    /// <summary>The line under the window title.</summary>
-    public string CountText => SearchText.Trim().Length == 0
-        ? $"{VisibleCount} of {TotalCount} applications are visible in the App Packager grid."
-        : $"{VisibleCount} of {TotalCount} applications are visible in the App Packager grid. {MatchCount} match the search.";
+    /// <summary>The hidden list the settings hold; the grid shows this state until Save.</summary>
+    private HashSet<string> _savedHidden = new(StringComparer.OrdinalIgnoreCase);
 
+    /// <summary>True when the window shows a hidden list that differs from the saved one.</summary>
+    [ObservableProperty] private bool _hasUnsavedChanges;
+
+    /// <summary>The line under the window title.</summary>
+    public string CountText
+    {
+        get
+        {
+            var state = HasUnsavedChanges
+                ? $"{VisibleCount} of {TotalCount} applications are selected to show. The App Packager grid changes when you select Save."
+                : $"{VisibleCount} of {TotalCount} applications are visible in the App Packager grid.";
+            return SearchText.Trim().Length == 0 ? state : $"{state} {MatchCount} match the search.";
+        }
+    }
+
+    partial void OnHasUnsavedChangesChanged(bool value) => OnPropertyChanged(nameof(CountText));
     partial void OnVisibleCountChanged(int value) => OnPropertyChanged(nameof(CountText));
     partial void OnTotalCountChanged(int value) => OnPropertyChanged(nameof(CountText));
     partial void OnMatchCountChanged(int value) => OnPropertyChanged(nameof(CountText));
@@ -131,6 +145,7 @@ public partial class CatalogViewModel : ObservableObject
 
         var allPackagers = await _services.LoadPackagers();
         if (allPackagers is null) return;
+        _savedHidden = hidden;
 
         var groups = allPackagers
             .GroupBy(p => p.Vendor, StringComparer.OrdinalIgnoreCase)
@@ -219,6 +234,7 @@ public partial class CatalogViewModel : ObservableObject
         var all = VendorGroups.SelectMany(g => g.Apps).ToList();
         TotalCount = all.Count;
         VisibleCount = all.Count(a => a.IsVisible);
+        HasUnsavedChanges = all.Any(a => a.IsVisible == _savedHidden.Contains(a.Uid));
     }
 
     [RelayCommand]
@@ -262,6 +278,8 @@ public partial class CatalogViewModel : ObservableObject
             .Select(a => a.Uid)
             .ToArray();
         _services.SaveSettings(s);
+        _savedHidden = new HashSet<string>(s.HiddenApplications, StringComparer.OrdinalIgnoreCase);
+        UpdateCounts();
 
         await _services.RefreshGrid();
 

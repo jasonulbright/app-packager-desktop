@@ -36,6 +36,19 @@ public sealed class AnalysisFoundationDefectTests : IDisposable
         Assert.Equal(args.Split(' ').Order(), resolved.Split(' ').Order());
     }
 
+    [Theory]
+    [InlineData("Inno Setup")]
+    [InlineData("NullsoftInst")]
+    [InlineData("BitRock")]
+    public async Task ATableUninstallCommandWithNoFolder_IsNotProposed_AndTheUninstallArgumentsStay(string marker)
+    {
+        var r = await _bed.Real().AnalyzeAsync(_bed.Marked("setup.exe", marker), new Progress<string>(), CancellationToken.None);
+
+        Assert.True(r.UninstallCommand is null || !r.UninstallCommand.Value.Contains("\"uninstall.exe\"", StringComparison.OrdinalIgnoreCase),
+            r.UninstallCommand?.Value);
+        Assert.NotEqual("", r.UninstallArguments.Value);
+    }
+
     [Fact]
     public void AdvancedInstaller_UsesTheDocumentedBootstrapperSwitch()
     {

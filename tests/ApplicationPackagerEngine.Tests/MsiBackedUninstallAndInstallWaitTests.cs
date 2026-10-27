@@ -40,6 +40,16 @@ public sealed class MsiBackedUninstallAndInstallWaitTests : IDisposable
     }
 
     [Fact]
+    public void TeraCopy_NamesTheAdvancedInstallerFrameworkItsSwitchesBelongTo()
+    {
+        var definition = DefinitionFixture.Load("teracopy.json");
+
+        Assert.Equal("AdvancedInstaller", definition.InstallerFramework);
+        Assert.StartsWith("/exenoui", definition.InstallArgs);
+        Assert.Contains("/exenoui", SilentSwitchDatabase.Lookup(definition.InstallerFramework!).Install);
+    }
+
+    [Fact]
     public void TeraCopy_WithNoEntry_TheUninstallScriptExitsOne()
     {
         var (_, uninstall) = Generate("teracopy.json");

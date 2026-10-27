@@ -317,6 +317,8 @@ public sealed class DroppedInstallerAnalysisService
                 ? ProposedField.Predicted(branch.SilentUninstallCommand, scriptSource!)
             : branch is { SilentUninstallCommand: { Length: > 0 } }
                 ? ProposedField.Confirmed(branch.SilentUninstallCommand, scriptSource!)
+            : string.IsNullOrWhiteSpace(switches.UninstallCommand)
+                ? ProposedField.Empty
                 : ProposedField.Predicted(switches.UninstallCommand, switchSource);
 
         return new DroppedInstallerAnalysis

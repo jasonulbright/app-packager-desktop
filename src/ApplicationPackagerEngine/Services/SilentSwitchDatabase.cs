@@ -172,12 +172,13 @@ public static class SilentSwitchDatabase
 
         var installArgs = entry.InstallArgs ?? ExtractArgs(install);
         var uninstallArgs = entry.UninstallArgs ?? ExtractArgs(uninstall);
+        var unknownUninstaller = entry.Uninstall.Contains("<UninstallEXE>", StringComparison.Ordinal) && UninstallExeFor(engine, appName) is null;
 
         return new ResolvedSwitches
         {
             Engine = engine,
             InstallCommand = install,
-            UninstallCommand = uninstall,
+            UninstallCommand = unknownUninstaller ? "" : uninstall,
             InstallArgs = installArgs,
             UninstallArgs = uninstallArgs,
             Notes = entry.Notes,
@@ -193,7 +194,7 @@ public static class SilentSwitchDatabase
         var text = template
             .Replace("<EXE>", installerFileName, StringComparison.Ordinal)
             .Replace("<MSI>", installerFileName, StringComparison.Ordinal)
-            .Replace("<UninstallEXE>", UninstallExeFor(engine, appName), StringComparison.Ordinal);
+            .Replace("<UninstallEXE>", UninstallExeFor(engine, appName) ?? "uninstall.exe", StringComparison.Ordinal);
 
         if (!string.IsNullOrEmpty(productCode))
             text = text.Replace("<ProductCode>", productCode, StringComparison.Ordinal);
@@ -203,10 +204,15 @@ public static class SilentSwitchDatabase
         return text;
     }
 
-    private static string UninstallExeFor(string engine, string? appName) =>
+    /// <summary>
+    /// The uninstaller path the table knows; null when the uninstaller lives in an install folder the table does not
+    /// know. A command with no known path is not proposed: the wrapper reads the UninstallString of the Add/Remove
+    /// Programs entry instead.
+    /// </summary>
+    private static string? UninstallExeFor(string engine, string? appName) =>
         engine == "Squirrel" && !string.IsNullOrEmpty(appName)
             ? $"%LOCALAPPDATA%\\{appName}\\Update.exe"
-            : "uninstall.exe";
+            : null;
 
     /// <summary>
     /// Strips the leading executable from a resolved command line, leaving the bare

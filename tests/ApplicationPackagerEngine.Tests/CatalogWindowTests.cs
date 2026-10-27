@@ -108,6 +108,32 @@ public sealed class CatalogWindowTests
         Assert.Empty(store.Log);
     }
 
+    [Fact]
+    public async Task AChangeThatIsNotSaved_IsNotDescribedAsTheStateOfTheGrid()
+    {
+        var (viewModel, _) = Catalog();
+        viewModel.HideAllCommand.Execute(null);
+
+        Assert.Equal("0 of 4 applications are selected to show. The App Packager grid changes when you select Save.", viewModel.CountText);
+        viewModel.SearchText = "git";
+        Assert.Equal("0 of 4 applications are selected to show. The App Packager grid changes when you select Save. 2 match the search.", viewModel.CountText);
+
+        viewModel.SearchText = "";
+        await viewModel.SaveCommand.ExecuteAsync(null);
+
+        Assert.Equal("0 of 4 applications are visible in the App Packager grid.", viewModel.CountText);
+    }
+
+    [Fact]
+    public void AChangeThatIsUndone_DescribesTheGridAgain()
+    {
+        var (viewModel, _) = Catalog("gsudo");
+        App(viewModel, "git").IsVisible = false;
+        App(viewModel, "git").IsVisible = true;
+
+        Assert.Equal("3 of 4 applications are visible in the App Packager grid.", viewModel.CountText);
+    }
+
     public static TheoryData<ApplicationTheme, bool> Windows() => new()
     {
         { ApplicationTheme.Light, false }, { ApplicationTheme.Dark, false }, { ApplicationTheme.Light, true }, { ApplicationTheme.Dark, true }
