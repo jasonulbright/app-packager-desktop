@@ -524,7 +524,8 @@ public sealed class AddFromInstallerService : IAddFromInstallerService
         {
             ct.ThrowIfCancellationRequested();
             var warnings = new List<string>();
-            var definition = BuildDefinition(reviewed, options, warnings);
+            var effective = WithWizardValues(reviewed, options);
+            var definition = BuildDefinition(effective, options, warnings);
             var name = definition.Application;
             string target;
             try { target = UserDefinitionFiles.GetPath(options.DefinitionsFolder, name); }
@@ -538,7 +539,7 @@ public sealed class AddFromInstallerService : IAddFromInstallerService
             {
                 throw new AddFromInstallerRefusedException($"A definition file named {Path.GetFileName(target)} already exists. Change the application name and save again.");
             }
-            var reasons = ReviewReasonsAfterEdit(reviewed);
+            var reasons = ReviewReasonsAfterEdit(effective);
             return new AddSaveResult(FilePath: path, DefinitionId: definition.Id, Warnings: warnings.Distinct().ToList())
             {
                 NeedsReview = reasons.Count > 0,
@@ -555,6 +556,27 @@ public sealed class AddFromInstallerService : IAddFromInstallerService
         AddCriticalReasons(reasons, r.Name, r.Version, r.InstallerType is "MSIX" or "MSP" ? null : r.InstallArguments, r.Detection);
         if (r.Package?.Trust is PackageTrust.Unsigned or PackageTrust.Invalid && r.Package.TrustWarning is not null) reasons.Add(r.Package.TrustWarning);
         return reasons;
+    }
+
+    private const string WizardSource = "add-from-web-wizard";
+
+    /// <summary>
+    /// The reviewed proposal with each wizard value in place of the analysis value of the same field. A field the
+    /// review edited (evidence Manual) keeps the edit.
+    /// </summary>
+    internal static AddAnalysisResult WithWizardValues(AddAnalysisResult r, AddSaveOptions o)
+    {
+        static bool Take(string? wizard, Evidence reviewed) => !string.IsNullOrWhiteSpace(wizard) && reviewed != Evidence.Manual;
+        static ProposedValue<string?> Optional(string value) => new(Value: value.Trim(), Evidence: Evidence.Manual, Source: WizardSource);
+        static ProposedValue<string> Required(string value) => new(Value: value, Evidence: Evidence.Manual, Source: WizardSource);
+        var e = r;
+        if (Take(o.ApplicationName, r.Name.Evidence)) e = e with { Name = Optional(o.ApplicationName!) };
+        if (Take(o.Vendor, r.Vendor.Evidence)) e = e with { Vendor = Optional(o.Vendor!) };
+        if (o.InstallArgs is not null && r.InstallArguments.Evidence != Evidence.Manual) e = e with { InstallArguments = Required(o.InstallArgs) };
+        if (o.UninstallArgs is not null && r.UninstallArguments.Evidence != Evidence.Manual) e = e with { UninstallArguments = Required(o.UninstallArgs) };
+        if (o.InstallContext is "Machine" or "User" && r.InstallContext.Evidence != Evidence.Manual) e = e with { InstallContext = Required(o.InstallContext) };
+        if (Take(o.Architecture, r.Architecture?.Evidence ?? Evidence.None)) e = e with { Architecture = Required(o.Architecture!.Trim()) };
+        return e;
     }
 
     /// <summary>The definition the reviewed proposal describes. Throws a plain refusal for a value the stage cannot use.</summary>
@@ -577,6 +599,16 @@ public sealed class AddFromInstallerService : IAddFromInstallerService
         definition.Vendor = string.IsNullOrWhiteSpace(r.Vendor.Value) ? "Unknown" : r.Vendor.Value.Trim();
         definition.Application = name;
         definition.CMName = string.IsNullOrWhiteSpace(options.CMName) ? name : options.CMName.Trim();
+        if (r.InstallArguments.Evidence == Evidence.Manual)
+        {
+            definition.InstallArgs = r.InstallArguments.Value;
+            definition.InstallerSettings = null;
+        }
+        if (r.UninstallArguments.Evidence == Evidence.Manual) definition.UninstallArgs = r.UninstallArguments.Value;
+        if (r.Architecture is { Evidence: Evidence.Manual, Value.Length: > 0 }) definition.Architecture = r.Architecture.Value;
+        if (!string.IsNullOrWhiteSpace(options.InstallerType)) definition.InstallerType = options.InstallerType.Trim();
+        if (!string.IsNullOrWhiteSpace(options.InstallerFramework) && r.Framework.Evidence != Evidence.Manual) definition.InstallerFramework = options.InstallerFramework.Trim();
+        if (!string.IsNullOrWhiteSpace(options.InstallerFileName)) definition.InstallerFileName = options.InstallerFileName.Trim();
         if (!string.IsNullOrWhiteSpace(options.DownloadUrl)) definition.DownloadUrl = options.DownloadUrl.Trim();
         if (options.VersionScraper is not null) definition.VersionScraper = options.VersionScraper;
         if (!string.IsNullOrWhiteSpace(options.VendorUrl)) definition.VendorUrl = options.VendorUrl.Trim();
@@ -703,6 +735,7 @@ public sealed class AddFromInstallerService : IAddFromInstallerService
     public static DetectionConfig ToDetectionConfig(DetectionProposal p, string? msiProductCode, string? expectedToken, string version)
     {
         ArgumentNullException.ThrowIfNull(p);
+        if (p.IsDefault) throw new AddFromInstallerRefusedException("The detection rule is empty. Enter a rule before you save.");
         string V(string key) => p.Values.TryGetValue(key, out var value) ? value : "";
         string Key()
         {
@@ -764,6 +797,15 @@ public sealed class AddFromInstallerService : IAddFromInstallerService
             default:
                 throw new AddFromInstallerRefusedException("The detection rule is empty. Enter a rule before you save.");
         }
+    }
+
+    /// <summary>True for a definition with no download source: no download URL, no scraper URL and no URL query.</summary>
+    public static bool IsLocalFileDefinition(AppDefinition definition)
+    {
+        ArgumentNullException.ThrowIfNull(definition);
+        return string.IsNullOrWhiteSpace(definition.DownloadUrl)
+            && string.IsNullOrWhiteSpace(definition.VersionScraper?.Url)
+            && string.IsNullOrWhiteSpace(definition.VersionScraper?.DownloadUrlQuery);
     }
 
     // ---- download --------------------------------------------------------------------------
