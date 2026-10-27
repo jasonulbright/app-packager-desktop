@@ -127,7 +127,7 @@ public sealed class AddFromInstallerSaveTests : IDisposable
         Assert.Equal("MSP", def.InstallerType);
         Assert.Equal("Script", def.Detection.Type);
         Assert.Contains(PatchCode, def.Detection.ScriptText);
-        Assert.Contains($"PatchesEx('{ProductCode}', $null, 4, 1)", def.Detection.ScriptText);
+        Assert.Contains($"@('{ProductCode}', '', 4, 1)", def.Detection.ScriptText);
         Assert.Contains("'/uninstall', '" + PatchCode + "'", def.UninstallCommand);
         Assert.Contains(saved.Warnings, w => w.Contains("base product", StringComparison.Ordinal));
     }

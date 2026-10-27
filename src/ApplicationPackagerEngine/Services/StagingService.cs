@@ -347,8 +347,12 @@ public sealed class StagingService
                 installerFileName = AssertPlainFileName(string.IsNullOrWhiteSpace(def.InstallerFileName)
                     ? Path.GetFileName(savedInstaller.Path)
                     : def.InstallerFileName);
+                // The wrapper .ps1 files are read with the Windows PowerShell default code page on the device.
+                if (installerFileName.Any(c => c > 0x7F))
+                    throw new InvalidOperationException($"The installer file name has characters other than ASCII. Rename the file, then add it again with Add from file: {installerFileName}");
                 installerPath = Workbench.WorkbenchPaths.CombineUnder(contentPath, installerFileName);
                 CopySavedInstaller(savedInstaller, installerPath, onProgress);
+                ct.ThrowIfCancellationRequested();
                 if (def.RequireValidSignature) AuthenticodeVerifier.RequireValid(installerPath, onProgress);
             }
             else

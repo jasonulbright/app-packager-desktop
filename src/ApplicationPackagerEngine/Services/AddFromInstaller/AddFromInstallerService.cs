@@ -756,7 +756,12 @@ public sealed class AddFromInstallerService : IAddFromInstallerService
         };
     }
 
-    /// <summary>A PowerShell detection that asks Windows Installer for the applied patches of the product in the machine context.</summary>
+    /// <summary>
+    /// A PowerShell detection that asks Windows Installer for the applied patches of the product in the machine context.
+    /// The machine context takes an empty user SID string; Windows PowerShell 5.1 throws on $null. The RecordList and
+    /// Patch members are read through InvokeMember because the PowerShell COM adapter returns no PatchCode for them.
+    /// A failed query writes standard error and exits 1, which ConfigMgr reports as detection state Unknown.
+    /// </summary>
     internal static DetectionConfig PatchDetectionConfig(string productCode, string patchCode)
     {
         if (!ProposedCommand.IsProductCode(productCode) || !ProposedCommand.IsProductCode(patchCode))
@@ -764,10 +769,17 @@ public sealed class AddFromInstallerService : IAddFromInstallerService
         var script = string.Join("\r\n",
             "try {",
             "    $installer = New-Object -ComObject WindowsInstaller.Installer",
-            $"    foreach ($patch in $installer.PatchesEx('{productCode}', $null, 4, 1)) {{",
-            $"        if ($patch.PatchCode -eq '{patchCode}') {{ Write-Output 'Installed'; break }}",
+            $"    $patches = $installer.GetType().InvokeMember('PatchesEx', 'GetProperty', $null, $installer, @('{productCode}', '', 4, 1))",
+            "    $count = $patches.GetType().InvokeMember('Count', 'GetProperty', $null, $patches, $null)",
+            "    for ($i = 0; $i -lt $count; $i++) {",
+            "        $patch = $patches.GetType().InvokeMember('Item', 'GetProperty', $null, $patches, @($i))",
+            "        $code = $patch.GetType().InvokeMember('PatchCode', 'GetProperty', $null, $patch, $null)",
+            $"        if ($code -eq '{patchCode}') {{ Write-Output 'Installed'; break }}",
             "    }",
-            "} catch { }");
+            "} catch {",
+            "    [Console]::Error.WriteLine('The Windows Installer patch query failed: ' + $_.Exception.Message)",
+            "    exit 1",
+            "}");
         return new DetectionConfig { Type = "Script", ScriptLanguage = "PowerShell", ScriptText = script, RegistryHive = null, ValueName = null, Operator = null };
     }
 

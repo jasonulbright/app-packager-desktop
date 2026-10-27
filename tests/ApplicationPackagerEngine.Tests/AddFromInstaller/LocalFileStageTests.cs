@@ -179,6 +179,17 @@ public sealed class LocalFileStageTests : IDisposable
     }
 
     [Fact]
+    public async Task ASavedInstallerWithANonAsciiFileName_IsRefused()
+    {
+        var (def, _) = await SavedAsync(_bed.Msi("contoso-ü.msi"));
+
+        var result = await Staging().StageAsync(def, DownloadRoot);
+
+        Assert.False(result.Success);
+        Assert.Contains("ASCII", result.ErrorMessage);
+    }
+
+    [Fact]
     public async Task AnInstallerThatChangedBetweenTheAnalysisAndTheSave_IsNotSaved()
     {
         var service = _bed.Real();
