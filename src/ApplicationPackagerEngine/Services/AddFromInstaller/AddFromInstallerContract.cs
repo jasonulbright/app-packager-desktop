@@ -48,8 +48,14 @@ public sealed record DetectionProposal(DetectionKind Kind, string Description, I
     /// <summary>The clauses of a Compound proposal; empty otherwise.</summary>
     public IReadOnlyList<DetectionProposal> Clauses { get; init; } = [];
 
-    /// <summary>True when no rule could be derived and the proposal is the default placeholder.</summary>
-    public bool IsDefault { get; init; }
+    private readonly bool _isDefault;
+
+    /// <summary>True when no rule could be derived and the proposal is the default placeholder; always true for None and for a Compound with no clauses.</summary>
+    public bool IsDefault
+    {
+        get => _isDefault || Kind == DetectionKind.None || (Kind == DetectionKind.Compound && Clauses.Count == 0);
+        init => _isDefault = value;
+    }
 
     public static DetectionProposal NoneDerived(string reason) =>
         new(Kind: DetectionKind.None, Description: reason, Values: new Dictionary<string, string>(), Evidence: Evidence.None, Source: null) { IsDefault = true };
@@ -135,9 +141,26 @@ public sealed record AddAnalysisResult(
     public DroppedInstallerAnalysis? Deployment { get; init; }
 }
 
-/// <summary>Where and how SaveAsync writes the definition. Web fields stay empty for a local file.</summary>
+/// <summary>
+/// Where and how SaveAsync writes the definition. Web fields stay empty for a local file. A wizard value replaces
+/// the analysis value of the same field unless the review edited that field (evidence Manual); null keeps the
+/// reviewed value.
+/// </summary>
 public sealed record AddSaveOptions(string DefinitionsFolder)
 {
+    public string? ApplicationName { get; init; }
+    public string? Vendor { get; init; }
+    public string? Architecture { get; init; }
+    /// <summary>The installer file name override; it may hold {version} tokens.</summary>
+    public string? InstallerFileName { get; init; }
+    public string? InstallerType { get; init; }
+    public string? InstallerFramework { get; init; }
+    /// <summary>Machine or User.</summary>
+    public string? InstallContext { get; init; }
+    /// <summary>Install arguments as the wizard writes them; when set and not edited in the review, the definition carries them as they are and no InstallerSettings.</summary>
+    public string? InstallArgs { get; init; }
+    public string? UninstallArgs { get; init; }
+
     public string? DownloadUrl { get; init; }
     public Models.VersionScraperConfig? VersionScraper { get; init; }
     public string? VendorUrl { get; init; }
