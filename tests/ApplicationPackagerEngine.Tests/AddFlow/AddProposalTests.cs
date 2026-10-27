@@ -51,7 +51,7 @@ public sealed class AddProposalTests
         Assert.Contains("default", editor.WarningText, StringComparison.OrdinalIgnoreCase);
 
         editor.Load(new DetectionProposal(Kind: DetectionKind.RegistryVersion, Description: "ARP DisplayVersion",
-            Values: new Dictionary<string, string> { [DetectionValueKeys.Key] = @"SOFTWARE\Contoso", [DetectionValueKeys.Hive] = "HKLM" },
+            Values: new Dictionary<string, string> { [DetectionValueKeys.Key] = @"SOFTWARE\Contoso", [DetectionValueKeys.Hive] = "HKLM", [DetectionValueKeys.Expected] = "1.0" },
             Evidence: Evidence.Confirmed, Source: "MSI ProductCode"));
 
         Assert.False(editor.IsDefault);
@@ -112,6 +112,7 @@ public sealed class AddProposalTests
         editor.Kind = DetectionKind.MsiProductCode;
         Assert.True(editor.ShowProductCode && editor.ShowVersion && !editor.ShowFile);
         editor.ProductCode = "{A}";
+        editor.Expected = "1.0";
         Assert.Equal("{A}", editor.ToProposal().Values[DetectionValueKeys.ProductCode]);
         Assert.False(editor.IsDefault);
     }

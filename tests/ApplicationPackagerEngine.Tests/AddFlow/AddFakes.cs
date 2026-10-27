@@ -63,7 +63,7 @@ internal sealed class FakeAddService : IAddFromInstallerService
         UninstallArguments: new ProposedValue<string>(Value: "/x {ProductCode} /qn", Evidence: Evidence.Predicted, Source: "https://learn.microsoft.com/windows/win32/msi/command-line-options"),
         InstallContext: new ProposedValue<string>(Value: "Machine", Evidence: Evidence.Confirmed, Source: "ALLUSERS"),
         Detection: detection ?? new DetectionProposal(Kind: DetectionKind.MsiProductCode, Description: "MSI product code",
-            Values: new Dictionary<string, string> { [DetectionValueKeys.ProductCode] = "{11111111-2222-3333-4444-555555555555}", [DetectionValueKeys.Hive] = "HKLM", [DetectionValueKeys.Key] = @"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\{11111111-2222-3333-4444-555555555555}" },
+            Values: new Dictionary<string, string> { [DetectionValueKeys.ProductCode] = "{11111111-2222-3333-4444-555555555555}", [DetectionValueKeys.Hive] = "HKLM", [DetectionValueKeys.Expected] = "1.2.3", [DetectionValueKeys.Key] = @"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\{11111111-2222-3333-4444-555555555555}" },
             Evidence: Evidence.Confirmed, Source: "ProductCode"),
         NeedsReview: needsReview,
         ReviewReason: reason,

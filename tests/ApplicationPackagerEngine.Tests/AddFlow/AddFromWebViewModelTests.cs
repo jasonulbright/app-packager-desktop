@@ -191,6 +191,7 @@ public sealed class AddFromWebViewModelTests : IDisposable
 
         h.ViewModel.Detection.Kind = DetectionKind.RegistryVersion;
         h.ViewModel.Detection.Key = @"SOFTWARE\Contoso";
+        h.ViewModel.Detection.Expected = "1.0";
         Assert.False(h.ViewModel.ShowDetectionWarning);
     });
 

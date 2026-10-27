@@ -36,6 +36,7 @@ public sealed partial class DetectionEditorViewModel : ObservableObject
 
     private bool _loading;
     private string? _proposedSource;
+    private string _operator = "";
     private DetectionProposal? _proposed;
 
     public static IReadOnlyList<DetectionKindOption> EditableKinds { get; } =
@@ -137,6 +138,7 @@ public sealed partial class DetectionEditorViewModel : ObservableObject
                 ProductCode = key[UninstallKeyRoot.Length..];
             ValueName = Read(DetectionValueKeys.ValueName, "DisplayVersion");
             Expected = Read(DetectionValueKeys.Expected);
+            _operator = Read(DetectionValueKeys.Operator);
             Is64Bit = !string.Equals(Read(DetectionValueKeys.Is64Bit), "false", StringComparison.OrdinalIgnoreCase);
             FilePath = Read(DetectionValueKeys.FilePath);
             FileName = Read(DetectionValueKeys.FileName);
@@ -191,7 +193,7 @@ public sealed partial class DetectionEditorViewModel : ObservableObject
         if (ShowProductCode && !string.IsNullOrWhiteSpace(ProductCode))
         {
             Put(DetectionValueKeys.ProductCode, ProductCode);
-            values[DetectionValueKeys.Hive] = "HKLM";
+            Put(DetectionValueKeys.Hive, Hive);
             values[DetectionValueKeys.Key] = UninstallKeyRoot + ProductCode.Trim();
         }
         if (ShowFile)
@@ -200,6 +202,8 @@ public sealed partial class DetectionEditorViewModel : ObservableObject
             Put(DetectionValueKeys.FileName, FileName);
         }
         if (ShowVersion) Put(DetectionValueKeys.Expected, Expected);
+        if (_operator.Length > 0 && Kind is DetectionKind.RegistryVersion or DetectionKind.FileVersion or DetectionKind.MsiProductCode)
+            values[DetectionValueKeys.Operator] = _operator;
         if (Kind != DetectionKind.None) values[DetectionValueKeys.Is64Bit] = Is64Bit ? "true" : "false";
         return new DetectionProposal(Kind: Kind, Description: Description, Values: values, Evidence: Evidence, Source: source);
     }

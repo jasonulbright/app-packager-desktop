@@ -786,7 +786,12 @@ public sealed class AddFromInstallerService : IAddFromInstallerService
         }
         bool Is64() => !string.Equals(V("Is64Bit"), "false", StringComparison.OrdinalIgnoreCase);
         string Hive() => V("Hive") is "HKCU" ? "HKCU" : "HKLM";
-        string Expected() => expectedToken is not null && V("Expected") == version ? expectedToken : V("Expected");
+        string Expected()
+        {
+            var expected = expectedToken is not null && V("Expected") == version ? expectedToken : V("Expected");
+            if (string.IsNullOrWhiteSpace(expected)) throw new AddFromInstallerRefusedException("The version rule has no expected version. Enter a version or choose another rule.");
+            return expected;
+        }
 
         switch (p.Kind)
         {
