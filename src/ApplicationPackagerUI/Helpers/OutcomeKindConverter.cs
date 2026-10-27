@@ -7,12 +7,12 @@ namespace ApplicationPackagerUI.Helpers;
 public enum OutcomeKind { None, Success, Caution, Critical }
 
 /// <summary>
-/// Gives the text of a status cell the theme brush of its outcome. The glyph in front of the text decides first; a text
-/// without a glyph is read by its words. Any other text takes the primary text brush, because a style setter that yields no value leaves the cell black.
+/// Gives the outcome of a status cell text. The glyph in front of the text decides first; a text without a glyph is read by its words.
+/// Styles pick the theme brush of each outcome with a DynamicResource, so the brush follows a theme change.
 /// </summary>
-public sealed class OutcomeBrushConverter : IValueConverter
+public sealed class OutcomeKindConverter : IValueConverter
 {
-    public static OutcomeBrushConverter Instance { get; } = new();
+    public static OutcomeKindConverter Instance { get; } = new();
 
     private static readonly string[] CriticalWords = ["fail", "error", "denied", "timed out", "rejected", "unhealthy"];
     private static readonly string[] CautionWords = ["warn", "partial", "skipped"];
@@ -35,17 +35,7 @@ public sealed class OutcomeBrushConverter : IValueConverter
         return SuccessWords.Any(w => lower.StartsWith(w, StringComparison.Ordinal)) ? OutcomeKind.Success : OutcomeKind.None;
     }
 
-    public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
-    {
-        var key = Classify(value as string) switch
-        {
-            OutcomeKind.Success => "SystemFillColorSuccessBrush",
-            OutcomeKind.Caution => "SystemFillColorCautionBrush",
-            OutcomeKind.Critical => "SystemFillColorCriticalBrush",
-            _ => "TextFillColorPrimaryBrush"
-        };
-        return key is not null && Application.Current?.TryFindResource(key) is { } brush ? brush : Binding.DoNothing;
-    }
+    public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture) => Classify(value as string);
 
     public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) => Binding.DoNothing;
 }

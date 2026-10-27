@@ -137,16 +137,6 @@
                 <Setter Property="TextTrimming" Value="CharacterEllipsis" />
                 <Setter Property="ToolTip" Value="{Binding Text, RelativeSource={RelativeSource Self}}" />
             </Style>
-            <Style x:Key="StatusCell" TargetType="TextBlock" BasedOn="{x:Static DataGridTextColumn.DefaultElementStyle}">
-                <Setter Property="TextTrimming" Value="CharacterEllipsis" />
-                <Setter Property="ToolTip" Value="{Binding Text, RelativeSource={RelativeSource Self}}" />
-                <Setter Property="Foreground" Value="{Binding Text, RelativeSource={RelativeSource Self}, Converter={x:Static helpers:OutcomeBrushConverter.Instance}}" />
-                <Style.Triggers>
-                    <DataTrigger Binding="{Binding IsSelected, RelativeSource={RelativeSource AncestorType=DataGridRow}}" Value="True">
-                        <Setter Property="Foreground" Value="{Binding Foreground, RelativeSource={RelativeSource AncestorType=DataGridCell}}" />
-                    </DataTrigger>
-                </Style.Triggers>
-            </Style>
 
             <Style x:Key="WrappedCell" TargetType="TextBlock" BasedOn="{x:Static DataGridTextColumn.DefaultElementStyle}">
                 <Setter Property="TextWrapping" Value="Wrap" />
