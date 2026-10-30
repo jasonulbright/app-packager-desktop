@@ -52,7 +52,7 @@ public sealed class RebootExitCodeTests : IDisposable
 
         var writes = System.Text.RegularExpressions.Regex.Matches(uninstall, @"\$proc\.ExitCode \| Out-File").Count;
         var remaps = System.Text.RegularExpressions.Regex.Matches(uninstall, System.Text.RegularExpressions.Regex.Escape(Remap2)).Count;
-        Assert.Equal(2, writes);
+        Assert.Equal(1, writes);
         Assert.Equal(writes, remaps);
     }
 

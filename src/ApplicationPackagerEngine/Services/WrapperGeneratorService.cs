@@ -90,7 +90,9 @@ public sealed class WrapperGeneratorService
     /// Uninstall runs the definition's command when it has one; otherwise it
     /// resolves the product's Add/Remove Programs entry (see
     /// BuildArpLookupUninstall) using the detection key name and install
-    /// folder as lookup hints.
+    /// folder as lookup hints. With no command and no uninstall arguments,
+    /// any uninstaller it could start waits for input in session 0, so the
+    /// script exits 1 with <see cref="NoProvenUninstallExit"/>.
     /// </summary>
     public void GenerateExeWrappers(string outputPath, string exeFileName,
         string installArgs, string uninstallArgs, string? installerFramework = null,
@@ -113,6 +115,10 @@ public sealed class WrapperGeneratorService
                 $proc.ExitCode | Out-File (Join-Path $PSScriptRoot 'exitcode.txt') -NoNewline
                 exit $proc.ExitCode
                 """;
+        }
+        else if (string.IsNullOrWhiteSpace(uninstallArgs))
+        {
+            uninstallPs1 = NoProvenUninstallExit;
         }
         else
         {
@@ -234,6 +240,11 @@ public sealed class WrapperGeneratorService
 
     public const string NoArpEntryExit = "Write-Output 'No Add/Remove Programs entry of this product was found; nothing was uninstalled.'\r\nexit 1";
 
+    public const string NoProvenUninstallExit =
+        "Write-Output 'This definition has no uninstall command and no silent uninstall arguments. Nothing was uninstalled. Add the uninstall command or the silent uninstall arguments to the definition, then stage it again.'\r\n"
+        + "'1' | Out-File (Join-Path $PSScriptRoot 'exitcode.txt') -NoNewline\r\n"
+        + "exit 1";
+
     /// <summary>
     /// Uninstall body that locates this product's own Add/Remove Programs
     /// entry before running its uninstaller. Candidates are tried from most
@@ -243,13 +254,11 @@ public sealed class WrapperGeneratorService
     /// carrying more than one product of the same installer engine.
     /// The entries of the machine (both registry views) and of the running
     /// account are searched, so a per-user product is found too.
-    /// Inno Setup entries must name an unins*.exe. With no match, Inno Setup
-    /// and NSIS exit 1: re-running the setup with silent switches installs,
-    /// and exit 0 reports an uninstall that removed nothing. Other engines
-    /// fall back to the staged installer with the uninstall arguments, which
-    /// is how a Burn bundle removes itself.
+    /// Inno Setup entries must name an unins*.exe. With no match the script
+    /// exits 1 and never starts the staged installer: an installer started
+    /// with arguments nobody proved can install, or wait for input in
+    /// session 0 until the client times out.
     /// </summary>
-
     public static string BuildArpLookupUninstall(string exeFileName, string uninstallArgs,
         string? installerFramework, string? applicationName, string? arpKeyName, string? installFolder)
     {
@@ -261,17 +270,6 @@ public sealed class WrapperGeneratorService
         var innoFilter = installerFramework is "InnoSetup"
             ? " -and $_.UninstallString -like '*unins*'"
             : "";
-
-        var noMatch = installerFramework switch
-        {
-            "InnoSetup" or "NSIS" => NoArpEntryExit,
-            _ => $$"""
-                $exePath = Join-Path $PSScriptRoot '{{EscapePsLiteral(exeFileName)}}'
-                $proc = Start-Process -FilePath $exePath{{ArgumentList(uninstallArgs)}} -Wait -PassThru -NoNewWindow
-                $proc.ExitCode | Out-File (Join-Path $PSScriptRoot 'exitcode.txt') -NoNewline
-                exit $proc.ExitCode
-                """
-        };
 
         return $$"""
             $arpPaths = @(
@@ -314,7 +312,7 @@ public sealed class WrapperGeneratorService
                     exit $proc.ExitCode
                 }
             }
-            {{noMatch}}
+            {{NoArpEntryExit}}
             """;
     }
 

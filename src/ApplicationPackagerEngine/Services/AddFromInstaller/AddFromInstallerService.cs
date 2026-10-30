@@ -13,6 +13,9 @@ namespace ApplicationPackagerEngine.Services.AddFromInstaller;
 public sealed class AddFromInstallerService : IAddFromInstallerService
 {
     public const string NoSilentSwitchReason = "No silent switch could be derived.";
+
+    public const string NoUninstallReason =
+        "No silent uninstall could be derived. The generated uninstall script uninstalls nothing and exits with code 1. Enter the uninstall command or the silent uninstall arguments before you deploy.";
     public const string DefaultDetectionReason = "Detection needs review: no detection rule could be derived from the installer.";
     public const string PatchesExSource = "https://learn.microsoft.com/windows/win32/api/msi/nf-msi-msienumpatchesexw";
     public const string UninstallKeySource = "https://learn.microsoft.com/windows/win32/msi/uninstall-registry-key";
@@ -120,6 +123,7 @@ public sealed class AddFromInstallerService : IAddFromInstallerService
         var detection = ProposeDetection(drop, isMsi, version);
         var reasons = new List<string>();
         if (noSwitch) reasons.Add(NoSilentSwitchReason);
+        if (!isMsi && !HasUninstall(uninstall.Value, drop.UninstallCommand.HasValue ? drop.UninstallCommand.Value : null)) reasons.Add(NoUninstallReason);
         AddCriticalReasons(reasons, name, version, noSwitch ? null : install, detection);
 
         return new AddAnalysisResult(
@@ -231,6 +235,13 @@ public sealed class AddFromInstallerService : IAddFromInstallerService
         string.IsNullOrWhiteSpace(source)
         || source.StartsWith("switch-table", StringComparison.Ordinal)
         || source.StartsWith("engine-convention", StringComparison.Ordinal);
+
+    /// <summary>
+    /// True when the generated EXE uninstall has something to run: an uninstall command, or silent uninstall
+    /// arguments for the uninstaller of the Add/Remove Programs entry.
+    /// </summary>
+    private static bool HasUninstall(string? uninstallArguments, string? uninstallCommand) =>
+        !string.IsNullOrWhiteSpace(uninstallArguments) || !string.IsNullOrWhiteSpace(uninstallCommand);
 
     private static void AddCriticalReasons(List<string> reasons, ProposedValue<string?> name, ProposedValue<string?> version,
         ProposedValue<string>? install, DetectionProposal detection)
@@ -615,6 +626,7 @@ public sealed class AddFromInstallerService : IAddFromInstallerService
     {
         var reasons = new List<string>();
         if (r.InstallerType is not ("MSI" or "MSIX" or "MSP") && string.IsNullOrWhiteSpace(r.InstallArguments.Value)) reasons.Add(NoSilentSwitchReason);
+        if (r.InstallerType is not ("MSI" or "MSIX" or "MSP") && !HasUninstall(r.UninstallArguments.Value, r.UninstallCommand?.Value)) reasons.Add(NoUninstallReason);
         AddCriticalReasons(reasons, r.Name, r.Version, r.InstallerType is "MSIX" or "MSP" ? null : r.InstallArguments, r.Detection);
         if (r.Package is { Trust: not PackageTrust.Trusted, TrustWarning: { } warning }) reasons.Add(warning);
         return reasons;

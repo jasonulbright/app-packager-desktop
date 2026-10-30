@@ -85,13 +85,13 @@ public sealed class ArpLookupUninstallTests : IDisposable
     }
 
     [Fact]
-    public void OtherEngines_FallBackToTheStagedInstaller()
+    public void OtherEngines_ExitNonZeroWithNoMatch_AndNeverStartTheStagedInstaller()
     {
         var script = Generate("WixBurn", application: "Contoso Bundle", uninstallArgs: "/uninstall /quiet");
 
-        Assert.Contains("$exePath = Join-Path $PSScriptRoot 'ShareX-21.0.0-setup-x64.exe'", script);
-        Assert.Contains("-ArgumentList '/uninstall /quiet'", script);
-        Assert.Equal(2, System.Text.RegularExpressions.Regex.Matches(script, "Start-Process").Count);
+        Assert.DoesNotContain("ShareX-21.0.0-setup-x64.exe", script);
+        Assert.Contains(WrapperGeneratorService.NoArpEntryExit, script);
+        Assert.Single(System.Text.RegularExpressions.Regex.Matches(script, "Start-Process"));
     }
 
     [Fact]
