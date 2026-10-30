@@ -191,14 +191,13 @@ public partial class WorkbenchWindowViewModel : ObservableObject
         if (applications.Count == 0)
         {
             if (Prompts is not null)
-                await Prompts.InfoAsync("Application Workbench", "No applications were found. Load packagers or save a bring-your-own installer first.");
+                await Prompts.InfoAsync("Workbench", "No applications were found. Load packagers or save a bring-your-own installer first.");
             CloseRequested?.Invoke(this, EventArgs.Empty);
             return;
         }
 
         LoadSiteConditions();
-        var initial = applications.FirstOrDefault(a => string.Equals(a.ApplicationId, preselectApplicationId, StringComparison.OrdinalIgnoreCase))
-                      ?? applications[0];
+        var initial = FindDefinition(applications, preselectApplicationId) ?? applications[0];
         _loading = true;
         try
         {
@@ -208,6 +207,29 @@ public partial class WorkbenchWindowViewModel : ObservableObject
         finally { _loading = false; }
         await OpenApplicationAsync(initial, null);
     }
+
+    /// <summary>The application of the id; the preselect of the window and Open definition both look it up here.</summary>
+    public static WorkbenchApplicationItem? FindDefinition(IEnumerable<WorkbenchApplicationItem> applications, string? applicationId) =>
+        string.IsNullOrWhiteSpace(applicationId)
+            ? null
+            : applications.FirstOrDefault(a => string.Equals(a.ApplicationId, applicationId, StringComparison.OrdinalIgnoreCase));
+
+    /// <summary>Opens a definition from the Open definition list. The list is loaded again when the id is new, for example after an add.</summary>
+    public async Task OpenDefinitionAsync(string applicationId)
+    {
+        if (_store is null) return;
+        if (FindDefinition(Applications, applicationId) is { } known)
+        {
+            SelectedApplication = known;
+            return;
+        }
+        if (!await ConfirmDiscardAsync("This application has unsaved changes. Save them before switching?")) return;
+        await ReloadApplicationsAsync(applicationId);
+    }
+
+    /// <summary>The applications of the store loaded again, for the Open definition list.</summary>
+    public async Task<IReadOnlyList<WorkbenchApplicationItem>> LoadDefinitionsAsync() =>
+        _store is null ? Applications : await _catalog.LoadAsync(_store);
 
     private async Task OpenApplicationAsync(WorkbenchApplicationItem application, string? profileId)
     {

@@ -74,7 +74,7 @@ public sealed class MsixPackageReaderTests : IDisposable
 
     public void Dispose()
     {
-        try { Directory.Delete(_dir, true); } catch { }
+        TestCleanup.DeleteDirectory(_dir);
     }
 
     [Fact]
@@ -177,5 +177,30 @@ public sealed class MsixPackageReaderTests : IDisposable
         var path = MsixFixture.WritePackage(_dir, manifestXml: MsixFixture.AppxManifest(), signature: bare);
 
         Assert.Equal(thumbprint, _reader.ReadSignature(path)!.Thumbprint);
+    }
+
+    [Fact]
+    public void ReadSignature_PartAboveTheCap_IsRefusedBeforeItIsRead()
+    {
+        var big = new byte[MsixPackageReader.MaxSignatureBytes + 1];
+        Random.Shared.NextBytes(big);
+        var path = MsixFixture.WritePackage(_dir, manifestXml: MsixFixture.AppxManifest(), signature: big);
+
+        var ex = Assert.Throws<InvalidDataException>(() => _reader.ReadSignature(path));
+
+        Assert.Contains("larger than", ex.Message);
+    }
+
+    [Fact]
+    public void ReadSignature_PartAtTheCap_IsRead()
+    {
+        var (blob, _) = MsixFixture.SignatureBlob();
+        var padded = new byte[MsixPackageReader.MaxSignatureBytes];
+        Array.Copy(blob, padded, blob.Length);
+        var path = MsixFixture.WritePackage(_dir, manifestXml: MsixFixture.AppxManifest(), signature: padded);
+
+        var thrown = Record.Exception(() => _reader.ReadSignature(path));
+
+        Assert.IsNotType<InvalidDataException>(thrown);
     }
 }

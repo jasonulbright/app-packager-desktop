@@ -16,7 +16,7 @@ public sealed class MsiBackedUninstallAndInstallWaitTests : IDisposable
 
     public void Dispose()
     {
-        try { Directory.Delete(_dir, true); } catch { }
+        TestCleanup.DeleteDirectory(_dir);
     }
 
     private (string Install, string Uninstall) Generate(string definition)
@@ -37,6 +37,16 @@ public sealed class MsiBackedUninstallAndInstallWaitTests : IDisposable
         Assert.Contains("Start-Process -FilePath 'msiexec.exe' -ArgumentList @('/x', $code, '/qn', '/norestart')", uninstall);
         Assert.DoesNotContain("teracopy-setup.exe", uninstall);
         Assert.DoesNotContain("$arpPaths", uninstall);
+    }
+
+    [Fact]
+    public void TeraCopy_NamesTheAdvancedInstallerFrameworkItsSwitchesBelongTo()
+    {
+        var definition = DefinitionFixture.Load("teracopy.json");
+
+        Assert.Equal("AdvancedInstaller", definition.InstallerFramework);
+        Assert.StartsWith("/exenoui", definition.InstallArgs);
+        Assert.Contains("/exenoui", SilentSwitchDatabase.Lookup(definition.InstallerFramework!).Install);
     }
 
     [Fact]

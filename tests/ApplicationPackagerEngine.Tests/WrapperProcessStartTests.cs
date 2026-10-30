@@ -18,7 +18,7 @@ public sealed class WrapperProcessStartTests : IDisposable
 
     public void Dispose()
     {
-        try { Directory.Delete(_root, true); } catch (IOException) { } catch (UnauthorizedAccessException) { }
+        TestCleanup.DeleteDirectory(_root);
     }
 
     private string NewDir()
@@ -47,15 +47,15 @@ public sealed class WrapperProcessStartTests : IDisposable
     }
 
     [Fact]
-    public void ArpFallback_WithEmptyUninstallArguments_StartsTheInstallerWithoutAnArgumentList()
+    public void Uninstall_WithEmptyUninstallArguments_NeverStartsTheStagedInstaller()
     {
         var dir = NewDir();
         StageFindstrAs(dir, "setup.exe");
         new WrapperGeneratorService().GenerateExeWrappers(dir, "setup.exe", "", "", installerFramework: null,
             applicationName: "AppPackager Synthetic Product Never Installed " + Guid.NewGuid().ToString("N"));
         var uninstall = Path.Combine(dir, "uninstall.ps1");
-        Assert.DoesNotContain("-ArgumentList ''", File.ReadAllText(uninstall));
-        Assert.Equal(2, Run(uninstall));
+        Assert.DoesNotContain("setup.exe", File.ReadAllText(uninstall));
+        Assert.Equal(1, Run(uninstall));
     }
 
     [Fact]

@@ -46,7 +46,8 @@ public sealed partial class InstallerAnalysisService
     /// <summary>
     /// Reads a patch's summary information and MsiPatchMetadata, and the effective detection
     /// target: the first target ProductCode, or that of the candidate base MSI the patch targets, with the
-    /// post-patch version from the "Name (version)" convention of the patch DisplayName.
+    /// post-patch version from the UpdatedVersion of the patch applicability XML, else from the "Name (version)"
+    /// convention of the patch DisplayName.
     /// </summary>
     private EffectiveDetection? ReadMsp(string path, IReadOnlyList<string> baseMsis, List<MetadataBlock> metadata, List<string> notes, CancellationToken ct)
     {
@@ -67,34 +68,12 @@ public sealed partial class InstallerAnalysisService
         var targets = template.Split(';').Select(t => t.Trim()).Where(t => Regex.IsMatch(t, @"^\{[0-9A-Fa-f-]{36}\}$")).ToList();
         var patchCodes = Regex.Matches(summary.GetValueOrDefault(9, ""), @"\{[0-9A-Fa-f-]{36}\}").Select(m => m.Value).ToList();
         var displayName = meta.GetValueOrDefault("DisplayName", "");
-        string? version = null;
-        foreach (var source in new[] { displayName, meta.GetValueOrDefault("Description", ""), summary.GetValueOrDefault(3, ""), summary.GetValueOrDefault(2, "") })
-        {
-            var m = Regex.Match(source, @"\(([0-9]+(?:\.[0-9]+){1,3})\)");
-            if (m.Success) { version = m.Groups[1].Value; break; }
-        }
-
-        var facts = new List<AnalysisFact>
-        {
-            Fact("DisplayName", displayName, "msi-patch-metadata"),
-            Fact("TargetProductName", meta.GetValueOrDefault("TargetProductName", ""), "msi-patch-metadata"),
-            Fact("Post-patch version", version, "msi-patch-metadata", "Predicted"),
-            Fact("Classification", meta.GetValueOrDefault("Classification", ""), "msi-patch-metadata"),
-            Fact("ManufacturerName", meta.GetValueOrDefault("ManufacturerName", ""), "msi-patch-metadata"),
-            Fact("MoreInfoURL", meta.GetValueOrDefault("MoreInfoURL", ""), "msi-patch-metadata"),
-            Fact("CreationTimeUTC", meta.GetValueOrDefault("CreationTimeUTC", ""), "msi-patch-metadata"),
-            Fact("AllowRemoval", meta.GetValueOrDefault("AllowRemoval", ""), "msi-patch-metadata"),
-            Fact("Primary PatchCode", patchCodes.FirstOrDefault(), "msi-summary-information"),
-            Fact("Patch codes", patchCodes.Count.ToString(CultureInfo.InvariantCulture), "msi-summary-information"),
-            Fact("Target ProductCodes", string.Join(", ", targets), "msi-summary-information")
-        };
-        metadata.Add(new MetadataBlock("MSI patch (" + Path.GetFileName(path) + ")", facts.Where(f => f.Value.Length > 0).ToList()));
 
         string productCode = targets.FirstOrDefault() ?? "";
         string baseVersion = "";
         string architecture = "";
         MsiProperties? baseProps = null;
-        var explanation = "The ProductCode is the patch's first target; the version is read from the patch DisplayName.";
+        string? baseFile = null;
         if (baseMsis.Count > 0)
         {
             (string Path, MsiProperties Props)? chosen = null;
@@ -109,18 +88,55 @@ public sealed partial class InstallerAnalysisService
                 productCode = found.Props.ProductCode;
                 baseVersion = found.Props.ProductVersion;
                 architecture = Safe(() => _msi.ReadTemplateArchitecture(found.Path), "");
-                explanation = "The ProductCode is the base MSI's (" + Path.GetFileName(found.Path) + "), which the patch targets; the version is read from the patch DisplayName.";
-            }
-            else
-            {
-                explanation = "No MSI next to the patch is among the patch targets; the ProductCode is the patch's first target and the version is read from the patch DisplayName.";
+                baseFile = Path.GetFileName(found.Path);
             }
         }
+
+        var version = Safe<string?>(() => MsiDatabase.PatchUpdatedVersion(MsiDatabase.ReadPatchXml(path), productCode, baseVersion), null);
+        var versionFromXml = version is not null;
+        var versionField = "the patch applicability XML";
+        var versionFactSource = "msi-patch-xml";
+        foreach (var (field, factSource, text) in versionFromXml ? [] : new[]
+                 {
+                     ("the patch DisplayName", "msi-patch-metadata", displayName),
+                     ("the patch Description", "msi-patch-metadata", meta.GetValueOrDefault("Description", "")),
+                     ("the patch Subject", "msi-summary-information", summary.GetValueOrDefault(3, "")),
+                     ("the patch Title", "msi-summary-information", summary.GetValueOrDefault(2, ""))
+                 })
+        {
+            var m = Regex.Match(text, @"\(([0-9]+(?:\.[0-9]+){1,3})\)");
+            if (m.Success) { version = m.Groups[1].Value; versionField = field; versionFactSource = factSource; break; }
+        }
+
+        var facts = new List<AnalysisFact>
+        {
+            Fact("DisplayName", displayName, "msi-patch-metadata"),
+            Fact("TargetProductName", meta.GetValueOrDefault("TargetProductName", ""), "msi-patch-metadata"),
+            Fact("Post-patch version", version, versionFactSource, versionFromXml ? "Confirmed" : "Predicted"),
+            Fact("Classification", meta.GetValueOrDefault("Classification", ""), "msi-patch-metadata"),
+            Fact("ManufacturerName", meta.GetValueOrDefault("ManufacturerName", ""), "msi-patch-metadata"),
+            Fact("MoreInfoURL", meta.GetValueOrDefault("MoreInfoURL", ""), "msi-patch-metadata"),
+            Fact("CreationTimeUTC", meta.GetValueOrDefault("CreationTimeUTC", ""), "msi-patch-metadata"),
+            Fact("AllowRemoval", meta.GetValueOrDefault("AllowRemoval", ""), "msi-patch-metadata"),
+            Fact("Primary PatchCode", patchCodes.FirstOrDefault(), "msi-summary-information"),
+            Fact("Patch codes", patchCodes.Count.ToString(CultureInfo.InvariantCulture), "msi-summary-information"),
+            Fact("Target ProductCodes", string.Join(", ", targets), "msi-summary-information")
+        };
+        metadata.Add(new MetadataBlock("MSI patch (" + Path.GetFileName(path) + ")", facts.Where(f => f.Value.Length > 0).ToList()));
+
+        var versionSource = versionFromXml
+            ? "the version is the UpdatedVersion of this target in the patch applicability XML"
+            : version is null ? "no version was read" : "the version is read from " + versionField;
+        var explanation = baseFile is not null
+            ? "The ProductCode is the base MSI's (" + baseFile + "), which the patch targets; " + versionSource + "."
+            : baseMsis.Count > 0
+                ? "No MSI next to the patch is among the patch targets; the ProductCode is the patch's first target and " + versionSource + "."
+                : "The ProductCode is the patch's first target; " + versionSource + ".";
         if (string.IsNullOrEmpty(productCode)) return null;
 
         var (key, keyExplanation) = PostPatchKey(productCode, baseProps, architecture);
         explanation += keyExplanation;
-        if (version is null) explanation += " The patch DisplayName carries no version in parentheses.";
+        if (version is null) explanation += " The patch applicability XML has no UpdatedVersion for this target, and no patch name or title carries a version in parentheses.";
         return new EffectiveDetection(productCode, meta.GetValueOrDefault("TargetProductName", ""), version ?? "", key, explanation)
         {
             BaseVersion = baseVersion,
@@ -525,7 +541,9 @@ public sealed partial class InstallerAnalysisService
         var name = (string?)identity?.Attribute("Name") ?? "";
         var publisher = (string?)identity?.Attribute("Publisher") ?? "";
         var version = (string?)identity?.Attribute("Version") ?? "";
-        var arch = (string?)identity?.Attribute("ProcessorArchitecture") ?? "";
+        var arch = bundle
+            ? MsixPackageReader.BundleDefinitionArchitecture(MsixPackageReader.BundleApplicationArchitectures(root))
+            : (string?)identity?.Attribute("ProcessorArchitecture") ?? "";
         var properties = ChildElement(root, "Properties");
         var displayName = Child(properties, "DisplayName");
         var publisherDisplay = Child(properties, "PublisherDisplayName");
@@ -566,7 +584,7 @@ public sealed partial class InstallerAnalysisService
         if (ProposedCommand.IsMsixName(name))
         {
             o.DetectionHint = $"MSIX family-name detection: Get-AppxPackage -Name {name}" + (family.Length > 0 ? $" (family {family})." : ".");
-            o.UninstallCommand = $"Get-AppxPackage -Name '{name}' | Remove-AppxPackage";
+            o.UninstallCommand = MsixUninstallCommand(name, publisher.Length > 0 ? MsixPackageReader.PublisherHash(publisher) : null, bundle);
         }
         else if (name.Length > 0)
         {
@@ -574,6 +592,20 @@ public sealed partial class InstallerAnalysisService
             o.DetectionHint = "MSIX family-name detection; the identity name is not valid and is not shown in a command.";
             notes.Add("The MSIX identity name is not a valid package name (3 to 50 letters, digits, dots and dashes); no uninstall command is proposed.");
         }
+    }
+
+    /// <summary>
+    /// Removes the provisioning entry, then the package for every user. Remove-AppxProvisionedPackage leaves the
+    /// existing user registrations, and a provisioned package stays detected while its entry exists. With a publisher
+    /// id, only packages of that publisher match: the provisioned PackageName ends with it and an installed package
+    /// carries it as PublisherId. A bundle is removed as its Bundle package, which removes the packages it holds.
+    /// </summary>
+    public static string MsixUninstallCommand(string identityName, string? publisherId, bool bundle)
+    {
+        var provisioned = publisherId is null ? "" : $" -and $_.PackageName.EndsWith('_{publisherId}')";
+        var installed = publisherId is null ? "" : $" | Where-Object {{ $_.PublisherId -eq '{publisherId}' }}";
+        return $"Get-AppxProvisionedPackage -Online | Where-Object {{ $_.DisplayName -eq '{identityName}'{provisioned} }} | ForEach-Object {{ Remove-AppxProvisionedPackage -Online -PackageName $_.PackageName }}; "
+            + $"Get-AppxPackage -AllUsers -Name '{identityName}' -PackageTypeFilter {(bundle ? "Bundle" : "Main, Framework, Resource, Optional")}{installed} | ForEach-Object {{ Remove-AppxPackage -Package $_.PackageFullName -AllUsers }}";
     }
 
     private static void ReadNuspec(BoundedZip zip, IReadOnlyList<System.IO.Compression.ZipArchiveEntry> entries, string engine, List<MetadataBlock> metadata, DeploymentOverrides o, List<string> notes)

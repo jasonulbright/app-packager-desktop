@@ -203,6 +203,13 @@ public sealed class AppDefinition
     public LocalSourceConfig? LocalSource { get; set; }
 
     /// <summary>
+    /// The analysed installer file of a definition made by Add from file. With no download
+    /// source, the stage copies this file, checks its SHA-256 and takes its version; no
+    /// version source and no download run.
+    /// </summary>
+    public LocalInstallerConfig? LocalInstaller { get; set; }
+
+    /// <summary>
     /// Operator-chosen files staged beside the installer, such as a license
     /// key file the setup reads from its own folder. Stage refuses to run
     /// while one is not chosen or no longer exists.
@@ -420,6 +427,19 @@ public sealed class LocalSourceConfig
 
     [JsonIgnore]
     public bool IsRequired => Mode.Equals("Required", StringComparison.OrdinalIgnoreCase);
+}
+
+/// <summary>One installer file on this computer, identified by its SHA-256.</summary>
+public sealed class LocalInstallerConfig
+{
+    /// <summary>The full path of the installer file the analysis read.</summary>
+    public string Path { get; set; } = "";
+
+    /// <summary>The SHA-256 of the file in hexadecimal; the stage refuses a file with another hash.</summary>
+    public string Sha256 { get; set; } = "";
+
+    /// <summary>The reviewed version; it names the staged folder and fills the version tokens.</summary>
+    public string Version { get; set; } = "";
 }
 
 public sealed class LocalSourceStagedName

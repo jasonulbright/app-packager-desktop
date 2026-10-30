@@ -58,7 +58,7 @@
                         <DataGrid.Columns>
                             <DataGridTextColumn Header="Device" Binding="{Binding Device}" Width="2*" MinWidth="160" ElementStyle="{StaticResource TrimmedCell}" />
                             <DataGridTextColumn Header="ResourceID" Binding="{Binding ResourceId}" Width="112" MinWidth="112" ElementStyle="{StaticResource TrimmedCell}" />
-                            <DataGridTextColumn Header="State" Binding="{Binding State}" Width="120" MinWidth="120" ElementStyle="{StaticResource TrimmedCell}" />
+                            <DataGridTextColumn Header="State" Binding="{Binding State}" Width="120" MinWidth="120" ElementStyle="{StaticResource StatusCell}" />
                             <DataGridTextColumn Header="Online" Binding="{Binding Online}" Width="96" MinWidth="96" ElementStyle="{StaticResource TrimmedCell}" />
                             <DataGridTextColumn Header="Output" Binding="{Binding Output}" Width="2*" MinWidth="140" ElementStyle="{StaticResource MonoCell}" />
                             <DataGridTextColumn Header="Message" Binding="{Binding Message}" Width="3*" MinWidth="200" ElementStyle="{StaticResource WrappedCell}" />
@@ -77,7 +77,7 @@
                             <DataGridTextColumn Header="Action" Binding="{Binding Action}" Width="150" MinWidth="150" ElementStyle="{StaticResource TrimmedCell}" />
                             <DataGridTextColumn Header="Started" Binding="{Binding Started}" Width="166" MinWidth="166" ElementStyle="{StaticResource TrimmedCell}" />
                             <DataGridTextColumn Header="Targets" Binding="{Binding Targets}" Width="96" MinWidth="90" ElementStyle="{StaticResource TrimmedCell}" />
-                            <DataGridTextColumn Header="State" Binding="{Binding State}" Width="180" MinWidth="180" ElementStyle="{StaticResource TrimmedCell}" />
+                            <DataGridTextColumn Header="State" Binding="{Binding State}" Width="180" MinWidth="180" ElementStyle="{StaticResource StatusCell}" />
                             <DataGridTextColumn Header="Results" Binding="{Binding Results}" Width="*" MinWidth="140" ElementStyle="{StaticResource TrimmedCell}" />
                         </DataGrid.Columns>
                     </DataGrid>

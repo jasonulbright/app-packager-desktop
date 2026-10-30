@@ -217,6 +217,33 @@ public sealed partial class InstallerAnalysisService
         return match;
     }
 
+    /// <summary>
+    /// Extracts the whole payload into a new sandbox session with the same limits, link rules, 7-Zip version
+    /// gate and time limit as <see cref="ExtractPayloadAsync"/>. Disposing the result deletes the session.
+    /// </summary>
+    public async Task<SandboxExtraction> ExtractToSandboxAsync(string path, AnalysisLimits limits, CancellationToken ct)
+    {
+        var full = CheckFile(path, limits);
+        var session = _sandbox.NewSession();
+        try
+        {
+            var result = await Bounded(token => ExtractPayloadCoreAsync(full, Identify(full, limits, "extracted"), null, session, limits, token), limits, ct,
+                "The extraction stopped at the time limit.", "The payload could not be extracted; the file may be damaged.").ConfigureAwait(false);
+            return new SandboxExtraction(result.Folder, result.Files, result.Bytes, result.Skipped, () => ReleaseQuietly(session));
+        }
+        catch
+        {
+            ReleaseQuietly(session);
+            throw;
+        }
+    }
+
+    private void ReleaseQuietly(string session)
+    {
+        try { _sandbox.Release(session); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InstallerAnalysisException) { }
+    }
+
     public async Task<PayloadExtractResult> ExtractPayloadAsync(string path, IReadOnlyList<PayloadEntry>? entries, string targetFolder, AnalysisLimits limits, CancellationToken ct)
     {
         var full = CheckFile(path, limits);

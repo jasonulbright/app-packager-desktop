@@ -153,7 +153,13 @@ public sealed partial class MaintenanceWindowEditorViewModel : ObservableObject
         nameof(ShowPatchOffset), nameof(ShowWeekdayOffset), nameof(Intervals), nameof(IntervalLabel), nameof(DayOfMonthNote), nameof(HasDayOfMonthNote))]
     private MaintenanceScheduleKind _kind = MaintenanceScheduleKind.Weekly;
 
-    [ObservableProperty] private DateTime? _startDate;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(StartDateTip))]
+    private DateTime? _startDate;
+
+    /// <summary>The start date in the long date format. A binding StringFormat does not apply to the object-typed ToolTip.</summary>
+    public string? StartDateTip => StartDate?.ToString("D", System.Globalization.CultureInfo.CurrentCulture);
+
     [ObservableProperty] private int _startHour;
     [ObservableProperty] private int _startMinute;
     [ObservableProperty] private int _durationHours = 4;

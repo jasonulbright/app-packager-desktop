@@ -1,4 +1,4 @@
-﻿using System.ComponentModel;
+using System.ComponentModel;
 using System.Windows;
 using System.Windows.Controls;
 using ApplicationPackagerEngine.Services;
@@ -33,7 +33,6 @@ public partial class SiteHygienePage : INavigationAware
         {
             if (dgFindings.IsVisible && _selectionPending) SelectFindings();
         };
-        SizeChanged += (_, e) => ApplyLayout(e.NewSize.Height < ShortHeight);
         FitTab(tab: gridFindingsTab, gridMinHeight: FindingsGridMinHeight, parts: [pnlFindingFilter, pnlFindingActions, pnlFindingDetail, txtNotRun]);
         FitTab(tab: gridRelationsTab, gridMinHeight: RelationsGridMinHeight, parts: [pnlRelationsActions]);
         FitTab(tab: gridHistoryTab, gridMinHeight: HistoryGridMinHeight, parts: [txtHygieneHistoryIntro, pnlHygieneHistoryFilter, pnlHygieneHistoryDetail]);
@@ -63,7 +62,7 @@ public partial class SiteHygienePage : INavigationAware
             if (e.ExtentHeightChange != 0 || e.ViewportHeightChange != 0) FitFixText();
         };
         dgFindings.SizeChanged += (_, _) => FitFixText();
-        ApplyLayout(compact: false);
+        ShowResultSummary();
     }
 
     /// <summary>
@@ -175,22 +174,11 @@ public partial class SiteHygienePage : INavigationAware
     /// <summary>The fewest lines the fix text box shows when the tab is short.</summary>
     public const int MinFixLines = 3;
 
-    private bool _compact;
-
-    private void ApplyLayout(bool compact)
+    private void ShowResultSummary()
     {
-        _compact = compact;
-        txtHygieneIntro.Visibility = compact ? Visibility.Collapsed : Visibility.Visible;
-        pageRoot.Margin = compact ? CompactMargin : RegularMargin;
         txtHygieneResultSummary.Visibility = _viewModel.HasAuditWarning ? Visibility.Collapsed : Visibility.Visible;
         FitResults();
     }
-
-    private static readonly Thickness RegularMargin = new(24, 16, 24, 12);
-    private static readonly Thickness CompactMargin = new(24, 6, 24, 4);
-
-    /// <summary>Below this page height the intro line is hidden, so the tabs keep a usable height at 900x600.</summary>
-    public const double ShortHeight = 700;
 
     /// <summary>The selection changes a mirror made in the findings grid; a test counts the work of a mirror with it.</summary>
     public int SelectionEvents { get; private set; }
@@ -231,7 +219,7 @@ public partial class SiteHygienePage : INavigationAware
                 ShowSorts();
                 break;
             case nameof(SiteHygieneViewModel.HasAuditWarning) or nameof(SiteHygieneViewModel.ShowsResults):
-                ApplyLayout(_compact);
+                ShowResultSummary();
                 break;
             case nameof(SiteHygieneViewModel.LiveColumns) or nameof(SiteHygieneViewModel.SelectedLiveView):
                 BuildLiveColumns();

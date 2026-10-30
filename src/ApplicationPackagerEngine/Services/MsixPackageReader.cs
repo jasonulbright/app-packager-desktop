@@ -1,17 +1,25 @@
 using System.IO.Compression;
+using System.Security.Cryptography;
 using System.Security.Cryptography.Pkcs;
+using System.Security.Cryptography.X509Certificates;
 using System.Xml.Linq;
 
 namespace ApplicationPackagerEngine.Services;
 
-/// <summary>Package identity read from an MSIX/APPX AppxManifest.xml.</summary>
+/// <summary>Package identity read from AppxManifest.xml, or from AppxMetadata\AppxBundleManifest.xml for a bundle.</summary>
 public sealed class MsixIdentity
 {
     public string Name { get; init; } = "";
     public string Version { get; init; } = "";
     /// <summary>Full publisher distinguished name, e.g. "CN=Contoso, O=Contoso".</summary>
     public string Publisher { get; init; } = "";
+    /// <summary>The architecture of the package full name; "neutral" for a bundle.</summary>
     public string ProcessorArchitecture { get; init; } = "";
+    /// <summary>The resource id of the package full name; "~" for a bundle, empty for a main package.</summary>
+    public string ResourceId { get; init; } = "";
+    public bool IsBundle { get; init; }
+    /// <summary>The architectures the package runs on: its own, or those of the application packages of a bundle.</summary>
+    public IReadOnlyList<string> PackageArchitectures { get; init; } = [];
     /// <summary>Package DisplayName from the Properties element, when present.</summary>
     public string? DisplayName { get; init; }
 }
@@ -21,10 +29,25 @@ public sealed class MsixSignature
 {
     public string Thumbprint { get; init; } = "";
     public string Subject { get; init; } = "";
-    /// <summary>True when the CMS signature verifies over the package's signed content.</summary>
+    /// <summary>
+    /// True when the CMS signature is well formed and verifies over the signed data it carries. The digests in that data are
+    /// not compared with the package files.
+    /// </summary>
     public bool SignatureValid { get; init; }
-    /// <summary>True when the signer certificate chains to a trusted root on this machine.</summary>
+    /// <summary>
+    /// True when the signer certificate chains to a trusted root on this machine, at the current time or, for an
+    /// expired certificate, at the time of a valid timestamp that falls inside the validity of the certificate.
+    /// </summary>
     public bool ChainTrusted { get; init; }
+
+    /// <summary>The time of the valid timestamp the trust decision used; null when none was used.</summary>
+    public DateTimeOffset? Timestamp { get; init; }
+
+    /// <summary>
+    /// True when the chain fails only because the signer certificate is outside its validity period and no valid
+    /// timestamp inside that period exists, or the certificate has the lifetime signing usage.
+    /// </summary>
+    public bool CertificateExpired { get; init; }
 }
 
 /// <summary>
@@ -37,6 +60,16 @@ public sealed class MsixPackageReader
     private const string ManifestEntry = "AppxManifest.xml";
     private const string BundleManifestEntry = "AppxMetadata/AppxBundleManifest.xml";
     private const string SignatureEntry = "AppxSignature.p7x";
+
+    /// <summary>The largest AppxSignature.p7x read. A real part is a few kilobytes; the cap keeps a crafted part from exhausting memory.</summary>
+    public const int MaxSignatureBytes = 1024 * 1024;
+
+    /// <summary>The roots a chain is built against instead of the machine stores; null uses the machine stores.</summary>
+    private readonly X509Certificate2Collection? _customRoots;
+
+    public MsixPackageReader() { }
+
+    internal MsixPackageReader(X509Certificate2Collection customRoots) => _customRoots = customRoots;
 
     /// <summary>
     /// Throws unless the file starts with the zip local-file header. A vendor
@@ -68,11 +101,15 @@ public sealed class MsixPackageReader
         ValidateContainer(path);
 
         using var zip = ZipFile.OpenRead(path);
-        var entry = zip.GetEntry(ManifestEntry) ?? zip.GetEntry(BundleManifestEntry)
+        var entry = zip.GetEntry(ManifestEntry);
+        var bundle = entry is null;
+        entry ??= zip.GetEntry(BundleManifestEntry)
             ?? throw new InvalidOperationException($"{ManifestEntry} not found in MSIX: {Path.GetFileName(path)}");
 
-        using var stream = entry.Open();
-        var doc = XDocument.Load(stream);
+        XDocument doc;
+        using (var stream = entry.Open())
+        using (var reader = System.Xml.XmlReader.Create(stream, new System.Xml.XmlReaderSettings { DtdProcessing = System.Xml.DtdProcessing.Prohibit, XmlResolver = null }))
+            doc = XDocument.Load(reader);
         var root = doc.Root ?? throw new InvalidOperationException("MSIX manifest is empty.");
 
         var identity = root.Elements().FirstOrDefault(e => e.Name.LocalName == "Identity")
@@ -82,14 +119,13 @@ public sealed class MsixPackageReader
         if (string.IsNullOrWhiteSpace(name))
             throw new InvalidOperationException("MSIX manifest Identity carries no Name.");
 
-        // A bundle manifest spells the architecture per-package; the bundle
-        // Identity itself has none.
-        var arch = (string?)identity.Attribute("ProcessorArchitecture")
-            ?? (string?)identity.Attribute("Architecture")
-            ?? "";
-
         var displayName = root.Elements().FirstOrDefault(e => e.Name.LocalName == "Properties")
             ?.Elements().FirstOrDefault(e => e.Name.LocalName == "DisplayName")?.Value;
+
+        // The bundle Identity has no architecture: the bundle full name is always neutral with resource id "~",
+        // and each application package in the Packages list names its own architecture.
+        var arch = bundle ? "neutral" : (string?)identity.Attribute("ProcessorArchitecture") ?? "";
+        var packageArchitectures = bundle ? BundleApplicationArchitectures(root) : arch.Length > 0 ? [arch] : [];
 
         return new MsixIdentity
         {
@@ -97,9 +133,40 @@ public sealed class MsixPackageReader
             Version = (string?)identity.Attribute("Version") ?? "",
             Publisher = (string?)identity.Attribute("Publisher") ?? "",
             ProcessorArchitecture = arch,
+            ResourceId = bundle ? "~" : (string?)identity.Attribute("ResourceId") ?? "",
+            IsBundle = bundle,
+            PackageArchitectures = packageArchitectures,
             DisplayName = string.IsNullOrWhiteSpace(displayName) ? null : displayName
         };
     }
+
+    /// <summary>
+    /// The distinct architectures of the application packages of a bundle manifest, in document order. A package
+    /// with no Type attribute is an application package.
+    /// </summary>
+    public static IReadOnlyList<string> BundleApplicationArchitectures(XElement bundleRoot) =>
+        bundleRoot.Elements().FirstOrDefault(e => e.Name.LocalName == "Packages")?.Elements()
+            .Where(p => p.Name.LocalName == "Package"
+                && ((string?)p.Attribute("Type") ?? "application").Equals("application", StringComparison.OrdinalIgnoreCase))
+            .Select(p => ((string?)p.Attribute("Architecture") ?? "").Trim())
+            .Where(a => a.Length > 0)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList() ?? [];
+
+    /// <summary>
+    /// The architecture a bundle proposes for the definition: x64 when an application package is x64, else neutral
+    /// when one is neutral, else the first application package architecture; empty when the bundle lists none.
+    /// </summary>
+    public static string BundleDefinitionArchitecture(IReadOnlyList<string> packageArchitectures)
+    {
+        if (packageArchitectures.Any(a => a.Equals("x64", StringComparison.OrdinalIgnoreCase))) return "x64";
+        if (packageArchitectures.Any(a => a.Equals("neutral", StringComparison.OrdinalIgnoreCase))) return "neutral";
+        return packageArchitectures.Count > 0 ? packageArchitectures[0] : "";
+    }
+
+    /// <summary>The package full name: Name_Version_Architecture_ResourceId_PublisherId.</summary>
+    public static string PackageFullName(string name, string version, string architecture, string? resourceId, string publisher) =>
+        $"{name}_{version}_{architecture}_{resourceId}_{PublisherHash(publisher)}";
 
     /// <summary>
     /// Reads the signing certificate from AppxSignature.p7x and reports whether
@@ -117,9 +184,11 @@ public sealed class MsixPackageReader
         {
             var entry = zip.GetEntry(SignatureEntry);
             if (entry is null) return null;
+            if (entry.Length > MaxSignatureBytes) throw TooLarge();
             using var stream = entry.Open();
             using var buffer = new MemoryStream();
-            stream.CopyTo(buffer);
+            // The declared length can understate the stream, so the read stops one byte past the cap.
+            stream.CopyTo(new LimitedWriter(buffer, MaxSignatureBytes, TooLarge));
             p7x = buffer.ToArray();
         }
 
@@ -140,22 +209,117 @@ public sealed class MsixPackageReader
         try { cms.CheckSignature(verifySignatureOnly: true); }
         catch (System.Security.Cryptography.CryptographicException) { signatureValid = false; }
 
-        var chainTrusted = false;
-        try
+        var (chainTrusted, onlyTime) = BuildChain(cert, cms.Certificates, at: null, CodeSigningOid);
+        DateTimeOffset? timestamp = null;
+        var expired = false;
+        if (!chainTrusted && onlyTime)
         {
-            using var chain = new System.Security.Cryptography.X509Certificates.X509Chain();
-            chain.ChainPolicy.RevocationMode = System.Security.Cryptography.X509Certificates.X509RevocationMode.NoCheck;
-            chainTrusted = chain.Build(cert);
+            timestamp = HasUsage(cert, LifetimeSigningOid) ? null : ValidTimestamp(signer!, cms.Certificates);
+            chainTrusted = timestamp is { } at && BuildChain(cert, cms.Certificates, at, CodeSigningOid).Trusted;
+            if (!chainTrusted) timestamp = null;
+            expired = !chainTrusted;
         }
-        catch (System.Security.Cryptography.CryptographicException) { }
 
         return new MsixSignature
         {
             Thumbprint = cert.Thumbprint,
             Subject = cert.Subject,
             SignatureValid = signatureValid,
-            ChainTrusted = chainTrusted
+            ChainTrusted = chainTrusted,
+            Timestamp = timestamp,
+            CertificateExpired = expired
         };
+    }
+
+    private const string CodeSigningOid = "1.3.6.1.5.5.7.3.3";
+    private const string TimeStampingOid = "1.3.6.1.5.5.7.3.8";
+    private const string LifetimeSigningOid = "1.3.6.1.4.1.311.10.3.13";
+
+    /// <summary>The RFC 3161 timestamp token attribute of Authenticode, and the one of RFC 5544.</summary>
+    private static readonly string[] TimestampTokenOids = ["1.3.6.1.4.1.311.3.3.1", "1.2.840.113549.1.9.16.2.14"];
+
+    private const X509ChainStatusFlags TimeFlags = X509ChainStatusFlags.NotTimeValid | X509ChainStatusFlags.NotTimeNested;
+
+    /// <summary>
+    /// Builds the chain of <paramref name="certificate"/> at <paramref name="at"/> (now when null) for the usage.
+    /// OnlyTime is true when the chain fails and every failure is a validity-period failure.
+    /// </summary>
+    private (bool Trusted, bool OnlyTime) BuildChain(X509Certificate2 certificate, X509Certificate2Collection extra, DateTimeOffset? at, string usage)
+    {
+        try
+        {
+            using var chain = new X509Chain();
+            chain.ChainPolicy.RevocationMode = X509RevocationMode.NoCheck;
+            chain.ChainPolicy.ExtraStore.AddRange(extra);
+            chain.ChainPolicy.ApplicationPolicy.Add(new Oid(usage));
+            if (at is { } time) chain.ChainPolicy.VerificationTime = time.UtcDateTime;
+            if (_customRoots is not null)
+            {
+                chain.ChainPolicy.TrustMode = X509ChainTrustMode.CustomRootTrust;
+                chain.ChainPolicy.CustomTrustStore.AddRange(_customRoots);
+            }
+            if (chain.Build(certificate)) return (true, false);
+            var flags = chain.ChainStatus.Aggregate(X509ChainStatusFlags.NoError, (all, s) => all | s.Status);
+            return (false, (flags & TimeFlags) != 0 && (flags & ~TimeFlags) == 0);
+        }
+        catch (CryptographicException)
+        {
+            return (false, false);
+        }
+    }
+
+    private static bool HasUsage(X509Certificate2 certificate, string usage) =>
+        certificate.Extensions.OfType<X509EnhancedKeyUsageExtension>().Any(e => e.EnhancedKeyUsages.Cast<Oid>().Any(o => o.Value == usage));
+
+    /// <summary>
+    /// The time of the first timestamp token that signs this signer's signature, whose TSA certificate has the time
+    /// stamping usage and chains at that time; null when there is none.
+    /// </summary>
+    private DateTimeOffset? ValidTimestamp(SignerInfo signer, X509Certificate2Collection extra)
+    {
+        foreach (var attribute in signer.UnsignedAttributes)
+        {
+            if (!TimestampTokenOids.Contains(attribute.Oid?.Value)) continue;
+            foreach (var value in attribute.Values)
+            {
+                if (!Rfc3161TimestampToken.TryDecode(value.RawData, out var token, out _)) continue;
+                if (!token.VerifySignatureForSignerInfo(signer, out var tsa, extra) || tsa is null) continue;
+                var time = token.TokenInfo.Timestamp;
+                var pool = new X509Certificate2Collection(extra);
+                pool.AddRange(token.AsSignedCms().Certificates);
+                if (HasUsage(tsa, TimeStampingOid) && BuildChain(tsa, pool, time, TimeStampingOid).Trusted) return time;
+            }
+        }
+        return null;
+    }
+
+    private static InvalidDataException TooLarge() =>
+        new($"{SignatureEntry} is larger than {MaxSignatureBytes} bytes.");
+
+    /// <summary>A write-only stream that throws once more than the limit has been written.</summary>
+    private sealed class LimitedWriter(Stream inner, long limit, Func<Exception> exceeded) : Stream
+    {
+        public override void Write(byte[] buffer, int offset, int count)
+        {
+            if (inner.Length + count > limit) throw exceeded();
+            inner.Write(buffer, offset, count);
+        }
+
+        public override void Write(ReadOnlySpan<byte> buffer)
+        {
+            if (inner.Length + buffer.Length > limit) throw exceeded();
+            inner.Write(buffer);
+        }
+
+        public override bool CanRead => false;
+        public override bool CanSeek => false;
+        public override bool CanWrite => true;
+        public override long Length => throw new NotSupportedException();
+        public override long Position { get => throw new NotSupportedException(); set => throw new NotSupportedException(); }
+        public override void Flush() { }
+        public override int Read(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+        public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+        public override void SetLength(long value) => throw new NotSupportedException();
     }
 
     private const string CrockfordBase32 = "0123456789abcdefghjkmnpqrstvwxyz";

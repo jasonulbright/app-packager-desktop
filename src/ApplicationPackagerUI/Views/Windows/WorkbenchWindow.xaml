@@ -4,7 +4,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
     xmlns:helpers="clr-namespace:ApplicationPackagerUI.Helpers"
-    Title="Application Workbench"
+    Title="Workbench"
     Width="1280" Height="820"
     MinWidth="1024" MinHeight="700"
     WindowStartupLocation="CenterOwner"
@@ -134,7 +134,7 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <ui:TitleBar Grid.Row="0" Title="Application Workbench" />
+        <ui:TitleBar Grid.Row="0" Title="Workbench" />
 
         <Grid Grid.Row="1" Margin="16,4,16,10">
             <Grid.ColumnDefinitions>
@@ -154,13 +154,17 @@
                       StaysOpenOnEdit="True" Margin="0,0,14,0"
                       ItemsSource="{Binding Applications}" SelectedItem="{Binding SelectedApplication}"
                       DisplayMemberPath="DisplayLabel" TextSearch.TextPath="DisplayLabel"
-                      ToolTip="Catalog packagers, user-authored scripts, and saved bring-your-own applications." />
+                      ToolTip="{Binding SelectedApplication.DisplayLabel}" />
 
             <TextBlock Grid.Column="2" Text="Profile" Style="{StaticResource WbLabel}" Margin="0,0,8,0" />
             <ComboBox Grid.Column="3" x:Name="cboProfile" Margin="0,0,8,0"
                       ItemsSource="{Binding Profiles}" SelectedItem="{Binding SelectedProfile}" DisplayMemberPath="Name"
-                      ToolTip="Packager default is read-only. Save as creates a named profile; one profile is active per application." />
+                      ToolTip="{Binding SelectedProfile.Name}" />
             <StackPanel Grid.Column="4" Orientation="Horizontal">
+                <ui:Button x:Name="btnOpenDefinition" Content="Open definition..." Icon="{ui:SymbolIcon FolderOpen24}" Margin="0,0,8,0"
+                           Click="OpenDefinition_Click"
+                           ToolTip="Lists the definitions made by Add from file, the shipped definitions and the definitions made by Add from web."
+                           AutomationProperties.AutomationId="btnOpenDefinition" />
                 <ui:Button x:Name="btnProfileRename" Content="Rename" MinWidth="90"
                            Command="{Binding RenameProfileCommand}" ToolTip="Rename the selected custom profile." />
                 <ui:DropDownButton x:Name="btnBundle" Content="Bundle" Margin="8,0,0,0"

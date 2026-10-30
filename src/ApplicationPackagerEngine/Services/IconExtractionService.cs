@@ -133,35 +133,28 @@ public sealed class IconExtractionService
                 return directResult;
         }
 
-        var tempDir = Path.Combine(Path.GetTempPath(), $"packr-icon-{Guid.NewGuid():N}");
-        try
+        using var extraction = await _archiveService.ExtractAsync(installerPath, ct);
+        if (!extraction.Success)
+            return new IconResult { Success = false, ErrorMessage = "Failed to extract installer" };
+        var tempDir = extraction.OutputDirectory!;
+
+        var exes = Directory.GetFiles(tempDir, "*.exe", SearchOption.AllDirectories)
+            .Where(f => !Path.GetFileName(f).StartsWith("unins", StringComparison.OrdinalIgnoreCase)
+                     && !f.Contains("$PLUGINSDIR", StringComparison.OrdinalIgnoreCase)
+                     && !f.Contains("__MACOSX", StringComparison.OrdinalIgnoreCase)
+                     && !Path.GetFileName(f).Equals("setup.exe", StringComparison.OrdinalIgnoreCase)
+                     && !Path.GetFileName(f).Equals("7z.exe", StringComparison.OrdinalIgnoreCase))
+            .OrderByDescending(f => new FileInfo(f).Length)
+            .ToArray();
+
+        foreach (var exe in exes)
         {
-            var extraction = await _archiveService.ExtractAsync(installerPath, tempDir, ct);
-            if (!extraction.Success)
-                return new IconResult { Success = false, ErrorMessage = "Failed to extract installer" };
-
-            var exes = Directory.GetFiles(tempDir, "*.exe", SearchOption.AllDirectories)
-                .Where(f => !Path.GetFileName(f).StartsWith("unins", StringComparison.OrdinalIgnoreCase)
-                         && !f.Contains("$PLUGINSDIR", StringComparison.OrdinalIgnoreCase)
-                         && !f.Contains("__MACOSX", StringComparison.OrdinalIgnoreCase)
-                         && !Path.GetFileName(f).Equals("setup.exe", StringComparison.OrdinalIgnoreCase)
-                         && !Path.GetFileName(f).Equals("7z.exe", StringComparison.OrdinalIgnoreCase))
-                .OrderByDescending(f => new FileInfo(f).Length)
-                .ToArray();
-
-            foreach (var exe in exes)
-            {
-                var result = ExtractFromExe(exe, cachedPath);
-                if (result.Success)
-                    return result;
-            }
-
-            return new IconResult { Success = false, ErrorMessage = "No extractable icon found in installer" };
+            var result = ExtractFromExe(exe, cachedPath);
+            if (result.Success)
+                return result;
         }
-        finally
-        {
-            try { Directory.Delete(tempDir, true); } catch { }
-        }
+
+        return new IconResult { Success = false, ErrorMessage = "No extractable icon found in installer" };
     }
 
     /// <summary>

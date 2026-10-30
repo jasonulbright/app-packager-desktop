@@ -81,7 +81,11 @@ public sealed class CommandSafetyTests : IDisposable
 
         var report = await _service.AnalyzeAsync(path, Limits, new Progress<string>(), CancellationToken.None);
 
-        Assert.Equal("Get-AppxPackage -Name 'Contoso.Tool' | Remove-AppxPackage", Field(report, "UninstallCommand").Value);
+        var publisherId = MsixPackageReader.PublisherHash("CN=A");
+        Assert.Equal(
+            $"Get-AppxProvisionedPackage -Online | Where-Object {{ $_.DisplayName -eq 'Contoso.Tool' -and $_.PackageName.EndsWith('_{publisherId}') }} | ForEach-Object {{ Remove-AppxProvisionedPackage -Online -PackageName $_.PackageName }}; "
+            + $"Get-AppxPackage -AllUsers -Name 'Contoso.Tool' -PackageTypeFilter Main, Framework, Resource, Optional | Where-Object {{ $_.PublisherId -eq '{publisherId}' }} | ForEach-Object {{ Remove-AppxPackage -Package $_.PackageFullName -AllUsers }}",
+            Field(report, "UninstallCommand").Value);
         Assert.Equal("Predicted", Field(report, "UninstallCommand").Confidence);
     }
 

@@ -179,7 +179,8 @@ public sealed partial class InstallerAnalysisService : IInstallerAnalysisService
             DetectionHint = hint,
             RequestedExecutionLevel = executionLevel,
             TypeName = TypeDisplayName(engine),
-            Payload = payload
+            Payload = payload,
+            DeploymentProposal = drop
         };
     }
 

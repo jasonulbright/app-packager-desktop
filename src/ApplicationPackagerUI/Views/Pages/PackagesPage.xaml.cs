@@ -22,7 +22,26 @@ public partial class PackagesPage
         ColIntune.Visibility = viewModel.ShowIntuneColumn ? Visibility.Visible : Visibility.Collapsed;
 
         KeyDown += OnPageKeyDown;
-        Loaded += (_, _) => Focus();
+        Loaded += (_, _) =>
+        {
+            Focus();
+            UpdateToolbarMode();
+        };
+        SizeChanged += (_, _) => UpdateToolbarMode();
+    }
+
+    /// <summary>The toolbar keeps its labels while they fit in this many lines; beyond that the buttons show their icons only.</summary>
+    public const int MaxLabeledToolbarLines = 2;
+
+    /// <summary>Measures the toolbar with its labels at the current width and drops the labels when they need more than <see cref="MaxLabeledToolbarLines"/> lines.</summary>
+    private void UpdateToolbarMode()
+    {
+        if (!IsLoaded || ActualWidth <= 0) return;
+        AppPackagerToolbar.Tag = null;
+        AppPackagerToolbar.Measure(new Size(AppPackagerToolbar.ActualWidth > 0 ? AppPackagerToolbar.ActualWidth : ActualWidth - 48, double.PositiveInfinity));
+        var line = AppPackagerToolbar.Children.OfType<UIElement>().Where(c => c.Visibility == Visibility.Visible).Max(c => c.DesiredSize.Height);
+        var lines = line > 0 ? (int)Math.Round(AppPackagerToolbar.DesiredSize.Height / line) : 1;
+        AppPackagerToolbar.Tag = lines > MaxLabeledToolbarLines ? "Compact" : null;
     }
 
     private void OnPageKeyDown(object sender, KeyEventArgs e)
@@ -98,6 +117,11 @@ public partial class PackagesPage
         {
             ColIntune.Visibility = ((PackagesViewModel)DataContext!).ShowIntuneColumn ? Visibility.Visible : Visibility.Collapsed;
         }
+        else if (e.PropertyName == nameof(PackagesViewModel.FocusedPackager) && ((PackagesViewModel)DataContext!).FocusedPackager is { } row)
+        {
+            PackagerGrid.SelectedItem = row;
+            PackagerGrid.ScrollIntoView(row);
+        }
     }
 
     private void LogTextBox_TextChanged(object sender, TextChangedEventArgs e)
@@ -126,6 +150,22 @@ public partial class PackagesPage
 
     private void PackagerGrid_SelectionChanged(object sender, SelectionChangedEventArgs e) =>
         btnOperationHistory.IsEnabled = GetSelectedPackager() is not null;
+
+    private Views.Windows.CatalogWindow? _catalog;
+
+    /// <summary>Opens the Catalog window, or brings the open one to the front.</summary>
+    private void Catalog_Click(object sender, RoutedEventArgs e)
+    {
+        if (_catalog is { IsVisible: true })
+        {
+            _catalog.Activate();
+            return;
+        }
+        _catalog = App.Services.GetRequiredService<Views.Windows.CatalogWindow>();
+        _catalog.Owner = Window.GetWindow(this);
+        _catalog.Closed += (_, _) => _catalog = null;
+        _catalog.Show();
+    }
 
     private void ViewHistory_Click(object sender, RoutedEventArgs e) => OpenHistoryForSelection();
 

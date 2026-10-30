@@ -1,0 +1,29 @@
+using System.Windows;
+using System.Windows.Input;
+using ApplicationPackagerUI.Models;
+using ApplicationPackagerUI.ViewModels.Windows;
+
+namespace ApplicationPackagerUI.Views.Windows;
+
+public partial class CatalogWindow
+{
+    public CatalogWindow(CatalogViewModel viewModel)
+    {
+        DataContext = viewModel;
+        InitializeComponent();
+        Loaded += (_, _) => Keyboard.Focus(txtCatalogSearch);
+    }
+
+    public CatalogViewModel ViewModel => (CatalogViewModel)DataContext;
+
+    private void VendorCheckBox_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is System.Windows.Controls.CheckBox cb && cb.Tag is VendorGroup group)
+        {
+            // The click has already toggled IsChecked, so IsChecked holds the new state.
+            ViewModel.SetVendor(group, cb.IsChecked == true);
+        }
+    }
+
+    private void Close_Click(object sender, RoutedEventArgs e) => Close();
+}

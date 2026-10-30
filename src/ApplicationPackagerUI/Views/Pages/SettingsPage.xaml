@@ -9,6 +9,7 @@
 
     <Page.Resources>
         <helpers:EnumToBooleanConverter x:Key="EnumToBooleanConverter" />
+        <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
         <Style x:Key="SectionHeader" TargetType="TextBlock">
             <Setter Property="FontSize" Value="18" />
             <Setter Property="FontWeight" Value="SemiBold" />
@@ -33,24 +34,30 @@
         </Style>
     </Page.Resources>
 
-    <ScrollViewer VerticalScrollBarVisibility="Auto">
-        <StackPanel Margin="32,24,32,32" MaxWidth="760" HorizontalAlignment="Left">
+    <Grid Margin="24,16,24,0">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
 
-            <DockPanel Margin="0,0,0,16">
-                <ui:Button DockPanel.Dock="Right" Content="Save Settings"
-                           Appearance="Primary"
-                           Icon="{ui:SymbolIcon Save24}"
-                           Command="{Binding SaveSettingsCommand}"
-                           VerticalAlignment="Center" />
-                <ui:Button DockPanel.Dock="Right" Content="Discard changes"
-                           Icon="{ui:SymbolIcon ArrowUndo24}"
-                           Command="{Binding DiscardChangesCommand}"
-                           Margin="0,0,8,0" VerticalAlignment="Center"
-                           ToolTip="Reloads every setting on this page from the saved settings. Unsaved edits are lost." />
-                <TextBlock Text="Settings" FontSize="28" FontWeight="Bold"
-                           Foreground="{DynamicResource TextFillColorPrimaryBrush}"
-                           VerticalAlignment="Center" />
-            </DockPanel>
+        <controls:PageHeader Grid.Row="0" Title="Settings" TitleAutomationId="txtSettingsTitle" MaxWidth="760" HorizontalAlignment="Left">
+            <controls:PageHeader.Actions>
+                <StackPanel Orientation="Horizontal">
+                    <ui:Button Content="Discard changes"
+                               Icon="{ui:SymbolIcon ArrowUndo24}"
+                               Command="{Binding DiscardChangesCommand}"
+                               Margin="0,0,8,0"
+                               ToolTip="Reloads every setting on this page from the saved settings. Unsaved edits are lost." />
+                    <ui:Button Content="Save Settings"
+                               Appearance="Primary"
+                               Icon="{ui:SymbolIcon Save24}"
+                               Command="{Binding SaveSettingsCommand}" />
+                </StackPanel>
+            </controls:PageHeader.Actions>
+        </controls:PageHeader>
+
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+        <StackPanel Margin="0,0,0,32" MaxWidth="760" HorizontalAlignment="Left">
 
             <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
                 <RadioButton Content="Dark" Margin="0,0,16,0"
@@ -64,25 +71,32 @@
             <Border Style="{StaticResource SectionDivider}" />
 
             <TextBlock Text="Sidebar" Style="{StaticResource SectionHeader}" />
-            <TextBlock Text="Select the entries that the sidebar shows and set their order. Each change applies at once; Save Settings is not necessary. Packages is the start page and stays first."
+            <TextBlock Text="Select the entries that the sidebar shows and set their order. Each change applies at once; Save Settings is not necessary. An entry moves only inside its group. App Packager is the start page and stays first."
                        Foreground="{DynamicResource TextFillColorSecondaryBrush}" Margin="0,0,0,8" TextWrapping="Wrap" />
             <ItemsControl ItemsSource="{Binding Sidebar.Rows}" Focusable="False" Margin="0,0,0,8"
                           AutomationProperties.AutomationId="lstSidebar">
                 <ItemsControl.ItemTemplate>
                     <DataTemplate>
-                        <DockPanel Margin="0,0,0,4" MaxWidth="420" HorizontalAlignment="Left">
-                            <ui:Button DockPanel.Dock="Right" Icon="{ui:SymbolIcon ArrowDown24}"
-                                       Command="{Binding MoveDownCommand}" IsEnabled="{Binding CanMoveDown}"
-                                       Margin="4,0,0,0" ToolTip="Move down"
-                                       AutomationProperties.Name="{Binding Title, StringFormat=Move {0} down}" />
-                            <ui:Button DockPanel.Dock="Right" Icon="{ui:SymbolIcon ArrowUp24}"
-                                       Command="{Binding MoveUpCommand}" IsEnabled="{Binding CanMoveUp}"
-                                       Margin="4,0,0,0" ToolTip="Move up"
-                                       AutomationProperties.Name="{Binding Title, StringFormat=Move {0} up}" />
-                            <CheckBox Content="{Binding Title}" IsChecked="{Binding Shown}" IsEnabled="{Binding CanHide}"
-                                      VerticalAlignment="Center"
-                                      AutomationProperties.Name="{Binding Title, StringFormat=Show {0}}" />
-                        </DockPanel>
+                        <StackPanel>
+                            <TextBlock Text="{Binding GroupCaption}"
+                                       Visibility="{Binding IsGroupStart, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                       AutomationProperties.Name="{Binding GroupAutomationName}"
+                                       FontSize="12" FontWeight="SemiBold" Margin="0,8,0,4"
+                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                            <DockPanel Margin="0,0,0,4" MaxWidth="420" HorizontalAlignment="Left">
+                                <ui:Button DockPanel.Dock="Right" Icon="{ui:SymbolIcon ArrowDown24}"
+                                           Command="{Binding MoveDownCommand}" IsEnabled="{Binding CanMoveDown}"
+                                           Margin="4,0,0,0" ToolTip="Move down"
+                                           AutomationProperties.Name="{Binding Title, StringFormat=Move {0} down}" />
+                                <ui:Button DockPanel.Dock="Right" Icon="{ui:SymbolIcon ArrowUp24}"
+                                           Command="{Binding MoveUpCommand}" IsEnabled="{Binding CanMoveUp}"
+                                           Margin="4,0,0,0" ToolTip="Move up"
+                                           AutomationProperties.Name="{Binding Title, StringFormat=Move {0} up}" />
+                                <CheckBox Content="{Binding Title}" IsChecked="{Binding Shown}" IsEnabled="{Binding CanHide}"
+                                          VerticalAlignment="Center"
+                                          AutomationProperties.Name="{Binding Title, StringFormat=Show {0}}" />
+                            </DockPanel>
+                        </StackPanel>
                     </DataTemplate>
                 </ItemsControl.ItemTemplate>
             </ItemsControl>
@@ -102,8 +116,8 @@
             <Border Style="{StaticResource SectionDivider}" />
 
             <TextBlock Text="Systems in use" Style="{StaticResource SectionHeader}"
-                       ToolTip="The Packages page has a publish button for each system. A system that is not in use keeps its buttons disabled." />
-            <TextBlock Text="The Packages page has a publish button for each system. A system that is not in use keeps its buttons disabled."
+                       ToolTip="The App Packager page has a publish button for each system. A system that is not in use keeps its buttons disabled." />
+            <TextBlock Text="The App Packager page has a publish button for each system. A system that is not in use keeps its buttons disabled."
                        Foreground="{DynamicResource TextFillColorSecondaryBrush}" Margin="0,0,0,8" TextWrapping="Wrap" />
             <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
                 <CheckBox Content="ConfigMgr" IsChecked="{Binding UseConfigMgr}" Margin="0,0,24,0"
@@ -177,7 +191,7 @@
             <DockPanel Margin="0,0,0,12">
                 <ui:Button DockPanel.Dock="Right" Content="Browse"
                            Command="{Binding BrowseDownloadRootCommand}" Margin="8,0,0,0" />
-                <ui:TextBox Text="{Binding DownloadRoot, UpdateSourceTrigger=PropertyChanged}"
+                <ui:TextBox Text="{Binding DownloadRoot, UpdateSourceTrigger=PropertyChanged}" ToolTip="{Binding DownloadRoot}"
                             PlaceholderText="C:\temp\ap" />
             </DockPanel>
 
@@ -222,7 +236,7 @@
             <Border Style="{StaticResource SectionDivider}" />
 
             <TextBlock Text="One Click Settings" Style="{StaticResource SectionHeader}" />
-            <TextBlock Text="One Click opens a plan of the apps you track here, then runs Check (and optionally Stage / Publish) without further prompts. Each row publishes to its own destinations; a row with no box checked is skipped. Rows that keep the default follow it when the default changes. The publish buttons on the Packages page choose their own destination per run."
+            <TextBlock Text="One Click opens a plan of the apps you track here, then runs Check (and optionally Stage / Publish) without further prompts. Each row publishes to its own destinations; a row with no box checked is skipped. Rows that keep the default follow it when the default changes. The publish buttons on the App Packager page choose their own destination per run."
                        Foreground="{DynamicResource TextFillColorSecondaryBrush}" Margin="0,0,0,8" TextWrapping="Wrap" />
 
             <Grid Margin="0,0,0,8">
@@ -235,7 +249,7 @@
                     <TextBlock Text="Action on update" Style="{StaticResource FieldLabel}" />
                     <ComboBox SelectedValue="{Binding OneClickAction}" SelectedValuePath="Tag" HorizontalAlignment="Stretch"
                               AutomationProperties.Name="Action on update" AutomationProperties.AutomationId="cboOneClickAction"
-                              ToolTip="Report only lists the newer versions. Stage downloads and prepares them. Stage and Publish also publishes each application to its destinations, using the comment on the Packages page.">
+                              ToolTip="Report only lists the newer versions. Stage downloads and prepares them. Stage and Publish also publishes each application to its destinations, using the comment on the App Packager page.">
                         <ComboBoxItem Content="Report only" Tag="Report" />
                         <ComboBoxItem Content="Stage" Tag="Stage" />
                         <ComboBoxItem Content="Stage and Publish" Tag="StageAndPackage" />
@@ -275,7 +289,7 @@
                 <ui:Button DockPanel.Dock="Right" Content="Track all" Command="{Binding TrackAllOneClickCommand}" Margin="8,0,0,0" />
                 <ui:Button DockPanel.Dock="Right" Content="Refresh list" Icon="{ui:SymbolIcon ArrowSync24}"
                            Command="{Binding RefreshOneClickRowsCommand}" Margin="8,0,0,0"
-                           ToolTip="Rebuilds the list from the applications the Packages page shows." />
+                           ToolTip="Rebuilds the list from the applications the App Packager page shows." />
                 <TextBlock VerticalAlignment="Center" Foreground="{DynamicResource TextFillColorSecondaryBrush}">
                     <Run Text="{Binding OneClickTrackedCount, Mode=OneWay}" /><Run Text=" tracked" />
                 </TextBlock>
@@ -444,7 +458,7 @@
 
             <TextBlock Text="WSUS Publishing" Style="{StaticResource SectionHeader}" />
             <TextBlock Foreground="{DynamicResource TextFillColorSecondaryBrush}" Margin="0,0,0,12" TextWrapping="Wrap"
-                       Text="Publish to WSUS publishes the installer of each checked app as a locally published update. WSUS Updates on the Packages page lists and manages the published updates. This computer needs the WSUS console or RSAT WSUS tools at the server's version, an account in the WSUS Administrators group, and file-share access to the server. When this computer is not the WSUS server, it must also trust the signing certificate." />
+                       Text="Publish to WSUS publishes the installer of each checked app as a locally published update. WSUS Updates on the App Packager page lists and manages the published updates. This computer needs the WSUS console or RSAT WSUS tools at the server's version, an account in the WSUS Administrators group, and file-share access to the server. When this computer is not the WSUS server, it must also trust the signing certificate." />
 
             <TextBlock Text="Server" Style="{StaticResource SubHeader}" />
             <TextBlock Text="WSUS server" Style="{StaticResource FieldLabel}" />
@@ -504,7 +518,7 @@
                            ToolTip="Lists the computer groups of the server in the box." />
                 <ComboBox IsEditable="True" ItemsSource="{Binding Wsus.Groups}" Text="{Binding Wsus.ApprovalGroup, UpdateSourceTrigger=PropertyChanged}"
                           AutomationProperties.Name="Approve for group" AutomationProperties.AutomationId="cboWsusGroup"
-                          ToolTip="Computer group the update is approved for right after it publishes. Leave empty to approve later from WSUS Updates on the Packages page: the WSUS console does not list locally published updates." />
+                          ToolTip="Computer group the update is approved for right after it publishes. Leave empty to approve later from WSUS Updates on the App Packager page: the WSUS console does not list locally published updates." />
             </DockPanel>
             <CheckBox Content="Decline earlier versions of the same application after publishing" IsChecked="{Binding Wsus.DeclineSuperseded}" Margin="0,0,0,8"
                       AutomationProperties.AutomationId="chkWsusDecline"
@@ -616,10 +630,10 @@
             <TextBlock Text="Application title" Style="{StaticResource FieldLabel}"
                        ToolTip="Default application naming for every Package run." />
             <CheckBox Content="Include version in application name" IsChecked="{Binding TitleOptions.IncludeVersionInTitle}" Margin="0,0,0,4"
-                      ToolTip="Adds the version to every application name, creating one ConfigMgr application per release. A per-application choice in the Application Workbench overrides this. Existing applications are not renamed." />
+                      ToolTip="Adds the version to every application name, creating one ConfigMgr application per release. A per-application choice in the Workbench overrides this. Existing applications are not renamed." />
             <CheckBox Content="Remove version from application name" IsChecked="{Binding TitleOptions.RemoveVersionFromTitle}"
                       IsEnabled="{Binding TitleOptions.RemoveVersionFromTitleAvailable}" Margin="0,0,0,8"
-                      ToolTip="Strips the release version from a vendor product name that carries it (7-Zip 26.03, Slido 2.3.1, Tableau 2026.2). Available while the version is not added to the name. A per-application choice in the Application Workbench overrides this." />
+                      ToolTip="Strips the release version from a vendor product name that carries it (7-Zip 26.03, Slido 2.3.1, Tableau 2026.2). Available while the version is not added to the name. A per-application choice in the Workbench overrides this." />
 
             <Border Style="{StaticResource SectionDivider}" />
 
@@ -835,5 +849,6 @@
             <Border Height="32" />
 
         </StackPanel>
-    </ScrollViewer>
+        </ScrollViewer>
+    </Grid>
 </Page>

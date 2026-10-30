@@ -30,7 +30,7 @@ public class DroppedInstallerAnalysisServiceTests : IDisposable
 
     public void Dispose()
     {
-        try { Directory.Delete(_root, true); } catch { }
+        TestCleanup.DeleteDirectory(_root);
         GC.SuppressFinalize(this);
     }
 
@@ -192,7 +192,10 @@ public class DroppedInstallerAnalysisServiceTests : IDisposable
         Assert.Equal("MSI", definition.InstallerType);
         Assert.Equal("NativeMSI", definition.InstallerFramework);
         Assert.Equal("7z2408-x64.msi", definition.InstallerFileName);
-        Assert.Equal("/qn /norestart", definition.InstallArgs);
+        // The switches live in InstallerSettings; the stage appends each default-on toggle, so InstallArgs keeps none twice.
+        Assert.Equal("", definition.InstallArgs);
+        Assert.Equal("/qn /norestart", StagingService.ResolveInstallerArgs(definition.InstallArgs, definition.InstallerSettings, null));
+        Assert.Equal(StageTokens.ProductVersionToken, definition.Detection.ExpectedValue);
         Assert.Equal("/x {ProductCode} /qn /norestart", definition.UninstallArgs);
         Assert.Equal(@"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\{ProductCode}",
             definition.Detection.RegistryKeyTemplate);

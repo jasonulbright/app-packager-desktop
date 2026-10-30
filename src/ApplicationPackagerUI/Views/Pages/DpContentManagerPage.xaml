@@ -3,6 +3,7 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+    xmlns:controls="clr-namespace:ApplicationPackagerUI.Controls"
     xmlns:helpers="clr-namespace:ApplicationPackagerUI.Helpers"
     xmlns:pages="clr-namespace:ApplicationPackagerUI.ViewModels.Pages"
     ScrollViewer.CanContentScroll="False">
@@ -141,11 +142,8 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <StackPanel Grid.Row="0" Margin="0,0,0,8">
-            <TextBlock Text="DP Content Manager" FontSize="28" FontWeight="Bold" Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
-            <TextBlock Text="Shows the content status of every distribution point and redistributes, validates or removes content. Every write shows a plan first."
-                       Style="{StaticResource Note}" Margin="0,4,0,0" AutomationProperties.AutomationId="txtDpContentIntro" />
-        </StackPanel>
+        <controls:PageHeader Grid.Row="0" Title="DP Content Manager" TitleAutomationId="txtDpContentTitle" DescriptionAutomationId="txtDpContentIntro"
+                             Description="Shows the content status of every distribution point and redistributes, validates or removes content. Every write shows a plan first." />
 
         <Border Grid.Row="1" Style="{StaticResource Caution}" Visibility="{Binding HasConnectionMessage, Converter={StaticResource BoolToVisibility}}"
                 AutomationProperties.AutomationId="pnlDpContentConnection">
@@ -198,7 +196,7 @@
                         <DataGrid Grid.Row="1" x:Name="dgDps" Tag="dps" Style="{StaticResource GridBase}" ItemsSource="{Binding DpRows}" SelectedItem="{Binding SelectedDp}"
                                   AutomationProperties.AutomationId="dgDps" AutomationProperties.Name="Distribution points">
                             <DataGrid.Columns>
-                                <DataGridTextColumn Header="Status" Binding="{Binding Status}" SortMemberPath="Status" Width="120" MinWidth="110" ElementStyle="{StaticResource TrimmedCell}" />
+                                <DataGridTextColumn Header="Status" Binding="{Binding Status}" SortMemberPath="Status" Width="120" MinWidth="110" ElementStyle="{StaticResource StatusCell}" />
                                 <DataGridTextColumn Header="DP" Binding="{Binding DpName}" SortMemberPath="DpName" Width="2*" MinWidth="150" ElementStyle="{StaticResource TrimmedCell}" />
                                 <DataGridTextColumn Header="Site" Binding="{Binding SiteCode}" SortMemberPath="SiteCode" Width="64" MinWidth="64" ElementStyle="{StaticResource TrimmedCell}" />
                                 <DataGridTextColumn Header="Total" Binding="{Binding Total}" SortMemberPath="Total" Width="72" MinWidth="64" ElementStyle="{StaticResource TrimmedCell}" />
@@ -215,10 +213,10 @@
                         <DataGrid Grid.Row="3" x:Name="dgDpPairs" Tag="dpPairs" Style="{StaticResource GridBase}" ItemsSource="{Binding DpPairRows}"
                                   AutomationProperties.AutomationId="dgDpPairs" AutomationProperties.Name="Content of the selected DP">
                             <DataGrid.Columns>
-                                <DataGridTextColumn Header="Status" Binding="{Binding Status}" SortMemberPath="Status" Width="120" MinWidth="110" ElementStyle="{StaticResource TrimmedCell}" />
+                                <DataGridTextColumn Header="Status" Binding="{Binding Status}" SortMemberPath="Status" Width="120" MinWidth="110" ElementStyle="{StaticResource StatusCell}" />
                                 <DataGridTextColumn Header="Content" Binding="{Binding ContentName}" SortMemberPath="ContentName" Width="3*" MinWidth="160" ElementStyle="{StaticResource TrimmedCell}" />
                                 <DataGridTextColumn Header="Type" Binding="{Binding Type}" SortMemberPath="Type" Width="*" MinWidth="180" ElementStyle="{StaticResource TrimmedCell}" />
-                                <DataGridTextColumn Header="State" Binding="{Binding StateName}" SortMemberPath="StateName" Width="*" MinWidth="180" ElementStyle="{StaticResource TrimmedCell}" />
+                                <DataGridTextColumn Header="State" Binding="{Binding StateName}" SortMemberPath="StateName" Width="*" MinWidth="180" ElementStyle="{StaticResource StatusCell}" />
                                 <DataGridTextColumn Header="PackageID" Binding="{Binding PackageId}" SortMemberPath="PackageId" Width="104" MinWidth="100" ElementStyle="{StaticResource TrimmedCell}" />
                                 <DataGridTextColumn Header="Last status" Binding="{Binding LastStatus}" SortMemberPath="LastStatus" Width="160" MinWidth="156" ElementStyle="{StaticResource TrimmedCell}" />
                             </DataGrid.Columns>
@@ -252,7 +250,7 @@
                                        AutomationProperties.AutomationId="btnRedistributeFailed" />
                             <ui:Button Content="Redistribute selected DPs" Icon="{ui:SymbolIcon ArrowRepeatAll24}" Command="{Binding RedistributeSelectedDpsCommand}" Style="{StaticResource ToolButton}"
                                        ToolTip="Redistributes the selected content to the DPs selected in its status list." AutomationProperties.AutomationId="btnRedistributeSelectedDps" />
-                            <ui:Button Content="Remove from DP" Icon="{ui:SymbolIcon Delete24}" Command="{Binding RemoveFromDpCommand}" Style="{StaticResource ToolButton}"
+                            <ui:Button Content="Remove from DP" Icon="{ui:SymbolIcon Delete24}" Appearance="Danger" Command="{Binding RemoveFromDpCommand}" Style="{StaticResource ToolButton}"
                                        ToolTip="Shows the DPs of the selected content to remove it from, then a plan with the remaining DPs." AutomationProperties.AutomationId="btnRemoveFromDp" />
                             <ui:Button Content="Validate" Icon="{ui:SymbolIcon CheckmarkCircle24}" Command="{Binding ValidateCommand}" Style="{StaticResource ToolButton}"
                                        ToolTip="Shows the DPs of the selected content, then a plan that validates the content on them." AutomationProperties.AutomationId="btnValidate" />
@@ -260,7 +258,7 @@
                         <DataGrid Grid.Row="2" x:Name="dgContent" KeyboardNavigation.TabIndex="1" Tag="content" Style="{StaticResource GridBase}" ItemsSource="{Binding ContentRows}" SelectedItem="{Binding SelectedContent}"
                                   AutomationProperties.AutomationId="dgContent" AutomationProperties.Name="Content">
                             <DataGrid.Columns>
-                                <DataGridTextColumn Header="Status" Binding="{Binding Status}" SortMemberPath="Status" Width="120" MinWidth="110" ElementStyle="{StaticResource TrimmedCell}" />
+                                <DataGridTextColumn Header="Status" Binding="{Binding Status}" SortMemberPath="Status" Width="120" MinWidth="110" ElementStyle="{StaticResource StatusCell}" />
                                 <DataGridTextColumn Header="Name" Binding="{Binding Name}" SortMemberPath="Name" Width="2*" MinWidth="150" ElementStyle="{StaticResource TrimmedCell}" />
                                 <DataGridTextColumn Header="Type" Binding="{Binding Type}" SortMemberPath="Type" Width="*" MinWidth="180" ElementStyle="{StaticResource TrimmedCell}" />
                                 <DataGridTextColumn Header="PackageID" Binding="{Binding PackageId}" SortMemberPath="PackageId" Width="104" MinWidth="100" ElementStyle="{StaticResource TrimmedCell}" />
@@ -278,9 +276,9 @@
                         <DataGrid Grid.Row="4" x:Name="dgContentPairs" KeyboardNavigation.TabIndex="2" Tag="contentPairs" Style="{StaticResource GridBase}" ItemsSource="{Binding ContentPairRows}" SelectionMode="Extended"
                                   SelectionChanged="OnContentPairsSelectionChanged" AutomationProperties.AutomationId="dgContentPairs" AutomationProperties.Name="Status of the selected content on each DP">
                             <DataGrid.Columns>
-                                <DataGridTextColumn Header="Status" Binding="{Binding Status}" SortMemberPath="Status" Width="120" MinWidth="110" ElementStyle="{StaticResource TrimmedCell}" />
+                                <DataGridTextColumn Header="Status" Binding="{Binding Status}" SortMemberPath="Status" Width="120" MinWidth="110" ElementStyle="{StaticResource StatusCell}" />
                                 <DataGridTextColumn Header="DP" Binding="{Binding DpName}" SortMemberPath="DpName" Width="3*" MinWidth="150" ElementStyle="{StaticResource TrimmedCell}" />
-                                <DataGridTextColumn Header="State" Binding="{Binding StateName}" SortMemberPath="StateName" Width="*" MinWidth="180" ElementStyle="{StaticResource TrimmedCell}" />
+                                <DataGridTextColumn Header="State" Binding="{Binding StateName}" SortMemberPath="StateName" Width="*" MinWidth="180" ElementStyle="{StaticResource StatusCell}" />
                                 <DataGridTextColumn Header="State number" Binding="{Binding State}" SortMemberPath="State" Width="116" MinWidth="112" ElementStyle="{StaticResource TrimmedCell}" />
                                 <DataGridTextColumn Header="Last status" Binding="{Binding LastStatus}" SortMemberPath="LastStatus" Width="160" MinWidth="156" ElementStyle="{StaticResource TrimmedCell}" />
                             </DataGrid.Columns>
@@ -308,18 +306,18 @@
                         <WrapPanel Grid.Row="1" Margin="0,0,0,4" KeyboardNavigation.TabNavigation="Local" KeyboardNavigation.TabIndex="2">
                             <ui:Button Content="Redistribute selected" Icon="{ui:SymbolIcon ArrowSync24}" Command="{Binding RedistributeIssuesCommand}" Style="{StaticResource ToolButton}"
                                        ToolTip="Shows a plan that redistributes the content of the selected rows to their DPs." AutomationProperties.AutomationId="btnRedistributeIssues" />
-                            <ui:Button Content="Remove failures" Icon="{ui:SymbolIcon Delete24}" Command="{Binding RemoveFailuresCommand}" Style="{StaticResource ToolButton}"
+                            <ui:Button Content="Remove failures" Icon="{ui:SymbolIcon Delete24}" Appearance="Danger" Command="{Binding RemoveFailuresCommand}" Style="{StaticResource ToolButton}"
                                        ToolTip="Shows a plan that removes the content of the selected failed rows from their DPs." AutomationProperties.AutomationId="btnRemoveFailures" />
                             <TextBlock Text="Select several rows with Shift or Ctrl." Style="{StaticResource Note}" VerticalAlignment="Center" Margin="0,0,0,8" />
                         </WrapPanel>
                         <DataGrid Grid.Row="2" x:Name="dgIssues" KeyboardNavigation.TabIndex="1" Tag="issues" Style="{StaticResource GridBase}" ItemsSource="{Binding IssueRows}" SelectionMode="Extended"
                                   SelectionChanged="OnIssuesSelectionChanged" AutomationProperties.AutomationId="dgIssues" AutomationProperties.Name="Status issues">
                             <DataGrid.Columns>
-                                <DataGridTextColumn Header="Status" Binding="{Binding Status}" SortMemberPath="Status" Width="120" MinWidth="110" ElementStyle="{StaticResource TrimmedCell}" />
+                                <DataGridTextColumn Header="Status" Binding="{Binding Status}" SortMemberPath="Status" Width="120" MinWidth="110" ElementStyle="{StaticResource StatusCell}" />
                                 <DataGridTextColumn Header="DP" Binding="{Binding DpName}" SortMemberPath="DpName" Width="2*" MinWidth="110" ElementStyle="{StaticResource TrimmedCell}" />
                                 <DataGridTextColumn Header="Content" Binding="{Binding ContentName}" SortMemberPath="ContentName" Width="3*" MinWidth="140" ElementStyle="{StaticResource TrimmedCell}" />
                                 <DataGridTextColumn Header="Type" Binding="{Binding Type}" SortMemberPath="Type" Width="*" MinWidth="180" ElementStyle="{StaticResource TrimmedCell}" />
-                                <DataGridTextColumn Header="State" Binding="{Binding StateName}" SortMemberPath="StateName" Width="*" MinWidth="180" ElementStyle="{StaticResource TrimmedCell}" />
+                                <DataGridTextColumn Header="State" Binding="{Binding StateName}" SortMemberPath="StateName" Width="*" MinWidth="180" ElementStyle="{StaticResource StatusCell}" />
                                 <DataGridTextColumn Header="State number" Binding="{Binding State}" SortMemberPath="State" Width="116" MinWidth="112" ElementStyle="{StaticResource TrimmedCell}" />
                                 <DataGridTextColumn Header="PackageID" Binding="{Binding PackageId}" SortMemberPath="PackageId" Width="104" MinWidth="100" ElementStyle="{StaticResource TrimmedCell}" />
                                 <DataGridTextColumn Header="Last status" Binding="{Binding LastStatus}" SortMemberPath="LastStatus" Width="160" MinWidth="156" ElementStyle="{StaticResource TrimmedCell}" />
@@ -363,8 +361,8 @@
                                      Message keeps a usable minimum. Pairs, the result counts and the PackageIDs are in the details box and the export. -->
                                 <DataGridTextColumn Header="Time" Binding="{Binding Time}" SortMemberPath="Time" Width="166" MinWidth="166" ElementStyle="{StaticResource TrimmedCell}" />
                                 <DataGridTextColumn Header="Action" Binding="{Binding Action}" SortMemberPath="Action" Width="136" MinWidth="136" ElementStyle="{StaticResource TrimmedCell}" />
-                                <DataGridTextColumn Header="Result" Binding="{Binding Result}" SortMemberPath="Result" Width="104" MinWidth="104" ElementStyle="{StaticResource TrimmedCell}" />
-                                <DataGridTextColumn Header="Verified" Binding="{Binding Verified}" SortMemberPath="Verified" Width="124" MinWidth="124" ElementStyle="{StaticResource VerifiedCell}" />
+                                <DataGridTextColumn Header="Result" Binding="{Binding Result}" SortMemberPath="Result" Width="104" MinWidth="104" ElementStyle="{StaticResource StatusCell}" />
+                                <DataGridTextColumn Header="Verified" Binding="{Binding Verified}" SortMemberPath="Verified" Width="124" MinWidth="124" ElementStyle="{StaticResource VerifiedStatusCell}" />
                                 <DataGridTextColumn Header="DPs" Binding="{Binding Dps}" SortMemberPath="Dps" Width="184" MinWidth="184" ElementStyle="{StaticResource TrimmedCell}" />
                                 <DataGridTextColumn Header="User" Binding="{Binding User}" SortMemberPath="User" Width="176" MinWidth="176" ElementStyle="{StaticResource TrimmedCell}" />
                                 <DataGridTextColumn Header="Message" Binding="{Binding Message}" SortMemberPath="Message" Width="*" MinWidth="240" ElementStyle="{StaticResource WrappedCell}" />
@@ -398,7 +396,7 @@
                           Visibility="{Binding ShowResultRows, Converter={StaticResource BoolToVisibility}}"
                           AutomationProperties.AutomationId="dgDpContentResults" AutomationProperties.Name="Results">
                     <DataGrid.Columns>
-                        <DataGridTextColumn Header="Result" Binding="{Binding OutcomeText}" Width="100" MinWidth="96" ElementStyle="{StaticResource TrimmedCell}" />
+                        <DataGridTextColumn Header="Result" Binding="{Binding OutcomeText}" Width="100" MinWidth="96" ElementStyle="{StaticResource StatusCell}" />
                         <DataGridTextColumn Header="Action" Binding="{Binding Item.Action}" Width="140" MinWidth="80" ElementStyle="{StaticResource TrimmedCell}" />
                         <DataGridTextColumn Header="Pair" Binding="{Binding Item.Target}" Width="3*" MinWidth="200" ElementStyle="{StaticResource TrimmedCell}" />
                         <DataGridTextColumn Header="Message" Binding="{Binding Message}" Width="2*" MinWidth="160" ElementStyle="{StaticResource TrimmedCell}" />

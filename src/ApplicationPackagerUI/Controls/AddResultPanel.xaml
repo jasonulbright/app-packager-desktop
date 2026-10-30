@@ -1,0 +1,59 @@
+<UserControl
+    x:Class="ApplicationPackagerUI.Controls.AddResultPanel"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+    AutomationProperties.Name="Result">
+
+    <UserControl.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="/ApplicationPackagerUI;component/Views/Styles/AddFlow.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+
+            <Style x:Key="WorkbenchButton" TargetType="ui:Button" BasedOn="{StaticResource AddButton}">
+                <Style.Triggers>
+                    <DataTrigger Binding="{Binding IsWorkbenchDefault}" Value="True">
+                        <Setter Property="Appearance" Value="Primary" />
+                    </DataTrigger>
+                </Style.Triggers>
+            </Style>
+            <Style x:Key="DoneButton" TargetType="ui:Button" BasedOn="{StaticResource AddButton}">
+                <Style.Triggers>
+                    <DataTrigger Binding="{Binding IsDoneDefault}" Value="True">
+                        <Setter Property="Appearance" Value="Primary" />
+                    </DataTrigger>
+                </Style.Triggers>
+            </Style>
+        </ResourceDictionary>
+    </UserControl.Resources>
+
+    <Border Style="{StaticResource AddCard}" AutomationProperties.AutomationId="pnlAddResult">
+        <StackPanel>
+            <TextBlock Text="Added" Style="{StaticResource AddHeading}" Margin="0,0,0,6" />
+            <TextBlock Text="{Binding Summary}" Style="{StaticResource AddWarningText}" Margin="0,0,0,4" AutomationProperties.AutomationId="txtAddResultSummary" />
+            <TextBlock Text="{Binding DefinitionPath}" Style="{StaticResource AddNote}" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap"
+                       ToolTip="{Binding DefinitionPath}" Margin="0,0,0,8" AutomationProperties.AutomationId="txtAddResultPath" />
+            <Border Style="{StaticResource AddCaution}" Visibility="{Binding HasReason, Converter={StaticResource AddBoolToVisibility}}"
+                    AutomationProperties.AutomationId="pnlAddResultReason">
+                <TextBlock Text="{Binding ReasonText}" Style="{StaticResource AddWarningText}" AutomationProperties.AutomationId="txtAddResultReason" />
+            </Border>
+            <TextBlock Text="{Binding WarningsText}" Style="{StaticResource AddNote}" Margin="0,0,0,8"
+                       Visibility="{Binding HasWarnings, Converter={StaticResource AddBoolToVisibility}}" AutomationProperties.AutomationId="txtAddResultWarnings" />
+            <TextBlock Text="The new row is selected in the App Packager. Nothing is staged until you select Stage now."
+                       Style="{StaticResource AddNote}" Margin="0,0,0,12" />
+            <WrapPanel>
+                <ui:Button Content="Open in Workbench" Icon="{ui:SymbolIcon Wrench24}" Style="{StaticResource WorkbenchButton}"
+                           Command="{Binding OpenInWorkbenchCommand}" IsDefault="{Binding IsWorkbenchDefault}" Margin="0,0,8,8"
+                           ToolTip="Opens the Workbench with the new definition loaded." AutomationProperties.AutomationId="btnAddResultWorkbench" />
+                <ui:Button Content="Stage now" Icon="{ui:SymbolIcon ArrowDownload24}" Style="{StaticResource AddButton}"
+                           Command="{Binding StageNowCommand}" Margin="0,0,8,8"
+                           ToolTip="Runs Stage on the new row of the App Packager." AutomationProperties.AutomationId="btnAddResultStage" />
+                <ui:Button Content="Done" Icon="{ui:SymbolIcon Checkmark24}" Style="{StaticResource DoneButton}"
+                           Command="{Binding DoneCommand}" IsDefault="{Binding IsDoneDefault}" Margin="0,0,8,8"
+                           ToolTip="Closes this panel." AutomationProperties.AutomationId="btnAddResultDone" />
+            </WrapPanel>
+            <TextBlock Text="{Binding StageStatus}" Style="{StaticResource AddNote}" AutomationProperties.AutomationId="txtAddResultStage" />
+        </StackPanel>
+    </Border>
+</UserControl>

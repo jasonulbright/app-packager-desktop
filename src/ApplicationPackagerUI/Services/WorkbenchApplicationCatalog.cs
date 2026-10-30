@@ -18,6 +18,8 @@ public sealed class WorkbenchApplicationItem
     public string DisplayLabel => string.IsNullOrWhiteSpace(Publisher) ? DisplayName : Publisher + " - " + DisplayName;
     public string? SourcePath { get; init; }
     public bool IsJsonDefinition { get; init; }
+
+    public bool HasRemoteSource { get; init; }
     public bool Runnable { get; init; }
     public IReadOnlyList<string> SupportsVariants { get; init; } = [];
     public IReadOnlyList<string> SupportsInstallModes { get; init; } = [];
@@ -56,6 +58,8 @@ public sealed class WorkbenchApplicationCatalog(SettingsService settingsService,
         ? ApplicationIds.New(packager.DefinitionOrigin, name: packager.Uid)
         : ApplicationIds.New(ApplicationOrigin.Catalog, path: packager.FullPath);
 
+    public static string ApplicationIdForDefinition(string definitionId) => ApplicationIds.New(ApplicationOrigin.Custom, name: definitionId);
+
     public async Task<IReadOnlyList<WorkbenchApplicationItem>> LoadAsync(WorkbenchStore store, CancellationToken ct = default)
     {
         var settings = settingsService.Load();
@@ -88,6 +92,7 @@ public sealed class WorkbenchApplicationCatalog(SettingsService settingsService,
                     Publisher = definition.Vendor,
                     SourcePath = definition.SourcePath,
                     IsJsonDefinition = true,
+                    HasRemoteSource = !ApplicationPackagerEngine.Services.AddFromInstaller.AddFromInstallerService.IsLocalFileDefinition(definition),
                     Runnable = true,
                     SupportsVariants = definition.SupportsVariants ?? [],
                     SupportsInstallModes = definition.SupportsInstallModes ?? [],

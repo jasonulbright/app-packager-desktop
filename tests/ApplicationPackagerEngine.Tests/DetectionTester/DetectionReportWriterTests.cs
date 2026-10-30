@@ -11,7 +11,7 @@ public sealed class DetectionReportWriterTests : IDisposable
 
     public void Dispose()
     {
-        try { Directory.Delete(_folder, recursive: true); } catch (IOException) { }
+        TestCleanup.DeleteDirectory(_folder);
     }
 
     private DetectionReportWriter Writer() => new(_folder, () => Now);
@@ -48,6 +48,7 @@ public sealed class DetectionReportWriterTests : IDisposable
     {
         var saved = Environment.GetEnvironmentVariable(AppDataPaths.DataRootVariable);
         var target = _folder + "-target";
+        string? link = null;
         Directory.CreateDirectory(target);
         try
         {
@@ -58,13 +59,14 @@ public sealed class DetectionReportWriterTests : IDisposable
             if (linkTheParent)
             {
                 Directory.CreateDirectory(AppDataPaths.Root);
-                Junctions.Create(parent, target);
+                link = parent;
             }
             else
             {
                 Directory.CreateDirectory(parent);
-                Junctions.Create(reports, target);
+                link = reports;
             }
+            Junctions.Create(link, target);
 
             Assert.Throws<DetectionFolderRefusedException>(() => new DetectionReportWriter(clock: () => Now).WriteCsv([Entry("first")]));
             Assert.Empty(Directory.GetFileSystemEntries(target));
@@ -72,6 +74,7 @@ public sealed class DetectionReportWriterTests : IDisposable
         finally
         {
             Environment.SetEnvironmentVariable(AppDataPaths.DataRootVariable, saved);
+            if (link is not null) Junctions.Remove(link);
             Directory.Delete(target, recursive: true);
         }
     }

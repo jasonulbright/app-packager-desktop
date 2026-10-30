@@ -61,7 +61,7 @@ public sealed class DiscoveryRunner
 
     public const string NotSavedMessage = "the settings could not be saved. Nothing changed.";
     public const string NoPromptMessage = "the prompt could not be shown. Nothing changed.";
-    public const string NotRefreshedMessage = "the choice was saved, but the lists could not be refreshed. Open the Applications page to see them.";
+    public const string NotRefreshedMessage = "the choice was saved, but the lists could not be refreshed. Select Catalog on the App Packager page to see them.";
 
     /// <summary>
     /// The site database is read over SQL, so the console is not needed: ConfigMgr in use and
@@ -246,7 +246,7 @@ public sealed class DiscoveryRunner
                 var count = DiscoveryPreferences.Enable(settings, choice.Ids);
                 _save(settings);
                 return new DiscoveryApplyOutcome(true, count > 0,
-                    LogPrefix + $"{count} app(s) added to the grid. Manage them on the Applications page.",
+                    LogPrefix + $"{count} app(s) added to the grid. Show or hide them with Catalog on the App Packager page.",
                     $"{count} app(s) added to the grid.");
             }
             case DiscoveryAction.Dismiss:

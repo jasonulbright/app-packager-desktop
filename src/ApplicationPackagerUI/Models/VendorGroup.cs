@@ -9,6 +9,8 @@ public partial class AppVisibilityItem : ObservableObject
 
     [ObservableProperty] private bool _isVisible = true;
 
+    [ObservableProperty] private bool _matchesSearch = true;
+
     public string TypeLabel => IsJsonDefined ? "JSON" : "PS1";
 }
 
@@ -20,6 +22,8 @@ public partial class VendorGroup : ObservableObject
     [ObservableProperty] private bool _isExpanded = true;
 
     [ObservableProperty] private bool? _isAllVisible = true;
+
+    [ObservableProperty] private bool _matchesSearch = true;
 
     /// <summary>
     /// Recalculate the tri-state header checkbox from child states.

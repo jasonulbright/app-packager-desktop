@@ -14,6 +14,7 @@ using Size = System.Windows.Size;
 
 namespace ApplicationPackagerEngine.Tests;
 
+[Collection(ProcessEnvironmentCollection.Name)]
 public sealed class DiscoveryWindowTests
 {
     private static readonly XNamespace X = "http://schemas.microsoft.com/winfx/2006/xaml";

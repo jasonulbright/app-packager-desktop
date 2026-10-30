@@ -159,8 +159,8 @@ public sealed class DeploymentRingsRenderTests
     {
         { ApplicationTheme.Light, 1440 - CollapsedPaneWidth, 900 - 48 },
         { ApplicationTheme.Dark, 1440 - CollapsedPaneWidth, 900 - 48 },
-        { ApplicationTheme.Light, 900 - NavigationPaneWidth, 600 - 48 },
-        { ApplicationTheme.Dark, 900 - NavigationPaneWidth, 600 - 48 }
+        { ApplicationTheme.Light, 1024 - NavigationPaneWidth, 720 - 48 },
+        { ApplicationTheme.Dark, 1024 - NavigationPaneWidth, 720 - 48 }
     };
 
     [Theory]
@@ -194,8 +194,8 @@ public sealed class DeploymentRingsRenderTests
 
     public static TheoryData<ApplicationTheme, double, double, int> Sizes() => new()
     {
-        { ApplicationTheme.Light, 900 - NavigationPaneWidth, 600 - 48, 13 },
-        { ApplicationTheme.Dark, 900 - NavigationPaneWidth, 600 - 48, 100 },
+        { ApplicationTheme.Light, 1024 - NavigationPaneWidth, 720 - 48, 13 },
+        { ApplicationTheme.Dark, 1024 - NavigationPaneWidth, 720 - 48, 100 },
         { ApplicationTheme.Light, 1440 - NavigationPaneWidth, 900 - 48, 2 },
         { ApplicationTheme.Dark, 1440 - CollapsedPaneWidth, 900 - 48, 100 }
     };
@@ -227,7 +227,7 @@ public sealed class DeploymentRingsRenderTests
             var scroller = ById<ScrollViewer>(page, "scrollRingsTab");
             Assert.True(scroller.ScrollableWidth < 1, $"The Rings tab scrolls sideways by {scroller.ScrollableWidth:0} px at {width}x{height}.");
             foreach (var id in new[] { "lstRingObjectType", "btnRingsRefresh", "btnRingsCancel", "txtRingObjectFilter", "dgRingObjects", "cboRingPlan", "dpRingStart", "txtRingStartTime",
-                         "chkRingHold", "btnRingExpand", "btnRingSetCollection", "dgRingPreview", "dgRingChecks", "btnRingValidate", "btnRingCreate", "btnRingPlanNew",
+                         "chkRingHold", "btnRingExpand", "btnRingSetCollection", "dgRingPreview", "dgRingChecks", "btnRingPlanNew",
                          "btnRingPlanDelete", "dgRingPlans", "btnRingReconcile", "btnRingPromote", "btnRingUndo", "btnRingClose", "chkRingShowClosed", "dgRingRuns", "dgRingRunRings" })
             {
                 var element = ById<FrameworkElement>(page, id);

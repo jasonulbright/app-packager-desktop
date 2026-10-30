@@ -1,0 +1,48 @@
+<UserControl
+    x:Class="ApplicationPackagerUI.Controls.PageHeader"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    x:Name="Root"
+    Focusable="False"
+    IsTabStop="False"
+    Margin="0,0,0,8">
+
+    <UserControl.Resources>
+        <ResourceDictionary Source="/ApplicationPackagerUI;component/Views/Styles/Typography.xaml" />
+    </UserControl.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="Auto" />
+        </Grid.ColumnDefinitions>
+
+        <TextBlock x:Name="TitleText" Grid.Row="0" Grid.Column="0"
+                   Text="{Binding Title, ElementName=Root}"
+                   Style="{StaticResource PageTitle}"
+                   VerticalAlignment="Center"
+                   AutomationProperties.HeadingLevel="Level1" />
+
+        <ContentPresenter x:Name="ActionsPresenter" Grid.Row="0" Grid.Column="1"
+                          Margin="16,0,0,0"
+                          VerticalAlignment="Center"
+                          Content="{Binding Actions, ElementName=Root}" />
+
+        <TextBlock x:Name="DescriptionText" Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2"
+                   Text="{Binding Description, ElementName=Root}"
+                   Style="{StaticResource PageDescription}"
+                   Margin="0,4,0,0"
+                   AutomationProperties.AutomationId="txtPageDescription" />
+
+        <TextBlock x:Name="StatusText" Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2"
+                   Text="{Binding Status, ElementName=Root}"
+                   Style="{StaticResource CaptionText}"
+                   Margin="0,4,0,0"
+                   AutomationProperties.AutomationId="txtPageStatus" />
+    </Grid>
+</UserControl>

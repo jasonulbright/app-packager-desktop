@@ -1,0 +1,154 @@
+<ResourceDictionary
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml">
+
+    <BooleanToVisibilityConverter x:Key="AddBoolToVisibility" />
+    <Style x:Key="AddHeading" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="16" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Margin" Value="0,12,0,6" />
+        <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
+    </Style>
+
+    <Style x:Key="AddLabel" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="13" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="Margin" Value="0,0,12,8" />
+        <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
+    </Style>
+
+    <Style x:Key="AddNote" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="TextWrapping" Value="Wrap" />
+        <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+    </Style>
+
+    <Style x:Key="AddWarningText" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="13" />
+        <Setter Property="TextWrapping" Value="Wrap" />
+        <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
+    </Style>
+
+    <Style x:Key="AddCaution" TargetType="Border">
+        <Setter Property="Margin" Value="0,0,0,8" />
+        <Setter Property="Padding" Value="12,8" />
+        <Setter Property="CornerRadius" Value="6" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="BorderBrush" Value="{DynamicResource SystemFillColorCautionBrush}" />
+        <Setter Property="Background" Value="{DynamicResource CardBackgroundFillColorDefaultBrush}" />
+    </Style>
+
+    <Style x:Key="AddCard" TargetType="Border">
+        <Setter Property="Padding" Value="16" />
+        <Setter Property="CornerRadius" Value="8" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="BorderBrush" Value="{DynamicResource ControlStrokeColorDefaultBrush}" />
+        <Setter Property="Background" Value="{DynamicResource CardBackgroundFillColorDefaultBrush}" />
+    </Style>
+
+    <Style x:Key="AddField" TargetType="ui:TextBox" BasedOn="{StaticResource {x:Type ui:TextBox}}">
+        <Setter Property="Margin" Value="0,0,0,8" />
+        <Setter Property="ClearButtonEnabled" Value="False" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
+
+    <Style x:Key="AddCombo" TargetType="ComboBox" BasedOn="{StaticResource {x:Type ComboBox}}">
+        <Setter Property="Margin" Value="0,0,0,8" />
+        <Setter Property="HorizontalAlignment" Value="Stretch" />
+    </Style>
+
+    <Style x:Key="AddButton" TargetType="ui:Button" BasedOn="{StaticResource {x:Type ui:Button}}">
+        <Setter Property="Margin" Value="0,0,8,0" />
+        <Setter Property="MinWidth" Value="96" />
+    </Style>
+
+    <!-- The evidence marker of a proposed value: its border color tells the level, its text names it. -->
+    <Style x:Key="EvidenceChip" TargetType="Border">
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="4" />
+        <Setter Property="Padding" Value="8,2" />
+        <Setter Property="Margin" Value="8,0,0,8" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="BorderBrush" Value="{DynamicResource ControlStrokeColorDefaultBrush}" />
+        <Setter Property="Background" Value="{DynamicResource CardBackgroundFillColorDefaultBrush}" />
+        <Setter Property="ToolTipService.ShowOnDisabled" Value="True" />
+        <Style.Triggers>
+            <DataTrigger Binding="{Binding Evidence}" Value="Confirmed">
+                <Setter Property="BorderBrush" Value="{DynamicResource SystemFillColorSuccessBrush}" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Evidence}" Value="Predicted">
+                <Setter Property="BorderBrush" Value="{DynamicResource SystemFillColorCautionBrush}" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Evidence}" Value="None">
+                <Setter Property="BorderBrush" Value="{DynamicResource SystemFillColorCriticalBrush}" />
+            </DataTrigger>
+        </Style.Triggers>
+    </Style>
+
+    <Style x:Key="EvidenceChipText" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
+    </Style>
+
+    <!-- One proposed value: label, editor (text or list), evidence marker. -->
+    <DataTemplate x:Key="ProposalRowTemplate">
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" SharedSizeGroup="ProposalLabel" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" SharedSizeGroup="ProposalMarker" />
+            </Grid.ColumnDefinitions>
+            <TextBlock Grid.Column="0" Text="{Binding Label}" Style="{StaticResource AddLabel}" />
+            <ui:TextBox Grid.Column="1" Text="{Binding Value, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource AddField}" IsReadOnly="{Binding IsReadOnly}"
+                        Visibility="{Binding IsText, Converter={StaticResource AddBoolToVisibility}}"
+                        AutomationProperties.Name="{Binding Label}" AutomationProperties.AutomationId="{Binding AutomationId}" />
+            <ComboBox Grid.Column="1" ItemsSource="{Binding Options}" SelectedItem="{Binding Value}" Style="{StaticResource AddCombo}"
+                      Visibility="{Binding IsChoice, Converter={StaticResource AddBoolToVisibility}}"
+                      AutomationProperties.Name="{Binding Label}" AutomationProperties.AutomationId="{Binding AutomationId}" />
+            <Border Grid.Column="2" Style="{StaticResource EvidenceChip}" ToolTip="{Binding MarkerToolTip}"
+                    AutomationProperties.Name="{Binding MarkerAutomationName}">
+                <TextBlock Text="{Binding MarkerText}" Style="{StaticResource EvidenceChipText}" />
+            </Border>
+        </Grid>
+    </DataTemplate>
+
+    <!-- A fact read from the file: label and selectable text. -->
+    <DataTemplate x:Key="FactRowTemplate">
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" SharedSizeGroup="FactLabel" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <TextBlock Grid.Column="0" Text="{Binding Label}" Style="{StaticResource AddLabel}" VerticalAlignment="Top" Margin="0,4,12,8" />
+            <TextBox Grid.Column="1" Text="{Binding Value, Mode=OneWay}" IsReadOnly="True" TextWrapping="Wrap" BorderThickness="0" Background="Transparent"
+                     Foreground="{DynamicResource TextFillColorPrimaryBrush}" Margin="0,0,0,8" Padding="0,4"
+                     AutomationProperties.Name="{Binding Label}" AutomationProperties.AutomationId="{Binding AutomationId}" />
+        </Grid>
+    </DataTemplate>
+
+    <!-- The same row with a check box that accepts the value into the wizard fields. -->
+    <DataTemplate x:Key="ProposalAcceptRowTemplate">
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" SharedSizeGroup="ProposalAccept" />
+                <ColumnDefinition Width="Auto" SharedSizeGroup="ProposalLabel" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" SharedSizeGroup="ProposalMarker" />
+            </Grid.ColumnDefinitions>
+            <CheckBox Grid.Column="0" IsChecked="{Binding IsAccepted}" Margin="0,0,8,8" VerticalAlignment="Center" MinWidth="0"
+                      ToolTip="Copies this value into the wizard fields." AutomationProperties.Name="{Binding Label, StringFormat=Accept {0}}" />
+            <TextBlock Grid.Column="1" Text="{Binding Label}" Style="{StaticResource AddLabel}" />
+            <ui:TextBox Grid.Column="2" Text="{Binding Value, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource AddField}" IsReadOnly="{Binding IsReadOnly}"
+                        Visibility="{Binding IsText, Converter={StaticResource AddBoolToVisibility}}"
+                        AutomationProperties.Name="{Binding Label}" AutomationProperties.AutomationId="{Binding AutomationId}" />
+            <ComboBox Grid.Column="2" ItemsSource="{Binding Options}" SelectedItem="{Binding Value}" Style="{StaticResource AddCombo}"
+                      Visibility="{Binding IsChoice, Converter={StaticResource AddBoolToVisibility}}"
+                      AutomationProperties.Name="{Binding Label}" AutomationProperties.AutomationId="{Binding AutomationId}" />
+            <Border Grid.Column="3" Style="{StaticResource EvidenceChip}" ToolTip="{Binding MarkerToolTip}"
+                    AutomationProperties.Name="{Binding MarkerAutomationName}">
+                <TextBlock Text="{Binding MarkerText}" Style="{StaticResource EvidenceChipText}" />
+            </Border>
+        </Grid>
+    </DataTemplate>
+</ResourceDictionary>

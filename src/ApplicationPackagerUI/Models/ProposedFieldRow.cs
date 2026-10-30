@@ -8,14 +8,22 @@ namespace ApplicationPackagerUI.Models;
 /// </summary>
 public partial class ProposedFieldRow : ObservableObject
 {
-    [ObservableProperty] private string _value = "";
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsEmpty), nameof(BadgeText), nameof(BadgeKind))]
+    private string _value = "";
 
     public string Label { get; init; } = "";
     public AnalysisConfidence Confidence { get; init; } = AnalysisConfidence.Predicted;
     public string Provenance { get; init; } = "";
 
     public bool IsPredicted => Confidence == AnalysisConfidence.Predicted;
-    public string BadgeText => IsPredicted ? "Predicted" : "Confirmed";
+    /// <summary>An empty value carries no evidence, so it never shows the Confirmed badge.</summary>
+    public bool IsEmpty => string.IsNullOrWhiteSpace(Value);
+
+    public string BadgeText => IsEmpty ? "Not set" : IsPredicted ? "Predicted" : "Confirmed";
+
+    /// <summary>The style key of the badge: Confirmed, Predicted or NotSet.</summary>
+    public string BadgeKind => IsEmpty ? "NotSet" : IsPredicted ? "Predicted" : "Confirmed";
     public string ProvenanceText => string.IsNullOrWhiteSpace(Provenance) ? "no source" : Provenance;
 
     /// <summary>Read-only rows carry a summary the operator confirms but does not edit.</summary>

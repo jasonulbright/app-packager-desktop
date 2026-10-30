@@ -1,0 +1,161 @@
+<Page
+    x:Class="ApplicationPackagerUI.Views.Pages.AddFilePage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+    xmlns:controls="clr-namespace:ApplicationPackagerUI.Controls"
+    xmlns:vm="clr-namespace:ApplicationPackagerUI.ViewModels.Pages"
+    Margin="24,16,24,16"
+    ScrollViewer.CanContentScroll="False"
+    AllowDrop="True" PreviewDragOver="OnPreviewDragOver" PreviewDragEnter="OnPreviewDragOver" PreviewDrop="OnPreviewDrop">
+
+    <Page.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="/ApplicationPackagerUI;component/Views/Styles/AddFlow.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </Page.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <controls:PageHeader Grid.Row="0" Title="Add from file" TitleAutomationId="txtAddFileHeader" DescriptionAutomationId="txtAddFileIntro"
+                             Description="Analyzes an installer on this computer and adds it to the App Packager as a definition. Nothing in the installer is started." />
+
+        <!-- Pick: the drop zone; the button in it is the keyboard path to the same flow. -->
+        <Border Grid.Row="1" x:Name="DropZone" Style="{StaticResource AddCard}" VerticalAlignment="Top" Padding="24"
+                Visibility="{Binding IsPickStage, Converter={StaticResource AddBoolToVisibility}}"
+                AutomationProperties.Name="Drop zone" AutomationProperties.AutomationId="pnlAddFileDropZone">
+            <StackPanel HorizontalAlignment="Center">
+                <ui:SymbolIcon Symbol="DocumentArrowUp20" FontSize="40" HorizontalAlignment="Center" Margin="0,0,0,8"
+                               Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                <TextBlock Text="Drop an installer here" Style="{StaticResource AddHeading}" HorizontalAlignment="Center" Margin="0,0,0,4" />
+                <TextBlock Text="{Binding FormatsText}" Style="{StaticResource AddNote}" AutomationProperties.AutomationId="txtAddFileFormats"
+                           HorizontalAlignment="Center" TextAlignment="Center" Margin="0,0,0,12" />
+                <ui:Button Content="Open installer file..." Icon="{ui:SymbolIcon FolderOpen24}" Appearance="Primary" HorizontalAlignment="Center"
+                           Command="{Binding OpenInstallerCommand}" IsDefault="{Binding IsPickStage}"
+                           ToolTip="Chooses an installer and analyzes it."
+                           AutomationProperties.AutomationId="btnAddFileOpen" />
+            </StackPanel>
+        </Border>
+
+        <!-- Analyzing -->
+        <Border Grid.Row="1" Style="{StaticResource AddCard}" VerticalAlignment="Top"
+                Visibility="{Binding IsAnalyzingStage, Converter={StaticResource AddBoolToVisibility}}"
+                AutomationProperties.AutomationId="pnlAddFileAnalyzing">
+            <StackPanel>
+                <TextBlock Text="{Binding FilePath}" Style="{StaticResource AddWarningText}" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap"
+                           ToolTip="{Binding FilePath}" Margin="0,0,0,8" />
+                <ProgressBar IsIndeterminate="{Binding IsBusy}" Height="4" Margin="0,0,0,8" AutomationProperties.Name="Analysis progress" />
+                <TextBlock Text="{Binding ProgressText}" Style="{StaticResource AddNote}" Margin="0,0,0,12" AutomationProperties.AutomationId="txtAddFileProgress" />
+                <ui:Button Content="Cancel" Icon="{ui:SymbolIcon Dismiss24}" Command="{Binding CancelCommand}" IsCancel="True"
+                           ToolTip="Stops the analysis." AutomationProperties.AutomationId="btnAddFileCancel" />
+            </StackPanel>
+        </Border>
+
+        <!-- Review -->
+        <Grid Grid.Row="1" Visibility="{Binding IsReviewStage, Converter={StaticResource AddBoolToVisibility}}" AutomationProperties.AutomationId="pnlAddFileReview">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+            <ScrollViewer Grid.Row="0" VerticalScrollBarVisibility="Auto" Focusable="False" AutomationProperties.AutomationId="scrollAddFileReview">
+                <StackPanel Margin="0,0,12,0">
+                    <Grid Margin="0,0,0,8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="{Binding FilePath}" Style="{StaticResource AddWarningText}" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap"
+                                   ToolTip="{Binding FilePath}" VerticalAlignment="Center" AutomationProperties.AutomationId="txtAddFilePath" />
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" DataContext="{Binding Framework}">
+                            <TextBlock Text="{Binding Value, StringFormat=Framework: {0}}" Style="{StaticResource AddNote}" VerticalAlignment="Center" Margin="12,0,0,0"
+                                       AutomationProperties.AutomationId="txtAddFileFramework" />
+                            <Border Style="{StaticResource EvidenceChip}" Margin="8,0,0,0" ToolTip="{Binding MarkerToolTip}"
+                                    AutomationProperties.Name="{Binding MarkerAutomationName}">
+                                <TextBlock Text="{Binding MarkerText}" Style="{StaticResource EvidenceChipText}" />
+                            </Border>
+                        </StackPanel>
+                    </Grid>
+
+                    <Border Style="{StaticResource AddCaution}" Visibility="{Binding ShowReviewWarning, Converter={StaticResource AddBoolToVisibility}}"
+                            AutomationProperties.AutomationId="pnlAddFileReviewWarning">
+                        <TextBlock Text="{Binding ReviewWarning}" Style="{StaticResource AddWarningText}" AutomationProperties.AutomationId="txtAddFileReviewWarning" />
+                    </Border>
+
+                    <Border Style="{StaticResource AddCaution}" Visibility="{Binding ShowNoSilentSwitch, Converter={StaticResource AddBoolToVisibility}}"
+                            AutomationProperties.AutomationId="pnlAddFileNoSwitch">
+                        <TextBlock Text="{x:Static vm:AddFileViewModel.NoSilentSwitchText}" Style="{StaticResource AddWarningText}" AutomationProperties.AutomationId="txtAddFileNoSwitch" />
+                    </Border>
+
+                    <StackPanel Visibility="{Binding HasPackage, Converter={StaticResource AddBoolToVisibility}}" AutomationProperties.AutomationId="pnlAddFilePackage">
+                        <TextBlock Text="Package" Style="{StaticResource AddHeading}" Margin="0,4,0,6" />
+                        <Border Style="{StaticResource AddCaution}" BorderThickness="2" Visibility="{Binding HasTrustWarning, Converter={StaticResource AddBoolToVisibility}}"
+                                AutomationProperties.AutomationId="pnlAddFileTrustWarning">
+                            <StackPanel Orientation="Horizontal">
+                                <ui:SymbolIcon Symbol="ShieldError24" FontSize="20" Margin="0,0,8,0" VerticalAlignment="Top" Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
+                                <TextBlock Text="{Binding TrustWarning}" Style="{StaticResource AddWarningText}" FontWeight="SemiBold" MaxWidth="900"
+                                           AutomationProperties.AutomationId="txtAddFileTrustWarning" />
+                            </StackPanel>
+                        </Border>
+                        <ItemsControl ItemsSource="{Binding PackageFacts}" ItemTemplate="{StaticResource FactRowTemplate}" Grid.IsSharedSizeScope="True" Focusable="False"
+                                      AutomationProperties.Name="Package facts" AutomationProperties.AutomationId="lstAddFilePackage" />
+                    </StackPanel>
+
+                    <StackPanel Visibility="{Binding HasPatch, Converter={StaticResource AddBoolToVisibility}}" AutomationProperties.AutomationId="pnlAddFilePatch">
+                        <TextBlock Text="Patch" Style="{StaticResource AddHeading}" Margin="0,4,0,6" />
+                        <Border Style="{StaticResource AddCaution}" AutomationProperties.AutomationId="pnlAddFilePatchWarning">
+                            <TextBlock Text="{Binding PatchWarning}" Style="{StaticResource AddWarningText}" AutomationProperties.AutomationId="txtAddFilePatchWarning" />
+                        </Border>
+                        <ItemsControl ItemsSource="{Binding PatchFacts}" ItemTemplate="{StaticResource FactRowTemplate}" Grid.IsSharedSizeScope="True" Focusable="False"
+                                      AutomationProperties.Name="Patch facts" AutomationProperties.AutomationId="lstAddFilePatch" />
+                    </StackPanel>
+
+                    <TextBlock Text="Proposed values" Style="{StaticResource AddHeading}" Margin="0,4,0,6" />
+                    <ItemsControl ItemsSource="{Binding Rows}" ItemTemplate="{StaticResource ProposalRowTemplate}" Grid.IsSharedSizeScope="True"
+                                  Focusable="False" AutomationProperties.Name="Proposed values" AutomationProperties.AutomationId="lstAddFileValues" />
+
+                    <TextBlock Text="Detection" Style="{StaticResource AddHeading}" />
+                    <controls:DetectionEditorPanel DataContext="{Binding Detection}" AutomationProperties.AutomationId="pnlAddFileDetection" />
+
+                    <TextBlock Text="Notes" Style="{StaticResource AddHeading}" />
+                    <ItemsControl ItemsSource="{Binding Notes}" Focusable="False" AutomationProperties.Name="Notes" AutomationProperties.AutomationId="lstAddFileNotes">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding}" Style="{StaticResource AddNote}" Margin="0,0,0,4" />
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </ScrollViewer>
+
+            <StackPanel Grid.Row="1" Margin="0,12,0,0">
+                <CheckBox Content="I checked the values marked Predicted, not verified." IsChecked="{Binding PredictedAccepted}" Margin="0,0,0,8"
+                          Visibility="{Binding HasPredicted, Converter={StaticResource AddBoolToVisibility}}"
+                          AutomationProperties.AutomationId="chkAddFileAcceptPredicted" />
+                <WrapPanel>
+                    <ui:Button Content="Save" Icon="{ui:SymbolIcon Save24}" Appearance="Primary" Style="{StaticResource AddButton}" Margin="0,0,8,8"
+                               Command="{Binding SaveCommand}" IsDefault="{Binding IsReviewStage}"
+                               ToolTip="Saves the definition and adds it to the App Packager." AutomationProperties.AutomationId="btnAddFileSave" />
+                    <ui:Button Content="Choose another file" Icon="{ui:SymbolIcon ArrowLeft24}" Style="{StaticResource AddButton}" Margin="0,0,8,8"
+                               Command="{Binding DiscardCommand}"
+                               ToolTip="Leaves this review without saving." AutomationProperties.AutomationId="btnAddFileDiscard" />
+                </WrapPanel>
+            </StackPanel>
+        </Grid>
+
+        <!-- Result -->
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Focusable="False"
+                      Visibility="{Binding IsResultStage, Converter={StaticResource AddBoolToVisibility}}">
+            <controls:AddResultPanel DataContext="{Binding Result}" VerticalAlignment="Top" AutomationProperties.AutomationId="pnlAddFileResult" />
+        </ScrollViewer>
+
+        <TextBlock Grid.Row="2" Text="{Binding StatusText}" Style="{StaticResource AddNote}" FontSize="13" Margin="0,12,0,0"
+                   AutomationProperties.LiveSetting="Polite" AutomationProperties.AutomationId="txtAddFileStatus" />
+    </Grid>
+</Page>

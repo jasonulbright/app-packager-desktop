@@ -117,13 +117,59 @@ public static class InstallerSettingsGenerator
     [
         new()
         {
-            Key = "Silent", Label = "Silent install", Tooltip = "Run in unattended mode (--mode unattended)",
-            ControlType = "Toggle", DefaultValue = "true", CommandFragment = "--mode unattended", Group = "Install Behavior"
+            Key = "Silent", Label = "Silent install", Tooltip = "Run the setup silently (/s)",
+            ControlType = "Toggle", DefaultValue = "true", CommandFragment = "/s", Group = "Install Behavior"
         },
         new()
         {
-            Key = "NoUI", Label = "No UI", Tooltip = "Suppress all UI (--unattendedmodeui none)",
-            ControlType = "Toggle", DefaultValue = "true", CommandFragment = "--unattendedmodeui none", Group = "Install Behavior"
+            Key = "MsiQuiet", Label = "Silent MSI", Tooltip = "Pass /qn to the MSI the setup runs (/v\"/qn\")",
+            ControlType = "Toggle", DefaultValue = "true", CommandFragment = "/v\"/qn\"", Group = "Install Behavior"
         }
     ];
+
+    /// <summary>
+    /// Matches the parameters to install arguments that already carry their switches. A toggle is on when its
+    /// fragment is in the arguments and off otherwise, and the fragment leaves the arguments, so the stage does
+    /// not pass a switch twice and a mode switch (/CURRENTUSER) is not joined by the opposite default (/ALLUSERS).
+    /// A free-value parameter gets an empty default, so it adds nothing the analysis did not propose.
+    /// </summary>
+    public static InstallerParameter[]? AlignWithArgs(InstallerParameter[]? parameters, string installArgs, out string remainingArgs)
+    {
+        remainingArgs = installArgs ?? "";
+        if (parameters is null) return null;
+        foreach (var parameter in parameters)
+        {
+            if (parameter.ControlType == "Toggle" && !string.IsNullOrEmpty(parameter.CommandFragment))
+            {
+                var found = RemoveToken(remainingArgs, parameter.CommandFragment, out var rest);
+                parameter.DefaultValue = found ? "true" : "false";
+                remainingArgs = rest;
+            }
+            else
+            {
+                parameter.DefaultValue = "";
+            }
+        }
+        remainingArgs = System.Text.RegularExpressions.Regex.Replace(remainingArgs, @"\s{2,}", " ").Trim();
+        return parameters;
+    }
+
+    private static bool RemoveToken(string args, string fragment, out string rest)
+    {
+        var at = 0;
+        while ((at = args.IndexOf(fragment, at, StringComparison.Ordinal)) >= 0)
+        {
+            var end = at + fragment.Length;
+            var startsToken = at == 0 || char.IsWhiteSpace(args[at - 1]);
+            var endsToken = end == args.Length || char.IsWhiteSpace(args[end]);
+            if (startsToken && endsToken)
+            {
+                rest = args[..at] + args[end..];
+                return true;
+            }
+            at = end;
+        }
+        rest = args;
+        return false;
+    }
 }

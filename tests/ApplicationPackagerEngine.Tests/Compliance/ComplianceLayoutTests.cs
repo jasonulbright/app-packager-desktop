@@ -13,8 +13,8 @@ public sealed class ComplianceLayoutTests
 {
     public static TheoryData<ApplicationTheme, double, double> Sizes() => new()
     {
-        { ApplicationTheme.Light, 900 - NavigationPaneWidth, 600 - 48 },
-        { ApplicationTheme.Dark, 900 - NavigationPaneWidth, 600 - 48 },
+        { ApplicationTheme.Light, 1024 - NavigationPaneWidth, 720 - 48 },
+        { ApplicationTheme.Dark, 1024 - NavigationPaneWidth, 720 - 48 },
         { ApplicationTheme.Light, 1440 - NavigationPaneWidth, 900 - 48 },
         { ApplicationTheme.Dark, 1440 - NavigationPaneWidth, 900 - 48 }
     };

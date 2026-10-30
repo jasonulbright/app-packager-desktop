@@ -54,7 +54,7 @@ public sealed class StagingService
             MsixPackageReader.ValidateContainer(path);
             return;
         }
-        if (type is not ("EXE" or "MSI" or "ZIP")) return;
+        if (type is not ("EXE" or "MSI" or "MSP" or "ZIP")) return;
         if (!File.Exists(path)) return;
 
         Span<byte> head = stackalloc byte[8];
@@ -185,6 +185,9 @@ public sealed class StagingService
     /// <summary>Gets the latest version for a JSON-defined app without downloading.</summary>
     public async Task<string?> GetLatestVersionAsync(AppDefinition def, CancellationToken ct = default)
     {
+        if (StagesFromSavedInstaller(def))
+            return string.IsNullOrWhiteSpace(def.LocalInstaller?.Version) ? null : def.LocalInstaller.Version.Trim();
+
         var (raw, display) = await _scrapers.GetLatestVersionWithTransformAsync(def.VersionScraper, ct);
 
         if (!string.IsNullOrEmpty(def.DisplayVersionOverride) && raw is not null)
@@ -267,6 +270,7 @@ public sealed class StagingService
         if (def.BootstrapperLayout is not null)
             return await StageBootstrapperLayoutAsync(def, downloadRoot, onProgress, ct, knownVersion, finalizer);
 
+        var partial = new PartialStage();
         try
         {
             // Operator inputs the stage cannot do without refuse it before any download.
@@ -276,11 +280,16 @@ public sealed class StagingService
             if (def.LocalSource is not null
                 && (def.LocalSource.IsRequired || !string.IsNullOrWhiteSpace(inputs?.LocalSourceFolder)))
                 localInstaller = LocalSourceResolver.Resolve(inputs?.LocalSourceFolder, def.LocalSource, def.Application);
+            var savedInstaller = localInstaller is null ? SavedLocalInstaller(def, onProgress) : null;
 
             // A version from Check Latest is reused, except under a VersionTransform: knownVersion
             // is then the display version, and the download URL needs the raw version.
             string? rawVersion, version;
-            if (!string.IsNullOrEmpty(knownVersion) && string.IsNullOrEmpty(def.VersionScraper.VersionTransform))
+            if (savedInstaller is not null)
+            {
+                version = rawVersion = savedInstaller.Version.Trim();
+            }
+            else if (!string.IsNullOrEmpty(knownVersion) && string.IsNullOrEmpty(def.VersionScraper.VersionTransform))
             {
                 onProgress?.Invoke($"Checking latest version for {def.Application}...");
                 version = knownVersion;
@@ -297,7 +306,7 @@ public sealed class StagingService
             // version stays the transformed value the download URL substitutes; displayVersion
             // names the folder and the detection and is the version the operator sees.
             var displayVersion = version;
-            if (!string.IsNullOrEmpty(def.DisplayVersionOverride))
+            if (savedInstaller is null && !string.IsNullOrEmpty(def.DisplayVersionOverride))
                 displayVersion = def.DisplayVersionOverride
                     .Replace("{version}", rawVersion, StringComparison.OrdinalIgnoreCase);
 
@@ -319,6 +328,7 @@ public sealed class StagingService
             var appFolder = $"{def.Application.Replace(" ", "")}-{def.Architecture}";
             var baseRoot = Path.Combine(downloadRoot, appFolder);
             var contentPath = Workbench.WorkbenchPaths.CombineUnder(baseRoot, AssertVersionSegment(displayVersion));
+            partial.Track(downloadRoot, contentPath);
             Directory.CreateDirectory(contentPath);
 
             string downloadUrl;
@@ -332,6 +342,20 @@ public sealed class StagingService
                 installerPath = Workbench.WorkbenchPaths.CombineUnder(contentPath, installerFileName);
                 StageLocalInstaller(localInstaller, installerPath, onProgress);
                 AuthenticodeVerifier.RequireValid(installerPath, onProgress);
+            }
+            else if (savedInstaller is not null)
+            {
+                downloadUrl = "";
+                installerFileName = AssertPlainFileName(string.IsNullOrWhiteSpace(def.InstallerFileName)
+                    ? Path.GetFileName(savedInstaller.Path)
+                    : def.InstallerFileName);
+                // The wrapper .ps1 files are read with the Windows PowerShell default code page on the device.
+                if (installerFileName.Any(c => c > 0x7F))
+                    throw new InvalidOperationException($"The installer file name has characters other than ASCII. Rename the file, then add it again with Add from file: {installerFileName}");
+                installerPath = Workbench.WorkbenchPaths.CombineUnder(contentPath, installerFileName);
+                CopySavedInstaller(savedInstaller, installerPath, onProgress);
+                ct.ThrowIfCancellationRequested();
+                if (def.RequireValidSignature) AuthenticodeVerifier.RequireValid(installerPath, onProgress);
             }
             else
             {
@@ -393,22 +417,30 @@ public sealed class StagingService
                 onProgress?.Invoke($"MSIX identity name           : {identity.Name}");
                 onProgress?.Invoke($"MSIX identity version        : {identity.Version}");
                 onProgress?.Invoke($"MSIX architecture            : {identity.ProcessorArchitecture}");
+                if (identity.IsBundle)
+                    onProgress?.Invoke($"MSIX bundle architectures    : {string.Join(", ", identity.PackageArchitectures)}");
 
-                if (!string.IsNullOrWhiteSpace(identity.ProcessorArchitecture)
-                    && !string.IsNullOrWhiteSpace(def.Architecture)
-                    && !identity.ProcessorArchitecture.Equals(def.Architecture, StringComparison.OrdinalIgnoreCase))
-                    throw new InvalidOperationException(
-                        $"MSIX architecture is '{identity.ProcessorArchitecture}' but the definition declares '{def.Architecture}'.");
+                // A neutral package runs on every architecture the definition can declare.
+                if (!string.IsNullOrWhiteSpace(def.Architecture) && identity.PackageArchitectures.Count > 0
+                    && !identity.PackageArchitectures.Any(a => a.Equals("neutral", StringComparison.OrdinalIgnoreCase)
+                        || a.Equals(def.Architecture, StringComparison.OrdinalIgnoreCase)))
+                    throw new InvalidOperationException(identity.IsBundle
+                        ? $"The MSIX bundle has application packages for {string.Join(", ", identity.PackageArchitectures)} only, but the definition declares '{def.Architecture}'."
+                        : $"MSIX architecture is '{identity.ProcessorArchitecture}' but the definition declares '{def.Architecture}'.");
 
                 // The AppX cmdlets refuse an unsigned or untrusted package, so
                 // the signer is pinned into the install wrapper at stage time.
                 var signature = _msixReader.ReadSignature(installerPath)
                     ?? throw new InvalidOperationException("MSIX package carries no signature; refusing to stage an unsigned package.");
                 if (!signature.SignatureValid)
-                    throw new InvalidOperationException("MSIX signature did not verify against the package contents.");
+                    throw new InvalidOperationException("MSIX signature is not valid.");
                 onProgress?.Invoke($"MSIX signer thumbprint       : {signature.Thumbprint}");
-                if (!signature.ChainTrusted)
+                if (signature.CertificateExpired)
+                    onProgress?.Invoke("MSIX signing certificate expired and the signature has no valid timestamp from before that date; Windows refuses the package.");
+                else if (!signature.ChainTrusted)
                     onProgress?.Invoke("MSIX signer does not chain to a trusted root on this machine; the target device must trust it.");
+                else if (signature.Timestamp is { } stamped)
+                    onProgress?.Invoke($"MSIX signing certificate expired after the timestamp of {stamped:yyyy-MM-dd}; the signature stays valid.");
 
                 msixPackage = new StageMsixPackage
                 {
@@ -416,6 +448,7 @@ public sealed class StagingService
                     Version = identity.Version,
                     Publisher = identity.Publisher,
                     ProcessorArchitecture = identity.ProcessorArchitecture,
+                    ResourceId = identity.ResourceId.Length > 0 ? identity.ResourceId : null,
                     SignerThumbprint = signature.Thumbprint,
                     SignerSubject = signature.Subject,
                     Provisioned = true
@@ -541,7 +574,9 @@ public sealed class StagingService
             if (isMsix)
             {
                 wrappers.GenerateMsixWrappers(contentPath, installerFileName,
-                    msixPackage!.SignerThumbprint, msixPackage.Provisioned);
+                    msixPackage!.SignerThumbprint, msixPackage.Provisioned,
+                    string.IsNullOrWhiteSpace(msixPackage.Publisher) ? null : MsixPackageReader.PublisherHash(msixPackage.Publisher),
+                    uninstallCommand);
             }
             else if (def.ZipPayload is not null)
             {
@@ -551,6 +586,10 @@ public sealed class StagingService
             {
                 wrappers.GenerateMsiWrappers(contentPath, installerFileName, uninstallCommand, installArgs,
                     def.ExpandInstallArgs);
+            }
+            else if (def.InstallerType.Equals("MSP", StringComparison.OrdinalIgnoreCase))
+            {
+                wrappers.GenerateMspWrappers(contentPath, installerFileName, installArgs, uninstallCommand);
             }
             else if (def.ExtractSetup is not null)
             {
@@ -644,18 +683,20 @@ public sealed class StagingService
                 onProgress?.Invoke($"Placed {sideFile.Label} beside installer: {sideFile.FileName}");
             }
             IconExtractionService.StageIcon(def, contentPath, manifest, onProgress);
+            partial.WritesManifest = true;
             finalizer.FinalizeAndWrite(_manifestService, manifestPath, manifest, onProgress);
             onProgress?.Invoke($"Manifest written: {manifestPath}");
 
             onProgress?.Invoke($"Stage complete: {contentPath}");
 
+            partial.Completed = true;
             return new StagingResult
             {
                 Success = true,
                 Version = version,
                 ContentPath = contentPath,
                 ManifestPath = manifestPath,
-                FromLocalSource = localInstaller is not null
+                FromLocalSource = localInstaller is not null || savedInstaller is not null
             };
         }
         // Cancellation is not a staging failure. Returning it as one lets a caller read an
@@ -667,6 +708,66 @@ public sealed class StagingService
         catch (Exception ex)
         {
             return new StagingResult { Success = false, ErrorMessage = ex.Message };
+        }
+        finally
+        {
+            partial.RemoveUnlessCompleted(onProgress);
+        }
+    }
+
+    /// <summary>
+    /// The stage folder a run created, removed when the run ends without a successful result. A version folder
+    /// that existed before the run holds an earlier stage and is kept. Stages of one application are not
+    /// serialized, so a version folder that holds a stage manifest the run did not write is kept, because a
+    /// concurrent run of the same version can have completed there. A manifest from a failed write of the run is
+    /// removed with its folder. A parent folder the run created is removed only while it is empty.
+    /// </summary>
+    private sealed class PartialStage
+    {
+        private string? _content;
+        private string? _topCreated;
+
+        public bool Completed { get; set; }
+
+        /// <summary>True from the point the run writes its own stage manifest; a manifest after that point is the run's own.</summary>
+        public bool WritesManifest { get; set; }
+
+        /// <summary>Records <paramref name="contentPath"/> as created by this run when it does not exist yet.</summary>
+        public void Track(string root, string contentPath)
+        {
+            var fullRoot = Path.TrimEndingDirectorySeparator(Path.GetFullPath(root));
+            var current = Path.TrimEndingDirectorySeparator(Path.GetFullPath(contentPath));
+            if (Directory.Exists(current) || !current.StartsWith(fullRoot + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
+                return;
+            _content = current;
+            while (current.Length > fullRoot.Length && !Directory.Exists(current))
+            {
+                _topCreated = current;
+                current = Path.GetDirectoryName(current)!;
+            }
+        }
+
+        public void RemoveUnlessCompleted(Action<string>? onProgress)
+        {
+            if (Completed || _content is null || _topCreated is null) return;
+            if (!WritesManifest && File.Exists(Path.Combine(_content, "stage-manifest.json")))
+            {
+                onProgress?.Invoke($"The stage folder holds a stage manifest and is kept: {_content}");
+                return;
+            }
+            try
+            {
+                if (Directory.Exists(_content)) Directory.Delete(_content, recursive: true);
+                for (var parent = Path.GetDirectoryName(_content);
+                     parent is not null && parent.Length >= _topCreated.Length
+                         && Directory.Exists(parent) && !Directory.EnumerateFileSystemEntries(parent).Any();
+                     parent = Path.GetDirectoryName(parent))
+                    Directory.Delete(parent);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                onProgress?.Invoke($"The incomplete stage folder could not be removed: {_content}. Remove it by hand. {ex.Message}");
+            }
         }
     }
 
@@ -897,6 +998,61 @@ public sealed class StagingService
         }
         File.Copy(localInstaller, installerPath, overwrite: true);
         onProgress?.Invoke($"Staged installer differed from the local source; replaced: {name}");
+    }
+
+    /// <summary>
+    /// The saved installer of a definition with no download source, after a check that the file
+    /// still exists and still has the saved SHA-256; null for a definition with a download source.
+    /// Throws with the step the operator takes when the definition cannot stage.
+    /// </summary>
+    public static LocalInstallerConfig? SavedLocalInstaller(AppDefinition def, Action<string>? onProgress)
+    {
+        if (!StagesFromSavedInstaller(def)) return null;
+        var saved = def.LocalInstaller;
+        if (saved is null || string.IsNullOrWhiteSpace(saved.Path) || string.IsNullOrWhiteSpace(saved.Sha256) || string.IsNullOrWhiteSpace(saved.Version))
+            throw new InvalidOperationException(
+                $"{def.Application} has no download source and no saved installer. Add the installer again with Add from file, " +
+                "or set a version source and a download URL in the Workbench.");
+        if (!File.Exists(saved.Path))
+            throw new InvalidOperationException(
+                $"The installer that Add from file saved for {def.Application} is not found: {saved.Path}. " +
+                "Put the file back in that folder, or add the installer again with Add from file.");
+        RequireSavedHash(saved, saved.Path, "Nothing was staged.");
+        onProgress?.Invoke($"Saved installer              : {saved.Path}");
+        return saved;
+    }
+
+    /// <summary>True for a definition with no download source and no local installer folder: the saved installer is its only payload.</summary>
+    public static bool StagesFromSavedInstaller(AppDefinition def) =>
+        def.LocalSource is null && AddFromInstaller.AddFromInstallerService.IsLocalFileDefinition(def);
+
+    /// <summary>
+    /// Copies the saved installer to its staged path through a side file that replaces the staged
+    /// path only when its SHA-256 equals the saved one, so the stage never seals another file.
+    /// </summary>
+    public static void CopySavedInstaller(LocalInstallerConfig saved, string installerPath, Action<string>? onProgress)
+    {
+        var copy = $"{installerPath}.{Guid.NewGuid():N}.partial";
+        try
+        {
+            File.Copy(saved.Path, copy, overwrite: false);
+            RequireSavedHash(saved, copy, "The copy was removed.");
+            File.Move(copy, installerPath, overwrite: true);
+        }
+        finally
+        {
+            if (File.Exists(copy)) File.Delete(copy);
+        }
+        onProgress?.Invoke($"Copied saved installer: {Path.GetFileName(installerPath)}");
+    }
+
+    private static void RequireSavedHash(LocalInstallerConfig saved, string file, string outcome)
+    {
+        var actual = ComputeSha256(file);
+        if (!string.Equals(actual, saved.Sha256.Trim(), StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException(
+                $"The installer {saved.Path} changed after Add from file saved it: its SHA-256 is {actual}, the saved SHA-256 is {saved.Sha256}. " +
+                $"{outcome} Add the installer again with Add from file.");
     }
 
     /// <summary>
@@ -1224,6 +1380,7 @@ public sealed class StagingService
         Action<string>? onProgress, CancellationToken ct, string? knownVersion,
         StageFinalizer finalizer)
     {
+        var partial = new PartialStage();
         try
         {
             var layout = def.BootstrapperLayout!;
@@ -1245,6 +1402,7 @@ public sealed class StagingService
             var contentPath = Path.Combine(baseRoot, version);
 
             AssertLayoutPathLength(contentPath, layout.MaxLayoutPathLength);
+            partial.Track(downloadRoot, contentPath);
             Directory.CreateDirectory(contentPath);
 
             // The bundle refuses a layout target beneath the folder it runs from
@@ -1345,10 +1503,12 @@ public sealed class StagingService
                 Detection = detection
             };
             IconExtractionService.StageIcon(def, contentPath, manifest, onProgress);
+            partial.WritesManifest = true;
             finalizer.FinalizeAndWrite(_manifestService, manifestPath, manifest, onProgress);
             onProgress?.Invoke($"Manifest written: {manifestPath}");
             onProgress?.Invoke($"Stage complete: {contentPath}");
 
+            partial.Completed = true;
             return new StagingResult
             {
                 Success = true,
@@ -1366,6 +1526,10 @@ public sealed class StagingService
         catch (Exception ex)
         {
             return new StagingResult { Success = false, ErrorMessage = ex.Message };
+        }
+        finally
+        {
+            partial.RemoveUnlessCompleted(onProgress);
         }
     }
 
@@ -1503,6 +1667,7 @@ public sealed class StagingService
         Action<string>? onProgress, CancellationToken ct, string? knownVersion,
         Dictionary<string, string>? settingsValues, StageFinalizer finalizer)
     {
+        var partial = new PartialStage();
         try
         {
             var odt = def.Odt is null ? null : ResolveOdtConfig(def, settingsValues);
@@ -1534,6 +1699,7 @@ public sealed class StagingService
             var appFolder = $"{def.Application.Replace(" ", "")}-{def.Architecture}";
             var baseRoot = Path.Combine(downloadRoot, appFolder);
             var contentPath = Path.Combine(baseRoot, version);
+            partial.Track(downloadRoot, contentPath);
             Directory.CreateDirectory(contentPath);
 
             var setupExe = Path.Combine(baseRoot, "setup.exe");
@@ -1631,10 +1797,12 @@ public sealed class StagingService
                 Detection = detection
             };
             IconExtractionService.StageIcon(def, contentPath, manifest, onProgress);
+            partial.WritesManifest = true;
             finalizer.FinalizeAndWrite(_manifestService, manifestPath, manifest, onProgress);
             onProgress?.Invoke($"Manifest written: {manifestPath}");
 
             onProgress?.Invoke($"Stage complete: {contentPath}");
+            partial.Completed = true;
             return new StagingResult
             {
                 Success = true,
@@ -1642,10 +1810,17 @@ public sealed class StagingService
                 ManifestPath = manifestPath
             };
         }
-        catch (OperationCanceledException) { throw; }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
         catch (Exception ex)
         {
             return new StagingResult { Success = false, ErrorMessage = ex.Message };
+        }
+        finally
+        {
+            partial.RemoveUnlessCompleted(onProgress);
         }
     }
 
@@ -1757,7 +1932,13 @@ public sealed class StagingService
             return urlFileName;
 
         var safeName = def.Application.Replace(" ", "").Replace("(", "").Replace(")", "");
-        var ext = def.InstallerType.Equals("MSI", StringComparison.OrdinalIgnoreCase) ? ".msi" : ".exe";
+        var ext = def.InstallerType.ToUpperInvariant() switch
+        {
+            "MSI" => ".msi",
+            "MSP" => ".msp",
+            "MSIX" => ".msix",
+            _ => ".exe"
+        };
         return $"{safeName}-{version}{ext}";
     }
 
@@ -1765,14 +1946,28 @@ public sealed class StagingService
         @"SOFTWARE\Microsoft\Windows\CurrentVersion\Appx\AppxAllUserStore\Applications";
 
     /// <summary>
+    /// The key template an MSIX definition records for its provisioning key rule. The stage resolves
+    /// {PackageFullName} from the staged package.
+    /// </summary>
+    public const string MsixProvisioningKeyTemplate = AllUserStoreApplications + @"\{PackageFullName}";
+
+    /// <summary>
     /// Detection for a staged MSIX. A definition whose Detection.Type is
     /// RegistryKey detects the provisioning store's key for the package full
-    /// name; any other type keeps the provisioned-package script.
+    /// name; any other type keeps the provisioned-package script. A RegistryKey
+    /// rule names no key or <see cref="MsixProvisioningKeyTemplate"/>; another
+    /// key is refused, because the stage would replace it.
     /// </summary>
-    public static StageDetection BuildMsixDetection(DetectionConfig? definitionDetection, StageMsixPackage package) =>
-        definitionDetection?.Type.Equals("RegistryKey", StringComparison.OrdinalIgnoreCase) == true
-            ? BuildMsixProvisioningKeyDetection(package)
-            : BuildMsixScriptDetection(package);
+    public static StageDetection BuildMsixDetection(DetectionConfig? definitionDetection, StageMsixPackage package)
+    {
+        if (definitionDetection?.Type.Equals("RegistryKey", StringComparison.OrdinalIgnoreCase) != true)
+            return BuildMsixScriptDetection(package);
+        var template = definitionDetection.RegistryKeyTemplate?.Trim();
+        if (!string.IsNullOrEmpty(template) && !template.Equals(MsixProvisioningKeyTemplate, StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException(
+                $"An MSIX definition detects the package by its provisioning key. Set the registry key of the rule to {MsixProvisioningKeyTemplate}, or use a Script rule.");
+        return BuildMsixProvisioningKeyDetection(package);
+    }
 
     /// <summary>
     /// Existence detection on the all-user provisioning store key named by the
@@ -1787,7 +1982,7 @@ public sealed class StagingService
             throw new InvalidOperationException(
                 "MSIX identity is missing Name, Version, ProcessorArchitecture or Publisher; the package full name for detection cannot be built.");
 
-        var fullName = $"{package.Name}_{package.Version}_{package.ProcessorArchitecture}__{MsixPackageReader.PublisherHash(package.Publisher)}";
+        var fullName = MsixPackageReader.PackageFullName(package.Name, package.Version, package.ProcessorArchitecture, package.ResourceId, package.Publisher);
         return new StageDetection
         {
             Type = "RegistryKey",
@@ -2382,6 +2577,7 @@ public sealed class StagingService
         StageInputs? inputs = null,
         ExpectedInstaller? expected = null)
     {
+        var partial = new PartialStage();
         try
         {
             var finalizer = StageFinalizer.Begin(inputs);
@@ -2411,6 +2607,7 @@ public sealed class StagingService
                 vendorFolder = "Unknown";
 
             var contentPath = Path.Combine(downloadRoot, vendorFolder, appFolder, versionFolder);
+            partial.Track(downloadRoot, contentPath);
             Directory.CreateDirectory(contentPath);
             ct.ThrowIfCancellationRequested();
 
@@ -2460,9 +2657,11 @@ public sealed class StagingService
             }
 
             var manifestPath = Path.Combine(contentPath, "stage-manifest.json");
+            partial.WritesManifest = true;
             finalizer.FinalizeAndWrite(_manifestService, manifestPath, manifest, onProgress);
             onProgress?.Invoke($"Manifest written: {manifestPath}");
 
+            partial.Completed = true;
             return Task.FromResult(new StagingResult
             {
                 Success = true,
@@ -2479,6 +2678,10 @@ public sealed class StagingService
         catch (Exception ex)
         {
             return Task.FromResult(new StagingResult { Success = false, ErrorMessage = ex.Message });
+        }
+        finally
+        {
+            partial.RemoveUnlessCompleted(onProgress);
         }
     }
 

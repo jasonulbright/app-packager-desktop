@@ -50,7 +50,7 @@ public sealed class BuildRunnerTests : IDisposable
     public void Dispose()
     {
         foreach (var (name, value) in _saved) Environment.SetEnvironmentVariable(name, value);
-        try { Directory.Delete(_root, true); } catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
+        TestCleanup.DeleteDirectory(_root);
     }
 
     private sealed class RecordingOutput : IBuildOutput
@@ -176,6 +176,22 @@ public sealed class BuildRunnerTests : IDisposable
         var result = await RunAsync("--application", "byo:0123456789abcdef0123456789abcdef", "--stage");
         Assert.Equal(1, result.ExitCode);
         Assert.Equal("BYO application 'byo:0123456789abcdef0123456789abcdef' is not stored in this data root.", Assert.Single(_output.Errors));
+    }
+
+    [Fact]
+    public async Task AByoInstallerThatTheAnalysisRefusesIsAStageRefusal()
+    {
+        var source = Path.Combine(_root, "byo-source", "tool.zip");
+        Directory.CreateDirectory(Path.GetDirectoryName(source)!);
+        File.WriteAllText(source, "not an installer");
+        var saved = WorkbenchStore.Open().SaveByoApplication(source,
+            new ByoInstallerIdentity(InstallerType: "EXE", Architecture: "x64", ProductCode: null, AppName: "Tool", Publisher: null, SoftwareVersion: null),
+            "Tool");
+
+        var result = await RunAsync("--application", saved.ApplicationId, "--stage");
+
+        Assert.Equal(1, result.ExitCode);
+        Assert.StartsWith("Stage refused: ", Assert.Single(_output.Errors));
     }
 
     [Fact]

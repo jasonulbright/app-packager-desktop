@@ -62,14 +62,13 @@ public partial class App : Application
 
                 services.AddSingleton<PackagesPage>();
                 services.AddSingleton<PackagesViewModel>();
-                services.AddSingleton<ApplicationsPage>();
-                services.AddSingleton<ApplicationsViewModel>();
+                services.AddSingleton<CatalogViewModel>();
+                services.AddTransient<CatalogWindow>();
                 services.AddSingleton<SettingsPage>();
                 services.AddSingleton<SettingsViewModel>();
                 services.AddSingleton<IPublishActionHost>(sp => sp.GetRequiredService<PackagesViewModel>());
                 services.AddSingleton<ISettingsReload>(sp => sp.GetRequiredService<SettingsViewModel>());
-                services.AddSingleton<AddAppPage>();
-                services.AddSingleton<AddAppViewModel>();
+                services.AddAddFlows();
                 services.AddDetectionTesterPage();
                 services.AddMaintenanceWindowsPage();
                 services.AddCollectionCompliancePage();

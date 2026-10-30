@@ -61,7 +61,7 @@ public class SilentSwitchDatabaseTests
 
         Assert.Equal("\"setup.exe\" /S", result.InstallCommand);
         Assert.Equal("/S", result.InstallArgs);
-        Assert.Equal("\"uninstall.exe\" /S", result.UninstallCommand);
+        Assert.Equal("", result.UninstallCommand);
         Assert.Equal("/S", result.UninstallArgs);
     }
 

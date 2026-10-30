@@ -47,7 +47,7 @@ public partial class PackagesViewModel
         var answer = await _contentDialogService.ShowAsync(new ContentDialog
         {
             Title = "Saved",
-            Content = $"\"{overrides.AppName}\" is saved as an application. Open it in the Application Workbench now?",
+            Content = $"\"{overrides.AppName}\" is saved as an application. Open it in the Workbench now?",
             PrimaryButtonText = "Yes",
             CloseButtonText = "No",
             DefaultButton = ContentDialogButton.Primary
@@ -143,7 +143,7 @@ public partial class PackagesViewModel
                 }
             }
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException or ArgumentException)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException or ArgumentException or InstallerAnalysisException)
         {
             AddLogLine($"Package refused: {ex.Message}");
             StatusText = "Package refused.";
@@ -164,7 +164,7 @@ public partial class PackagesViewModel
         {
             plan = await ByoStaging.PlanAsync(WorkbenchStore.Open(snapshot.DataRoot), _dropAnalysisService, applicationId, deepInspect: true);
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException or ArgumentException)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException or ArgumentException or InstallerAnalysisException)
         {
             AddLogLine($"Stage refused: {ex.Message}");
             StatusText = "Stage refused.";

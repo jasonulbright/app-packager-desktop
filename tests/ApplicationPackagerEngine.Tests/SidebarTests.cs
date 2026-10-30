@@ -37,7 +37,7 @@ internal static class SidebarFixtures
     {
         var registry = new SidebarRegistry();
         registry.Register(new SidebarItemDefinition("home", "Home", "Home24", SidebarItemKind.Page) { PageType = typeof(PackagesPage), IsPinned = true });
-        registry.Register(new SidebarItemDefinition("a", "Alpha", "Apps24", SidebarItemKind.Page) { PageType = typeof(ApplicationsPage) });
+        registry.Register(new SidebarItemDefinition("a", "Alpha", "Apps24", SidebarItemKind.Page) { PageType = typeof(DetectionTesterPage) });
         registry.Register(new SidebarItemDefinition("b", "Bravo", "Add24", SidebarItemKind.Page) { PageType = typeof(AddAppPage) });
         registry.Register(new SidebarItemDefinition("w", "Window", "Wrench24", SidebarItemKind.Window) { Activate = _ => { } });
         registry.Register(new SidebarItemDefinition("t", "Tool", "Toolbox24", SidebarItemKind.Tool) { Activate = _ => { } });
@@ -50,11 +50,11 @@ internal static class SidebarFixtures
 public sealed class SidebarRegistryTests
 {
     [Fact]
-    public void TheDefaultRegistryStartsWithTheFourBuiltInEntriesWithPackagesPinnedFirst()
+    public void TheDefaultRegistryStartsWithAppPackagerPinnedFirstThenTheAddEntriesAndTheWorkbench()
     {
         var registry = SidebarRegistry.CreateDefault();
-        Assert.Equal([SidebarIds.Packages, SidebarIds.Applications, SidebarIds.AddApp, SidebarIds.Workbench], SidebarFixtures.Ids(registry.Items.Take(4)));
-        Assert.Equal(["Packages", "Applications", "Add App", "Application Workbench"], registry.Items.Take(4).Select(i => i.Title));
+        Assert.Equal([SidebarIds.Packages, SidebarIds.AddApp, SidebarIds.AddFile, SidebarIds.Workbench], SidebarFixtures.Ids(registry.Items.Take(4)));
+        Assert.Equal(["App Packager", "Add from web", "Add from file", "Workbench"], registry.Items.Take(4).Select(i => i.Title));
         Assert.True(registry.Items[0].IsPinned);
         Assert.Equal(typeof(PackagesPage), registry.Items[0].PageType);
         Assert.All(registry.Items.Skip(1), i => Assert.False(i.IsPinned));
@@ -81,7 +81,7 @@ public sealed class SidebarRegistryTests
     public void AToolRegisteredLaterIsAppendedAndFoundWithoutRegardToCase()
     {
         var registry = SidebarRegistry.CreateDefault();
-        registry.Register(new SidebarItemDefinition("future-tool", "Future Tool", "Star24", SidebarItemKind.Tool) { Activate = _ => { } });
+        registry.Register(new SidebarItemDefinition("future-tool", "Future Tool", "Star24", SidebarItemKind.Tool) { Activate = _ => { }, Group = SidebarGroupIds.Tools });
         Assert.Equal("future-tool", registry.Items[^1].Id);
         Assert.Same(registry.Items[^1], registry.Find("Future-Tool"));
         Assert.Null(registry.Find("unknown"));
@@ -486,7 +486,7 @@ public sealed class SidebarPersistenceTests : IDisposable
     public void Dispose()
     {
         foreach (var (name, value) in _saved) Environment.SetEnvironmentVariable(name, value);
-        try { Directory.Delete(_root, true); } catch (IOException) { }
+        TestCleanup.DeleteDirectory(_root);
     }
 
     private static void WriteSettings(string json)
@@ -499,15 +499,15 @@ public sealed class SidebarPersistenceTests : IDisposable
     public void TheLayoutSurvivesASaveAndANewProcess()
     {
         var service = new SidebarService(SidebarRegistry.CreateDefault(), new SettingsSidebarLayoutStore(new SettingsService()));
-        Assert.True(service.Move(SidebarIds.Workbench, 1));
-        Assert.True(service.Hide(SidebarIds.AddApp));
+        Assert.True(service.Move(SidebarIds.SiteHygiene, 4));
+        Assert.True(service.Hide(SidebarIds.DetectionTester));
 
         var reloaded = new SidebarService(SidebarRegistry.CreateDefault(), new SettingsSidebarLayoutStore(new SettingsService()));
-        Assert.Equal([SidebarIds.Packages, SidebarIds.Workbench, SidebarIds.Applications], SidebarFixtures.Ids(reloaded.Items.Take(3)));
-        Assert.DoesNotContain(reloaded.Items, i => i.Id == SidebarIds.AddApp);
-        Assert.Equal([SidebarIds.AddApp], SidebarFixtures.Ids(reloaded.Hidden));
+        Assert.Equal([SidebarIds.Packages, SidebarIds.AddApp, SidebarIds.AddFile, SidebarIds.Workbench, SidebarIds.SiteHygiene], SidebarFixtures.Ids(reloaded.Items.Take(5)));
+        Assert.DoesNotContain(reloaded.Items, i => i.Id == SidebarIds.DetectionTester);
+        Assert.Equal([SidebarIds.DetectionTester], SidebarFixtures.Ids(reloaded.Hidden));
         var stored = JsonNode.Parse(File.ReadAllText(SettingsService.SettingsPath))!["Sidebar"]!;
-        Assert.Equal(SidebarIds.AddApp, (string?)stored["Hidden"]![0]);
+        Assert.Equal(SidebarIds.DetectionTester, (string?)stored["Hidden"]![0]);
     }
 
     [Fact]
@@ -536,12 +536,12 @@ public sealed class SidebarPersistenceTests : IDisposable
     {
         WriteSettings("""{ "SiteCode": "PS1", "SiteCodeSaved": true, "CompanyName": "Contoso", "HiddenApplications": ["git"] }""");
         var service = new SidebarService(SidebarRegistry.CreateDefault(), new SettingsSidebarLayoutStore(new SettingsService()));
-        service.Hide(SidebarIds.Applications);
+        service.Hide(SidebarIds.Workbench);
         var loaded = new SettingsService().Load();
         Assert.Equal("PS1", loaded.SiteCode);
         Assert.Equal("Contoso", loaded.CompanyName);
         Assert.Equal(["git"], loaded.HiddenApplications);
-        Assert.Equal([SidebarIds.Applications], loaded.Sidebar!.Hidden!);
+        Assert.Equal([SidebarIds.Workbench], loaded.Sidebar!.Hidden!);
     }
 
     [Fact]
@@ -563,7 +563,7 @@ public sealed class SidebarPersistenceTests : IDisposable
         var service = new SidebarService(SidebarRegistry.CreateDefault(), new SettingsSidebarLayoutStore(new SettingsService()));
         var saved = new List<bool>();
         service.Changed += (_, e) => saved.Add(e.Saved);
-        Assert.True(service.Hide(SidebarIds.Applications));
+        Assert.True(service.Hide(SidebarIds.Workbench));
         Assert.Equal([false], saved);
         Assert.Equal("{ not json", File.ReadAllText(SettingsService.SettingsPath));
     }
@@ -573,11 +573,11 @@ public sealed class SidebarPersistenceTests : IDisposable
     {
         var settings = new SettingsService();
         var service = new SidebarService(SidebarRegistry.CreateDefault(), new SettingsSidebarLayoutStore(settings));
-        service.Move(SidebarIds.Workbench, 1);
+        service.Move(SidebarIds.SiteHygiene, 4);
         var s = settings.Load();
         s.CompanyName = "Fabrikam";
         settings.SaveOperatorEdit(s);
         var reloaded = new SidebarService(SidebarRegistry.CreateDefault(), new SettingsSidebarLayoutStore(new SettingsService()));
-        Assert.Equal(SidebarIds.Workbench, reloaded.Items[1].Id);
+        Assert.Equal(SidebarIds.SiteHygiene, reloaded.Items[4].Id);
     }
 }

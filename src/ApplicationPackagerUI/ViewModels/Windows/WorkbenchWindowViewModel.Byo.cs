@@ -63,17 +63,25 @@ public partial class WorkbenchWindowViewModel
     /// Analyses a replacement installer, shows its identity differences from the newest
     /// revision with the review of its values, and adds it as the next revision once accepted.
     /// </summary>
+    /// <summary>A revision is staged with the MSI or the EXE wrapper; a patch or a package has no revision flow.</summary>
+    private static readonly string[] ReplaceableExtensions = [".msi", ".exe"];
+
     [RelayCommand]
     private async Task ReplaceInstallerAsync()
     {
         if (!IsByo || Prompts is null || _store is null || SelectedApplication is null) return;
         var applicationId = SelectedApplication.ApplicationId;
-        var file = Prompts.PickFiles("Replace installer", "Installers (*.msi;*.exe)|*.msi;*.exe|All files|*.*", multiselect: false).FirstOrDefault();
+        var file = Prompts.PickFiles("Replace installer", "Installers (*.msi;*.exe)|*.msi;*.exe", multiselect: false).FirstOrDefault();
         if (file is null) return;
+        if (!ReplaceableExtensions.Contains(Path.GetExtension(file), StringComparer.OrdinalIgnoreCase))
+        {
+            await Prompts.InfoAsync("Replace Installer", "A replacement installer must be an .msi or an .exe file. Add other installer types with Add from file.");
+            return;
+        }
 
         DroppedInstallerAnalysis analysis;
         try { analysis = await _analyzer.AnalyzeAsync(file, deepInspect: true); }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException or ArgumentException)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException or ArgumentException or InstallerAnalysisException)
         {
             await Prompts.InfoAsync("Replace Installer", "Analysis failed: " + ex.Message);
             return;

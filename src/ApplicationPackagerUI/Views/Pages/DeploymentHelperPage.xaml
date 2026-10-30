@@ -3,6 +3,7 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+    xmlns:controls="clr-namespace:ApplicationPackagerUI.Controls"
     xmlns:helpers="clr-namespace:ApplicationPackagerUI.Helpers"
     xmlns:pages="clr-namespace:ApplicationPackagerUI.ViewModels.Pages"
     xmlns:views="clr-namespace:ApplicationPackagerUI.Views.Pages"
@@ -140,11 +141,8 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <StackPanel Grid.Row="0" Margin="0,0,0,8">
-            <TextBlock Text="Deployment Helper" FontSize="28" FontWeight="Bold" Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
-            <TextBlock Text="Creates deployments of an application, a package, a task sequence or a software update group to device collections, one at a time or in rings. Every write shows a plan first."
-                       Style="{StaticResource Note}" Margin="0,4,0,0" AutomationProperties.AutomationId="txtDeploymentIntro" />
-        </StackPanel>
+        <controls:PageHeader Grid.Row="0" Title="Deployment Helper" TitleAutomationId="txtDeploymentTitle" DescriptionAutomationId="txtDeploymentIntro"
+                             Description="Creates deployments of an application, a package, a task sequence or a software update group to device collections, one at a time or in rings. Every write shows a plan first." />
 
         <Border Grid.Row="1" Style="{StaticResource Caution}" Visibility="{Binding Shared.HasConnectionMessage, Converter={StaticResource BoolToVisibility}}"
                 AutomationProperties.AutomationId="pnlDeploymentConnection">
@@ -154,7 +152,12 @@
 
         <TabControl Grid.Row="2" SelectedIndex="{Binding SelectedTabIndex}" AutomationProperties.AutomationId="tabDeploymentHelper">
             <TabItem Header="Deploy" AutomationProperties.AutomationId="tabDeploy" DataContext="{Binding Deploy}">
-                <ScrollViewer x:Name="scrollDeployTab" Margin="0,12,0,0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                <ScrollViewer Grid.Row="0" x:Name="scrollDeployTab" Margin="0,12,0,0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
                               AutomationProperties.AutomationId="scrollDeployTab">
                     <StackPanel x:Name="pnlDeploy" SizeChanged="OnDeploySizeChanged">
                         <WrapPanel Margin="0,0,0,4">
@@ -404,16 +407,17 @@
                                            AutomationProperties.LiveSetting="Polite" />
                                 <TextBlock Text="{Binding FormMessage}" Style="{StaticResource Warning}" Margin="0,8,0,0" Visibility="{Binding HasFormMessage, Converter={StaticResource BoolToVisibility}}"
                                            AutomationProperties.AutomationId="txtFormMessage" AutomationProperties.LiveSetting="Assertive" />
-                                <WrapPanel Margin="0,12,0,0">
-                                    <ui:Button x:Name="btnValidate" Content="Validate" Icon="{ui:SymbolIcon CheckmarkCircle24}" Command="{Binding ValidateCommand}" Style="{StaticResource ToolButton}"
-                                               ToolTip="Runs the checks and the schedule rules. Nothing is changed." AutomationProperties.AutomationId="btnValidate" />
-                                    <ui:Button Content="Deploy" Appearance="Primary" Icon="{ui:SymbolIcon Rocket24}" Command="{Binding DeployCommand}" Style="{StaticResource ToolButton}"
-                                               ToolTip="Shows the plan of the deployment. Nothing is changed before you confirm it." AutomationProperties.AutomationId="btnDeploy" />
-                                </WrapPanel>
                             </StackPanel>
                         </Border>
                     </StackPanel>
                 </ScrollViewer>
+                <WrapPanel Grid.Row="1" Margin="0,8,0,0" AutomationProperties.AutomationId="pnlDeployActions">
+                    <ui:Button x:Name="btnValidate" Content="Validate" Icon="{ui:SymbolIcon CheckmarkCircle24}" Command="{Binding ValidateCommand}" Style="{StaticResource ToolButton}"
+                               ToolTip="Runs the checks and the schedule rules. Nothing is changed." AutomationProperties.AutomationId="btnValidate" />
+                    <ui:Button Content="Deploy" Appearance="Primary" Icon="{ui:SymbolIcon Rocket24}" Command="{Binding DeployCommand}" Style="{StaticResource ToolButton}"
+                               ToolTip="Shows the plan of the deployment. Nothing is changed before you confirm it." AutomationProperties.AutomationId="btnDeploy" />
+                </WrapPanel>
+                </Grid>
             </TabItem>
 
             <TabItem Header="Rings" AutomationProperties.AutomationId="tabRings" DataContext="{Binding Rings}">
@@ -447,7 +451,7 @@
                                        AutomationProperties.AutomationId="btnHistoryRefresh" />
                             <ui:Button Content="Cancel" Icon="{ui:SymbolIcon Dismiss24}" Command="{Binding CancelLoadCommand}" Style="{StaticResource ToolButton}"
                                        ToolTip="Stops the read of the audit log." AutomationProperties.Name="Cancel the read" AutomationProperties.AutomationId="btnHistoryCancel" />
-                            <ui:Button Content="Remove deployment" Icon="{ui:SymbolIcon Delete24}" Command="{Binding RemoveDeploymentCommand}" Style="{StaticResource ToolButton}"
+                            <ui:Button Content="Remove deployment" Icon="{ui:SymbolIcon Delete24}" Appearance="Danger" Command="{Binding RemoveDeploymentCommand}" Style="{StaticResource ToolButton}"
                                        ToolTip="Shows a plan that removes the deployment of the selected create record." AutomationProperties.AutomationId="btnRemoveDeployment" />
                             <ui:Button Content="Export CSV" Icon="{ui:SymbolIcon DocumentTable24}" Command="{Binding ExportCsvCommand}" Style="{StaticResource ToolButton}"
                                        ToolTip="Saves the rows the filters show as a CSV file." AutomationProperties.AutomationId="btnHistoryCsv" />

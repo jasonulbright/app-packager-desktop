@@ -120,10 +120,10 @@ public sealed class SidebarWindowTests
     {
         WithSidebar(h =>
         {
-            var first = (NavigationViewItem)h.Navigation.MenuItems[0]!;
+            var first = Assert.IsType<NavigationViewItem>(h.Navigation.MenuItems[0]);
             Assert.Equal(SidebarIds.Packages, first.Tag);
             Assert.Equal(typeof(PackagesPage), first.TargetPageType);
-            Assert.Equal(SidebarRegistry.CreateDefault().Items.Count - 1, h.Navigation.MenuItems.Count);
+            Assert.Equal(SidebarRegistry.CreateDefault().Items.Count - 1, h.Navigation.MenuItems.OfType<NavigationViewItem>().Count());
         }, SidebarRegistry.CreateDefault(), new SidebarLayout { Order = [SidebarIds.Workbench, SidebarIds.Packages], Hidden = [SidebarIds.Packages, SidebarIds.AddApp] });
     }
 
@@ -544,10 +544,10 @@ public sealed class SidebarWindowTests
         {
             var home = h.Presenter.ItemFor("home");
             var alpha = h.Presenter.ItemFor("a");
-            Assert.True(h.Navigation.Navigate(typeof(ApplicationsPage)));
+            Assert.True(h.Navigation.Navigate(typeof(DetectionTesterPage)));
             Assert.Same(alpha, h.Navigation.SelectedItem);
             Assert.True(alpha.IsActive);
-            Assert.Equal(typeof(ApplicationsPage), ShownPage(h.Navigation));
+            Assert.Equal(typeof(DetectionTesterPage), ShownPage(h.Navigation));
 
             h.Service.Hide("a");
             Assert.Same(home, h.Navigation.SelectedItem);
@@ -561,9 +561,31 @@ public sealed class SidebarWindowTests
             Assert.True(home.IsActive);
             Assert.Same(home, h.Navigation.SelectedItem);
 
-            Assert.True(h.Navigation.Navigate(typeof(ApplicationsPage)));
+            Assert.True(h.Navigation.Navigate(typeof(DetectionTesterPage)));
             Assert.True(alpha.IsActive);
             Assert.False(home.IsActive);
+        });
+    }
+
+    [Fact]
+    public void ANavigationToTheTypeOfAnEntryHiddenFromTheStartShowsThatPage()
+    {
+        WithSidebar(h =>
+        {
+            Assert.DoesNotContain("a", h.Shown());
+            Assert.True(h.Navigation.Navigate(typeof(DetectionTesterPage)));
+            Assert.Equal(typeof(DetectionTesterPage), ShownPage(h.Navigation));
+        }, layout: new SidebarLayout { Hidden = ["a"] });
+    }
+
+    [Fact]
+    public void ANavigationToTheTypeOfAnEntryHiddenLaterShowsThatPage()
+    {
+        WithSidebar(h =>
+        {
+            h.Service.Hide("a");
+            Assert.True(h.Navigation.Navigate(typeof(DetectionTesterPage)));
+            Assert.Equal(typeof(DetectionTesterPage), ShownPage(h.Navigation));
         });
     }
 
@@ -585,7 +607,7 @@ public sealed class SidebarWindowTests
         WithSidebar(h =>
         {
             var alpha = h.Presenter.ItemFor("a");
-            Assert.True(h.Navigation.Navigate(typeof(ApplicationsPage)));
+            Assert.True(h.Navigation.Navigate(typeof(DetectionTesterPage)));
             h.Navigation.Navigating += (_, e) => e.Cancel = true;
             h.Service.Hide("a");
             Assert.Same(alpha, h.Navigation.SelectedItem);
@@ -600,14 +622,14 @@ public sealed class SidebarWindowTests
     {
         WithSidebar(h =>
         {
-            Assert.True(h.Navigation.Navigate(typeof(ApplicationsPage)));
+            Assert.True(h.Navigation.Navigate(typeof(DetectionTesterPage)));
             var navigations = 0;
             h.Navigation.Navigated += (_, _) => navigations++;
             h.Service.Hide("b");
             h.Service.Move("a", 3);
             h.Service.Reset();
             Assert.Equal(0, navigations);
-            Assert.Equal(typeof(ApplicationsPage), ShownPage(h.Navigation));
+            Assert.Equal(typeof(DetectionTesterPage), ShownPage(h.Navigation));
             Assert.True(h.Presenter.ItemFor("a").IsActive);
         });
     }

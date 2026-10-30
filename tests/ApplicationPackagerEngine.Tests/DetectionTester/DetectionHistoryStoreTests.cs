@@ -10,7 +10,7 @@ public sealed class DetectionHistoryStoreTests : IDisposable
 
     public void Dispose()
     {
-        try { Directory.Delete(_folder, recursive: true); } catch (IOException) { }
+        TestCleanup.DeleteDirectory(_folder);
     }
 
     private string HistoryFile => Path.Combine(_folder, DetectionHistoryStore.FileName);
@@ -73,12 +73,14 @@ public sealed class DetectionHistoryStoreTests : IDisposable
     {
         var saved = Environment.GetEnvironmentVariable(AppDataPaths.DataRootVariable);
         var target = _folder + "-target";
+        string? link = null;
         Directory.CreateDirectory(target);
         try
         {
             Environment.SetEnvironmentVariable(AppDataPaths.DataRootVariable, _folder);
             Directory.CreateDirectory(AppDataPaths.Root);
-            Junctions.Create(DetectionHistoryStore.DefaultFolder(), target);
+            link = DetectionHistoryStore.DefaultFolder();
+            Junctions.Create(link, target);
 
             var store = new DetectionHistoryStore();
 
@@ -88,6 +90,7 @@ public sealed class DetectionHistoryStoreTests : IDisposable
         finally
         {
             Environment.SetEnvironmentVariable(AppDataPaths.DataRootVariable, saved);
+            if (link is not null) Junctions.Remove(link);
             Directory.Delete(target, recursive: true);
         }
     }

@@ -23,7 +23,7 @@ public static class DiscoveryPreferences
     }
 
     /// <summary>
-    /// Same effect as checking the applications on the Applications page: the ids leave the
+    /// Same effect as checking the applications in the Catalog window: the ids leave the
     /// hidden list and the dismissed list, and join the enabled list. Returns how many ids left
     /// the hidden list. The caller saves and reloads the grid.
     /// </summary>

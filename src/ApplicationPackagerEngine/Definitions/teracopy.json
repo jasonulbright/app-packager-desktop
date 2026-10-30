@@ -11,7 +11,7 @@
   "Cpe": "cpe:2.3:a:codesector:teracopy:*:*:*:*:*:*:*:*",
   "ArpName": "TeraCopy*",
   "InstallerType": "EXE",
-  "InstallerFramework": "InstallShield",
+  "InstallerFramework": "AdvancedInstaller",
   "Acquisition": {},
   "VersionScraper": {
     "Type": "HttpRegex",

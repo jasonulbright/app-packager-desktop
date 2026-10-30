@@ -74,16 +74,38 @@ public sealed class SidebarService
     /// <summary>Every entry in sidebar order; a hidden entry keeps its place.</summary>
     public IReadOnlyList<SidebarItemDefinition> All => _order.Select(Definition).ToList();
 
-    private int PinnedCount => _registry.Items.Count(i => i.IsPinned);
+    public IReadOnlyList<SidebarGroup> Groups => _registry.Groups;
+
+    public SidebarGroup? GroupOf(SidebarItemDefinition item) => _registry.FindGroup(item.Group);
 
     public bool IsHidden(string id) => _hidden.Contains(id);
 
-    /// <summary>Moves an entry to an index of <see cref="All"/>, never above a pinned entry.</summary>
+    /// <summary>
+    /// The indexes of <paramref name="ids"/> that an entry of the group of <paramref name="item"/>
+    /// can take: from the first entry of the group that is not pinned to the last entry of the group.
+    /// </summary>
+    public (int First, int Last) MoveRange(SidebarItemDefinition item, IReadOnlyList<string> ids)
+    {
+        var first = -1;
+        var last = -1;
+        for (var i = 0; i < ids.Count; i++)
+        {
+            var other = Definition(ids[i]);
+            if (!SidebarRegistry.SameGroup(other.Group, item.Group)) continue;
+            if (first < 0) first = i;
+            if (other.IsPinned) first = i + 1;
+            last = i;
+        }
+        return (first, last);
+    }
+
+    /// <summary>Moves an entry to an index of <see cref="All"/>, never above a pinned entry and never out of its group.</summary>
     public bool Move(string id, int index)
     {
-        if (Movable(id) is not { } item || _order.Count == 0) return false;
+        if (Movable(id) is not { } item) return false;
         var from = _order.IndexOf(item.Id);
-        var to = Math.Clamp(index, PinnedCount, _order.Count - 1);
+        var (first, last) = MoveRange(item, _order);
+        var to = Math.Clamp(index, first, last);
         if (from == to) return false;
         _order.RemoveAt(from);
         _order.Insert(to, item.Id);
@@ -92,20 +114,24 @@ public sealed class SidebarService
     }
 
     /// <summary>
-    /// Moves a shown entry to an index of <see cref="Items"/>. It lands before the shown entry
-    /// that holds that index after the move, or after the last shown entry.
+    /// Moves a shown entry to an index of <see cref="Items"/>, never out of its group. It lands
+    /// before the shown entry that holds that index after the move when that entry is in the
+    /// same group, else after the shown entry before that index.
     /// </summary>
     public bool MoveVisible(string id, int visibleIndex)
     {
         if (Movable(id) is not { } item || _hidden.Contains(item.Id)) return false;
         var visible = _order.Where(i => !_hidden.Contains(i)).ToList();
         var from = visible.IndexOf(item.Id);
-        var to = Math.Clamp(visibleIndex, PinnedCount, visible.Count - 1);
+        var (first, last) = MoveRange(item, visible);
+        var to = Math.Clamp(visibleIndex, first, last);
         if (from == to) return false;
 
         visible.RemoveAt(from);
         _order.Remove(item.Id);
-        var at = to < visible.Count ? _order.IndexOf(visible[to]) : _order.IndexOf(visible[^1]) + 1;
+        var at = to < visible.Count && SidebarRegistry.SameGroup(Definition(visible[to]).Group, item.Group)
+            ? _order.IndexOf(visible[to])
+            : _order.IndexOf(visible[to - 1]) + 1;
         _order.Insert(at, item.Id);
         Persist();
         return true;
@@ -140,21 +166,24 @@ public sealed class SidebarService
 
     private SidebarItemDefinition Definition(string id) => _registry.Find(id)!;
 
+    /// <summary>
+    /// Builds the order group by group, in registry group order: the pinned entries, then the
+    /// saved ids of the group in their saved relative order, then the entries the saved order
+    /// does not name. A saved order from before the groups loads the same way.
+    /// </summary>
     private void Apply(SidebarLayout? layout)
     {
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var pinned in _registry.Items.Where(i => i.IsPinned))
+        var saved = (layout?.Order ?? []).Select(_registry.Find).OfType<SidebarItemDefinition>().Where(i => !i.IsPinned).ToList();
+        var groups = new List<string?>();
+        foreach (var item in _registry.Items)
+            if (!groups.Exists(g => SidebarRegistry.SameGroup(g, item.Group))) groups.Add(item.Group);
+        foreach (var group in groups)
         {
-            seen.Add(pinned.Id);
-            _order.Add(pinned.Id);
+            var members = _registry.Items.Where(i => SidebarRegistry.SameGroup(i.Group, group)).ToList();
+            foreach (var item in members.Where(i => i.IsPinned).Concat(saved.Where(i => SidebarRegistry.SameGroup(i.Group, group))).Concat(members))
+                if (seen.Add(item.Id)) _order.Add(item.Id);
         }
-        foreach (var id in layout?.Order ?? [])
-        {
-            if (_registry.Find(id) is { IsPinned: false } item && seen.Add(item.Id))
-                _order.Add(item.Id);
-        }
-        foreach (var item in _registry.Items.Where(i => seen.Add(i.Id)))
-            _order.Add(item.Id);
         foreach (var id in layout?.Hidden ?? [])
         {
             if (Movable(id) is { } item) _hidden.Add(item.Id);
@@ -177,10 +206,10 @@ public static class SidebarDropMath
 {
     /// <summary>
     /// The gap the pointer is over: the count of entries whose vertical midpoint lies above
-    /// it, never less than <paramref name="minimum"/>.
+    /// it, never less than <paramref name="minimum"/> and never more than <paramref name="maximum"/>.
     /// </summary>
-    public static int InsertionIndex(IReadOnlyList<double> midpoints, double y, int minimum) =>
-        Math.Max(minimum, midpoints.Count(m => m < y));
+    public static int InsertionIndex(IReadOnlyList<double> midpoints, double y, int minimum, int maximum = int.MaxValue) =>
+        Math.Max(minimum, Math.Min(maximum, midpoints.Count(m => m < y)));
 
     /// <summary>The index of the dragged entry after the drop into a gap.</summary>
     public static int FinalIndex(int sourceIndex, int insertionIndex) =>

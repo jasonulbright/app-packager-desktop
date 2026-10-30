@@ -80,8 +80,10 @@ public partial class PackagesViewModel : ObservableObject
         ApplicationPackagerEngine.Services.ApplicationInventoryService inventory,
         ApplicationInventoryProjection inventoryProjection,
         ApplicationPackagerEngine.Services.IDiscoveryService discovery,
-        IDiscoveryPrompt discoveryPrompt)
+        IDiscoveryPrompt discoveryPrompt,
+        IAddFileRoute addFileRoute)
     {
+        AddFileRoute = addFileRoute;
         _publishRuns = publishRuns;
         _dropAnalysisService = dropAnalysisService;
         _stagingService = stagingService;
@@ -222,7 +224,7 @@ public partial class PackagesViewModel : ObservableObject
     {
         var dialog = new Microsoft.Win32.SaveFileDialog
         {
-            Title = "Export Packages to CSV",
+            Title = "Export the App Packager grid to CSV",
             Filter = "CSV files (*.csv)|*.csv",
             FileName = $"AppPackager-Export-{DateTime.Now:yyyyMMdd}.csv"
         };
@@ -345,7 +347,7 @@ public partial class PackagesViewModel : ObservableObject
     /// <summary>The rows the grid shows and, when it shows none, the status and the log line that say why.</summary>
     public sealed record GridLoad(IReadOnlyList<PackagerInfo> Rows, string? StatusText, string? LogLine);
 
-    public const string AllHiddenMessage = "All applications are hidden. Show applications on the Applications page.";
+    public const string AllHiddenMessage = "All applications are hidden. Select Catalog to show applications.";
 
     /// <summary>Reads every application, hidden ones included, only when no visible one exists.</summary>
     public static async Task<GridLoad> ReadGridAsync(Func<Task<List<PackagerInfo>>> visible, Func<Task<List<PackagerInfo>>> all)
@@ -760,6 +762,7 @@ public partial class PackagesViewModel : ObservableObject
                         }
                         p.Status = "Stage error";
                         p.IsSelected = false;
+                        _stageFailures[p] = result.StdErr;
                         AddLogLine($"Stage FAILED (exit {result.ExitCode})");
                         LogStdErr(result.StdErr);
                     }
@@ -772,11 +775,13 @@ public partial class PackagesViewModel : ObservableObject
                         break;
                     }
                     p.Status = "Stage error";
+                    _stageFailures[p] = ex.Message;
                     AddLogLine($"ERROR: {ex.Message}");
                 }
                 catch (Exception ex)
                 {
                     p.Status = "Stage error";
+                    _stageFailures[p] = ex.Message;
                     tally.RecordFailure();
                     AddLogLine($"ERROR: {ex.Message}");
                 }
@@ -1035,32 +1040,53 @@ public partial class PackagesViewModel : ObservableObject
         return new ConflictAnswer(behavior, applyToAll.IsChecked == true);
     }
 
-    private static readonly string[] DroppableExtensions = [".msi", ".exe"];
+    /// <summary>The route of a file drop on the grid to the Add from file page.</summary>
+    public IAddFileRoute? AddFileRoute { get; set; }
 
     /// <summary>
-    /// Entry point for a file drop. Only a single .msi or .exe is analysable; anything else
-    /// is logged and ignored rather than guessed at.
+    /// Entry point for a file drop: the files go to the Add from file page, which checks the file
+    /// type and runs the same analysis and review as its picker.
     /// </summary>
     [RelayCommand]
-    private async Task HandleDroppedFilesAsync(string[]? paths)
+    private Task HandleDroppedFilesAsync(string[]? paths)
     {
-        if (paths is null || paths.Length == 0) return;
+        if (paths is null || paths.Length == 0 || AddFileRoute is null) return Task.CompletedTask;
+        AddFileRoute.Route(paths);
+        return Task.CompletedTask;
+    }
 
-        if (paths.Length > 1)
-        {
-            AddLogLine($"Drop ignored: {paths.Length} files dropped, one installer at a time.");
-            return;
-        }
+    /// <summary>The grid row the result panel of an add flow selects.</summary>
+    [ObservableProperty] private PackagerInfo? _focusedPackager;
 
-        var path = paths[0];
-        var extension = Path.GetExtension(path);
-        if (!DroppableExtensions.Contains(extension, StringComparer.OrdinalIgnoreCase))
-        {
-            AddLogLine($"Drop ignored: {Path.GetFileName(path)} is not an .msi or .exe.");
-            return;
-        }
+    /// <summary>Loads the grid again, clears the search and selects the row of the definition.</summary>
+    public async Task SelectDefinitionAsync(string definitionId)
+    {
+        await LoadPackagersCommand.ExecuteAsync(null);
+        SearchText = "";
+        FocusedPackager = Packagers.FirstOrDefault(p => string.Equals(p.Uid, definitionId, StringComparison.OrdinalIgnoreCase));
+    }
 
-        await AnalyzeDroppedInstallerAsync(path);
+    /// <summary>Runs the Stage command on the row of the definition only; returns the status line.</summary>
+    public async Task<string> StageDefinitionAsync(string definitionId)
+    {
+        var row = Packagers.FirstOrDefault(p => string.Equals(p.Uid, definitionId, StringComparison.OrdinalIgnoreCase));
+        if (row is null) return "The new row is not in the App Packager. Press F5 on the App Packager to load it.";
+        if (!StageCommand.CanExecute(null)) return "Another operation is running. Select Stage now again when it ends.";
+        foreach (var p in Packagers) p.IsSelected = ReferenceEquals(p, row);
+        FocusedPackager = row;
+        _stageFailures.Remove(row);
+        await StageCommand.ExecuteAsync(null);
+        return StageNowStatus(StatusText, _stageFailures.GetValueOrDefault(row));
+    }
+
+    /// <summary>The reason of the last failed stage of each row in this session.</summary>
+    private readonly Dictionary<PackagerInfo, string> _stageFailures = new(ReferenceEqualityComparer.Instance);
+
+    /// <summary>The status line of Stage now: the run status, then the first line of the failure reason when the stage failed.</summary>
+    public static string StageNowStatus(string status, string? failure)
+    {
+        var reason = (failure ?? "").Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).FirstOrDefault();
+        return string.IsNullOrEmpty(reason) ? status : $"{status} Reason: {reason}";
     }
 
     /// <summary>
@@ -1077,7 +1103,12 @@ public partial class PackagesViewModel : ObservableObject
         ApplicationPackagerEngine.Services.DroppedInstallerAnalysis analysis;
         try
         {
-            analysis = await _dropAnalysisService.AnalyzeAsync(path, deepInspect: true);
+            analysis = await _dropAnalysisService.AnalyzeAsync(path, deepInspect: true, ct: CancellationToken.None);
+        }
+        catch (ApplicationPackagerEngine.Services.AddFromInstaller.AddFromInstallerRefusedException ex)
+        {
+            AddLogLine($"Drop refused: {ex.Message}");
+            return;
         }
         catch (Exception ex)
         {

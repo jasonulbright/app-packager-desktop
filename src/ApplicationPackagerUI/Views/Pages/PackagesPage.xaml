@@ -4,6 +4,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
     xmlns:helpers="clr-namespace:ApplicationPackagerUI.Helpers"
+    xmlns:controls="clr-namespace:ApplicationPackagerUI.Controls"
     ScrollViewer.CanContentScroll="False"
     AllowDrop="True"
     DragOver="Page_DragOver"
@@ -15,6 +16,13 @@
                 <ResourceDictionary Source="/ApplicationPackagerUI;component/Views/Styles/SelectableRows.xaml" />
             </ResourceDictionary.MergedDictionaries>
             <helpers:StatusToBrushConverter x:Key="StatusToBrushConverter" />
+            <Style x:Key="ToolbarSeparator" TargetType="Border">
+                <Setter Property="Width" Value="1" />
+                <Setter Property="Height" Value="24" />
+                <Setter Property="Margin" Value="4,0,8,0" />
+                <Setter Property="VerticalAlignment" Value="Center" />
+                <Setter Property="Background" Value="{DynamicResource ControlStrokeColorDefaultBrush}" />
+            </Style>
             <Style x:Key="TrimCell" TargetType="TextBlock" BasedOn="{StaticResource DefaultDataGridTextElementStyle}">
                 <Setter Property="TextTrimming" Value="CharacterEllipsis" />
                 <Setter Property="ToolTip" Value="{Binding Text, RelativeSource={RelativeSource Self}}" />
@@ -39,21 +47,47 @@
         </ResourceDictionary>
     </Page.Resources>
 
-    <Grid Margin="16,12,16,12" Background="Transparent" AllowDrop="True">
+    <Grid Margin="24,16,24,16" Background="Transparent" AllowDrop="True">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
-            <RowDefinition Height="*" />
             <RowDefinition Height="Auto" />
-            <RowDefinition Height="180" />
+            <RowDefinition Height="3*" MinHeight="120" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" MinHeight="72" MaxHeight="180" />
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <WrapPanel Grid.Row="0" Margin="0,0,0,8" VerticalAlignment="Center">
-            <ui:TextBox Text="{Binding Comment, UpdateSourceTrigger=PropertyChanged}"
-                        PlaceholderText="Administrative Comments"
-                        Width="280" Margin="0,0,16,0" VerticalAlignment="Center" />
+        <controls:PageHeader Grid.Row="0" Title="App Packager" TitleAutomationId="txtAppPackagerTitle">
+            <controls:PageHeader.Actions>
+                <ui:Button
+                           Content="Catalog"
+                           Icon="{ui:SymbolIcon AppsList24}"
+                           Click="Catalog_Click"
+                           ToolTip="Show or hide applications in this grid."
+                           AutomationProperties.AutomationId="btnCatalog" />
+            </controls:PageHeader.Actions>
+        </controls:PageHeader>
 
+        <WrapPanel Grid.Row="1" x:Name="AppPackagerToolbar" Margin="0,0,0,8" VerticalAlignment="Center" AutomationProperties.AutomationId="pnlAppPackagerToolbar">
+            <WrapPanel.Resources>
+                <!-- Tag "Compact" drops the labels; the tooltip then names the button. -->
+                <Style TargetType="ui:Button" BasedOn="{StaticResource {x:Type ui:Button}}">
+                    <Setter Property="ToolTip" Value="{Binding Content, RelativeSource={RelativeSource Self}}" />
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding Tag, RelativeSource={RelativeSource AncestorType=WrapPanel}}" Value="Compact">
+                            <Setter Property="Padding" Value="8,5" />
+                            <Setter Property="ContentTemplate">
+                                <Setter.Value>
+                                    <DataTemplate>
+                                        <Rectangle Width="0" Height="0" />
+                                    </DataTemplate>
+                                </Setter.Value>
+                            </Setter>
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </WrapPanel.Resources>
             <ui:Button Content="Check Latest"
                        Icon="{ui:SymbolIcon ArrowDownload24}"
                        Command="{Binding CheckLatestCommand}"
@@ -77,6 +111,7 @@
                        ToolTip="Look up the CVEs fixed by updating each checked application from its ConfigMgr version to the latest version. Needs both versions and a CPE."
                        AutomationProperties.AutomationId="btnCheckCves"
                        Margin="0,0,4,0" />
+            <Border Style="{StaticResource ToolbarSeparator}" />
             <ui:Button Content="Stage"
                        Icon="{ui:SymbolIcon ArrowCircleDown24}"
                        Command="{Binding StageCommand}"
@@ -113,6 +148,7 @@
                        ToolTipService.ShowOnDisabled="True"
                        AutomationProperties.AutomationId="btnWsusUpdates"
                        Margin="0,0,4,0" />
+            <Border Style="{StaticResource ToolbarSeparator}" />
             <ui:Button Content="One Click"
                        Icon="{ui:SymbolIcon Play24}"
                        Command="{Binding OneClickCommand}"
@@ -140,13 +176,28 @@
                        Visibility="{Binding IsOperationRunning, Converter={StaticResource BooleanToVisibilityConverter}}" />
         </WrapPanel>
 
-        <ui:TextBox Grid.Row="1"
-                    Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
-                    PlaceholderText="Search applications..."
-                    Icon="{ui:SymbolIcon Search24}"
-                    Margin="0,0,0,8" />
+        <Grid Grid.Row="2" Margin="0,0,0,8">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <ui:TextBox Grid.Column="0"
+                        Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
+                        PlaceholderText="Search applications..."
+                        Icon="{ui:SymbolIcon Search24}"
+                        AutomationProperties.AutomationId="txtAppPackagerSearch"
+                        AutomationProperties.Name="Search applications" />
+            <ui:TextBox Grid.Column="1"
+                        Text="{Binding Comment, UpdateSourceTrigger=PropertyChanged}"
+                        PlaceholderText="Administrative Comments"
+                        ToolTip="The comment that Publish writes to each published application."
+                        AutomationProperties.AutomationId="txtAppPackagerComment"
+                        AutomationProperties.Name="Administrative Comments"
+                        Width="280" Margin="8,0,0,0" />
+        </Grid>
 
-        <ui:DataGrid Grid.Row="2"
+
+        <ui:DataGrid Grid.Row="3"
                   x:Name="PackagerGrid"
                   ItemsSource="{Binding FilteredPackagers}"
                   AutoGenerateColumns="False"
@@ -314,7 +365,7 @@
             </DataGrid.Columns>
         </ui:DataGrid>
 
-        <StackPanel Grid.Row="3" Orientation="Horizontal" Margin="0,6,0,6">
+        <StackPanel Grid.Row="4" Orientation="Horizontal" Margin="0,6,0,6">
             <ui:Button Content="Select Update Available"
                        Icon="{ui:SymbolIcon CheckboxChecked24}"
                        Command="{Binding SelectUpdateAvailableCommand}"
@@ -325,7 +376,7 @@
                       VerticalAlignment="Center" />
         </StackPanel>
 
-        <TextBox Grid.Row="4"
+        <TextBox Grid.Row="5"
                  Text="{Binding LogText, Mode=OneWay}"
                  IsReadOnly="True"
                  TextWrapping="NoWrap"
@@ -339,7 +390,7 @@
                  Foreground="{DynamicResource TextFillColorSecondaryBrush}"
                  TextChanged="LogTextBox_TextChanged" />
 
-        <Grid Grid.Row="5" Margin="0,4,0,0">
+        <Grid Grid.Row="6" Margin="0,4,0,0">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="8" />
@@ -353,16 +404,16 @@
                         <Setter Property="Foreground" Value="{DynamicResource TextFillColorTertiaryBrush}" />
                         <Style.Triggers>
                             <DataTrigger Binding="{Binding MecmConnectionStatus}" Value="Connected">
-                                <Setter Property="Foreground" Value="#2D7D46" />
+                                <Setter Property="Foreground" Value="{DynamicResource SystemFillColorSuccessBrush}" />
                             </DataTrigger>
                             <DataTrigger Binding="{Binding MecmConnectionStatus}" Value="Failed">
-                                <Setter Property="Foreground" Value="#C0392B" />
+                                <Setter Property="Foreground" Value="{DynamicResource SystemFillColorCriticalBrush}" />
                             </DataTrigger>
                             <DataTrigger Binding="{Binding MecmConnectionStatus}" Value="Testing...">
-                                <Setter Property="Foreground" Value="#E8A317" />
+                                <Setter Property="Foreground" Value="{DynamicResource SystemFillColorCautionBrush}" />
                             </DataTrigger>
                             <DataTrigger Binding="{Binding MecmConnectionStatus}" Value="Not configured">
-                                <Setter Property="Foreground" Value="#999999" />
+                                <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
                             </DataTrigger>
                         </Style.Triggers>
                     </Style>

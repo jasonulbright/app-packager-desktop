@@ -1,8 +1,9 @@
-﻿<Page
+<Page
     x:Class="ApplicationPackagerUI.Views.Pages.SiteHygienePage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+    xmlns:controls="clr-namespace:ApplicationPackagerUI.Controls"
     xmlns:helpers="clr-namespace:ApplicationPackagerUI.Helpers"
     xmlns:pages="clr-namespace:ApplicationPackagerUI.ViewModels.Pages"
     xmlns:local="clr-namespace:ApplicationPackagerUI.Views.Pages"
@@ -191,11 +192,8 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <StackPanel Grid.Row="0" Margin="0,0,0,8">
-            <TextBlock Text="Site Hygiene" FontSize="28" FontWeight="Bold" Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
-            <TextBlock Text="Scans the site for unused, broken and misconfigured objects and fixes a finding with a typed change. Every fix checks the finding again and shows a plan first. A delete cannot be undone."
-                       x:Name="txtHygieneIntro" Style="{StaticResource Note}" Margin="0,4,0,0" AutomationProperties.AutomationId="txtHygieneIntro" />
-        </StackPanel>
+        <controls:PageHeader x:Name="pageHeader" Grid.Row="0" Title="Site Hygiene" TitleAutomationId="txtHygieneTitle" DescriptionAutomationId="txtHygieneIntro"
+                             Description="Finds unused, broken and misconfigured objects in the site. Every fix shows a plan first. A delete cannot be undone." />
 
         <StackPanel Grid.Row="1">
             <Border Style="{StaticResource Caution}" Visibility="{Binding HasConnectionMessage, Converter={StaticResource BoolToVisibility}}"
@@ -492,7 +490,7 @@
                                       Visibility="{Binding IsAlertsPane, Converter={StaticResource BoolToVisibility}}"
                                       AutomationProperties.AutomationId="dgAlerts" AutomationProperties.Name="Alerts">
                                 <DataGrid.Columns>
-                                    <DataGridTextColumn Header="State" Binding="{Binding State}" Width="96" MinWidth="92" ElementStyle="{StaticResource TrimmedCell}" />
+                                    <DataGridTextColumn Header="State" Binding="{Binding State}" Width="96" MinWidth="92" ElementStyle="{StaticResource StatusCell}" />
                                     <DataGridTextColumn Header="Time" Binding="{Binding Time}" Width="176" MinWidth="172" ElementStyle="{StaticResource TrimmedCell}" />
                                     <DataGridTextColumn Header="Metric" Binding="{Binding Metric}" Width="300" MinWidth="296" ElementStyle="{StaticResource TrimmedCell}" />
                                     <DataGridTextColumn Header="Message" Binding="{Binding Message}" Width="*" MinWidth="200" ElementStyle="{StaticResource WrappedCell}" />
@@ -532,7 +530,7 @@
                                 <DataGridTextColumn Header="Check" Binding="{Binding CheckId}" SortMemberPath="CheckId" Width="84" MinWidth="80" ElementStyle="{StaticResource TrimmedCell}" />
                                 <DataGridTextColumn Header="Name" Binding="{Binding Name}" SortMemberPath="Name" Width="3*" MinWidth="180" ElementStyle="{StaticResource TrimmedCell}" />
                                 <DataGridTextColumn Header="Category" Binding="{Binding Category}" SortMemberPath="Category" Width="156" MinWidth="150" ElementStyle="{StaticResource TrimmedCell}" />
-                                <DataGridTextColumn Header="State" Binding="{Binding State}" SortMemberPath="State" Width="196" MinWidth="190" ElementStyle="{StaticResource TrimmedCell}" />
+                                <DataGridTextColumn Header="State" Binding="{Binding State}" SortMemberPath="State" Width="196" MinWidth="190" ElementStyle="{StaticResource StatusCell}" />
                                 <DataGridTextColumn Header="Findings" Binding="{Binding Findings}" SortMemberPath="Findings" Width="104" MinWidth="100" ElementStyle="{StaticResource TrimmedCell}" />
                                 <DataGridTextColumn Header="Reason" Binding="{Binding Reason}" SortMemberPath="Reason" Width="2*" MinWidth="140" ElementStyle="{StaticResource TrimmedCell}" />
                             </DataGrid.Columns>
@@ -568,12 +566,12 @@
                             <DataGrid.Columns>
                                 <DataGridTextColumn Header="Time" Binding="{Binding Time}" SortMemberPath="Time" Width="176" MinWidth="172" ElementStyle="{StaticResource TrimmedCell}" />
                                 <DataGridTextColumn Header="Action" Binding="{Binding Action}" SortMemberPath="Action" Width="216" MinWidth="212" ElementStyle="{StaticResource TrimmedCell}" />
-                                <DataGridTextColumn Header="Result" Binding="{Binding Result}" SortMemberPath="Result" Width="104" MinWidth="100" ElementStyle="{StaticResource TrimmedCell}" />
+                                <DataGridTextColumn Header="Result" Binding="{Binding Result}" SortMemberPath="Result" Width="104" MinWidth="100" ElementStyle="{StaticResource StatusCell}" />
                                 <DataGridTextColumn Header="Objects" Binding="{Binding Objects}" SortMemberPath="Objects" Width="2*" MinWidth="120" ElementStyle="{StaticResource TrimmedCell}" />
                                 <DataGridTextColumn Header="Site" Binding="{Binding Site}" SortMemberPath="Site" Width="64" MinWidth="60" ElementStyle="{StaticResource TrimmedCell}" />
                                 <DataGridTextColumn Header="Provider" Binding="{Binding Provider}" SortMemberPath="Provider" Width="*" MinWidth="100" ElementStyle="{StaticResource TrimmedCell}" />
                                 <DataGridTextColumn Header="User" Binding="{Binding User}" SortMemberPath="User" Width="*" MinWidth="100" ElementStyle="{StaticResource TrimmedCell}" />
-                                <DataGridTextColumn Header="Verified" Binding="{Binding Verified}" SortMemberPath="Verified" Width="136" MinWidth="132" ElementStyle="{StaticResource TrimmedCell}" />
+                                <DataGridTextColumn Header="Verified" Binding="{Binding Verified}" SortMemberPath="Verified" Width="136" MinWidth="132" ElementStyle="{StaticResource StatusCell}" />
                             </DataGrid.Columns>
                         </DataGrid>
                         <Border Grid.Row="3" x:Name="pnlHygieneHistoryDetail" Style="{StaticResource Card}" Margin="0,8,0,0" Padding="12,8" KeyboardNavigation.TabNavigation="Local" KeyboardNavigation.TabIndex="2"
@@ -733,7 +731,7 @@
                       VerticalScrollBarVisibility="Auto" Visibility="{Binding ShowsResults, Converter={StaticResource BoolToVisibility}}"
                       AutomationProperties.AutomationId="dgHygieneResults" AutomationProperties.Name="Results of the last fix">
                 <DataGrid.Columns>
-                    <DataGridTextColumn Header="Result" Binding="{Binding OutcomeText}" Width="104" MinWidth="100" ElementStyle="{StaticResource TrimmedCell}" />
+                    <DataGridTextColumn Header="Result" Binding="{Binding OutcomeText}" Width="104" MinWidth="100" ElementStyle="{StaticResource StatusCell}" />
                     <DataGridTextColumn Header="Fix" Binding="{Binding Item.Action}" Width="216" MinWidth="212" ElementStyle="{StaticResource TrimmedCell}" />
                     <DataGridTextColumn Header="Object" Binding="{Binding Item.Target}" Width="3*" MinWidth="200" ElementStyle="{StaticResource TrimmedCell}" />
                     <DataGridTextColumn Header="Message" Binding="{Binding Message}" Width="2*" MinWidth="160" ElementStyle="{StaticResource TrimmedCell}" />

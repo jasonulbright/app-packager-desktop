@@ -47,7 +47,12 @@ public static class PackagerServiceRegistration
         services.AddSingleton<ApplicationPackagerEngine.Services.ConditionTemplateService>();
         services.AddSingleton(sp => new ApplicationPackagerEngine.Services.DroppedInstallerAnalysisService(
             sp.GetRequiredService<ApplicationPackagerEngine.Services.MsiInspectionService>(),
-            sp.GetRequiredService<ApplicationPackagerEngine.Services.InstallerIdentificationService>()));
+            sp.GetRequiredService<ApplicationPackagerEngine.Services.InstallerIdentificationService>(),
+            fullAnalysis: () => sp.GetRequiredService<IInstallerAnalysisService>()));
+        services.AddSingleton<ApplicationPackagerEngine.Services.AddFromInstaller.IAddFromInstallerService>(sp => new ApplicationPackagerEngine.Services.AddFromInstaller.AddFromInstallerService(
+            analysis: sp.GetRequiredService<IInstallerAnalysisService>(),
+            deployment: sp.GetRequiredService<ApplicationPackagerEngine.Services.DroppedInstallerAnalysisService>(),
+            downloads: sp.GetRequiredService<ApplicationPackagerEngine.Services.DownloadService>()));
 
         services.AddSingleton<IAppLog>(_ => new AppLog());
         services.AddSingleton<ISiteOperationHistory>(sp => new SiteOperationHistory(log: sp.GetRequiredService<IAppLog>()));
