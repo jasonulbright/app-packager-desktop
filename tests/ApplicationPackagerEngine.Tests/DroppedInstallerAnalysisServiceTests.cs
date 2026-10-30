@@ -30,7 +30,7 @@ public class DroppedInstallerAnalysisServiceTests : IDisposable
 
     public void Dispose()
     {
-        try { Directory.Delete(_root, true); } catch { }
+        TestCleanup.DeleteDirectory(_root);
         GC.SuppressFinalize(this);
     }
 

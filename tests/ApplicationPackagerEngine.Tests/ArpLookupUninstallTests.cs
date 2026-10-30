@@ -17,7 +17,7 @@ public sealed class ArpLookupUninstallTests : IDisposable
 
     public void Dispose()
     {
-        try { Directory.Delete(_dir, true); } catch { }
+        TestCleanup.DeleteDirectory(_dir);
     }
 
     private string Generate(string framework, string application = "ShareX (x64)",

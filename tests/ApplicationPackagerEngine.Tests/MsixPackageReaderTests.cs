@@ -74,7 +74,7 @@ public sealed class MsixPackageReaderTests : IDisposable
 
     public void Dispose()
     {
-        try { Directory.Delete(_dir, true); } catch { }
+        TestCleanup.DeleteDirectory(_dir);
     }
 
     [Fact]

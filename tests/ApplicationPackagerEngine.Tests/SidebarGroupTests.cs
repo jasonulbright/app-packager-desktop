@@ -289,7 +289,7 @@ public sealed class SidebarGroupMigrationTests : IDisposable
     public void Dispose()
     {
         foreach (var (name, value) in _saved) Environment.SetEnvironmentVariable(name, value);
-        try { Directory.Delete(_root, true); } catch (IOException) { }
+        TestCleanup.DeleteDirectory(_root);
     }
 
     private const string OldSettings = """

@@ -34,7 +34,7 @@ public sealed class MsixSignatureTimestampTests : IDisposable
     {
         _root.Dispose();
         _rootKey.Dispose();
-        try { Directory.Delete(_dir, true); } catch (IOException) { } catch (UnauthorizedAccessException) { }
+        TestCleanup.DeleteDirectory(_dir);
     }
 
     private MsixPackageReader Reader() => new(customRoots: new X509Certificate2Collection(_root));

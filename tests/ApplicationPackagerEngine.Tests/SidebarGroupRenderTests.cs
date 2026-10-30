@@ -32,7 +32,7 @@ public sealed class SidebarGroupRenderTests : IDisposable
     public void Dispose()
     {
         Environment.SetEnvironmentVariable(AppDataPaths.DataRootVariable, _savedRoot);
-        try { Directory.Delete(_root, true); } catch (IOException) { }
+        TestCleanup.DeleteDirectory(_root);
     }
 
     /// <summary>WCAG 2 minimum contrast for normal text.</summary>

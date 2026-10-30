@@ -102,6 +102,21 @@ public sealed class AddFromInstallerAnalyzeTests : IDisposable
     }
 
     [Fact]
+    public async Task ADeploymentReadThatFails_NamesItsCause()
+    {
+        var path = _bed.Marked("locked.exe", null);
+        var fake = new FakeInstallerAnalysisService();
+        fake.Reports[path] = Report(path, "Unknown", []);
+
+        InstallerAnalysisException ex;
+        using (new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.None))
+            ex = await Assert.ThrowsAsync<InstallerAnalysisException>(() => _bed.Over(fake).AnalyzeAsync(path, NoProgress, CancellationToken.None));
+
+        Assert.Contains("The deployment fields could not be read", ex.Message);
+        Assert.Contains("locked.exe", ex.Message);
+    }
+
+    [Fact]
     public async Task UnknownInstaller_DerivesNoSilentSwitchAndNeedsReview()
     {
         var path = _bed.Marked("mystery.exe", null);

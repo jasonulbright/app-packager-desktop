@@ -52,7 +52,7 @@ public sealed class AddFlowRenderTests : IDisposable
     public void Dispose()
     {
         Environment.SetEnvironmentVariable(AppDataPaths.DataRootVariable, _savedRoot);
-        try { Directory.Delete(_root, true); } catch (IOException) { }
+        TestCleanup.DeleteDirectory(_root);
     }
 
     public static TheoryData<ApplicationTheme, int, int> Sizes => new()

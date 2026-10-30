@@ -20,7 +20,7 @@ public sealed class GeneratedUninstallTests : IDisposable
 
     public void Dispose()
     {
-        try { Directory.Delete(_dir, true); } catch (IOException) { } catch (UnauthorizedAccessException) { }
+        TestCleanup.DeleteDirectory(_dir);
     }
 
     private const string Installer = "contoso-setup.exe";

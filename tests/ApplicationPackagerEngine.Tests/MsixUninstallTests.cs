@@ -19,7 +19,7 @@ public sealed class MsixUninstallTests : IDisposable
 
     public void Dispose()
     {
-        try { Directory.Delete(_dir, true); } catch (IOException) { } catch (UnauthorizedAccessException) { }
+        TestCleanup.DeleteDirectory(_dir);
     }
 
     private const string Publisher = "CN=Contoso";

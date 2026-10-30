@@ -11,7 +11,7 @@ public sealed class MsixWrapperAndDetectionTests : IDisposable
 
     public void Dispose()
     {
-        try { Directory.Delete(_dir, true); } catch { }
+        TestCleanup.DeleteDirectory(_dir);
     }
 
     private (string Install, string Uninstall) Generate(

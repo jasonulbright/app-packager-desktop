@@ -17,7 +17,7 @@ public sealed class RebootExitCodeTests : IDisposable
 
     public void Dispose()
     {
-        try { Directory.Delete(_dir, true); } catch { }
+        TestCleanup.DeleteDirectory(_dir);
     }
 
     private const string Remap2 = "if ($proc.ExitCode -eq 2) { '3010' | Out-File (Join-Path $PSScriptRoot 'exitcode.txt') -NoNewline; exit 3010 }";

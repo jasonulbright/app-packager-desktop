@@ -10,7 +10,7 @@ public sealed class DetectionHistoryStoreTests : IDisposable
 
     public void Dispose()
     {
-        try { Directory.Delete(_folder, recursive: true); } catch (IOException) { }
+        TestCleanup.DeleteDirectory(_folder);
     }
 
     private string HistoryFile => Path.Combine(_folder, DetectionHistoryStore.FileName);

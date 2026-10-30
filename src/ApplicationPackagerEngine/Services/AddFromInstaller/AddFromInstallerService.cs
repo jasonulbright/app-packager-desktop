@@ -72,27 +72,34 @@ public sealed class AddFromInstallerService : IAddFromInstallerService
         if (local is null || report.Type is "NSIS" or "InnoSetup" or "WixBurn")
         {
             progress.Report("Reading the deployment fields");
-            local = await LocalProposalAsync(report.Path, deep: report.Type is "NSIS" or "InnoSetup" or "WixBurn", ct).ConfigureAwait(false) ?? local;
+            var (proposal, failure) = await LocalProposalAsync(report.Path, deep: report.Type is "NSIS" or "InnoSetup" or "WixBurn", ct).ConfigureAwait(false);
+            local = proposal ?? local;
+            if (failure is not null) report = report with { Notes = [.. report.Notes, failure] };
+            if (local is null && failure is not null && report.Type is not ("MSP" or "MSIX" or "MsixBundle"))
+                throw new InstallerAnalysisException("The deployment fields could not be read from this file. " + failure);
         }
         return await Task.Run(() => Map(report, local), ct).ConfigureAwait(false);
     }
 
-    /// <summary>The local proposal under the analysis time limit; null when it could not be read.</summary>
-    private async Task<DroppedInstallerAnalysis?> LocalProposalAsync(string path, bool deep, CancellationToken ct)
+    /// <summary>
+    /// The local proposal under the analysis time limit. When it could not be read, the proposal is null and the
+    /// failure says why: the time limit, or the message of the error.
+    /// </summary>
+    private async Task<(DroppedInstallerAnalysis? Proposal, string? Failure)> LocalProposalAsync(string path, bool deep, CancellationToken ct)
     {
         using var bounded = CancellationTokenSource.CreateLinkedTokenSource(ct);
         bounded.CancelAfter(_limits.Timeout);
         try
         {
-            return await Task.Run(() => _deployment.AnalyzeLocalAsync(path, deep, bounded.Token), bounded.Token).ConfigureAwait(false);
+            return (await Task.Run(() => _deployment.AnalyzeLocalAsync(path, deep, bounded.Token), bounded.Token).ConfigureAwait(false), null);
         }
         catch (OperationCanceledException) when (!ct.IsCancellationRequested)
         {
-            return null;
+            return (null, $"The deployment fields were not read within the time limit of {_limits.Timeout.TotalSeconds:0} seconds.");
         }
         catch (Exception ex) when (ex is not OperationCanceledException and not OutOfMemoryException)
         {
-            return null;
+            return (null, $"The deployment fields could not be read: {ex.Message}");
         }
     }
 

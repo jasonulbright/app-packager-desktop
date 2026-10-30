@@ -486,7 +486,7 @@ public sealed class SidebarPersistenceTests : IDisposable
     public void Dispose()
     {
         foreach (var (name, value) in _saved) Environment.SetEnvironmentVariable(name, value);
-        try { Directory.Delete(_root, true); } catch (IOException) { }
+        TestCleanup.DeleteDirectory(_root);
     }
 
     private static void WriteSettings(string json)

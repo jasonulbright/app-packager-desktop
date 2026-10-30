@@ -18,7 +18,7 @@ public sealed class WrapperProcessStartTests : IDisposable
 
     public void Dispose()
     {
-        try { Directory.Delete(_root, true); } catch (IOException) { } catch (UnauthorizedAccessException) { }
+        TestCleanup.DeleteDirectory(_root);
     }
 
     private string NewDir()

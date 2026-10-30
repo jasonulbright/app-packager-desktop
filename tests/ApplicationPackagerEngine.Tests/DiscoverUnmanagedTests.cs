@@ -147,7 +147,7 @@ public sealed class DiscoveryPersistenceTests : IDisposable
     public void Dispose()
     {
         foreach (var (name, value) in _saved) Environment.SetEnvironmentVariable(name, value);
-        try { Directory.Delete(_root, true); } catch (IOException) { }
+        TestCleanup.DeleteDirectory(_root);
     }
 
     [Fact]
@@ -970,7 +970,7 @@ public sealed class CatalogWithoutPackagersFolderTests : IDisposable
     public void Dispose()
     {
         foreach (var (name, value) in _saved) Environment.SetEnvironmentVariable(name, value);
-        try { Directory.Delete(_root, true); } catch (IOException) { }
+        TestCleanup.DeleteDirectory(_root);
     }
 
     [Fact]
@@ -1091,7 +1091,7 @@ public sealed class DiscoveryPackagerSourceTests : IDisposable
 
     public void Dispose()
     {
-        try { Directory.Delete(_dir, true); } catch (IOException) { }
+        TestCleanup.DeleteDirectory(_dir);
     }
 
     private AppDefinition Definition(string id, string vendor, string json)

@@ -133,6 +133,6 @@ internal sealed class AddFromInstallerTestBed : IDisposable
 
     public void Dispose()
     {
-        try { Directory.Delete(Root, true); } catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
+        TestCleanup.DeleteDirectory(Root);
     }
 }

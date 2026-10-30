@@ -11,7 +11,7 @@ public sealed class DetectionReportWriterTests : IDisposable
 
     public void Dispose()
     {
-        try { Directory.Delete(_folder, recursive: true); } catch (IOException) { }
+        TestCleanup.DeleteDirectory(_folder);
     }
 
     private DetectionReportWriter Writer() => new(_folder, () => Now);

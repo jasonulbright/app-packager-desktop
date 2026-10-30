@@ -15,7 +15,7 @@ public sealed class SidebarWiringTests : IDisposable
     public void Dispose()
     {
         Environment.SetEnvironmentVariable(AppDataPaths.DataRootVariable, _savedRoot);
-        try { Directory.Delete(_root, true); } catch (IOException) { }
+        TestCleanup.DeleteDirectory(_root);
     }
 
     [Fact]
