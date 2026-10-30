@@ -111,7 +111,7 @@
                         </Grid.ColumnDefinitions>
                         <StackPanel Grid.Column="0">
                             <TextBlock Text="Start date" Style="{StaticResource EditorLabel}" />
-                            <DatePicker SelectedDate="{Binding StartDate}" ToolTip="{Binding StartDate, StringFormat=D}" DisplayDateStart="{Binding FirstStartDate, Mode=OneTime}"
+                            <DatePicker SelectedDate="{Binding StartDate}" ToolTip="{Binding StartDateTip}" DisplayDateStart="{Binding FirstStartDate, Mode=OneTime}"
                                         DisplayDateEnd="{Binding LastStartDate, Mode=OneTime}"
                                         AutomationProperties.Name="Start date" AutomationProperties.AutomationId="dpStartDate" />
                         </StackPanel>

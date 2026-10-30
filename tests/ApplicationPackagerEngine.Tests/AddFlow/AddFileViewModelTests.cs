@@ -382,6 +382,44 @@ public sealed class AddFileViewModelTests
         Assert.Single(h.Service.Analyses);
         Assert.Equal(AddFileStage.Result, h.ViewModel.Stage);
         Assert.True(h.ViewModel.Result.IsVisible);
+        Assert.Equal(AddFileViewModel.ResultOpenStatus, h.ViewModel.StatusText);
+    });
+
+    [Fact]
+    public void ChooseAnotherFile_CannotRunWhileTheSaveRuns_AndTheResultOfTheSaveShows() => OnSta(h =>
+    {
+        h.ViewModel.AnalyzeFileCommand.Execute(@"C:\in\contoso.msi");
+        Analyze(h, FakeAddService.Result());
+        h.ViewModel.PredictedAccepted = true;
+        Assert.True(h.ViewModel.DiscardCommand.CanExecute(null));
+        h.Service.SaveGate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var save = h.ViewModel.SaveCommand.ExecuteAsync(null);
+        StaTestHelper.PumpUntil(() => h.Service.Saves.Count == 1);
+
+        Assert.False(h.ViewModel.DiscardCommand.CanExecute(null));
+
+        h.Service.SaveGate.SetResult();
+        StaTestHelper.PumpUntil(() => save.IsCompleted);
+        Assert.Equal(AddFileStage.Result, h.ViewModel.Stage);
+        Assert.True(h.ViewModel.DiscardCommand.CanExecute(null));
+    });
+
+    [Fact]
+    public void ASaveThatEndsAfterTheReviewWasLeft_DoesNotShowTheResultPanel() => OnSta(h =>
+    {
+        h.ViewModel.AnalyzeFileCommand.Execute(@"C:\in\contoso.msi");
+        Analyze(h, FakeAddService.Result());
+        h.ViewModel.PredictedAccepted = true;
+        h.Service.SaveGate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var save = h.ViewModel.SaveCommand.ExecuteAsync(null);
+        StaTestHelper.PumpUntil(() => h.Service.Saves.Count == 1);
+
+        h.ViewModel.Result.DoneCommand.Execute(null);
+        h.Service.SaveGate.SetResult();
+        StaTestHelper.PumpUntil(() => save.IsCompleted);
+
+        Assert.Equal(AddFileStage.Pick, h.ViewModel.Stage);
+        Assert.False(h.ViewModel.Result.IsVisible);
     });
 
     [Fact]

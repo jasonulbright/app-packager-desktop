@@ -77,7 +77,7 @@ public sealed partial class AddFileViewModel : ObservableObject
     private AddFileStage _stage = AddFileStage.Pick;
 
     [ObservableProperty]
-    [NotifyCanExecuteChangedFor(nameof(OpenInstallerCommand), nameof(SaveCommand), nameof(CancelCommand))]
+    [NotifyCanExecuteChangedFor(nameof(OpenInstallerCommand), nameof(SaveCommand), nameof(CancelCommand), nameof(DiscardCommand))]
     private bool _isBusy;
 
     [ObservableProperty] private string _statusText = "";
@@ -105,6 +105,8 @@ public sealed partial class AddFileViewModel : ObservableObject
     public bool IsReviewStage => Stage == AddFileStage.Review;
     public bool IsResultStage => Stage == AddFileStage.Result;
 
+    public const string ResultOpenStatus = "The result of the last added file is open. Select Done, then add the next file.";
+
     private bool CanOpen() => !IsBusy && Stage != AddFileStage.Result;
 
     [RelayCommand(CanExecute = nameof(CanOpen))]
@@ -117,7 +119,12 @@ public sealed partial class AddFileViewModel : ObservableObject
     /// <summary>A drop on this page or on the App Packager grid. One installer is analysed at a time.</summary>
     public void DropFiles(IReadOnlyList<string>? paths)
     {
-        if (paths is null || paths.Count == 0 || Stage == AddFileStage.Result) return;
+        if (paths is null || paths.Count == 0) return;
+        if (Stage == AddFileStage.Result)
+        {
+            StatusText = ResultOpenStatus;
+            return;
+        }
         if (paths.Count > 1)
         {
             StatusText = $"{paths.Count} files were dropped. Drop one installer at a time.";
@@ -130,7 +137,12 @@ public sealed partial class AddFileViewModel : ObservableObject
     [RelayCommand]
     private async Task AnalyzeFileAsync(string? path)
     {
-        if (string.IsNullOrWhiteSpace(path) || Stage == AddFileStage.Result) return;
+        if (string.IsNullOrWhiteSpace(path)) return;
+        if (Stage == AddFileStage.Result)
+        {
+            StatusText = ResultOpenStatus;
+            return;
+        }
         if (_saving)
         {
             StatusText = "The definition is being saved. Add the next file when the save ends.";
@@ -189,9 +201,11 @@ public sealed partial class AddFileViewModel : ObservableObject
     [RelayCommand(CanExecute = nameof(CanCancel))]
     private void Cancel() => _operation?.Cancel();
 
-    /// <summary>Leaves the review without saving.</summary>
-    [RelayCommand]
+    /// <summary>Leaves the review without saving. A save that runs can write the definition, so the review stays until it ends.</summary>
+    [RelayCommand(CanExecute = nameof(CanDiscard))]
     private void Discard() => Reset();
+
+    private bool CanDiscard() => !_saving;
 
     private void LoadReview(AddAnalysisResult analysis)
     {
@@ -335,36 +349,34 @@ public sealed partial class AddFileViewModel : ObservableObject
         };
         var options = new AddSaveOptions(DefinitionsFolder: DefinitionsRoot) { InstallMode = RowOf("Install for")?.Value };
 
-        IsBusy = true;
+        // CanDiscard reads _saving when the IsBusy change notifies the commands.
         _saving = true;
+        IsBusy = true;
         StatusText = "Saving the definition.";
         _operation = new CancellationTokenSource();
-        AddSaveResult saved;
+        var generation = _generation;
+        AddSaveResult? saved = null;
+        string? failure = null;
         try
         {
             saved = await Task.Run(() => _service.SaveAsync(reviewed: reviewed, options: options, ct: _operation.Token), _operation.Token);
         }
-        catch (OperationCanceledException)
-        {
-            StatusText = "The save was cancelled.";
-            return;
-        }
-        catch (AddFromInstallerRefusedException ex)
-        {
-            StatusText = ex.Message;
-            return;
-        }
-        catch (Exception ex)
-        {
-            StatusText = "The definition was not saved: " + ex.Message;
-            return;
-        }
+        catch (OperationCanceledException) { failure = "The save was cancelled."; }
+        catch (AddFromInstallerRefusedException ex) { failure = ex.Message; }
+        catch (Exception ex) { failure = "The definition was not saved: " + ex.Message; }
         finally
         {
-            IsBusy = false;
             _saving = false;
+            if (generation == _generation) IsBusy = false;
+            else DiscardCommand.NotifyCanExecuteChanged();
         }
 
+        if (generation != _generation) return;
+        if (saved is null)
+        {
+            StatusText = failure ?? "";
+            return;
+        }
         var review = saved.NeedsReview || needsReview;
         var why = !string.IsNullOrWhiteSpace(saved.ReviewReason) ? saved.ReviewReason : needsReview ? reason : null;
         Stage = AddFileStage.Result;

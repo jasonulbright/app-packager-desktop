@@ -696,6 +696,7 @@ public sealed class MaintenanceWindowsPageTests
                 Assert.Equal(25, ById<System.Windows.Controls.ComboBox>(window, "cboDurationHours").Items.Count);
                 var picker = ById<DatePicker>(window, "dpStartDate");
                 Assert.Equal((editor.FirstStartDate, editor.LastStartDate), (picker.DisplayDateStart, picker.DisplayDateEnd));
+                Assert.Equal(editor.StartDate!.Value.ToString("D", System.Globalization.CultureInfo.CurrentCulture), picker.ToolTip);
                 if (kind == MaintenanceScheduleKind.MonthlyByDate)
                 {
                     editor.DayOfMonth = 31;
