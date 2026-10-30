@@ -77,18 +77,21 @@ public sealed class MsixSavedDefinitionTests : IDisposable
         Assert.Contains(StagingService.MsixProvisioningKeyTemplate, result.ErrorMessage);
     }
 
-    [Fact]
-    public async Task TheStagedUninstall_ExitsNonZero_WhenTheUninstallCommandOfTheDefinitionFails()
+    [Theory]
+    [InlineData("Write-Error 'removal failed'", 1)]
+    [InlineData("cmd.exe /c exit 5", 5)]
+    [InlineData("Write-Output 'removed'", 0)]
+    public async Task TheStagedUninstall_ExitsWithTheResultOfTheUninstallCommandOfTheDefinition(string command, int expected)
     {
         var dir = Path.Combine(_bed.Root, "wrappers");
         Directory.CreateDirectory(dir);
         new WrapperGeneratorService().GenerateMsixWrappers(dir, "contoso.msixbundle", "AABB", provisioned: true, publisherId: null,
-            uninstallCommand: "Write-Error 'removal failed'");
+            uninstallCommand: command);
 
         var (exitCode, _, _) = await WindowsPowerShellHost.RunAsync(
             $"& '{Path.Combine(dir, "uninstall.ps1")}'\r\nexit $LASTEXITCODE", null, CancellationToken.None, "apd-msix-saved-uninstall");
 
-        Assert.Equal(1, exitCode);
-        Assert.Equal("1", File.ReadAllText(Path.Combine(dir, "exitcode.txt")));
+        Assert.Equal(expected, exitCode);
+        Assert.Equal(expected.ToString(System.Globalization.CultureInfo.InvariantCulture), File.ReadAllText(Path.Combine(dir, "exitcode.txt")));
     }
 }

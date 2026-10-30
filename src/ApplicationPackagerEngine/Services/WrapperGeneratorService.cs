@@ -383,7 +383,8 @@ public sealed class WrapperGeneratorService
     /// wrapper, which refuses a package signed by anything else. With a
     /// publisher id, uninstall removes only packages of that publisher; a
     /// bundle is removed as its Bundle package. A definition uninstall command
-    /// replaces that removal; an error it raises exits the wrapper with 1.
+    /// replaces that removal; an error it raises exits the wrapper with 1, and
+    /// a native command that fails exits it with the code of that command.
     /// </summary>
     public void GenerateMsixWrappers(string outputPath, string msixFileName,
         string? signerThumbprint = null, bool provisioned = true, string? publisherId = null,
@@ -421,6 +422,8 @@ public sealed class WrapperGeneratorService
                     "$ErrorActionPreference = 'Stop'",
                     "try {",
                     "    " + uninstallCommand.Trim(),
+                    // A native command that fails sets $LASTEXITCODE and raises no error.
+                    "    if ($LASTEXITCODE) { Exit-Wrapper $LASTEXITCODE }",
                     "} catch {",
                     "    [Console]::Error.WriteLine('The uninstall command failed: ' + $_.Exception.Message)",
                     "    Exit-Wrapper 1",

@@ -683,6 +683,7 @@ public sealed class StagingService
                 onProgress?.Invoke($"Placed {sideFile.Label} beside installer: {sideFile.FileName}");
             }
             IconExtractionService.StageIcon(def, contentPath, manifest, onProgress);
+            partial.WritesManifest = true;
             finalizer.FinalizeAndWrite(_manifestService, manifestPath, manifest, onProgress);
             onProgress?.Invoke($"Manifest written: {manifestPath}");
 
@@ -717,8 +718,9 @@ public sealed class StagingService
     /// <summary>
     /// The stage folder a run created, removed when the run ends without a successful result. A version folder
     /// that existed before the run holds an earlier stage and is kept. Stages of one application are not
-    /// serialized, so a version folder that holds a stage manifest is kept, because a concurrent run of the same
-    /// version can have completed there, and a parent folder the run created is removed only while it is empty.
+    /// serialized, so a version folder that holds a stage manifest the run did not write is kept, because a
+    /// concurrent run of the same version can have completed there. A manifest from a failed write of the run is
+    /// removed with its folder. A parent folder the run created is removed only while it is empty.
     /// </summary>
     private sealed class PartialStage
     {
@@ -726,6 +728,9 @@ public sealed class StagingService
         private string? _topCreated;
 
         public bool Completed { get; set; }
+
+        /// <summary>True from the point the run writes its own stage manifest; a manifest after that point is the run's own.</summary>
+        public bool WritesManifest { get; set; }
 
         /// <summary>Records <paramref name="contentPath"/> as created by this run when it does not exist yet.</summary>
         public void Track(string root, string contentPath)
@@ -745,7 +750,7 @@ public sealed class StagingService
         public void RemoveUnlessCompleted(Action<string>? onProgress)
         {
             if (Completed || _content is null || _topCreated is null) return;
-            if (File.Exists(Path.Combine(_content, "stage-manifest.json")))
+            if (!WritesManifest && File.Exists(Path.Combine(_content, "stage-manifest.json")))
             {
                 onProgress?.Invoke($"The stage folder holds a stage manifest and is kept: {_content}");
                 return;
@@ -1498,6 +1503,7 @@ public sealed class StagingService
                 Detection = detection
             };
             IconExtractionService.StageIcon(def, contentPath, manifest, onProgress);
+            partial.WritesManifest = true;
             finalizer.FinalizeAndWrite(_manifestService, manifestPath, manifest, onProgress);
             onProgress?.Invoke($"Manifest written: {manifestPath}");
             onProgress?.Invoke($"Stage complete: {contentPath}");
@@ -1791,6 +1797,7 @@ public sealed class StagingService
                 Detection = detection
             };
             IconExtractionService.StageIcon(def, contentPath, manifest, onProgress);
+            partial.WritesManifest = true;
             finalizer.FinalizeAndWrite(_manifestService, manifestPath, manifest, onProgress);
             onProgress?.Invoke($"Manifest written: {manifestPath}");
 
@@ -2650,6 +2657,7 @@ public sealed class StagingService
             }
 
             var manifestPath = Path.Combine(contentPath, "stage-manifest.json");
+            partial.WritesManifest = true;
             finalizer.FinalizeAndWrite(_manifestService, manifestPath, manifest, onProgress);
             onProgress?.Invoke($"Manifest written: {manifestPath}");
 
