@@ -270,7 +270,7 @@ public sealed class StagingService
         if (def.BootstrapperLayout is not null)
             return await StageBootstrapperLayoutAsync(def, downloadRoot, onProgress, ct, knownVersion, finalizer);
 
-        string? createdFolder = null;
+        var partial = new PartialStage();
         try
         {
             // Operator inputs the stage cannot do without refuse it before any download.
@@ -328,7 +328,7 @@ public sealed class StagingService
             var appFolder = $"{def.Application.Replace(" ", "")}-{def.Architecture}";
             var baseRoot = Path.Combine(downloadRoot, appFolder);
             var contentPath = Workbench.WorkbenchPaths.CombineUnder(baseRoot, AssertVersionSegment(displayVersion));
-            createdFolder = FirstMissingFolder(downloadRoot, contentPath);
+            partial.Track(downloadRoot, contentPath);
             Directory.CreateDirectory(contentPath);
 
             string downloadUrl;
@@ -688,6 +688,7 @@ public sealed class StagingService
 
             onProgress?.Invoke($"Stage complete: {contentPath}");
 
+            partial.Completed = true;
             return new StagingResult
             {
                 Success = true,
@@ -701,49 +702,68 @@ public sealed class StagingService
         // interrupted run as an ordinary result and carry on.
         catch (OperationCanceledException)
         {
-            RemovePartialStage(createdFolder, onProgress);
             throw;
         }
         catch (Exception ex)
         {
-            RemovePartialStage(createdFolder, onProgress);
             return new StagingResult { Success = false, ErrorMessage = ex.Message };
         }
-    }
-
-    /// <summary>
-    /// Removes the folder a stage that did not complete created. A folder that existed before the stage holds an
-    /// earlier stage of the same version and is kept.
-    /// </summary>
-    private static void RemovePartialStage(string? createdFolder, Action<string>? onProgress)
-    {
-        if (createdFolder is null || !Directory.Exists(createdFolder)) return;
-        try
+        finally
         {
-            Directory.Delete(createdFolder, recursive: true);
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-        {
-            onProgress?.Invoke($"The incomplete stage folder could not be removed: {createdFolder}. Remove it by hand. {ex.Message}");
+            partial.RemoveUnlessCompleted(onProgress);
         }
     }
 
     /// <summary>
-    /// The topmost folder between <paramref name="root"/> (excluded) and <paramref name="path"/> that does not exist
-    /// yet; null when <paramref name="path"/> exists or is not under <paramref name="root"/>.
+    /// The stage folder a run created, removed when the run ends without a successful result. A version folder
+    /// that existed before the run holds an earlier stage and is kept. Stages of one application are not
+    /// serialized, so a version folder that holds a stage manifest is kept, because a concurrent run of the same
+    /// version can have completed there, and a parent folder the run created is removed only while it is empty.
     /// </summary>
-    internal static string? FirstMissingFolder(string root, string path)
+    private sealed class PartialStage
     {
-        var fullRoot = Path.TrimEndingDirectorySeparator(Path.GetFullPath(root));
-        var current = Path.TrimEndingDirectorySeparator(Path.GetFullPath(path));
-        if (!current.StartsWith(fullRoot + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)) return null;
-        string? missing = null;
-        while (current.Length > fullRoot.Length && !Directory.Exists(current))
+        private string? _content;
+        private string? _topCreated;
+
+        public bool Completed { get; set; }
+
+        /// <summary>Records <paramref name="contentPath"/> as created by this run when it does not exist yet.</summary>
+        public void Track(string root, string contentPath)
         {
-            missing = current;
-            current = Path.GetDirectoryName(current)!;
+            var fullRoot = Path.TrimEndingDirectorySeparator(Path.GetFullPath(root));
+            var current = Path.TrimEndingDirectorySeparator(Path.GetFullPath(contentPath));
+            if (Directory.Exists(current) || !current.StartsWith(fullRoot + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
+                return;
+            _content = current;
+            while (current.Length > fullRoot.Length && !Directory.Exists(current))
+            {
+                _topCreated = current;
+                current = Path.GetDirectoryName(current)!;
+            }
         }
-        return missing;
+
+        public void RemoveUnlessCompleted(Action<string>? onProgress)
+        {
+            if (Completed || _content is null || _topCreated is null) return;
+            if (File.Exists(Path.Combine(_content, "stage-manifest.json")))
+            {
+                onProgress?.Invoke($"The stage folder holds a stage manifest and is kept: {_content}");
+                return;
+            }
+            try
+            {
+                if (Directory.Exists(_content)) Directory.Delete(_content, recursive: true);
+                for (var parent = Path.GetDirectoryName(_content);
+                     parent is not null && parent.Length >= _topCreated.Length
+                         && Directory.Exists(parent) && !Directory.EnumerateFileSystemEntries(parent).Any();
+                     parent = Path.GetDirectoryName(parent))
+                    Directory.Delete(parent);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                onProgress?.Invoke($"The incomplete stage folder could not be removed: {_content}. Remove it by hand. {ex.Message}");
+            }
+        }
     }
 
     /// <summary>
@@ -1355,7 +1375,7 @@ public sealed class StagingService
         Action<string>? onProgress, CancellationToken ct, string? knownVersion,
         StageFinalizer finalizer)
     {
-        string? createdFolder = null;
+        var partial = new PartialStage();
         try
         {
             var layout = def.BootstrapperLayout!;
@@ -1377,7 +1397,7 @@ public sealed class StagingService
             var contentPath = Path.Combine(baseRoot, version);
 
             AssertLayoutPathLength(contentPath, layout.MaxLayoutPathLength);
-            createdFolder = FirstMissingFolder(downloadRoot, contentPath);
+            partial.Track(downloadRoot, contentPath);
             Directory.CreateDirectory(contentPath);
 
             // The bundle refuses a layout target beneath the folder it runs from
@@ -1482,6 +1502,7 @@ public sealed class StagingService
             onProgress?.Invoke($"Manifest written: {manifestPath}");
             onProgress?.Invoke($"Stage complete: {contentPath}");
 
+            partial.Completed = true;
             return new StagingResult
             {
                 Success = true,
@@ -1494,13 +1515,15 @@ public sealed class StagingService
         // interrupted run as an ordinary result and carry on.
         catch (OperationCanceledException)
         {
-            RemovePartialStage(createdFolder, onProgress);
             throw;
         }
         catch (Exception ex)
         {
-            RemovePartialStage(createdFolder, onProgress);
             return new StagingResult { Success = false, ErrorMessage = ex.Message };
+        }
+        finally
+        {
+            partial.RemoveUnlessCompleted(onProgress);
         }
     }
 
@@ -1638,7 +1661,7 @@ public sealed class StagingService
         Action<string>? onProgress, CancellationToken ct, string? knownVersion,
         Dictionary<string, string>? settingsValues, StageFinalizer finalizer)
     {
-        string? createdFolder = null;
+        var partial = new PartialStage();
         try
         {
             var odt = def.Odt is null ? null : ResolveOdtConfig(def, settingsValues);
@@ -1670,7 +1693,7 @@ public sealed class StagingService
             var appFolder = $"{def.Application.Replace(" ", "")}-{def.Architecture}";
             var baseRoot = Path.Combine(downloadRoot, appFolder);
             var contentPath = Path.Combine(baseRoot, version);
-            createdFolder = FirstMissingFolder(downloadRoot, contentPath);
+            partial.Track(downloadRoot, contentPath);
             Directory.CreateDirectory(contentPath);
 
             var setupExe = Path.Combine(baseRoot, "setup.exe");
@@ -1772,6 +1795,7 @@ public sealed class StagingService
             onProgress?.Invoke($"Manifest written: {manifestPath}");
 
             onProgress?.Invoke($"Stage complete: {contentPath}");
+            partial.Completed = true;
             return new StagingResult
             {
                 Success = true,
@@ -1781,13 +1805,15 @@ public sealed class StagingService
         }
         catch (OperationCanceledException)
         {
-            RemovePartialStage(createdFolder, onProgress);
             throw;
         }
         catch (Exception ex)
         {
-            RemovePartialStage(createdFolder, onProgress);
             return new StagingResult { Success = false, ErrorMessage = ex.Message };
+        }
+        finally
+        {
+            partial.RemoveUnlessCompleted(onProgress);
         }
     }
 
@@ -2544,7 +2570,7 @@ public sealed class StagingService
         StageInputs? inputs = null,
         ExpectedInstaller? expected = null)
     {
-        string? createdFolder = null;
+        var partial = new PartialStage();
         try
         {
             var finalizer = StageFinalizer.Begin(inputs);
@@ -2574,7 +2600,7 @@ public sealed class StagingService
                 vendorFolder = "Unknown";
 
             var contentPath = Path.Combine(downloadRoot, vendorFolder, appFolder, versionFolder);
-            createdFolder = FirstMissingFolder(downloadRoot, contentPath);
+            partial.Track(downloadRoot, contentPath);
             Directory.CreateDirectory(contentPath);
             ct.ThrowIfCancellationRequested();
 
@@ -2627,6 +2653,7 @@ public sealed class StagingService
             finalizer.FinalizeAndWrite(_manifestService, manifestPath, manifest, onProgress);
             onProgress?.Invoke($"Manifest written: {manifestPath}");
 
+            partial.Completed = true;
             return Task.FromResult(new StagingResult
             {
                 Success = true,
@@ -2638,13 +2665,15 @@ public sealed class StagingService
         // Cancellation is not a staging failure; it propagates.
         catch (OperationCanceledException)
         {
-            RemovePartialStage(createdFolder, onProgress);
             throw;
         }
         catch (Exception ex)
         {
-            RemovePartialStage(createdFolder, onProgress);
             return Task.FromResult(new StagingResult { Success = false, ErrorMessage = ex.Message });
+        }
+        finally
+        {
+            partial.RemoveUnlessCompleted(onProgress);
         }
     }
 

@@ -148,6 +148,59 @@ public sealed class MsixBundleStageTests : IDisposable
     }
 
     [Fact]
+    public async Task AStageThatReturnsAFailure_LeavesNoFolderInTheDownloadRoot()
+    {
+        var installer = _bed.PathOf("tool.exe");
+        File.WriteAllBytes(installer, [(byte)'M', (byte)'Z', 1, 2]);
+        var manifest = new StageManifest
+        {
+            AppName = "Tool", DisplayName = "Tool", Publisher = "Contoso", SoftwareVersion = "1.0",
+            InstallerFile = "tool.exe", InstallerType = "EXE", InstallArgs = "/S"
+        };
+
+        var result = await Staging().StageDroppedInstallerAsync(manifest, installer, DownloadRoot,
+            expected: new ExpectedInstaller(Sha256: new string('0', 64), Source: "the saved revision"));
+
+        Assert.False(result.Success);
+        Assert.Contains("SHA-256", result.ErrorMessage);
+        Assert.Empty(DownloadRootEntries());
+    }
+
+    [Fact]
+    public async Task AFailedStage_KeepsAnotherVersionThatAConcurrentStageWritesUnderTheSameApplicationFolder()
+    {
+        var (_, def) = await SavedAsync(_bed.Msix(withDependency: false));
+        var appFolder = Path.Combine(DownloadRoot, $"{def.Application.Replace(" ", "")}-{def.Architecture}");
+        var other = Path.Combine(appFolder, "9.9.9.9", "stage-manifest.json");
+
+        var result = await Staging().StageAsync(def, DownloadRoot, onProgress: line =>
+        {
+            if (!line.StartsWith("Reading MSIX package identity", StringComparison.Ordinal)) return;
+            Directory.CreateDirectory(Path.GetDirectoryName(other)!);
+            File.WriteAllText(other, "{}");
+        });
+
+        Assert.False(result.Success);
+        Assert.True(File.Exists(other));
+        Assert.False(Directory.Exists(Path.Combine(appFolder, "2.3.4.0")));
+    }
+
+    [Fact]
+    public async Task AFailedStage_KeepsAVersionFolderThatHoldsAStageManifest()
+    {
+        var (_, def) = await SavedAsync(_bed.Msix(withDependency: false));
+        var manifest = Path.Combine(DownloadRoot, $"{def.Application.Replace(" ", "")}-{def.Architecture}", "2.3.4.0", "stage-manifest.json");
+
+        var result = await Staging().StageAsync(def, DownloadRoot, onProgress: line =>
+        {
+            if (line.StartsWith("Reading MSIX package identity", StringComparison.Ordinal)) File.WriteAllText(manifest, "{}");
+        });
+
+        Assert.False(result.Success);
+        Assert.True(File.Exists(manifest));
+    }
+
+    [Fact]
     public async Task AFailedStageOfAVersionStagedBefore_KeepsTheEarlierStage()
     {
         var msi = _bed.Msi();
