@@ -575,7 +575,8 @@ public sealed class StagingService
             {
                 wrappers.GenerateMsixWrappers(contentPath, installerFileName,
                     msixPackage!.SignerThumbprint, msixPackage.Provisioned,
-                    string.IsNullOrWhiteSpace(msixPackage.Publisher) ? null : MsixPackageReader.PublisherHash(msixPackage.Publisher));
+                    string.IsNullOrWhiteSpace(msixPackage.Publisher) ? null : MsixPackageReader.PublisherHash(msixPackage.Publisher),
+                    uninstallCommand);
             }
             else if (def.ZipPayload is not null)
             {
@@ -1912,14 +1913,28 @@ public sealed class StagingService
         @"SOFTWARE\Microsoft\Windows\CurrentVersion\Appx\AppxAllUserStore\Applications";
 
     /// <summary>
+    /// The key template an MSIX definition records for its provisioning key rule. The stage resolves
+    /// {PackageFullName} from the staged package.
+    /// </summary>
+    public const string MsixProvisioningKeyTemplate = AllUserStoreApplications + @"\{PackageFullName}";
+
+    /// <summary>
     /// Detection for a staged MSIX. A definition whose Detection.Type is
     /// RegistryKey detects the provisioning store's key for the package full
-    /// name; any other type keeps the provisioned-package script.
+    /// name; any other type keeps the provisioned-package script. A RegistryKey
+    /// rule names no key or <see cref="MsixProvisioningKeyTemplate"/>; another
+    /// key is refused, because the stage would replace it.
     /// </summary>
-    public static StageDetection BuildMsixDetection(DetectionConfig? definitionDetection, StageMsixPackage package) =>
-        definitionDetection?.Type.Equals("RegistryKey", StringComparison.OrdinalIgnoreCase) == true
-            ? BuildMsixProvisioningKeyDetection(package)
-            : BuildMsixScriptDetection(package);
+    public static StageDetection BuildMsixDetection(DetectionConfig? definitionDetection, StageMsixPackage package)
+    {
+        if (definitionDetection?.Type.Equals("RegistryKey", StringComparison.OrdinalIgnoreCase) != true)
+            return BuildMsixScriptDetection(package);
+        var template = definitionDetection.RegistryKeyTemplate?.Trim();
+        if (!string.IsNullOrEmpty(template) && !template.Equals(MsixProvisioningKeyTemplate, StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException(
+                $"An MSIX definition detects the package by its provisioning key. Set the registry key of the rule to {MsixProvisioningKeyTemplate}, or use a Script rule.");
+        return BuildMsixProvisioningKeyDetection(package);
+    }
 
     /// <summary>
     /// Existence detection on the all-user provisioning store key named by the

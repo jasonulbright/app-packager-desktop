@@ -382,10 +382,12 @@ public sealed class WrapperGeneratorService
     /// A signer thumbprint recorded at stage time is pinned into the install
     /// wrapper, which refuses a package signed by anything else. With a
     /// publisher id, uninstall removes only packages of that publisher; a
-    /// bundle is removed as its Bundle package.
+    /// bundle is removed as its Bundle package. A definition uninstall command
+    /// replaces that removal; an error it raises exits the wrapper with 1.
     /// </summary>
     public void GenerateMsixWrappers(string outputPath, string msixFileName,
-        string? signerThumbprint = null, bool provisioned = true, string? publisherId = null)
+        string? signerThumbprint = null, bool provisioned = true, string? publisherId = null,
+        string? uninstallCommand = null)
     {
         var file = EscapePsLiteral(msixFileName);
 
@@ -409,6 +411,23 @@ public sealed class WrapperGeneratorService
             ? "Add-AppxProvisionedPackage -Online -PackagePath $msixPath -SkipLicense | Out-Null"
             : "Add-AppxPackage -Path $msixPath");
         install.Add("Exit-Wrapper 0");
+
+        if (!string.IsNullOrWhiteSpace(uninstallCommand))
+        {
+            WriteWrappers(outputPath,
+                string.Join("\r\n", install),
+                string.Join("\r\n",
+                    ExitHelper,
+                    "$ErrorActionPreference = 'Stop'",
+                    "try {",
+                    "    " + uninstallCommand.Trim(),
+                    "} catch {",
+                    "    [Console]::Error.WriteLine('The uninstall command failed: ' + $_.Exception.Message)",
+                    "    Exit-Wrapper 1",
+                    "}",
+                    "Exit-Wrapper 0"));
+            return;
+        }
 
         var uninstall = new List<string>
         {

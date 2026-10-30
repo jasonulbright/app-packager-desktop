@@ -829,8 +829,15 @@ public sealed class AddFromInstallerService : IAddFromInstallerService
             InstallerFileName = Path.GetFileName(r.FilePath),
             InstallArgs = "",
             UninstallArgs = "",
+            UninstallCommand = string.IsNullOrWhiteSpace(r.UninstallCommand?.Value) ? null : r.UninstallCommand.Value.Trim(),
             RunningProcess = [],
-            Detection = new DetectionConfig { Type = "RegistryKey", Is64Bit = true, RegistryHive = null, ValueName = null, Operator = null }
+            Detection = r.Detection.Kind == DetectionKind.MsixPackage
+                ? new DetectionConfig
+                {
+                    Type = "RegistryKey", Is64Bit = true, RegistryHive = "HKLM", RegistryKeyTemplate = StagingService.MsixProvisioningKeyTemplate,
+                    ValueName = null, Operator = null
+                }
+                : new DetectionConfig { Type = "RegistryKey", Is64Bit = true, RegistryHive = null, ValueName = null, Operator = null }
         };
     }
 
