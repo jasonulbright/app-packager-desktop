@@ -380,7 +380,6 @@ public sealed class SiteHygieneLiveFitTests
         });
     }
 
-    /// <summary>At 1024x720 and 1440x900 a column that holds server names or IDs never breaks a value inside a word.</summary>
     [Theory]
     [MemberData(nameof(SmallSizes))]
     [InlineData(ApplicationTheme.Light, 1440 - CollapsedPaneWidth)]

@@ -16,7 +16,6 @@ using Point = System.Windows.Point;
 
 namespace ApplicationPackagerEngine.Tests;
 
-/// <summary>The grouped sidebar in a real window: caption rows, moves that stay in a group, keyboard and automation.</summary>
 public sealed class SidebarGroupWindowTests
 {
     private sealed class Harness

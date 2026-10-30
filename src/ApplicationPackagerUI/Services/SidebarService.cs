@@ -74,10 +74,8 @@ public sealed class SidebarService
     /// <summary>Every entry in sidebar order; a hidden entry keeps its place.</summary>
     public IReadOnlyList<SidebarItemDefinition> All => _order.Select(Definition).ToList();
 
-    /// <summary>The captioned groups in sidebar order.</summary>
     public IReadOnlyList<SidebarGroup> Groups => _registry.Groups;
 
-    /// <summary>The captioned group of the entry; null for an entry without a group.</summary>
     public SidebarGroup? GroupOf(SidebarItemDefinition item) => _registry.FindGroup(item.Group);
 
     public bool IsHidden(string id) => _hidden.Contains(id);

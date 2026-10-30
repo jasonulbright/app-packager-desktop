@@ -5,7 +5,6 @@ using ApplicationPackagerUI.ViewModels.Windows;
 
 namespace ApplicationPackagerUI.Views.Windows;
 
-/// <summary>Shows and hides applications in the App Packager grid; opened by the Catalog button.</summary>
 public partial class CatalogWindow
 {
     public CatalogWindow(CatalogViewModel viewModel)

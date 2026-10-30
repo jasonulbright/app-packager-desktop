@@ -10,7 +10,6 @@ using TextBlock = System.Windows.Controls.TextBlock;
 
 namespace ApplicationPackagerEngine.Tests;
 
-/// <summary>The Catalog window and its view model: search, show and hide, counts, save, and the window in both themes.</summary>
 [Collection(ProcessEnvironmentCollection.Name)]
 public sealed class CatalogWindowTests
 {
@@ -139,7 +138,6 @@ public sealed class CatalogWindowTests
         { ApplicationTheme.Light, false }, { ApplicationTheme.Dark, false }, { ApplicationTheme.Light, true }, { ApplicationTheme.Dark, true }
     };
 
-    /// <summary>The window at its default size and at its smallest size.</summary>
     [Theory]
     [MemberData(nameof(Windows))]
     public void TheWindowIsTitledCatalogShowsEveryControlAndOpensOnTheSearch(ApplicationTheme theme, bool smallest)

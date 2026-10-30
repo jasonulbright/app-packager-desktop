@@ -12,7 +12,6 @@ internal static class SidebarGroupFixtures
     public static readonly SidebarGroup Main = new(Id: "main", Caption: "MAIN", AutomationName: "Main group");
     public static readonly SidebarGroup More = new(Id: "more", Caption: "MORE", AutomationName: "More group");
 
-    /// <summary>home (pinned), a and b in the Main group; w, t and x in the More group.</summary>
     public static SidebarRegistry Registry()
     {
         var registry = new SidebarRegistry();

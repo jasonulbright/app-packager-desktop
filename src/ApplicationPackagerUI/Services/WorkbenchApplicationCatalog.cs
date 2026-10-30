@@ -19,7 +19,6 @@ public sealed class WorkbenchApplicationItem
     public string? SourcePath { get; init; }
     public bool IsJsonDefinition { get; init; }
 
-    /// <summary>The definition has a download source; false for a definition made from a local file.</summary>
     public bool HasRemoteSource { get; init; }
     public bool Runnable { get; init; }
     public IReadOnlyList<string> SupportsVariants { get; init; } = [];
@@ -59,7 +58,6 @@ public sealed class WorkbenchApplicationCatalog(SettingsService settingsService,
         ? ApplicationIds.New(packager.DefinitionOrigin, name: packager.Uid)
         : ApplicationIds.New(ApplicationOrigin.Catalog, path: packager.FullPath);
 
-    /// <summary>The workbench application id of a definition that Add from file or Add from web saved to the user definitions folder.</summary>
     public static string ApplicationIdForDefinition(string definitionId) => ApplicationIds.New(ApplicationOrigin.Custom, name: definitionId);
 
     public async Task<IReadOnlyList<WorkbenchApplicationItem>> LoadAsync(WorkbenchStore store, CancellationToken ct = default)

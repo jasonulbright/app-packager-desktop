@@ -5,7 +5,11 @@ using static ApplicationPackagerEngine.Tests.AddFromInstaller.AddFromInstallerTe
 
 namespace ApplicationPackagerEngine.Tests.AddFromInstaller;
 
-/// <summary>The table defects of the drop flow, the bounded extraction that replaced the unbounded 7-Zip run, and the drop adapter.</summary>
+/// <summary>
+/// The switch table proposes the switches of the detected engine. A payload extraction writes only inside the
+/// sandbox, stops at its size limit and on cancel, and leaves nothing behind. The drop flow refuses a type with no
+/// defined flow.
+/// </summary>
 public sealed class AnalysisFoundationDefectTests : IDisposable
 {
     private readonly AddFromInstallerTestBed _bed = new();

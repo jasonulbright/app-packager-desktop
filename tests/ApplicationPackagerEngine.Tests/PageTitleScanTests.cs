@@ -57,7 +57,7 @@ public sealed class PageTitleScanTests
 
     /// <summary>
     /// Each large TextBlock of the XAML text that has no Foreground, no inline style with a Foreground and no keyed style
-    /// with a Foreground. The fixed texts in the list below are not titles.
+    /// with a Foreground.
     /// </summary>
     internal static List<string> TitlesWithoutForeground(IEnumerable<(string Name, XDocument Document)> documents, HashSet<string> foregroundStyles)
     {

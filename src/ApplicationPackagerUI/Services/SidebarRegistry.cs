@@ -26,7 +26,6 @@ public static class SidebarIds
     public const string SiteHygiene = "site-hygiene";
 }
 
-/// <summary>The ids of the built-in sidebar groups.</summary>
 public static class SidebarGroupIds
 {
     public const string Tools = "tools";
