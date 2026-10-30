@@ -190,6 +190,8 @@ public sealed class StageMsixPackage
     public string Version { get; set; } = "";
     public string Publisher { get; set; } = "";
     public string ProcessorArchitecture { get; set; } = "";
+    /// <summary>The resource id of the package full name: "~" for a bundle, null or empty for a main package.</summary>
+    public string? ResourceId { get; set; }
     public string? SignerThumbprint { get; set; }
     public string? SignerSubject { get; set; }
     /// <summary>True when the container installs for every user via Add-AppxProvisionedPackage.</summary>

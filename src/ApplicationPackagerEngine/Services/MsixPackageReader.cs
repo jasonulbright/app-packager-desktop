@@ -6,14 +6,20 @@ using System.Xml.Linq;
 
 namespace ApplicationPackagerEngine.Services;
 
-/// <summary>Package identity read from an MSIX/APPX AppxManifest.xml.</summary>
+/// <summary>Package identity read from AppxManifest.xml, or from AppxMetadata\AppxBundleManifest.xml for a bundle.</summary>
 public sealed class MsixIdentity
 {
     public string Name { get; init; } = "";
     public string Version { get; init; } = "";
     /// <summary>Full publisher distinguished name, e.g. "CN=Contoso, O=Contoso".</summary>
     public string Publisher { get; init; } = "";
+    /// <summary>The architecture of the package full name; "neutral" for a bundle.</summary>
     public string ProcessorArchitecture { get; init; } = "";
+    /// <summary>The resource id of the package full name; "~" for a bundle, empty for a main package.</summary>
+    public string ResourceId { get; init; } = "";
+    public bool IsBundle { get; init; }
+    /// <summary>The architectures the package runs on: its own, or those of the application packages of a bundle.</summary>
+    public IReadOnlyList<string> PackageArchitectures { get; init; } = [];
     /// <summary>Package DisplayName from the Properties element, when present.</summary>
     public string? DisplayName { get; init; }
 }
@@ -95,11 +101,15 @@ public sealed class MsixPackageReader
         ValidateContainer(path);
 
         using var zip = ZipFile.OpenRead(path);
-        var entry = zip.GetEntry(ManifestEntry) ?? zip.GetEntry(BundleManifestEntry)
+        var entry = zip.GetEntry(ManifestEntry);
+        var bundle = entry is null;
+        entry ??= zip.GetEntry(BundleManifestEntry)
             ?? throw new InvalidOperationException($"{ManifestEntry} not found in MSIX: {Path.GetFileName(path)}");
 
-        using var stream = entry.Open();
-        var doc = XDocument.Load(stream);
+        XDocument doc;
+        using (var stream = entry.Open())
+        using (var reader = System.Xml.XmlReader.Create(stream, new System.Xml.XmlReaderSettings { DtdProcessing = System.Xml.DtdProcessing.Prohibit, XmlResolver = null }))
+            doc = XDocument.Load(reader);
         var root = doc.Root ?? throw new InvalidOperationException("MSIX manifest is empty.");
 
         var identity = root.Elements().FirstOrDefault(e => e.Name.LocalName == "Identity")
@@ -109,14 +119,13 @@ public sealed class MsixPackageReader
         if (string.IsNullOrWhiteSpace(name))
             throw new InvalidOperationException("MSIX manifest Identity carries no Name.");
 
-        // A bundle manifest spells the architecture per-package; the bundle
-        // Identity itself has none.
-        var arch = (string?)identity.Attribute("ProcessorArchitecture")
-            ?? (string?)identity.Attribute("Architecture")
-            ?? "";
-
         var displayName = root.Elements().FirstOrDefault(e => e.Name.LocalName == "Properties")
             ?.Elements().FirstOrDefault(e => e.Name.LocalName == "DisplayName")?.Value;
+
+        // The bundle Identity has no architecture: the bundle full name is always neutral with resource id "~",
+        // and each application package in the Packages list names its own architecture.
+        var arch = bundle ? "neutral" : (string?)identity.Attribute("ProcessorArchitecture") ?? "";
+        var packageArchitectures = bundle ? BundleApplicationArchitectures(root) : arch.Length > 0 ? [arch] : [];
 
         return new MsixIdentity
         {
@@ -124,9 +133,40 @@ public sealed class MsixPackageReader
             Version = (string?)identity.Attribute("Version") ?? "",
             Publisher = (string?)identity.Attribute("Publisher") ?? "",
             ProcessorArchitecture = arch,
+            ResourceId = bundle ? "~" : (string?)identity.Attribute("ResourceId") ?? "",
+            IsBundle = bundle,
+            PackageArchitectures = packageArchitectures,
             DisplayName = string.IsNullOrWhiteSpace(displayName) ? null : displayName
         };
     }
+
+    /// <summary>
+    /// The distinct architectures of the application packages of a bundle manifest, in document order. A package
+    /// with no Type attribute is an application package.
+    /// </summary>
+    public static IReadOnlyList<string> BundleApplicationArchitectures(XElement bundleRoot) =>
+        bundleRoot.Elements().FirstOrDefault(e => e.Name.LocalName == "Packages")?.Elements()
+            .Where(p => p.Name.LocalName == "Package"
+                && ((string?)p.Attribute("Type") ?? "application").Equals("application", StringComparison.OrdinalIgnoreCase))
+            .Select(p => ((string?)p.Attribute("Architecture") ?? "").Trim())
+            .Where(a => a.Length > 0)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList() ?? [];
+
+    /// <summary>
+    /// The architecture a bundle proposes for the definition: x64 when an application package is x64, else neutral
+    /// when one is neutral, else the first application package architecture; empty when the bundle lists none.
+    /// </summary>
+    public static string BundleDefinitionArchitecture(IReadOnlyList<string> packageArchitectures)
+    {
+        if (packageArchitectures.Any(a => a.Equals("x64", StringComparison.OrdinalIgnoreCase))) return "x64";
+        if (packageArchitectures.Any(a => a.Equals("neutral", StringComparison.OrdinalIgnoreCase))) return "neutral";
+        return packageArchitectures.Count > 0 ? packageArchitectures[0] : "";
+    }
+
+    /// <summary>The package full name: Name_Version_Architecture_ResourceId_PublisherId.</summary>
+    public static string PackageFullName(string name, string version, string architecture, string? resourceId, string publisher) =>
+        $"{name}_{version}_{architecture}_{resourceId}_{PublisherHash(publisher)}";
 
     /// <summary>
     /// Reads the signing certificate from AppxSignature.p7x and reports whether

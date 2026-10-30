@@ -270,6 +270,7 @@ public sealed class StagingService
         if (def.BootstrapperLayout is not null)
             return await StageBootstrapperLayoutAsync(def, downloadRoot, onProgress, ct, knownVersion, finalizer);
 
+        string? createdFolder = null;
         try
         {
             // Operator inputs the stage cannot do without refuse it before any download.
@@ -327,6 +328,7 @@ public sealed class StagingService
             var appFolder = $"{def.Application.Replace(" ", "")}-{def.Architecture}";
             var baseRoot = Path.Combine(downloadRoot, appFolder);
             var contentPath = Workbench.WorkbenchPaths.CombineUnder(baseRoot, AssertVersionSegment(displayVersion));
+            createdFolder = FirstMissingFolder(downloadRoot, contentPath);
             Directory.CreateDirectory(contentPath);
 
             string downloadUrl;
@@ -415,14 +417,16 @@ public sealed class StagingService
                 onProgress?.Invoke($"MSIX identity name           : {identity.Name}");
                 onProgress?.Invoke($"MSIX identity version        : {identity.Version}");
                 onProgress?.Invoke($"MSIX architecture            : {identity.ProcessorArchitecture}");
+                if (identity.IsBundle)
+                    onProgress?.Invoke($"MSIX bundle architectures    : {string.Join(", ", identity.PackageArchitectures)}");
 
                 // A neutral package runs on every architecture the definition can declare.
-                if (!string.IsNullOrWhiteSpace(identity.ProcessorArchitecture)
-                    && !identity.ProcessorArchitecture.Equals("neutral", StringComparison.OrdinalIgnoreCase)
-                    && !string.IsNullOrWhiteSpace(def.Architecture)
-                    && !identity.ProcessorArchitecture.Equals(def.Architecture, StringComparison.OrdinalIgnoreCase))
-                    throw new InvalidOperationException(
-                        $"MSIX architecture is '{identity.ProcessorArchitecture}' but the definition declares '{def.Architecture}'.");
+                if (!string.IsNullOrWhiteSpace(def.Architecture) && identity.PackageArchitectures.Count > 0
+                    && !identity.PackageArchitectures.Any(a => a.Equals("neutral", StringComparison.OrdinalIgnoreCase)
+                        || a.Equals(def.Architecture, StringComparison.OrdinalIgnoreCase)))
+                    throw new InvalidOperationException(identity.IsBundle
+                        ? $"The MSIX bundle has application packages for {string.Join(", ", identity.PackageArchitectures)} only, but the definition declares '{def.Architecture}'."
+                        : $"MSIX architecture is '{identity.ProcessorArchitecture}' but the definition declares '{def.Architecture}'.");
 
                 // The AppX cmdlets refuse an unsigned or untrusted package, so
                 // the signer is pinned into the install wrapper at stage time.
@@ -444,6 +448,7 @@ public sealed class StagingService
                     Version = identity.Version,
                     Publisher = identity.Publisher,
                     ProcessorArchitecture = identity.ProcessorArchitecture,
+                    ResourceId = identity.ResourceId.Length > 0 ? identity.ResourceId : null,
                     SignerThumbprint = signature.Thumbprint,
                     SignerSubject = signature.Subject,
                     Provisioned = true
@@ -695,12 +700,49 @@ public sealed class StagingService
         // interrupted run as an ordinary result and carry on.
         catch (OperationCanceledException)
         {
+            RemovePartialStage(createdFolder, onProgress);
             throw;
         }
         catch (Exception ex)
         {
+            RemovePartialStage(createdFolder, onProgress);
             return new StagingResult { Success = false, ErrorMessage = ex.Message };
         }
+    }
+
+    /// <summary>
+    /// Removes the folder a stage that did not complete created. A folder that existed before the stage holds an
+    /// earlier stage of the same version and is kept.
+    /// </summary>
+    private static void RemovePartialStage(string? createdFolder, Action<string>? onProgress)
+    {
+        if (createdFolder is null || !Directory.Exists(createdFolder)) return;
+        try
+        {
+            Directory.Delete(createdFolder, recursive: true);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            onProgress?.Invoke($"The incomplete stage folder could not be removed: {createdFolder}. Remove it by hand. {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// The topmost folder between <paramref name="root"/> (excluded) and <paramref name="path"/> that does not exist
+    /// yet; null when <paramref name="path"/> exists or is not under <paramref name="root"/>.
+    /// </summary>
+    internal static string? FirstMissingFolder(string root, string path)
+    {
+        var fullRoot = Path.TrimEndingDirectorySeparator(Path.GetFullPath(root));
+        var current = Path.TrimEndingDirectorySeparator(Path.GetFullPath(path));
+        if (!current.StartsWith(fullRoot + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)) return null;
+        string? missing = null;
+        while (current.Length > fullRoot.Length && !Directory.Exists(current))
+        {
+            missing = current;
+            current = Path.GetDirectoryName(current)!;
+        }
+        return missing;
     }
 
     /// <summary>
@@ -1312,6 +1354,7 @@ public sealed class StagingService
         Action<string>? onProgress, CancellationToken ct, string? knownVersion,
         StageFinalizer finalizer)
     {
+        string? createdFolder = null;
         try
         {
             var layout = def.BootstrapperLayout!;
@@ -1333,6 +1376,7 @@ public sealed class StagingService
             var contentPath = Path.Combine(baseRoot, version);
 
             AssertLayoutPathLength(contentPath, layout.MaxLayoutPathLength);
+            createdFolder = FirstMissingFolder(downloadRoot, contentPath);
             Directory.CreateDirectory(contentPath);
 
             // The bundle refuses a layout target beneath the folder it runs from
@@ -1449,10 +1493,12 @@ public sealed class StagingService
         // interrupted run as an ordinary result and carry on.
         catch (OperationCanceledException)
         {
+            RemovePartialStage(createdFolder, onProgress);
             throw;
         }
         catch (Exception ex)
         {
+            RemovePartialStage(createdFolder, onProgress);
             return new StagingResult { Success = false, ErrorMessage = ex.Message };
         }
     }
@@ -1591,6 +1637,7 @@ public sealed class StagingService
         Action<string>? onProgress, CancellationToken ct, string? knownVersion,
         Dictionary<string, string>? settingsValues, StageFinalizer finalizer)
     {
+        string? createdFolder = null;
         try
         {
             var odt = def.Odt is null ? null : ResolveOdtConfig(def, settingsValues);
@@ -1622,6 +1669,7 @@ public sealed class StagingService
             var appFolder = $"{def.Application.Replace(" ", "")}-{def.Architecture}";
             var baseRoot = Path.Combine(downloadRoot, appFolder);
             var contentPath = Path.Combine(baseRoot, version);
+            createdFolder = FirstMissingFolder(downloadRoot, contentPath);
             Directory.CreateDirectory(contentPath);
 
             var setupExe = Path.Combine(baseRoot, "setup.exe");
@@ -1730,9 +1778,14 @@ public sealed class StagingService
                 ManifestPath = manifestPath
             };
         }
-        catch (OperationCanceledException) { throw; }
+        catch (OperationCanceledException)
+        {
+            RemovePartialStage(createdFolder, onProgress);
+            throw;
+        }
         catch (Exception ex)
         {
+            RemovePartialStage(createdFolder, onProgress);
             return new StagingResult { Success = false, ErrorMessage = ex.Message };
         }
     }
@@ -1881,7 +1934,7 @@ public sealed class StagingService
             throw new InvalidOperationException(
                 "MSIX identity is missing Name, Version, ProcessorArchitecture or Publisher; the package full name for detection cannot be built.");
 
-        var fullName = $"{package.Name}_{package.Version}_{package.ProcessorArchitecture}__{MsixPackageReader.PublisherHash(package.Publisher)}";
+        var fullName = MsixPackageReader.PackageFullName(package.Name, package.Version, package.ProcessorArchitecture, package.ResourceId, package.Publisher);
         return new StageDetection
         {
             Type = "RegistryKey",
@@ -2476,6 +2529,7 @@ public sealed class StagingService
         StageInputs? inputs = null,
         ExpectedInstaller? expected = null)
     {
+        string? createdFolder = null;
         try
         {
             var finalizer = StageFinalizer.Begin(inputs);
@@ -2505,6 +2559,7 @@ public sealed class StagingService
                 vendorFolder = "Unknown";
 
             var contentPath = Path.Combine(downloadRoot, vendorFolder, appFolder, versionFolder);
+            createdFolder = FirstMissingFolder(downloadRoot, contentPath);
             Directory.CreateDirectory(contentPath);
             ct.ThrowIfCancellationRequested();
 
@@ -2568,10 +2623,12 @@ public sealed class StagingService
         // Cancellation is not a staging failure; it propagates.
         catch (OperationCanceledException)
         {
+            RemovePartialStage(createdFolder, onProgress);
             throw;
         }
         catch (Exception ex)
         {
+            RemovePartialStage(createdFolder, onProgress);
             return Task.FromResult(new StagingResult { Success = false, ErrorMessage = ex.Message });
         }
     }

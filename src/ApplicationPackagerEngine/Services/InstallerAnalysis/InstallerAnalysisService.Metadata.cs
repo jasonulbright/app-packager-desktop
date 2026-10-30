@@ -541,7 +541,9 @@ public sealed partial class InstallerAnalysisService
         var name = (string?)identity?.Attribute("Name") ?? "";
         var publisher = (string?)identity?.Attribute("Publisher") ?? "";
         var version = (string?)identity?.Attribute("Version") ?? "";
-        var arch = (string?)identity?.Attribute("ProcessorArchitecture") ?? "";
+        var arch = bundle
+            ? MsixPackageReader.BundleDefinitionArchitecture(MsixPackageReader.BundleApplicationArchitectures(root))
+            : (string?)identity?.Attribute("ProcessorArchitecture") ?? "";
         var properties = ChildElement(root, "Properties");
         var displayName = Child(properties, "DisplayName");
         var publisherDisplay = Child(properties, "PublisherDisplayName");

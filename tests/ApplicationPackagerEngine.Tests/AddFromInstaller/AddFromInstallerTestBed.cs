@@ -85,6 +85,29 @@ internal sealed class AddFromInstallerTestBed : IDisposable
         return InstallerAnalysisTestFiles.WriteZip(PathOf(fileName), [.. entries]);
     }
 
+    /// <summary>
+    /// A bundle as the Store and winget ship it: the identity is in AppxMetadata\AppxBundleManifest.xml, the bundle
+    /// Identity has no architecture, and each application package names its own.
+    /// </summary>
+    public string MsixBundle(string fileName = "contoso.msixbundle", string name = "Contoso.Tool", string version = "3001.2.3.0",
+        string[]? architectures = null, byte[]? signature = null)
+    {
+        var packages = string.Concat((architectures ?? ["x64", "x86"]).Select(a =>
+            $"<Package Type=\"application\" Version=\"1.2.3.0\" Architecture=\"{a}\" FileName=\"{name}_1.2.3.0_{a}.msix\" Offset=\"0\" Size=\"1\"/>"))
+            + $"<Package Type=\"resource\" Version=\"1.2.3.0\" ResourceId=\"split.scale-100\" FileName=\"{name}_scale-100.msix\" Offset=\"0\" Size=\"1\"/>";
+        var manifest = "<?xml version=\"1.0\" encoding=\"utf-8\"?>"
+            + "<Bundle xmlns=\"http://schemas.microsoft.com/appx/2013/bundle\" SchemaVersion=\"5.0\">"
+            + $"<Identity Name=\"{name}\" Publisher=\"CN=Contoso Ltd\" Version=\"{version}\"/>"
+            + $"<Packages>{packages}</Packages></Bundle>";
+        var entries = new List<(string Name, byte[] Data)>
+        {
+            ("AppxMetadata/AppxBundleManifest.xml", InstallerAnalysisTestFiles.Text(manifest)),
+            ("[Content_Types].xml", InstallerAnalysisTestFiles.Text("<Types/>"))
+        };
+        if (signature is not null) entries.Add(("AppxSignature.p7x", signature));
+        return InstallerAnalysisTestFiles.WriteZip(PathOf(fileName), [.. entries]);
+    }
+
     public static AnalysisReport Report(string path, string type, IReadOnlyList<AnalysisFact> deployment,
         IReadOnlyList<MetadataBlock>? metadata = null, IReadOnlyList<InstallMode>? modes = null, EffectiveDetection? postPatch = null,
         string architecture = "x64") => new(
