@@ -143,7 +143,7 @@ public partial class PackagesViewModel
                 }
             }
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException or ArgumentException)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException or ArgumentException or InstallerAnalysisException)
         {
             AddLogLine($"Package refused: {ex.Message}");
             StatusText = "Package refused.";
@@ -164,7 +164,7 @@ public partial class PackagesViewModel
         {
             plan = await ByoStaging.PlanAsync(WorkbenchStore.Open(snapshot.DataRoot), _dropAnalysisService, applicationId, deepInspect: true);
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException or ArgumentException)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException or ArgumentException or InstallerAnalysisException)
         {
             AddLogLine($"Stage refused: {ex.Message}");
             StatusText = "Stage refused.";

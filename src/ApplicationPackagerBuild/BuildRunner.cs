@@ -468,7 +468,7 @@ public sealed class BuildRunner(
     {
         try { return action(); }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException
-                                   or ArgumentException or JsonException)
+                                   or ArgumentException or JsonException or InstallerAnalysisException)
         {
             throw new BuildRefusal(prefix + ex.Message);
         }
@@ -478,7 +478,7 @@ public sealed class BuildRunner(
     {
         try { return await action(); }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException
-                                   or ArgumentException or JsonException)
+                                   or ArgumentException or JsonException or InstallerAnalysisException)
         {
             throw new BuildRefusal(prefix + ex.Message);
         }
