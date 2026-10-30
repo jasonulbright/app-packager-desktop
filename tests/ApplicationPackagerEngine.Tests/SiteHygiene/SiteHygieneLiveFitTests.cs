@@ -299,27 +299,27 @@ public sealed class SiteHygieneLiveFitTests
         });
     }
 
-    public static TheoryData<ApplicationTheme, double> SmallSizes() => new()
+    public static TheoryData<ApplicationTheme, double, double> SmallSizes() => new()
     {
-        { ApplicationTheme.Light, 1024 - NavigationPaneWidth },
-        { ApplicationTheme.Dark, 1024 - NavigationPaneWidth },
-        { ApplicationTheme.Light, 1024 - CollapsedPaneWidth },
-        { ApplicationTheme.Dark, 1024 - CollapsedPaneWidth }
+        { ApplicationTheme.Light, 1024 - NavigationPaneWidth, 720 - TitleBar },
+        { ApplicationTheme.Dark, 1024 - NavigationPaneWidth, 720 - TitleBar },
+        { ApplicationTheme.Light, 1024 - CollapsedPaneWidth, 720 - TitleBar },
+        { ApplicationTheme.Dark, 1024 - CollapsedPaneWidth, 720 - TitleBar }
     };
 
     /// <summary>At 1024x720 a grid whose least column widths exceed it scrolls sideways; a value is never cut, a name of typical length wraps whole, and an alert message wraps whole.</summary>
     [Theory]
     [MemberData(nameof(SmallSizes))]
-    public void At900By600EveryGridWrapsOrScrollsAndCutsNoValue(ApplicationTheme theme, double width)
+    public void AtTheMinimumSizeEveryGridWrapsOrScrollsAndCutsNoValue(ApplicationTheme theme, double width, double height)
     {
-        WithPage(theme, width, 600 - TitleBar, (window, page, viewModel, harness) =>
+        WithPage(theme, width, height, (window, page, viewModel, harness) =>
         {
             var failures = new List<string>();
             var grid = ById<DataGrid>(page, "dgLive");
             foreach (var choice in SiteHygieneLiveLabels.Views.Where(v => v.Pane == LivePane.Grid))
             {
                 ShowView(window, viewModel, v => v == choice);
-                var where = $"{choice.Id} at {width}x600 {theme}:";
+                var where = $"{choice.Id} at {width}x720 {theme}:";
                 var least = grid.Columns.Sum(c => c.MinWidth);
                 var scroller = Scroller(grid);
                 if (least > scroller.ViewportWidth + 1) Assert.True(scroller.ScrollableWidth > 0 && SidewaysBarShows(grid), $"{where} the columns need {least:0} px in a {scroller.ViewportWidth:0} px grid and no scroll bar shows.");
@@ -330,7 +330,7 @@ public sealed class SiteHygieneLiveFitTests
             Assert.Equal(LabAlerts.Count, alerts.Items.Count);
             var message = alerts.Columns.Single(c => (string)c.Header == "Message");
             Assert.All(Cells(alerts).Where(c => ReferenceEquals(c.Column, message)), c => Assert.Equal(TextWrapping.Wrap, Descendants(c).OfType<TextBlock>().First().TextWrapping));
-            AssertNoCutCell(alerts, failures, $"alerts at {width}x600 {theme}:");
+            AssertNoCutCell(alerts, failures, $"alerts at {width}x720 {theme}:");
             if (alerts.Columns.Sum(c => c.MinWidth) > Scroller(alerts).ViewportWidth + 1) Assert.True(SidewaysBarShows(alerts), $"The alert columns exceed the grid at {width} and no scroll bar shows.");
             Assert.True(failures.Count == 0, string.Join(Environment.NewLine, failures));
         });
@@ -342,14 +342,14 @@ public sealed class SiteHygieneLiveFitTests
     /// </summary>
     [Theory]
     [MemberData(nameof(SmallSizes))]
-    public void At900By600TheRealDeploymentNamesShowWholeWhenTheGridScrollsSideways(ApplicationTheme theme, double width)
+    public void AtTheMinimumSizeTheRealDeploymentNamesShowWholeWhenTheGridScrollsSideways(ApplicationTheme theme, double width, double height)
     {
-        WithPage(theme, width, 600 - TitleBar, (window, page, viewModel, harness) =>
+        WithPage(theme, width, height, (window, page, viewModel, harness) =>
         {
             ShowView(window, viewModel, v => v.View == LiveView.Deployments);
             var grid = ById<DataGrid>(page, "dgLive");
             var fit = page.LiveFit!;
-            var where = $"Deployments at {width}x600 {theme}:";
+            var where = $"Deployments at {width}x720 {theme}:";
             Assert.True(Scroller(grid).ScrollableWidth > 0, $"{where} the grid does not scroll sideways.");
             var failures = new List<string>();
             var shown = new List<string>();
@@ -382,11 +382,11 @@ public sealed class SiteHygieneLiveFitTests
 
     [Theory]
     [MemberData(nameof(SmallSizes))]
-    [InlineData(ApplicationTheme.Light, 1440 - CollapsedPaneWidth)]
-    [InlineData(ApplicationTheme.Dark, 1440 - NavigationPaneWidth)]
-    public void AColumnOfServerNamesAndIdsNeverBreaksAValueInsideAWord(ApplicationTheme theme, double width)
+    [InlineData(ApplicationTheme.Light, 1440 - CollapsedPaneWidth, 900 - TitleBar)]
+    [InlineData(ApplicationTheme.Dark, 1440 - NavigationPaneWidth, 900 - TitleBar)]
+    public void AColumnOfServerNamesAndIdsNeverBreaksAValueInsideAWord(ApplicationTheme theme, double width, double height)
     {
-        WithPage(theme, width, (width > 900 ? 900 : 600) - TitleBar, (window, page, viewModel, harness) =>
+        WithPage(theme, width, height, (window, page, viewModel, harness) =>
         {
             var failures = new List<string>();
             var grid = ById<DataGrid>(page, "dgLive");
@@ -423,10 +423,10 @@ public sealed class SiteHygieneLiveFitTests
 
     public static TheoryData<ApplicationTheme, double, double> AllSizes() => new()
     {
-        { ApplicationTheme.Light, 900 - NavigationPaneWidth, 600 - TitleBar },
-        { ApplicationTheme.Dark, 900 - NavigationPaneWidth, 600 - TitleBar },
-        { ApplicationTheme.Light, 900 - CollapsedPaneWidth, 600 - TitleBar },
-        { ApplicationTheme.Dark, 900 - CollapsedPaneWidth, 600 - TitleBar },
+        { ApplicationTheme.Light, 1024 - NavigationPaneWidth, 720 - TitleBar },
+        { ApplicationTheme.Dark, 1024 - NavigationPaneWidth, 720 - TitleBar },
+        { ApplicationTheme.Light, 1024 - CollapsedPaneWidth, 720 - TitleBar },
+        { ApplicationTheme.Dark, 1024 - CollapsedPaneWidth, 720 - TitleBar },
         { ApplicationTheme.Light, 1440 - NavigationPaneWidth, 900 - TitleBar },
         { ApplicationTheme.Dark, 1440 - NavigationPaneWidth, 900 - TitleBar },
         { ApplicationTheme.Light, 1440 - CollapsedPaneWidth, 900 - TitleBar },
@@ -548,8 +548,8 @@ public sealed class SiteHygieneLiveFitTests
             data.Add(theme, width, height, 0);
         foreach (var rows in new[] { 1, 2, 200 })
         {
-            data.Add(ApplicationTheme.Light, 900 - NavigationPaneWidth, 600 - TitleBar, rows);
-            data.Add(ApplicationTheme.Dark, 900 - CollapsedPaneWidth, 600 - TitleBar, rows);
+            data.Add(ApplicationTheme.Light, 1024 - NavigationPaneWidth, 720 - TitleBar, rows);
+            data.Add(ApplicationTheme.Dark, 1024 - CollapsedPaneWidth, 720 - TitleBar, rows);
             data.Add(ApplicationTheme.Dark, 1440 - NavigationPaneWidth, 900 - TitleBar, rows);
             data.Add(ApplicationTheme.Light, 1440 - CollapsedPaneWidth, 900 - TitleBar, rows);
         }
@@ -615,7 +615,7 @@ public sealed class SiteHygieneLiveFitTests
     [Fact]
     public void AnEmptiedGridScrollsSidewaysAndVirtualizesTheRowsThatComeBack()
     {
-        WithPage(ApplicationTheme.Light, 900 - NavigationPaneWidth, 600 - TitleBar, (window, page, viewModel, harness) =>
+        WithPage(ApplicationTheme.Light, 1024 - NavigationPaneWidth, 720 - TitleBar, (window, page, viewModel, harness) =>
         {
             ShowView(window, viewModel, v => v.View == LiveView.Deployments);
             var grid = ById<DataGrid>(page, "dgLive");
@@ -640,7 +640,7 @@ public sealed class SiteHygieneLiveFitTests
     [Fact]
     public void TheWidestWordCountsWhenItsValueIsShorterThanTheLongestValuesMeasured()
     {
-        WithPage(ApplicationTheme.Light, 900 - CollapsedPaneWidth, 600 - TitleBar, (window, page, viewModel, harness) =>
+        WithPage(ApplicationTheme.Light, 1024 - CollapsedPaneWidth, 720 - TitleBar, (window, page, viewModel, harness) =>
         {
             var fit = page.LiveFit!;
             const string server = "SITESERVERDISTRIBUTION01.contoso.com";
@@ -760,7 +760,7 @@ public sealed class SiteHygieneLiveFitTests
     public void TheImportNoteShowsOnTheOptionsImportRowAsWholeLines(ApplicationTheme theme)
     {
         const string refusal = @"The settings file C:\Users\labadmin\AppData\Local\AppPackagerSuite\site-hygiene\legacy\mecm-health-dashboard\SiteHygiene.prefs.json is not valid JSON. Nothing was imported.";
-        WithPage(theme, 900 - NavigationPaneWidth, 600 - TitleBar, (window, page, viewModel, harness) =>
+        WithPage(theme, 1024 - NavigationPaneWidth, 720 - TitleBar, (window, page, viewModel, harness) =>
         {
             viewModel.SelectedTabIndex = VM.OptionsTab;
             Settle(window);

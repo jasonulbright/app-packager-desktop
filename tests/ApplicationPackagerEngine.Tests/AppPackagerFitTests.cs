@@ -24,8 +24,8 @@ public sealed class AppPackagerFitTests
     private const double NavigationPaneWidth = 230;
     private const double FrameHeight = 48;
 
-    /// <summary>The least number of complete data rows that the grid shows at 1024x720.</summary>
-    internal const int MinimumWholeRows = 3;
+    /// <summary>The least number of complete data rows that the grid shows at every size in <see cref="Sizes"/>.</summary>
+    internal const int MinimumWholeRows = 6;
 
     public static TheoryData<ApplicationTheme, int, int> Sizes => new()
     {
@@ -85,10 +85,7 @@ public sealed class AppPackagerFitTests
                 var grid = (DataGrid)page.FindName("PackagerGrid");
                 var whole = WholeRows(grid);
                 var lines = ToolbarLines(toolbar);
-                if (height <= 600)
-                    Assert.True(whole >= MinimumWholeRows, $"{where}: the grid shows {whole} whole rows; the toolbar uses {lines} lines and the grid is {grid.ActualHeight:0} px tall.");
-                else
-                    Assert.True(whole >= MinimumWholeRows + 3, $"{where}: the grid shows {whole} whole rows; the toolbar uses {lines} lines.");
+                Assert.True(whole >= MinimumWholeRows, $"{where}: the grid shows {whole} whole rows; the toolbar uses {lines} lines and the grid is {grid.ActualHeight:0} px tall.");
 
                 var catalog = ById<ButtonBase>(page, "btnCatalog");
                 Assert.True(catalog.IsVisible && catalog.IsEnabled && catalog.Focusable && catalog.IsTabStop, $"{where}: the Catalog button cannot take focus.");
