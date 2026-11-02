@@ -1,8 +1,8 @@
-# Application Workbench
+# Workbench
 
 ## What it does
 
-The Application Workbench is the editor for one application. A definition supplies the default values. A profile holds your changes. Each field shows where its value comes from. **Reset** returns a field to the inherited value.
+The Workbench is the editor for one application. A definition supplies the default values. A profile holds your changes. Each field shows where its value comes from. **Reset** returns a field to the inherited value.
 
 Stage and publish runs of the Workbench use a saved profile. A run writes a build record. You can export an application with its profiles as a bundle and import the bundle on another computer.
 
@@ -22,16 +22,17 @@ Stage and publish runs of the Workbench use a saved profile. A run writes a buil
 ## Steps: change an application and stage it
 
 1. Open the **Workbench**. Use one of these ways:
-   - Select **Application Workbench** in the sidebar. The Workbench opens on the selected row of the Packages grid.
-   - Double-click a row of the Packages grid.
+   - Select **Workbench** in the sidebar. The Workbench opens on the highlighted row of the App Packager grid. With no highlighted row, it opens on the first application of the list.
+   - Double-click a row of the App Packager grid.
    - Right-click a row and select **Edit application...**.
-2. In **Application**, choose the application. The list holds catalog applications, user-authored scripts and saved bring-your-own applications. If the list is empty, the dialog `No applications were found. Load packagers or save a bring-your-own installer first.` opens.
+   - Select **Open in Workbench** on the result panel of [Add from web](add-app.md) or [Add from file](add-from-file.md). The Workbench opens on the new definition.
+2. In **Application**, choose the application. You can type to search. The list holds catalog applications, user-authored definitions and scripts, and saved bring-your-own applications. To choose by source, select **Open definition...**. If the list is empty, the dialog `No applications were found. Load packagers or save a bring-your-own installer first.` opens.
 3. In **Profile**, choose a profile. The profile **Packager default** is read-only.
 4. Select a section in the list on the left and change the fields.
 5. Select **Save**. On **Packager default**, the dialog **Profile** asks for a name (**Name for this profile**, default `Managed`). To keep the current profile and create another, select **Save as...** instead.
 6. Select **Validate**. The Workbench opens **Review & build** and shows the findings. Validation inspects the profile. It does not run anything.
-7. Select **Stage**. The Workbench closes and the Packages page runs the stage.
-8. Open the Workbench again. Choose the new build in **Build**.
+7. Select **Stage**. The Workbench closes and the App Packager page runs the stage.
+8. Open the Workbench again. Choose the new build in **Build**. A sealed build exists only after a **Stage** that you start in the Workbench. A **Stage** that you start with the button on the App Packager page creates no sealed build, and **Build** then shows `No sealed builds`.
 9. Under **Publish to:**, select **ConfigMgr**, **Intune** or **WSUS**. The publish uses the build that **Build** shows.
 
 If you have unsaved edits when you start a run, the app asks `Save the profile before this run? A run uses the saved profile revision.` Select **Save**, **Discard** or **Cancel**.
@@ -45,6 +46,7 @@ If a finding of severity Blocking applies to the target, the dialog **Blocked** 
 | Control | Function |
 |---|---|
 | **Application** | Application to edit. You can type to search. |
+| **Open definition...** | Opens the dialog **Open definition**. The list shows **Name**, **Publisher** and **Source** of each definition. The box **Filter by name or publisher** and the list of sources narrow the rows. The sources are `All sources`, `Local file` (made by [Add from file](add-from-file.md)), `Shipped` (included with the app) and `From web` (made by [Add from web](add-app.md)). **Open** (or a double click) opens the definition. |
 | **Profile** | Profile to edit. One profile is active for each application. |
 | **Rename** | Renames the selected custom profile. The packager default cannot be renamed. |
 | **Bundle** | Menu with **Export bundle...** and **Import bundle...**. |
@@ -69,7 +71,8 @@ Fields: **Display name**, **Publisher**, **Description**, **Application title**,
 - **Application title** offers `Packager default`, `Include version` and `No version`. A title with the version creates one ConfigMgr application for each release. A title without the version updates the same application.
 - **Icon** has **Choose file...**, **Reset** and **Remove**. **Remove** publishes no icon.
 - The displayed title is separate from the stable identity. Renaming a profile never renames an existing site application. The output folder keeps the packager name.
-- For a bring-your-own application, the list **Installer source** and the button **Replace installer...** appear. See [Bring your own installer](bring-your-own-installer.md).
+- For a bring-your-own application, the list **Installer source** and the button **Replace installer...** appear. **Replace installer...** takes an `.msi` or an `.exe` file. The dialog `Replace Installer` says: "A replacement installer must be an .msi or an .exe file. Add other installer types with Add from file." See [Bring your own installer](bring-your-own-installer.md).
+- A definition from [Add from file](add-from-file.md) is not a bring-your-own application. It has no **Installer source** list. To use another installer file, add the file again with **Add from file**.
 
 ### Install & uninstall
 
@@ -174,14 +177,16 @@ The Workbench data folder is `%LOCALAPPDATA%\AppPackager\Workbench`. It holds `a
 - A run from the Workbench closes the Workbench window. The work then runs in the main window.
 - The lab validated that hooks and custom script text reach the client, and that a publish from the footer creates the application.
 - Intune publishing is tested against simulated Graph responses only.
+- **Effective command**, the inherited detection rule and the **Resolved plan** can show `(needs staging)` after a Workbench **Stage** that sealed a build. The sealed build is real. Choose it in **Build** to publish it.
+- The Workbench is a window that stops the main window while it is open.
 
 ## Troubleshooting
 
 | Message | Cause | Fix |
 |---|---|---|
 | `Install.Mode Custom requires a script.` (in the log after **Stage**) | **Mode** is `Custom` and the script is empty. | Enter a script or choose another mode. |
-| `Another operation is running on the Packages page. Wait for it to finish, then run this again.` | The Packages page runs an operation. | Wait, then run again. |
-| `This application is not in the main grid, so it cannot run through the grid pipeline.` | The application is not listed on the Packages page. | Show it on the [Applications](applications.md) page. |
+| `Another operation is running on the App Packager page. Wait for it to finish, then run this again.` | The App Packager page runs an operation. | Wait, then run again. |
+| `This application is not in the App Packager grid, so it cannot run through the grid pipeline.` | The application is not listed on the App Packager page. | Show it in the [Catalog](applications.md). |
 | `This application has no packager script. Bring-your-own applications run through the installer intake flow.` | The application has no source for a grid run. | Use a bring-your-own application or a definition. |
 | `Unknown build token '{{<name>}}'; supported tokens are InstallerFile, Version, ProductCode, ContentRoot.` | A script uses another token. | Use a supported token. |
 | `Run snapshot not available: <reason>` | The app could not write the run snapshot. | Read the reason. |

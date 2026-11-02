@@ -206,7 +206,7 @@ The panel also reads: "The new row is selected in the App Packager. Nothing is s
 | Enter the version. | You used **Use selected values**, the analysis found no version, and no test scrape ran. | Select **Test Scrape** on step 2, then save again. |
 | Enter the silent install arguments. No silent switch could be derived. | The installer is not an MSI, and the install arguments are empty. | Type the arguments on step 5. |
 | The analysis failed: `<message>` | The download or the analysis failed. | Read the message. |
-| The new application is not in the App Packager grid. | The grid reads the definitions at start and on reload. | Select **Done** or **Open in Workbench**, or press F5 on the App Packager page. |
+| The new application is not in the App Packager grid. | The grid reads the definitions at start and on reload. | Select **Done** or **Open in Workbench**, or click the grid and press F5 on the App Packager page. |
 
 ## Links
 

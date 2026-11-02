@@ -1,8 +1,8 @@
-# Packages grid reference
+# App Packager grid reference
 
 ## What it does
 
-This page describes the parts of the [Packages page](packages.md): the grid columns, the **Status** values, the row context menu, the log pane, the status line, the **Operation history** window and the dialogs that the page opens.
+This page describes the parts of the [App Packager page](packages.md): the grid columns, the **Status** values, the row context menu, the log pane, the status line, the **Operation history** window and the dialogs that the page opens.
 
 ## When to use it
 
@@ -10,7 +10,7 @@ Use this page to find the meaning of a column, a status, a menu entry or a log l
 
 ## Requirements
 
-None. Some entries need the settings that [Packages page](packages.md) names.
+None. Some entries need the settings that [App Packager page](packages.md) names.
 
 ## Grid columns
 
@@ -78,7 +78,7 @@ A right click selects the row and opens the menu.
 | Entry | Effect |
 |---|---|
 | **View operation history...** | Opens the **Operation history** window for the row. |
-| **Edit application...** | Opens the [Application Workbench](workbench.md) for the row. A double click on a row does the same. |
+| **Edit application...** | Opens the [Workbench](workbench.md) for the row. A double click on a row does the same. The sidebar entry **Workbench** opens it for the highlighted row. |
 | **Open Log Folder** | Opens the `Logs` folder in the **Download Root**. The folder holds the log files of the Stage and Publish runs. Nothing happens when the folder does not exist. |
 | **Open Staged Folder** | Opens the first folder in the **Download Root** whose name contains the file name of the definition without its extension. Opens the **Download Root** when no folder matches. |
 | **Open Network Share** | Opens the **File Share Root** in Explorer. |
@@ -114,7 +114,7 @@ After the list loads, the page tests the ConfigMgr connection once. When **Confi
 
 ## Operation history window
 
-Select a row, then select **Operation history**. The button is disabled until a row is highlighted. The window title is `Operation history — <application>`.
+Select a row, then select **Operation history**. The button is disabled until a row is highlighted. The title bar shows `Operation history`. The window name, which the taskbar and screen readers use, is `Operation history — <application>`.
 
 The upper grid lists the latest 100 operations of the application, with local times. A new window selects the first operation.
 
@@ -144,9 +144,11 @@ A ConfigMgr publish run shows this dialog when ConfigMgr holds an application wi
 | Control | Effect |
 |---|---|
 | **Overwrite** | Updates the content and the deployment types. Keeps the application and its deployments. |
-| **Skip** | Leaves the application unchanged. This is the default button. |
+| **Skip** | Leaves the application unchanged. This is the default button: the Enter key selects it. |
 | **Cancel remaining** | Stops the rest of the run. |
 | **Do this for all remaining conflicts in this run** | Applies your choice to the other applications of the run. |
+
+The dialog draws **Overwrite** in the accent color, as a primary button. The Enter key still selects **Skip**. Read the button before you select it.
 
 ![The Application Already Exists dialog](../images/core-packages-conflict-dialog.png)
 
@@ -162,6 +164,7 @@ The dialog shows when the definition has install parameters and one of two condi
 
 - The columns **CVEs** to **Newest CVE** describe one pair of versions. When the **Current (ConfigMgr)** value or the **Latest** value of a row changes, the CVE cells of that row clear.
 - The version lookup of a PS1 packager ends after 30 seconds.
+- A row that [Add from file](add-from-file.md) made has no version source. **Check Latest** shows the version that you reviewed and sends no request.
 
 ## Troubleshooting
 
@@ -169,7 +172,7 @@ The dialog shows when the definition has install parameters and one of two condi
 |---|---|---|
 | `No CVE lookup for this row yet. Run Check CVEs first.` | **Copy CVE IDs** found no stored lookup for the row. | Run **Check CVEs**. |
 
-More messages are on [Packages page](packages.md) and in [Error messages](../reference/error-messages.md).
+More messages are on [App Packager page](packages.md) and in [Error messages](../reference/error-messages.md).
 
 ## Links
 
