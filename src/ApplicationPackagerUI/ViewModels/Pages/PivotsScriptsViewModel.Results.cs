@@ -26,6 +26,7 @@ public sealed partial class PivotsScriptsViewModel
     public const string PartialText = "Partial: the wait window ended before every device answered.";
     public const string NothingToExport = "The list has no rows to export.";
     public const string NoRowsToExport = "The devices answered with no result rows, so there is nothing to export. The Devices tab shows the state of each device.";
+    public const string NoRowsFromAnsweredToExport = "The devices that answered returned no result rows, and the other devices have not answered, so there is nothing to export. The Devices tab shows the state of each device.";
     public const string NoResultToExport = "No device answered, so no result exists to export. The Devices tab shows the state of each device.";
     public const string ExportNotThisView = "Select the Results, Devices or Pipeline tab to export its rows.";
     public const string NoResultsYet = "No result yet. Run a query or a script, or open a saved session in History.";
@@ -402,7 +403,8 @@ public sealed partial class PivotsScriptsViewModel
         if (report.Rows.Count == 0)
         {
             StatusMessage = ResultTabIndex == ResultsView && _allResults.Count == 0 && _allDevices.Count > 0
-                ? _allDevices.Any(d => d.Result.State == PivotsDeviceStates.Completed) && _allDevices.All(d => Answered(d.Result)) ? NoRowsToExport : NoResultToExport
+                ? !_allDevices.Any(d => Answered(d.Result)) ? NoResultToExport
+                    : _allDevices.All(d => Answered(d.Result)) ? NoRowsToExport : NoRowsFromAnsweredToExport
                 : NothingToExport;
             return;
         }
