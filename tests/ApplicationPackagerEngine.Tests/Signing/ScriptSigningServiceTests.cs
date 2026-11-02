@@ -48,7 +48,7 @@ public sealed class SigningCertificateServiceTests(SigningCertificateFixture fix
         Assert.Equal(fixture.Thumbprint, _service.Resolve(fixture.Policy()).Thumbprint.ToUpperInvariant());
 
     [Theory]
-    [InlineData("", "SigningCertificateUnavailable: no certificate selected. Choose a code-signing certificate thumbprint in Options.")]
+    [InlineData("", "SigningCertificateUnavailable: no certificate selected. Choose a code-signing certificate thumbprint in Settings.")]
     [InlineData("0000000000000000000000000000000000000000", @"SigningCertificateUnavailable: thumbprint 0000000000000000000000000000000000000000 was not found in Cert:\CurrentUser\My.")]
     public void RefusesAMissingSelection(string thumbprint, string message)
     {

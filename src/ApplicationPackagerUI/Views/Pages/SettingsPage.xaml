@@ -770,12 +770,12 @@
                     <TextBlock Text="Components" Style="{StaticResource SubHeader}" />
                     <CheckBox Content="Customize (ADDLOCAL)" IsThreeState="True" IsChecked="{Binding CwaSwitches.Components.Customize}" Margin="0,0,0,4" />
                     <CheckBox Content="ReceiverInside" IsThreeState="True" IsChecked="{Binding CwaSwitches.Components.ReceiverInside}" Margin="16,0,0,4" />
-                    <CheckBox Content="ICA_Client" IsThreeState="True" IsChecked="{Binding CwaSwitches.Components.ICA_Client}" Margin="16,0,0,4" />
+                    <CheckBox Content="ICA__Client" IsThreeState="True" IsChecked="{Binding CwaSwitches.Components.ICA_Client}" Margin="16,0,0,4" />
                     <CheckBox Content="AM" IsThreeState="True" IsChecked="{Binding CwaSwitches.Components.AM}" Margin="16,0,0,4" />
                     <CheckBox Content="SelfService" IsThreeState="True" IsChecked="{Binding CwaSwitches.Components.SelfService}" Margin="16,0,0,4" />
                     <CheckBox Content="DesktopViewer" IsThreeState="True" IsChecked="{Binding CwaSwitches.Components.DesktopViewer}" Margin="16,0,0,4" />
                     <CheckBox Content="WebHelper" IsThreeState="True" IsChecked="{Binding CwaSwitches.Components.WebHelper}" Margin="16,0,0,4" />
-                    <CheckBox Content="BCR_Client" IsThreeState="True" IsChecked="{Binding CwaSwitches.Components.BCR_Client}" Margin="16,0,0,4" />
+                    <CheckBox Content="BCR__Client" IsThreeState="True" IsChecked="{Binding CwaSwitches.Components.BCR_Client}" Margin="16,0,0,4" />
                     <CheckBox Content="USB" IsThreeState="True" IsChecked="{Binding CwaSwitches.Components.USB}" Margin="16,0,0,4" />
                     <CheckBox Content="SSON" IsThreeState="True" IsChecked="{Binding CwaSwitches.Components.SSON}" Margin="16,0,0,4" />
                 </StackPanel>
