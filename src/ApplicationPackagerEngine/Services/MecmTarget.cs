@@ -13,6 +13,19 @@ namespace ApplicationPackagerEngine.Services;
 /// </summary>
 public sealed partial class MecmTarget
 {
+    /// <summary>
+    /// Get-CMApplication prints "Search query parameter 'LocalizedDisplayName' supports wildcards and -DisableWildcardHandling
+    /// is defined" on every call that passes -DisableWildcardHandling, so each lookup of a publish wrote the same line to the log.
+    /// The generated scripts stay byte for byte as recorded; the line is dropped where the log receives it.
+    /// </summary>
+    internal static bool IsWildcardNotice(string? line) =>
+        line is not null
+        && line.Contains("Search query parameter", StringComparison.Ordinal)
+        && line.Contains("-DisableWildcardHandling is defined", StringComparison.Ordinal);
+
+    internal static Action<string>? WithoutCmdletNotice(Action<string>? onProgress) =>
+        onProgress is null ? null : line => { if (!IsWildcardNotice(line)) onProgress(line); };
+
     public async Task<PackagingResult> PackageAsync(
         StageManifest manifest,
         string stagedContentPath,
@@ -37,6 +50,7 @@ public sealed partial class MecmTarget
         try
         {
             ct.ThrowIfCancellationRequested();
+            onProgress = WithoutCmdletNotice(onProgress);
             // The title decides the application and its deployment type names;
             // the content folder stays on the manifest name so a title change
             // never moves content already on the share.

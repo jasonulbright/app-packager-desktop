@@ -172,7 +172,10 @@ public partial class WsusPublishingEditor : ObservableObject
             CertificateText = "Not connected.";
             return;
         }
-        StatusText = (Check + $"Connected  -  {status.ServerName}, WSUS {status.Version}, role {status.Role}, {(status.SecureConnection ? "secure" : "unencrypted")} connection. {status.Message}").Trim();
+        // IsConnectionSecureForApiRemoting also reports a connection to the WSUS server on this computer as secure; the
+        // line says secure only when SSL is on, so a plain connection on port 8530 is never called secure.
+        var secure = (_requestUsedSsl ?? UseSsl) && status.SecureConnection;
+        StatusText = (Check + $"Connected  -  {status.ServerName}, WSUS {status.Version}, role {status.Role}, {(secure ? "secure" : "unencrypted")} connection. {status.Message}").Trim();
         var cert = status.SigningCertificate;
         if (cert is null)
         {
@@ -192,6 +195,9 @@ public partial class WsusPublishingEditor : ObservableObject
     /// Validates the boxes, then runs the action off the UI thread. A validation or
     /// server error lands in the status line; cancel ends the wait.
     /// </summary>
+    /// <summary>The Use SSL value of the request that ran last; a change of the box while it runs does not relabel its answer.</summary>
+    private bool? _requestUsedSsl;
+
     private async Task<T?> RunOnServerAsync<T>(Func<WsusSettings, CancellationToken, Task<T>> action) where T : class
     {
         WsusSettings settings;
@@ -202,6 +208,7 @@ public partial class WsusPublishingEditor : ObservableObject
             return null;
         }
         Busy = true;
+        _requestUsedSsl = settings.UseSsl;
         _cts = new CancellationTokenSource();
         try
         {

@@ -152,6 +152,20 @@ public sealed class OnExistingBehaviorTests
     }
 
     [Fact]
+    public void TheCmdletWildcardNoticeIsNotLoggedButOtherWarningsAre()
+    {
+        const string notice = "WARNING: Search query parameter 'LocalizedDisplayName' supports wildcards and -DisableWildcardHandling is defined. Search will only return exact matches.";
+        var seen = new List<string>();
+        var progress = MecmTarget.WithoutCmdletNotice(seen.Add)!;
+        progress(notice);
+        progress("WARNING: another warning");
+        progress("Connecting to ConfigMgr...");
+        progress(notice);
+        Assert.Equal(["WARNING: another warning", "Connecting to ConfigMgr..."], seen);
+        Assert.Null(MecmTarget.WithoutCmdletNotice(null));
+    }
+
+    [Fact]
     public void ExistingLookupDisablesWildcardHandling()
     {
         // A title ending in a bracket or asterisk would otherwise match a

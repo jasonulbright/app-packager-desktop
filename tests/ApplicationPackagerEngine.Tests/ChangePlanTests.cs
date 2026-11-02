@@ -653,6 +653,21 @@ public sealed class ChangePlanTests
     }
 
     [Fact]
+    public void ACellOfThePlanGridDrawsTheThemeFocusRingNotTheSystemRectangle()
+    {
+        StaTestHelper.Run(() =>
+        {
+            var window = Rendered(new ChangePlanViewModel(Plan(), Succeed));
+            var grid = (System.Windows.Controls.DataGrid)window.FindName("gridPlan");
+            var ring = window.FindResource("DefaultControlFocusVisualStyle");
+            var cells = Descendants(grid).OfType<System.Windows.Controls.DataGridCell>().ToList();
+            Assert.NotEmpty(cells);
+            // The system rectangle is black and as tall as the row; the first cell of a row is the Tab stop that shows it.
+            Assert.All(cells, cell => Assert.Same(ring, cell.FocusVisualStyle));
+        });
+    }
+
+    [Fact]
     public async Task TheWindowShowsTheForceCloseChoiceWhenTheViewModelOffersIt()
     {
         // The run never completes: its completion would update collections bound on the ended STA thread.

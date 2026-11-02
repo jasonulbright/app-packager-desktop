@@ -617,7 +617,7 @@
             </TabItem>
         </TabControl>
 
-        <Border Grid.Row="3" x:Name="pnlDeploymentResults" Margin="0,12,0,0" Style="{StaticResource Card}" Visibility="{Binding Shared.HasResultPanel, Converter={StaticResource BoolToVisibility}}"
+        <Border Grid.Row="3" x:Name="pnlDeploymentResults" Margin="0,12,0,0" Style="{StaticResource Card}" Visibility="{Binding ShowsResultPanel, Converter={StaticResource BoolToVisibility}}"
                 AutomationProperties.AutomationId="pnlDeploymentResults">
             <Grid>
                 <Grid.RowDefinitions>

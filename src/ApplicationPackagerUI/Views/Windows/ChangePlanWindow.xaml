@@ -20,6 +20,8 @@
             <!-- The cells of a row form a Local Tab group, so only the first cell is a Tab stop: Tab enters the grid once and the next Tab leaves it. -->
             <Style x:Key="PlanGridCell" TargetType="DataGridCell" BasedOn="{StaticResource {x:Type DataGridCell}}">
                 <Setter Property="VerticalContentAlignment" Value="Top" />
+                <!-- The system focus rectangle is black, dotted and as tall as the row, and the dark theme hides it. -->
+                <Setter Property="FocusVisualStyle" Value="{DynamicResource DefaultControlFocusVisualStyle}" />
                 <Setter Property="KeyboardNavigation.IsTabStop" Value="False" />
                 <Style.Triggers>
                     <DataTrigger Binding="{Binding Column.DisplayIndex, RelativeSource={RelativeSource Self}}" Value="0">
