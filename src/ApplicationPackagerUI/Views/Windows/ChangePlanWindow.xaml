@@ -15,10 +15,11 @@
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
                 <ResourceDictionary Source="/ApplicationPackagerUI;component/Views/Styles/DetailBox.xaml" />
+                <ResourceDictionary Source="/ApplicationPackagerUI;component/Views/Styles/SelectableRows.xaml" />
             </ResourceDictionary.MergedDictionaries>
             <BooleanToVisibilityConverter x:Key="ChangePlanVisibility" />
             <!-- The cells of a row form a Local Tab group, so only the first cell is a Tab stop: Tab enters the grid once and the next Tab leaves it. -->
-            <Style x:Key="PlanGridCell" TargetType="DataGridCell" BasedOn="{StaticResource {x:Type DataGridCell}}">
+            <Style x:Key="PlanGridCell" TargetType="DataGridCell" BasedOn="{StaticResource FocusableCell}">
                 <Setter Property="VerticalContentAlignment" Value="Top" />
                 <!-- The system focus rectangle is black, dotted and as tall as the row, and the dark theme hides it. -->
                 <Setter Property="FocusVisualStyle" Value="{DynamicResource DefaultControlFocusVisualStyle}" />

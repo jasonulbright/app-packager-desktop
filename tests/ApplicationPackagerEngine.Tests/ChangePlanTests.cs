@@ -9,6 +9,7 @@ using System.Windows.Media;
 using CheckBox = System.Windows.Controls.CheckBox;
 using Size = System.Windows.Size;
 using ApplicationPackagerEngine.Services.Logging;
+using ApplicationPackagerEngine.Tests.Compliance;
 using ApplicationPackagerUI.Services;
 using ApplicationPackagerUI.ViewModels.Windows;
 using ApplicationPackagerUI.Views.Windows;
@@ -528,8 +529,6 @@ public sealed class ChangePlanTests
     private static ChangePlanWindow Rendered(ChangePlanViewModel vm)
     {
         var window = new ChangePlanWindow(vm);
-        window.Resources.MergedDictionaries.Add(new ThemesDictionary { Theme = ApplicationTheme.Dark });
-        window.Resources.MergedDictionaries.Add(new ControlsDictionary());
         var content = (FrameworkElement)window.Content;
         content.Measure(new Size(820, 520));
         content.Arrange(new Rect(0, 0, 820, 520));
@@ -565,7 +564,7 @@ public sealed class ChangePlanTests
     public void TheRenderedConfirmButtonShowsTheActionNameLiterallyWithoutAnAccessKey()
     {
         var vm = new ChangePlanViewModel(new ChangePlan("T", "Delete CM_ABC", [new ChangePlanItem("Delete", "x", null)]), Succeed);
-        StaTestHelper.Run(() =>
+        RenderKit.WithApplication(ApplicationTheme.Dark, () =>
         {
             var window = Rendered(vm);
             var confirm = (System.Windows.Controls.Button)window.FindName("btnConfirm");
@@ -581,7 +580,7 @@ public sealed class ChangePlanTests
     {
         var runs = 0;
         var vm = new ChangePlanViewModel(Plan(), (c, p, ct) => { runs++; return Succeed(c, p, ct); });
-        StaTestHelper.Run(() =>
+        RenderKit.WithApplication(ApplicationTheme.Dark, () =>
         {
             var window = Rendered(vm);
             var confirm = (System.Windows.Controls.Button)window.FindName("btnConfirm");
@@ -602,7 +601,7 @@ public sealed class ChangePlanTests
         var undone = 0;
         var vm = new ChangePlanViewModel(Plan(destructive: true, undo: true), Succeed,
             (c, p, ct) => { undone++; return Succeed(c, p, ct); });
-        StaTestHelper.Run(() =>
+        RenderKit.WithApplication(ApplicationTheme.Dark, () =>
         {
             var window = Rendered(vm);
             var confirm = (System.Windows.Controls.Button)window.FindName("btnConfirm");
@@ -620,6 +619,7 @@ public sealed class ChangePlanTests
             Click(undo);
             Assert.Equal(1, undone);
             Assert.Equal(ChangePlanStage.Undone, vm.Stage);
+            window.Close();
         });
     }
 
@@ -629,7 +629,7 @@ public sealed class ChangePlanTests
         var vm = new ChangePlanViewModel(Plan(destructive: true, undo: true), Succeed, Succeed);
         var safe = new ChangePlanViewModel(Plan(), Succeed);
 
-        StaTestHelper.Run(() =>
+        RenderKit.WithApplication(ApplicationTheme.Dark, () =>
         {
             var window = new ChangePlanWindow(vm);
             var check = (CheckBox)window.FindName("chkDestructive");
@@ -642,7 +642,7 @@ public sealed class ChangePlanTests
 
         var done = new ChangePlanViewModel(Plan(destructive: true, undo: true), Succeed, Succeed) { DestructiveAcknowledged = true };
         await done.ConfirmCommand.ExecuteAsync(null);
-        StaTestHelper.Run(() =>
+        RenderKit.WithApplication(ApplicationTheme.Dark, () =>
         {
             var window = new ChangePlanWindow(done);
             Assert.Equal(Visibility.Visible, ((FrameworkElement)window.FindName("btnUndo")).Visibility);
@@ -655,7 +655,7 @@ public sealed class ChangePlanTests
     [Fact]
     public void ACellOfThePlanGridDrawsTheThemeFocusRingNotTheSystemRectangle()
     {
-        StaTestHelper.Run(() =>
+        RenderKit.WithApplication(ApplicationTheme.Dark, () =>
         {
             var window = Rendered(new ChangePlanViewModel(Plan(), Succeed));
             var grid = (System.Windows.Controls.DataGrid)window.FindName("gridPlan");
@@ -683,7 +683,7 @@ public sealed class ChangePlanTests
         vm.RequestCancel();
         await WaitUntil(() => vm.ShowForceClose);
 
-        StaTestHelper.Run(() =>
+        RenderKit.WithApplication(ApplicationTheme.Dark, () =>
         {
             var window = new ChangePlanWindow(vm);
             Assert.Equal(Visibility.Visible, ((FrameworkElement)window.FindName("btnForceClose")).Visibility);
