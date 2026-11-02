@@ -461,6 +461,31 @@ public sealed class PivotsRunTests
     }
 
     [Fact]
+    public void AQueryThatMatchedNothingCarriesNoOutputAndAnAnswerWithRowsKeepsIt()
+    {
+        static DeviceResult Row(string output)
+        {
+            using var doc = System.Text.Json.JsonDocument.Parse(System.Text.Json.JsonSerializer.Serialize(
+                new { ResourceId = 1, DeviceName = "CLIENT01", ScriptExecutionState = 1, ScriptExitCode = 0, ScriptOutput = output, ErrorMessage = "" }));
+            return PivotsScriptsService.PivotRow(doc.RootElement.Clone());
+        }
+
+        var none = Row("<result ResultCode=\"0\" moreResults=\"False\" />");
+        Assert.Equal(PivotsDeviceStates.Completed, none.State);
+        Assert.Empty(none.Rows);
+        Assert.Equal("", none.Output);
+        Assert.Equal("", none.Message);
+
+        var some = Row("<result ResultCode=\"0\" moreResults=\"False\"><e _i=\"0\" Caption=\"Windows\" /></result>");
+        Assert.Single(some.Rows);
+        Assert.Contains("Caption", some.Output, StringComparison.Ordinal);
+
+        var unreadable = Row("<result");
+        Assert.NotEqual("", unreadable.Output);
+        Assert.NotEqual("", unreadable.Message);
+    }
+
+    [Fact]
     public async Task ABuiltInFeatureScriptIsNotListedAndCannotBePlanned()
     {
         using var h = new PivotsHarness();

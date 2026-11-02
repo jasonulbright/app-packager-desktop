@@ -133,6 +133,22 @@ public sealed class PivotsLabFix4Tests
         Assert.Equal(PivotsLabels.Count(3, "result"), vm.PipelineRows.Single().Results);
     }
 
+    [Fact]
+    public async Task AQueryThatMatchedNothingShowsNoResultRowAndNoRawXml()
+    {
+        var h = new PivotsScriptsHarness();
+        var vm = await h.OpenAsync();
+        await ResolveAsync(vm);
+        vm.QueryText = "OS | where Caption == 'none'";
+        h.Service.Shape = r => r with { Rows = [], Output = "", Message = "" };
+        await vm.RunPivotCommand.ExecuteAsync(null);
+        await vm.WaitTask;
+        Assert.Equal(6, vm.DeviceRows.Count);
+        Assert.All(vm.DeviceRows, d => Assert.Equal("Completed", d.State));
+        Assert.Empty(vm.ResultRows);
+        Assert.StartsWith("0 result rows, ", vm.ResultCount, StringComparison.Ordinal);
+    }
+
     // ---- A run that the app close ended reads the same in the session list as in the audit log --------
 
     [Fact]

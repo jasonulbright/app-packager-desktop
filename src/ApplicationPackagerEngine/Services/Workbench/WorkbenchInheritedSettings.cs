@@ -1,3 +1,4 @@
+using ApplicationPackagerEngine.Models;
 using ApplicationPackagerEngine.Models.Workbench;
 
 namespace ApplicationPackagerEngine.Services.Workbench;
@@ -38,7 +39,8 @@ public sealed class WorkbenchInheritedSettings
     /// </summary>
     public static WorkbenchInheritedSettings Build(
         string? displayName, string? publisher, string? description,
-        int globalEstimatedMinutes, int globalMaximumMinutes, bool includeVersionInTitle = false)
+        int globalEstimatedMinutes, int globalMaximumMinutes, bool includeVersionInTitle = false,
+        StageManifest? sealedStage = null)
     {
         var globals = WorkbenchJson.NewObject();
         globals["EstimatedRuntimeMins"] = globalEstimatedMinutes;
@@ -58,15 +60,20 @@ public sealed class WorkbenchInheritedSettings
         int PickMinutes(string field, int fallback) =>
             int.TryParse(Pick(field, ""), out var minutes) ? minutes : fallback;
 
+        // A sealed build is a completed Stage: its manifest resolves the fields the marker stands for.
+        var stagedInstall = StagedCommand(sealedStage, install: true);
+        var stagedUninstall = StagedCommand(sealedStage, install: false);
+        var stagedDetection = StagedDetection(sealedStage);
+
         return new WorkbenchInheritedSettings
         {
             DisplayName = string.IsNullOrWhiteSpace(displayName) ? Pick("DisplayName", NeedsStagingMarker) : displayName,
             Publisher = string.IsNullOrWhiteSpace(publisher) ? Pick("Publisher", NeedsStagingMarker) : publisher,
             Description = Pick("Description", ""),
             TitleMode = includeVersionInTitle ? TitleIncludeVersion : TitlePackagerDefault,
-            InstallCommand = Pick("InstallCommand", NeedsStagingMarker),
-            UninstallCommand = Pick("UninstallCommand", NeedsStagingMarker),
-            DetectionSummary = Pick("Detection", NeedsStagingMarker),
+            InstallCommand = stagedInstall ?? Pick("InstallCommand", NeedsStagingMarker),
+            UninstallCommand = stagedUninstall ?? Pick("UninstallCommand", NeedsStagingMarker),
+            DetectionSummary = stagedDetection ?? Pick("Detection", NeedsStagingMarker),
             EstimatedMinutes = PickMinutes("EstimatedMinutes", globalEstimatedMinutes),
             MaximumMinutes = PickMinutes("MaximumMinutes", globalMaximumMinutes),
             ExecutionContext = Pick("Context", "System"),
@@ -74,6 +81,25 @@ public sealed class WorkbenchInheritedSettings
             UserInteraction = Pick("UserInteraction", "Hidden"),
             ScriptHost = Pick("ScriptHost", "x64")
         };
+    }
+
+    /// <summary>The command a completed Stage produced: the first deployment type, an operator override, else the generated launcher.</summary>
+    private static string? StagedCommand(StageManifest? stage, bool install)
+    {
+        if (stage is null) return null;
+        var fallback = install ? DeploymentTypeSpecResolver.DefaultInstallCommand : DeploymentTypeSpecResolver.DefaultUninstallCommand;
+        var first = stage.DeploymentTypes?.FirstOrDefault();
+        var typed = install ? first?.InstallCommandLine : first?.UninstallCommandLine;
+        if (!string.IsNullOrWhiteSpace(typed)) return typed;
+        var overridden = install ? stage.CommandOverrides?.Install : stage.CommandOverrides?.Uninstall;
+        return string.IsNullOrWhiteSpace(overridden) ? fallback : overridden;
+    }
+
+    private static string? StagedDetection(StageManifest? stage)
+    {
+        if (stage is null) return null;
+        var detection = stage.DeploymentTypes?.FirstOrDefault()?.Detection ?? stage.Detection;
+        return detection is null ? null : DetectionEvaluator.Describe(detection);
     }
 
     /// <summary>The inherited value a profile path falls back to, as display text.</summary>

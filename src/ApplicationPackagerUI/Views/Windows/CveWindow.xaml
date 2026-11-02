@@ -83,7 +83,7 @@
                 <DataGridTextColumn Header="CVE" Binding="{Binding Id}" Width="140" />
                 <DataGridTextColumn Header="CVSS" Binding="{Binding Cvss}" Width="110" />
                 <DataGridTextColumn Header="EPSS" Binding="{Binding Epss}" Width="70" />
-                <DataGridTextColumn Header="KEV" Binding="{Binding Kev}" Width="50" />
+                <DataGridTextColumn Header="KEV" Binding="{Binding Kev}" Width="64" />
                 <DataGridTextColumn Header="Fixed in" Binding="{Binding FixedIn}" Width="110" />
                 <DataGridTextColumn Header="Published" Binding="{Binding Published}" Width="100" />
                 <DataGridTextColumn Header="Modified" Binding="{Binding Modified}" Width="100" />

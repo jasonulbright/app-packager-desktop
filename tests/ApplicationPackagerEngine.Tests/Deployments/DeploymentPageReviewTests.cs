@@ -397,6 +397,29 @@ public sealed class DeploymentPageReviewTests
     }
 
     [Fact]
+    public async Task TheResultPanelStaysOffTheOptionsTabWhereTheTemplatesNeedTheRoom()
+    {
+        var page = await _h.OpenAsync();
+        Assert.False(page.ShowsResultPanel);
+        await DeploymentPageHarness.PickAsync(page.Deploy, _h.SevenZip, "LAB00010");
+        await page.Deploy.DeployCommand.ExecuteAsync(null);
+        Assert.True(page.Shared.HasResultPanel);
+        var changed = new List<string?>();
+        page.PropertyChanged += (_, e) => changed.Add(e.PropertyName);
+
+        foreach (var tab in new[] { DeploymentHelperViewModel.DeployTab, DeploymentHelperViewModel.RingsTab, DeploymentHelperViewModel.HistoryTab })
+        {
+            page.SelectedTabIndex = tab;
+            Assert.True(page.ShowsResultPanel, $"The panel is hidden on tab {tab}.");
+        }
+        page.SelectedTabIndex = DeploymentHelperViewModel.OptionsTab;
+        Assert.False(page.ShowsResultPanel);
+        Assert.Contains(nameof(DeploymentHelperViewModel.ShowsResultPanel), changed);
+        page.SelectedTabIndex = DeploymentHelperViewModel.DeployTab;
+        Assert.True(page.ShowsResultPanel);
+    }
+
+    [Fact]
     public async Task TheUndoOfTheLastChangeStaysOfferedAfterTheOperatorLeavesAndReturns()
     {
         var page = await _h.OpenAsync();

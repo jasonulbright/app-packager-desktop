@@ -172,7 +172,10 @@ public partial class WsusPublishingEditor : ObservableObject
             CertificateText = "Not connected.";
             return;
         }
-        StatusText = (Check + $"Connected  -  {status.ServerName}, WSUS {status.Version}, role {status.Role}, {(status.SecureConnection ? "secure" : "unencrypted")} connection. {status.Message}").Trim();
+        // IsConnectionSecureForApiRemoting also reports a connection to the WSUS server on this computer as secure; the
+        // line says secure only when SSL is on, so a plain connection on port 8530 is never called secure.
+        var secure = UseSsl && status.SecureConnection;
+        StatusText = (Check + $"Connected  -  {status.ServerName}, WSUS {status.Version}, role {status.Role}, {(secure ? "secure" : "unencrypted")} connection. {status.Message}").Trim();
         var cert = status.SigningCertificate;
         if (cert is null)
         {
