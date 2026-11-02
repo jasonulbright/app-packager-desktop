@@ -54,8 +54,6 @@ With both optional boxes empty, Discover reads the SQL Server name and the datab
 7. Check the applications in the list. The columns are **Application**, **Vendor** and **Clients**. The list is sorted by the number of clients, highest first. Press Space to check or clear the selected row.
 8. Select one of the four buttons.
 
-![The Discover prompt with the application, the vendor and the client count of each discovered application](../images/core-discover-prompt.png)
-
 | Button | Effect |
 |---|---|
 | **Enable selected** | Shows the checked applications in the App Packager grid. |
