@@ -47,7 +47,8 @@ public partial class PackagesPage
     private void OnPageKeyDown(object sender, KeyEventArgs e)
     {
         // Text boxes keep Ctrl+A and Ctrl+E for themselves.
-        if (e.OriginalSource is System.Windows.Controls.Primitives.TextBoxBase) return;
+        if (e.OriginalSource is System.Windows.Controls.Primitives.TextBoxBase
+            && Keyboard.Modifiers == ModifierKeys.Control && e.Key is (Key.A or Key.E)) return;
 
         var vm = (PackagesViewModel)DataContext!;
 
