@@ -186,7 +186,7 @@ public class WsusAdapterScriptTests : IDisposable
         var (result, _) = await StandIn("ConnectFails", "Groups", Request());
         Assert.Equal(WsusErrorKinds.Connect, result.ErrorKind);
         Assert.Equal("The request failed with HTTP status 404: Not Found.", result.Error);
-        Assert.Equal("Connecting to WSUS wsus01.contoso.com:8530 failed: The request failed with HTTP status 404: Not Found.. " + WsusMessages.ConsoleVersionHint,
+        Assert.Equal("Connecting to WSUS wsus01.contoso.com:8530 failed: The request failed with HTTP status 404: Not Found. " + WsusMessages.ConsoleVersionHint,
             WsusMessages.Compose(result, new WsusSettings { ServerName = "wsus01.contoso.com" }.Normalize()));
     }
 

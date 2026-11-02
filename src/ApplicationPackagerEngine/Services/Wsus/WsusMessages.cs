@@ -11,10 +11,14 @@ public static partial class WsusMessages
 {
     public const string ConsoleVersionHint = "The WSUS console on this computer must match the server version.";
     public const string TlsHint = "For SSL, this computer must trust the server certificate and use TLS 1.2 (SchUseStrongCrypto = 1 under HKLM\\SOFTWARE\\Microsoft\\.NETFramework\\v4.0.30319).";
+    public const string MissingRightHint = "The account must be a member of the WSUS Administrators group on the server.";
     public const string DatabaseTimeoutHint = "The WSUS database did not answer in time. Run WSUS database maintenance on the server (update statistics and rebuild the SUSDB indexes), then publish again.";
 
     [GeneratedRegex("SSL|TLS|secure channel|trust relationship", RegexOptions.IgnoreCase)]
     private static partial Regex SecureChannelFailure();
+
+    [GeneratedRegex("not a WSUS Administrator|Unauthorized|Access is denied|HTTP status 40[13]", RegexOptions.IgnoreCase)]
+    private static partial Regex MissingRightFailure();
 
     [GeneratedRegex("SSL/TLS|secure channel|forcibly closed|underlying connection was closed", RegexOptions.IgnoreCase)]
     private static partial Regex CatalogTlsFailure();
@@ -29,8 +33,11 @@ public static partial class WsusMessages
 
     public static string ConnectFailure(WsusSettings settings, string message)
     {
-        var hint = settings.UseSsl && SecureChannelFailure().IsMatch(message) ? TlsHint : ConsoleVersionHint;
-        return $"Connecting to WSUS {settings.ServerName}:{settings.PortNumber} failed: {message}. {hint}";
+        var text = message.TrimEnd().TrimEnd('.');
+        var hint = settings.UseSsl && SecureChannelFailure().IsMatch(text) ? TlsHint
+            : MissingRightFailure().IsMatch(text) ? MissingRightHint
+            : ConsoleVersionHint;
+        return $"Connecting to WSUS {settings.ServerName}:{settings.PortNumber} failed: {text}. {hint}";
     }
 
     public static string SelfSignedRefused(string message) =>

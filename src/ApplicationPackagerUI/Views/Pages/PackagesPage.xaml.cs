@@ -21,7 +21,7 @@ public partial class PackagesPage
         viewModel.PropertyChanged += OnViewModelPropertyChanged;
         ColIntune.Visibility = viewModel.ShowIntuneColumn ? Visibility.Visible : Visibility.Collapsed;
 
-        KeyDown += OnPageKeyDown;
+        PreviewKeyDown += OnPageKeyDown;
         Loaded += (_, _) =>
         {
             Focus();
@@ -46,6 +46,9 @@ public partial class PackagesPage
 
     private void OnPageKeyDown(object sender, KeyEventArgs e)
     {
+        // Text boxes keep Ctrl+A and Ctrl+E for themselves.
+        if (e.OriginalSource is System.Windows.Controls.Primitives.TextBoxBase) return;
+
         var vm = (PackagesViewModel)DataContext!;
 
         if (e.Key == Key.A && Keyboard.Modifiers == ModifierKeys.Control)
