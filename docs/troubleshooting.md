@@ -4,7 +4,7 @@ This page lists the most common messages of App Packager Desktop with their caus
 
 ## What it does
 
-The page helps you find the fix for a message that you see on the **Packages** page, in the log pane, in a tooltip or in a dialog. [error-messages.md](reference/error-messages.md) lists all messages.
+The page helps you find the fix for a message that you see on the **App Packager** page, in the log pane, in a tooltip or in a dialog. [error-messages.md](reference/error-messages.md) lists all messages.
 
 ## When to use it
 
@@ -19,7 +19,7 @@ None. Some fixes need rights on the ConfigMgr site or on the SQL Server of the s
 1. Read the message. A message in `<angle brackets>` shows a value that the application inserts.
 2. Find the message in the tables below.
 3. Do the fix.
-4. Press F5 on the **Packages** page to reload the list and test the ConfigMgr connection again.
+4. Click the grid on the **App Packager** page, then press F5 to reload the list and test the ConfigMgr connection again.
 
 ## Publish buttons and settings
 

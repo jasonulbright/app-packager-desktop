@@ -10,16 +10,17 @@ App Packager Desktop packages third-party Windows applications and publishes the
 
 The core is the packaging function of the application.
 
-- [Packages](core/packages.md): the grid, the columns, the buttons, the context menu, Check Latest, Check ConfigMgr and Operation history.
-- [Packages grid](core/packages-grid.md): the columns, the status values, the context menu and the keyboard in detail.
+- [App Packager page](core/packages.md): the grid, the toolbar buttons, Check Latest, Check ConfigMgr, the log pane and the keyboard.
+- [App Packager grid](core/packages-grid.md): the columns, the status values, the context menu and the keyboard in detail.
 - [Stage and publish](core/stage-and-publish.md): Stage, Publish to ConfigMgr, Publish to Intune and the targets.
 - [Publish to ConfigMgr](core/publish-to-configmgr.md): the steps, the content layout and the refusals.
 - [Publish to Intune](core/publish-to-intune.md): the steps, the targets and the outcomes.
-- [Applications](core/applications.md): show and hide applications in the Packages grid.
-- [Add App](core/add-app.md): the five-step wizard that writes a new definition, and Test Scrape.
+- [Catalog](core/applications.md): the window that shows or hides applications in the App Packager grid.
+- [Add from web](core/add-app.md): the seven-step wizard that writes a new definition, with Test Scrape, an installer analysis and the result panel.
+- [Add from file](core/add-from-file.md): analyze an installer file, review the proposed values and their evidence, and save a definition.
 - [Definitions](core/definitions.md): shipped and user definitions, scrapers and detection types.
-- [Application Workbench](core/workbench.md): sections, profiles, bundles and builds.
-- [Bring your own installer](core/bring-your-own-installer.md): drop an installer, review it, and save it as an application.
+- [Workbench](core/workbench.md): sections, profiles, bundles and builds.
+- [Bring your own installer](core/bring-your-own-installer.md): existing bring-your-own applications, installer revisions and the Installer drop dialog.
 - [Script signing](core/script-signing.md): sign and require signatures for generated scripts.
 - [WSUS publishing](core/wsus-publishing.md): Publish to WSUS, refusal codes, WSUS Updates and Catalog Import.
 - [WSUS Updates and Catalog Import](core/wsus-updates.md): the update list, the catalog import and the certificate trust.
@@ -32,7 +33,7 @@ The core is the packaging function of the application.
 
 ## Tools
 
-The tools are the entries of the sidebar after the Application Workbench.
+The tools are the entries of the TOOLS group of the sidebar.
 
 - [Detection Tester](tools/detection-tester.md)
 - [Maintenance Windows](tools/maintenance-windows.md)
