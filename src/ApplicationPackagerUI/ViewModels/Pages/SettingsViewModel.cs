@@ -150,7 +150,7 @@ public partial class SettingsViewModel : ObservableObject, ISettingsReload
         try { return AppDataPaths.Root; }
         catch (Exception ex) when (ex is IOException or InvalidOperationException or UnauthorizedAccessException or ArgumentException or NotSupportedException)
         {
-            return @"%LOCALAPPDATA%AppPackager";
+            return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "AppPackager");
         }
     }
 
