@@ -800,4 +800,22 @@ public sealed class DeploymentHelperRenderTests
             rows.AssertEnough($"Deployment Helper {theme}");
         }, MinimumSizeRows.Width - NavigationPaneWidth, MinimumSizeRows.Height - 48);
     }
+
+    [Theory]
+    [InlineData(ApplicationTheme.Light)]
+    [InlineData(ApplicationTheme.Dark)]
+    public void TheHistoryResultAndVerifiedColumnsFollowTheOutcomeAndReadOnTheRowFillSelectedOrNot(ApplicationTheme theme)
+    {
+        WithPage(theme, (window, page, viewModel, harness) =>
+        {
+            var records = harness.Audit.Records;
+            records[0] = records[0] with { Verified = true, HasChain = true };
+            records[2] = records[2] with { Verified = false, HasChain = false, Source = DeploymentAuditLog.SourceName, Result = "Unknown" };
+            records[4] = records[4] with { Verified = false, HasChain = true };
+            Fill(window, viewModel, harness);
+            ShowTab(window, viewModel, DeploymentHelperViewModel.HistoryTab);
+            var seen = StatusColumnKit.Assert(window, ById<DataGrid>(page, "dgHistory"), $"dgHistory-{theme}", "Result", "Verified");
+            Assert.Contains(ApplicationPackagerUI.Helpers.OutcomeKind.Success, seen);
+        });
+    }
 }

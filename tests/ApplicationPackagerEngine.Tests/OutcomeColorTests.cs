@@ -29,6 +29,9 @@ public sealed class OutcomeColorTests
     [InlineData("Install Failed", OutcomeKind.Critical)]
     [InlineData("Completed", OutcomeKind.Success)]
     [InlineData("Partial", OutcomeKind.Caution)]
+    [InlineData("Changed", OutcomeKind.Success)]
+    [InlineData("Requested", OutcomeKind.Success)]
+    [InlineData("Unchanged", OutcomeKind.None)]
     [InlineData("", OutcomeKind.None)]
     [InlineData(null, OutcomeKind.None)]
     public void TheTextOfACellGivesItsOutcome(string? text, OutcomeKind expected) => Assert.Equal(expected, OutcomeKindConverter.Classify(text));
@@ -112,7 +115,7 @@ public sealed class OutcomeColorTests
     {
         var pages = Path.Combine(CatalogServiceTests.RepositoryRoot(), "src", "ApplicationPackagerUI", "Views", "Pages");
         var wrong = new List<string>();
-        foreach (var name in new[] { "DpContentManagerPage", "SiteHygienePage", "PivotsScriptsPage", "PivotsResultsPanel" })
+        foreach (var name in new[] { "DpContentManagerPage", "SiteHygienePage", "PivotsScriptsPage", "PivotsResultsPanel", "ComplianceSectionView", "CollectionCompliancePage", "DeploymentHelperPage", "DeploymentRingsView", "MaintenanceWindowsPage" })
         {
             var file = Path.Combine(pages, name + ".xaml");
             foreach (var column in XDocument.Load(file, LoadOptions.SetLineInfo).Descendants(Presentation + "DataGridTextColumn"))

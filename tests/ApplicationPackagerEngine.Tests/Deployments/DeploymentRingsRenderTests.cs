@@ -394,4 +394,23 @@ public sealed class DeploymentRingsRenderTests
             Assert.Contains("2 hours", viewModel.Options.RingFolders!.StaleLockText);
         });
     }
+
+    [Theory]
+    [InlineData(ApplicationTheme.Light)]
+    [InlineData(ApplicationTheme.Dark)]
+    public void EveryRingsGridShowsAtLeastThreeWholeRowsAtTheMinimumSize(ApplicationTheme theme)
+    {
+        WithRings(theme, 13, (window, page, viewModel, harness) =>
+        {
+            var rows = new MinimumSizeRows();
+            foreach (var id in RingGrids)
+            {
+                var grid = ById<DataGrid>(page, id);
+                grid.BringIntoView();
+                Settle(window);
+                if (id == "dgRingRuns") rows.AddComplete(id, grid); else rows.Add(id, grid);
+            }
+            rows.AssertEnough($"Deployment Rings {theme}");
+        }, MinimumSizeRows.Width - NavigationPaneWidth, MinimumSizeRows.Height - 48);
+    }
 }

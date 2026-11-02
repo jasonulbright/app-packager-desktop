@@ -16,7 +16,8 @@ public sealed class OutcomeKindConverter : IValueConverter
 
     private static readonly string[] CriticalWords = ["fail", "error", "denied", "timed out", "rejected", "unhealthy"];
     private static readonly string[] CautionWords = ["warn", "partial", "skipped"];
-    private static readonly string[] SuccessWords = ["completed", "succeeded", "success", "healthy", "approved", "passed", "verified", "installed"];
+    private static readonly string[] SuccessWords = ["completed", "succeeded", "success", "healthy", "approved", "passed", "verified", "installed",
+        "changed", "done", "requested", "confirmed", "submitted", "removed", "sent"];
 
     public static OutcomeKind Classify(string? text)
     {

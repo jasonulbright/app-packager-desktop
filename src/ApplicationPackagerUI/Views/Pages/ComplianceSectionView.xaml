@@ -162,7 +162,7 @@
                                 <DataGridTextColumn Header="Name" Binding="{Binding DisplayName}" Width="2*" MinWidth="160" ElementStyle="{StaticResource TrimmedCell}" />
                                 <DataGridTextColumn Header="Subcategory" Binding="{Binding Subcategory}" Width="*" MinWidth="116" ElementStyle="{StaticResource TrimmedCell}" />
                                 <DataGridTextColumn Header="Severity" Binding="{Binding Severity}" Width="90" MinWidth="90" ElementStyle="{StaticResource TrimmedCell}" />
-                                <DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="96" MinWidth="80" ElementStyle="{StaticResource TrimmedCell}" />
+                                <DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="96" MinWidth="80" ElementStyle="{StaticResource StatusCell}" />
                                 <DataGridTextColumn Header="Version" Binding="{Binding Version}" Width="86" MinWidth="86" ElementStyle="{StaticResource TrimmedCell}" />
                             </DataGrid.Columns>
                         </DataGrid>
@@ -392,7 +392,7 @@
                                         <DataGridTextColumn Header="Catalog ID" Binding="{Binding CatalogId}" Width="*" MinWidth="104" ElementStyle="{StaticResource TrimmedCell}" />
                                         <DataGridTextColumn Header="Deployed version" Binding="{Binding DeployedVersion}" Width="140" MinWidth="140" ElementStyle="{StaticResource TrimmedCell}" />
                                         <DataGridTextColumn Header="Catalog version" Binding="{Binding CatalogVersion}" Width="136" MinWidth="136" ElementStyle="{StaticResource TrimmedCell}" />
-                                        <DataGridTextColumn Header="State" Binding="{Binding State}" Width="100" MinWidth="100" ElementStyle="{StaticResource TrimmedCell}" />
+                                        <DataGridTextColumn Header="State" Binding="{Binding State}" Width="100" MinWidth="100" ElementStyle="{StaticResource StatusCell}" />
                                     </DataGrid.Columns>
                                 </DataGrid>
                             </DockPanel>
@@ -441,7 +441,7 @@
                           Visibility="{Binding Shared.ShowResultRows, Converter={StaticResource BoolToVisibility}}"
                           AutomationProperties.AutomationId="dgComplianceResults" AutomationProperties.Name="Results">
                     <DataGrid.Columns>
-                        <DataGridTextColumn Header="Result" Binding="{Binding OutcomeText}" Width="90" MinWidth="80" ElementStyle="{StaticResource TrimmedCell}" />
+                        <DataGridTextColumn Header="Result" Binding="{Binding OutcomeText}" Width="90" MinWidth="80" ElementStyle="{StaticResource StatusCell}" />
                         <DataGridTextColumn Header="Action" Binding="{Binding Item.Action}" Width="140" MinWidth="80" ElementStyle="{StaticResource TrimmedCell}" />
                         <DataGridTextColumn Header="Object" Binding="{Binding Item.Target}" Width="*" MinWidth="160" ElementStyle="{StaticResource TrimmedCell}" />
                         <DataGridTextColumn Header="Message" Binding="{Binding Message}" Width="2*" MinWidth="160" ElementStyle="{StaticResource TrimmedCell}" />

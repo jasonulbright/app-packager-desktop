@@ -618,4 +618,23 @@ public sealed class SiteHygieneLiveRenderTests
             Assert.False(dialog.Confirmed);
         });
     }
+
+    [Theory]
+    [InlineData(ApplicationTheme.Light)]
+    [InlineData(ApplicationTheme.Dark)]
+    public void TheStatusColumnsFollowTheOutcomeAndReadOnTheRowFillSelectedOrNot(ApplicationTheme theme)
+    {
+        WithPage(theme, (window, page, viewModel, harness) =>
+        {
+            var seen = new HashSet<ApplicationPackagerUI.Helpers.OutcomeKind>();
+            foreach (var choice in GridViews)
+            {
+                ShowView(window, viewModel, choice);
+                seen.UnionWith(StatusColumnKit.Assert(window, ById<DataGrid>(page, "dgLive"), $"dgLive-{choice.Id}-{theme}", SiteHygieneLiveLabels.StatusHeader));
+            }
+            Assert.Contains(ApplicationPackagerUI.Helpers.OutcomeKind.Success, seen);
+            ShowView(window, viewModel, Pane(LivePane.Alerts));
+            StatusColumnKit.Assert(window, ById<DataGrid>(page, "dgAlerts"), $"dgAlerts-{theme}", "State");
+        });
+    }
 }
