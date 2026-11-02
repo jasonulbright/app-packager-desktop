@@ -384,4 +384,75 @@ public sealed class ComplianceRenderTests
             finally { window.Close(); }
         });
     }
+
+    [Theory]
+    [InlineData(ApplicationTheme.Light)]
+    [InlineData(ApplicationTheme.Dark)]
+    public void EveryMainGridShowsAtLeastThreeWholeRowsAtTheMinimumSize(ApplicationTheme theme)
+    {
+        WithSection(theme, (window, page, viewModel, harness) =>
+        {
+            var rows = new MinimumSizeRows();
+            foreach (var (tab, ids) in new[]
+            {
+                (ComplianceViewModel.CatalogTab, new[] { "dgCatalog" }),
+                (ComplianceViewModel.LiveTab, ["dgLiveItems", "dgLiveBaselines", "dgDeployments"]),
+                (ComplianceViewModel.EditorTab, ["dgSettings"]),
+                (ComplianceViewModel.AuditingTab, ["dgDrift"])
+            })
+            {
+                ShowTab(window, viewModel, tab);
+                if (tab == ComplianceViewModel.EditorTab)
+                {
+                    viewModel.Editor.SelectedItem = viewModel.Editor.Items.Single(i => i.CiId == "CI-SMB");
+                    Run(viewModel.Editor.SettingsLoad);
+                    Settle(window);
+                }
+                foreach (var id in ids)
+                {
+                    var grid = ById<DataGrid>(page, id);
+                    grid.BringIntoView();
+                    Settle(window);
+                    rows.AddPadded(id, grid);
+                }
+            }
+            viewModel.Auditing.SelectedTabIndex = ComplianceAuditingViewModel.ComplianceTab;
+            Settle(window);
+            var counts = ById<DataGrid>(page, "dgComplianceCounts");
+            counts.BringIntoView();
+            Settle(window);
+            rows.AddPadded("dgComplianceCounts", counts);
+            rows.AssertEnough($"Compliance {theme}");
+        }, MinimumSizeRows.Width - NavigationPaneWidth, MinimumSizeRows.Height - 48);
+    }
+
+    [Theory]
+    [InlineData(ApplicationTheme.Light)]
+    [InlineData(ApplicationTheme.Dark)]
+    public void TheStatusColumnsFollowTheOutcomeAndReadOnTheRowFillSelectedOrNot(ApplicationTheme theme)
+    {
+        WithSection(theme, (window, page, viewModel, harness) =>
+        {
+            var catalog = ById<DataGrid>(page, "dgCatalog");
+            catalog.BringIntoView();
+            Settle(window);
+            StatusColumnKit.Assert(window, catalog, $"Catalog-{theme}", "Status");
+
+            ShowTab(window, viewModel, ComplianceViewModel.AuditingTab);
+            var drift = ById<DataGrid>(page, "dgDrift");
+            drift.BringIntoView();
+            Settle(window);
+            StatusColumnKit.Assert(window, drift, $"Drift-{theme}", "State");
+
+            ShowTab(window, viewModel, ComplianceViewModel.LiveTab);
+            viewModel.Live.SetSelectedDeployments(viewModel.Live.Deployments);
+            Run(viewModel.Live.DeleteDeploymentsCommand.ExecuteAsync(null));
+            Settle(window);
+            var results = ById<DataGrid>(page, "dgComplianceResults");
+            results.BringIntoView();
+            Settle(window);
+            var seen = StatusColumnKit.Assert(window, results, $"Results-{theme}", "Result");
+            Assert.Contains(ApplicationPackagerUI.Helpers.OutcomeKind.Success, seen);
+        });
+    }
 }

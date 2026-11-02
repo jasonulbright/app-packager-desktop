@@ -638,4 +638,34 @@ public sealed class PivotsScriptsRenderTests
             finally { commentWindow.Close(); }
         });
     }
+
+    [Theory]
+    [InlineData(ApplicationTheme.Light)]
+    [InlineData(ApplicationTheme.Dark)]
+    public void EveryMainGridShowsAtLeastThreeWholeRowsAtTheMinimumSize(ApplicationTheme theme)
+    {
+        WithPage(theme, (window, page, viewModel, harness) =>
+        {
+            Fill(window, viewModel);
+            var rows = new MinimumSizeRows();
+            void Measure(int tab, int? resultTab, params string[] ids)
+            {
+                ShowTab(window, viewModel, tab, resultTab);
+                foreach (var id in ids)
+                {
+                    var grid = ById<DataGrid>(page, id);
+                    grid.BringIntoView();
+                    Settle(window);
+                    if (id == "dgPipeline") rows.AddComplete(id, grid); else rows.Add(id, grid);
+                }
+            }
+            Measure(VM.PivotTab, 0, "dgResults");
+            Measure(VM.PivotTab, 1, "dgDevices");
+            Measure(VM.PivotTab, 3, "dgPipeline");
+            Measure(VM.ScriptTab, 0, "dgApproved");
+            Measure(VM.SiteScriptsTab, null, "dgSiteScripts");
+            Measure(VM.HistoryTab, null, "dgSessions", "dgPivotsHistory");
+            rows.AssertEnough($"Pivots and Scripts {theme}");
+        }, MinimumSizeRows.Width - NavigationPaneWidth, MinimumSizeRows.Height - 48);
+    }
 }

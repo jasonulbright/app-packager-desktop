@@ -140,7 +140,7 @@
                                   HorizontalScrollBarVisibility="Auto" CanUserResizeColumns="True" helpers:DataGridColumnSizing.FixStarWidthsOnResize="True"
                                   RowStyle="{StaticResource SelectableRow}" CellStyle="{StaticResource FocusableCell}" AutomationProperties.AutomationId="dgWindows" AutomationProperties.Name="Maintenance windows">
                             <DataGrid.Columns>
-                                <DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="76" MinWidth="76" ElementStyle="{StaticResource TrimmedCell}" />
+                                <DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="76" MinWidth="76" ElementStyle="{StaticResource StatusCell}" />
                                 <DataGridTextColumn Header="Collection" Binding="{Binding CollectionName}" Width="*" MinWidth="90" ElementStyle="{StaticResource TrimmedCell}" />
                                 <DataGridTextColumn Header="Window" Binding="{Binding WindowName}" Width="*" MinWidth="90" ElementStyle="{StaticResource TrimmedCell}" />
                                 <DataGridTextColumn Header="Type" Binding="{Binding Type}" Width="128" MinWidth="128" ElementStyle="{StaticResource TrimmedCell}" />
@@ -328,7 +328,7 @@
                           CanUserAddRows="False" CanUserDeleteRows="False" HeadersVisibility="Column" RowHeaderWidth="0"
                           SelectionMode="Single" GridLinesVisibility="Horizontal" RowStyle="{StaticResource SelectableRow}" CellStyle="{StaticResource FocusableCell}" AutomationProperties.AutomationId="dgResults" AutomationProperties.Name="Results">
                     <DataGrid.Columns>
-                        <DataGridTextColumn Header="Result" Binding="{Binding OutcomeText}" Width="90" />
+                        <DataGridTextColumn Header="Result" Binding="{Binding OutcomeText}" Width="90" ElementStyle="{StaticResource StatusCell}" />
                         <DataGridTextColumn Header="Action" Binding="{Binding Item.Action}" Width="120" />
                         <DataGridTextColumn Header="Object" Binding="{Binding Item.Target}" Width="*" MinWidth="180" ElementStyle="{StaticResource TrimmedCell}" />
                         <DataGridTextColumn Header="Message" Binding="{Binding Message}" Width="2*" MinWidth="160" ElementStyle="{StaticResource TrimmedCell}" />

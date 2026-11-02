@@ -98,12 +98,6 @@
                 <Setter Property="ToolTip" Value="{Binding Text, RelativeSource={RelativeSource Self}}" />
             </Style>
 
-            <Style x:Key="VerifiedCell" TargetType="TextBlock" BasedOn="{StaticResource TrimmedCell}">
-                <Setter Property="TextTrimming" Value="CharacterEllipsis" />
-                <Setter Property="ToolTip" Value="{Binding VerifiedText}" />
-                <Setter Property="AutomationProperties.Name" Value="{Binding VerifiedText}" />
-            </Style>
-
             <Style x:Key="TabStopCell" TargetType="DataGridCell" BasedOn="{StaticResource FocusableCell}">
                 <Setter Property="KeyboardNavigation.IsTabStop" Value="True" />
             </Style>
@@ -373,7 +367,7 @@
                                             </DataGridTemplateColumn.CellTemplate>
                                         </DataGridTemplateColumn>
                                         <DataGridTextColumn Header="Group" Binding="{Binding Name}" Width="2*" MinWidth="140" ElementStyle="{StaticResource TrimmedCell}" />
-                                        <DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="*" MinWidth="100" ElementStyle="{StaticResource TrimmedCell}" />
+                                        <DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="*" MinWidth="100" ElementStyle="{StaticResource StatusCell}" />
                                         <DataGridTextColumn Header="Targeted" Binding="{Binding Targeted}" Width="96" MinWidth="96" ElementStyle="{StaticResource TrimmedCell}" />
                                         <DataGridTextColumn Header="Success" Binding="{Binding Success}" Width="90" MinWidth="90" ElementStyle="{StaticResource TrimmedCell}" />
                                         <DataGridTextColumn Header="In progress" Binding="{Binding InProgress}" Width="110" MinWidth="110" ElementStyle="{StaticResource TrimmedCell}" />
@@ -399,7 +393,7 @@
                                           AutomationProperties.AutomationId="dgChecks" AutomationProperties.Name="Checks">
                                     <DataGrid.Columns>
                                         <DataGridTextColumn Header="Check" Binding="{Binding Check}" Width="*" MinWidth="160" ElementStyle="{StaticResource TrimmedCell}" />
-                                        <DataGridTextColumn Header="Result" Binding="{Binding Result}" Width="96" MinWidth="96" ElementStyle="{StaticResource TrimmedCell}" />
+                                        <DataGridTextColumn Header="Result" Binding="{Binding Result}" Width="96" MinWidth="96" ElementStyle="{StaticResource StatusCell}" />
                                         <DataGridTextColumn Header="Message" Binding="{Binding Message}" Width="2*" MinWidth="160" ElementStyle="{StaticResource TrimmedCell}" />
                                     </DataGrid.Columns>
                                 </DataGrid>
@@ -474,8 +468,8 @@
                             <DataGrid.Columns>
                                 <DataGridTextColumn Header="Time" Binding="{Binding Time}" Width="130" MinWidth="130" ElementStyle="{StaticResource TrimmedCell}" />
                                 <DataGridTextColumn Header="Event" Binding="{Binding Event}" Width="72" MinWidth="72" ElementStyle="{StaticResource TrimmedCell}" />
-                                <DataGridTextColumn Header="Result" Binding="{Binding Result}" Width="80" MinWidth="80" ElementStyle="{StaticResource TrimmedCell}" />
-                                <DataGridTextColumn Header="Verified" Binding="{Binding Verified}" Width="98" MinWidth="98" ElementStyle="{StaticResource VerifiedCell}" />
+                                <DataGridTextColumn Header="Result" Binding="{Binding Result}" Width="80" MinWidth="80" ElementStyle="{StaticResource StatusCell}" />
+                                <DataGridTextColumn Header="Verified" Binding="{Binding Verified}" Width="98" MinWidth="98" ElementStyle="{StaticResource VerifiedStatusCell}" />
                                 <DataGridTextColumn Header="Object" Binding="{Binding Object}" Width="2*" MinWidth="96" ElementStyle="{StaticResource TrimmedCell}" />
                                 <DataGridTextColumn Header="Deployment ID" Binding="{Binding DeploymentId}" Width="*" MinWidth="120" ElementStyle="{StaticResource TrimmedCell}" />
                                 <DataGridTextColumn Header="Collection" Binding="{Binding Collection}" Width="2*" MinWidth="110" ElementStyle="{StaticResource TrimmedCell}" />
@@ -638,7 +632,7 @@
                           Visibility="{Binding Shared.ShowResultRows, Converter={StaticResource BoolToVisibility}}"
                           AutomationProperties.AutomationId="dgDeploymentResults" AutomationProperties.Name="Results">
                     <DataGrid.Columns>
-                        <DataGridTextColumn Header="Result" Binding="{Binding OutcomeText}" Width="90" MinWidth="80" ElementStyle="{StaticResource TrimmedCell}" />
+                        <DataGridTextColumn Header="Result" Binding="{Binding OutcomeText}" Width="90" MinWidth="80" ElementStyle="{StaticResource StatusCell}" />
                         <DataGridTextColumn Header="Action" Binding="{Binding Item.Action}" Width="170" MinWidth="80" ElementStyle="{StaticResource TrimmedCell}" />
                         <DataGridTextColumn Header="Object" Binding="{Binding Item.Target}" Width="*" MinWidth="160" ElementStyle="{StaticResource TrimmedCell}" />
                         <DataGridTextColumn Header="Message" Binding="{Binding Message}" Width="2*" MinWidth="160" ElementStyle="{StaticResource TrimmedCell}" />

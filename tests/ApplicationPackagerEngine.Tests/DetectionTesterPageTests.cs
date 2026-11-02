@@ -489,6 +489,35 @@ public sealed class DetectionTesterPageTests
             Assert.True(ViewModelOf(page).ShowSystemComponents);
         });
     }
+
+    [Theory]
+    [InlineData(ApplicationTheme.Light)]
+    [InlineData(ApplicationTheme.Dark)]
+    public void EveryMainGridShowsAtLeastThreeWholeRowsAtTheMinimumSize(ApplicationTheme theme)
+    {
+        WithPage(theme, (window, page, harness) =>
+        {
+            var rows = new MinimumSizeRows();
+            var history = ById<DataGrid>(page, "dgHistory");
+            history.BringIntoView();
+            window.UpdateLayout();
+            rows.Add("dgHistory", history);
+            ById<TabControl>(page, "tabDetectionTester").SelectedIndex = 1;
+            StaTestHelper.PumpUntil(() => ViewModelOf(page).Applications.Count == 6);
+            window.UpdateLayout();
+            StaTestHelper.Flush();
+            rows.Add("dgApplications", ById<DataGrid>(page, "dgApplications"));
+            rows.AssertEnough($"Detection Tester {theme}");
+        }, MinimumSizeRows.Width - 230, MinimumSizeRows.Height - 48, harness =>
+        {
+            for (var i = 1; i < 6; i++)
+            {
+                harness.History.Entries.Add(DetectionTesterHarness.Entry(DateTimeOffset.Now.AddMinutes(-i), new StageDetection { Type = "RegistryKey", RegistryKeyRelative = "SOFTWARE" }));
+                harness.Applications.Applications.Add(new InstalledApplication($"Application {i}", "Contoso", "1.0." + i, "20261001", "HKLM 64-bit",
+                    @"HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\App" + i, "u.exe", "u.exe /S", @"C:\Program Files\App" + i));
+            }
+        });
+    }
 }
 
 [Collection(ProcessEnvironmentCollection.Name)]
