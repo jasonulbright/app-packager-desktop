@@ -1027,6 +1027,8 @@ public partial class PackagesViewModel : ObservableObject
             PrimaryButtonText = "Overwrite",
             SecondaryButtonText = "Skip",
             CloseButtonText = "Cancel remaining",
+            PrimaryButtonAppearance = Wpf.Ui.Controls.ControlAppearance.Secondary,
+            SecondaryButtonAppearance = Wpf.Ui.Controls.ControlAppearance.Primary,
             DefaultButton = ContentDialogButton.Secondary
         };
 
