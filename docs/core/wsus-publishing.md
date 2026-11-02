@@ -11,7 +11,7 @@ The page [WSUS Updates](wsus-updates.md) describes the window that approves, dec
 ## When to use
 
 - Use WSUS publishing to update an application that is already installed on clients. WSUS does not install an application on a computer that does not have it.
-- Use [Publish to ConfigMgr](stage-and-publish.md) or Intune to install an application on a new computer.
+- Use [Publish to ConfigMgr](publish-to-configmgr.md) or Intune to install an application on a new computer.
 - Use [One Click](one-click.md) to publish tracked applications to WSUS, ConfigMgr and Intune in one run.
 
 ## Requirements

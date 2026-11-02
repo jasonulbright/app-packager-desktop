@@ -62,7 +62,7 @@ The 13 toggles of the group Excluded apps are: Access, Excel, OneNote, Outlook (
 
 ## PostInstallScript
 
-PowerShell that App Packager Desktop appends to `install.ps1`. It runs only after the installer returns 0. The script body must give the same result when it runs again, because it runs again on a reinstall.
+PowerShell that App Packager Desktop appends to `install.ps1`. It runs only after the installer is considered successful: exit code 0, or a code that `SuccessExitCodes` lists. The script body must give the same result when it runs again, because it runs again on a reinstall.
 
 | Field | Type | Meaning | Default |
 |---|---|---|---|
@@ -203,7 +203,7 @@ The stage accepts these payloads under these conditions only:
 
 | Message | Cause | Fix |
 |---|---|---|
-| `Optional architecture payloads currently require an x64 base installer.` | The base installer is not `x64`. | Set `Architecture` to `x64`. |
+| `Optional architecture payloads currently require an x64 base installer.` | The base installer is not `x64`. | Set the `Architecture` of the base definition to `x64`. Keep the optional payload at `ARM64`. |
 | `The additional architecture payload must be the ARM64 deployment type.` | `Architecture` or `NameSuffix` of the payload is not `ARM64`. | Set both to `ARM64`. |
 | `Optional ARM64 architecture payloads currently support EXE installers only.` | `InstallerType` of the payload is not `EXE`. | Set it to `EXE`. |
 | `An optional architecture payload requires an HTTPS download URL and a mandatory SHA256 verification source.` | The payload has no https address, no hash source, or `RequirePayloadHash` is `false`. | Set an https `DownloadUrl`, a hash source and `RequirePayloadHash` `true`. |

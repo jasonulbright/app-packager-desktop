@@ -46,7 +46,7 @@ None.
 
 **CVSS.** The severity score of a CVE. The column **Max CVSS** shows the highest score.
 
-**Data folder.** The folder `%LOCALAPPDATA%\AppPackager`. It holds `settings.json`, the Workbench data and the default staging folder.
+**Data folder.** By default the folder `%LOCALAPPDATA%\AppPackager`. The environment variable `APP_PACKAGER_DATA_ROOT` moves it (see [Data folders](data-folders.md)). It holds `settings.json`, the Workbench data and the default staging folder.
 
 **Definition.** One JSON file that describes one application: its vendor, its version scraper, its download, its install arguments and its detection. The catalog has 319 definitions. You can add your own definitions.
 

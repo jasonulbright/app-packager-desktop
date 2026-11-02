@@ -88,7 +88,7 @@ The checks that assign each fix are in [Site Hygiene checks](../reference/site-h
 
 ## Safety rules of a fix
 
-- The service reads the object again on fresh data when it prepares the plan, and again immediately before each write. If the finding no longer holds, the service skips the object and gives the reason.
+- The service reads the state of the finding on fresh data when it prepares the plan, and once before it processes each finding. If the finding no longer holds at that read, the service skips the objects and gives the reason. Delete commands check the current references immediately before the delete, and the service reads back each write.
 - Before a delete, the same site command reads what uses the object. The service refuses a collection when a deployment, an auto deployment rule, a client settings deployment, a collection rule or an administrative scope uses it. It refuses an application when a task sequence uses it. It refuses a driver package while a task sequence has an Auto Apply Drivers step. It never deletes a device with a client heartbeat inside the inactivity window.
 - A run takes at most 100 deletes or 200 changes. A plan is valid for 15 minutes and runs once. The plan is tied to the site and the provider. If the connection changes before you confirm, the service refuses the run.
 - The page writes a **Started** audit record before the first change. If the log cannot be written, the page changes nothing. Each run ends with one **Finished** record. If that record cannot be written, the result says so and names the log.

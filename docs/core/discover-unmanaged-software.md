@@ -96,7 +96,7 @@ The SMS Provider for the site lookup comes from these places, in this order: **S
 ## Limits
 
 - A scan stops after 600 seconds, when you select **Cancel**, and when you close the main window. The connection to SQL Server has a limit of 30 seconds.
-- Discover sends no request to the internet. It connects to the SMS Provider (CIM over DCOM, then WinRM) and to the site database (SQL Server, Windows authentication, read only).
+- Discover sends no request to the internet. It connects to the SMS Provider (CIM over DCOM, then WinRM) and to the site database (SQL Server, Windows authentication, read-only).
 - Discover reads inventory that clients have reported. When the inventory has no rows, it reports `No inventory data`.
 - Discover offers one application of each sibling group. See above.
 - Discover reports the inventory of all clients, not only the clients in your security scope.

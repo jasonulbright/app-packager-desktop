@@ -129,7 +129,7 @@ Select the **Options** tab of the page. The sections **Live views**, **Alerts**,
 | **SQL server** box | The SQL server of the site database. Empty finds it from the site. The box is the same setting as **Discovery SQL Server** in Settings. | Empty |
 | **Database** box | The database name. Empty uses `CM_` and the site code. Same setting as **Discovery Database**. | Empty |
 | **Test SQL** | Connects to the site database and runs one read. The result shows under the boxes. | |
-| Trust the SQL server certificate without a check | Use it only for a server with a self-signed certificate. | Off |
+| Trust the SQL server certificate without a check | Use it only for a known self-signed certificate on a trusted network. It turns on SSL but disables the check of the server certificate, so it is unsafe on an untrusted network. | Off |
 | **Auto-refresh every** | 5, 10, 15, 30, 60, 120, 240, 480, 720 or 1440 minutes. | 15 minutes |
 | **A device is inactive after** | 7, 14, 21, 30, 45, 60, 90, 180 or 365 days. | 14 days |
 | **Raise alerts** | Turns all alerts on or off. | On |

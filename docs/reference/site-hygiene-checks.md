@@ -104,7 +104,7 @@ A finding with a fix can still show **Report only**. The scan reads these cases 
 - TSQ-02 for a driver package: a task sequence has an Auto Apply Drivers step, or the steps of the task sequences could not be read.
 - UPD-03 in the Error case: the page does not fix a rule that ended with an error.
 
-Each fix kind is a typed operation with exact object identifiers. The page re-reads the object on fresh data when it prepares the plan, and again immediately before each write. If the finding no longer holds, the page skips the object and gives the reason. The plan shows the equivalent PowerShell as read-only text.
+Each fix kind is a typed operation with exact object identifiers. The page reads the state of the finding on fresh data when it prepares the plan, and once before it processes each finding. If the finding no longer holds at that read, the page skips the objects and gives the reason. Delete commands check the current references immediately before the delete, and the page reads back each write. The plan shows the equivalent PowerShell as read-only text.
 
 | Fix kind | Command in the plan text | Checks | The page skips the object when |
 |---|---|---|---|

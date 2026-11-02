@@ -2,7 +2,7 @@
 
 ## What it does
 
-One Click checks the applications that you track. For each application with a new version, it stages the application and publishes it to the destinations of that application: ConfigMgr, WSUS and Intune. The plan window shows the work before it starts. After a run, One Click writes a report with a rollback section.
+One Click checks the applications that you track. For each application with a new version, it does the action that you set: **Report only** lists the new version, **Stage** stages the application, and **Stage and Publish** stages the application and publishes it to the destinations of that application (ConfigMgr, WSUS and Intune). The plan window shows the work before it starts. After a run, One Click writes a report with a rollback section.
 
 You set the tracked applications, the action and the default destinations once in Settings. Each later run needs one window.
 

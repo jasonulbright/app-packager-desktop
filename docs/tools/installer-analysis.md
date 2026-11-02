@@ -54,7 +54,7 @@ The **Overview** tab has these sections.
 2. Select a row.
 3. Select **SHA-256** to compute the hash of the row. Select **Copy** next to the hash to copy it. **Cancel** stops a long hash computation.
 4. Select **Extract to temp** to extract the row to the temporary analysis folder.
-5. Select **Extract payload** to write all files into a folder. Choose the target folder. The page writes the files into a new folder named `<file name> payload` inside it. If that name exists, the page adds ` (2)`, and so on.
+5. Select **Extract payload** to write the files that the page can list and extract into a folder. The page does not write links or unsafe entries, and some payloads need 7-Zip (see Limits). Choose the target folder. The page writes the files into a new folder named `<file name> payload` inside it. If that name exists, the page adds ` (2)`, and so on.
 6. Select **Open extracted folder** to open the temporary analysis folder.
 
 ![The Payload tab with the SHA-256 box](../images/tools-installer-analysis-payload.png)
