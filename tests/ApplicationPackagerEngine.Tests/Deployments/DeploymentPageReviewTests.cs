@@ -411,13 +411,17 @@ public sealed class DeploymentPageReviewTests
 
         foreach (var tab in new[] { DeploymentHelperViewModel.DeployTab, DeploymentHelperViewModel.RingsTab, DeploymentHelperViewModel.HistoryTab })
         {
+            changed.Clear();
             page.SelectedTabIndex = tab;
             Assert.True(page.ShowsResultPanel, $"The panel is hidden on tab {tab}.");
         }
+        changed.Clear();
         page.SelectedTabIndex = DeploymentHelperViewModel.OptionsTab;
         Assert.False(page.ShowsResultPanel);
         Assert.Contains(nameof(DeploymentHelperViewModel.ShowsResultPanel), changed);
+        changed.Clear();
         page.SelectedTabIndex = DeploymentHelperViewModel.DeployTab;
+        Assert.Contains(nameof(DeploymentHelperViewModel.ShowsResultPanel), changed);
         Assert.True(page.ShowsResultPanel);
     }
 
