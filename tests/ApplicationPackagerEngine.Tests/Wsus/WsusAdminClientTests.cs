@@ -131,6 +131,8 @@ public class WsusAdminClientTests
         Assert.Equal("Connecting to WSUS wsus01:8531 failed: Could not establish trust relationship for the SSL/TLS secure channel. " + WsusMessages.TlsHint,
             WsusMessages.ConnectFailure(ssl, "Could not establish trust relationship for the SSL/TLS secure channel"));
         Assert.EndsWith(WsusMessages.ConsoleVersionHint, WsusMessages.ConnectFailure(Settings.Normalize(), "The request failed with HTTP status 404"));
+        Assert.Equal("Connecting to WSUS wsus01:8530 failed: The caller is not a WSUS Administrator. " + WsusMessages.MissingRightHint,
+            WsusMessages.ConnectFailure(new WsusSettings { ServerName = "wsus01" }.Normalize(), "The caller is not a WSUS Administrator."));
     }
 
     [Fact]
