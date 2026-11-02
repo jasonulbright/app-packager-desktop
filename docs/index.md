@@ -33,7 +33,7 @@ The core is the packaging function of the application.
 
 ## Tools
 
-The tools are the entries of the TOOLS group of the sidebar.
+The tools are the eight entries of the TOOLS group of the sidebar. A tool with many tabs has more than one page below.
 
 - [Detection Tester](tools/detection-tester.md)
 - [Maintenance Windows](tools/maintenance-windows.md)

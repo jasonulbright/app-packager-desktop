@@ -29,10 +29,10 @@ Secrets (the Intune client secret and the NVD API key) are stored protected for 
 
 | UI label | Property | Default | Effect |
 |---|---|---|---|
-| Check box per entry, `Up`, `Down` | `Sidebar.Order`, `Sidebar.Hidden` | null (the default sidebar) | Sets the order and the hidden entries. The change applies at once. `Packages` is the start page and stays first. |
+| Check box per entry, `Up`, `Down` | `Sidebar.Order`, `Sidebar.Hidden` | null (the default sidebar) | Sets the order and the hidden entries. The change applies at once. `App Packager` is the start page and stays first. An entry moves only inside its group. |
 | `Reset sidebar` | `Sidebar` | null | Returns to the default sidebar. |
 
-The default order is: Packages, Applications, Add App, Application Workbench, Detection Tester, Maintenance Windows, Collection and Compliance, Installer Analysis, Deployment Helper, DP Content Manager, Pivots and Scripts, Site Hygiene. `Settings` is always the last (footer) entry.
+The default order is, in the first group: App Packager, Add from web, Add from file, Workbench. The group TOOLS follows: Installer Analysis, Detection Tester, Deployment Helper, Pivots and Scripts, Collection and Compliance, Maintenance Windows, DP Content Manager, Site Hygiene. `Settings` is always the last (footer) entry. A saved layout that names an entry which the sidebar no longer has loads without that entry.
 
 ## Organization
 
@@ -44,7 +44,7 @@ The default order is: Packages, Applications, Add App, Application Workbench, De
 
 | UI label | Property | Default | Effect |
 |---|---|---|---|
-| `ConfigMgr` | `Systems.ConfigMgr` | on | A system that is not in use keeps its publish buttons disabled on the Packages page. |
+| `ConfigMgr` | `Systems.ConfigMgr` | on | A system that is not in use keeps its publish buttons disabled on the App Packager page. |
 | `Intune` | `Systems.Intune` | off | Same. |
 | `WSUS` | `Systems.Wsus` | off | Same. |
 
@@ -243,7 +243,7 @@ The definitions Current Release and LTSR use these choices. A shaded box or an e
 | Store | `Store Name`, `Store URL (passed as typed)` |
 | Installation | `Clean install`, `Include SSON`, `Enable SSON`, `startAppProtection`, `Session pre-launch`, `Self-service mode` |
 | Plugins | `Microsoft Teams`, `Zoom`, `Webex`, `uberAgent`, `Skip uberAgent upgrade`, `EPA client`, `Session recording` |
-| Components | `Customize (ADDLOCAL)`, `ReceiverInside`, `ICA_Client`, `AM`, `SelfService`, `DesktopViewer`, `WebHelper`, `BCR_Client`, `USB`, `SSON` |
+| Components | `Customize (ADDLOCAL)`, `ReceiverInside`, `ICA_Client`, `AM`, `SelfService`, `DesktopViewer`, `WebHelper`, `BCR_Client`, `USB`, `SSON`. The page shows the check boxes of `ICA_Client` and `BCR_Client` as `ICAClient` and `BCRClient`, because WPF reads the underscore as an access key. The component names are `ICA_Client` and `BCR_Client`. |
 | Updates, telemetry and store policy | `AutoUpdateCheck` (`(not set)`, `auto`, `manual`, `disabled`); `EnableCEIP`; `EnableTracing`; `ALLOWADDSTORE` (`(not set)`, `S`, `A`, `N`); `ALLOWSAVEPWD` (`(not set)`, `S`, `A`, `N`) |
 
 Each check box has three states: on, off and not set.
@@ -253,7 +253,7 @@ Each check box has three states: on, off and not set.
 | UI label | Effect |
 |---|---|
 | `Releases` | Opens `https://github.com/jasonulbright/app-packager-desktop/releases` in the browser. |
-| Version text | Shows `App Packager Desktop <version>` and "MIT License. Settings are stored under %LOCALAPPDATA%\AppPackager." |
+| Version text | Shows `App Packager Desktop <version>` and "MIT License. Settings are stored under %LOCALAPPDATA%\AppPackager." The text does not follow an `APP_PACKAGER_DATA_ROOT` override. |
 
 The app does not check for a new version. Open `Releases` to see new versions.
 
@@ -276,9 +276,9 @@ When you select no system, the window says "No system is selected. Save stores t
 
 | Property | Default | Effect |
 |---|---|---|
-| `HiddenApplications` | empty | The IDs hidden in the Packages grid. The `Save` button of the Applications page sets it. |
+| `HiddenApplications` | empty | The IDs hidden in the App Packager grid. The `Save` button of the [Catalog](../core/applications.md) window sets it. |
 | `AppStates` | empty | Per application: last checked, latest version, current version, last staged, published per destination, not supported per destination. |
-| `WindowLeft`, `WindowTop`, `WindowWidth`, `WindowHeight`, `WindowMaximized`, `PaneOpen` | -1, -1, 1200, 800, off, on | The app saves the window state when the main window closes. The minimum window size is 900 x 600. |
+| `WindowLeft`, `WindowTop`, `WindowWidth`, `WindowHeight`, `WindowMaximized`, `PaneOpen` | -1, -1, 1200, 800, off, on | The app saves the window state when the main window closes. The minimum window size is 900 x 600. The supported minimum is 1024 x 720. |
 | `FirstRunCompleted` | null | See the Setup window. |
 | `DeploymentConditions` | empty | A legacy map per definition. No screen writes it. It applies only when no Workbench profile applies. At start, a migration moves it into Workbench profiles. A hand edit of `settings.json` is the only way to change it. |
 | `CommandOverrides` | empty | A legacy map of install and uninstall commands per definition. It has the same rules as `DeploymentConditions`. |

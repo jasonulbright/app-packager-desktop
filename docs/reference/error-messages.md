@@ -9,7 +9,7 @@ This page lists the messages that App Packager Desktop shows, grouped by area. E
 Areas:
 
 1. [Command line](#command-line)
-2. [Publish gates and Packages page](#publish-gates-and-packages-page)
+2. [Publish gates and App Packager page](#publish-gates-and-app-packager-page)
 3. [Settings and data folders](#settings-and-data-folders)
 4. [ConfigMgr connection](#configmgr-connection)
 5. [Discover](#discover)
@@ -20,7 +20,7 @@ Areas:
 10. [Site Hygiene](#site-hygiene)
 11. [Collections, Maintenance Windows and Compliance](#collections-maintenance-windows-and-compliance)
 12. [Installer Analysis](#installer-analysis)
-13. [Add App and Workbench](#add-app-and-workbench)
+13. [Add from web, Add from file and Workbench](#add-from-web-add-from-file-and-workbench)
 14. [Network, CVE, download and signing](#network-cve-download-and-signing)
 15. [Other message families](#other-message-families)
 
@@ -58,32 +58,30 @@ These messages come from `AppPackagerBuild.exe`. See [Command-line build](../cor
 | --estimated-minutes and --maximum-minutes do not apply to build <id>: its sealed manifest records ... Stage with them, or leave them out. | Run overrides were given for a package of a sealed build. | Do as the message says. |
 | Package refused: <reason> | A package run was refused. | The code names no fix. Read the reason. |
 
-## Publish gates and Packages page
+## Publish gates and App Packager page
 
-See [Packages](../core/packages.md) and [Stage and publish](../core/stage-and-publish.md).
+See [App Packager page](../core/packages.md) and [Stage and publish](../core/stage-and-publish.md).
 
 | Message | Where it appears | Cause | Fix |
 |---|---|---|---|
-| Publish requires Intune credentials. Open Settings, Intune, to configure Tenant ID, Client ID, and Client Secret. | Packages page, at the start of a run | An Intune publish runs without credentials. | Do as the message says. |
-| Publish requires a WSUS server. Open Settings, WSUS Publishing, to configure it. | Packages page, at the start of a run | A WSUS publish runs without a server. | Do as the message says. |
-| Publish to ConfigMgr requires the ConfigMgr Console. Not detected on this workstation. | Packages page, at the start of a run | The variable `SMS_ADMIN_UI_PATH` or the module file is missing. | Install the console. See Detected Tools in Settings. |
-| SiteCode is required. Open Settings to configure. | Packages page, at the start of a run | The site code is empty. | Do as the message says. |
-| File Share Root is required. Open Settings to configure. | Packages page, at the start of a run | The share root is empty. | Do as the message says. |
+| Publish requires Intune credentials. Open Settings, Intune, to configure Tenant ID, Client ID, and Client Secret. | App Packager page, at the start of a run | An Intune publish runs without credentials. | Do as the message says. |
+| Publish requires a WSUS server. Open Settings, WSUS Publishing, to configure it. | App Packager page, at the start of a run | A WSUS publish runs without a server. | Do as the message says. |
+| Publish to ConfigMgr requires the ConfigMgr Console. Not detected on this workstation. | App Packager page, at the start of a run | The variable `SMS_ADMIN_UI_PATH` or the module file is missing. | Install the console. See Detected Tools in Settings. |
+| SiteCode is required. Open Settings to configure. | App Packager page, at the start of a run | The site code is empty. | Do as the message says. |
+| File Share Root is required. Open Settings to configure. | App Packager page, at the start of a run | The share root is empty. | Do as the message says. |
 | Needs the ConfigMgr console on this computer. | Tooltip of `Check ConfigMgr` and `Publish to ConfigMgr` | The console was not found. | Install the console. |
 | <System> is not in use. Select it under Systems in use in Settings. | Tooltip or message of a disabled button | The system is off in Systems in use. | Select the system in Settings. |
-| Intune credentials are required. Open Settings and set Tenant ID, Client ID, and Client Secret. | Packages page | A target publishes to Intune without credentials. | Do as the message says. |
-| No packagers selected. | Packages page log | A button was pressed with no checked row. | Check at least one row. |
-| SiteCode is required. Open Settings. | Packages page log, `Check ConfigMgr` | The site code is empty. | Do as the message says. |
-| Could not connect to site <code>. Check Settings and ensure the CM console is available. | Packages page log | The connection test at launch failed. A log line `ConfigMgr: Connection failed - <reason>` gives the reason. | Do as the message says. |
-| Drop ignored: N files dropped, one installer at a time. | Packages page log | You dropped more than one file. | Drop one file. |
-| Drop ignored: <file> is not an .msi or .exe. | Packages page log | You dropped a file with another extension. | Drop an `.msi` or `.exe` file. |
-| Stage: DownloadRoot is not configured. Open Settings. | Packages page log | A dropped installer was staged with no root. | Do as the message says. |
+| Intune credentials are required. Open Settings and set Tenant ID, Client ID, and Client Secret. | App Packager page | A target publishes to Intune without credentials. | Do as the message says. |
+| No packagers selected. | App Packager page log | A button was pressed with no checked row. | Check at least one row. |
+| SiteCode is required. Open Settings. | App Packager page log, `Check ConfigMgr` | The site code is empty. | Do as the message says. |
+| Could not connect to site <code>. Check Settings and ensure the CM console is available. | App Packager page log | The connection test at launch failed. A log line `ConfigMgr: Connection failed - <reason>` gives the reason. | Do as the message says. |
+| Stage: DownloadRoot is not configured. Open Settings. | App Packager page log | A stage of an installer drop or of a bring-your-own application ran with no download root. | Do as the message says. |
 | Not found in ConfigMgr | Status column | The site has no application with that title. | None. This is a status, not a failure. |
-| Application name is required. | Drop review panel | The field is empty. | Fill the field. |
-| Version is required. | Drop review panel | The field is empty. | Fill the field. |
-| Install args are required for a non-MSI installer. | Drop review panel | A non-MSI drop has no install arguments. | Fill the field. |
-| Package refused: <reason> | Packages page, bring-your-own run | The run was refused. | The code names no fix. Read the reason. |
-| Skipped <app>: no installer source folder chosen. | Packages page log | You cancelled the folder prompt. The prompt says: "Choose the folder that holds the <app> installer. Its download requires a sign-in, so it stages from a local copy." | Choose a folder. |
+| Application name is required. | Installer drop dialog | The field is empty. | Fill the field. |
+| Version is required. | Installer drop dialog | The field is empty. | Fill the field. |
+| Install args are required for a non-MSI installer. | Installer drop dialog | A non-MSI drop has no install arguments. | Fill the field. |
+| Package refused: <reason> | App Packager page, bring-your-own run | The run was refused. | The code names no fix. Read the reason. |
+| Skipped <app>: no installer source folder chosen. | App Packager page log | You cancelled the folder prompt. The prompt says: "Choose the folder that holds the <app> installer. Its download requires a sign-in, so it stages from a local copy." | Choose a folder. |
 
 ## Settings and data folders
 
@@ -116,6 +114,7 @@ See [Discover unmanaged software](../core/discover-unmanaged-software.md).
 | A site code or SQL overrides are required. Set the site code, or the SQL server and database, in Settings, ConfigMgr Site Settings. | No site code and no SQL override. | Do as the message says. |
 | The site code <x> is not three letters or digits. Correct it in Settings, ConfigMgr Site Settings. | The site code is not valid. | Do as the message says. |
 | The SQL Server for site <x> is not known (<reason>). Enter the SQL Server name in Settings, ConfigMgr Site Settings. | The provider did not return the site definition, or it has no definition for the code, or it has no SQL Server name. | Do as the message says. |
+| The choice was saved, but the lists could not be refreshed. Select Catalog on the App Packager page to see them. | After **Enable selected**, **Enable all** or **Don't ask again for selected**, the grid or the Catalog could not reload. | Select **Catalog** on the App Packager page. |
 | Windows PowerShell could not start. Discover needs Windows PowerShell 5.1 (powershell.exe). | `powershell.exe` is missing. | Do as the message says. |
 | SQL Server on <s> denied the Windows login. The account needs the db_datareader role on <db>. | The SQL login was denied. | Do as the message says. |
 | Windows authentication to SQL Server <s> failed. Run the app as a domain account on a domain-joined computer, and check the SQL Server service principal name. | Windows authentication failed. | Do as the message says. |
@@ -212,15 +211,36 @@ See [Installer Analysis](../tools/installer-analysis.md).
 | The file could not be analyzed; it may be damaged or not an installer. | The read failed. A second text, "The analysis stopped at the time limit.", covers the time limit. | The code names no fix. |
 | 7-Zip <v> (<path>) is older than <min>; extraction is refused. Install 7-Zip <min> or newer. | The 7-Zip version is too old or cannot be read. | Install 7-Zip 25.01 or newer. |
 
-## Add App and Workbench
+## Add from web, Add from file and Workbench
 
 | Message | Where it appears | Cause | Fix |
 |---|---|---|---|
-| Vendor and Application Name are required. | Add App, `Save` | The fields are empty. | Fill them. |
-| A user definition named <file> already exists. Existing definitions are never overwritten. | Add App, `Save` | The file name collides. | Use another application name. |
-| URL and Pattern are required. | Add App, `Test Scrape` | The fields are empty. | Fill them. |
-| No version found. Check URL and Pattern. | Add App, `Test Scrape` | The scrape returned nothing. | Do as the message says. |
+| Type the vendor and the application name on step 1. | Add from web, `Save Definition` | The fields are empty. | Fill them. |
+| A user definition named <file> already exists. Existing definitions are never overwritten. | Add from web, `Save Definition` | The file name collides. | Use another application name. |
+| A definition file named <file> already exists. Change the application name and save again. | Add from web (with step 4 values) and Add from file, save | The file name collides. | Change the application name. |
+| Type the scraper URL and the pattern. | Add from web, `Test Scrape` | The fields are empty. | Fill them. |
+| No version was found. Check the URL and the pattern. | Add from web, `Test Scrape` | The scrape returned nothing. | Do as the message says. |
+| Set the download root in Settings. The installer is downloaded to the download root. | Add from web, step 4 | **Download Root (local staging)** is empty. | Set the folder in Settings. |
+| Type the download URL on step 3. | Add from web, step 4 | The download URL is empty. | Fill the field. |
+| Select Test Scrape on step 2 first. The download URL needs the version. | Add from web, step 4 | The address or the file name has a version token and no test ran. | Select **Test Scrape**. |
+| The download is larger than the limit of <n> bytes. | Add from web, step 4 | The file is over 8 GiB. | The code names no fix. |
+| The download is not an installer: <reason> | Add from web, step 4 | The file content does not match its extension. | Check the download URL. |
+| The analysis was cancelled. / The analysis failed: <reason> | Add from web, step 4, and Add from file | You cancelled, or the reader failed. | Read the reason. |
+| <n> files were dropped. Drop one installer at a time. | Add from file | You dropped several files. | Drop one file. |
+| The path is a folder. Add from file takes one installer file. | Add from file | You dropped a folder. | Drop a file. |
+| Add from file does not take <ext> files. Use an .msi, .exe, .msp, .msix, .appx, .msixbundle or .appxbundle file. | Add from file | The extension is not supported. | Use a supported file. |
+| The result of the last added file is open. Select Done, then add the next file. | Add from file | A file was dropped while the result panel is open. | Select **Done**. |
+| Type the application name. / Enter the application name. / Enter the version. | Add from file, `Save` | A required row is empty. | Fill the row. |
+| Enter the silent install arguments. No silent switch could be derived. | Add from file, `Save`, and Add from web, save | A non-MSI installer has no install arguments. | Type the arguments. |
+| The installer file changed after the analysis: <path>. Open the installer file again. | Add from file, `Save` | The file changed after the analysis. | Open the file again. |
+| The definition was not saved: <reason> | Add from file, `Save` | The write failed. | Read the reason. |
+| The new row is not in the App Packager. Press F5 on the App Packager to load it. | Result panel, `Stage now` | The grid does not list the new definition. | Click the grid, then press F5. |
+| Another operation is running. Select Stage now again when it ends. | Result panel, `Stage now` | An operation runs on the App Packager page. | Wait, then select **Stage now** again. |
+| <name> has no download source and no saved installer. Add the installer again with Add from file, or set a version source and a download URL in the Workbench. | Stage | The definition has no saved installer record. | Do as the message says. |
+| The installer that Add from file saved for <name> is not found: <path>. Put the file back in that folder, or add the installer again with Add from file. | Stage | The saved file moved or was deleted. | Do as the message says. |
+| The installer <path> changed after Add from file saved it: its SHA-256 is <a>, the saved SHA-256 is <b>. <outcome> Add the installer again with Add from file. | Stage | The saved file has another hash. | Do as the message says. |
 | No applications were found. Load packagers or save a bring-your-own installer first. | Workbench | The Workbench opened with an empty list. | Do as the message says. |
+| A replacement installer must be an .msi or an .exe file. Add other installer types with Add from file. | Workbench, `Replace installer...` | The file has another extension. | Choose an `.msi` or `.exe` file. |
 
 ## Network, CVE, download and signing
 

@@ -18,14 +18,14 @@ None. A shortcut works only in the context that the table names.
 
 | Key | Context | Effect |
 |---|---|---|
-| Ctrl+A | **Packages** page | Checks or clears all rows. |
-| F5 | **Packages** page | Reloads the application list. |
-| Esc | **Packages** page, while an operation runs | Cancels the operation. |
-| Ctrl+E | **Packages** page | Exports the shown rows to a CSV file. The save dialog is titled **Export Packages to CSV**. The file name starts as `AppPackager-Export-yyyyMMdd.csv`. |
-| Alt+Up, Alt+Down | A focused sidebar entry | Moves the entry one place among the shown entries. |
+| Ctrl+A | **App Packager** page | Checks or clears all rows. |
+| F5 | **App Packager** page, while the keyboard focus is on the page | Reloads the application list. |
+| Esc | **App Packager** page, while an operation runs | Cancels the operation. |
+| Ctrl+E | **App Packager** page | Exports the shown rows to a CSV file. The save dialog is titled **Export the App Packager grid to CSV**. The file name starts as `AppPackager-Export-yyyyMMdd.csv`. |
+| Alt+Up, Alt+Down | A focused sidebar entry | Moves the entry one place among the shown entries of its group. |
 | Esc | During a sidebar drag | Cancels the drag. |
-| Ctrl+F | **Application Workbench** window | Shows the Find box. |
-| Enter | Find box of the **Application Workbench** | Finds the next match. |
+| Ctrl+F | **Workbench** window | Shows the Find box. |
+| Enter | Find box of the **Workbench** | Finds the next match. |
 | Ctrl+Tab, Ctrl+Shift+Tab | Script editor of **Detection Tester** | Leaves the editor. The hint text is "Press Ctrl+Tab to leave the editor." |
 | Tab | Editors of **Pivots and Scripts** | Types a tab. |
 | Ctrl+Tab, Ctrl+Shift+Tab | Editors of **Pivots and Scripts** | Leaves the editor. |
@@ -76,5 +76,5 @@ An access key is a letter that is underlined in a label. Press Alt and the lette
 
 | Problem | Cause | Fix |
 |---|---|---|
-| Esc does nothing on the **Packages** page. | No operation runs. | Esc cancels only a running operation. |
-| Alt+Up and Alt+Down do not move an entry. | The sidebar entry has no focus, or the entry is **Packages**. | Focus the entry. **Packages** cannot move. |
+| Esc does nothing on the **App Packager** page. | No operation runs. | Esc cancels only a running operation. |
+| Alt+Up and Alt+Down do not move an entry. | The sidebar entry has no focus, or the entry is **App Packager** or **Settings**, which cannot move. The entry is already first or last in its group. | Focus the entry. An entry moves only inside its group. |

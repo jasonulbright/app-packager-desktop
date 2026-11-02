@@ -2,7 +2,7 @@
 
 ## What it does
 
-This page lists the nested sections of an application definition: `InstallerSettings`, `PostInstallScript`, `Odt`, `BootstrapperLayout`, `ExtractSetup`, `LocalSource`, `SideFiles`, `ZipPayload` and `PayloadVariants`. The top-level fields, `VersionScraper` and `Detection` are on [Definition format](definition-format.md).
+This page lists the nested sections of an application definition: `InstallerSettings`, `PostInstallScript`, `Odt`, `BootstrapperLayout`, `ExtractSetup`, `LocalSource`, `LocalInstaller`, `SideFiles`, `ZipPayload` and `PayloadVariants`. The top-level fields, `VersionScraper` and `Detection` are on [Definition format](definition-format.md).
 
 ## When to use it
 
@@ -129,6 +129,18 @@ For a product whose download needs a sign-in or whose catalog serves one build o
 | `StagedNames` | list | Staged file name for each source name. The first match wins. Each item has `Match` (a wildcard) and `FileName`. `{version}` is the file version of the installer. When nothing matches, the file stages as `InstallerFileName`. | `[]` |
 
 Example (`citrixworkspace-ltsr-x64.json`): `{ "Mode": "Required", "Filter": "CitrixWorkspace*_x64*.exe", "Exclude": [], "StagedNames": [ { "Match": "*FullInstaller*", "FileName": "CitrixWorkspaceFullInstaller-LTSR-x64-{version}.exe" } ] }`.
+
+## LocalInstaller
+
+A definition that [Add from file](../core/add-from-file.md) saves has this section. The definition has no download address and no version source. The installer is a file on this computer. The stage copies it and checks its SHA-256. No shipped file has this section.
+
+| Field | Type | Meaning | Default |
+|---|---|---|---|
+| `Path` | string | The full path of the installer file that the analysis read. | `""` |
+| `Sha256` | string | The SHA-256 of the file in hexadecimal. The stage refuses a file with another hash. | `""` |
+| `Version` | string | The version that you reviewed. It names the staged folder and fills the version tokens. **Check Latest** shows it. | `""` |
+
+A definition stages from this section only when it has no `DownloadUrl`, no `VersionScraper.Url` and no `VersionScraper.DownloadUrlQuery`, and no `LocalSource`.
 
 ## SideFiles
 

@@ -52,7 +52,7 @@ A text editor. The file is JSON with the extension `.json`.
 
 | Field | Type | Meaning | Default | Shipped |
 |---|---|---|---|---|
-| `InstallerType` | string | `MSI`, `EXE`, `ODT`, `ZIP` or `MSIX`. | `"MSI"` | 319 |
+| `InstallerType` | string | `MSI`, `EXE`, `ODT`, `ZIP`, `MSIX` or `MSP`. | `"MSI"` | 319 |
 | `InstallerFramework` | string or null | Installer technology. It drives the automatic derivation of detection and of metadata. When empty, the engine tries to identify the installer. Values in the shipped files: `NativeMSI`, `InnoSetup`, `NSIS`, `WixBurn`, `NativeEXE`, `Unknown`, `InstallShield`, `ODT`, `Squirrel`, `MSIX`, `ZIP`. | `null` | 319; `"NSIS"` in `notepadplusplus.json` |
 | `InstallContext` | string | `Machine` (Program Files, HKLM, device collections, runs as SYSTEM) or `User` (`%LOCALAPPDATA%`, HKCU, user collections, runs as the logged-on user). For MSIX the manifest decides, and the field only guides the deployment target. | `"Machine"` | 12 (`"User"`); `apppackagersuite.json` |
 | `DownloadUrl` | string | Template of the installer address. `{version}` is the raw version. `{display_version}` is the display version. Can be empty when a scraper finds the address. | `""` | 319 (75 empty) |
@@ -97,6 +97,7 @@ These fields hold an object or a list. The page [Definition format: sections](de
 | `BootstrapperLayout` | object | `null` | 2 |
 | `ExtractSetup` | object | `null` | 1 |
 | `LocalSource` | object | `null` | 3 |
+| `LocalInstaller` | object | `null` | 0 |
 | `SideFiles` | list | `null` | 1 |
 | `ZipPayload` | object | `null` | 1 |
 | `PayloadVariants` | list | `null` | 1 |

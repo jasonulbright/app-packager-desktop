@@ -24,11 +24,13 @@ None.
 
 **Baseline.** A ConfigMgr configuration baseline. The Compliance section of **Collection and Compliance** creates and lists baselines.
 
-**Bring your own (BYO).** An application that you create from an installer that you drop on the **Packages** page. **Save as Application** keeps the installer as an application with numbered installer revisions.
+**Bring your own (BYO).** An application that has numbered installer revisions and no download script. **Save as Application** in the older **Installer drop** dialog creates it. [Add from file](../core/add-from-file.md) saves a definition instead.
 
-**Build.** The record of one stage run of an application and profile. The **Review & build** section of the Application Workbench lists earlier builds as **Prior builds**.
+**Build.** The record of one stage run of an application and profile. The **Review & build** section of the Workbench lists earlier builds as **Prior builds**.
 
 **Cadence.** The number of days that a version check stays fresh in One Click. **Default cadence (days)** in **Settings** sets the default.
+
+**Catalog.** The window that shows or hides applications in the **App Packager** grid. The **Catalog** button on the **App Packager** page opens it. See [Catalog](../core/applications.md).
 
 **Classification.** The WSUS classification of each update that App Packager Desktop publishes. The default is **Updates**.
 
@@ -60,6 +62,8 @@ None.
 
 **EPSS.** A score from FIRST. The column **Max EPSS** and the CVE window show it.
 
+**Evidence level.** The mark that a proposed value has after an installer analysis, in [Add from file](../core/add-from-file.md) and [Add from web](../core/add-app.md). **Confirmed**: the analysis read the value from the installer. **Predicted, not verified**: the value comes from a table or from documentation. **Manual**: you typed or changed the value. **No value**: the analysis could not derive a value.
+
 **KEV.** The CISA catalog of known exploited vulnerabilities. The column **KEV** shows if a CVE is in it.
 
 **Locally published update.** A WSUS update that App Packager Desktop publishes from an installer. WSUS offers it only to a computer that has an older version of the application.
@@ -70,13 +74,15 @@ None.
 
 **One Click.** A run that checks the applications that you track, then stages and publishes each application that has a new version. After you select **Run**, One Click asks no more questions. See [One Click](../core/one-click.md).
 
-**Packager.** One row of the **Packages** grid. A packager is a JSON definition (badge `JSON`) or a PS1 packager script (badge `PS1`).
+**Packager.** One row of the **App Packager** grid. A packager is a JSON definition (badge `JSON`) or a PS1 packager script (badge `PS1`).
 
 **Plan.** In most tools, a plan is the list of changes that a tool shows before it writes to the site. You confirm the plan or cancel it. In the Rings tab, a plan is the ordered list of rings for a deployment.
 
-**Profile.** A saved set of changes to one application in the Application Workbench. A definition supplies the defaults. A profile holds your changes.
+**Profile.** A saved set of changes to one application in the Workbench. A definition supplies the defaults. A profile holds your changes.
 
 **Publish.** Send a staged application to a destination.
+
+**Result panel.** The panel that ends **Add from web** and **Add from file**. It has the buttons **Open in Workbench**, **Stage now** and **Done**. Nothing is staged until you select **Stage now**.
 
 **Ring.** One step of a Rings plan. A ring names a device collection, a purpose, and the offsets for the available time and the deadline. A plan has 1 to 100 rings.
 
@@ -90,7 +96,7 @@ None.
 
 **Verified.** A mark in a History list. **Verified** means the record passes the audit chain. **Not verified** means a record was edited, or follows a broken line.
 
-**Workbench.** The Application Workbench. It is the editor for one application, with profiles, bundles and builds. See [Workbench](../core/workbench.md).
+**Workbench.** The Workbench. It is the editor for one application, with profiles, bundles and builds. See [Workbench](../core/workbench.md).
 
 **WSUS.** Windows Server Update Services. **Publish to WSUS** publishes an installer as a locally published update.
 

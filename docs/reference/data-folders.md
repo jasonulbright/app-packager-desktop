@@ -72,8 +72,8 @@ See [Workbench](../core/workbench.md) and [Definitions](../core/definitions.md).
 
 | Location | Content | Retention |
 |---|---|---|
-| `Legacy\Logs\packr-yyyyMMdd-HHmmss.log` | The Packages page operation log, one file for each session. | The app keeps the newest 30. |
-| `Legacy\packr.log` | The rolling Packages log. | The code states no retention. |
+| `Legacy\Logs\packr-yyyyMMdd-HHmmss.log` | The App Packager page operation log, one file for each session. | The app keeps the newest 30. |
+| `Legacy\packr.log` | The rolling App Packager log. | The code states no retention. |
 | `Legacy\Logs\app-yyyyMMdd-HHmmss-<pid>.log` | The application log of the tools. The log masks values of keys named password, secret, token, apikey and credential. | The app keeps the newest 30. |
 | `Legacy\Logs\build-yyyyMMdd-HHmmss-<pid>.log` | The log of a command-line run. `--log-folder` changes the folder. | The code states no retention. |
 | `Legacy\Logs\OneClick\one-click-<yyyyMMdd-HHmmss>.md` and `.json` | One Click reports. Each has a rollback section. A name clash adds `-2`, `-3`. | The code states no retention. |
@@ -88,7 +88,11 @@ See [Workbench](../core/workbench.md) and [Definitions](../core/definitions.md).
 | `<Packagers folder>\packager-preferences.json`, `citrix-workspace-switches.json` | Written for PS1 packagers. |
 | `<FileShareRoot>\Applications\<Vendor>\<App>\<Version>\` (layout `Nested`) or `<FileShareRoot>\Applications\<Vendor>-<App>-<Version>\` (layout `Flat`), with the `.intunewin` file beside the content | The content share for `Publish to ConfigMgr` and the Intune package. |
 | `%TEMP%\ap-cmsession-*.ps1`, `%TEMP%\apkg-hdr-*.txt`, `%TEMP%\appackager-sign-*`, and the WSUS adapter files `request.json` and `result.json` in a temporary folder | Short-lived files. |
-| A path that you choose | CSV exports from Packages, the exported certificate (`.cer`), an imported PFX, the update ID text file. The app writes these only through Save and Open dialogs. |
+| `%TEMP%\SRLPackr-FileVersionCache\` | Installers that a `FileVersion` scraper downloaded, so that Stage can reuse them. **Test Scrape** in Add from web with this scraper type leaves its file here. The code states no retention. |
+| `<DownloadRoot>\AddFromWeb\<8 characters>\` | The installer that step 4 of Add from web downloaded. The app deletes the folder when you save, when a new analysis starts, when an analysis fails and when you select **Done**. |
+| The folder where you chose the installer | The installer file of a definition from Add from file. The definition keeps the path, the SHA-256 and the version. The app does not copy or move the file. |
+| `%LOCALAPPDATA%\Update Services\SoftwareDistribution.log` | The WSUS administration API wrote this file in the user profile after the WSUS connection test (Settings, WSUS Publishing, Test connection) ran without elevation. The app does not manage this file. |
+| A path that you choose | CSV exports from the App Packager grid, the exported certificate (`.cer`), an imported PFX, the update ID text file. The app writes these only through Save and Open dialogs. |
 
 ## Related pages
 

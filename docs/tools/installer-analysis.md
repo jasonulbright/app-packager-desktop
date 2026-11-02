@@ -10,6 +10,7 @@ The Installer Analysis page reads a Windows installer file on this computer and 
 - Use it to find the Add/Remove Programs key that an installer writes.
 - Use it to look inside an installer that holds other installers.
 - Use it to get the SHA-256 of an installer or of a file inside it.
+- To package an installer, use [Add from file](../core/add-from-file.md). It runs the same analysis, shows each proposed value with an evidence level and saves a definition. [Add from web](../core/add-app.md) runs the same analysis on a downloaded installer. This page accepts more file types than Add from file.
 
 ## Requirements
 
@@ -34,9 +35,9 @@ The Installer Analysis page reads a Windows installer file on this computer and 
 The **Overview** tab has these sections.
 
 - **Source**: **File name**, **Size**, **SHA-256**, **Type**, **Architecture**, **Requested execution level** (executables), **Detection hint**, **Signature**, **Signer**, **Issuer**, **Thumbprint**, **Timestamped**.
-- **Deployment**: the fields with the columns **Name**, **Value**, **Confidence** and **Source**. **Confirmed** means the page read the value from the installer. **Predicted** means the page worked it out, for example when the install folder is chosen at run time. Check a **Predicted** value before you use it in a detection method.
+- **Deployment**: the fields with the columns **Name**, **Value**, **Confidence** and **Source**. **Confirmed** means the page read the value from the installer. **Predicted** means the page worked it out, for example when the install folder is chosen at run time. Check a **Predicted** value before you use it in a detection method. This page shows only these two levels. [Add from file](../core/add-from-file.md#evidence-levels) adds **Manual** (you changed the value) and **No value**.
 - **Install modes**: one row for each mode with the columns **Mode**, **Default**, **Switch**, **Install command**, **Install folder**, **Uninstall command**, **ARP key**, **Hive**, **View** and **Context**.
-- **Detection after patches**: for a file that holds a base MSI and an MSP, the product code, version and registry key that the patched product writes.
+- **Detection after patches**: for a file that holds a base MSI and an MSP, the product code, version and registry key that the patched product writes. The page reads the version from the `UpdatedVersion` of the patch applicability XML (**Confirmed**). If the patch has no `UpdatedVersion`, the page reads a version in parentheses from the patch name, description, subject or title (**Predicted**). A patch with no `UpdatedVersion` can be a small update that keeps the `ProductVersion`. If no version is found, the note says so.
 - **Package metadata**: facts that depend on the installer type.
 - Notes: plain sentences that say what the page could not read, for example an encrypted Inno Setup header.
 
@@ -122,7 +123,7 @@ The **Overview** tab has these sections.
 
 ### Installer types
 
-The page reads these types: NSIS, Inno Setup, InstallShield, WiX Burn, 7-Zip and WinRAR self-extracting archives, BitRock, Advanced Installer, MSI, MSP, MSIX and APPX, `.intunewin`, NuGet packages, Chocolatey packages, zip archives, PSAppDeployToolkit, Squirrel and Velopack.
+The page reads these types: NSIS, Inno Setup, InstallShield, WiX Burn, 7-Zip and WinRAR self-extracting archives, BitRock, Advanced Installer, MSI, MSP, MSIX and APPX packages and bundles, `.intunewin`, NuGet packages, Chocolatey packages, zip archives, PSAppDeployToolkit, Squirrel and Velopack.
 
 ### Tabs
 
