@@ -63,21 +63,21 @@ public static class PivotsResults
         }
     }
 
-    /// <summary>The ResultCode of the root of a CMPivot result document; 0 when it names none or cannot be read.</summary>
-    public static int ResultCode(string? output)
+    /// <summary>The ResultCode of the root of a CMPivot result document; null when it names none or cannot be read.</summary>
+    public static int? ResultCode(string? output)
     {
-        if (string.IsNullOrWhiteSpace(output)) return 0;
+        if (string.IsNullOrWhiteSpace(output)) return null;
         try
         {
             using var reader = XmlReader.Create(new StringReader(output), XmlSettings);
             while (reader.Read())
                 if (reader.NodeType == XmlNodeType.Element)
-                    return int.TryParse(reader.GetAttribute("ResultCode"), NumberStyles.Integer, CultureInfo.InvariantCulture, out var code) ? code : 0;
+                    return int.TryParse(reader.GetAttribute("ResultCode"), NumberStyles.Integer, CultureInfo.InvariantCulture, out var code) ? code : null;
         }
         catch (XmlException)
         {
         }
-        return 0;
+        return null;
     }
 
     /// <summary>The rows of a script output: a JSON object is one row, a JSON array of objects is one row each, other text is one row with an Output column.</summary>
