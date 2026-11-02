@@ -480,6 +480,9 @@ public sealed class PivotsRunTests
         Assert.Single(some.Rows);
         Assert.Contains("Caption", some.Output, StringComparison.Ordinal);
 
+        var coded = Row("<result ResultCode=\"5\" moreResults=\"False\" />");
+        Assert.Contains("ResultCode", coded.Output, StringComparison.Ordinal);
+
         var unreadable = Row("<result");
         Assert.NotEqual("", unreadable.Output);
         Assert.NotEqual("", unreadable.Message);

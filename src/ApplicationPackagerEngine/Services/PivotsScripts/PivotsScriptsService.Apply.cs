@@ -876,7 +876,7 @@ public sealed partial class PivotsScriptsService
         {
             var (rows, more, readable) = PivotsResults.PivotRows(output);
             // A readable answer of no rows (a query that matched nothing) has no output to list; the raw answer stays in the session record.
-            var shown = readable && rows.Count == 0 && !more ? "" : PivotsResults.Cut(output);
+            var shown = readable && rows.Count == 0 && !more && PivotsResults.ResultCode(output) == 0 ? "" : PivotsResults.Cut(output);
             return new DeviceResult(id, name, PivotsDeviceStates.Completed, shown, readable ? (more ? "The site holds more rows than this answer carries." : "") : "The result could not be read as CMPivot rows.")
             { ExitCode = exit, Rows = rows, MoreResults = more, LastUpdateUtc = updated };
         }
