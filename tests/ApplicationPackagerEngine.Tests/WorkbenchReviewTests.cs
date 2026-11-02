@@ -1,4 +1,5 @@
 using System.Text.Json.Nodes;
+using ApplicationPackagerEngine.Models;
 using ApplicationPackagerEngine.Models.Workbench;
 using ApplicationPackagerEngine.Services;
 using ApplicationPackagerEngine.Services.Workbench;
@@ -26,6 +27,33 @@ public sealed class WorkbenchReviewTests : IDisposable
         Assert.Equal("System", inherited.ExecutionContext);
         Assert.Equal("Packager default", inherited.TitleMode);
         Assert.Equal("Include version", WorkbenchInheritedSettings.Build("x", "y", "", 1, 2, includeVersionInTitle: true).TitleMode);
+    }
+
+    [Fact]
+    public void AfterAStageSealedABuild_TheStageOnlyFieldsShowTheStagedValuesNotTheMarker()
+    {
+        var staged = new StageManifest
+        {
+            AppName = "App",
+            CommandOverrides = new StageCommandOverrides { Install = "setup.exe /S" },
+            Detection = new StageDetection { Type = "RegistryKey", RegistryKeyRelative = @"SOFTWARE\App" }
+        };
+        var inherited = WorkbenchInheritedSettings.Build("App", "Vendor", "", 15, 30, sealedStage: staged);
+
+        Assert.Equal("setup.exe /S", inherited.InstallCommand);
+        Assert.Equal(DeploymentTypeSpecResolver.DefaultUninstallCommand, inherited.UninstallCommand);
+        Assert.Equal(DetectionEvaluator.Describe(staged.Detection), inherited.DetectionSummary);
+        Assert.DoesNotContain(WorkbenchInheritedSettings.NeedsStagingMarker, new[] { inherited.InstallCommand, inherited.UninstallCommand, inherited.DetectionSummary });
+        Assert.Equal("setup.exe /S", inherited.ForPath("Install.Command"));
+
+        // A deployment type of the stage wins over the base command, as the packager creates the first one.
+        staged.DeploymentTypes = [new StageDeploymentType { NameSuffix = "x64", InstallCommandLine = "x64.bat", UninstallCommandLine = "x64-un.bat", Detection = new StageDetection { Type = "RegistryKey", RegistryKeyRelative = @"SOFTWARE\X64" } }];
+        var typed = WorkbenchInheritedSettings.Build("App", "Vendor", "", 15, 30, sealedStage: staged);
+        Assert.Equal(("x64.bat", "x64-un.bat"), (typed.InstallCommand, typed.UninstallCommand));
+        Assert.Contains("X64", typed.DetectionSummary, StringComparison.Ordinal);
+
+        // Without a sealed build the marker stays.
+        Assert.Equal(WorkbenchInheritedSettings.NeedsStagingMarker, WorkbenchInheritedSettings.Build("App", "Vendor", "", 15, 30).InstallCommand);
     }
 
     [Fact]

@@ -235,7 +235,8 @@ public partial class WorkbenchWindowViewModel : ObservableObject
     {
         var inherited = WorkbenchInheritedSettings.Build(
             application.DisplayName, application.Publisher, application.Description,
-            _settings.EstimatedRuntimeMins, _settings.MaximumRuntimeMins);
+            _settings.EstimatedRuntimeMins, _settings.MaximumRuntimeMins,
+            sealedStage: LatestSealedStage(application.ApplicationId, profileId));
         _session = new WorkbenchEditorSession(_store!, application.ApplicationId, inherited);
         _session.Load(profileId);
 
@@ -271,6 +272,25 @@ public partial class WorkbenchWindowViewModel : ObservableObject
             else _session.DiscardPendingDraft();
             RefreshAll();
             SaveStateText = _session.IsDirty ? UnsavedText : CleanText;
+        }
+    }
+
+    /// <summary>The stage manifest of the newest sealed build of the application, or null when none was sealed or it cannot be read.</summary>
+    private StageManifest? LatestSealedStage(string applicationId, string? profileId)
+    {
+        try
+        {
+            // The profile that opens decides which build counts: another profile of the application has its own stage.
+            var opened = string.IsNullOrWhiteSpace(profileId) ? _store!.GetApplicationDefinition(applicationId).ActiveProfileId : profileId;
+            var record = BuildRecords.Latest(_store!.DataRoot, applicationId, string.IsNullOrWhiteSpace(opened) ? ApplicationIds.DefaultProfileId : opened);
+            var stageRoot = record is null ? null : WorkbenchJson.AsText(record["StageRoot"]);
+            if (string.IsNullOrWhiteSpace(stageRoot)) return null;
+            var path = Path.Combine(stageRoot, "stage-manifest.json");
+            return File.Exists(path) ? new ManifestService().Read(path) : null;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or InvalidOperationException or System.Text.Json.JsonException)
+        {
+            return null;
         }
     }
 

@@ -875,7 +875,9 @@ public sealed partial class PivotsScriptsService
         if (state == 1 && string.IsNullOrWhiteSpace(error) && (exit ?? 0) == 0)
         {
             var (rows, more, readable) = PivotsResults.PivotRows(output);
-            return new DeviceResult(id, name, PivotsDeviceStates.Completed, PivotsResults.Cut(output), readable ? (more ? "The site holds more rows than this answer carries." : "") : "The result could not be read as CMPivot rows.")
+            // A readable answer of no rows (a query that matched nothing) has no output to list; the raw answer stays in the session record.
+            var shown = readable && rows.Count == 0 && !more && PivotsResults.ResultCode(output) == 0 ? "" : PivotsResults.Cut(output);
+            return new DeviceResult(id, name, PivotsDeviceStates.Completed, shown, readable ? (more ? "The site holds more rows than this answer carries." : "") : "The result could not be read as CMPivot rows.")
             { ExitCode = exit, Rows = rows, MoreResults = more, LastUpdateUtc = updated };
         }
         // The site's error text stays in the output (the Raw view); the message is fixed.

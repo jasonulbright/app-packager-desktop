@@ -478,7 +478,11 @@ public sealed partial class SiteHygieneViewModel
         finally { _restoring = false; }
         LiveRowCount = shown.Count == all.Count ? SiteHygieneLabels.Count(all.Count, "row") : $"{Number(shown.Count)} of {SiteHygieneLabels.Count(all.Count, "row")}";
         LiveViewMessage = ViewMessage(result);
+        if (LiveViewMessage.Length == 0 && view == LiveView.Content && all.Count == 0 && text.Length == 0) LiveViewMessage = ContentNoIssuesMessage;
     }
+
+    /// <summary>The Content view lists only content with a failed, running or unknown distribution; an empty list is the healthy state.</summary>
+    public const string ContentNoIssuesMessage = "No content has a problem. This view lists only content that failed, is still distributing or has an unknown state on a distribution point.";
 
     /// <summary>The plain message of a view that was not set up, failed or was cut; a cut view says that its counts are not known.</summary>
     public static string ViewMessage(LiveViewResult result)

@@ -17,6 +17,10 @@
             <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
         </Style>
 
+        <Style x:Key="ApplicationCell" TargetType="TextBlock" BasedOn="{x:Static DataGridTextColumn.DefaultElementStyle}">
+            <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+            <Setter Property="ToolTip" Value="{Binding Text, RelativeSource={RelativeSource Self}}" />
+        </Style>
         <Style x:Key="Note" TargetType="TextBlock">
             <Setter Property="FontSize" Value="12" />
             <Setter Property="TextWrapping" Value="Wrap" />
@@ -379,11 +383,11 @@
                                   HeadersVisibility="Column" RowHeaderWidth="0" SelectionMode="Single" GridLinesVisibility="Horizontal"
                                   HorizontalScrollBarVisibility="Auto" AutomationProperties.AutomationId="dgApplications">
                             <DataGrid.Columns>
-                                <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="2*" MinWidth="180" />
-                                <DataGridTextColumn Header="Publisher" Binding="{Binding Publisher}" Width="*" MinWidth="140" />
-                                <DataGridTextColumn Header="Version" Binding="{Binding Version}" Width="110" />
-                                <DataGridTextColumn Header="Install date" Binding="{Binding InstallDate}" Width="100" />
-                                <DataGridTextColumn Header="Source" Binding="{Binding Source}" Width="100" />
+                                <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="1.4*" MinWidth="170" ElementStyle="{StaticResource ApplicationCell}" />
+                                <DataGridTextColumn Header="Publisher" Binding="{Binding Publisher}" Width="*" MinWidth="170" ElementStyle="{StaticResource ApplicationCell}" />
+                                <DataGridTextColumn Header="Version" Binding="{Binding Version}" Width="150" MinWidth="150" ElementStyle="{StaticResource ApplicationCell}" />
+                                <DataGridTextColumn Header="Install date" Binding="{Binding InstallDate}" Width="100" MinWidth="100" ElementStyle="{StaticResource ApplicationCell}" />
+                                <DataGridTextColumn Header="Source" Binding="{Binding Source}" Width="110" MinWidth="110" ElementStyle="{StaticResource ApplicationCell}" />
                             </DataGrid.Columns>
                         </DataGrid>
 

@@ -59,6 +59,10 @@ public sealed partial class DeploymentHelperViewModel : ObservableObject
                 FoldersChanged = () => Rings.Release()
             }
         };
+        Shared.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(DeploymentShared.HasResultPanel)) OnPropertyChanged(nameof(ShowsResultPanel));
+        };
         Deploy.ChoicesChanged += (_, _) => SaveLater();
         Rings.ChoicesChanged += (_, _) => SaveLater();
         Options.TemplatesChanged += (_, _) =>
@@ -77,6 +81,12 @@ public sealed partial class DeploymentHelperViewModel : ObservableObject
 
     [ObservableProperty] private int _selectedTabIndex;
 
+    /// <summary>
+    /// The result of the last change sits under the Deploy, Rings and History tabs, which make changes. The Options tab
+    /// makes none and its Templates list needs the room, so the panel is not shown there.
+    /// </summary>
+    public bool ShowsResultPanel => Shared.HasResultPanel && SelectedTabIndex != OptionsTab;
+
     public DeploymentTabViewModel CurrentTab => SelectedTabIndex switch
     {
         RingsTab => Rings,
@@ -94,6 +104,7 @@ public sealed partial class DeploymentHelperViewModel : ObservableObject
     partial void OnSelectedTabIndexChanged(int value)
     {
         OnPropertyChanged(nameof(CurrentTab));
+        OnPropertyChanged(nameof(ShowsResultPanel));
         SaveLater();
         if (_active && !_applying) _ = CurrentTab.EnsureLoadedAsync();
     }

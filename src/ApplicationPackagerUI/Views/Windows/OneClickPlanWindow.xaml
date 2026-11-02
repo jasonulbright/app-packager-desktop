@@ -64,7 +64,7 @@
                 </DataGridTemplateColumn>
                 <DataGridTextColumn Header="Application" Binding="{Binding Application}" Width="*" MinWidth="160" IsReadOnly="True"
                                     ElementStyle="{StaticResource WrapCell}" />
-                <DataGridTextColumn Header="Version" Binding="{Binding Version}" Width="90" IsReadOnly="True" ElementStyle="{StaticResource WrapCell}" />
+                <DataGridTextColumn Header="Version" Binding="{Binding Version}" Width="SizeToCells" MinWidth="100" IsReadOnly="True" ElementStyle="{StaticResource WrapCell}" />
                 <DataGridTemplateColumn x:Name="colMecm" Header="ConfigMgr" Width="96">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>

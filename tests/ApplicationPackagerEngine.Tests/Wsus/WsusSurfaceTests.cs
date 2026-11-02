@@ -159,6 +159,19 @@ public sealed class WsusSurfaceTests
         Assert.False(editor.Busy);
     }
 
+    [Theory]
+    [InlineData(false, false, "unencrypted")]
+    [InlineData(false, true, "unencrypted")]
+    [InlineData(true, false, "unencrypted")]
+    [InlineData(true, true, "secure")]
+    public void TheStatusCallsAConnectionSecureOnlyWithSslOn(bool useSsl, bool apiSaysSecure, string word)
+    {
+        var editor = Editor(new FakeWsusAdminClient());
+        editor.UseSsl = useSsl;
+        editor.ShowStatus(Connected() with { SecureConnection = apiSaysSecure });
+        Assert.Contains($", {word} connection.", editor.StatusText);
+    }
+
     [Fact]
     public void AStatusWithoutACertificateOrConnectionSaysSo()
     {
