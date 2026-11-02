@@ -102,7 +102,7 @@ The page saves the audit log path, the ring folders and the template choice in `
 - Applications and update groups carry the creation time and the account. Packages and task sequences have neither. For these the page reads status message 30006 of the site. If the site no longer holds that message, Undo from History is refused.
 - Undo from History checks the audit record against the site. It cannot stop a process of the same account that forges both.
 - A record without every value that the removal compares (type, IDs, purpose, times and time basis) cannot be removed from History. Remove the deployment in the console.
-- The ring records of the audit log were checked in the lab on one site (CM01) with one client (CLIENT01). No separate lab record covers the **History** tab for single deployments.
+- The ring records of the audit log were checked in the lab on one site with one client. No separate lab record covers the **History** tab for single deployments.
 
 ## Troubleshooting
 

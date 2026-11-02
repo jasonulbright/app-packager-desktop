@@ -103,6 +103,8 @@ The rows are **Installer type**, **Framework**, **Install arguments**, **Uninsta
 
 The page downloads the installer to a folder `AddFromWeb\<8 characters>` under the download root. The folder is deleted when you save, when a new analysis starts, when an analysis fails and when you select **Done**. The analysis reads the file only. It never starts the installer or a file taken out of it. The limits are those of [Installer Analysis](../tools/installer-analysis.md#limits-of-one-analysis): a download over 8 GiB is refused.
 
+![Step 4 after the analysis, with the proposed values and their evidence markers](../images/core-add-app-step4-analysis.png)
+
 | Message | Cause |
 |---|---|
 | Set the download root in Settings. The installer is downloaded to the download root. | **Download Root (local staging)** is empty. |
@@ -134,6 +136,8 @@ The detection rule tells ConfigMgr and Intune that the application is installed.
 | **Product code** | For an MSI product code rule. |
 | **Folder**, **File name**, **Version** | For a file rule. An empty version compares the staged version. |
 | **64-bit registry and file view** | On by default. Clear it for a 32-bit application on a 64-bit computer. |
+
+![Step 6 with a detection rule and its evidence chip](../images/core-add-app-step6-detection.png)
 
 If the rule is still the default, a caution box reads that the definition has no registry key or file to detect, or that the version rule has no expected version. A definition with no detection rule is saved. The result panel then reports `Detection needs review.`
 

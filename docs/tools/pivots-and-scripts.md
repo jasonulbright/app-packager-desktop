@@ -126,7 +126,7 @@ Keyboard rules in the editors:
 - The page writes the session and a **Started** audit record before it sends. If either cannot be written, the page sends nothing. Each run ends with one **Finished** record. A run that the service refuses writes a **Refused** record.
 - The session file holds the targets, the query or the script identity and hash, the parameter names and the raw responses. It holds no parameter value and no script text. The application log holds no script text, no query text and no parameter value.
 - The audit chain finds edits to single records. A process that runs under the same account can write a new chain without a break.
-- The lab (CM01, CLIENT01) ran queries and scripts on up to three devices. Larger runs are not tested.
+- The lab (one site, one client) ran queries and scripts on up to three devices. Larger runs are not tested.
 - Lab reports: `PS-QUALIFICATION`, `PS-LAB-REPORT` to `PS-LAB4-REPORT`.
 
 ## Troubleshooting

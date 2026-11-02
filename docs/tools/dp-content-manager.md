@@ -157,7 +157,7 @@ Every write adds records to `dp-content-audit.jsonl` in the `DpContent` folder o
 - The deployment counts cover the kinds of deployment that the plan names.
 - The content type list offers seven types. The page also reads OS upgrade packages. It shows their type as `OsUpgradePackage`.
 - The page makes no network call except to the SMS Provider through the ConfigMgr session.
-- Lab status: six lab passes ran on CM01 with one distribution point (CM01.CONTOSO.COM). The checks covered the DPs, Content, Status Issues and History tabs, redistribute, validate, removal with the last-copy boxes, undo, cancel at a part boundary, stale pairs, a read-only audit log and a hand edit of the hash chain. The results came from the real site. Not tested: a second DP with overlapping names, a site with thousands of packages, and a custom security role.
+- Lab status: six lab passes ran on one site with one distribution point. The checks covered the DPs, Content, Status Issues and History tabs, redistribute, validate, removal with the last-copy boxes, undo, cancel at a part boundary, stale pairs, a read-only audit log and a hand edit of the hash chain. The results came from the real site. Not tested: a second DP with overlapping names, a site with thousands of packages, and a custom security role.
 
 ## Troubleshooting
 

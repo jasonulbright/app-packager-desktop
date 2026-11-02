@@ -170,7 +170,7 @@ A read is cut at 200,000 rows. A read that costs one provider call for each obje
 
 - Dates and times are compared with the clock of this computer. The provider returns its times without conversion.
 - A fix deletes or changes objects on the site. Most deletes cannot be undone.
-- The lab ran the page on one site (CM01). No lab record states which of the 57 checks found an object on that site.
+- The lab ran the page on one site. No lab record states which of the 57 checks found an object on that site.
 
 ## Troubleshooting
 

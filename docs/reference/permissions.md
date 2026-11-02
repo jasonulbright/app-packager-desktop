@@ -4,7 +4,7 @@ This page lists the ConfigMgr rights and the local rights that each page and ste
 
 ## Verification status
 
-Every lab run used the account `CONTOSO\labadmin` with the ConfigMgr role Full Administrator. No test used a custom or least-privilege security role. The minimum rights are therefore not verified with a custom role.
+Every lab run used one lab account with the ConfigMgr role Full Administrator. No test used a custom or least-privilege security role. The minimum rights are therefore not verified with a custom role.
 
 The ConfigMgr column below quotes the rights that the code names in its own access messages. The app shows these messages when the SMS Provider denies access. The messages are not a tested minimum.
 

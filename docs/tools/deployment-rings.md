@@ -93,7 +93,7 @@ The **History** tab lists every ring create, **Promote**, undo, close, cancelled
 - A ring that the page cannot prove to belong to a run is kept, not removed. A deployment made by another run, by the **Deploy** tab or by hand is never removed.
 - **Expand** reads the collection list once for all rings. **Validate** and **Create run** read the site once for each ring. A plan with more rings takes more reads.
 - A package ring with the time basis UTC has no expiry, as on the **Deploy** tab.
-- Lab: the Rings tab was checked on CM01 with CLIENT01 with plans of 1, 2, 4, 13 and 100 rings, create-all runs, hold runs, **Promote**, **Undo run**, a crash during a create, a lock held by a second session over a shared folder, and a Required application that CLIENT01 installed. The lab used a full administrator account and one site.
+- Lab: the Rings tab was checked on one site with one client with plans of 1, 2, 4, 13 and 100 rings, create-all runs, hold runs, **Promote**, **Undo run**, a crash during a create, a lock held by a second session over a shared folder, and a Required application that the client installed. The lab used a full administrator account and one site.
 - The lab found that the same plan files can be read by the Deployment Helper tool of the App Packager Suite, a separate program. That tool applies other defaults to a ring that sets no rerun, slow network or fast network option.
 
 ## Troubleshooting

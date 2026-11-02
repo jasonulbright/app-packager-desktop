@@ -93,7 +93,7 @@ For a **Local time** plan, a time that a daylight saving change skips moves late
 - A plan name that is not a safe file name is refused. The lab refused `..`, `..\evil`, `CON`, `NUL.json`, `a*b`, `x/y`, a blank name and a name of 200 characters.
 - A plan that you edit by hand is checked at load. A file with a built-in collection, a shared collection or more than 100 rings is refused with a message that names the ring.
 - A plan file can be shared with the Deployment Helper tool of the App Packager Suite, a separate program, because both use the same file format. The suite tool applies its own defaults for a ring that sets no rerun, slow network or fast network option.
-- Lab: the editor was checked with plans of 1, 2, 4, 13 and 100 rings on CM01.
+- Lab: the editor was checked with plans of 1, 2, 4, 13 and 100 rings on one site.
 
 ## Troubleshooting
 

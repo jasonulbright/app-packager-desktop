@@ -124,7 +124,7 @@ For a package or task sequence, the page sends the UTC flag with the available t
 - The page does not offer user collections.
 - The page matches names exactly. A `*` or `[` in a name is a plain character.
 - A lock file next to the audit log stops two sessions of this product from creating the same deployment at the same time. The site cannot stop another administrator. If a second deployment of the same object appears during the create, the result is Partial with an Undo for the deployment made here. If the page cannot tell which deployment it made, the result names both IDs with their creators and times and offers no Undo.
-- Lab: the page was checked on CM01 with CLIENT01. The lab used one site and a full administrator account.
+- Lab: the page was checked on one site with one client. The lab used one site and a full administrator account.
 
 ## Troubleshooting
 

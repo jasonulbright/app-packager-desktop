@@ -35,7 +35,7 @@ The database views bypass the role-based access of ConfigMgr. The scan counts al
 1. Select **Settings** in the sidebar.
 2. Go to **ConfigMgr Site Settings**.
 3. Check **Site Code** and **Site Server / SMS Provider Host**.
-4. Optional: enter **Discovery SQL Server**. Enter the SQL Server instance of the site database, for example `cm01.contoso.com` or `server\instance`.
+4. Optional: enter **Discovery SQL Server**. Enter the SQL Server instance of the site database, for example `sqlserver.example.com` or `server\instance`.
 5. Optional: enter **Discovery Database**, for example `CM_MCM`.
 6. Select **Save Settings**.
 
