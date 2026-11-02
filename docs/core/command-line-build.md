@@ -16,7 +16,7 @@
 
 - The settings of the targets that the run uses. The run applies the same checks as the publish buttons. See [Stage and publish](stage-and-publish.md).
 - **Download Root (local staging)** in Settings, or `--download-root`.
-- The application and the profile exist. Create a profile in the [Application Workbench](workbench.md).
+- The application and the profile exist. Create a profile in the [Workbench](workbench.md).
 
 ## Syntax
 
@@ -35,7 +35,7 @@ AppPackagerBuild --help
 
 ## Steps: stage and publish one application
 
-1. Find the application id. In the Application Workbench, the field **Stable identity** shows `Application id <id>`.
+1. Find the application id. In the Workbench, the field **Stable identity** shows `Application id <id>`.
 2. Open a command prompt.
 3. Run the command. For example:
 

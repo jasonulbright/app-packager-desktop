@@ -22,7 +22,7 @@
 
 ## Steps
 
-1. Open the **Packages** page.
+1. Open the **App Packager** page.
 2. Stage the applications that you want to publish.
 3. Optional: type a work order or a note in **Administrative Comments**. The app stores it as the description of the ConfigMgr application.
 4. Check the rows to publish.
@@ -37,7 +37,7 @@
 
 ![The Application Already Exists dialog](../images/core-packages-conflict-dialog.png)
 
-![The Packages log after Publish to ConfigMgr](../images/core-publish-configmgr-log.png)
+![The App Packager log after Publish to ConfigMgr](../images/core-publish-configmgr-log.png)
 
 A publish button is disabled while its system is not set up. Point at the button to read the tooltip. The tooltip names the setting that is missing.
 
@@ -100,7 +100,7 @@ A successful distribution request means that ConfigMgr accepted the content. The
 | Test collection | empty | Exact collection name. |
 | Create the collection if it does not exist | off | Creates an empty collection. |
 
-A per-application choice in the [Application Workbench](workbench.md) overrides the application title settings. The app does not rename an existing application.
+A per-application choice in the [Workbench](workbench.md) overrides the application title settings. The app does not rename an existing application.
 
 See [Settings reference](../reference/settings.md).
 
@@ -128,6 +128,7 @@ See [Settings reference](../reference/settings.md).
 | `The SMS Provider <name> denied access. The account needs a ConfigMgr security role for site <code>.` | Your account has no role on the site. | Ask the ConfigMgr administrator for a role. |
 | `The CMSite drive for site <code> on <provider> could not connect. Check the site code and the SMS Provider in Settings, ConfigMgr Site Settings.` | The site code or the provider name is wrong. | Correct the values in Settings. |
 | `Distribution failed: <reason>` or `Test deployment failed: <reason>` | An After Package step failed. The application exists. | Read the reason in the log and fix the cause. |
+| `Search query parameter 'LocalizedDisplayName' supports wildcards and -DisableWildcardHandling is defined. Search will only return exact matches.` (three times for each publish run) | The ConfigMgr cmdlet writes this warning into the log pane. It does not mean that the publish failed. | None. The message is a warning of the cmdlet. |
 
 See [Error messages](../reference/error-messages.md) and [Troubleshooting](../troubleshooting.md).
 

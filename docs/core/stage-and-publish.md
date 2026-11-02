@@ -32,7 +32,7 @@ The app does not need elevation. Do not run the app as administrator if you use 
 
 ## Steps: stage one or more applications
 
-1. Open the **Packages** page.
+1. Open the **App Packager** page.
 2. Select the check box of each application to stage.
 3. Optional: select **Check Latest**. Stage reuses the version that **Check Latest** found and does not read the vendor again.
 4. Select **Stage**.
@@ -42,7 +42,7 @@ The app does not need elevation. Do not run the app as administrator if you use 
 8. To stop the run, select **Cancel** or press Esc. The status of the running row changes to `Cancelled`.
 9. To read the result, right-click the row and select **Open Staged Folder**.
 
-![The Packages log after Stage of one application](../images/core-stage-result-log.png)
+![The App Packager log after Stage of one application](../images/core-stage-result-log.png)
 
 ![The Install Parameters review dialog before Stage](../images/core-packages-review-dialog.png)
 
@@ -68,9 +68,13 @@ Stage runs these steps for each application, in this order:
 11. It writes `stage-manifest.json` in the staged folder.
 12. If the Win32 Content Prep Tool is on this computer, it builds the `.intunewin` file.
 
+A definition from [Add from file](add-from-file.md) has no version source and no download address. For it, step 2 takes the version that you reviewed. Step 4 copies the saved installer into the staged folder. Before the copy, Stage checks that the file exists and has the saved SHA-256. After the copy, it checks the hash of the copy. A missing or changed file stops the stage with a message that gives the path.
+
+A definition with the installer type `MSIX` (a `.msix`, `.appx`, `.msixbundle` or `.appxbundle` file) is checked for its signature and its architecture. A package with no signature, a signature that is not valid, or an architecture that differs from the definition stops the stage. A definition with the installer type `MSP` stages a Windows Installer patch.
+
 Office (ODT) definitions stage through the Office Deployment Tool. They use the channel from Settings, M365 Apps — Channel.
 
-The shared download cache is `<Download Root>\_cache`. A profile other than the packager default stages under `<Download Root>\profiles\<ProfileId>`. See [Application Workbench](workbench.md).
+The shared download cache is `<Download Root>\_cache`. A profile other than the packager default stages under `<Download Root>\profiles\<ProfileId>`. See [Workbench](workbench.md).
 
 A download that fails is tried a second time after 5 seconds. The log shows `Downloading: <file> (attempt 1/2)`.
 
@@ -91,7 +95,7 @@ See [Settings reference](../reference/settings.md) for defaults.
 ## Limits
 
 - Stage does not publish anything. It changes no site, tenant or server.
-- `Publish to ConfigMgr` and `Publish to Intune` on the Packages page use content that Stage already wrote. If the staged manifest is missing, the log shows `Stage manifest not found: <path>. Run Stage for <application> <version> first.` `Publish to WSUS` stages by itself when no stage of the latest version exists.
+- `Publish to ConfigMgr` and `Publish to Intune` on the App Packager page use content that Stage already wrote. If the staged manifest is missing, the log shows `Stage manifest not found: <path>. Run Stage for <application> <version> first.` `Publish to WSUS` stages by itself when no stage of the latest version exists.
 - When a Content Prep Tool is not on this computer, Stage does not download it. The first Intune publish downloads it. You can also select **Download** in Settings, Detected Tools.
 - The lab validated Stage and ConfigMgr publishing on a lab site with client computers.
 
@@ -106,7 +110,7 @@ See [Settings reference](../reference/settings.md) for defaults.
 | `Payload SHA256 '<actual>' does not match the expected value '<expected>': <file>` | The downloaded file differs from the hash that the vendor published. | Stage again. If the message repeats, do not use the file. |
 | `Payload architecture is '<actual>', expected '<expected>': <file>` | The installer is for a different architecture than the definition. | Check the architecture of the definition. |
 | `Installer signature is <status>, not Valid: <file>` | A local installer has no valid Authenticode signature. | Use a signed installer. |
-| `Staging folder '<folder>' can be changed by other accounts (<list>). Use a folder that only your account and administrators can write, such as '<default>'.` | Other accounts can write to Download Root. | Choose a folder that only your account and administrators can write. |
+| `Staging folder '<folder>' can be changed by other accounts (<list>). Use a folder that only your account and administrators can write, such as '<default>'.` | Other accounts can write to Download Root. `<default>` is the `Staging` folder of the per-user data folder. With an `APP_PACKAGER_DATA_ROOT` override, its path includes your Windows SID, for example `C:\...\Users\S-1-5-21-...\Staging`. | Choose a folder that only your account and administrators can write. |
 | `Skipped <application>: no installer source folder chosen.` | You cancelled the folder prompt. | Stage again and choose the folder. |
 | `Stage FAILED (exit 1)` followed by `STDERR:` lines | Stage stopped. The `STDERR` lines name the reason. | Read the lines. |
 

@@ -4,7 +4,7 @@
 
 **Discover unmanaged software** finds applications that your clients have installed and that ConfigMgr does not manage. It reads the Add/Remove Programs inventory in the ConfigMgr site database. It offers an application when at least one client reports it and the site has no ConfigMgr application for it.
 
-An application that you accept appears in the Packages grid. You can then use **Check Latest**, **Check ConfigMgr**, **Stage** and the publish buttons on it.
+An application that you accept appears in the App Packager grid. You can then use **Check Latest**, **Check ConfigMgr**, **Stage** and the publish buttons on it.
 
 Discover shows counts only. It never shows or stores a client name.
 
@@ -12,7 +12,7 @@ Discover shows counts only. It never shows or stores a client name.
 
 - Use Discover to find the software that clients run and that nobody has packaged for ConfigMgr yet.
 - Use it after hardware inventory ran on new clients.
-- Discover considers only applications that are hidden on the [Applications page](applications.md). Hide the applications that you want Discover to consider.
+- Discover considers only applications that are hidden in the [Catalog](applications.md). Hide the applications that you want Discover to consider.
 
 ## Requirements
 
@@ -45,8 +45,8 @@ With both optional boxes empty, Discover reads the SQL Server name and the datab
 
 ### Find the applications
 
-1. Select **Applications** in the sidebar. Clear the check box of each application that Discover must consider. Select **Save**.
-2. Select **Packages** in the sidebar.
+1. Select **App Packager** in the sidebar. Select **Catalog**. Clear the check box of each application that Discover must consider. Select **Save**.
+2. Close the Catalog.
 3. Select **Discover unmanaged software**.
 4. Wait for the scan. The status line shows `Reading Add/Remove Programs inventory from the ConfigMgr site database...`. Select **Cancel** to stop the scan.
 5. Read the status line and the log. They show the number of clients, the age of the newest data and the number of applications that Discover found.
@@ -58,14 +58,14 @@ With both optional boxes empty, Discover reads the SQL Server name and the datab
 
 | Button | Effect |
 |---|---|
-| **Enable selected** | Shows the checked applications in the Packages grid. |
-| **Enable all** | Shows every application of the list in the Packages grid. |
+| **Enable selected** | Shows the checked applications in the App Packager grid. |
+| **Enable all** | Shows every application of the list in the App Packager grid. |
 | **Not now** | Closes the prompt and changes nothing. The next scan offers the applications again. |
 | **Don't ask again for selected** | Keeps the checked applications hidden. Later scans leave them out. |
 
 When you select **Enable selected** or **Don't ask again for selected** and no row is checked, the prompt stays open and changes nothing. The note line shows `Check at least one app, or click Enable all.` or `Check the apps to leave out of later discoveries. Nothing changed.`
 
-After **Enable selected** or **Enable all**, the log shows `<N> app(s) added to the grid. Manage them on the Applications page.` Enabling an application only shows its row. Select **Check ConfigMgr** to see its real state.
+After **Enable selected** or **Enable all**, the log shows `<N> app(s) added to the grid. Show or hide them with Catalog on the App Packager page.` Enabling an application only shows its row. Select **Check ConfigMgr** to see its real state.
 
 ### Offer the dismissed applications again
 

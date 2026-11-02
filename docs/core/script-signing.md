@@ -45,6 +45,8 @@ The app never exports a private key. A private key never reaches profiles, manif
 
 The result of the test reads like this: `Status: <status>. Signature intact: yes. Trusted on this host: yes. Timestamp verified: <value>.` followed by a reason when one applies. *Signature intact* and *Trusted on this host* are two separate results. A signature can be intact and still not trusted on this computer. A local check does not prove that the certificate is trusted on your clients.
 
+With a self-signed code-signing certificate that this computer does not trust, the result starts with `Status: UnknownError.` The text that follows names the cause: the signer chain is not trusted. The status word is not the cause. Read the text after it.
+
 ## How a build uses the switches
 
 Stage resolves the certificate before it writes any file, when any Sign or Require switch is on. If the certificate is not usable, Stage stops and leaves no partial content.
@@ -71,7 +73,7 @@ Signed scripts reach the targets like this:
 - ConfigMgr imports a signed detection script from its file, so the signature bytes stay intact. A required deployment signature is checked again at publish.
 - Intune sets `enforceSignatureCheck` on a PowerShell detection rule when the detection script is signed or when a valid detection signature is required.
 
-The staged `stage-manifest.json` records the signing result for each category. The plan on **Review & build** in the [Application Workbench](workbench.md) shows the signing line, for example `Signing : off; no script is signed in this build`.
+The staged `stage-manifest.json` records the signing result for each category. The plan on **Review & build** in the [Workbench](workbench.md) shows the signing line, for example `Signing : off; no script is signed in this build`.
 
 ## Options and settings
 

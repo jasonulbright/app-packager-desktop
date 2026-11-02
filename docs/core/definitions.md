@@ -2,7 +2,7 @@
 
 ## What it does
 
-A definition is one JSON file that describes one application. It names the vendor, the place to read the current version, the download address, the install and uninstall commands and the rule that detects the installed application. The Packages page shows one row for each definition.
+A definition is one JSON file that describes one application. It names the vendor, the place to read the current version, the download address, the install and uninstall commands and the rule that detects the installed application. The App Packager page shows one row for each definition.
 
 Shipped definitions are in the `Definitions` folder beside `ApplicationPackagerUI.exe`. The release ships 319 definitions. You can add your own definitions and you can replace a shipped definition.
 
@@ -10,8 +10,8 @@ This page explains how definitions work. Every field is in [Definition format](.
 
 ## When to use it
 
-- To learn what a row on the Packages page reads and uses.
-- To add an application: see [Add App](add-app.md), or the steps below.
+- To learn what a row on the App Packager page reads and uses.
+- To add an application: see [Add from web](add-app.md), [Add from file](add-from-file.md), or the steps below.
 - To change a shipped definition: see [Replace a shipped definition](#replace-a-shipped-definition).
 - To find out why **Check Latest** returns an error for a row.
 
@@ -30,8 +30,8 @@ This page explains how definitions work. Every field is in [Definition format](.
 
 - App Packager Desktop reads every `*.json` file in the two definition folders. It sorts the files by name.
 - The property names are not case sensitive.
-- A file that App Packager Desktop cannot read as JSON, or a file with an empty `Id`, does not appear in the Packages grid. The other definitions still load.
-- [Add App](add-app.md) and **Save as definition** in the installer drop dialog write new files to the user definitions folder. They never overwrite a file.
+- A file that App Packager Desktop cannot read as JSON, or a file with an empty `Id`, does not appear in the App Packager grid. The other definitions still load.
+- [Add from web](add-app.md) and [Add from file](add-from-file.md) write new files to the user definitions folder. They never overwrite a file.
 - The paths with the `APP_PACKAGER_DATA_ROOT` and `APP_PACKAGER_WORKBENCH_ROOT` overrides are in [Data folders](../reference/data-folders.md).
 
 ### Which definition wins
@@ -42,7 +42,7 @@ The `Id` identifies a definition. The comparison ignores case.
 - A user definition with a new `Id` is a custom application.
 - If two user files have the same `Id`, the file that sorts first by name is used.
 
-App Packager Desktop also finds PS1 packager scripts named `package-*.ps1`. It looks in the folder under Settings, Packagers Folder, and in the `Packagers` folder beside the executable. No PS1 packager ships. A JSON definition replaces a PS1 packager with the same application name. The Applications page marks these rows with the badge `PS1`.
+App Packager Desktop also finds PS1 packager scripts named `package-*.ps1`. It looks in the folder under Settings, Packagers Folder, and in the `Packagers` folder beside the executable. No PS1 packager ships. A JSON definition replaces a PS1 packager with the same application name. The [Catalog](applications.md) marks these rows with the badge `PS1`.
 
 ## What a definition controls
 
@@ -123,23 +123,23 @@ These counts come from the 319 files.
 2. Copy the file to the user definitions folder.
 3. Do not change the `Id`.
 4. Change the copy in a text editor.
-5. On the Packages page, press F5.
+5. On the App Packager page, click the grid, then press F5.
 6. Check the row and select **Check Latest** to test the version source.
 
 ### Add a definition by hand
 
 1. Copy a shipped definition that is similar to your application. Use `putty.json` for an MSI with a version on a web page. Use `notepadplusplus.json` for an EXE with a version in a GitHub release.
 2. Save the copy in the user definitions folder.
-3. Change `Id` to a new value of your own. The wizard uses 16 characters.
+3. Change `Id` to a new value of your own. Add from web and Add from file use 16 characters.
 4. Change `Vendor`, `Application`, `CMName`, `VendorUrl`, the version source, `DownloadUrl`, the install fields and `Detection`.
 5. Delete the `Cpe`, `ArpName` and `SecurityAdvisoryUrl` fields, or replace them with values for your application. The copied values describe the other application.
-6. On the Packages page, press F5.
+6. On the App Packager page, click the grid, then press F5.
 
 ## Limits
 
-- When it loads a file, the Packages page checks only that the file parses as JSON and that `Id` is not empty. The page shows no message for a file that it skips.
+- When it loads a file, the App Packager page checks only that the file parses as JSON and that `Id` is not empty. The page shows no message for a file that it skips.
 - The version checks and the downloads run through `curl.exe`. A download address must be an absolute http or https address.
-- A definition file is not an editable object in App Packager Desktop. Add App writes a new file and never changes one. To change a file, use a text editor.
+- A definition file is not an editable object in App Packager Desktop. Add from web and Add from file write a new file and never change one. To change a file, use a text editor.
 
 ## Troubleshooting
 
@@ -147,9 +147,9 @@ These counts come from the 319 files.
 |---|---|---|
 | `ERROR: No scraper registered for type '<type>'` | `VersionScraper.Type` is not one of the seven types. | Use a type from the table. |
 | `Refused download URL '<url>': it is not an absolute http or https URL.` | A definition holds a download address that is not an absolute http or https address. | Correct the definition. |
-| `ERROR: Could not determine latest version for <application>` | The scraper found no version. | Check `Url` and `Pattern`. Use **Test Scrape** on [Add App](add-app.md) to test the same values. |
+| `ERROR: Could not determine latest version for <application>` | The scraper found no version. | Check `Url` and `Pattern`. Use **Test Scrape** on [Add from web](add-app.md) to test the same values. |
 | `GitHub API rate limit reached for <url> ...` | The scraper reads `api.github.com` without a token. | Set `APP_PACKAGER_GITHUB_TOKEN` or `GITHUB_TOKEN`, or run `gh auth login`. |
-| A definition is missing from the grid. | The file is not valid JSON, has an empty `Id`, or is hidden. | Check the file. Check the [Applications page](applications.md). |
+| A definition is missing from the grid. | The file is not valid JSON, has an empty `Id`, or is hidden. | Check the file. Check the [Catalog](applications.md). |
 
 ## Links
 

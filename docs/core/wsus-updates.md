@@ -24,7 +24,7 @@ This page is the second part of [WSUS publishing](wsus-publishing.md). That page
 
 ### Open the window
 
-1. Select **Packages** in the sidebar.
+1. Select **App Packager** in the sidebar.
 2. Select **WSUS Updates**.
 3. Read the summary line. It shows `<N> update(s) on <server>.`
 

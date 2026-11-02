@@ -18,8 +18,8 @@ Use the page after the Setup window, or when a site, share, certificate or key c
 
 1. Select **Settings**, the last entry of the sidebar.
 2. Change the values in the sections below.
-3. Select **Save Settings**. The snackbar shows "Settings saved."
-4. To discard unsaved edits, select **Discard changes**. The button reloads every setting on the page from the saved settings.
+3. Select **Save Settings** in the page header, at the top right. The snackbar shows "Settings saved."
+4. To discard unsaved edits, select **Discard changes** next to it. The button reloads every setting on the page from the saved settings.
 
 ![Top of the Settings page with the Sidebar, Organization and Systems in use sections](../images/core-settings-top.png)
 
@@ -29,7 +29,7 @@ The theme choice **Dark** or **Light** is at the top of the page. The window cha
 
 ### Sidebar
 
-Each entry has a check box, a **Move up** button and a **Move down** button. **Reset sidebar** restores the default order and shows every entry. These changes apply at once. **Save Settings** is not necessary. **Packages** stays first and cannot be hidden.
+Each entry has a check box, a **Move up** button and a **Move down** button. **Reset sidebar** restores the default order and shows every entry. These changes apply at once. **Save Settings** is not necessary. The entries are in two groups, the first group and **TOOLS**. An entry moves only inside its group. **App Packager** stays first and cannot be hidden.
 
 ### Organization
 
@@ -140,7 +140,7 @@ The section has three **Sign** check boxes and three **Require valid ... signatu
 | **Include version in application name** | Cleared | One ConfigMgr application for each release. Existing applications are not renamed. |
 | **Remove version from application name** | Cleared | Available while the first box is cleared. |
 
-A choice in the Application Workbench overrides the title choices. The two content options apply to deployment types that later Package runs create.
+A choice in the Workbench overrides the title choices. The two content options apply to deployment types that later Package runs create.
 
 ### M365 Apps, Install Parameters and sources
 
@@ -161,7 +161,7 @@ The section sets the install switches of the Citrix Workspace App definitions: *
 
 ### About
 
-The section shows the application name, the version, and the text "MIT License. Settings are stored under %LOCALAPPDATA%\AppPackager." **Releases** opens the releases page of the project in the browser.
+The section shows the application name, the version, and the text "MIT License. Settings are stored under %LOCALAPPDATA%\AppPackager." The text does not follow an `APP_PACKAGER_DATA_ROOT` override: with an override, the settings are under the override folder. See [Data folders](../reference/data-folders.md). **Releases** opens the releases page of the project in the browser.
 
 ![The About section](../images/core-settings-about.png)
 

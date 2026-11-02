@@ -70,14 +70,14 @@ The server signs each update with its signing certificate. Use one of these butt
 
 ### Publish
 
-1. Select **Packages** in the sidebar.
+1. Select **App Packager** in the sidebar.
 2. Check the applications to publish.
 3. Select **Publish to WSUS**.
 4. Read the **Status** column of each row and the log pane.
 
 The run stages an application first when it has no stage of its latest version. The run then checks the staged build against the rules of WSUS and publishes it.
 
-![The Packages grid with the WSUS result of a publish in the Status column](../images/core-publish-wsus-row.png)
+![The App Packager grid with the WSUS result of a publish in the Status column](../images/core-publish-wsus-row.png)
 
 ## Results in the Status column
 
@@ -164,6 +164,7 @@ The command line publishes to WSUS with `--target WSUSOnly` or `--target MECMAnd
 | `WSUS server required.` and `Publish requires a WSUS server. Open Settings, WSUS Publishing, to configure it.` | **WSUS server** is empty. | Enter the server in **Settings**, **WSUS Publishing**. |
 | `WSUS server name '<x>' is not a host name.` | The name has a scheme, a path or a character that a host name cannot have. | Enter the host name only. |
 | `Connecting to WSUS <server>:<port> failed: ...` | The server did not answer, or the console version does not match. | Install the WSUS console at the version of the server. For SSL, trust the server certificate and set `SchUseStrongCrypto` = 1 as the message shows. |
+| `Connecting to WSUS <server>:<port> failed: Request for principal permission failed.. The WSUS console on this computer must match the server version.` | The token of the account lacks the WSUS Administrators right. The lab saw this when the test ran without elevation, as a member of the local Administrators group. The hint about the console version is then not the cause, and the text has a double period. | Give the account the WSUS Administrators right, or start the app elevated for the test. Do not trust the hint about the console version in this case. |
 | `The account must be a member of the WSUS Administrators group on the server.` | The account has no administrator rights on WSUS. | Add the account to the WSUS Administrators group. |
 | `This computer must trust the WSUS signing certificate...` | The server text says `Verification of file signature failed`. | Export the certificate with **Export certificate...**. Import it into Trusted Publishers on this computer. Import it into Trusted Root Certification Authorities when it is self-signed. |
 | `The UpdateServicesPackages or WSUSContent share on the server is missing, not shared, or not writable.` | The server text says `CreateDirectory failed`. | Check the shares and their permissions. |

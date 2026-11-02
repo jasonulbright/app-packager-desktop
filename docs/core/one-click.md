@@ -10,11 +10,11 @@ You set the tracked applications, the action and the default destinations once i
 
 - Use One Click to keep a fixed set of applications current with one operation.
 - Use the action **Report only** to find out which tracked applications have a new version. Nothing is staged or published.
-- Use the publish buttons of the [Packages page](packages.md) to publish a single application or a one-time selection.
+- Use the publish buttons of the [App Packager page](packages.md) to publish a single application or a one-time selection.
 
 ## Requirements
 
-- At least one tracked application. See the first steps below. A tracked application must be visible in the Packages grid.
+- At least one tracked application. See the first steps below. A tracked application must be visible in the App Packager grid.
 - For **Stage** and **Stage and Publish**: a **Download Root** in Settings.
 - For each publish destination: the destination must be in use and set up. The plan names a destination that is not ready.
 
@@ -35,7 +35,7 @@ The rights of each destination are in [Permissions](../reference/permissions.md)
 3. Select the **Action on update**: **Report only**, **Stage** or **Stage and Publish**.
 4. Check **Default destinations**: **ConfigMgr**, **WSUS** and **Intune**.
 5. Select **Existing ConfigMgr app**: **Skip the application** or **Overwrite it**.
-6. In the grid, check **Track** for each application to track. Use **Track all** or **Track none** to change all rows. Use **Refresh list** to rebuild the list from the applications that the Packages page shows.
+6. In the grid, check **Track** for each application to track. Use **Track all** or **Track none** to change all rows. Use **Refresh list** to rebuild the list from the applications that the App Packager page shows.
 7. Optional: change the check boxes **ConfigMgr**, **WSUS** and **Intune** of one row. A row with its own choice does not follow the default. A row with no box checked is skipped.
 8. Optional: enter **Cadence (days)** for one row.
 9. Select **Save Settings**.
@@ -44,7 +44,7 @@ The rights of each destination are in [Permissions](../reference/permissions.md)
 
 ### Plan and run
 
-1. Select **Packages** in the sidebar.
+1. Select **App Packager** in the sidebar.
 2. Optional: enter text in **Administrative Comments**. A publish to ConfigMgr uses this comment.
 3. Select **One Click**. The **One Click** window opens.
 4. Read the summary line, the action line, the scope line and the grid. A line that starts with `Not ready:` names a destination that cannot take a publish.
@@ -108,7 +108,7 @@ The plan leaves a row or a destination out for these reasons:
 | `Failed` | A step failed. |
 | `Planned` | The row is in a plan report only. |
 
-The status of the row in the Packages grid shows `Published`, `Published, partial`, `Publish error`, `WSUS: not supported` or `Skipped`.
+The status of the row in the App Packager grid shows `Published`, `Published, partial`, `Publish error`, `WSUS: not supported` or `Skipped`.
 
 ## The report
 
@@ -158,11 +158,11 @@ In the plan window, **Include** and the destination boxes apply to this run only
 |---|---|---|
 | Dialog **One Click Not Configured**: `No apps are tracked yet.` | No application is tracked. | Track applications in **Settings**, **One Click Settings**. Select **Save Settings**. |
 | `Download Root is required for action '<action>'. Open Settings.` | The action stages, and **Download Root** is empty. | Set **Download Root** in Settings. |
-| `No tracked apps are visible in the grid.` | The tracked applications are hidden on the [Applications page](applications.md). | Show the applications. |
+| `No tracked apps are visible in the grid.` | The tracked applications are hidden in the [Catalog](applications.md). | Show the applications. |
 | `Not ready: <destination>: <reason> (<N> application(s) select it)` | A destination is not in use or not set up. | Set up the destination. See the table under Requirements. |
 | `WSUS: not supported` in the **Reason** column | The definition declares that WSUS cannot take the application. | See [WSUS publishing](wsus-publishing.md). Clear the **WSUS** box of the row. |
 | `skipped: application <name> already exists` with `ConfigMgr: application exists, policy Skip` | The ConfigMgr application exists and **Existing ConfigMgr app** is **Skip the application**. | Select **Overwrite it** to replace the deployment types. |
-| `One Click skipped: another operation is running.` | Another operation of the Packages page is running. | Wait for it. Run One Click again. |
+| `One Click skipped: another operation is running.` | Another operation of the App Packager page is running. | Wait for it. Run One Click again. |
 | `failed: WSUS rejected the package: Execution Timeout Expired...` | The WSUS database did not answer in time. | Run the database maintenance of the server. See [WSUS publishing](wsus-publishing.md). |
 | `run snapshot not created` or `run snapshot refused: <reason>` | The Workbench cannot resolve the application or the profile. | Open the application in the [Workbench](workbench.md). Read the findings. |
 
