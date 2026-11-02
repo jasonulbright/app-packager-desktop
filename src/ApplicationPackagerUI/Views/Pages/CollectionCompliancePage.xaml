@@ -560,7 +560,7 @@
                 <DataGrid Grid.Row="1" Style="{StaticResource GridBase}" ItemsSource="{Binding LastResults}" MaxHeight="160" SelectionMode="Single"
                           AutomationProperties.AutomationId="dgResults" AutomationProperties.Name="Results">
                     <DataGrid.Columns>
-                        <DataGridTextColumn Header="Result" Binding="{Binding OutcomeText}" Width="90" MinWidth="80" ElementStyle="{StaticResource TrimmedCell}" />
+                        <DataGridTextColumn Header="Result" Binding="{Binding OutcomeText}" Width="90" MinWidth="80" ElementStyle="{StaticResource StatusCell}" />
                         <DataGridTextColumn Header="Action" Binding="{Binding Item.Action}" Width="120" MinWidth="80" ElementStyle="{StaticResource TrimmedCell}" />
                         <DataGridTextColumn Header="Object" Binding="{Binding Item.Target}" Width="*" MinWidth="160" ElementStyle="{StaticResource TrimmedCell}" />
                         <DataGridTextColumn Header="Message" Binding="{Binding Message}" Width="2*" MinWidth="160" ElementStyle="{StaticResource TrimmedCell}" />

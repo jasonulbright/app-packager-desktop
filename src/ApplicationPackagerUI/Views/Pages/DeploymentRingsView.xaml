@@ -198,7 +198,7 @@
                         <DataGrid.Columns>
                             <DataGridTextColumn Header="Ring" Binding="{Binding Ring}" Width="*" MinWidth="140" ElementStyle="{StaticResource TrimmedCell}" />
                             <DataGridTextColumn Header="Check" Binding="{Binding Check}" Width="*" MinWidth="160" ElementStyle="{StaticResource TrimmedCell}" />
-                            <DataGridTextColumn Header="Result" Binding="{Binding Result}" Width="90" MinWidth="90" ElementStyle="{StaticResource TrimmedCell}" />
+                            <DataGridTextColumn Header="Result" Binding="{Binding Result}" Width="90" MinWidth="90" ElementStyle="{StaticResource StatusCell}" />
                             <DataGridTextColumn Header="Message" Binding="{Binding Message}" Width="3*" MinWidth="160" ElementStyle="{StaticResource TrimmedCell}" />
                         </DataGrid.Columns>
                     </DataGrid>
@@ -292,7 +292,7 @@
                         <DataGrid.Columns>
                             <DataGridTextColumn Header="#" Binding="{Binding Index}" Width="60" MinWidth="60" ElementStyle="{StaticResource TrimmedCell}" />
                             <DataGridTextColumn Header="Ring" Binding="{Binding Name}" Width="*" MinWidth="140" ElementStyle="{StaticResource TrimmedCell}" />
-                            <DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="90" MinWidth="80" ElementStyle="{StaticResource TrimmedCell}" />
+                            <DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="90" MinWidth="80" ElementStyle="{StaticResource StatusCell}" />
                             <DataGridTextColumn Header="Collection" Binding="{Binding Collection}" Width="2*" MinWidth="130" ElementStyle="{StaticResource TrimmedCell}" />
                             <DataGridTextColumn Header="Available" Binding="{Binding Available}" Width="160" MinWidth="160" ElementStyle="{StaticResource TrimmedCell}" />
                             <DataGridTextColumn Header="Deadline" Binding="{Binding Deadline}" Width="160" MinWidth="160" ElementStyle="{StaticResource TrimmedCell}" />

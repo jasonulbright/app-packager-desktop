@@ -218,12 +218,12 @@
             <TabItem Header="History" AutomationProperties.AutomationId="tabPivotsHistory">
                 <ScrollViewer x:Name="scrollPivotsHistoryTab" Margin="0,12,0,0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
                               AutomationProperties.AutomationId="scrollPivotsHistoryTab">
-                    <Grid Height="{Binding ViewportHeight, ElementName=scrollPivotsHistoryTab}" MinHeight="620" KeyboardNavigation.TabNavigation="Local">
+                    <Grid Height="{Binding ViewportHeight, ElementName=scrollPivotsHistoryTab}" MinHeight="720" KeyboardNavigation.TabNavigation="Local">
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto" />
-                            <RowDefinition Height="*" MinHeight="140" />
+                            <RowDefinition Height="*" MinHeight="190" />
                             <RowDefinition Height="Auto" />
-                            <RowDefinition Height="2*" MinHeight="160" />
+                            <RowDefinition Height="2*" MinHeight="200" />
                             <RowDefinition Height="Auto" />
                         </Grid.RowDefinitions>
                         <WrapPanel Grid.Row="0" Margin="0,0,0,4" KeyboardNavigation.TabIndex="0" KeyboardNavigation.TabNavigation="Local">

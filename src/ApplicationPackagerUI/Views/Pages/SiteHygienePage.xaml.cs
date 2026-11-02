@@ -308,7 +308,7 @@ public partial class SiteHygienePage : INavigationAware
         dgLive.Columns.Add(new DataGridTextColumn
         {
             Header = SiteHygieneLiveLabels.StatusHeader, HeaderTemplate = _liveFit.HeaderTemplate, Binding = new System.Windows.Data.Binding(nameof(LiveGridRow.StatusCell)), SortMemberPath = SiteHygieneLiveLabels.StatusColumn,
-            ElementStyle = _liveFit.ValueStyle, MinWidth = _liveFit.HeaderNeed(SiteHygieneLiveLabels.StatusHeader),
+            ElementStyle = (Style)FindResource("StatusCell"), MinWidth = _liveFit.HeaderNeed(SiteHygieneLiveLabels.StatusHeader),
             Width = new DataGridLength(_liveFit.HeaderNeed(SiteHygieneLiveLabels.StatusHeader))
         });
         for (var i = 0; i < headers.Count; i++)

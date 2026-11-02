@@ -95,14 +95,14 @@ public sealed class MaintenanceWindowsPageTests
         StaTestHelper.Flush();
     }
 
-    private static void WithPage(ApplicationTheme theme, Action<Window, MaintenanceWindowsPage, MaintenanceWindowsHarness> test, double width = 1400)
+    private static void WithPage(ApplicationTheme theme, Action<Window, MaintenanceWindowsPage, MaintenanceWindowsHarness> test, double width = 1400, double height = 900)
     {
         WithApplication(theme, () =>
         {
             var harness = new MaintenanceWindowsHarness();
             var viewModel = harness.Create();
             var page = new MaintenanceWindowsPage(viewModel);
-            var window = new Window { Width = width, Height = 900, WindowStyle = WindowStyle.None, Content = page };
+            var window = new Window { Width = width, Height = height, WindowStyle = WindowStyle.None, Content = page };
             Show(window);
             try
             {
@@ -1005,5 +1005,29 @@ public sealed class MaintenanceWindowsPageTests
             }
             finally { editorWindow.Close(); }
         });
+    }
+
+    [Theory]
+    [InlineData(ApplicationTheme.Light)]
+    [InlineData(ApplicationTheme.Dark)]
+    public void EveryMainGridShowsAtLeastThreeWholeRowsAtTheMinimumSize(ApplicationTheme theme)
+    {
+        WithPage(theme, (window, page, harness) =>
+        {
+            var viewModel = (MaintenanceWindowsViewModel)page.DataContext;
+            while (viewModel.Rows.Count < 6) viewModel.Rows.Add(viewModel.Rows[viewModel.Rows.Count % 3]);
+            while (viewModel.Coverage.Count < 6) viewModel.Coverage.Add(viewModel.Coverage[viewModel.Coverage.Count % 4]);
+            while (viewModel.Templates.Count < 6) viewModel.Templates.Add(viewModel.Templates[viewModel.Templates.Count % 2]);
+            var rows = new MinimumSizeRows();
+            var tabs = ById<TabControl>(page, "tabMaintenanceWindows");
+            foreach (var (index, id) in new[] { (0, "dgWindows"), (1, "dgCoverage"), (2, "dgTemplates") })
+            {
+                tabs.SelectedIndex = index;
+                window.UpdateLayout();
+                StaTestHelper.Flush();
+                rows.Add(id, ById<DataGrid>(page, id));
+            }
+            rows.AssertEnough($"Maintenance Windows {theme}");
+        }, MinimumSizeRows.Width - NavigationPaneWidth, MinimumSizeRows.Height - 48);
     }
 }

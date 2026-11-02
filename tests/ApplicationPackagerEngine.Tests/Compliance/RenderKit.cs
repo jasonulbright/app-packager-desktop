@@ -190,7 +190,7 @@ internal static class RenderKit
 
     public static Color MostCommon(List<Color> pixels) => pixels.GroupBy(c => c).OrderByDescending(g => g.Count()).First().Key;
 
-    private static double TextContrast(List<Color> pixels)
+    internal static double TextContrast(List<Color> pixels)
     {
         var background = MostCommon(pixels);
         return pixels.Max(p => Contrast(p, background));
