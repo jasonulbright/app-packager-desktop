@@ -89,7 +89,7 @@ public sealed class SigningCertificateService
         var thumb = normalized.CertificateThumbprint;
         if (string.IsNullOrWhiteSpace(thumb))
             throw new SigningCertificateUnavailableException(
-                "no certificate selected. Choose a code-signing certificate thumbprint in Options.");
+                "no certificate selected. Choose a code-signing certificate thumbprint in Settings.");
 
         var storePath = StorePath(normalized.StoreLocation);
         List<X509Certificate2> found;

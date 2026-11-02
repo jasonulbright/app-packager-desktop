@@ -142,6 +142,18 @@ public partial class SettingsViewModel : ObservableObject, ISettingsReload
 
     public string AppVersion { get; } = ReadAppVersion();
 
+    /// <summary>The folder that holds the settings, which APP_PACKAGER_DATA_ROOT moves.</summary>
+    public string SettingsFolder { get; } = ReadSettingsFolder();
+
+    private static string ReadSettingsFolder()
+    {
+        try { return AppDataPaths.Root; }
+        catch (Exception ex) when (ex is IOException or InvalidOperationException or UnauthorizedAccessException or ArgumentException or NotSupportedException)
+        {
+            return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "AppPackager");
+        }
+    }
+
     public string IntuneSecretHint => HasStoredIntuneSecret
         ? "Stored — leave empty to keep it"
         : "Not set";
