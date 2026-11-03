@@ -125,8 +125,8 @@ public sealed class SiteHygieneLiveFitTests
             Show(window);
             try
             {
-                Run(page.OnNavigatedToAsync());
-                Run(viewModel.RefreshLiveAsync());
+                Run(page.OnNavigatedToAsync(), LoadedRunner);
+                Run(viewModel.RefreshLiveAsync(), LoadedRunner);
                 viewModel.SelectedTabIndex = VM.LiveTab;
                 Settle(window);
                 test(window, page, viewModel, h);
@@ -138,6 +138,9 @@ public sealed class SiteHygieneLiveFitTests
             }
         });
     }
+
+    /// <summary>The live refresh of the stub site took more than the ten second default on a loaded CI runner (RefreshLiveAsync, 200 rows).</summary>
+    private static readonly TimeSpan LoadedRunner = TimeSpan.FromMinutes(2);
 
     private static void ShowView(Window window, VM viewModel, Func<LiveViewChoice, bool> which)
     {
