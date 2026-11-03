@@ -56,7 +56,7 @@ The page checks these conditions for Promote:
 
 If the deadline of the ring has passed, the plan offers to move that ring and every later held ring by the same time. Each ring keeps its time from available to deadline. Nothing is promoted by itself.
 
-![Open runs with live counts and a held run](../images/tools-deployment-rings-open-runs.png)
+![An open run with one created ring and the held rings](../images/tools-deployment-rings-open-runs.png)
 
 ## Steps: undo, close or abandon
 

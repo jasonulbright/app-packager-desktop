@@ -52,6 +52,9 @@ With both optional boxes empty, Discover reads the SQL Server name and the datab
 5. Read the status line and the log. They show the number of clients, the age of the newest data and the number of applications that Discover found.
 6. If Discover found applications, read the prompt. The prompt title is **Discover unmanaged software**. The text is `Discovered <N> apps. Enable console view?`.
 7. Check the applications in the list. The columns are **Application**, **Vendor** and **Clients**. The list is sorted by the number of clients, highest first. Press Space to check or clear the selected row.
+
+![The Discover unmanaged software prompt with the list of applications](../images/core-discover-prompt.png)
+
 8. Select one of the four buttons.
 
 | Button | Effect |
