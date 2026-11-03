@@ -18,6 +18,7 @@ using Wpf.Ui.Markup;
 
 namespace ApplicationPackagerEngine.Tests;
 
+[Collection(ProcessEnvironmentCollection.Name)]
 public sealed class ChangePlanTests
 {
     private static ChangePlan Plan(bool destructive = false, bool undo = false) => new(
