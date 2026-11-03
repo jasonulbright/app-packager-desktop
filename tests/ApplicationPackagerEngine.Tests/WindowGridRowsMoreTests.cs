@@ -79,6 +79,8 @@ public sealed class WindowGridRowsMoreTests
             try
             {
                 var rows = new MinimumSizeRows();
+                // The view model lists the updates after the window renders, off the UI thread.
+                StaTestHelper.PumpUntil(() => viewModel.Updates.Count > 0);
                 Settle(window);
                 rows.Add("gridUpdates", (DataGrid)window.FindName("gridUpdates"));
                 rows.AssertEnough($"WSUS updates {theme}");
