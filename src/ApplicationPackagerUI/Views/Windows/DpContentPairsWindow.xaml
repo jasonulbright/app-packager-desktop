@@ -72,11 +72,11 @@
                         </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
-                <DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="120" MinWidth="110" IsReadOnly="True" ElementStyle="{StaticResource TrimmedCell}" />
+                <DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="120" MinWidth="110" IsReadOnly="True" ElementStyle="{StaticResource StatusCell}" />
                 <DataGridTextColumn Header="Content" Binding="{Binding ContentName}" Width="3*" MinWidth="140" IsReadOnly="True" ElementStyle="{StaticResource TrimmedCell}" />
                 <DataGridTextColumn Header="PackageID" Binding="{Binding PackageId}" Width="104" MinWidth="100" IsReadOnly="True" ElementStyle="{StaticResource TrimmedCell}" />
                 <DataGridTextColumn Header="DP" Binding="{Binding DpName}" Width="2*" MinWidth="120" IsReadOnly="True" ElementStyle="{StaticResource TrimmedCell}" />
-                <DataGridTextColumn Header="State" Binding="{Binding StateName}" Width="*" MinWidth="110" IsReadOnly="True" ElementStyle="{StaticResource TrimmedCell}" />
+                <DataGridTextColumn Header="State" Binding="{Binding StateName}" Width="*" MinWidth="110" IsReadOnly="True" ElementStyle="{StaticResource StatusCell}" />
             </DataGrid.Columns>
         </DataGrid>
 

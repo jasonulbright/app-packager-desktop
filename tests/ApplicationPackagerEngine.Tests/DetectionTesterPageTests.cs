@@ -518,6 +518,26 @@ public sealed class DetectionTesterPageTests
             }
         });
     }
+
+    [Theory]
+    [InlineData(ApplicationTheme.Light)]
+    [InlineData(ApplicationTheme.Dark)]
+    public void TheResultColumnOfTheHistoryFollowsTheOutcomeAndReadsInBothStates(ApplicationTheme theme)
+    {
+        WithPage(theme, (window, page, harness) =>
+        {
+            var grid = ById<DataGrid>(page, "dgHistory");
+            grid.BringIntoView();
+            window.UpdateLayout();
+            var seen = StatusColumnKit.Assert(window, grid, $"dgHistory-{theme}", "Result");
+            Assert.Contains(ApplicationPackagerUI.Helpers.OutcomeKind.Success, seen);
+            Assert.Contains(ApplicationPackagerUI.Helpers.OutcomeKind.Critical, seen);
+        }, 1440 - 230, 900 - 48, harness =>
+        {
+            for (var i = 1; i < 6; i++)
+                harness.History.Entries.Add(DetectionTesterHarness.Entry(DateTimeOffset.Now.AddMinutes(-i), new StageDetection { Type = "RegistryKey", RegistryKeyRelative = "SOFTWARE" }, passed: i % 2 == 0));
+        });
+    }
 }
 
 [Collection(ProcessEnvironmentCollection.Name)]

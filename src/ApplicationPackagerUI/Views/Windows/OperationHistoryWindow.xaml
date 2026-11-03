@@ -12,6 +12,14 @@
     ExtendsContentIntoTitleBar="True"
     WindowBackdropType="Mica">
 
+    <ui:FluentWindow.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="/ApplicationPackagerUI;component/Views/Styles/SelectableRows.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </ui:FluentWindow.Resources>
+
     <Grid Margin="16,10,16,16">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
@@ -44,7 +52,7 @@
                     <DataGridTextColumn Header="Target" Binding="{Binding Target}" Width="170" />
                     <DataGridTextColumn Header="Started" Binding="{Binding StartedAt.LocalDateTime, StringFormat='{}{0:yyyy-MM-dd HH:mm:ss}'}" Width="175" />
                     <DataGridTextColumn Header="Finished" Binding="{Binding FinishedAt.LocalDateTime, StringFormat='{}{0:yyyy-MM-dd HH:mm:ss}'}" Width="175" />
-                    <DataGridTextColumn Header="Outcome" Binding="{Binding Outcome}" Width="120" />
+                    <DataGridTextColumn Header="Outcome" Binding="{Binding Outcome}" Width="120" ElementStyle="{StaticResource StatusCell}" />
                     <DataGridTextColumn Header="Details" Binding="{Binding Detail}" Width="*" />
                 </DataGrid.Columns>
             </DataGrid>
@@ -80,7 +88,7 @@
                     <DataGridTextColumn Header="Environment" Binding="{Binding EnvironmentKey}" Width="180" />
                     <DataGridTextColumn Header="Action" Binding="{Binding Action}" Width="105" />
                     <DataGridTextColumn Header="Version" Binding="{Binding Version}" Width="95" />
-                    <DataGridTextColumn Header="Outcome" Binding="{Binding Outcome}" Width="105" />
+                    <DataGridTextColumn Header="Outcome" Binding="{Binding Outcome}" Width="105" ElementStyle="{StaticResource StatusCell}" />
                     <DataGridTextColumn Header="Object" Binding="{Binding ObjectId}" Width="150" />
                     <DataGridTextColumn Header="Details" Binding="{Binding Detail}" Width="*" />
                 </DataGrid.Columns>

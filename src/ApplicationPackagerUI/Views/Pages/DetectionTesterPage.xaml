@@ -9,6 +9,10 @@
     ScrollViewer.CanContentScroll="False">
 
     <Page.Resources>
+        <ResourceDictionary>
+        <ResourceDictionary.MergedDictionaries>
+            <ResourceDictionary Source="/ApplicationPackagerUI;component/Views/Styles/SelectableRows.xaml" />
+        </ResourceDictionary.MergedDictionaries>
         <BooleanToVisibilityConverter x:Key="BoolToVisibility" />
 
         <Style x:Key="FieldLabel" TargetType="TextBlock">
@@ -56,6 +60,7 @@
         <HierarchicalDataTemplate DataType="{x:Type pages:DetectionClauseNode}" ItemsSource="{Binding Children}">
             <TextBlock Text="{Binding Text}" Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
         </HierarchicalDataTemplate>
+        </ResourceDictionary>
     </Page.Resources>
 
     <Grid Margin="24,16,24,16">
@@ -335,7 +340,7 @@
                                 </DataGridTextColumn.ElementStyle>
                             </DataGridTextColumn>
                             <DataGridTextColumn Header="Negative" Binding="{Binding Negative}" Width="90" />
-                            <DataGridTextColumn Header="Result" Binding="{Binding Result}" Width="90" />
+                            <DataGridTextColumn Header="Result" Binding="{Binding Result}" Width="90" ElementStyle="{StaticResource StatusCell}" />
                         </DataGrid.Columns>
                     </DataGrid>
 
