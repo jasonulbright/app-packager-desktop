@@ -151,7 +151,9 @@ A choice in the Workbench overrides the title choices. The two content options a
 
 ![Deployment Type Defaults and the M365 Apps channel](../images/core-settings-defaults.png)
 
-![Install Parameters, Local Installer Sources and Packager Files](../images/core-settings-install-parameters.png)
+![Install Parameters with one application expanded](../images/core-settings-install-parameters.png)
+
+![Local Installer Sources and Packager Files](../images/core-settings-install-parameters-sources.png)
 
 ### Citrix Workspace App — Install Parameters
 

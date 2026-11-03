@@ -27,7 +27,7 @@ None. The window works without a ConfigMgr site, without Intune and without WSUS
 
 The window is not modal. You can use the App Packager page while it is open. A second selection of **Catalog** brings the open window to the front. The search box has the focus when the window opens.
 
-![The Catalog window with two vendor groups expanded](../images/core-catalog.png)
+![The Catalog window with its vendor groups expanded](../images/core-catalog.png)
 
 ### Hide an application
 
