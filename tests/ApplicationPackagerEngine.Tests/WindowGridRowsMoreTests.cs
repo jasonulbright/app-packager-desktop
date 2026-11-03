@@ -349,7 +349,11 @@ public sealed class WindowStatusColumnTests
         finally
         {
             System.Data.SQLite.SQLiteConnection.ClearAllPools();
-            try { Directory.Delete(folder, recursive: true); } catch (IOException) { }
+            try { Directory.Delete(folder, recursive: true); }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                System.Diagnostics.Trace.TraceWarning($"Could not delete the temp folder '{folder}': {ex.Message}");
+            }
         }
     }
 
