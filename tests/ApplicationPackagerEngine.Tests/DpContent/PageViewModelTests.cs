@@ -647,7 +647,7 @@ public sealed class PageViewModelTests
     {
         var h = DpContentPageHarness.Large(300, 100);
         var vm = await h.OpenAsync(VM.IssuesTab);
-        Assert.Equal(30_000, vm.Services.Content.LoadAsync(new Progress<string>(), CancellationToken.None).Result.Pairs.Count);
+        Assert.Equal(30_000, (await vm.Services.Content.LoadAsync(new Progress<string>(), CancellationToken.None)).Pairs.Count);
         Assert.Equal(300, vm.DpRows.Count);
         Assert.Equal(6_000, vm.IssueRows.Count);
         vm.IssueState = VM.FailedOnly;

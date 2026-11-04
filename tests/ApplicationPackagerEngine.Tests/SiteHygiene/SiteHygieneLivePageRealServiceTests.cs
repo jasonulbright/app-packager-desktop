@@ -28,9 +28,9 @@ internal sealed class LiveRealPage : IDisposable
         History = new MetricsHistoryStore(Path.Combine(Folder, MetricsHistoryStore.FileName));
         AlertLog = new AlertLog(Path.Combine(Folder, AlertLog.FileName));
         Reports = new LiveReportWriter(new HygieneReportWriter(Path.Combine(Folder, "Reports")));
-        Import = new LegacyDashboardImport(History, () => SiteHygieneLivePreferences.Values(Harness.Settings), values =>
+        Import = new LegacyDashboardImport(History, () => SiteHygieneLivePreferences.Values(Harness!.Settings), values =>
         {
-            SiteHygieneLivePreferences.FillValues(Harness.Settings, values);
+            SiteHygieneLivePreferences.FillValues(Harness!.Settings, values);
             return true;
         }, suiteFolders: () => [SuiteFolder]);
         Harness = new SiteHygienePageHarness

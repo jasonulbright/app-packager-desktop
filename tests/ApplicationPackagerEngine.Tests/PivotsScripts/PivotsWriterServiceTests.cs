@@ -70,7 +70,7 @@ public sealed class PivotsWriterServiceTests
     }
 
     [Fact]
-    public void AScriptRunGoesThroughTheRealServiceWithBothBoxes()
+    public async Task AScriptRunGoesThroughTheRealServiceWithBothBoxes()
     {
         using var h = new PivotsHarness();
         var plan = Plan(h, PivotsChangeKind.RunScript, RunTargetKind.Device, "CLIENT01");
@@ -81,7 +81,7 @@ public sealed class PivotsWriterServiceTests
         Assert.Equal("Sent", dialog.Outcome.Result!.Items.Single().OutcomeText);
         Assert.Equal(1, h.Site.Count("RunScript:"));
         Assert.Equal(SiteOperationOutcome.Succeeded, history.Entries.Single().Outcome);
-        var done = h.WaitAsync(plan.Outcome!.OperationId!, window: TimeSpan.FromSeconds(30)).Result;
+        var done = await h.WaitAsync(plan.Outcome!.OperationId!, window: TimeSpan.FromSeconds(30));
         Assert.Equal(PivotsDeviceStates.Completed, done.Devices.Single().State);
         Assert.Single(h.Finished());
     }
