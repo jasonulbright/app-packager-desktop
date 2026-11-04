@@ -6,7 +6,7 @@
 
 - Add a user guide with 90 pages and 123 screenshots.
 - Add a short README with the product overview.
-- Add Add from web, Add from file and a Catalog window to App Packager.
+- Add web and file entry points and a Catalog window to App Packager.
 
 ### Changed
 
