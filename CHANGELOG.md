@@ -1,5 +1,27 @@
 # Changelog
 
+## [2026.1103.3] - 2026-11-03
+
+### Added
+
+- Add a user guide with 90 pages and 123 screenshots.
+- Add a short README with the product overview.
+- Add web and file entry points and a Catalog window to App Packager.
+
+### Changed
+
+- Group applications in the sidebar of App Packager.
+- Show status text in readable colors in every status column.
+- Keep at least three whole rows visible in grids at 1024x720.
+
+### Fixed
+
+- Repair the keyboard shortcuts and the conflict dialog.
+- Repair the focus ring of the change-plan grid.
+- Show clear empty-state messages in Site Hygiene Live.
+- Correct the Citrix labels, the About path and the signing hint.
+- Correct the WSUS connection hint and the secure-connection wording.
+
 ## [2026.1026.2] - 2026-10-26
 
 ### Added
