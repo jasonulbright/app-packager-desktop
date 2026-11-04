@@ -363,8 +363,8 @@ public sealed class SiteHygieneLiveTests
                 Assert.True(LiveData.LongValues.ContainsKey(header), $"{header} has no longest real value for the fit tests.");
             }
         }
-        Assert.Empty(SiteHygieneLiveLabels.FixedHeaders.Where(h => !headers.Contains(h)));
-        Assert.Empty(LiveData.LongValues.Keys.Where(h => !headers.Contains(h)));
+        Assert.All(SiteHygieneLiveLabels.FixedHeaders, h => Assert.Contains(h, headers));
+        Assert.All(LiveData.LongValues.Keys, h => Assert.Contains(h, headers));
     }
 
     [Fact]
