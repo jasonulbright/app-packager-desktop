@@ -1,7 +1,7 @@
 {
   "Schema": 1,
   "Id": "7716134f98111f10",
-  "WsusSupport": "No (DetectionNotMappable)",
+  "WsusSupport": "Yes",
     "IconSource":  "Installer",
   "Vendor": "Microsoft",
   "Application": "Azure Storage Explorer (x64)",
@@ -28,7 +28,8 @@
     "Type": "File",
     "FilePath": "C:\\Program Files\\Microsoft Azure Storage Explorer",
     "FileName": "StorageExplorer.exe",
-    "PropertyType": "Existence",
+    "PropertyType": "Version",
+    "Operator": "GreaterEquals",
     "Is64Bit": true
   },
   "RunningProcess": [

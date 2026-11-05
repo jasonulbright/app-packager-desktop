@@ -1,7 +1,7 @@
 {
   "Schema": 1,
   "Id": "5c19b7ae32d84066",
-  "WsusSupport": "No (DetectionNotMappable)",
+  "WsusSupport": "Yes",
     "IconSource":  "Installer",
   "Vendor": "iterate GmbH",
   "Application": "Cyberduck (x64)",
@@ -25,7 +25,8 @@
     "Type": "File",
     "FilePath": "C:\\Program Files\\Cyberduck",
     "FileName": "Cyberduck.exe",
-    "PropertyType": "Existence",
+    "PropertyType": "Version",
+    "Operator": "GreaterEquals",
     "Is64Bit": true
   },
   "RunningProcess": ["Cyberduck"]

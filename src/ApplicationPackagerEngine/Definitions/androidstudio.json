@@ -15,18 +15,17 @@
   "VersionScraper": {
     "Type": "HttpRegex",
     "Url": "https://jb.gg/android-studio-releases-list.json",
-    "Pattern": "/android/studio/install/(\\d+(?:\\.\\d+)+)/android-studio-\\d[\\d.]*-windows\\.exe"
+    "Pattern": "/android/studio/install/(\\d+(?:\\.\\d+)+)/android-studio-\\d[\\d.]*-windows\\.exe",
+    "BuildQuery": "\"build\":\"AI-([0-9.]+)\",\"platformVersion\":\"[^\"]*\",\"name\":\"[^\"]*\",\"channel\":\"Release\",\"version\":\"{version}\""
   },
   "DownloadUrl": "https://redirector.gvt1.com/edgedl/android/studio/install/{version}/android-studio-{version}-windows.exe",
   "InstallArgs": "/S",
   "UninstallArgs": "/S",
   "UninstallCommand": "\"C:\\Program Files\\Android\\Android Studio\\uninstall.exe\" /S",
   "Detection": {
-    "Type": "File",
-    "FilePath": "C:\\Program Files\\Android\\Android Studio\\bin",
-    "FileName": "studio64.exe",
-    "PropertyType": "Existence",
-    "Is64Bit": true
+    "Type": "Script",
+    "ScriptLanguage": "PowerShell",
+    "ScriptText": "$root = if ($env:ProgramW6432) { $env:ProgramW6432 } else { $env:ProgramFiles }\r\n$file = Join-Path $root 'Android\\Android Studio\\product-info.json'\r\nif (-not (Test-Path -LiteralPath $file)) { exit 0 }\r\ntry {\r\n    $info = Get-Content -LiteralPath $file -Raw -ErrorAction Stop | ConvertFrom-Json\r\n    $have = @(([string]$info.buildNumber).Split('.') | ForEach-Object { [int64]$_ })\r\n    $need = @('{FeedBuild}'.Split('.') | ForEach-Object { [int64]$_ })\r\n}\r\ncatch { exit 0 }\r\n$result = 0\r\nfor ($i = 0; $i -lt [Math]::Max($have.Count, $need.Count); $i++) {\r\n    $a = if ($i -lt $have.Count) { $have[$i] } else { 0 }\r\n    $b = if ($i -lt $need.Count) { $need[$i] } else { 0 }\r\n    if ($a -ne $b) { $result = if ($a -gt $b) { 1 } else { -1 }; break }\r\n}\r\nif ($result -ge 0) { Write-Output 'Installed' }\r\nexit 0"
   },
   "RunningProcess": [
     "studio64"

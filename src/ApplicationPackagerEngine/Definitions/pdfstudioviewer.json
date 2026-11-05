@@ -1,7 +1,7 @@
 {
   "Schema": 1,
   "Id": "71a039df1eb088b7",
-  "WsusSupport": "No (DetectionNotMappable)",
+  "WsusSupport": "Yes",
     "IconSource":  "Installer",
   "Vendor": "Qoppa Software",
   "Application": "PDF Studio Viewer (x64)",
@@ -26,7 +26,8 @@
     "Type": "File",
     "FilePath": "C:\\Program Files\\PDFStudioViewer2024",
     "FileName": "PDFStudioViewer2024.exe",
-    "PropertyType": "Existence",
+    "PropertyType": "Version",
+    "Operator": "GreaterEquals",
     "Is64Bit": true
   },
   "RunningProcess": ["PDFStudioViewer2024"]

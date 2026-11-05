@@ -1,7 +1,7 @@
 {
   "Schema": 1,
   "Id": "f533d2b2d2014d88",
-  "WsusSupport": "No (DetectionNotMappable)",
+  "WsusSupport": "Yes",
     "IconSource":  "Installer",
   "Vendor": "CPUID",
   "Application": "CPU-Z",
@@ -22,10 +22,12 @@
   "InstallArgs": "/VERYSILENT /NORESTART",
   "UninstallArgs": "/VERYSILENT /NORESTART",
   "Detection": {
-    "Type": "File",
-    "FilePath": "C:\\Program Files\\CPUID\\CPU-Z",
-    "FileName": "cpuz_x64.exe",
-    "PropertyType": "Existence",
+    "Type": "RegistryKeyValue",
+    "RegistryHive": "HKLM",
+    "RegistryKeyTemplate": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\CPUID CPU-Z_is1",
+    "ValueName": "DisplayVersion",
+    "PropertyType": "Version",
+    "Operator": "GreaterEquals",
     "Is64Bit": true
   },
   "RunningProcess": [

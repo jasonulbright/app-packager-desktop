@@ -22,11 +22,13 @@
   "InstallArgs": "/install /quiet /norestart",
   "UninstallArgs": "/uninstall /quiet /norestart",
   "Detection": {
-    "Type": "File",
-    "FilePath": "C:\\Program Files\\Amazon\\SessionManagerPlugin\\bin",
-    "FileName": "session-manager-plugin.exe",
-    "PropertyType": "Existence",
-    "Is64Bit": true
+    "Type": "RegistryKeyValue",
+    "RegistryHive": "HKLM",
+    "RegistryKeyTemplate": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{BundleId}",
+    "ValueName": "DisplayVersion",
+    "PropertyType": "Version",
+    "Operator": "GreaterEquals",
+    "Is64Bit": false
   },
   "RunningProcess": [
     "session-manager-plugin"

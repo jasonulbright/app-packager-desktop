@@ -1,7 +1,7 @@
 {
   "Schema": 1,
   "Id": "736ab21985556fe0",
-  "WsusSupport": "No (DetectionNotMappable)",
+  "WsusSupport": "Yes",
     "IconSource":  "Installer",
   "Vendor": "AIMP DevTeam",
   "Application": "AIMP (x64)",
@@ -22,10 +22,12 @@
   "InstallArgs": "/SILENT",
   "UninstallArgs": "/SILENT",
   "Detection": {
-    "Type": "File",
-    "FilePath": "C:\\Program Files\\AIMP",
-    "FileName": "AIMP.exe",
-    "PropertyType": "Existence",
+    "Type": "RegistryKeyValue",
+    "RegistryHive": "HKLM",
+    "RegistryKeyTemplate": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\AIMP",
+    "ValueName": "DisplayVersion",
+    "PropertyType": "Version",
+    "Operator": "GreaterEquals",
     "Is64Bit": true
   },
   "RunningProcess": [

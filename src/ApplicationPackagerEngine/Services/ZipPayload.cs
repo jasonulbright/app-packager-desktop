@@ -24,7 +24,10 @@ public static class ZipPayload
         var names = zip.Entries.Select(e => e.FullName.Replace('\\', '/')).ToList();
 
         var parent = Path.GetDirectoryName(config.InstallDir.TrimEnd('\\', '/'))!;
-        var outside = names.FirstOrDefault(n => !IsContained(parent, top, n));
+        // A flat ZIP extracts into InstallDir itself: each entry is checked as if the top folder held it.
+        var outside = names.FirstOrDefault(n => config.FlatExtract
+            ? !IsPlainRelative(n) || !IsContained(parent, top, top + "/" + n)
+            : !IsContained(parent, top, n));
         if (outside is not null)
             throw new InvalidOperationException($"ZIP entry '{outside}' is outside the {top} folder the install extracts: {Path.GetFileName(zipPath)}");
 
@@ -59,14 +62,28 @@ public static class ZipPayload
         return true;
     }
 
-    public static void GenerateWrappers(WrapperGeneratorService wrappers, string outputPath, string zipFileName, ZipPayloadConfig config)
+    /// <summary>True for an entry name that is not rooted, has no drive or stream colon and no ".." segment.</summary>
+    private static bool IsPlainRelative(string entryName)
+    {
+        var name = entryName.Replace('/', '\\');
+        return name.Length > 0 && !name.Contains(':') && !name.StartsWith('\\') && !name.Split('\\').Contains("..");
+    }
+
+    public static void GenerateWrappers(WrapperGeneratorService wrappers, string outputPath, string zipFileName,
+        ZipPayloadConfig config, string? version = null)
     {
         var installDir = PowerShellLiteral.EscapeSingleQuoted(config.InstallDir.TrimEnd('\\'));
+        var flat = config.FlatExtract;
+        var marker = string.IsNullOrWhiteSpace(config.VersionRegistryKey) ? null
+            : PowerShellLiteral.EscapeSingleQuoted(@"HKLM:\" + config.VersionRegistryKey.Trim('\\'));
+        if (marker is not null && string.IsNullOrWhiteSpace(version))
+            throw new InvalidOperationException("ZipPayload.VersionRegistryKey needs the staged version.");
+        var leaf = PowerShellLiteral.EscapeSingleQuoted(TopFolder(config));
         // Every entry is checked before anything is removed or extracted: the
         // extraction root is the parent folder, and Windows PowerShell 5.1 keeps
         // entries inside that root only. An earlier version is removed first:
         // extracting over it would leave its plugins beside the new ones.
-        var install = string.Join("\r\n",
+        var install = JoinLines(
             "$ErrorActionPreference = 'Stop'",
             $"$zipPath = Join-Path $PSScriptRoot '{PowerShellLiteral.EscapeSingleQuoted(zipFileName)}'",
             $"$installDir = '{installDir}'",
@@ -80,7 +97,9 @@ public static class ZipPayload
             "            $name = $entry.FullName.Replace('/', '\\')",
             "            $full = $null",
             "            if (-not ($name.Contains(':') -or $name.StartsWith('\\') -or ($name.Split('\\') -contains '..'))) {",
-            "                $full = [System.IO.Path]::GetFullPath([System.IO.Path]::Combine($parent, $name))",
+            flat
+                ? $"                $full = [System.IO.Path]::GetFullPath([System.IO.Path]::Combine($parent, '{leaf}', $name))"
+                : "                $full = [System.IO.Path]::GetFullPath([System.IO.Path]::Combine($parent, $name))",
             "            }",
             "            if ($null -eq $full -or -not $full.StartsWith($root, [System.StringComparison]::OrdinalIgnoreCase)) {",
             "                [Console]::Error.WriteLine(\"ZIP entry '$($entry.FullName)' is outside $installDir; nothing was changed.\")",
@@ -90,7 +109,11 @@ public static class ZipPayload
             "    }",
             "    finally { $zip.Dispose() }",
             "    if (Test-Path -LiteralPath $installDir) { Remove-Item -LiteralPath $installDir -Recurse -Force }",
-            "    [System.IO.Compression.ZipFile]::ExtractToDirectory($zipPath, (Split-Path -Path $installDir -Parent))",
+            flat
+                ? "    [System.IO.Compression.ZipFile]::ExtractToDirectory($zipPath, $installDir)"
+                : "    [System.IO.Compression.ZipFile]::ExtractToDirectory($zipPath, (Split-Path -Path $installDir -Parent))",
+            marker is null ? null : $"    New-Item -Path '{marker}' -Force -ErrorAction Stop | Out-Null",
+            marker is null ? null : $"    New-ItemProperty -Path '{marker}' -Name Version -Value '{PowerShellLiteral.EscapeSingleQuoted(version!)}' -PropertyType String -Force -ErrorAction Stop | Out-Null",
             "    exit 0",
             "}",
             "catch {",
@@ -98,11 +121,12 @@ public static class ZipPayload
             "    exit 1",
             "}");
 
-        var uninstall = string.Join("\r\n",
+        var uninstall = JoinLines(
             "$ErrorActionPreference = 'Stop'",
             $"$installDir = '{installDir}'",
             "try {",
             "    if (Test-Path -LiteralPath $installDir) { Remove-Item -LiteralPath $installDir -Recurse -Force }",
+            marker is null ? null : $"    if (Test-Path -LiteralPath '{marker}') {{ Remove-Item -LiteralPath '{marker}' -Recurse -Force }}",
             "    exit 0",
             "}",
             "catch {",
@@ -112,6 +136,9 @@ public static class ZipPayload
 
         wrappers.WriteWrappers(outputPath, install, uninstall);
     }
+
+    /// <summary>Joins script lines with CRLF and leaves out a null line.</summary>
+    private static string JoinLines(params string?[] lines) => string.Join("\r\n", lines.OfType<string>());
 
     /// <summary>The InstallDir leaf, which the ZIP's single top folder must carry.</summary>
     public static string TopFolder(ZipPayloadConfig config)

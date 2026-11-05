@@ -1,7 +1,7 @@
 ﻿{
     "Schema":  1,
     "Id":  "000001b8b99bf5fa",
-    "WsusSupport":  "No (DetectionNotMappable)",
+    "WsusSupport":  "Yes",
     "IconSource":  "Installer",
     "Vendor":  "Greenshot",
     "Application":  "Greenshot (x64)",
@@ -24,12 +24,13 @@
     "InstallArgs":  "/VERYSILENT /NORESTART /SUPPRESSMSGBOXES /ALLUSERS /TYPE=Compact",
     "UninstallArgs":  "/SP- /VERYSILENT /NORESTART",
     "Detection":  {
-                      "Type":  "File",
-                      "FilePath":  "C:\\Program Files\\Greenshot",
-                      "FileName":  "Greenshot.exe",
-                      "PropertyType":  "Existence",
-                      "Is64Bit":  true
-                  },
+        "Type":  "File",
+        "FilePath":  "C:\\Program Files\\Greenshot",
+        "FileName":  "Greenshot.exe",
+        "PropertyType":  "Version",
+        "Operator":  "GreaterEquals",
+        "Is64Bit":  true
+    },
     "RunningProcess":  [
                            "Greenshot"
                        ],
