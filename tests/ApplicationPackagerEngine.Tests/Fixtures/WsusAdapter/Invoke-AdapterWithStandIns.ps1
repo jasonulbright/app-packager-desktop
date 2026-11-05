@@ -72,7 +72,7 @@ function Get-WsusUpdateObject {
         default { return $null }
     }
 }
-function Invoke-WsusUpdateApproval { param($Server, $Update, $GroupName) throw ("WSUS has no computer group named '{0}'." -f $GroupName) }
+function Invoke-WsusUpdateApproval { param($Server, $Update, $GroupName) if ($GroupName -eq 'Pilto') { throw ("WSUS has no computer group named '{0}'." -f $GroupName) } }
 function Invoke-WsusUpdateDecline { param($Update) $global:StandInLog.Add('decline ' + $Update.Title) }
 function Invoke-WsusUpdateDeletion {
     param($Server, $UpdateId)

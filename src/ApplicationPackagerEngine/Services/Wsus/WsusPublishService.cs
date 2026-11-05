@@ -182,6 +182,9 @@ public sealed class WsusPublishService(IWsusAdapterRunner? runner = null, WsusRu
                 if (WsusAdminClient.Bool(approval, "Ok")) approved = normalized.ApprovalGroup;
                 else warnings.Add($"approval for {normalized.ApprovalGroup} failed: {WsusAdminClient.Str(approval, "Message")}");
             }
+            // The adapter declines earlier versions only after the replacement is approved.
+            if (WsusAdminClient.Bool(data, "DeclinesSkipped"))
+                warnings.Add("earlier versions were not declined because the approval failed");
             var titles = declineTargets.ToDictionary(u => u.PackageId, u => u.Title, StringComparer.OrdinalIgnoreCase);
             foreach (var entry in (data["Declines"] as JsonArray ?? []).OfType<JsonObject>())
             {

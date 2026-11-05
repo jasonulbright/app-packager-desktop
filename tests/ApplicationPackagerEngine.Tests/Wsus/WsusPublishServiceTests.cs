@@ -94,7 +94,11 @@ public class WsusPublishServiceTests : IDisposable
                 data["Approval"] = new JsonObject { ["Group"] = group, ["Ok"] = _approvalError is null, ["Message"] = _approvalError ?? "" };
             }
             var declines = new JsonArray();
-            foreach (var decline in (request["DeclinePackageIds"] as JsonArray ?? []).Select(n => n!.GetValue<string>()))
+            // The adapter declines earlier versions only after the approval succeeded.
+            var approvalFailed = group.Length > 0 && _approvalError is not null;
+            data["DeclinesSkipped"] = approvalFailed && (request["DeclinePackageIds"] as JsonArray ?? []).Count > 0;
+            if (approvalFailed) data["Declines"] = declines;
+            foreach (var decline in approvalFailed ? [] : (request["DeclinePackageIds"] as JsonArray ?? []).Select(n => n!.GetValue<string>()))
             {
                 var failed = _declineErrors.TryGetValue(decline, out var error);
                 if (!failed) _declines.Add(decline);
@@ -234,7 +238,7 @@ public class WsusPublishServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task KeepsASuccessfulPublishWhenTheApprovalOrADeclineFailsAfterwards()
+    public async Task KeepsTheEarlierVersionsAndASuccessfulPublishWhenTheApprovalFails()
     {
         var older = Guid.Parse("00000000-0000-0000-0000-000000000541");
         _serverUpdates.Add(Update(older, "Contoso Tool 5.4.1", Line("5.4.1")));
@@ -245,7 +249,9 @@ public class WsusPublishServiceTests : IDisposable
         Assert.Equal(WsusPublishOutcome.Published, result.Outcome);
         Assert.Equal("", result.Approved);
         Assert.Contains("approval for Pilto failed: WSUS has no computer group named 'Pilto'", result.Warnings[0]);
-        Assert.Equal([older.ToString()], _declines);
+        Assert.Equal("earlier versions were not declined because the approval failed", result.Warnings[1]);
+        Assert.Empty(_declines);
+        Assert.Empty(result.Declined);
         Assert.Contains("approval for Pilto failed", result.Message);
         Assert.Equal(WsusStepStatus.Published, result.ToStepResult().Status);
     }

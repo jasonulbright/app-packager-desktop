@@ -408,9 +408,11 @@ public sealed class WrapperGeneratorService
             install.Add("if ($sig.SignerCertificate.Thumbprint -ne $expected) { Write-Error \"MSIX signed by unexpected cert (got $($sig.SignerCertificate.Thumbprint), expected $expected)\"; Exit-Wrapper 3 }");
         }
 
+        // The AppX cmdlets report most failures as non-terminating errors; without
+        // -ErrorAction Stop the wrapper would reach Exit-Wrapper 0 after a failed install.
         install.Add(provisioned
-            ? "Add-AppxProvisionedPackage -Online -PackagePath $msixPath -SkipLicense | Out-Null"
-            : "Add-AppxPackage -Path $msixPath");
+            ? "try { Add-AppxProvisionedPackage -Online -PackagePath $msixPath -SkipLicense -ErrorAction Stop | Out-Null } catch { [Console]::Error.WriteLine($_.Exception.Message); Exit-Wrapper 1 }"
+            : "try { Add-AppxPackage -Path $msixPath -ErrorAction Stop } catch { [Console]::Error.WriteLine($_.Exception.Message); Exit-Wrapper 1 }");
         install.Add("Exit-Wrapper 0");
 
         if (!string.IsNullOrWhiteSpace(uninstallCommand))
@@ -458,13 +460,15 @@ public sealed class WrapperGeneratorService
         var installedMatch = publisher is null ? "" : $" | Where-Object {{ $_.PublisherId -eq '{publisher}' }}";
         if (provisioned)
         {
-            uninstall.Add($"$prov = Get-AppxProvisionedPackage -Online | Where-Object {{ $_.DisplayName -eq $identity.Name{provisionedMatch} }}");
-            uninstall.Add("foreach ($p in $prov) { Remove-AppxProvisionedPackage -Online -PackageName $p.PackageName | Out-Null }");
-            uninstall.Add($"Get-AppxPackage -AllUsers -Name $identity.Name -PackageTypeFilter $packageType{installedMatch} | ForEach-Object {{ Remove-AppxPackage -Package $_.PackageFullName -AllUsers }}");
+            uninstall.Add("try {");
+            uninstall.Add($"    $prov = Get-AppxProvisionedPackage -Online -ErrorAction Stop | Where-Object {{ $_.DisplayName -eq $identity.Name{provisionedMatch} }}");
+            uninstall.Add("    foreach ($p in $prov) { Remove-AppxProvisionedPackage -Online -PackageName $p.PackageName -ErrorAction Stop | Out-Null }");
+            uninstall.Add($"    Get-AppxPackage -AllUsers -Name $identity.Name -PackageTypeFilter $packageType -ErrorAction Stop{installedMatch} | ForEach-Object {{ Remove-AppxPackage -Package $_.PackageFullName -AllUsers -ErrorAction Stop }}");
+            uninstall.Add("} catch { [Console]::Error.WriteLine($_.Exception.Message); Exit-Wrapper 1 }");
         }
         else
         {
-            uninstall.Add($"Get-AppxPackage -Name $identity.Name -PackageTypeFilter $packageType{installedMatch} | Remove-AppxPackage");
+            uninstall.Add($"try {{ Get-AppxPackage -Name $identity.Name -PackageTypeFilter $packageType -ErrorAction Stop{installedMatch} | Remove-AppxPackage -ErrorAction Stop }} catch {{ [Console]::Error.WriteLine($_.Exception.Message); Exit-Wrapper 1 }}");
         }
         uninstall.Add("Exit-Wrapper 0");
 

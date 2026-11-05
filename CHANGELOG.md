@@ -22,6 +22,9 @@
 - Treat a rebuilt GIMP installer (`gimp-3.0.8-setup-2.exe`) as a distinct release. The scraper read only the base version and downloaded the first build.
 - Keep the files a profile places under the `scripts` folder when a build is signed, and sign them with the deployment files. Signing removed the whole folder. It now replaces only `detect.ps1` and the `requirements` folder inside it.
 - Apply `TimestampRequired` to a preserved third-party signature. A signature without a timestamp counter-signature now fails the check.
+- Decline earlier WSUS updates only after the replacement is approved. A failed approval followed by a decline left computers with no update.
+- Stop a WSUS adapter child that runs longer than 30 minutes and report it as a failure. The child had no time limit.
+- Fail the MSIX install and uninstall wrappers when an AppX cmdlet fails. They exited 0 after a non-terminating error.
 - Extract the Sysinternals Suite ZIP in the install wrapper. The wrapper started the ZIP as a program before.
 - Read the ProductCode of an Advanced Installer or InstallShield EXE that wraps an MSI. The analysis extracts the MSI in the sandbox and reads its Property table.
 
