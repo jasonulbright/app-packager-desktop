@@ -17,12 +17,12 @@
                     },
     "VersionScraper":  {
                            "Type":  "HttpRegex",
-                           "Url":  "https://zoom.us/client/latest/ZoomInstaller.exe",
+                           "Url":  "https://zoom.us/client/latest/ZoomInstaller.exe?archType=x64",
                            "Pattern":  "REDIR:/prod/(\\d+\\.\\d+\\.\\d+\\.\\d+)/"
                        },
     "InstallerType":  "MSI",
     "InstallerFileName":  "ZoomInstallerFull-{version}.msi",
-    "DownloadUrl":  "https://zoom.us/client/latest/ZoomInstallerFull.msi",
+    "DownloadUrl":  "https://zoom.us/client/latest/ZoomInstallerFull.msi?archType=x64",
     "InstallArgs":  "/qn /norestart ZoomAutoUpdate=Disabled",
     "UninstallArgs":  "/x {ProductCode} /qn /norestart",
     "Detection":  {
