@@ -156,6 +156,9 @@ internal static class DefaultBuildWsusCheck
                 def.PostInstallKillProcesses, def.RebootExitCodes, def.SuccessExitCodes);
         }
 
+        if (def.TargetSecret is not null)
+            TargetSecretScript.ApplyToFile(Path.Combine(folder, "install.ps1"), def.TargetSecret);
+
         return new StageManifest
         {
             InstallerFile = installerFileName,

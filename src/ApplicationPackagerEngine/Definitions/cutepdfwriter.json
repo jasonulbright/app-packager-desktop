@@ -17,10 +17,11 @@
                     },
     "VersionScraper":  {
                            "Type":  "FileVersion",
-                           "Url":  "http://www.cutepdf.com/download/CuteWriter.exe",
+                           "Url":  "https://www.cutepdf.com/download/CuteWriter.exe",
                            "Pattern":  "ProductVersion"
                        },
-    "DownloadUrl":  "http://www.cutepdf.com/download/CuteWriter.exe",
+    "DownloadUrl":  "https://www.cutepdf.com/download/CuteWriter.exe",
+    "RequireValidSignature":  true,
     "InstallerFileName":  "CuteWriter-{version}.exe",
     "InstallArgs":  "/SP- /VERYSILENT /SUPPRESSMSGBOXES /NORESTART",
     "UninstallArgs":  "/uninstall /s",

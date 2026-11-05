@@ -19,20 +19,21 @@
     "VersionScraper":  {
                            "Type":  "HttpRegex",
                            "Url":  "https://download.gimp.org/gimp/v3.0/windows/",
-                           "Pattern":  "0\\.0_LATEST-IS-(\\d+\\.\\d+\\.\\d+)"
+                           "Pattern":  "0\\.0_LATEST-IS-(\\d+\\.\\d+\\.\\d+(?:-(?:[2-9]|[1-9]\\d+))?)"
                        },
-    "DownloadUrl":  "https://download.gimp.org/gimp/v3.0/windows/gimp-{version}-setup.exe",
+    "DownloadUrl":  "https://download.gimp.org/gimp/v3.0/windows/gimp-{version_base}-setup{revision_dash}.exe",
     "InstallArgs":  "/VERYSILENT /NORESTART /ALLUSERS /SP-",
     "UninstallArgs":  "/VERYSILENT /NORESTART",
     "Detection":  {
-                      "Type":  "RegistryKeyValue",
-                      "RegistryHive":  "HKLM",
-                      "RegistryKeyTemplate":  "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\GIMP-3_is1",
-                      "ValueName":  "DisplayVersion",
-                      "PropertyType":  "Version",
-                      "Operator":  "GreaterEquals",
-                      "Is64Bit":  true
-                  },
+        "Type":  "RegistryKeyValue",
+        "RegistryHive":  "HKLM",
+        "RegistryKeyTemplate":  "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\GIMP-3_is1",
+        "ValueName":  "DisplayVersion",
+        "PropertyType":  "Version",
+        "Operator":  "GreaterEquals",
+        "Is64Bit":  true,
+        "ExpectedValue":  "{version_numeric}"
+    },
     "RunningProcess":  [
                            "gimp"
                        ]

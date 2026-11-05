@@ -13,7 +13,7 @@ public class InstallerSettingsResolutionTests
     // The full effective install arguments of each definition with default parameters.
     // Compared as a switch set, since the resolver appends parameter fragments after
     // the base.
-    private const string MariaDbArgsBeforeDedup = "/qn /norestart SERVICENAME=MariaDB PORT=3306";
+    private const string MariaDbArgsBeforeDedup = "/qn /norestart SERVICENAME=MariaDB PASSWORD={TargetSecret} PORT=3306";
 
     private const string WacArgsBeforeDedup = "/VERYSILENT /HTTPSPortNumber=443";
 
@@ -59,7 +59,7 @@ public class InstallerSettingsResolutionTests
 
         var resolved = StagingService.ResolveInstallerArgs(def.InstallArgs, def.InstallerSettings, values);
 
-        Assert.Equal("/qn /norestart SERVICENAME=MariaDB11 PORT=3307", resolved);
+        Assert.Equal("/qn /norestart SERVICENAME=MariaDB11 PASSWORD={TargetSecret} PORT=3307", resolved);
     }
 
     [Fact]
@@ -70,7 +70,7 @@ public class InstallerSettingsResolutionTests
 
         var resolved = StagingService.ResolveInstallerArgs(def.InstallArgs, def.InstallerSettings, values);
 
-        Assert.Equal("/qn /norestart SERVICENAME=MariaDB PORT=3307", resolved);
+        Assert.Equal("/qn /norestart SERVICENAME=MariaDB PASSWORD={TargetSecret} PORT=3307", resolved);
     }
 
     [Fact]

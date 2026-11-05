@@ -16,6 +16,10 @@
 - Uninstall Vim through the UninstallString of its entry, Anaconda in place with its folder deleted after, and the AWS Session Manager plugin from its bundle cache copy.
 - Count exit code 1223 as success for the Android Studio install, and read its newest release from the feed again. The feed names new installers without the version.
 - Check and download the current 64-bit Zoom Workplace release. The latest URLs served the older 32-bit build without `archType=x64`.
+- Generate the PostgreSQL 13 to 17 superuser password and the MariaDB root password on each target. The definitions carried one fixed password for every target. The password is stored DPAPI-protected in a folder only SYSTEM and Administrators can read.
+- Download CutePDF Writer over HTTPS and require a valid vendor signature.
+- Detect the .NET Desktop runtime by its own framework folder (`PresentationFramework.dll`) instead of the host resolver.
+- Treat a rebuilt GIMP installer (`gimp-3.0.8-setup-2.exe`) as a distinct release. The scraper read only the base version and downloaded the first build.
 - Extract the Sysinternals Suite ZIP in the install wrapper. The wrapper started the ZIP as a program before.
 - Read the ProductCode of an Advanced Installer or InstallShield EXE that wraps an MSI. The analysis extracts the MSI in the sandbox and reads its Property table.
 

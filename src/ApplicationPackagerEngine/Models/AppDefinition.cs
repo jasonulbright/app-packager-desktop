@@ -269,6 +269,13 @@ public sealed class AppDefinition
     /// </summary>
     public ZipPayloadConfig? ZipPayload { get; set; }
 
+    /// <summary>
+    /// A secret each target generates for itself, for an installer argument that
+    /// would otherwise need a fixed password in the staged content. The install
+    /// arguments mark its place with {TargetSecret}.
+    /// </summary>
+    public TargetSecretConfig? TargetSecret { get; set; }
+
     /// <summary>True when both modes are declared and an operator choice applies.</summary>
     [JsonIgnore]
     public bool OffersInstallModes =>
@@ -468,6 +475,19 @@ public sealed class SideFileConfig
 
     /// <summary>What the file is, in lower case, for the settings row and the refusal message.</summary>
     public string Label { get; set; } = "";
+}
+
+/// <summary>Where a target keeps the secret it generated.</summary>
+public sealed class TargetSecretConfig
+{
+    /// <summary>Folder under %ProgramData% (letters, digits and hyphens).</summary>
+    public string FolderName { get; set; } = "";
+
+    /// <summary>File in that folder that holds the DPAPI-protected secret.</summary>
+    public string FileName { get; set; } = "";
+
+    /// <summary>Words that name the secret in the error text (letters, digits and spaces).</summary>
+    public string Label { get; set; } = "product";
 }
 
 /// <summary>A ZIP extracted on the client as the installed product.</summary>
