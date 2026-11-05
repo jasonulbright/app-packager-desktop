@@ -37,6 +37,7 @@ Rules for the roots:
 |---|---|---|
 | `Data\Staging\<Application>-<Arch>\<version>\` (default `DownloadRoot`) | Staged content: the installer, `install.ps1` or `install.bat`, `uninstall.ps1` or `uninstall.bat`, `exitcode.txt`, `stage-manifest.json`. | The code states no retention. |
 | `Data\Staging\_cache\` | The shared download cache. | The code states no retention. |
+| `Data\FileVersionCache\` | Installers that a `FileVersion` scraper downloaded, so that Stage can reuse them. **Test Scrape** in Add from web with this scraper type leaves its file here. | A file stays until a newer release replaces it or you delete the folder. The app deletes the oldest files when the folder passes 2 GiB. At the first use the app deletes the old `%TEMP%\SRLPackr-FileVersionCache\` folder and copies nothing from it. |
 | `Data\Staging\profiles\<ProfileId>\...` | Staged content of a non-default Workbench profile. | The code states no retention. |
 
 ## Workbench
@@ -88,7 +89,6 @@ See [Workbench](../core/workbench.md) and [Definitions](../core/definitions.md).
 | `<Packagers folder>\packager-preferences.json`, `citrix-workspace-switches.json` | Written for PS1 packagers. |
 | `<FileShareRoot>\Applications\<Vendor>\<App>\<Version>\` (layout `Nested`) or `<FileShareRoot>\Applications\<Vendor>-<App>-<Version>\` (layout `Flat`), with the `.intunewin` file beside the content | The content share for `Publish to ConfigMgr` and the Intune package. |
 | `%TEMP%\ap-cmsession-*.ps1`, `%TEMP%\apkg-hdr-*.txt`, `%TEMP%\appackager-sign-*`, and the WSUS adapter files `request.json` and `result.json` in a temporary folder | Short-lived files. |
-| `%TEMP%\SRLPackr-FileVersionCache\` | Installers that a `FileVersion` scraper downloaded, so that Stage can reuse them. **Test Scrape** in Add from web with this scraper type leaves its file here. The code states no retention. |
 | `<DownloadRoot>\AddFromWeb\<8 characters>\` | The installer that step 4 of Add from web downloaded. The app deletes the folder when you save, when a new analysis starts, when an analysis fails and when you select **Done**. |
 | The folder where you chose the installer | The installer file of a definition from Add from file. The definition keeps the path, the SHA-256 and the version. The app does not copy or move the file. |
 | `%LOCALAPPDATA%\Update Services\SoftwareDistribution.log` | The WSUS administration API wrote this file in the user profile after the WSUS connection test (Settings, WSUS Publishing, Test connection) ran without elevation. The app does not manage this file. |
