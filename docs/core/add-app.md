@@ -193,7 +193,7 @@ The panel also reads: "The new row is selected in the App Packager. Nothing is s
 - The wizard writes no `Odt` section. The installer type `ODT` needs that section.
 - The wizard never overwrites a file. A second save with the same **Application name** is refused.
 - The wizard does not check the URLs and the regular expression before it saves. Use **Test Scrape**.
-- A `FileVersion` scraper downloads the installer and keeps it in `%TEMP%\SRLPackr-FileVersionCache`. **Test Scrape** with this type leaves the file there.
+- A `FileVersion` scraper downloads the installer and keeps it in `Data\FileVersionCache` (see [Data folders](../reference/data-folders.md)). **Test Scrape** with this type leaves the file there. The file stays until a newer release replaces it or you delete the folder. The app deletes the oldest files when the folder passes 2 GiB.
 - A user definition that is not valid JSON, or that has no `Id`, does not appear in the App Packager grid.
 
 ## Troubleshooting

@@ -22,6 +22,9 @@ public sealed class StagingService
     private readonly IconExtractionService? _iconService;
     private readonly MsixPackageReader _msixReader = new();
 
+    /// <summary>How long a stage waits for another stage of the same application and version.</summary>
+    public TimeSpan StageLockTimeout { get; set; } = StageLock.DefaultTimeout;
+
     public StagingService(
         ScraperRegistry scrapers,
         DownloadService downloadService,
@@ -271,6 +274,7 @@ public sealed class StagingService
             return await StageBootstrapperLayoutAsync(def, downloadRoot, onProgress, ct, knownVersion, finalizer);
 
         var partial = new PartialStage();
+        IDisposable? stageLock = null;
         try
         {
             // Operator inputs the stage cannot do without refuse it before any download.
@@ -328,6 +332,7 @@ public sealed class StagingService
             var appFolder = $"{def.Application.Replace(" ", "")}-{def.Architecture}";
             var baseRoot = Path.Combine(downloadRoot, appFolder);
             var contentPath = Workbench.WorkbenchPaths.CombineUnder(baseRoot, AssertVersionSegment(displayVersion));
+            stageLock = await StageLock.AcquireAsync(contentPath, $"{def.Application} {displayVersion}", StageLockTimeout, onProgress, ct);
             partial.Track(downloadRoot, contentPath);
             Directory.CreateDirectory(contentPath);
 
@@ -712,13 +717,14 @@ public sealed class StagingService
         finally
         {
             partial.RemoveUnlessCompleted(onProgress);
+            stageLock?.Dispose();
         }
     }
 
     /// <summary>
     /// The stage folder a run created, removed when the run ends without a successful result. A version folder
-    /// that existed before the run holds an earlier stage and is kept. Stages of one application are not
-    /// serialized, so a version folder that holds a stage manifest the run did not write is kept, because a
+    /// that existed before the run holds an earlier stage and is kept. Stages of one application and version are
+    /// serialized by <see cref="StageLock"/>, but a version folder that holds a stage manifest the run did not write is kept, because a
     /// concurrent run of the same version can have completed there. A manifest from a failed write of the run is
     /// removed with its folder. A parent folder the run created is removed only while it is empty.
     /// </summary>
@@ -1381,6 +1387,7 @@ public sealed class StagingService
         StageFinalizer finalizer)
     {
         var partial = new PartialStage();
+        IDisposable? stageLock = null;
         try
         {
             var layout = def.BootstrapperLayout!;
@@ -1402,6 +1409,7 @@ public sealed class StagingService
             var contentPath = Path.Combine(baseRoot, version);
 
             AssertLayoutPathLength(contentPath, layout.MaxLayoutPathLength);
+            stageLock = await StageLock.AcquireAsync(contentPath, $"{def.Application} {version}", StageLockTimeout, onProgress, ct);
             partial.Track(downloadRoot, contentPath);
             Directory.CreateDirectory(contentPath);
 
@@ -1530,6 +1538,7 @@ public sealed class StagingService
         finally
         {
             partial.RemoveUnlessCompleted(onProgress);
+            stageLock?.Dispose();
         }
     }
 
@@ -1668,6 +1677,7 @@ public sealed class StagingService
         Dictionary<string, string>? settingsValues, StageFinalizer finalizer)
     {
         var partial = new PartialStage();
+        IDisposable? stageLock = null;
         try
         {
             var odt = def.Odt is null ? null : ResolveOdtConfig(def, settingsValues);
@@ -1699,6 +1709,7 @@ public sealed class StagingService
             var appFolder = $"{def.Application.Replace(" ", "")}-{def.Architecture}";
             var baseRoot = Path.Combine(downloadRoot, appFolder);
             var contentPath = Path.Combine(baseRoot, version);
+            stageLock = await StageLock.AcquireAsync(contentPath, $"{def.Application} {version}", StageLockTimeout, onProgress, ct);
             partial.Track(downloadRoot, contentPath);
             Directory.CreateDirectory(contentPath);
 
@@ -1821,6 +1832,7 @@ public sealed class StagingService
         finally
         {
             partial.RemoveUnlessCompleted(onProgress);
+            stageLock?.Dispose();
         }
     }
 
@@ -2570,7 +2582,7 @@ public sealed class StagingService
     /// installer only when its SHA-256 matches; otherwise the stage fails before anything
     /// is finalized.
     /// </summary>
-    public Task<StagingResult> StageDroppedInstallerAsync(
+    public async Task<StagingResult> StageDroppedInstallerAsync(
         StageManifest manifest, string sourceInstallerPath, string downloadRoot,
         Action<string>? onProgress = null,
         CancellationToken ct = default,
@@ -2578,35 +2590,37 @@ public sealed class StagingService
         ExpectedInstaller? expected = null)
     {
         var partial = new PartialStage();
+        IDisposable? stageLock = null;
         try
         {
             var finalizer = StageFinalizer.Begin(inputs);
             downloadRoot = finalizer.ScopeDownloadRoot(StagingRootGuard.Prepare(downloadRoot));
             if (!File.Exists(sourceInstallerPath))
-                return Task.FromResult(new StagingResult { Success = false, ErrorMessage = $"Installer not found: {sourceInstallerPath}" });
+                return new StagingResult { Success = false, ErrorMessage = $"Installer not found: {sourceInstallerPath}" };
 
             // Wrapper .ps1 files are written for Windows PowerShell defaults on the
             // target device; a non-ASCII installer filename is mangled inside the
             // wrapper and fails only at deployment time.
             if (manifest.InstallerFile.Any(c => c > 0x7F))
-                return Task.FromResult(new StagingResult
+                return new StagingResult
                 {
                     Success = false,
                     ErrorMessage = $"Installer filename contains non-ASCII characters; rename it before staging: {manifest.InstallerFile}"
-                });
+                };
 
             var vendorFolder = MecmTarget.SanitizeFolderNamePublic(manifest.Publisher);
             var appFolder = MecmTarget.SanitizeFolderNamePublic(manifest.DisplayName ?? manifest.AppName);
             var versionFolder = MecmTarget.SanitizeFolderNamePublic(manifest.SoftwareVersion);
 
             if (string.IsNullOrWhiteSpace(appFolder))
-                return Task.FromResult(new StagingResult { Success = false, ErrorMessage = "Application name contains no usable path characters." });
+                return new StagingResult { Success = false, ErrorMessage = "Application name contains no usable path characters." };
             if (string.IsNullOrWhiteSpace(versionFolder))
-                return Task.FromResult(new StagingResult { Success = false, ErrorMessage = "Version contains no usable path characters." });
+                return new StagingResult { Success = false, ErrorMessage = "Version contains no usable path characters." };
             if (string.IsNullOrWhiteSpace(vendorFolder))
                 vendorFolder = "Unknown";
 
             var contentPath = Path.Combine(downloadRoot, vendorFolder, appFolder, versionFolder);
+            stageLock = await StageLock.AcquireAsync(contentPath, $"{appFolder} {versionFolder}", StageLockTimeout, onProgress, ct);
             partial.Track(downloadRoot, contentPath);
             Directory.CreateDirectory(contentPath);
             ct.ThrowIfCancellationRequested();
@@ -2624,12 +2638,12 @@ public sealed class StagingService
                     File.Copy(sourceInstallerPath, copy, false);
                     var actual = ComputeSha256(copy);
                     if (!string.Equals(actual, expected.Sha256, StringComparison.OrdinalIgnoreCase))
-                        return Task.FromResult(new StagingResult
+                        return new StagingResult
                         {
                             Success = false,
                             ErrorMessage = $"The installer copied from {sourceInstallerPath} does not match {expected.Source}: its SHA-256 is {actual}, " +
                                            $"the recorded one is {expected.Sha256}. Nothing was staged."
-                        });
+                        };
                     File.Move(copy, stagedInstaller, overwrite: true);
                 }
                 finally
@@ -2662,13 +2676,13 @@ public sealed class StagingService
             onProgress?.Invoke($"Manifest written: {manifestPath}");
 
             partial.Completed = true;
-            return Task.FromResult(new StagingResult
+            return new StagingResult
             {
                 Success = true,
                 Version = manifest.SoftwareVersion,
                 ContentPath = contentPath,
                 ManifestPath = manifestPath
-            });
+            };
         }
         // Cancellation is not a staging failure; it propagates.
         catch (OperationCanceledException)
@@ -2677,11 +2691,12 @@ public sealed class StagingService
         }
         catch (Exception ex)
         {
-            return Task.FromResult(new StagingResult { Success = false, ErrorMessage = ex.Message });
+            return new StagingResult { Success = false, ErrorMessage = ex.Message };
         }
         finally
         {
             partial.RemoveUnlessCompleted(onProgress);
+            stageLock?.Dispose();
         }
     }
 
