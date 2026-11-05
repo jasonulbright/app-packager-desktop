@@ -19,8 +19,8 @@
     "Pattern": "REDIR:aimp_(\\d+\\.\\d+\\.\\d+)_w64\\.exe"
   },
   "DownloadUrl": "https://aimp.ru/files/desktop/builds/aimp_{version}_w64.exe",
-  "InstallArgs": "/SILENT",
-  "UninstallArgs": "/SILENT",
+  "InstallArgs": "/AUTO /SILENT",
+  "UninstallArgs": "/AUTO /SILENT",
   "Detection": {
     "Type": "RegistryKeyValue",
     "RegistryHive": "HKLM",

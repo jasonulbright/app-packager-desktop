@@ -21,6 +21,7 @@
   "DownloadUrl": "https://s3.amazonaws.com/session-manager-downloads/plugin/{version}/windows/SessionManagerPluginSetup.exe",
   "InstallArgs": "/install /quiet /norestart",
   "UninstallArgs": "/uninstall /quiet /norestart",
+  "UninstallCommand": "$hit = $null; foreach ($root in 'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall', 'HKLM:\\SOFTWARE\\WOW6432Node\\Microsoft\\Windows\\CurrentVersion\\Uninstall') { if (-not (Test-Path -LiteralPath $root)) { continue }; $hit = Get-ChildItem -LiteralPath $root -ErrorAction SilentlyContinue | ForEach-Object { Get-ItemProperty -LiteralPath $_.PSPath -ErrorAction SilentlyContinue } | Where-Object { $_.DisplayName -like 'Session Manager Plugin*' -and $_.BundleCachePath } | Select-Object -First 1; if ($hit) { break } }; if (-not $hit) { exit 0 }; $exe = $hit.BundleCachePath; if (-not (Test-Path -LiteralPath $exe)) { exit 0 }; $proc = Start-Process -FilePath $exe -ArgumentList @('/uninstall', '/quiet', '/norestart') -Wait -PassThru -NoNewWindow",
   "Detection": {
     "Type": "RegistryKeyValue",
     "RegistryHive": "HKLM",

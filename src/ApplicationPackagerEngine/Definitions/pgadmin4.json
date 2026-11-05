@@ -21,7 +21,7 @@
                            "Pattern":  "pgadmin4/v(\\d+\\.\\d+)/windows"
                        },
     "DownloadUrl":  "https://ftp.postgresql.org/pub/pgadmin/pgadmin4/v{version}/windows/pgadmin4-{version}-x64.exe",
-    "InstallArgs":  "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP-",
+    "InstallArgs":  "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP- /ALLUSERS",
     "UninstallArgs":  "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART",
     "Detection":  {
         "Type":  "RegistryKeyValue",

@@ -33,5 +33,5 @@
                            "python",
                            "jupyter-notebook"
                        ],
-    "UninstallCommand":  "$proc = Start-Process -FilePath \"C:\\ProgramData\\Anaconda3\\Uninstall-Anaconda3.exe\" -ArgumentList \"/S\" -Wait -PassThru -NoNewWindow"
+    "UninstallCommand":  "$installDir = 'C:\\ProgramData\\Anaconda3'\r\n$uninstaller = Join-Path $installDir 'Uninstall-Anaconda3.exe'\r\nif (-not (Test-Path -LiteralPath $uninstaller)) { exit 0 }\r\n$proc = Start-Process -FilePath $uninstaller -ArgumentList @('/S', ('_?={0}' -f $installDir)) -Wait -PassThru -NoNewWindow\r\nif ($proc.ExitCode -eq 0) { Remove-Item -LiteralPath $installDir -Recurse -Force -ErrorAction SilentlyContinue }"
 }
