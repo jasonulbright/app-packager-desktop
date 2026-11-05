@@ -1,7 +1,7 @@
 {
     "Schema":  1,
     "Id":  "e1f2a3b4c5d60004",
-    "WsusSupport":  "No (InstallerTypeUnsupported)",
+    "WsusSupport":  "No (InstallerTypeUnsupported|CustomInstall)",
     "IconSource":  "External",
     "Vendor":  "Microsoft",
     "Application":  "Sysinternals Suite (x64)",
@@ -26,12 +26,22 @@
     "InstallArgs":  "",
     "UninstallArgs":  "",
     "Detection":  {
-                      "Type":  "File",
-                      "FilePath":  "C:\\Program Files\\Sysinternals",
-                      "FileName":  "procmon.exe",
-                      "PropertyType":  "Existence",
-                      "Is64Bit":  true
-                  },
+        "Type":  "RegistryKeyValue",
+        "RegistryHive":  "HKLM",
+        "RegistryKeyTemplate":  "SOFTWARE\\App Packager\\Sysinternals Suite",
+        "ValueName":  "Version",
+        "PropertyType":  "Version",
+        "Operator":  "GreaterEquals",
+        "Is64Bit":  true
+    },
+    "ZipPayload":  {
+        "InstallDir":  "C:\\Program Files\\Sysinternals",
+        "FlatExtract":  true,
+        "RequiredEntries":  [
+            "procmon.exe"
+        ],
+        "VersionRegistryKey":  "SOFTWARE\\App Packager\\Sysinternals Suite"
+    },
     "RunningProcess":  [
 
                        ]

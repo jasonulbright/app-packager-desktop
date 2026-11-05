@@ -1,7 +1,7 @@
 {
   "Schema": 1,
   "Id": "cd94a17e602f83b5",
-  "WsusSupport": "No (DetectionNotMappable)",
+  "WsusSupport": "Yes",
     "IconSource":  "Installer",
   "Vendor": "CPUID",
   "Application": "HWMonitor (x64)",
@@ -23,10 +23,12 @@
   "InstallArgs": "/VERYSILENT /NORESTART",
   "UninstallArgs": "/VERYSILENT /NORESTART",
   "Detection": {
-    "Type": "File",
-    "FilePath": "C:\\Program Files\\CPUID\\HWMonitor",
-    "FileName": "HWMonitor_x64.exe",
-    "PropertyType": "Existence",
+    "Type": "RegistryKeyValue",
+    "RegistryHive": "HKLM",
+    "RegistryKeyTemplate": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\CPUID HWMonitor_is1",
+    "ValueName": "DisplayVersion",
+    "PropertyType": "Version",
+    "Operator": "GreaterEquals",
     "Is64Bit": true
   },
   "RunningProcess": ["HWMonitor", "HWMonitor_x64"]

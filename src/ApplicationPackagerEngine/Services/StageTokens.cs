@@ -13,6 +13,9 @@ public sealed partial class StageTokens
 {
     public const string ProductVersionToken = "{ProductVersion}";
     public const string HeaderDisplayVersionToken = "{HeaderDisplayVersion}";
+    public const string BundleIdToken = "{BundleId}";
+    public const string FeedBuildToken = "{FeedBuild}";
+    public const string NumericVersionToken = "{version_numeric}";
 
     /// <summary>The staged display version the version-part tokens read.</summary>
     public string Version { get; init; } = "";
@@ -23,6 +26,12 @@ public sealed partial class StageTokens
     /// <summary>DisplayVersion the NSIS or Inno Setup script registers.</summary>
     public string? HeaderDisplayVersion { get; init; }
 
+    /// <summary>Bundle id of a WiX Burn installer, braced, as its .wixburn header names it.</summary>
+    public string? BundleId { get; init; }
+
+    /// <summary>Build number the version feed publishes for the staged version.</summary>
+    public string? FeedBuild { get; init; }
+
     /// <summary>Values read from ZIP entry names, by token name.</summary>
     public IReadOnlyDictionary<string, string> Zip { get; init; } = new Dictionary<string, string>();
 
@@ -31,6 +40,9 @@ public sealed partial class StageTokens
 
     [GeneratedRegex(@"\{version_part:(\d)\}", RegexOptions.IgnoreCase)]
     private static partial Regex VersionPartToken();
+
+    [GeneratedRegex(@"^\d+(\.\d+)*")]
+    private static partial Regex NumericPrefix();
 
     [GeneratedRegex(@"\{zip:([A-Za-z0-9_]+)\}")]
     private static partial Regex ZipToken();
@@ -42,7 +54,19 @@ public sealed partial class StageTokens
     /// </summary>
     public static string? ApplyVersionParts(string? text, string version)
     {
-        if (string.IsNullOrEmpty(text) || !text.Contains("{version_part", StringComparison.OrdinalIgnoreCase))
+        if (string.IsNullOrEmpty(text)) return text;
+
+        // {version_numeric} is the leading dotted number: a packaging suffix
+        // ("2026.10.1-2") is no part of the version the product reports.
+        if (text.Contains(NumericVersionToken, StringComparison.OrdinalIgnoreCase))
+        {
+            var numeric = NumericPrefix().Match(version);
+            if (!numeric.Success)
+                throw new InvalidOperationException($"Version '{version}' has no dotted number for {NumericVersionToken}.");
+            text = text.Replace(NumericVersionToken, numeric.Value, StringComparison.OrdinalIgnoreCase);
+        }
+
+        if (!text.Contains("{version_part", StringComparison.OrdinalIgnoreCase))
             return text;
 
         var parts = version.Split('.');
@@ -82,6 +106,20 @@ public sealed partial class StageTokens
             text = text.Replace(HeaderDisplayVersionToken, header, StringComparison.OrdinalIgnoreCase);
         }
 
+        if (text.Contains(BundleIdToken, StringComparison.OrdinalIgnoreCase))
+        {
+            if (string.IsNullOrWhiteSpace(BundleId))
+                throw new InvalidOperationException("The definition uses {BundleId}, but the installer carries no WiX Burn bundle id.");
+            text = text.Replace(BundleIdToken, BundleId, StringComparison.OrdinalIgnoreCase);
+        }
+
+        if (text.Contains(FeedBuildToken, StringComparison.OrdinalIgnoreCase))
+        {
+            if (string.IsNullOrWhiteSpace(FeedBuild))
+                throw new InvalidOperationException("The definition uses {FeedBuild}, but the version feed gave no build number for the staged version.");
+            text = text.Replace(FeedBuildToken, FeedBuild, StringComparison.OrdinalIgnoreCase);
+        }
+
         return ZipToken().Replace(text, m => Zip.TryGetValue(m.Groups[1].Value, out var value)
             ? value
             : throw new InvalidOperationException($"No ZIP entry token named '{m.Groups[1].Value}' was read for {m.Value}."));
@@ -119,6 +157,9 @@ public sealed partial class StageTokens
     {
         static bool Has(string? s) => s is not null
             && (s.Contains("{version_part", StringComparison.OrdinalIgnoreCase)
+                || s.Contains(NumericVersionToken, StringComparison.OrdinalIgnoreCase)
+                || s.Contains(BundleIdToken, StringComparison.OrdinalIgnoreCase)
+                || s.Contains(FeedBuildToken, StringComparison.OrdinalIgnoreCase)
                 || s.Contains(ProductVersionToken, StringComparison.OrdinalIgnoreCase)
                 || s.Contains(HeaderDisplayVersionToken, StringComparison.OrdinalIgnoreCase)
                 || s.Contains("{zip:", StringComparison.Ordinal));

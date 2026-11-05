@@ -24,12 +24,10 @@
     "InstallArgs":  "/InstallationType=AllUsers /RegisterPython=0 /S /D=C:\\ProgramData\\Anaconda3",
     "UninstallArgs":  "/S",
     "Detection":  {
-                      "Type":  "File",
-                      "FilePath":  "C:\\ProgramData\\anaconda3",
-                      "FileName":  "python.exe",
-                      "PropertyType":  "Existence",
-                      "Is64Bit":  true
-                  },
+        "Type":  "Script",
+        "ScriptLanguage":  "PowerShell",
+        "ScriptText":  "$want = '{version}'\r\n$m = [regex]::Match($want, '^(\\d{4})\\.(\\d{2})-(\\d+)$')\r\nif (-not $m.Success) { exit 0 }\r\n$minimum = [version]('{0}.{1}.{2}' -f $m.Groups[1].Value, [int]$m.Groups[2].Value, [int]$m.Groups[3].Value)\r\n$base = [Microsoft.Win32.RegistryKey]::OpenBaseKey([Microsoft.Win32.RegistryHive]::LocalMachine, [Microsoft.Win32.RegistryView]::Registry64)\r\n$uninstall = $base.OpenSubKey('SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall')\r\nif ($uninstall) {\r\n    foreach ($name in $uninstall.GetSubKeyNames()) {\r\n        $key = $null\r\n        try { $key = $uninstall.OpenSubKey($name); $displayName = [string]$key.GetValue('DisplayName'); $displayVersion = [string]$key.GetValue('DisplayVersion') }\r\n        catch { continue }\r\n        finally { if ($key) { $key.Close() } }\r\n        if (-not $displayName.StartsWith('Anaconda3 ', [StringComparison]::OrdinalIgnoreCase)) { continue }\r\n        $m = [regex]::Match($displayVersion, '^(\\d{4})\\.(\\d{2})-(\\d+)$')\r\n        if (-not $m.Success) { continue }\r\n        if ([version]('{0}.{1}.{2}' -f $m.Groups[1].Value, [int]$m.Groups[2].Value, [int]$m.Groups[3].Value) -ge $minimum) { Write-Output 'Installed'; exit 0 }\r\n    }\r\n}\r\nexit 0"
+    },
     "RunningProcess":  [
                            "anaconda-navigator",
                            "python",

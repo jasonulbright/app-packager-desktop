@@ -342,6 +342,15 @@ public sealed class VersionScraperConfig
     public string? PayloadHashQuery { get; set; }
 
     /// <summary>
+    /// Optional capture of the product build number from the same feed the
+    /// version came from, for detection that compares a build number the
+    /// version does not carry. A regex over the feed text whose named group
+    /// "build" — or group 1 — holds the build; {version} is replaced by the
+    /// escaped version. It resolves the {FeedBuild} detection token.
+    /// </summary>
+    public string? BuildQuery { get; set; }
+
+    /// <summary>
     /// When true, omits the User-Agent header from HTTP requests.
     /// Some vendors (e.g., Adobe) block requests with browser User-Agents from server IPs.
     /// </summary>
@@ -472,6 +481,20 @@ public sealed class ZipPayloadConfig
 
     /// <summary>Entries the ZIP must hold; staging refuses a ZIP without one.</summary>
     public string[] RequiredEntries { get; set; } = [];
+
+    /// <summary>
+    /// True when the ZIP holds the product files at its top level instead of
+    /// inside a folder named like InstallDir. The install extracts into
+    /// InstallDir itself, and the entries need no top folder.
+    /// </summary>
+    public bool FlatExtract { get; set; }
+
+    /// <summary>
+    /// HKLM subkey that receives the staged version as the string value
+    /// "Version" after the extraction. The uninstall removes the key. It lets
+    /// a ZIP product, which has no uninstall entry, be detected by version.
+    /// </summary>
+    public string? VersionRegistryKey { get; set; }
 
     /// <summary>EXE entry whose icon is the application icon.</summary>
     public string? IconEntry { get; set; }

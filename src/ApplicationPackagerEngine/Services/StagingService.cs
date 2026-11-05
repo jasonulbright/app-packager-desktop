@@ -144,6 +144,11 @@ public sealed class StagingService
         if (string.IsNullOrWhiteSpace(config.PayloadHashQuery)) return null;
         if (string.IsNullOrWhiteSpace(config.Url)) return null;
 
+        return ExtractFeedHash(await FetchFeedAsync(config, ct), config, version);
+    }
+
+    private static async Task<string> FetchFeedAsync(VersionScraperConfig config, CancellationToken ct)
+    {
         using var request = new HttpRequestMessage(HttpMethod.Get, config.Url);
         var headers = (config.RequestHeaders ?? []).Select(Scrapers.CurlHeaders.Split).ToList();
         if (!config.NoUserAgent && !headers.Any(h => h.Name.Equals("User-Agent", StringComparison.OrdinalIgnoreCase)))
@@ -153,9 +158,40 @@ public sealed class StagingService
 
         using var response = await HashFeedClient.SendAsync(request, ct);
         response.EnsureSuccessStatusCode();
-        var content = await response.Content.ReadAsStringAsync(ct);
+        return await response.Content.ReadAsStringAsync(ct);
+    }
 
-        return ExtractFeedHash(content, config, version);
+    /// <summary>
+    /// Resolves the build number the version feed publishes for the staged
+    /// version. Returns null when the definition declares no BuildQuery.
+    /// </summary>
+    public static async Task<string?> ResolveFeedBuildAsync(
+        VersionScraperConfig config, string version, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(config.BuildQuery)) return null;
+        if (string.IsNullOrWhiteSpace(config.Url)) return null;
+
+        return ExtractFeedBuild(await FetchFeedAsync(config, ct), config, version);
+    }
+
+    /// <summary>
+    /// Applies the build capture to already-fetched feed content: a regex whose
+    /// named group "build", or group 1, holds the build. {version} in the
+    /// query is the escaped version, so the build comes from the release that
+    /// the version names. Null when nothing matches.
+    /// </summary>
+    public static string? ExtractFeedBuild(string content, VersionScraperConfig config, string version)
+    {
+        var query = config.BuildQuery;
+        if (string.IsNullOrWhiteSpace(query)) return null;
+
+        var match = System.Text.RegularExpressions.Regex.Match(content,
+            query.Replace("{version}", System.Text.RegularExpressions.Regex.Escape(version), StringComparison.OrdinalIgnoreCase));
+        if (!match.Success) return null;
+
+        var named = match.Groups["build"];
+        if (named.Success) return named.Value;
+        return match.Groups.Count > 1 ? match.Groups[1].Value : null;
     }
 
     /// <summary>
@@ -539,7 +575,15 @@ public sealed class StagingService
             var isMsiPayload = def.InstallerType.Equals("MSI", StringComparison.OrdinalIgnoreCase)
                 || installerPath.EndsWith(".msi", StringComparison.OrdinalIgnoreCase);
             VerifyPayloadVersion(def, installerPath, isMsiPayload ? productVersion : null, isMsiPayload, displayVersion, onProgress);
-            var tokens = BuildStageTokens(def, installerPath, displayVersion, isMsiPayload ? productVersion : null, zipTokens);
+            string? feedBuild = null;
+            if (!string.IsNullOrWhiteSpace(def.VersionScraper.BuildQuery)
+                && System.Text.Json.JsonSerializer.Serialize(def).Contains(StageTokens.FeedBuildToken, StringComparison.OrdinalIgnoreCase))
+            {
+                onProgress?.Invoke("Reading the build number from the version feed...");
+                feedBuild = await ResolveFeedBuildAsync(def.VersionScraper, rawVersion, ct);
+                if (feedBuild is not null) onProgress?.Invoke($"Feed build: {feedBuild}");
+            }
+            var tokens = BuildStageTokens(def, installerPath, displayVersion, isMsiPayload ? productVersion : null, zipTokens, feedBuild);
 
             if (!string.IsNullOrWhiteSpace(def.CitrixSwitchStream))
                 installArgs = BuildCitrixInstallArgs(def.CitrixSwitchStream, inputs?.CitrixSwitches, onProgress);
@@ -585,7 +629,7 @@ public sealed class StagingService
             }
             else if (def.ZipPayload is not null)
             {
-                ZipPayload.GenerateWrappers(wrappers, contentPath, installerFileName, def.ZipPayload);
+                ZipPayload.GenerateWrappers(wrappers, contentPath, installerFileName, def.ZipPayload, displayVersion);
             }
             else if (def.InstallerType.Equals("MSI", StringComparison.OrdinalIgnoreCase))
             {
@@ -606,7 +650,7 @@ public sealed class StagingService
                 var (arpKeyName, installFolder) = WrapperGeneratorService.ResolveUninstallHints(detection);
                 wrappers.GenerateExeWrappers(contentPath, installerFileName,
                     installArgs, uninstallArgs, def.InstallerFramework, def.Application, uninstallCommand,
-                    ResolvePostInstallScript(def, settingsValues), arpKeyName, installFolder,
+                    ResolvePostInstallScript(def, settingsValues, displayVersion), arpKeyName, installFolder,
                     def.PostInstallKillProcesses, def.RebootExitCodes, def.SuccessExitCodes);
             }
 
@@ -1287,7 +1331,7 @@ public sealed class StagingService
     /// names their token.
     /// </summary>
     public static StageTokens BuildStageTokens(AppDefinition def, string installerPath, string displayVersion,
-        string? msiProductVersion, IReadOnlyDictionary<string, string> zipTokens)
+        string? msiProductVersion, IReadOnlyDictionary<string, string> zipTokens, string? feedBuild = null)
     {
         var text = System.Text.Json.JsonSerializer.Serialize(def);
         var productVersion = msiProductVersion;
@@ -1299,11 +1343,17 @@ public sealed class StagingService
         if (text.Contains(StageTokens.HeaderDisplayVersionToken, StringComparison.OrdinalIgnoreCase) && File.Exists(installerPath))
             header = CompiledScriptFacts.TryRead(InstallerSignatureScanner.Identify(installerPath), installerPath)?.DisplayVersion;
 
+        string? bundleId = null;
+        if (text.Contains(StageTokens.BundleIdToken, StringComparison.OrdinalIgnoreCase) && File.Exists(installerPath))
+            bundleId = WixBurnBundleReader.ReadBundleId(installerPath);
+
         return new StageTokens
         {
             Version = displayVersion,
             ProductVersion = string.IsNullOrWhiteSpace(productVersion) ? null : productVersion,
             HeaderDisplayVersion = header,
+            BundleId = bundleId,
+            FeedBuild = feedBuild,
             Zip = zipTokens
         };
     }
@@ -2840,7 +2890,7 @@ public sealed class StagingService
     /// tokens resolved, or null when the definition has none or the gating
     /// setting is not at its enabling value.
     /// </summary>
-    public static string? ResolvePostInstallScript(AppDefinition def, Dictionary<string, string>? values)
+    public static string? ResolvePostInstallScript(AppDefinition def, Dictionary<string, string>? values, string? version = null)
     {
         var config = def.PostInstallScript;
         if (config is null || string.IsNullOrWhiteSpace(config.Script))
@@ -2860,7 +2910,8 @@ public sealed class StagingService
                 return null;
         }
 
-        return ApplySettingTokens(config.Script, def.InstallerSettings, values);
+        var script = ApplySettingTokens(config.Script, def.InstallerSettings, values);
+        return version is null || script is null ? script : script.Replace("{version}", version, StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>

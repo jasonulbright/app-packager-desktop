@@ -102,21 +102,27 @@ public sealed class VendorFixDefinitionTests : IDisposable
     // CutePDF Writer
 
     [Fact]
-    public void CutePdfWriterDetectsTheExistenceOfThe64BitUninstallKeyAndComparesNoValue()
+    public void CutePdfWriterDetectsTheUninstallKeyAndTheVersionTheInstallWrote()
     {
         var def = DefinitionFixture.Load("cutepdfwriter.json");
         var staged = StagingService.BuildDetection(def, null, "4.0.1.5");
 
-        Assert.Equal("RegistryKey", staged.Type);
-        Assert.Equal(@"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\CutePDF Writer Installation", staged.RegistryKeyRelative);
-        Assert.True(staged.Is64Bit);
-        Assert.True(string.IsNullOrEmpty(staged.ValueName));
-        Assert.True(string.IsNullOrEmpty(staged.ExpectedValue));
+        Assert.Equal("Compound", staged.Type);
+        var key = staged.Clauses![0];
+        Assert.Equal("RegistryKey", key.Type);
+        Assert.Equal(@"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\CutePDF Writer Installation", key.RegistryKeyRelative);
+        Assert.True(key.Is64Bit);
+        Assert.True(string.IsNullOrEmpty(key.ValueName));
+        Assert.True(string.IsNullOrEmpty(key.ExpectedValue));
 
-        var rule = IntuneRule(staged);
+        var rule = IntuneRule(key);
         Assert.Equal(@"HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\CutePDF Writer Installation", (string?)rule["keyPath"]);
         Assert.Equal("exists", (string?)rule["operationType"]);
         Assert.False((bool)rule["check32BitOn64System"]!);
+
+        var marker = staged.Clauses[1];
+        Assert.Equal(@"SOFTWARE\App Packager\CutePDF Writer", marker.RegistryKeyRelative);
+        Assert.Equal("4.0.1.5", marker.ExpectedValue);
     }
 
     // Jabra Direct
@@ -374,7 +380,7 @@ public sealed class VendorFixDefinitionTests : IDisposable
     public void WsusCannotTakeTheBuildsWhoseWrapperOrDetectionItCannotCarry()
     {
         Assert.Equal("No (CustomInstall)", Wsus.DefaultBuildWsusCheck.Compute(DefinitionFixture.Load("ccleaner.json")).Text);
-        Assert.Equal("No (DetectionNotMappable)", Wsus.DefaultBuildWsusCheck.Compute(DefinitionFixture.Load("cutepdfwriter.json")).Text);
+        Assert.Equal("No (DetectionNotMappable)", Wsus.DefaultBuildWsusCheck.Compute(DefinitionFixture.Load("androidstudio.json")).Text);
         Assert.Equal("Yes", Wsus.DefaultBuildWsusCheck.Compute(DefinitionFixture.Load("jabradirect.json")).Text);
         Assert.Equal("Yes", Wsus.DefaultBuildWsusCheck.Compute(DefinitionFixture.Load("windowsadmincenter.json")).Text);
         Assert.Equal("Yes", Wsus.DefaultBuildWsusCheck.Compute(DefinitionFixture.Load("ultravnc.json")).Text);

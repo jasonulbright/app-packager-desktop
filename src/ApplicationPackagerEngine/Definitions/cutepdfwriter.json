@@ -1,7 +1,7 @@
 ﻿{
     "Schema":  1,
     "Id":  "e1f2a3b4c5d60001",
-    "WsusSupport":  "No (DetectionNotMappable)",
+    "WsusSupport":  "No (CustomInstall)",
     "IconSource":  "Installer",
     "Vendor":  "Acro Software Inc.",
     "Application":  "CutePDF Writer",
@@ -25,13 +25,31 @@
     "InstallArgs":  "/SP- /VERYSILENT /SUPPRESSMSGBOXES /NORESTART",
     "UninstallArgs":  "/uninstall /s",
     "Detection":  {
-                      "Type":  "RegistryKey",
-                      "RegistryHive":  "HKLM",
-                      "RegistryKeyTemplate":  "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\CutePDF Writer Installation",
-                      "Is64Bit":  true
-                  },
+        "Type":  "Compound",
+        "Connector":  "And",
+        "Clauses":  [
+            {
+                "Type":  "RegistryKey",
+                "RegistryHive":  "HKLM",
+                "RegistryKeyTemplate":  "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\CutePDF Writer Installation",
+                "Is64Bit":  true
+            },
+            {
+                "Type":  "RegistryKeyValue",
+                "RegistryHive":  "HKLM",
+                "RegistryKeyTemplate":  "SOFTWARE\\App Packager\\CutePDF Writer",
+                "ValueName":  "Version",
+                "PropertyType":  "Version",
+                "Operator":  "GreaterEquals",
+                "Is64Bit":  true
+            }
+        ]
+    },
+    "PostInstallScript":  {
+        "Script":  "New-Item -Path 'HKLM:\\SOFTWARE\\App Packager\\CutePDF Writer' -Force -ErrorAction Stop | Out-Null\r\nNew-ItemProperty -Path 'HKLM:\\SOFTWARE\\App Packager\\CutePDF Writer' -Name Version -Value '{version}' -PropertyType String -Force -ErrorAction Stop | Out-Null"
+    },
     "RunningProcess":  [
 
                        ],
-    "UninstallCommand":  "$uninstaller = Join-Path ${env:ProgramFiles(x86)} 'CutePDF Writer\\unInstcpw64.exe'; if (-not (Test-Path -LiteralPath $uninstaller)) { exit 0 }; $proc = Start-Process -FilePath $uninstaller -ArgumentList @('/uninstall', '/s') -Wait -PassThru -NoNewWindow"
+    "UninstallCommand":  "$uninstaller = Join-Path ${env:ProgramFiles(x86)} 'CutePDF Writer\\unInstcpw64.exe'; if (-not (Test-Path -LiteralPath $uninstaller)) { Remove-Item -LiteralPath 'HKLM:\\SOFTWARE\\App Packager\\CutePDF Writer' -Recurse -Force -ErrorAction SilentlyContinue; exit 0 }; $proc = Start-Process -FilePath $uninstaller -ArgumentList @('/uninstall', '/s') -Wait -PassThru -NoNewWindow; if ($proc.ExitCode -eq 0) { Remove-Item -LiteralPath 'HKLM:\\SOFTWARE\\App Packager\\CutePDF Writer' -Recurse -Force -ErrorAction SilentlyContinue }"
 }

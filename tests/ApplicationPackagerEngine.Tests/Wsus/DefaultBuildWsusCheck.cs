@@ -125,7 +125,7 @@ internal static class DefaultBuildWsusCheck
         var uninstallArgs = StagingService.ResolveUninstallArgs(
             StagingService.ApplySettingTokens(def.UninstallArgs, def.InstallerSettings, null) ?? def.UninstallArgs, def.InstallerSettings, null);
         var uninstallCommand = StagingService.ApplySettingTokens(def.UninstallCommand, def.InstallerSettings, null);
-        var tokens = new StageTokens { Version = Version, ProductVersion = Version, HeaderDisplayVersion = Version, Zip = zipTokens };
+        var tokens = new StageTokens { Version = Version, ProductVersion = Version, HeaderDisplayVersion = Version, BundleId = ProductCode, FeedBuild = "1.2.3.4", Zip = zipTokens };
         if (!string.IsNullOrWhiteSpace(def.CitrixSwitchStream))
             installArgs = StagingService.BuildCitrixInstallArgs(def.CitrixSwitchStream, null, null);
         installArgs = tokens.Apply(installArgs)!;
@@ -143,7 +143,7 @@ internal static class DefaultBuildWsusCheck
         if (isMsix)
             wrappers.GenerateMsixWrappers(folder, installerFileName, msix!.SignerThumbprint, msix.Provisioned);
         else if (def.ZipPayload is not null)
-            ZipPayload.GenerateWrappers(wrappers, folder, installerFileName, def.ZipPayload);
+            ZipPayload.GenerateWrappers(wrappers, folder, installerFileName, def.ZipPayload, Version);
         else if (isMsi)
             wrappers.GenerateMsiWrappers(folder, installerFileName, uninstallCommand, installArgs, def.ExpandInstallArgs);
         else if (def.ExtractSetup is not null)
@@ -152,7 +152,7 @@ internal static class DefaultBuildWsusCheck
         {
             var (arpKeyName, installFolder) = WrapperGeneratorService.ResolveUninstallHints(detection);
             wrappers.GenerateExeWrappers(folder, installerFileName, installArgs, uninstallArgs, def.InstallerFramework, def.Application,
-                uninstallCommand, StagingService.ResolvePostInstallScript(def, null), arpKeyName, installFolder,
+                uninstallCommand, StagingService.ResolvePostInstallScript(def, null, Version), arpKeyName, installFolder,
                 def.PostInstallKillProcesses, def.RebootExitCodes, def.SuccessExitCodes);
         }
 

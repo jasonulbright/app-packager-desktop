@@ -73,7 +73,8 @@ public sealed class UninstallPathFixupTests : IDisposable
 
         Assert.Equal("/uninstall /s", def.UninstallArgs);
         Assert.Contains(@"$uninstaller = Join-Path ${env:ProgramFiles(x86)} 'CutePDF Writer\unInstcpw64.exe'", script);
-        Assert.Contains("if (-not (Test-Path -LiteralPath $uninstaller)) { exit 0 }", script);
+        Assert.Contains("if (-not (Test-Path -LiteralPath $uninstaller)) { Remove-Item -LiteralPath 'HKLM:\\SOFTWARE\\App Packager\\CutePDF Writer' -Recurse -Force -ErrorAction SilentlyContinue; exit 0 }", script);
+        Assert.Contains("if ($proc.ExitCode -eq 0) { Remove-Item -LiteralPath 'HKLM:\\SOFTWARE\\App Packager\\CutePDF Writer'", script);
         Assert.Contains("-FilePath $uninstaller -ArgumentList @('/uninstall', '/s')", script);
         Assert.DoesNotContain("CuteWriter", script);
     }

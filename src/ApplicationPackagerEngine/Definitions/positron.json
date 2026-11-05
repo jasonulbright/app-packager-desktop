@@ -1,7 +1,7 @@
 ﻿{
     "Schema":  1,
     "Id":  "00000a8226a53a2e",
-    "WsusSupport":  "No (DetectionNotMappable)",
+    "WsusSupport":  "Yes",
     "IconSource":  "Installer",
     "Vendor":  "Posit PBC",
     "Application":  "Positron (x64)",
@@ -23,12 +23,14 @@
     "InstallArgs":  "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART",
     "UninstallArgs":  "/VERYSILENT /NORESTART",
     "Detection":  {
-                      "Type":  "File",
-                      "FilePath":  "C:\\Program Files\\Positron",
-                      "FileName":  "Positron.exe",
-                      "PropertyType":  "Existence",
-                      "Is64Bit":  true
-                  },
+        "Type":  "File",
+        "FilePath":  "C:\\Program Files\\Positron",
+        "FileName":  "Positron.exe",
+        "PropertyType":  "Version",
+        "Operator":  "GreaterEquals",
+        "ExpectedValue":  "{version_numeric}",
+        "Is64Bit":  true
+    },
     "RunningProcess":  [
                            "Positron"
                        ],

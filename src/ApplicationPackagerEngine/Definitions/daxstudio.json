@@ -1,7 +1,7 @@
 {
   "Schema": 1,
   "Id": "c6e2093fb7154a8d",
-  "WsusSupport": "No (DetectionNotMappable)",
+  "WsusSupport": "Yes",
     "IconSource":  "Installer",
   "Vendor": "DAX Studio",
   "Application": "DAX Studio (x64)",
@@ -27,7 +27,8 @@
     "Type": "File",
     "FilePath": "C:\\Program Files\\DAX Studio",
     "FileName": "DaxStudio.exe",
-    "PropertyType": "Existence",
+    "PropertyType": "Version",
+    "Operator": "GreaterEquals",
     "Is64Bit": true
   },
   "RunningProcess": ["DaxStudio"]

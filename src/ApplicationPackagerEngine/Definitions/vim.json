@@ -1,7 +1,7 @@
 ﻿{
     "Schema":  1,
     "Id":  "00001355a7d67152",
-    "WsusSupport":  "No (DetectionNotMappable)",
+    "WsusSupport":  "Yes",
     "IconSource":  "Installer",
     "Vendor":  "Vim",
     "Application":  "Vim (x64)",
@@ -25,12 +25,14 @@
     "InstallArgs":  "/S",
     "UninstallArgs":  "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART",
     "Detection":  {
-                      "Type":  "File",
-                      "FilePath":  "C:\\Program Files\\Vim\\vim92",
-                      "FileName":  "gvim.exe",
-                      "PropertyType":  "Existence",
-                      "Is64Bit":  true
-                  },
+        "Type":  "RegistryKeyValue",
+        "RegistryHive":  "HKLM",
+        "RegistryKeyTemplate":  "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Vim",
+        "ValueName":  "DisplayVersion",
+        "PropertyType":  "Version",
+        "Operator":  "GreaterEquals",
+        "Is64Bit":  true
+    },
     "RunningProcess":  [
                            "gvim",
                            "vim"

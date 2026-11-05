@@ -7,9 +7,12 @@
 - Copy the installer at save time in Add from file. The definition keeps a verified copy in the installers folder beside the definitions folder.
 - Keep the FileVersion scraper cache in the per-user data folder instead of the Windows temp folder.
 - Delete the oldest cached installers when the FileVersion cache passes 2 GiB.
+- Detect 18 packagers by installed version, not by the presence of a file or a key. The packagers are AIMP, Anaconda, Android Studio, AWS Session Manager plugin, Azure Storage Explorer, CPU-Z, CutePDF Writer, Cyberduck, DAX Studio, Greenshot, HWMonitor, PDF Studio Viewer, pgAdmin 4, Positron, PSPad, Rainmeter, Sysinternals Suite and Vim.
+- Add the detection tokens `{BundleId}`, `{FeedBuild}` and `{version_numeric}`, the scraper field `BuildQuery`, and the ZIP payload fields `FlatExtract` and `VersionRegistryKey`.
 
 ### Fixed
 
+- Extract the Sysinternals Suite ZIP in the install wrapper. The wrapper started the ZIP as a program before.
 - Read the ProductCode of an Advanced Installer or InstallShield EXE that wraps an MSI. The analysis extracts the MSI in the sandbox and reads its Property table.
 
 ## [2026.1103.3] - 2026-11-03
