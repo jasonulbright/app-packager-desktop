@@ -244,6 +244,70 @@ public sealed partial class InstallerAnalysisService
         }
     }
 
+    /// <summary>
+    /// An Advanced Installer or InstallShield EXE wraps an MSI. The container reader extracts the largest inner MSI
+    /// into the analysis sandbox (same limits, 7-Zip version gate and time limit as any entry extraction; the EXE
+    /// never runs) and the ProductCode comes from its Property table. The sandbox session is released afterwards.
+    /// </summary>
+    private async Task ReadWrappedMsiAsync(string path, string engine, AnalysisLimits limits, IProgress<string> progress,
+        IReadOnlyList<PayloadEntry>? payload, List<MetadataBlock> metadata, List<string> notes, DeploymentOverrides overrides, CancellationToken ct)
+    {
+        const string NotRead = "The ProductCode was not read from the MSI inside this EXE";
+        if (payload is null)
+        {
+            notes.Add(NotRead + ": the payload could not be listed (7-Zip may be missing).");
+            return;
+        }
+        var msis = payload.Where(e => !e.IsDirectory && e.InnerType == "MSI").OrderByDescending(e => e.Size).ToList();
+        if (msis.Count == 0)
+        {
+            notes.Add(NotRead + ": no MSI is in the payload.");
+            return;
+        }
+        var chosen = msis[0];
+        if (chosen.Size > limits.MaxExtractBytes)
+        {
+            notes.Add(NotRead + ": the MSI is larger than the extraction limit.");
+            return;
+        }
+        string? session = null;
+        try
+        {
+            session = _sandbox.NewSession();
+            progress.Report("Extracting " + Path.GetFileName(chosen.Path) + " to read its ProductCode");
+            var msiPath = await ExtractEntryCoreAsync(path, engine, chosen, session, limits, ct).ConfigureAwait(false);
+            var props = _msi.ReadProperties(msiPath);
+            if (!ProposedCommand.IsProductCode(props.ProductCode))
+            {
+                notes.Add(NotRead + ": the MSI has no valid ProductCode.");
+                return;
+            }
+            overrides.ProductCode = props.ProductCode;
+            overrides.Source = "msi-property-table";
+            var facts = new List<AnalysisFact>
+            {
+                Fact("MSI", Path.GetFileName(chosen.Path), "payload-listing"),
+                Fact("ProductCode", props.ProductCode, "msi-property-table"),
+                Fact("ProductName", props.ProductName, "msi-property-table"),
+                Fact("ProductVersion", props.ProductVersion, "msi-property-table"),
+                Fact("Manufacturer", props.Manufacturer, "msi-property-table")
+            };
+            metadata.Add(new MetadataBlock("Wrapped MSI (" + Path.GetFileName(chosen.Path) + ")", facts.Where(f => f.Value.Length > 0).ToList()));
+            if (msis.Count > 1)
+                notes.Add($"The payload holds {msis.Count} MSI files; the ProductCode is that of the largest, {Path.GetFileName(chosen.Path)}.");
+        }
+        catch (OperationCanceledException) { throw; }
+        catch (Exception)
+        {
+            notes.Add(NotRead + ": the MSI could not be extracted or read.");
+        }
+        finally
+        {
+            if (session is not null)
+                try { _sandbox.Release(session); } catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InstallerAnalysisException) { }
+        }
+    }
+
     private static MetadataBlock NsisBlock(string path, List<string> notes, CancellationToken ct)
     {
         var m = NsisScriptReader.Read(path, ct);

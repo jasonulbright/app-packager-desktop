@@ -207,7 +207,7 @@ public sealed class MsixBundleStageTests : IDisposable
         var (_, def) = await SavedAsync(msi);
         var first = await Staging().StageAsync(def, DownloadRoot);
         Assert.True(first.Success, first.ErrorMessage);
-        File.AppendAllText(msi, "changed");
+        File.AppendAllText(def.LocalInstaller!.Path, "changed");
 
         var second = await Staging().StageAsync(def, DownloadRoot);
 

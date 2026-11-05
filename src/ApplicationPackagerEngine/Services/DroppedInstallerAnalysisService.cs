@@ -544,11 +544,12 @@ public sealed class DroppedInstallerAnalysisService
     {
         var appName = o.AppName ?? a.AppName;
         var version = o.SoftwareVersion ?? a.SoftwareVersion;
+        var productCode = o.ProductCode ?? a.ProductCode;
         var key = o.UninstallRegistryKey ?? a.UninstallRegistryKey;
         var architecture = string.IsNullOrEmpty(o.Architecture) ? a.Architecture : o.Architecture;
         var keyMoved = o.UninstallRegistryKey is { HasValue: true } && o.UninstallRegistryKey.Value != a.UninstallRegistryKey.Value;
         var detection = keyMoved && a.Detection.Type == "RegistryKeyValue"
-            ? BuildDetection(a.Engine, isMsi: false, a.ProductCode.Value, key.Value, appName.Value, version.Value, architecture, msi: null)
+            ? BuildDetection(a.Engine, isMsi: false, productCode.Value, key.Value, appName.Value, version.Value, architecture, msi: null)
             : CloneDetection(a.Detection);
         if (!keyMoved && detection.Type == "RegistryKeyValue" && o.SoftwareVersion is not null) detection.ExpectedValue = version.Value;
         var context = o.InstallContext ?? (keyMoved ? (key.Value.StartsWith("HKCU", StringComparison.OrdinalIgnoreCase) ? "User" : "Machine") : a.InstallContext);
@@ -566,7 +567,7 @@ public sealed class DroppedInstallerAnalysisService
             AppName = appName,
             Publisher = o.Publisher ?? a.Publisher,
             SoftwareVersion = version,
-            ProductCode = a.ProductCode,
+            ProductCode = productCode,
             InstallArgs = o.InstallArgs ?? a.InstallArgs,
             UninstallArgs = a.UninstallArgs,
             UninstallCommand = o.UninstallCommand ?? a.UninstallCommand,
@@ -867,6 +868,8 @@ public sealed record DeploymentOverlay
     public ProposedField? SoftwareVersion { get; init; }
     public ProposedField? InstallArgs { get; init; }
     public ProposedField? UninstallCommand { get; init; }
+    /// <summary>The ProductCode a format reader read from a wrapped MSI.</summary>
+    public ProposedField? ProductCode { get; init; }
     /// <summary>The key with its hive prefix (HKLM:\ or HKCU:\).</summary>
     public ProposedField? UninstallRegistryKey { get; init; }
     /// <summary>Machine or User.</summary>

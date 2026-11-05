@@ -164,6 +164,11 @@ public sealed partial class InstallerAnalysisService : IInstallerAnalysisService
             postPatch = await PostPatchFromPayloadAsync(path, engine, limits, progress, metadata, notes, list => payload = list, ct).ConfigureAwait(false);
         }
 
+        if (engine is "InstallShield" or "AdvancedInstaller")
+        {
+            await ReadWrappedMsiAsync(path, engine, limits, progress, payload, metadata, notes, overrides, ct).ConfigureAwait(false);
+        }
+
         progress.Report("Building the report");
         var deployment = DeploymentFacts(drop, engine, fileName, overrides, msiProperties, notes);
         var modes = Modes(drop, engine, fileName, msiProperties, overrides);
