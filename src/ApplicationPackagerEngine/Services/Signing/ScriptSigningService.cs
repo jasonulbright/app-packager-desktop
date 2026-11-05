@@ -85,6 +85,18 @@ public sealed class ScriptSigningService
         var existing = ScriptSignatureVerifier.Verify(path);
         if (existing.SignatureIntact && (preserveExisting || !sign))
         {
+            // A preserved signature meets the same timestamp rule as one made here.
+            if (normalized.TimestampRequired && !existing.Timestamped)
+            {
+                result.Status = SigningStatus.Failed;
+                result.Thumbprint = existing.Thumbprint;
+                result.Timestamped = false;
+                result.TimestampVerified = false;
+                result.Sha256 = ScriptSignatureVerifier.FileSha256Hex(path);
+                result.Reason = $"TimestampRequired is set but the existing signature on the {category} script carries no timestamp counter-signature.";
+                return result;
+            }
+
             result.Status = SigningStatus.ExistingSignatureValid;
             result.Thumbprint = existing.Thumbprint;
             result.Timestamped = existing.Timestamped;
