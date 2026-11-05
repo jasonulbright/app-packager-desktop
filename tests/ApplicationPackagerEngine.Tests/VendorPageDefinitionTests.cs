@@ -251,14 +251,18 @@ public sealed class VendorPageDefinitionTests : IDisposable
 
         var detection = StagingService.BuildDetection(def, null, "2026.2.2",
             tokens: new StageTokens { Version = "2026.2.2", ProductVersion = "26.2.1782" });
-        Assert.Contains("RegistryView]::Registry32", detection.ScriptText);
+        Assert.Contains("RegistryView]::Registry64", detection.ScriptText);
+        Assert.DoesNotContain("Registry32", detection.ScriptText);
         Assert.Contains($"-like '{pattern}'", detection.ScriptText);
         Assert.Contains("[version]'26.2.1782'", detection.ScriptText);
 
         Assert.Contains("QuietUninstallString", def.UninstallCommand);
-        Assert.Contains("@('/uninstall', '/quiet', '/norestart')", def.UninstallCommand);
+        Assert.Contains("RegistryView]::Registry64", def.UninstallCommand);
+        Assert.DoesNotContain("Registry32", def.UninstallCommand);
+        Assert.Contains("-ArgumentList $m.Groups['args'].Value -Wait", def.UninstallCommand);
+        Assert.DoesNotContain("/norestart", def.UninstallCommand);
+        Assert.Equal("", def.UninstallArgs);
         Assert.DoesNotContain("msiexec", def.UninstallCommand, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("Registry64", def.UninstallCommand);
     }
 
     [Fact]
