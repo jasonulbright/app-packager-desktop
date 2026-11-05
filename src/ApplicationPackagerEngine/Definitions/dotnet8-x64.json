@@ -25,12 +25,12 @@
     "InstallArgs":  "/install /quiet /norestart",
     "UninstallArgs":  "/uninstall /quiet /norestart",
     "Detection":  {
-                      "Type":  "File",
-                      "FilePath":  "C:\\Program Files\\dotnet\\host\\fxr\\{version}",
-                      "FileName":  "hostfxr.dll",
-                      "PropertyType":  "Existence",
-                      "Is64Bit":  true
-                  },
+        "Type":  "File",
+        "FilePath":  "C:\\Program Files\\dotnet\\shared\\Microsoft.WindowsDesktop.App\\{version}",
+        "FileName":  "PresentationFramework.dll",
+        "PropertyType":  "Existence",
+        "Is64Bit":  true
+    },
     "RunningProcess":  [
 
                        ]

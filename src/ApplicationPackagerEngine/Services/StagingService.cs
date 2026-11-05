@@ -654,6 +654,9 @@ public sealed class StagingService
                     def.PostInstallKillProcesses, def.RebootExitCodes, def.SuccessExitCodes);
             }
 
+            if (def.TargetSecret is not null)
+                TargetSecretScript.ApplyToFile(Path.Combine(contentPath, "install.ps1"), def.TargetSecret);
+
             var hasOptionalArchitecturePayloads = def.PayloadVariants is { Length: > 0 };
             var deploymentTypes = hasOptionalArchitecturePayloads
                 ? await StageOptionalArchitecturePayloadsAsync(def, contentPath, version, rawVersion, displayVersion,
@@ -707,7 +710,7 @@ public sealed class StagingService
                 Architecture = def.Architecture,
                 InstallContext = installContext,
                 InstallMode = string.IsNullOrWhiteSpace(installMode) ? null : installMode,
-                InstallArgs = installArgs,
+                InstallArgs = installArgs.Replace(TargetSecretScript.Token, TargetSecretScript.ManifestText, StringComparison.Ordinal),
                 UninstallArgs = uninstallArgs,
                 UninstallCommand = modeUninstallCommandLine,
                 ProductCode = productCode,
@@ -1377,8 +1380,19 @@ public sealed class StagingService
     }
 
     /// <summary>{display_version_dashed} is the display version with every dot replaced by a hyphen.</summary>
-    public static string ApplyDashedVersion(string text, string version) =>
-        text.Replace("{display_version_dashed}", version.Replace('.', '-'), StringComparison.OrdinalIgnoreCase);
+    public static string ApplyDashedVersion(string text, string version)
+    {
+        // {version_base} is the version before its first hyphen, and {revision_dash} is the
+        // hyphen and the text after it ("3.0.8-2" gives "3.0.8" and "-2"), or nothing. They
+        // name an installer rebuilt under the same product version: gimp-3.0.8-setup-2.exe.
+        var dash = version.IndexOf('-');
+        var versionBase = dash < 0 ? version : version[..dash];
+        var revisionDash = dash < 0 ? "" : version[dash..];
+        return text
+            .Replace("{display_version_dashed}", version.Replace('.', '-'), StringComparison.OrdinalIgnoreCase)
+            .Replace("{version_base}", versionBase, StringComparison.OrdinalIgnoreCase)
+            .Replace("{revision_dash}", revisionDash, StringComparison.OrdinalIgnoreCase);
+    }
 
     private static readonly System.Text.RegularExpressions.Regex ChecksumLine =
         new(@"^\s*(?<hash>[0-9A-Fa-f]{64})(?:\s+\*?(?<name>\S.*?))?\s*$", System.Text.RegularExpressions.RegexOptions.Compiled);
@@ -2171,6 +2185,9 @@ public sealed class StagingService
             // the branch itself names. Nothing is guessed from a folder name.
             var relative = branch.UninstallRegistryKeyRelative;
             var version = string.IsNullOrWhiteSpace(softwareVersion) ? detection.ExpectedValue : softwareVersion;
+            // A rebuild suffix ("3.0.8-2") is no part of the version the installed product reports.
+            var numeric = System.Text.RegularExpressions.Regex.Match(version ?? "", @"^\d+(\.\d+)*");
+            if (numeric.Success) version = numeric.Value;
             // A key holding an installer variable, a wildcard or an environment
             // token was never resolved. A braced GUID is a resolved key name.
             var unresolved = GuidKeyName.Replace(relative, "");

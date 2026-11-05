@@ -1,7 +1,7 @@
 {
   "Schema": 1,
   "Id": "9fe2552fe5781484",
-  "WsusSupport": "Yes",
+  "WsusSupport": "No (CustomInstall)",
     "IconSource":  "None",
   "Vendor": "MariaDB",
   "Application": "MariaDB Server (x64)",
@@ -39,7 +39,7 @@
       "Tooltip": "The MSI registers no Windows service when SERVICENAME is absent or empty; an empty value stages a tools-only install.",
       "ControlType": "Text",
       "DefaultValue": "MariaDB",
-      "CommandFragment": "SERVICENAME={value}",
+      "CommandFragment": "SERVICENAME={value} PASSWORD={TargetSecret}",
       "Group": "Server"
     },
     {
@@ -61,6 +61,11 @@
     "PropertyType": "Version",
     "Operator": "GreaterEquals",
     "Is64Bit": true
+  },
+  "TargetSecret": {
+    "FolderName": "MariaDB-Root-Secret",
+    "FileName": "mariadb.dpapi",
+    "Label": "MariaDB root"
   },
   "RunningProcess": ["mysqld", "mysql", "mariadbd"]
 }

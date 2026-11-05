@@ -1,7 +1,7 @@
 ﻿{
     "Schema":  1,
     "Id":  "09263153f63e4f62",
-    "WsusSupport":  "No (DetectionNotMappable)",
+    "WsusSupport":  "No (CustomInstall)",
     "IconSource":  "Installer",
     "Vendor":  "PostgreSQL Global Development Group",
     "Application":  "PostgreSQL 15 (x64)",
@@ -22,7 +22,7 @@
                            "Pattern":  "[?cycle=15].latest"
                        },
     "DownloadUrl":  "https://get.enterprisedb.com/postgresql/postgresql-{version}-1-windows-x64.exe",
-    "InstallArgs":  "--mode unattended --unattendedmodeui none --superpassword P0stgres!MECM --serverport 5432 --install_runtimes 0 --disable-components stackbuilder",
+    "InstallArgs":  "--mode unattended --unattendedmodeui none --superpassword {TargetSecret} --serverport 5432 --install_runtimes 0 --disable-components stackbuilder",
     "UninstallArgs":  "--mode unattended",
     "Detection":  {
                       "Type":  "RegistryKeyValue",
@@ -33,6 +33,11 @@
                       "Operator":  "BeginsWith",
                       "Is64Bit":  true
                   },
+    "TargetSecret":  {
+        "FolderName":  "PostgreSQL-Superuser-Secret",
+        "FileName":  "postgresql-15.dpapi",
+        "Label":  "PostgreSQL superuser"
+    },
     "RunningProcess":  [
                            "postgres",
                            "pgAdmin4"

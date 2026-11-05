@@ -21,7 +21,7 @@ internal static class WsusSupportPins
         "corretto-jdk8-x86.json", "cryptomator.json", "cura.json", "dbbrowsersqlite.json", "dngrep.json", "draftable.json",
         "drawio.json", "duodesktop.json", "everything.json", "gcpw.json", "geogebra.json", "githubcli.json", "go.json",
         "grepwin.json", "gsudo.json", "iapdesktop.json", "imageglass.json", "inkscape.json", "intunedebugtoolkit.json",
-        "keepass.json", "keepassxc.json", "kreya.json", "liberica-jdk21.json", "libreoffice.json", "mariadb-server.json",
+        "keepass.json", "keepassxc.json", "kreya.json", "liberica-jdk21.json", "libreoffice.json",
         "mattermost.json", "mongodbcompass.json", "mremoteng.json", "msodbcsql18.json", "msoledb.json",
         "mysqlconnectornet.json", "naps2.json", "netbird.json", "netlogo.json", "networkmanager.json", "nodejs.json",
         "openvpn.json", "ownclouddesktop.json", "paintdotnet.json", "pandoc.json", "parallelsclient.json", "pdf24creator.json",
