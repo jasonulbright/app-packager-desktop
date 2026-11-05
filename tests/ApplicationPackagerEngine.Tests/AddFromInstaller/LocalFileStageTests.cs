@@ -67,7 +67,7 @@ public sealed class LocalFileStageTests : IDisposable
 
         Assert.True(AddFromInstallerService.IsLocalFileDefinition(def));
         Assert.NotNull(def.LocalInstaller);
-        Assert.Equal(Path.GetFullPath(msi), def.LocalInstaller!.Path);
+        Assert.NotEqual(Path.GetFullPath(msi), def.LocalInstaller!.Path);
         Assert.Equal(StagingService.ComputeSha256(msi), def.LocalInstaller.Sha256, ignoreCase: true);
         Assert.Equal("4.5.6", def.LocalInstaller.Version);
     }
@@ -140,7 +140,8 @@ public sealed class LocalFileStageTests : IDisposable
     [Fact]
     public async Task AnInstallerThatChangedAfterTheSave_IsRefused_AndNothingIsStaged()
     {
-        var (def, msi) = await SavedAsync(_bed.Msi());
+        var (def, _) = await SavedAsync(_bed.Msi());
+        var msi = def.LocalInstaller!.Path;
         File.AppendAllText(msi, "changed");
 
         var result = await Staging().StageAsync(def, DownloadRoot);
@@ -154,7 +155,8 @@ public sealed class LocalFileStageTests : IDisposable
     [Fact]
     public async Task AnInstallerThatIsGone_IsRefusedWithItsPath()
     {
-        var (def, msi) = await SavedAsync(_bed.Msi());
+        var (def, _) = await SavedAsync(_bed.Msi());
+        var msi = def.LocalInstaller!.Path;
         File.Delete(msi);
 
         var result = await Staging().StageAsync(def, DownloadRoot);

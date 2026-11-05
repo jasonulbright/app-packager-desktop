@@ -173,6 +173,11 @@ public sealed class AddFromInstallerService : IAddFromInstallerService
 
         var isMsi = local.InstallerType == "MSI";
         var key = isMsi ? null : Better("UninstallRegistryKey", local.UninstallRegistryKey);
+        // An EXE that wraps an MSI registers under the wrapped ProductCode, which the analysis read from the extracted MSI.
+        ProposedField? wrappedCode = report.Type is "InstallShield" or "AdvancedInstaller" ? Better("ProductCode", local.ProductCode) : null;
+        if (wrappedCode is { HasValue: true } && key is null && !local.UninstallRegistryKey.HasValue
+            && DroppedInstallerAnalysisService.PredictUninstallRegistryKey(report.Type, local.AppName.Value, wrappedCode.Value, null, local.Architecture) is { } predicted)
+            key = ProposedField.Predicted(predicted.Path, predicted.Source);
         var context = report.Deployment.FirstOrDefault(f => f.Name == "InstallContext")?.Value;
         var bitRockMode = report.Type == "BitRock" ? report.Modes.FirstOrDefault(m => m.IsDefault) : null;
         ProposedField? installArgs = null;
@@ -188,6 +193,7 @@ public sealed class AddFromInstallerService : IAddFromInstallerService
             SoftwareVersion = Better("DisplayVersion", local.SoftwareVersion),
             UninstallCommand = isMsi ? null : Better("UninstallCommand", local.UninstallCommand),
             UninstallRegistryKey = key,
+            ProductCode = wrappedCode,
             InstallArgs = installArgs,
             InstallContext = key is null ? null : context == "PerUser" ? "User" : context is null ? null : "Machine",
             Architecture = string.IsNullOrEmpty(report.Architecture) ? null : report.Architecture,
@@ -601,11 +607,23 @@ public sealed class AddFromInstallerService : IAddFromInstallerService
             if (File.Exists(target))
                 throw new AddFromInstallerRefusedException($"A definition file named {Path.GetFileName(target)} already exists. Change the application name and save again.");
             ct.ThrowIfCancellationRequested();
+            string? storedFolder = null;
+            if (definition.LocalInstaller is not null)
+            {
+                // The definition owns a hash-verified copy; it never depends on the folder the user picked the file from.
+                (definition.LocalInstaller, storedFolder) = StoreInstallerCopy(options.DefinitionsFolder, name, definition.LocalInstaller);
+            }
             string path;
             try { path = UserDefinitionFiles.SaveNew(options.DefinitionsFolder, name, definition); }
             catch (IOException) when (File.Exists(target))
             {
+                RemoveStoredFolder(storedFolder);
                 throw new AddFromInstallerRefusedException($"A definition file named {Path.GetFileName(target)} already exists. Change the application name and save again.");
+            }
+            catch
+            {
+                RemoveStoredFolder(storedFolder);
+                throw;
             }
             var reasons = ReviewReasonsAfterEdit(effective);
             return new AddSaveResult(FilePath: path, DefinitionId: definition.Id, Warnings: warnings.Distinct().ToList())
@@ -626,6 +644,63 @@ public sealed class AddFromInstallerService : IAddFromInstallerService
         if (!string.IsNullOrWhiteSpace(r.Sha256) && !string.Equals(sha256, r.Sha256.Trim(), StringComparison.OrdinalIgnoreCase))
             throw new AddFromInstallerRefusedException($"The installer file changed after the analysis: {path}. Open the installer file again.");
         return new LocalInstallerConfig { Path = path, Sha256 = sha256, Version = r.Version.Value?.Trim() ?? "" };
+    }
+
+    /// <summary>The folder name, beside the user definitions folder, that holds the installer copies.</summary>
+    public const string InstallerCopyFolderName = "installers";
+
+    /// <summary>
+    /// Copies the installer to installers\&lt;application&gt;\&lt;revision&gt;\&lt;file&gt; beside the definitions folder and
+    /// returns the copy with its path. The revision is the next free number, so an earlier copy is never overwritten.
+    /// The copy goes through a side file that takes its final name only when its SHA-256 equals the analysed one.
+    /// </summary>
+    internal static (LocalInstallerConfig Copy, string RevisionFolder) StoreInstallerCopy(string definitionsFolder, string applicationName, LocalInstallerConfig source)
+    {
+        var definitionsRoot = AppDataPaths.EnsureOutsideProgramFiles(definitionsFolder);
+        var parent = Path.GetDirectoryName(Path.TrimEndingDirectorySeparator(definitionsRoot))
+            ?? throw new AddFromInstallerRefusedException("The definitions folder has no parent folder for the installer copy.");
+        var fileName = Path.GetFileName(source.Path);
+        var applicationFolder = Path.Combine(parent, InstallerCopyFolderName, UserDefinitionFiles.SanitizeFileName(applicationName));
+        Directory.CreateDirectory(applicationFolder);
+        var revision = 1;
+        foreach (var existing in Directory.EnumerateDirectories(applicationFolder))
+            if (int.TryParse(Path.GetFileName(existing), System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var n) && n >= revision)
+                revision = n + 1;
+        string revisionFolder;
+        while (true)
+        {
+            revisionFolder = Path.Combine(applicationFolder, revision.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            if (!Directory.Exists(revisionFolder) && !File.Exists(revisionFolder)) break;
+            revision++;
+        }
+        Directory.CreateDirectory(revisionFolder);
+        var target = Path.Combine(revisionFolder, fileName);
+        var side = target + "." + Guid.NewGuid().ToString("N") + ".partial";
+        try
+        {
+            File.Copy(source.Path, side, overwrite: false);
+            var actual = StagingService.ComputeSha256(side);
+            if (!string.Equals(actual, source.Sha256, StringComparison.OrdinalIgnoreCase))
+                throw new AddFromInstallerRefusedException($"The installer file changed while it was copied: {source.Path}. Open the installer file again.");
+            File.Move(side, target, overwrite: false);
+        }
+        catch
+        {
+            RemoveStoredFolder(revisionFolder);
+            throw;
+        }
+        finally
+        {
+            if (File.Exists(side)) File.Delete(side);
+        }
+        return (new LocalInstallerConfig { Path = target, Sha256 = source.Sha256, Version = source.Version }, revisionFolder);
+    }
+
+    private static void RemoveStoredFolder(string? folder)
+    {
+        if (folder is null) return;
+        try { if (Directory.Exists(folder)) Directory.Delete(folder, recursive: true); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
     }
 
     /// <summary>The review state of the saved values: a value the user entered counts as reviewed.</summary>

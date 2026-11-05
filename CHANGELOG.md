@@ -1,5 +1,15 @@
 # Changelog
 
+## [Unreleased]
+
+### Changed
+
+- Copy the installer at save time in Add from file. The definition keeps a verified copy in the installers folder beside the definitions folder.
+
+### Fixed
+
+- Read the ProductCode of an Advanced Installer or InstallShield EXE that wraps an MSI. The analysis extracts the MSI in the sandbox and reads its Property table.
+
 ## [2026.1103.3] - 2026-11-03
 
 ### Added
