@@ -20,6 +20,8 @@
 - Download CutePDF Writer over HTTPS and require a valid vendor signature.
 - Detect the .NET Desktop runtime by its own framework folder (`PresentationFramework.dll`) instead of the host resolver.
 - Treat a rebuilt GIMP installer (`gimp-3.0.8-setup-2.exe`) as a distinct release. The scraper read only the base version and downloaded the first build.
+- Keep the files a profile places under the `scripts` folder when a build is signed, and sign them with the deployment files. Signing removed the whole folder. It now replaces only `detect.ps1` and the `requirements` folder inside it.
+- Apply `TimestampRequired` to a preserved third-party signature. A signature without a timestamp counter-signature now fails the check.
 - Extract the Sysinternals Suite ZIP in the install wrapper. The wrapper started the ZIP as a program before.
 - Read the ProductCode of an Advanced Installer or InstallShield EXE that wraps an MSI. The analysis extracts the MSI in the sandbox and reads its Property table.
 

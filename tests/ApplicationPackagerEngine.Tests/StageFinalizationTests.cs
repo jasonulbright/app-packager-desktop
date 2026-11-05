@@ -630,6 +630,22 @@ public sealed class StageFinalizationTests : IDisposable
     }
 
     [Fact]
+    public void AStageRootWithNoSigningSwitchLosesOnlyTheGeneratedScripts()
+    {
+        var stage = NewStage();
+        File.WriteAllText(Path.Combine(stage, "stage-manifest.json"), """{ "SchemaVersion": 4, "BuildId": "20260101-000000-aaaaaaaa" }""");
+        _t.NewFile(Path.Combine(stage, "scripts", "detect.ps1"), "# a previous build's detector");
+        _t.NewFile(Path.Combine(stage, "scripts", "requirements", "r1.ps1"), "# a previous requirement");
+        _t.NewFile(Path.Combine(stage, "scripts", "profile.ps1"), "# a file of the profile");
+
+        Finalizer().PrepareStageRoot(stage);
+
+        Assert.False(File.Exists(Path.Combine(stage, "scripts", "detect.ps1")));
+        Assert.False(Directory.Exists(Path.Combine(stage, "scripts", "requirements")));
+        Assert.True(File.Exists(Path.Combine(stage, "scripts", "profile.ps1")));
+    }
+
+    [Fact]
     public void AStageRootThatNeverCarriedAProfileOrSigningKeepsItsLaunchers()
     {
         var stage = NewStage();

@@ -101,10 +101,10 @@ public static class ScriptSigningOrchestrator
         var normalized = SigningPolicy.Normalize(policy);
         signer ??= new ScriptSigningService();
 
-        // scripts\ is regenerated from the current input; a previous build's detector or
-        // requirement script left there would otherwise be signed and shipped.
-        var scriptsFolder = Path.Combine(stageRoot, "scripts");
-        if (Directory.Exists(scriptsFolder)) Directory.Delete(scriptsFolder, recursive: true);
+        // The detector and the requirement scripts are regenerated from the current input; a
+        // previous build's copy left there would otherwise be signed and shipped. Every other
+        // file under scripts\ belongs to the profile and stays.
+        RemoveGeneratedScripts(stageRoot);
 
         X509Certificate2? cert = normalized.AnySign ? signer.Certificates.Resolve(normalized) : null;
 
@@ -215,6 +215,27 @@ public static class ScriptSigningOrchestrator
     }
 
     /// <summary>
+    /// Removes the two paths this class writes itself, scripts\detect.ps1 and
+    /// scripts\requirements. Other files under scripts\ are left alone.
+    /// </summary>
+    public static void RemoveGeneratedScripts(string stageRoot)
+    {
+        var detect = Path.Combine(stageRoot, DetectionFile);
+        if (File.Exists(detect)) File.Delete(detect);
+        var requirements = Path.Combine(stageRoot, RequirementsFolder);
+        if (Directory.Exists(requirements)) Directory.Delete(requirements, recursive: true);
+    }
+
+    /// <summary>True for a stage-relative path the signing step writes itself.</summary>
+    public static bool IsGeneratedScriptPath(string relativePath)
+    {
+        var path = relativePath.Replace('/', '\\').TrimStart('\\');
+        return path.Equals(DetectionFile, StringComparison.OrdinalIgnoreCase)
+            || path.Equals(RequirementsFolder, StringComparison.OrdinalIgnoreCase)
+            || path.StartsWith(RequirementsFolder + "\\", StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
     /// The ScriptSigning record of a stage under a policy with every Sign and
     /// Require switch off. Nothing under the stage root is written or removed:
     /// detection and requirement scripts are recorded from their text as
@@ -272,8 +293,9 @@ public static class ScriptSigningOrchestrator
     }
 
     /// <summary>
-    /// Every .ps1/.psm1 under the stage root except scripts\ (owned by the
-    /// Detection and Requirements categories), split into AppPackager-owned
+    /// Every .ps1/.psm1 under the stage root except the generated scripts\detect.ps1 and
+    /// scripts\requirements (owned by the Detection and Requirements categories); any
+    /// other script under scripts\ is a deployment file. Split into AppPackager-owned
     /// files and third-party files (PSADT layouts and declared scripts).
     /// </summary>
     public static (List<(string FullName, string RelativePath)> Owned, List<(string FullName, string RelativePath)> ThirdParty)
@@ -290,7 +312,7 @@ public static class ScriptSigningOrchestrator
                      .OrderBy(f => f, StringComparer.OrdinalIgnoreCase))
         {
             var relative = file[rootFull.Length..].TrimStart('\\');
-            if (relative.StartsWith(@"scripts\", StringComparison.OrdinalIgnoreCase)) continue;
+            if (IsGeneratedScriptPath(relative)) continue;
             if (DeploymentLauncher.IsThirdPartyFile(file, relative, roots)) thirdParty.Add((file, relative));
             else owned.Add((file, relative));
         }

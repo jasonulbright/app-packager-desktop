@@ -134,8 +134,8 @@ public sealed class StageFinalizer
             var path = Path.Combine(stageRoot, name);
             if (File.Exists(path)) File.Delete(path);
         }
-        var scripts = Path.Combine(stageRoot, "scripts");
-        if (!Policy.AnySwitch && Directory.Exists(scripts)) Directory.Delete(scripts, recursive: true);
+        // Only the generated detector and requirement scripts go; the profile's own files stay.
+        if (!Policy.AnySwitch) Signing.ScriptSigningOrchestrator.RemoveGeneratedScripts(stageRoot);
     }
 
     /// <summary>
