@@ -22,8 +22,8 @@
                            "VersionTransform":  "strip_prefix:v"
                        },
     "DownloadUrl":  "https://github.com/vim/vim-win32-installer/releases/download/v{display_version}/gvim_{display_version}_x64.exe",
-    "InstallArgs":  "/S",
-    "UninstallArgs":  "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART",
+    "InstallArgs":  "/S /allusers",
+    "UninstallArgs":  "/S /allusers",
     "Detection":  {
         "Type":  "RegistryKeyValue",
         "RegistryHive":  "HKLM",
@@ -37,5 +37,5 @@
                            "gvim",
                            "vim"
                        ],
-    "UninstallCommand":  "$unins = Get-ChildItem \"C:\\Program Files\\Vim\" -Recurse -Filter \"uninstall-gui.exe\" -ErrorAction SilentlyContinue | Select-Object -First 1; $proc = Start-Process -FilePath $unins.FullName -ArgumentList \"/S\" -Wait -PassThru -NoNewWindow"
+    "UninstallCommand":  "$cmd = $null; foreach ($root in 'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Vim', 'HKLM:\\SOFTWARE\\WOW6432Node\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Vim') { if (Test-Path -LiteralPath $root) { $cmd = (Get-ItemProperty -LiteralPath $root).UninstallString; if ($cmd) { break } } }; if (-not $cmd) { Write-Error 'Vim uninstall entry not found.'; exit 1 }; if ($cmd -match '^\"([^\"]+)\"') { $uninstaller = $matches[1] } else { $uninstaller = $cmd.Trim() }; if (-not (Test-Path -LiteralPath $uninstaller)) { Write-Error 'Vim uninstaller not found.'; exit 1 }; $proc = Start-Process -FilePath $uninstaller -ArgumentList @('/S', '/allusers') -Wait -PassThru -NoNewWindow"
 }

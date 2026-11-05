@@ -12,6 +12,9 @@
 
 ### Fixed
 
+- Install Vim, pgAdmin 4 and AIMP with the switches the PowerShell app proved: `/S /allusers` for Vim, `/ALLUSERS` for pgAdmin 4, `/AUTO /SILENT` for AIMP.
+- Uninstall Vim through the UninstallString of its entry, Anaconda in place with its folder deleted after, and the AWS Session Manager plugin from its bundle cache copy.
+- Count exit code 1223 as success for the Android Studio install, and read its newest release from the feed again. The feed names new installers without the version.
 - Extract the Sysinternals Suite ZIP in the install wrapper. The wrapper started the ZIP as a program before.
 - Read the ProductCode of an Advanced Installer or InstallShield EXE that wraps an MSI. The analysis extracts the MSI in the sandbox and reads its Property table.
 

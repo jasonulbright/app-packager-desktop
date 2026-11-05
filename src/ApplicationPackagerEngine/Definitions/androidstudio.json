@@ -1,7 +1,7 @@
 {
   "Schema": 1,
   "Id": "cd723cf101a1faaa",
-  "WsusSupport": "No (DetectionNotMappable)",
+  "WsusSupport": "No (CustomInstall)",
   "Vendor": "Google",
   "Application": "Android Studio (x64)",
   "CMName": "Android Studio",
@@ -15,12 +15,15 @@
   "VersionScraper": {
     "Type": "HttpRegex",
     "Url": "https://jb.gg/android-studio-releases-list.json",
-    "Pattern": "/android/studio/install/(\\d+(?:\\.\\d+)+)/android-studio-\\d[\\d.]*-windows\\.exe",
-    "BuildQuery": "\"build\":\"AI-([0-9.]+)\",\"platformVersion\":\"[^\"]*\",\"name\":\"[^\"]*\",\"channel\":\"Release\",\"version\":\"{version}\""
+    "Pattern": "\"channel\":\"Release\",\"version\":\"(\\d+(?:\\.\\d+)+)\"",
+    "SelectHighestVersion": true,
+    "BuildQuery": "\"build\":\"AI-([0-9.]+)\",\"platformVersion\":\"[^\"]*\",\"name\":\"[^\"]*\",\"channel\":\"Release\",\"version\":\"{version}\"",
+    "DownloadUrlQuery": "(https://[^\"]*?/android/studio/install/{version}/[^\"/]*-windows\\.exe)"
   },
   "DownloadUrl": "https://redirector.gvt1.com/edgedl/android/studio/install/{version}/android-studio-{version}-windows.exe",
   "InstallArgs": "/S",
   "UninstallArgs": "/S",
+  "SuccessExitCodes": [0, 1223],
   "UninstallCommand": "\"C:\\Program Files\\Android\\Android Studio\\uninstall.exe\" /S",
   "Detection": {
     "Type": "Script",
