@@ -13,8 +13,15 @@ namespace ApplicationPackagerEngine.Scrapers;
 ///   "ProductVersion"    — FileVersionInfo.ProductVersion (EXE/bootstrapper)
 ///   "MsiProductVersion" — MSI ProductVersion property via COM
 ///
-/// Downloaded files are cached in %TEMP%\SRLPackr-FileVersionCache\ so that
+/// Downloaded files are cached in the per-user data folder, under
+/// AppDataPaths.Root\FileVersionCache (APP_PACKAGER_DATA_ROOT moves it), so that
 /// Stage can reuse the already-downloaded installer instead of re-downloading.
+///
+/// Retention: a file stays until a newer release replaces it or the user
+/// deletes the folder. The folder is also bounded: before each download the
+/// oldest files are deleted while the folder holds more than MaxCacheBytes.
+/// The first use in a process deletes the folder that earlier versions kept
+/// in %TEMP%; nothing from it is migrated.
 ///
 /// With Hops set, the hops run first (ChainedHttpRegexScraper semantics) and
 /// their "url" capture names the file to download, for a vendor whose page
@@ -30,7 +37,66 @@ public sealed class FileVersionScraper : IVersionScraper
 {
     public string Type => "FileVersion";
 
-    private static readonly string CacheDir = Path.Combine(Path.GetTempPath(), "SRLPackr-FileVersionCache");
+    /// <summary>The size limit of the cache folder: 2 GiB.</summary>
+    public const long MaxCacheBytes = 2L * 1024 * 1024 * 1024;
+
+    private const string LegacyTempFolderName = "SRLPackr-FileVersionCache";
+    private static int _legacyTempChecked;
+
+    /// <summary>The cache folder, below the per-user data root. It follows APP_PACKAGER_DATA_ROOT.</summary>
+    public static string CacheDir => Path.Combine(Services.AppDataPaths.Root, "FileVersionCache");
+
+    /// <summary>
+    /// Creates the cache folder and proves that it can be read.
+    /// Fails with a message that names the folder when it cannot be used.
+    /// </summary>
+    public static string EnsureCacheDir()
+    {
+        var dir = CacheDir;
+        try
+        {
+            Directory.CreateDirectory(dir);
+            _ = Directory.EnumerateFileSystemEntries(dir).Any();
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            throw new IOException(
+                $"The FileVersion cache folder cannot be used: {dir}. Check that the folder exists and that this Windows user can read and write it. {ex.Message}", ex);
+        }
+        DeleteLegacyTempCache();
+        return dir;
+    }
+
+    /// <summary>Deletes the %TEMP% folder of earlier versions, once for each process. Errors are ignored.</summary>
+    private static void DeleteLegacyTempCache()
+    {
+        if (Interlocked.Exchange(ref _legacyTempChecked, 1) == 1) return;
+        try
+        {
+            var legacy = Path.Combine(Path.GetTempPath(), LegacyTempFolderName);
+            if (Directory.Exists(legacy) && !Services.AppDataPaths.IsReparsePointDirectory(legacy))
+                Directory.Delete(legacy, recursive: true);
+        }
+        catch { }
+    }
+
+    /// <summary>
+    /// Deletes the oldest files (by last write time) until the folder holds at
+    /// most <paramref name="maxBytes"/>. The file at <paramref name="keepPath"/> is not deleted.
+    /// </summary>
+    public static int TrimCache(string dir, long maxBytes, string? keepPath = null)
+    {
+        var files = new DirectoryInfo(dir).EnumerateFiles().OrderBy(f => f.LastWriteTimeUtc).ToList();
+        var total = files.Sum(f => f.Length);
+        var deleted = 0;
+        foreach (var file in files)
+        {
+            if (total <= maxBytes) break;
+            if (keepPath is not null && string.Equals(file.FullName, keepPath, StringComparison.OrdinalIgnoreCase)) continue;
+            try { var size = file.Length; file.Delete(); total -= size; deleted++; } catch { }
+        }
+        return deleted;
+    }
 
     public async Task<string?> GetLatestVersionAsync(VersionScraperConfig config, CancellationToken ct = default)
     {
@@ -40,10 +106,11 @@ public sealed class FileVersionScraper : IVersionScraper
         var url = await ResolveDownloadUrlAsync(config, ct);
         if (url is null) return null;
 
-        Directory.CreateDirectory(CacheDir);
+        var cacheDir = EnsureCacheDir();
 
         var fileName = ResolveFileName(url);
-        var cachedPath = Path.Combine(CacheDir, fileName);
+        var cachedPath = Path.Combine(cacheDir, fileName);
+        TrimCache(cacheDir, MaxCacheBytes, cachedPath);
 
         // A fixed URL serves "latest" with no version in the path and a
         // hop-resolved build name repeats across point releases, so the cache

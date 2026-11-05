@@ -1,5 +1,12 @@
 # Changelog
 
+## [Unreleased]
+
+### Changed
+
+- Keep the FileVersion scraper cache in the per-user data folder instead of the Windows temp folder.
+- Delete the oldest cached installers when the FileVersion cache passes 2 GiB.
+
 ## [2026.1103.3] - 2026-11-03
 
 ### Added
