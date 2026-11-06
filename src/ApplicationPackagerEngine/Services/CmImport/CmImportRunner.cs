@@ -76,13 +76,14 @@ public sealed class CmImportRunner(
     {
         Validate(request, stage: true);
         var (model, plan) = await PlanAsync(request, log, ct).ConfigureAwait(false);
+        // The tool may need a download. A failure must leave the output folder untouched.
+        var toolPath = request.Package ? await resolveToolPath(ct).ConfigureAwait(false) : null;
         var stage = CmImportStage.Export(plan, request.OutputRoot.Trim(), request.SkipContent, model.IconBase64);
         log?.Invoke($"Staged {stage.Staged.Count} app(s) in {stage.ApplicationFolder}");
 
         IReadOnlyList<CmPackagedApp> packages = [];
-        if (request.Package)
+        if (toolPath is not null)
         {
-            var toolPath = await resolveToolPath(ct).ConfigureAwait(false);
             packages = await publisher.PackageAsync(plan, stage, toolPath, request.Publish, log, ct).ConfigureAwait(false);
         }
         return new CmImportOutcome(plan, CmImportPlanner.Report(plan), stage, packages);

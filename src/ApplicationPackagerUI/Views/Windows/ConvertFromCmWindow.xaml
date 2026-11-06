@@ -87,10 +87,10 @@
 
         <Border Grid.Row="3" BorderThickness="0,1,0,0" BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}" Padding="16,10">
             <WrapPanel HorizontalAlignment="Right">
-                <ui:Button Content="_Preview" MinWidth="110" Margin="0,0,8,0" Command="{Binding PreviewCommand}"
+                <ui:Button Content="_Preview" MinWidth="110" Margin="0,0,8,0" IsDefault="True" Command="{Binding PreviewCommand}"
                            ToolTip="Read the application and show the plan. Nothing is written."
                            AutomationProperties.AutomationId="btnConvertPreview" />
-                <ui:Button Content="_Convert" Appearance="Primary" MinWidth="110" Margin="0,0,8,0" IsDefault="True"
+                <ui:Button Content="_Convert" Appearance="Primary" MinWidth="110" Margin="0,0,8,0"
                            Command="{Binding ConvertCommand}"
                            ToolTip="Copy the content and write the files. Builds and publishes when you ask for it."
                            AutomationProperties.AutomationId="btnConvertRun" />

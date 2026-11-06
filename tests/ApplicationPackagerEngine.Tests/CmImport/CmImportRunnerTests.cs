@@ -60,11 +60,21 @@ public sealed class CmImportRunnerTests : IDisposable
     public async Task PreviewReadsTheSiteAndWritesNothing()
     {
         var session = new FixtureSession(Fixture("clauses"));
-        var outcome = await Runner(session).PreviewAsync(Request(r => r.OutputRoot = ""));
+        var outcome = await Runner(session).PreviewAsync(Request());
         Assert.True(session.Calls >= 1);
         Assert.Null(outcome.Stage);
         Assert.NotEmpty(outcome.Plan.DeploymentTypes);
         Assert.False(string.IsNullOrWhiteSpace(outcome.Report));
+        Assert.Empty(Directory.EnumerateFileSystemEntries(_dir));
+    }
+
+    [Fact]
+    public async Task AToolFailureLeavesTheOutputFolderUntouched()
+    {
+        var runner = new CmImportRunner(new CmApplicationSiteReader(new FixtureSession(Fixture("clauses"))), null!,
+            _ => throw new HttpRequestException("offline"));
+        await Assert.ThrowsAsync<HttpRequestException>(() =>
+            runner.ConvertAsync(Request(r => { r.SkipContent = false; r.Package = true; })));
         Assert.Empty(Directory.EnumerateFileSystemEntries(_dir));
     }
 
