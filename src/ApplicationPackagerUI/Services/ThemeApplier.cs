@@ -1,6 +1,7 @@
 using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Interop;
+using System.Windows.Media;
 using Wpf.Ui.Appearance;
 
 namespace ApplicationPackagerUI.Services;
@@ -35,6 +36,26 @@ public static class ThemeApplier
         if (Resolve(stored) is { } theme) Apply(theme);
     }
 
+    /// <summary>The resource path of the brand palette file of a theme.</summary>
+    public static string PalettePath(ApplicationTheme theme) => $"/ApplicationPackagerUI;component/Views/Styles/Palette.{theme}.xaml";
+
+    /// <summary>
+    /// Puts the palette of the theme in the application resources, in place of the palette of the other theme, and gives
+    /// the brand accent to the accent manager of the control library. Returns the accent.
+    /// </summary>
+    private static Color ApplyPalette(ApplicationTheme theme)
+    {
+        var merged = Application.Current.Resources.MergedDictionaries;
+        var palette = merged.FirstOrDefault(d => d.Source?.OriginalString.Contains("/Palette.", StringComparison.OrdinalIgnoreCase) == true);
+        if (palette is null)
+        {
+            palette = new ResourceDictionary();
+            merged.Add(palette);
+        }
+        palette.Source = new Uri(PalettePath(theme), UriKind.Relative);
+        return (Color)palette["BrandAccentColor"];
+    }
+
     /// <summary>
     /// Swaps the theme dictionary and repaints every open window. The library repaints the
     /// main window and the windows it owns only; a window opened on its own, such as the
@@ -44,7 +65,11 @@ public static class ThemeApplier
     public static void Apply(ApplicationTheme theme)
     {
         if (Application.Current is null) return;
-        ApplicationThemeManager.Apply(theme, WindowBackdropType.Mica, updateAccent: true);
+        // The Windows accent is not used: the brand palette of the theme sets the accent and the status colors.
+        // The Windows accent is not used: the brand palette of the theme sets the accent and the status colors.
+        var accent = ApplyPalette(theme);
+        ApplicationThemeManager.Apply(theme, WindowBackdropType.Mica, updateAccent: false);
+        ApplicationAccentColorManager.Apply(accent, theme);
         foreach (var window in Application.Current.Windows.OfType<FluentWindow>())
         {
             WindowBackgroundManager.UpdateBackground(window, theme, window.WindowBackdropType);
