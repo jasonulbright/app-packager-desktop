@@ -174,4 +174,16 @@ public sealed class PageStructureTests
         Assert.Contains("Query library", texts);
         Assert.Contains("Script library", texts);
     }
+
+    // Keyboard focus stays visible: no style removes the focus visual of a control. CM01 captures of the Tab key in the light and the
+    // dark theme show the library focus ring on the sidebar items and the buttons (step 7 of the pass).
+    [Fact]
+    public void NoStyleRemovesTheFocusVisual()
+    {
+        var off = new List<string>();
+        foreach (var file in AllXaml())
+            foreach (Match m in Regex.Matches(File.ReadAllText(file), @"FocusVisualStyle""?s*(?:=|Value=)""{x:Null}"""))
+                off.Add(Path.GetFileName(file));
+        Assert.True(off.Count == 0, "A style removes the focus visual: " + string.Join(", ", off.Distinct()));
+    }
 }

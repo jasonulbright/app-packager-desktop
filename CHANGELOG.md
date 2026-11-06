@@ -10,6 +10,8 @@
 - Group the toolbars of Installer Analysis and Collection and Compliance so they wrap by group, and add headings to the query and script libraries of Pivots and Scripts.
 - Use one type scale (12, 14, 16, 20, 28 px) and a 4 px spacing grid in every window and page. A test checks both.
 - Give the page header band padding and an 8 px gap, align its description with the title, group the App Packager toolbar so it wraps by group, and trim page top margins to 8 px. Shorten the Site Hygiene description.
+- Fail the build when a brush pair of a page falls below WCAG 2.1 AA (text 4.5 to 1, borders and focus rings 3 to 1). Disabled text is exempt.
+- Add a test that no style removes the keyboard focus visual of a control.
 - Retake the guide images that show the App Packager page, the Settings page, the Discover prompt, the About section, the sidebar and the update window with the new palette and page header. Add images of the Convert from ConfigMgr window and the update window.
 - Describe Discover unmanaged software as it works now: names and versions only, no client count and no Clients column. Add the page for Convert from ConfigMgr.
 
