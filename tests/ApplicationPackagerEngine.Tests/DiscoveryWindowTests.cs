@@ -87,6 +87,37 @@ public sealed class DiscoveryWindowTests
         });
     }
 
+    [Theory]
+    [InlineData(ApplicationTheme.Light)]
+    [InlineData(ApplicationTheme.Dark)]
+    public void TheCheckBoxOfARowIsNotClippedByItsCell(ApplicationTheme theme)
+    {
+        var gridMarkup = Named(Markup(), "gridDiscover").ToString();
+        var hostMarkup =
+            "<Grid xmlns=\"http://schemas.microsoft.com/winfx/2006/xaml/presentation\" xmlns:ui=\"http://schemas.lepo.co/wpfui/2022/xaml\">"
+            + "<Grid.Resources><ResourceDictionary><ResourceDictionary.MergedDictionaries>"
+            + $"<ui:ThemesDictionary Theme=\"{theme}\" /><ui:ControlsDictionary />"
+            + "</ResourceDictionary.MergedDictionaries></ResourceDictionary></Grid.Resources>"
+            + gridMarkup + "</Grid>";
+        RunSta(() =>
+        {
+            var host = (Grid)System.Windows.Markup.XamlReader.Parse(hostMarkup);
+            var grid = host.Children.OfType<DataGrid>().Single();
+            grid.ItemsSource = new DiscoveryDialogViewModel([new DiscoveryCandidate("a", "A", "V", "A app")], "").Rows;
+            host.Measure(new Size(600, 300));
+            host.Arrange(new Rect(0, 0, 600, 300));
+            host.UpdateLayout();
+
+            var box = Descendants(grid).OfType<System.Windows.Controls.CheckBox>().Single();
+            var cell = Descendants(grid).OfType<System.Windows.Controls.DataGridCell>().First(c => c.Column is DataGridTemplateColumn);
+            var bounds = box.TransformToAncestor(cell).TransformBounds(new Rect(0, 0, box.ActualWidth, box.ActualHeight));
+            Assert.True(bounds.Left >= 0 && bounds.Right <= cell.ActualWidth,
+                $"The check box spans {bounds.Left}..{bounds.Right} in a cell of width {cell.ActualWidth}.");
+            // The default cell template padded the box to 36 px and cut the 20 px glyph on the right; the centered cell gives it 42 px.
+            Assert.True(box.ActualWidth >= 40, $"The check box is {box.ActualWidth} px wide.");
+        });
+    }
+
     private static string Describe(System.Windows.Media.Brush? brush) => brush switch
     {
         null => "none",

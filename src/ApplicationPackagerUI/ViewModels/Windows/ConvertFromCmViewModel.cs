@@ -73,6 +73,10 @@ public sealed partial class ConvertFromCmViewModel : ObservableObject
 
     private bool CanStart() => Idle && !string.IsNullOrWhiteSpace(ApplicationName);
 
+    /// <summary>The status line after a preview: "1 of 1 deployment type converts", "2 of 3 deployment types convert".</summary>
+    public static string PreviewStatus(int converting, int total) =>
+        $"Preview: {converting} of {total} deployment {(total == 1 ? "type converts" : "types convert")}. Nothing was written.";
+
     [RelayCommand(CanExecute = nameof(CanStart))]
     private async Task PreviewAsync()
     {
@@ -80,7 +84,7 @@ public sealed partial class ConvertFromCmViewModel : ObservableObject
         {
             var outcome = await _runner.PreviewAsync(Request(null), log, token);
             ReportText = outcome.Report;
-            StatusText = $"Preview: {outcome.Plan.DeploymentTypes.Count(d => d.Convert)} of {outcome.Plan.DeploymentTypes.Count} deployment types convert. Nothing was written.";
+            StatusText = PreviewStatus(outcome.Plan.DeploymentTypes.Count(d => d.Convert), outcome.Plan.DeploymentTypes.Count);
         });
     }
 

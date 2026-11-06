@@ -24,7 +24,8 @@
             <TextBlock x:Name="txtPrompt" Text="{Binding PromptText}" FontSize="14" FontWeight="SemiBold" TextWrapping="Wrap"
                        AutomationProperties.AutomationId="txtDiscoverPrompt" Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
             <TextBlock x:Name="txtStatus" Text="{Binding StatusText}" FontSize="12" TextWrapping="Wrap" Margin="0,4,0,0"
-                       AutomationProperties.AutomationId="txtDiscoverStatus" Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                       AutomationProperties.AutomationId="txtDiscoverStatus" Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                       Visibility="{Binding HasStatus, Converter={StaticResource BooleanToVisibilityConverter}}" />
             <TextBlock FontSize="12" TextWrapping="Wrap" Margin="0,4,0,0" Foreground="{DynamicResource TextFillColorSecondaryBrush}"
                        Text="Each app is hidden in Catalog on the App Packager page, has no ConfigMgr application, and shows in hardware inventory by name and version. Enabled apps join the App Packager grid for Check, Stage and Publish." />
             <TextBlock x:Name="txtNote" Text="{Binding NoteText}" FontSize="12" TextWrapping="Wrap" Margin="0,4,0,0"
@@ -46,6 +47,20 @@
                             <Setter Property="AutomationProperties.Name" Value="Include" />
                         </Style>
                     </DataGridTemplateColumn.HeaderStyle>
+                    <!-- The default cell clips the check box in a 48 px column. The cell centers its content and clips nothing. -->
+                    <DataGridTemplateColumn.CellStyle>
+                        <Style TargetType="DataGridCell" BasedOn="{StaticResource {x:Type DataGridCell}}">
+                            <Setter Property="Template">
+                                <Setter.Value>
+                                    <ControlTemplate TargetType="DataGridCell">
+                                        <Grid Background="Transparent">
+                                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                        </Grid>
+                                    </ControlTemplate>
+                                </Setter.Value>
+                            </Setter>
+                        </Style>
+                    </DataGridTemplateColumn.CellStyle>
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
                             <CheckBox IsChecked="{Binding Selected, UpdateSourceTrigger=PropertyChanged}" HorizontalAlignment="Center"

@@ -21,7 +21,7 @@ Use the page after the Setup window, or when a site, share, certificate or key c
 3. Select **Save Settings** in the page header, at the top right. The snackbar shows "Settings saved."
 4. To discard unsaved edits, select **Discard changes** next to it. The button reloads every setting on the page from the saved settings.
 
-![Top of the Settings page with the Sidebar, Organization and Systems in use sections](../images/core-settings-top.png)
+![Top of the Settings page with the Sidebar, Updates, Organization and Systems in use sections](../images/core-settings-top.png)
 
 The theme choice **Dark** or **Light** is at the top of the page. The window changes at once when you select a theme. **Save Settings** stores the choice. The default theme is **Dark**.
 

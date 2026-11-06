@@ -272,7 +272,8 @@ public sealed class DiscoveryDialogViewModelTests
         Assert.Equal("Microsoft Edge", vm.Rows[1].Name);
         Assert.Equal("Vendor grepwin", vm.Rows[0].Vendor);
         Assert.DoesNotContain(typeof(DiscoveryCandidateRow).GetProperties(), p => p.Name.Contains("Client", StringComparison.Ordinal));
-        Assert.Equal("Discovered 2 apps.", vm.StatusText);
+        Assert.Equal("", vm.StatusText);
+        Assert.False(vm.HasStatus);
         Assert.All(vm.Rows, r => Assert.False(r.Selected));
     }
 
@@ -632,7 +633,7 @@ public sealed class DiscoveryRunnerTests
         Assert.Equal(1, r.SettingsChanges);
         Assert.Equal("1 app(s) added to the grid.", r.Status[^1]);
         Assert.Equal("Discovered 2 apps. Enable console view?", prompt.Shown!.PromptText);
-        Assert.Equal(TwoCandidates().StatusText, prompt.Shown.StatusText);
+        Assert.False(prompt.Shown.HasStatus);
     }
 
     [Fact]

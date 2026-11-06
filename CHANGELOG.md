@@ -2,8 +2,16 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- Show the whole check box in the Discover unmanaged software list. The default cell clipped its right side.
+- Drop the second "Discovered N apps." line from the Discover prompt. It repeated the title.
+- Write "1 of 1 deployment type converts" in the Convert from ConfigMgr preview, and show hint text in its empty plan and log boxes.
+- Name only the signer (`Jason Ulbright`) in the update window after a download. It showed the city, state and country of the certificate too.
+
 ### Changed
 
+- Retake the guide images that show the App Packager page, the Settings page, the Discover prompt and the About section. Add images of the Convert from ConfigMgr window and the update window.
 - Describe Discover unmanaged software as it works now: names and versions only, no client count and no Clients column. Add the page for Convert from ConfigMgr.
 
 ## [2026.1106.4] - 2026-11-06

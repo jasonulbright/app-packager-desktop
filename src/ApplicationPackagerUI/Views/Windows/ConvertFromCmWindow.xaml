@@ -75,11 +75,11 @@
                 <RowDefinition Height="2*" />
                 <RowDefinition Height="*" />
             </Grid.RowDefinitions>
-            <TextBox Grid.Row="0" Text="{Binding ReportText}" IsReadOnly="True" FontFamily="Consolas" FontSize="12"
+            <ui:TextBox Grid.Row="0" Text="{Binding ReportText}" IsReadOnly="True" PlaceholderText="The plan shows here after you select Preview." FontFamily="Consolas" FontSize="12"
                      TextWrapping="NoWrap" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto"
                      AcceptsReturn="True" Margin="0,0,0,8"
                      AutomationProperties.AutomationId="txtConvertReport" AutomationProperties.Name="Conversion report" />
-            <TextBox Grid.Row="1" Text="{Binding LogText}" IsReadOnly="True" FontFamily="Consolas" FontSize="12"
+            <ui:TextBox Grid.Row="1" Text="{Binding LogText}" IsReadOnly="True" PlaceholderText="The progress of each step shows here." FontFamily="Consolas" FontSize="12"
                      TextWrapping="NoWrap" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto"
                      AcceptsReturn="True"
                      AutomationProperties.AutomationId="txtConvertLog" AutomationProperties.Name="Progress log" />

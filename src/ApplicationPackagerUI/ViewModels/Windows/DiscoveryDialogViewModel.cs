@@ -41,6 +41,9 @@ public sealed partial class DiscoveryDialogViewModel : ObservableObject
     public string PromptText { get; }
     public string StatusText { get; }
 
+    /// <summary>False when the status line only repeats the count that the prompt already shows.</summary>
+    public bool HasStatus => StatusText.Length > 0;
+
     [ObservableProperty] private string _noteText = "";
 
     public bool HasNote => NoteText.Length > 0;
@@ -63,8 +66,11 @@ public sealed partial class DiscoveryDialogViewModel : ObservableObject
                 Vendor = c.Vendor
             }));
         PromptText = PromptFor(Rows.Count);
-        StatusText = statusText ?? "";
+        StatusText = string.Equals(statusText, DiscoveredLine(Rows.Count), StringComparison.Ordinal) ? "" : statusText ?? "";
     }
+
+    /// <summary>The plain count line of the scan: the prompt carries it already.</summary>
+    private static string DiscoveredLine(int count) => $"Discovered {count} {(count == 1 ? "app" : "apps")}.";
 
     public static string PromptFor(int count) =>
         $"Discovered {count} {(count == 1 ? "app" : "apps")}. Enable console view?";

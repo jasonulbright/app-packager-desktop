@@ -60,7 +60,7 @@ public sealed class UpdateViewModelTests : IDisposable
                 ? new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(sums) }
                 : new HttpResponseMessage(HttpStatusCode.OK) { Content = new ByteArrayContent(Setup) };
         });
-        var service = new UpdateService(handler, new Signature(new SignatureInfo(status, "CN=Jason Ulbright", true)),
+        var service = new UpdateService(handler, new Signature(new SignatureInfo(status, "CN=Jason Ulbright, O=Jason Ulbright, L=Apex, S=nc, C=US", true)),
             newFolder: () => Path.Combine(_root, Guid.NewGuid().ToString("N")));
         var vm = new UpdateViewModel(service, "2026.1103.3", path => { launched.Add(path); return launchWorks; }, () => shutdowns[0]++);
         return (vm, launched, shutdowns);
@@ -96,6 +96,10 @@ public sealed class UpdateViewModelTests : IDisposable
         Assert.Empty(launched);
         Assert.Equal(0, shutdowns[0]);
         Assert.True(vm.InstallCommand.CanExecute(null));
+        // The status names the signer, not the whole certificate subject (city, state, country).
+        Assert.Contains("Jason Ulbright signed the file", vm.StatusText);
+        Assert.DoesNotContain("O=", vm.StatusText);
+        Assert.DoesNotContain("Apex", vm.StatusText);
     }
 
     [Fact]

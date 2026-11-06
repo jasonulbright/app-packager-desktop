@@ -37,10 +37,12 @@ BLUF: **Convert from ConfigMgr** reads one ConfigMgr application from the site a
 3. Enter the application name in **Application name**.
 4. Check the **Output folder**. The default is the folder `CmImport` in your download folder. Each application gets its own folder inside it.
 5. Set the options (table below).
-6. Select **Preview**. The report shows the plan. The status line shows how many deployment types convert, for example `Preview: 2 of 3 deployment types convert. Nothing was written.`
+6. Select **Preview**. The report shows the plan. The status line shows how many deployment types convert, for example `Preview: 1 of 1 deployment type converts. Nothing was written.`
 7. Read the report. Fix what blocks a deployment type, or accept what is marked for review.
 8. Select **Convert**. The log shows each step. Select **Cancel** to stop. Closing the window also stops the run. The content copy does not stop at once: the copy of the deployment type that is running can finish before the run stops.
 9. Read the status line. It shows `Done: <N> app(s) staged in <folder>`, with the number of packages built and published when you asked for them.
+
+![The Convert from ConfigMgr window after a preview](../images/core-convert-window.png)
 
 ## Options
 
@@ -94,7 +96,7 @@ Examples: `DetectionMissing`, `InstallCommandMissing`, `SetupFileNotFound` and `
 
 - The conversion reads from the site. It writes only to the output folder, to the Intune tenant when you publish, and to the tool folder when it downloads the content prep tool.
 - It does not create assignments, dependencies or supersedence.
-- It was tested against fixtures and a fake site session. It has not run against a production site or tenant. Run **Preview** first and check each published app.
+- **Preview** ran against the lab ConfigMgr site and read a real application. **Convert**, the build and the publish ran only against fixtures and fake sessions. None of them ran against a production site or an Intune tenant. Run **Preview** first and check each published app.
 - The conversion uses Microsoft Graph v1.0 only. The `arm64` architecture value goes through `allowedArchitectures`. The report asks you to check the app on an ARM64 device (`Arm64ValueUnverified`).
 
 ## Links
