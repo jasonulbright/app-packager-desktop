@@ -99,7 +99,7 @@ public partial class MainWindow : IDialogHostWindow
             void StartUpdateCheck(object? sender, EventArgs args)
             {
                 ContentRendered -= StartUpdateCheck;
-                _ = _serviceProvider.GetRequiredService<UpdateCoordinator>().RunStartupCheckAsync(this);
+                if (_serviceProvider.GetService<UpdateCoordinator>() is { } updates) _ = updates.RunStartupCheckAsync(this);
             }
             ContentRendered += StartUpdateCheck;
         }
