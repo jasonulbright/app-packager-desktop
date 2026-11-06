@@ -64,6 +64,11 @@ public partial class App : Application
                 services.AddSingleton<PackagesViewModel>();
                 services.AddSingleton<CatalogViewModel>();
                 services.AddTransient<CatalogWindow>();
+                services.AddTransient<ConvertFromCmViewModel>(sp => new ConvertFromCmViewModel(
+                    sp.GetRequiredService<ApplicationPackagerEngine.Services.CmImport.ICmImportRunner>(),
+                    System.IO.Path.Combine(sp.GetRequiredService<SettingsService>().Load().DownloadRoot, "CmImport"),
+                    () => sp.GetRequiredService<IntuneDeploymentService>().LoadPublishOptions()));
+                services.AddTransient<ConvertFromCmWindow>();
                 services.AddSingleton<SettingsPage>();
                 services.AddSingleton<SettingsViewModel>();
                 services.AddSingleton<IPublishActionHost>(sp => sp.GetRequiredService<PackagesViewModel>());

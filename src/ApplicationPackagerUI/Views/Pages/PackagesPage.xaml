@@ -60,12 +60,21 @@
 
         <controls:PageHeader Grid.Row="0" Title="App Packager" TitleAutomationId="txtAppPackagerTitle">
             <controls:PageHeader.Actions>
+                <StackPanel Orientation="Horizontal">
                 <ui:Button
                            Content="Catalog"
                            Icon="{ui:SymbolIcon AppsList24}"
                            Click="Catalog_Click"
                            ToolTip="Show or hide applications in this grid."
                            AutomationProperties.AutomationId="btnCatalog" />
+                <ui:Button
+                           Content="Convert from ConfigMgr"
+                           Icon="{ui:SymbolIcon ArrowSwap24}"
+                           Margin="8,0,0,0"
+                           Click="ConvertFromCm_Click"
+                           ToolTip="Convert a ConfigMgr application to Intune apps."
+                           AutomationProperties.AutomationId="btnConvertFromCm" />
+            </StackPanel>
             </controls:PageHeader.Actions>
         </controls:PageHeader>
 

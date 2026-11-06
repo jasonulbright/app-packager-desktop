@@ -171,6 +171,22 @@ public partial class PackagesPage
         _catalog.Show();
     }
 
+    private Views.Windows.ConvertFromCmWindow? _convertFromCm;
+
+    /// <summary>Opens the ConfigMgr conversion window, or brings the open one to the front.</summary>
+    private void ConvertFromCm_Click(object sender, RoutedEventArgs e)
+    {
+        if (_convertFromCm is { IsVisible: true })
+        {
+            _convertFromCm.Activate();
+            return;
+        }
+        _convertFromCm = App.Services.GetRequiredService<Views.Windows.ConvertFromCmWindow>();
+        _convertFromCm.Owner = Window.GetWindow(this);
+        _convertFromCm.Closed += (_, _) => _convertFromCm = null;
+        _convertFromCm.Show();
+    }
+
     private void ViewHistory_Click(object sender, RoutedEventArgs e) => OpenHistoryForSelection();
 
     private void ContextMenu_ViewHistory(object sender, RoutedEventArgs e) => OpenHistoryForSelection();

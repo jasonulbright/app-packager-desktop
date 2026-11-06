@@ -172,6 +172,19 @@ public sealed class IntuneDeploymentService(SettingsService settingsService)
         return null;
     }
 
+    /// <summary>
+    /// The stored tenant values as publish options, or null when one is missing. The secret is
+    /// unprotected here and never shown.
+    /// </summary>
+    public IntunePublishOptions? LoadPublishOptions()
+    {
+        var stored = settingsService.Load().Intune;
+        var secret = IntuneSecretProtector.Unprotect(stored.ClientSecretProtected);
+        if (string.IsNullOrWhiteSpace(stored.TenantId) || string.IsNullOrWhiteSpace(stored.ClientId) || string.IsNullOrWhiteSpace(secret))
+            return null;
+        return new IntunePublishOptions { TenantId = stored.TenantId.Trim(), ClientId = stored.ClientId.Trim(), ClientSecret = secret };
+    }
+
     /// <summary>Downloads the content prep tool into the tool folder; returns its path.</summary>
     public static Task<string> DownloadToolAsync(Action<string>? log = null, CancellationToken ct = default) =>
         EnsureToolAsync(log, ct);
