@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [2026.1106.4] - 2026-11-06
+
 ### Added
 
 - Add the engine of the ConfigMgr to Intune conversion: it reads the stored document of an application, plans one Intune Win32 app per deployment type with detection, requirement and variant rules, and stages content, manifests and a report. The engine also reads the application from the site, builds the .intunewin files and publishes the apps. The Convert from ConfigMgr button on the App Packager page opens a window that previews the plan, converts, and optionally builds and publishes.
