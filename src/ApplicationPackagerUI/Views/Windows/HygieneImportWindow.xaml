@@ -34,7 +34,7 @@
         <TextBox Grid.Row="2" x:Name="txtImportPlan" Margin="16,0,16,8" Text="{Binding Plan, Mode=OneWay}" Style="{StaticResource DetailBox}" KeyboardNavigation.TabIndex="0"
                  AutomationProperties.Name="What the import copies, read only" AutomationProperties.AutomationId="txtImportPlan" />
 
-        <Border Grid.Row="3" BorderThickness="0,1,0,0" BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}" Padding="16,10"
+        <Border Grid.Row="3" BorderThickness="0,1,0,0" BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}" Padding="16,8"
                 KeyboardNavigation.TabNavigation="Local" KeyboardNavigation.TabIndex="1">
             <WrapPanel HorizontalAlignment="Right">
                 <ui:Button x:Name="btnImport" Content="Import" MinWidth="100" Margin="0,0,8,0" Appearance="Primary" Command="{Binding ImportCommand}"

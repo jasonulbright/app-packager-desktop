@@ -43,7 +43,7 @@
 
             <Style x:Key="Monospace" TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}">
                 <Setter Property="FontFamily" Value="Cascadia Mono, Consolas, Courier New" />
-                <Setter Property="FontSize" Value="13" />
+                <Setter Property="FontSize" Value="14" />
                 <Setter Property="TextWrapping" Value="Wrap" />
                 <Setter Property="VerticalScrollBarVisibility" Value="Auto" />
                 <Setter Property="VerticalContentAlignment" Value="Top" />
@@ -96,7 +96,7 @@
             <DataTemplate x:Key="RuleItemTemplate">
                 <StackPanel Margin="0,2">
                     <TextBlock Text="{Binding Text}" TextTrimming="CharacterEllipsis" ToolTip="{Binding Text}" Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
-                    <TextBlock Text="{Binding Expression}" TextTrimming="CharacterEllipsis" ToolTip="{Binding Expression}" FontSize="11"
+                    <TextBlock Text="{Binding Expression}" TextTrimming="CharacterEllipsis" ToolTip="{Binding Expression}" FontSize="12"
                                Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
                 </StackPanel>
             </DataTemplate>
@@ -251,7 +251,7 @@
                                                 <ItemsControl ItemsSource="{Binding Properties}" AutomationProperties.AutomationId="lstProperties">
                                                     <ItemsControl.ItemTemplate>
                                                         <DataTemplate>
-                                                            <StackPanel Margin="0,0,0,6">
+                                                            <StackPanel Margin="0,0,0,4">
                                                                 <TextBlock Text="{Binding Name}" Style="{StaticResource FieldLabel}" Margin="0" />
                                                                 <TextBox Text="{Binding Value, Mode=OneWay}" IsReadOnly="True" TextWrapping="Wrap" AutomationProperties.Name="{Binding Name}" />
                                                             </StackPanel>

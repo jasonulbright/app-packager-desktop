@@ -67,15 +67,15 @@
                        Foreground="{DynamicResource TextFillColorPrimaryBrush}"
                        Visibility="{Binding ShowResult, Converter={StaticResource ChangePlanVisibility}}" />
             <!-- The view sets MaxHeight to the whole lines the window has room for; the box scrolls beyond them. -->
-            <TextBox x:Name="txtNotes" Text="{Binding NotesText, Mode=OneWay}" Style="{StaticResource DetailBox}" Margin="0,6,0,0"
+            <TextBox x:Name="txtNotes" Text="{Binding NotesText, Mode=OneWay}" Style="{StaticResource DetailBox}" Margin="0,4,0,0"
                      AutomationProperties.AutomationId="txtChangePlanNotes" AutomationProperties.Name="Checks and impact"
                      Visibility="{Binding HasNotes, Converter={StaticResource ChangePlanVisibility}}" />
             <!-- The view sets MaxHeight to BodyLines whole lines; the box scrolls beyond them. -->
-            <TextBox x:Name="txtBody" Text="{Binding BodyText, Mode=OneWay}" Style="{StaticResource DetailBox}" Margin="0,6,0,0"
+            <TextBox x:Name="txtBody" Text="{Binding BodyText, Mode=OneWay}" Style="{StaticResource DetailBox}" Margin="0,4,0,0"
                      FontFamily="Cascadia Mono, Consolas, Courier New"
                      AutomationProperties.AutomationId="txtChangePlanBody" AutomationProperties.Name="{Binding BodyName}"
                      Visibility="{Binding HasBody, Converter={StaticResource ChangePlanVisibility}}" />
-            <TextBlock x:Name="txtForceClose" Text="{x:Static vm:ChangePlanViewModel.ForceCloseText}" Margin="0,6,0,0" TextWrapping="Wrap"
+            <TextBlock x:Name="txtForceClose" Text="{x:Static vm:ChangePlanViewModel.ForceCloseText}" Margin="0,4,0,0" TextWrapping="Wrap"
                        AutomationProperties.AutomationId="txtChangePlanForceClose" AutomationProperties.LiveSetting="Assertive"
                        Foreground="{DynamicResource SystemFillColorCautionBrush}"
                        Visibility="{Binding ShowForceClose, Converter={StaticResource ChangePlanVisibility}}" />
@@ -137,7 +137,7 @@
         </StackPanel>
         </ScrollViewer>
 
-        <Border Grid.Row="4" BorderThickness="0,1,0,0" BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}" Padding="16,10"
+        <Border Grid.Row="4" BorderThickness="0,1,0,0" BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}" Padding="16,8"
                 KeyboardNavigation.TabNavigation="Local" KeyboardNavigation.TabIndex="2">
             <WrapPanel HorizontalAlignment="Right">
                 <ui:Button x:Name="btnConfirm" Content="{Binding ConfirmContent}" MinWidth="130" Margin="0,0,8,0"

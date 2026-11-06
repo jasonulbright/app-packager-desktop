@@ -87,7 +87,7 @@
             </DataGrid.Columns>
         </DataGrid>
 
-        <Border Grid.Row="3" BorderThickness="0,1,0,0" BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}" Padding="16,10">
+        <Border Grid.Row="3" BorderThickness="0,1,0,0" BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}" Padding="16,8">
             <WrapPanel HorizontalAlignment="Right">
                 <ui:Button x:Name="btnEnableSelected" Content="_Enable selected" Appearance="Primary" MinWidth="130" Margin="0,0,8,0" IsDefault="True"
                            Command="{Binding EnableSelectedCommand}" AutomationProperties.AutomationId="btnEnableSelected"

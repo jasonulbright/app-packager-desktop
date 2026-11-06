@@ -298,10 +298,10 @@
                                 <DataGridTextColumn Header="Fix" Binding="{Binding Fix}" SortMemberPath="Fix" Width="216" MinWidth="212" ElementStyle="{StaticResource TrimmedCell}" />
                             </DataGrid.Columns>
                         </DataGrid>
-                        <Border Grid.Row="3" x:Name="pnlFindingDetail" Style="{StaticResource Card}" Margin="0,6,0,0" Padding="12,6" KeyboardNavigation.TabNavigation="Local" KeyboardNavigation.TabIndex="3"
+                        <Border Grid.Row="3" x:Name="pnlFindingDetail" Style="{StaticResource Card}" Margin="0,4,0,0" Padding="12,4" KeyboardNavigation.TabNavigation="Local" KeyboardNavigation.TabIndex="3"
                                 AutomationProperties.AutomationId="pnlFindingDetail">
                             <StackPanel>
-                                <TextBlock Text="{Binding DetailTitle}" Style="{StaticResource Warning}" FontSize="13" AutomationProperties.AutomationId="txtFindingDetailTitle"
+                                <TextBlock Text="{Binding DetailTitle}" Style="{StaticResource Warning}" FontSize="14" AutomationProperties.AutomationId="txtFindingDetailTitle"
                                            AutomationProperties.LiveSetting="Polite" />
                                 <TextBlock Text="{Binding DetailObject}" Style="{StaticResource DetailLine}" AutomationProperties.AutomationId="txtFindingDetailObject"
                                            Visibility="{Binding HasDetail, Converter={StaticResource BoolToVisibility}}" />
@@ -311,7 +311,7 @@
                                            Visibility="{Binding HasDetail, Converter={StaticResource BoolToVisibility}}" />
                                 <TextBlock Text="{Binding DetailFixNote}" Style="{StaticResource DetailLine}" AutomationProperties.AutomationId="txtFindingDetailFixNote"
                                            Visibility="{Binding HasDetailFixNote, Converter={StaticResource BoolToVisibility}}" />
-                                <DockPanel Margin="0,6,0,0" Visibility="{Binding HasDetail, Converter={StaticResource BoolToVisibility}}">
+                                <DockPanel Margin="0,4,0,0" Visibility="{Binding HasDetail, Converter={StaticResource BoolToVisibility}}">
                                     <ui:Button DockPanel.Dock="Right" Content="Copy" Icon="{ui:SymbolIcon Copy24}" Command="{Binding CopyFixTextCommand}" Margin="8,0,0,0" VerticalAlignment="Top"
                                                ToolTip="Copies the PowerShell text of the fix. The page runs the typed fix, not this text." AutomationProperties.Name="Copy the PowerShell text of the fix"
                                                AutomationProperties.AutomationId="btnCopyFixText" />
@@ -454,7 +454,7 @@
                                                AutomationProperties.AutomationId="txtImportOffer" />
                                 </DockPanel>
                             </Border>
-                            <TextBlock x:Name="txtLiveViewMessage" Text="{Binding LiveViewMessage}" Style="{StaticResource Warning}" Margin="0,0,0,6" MaxHeight="48" TextTrimming="CharacterEllipsis"
+                            <TextBlock x:Name="txtLiveViewMessage" Text="{Binding LiveViewMessage}" Style="{StaticResource Warning}" Margin="0,0,0,4" MaxHeight="48" TextTrimming="CharacterEllipsis"
                                        ToolTip="{Binding LiveViewMessage}" Visibility="{Binding ShowsLiveViewMessage, Converter={StaticResource BoolToVisibility}}"
                                        AutomationProperties.AutomationId="txtLiveViewMessage" AutomationProperties.LiveSetting="Polite" />
                         </StackPanel>
@@ -473,7 +473,7 @@
                                                         AutomationProperties.Name="{Binding SelectedTrendMetric.Title}" AutomationProperties.HelpText="{Binding TrendReadout}"
                                                         AutomationProperties.AutomationId="chartTrend" ToolTip="{Binding TrendReadout}" />
                                 </Border>
-                                <StackPanel Grid.Row="1" x:Name="pnlTrendText" Margin="0,6,0,6">
+                                <StackPanel Grid.Row="1" x:Name="pnlTrendText" Margin="0,4,0,4">
                                     <TextBlock Text="{Binding TrendReadout}" Style="{StaticResource Warning}" AutomationProperties.AutomationId="txtTrendReadout" AutomationProperties.LiveSetting="Polite" />
                                     <TextBlock Text="{Binding TrendNote}" Style="{StaticResource Note}" AutomationProperties.AutomationId="txtTrendNote" />
                                 </StackPanel>
@@ -657,17 +657,17 @@
                         <TextBlock Text="Alerts" Style="{StaticResource CardTitle}" Margin="0,16,0,8" />
                         <TextBlock Style="{StaticResource Note}" Margin="0,0,0,8" AutomationProperties.AutomationId="txtAlertsIntro"
                                    Text="An alert fires when a completed refresh finds a threshold crossed, and again only after the value recovered. A view that failed neither raises nor clears an alert. The first complete read of a value after the app starts sets its starting state and raises no alert, also when the threshold is crossed already. When you turn alerts or a threshold off and on again, an alert that fired does not fire again until a complete read shows the recovery. Alerts show on this page and go to the alerts log, only while the app runs." />
-                        <CheckBox IsChecked="{Binding AlertsEnabled}" Margin="0,0,0,6" AutomationProperties.Name="Raise alerts" AutomationProperties.AutomationId="chkAlertsEnabled">
+                        <CheckBox IsChecked="{Binding AlertsEnabled}" Margin="0,0,0,4" AutomationProperties.Name="Raise alerts" AutomationProperties.AutomationId="chkAlertsEnabled">
                             <TextBlock TextWrapping="Wrap" Foreground="{DynamicResource TextFillColorPrimaryBrush}" Text="Raise alerts" />
                         </CheckBox>
                         <StackPanel Margin="28,0,0,0" IsEnabled="{Binding AlertsEnabled}">
-                            <CheckBox IsChecked="{Binding AlertSiteCritical}" Margin="0,0,0,6" AutomationProperties.Name="A site component or site system is critical" AutomationProperties.AutomationId="chkAlertSiteCritical">
+                            <CheckBox IsChecked="{Binding AlertSiteCritical}" Margin="0,0,0,4" AutomationProperties.Name="A site component or site system is critical" AutomationProperties.AutomationId="chkAlertSiteCritical">
                                 <TextBlock TextWrapping="Wrap" Foreground="{DynamicResource TextFillColorPrimaryBrush}" Text="A site component or site system is critical" />
                             </CheckBox>
-                            <CheckBox IsChecked="{Binding AlertDpCritical}" Margin="0,0,0,6" AutomationProperties.Name="A distribution point is critical" AutomationProperties.AutomationId="chkAlertDpCritical">
+                            <CheckBox IsChecked="{Binding AlertDpCritical}" Margin="0,0,0,4" AutomationProperties.Name="A distribution point is critical" AutomationProperties.AutomationId="chkAlertDpCritical">
                                 <TextBlock TextWrapping="Wrap" Foreground="{DynamicResource TextFillColorPrimaryBrush}" Text="A distribution point is critical" />
                             </CheckBox>
-                            <CheckBox IsChecked="{Binding AlertContentFailed}" Margin="0,0,0,6" AutomationProperties.Name="A DP-content pair failed" AutomationProperties.AutomationId="chkAlertContentFailed">
+                            <CheckBox IsChecked="{Binding AlertContentFailed}" Margin="0,0,0,4" AutomationProperties.Name="A DP-content pair failed" AutomationProperties.AutomationId="chkAlertContentFailed">
                                 <TextBlock TextWrapping="Wrap" Foreground="{DynamicResource TextFillColorPrimaryBrush}" Text="A DP-content pair failed" />
                             </CheckBox>
                             <WrapPanel>

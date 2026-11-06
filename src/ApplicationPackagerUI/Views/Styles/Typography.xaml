@@ -2,6 +2,9 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
+    <!-- The type scale: 12 caption and hint, 14 body, 16 card title, 20 section title, 28 page title, 32 result headline.
+         The spacing grid: margins and padding are 0, 2 (optical) or a multiple of 4. A test enforces both. -->
+
     <!-- A Page does not pass the theme text brush to its content, so every text style sets Foreground. -->
     <Style x:Key="PageTitle" TargetType="TextBlock">
         <Setter Property="FontSize" Value="28" />

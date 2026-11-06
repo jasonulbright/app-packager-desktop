@@ -33,7 +33,7 @@
                      AutomationProperties.Name="{Binding Label}" AutomationProperties.AutomationId="txtPromptValue" />
         </DockPanel>
 
-        <Border Grid.Row="2" BorderThickness="0,1,0,0" BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}" Padding="16,10">
+        <Border Grid.Row="2" BorderThickness="0,1,0,0" BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}" Padding="16,8">
             <DockPanel>
                 <WrapPanel DockPanel.Dock="Right">
                     <ui:Button Content="{Binding ActionText}" Appearance="Primary" MinWidth="110" Margin="0,0,8,0" Command="{Binding AcceptCommand}"

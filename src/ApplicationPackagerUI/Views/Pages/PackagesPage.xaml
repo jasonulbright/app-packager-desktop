@@ -85,7 +85,7 @@
                     <Setter Property="ToolTip" Value="{Binding Content, RelativeSource={RelativeSource Self}}" />
                     <Style.Triggers>
                         <DataTrigger Binding="{Binding Tag, RelativeSource={RelativeSource AncestorType=WrapPanel}}" Value="Compact">
-                            <Setter Property="Padding" Value="8,5" />
+                            <Setter Property="Padding" Value="8,4" />
                             <Setter Property="ContentTemplate">
                                 <Setter.Value>
                                     <DataTemplate>
@@ -335,7 +335,7 @@
                         <DataTemplate>
                             <!-- Status by color and by icon: the icon shows the class for a user who cannot tell the colors apart. -->
                             <DockPanel LastChildFill="True" Margin="4,0" ToolTip="{Binding StatusDetail}">
-                            <ui:SymbolIcon DockPanel.Dock="Left" FontSize="16" Margin="0,0,6,0" VerticalAlignment="Center"
+                            <ui:SymbolIcon DockPanel.Dock="Left" FontSize="16" Margin="0,0,4,0" VerticalAlignment="Center"
                                            Foreground="{Binding Foreground, ElementName=StatusLabel}">
                                 <ui:SymbolIcon.Style>
                                     <Style TargetType="ui:SymbolIcon">
@@ -422,7 +422,7 @@
             </DataGrid.Columns>
         </ui:DataGrid>
 
-        <StackPanel Grid.Row="4" Orientation="Horizontal" Margin="0,6,0,6">
+        <StackPanel Grid.Row="4" Orientation="Horizontal" Margin="0,4,0,4">
             <ui:Button Content="Select Update Available"
                        Icon="{ui:SymbolIcon CheckboxChecked24}"
                        Command="{Binding SelectUpdateAvailableCommand}"
@@ -454,7 +454,7 @@
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
-            <TextBlock Grid.Column="0" FontSize="11" VerticalAlignment="Center">
+            <TextBlock Grid.Column="0" FontSize="12" VerticalAlignment="Center">
                 <TextBlock.Style>
                     <Style TargetType="TextBlock">
                         <Setter Property="Text" Value="● ConfigMgr" />

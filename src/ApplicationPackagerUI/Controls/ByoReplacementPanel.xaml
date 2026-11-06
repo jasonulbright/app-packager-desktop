@@ -6,12 +6,12 @@
 
     <ScrollViewer x:Name="Scroller" MaxHeight="540" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
         <StackPanel Width="600" Margin="0,0,12,0">
-            <TextBlock x:Name="HeadingText" FontSize="13" TextWrapping="Wrap" Margin="0,0,0,8"
+            <TextBlock x:Name="HeadingText" FontSize="14" TextWrapping="Wrap" Margin="0,0,0,8"
                        Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
 
-            <TextBlock Text="Identity differences" FontSize="14" FontWeight="SemiBold" Margin="0,0,0,6"
+            <TextBlock Text="Identity differences" FontSize="14" FontWeight="SemiBold" Margin="0,0,0,4"
                        Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
-            <TextBlock x:Name="SummaryText" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,6"
+            <TextBlock x:Name="SummaryText" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,4"
                        AutomationProperties.AutomationId="ByoReplacementSummary"
                        Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
             <ItemsControl x:Name="ChangeList" AutomationProperties.AutomationId="ByoReplacementChanges" Margin="0,0,0,12"
@@ -37,7 +37,7 @@
                                         </Style.Triggers>
                                     </Style>
                                 </Border.Style>
-                                <TextBlock Text="{Binding SeverityText}" FontSize="11"
+                                <TextBlock Text="{Binding SeverityText}" FontSize="12"
                                            AutomationProperties.AutomationId="ByoReplacementSeverity">
                                     <TextBlock.Style>
                                         <Style TargetType="TextBlock">
@@ -58,7 +58,7 @@
                 </ItemsControl.ItemTemplate>
             </ItemsControl>
 
-            <TextBlock Text="New revision" FontSize="14" FontWeight="SemiBold" Margin="0,0,0,6"
+            <TextBlock Text="New revision" FontSize="14" FontWeight="SemiBold" Margin="0,0,0,4"
                        Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
             <local:DropReviewPanel x:Name="Review" MinWidth="0" />
         </StackPanel>

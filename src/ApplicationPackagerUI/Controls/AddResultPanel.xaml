@@ -30,7 +30,7 @@
 
     <Border Style="{StaticResource AddCard}" AutomationProperties.AutomationId="pnlAddResult">
         <StackPanel>
-            <TextBlock Text="Added" Style="{StaticResource AddHeading}" Margin="0,0,0,6" />
+            <TextBlock Text="Added" Style="{StaticResource AddHeading}" Margin="0,0,0,4" />
             <TextBlock Text="{Binding Summary}" Style="{StaticResource AddWarningText}" Margin="0,0,0,4" AutomationProperties.AutomationId="txtAddResultSummary" />
             <TextBlock Text="{Binding DefinitionPath}" Style="{StaticResource AddNote}" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap"
                        ToolTip="{Binding DefinitionPath}" Margin="0,0,0,8" AutomationProperties.AutomationId="txtAddResultPath" />

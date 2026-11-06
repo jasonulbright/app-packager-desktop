@@ -27,7 +27,7 @@
                  MaxLength="1000" VerticalScrollBarVisibility="Auto" KeyboardNavigation.TabIndex="0"
                  AutomationProperties.Name="{Binding Prompt}" AutomationProperties.AutomationId="txtComment" />
 
-        <Border Grid.Row="3" BorderThickness="0,1,0,0" BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}" Padding="16,10"
+        <Border Grid.Row="3" BorderThickness="0,1,0,0" BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}" Padding="16,8"
                 KeyboardNavigation.TabNavigation="Local" KeyboardNavigation.TabIndex="1">
             <WrapPanel HorizontalAlignment="Right">
                 <ui:Button x:Name="btnOk" Content="OK" MinWidth="100" Margin="0,0,8,0" Appearance="Primary" IsDefault="True" Command="{Binding OkCommand}"

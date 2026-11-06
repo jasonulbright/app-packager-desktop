@@ -18,7 +18,7 @@
                                 VerticalScrollBarVisibility="Auto"
                                 HorizontalScrollBarVisibility="Disabled">
             <StackPanel Margin="0,0,12,0">
-                <Grid x:Name="InstallModeRow" Margin="0,0,0,10" Visibility="Collapsed">
+                <Grid x:Name="InstallModeRow" Margin="0,0,0,8" Visibility="Collapsed">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="150" />
                         <ColumnDefinition Width="*" />
@@ -32,7 +32,7 @@
                             <ComboBoxItem Content="System" Tag="AllUsers" />
                             <ComboBoxItem Content="User" Tag="CurrentUser" />
                         </ComboBox>
-                        <TextBlock x:Name="InstallModeHint" FontSize="11" Margin="0" TextWrapping="Wrap"
+                        <TextBlock x:Name="InstallModeHint" FontSize="12" Margin="0" TextWrapping="Wrap"
                                    Foreground="{DynamicResource TextFillColorTertiaryBrush}" />
                     </StackPanel>
                 </Grid>
@@ -40,7 +40,7 @@
                 <ItemsControl x:Name="FieldList" AutomationProperties.AutomationId="DropReviewFields" Focusable="False" IsTabStop="False">
                     <ItemsControl.ItemTemplate>
                         <DataTemplate>
-                            <Grid Margin="0,0,0,6">
+                            <Grid Margin="0,0,0,4">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="150" />
                                     <ColumnDefinition Width="*" />
@@ -105,7 +105,7 @@
 
                                 <TextBlock Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="2"
                                            Text="{Binding ProvenanceText}"
-                                           FontSize="11"
+                                           FontSize="12"
                                            Margin="0"
                                            TextWrapping="Wrap"
                                            Foreground="{DynamicResource TextFillColorTertiaryBrush}" />

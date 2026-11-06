@@ -17,7 +17,7 @@
             <Setter Property="Margin" Value="0,0,0,12" />
         </Style>
         <Style x:Key="FieldLabel" TargetType="TextBlock">
-            <Setter Property="FontSize" Value="13" />
+            <Setter Property="FontSize" Value="14" />
             <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
             <Setter Property="Margin" Value="0,0,0,4" />
         </Style>
@@ -156,7 +156,7 @@
                         PlaceholderText="cm01.contoso.com" Margin="0,0,0,4"
                         ToolTip="Host the generated CMSite drive connects to. Leave empty to use the local machine, which only reaches the site when this machine is itself the SMS provider." />
             <TextBlock Text="Leave empty only when this machine is the SMS provider."
-                       Foreground="{DynamicResource TextFillColorTertiaryBrush}" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,12" />
+                       Foreground="{DynamicResource TextFillColorTertiaryBrush}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,12" />
 
             <TextBlock Text="Discovery SQL Server" Style="{StaticResource FieldLabel}" />
             <ui:TextBox Text="{Binding Discovery.SqlServer, UpdateSourceTrigger=PropertyChanged}"
@@ -164,7 +164,7 @@
                         AutomationProperties.AutomationId="txtDiscoverySqlServer"
                         ToolTip="SQL Server instance of the ConfigMgr site database for Discover unmanaged software, for example cm01.contoso.com or server\instance. Windows authentication only." />
             <TextBlock Text="Leave empty to use the SQL Server of the site, read from the SMS Provider."
-                       Foreground="{DynamicResource TextFillColorTertiaryBrush}" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,12" />
+                       Foreground="{DynamicResource TextFillColorTertiaryBrush}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,12" />
 
             <TextBlock Text="Discovery Database" Style="{StaticResource FieldLabel}" />
             <ui:TextBox Text="{Binding Discovery.SqlDatabase, UpdateSourceTrigger=PropertyChanged}"
@@ -172,7 +172,7 @@
                         AutomationProperties.AutomationId="txtDiscoverySqlDatabase"
                         ToolTip="Name of the ConfigMgr site database, for example CM_MCM. The account needs db_datareader on this database." />
             <TextBlock Text="Leave empty to use the database of the site."
-                       Foreground="{DynamicResource TextFillColorTertiaryBrush}" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,12" />
+                       Foreground="{DynamicResource TextFillColorTertiaryBrush}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,12" />
 
             <TextBlock Text="Not offered by Discover" Style="{StaticResource FieldLabel}" />
             <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
@@ -426,7 +426,7 @@
             <TextBlock Text="Intune" Style="{StaticResource SectionHeader}" />
 
             <TextBlock Text="Publishing needs an Entra app registration with the application permission DeviceManagementApps.ReadWrite.All, admin-consented."
-                       Foreground="{DynamicResource TextFillColorTertiaryBrush}" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,12" />
+                       Foreground="{DynamicResource TextFillColorTertiaryBrush}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,12" />
 
             <TextBlock Text="Tenant ID" Style="{StaticResource FieldLabel}" />
             <ui:TextBox Text="{Binding IntuneTenantId, UpdateSourceTrigger=PropertyChanged}"
@@ -440,21 +440,21 @@
             <ui:PasswordBox Password="{Binding IntuneClientSecret, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                             PlaceholderText="{Binding IntuneSecretHint}" Margin="0,0,0,4" />
             <TextBlock Text="Stored encrypted for the current Windows user. Leave empty to keep the saved secret."
-                       Foreground="{DynamicResource TextFillColorTertiaryBrush}" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,8" />
+                       Foreground="{DynamicResource TextFillColorTertiaryBrush}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,8" />
             <TextBlock Text="Stage builds the .intunewin when the Win32 Content Prep Tool is on this computer; Publish to ConfigMgr stores it beside the network content."
-                       Foreground="{DynamicResource TextFillColorTertiaryBrush}" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,8" />
+                       Foreground="{DynamicResource TextFillColorTertiaryBrush}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,8" />
 
             <Border Style="{StaticResource SectionDivider}" />
 
             <TextBlock Text="CVE lookup" Style="{StaticResource SectionHeader}" />
             <TextBlock Text="Check CVEs asks the NIST NVD API for the CVEs between the ConfigMgr version and the latest version of each application. Without a key NVD allows 5 requests in 30 seconds; with a key it allows 50."
-                       Foreground="{DynamicResource TextFillColorTertiaryBrush}" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,12" />
+                       Foreground="{DynamicResource TextFillColorTertiaryBrush}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,12" />
             <TextBlock Text="NVD API key" Style="{StaticResource FieldLabel}" />
             <ui:PasswordBox Password="{Binding NvdApiKey, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                             PlaceholderText="{Binding NvdApiKeyHint}" Margin="0,0,0,4"
                             AutomationProperties.AutomationId="pwdNvdApiKey" />
             <TextBlock Text="Stored encrypted for the current Windows user. Leave empty to keep the saved key. Without a saved key the NVD_API_KEY environment variable is used."
-                       Foreground="{DynamicResource TextFillColorTertiaryBrush}" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,8" />
+                       Foreground="{DynamicResource TextFillColorTertiaryBrush}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,8" />
             <CheckBox Content="Remove the saved key on Save"
                       IsChecked="{Binding RemoveNvdApiKey}"
                       IsEnabled="{Binding HasStoredNvdApiKey}"
@@ -477,7 +477,7 @@
                         AutomationProperties.Name="WSUS server" AutomationProperties.AutomationId="txtWsusServer"
                         ToolTip="Host name of the WSUS server. With ConfigMgr, the WSUS server of the top-level software update point." />
             <TextBlock Text="Port" Style="{StaticResource FieldLabel}" />
-            <DockPanel Margin="0,0,0,6">
+            <DockPanel Margin="0,0,0,4">
                 <ui:Button DockPanel.Dock="Right" Content="Cancel" Command="{Binding Wsus.CancelCommand}" Margin="8,0,0,0" VerticalAlignment="Center"
                            Visibility="{Binding Wsus.Busy, Converter={StaticResource BooleanToVisibilityConverter}}"
                            AutomationProperties.AutomationId="btnWsusCancel" />
@@ -509,7 +509,7 @@
                            AutomationProperties.AutomationId="btnWsusCertExport" ToolTipService.ShowOnDisabled="True"
                            ToolTip="Saves the public signing certificate (.cer) for distribution to clients by Group Policy." />
             </WrapPanel>
-            <TextBlock FontSize="11" TextWrapping="Wrap" Margin="0,0,0,12" Foreground="{DynamicResource TextFillColorTertiaryBrush}"
+            <TextBlock FontSize="12" TextWrapping="Wrap" Margin="0,0,0,12" Foreground="{DynamicResource TextFillColorTertiaryBrush}"
                        AutomationProperties.AutomationId="txtWsusClientTrust"
                        Text="Clients install locally published updates only when the signing certificate is in their Trusted Publishers store (and Trusted Root Certification Authorities when it is self-signed) and the policy Allow signed updates from an intranet Microsoft update service location is enabled: HKLM\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate, AcceptTrustedPublisherCerts = 1 (DWORD)." />
 
@@ -551,7 +551,7 @@
 
             <TextBlock Text="Require valid signatures" Style="{StaticResource SubHeader}" />
             <TextBlock Text="A publishing constraint, not a change to client execution policy. When a required category fails verification the build stops; there is no unsigned fallback."
-                       Foreground="{DynamicResource TextFillColorTertiaryBrush}" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,6" />
+                       Foreground="{DynamicResource TextFillColorTertiaryBrush}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,4" />
             <CheckBox Content="Require valid detection signatures" IsChecked="{Binding Signing.RequireDetection}" Margin="0,0,0,4" />
             <CheckBox Content="Require valid requirement signatures" IsChecked="{Binding Signing.RequireRequirements}" Margin="0,0,0,4" />
             <CheckBox Content="Require valid deployment script signatures" IsChecked="{Binding Signing.RequireDeployment}" Margin="0,0,0,12" />
@@ -572,7 +572,7 @@
                           ToolTip="Selected by thumbprint. A renewed certificate is a new thumbprint and needs reselecting here." />
             </DockPanel>
             <TextBlock Text="{Binding Signing.CertificateDetail}" Foreground="{DynamicResource TextFillColorTertiaryBrush}"
-                       FontSize="11" TextWrapping="Wrap" Margin="0,0,0,12" />
+                       FontSize="12" TextWrapping="Wrap" Margin="0,0,0,12" />
 
             <TextBlock Text="Timestamp server" Style="{StaticResource FieldLabel}" />
             <ui:TextBox Text="{Binding Signing.TimestampServer, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="none"
@@ -588,7 +588,7 @@
                        AutomationProperties.AutomationId="SigningTestResult"
                        Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
             <TextBlock Text="Private keys are never exported and never reach profiles, manifests, logs or command lines. A key held on a hardware token may require a PIN and can prevent unattended runs."
-                       Foreground="{DynamicResource TextFillColorTertiaryBrush}" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,8" />
+                       Foreground="{DynamicResource TextFillColorTertiaryBrush}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,8" />
 
             <Border Style="{StaticResource SectionDivider}" />
 
@@ -667,7 +667,7 @@
                        Foreground="{DynamicResource TextFillColorSecondaryBrush}" Margin="0,0,0,8" TextWrapping="Wrap" />
             <CheckBox Content="Skip the review dialog before staging and use the saved values" IsChecked="{Binding SkipConfigReview}" Margin="0,0,0,8"
                       ToolTip="Applications marked for review in their definition still show the dialog." />
-            <TextBlock Text="{Binding InstallParameterSummary}" Foreground="{DynamicResource TextFillColorTertiaryBrush}" FontSize="11" Margin="0,0,0,8" />
+            <TextBlock Text="{Binding InstallParameterSummary}" Foreground="{DynamicResource TextFillColorTertiaryBrush}" FontSize="12" Margin="0,0,0,8" />
 
             <ItemsControl ItemsSource="{Binding InstallParameterGroups}">
                 <ItemsControl.ItemTemplate>
@@ -676,7 +676,7 @@
                             <ui:CardExpander.Header>
                                 <StackPanel>
                                     <TextBlock Text="{Binding Header}" FontWeight="SemiBold" Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
-                                    <TextBlock Text="{Binding SubHeader}" FontSize="11" Foreground="{DynamicResource TextFillColorTertiaryBrush}" />
+                                    <TextBlock Text="{Binding SubHeader}" FontSize="12" Foreground="{DynamicResource TextFillColorTertiaryBrush}" />
                                 </StackPanel>
                             </ui:CardExpander.Header>
                             <controls:InstallerSettingsPanel Parameters="{Binding Parameters}" Store="{Binding Values}" />
@@ -699,7 +699,7 @@
                                 <ui:Button DockPanel.Dock="Right" Content="Browse..." Command="{Binding BrowseCommand}" Margin="8,0,0,0" />
                                 <ui:TextBox Text="{Binding Path, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="No folder chosen" />
                             </DockPanel>
-                            <TextBlock Text="{Binding Hint}" Foreground="{DynamicResource TextFillColorTertiaryBrush}" FontSize="11" TextWrapping="Wrap" Margin="0,2,0,0" />
+                            <TextBlock Text="{Binding Hint}" Foreground="{DynamicResource TextFillColorTertiaryBrush}" FontSize="12" TextWrapping="Wrap" Margin="0,2,0,0" />
                         </StackPanel>
                     </DataTemplate>
                 </ItemsControl.ItemTemplate>
@@ -717,7 +717,7 @@
                                 <ui:Button DockPanel.Dock="Right" Content="Browse..." Command="{Binding BrowseCommand}" Margin="8,0,0,0" />
                                 <ui:TextBox Text="{Binding Path, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="No file chosen" />
                             </DockPanel>
-                            <TextBlock Text="{Binding Hint}" Foreground="{DynamicResource TextFillColorTertiaryBrush}" FontSize="11" TextWrapping="Wrap" Margin="0,2,0,0" />
+                            <TextBlock Text="{Binding Hint}" Foreground="{DynamicResource TextFillColorTertiaryBrush}" FontSize="12" TextWrapping="Wrap" Margin="0,2,0,0" />
                         </StackPanel>
                     </DataTemplate>
                 </ItemsControl.ItemTemplate>

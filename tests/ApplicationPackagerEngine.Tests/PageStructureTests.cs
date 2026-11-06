@@ -55,4 +55,41 @@ public sealed class PageStructureTests
         Assert.Equal("DismissCircle24", bySymbol["Error"]);
         Assert.Equal(4, bySymbol.Count);
     }
+
+    private static IEnumerable<string> AllXaml()
+    {
+        var root = Path.GetDirectoryName(Src("ApplicationPackagerUI.csproj"))!;
+        return Directory.GetFiles(root, "*.xaml", SearchOption.AllDirectories)
+            .Where(p => !p.Contains(Path.DirectorySeparatorChar + "obj" + Path.DirectorySeparatorChar) && !p.Contains(Path.DirectorySeparatorChar + "bin" + Path.DirectorySeparatorChar));
+    }
+
+    // The type scale: 12, 14, 16, 20, 28 and the 32 of a result headline; 40 and 48 size a symbol, not text.
+    [Fact]
+    public void EveryFontSizeIsOnTheTypeScale()
+    {
+        var scale = new HashSet<string> { "12", "14", "16", "20", "28", "32", "40", "48" };
+        var off = new List<string>();
+        foreach (var file in AllXaml())
+            foreach (Match m in Regex.Matches(File.ReadAllText(file), @"FontSize=""(d+(?:.d+)?)""|Property=""FontSize"" Value=""(d+(?:.d+)?)"""))
+            {
+                var size = m.Groups[1].Success ? m.Groups[1].Value : m.Groups[2].Value;
+                if (!scale.Contains(size)) off.Add($"{Path.GetFileName(file)}: {size}");
+            }
+        Assert.True(off.Count == 0, "Font sizes off the scale: " + string.Join(", ", off));
+    }
+
+    // The spacing grid: a margin or padding value is 0 to 3 (hairline and optical) or a multiple of 4.
+    [Fact]
+    public void EveryMarginAndPaddingIsOnTheGrid()
+    {
+        var off = new List<string>();
+        foreach (var file in AllXaml())
+            foreach (Match m in Regex.Matches(File.ReadAllText(file), @"(?:Margin|Padding)=""([-0-9., ]+)""|Property=""(?:Margin|Padding)"" Value=""([-0-9., ]+)"""))
+                foreach (Match n in Regex.Matches(m.Groups[1].Success ? m.Groups[1].Value : m.Groups[2].Value, @"d+(?:.d+)?"))
+                {
+                    var v = double.Parse(n.Value, System.Globalization.CultureInfo.InvariantCulture);
+                    if (v > 3 && v % 4 != 0) off.Add($"{Path.GetFileName(file)}: {m.Value}");
+                }
+        Assert.True(off.Count == 0, "Spacing off the grid: " + string.Join("; ", off.Distinct()));
+    }
 }

@@ -17,12 +17,12 @@
         <helpers:EnumToBooleanConverter x:Key="EnumToBooleanConverter" />
         <helpers:StepVisibilityConverter x:Key="StepVisibilityConverter" />
         <Style x:Key="FieldLabel" TargetType="TextBlock">
-            <Setter Property="FontSize" Value="13" />
+            <Setter Property="FontSize" Value="14" />
             <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
             <Setter Property="Margin" Value="0,0,0,4" />
         </Style>
         <Style x:Key="HintText" TargetType="TextBlock">
-            <Setter Property="FontSize" Value="11" />
+            <Setter Property="FontSize" Value="12" />
             <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
             <Setter Property="TextWrapping" Value="Wrap" />
             <Setter Property="Margin" Value="0,0,0,12" />
@@ -42,7 +42,7 @@
             <StackPanel Margin="28,8,28,8">
 
                 <StackPanel Visibility="{Binding CurrentStep, Converter={StaticResource StepVisibilityConverter}, ConverterParameter=1}">
-                    <TextBlock Text="Welcome to App Packager Desktop" FontSize="22" FontWeight="Bold"
+                    <TextBlock Text="Welcome to App Packager Desktop" FontSize="20" FontWeight="Bold"
                                Foreground="{DynamicResource TextFillColorPrimaryBrush}" Margin="0,0,0,4" />
                     <TextBlock Text="Select the systems you publish to, then fill in their settings. The App Packager page has a publish button for each system. Everything here can be changed later in Settings."
                                Style="{StaticResource HintText}" />
@@ -52,23 +52,23 @@
                               AutomationProperties.AutomationId="chkSetupConfigMgr"
                               ToolTip="ConfigMgr applications. Needs the ConfigMgr console, a site and a content share." />
                     <TextBlock Text="ConfigMgr applications. Needs the ConfigMgr console, a site and a content share."
-                               Style="{StaticResource HintText}" Margin="28,0,0,10" />
+                               Style="{StaticResource HintText}" Margin="28,0,0,8" />
 
                     <CheckBox Content="Intune" IsChecked="{Binding UseIntune}" Margin="0,0,0,4"
                               AutomationProperties.AutomationId="chkSetupIntune"
                               ToolTip="Intune Win32 apps published through Microsoft Graph. Needs an app registration." />
                     <TextBlock Text="Intune Win32 apps published through Microsoft Graph. Needs an app registration."
-                               Style="{StaticResource HintText}" Margin="28,0,0,10" />
+                               Style="{StaticResource HintText}" Margin="28,0,0,8" />
 
                     <CheckBox Content="WSUS" IsChecked="{Binding UseWsus}" Margin="0,0,0,4"
                               AutomationProperties.AutomationId="chkSetupWsus"
                               ToolTip="Locally published WSUS updates for computers that have an older version. Needs a WSUS server." />
                     <TextBlock Text="Locally published WSUS updates for computers that have an older version. Needs a WSUS server."
-                               Style="{StaticResource HintText}" Margin="28,0,0,10" />
+                               Style="{StaticResource HintText}" Margin="28,0,0,8" />
                 </StackPanel>
 
                 <StackPanel Visibility="{Binding CurrentStep, Converter={StaticResource StepVisibilityConverter}, ConverterParameter=2}">
-                    <TextBlock Text="Connection details" FontSize="22" FontWeight="Bold"
+                    <TextBlock Text="Connection details" FontSize="20" FontWeight="Bold"
                                Foreground="{DynamicResource TextFillColorPrimaryBrush}" Margin="0,0,0,12" />
 
                     <StackPanel Visibility="{Binding ShowMecmFields, Converter={StaticResource BooleanToVisibilityConverter}}">
