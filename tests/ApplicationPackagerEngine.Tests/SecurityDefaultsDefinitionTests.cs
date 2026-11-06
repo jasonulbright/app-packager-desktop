@@ -149,6 +149,8 @@ public sealed class SecurityDefaultsDefinitionTests : IDisposable
         var start = new ProcessStartInfo("powershell.exe",
             $"-NoProfile -ExecutionPolicy Bypass -File \"{script}\"")
         { RedirectStandardOutput = true, RedirectStandardError = true, UseShellExecute = false, CreateNoWindow = true };
+        // A PSModulePath inherited from PowerShell 7 keeps Get-Acl from loading in Windows PowerShell 5.1.
+        WindowsPowerShellHost.ApplyLogonModulePath(start);
         start.Environment["ProgramData"] = programData;
         using var process = Process.Start(start)!;
         var stdout = process.StandardOutput.ReadToEnd();
@@ -189,7 +191,8 @@ public sealed class SecurityDefaultsDefinitionTests : IDisposable
         Assert.True(File.Exists(file));
         Assert.DoesNotContain(password, System.Text.Encoding.UTF8.GetString(File.ReadAllBytes(file)));
 
-        Assert.Equal(password, Password(RunBlock(Postgres17, pd)));
+        var second = RunBlock(Postgres17, pd);
+        Assert.True(password == Password(second), "Second run exit " + second.ExitCode + ": " + string.Join(" | ", second.Output) + " ACL: " + second.Acl);
     }
 
     [Fact]
