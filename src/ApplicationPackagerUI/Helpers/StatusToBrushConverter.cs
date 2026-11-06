@@ -6,11 +6,22 @@ namespace ApplicationPackagerUI.Helpers;
 
 public class StatusToBrushConverter : IValueConverter
 {
-    private static readonly SolidColorBrush Green  = Frozen(Color.FromRgb(0x2D, 0x7D, 0x46));
-    private static readonly SolidColorBrush Blue   = Frozen(Color.FromRgb(0x5B, 0x9B, 0xD5));
-    private static readonly SolidColorBrush Amber  = Frozen(Color.FromRgb(0xE8, 0xA3, 0x17));
-    private static readonly SolidColorBrush Red    = Frozen(Color.FromRgb(0xC0, 0x39, 0x2B));
-    private static readonly SolidColorBrush Gray   = Frozen(Color.FromRgb(0x99, 0x99, 0x99));
+    // The fallback colors are the light palette. They show when the application resources have no palette, as in a test host.
+    // With a palette, the converter returns the brush of the palette: it follows the theme when the theme changes.
+    private static readonly SolidColorBrush FallbackGreen = Frozen(Color.FromRgb(0x0B, 0x6A, 0x0B));
+    private static readonly SolidColorBrush FallbackBlue = Frozen(Color.FromRgb(0x00, 0x57, 0x9E));
+    private static readonly SolidColorBrush FallbackAmber = Frozen(Color.FromRgb(0x8A, 0x4B, 0x00));
+    private static readonly SolidColorBrush FallbackRed = Frozen(Color.FromRgb(0xB3, 0x26, 0x1E));
+    private static readonly SolidColorBrush FallbackGray = Frozen(Color.FromRgb(0x5C, 0x5C, 0x5C));
+
+    private static Brush Themed(string key, Brush fallback) =>
+        System.Windows.Application.Current?.TryFindResource(key) as Brush ?? fallback;
+
+    private static Brush Green => Themed("StatusSuccessBrush", FallbackGreen);
+    private static Brush Blue => Themed("StatusInfoBrush", FallbackBlue);
+    private static Brush Amber => Themed("StatusWarningBrush", FallbackAmber);
+    private static Brush Red => Themed("StatusErrorBrush", FallbackRed);
+    private static Brush Gray => Themed("StatusNeutralBrush", FallbackGray);
 
     /// <summary>A shared brush that is not frozen belongs to the thread that made it; an element on another UI thread then throws when it renders.</summary>
     private static SolidColorBrush Frozen(Color color)

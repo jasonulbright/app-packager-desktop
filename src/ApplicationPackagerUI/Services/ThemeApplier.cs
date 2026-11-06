@@ -35,6 +35,19 @@ public static class ThemeApplier
         if (Resolve(stored) is { } theme) Apply(theme);
     }
 
+    /// <summary>The address of the brand palette file of a theme.</summary>
+    public static Uri PaletteUri(ApplicationTheme theme) =>
+        new($"pack://application:,,,/ApplicationPackagerUI;component/Views/Styles/Palette.{theme}.xaml", UriKind.Absolute);
+
+    /// <summary>Puts the palette of the theme in the application resources, in place of the palette of the other theme.</summary>
+    private static void ApplyPalette(ApplicationTheme theme)
+    {
+        var merged = Application.Current.Resources.MergedDictionaries;
+        var existing = merged.FirstOrDefault(d => d.Source?.OriginalString.Contains("/Palette.", StringComparison.OrdinalIgnoreCase) == true);
+        if (existing is null) merged.Add(new ResourceDictionary { Source = PaletteUri(theme) });
+        else existing.Source = PaletteUri(theme);
+    }
+
     /// <summary>
     /// Swaps the theme dictionary and repaints every open window. The library repaints the
     /// main window and the windows it owns only; a window opened on its own, such as the
@@ -44,7 +57,9 @@ public static class ThemeApplier
     public static void Apply(ApplicationTheme theme)
     {
         if (Application.Current is null) return;
-        ApplicationThemeManager.Apply(theme, WindowBackdropType.Mica, updateAccent: true);
+        // The Windows accent is not used: the brand palette of the theme sets the accent and the status colors.
+        ApplicationThemeManager.Apply(theme, WindowBackdropType.Mica, updateAccent: false);
+        ApplyPalette(theme);
         foreach (var window in Application.Current.Windows.OfType<FluentWindow>())
         {
             WindowBackgroundManager.UpdateBackground(window, theme, window.WindowBackdropType);

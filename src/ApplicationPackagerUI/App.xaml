@@ -10,6 +10,7 @@
                 <ui:ThemesDictionary Theme="Dark" />
                 <ui:ControlsDictionary />
                 <ResourceDictionary Source="/ApplicationPackagerUI;component/Views/Styles/ToolTips.xaml" />
+                <ResourceDictionary Source="/ApplicationPackagerUI;component/Views/Styles/Palette.Dark.xaml" />
             </ResourceDictionary.MergedDictionaries>
         </ResourceDictionary>
     </Application.Resources>
