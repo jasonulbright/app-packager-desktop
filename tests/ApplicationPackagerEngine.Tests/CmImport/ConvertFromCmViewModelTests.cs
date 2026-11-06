@@ -110,6 +110,13 @@ public sealed class ConvertFromCmViewModelTests
         Assert.True(runner.Last.Package);
     }
 
+    [Theory]
+    [InlineData(1, 1, "Preview: 1 of 1 deployment type converts. Nothing was written.")]
+    [InlineData(2, 3, "Preview: 2 of 3 deployment types convert. Nothing was written.")]
+    [InlineData(0, 2, "Preview: 0 of 2 deployment types convert. Nothing was written.")]
+    public void ThePreviewStatusAgreesWithTheCount(int converting, int total, string expected) =>
+        Assert.Equal(expected, ConvertFromCmViewModel.PreviewStatus(converting, total));
+
     [Fact]
     public async Task AFailureBecomesAStatusLineAndTheWindowIsUsableAgain()
     {

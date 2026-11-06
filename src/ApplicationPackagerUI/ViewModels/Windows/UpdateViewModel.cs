@@ -103,7 +103,7 @@ public sealed partial class UpdateViewModel : ObservableObject
         {
             _verified = await _service.DownloadAsync(_release,
                 (read, total) => Progress = total > 0 ? Math.Min(100.0, read * 100.0 / total) : 0, _cts.Token);
-            StatusText = $"Version {_verified.Version} is downloaded. The checksum and the signature of {_verified.Subject} match. " +
+            StatusText = $"Version {_verified.Version} is downloaded. The checksum matches, and {UpdateSignaturePolicy.SignerCommonName} signed the file with a valid, timestamped signature. " +
                          "Click Install and close to run the installer. The app closes first.";
             Stage = UpdateStage.Ready;
         }
