@@ -37,9 +37,13 @@ public sealed class CmImportPublisher(IntuneWinToolService tool, IntunePublishSe
         IntunePublishOptions? options, Action<string>? onProgress = null, CancellationToken ct = default)
     {
         var results = new List<CmPackagedApp>();
+        var missing = stage.Staged.FirstOrDefault(s => !Directory.Exists(s.ContentFolder) || !Directory.EnumerateFileSystemEntries(s.ContentFolder).Any());
+        if (missing is not null)
+            throw new InvalidOperationException($"The content folder of '{missing.Name}' is missing or empty: {missing.ContentFolder}. The stage skipped the content copy, so the app cannot be built or published.");
         foreach (var item in stage.Staged)
         {
-            var dt = plan.DeploymentTypes.First(d => d.Convert && d.Name == item.Name);
+            var dt = plan.DeploymentTypes.FirstOrDefault(d => d.Convert && d.Name == item.Name)
+                ?? throw new InvalidOperationException($"The plan has no convertible deployment type named '{item.Name}'.");
             var manifest = dt.Manifest!;
             var built = await tool.BuildAsync(toolPath, item.ContentFolder, item.SetupFile, Path.Combine(item.Folder, "Package"),
                 CmImportStage.SafeName(item.Name) + ".intunewin", onProgress: onProgress, ct: ct).ConfigureAwait(false);

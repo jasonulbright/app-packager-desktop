@@ -106,6 +106,36 @@ public sealed class CmImportPublishTests : IDisposable
     }
 
     [Theory]
+    [InlineData("riscv")]
+    [InlineData("x64,ia64")]
+    public void RefusesAnUnknownArchitecture(string cm) =>
+        Assert.Contains("not one of", Assert.Throws<InvalidOperationException>(() => IntunePublishService.GraphArchitecturesOfConversion(cm)).Message);
+
+    [Fact]
+    public async Task AnEmptyRuleEntryIsRefusedWithAMessageBeforeGraphIsCalled()
+    {
+        var manifest = Manifest("misc-reqs");
+        var overrides = CmImportPublisher.ToOverrides(manifest);
+        var bad = overrides with { Rules = [.. overrides.Rules, null!] };
+        var package = IntuneWinFixture.Create(_dir);
+        var handler = Handler();
+        using var service = new IntunePublishService(handler);
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            service.PublishAsync(package, CmImportPublisher.ToStageManifest(manifest), Options(), conversion: bad));
+        Assert.Contains("rules", ex.Message);
+    }
+
+    [Fact]
+    public async Task PackagingAStageWithoutContentSaysSo()
+    {
+        var plan = Plan("multi-lang");
+        var stage = CmImportStage.Export(plan, _dir, skipContent: true);
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            new CmImportPublisher(null!, null!).PackageAsync(plan, stage, "tool.exe", null));
+        Assert.Contains("skipped the content copy", ex.Message);
+    }
+
+    [Theory]
     [InlineData("x64", "x64", null)]
     [InlineData("x86,x64", "x64,x86", null)]
     [InlineData("arm64", "none", "arm64")]

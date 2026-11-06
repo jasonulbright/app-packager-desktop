@@ -101,7 +101,7 @@ public sealed class IntunePublishService : IDisposable
 
         var rules = conversion is null
             ? BuildRules(manifest.Detection, scriptSigning)
-            : new JsonArray(conversion.Rules.Select(r => (JsonNode)r.DeepClone()).ToArray());
+            : new JsonArray(CloneAll(conversion.Rules, "rules"));
 
         var installCommand = FirstNonBlank(manifest.CommandOverrides?.Install, "install.bat");
         var uninstallCommand = FirstNonBlank(manifest.CommandOverrides?.Uninstall, "uninstall.bat");
@@ -156,7 +156,7 @@ public sealed class IntunePublishService : IDisposable
                     ReturnCode(3010, "softReboot"),
                     ReturnCode(1641, "hardReboot"),
                     ReturnCode(1618, "retry"))
-                : new JsonArray(conversion.ReturnCodes.Select(c => (JsonNode)c.DeepClone()).ToArray())
+                : new JsonArray(CloneAll(conversion.ReturnCodes, "return codes"))
         };
         if (conversion is not null)
         {
@@ -533,6 +533,12 @@ public sealed class IntunePublishService : IDisposable
             : (resolved, null);
     }
 
+    private static JsonNode[] CloneAll(IReadOnlyList<JsonObject> items, string what)
+    {
+        if (items.Any(i => i is null)) throw new InvalidOperationException($"The converted {what} hold an empty entry.");
+        return items.Select(i => (JsonNode)i.DeepClone()).ToArray();
+    }
+
     /// <summary>
     /// The architecture properties of a converted app. One architecture, or x86 with x64, is the documented
     /// applicableArchitectures. A set with arm64 in it is sent as allowedArchitectures, with
@@ -542,6 +548,9 @@ public sealed class IntunePublishService : IDisposable
     {
         var set = architectures.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
             .Select(a => a.ToLowerInvariant()).Distinct().OrderBy(a => a, StringComparer.Ordinal).ToList();
+        var unknown = set.FirstOrDefault(a => a is not ("x86" or "x64" or "arm64"));
+        if (unknown is not null)
+            throw new InvalidOperationException($"The architecture '{unknown}' is not one of x86, x64 and arm64.");
         if (set.Count == 0) return GraphArchitectures("x64");
         if (set.Contains("arm64")) return ("none", string.Join(",", set));
         return (string.Join(",", set), null);

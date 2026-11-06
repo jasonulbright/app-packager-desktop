@@ -39,7 +39,7 @@ public sealed class CmApplicationSiteReader(IConfigMgrSession session)
         if (string.IsNullOrWhiteSpace(applicationName)) throw new ArgumentException("The application name is empty.", nameof(applicationName));
         var result = await session.InvokeAsync(ConfigMgrScript.FromText("GetApplicationDigest", DigestScript),
             new ConfigMgrParameters { ["ApplicationName"] = applicationName }, ct).ConfigureAwait(false);
-        var xml = result.Lines.FirstOrDefault(l => l.Contains("AppMgmtDigest", StringComparison.Ordinal));
+        var xml = result.Lines.FirstOrDefault(l => l.TrimStart().StartsWith('<') && l.Contains("AppMgmtDigest", StringComparison.Ordinal));
         return xml ?? throw new InvalidDataException($"ConfigMgr application '{applicationName}' returned no stored document.");
     }
 
@@ -65,7 +65,7 @@ public sealed class CmApplicationSiteReader(IConfigMgrSession session)
                     relationship.TargetDeploymentTypeName = names.DeploymentTypeName;
                 }
             }
-            catch (ConfigMgrSessionException ex)
+            catch (Exception ex) when (ex is ConfigMgrSessionException or System.Text.Json.JsonException)
             {
                 onWarning?.Invoke($"Could not resolve the name of {relationship.TargetApplication}: {ex.Message}");
             }

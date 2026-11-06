@@ -75,6 +75,27 @@ public sealed class CmApplicationSiteReaderTests
     }
 
     [Fact]
+    public async Task ALineThatIsNotADocumentIsNotTakenForTheStoredDocument()
+    {
+        var xml = Fixture("clauses");
+        var session = new ScriptedSession((_, _) => Strings("Warning: AppMgmtDigest is large", "  " + xml));
+        Assert.Equal("  " + xml, await new CmApplicationSiteReader(session).ReadDigestAsync("X"));
+        var none = new ScriptedSession((_, _) => Strings("Warning: AppMgmtDigest is large"));
+        await Assert.ThrowsAsync<InvalidDataException>(() => new CmApplicationSiteReader(none).ReadDigestAsync("X"));
+    }
+
+    [Fact]
+    public async Task AMalformedNamesAnswerBecomesAWarningNotAFailure()
+    {
+        var plan = CmImportPlanner.Plan(CmApplicationDigestReader.Read(Fixture("dependent")));
+        var warnings = new List<string>();
+        var session = new ScriptedSession((_, _) => Strings("not an object"));
+        await new CmApplicationSiteReader(session).ResolveRelationshipNamesAsync(plan, warnings.Add);
+        Assert.Single(warnings);
+        Assert.Equal("", plan.Relationships[0].TargetApplicationName);
+    }
+
+    [Fact]
     public async Task ResolvesTheNamesOfDependencyTargetsAndKeepsTheLogicalNameWhenOneFails()
     {
         var plan = CmImportPlanner.Plan(CmApplicationDigestReader.Read(Fixture("dependent")));
