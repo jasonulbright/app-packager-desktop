@@ -26,7 +26,7 @@
             <TextBlock x:Name="txtStatus" Text="{Binding StatusText}" FontSize="12" TextWrapping="Wrap" Margin="0,4,0,0"
                        AutomationProperties.AutomationId="txtDiscoverStatus" Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
             <TextBlock FontSize="12" TextWrapping="Wrap" Margin="0,4,0,0" Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                       Text="Each app is hidden in Catalog on the App Packager page, has no ConfigMgr application, and is installed on at least one client. Enabled apps join the App Packager grid for Check, Stage and Publish." />
+                       Text="Each app is hidden in Catalog on the App Packager page, has no ConfigMgr application, and shows in hardware inventory by name and version. Enabled apps join the App Packager grid for Check, Stage and Publish." />
             <TextBlock x:Name="txtNote" Text="{Binding NoteText}" FontSize="12" TextWrapping="Wrap" Margin="0,4,0,0"
                        AutomationProperties.AutomationId="txtDiscoverNote" Foreground="{DynamicResource SystemFillColorCautionBrush}"
                        Visibility="{Binding HasNote, Converter={StaticResource BooleanToVisibilityConverter}}" />
@@ -69,7 +69,6 @@
                         </Style>
                     </DataGridTextColumn.ElementStyle>
                 </DataGridTextColumn>
-                <DataGridTextColumn Header="Clients" Binding="{Binding ClientCount}" Width="96" MinWidth="96" IsReadOnly="True" />
             </DataGrid.Columns>
         </DataGrid>
 

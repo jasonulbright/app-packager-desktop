@@ -48,7 +48,7 @@ public sealed class WindowGridRowsMoreTests
     {
         WithApplication(theme, () =>
         {
-            var viewModel = new DiscoveryDialogViewModel(Enumerable.Range(1, 8).Select(i => new DiscoveryCandidate("id" + i, "contoso" + i, "Contoso", "Contoso Application " + i, 100 - i)), "8 apps found.");
+            var viewModel = new DiscoveryDialogViewModel(Enumerable.Range(1, 8).Select(i => new DiscoveryCandidate("id" + i, "contoso" + i, "Contoso", "Contoso Application " + i)), "8 apps found.");
             var window = new DiscoveryWindow(viewModel);
             Open(window);
             try

@@ -4,14 +4,12 @@ using System.Text.RegularExpressions;
 namespace ApplicationPackagerEngine.Services;
 
 /// <summary>
-/// One Add/Remove Programs product row: the distinct clients that report this name,
-/// publisher, version and inventory view. <see cref="Clients"/> holds per-scan ordinals and
-/// never leaves the matching step.
+/// One distinct Add/Remove Programs title: name, version and inventory view. Discovery is
+/// application discovery, not asset tracking: no client key, no client count, no publisher.
 /// </summary>
-internal sealed record InventoryRow(string DisplayName, string Publisher, string Version, string Architecture, IReadOnlySet<int> Clients);
+internal sealed record InventoryRow(string DisplayName, string Version, string Architecture);
 
-internal sealed record InventorySnapshot(IReadOnlyList<InventoryRow> Rows, int ClientTotal, DateTime? InventoryNewest,
-                                         IReadOnlyList<string> Applications);
+internal sealed record InventorySnapshot(IReadOnlyList<InventoryRow> Rows, IReadOnlyList<string> Applications);
 
 /// <summary>A packager whose patterns compiled; only hidden, not dismissed packagers with an ArpName get one.</summary>
 internal sealed record MatchablePackager(DiscoveryPackager Packager, IReadOnlyList<Regex> Names, IReadOnlyList<Regex> Versions, string? Architecture);
@@ -64,8 +62,7 @@ internal static class DiscoveryMatcher
     /// <summary>
     /// The candidates: a packager that matches at least one row (name pattern, optional
     /// version pattern, optional inventory view) and whose CMName has no current ConfigMgr
-    /// Application by <see cref="MecmApplicationTitleRule.IsManaged"/>. The client count is
-    /// the number of distinct clients over the matched rows. Sorted by CMName.
+    /// Application by <see cref="MecmApplicationTitleRule.IsManaged"/>. Sorted by CMName.
     /// </summary>
     public static IReadOnlyList<DiscoveryCandidate> FindCandidates(InventorySnapshot snapshot, IReadOnlyList<MatchablePackager> packagers)
     {
@@ -80,7 +77,6 @@ internal static class DiscoveryMatcher
             var cmName = p.CMName?.Trim() ?? "";
             if (cmName.Length > 0 && MecmApplicationTitleRule.IsManaged(cmName, applications)) continue;
 
-            var clients = new HashSet<int>();
             var matched = false;
             try
             {
@@ -90,7 +86,7 @@ internal static class DiscoveryMatcher
                     if (m.Versions.Count > 0 && !m.Versions.Any(v => v.IsMatch(row.Version))) continue;
                     if (!m.Names.Any(n => n.IsMatch(row.DisplayName))) continue;
                     matched = true;
-                    clients.UnionWith(row.Clients);
+                    break;
                 }
             }
             catch (RegexMatchTimeoutException)
@@ -98,29 +94,20 @@ internal static class DiscoveryMatcher
                 throw new DiscoveryException($"Matching the definition for {Label(p)} against inventory took too long. Check its ArpName and ArpVersion patterns.");
             }
             if (!matched) continue;
-            candidates.Add(new DiscoveryCandidate(p.Id.Trim(), cmName, p.Vendor ?? "", p.Application ?? "", clients.Count));
+            candidates.Add(new DiscoveryCandidate(p.Id.Trim(), cmName, p.Vendor ?? "", p.Application ?? ""));
         }
         return candidates.OrderBy(c => c.CMName, StringComparer.OrdinalIgnoreCase).ThenBy(c => c.Id, StringComparer.Ordinal).ToList();
     }
 
     /// <summary>
-    /// One line for the log and the prompt: client total, inventory age and candidate count,
-    /// or the no-inventory-data text for zero rows.
+    /// One line for the log and the prompt: the candidate count, or the no-inventory-data text for zero rows.
     /// </summary>
     public static string StatusText(InventorySnapshot snapshot, int candidateCount, DateTime now)
     {
         if (snapshot.Rows.Count == 0)
             return "No inventory data: the site database has no Add or Remove Programs rows. Check that hardware inventory collects Add or Remove Programs.";
 
-        var clients = snapshot.ClientTotal;
-        var clientWord = clients == 1 ? "client" : "clients";
-        var age = "age of newest data is unknown";
-        if (snapshot.InventoryNewest is { } newest)
-        {
-            var days = (int)(now.Date - newest.Date).TotalDays;
-            age = days <= 0 ? "newest data is from today" : days == 1 ? "newest data is 1 day old" : $"newest data is {days.ToString(CultureInfo.InvariantCulture)} days old";
-        }
         var appWord = candidateCount == 1 ? "app" : "apps";
-        return $"Inventory covers {clients.ToString(CultureInfo.InvariantCulture)} {clientWord}; {age}. Discovered {candidateCount.ToString(CultureInfo.InvariantCulture)} {appWord}.";
+        return $"Discovered {candidateCount.ToString(CultureInfo.InvariantCulture)} {appWord}.";
     }
 }

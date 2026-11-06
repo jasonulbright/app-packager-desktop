@@ -16,7 +16,7 @@ internal sealed class FakeDiscoveryService : IDiscoveryService
     public DiscoveryRequest? Request { get; private set; }
     public int Calls { get; private set; }
     public Func<DiscoveryRequest, CancellationToken, Task<DiscoveryResult>> Answer { get; set; } =
-        (_, _) => Task.FromResult(new DiscoveryResult([], 0, null, "No inventory data."));
+        (_, _) => Task.FromResult(new DiscoveryResult([], "No inventory data."));
 
     public Task<DiscoveryResult> ScanAsync(DiscoveryRequest request, CancellationToken ct)
     {
@@ -249,8 +249,8 @@ public sealed class DiscoveryPersistenceTests : IDisposable
 
 public sealed class DiscoveryDialogViewModelTests
 {
-    private static DiscoveryCandidate Candidate(string id, int clients, string application = "", string cmName = "") =>
-        new(id, cmName.Length > 0 ? cmName : id + " CM", "Vendor " + id, application, clients);
+    private static DiscoveryCandidate Candidate(string id, string application = "", string cmName = "") =>
+        new(id, cmName.Length > 0 ? cmName : id + " CM", "Vendor " + id, application);
 
     [Theory]
     [InlineData(1, "Discovered 1 app. Enable console view?")]
@@ -258,27 +258,27 @@ public sealed class DiscoveryDialogViewModelTests
     [InlineData(16, "Discovered 16 apps. Enable console view?")]
     public void ThePromptReadsTheCount(int count, string expected)
     {
-        var vm = new DiscoveryDialogViewModel(Enumerable.Range(0, count).Select(i => Candidate("id" + i, 1, "App " + i)), "status");
+        var vm = new DiscoveryDialogViewModel(Enumerable.Range(0, count).Select(i => Candidate("id" + i, "App " + i)), "status");
         Assert.Equal(expected, vm.PromptText);
     }
 
     [Fact]
-    public void RowsCarryTheApplicationVendorAndClientCountMostClientsFirst()
+    public void RowsCarryTheApplicationAndVendorSortedByName()
     {
-        var vm = new DiscoveryDialogViewModel([Candidate("grepwin", 1, "grepWin"), Candidate("msedge", 4, "", "Microsoft Edge")],
-            "4 clients in inventory.");
-        Assert.Equal(["msedge", "grepwin"], vm.Rows.Select(r => r.Id));
-        Assert.Equal("Microsoft Edge", vm.Rows[0].Name);
-        Assert.Equal("grepWin", vm.Rows[1].Name);
-        Assert.Equal(4, vm.Rows[0].ClientCount);
-        Assert.Equal("Vendor grepwin", vm.Rows[1].Vendor);
-        Assert.Equal("4 clients in inventory.", vm.StatusText);
+        var vm = new DiscoveryDialogViewModel([Candidate("msedge", "", "Microsoft Edge"), Candidate("grepwin", "grepWin")],
+            "Discovered 2 apps.");
+        Assert.Equal(["grepwin", "msedge"], vm.Rows.Select(r => r.Id));
+        Assert.Equal("grepWin", vm.Rows[0].Name);
+        Assert.Equal("Microsoft Edge", vm.Rows[1].Name);
+        Assert.Equal("Vendor grepwin", vm.Rows[0].Vendor);
+        Assert.DoesNotContain(typeof(DiscoveryCandidateRow).GetProperties(), p => p.Name.Contains("Client", StringComparison.Ordinal));
+        Assert.Equal("Discovered 2 apps.", vm.StatusText);
         Assert.All(vm.Rows, r => Assert.False(r.Selected));
     }
 
     private static (DiscoveryDialogViewModel Vm, Func<int> Closes) Dialog()
     {
-        var vm = new DiscoveryDialogViewModel([Candidate("a", 3, "A"), Candidate("b", 2, "B"), Candidate("c", 1, "C")], "");
+        var vm = new DiscoveryDialogViewModel([Candidate("a", "A"), Candidate("b", "B"), Candidate("c", "C")], "");
         var closes = 0;
         vm.CloseRequested += (_, _) => closes++;
         return (vm, () => closes);
@@ -503,7 +503,7 @@ public sealed class DiscoveryRunnerTests
             Answer = (_, _) =>
             {
                 release.Wait(TimeSpan.FromSeconds(10));
-                return Task.FromResult(new DiscoveryResult([], 1, null, "done"));
+                return Task.FromResult(new DiscoveryResult([], "done"));
             }
         };
         var scan = Runner(service, new InMemorySettings(Configured())).ScanAsync(CancellationToken.None);
@@ -573,9 +573,9 @@ public sealed class DiscoveryRunnerTests
     }
 
     private static DiscoveryResult TwoCandidates() => new(
-        [new DiscoveryCandidate("grepwin", "grepWin", "Stefan Kueng", "grepWin", 1),
-         new DiscoveryCandidate("gsudo", "gsudo", "Gerardo Grignoli", "gsudo", 1)],
-        4, new DateTime(2026, 10, 17), "Inventory from 4 clients, newest 2026-10-17. 2 candidates.");
+        [new DiscoveryCandidate("grepwin", "grepWin", "Stefan Kueng", "grepWin"),
+         new DiscoveryCandidate("gsudo", "gsudo", "Gerardo Grignoli", "gsudo")],
+        "Discovered 2 apps.");
 
     private sealed class Recorder
     {
@@ -592,7 +592,7 @@ public sealed class DiscoveryRunnerTests
     public async Task NoCandidateShowsTheStatusAndNoPrompt()
     {
         var store = new InMemorySettings(Configured());
-        var service = new FakeDiscoveryService { Answer = (_, _) => Task.FromResult(new DiscoveryResult([], 0, null, "No inventory data.")) };
+        var service = new FakeDiscoveryService { Answer = (_, _) => Task.FromResult(new DiscoveryResult([], "No inventory data.")) };
         var prompt = new FakeDiscoveryPrompt(_ => throw new InvalidOperationException("no prompt expected"));
         var r = new Recorder();
 
@@ -1150,9 +1150,9 @@ public sealed class DiscoveryPackagerSourceTests : IDisposable
 
         string[] ids = ["grepwin", "zoom", "cased", "broken", "gsudo"];
         var rows = new[] { "grepWin 2.1", "Zoom Workplace", "Cased Tool", "Broken Tool", "gsudo v2" }
-            .Select((name, i) => new InventoryRow(name, "", "1.0", "", new HashSet<int> { i + 1 }))
+            .Select((name, i) => new InventoryRow(name, "1.0", ""))
             .ToList();
-        var candidates = DiscoveryMatcher.FindCandidates(new InventorySnapshot(rows, 5, null, []), DiscoveryMatcher.Prepare(packagers, ids, []));
+        var candidates = DiscoveryMatcher.FindCandidates(new InventorySnapshot(rows, []), DiscoveryMatcher.Prepare(packagers, ids, []));
         Assert.Equal(["grepwin", "gsudo"], candidates.Select(c => c.Id).Order());
     }
 }

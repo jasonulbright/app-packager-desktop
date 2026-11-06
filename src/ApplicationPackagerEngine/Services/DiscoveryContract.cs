@@ -15,12 +15,11 @@ public sealed record DiscoveryRequest(string SiteCode, string ProviderMachineNam
                                       IReadOnlyCollection<string> HiddenIds, IReadOnlyCollection<string> DismissedIds,
                                       int TimeoutSeconds = 600);
 
-/// <summary>A hidden packager installed on <see cref="ClientCount"/> distinct clients with no ConfigMgr Application.</summary>
-public sealed record DiscoveryCandidate(string Id, string CMName, string Vendor, string Application, int ClientCount);
+/// <summary>A hidden packager whose application name and version appear in inventory and that has no ConfigMgr Application.</summary>
+public sealed record DiscoveryCandidate(string Id, string CMName, string Vendor, string Application);
 
-/// <summary>Candidates sorted by CMName, the inventory client total and age, and the one-line status.</summary>
-public sealed record DiscoveryResult(IReadOnlyList<DiscoveryCandidate> Candidates, int ClientTotal,
-                                     DateTime? InventoryNewest, string StatusText);
+/// <summary>Candidates sorted by CMName and the one-line status. Discovery reads application names and versions only.</summary>
+public sealed record DiscoveryResult(IReadOnlyList<DiscoveryCandidate> Candidates, string StatusText);
 
 /// <summary>A scan failure. The message is plain text for the user: no stack trace, no raw exception text.</summary>
 public sealed class DiscoveryException : Exception

@@ -150,7 +150,7 @@ public sealed class DiscoveryWindowTests
     [Fact]
     public void ToggleCheckedFlipsTheRowAndIgnoresOtherItems()
     {
-        var vm = new DiscoveryDialogViewModel([new DiscoveryCandidate("a", "A", "V", "A app", 1)], "");
+        var vm = new DiscoveryDialogViewModel([new DiscoveryCandidate("a", "A", "V", "A app")], "");
         var row = vm.Rows[0];
         vm.ToggleCheckedCommand.Execute(row);
         Assert.True(row.Selected);
