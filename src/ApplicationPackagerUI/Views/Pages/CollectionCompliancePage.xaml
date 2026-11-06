@@ -173,6 +173,7 @@
                     </WrapPanel>
 
                     <WrapPanel Grid.Row="1" x:Name="pnlCollectionTools" Margin="0,0,0,4">
+                        <StackPanel Orientation="Horizontal" Margin="0,0,16,0">
                         <ui:Button Content="New" Appearance="Primary" Icon="{ui:SymbolIcon Add24}" Command="{Binding NewCollectionCommand}"
                                    Style="{StaticResource ToolButton}" AutomationProperties.AutomationId="btnNewCollection" />
                         <ui:Button Content="Copy" Icon="{ui:SymbolIcon Copy24}" Command="{Binding CopyCollectionCommand}"
@@ -183,6 +184,8 @@
                                    ToolTip="Update the membership of the selected collections now." Style="{StaticResource ToolButton}" AutomationProperties.AutomationId="btnEvaluate" />
                         <ui:Button Content="Remove" Icon="{ui:SymbolIcon Delete24}" Appearance="Danger" Command="{Binding RemoveCollectionCommand}" ToolTip="{Binding BuiltInTooltip}"
                                    ToolTipService.ShowOnDisabled="True" Style="{StaticResource ToolButton}" AutomationProperties.AutomationId="btnRemoveCollection" />
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" Margin="0,0,16,0">
                         <ui:Button Content="Refresh" Icon="{ui:SymbolIcon ArrowSync24}" Command="{Binding RefreshCommand}"
                                    Style="{StaticResource ToolButton}" AutomationProperties.AutomationId="btnRefresh" />
                         <ui:Button Content="Cancel" Icon="{ui:SymbolIcon Dismiss24}" Command="{Binding CancelLoadCommand}" Style="{StaticResource ToolButton}"
@@ -195,6 +198,8 @@
                         </ui:TextBox>
                         <ui:Button Content="Open by ID" Icon="{ui:SymbolIcon Open24}" Command="{Binding OpenByIdCommand}"
                                    Style="{StaticResource ToolButton}" AutomationProperties.AutomationId="btnOpenById" />
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" Margin="0,0,16,0">
                         <ui:Button Content="Connect Site" Icon="{ui:SymbolIcon PlugConnected24}" Command="{Binding ConnectSiteCommand}"
                                    ToolTip="Test the connection to the site without reading the collections." Style="{StaticResource ToolButton}"
                                    AutomationProperties.AutomationId="btnConnectSite" />
@@ -204,6 +209,7 @@
                                    Style="{StaticResource ToolButton}" AutomationProperties.AutomationId="btnExportHtml" />
                         <CheckBox Content="Details" IsChecked="{Binding ShowDetails}" Margin="4,0,0,8" VerticalAlignment="Center"
                                   ToolTip="Show or hide the details under the list." AutomationProperties.AutomationId="chkShowDetails" />
+                        </StackPanel>
                     </WrapPanel>
 
                     <Grid Grid.Row="2" x:Name="gridCollectionsLayout">
