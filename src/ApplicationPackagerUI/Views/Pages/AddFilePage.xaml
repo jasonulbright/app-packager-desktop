@@ -24,7 +24,7 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <controls:PageHeader Grid.Row="0" Title="Add from file" TitleAutomationId="txtAddFileHeader" DescriptionAutomationId="txtAddFileIntro"
+        <controls:PageHeader Grid.Row="0" Title="Add from file" Icon="DocumentAdd24" TitleAutomationId="txtAddFileHeader" DescriptionAutomationId="txtAddFileIntro"
                              Description="Analyzes an installer on this computer and adds it to the App Packager as a definition. Nothing in the installer is started." />
 
         <!-- Pick: the drop zone; the button in it is the keyboard path to the same flow. -->

@@ -40,7 +40,7 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <controls:PageHeader Grid.Row="0" Title="Add from web" TitleAutomationId="txtAddWebHeader" DescriptionAutomationId="txtAddWebStep">
+        <controls:PageHeader Grid.Row="0" Title="Add from web" Icon="Globe24" TitleAutomationId="txtAddWebHeader" DescriptionAutomationId="txtAddWebStep">
             <controls:PageHeader.Style>
                 <Style TargetType="controls:PageHeader">
                     <Setter Property="Description" Value="{Binding StepTitle}" />

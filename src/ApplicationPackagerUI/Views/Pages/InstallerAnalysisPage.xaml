@@ -121,7 +121,7 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <controls:PageHeader Grid.Row="0" Title="Installer Analysis" TitleAutomationId="txtInstallerAnalysisTitle"
+        <controls:PageHeader Grid.Row="0" Title="Installer Analysis" Icon="DocumentSearch24" TitleAutomationId="txtInstallerAnalysisTitle"
                              Description="Reads an installer on this computer without a ConfigMgr connection. Nothing in the installer is started. Drop one file on the page or open it." />
 
         <Grid Grid.Row="1" Margin="0,0,0,8">

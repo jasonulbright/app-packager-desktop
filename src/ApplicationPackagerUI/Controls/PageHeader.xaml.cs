@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Automation;
+using Wpf.Ui.Controls;
 
 namespace ApplicationPackagerUI.Controls;
 
@@ -26,6 +27,10 @@ public partial class PageHeader
     public static readonly DependencyProperty ActionsProperty =
         DependencyProperty.Register(nameof(Actions), typeof(object), typeof(PageHeader),
             new PropertyMetadata(null, (d, _) => ((PageHeader)d).UpdateParts()));
+
+    public static readonly DependencyProperty IconProperty =
+        DependencyProperty.Register(nameof(Icon), typeof(SymbolRegular), typeof(PageHeader),
+            new PropertyMetadata(SymbolRegular.Empty, (d, _) => ((PageHeader)d).UpdateParts()));
 
     public static readonly DependencyProperty TitleAutomationIdProperty =
         DependencyProperty.Register(nameof(TitleAutomationId), typeof(string), typeof(PageHeader),
@@ -70,6 +75,13 @@ public partial class PageHeader
         set => SetValue(ActionsProperty, value);
     }
 
+    /// <summary>The page icon at the left of the title. Empty shows no icon.</summary>
+    public SymbolRegular Icon
+    {
+        get => (SymbolRegular)GetValue(IconProperty);
+        set => SetValue(IconProperty, value);
+    }
+
     /// <summary>The automation id of the title text; tests and UI automation find the title by it.</summary>
     public string TitleAutomationId
     {
@@ -92,8 +104,9 @@ public partial class PageHeader
 
     private void UpdateParts()
     {
-        if (DescriptionText is null) return;
+        if (DescriptionText is null || IconHost is null) return;
         DescriptionText.Visibility = string.IsNullOrWhiteSpace(Description) ? Visibility.Collapsed : Visibility.Visible;
+        IconHost.Visibility = Icon == SymbolRegular.Empty ? Visibility.Collapsed : Visibility.Visible;
         StatusText.Visibility = string.IsNullOrWhiteSpace(Status) ? Visibility.Collapsed : Visibility.Visible;
         ActionsPresenter.Visibility = Actions is null ? Visibility.Collapsed : Visibility.Visible;
         var compact = IsCompact;

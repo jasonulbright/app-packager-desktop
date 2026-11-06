@@ -6,6 +6,7 @@
 
 - Use one fixed app palette in the light and the dark theme instead of the Windows accent. The accent, the status colors, tertiary text and the control and card borders now pass WCAG 2.1 AA (text 4.5 to 1, borders and focus rings 3 to 1). The status column colors follow the theme.
 - Use a solid window surface in both themes instead of the Mica material, so the contrast of text and borders does not depend on the wallpaper.
+- Show each page title in a header band with an icon, color the section headings of Settings stronger, and show the status of a package by an icon as well as by color.
 - Retake the guide images that show the App Packager page, the Settings page, the Discover prompt and the About section. Add images of the Convert from ConfigMgr window and the update window.
 - Describe Discover unmanaged software as it works now: names and versions only, no client count and no Clients column. Add the page for Convert from ConfigMgr.
 
