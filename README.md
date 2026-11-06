@@ -45,7 +45,8 @@ The release is self-contained. A separate .NET runtime is not necessary.
 1. Download the release from the [releases page](https://github.com/jasonulbright/app-packager-desktop/releases).
    - The installer `AppPackagerDesktop-Setup-<version>.exe` installs for the current user without elevation and adds a Start Menu shortcut. `/S` installs silently.
    - The zip `AppPackagerDesktop-<version>.zip` is the same build without an installer. Extract it and run `ApplicationPackagerUI.exe`.
-2. Close the application before you install an update. The installer does not replace an executable that is in use.
+2. Close the application before you install an update by hand. The installer does not replace an executable that is in use.
+3. The app checks GitHub for a newer release at start and in **Settings**, **Check for updates**. It downloads the installer, checks the checksum and the signature, and starts it only after you select **Install and close**. See [Updates](docs/core/updates.md).
 
 ## First run
 

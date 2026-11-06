@@ -5,6 +5,7 @@
 ### Added
 
 - Add the engine of the ConfigMgr to Intune conversion: it reads the stored document of an application, plans one Intune Win32 app per deployment type with detection, requirement and variant rules, and stages content, manifests and a report. The engine also reads the application from the site, builds the .intunewin files and publishes the apps. The Convert from ConfigMgr button on the App Packager page opens a window that previews the plan, converts, and optionally builds and publishes.
+- Add an update check. At start and from **Settings**, **Check for updates**, the app looks up the latest GitHub release without a sign-in. The update window shows the installed and the new version and the release notes link. **Download** checks the SHA-256 value of `checksums.txt` and the Authenticode signature (valid, timestamped, `CN=Jason Ulbright`); **Install and close** starts the installer only on that click. A setting turns the startup check off.
 
 ### Changed
 

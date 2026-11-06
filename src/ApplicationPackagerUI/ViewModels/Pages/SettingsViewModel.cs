@@ -28,6 +28,7 @@ public partial class SettingsViewModel : ObservableObject, ISettingsReload
     [ObservableProperty] private string _fileShareRoot = @"\\fileserver\sccm$";
     [ObservableProperty] private string _downloadRoot = @"C:\temp\ap";
     [ObservableProperty] private string _packagersRoot = "";
+    [ObservableProperty] private bool _checkForUpdatesAtStartup = true;
 
     [ObservableProperty] private double? _estimatedRuntimeMins = 15;
     [ObservableProperty] private double? _maximumRuntimeMins = 30;
@@ -542,6 +543,7 @@ public partial class SettingsViewModel : ObservableObject, ISettingsReload
         var s = _settingsService.Load();
 
         CompanyName = s.CompanyName;
+        CheckForUpdatesAtStartup = s.CheckForUpdatesAtStartup;
         SiteCode = s.SiteCode;
         ProviderMachine = s.ProviderMachine;
         Discovery.Load(s);
@@ -611,6 +613,7 @@ public partial class SettingsViewModel : ObservableObject, ISettingsReload
         var siteBefore = SiteIdentity.Key(s.SiteCode, s.ProviderMachine);
 
         s.CompanyName = CompanyName;
+        s.CheckForUpdatesAtStartup = CheckForUpdatesAtStartup;
         s.SiteCode = SiteCode;
         s.ProviderMachine = ProviderMachine.Trim();
         Discovery.ApplyTo(s);

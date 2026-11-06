@@ -34,6 +34,12 @@ Secrets (the Intune client secret and the NVD API key) are stored protected for 
 
 The default order is, in the first group: App Packager, Add from web, Add from file, Workbench. The group TOOLS follows: Installer Analysis, Detection Tester, Deployment Helper, Pivots and Scripts, Collection and Compliance, Maintenance Windows, DP Content Manager, Site Hygiene. `Settings` is always the last (footer) entry. A saved layout that names an entry which the sidebar no longer has loads without that entry.
 
+## Updates
+
+| UI label | Property | Default | Effect |
+|---|---|---|---|
+| `Check for a new version when the app starts` | `CheckForUpdatesAtStartup` | `true` | The app calls `api.github.com` once at start and opens the update window when a newer release exists. See [Updates](../core/updates.md). |
+
 ## Organization
 
 | UI label | Property | Default | Effect |
