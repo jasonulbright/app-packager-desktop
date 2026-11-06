@@ -103,7 +103,7 @@
         </ResourceDictionary>
     </Page.Resources>
 
-    <Grid Margin="24,16,24,16">
+    <Grid Margin="24,8,24,8">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
@@ -146,7 +146,7 @@
             <TabItem Header="Collections" AutomationProperties.AutomationId="tabCollections">
                 <!-- The tab fills the viewport so the grid takes the free height; when the viewport is
                      lower than the tab needs, the whole tab scrolls and the details stay reachable. -->
-                <ScrollViewer x:Name="scrollCollectionsTab" Margin="0,12,0,0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                <ScrollViewer x:Name="scrollCollectionsTab" Margin="0,8,0,0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
                               AutomationProperties.AutomationId="scrollCollectionsTab">
                 <Grid x:Name="gridCollectionsTab" Height="{Binding ViewportHeight, ElementName=scrollCollectionsTab}">
                     <Grid.RowDefinitions>

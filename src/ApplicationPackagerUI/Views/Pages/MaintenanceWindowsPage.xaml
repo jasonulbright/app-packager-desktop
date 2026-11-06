@@ -56,7 +56,7 @@
         </ResourceDictionary>
     </Page.Resources>
 
-    <Grid Margin="24,16,24,16">
+    <Grid Margin="24,8,24,16">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />

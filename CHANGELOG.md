@@ -8,6 +8,7 @@
 - Use a solid window surface in both themes instead of the Mica material, so the contrast of text and borders does not depend on the wallpaper.
 - Show each page title in a header band with an icon, color the section headings of Settings stronger, and show the status of a package by an icon as well as by color.
 - Use one type scale (12, 14, 16, 20, 28 px) and a 4 px spacing grid in every window and page. A test checks both.
+- Give the page header band padding and an 8 px gap, align its description with the title, group the App Packager toolbar so it wraps by group, and trim page top margins to 8 px. Shorten the Site Hygiene description.
 - Retake the guide images that show the App Packager page, the Settings page, the Discover prompt, the About section, the sidebar and the update window with the new palette and page header. Add images of the Convert from ConfigMgr window and the update window.
 - Describe Discover unmanaged software as it works now: names and versions only, no client count and no Clients column. Add the page for Convert from ConfigMgr.
 
