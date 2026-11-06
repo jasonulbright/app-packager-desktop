@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Changed
+
+- Describe Discover unmanaged software as it works now: names and versions only, no client count and no Clients column. Add the page for Convert from ConfigMgr.
+
 ## [2026.1106.4] - 2026-11-06
 
 ### Added

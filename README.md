@@ -71,6 +71,7 @@ Packaging:
 - [Stage and publish](docs/core/stage-and-publish.md), [Publish to ConfigMgr](docs/core/publish-to-configmgr.md), [Publish to Intune](docs/core/publish-to-intune.md), [WSUS publishing](docs/core/wsus-publishing.md) and [WSUS Updates](docs/core/wsus-updates.md).
 - [One Click](docs/core/one-click.md): checks the tracked applications and stages and publishes the ones with a new version.
 - [Discover unmanaged software](docs/core/discover-unmanaged-software.md): finds applications that clients run and that ConfigMgr does not manage.
+- [Convert from ConfigMgr](docs/core/convert-from-configmgr.md): turns the deployment types of a ConfigMgr application into Intune Win32 apps.
 - [CVE lookup](docs/core/cve-lookup.md): looks up the CVEs that an update fixes.
 - [Script signing](docs/core/script-signing.md), [Definitions](docs/core/definitions.md), [Settings](docs/core/settings-page.md) and the [command-line build](docs/core/command-line-build.md).
 
