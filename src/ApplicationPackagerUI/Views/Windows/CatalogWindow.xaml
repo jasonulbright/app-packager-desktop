@@ -31,7 +31,7 @@
                 <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
 
-            <controls:PageHeader Grid.Row="0" Title="Catalog" Description="{Binding CountText}" TitleAutomationId="txtCatalogTitle" />
+            <controls:PageHeader Grid.Row="0" Title="Catalog" Icon="Library24" Description="{Binding CountText}" TitleAutomationId="txtCatalogTitle" />
 
             <ui:TextBox x:Name="txtCatalogSearch" Grid.Row="1" Margin="0,0,0,8"
                         Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"

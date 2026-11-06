@@ -29,7 +29,7 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <controls:PageHeader Grid.Row="0" Title="Pivots and Scripts" TitleAutomationId="txtPivotsTitle" DescriptionAutomationId="txtPivotsIntro"
+        <controls:PageHeader Grid.Row="0" Title="Pivots and Scripts" Icon="Code24" TitleAutomationId="txtPivotsTitle" DescriptionAutomationId="txtPivotsIntro"
                              Description="Runs a CMPivot query or an approved site script on resolved devices, and submits, approves, denies or removes site scripts. Every action shows a plan first. A run cannot be undone." />
 
         <Border Grid.Row="1" Style="{StaticResource Caution}" Visibility="{Binding HasConnectionMessage, Converter={StaticResource BoolToVisibility}}"

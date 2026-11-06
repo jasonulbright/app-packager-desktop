@@ -65,7 +65,7 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <controls:PageHeader Grid.Row="0" Title="Maintenance Windows" TitleAutomationId="txtMaintenanceWindowsTitle"
+        <controls:PageHeader Grid.Row="0" Title="Maintenance Windows" Icon="CalendarClock24" TitleAutomationId="txtMaintenanceWindowsTitle"
                              Description="Show, create, edit and remove the maintenance windows of the device collections. Every change shows a plan first." />
 
         <Border Grid.Row="1" Margin="0,0,0,8" Padding="12,8" CornerRadius="6" BorderThickness="1"

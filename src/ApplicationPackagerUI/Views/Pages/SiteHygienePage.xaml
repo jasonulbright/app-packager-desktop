@@ -192,7 +192,7 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <controls:PageHeader x:Name="pageHeader" Grid.Row="0" Title="Site Hygiene" TitleAutomationId="txtHygieneTitle" DescriptionAutomationId="txtHygieneIntro"
+        <controls:PageHeader x:Name="pageHeader" Grid.Row="0" Title="Site Hygiene" Icon="Broom24" TitleAutomationId="txtHygieneTitle" DescriptionAutomationId="txtHygieneIntro"
                              Description="Finds unused, broken and misconfigured objects in the site. Every fix shows a plan first. A delete cannot be undone." />
 
         <StackPanel Grid.Row="1">

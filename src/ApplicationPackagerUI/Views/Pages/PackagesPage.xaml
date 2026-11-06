@@ -58,7 +58,7 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <controls:PageHeader Grid.Row="0" Title="App Packager" TitleAutomationId="txtAppPackagerTitle">
+        <controls:PageHeader Grid.Row="0" Title="App Packager" Icon="Box24" TitleAutomationId="txtAppPackagerTitle">
             <controls:PageHeader.Actions>
                 <StackPanel Orientation="Horizontal">
                 <ui:Button
@@ -333,10 +333,33 @@
                 <DataGridTemplateColumn Header="Status" Width="250" MinWidth="170" SortMemberPath="Status">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
-                            <TextBlock Text="{Binding Status}"
-                                       ToolTip="{Binding StatusDetail}"
+                            <!-- Status by color and by icon: the icon shows the class for a user who cannot tell the colors apart. -->
+                            <DockPanel LastChildFill="True" Margin="4,0" ToolTip="{Binding StatusDetail}">
+                            <ui:SymbolIcon DockPanel.Dock="Left" FontSize="16" Margin="0,0,6,0" VerticalAlignment="Center"
+                                           Foreground="{Binding Foreground, ElementName=StatusLabel}">
+                                <ui:SymbolIcon.Style>
+                                    <Style TargetType="ui:SymbolIcon">
+                                        <Setter Property="Symbol" Value="Circle24" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding Status, Converter={StaticResource StatusCategoryConverter}}" Value="Success">
+                                                <Setter Property="Symbol" Value="CheckmarkCircle24" />
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding Status, Converter={StaticResource StatusCategoryConverter}}" Value="Warning">
+                                                <Setter Property="Symbol" Value="Warning24" />
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding Status, Converter={StaticResource StatusCategoryConverter}}" Value="Info">
+                                                <Setter Property="Symbol" Value="Info24" />
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding Status, Converter={StaticResource StatusCategoryConverter}}" Value="Error">
+                                                <Setter Property="Symbol" Value="DismissCircle24" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </ui:SymbolIcon.Style>
+                            </ui:SymbolIcon>
+                            <TextBlock x:Name="StatusLabel" Text="{Binding Status}"
                                        TextTrimming="CharacterEllipsis"
-                                       VerticalAlignment="Center" Margin="4,0">
+                                       VerticalAlignment="Center">
                                 <TextBlock.Style>
                                     <!-- One trigger for each color class. A dynamic resource follows the theme when the theme changes. -->
                                     <Style TargetType="TextBlock" BasedOn="{StaticResource {x:Type TextBlock}}">
@@ -362,6 +385,7 @@
                                     </Style>
                                 </TextBlock.Style>
                             </TextBlock>
+                            </DockPanel>
                         </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
