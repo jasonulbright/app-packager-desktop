@@ -68,7 +68,7 @@ public sealed partial class DiscoveryService : IDiscoveryService
             var snapshot = await ReadSnapshotAsync(target, timeout, limit.Token).ConfigureAwait(false);
             var candidates = DiscoveryMatcher.FindCandidates(snapshot, packagers);
             var status = DiscoveryMatcher.StatusText(snapshot, candidates.Count, _time.GetLocalNow().DateTime);
-            return new DiscoveryResult(candidates, snapshot.ClientTotal, snapshot.InventoryNewest, status);
+            return new DiscoveryResult(candidates, status);
         }
         catch (OperationCanceledException) when (!ct.IsCancellationRequested)
         {
@@ -230,8 +230,6 @@ public sealed partial class DiscoveryService : IDiscoveryService
 
         var rows = new List<InventoryRow>();
         var applications = new List<string>();
-        var clientTotal = 0;
-        DateTime? newest = null;
         var summary = false;
         foreach (var line in lines)
         {
@@ -240,17 +238,10 @@ public sealed partial class DiscoveryService : IDiscoveryService
                 case "error":
                     throw new DiscoveryException(SqlMessage(line, target, timeout));
                 case "row":
-                    var clients = new HashSet<int>();
-                    if (line.TryGetProperty("c", out var c) && c.ValueKind == JsonValueKind.Array)
-                        foreach (var ordinal in c.EnumerateArray())
-                            if (ordinal.TryGetInt32(out var o)) clients.Add(o);
-                    rows.Add(new InventoryRow(Text(line, "n"), Text(line, "p"), Text(line, "v"), Text(line, "a"), clients));
+                    rows.Add(new InventoryRow(Text(line, "n"), Text(line, "v"), Text(line, "a")));
                     break;
                 case "summary":
                     summary = true;
-                    if (line.TryGetProperty("clients", out var total) && total.TryGetInt32(out var t)) clientTotal = t;
-                    if (DateTime.TryParseExact(Text(line, "newest"), "yyyy-MM-ddTHH:mm:ss.fff", CultureInfo.InvariantCulture, DateTimeStyles.None, out var n))
-                        newest = n;
                     break;
                 case "app":
                     var title = Text(line, "n");
@@ -259,7 +250,7 @@ public sealed partial class DiscoveryService : IDiscoveryService
             }
         }
         if (!summary) throw new DiscoveryException($"The site database query on {target.Server} returned an unexpected result.");
-        return new InventorySnapshot(rows, clientTotal, newest, applications);
+        return new InventorySnapshot(rows, applications);
     }
 
     /// <summary>The plain message for an error line: SQL error numbers and two flags, never the raw text.</summary>

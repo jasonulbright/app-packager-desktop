@@ -30,11 +30,11 @@ public class DiscoveryServiceTests
 
     private static string Inventory(params string[] extra) => string.Join("\n", new[]
     {
-        "{\"t\":\"row\",\"n\":\"7-Zip 26.03 (x64 edition)\",\"p\":\"Igor Pavlov\",\"v\":\"26.03.00.0\",\"a\":\"x64\",\"c\":[0,1]}",
-        "{\"t\":\"row\",\"n\":\"7-Zip 26.03\",\"p\":\"Igor Pavlov\",\"v\":\"26.03\",\"a\":\"x86\",\"c\":[1,2]}",
-        "{\"t\":\"row\",\"n\":\"Git\",\"p\":\"The Git Development Community\",\"v\":\"2.56.0\",\"a\":\"x64\",\"c\":[3]}",
-        "{\"t\":\"row\",\"n\":\"grepWin x64\",\"p\":\"Stefans Tools\",\"v\":\"2.1.1434\",\"a\":\"x64\",\"c\":[3]}",
-        "{\"t\":\"summary\",\"clients\":4,\"newest\":\"2026-10-15T02:55:30.000\"}",
+        "{\"t\":\"row\",\"n\":\"7-Zip 26.03 (x64 edition)\",\"v\":\"26.03.00.0\",\"a\":\"x64\"}",
+        "{\"t\":\"row\",\"n\":\"7-Zip 26.03\",\"v\":\"26.03\",\"a\":\"x86\"}",
+        "{\"t\":\"row\",\"n\":\"Git\",\"v\":\"2.56.0\",\"a\":\"x64\"}",
+        "{\"t\":\"row\",\"n\":\"grepWin x64\",\"v\":\"2.1.1434\",\"a\":\"x64\"}",
+        "{\"t\":\"summary\"}",
         "{\"t\":\"app\",\"n\":\"Git 2.56.0 (x64)\"}",
         "{\"t\":\"app\",\"n\":\"CMTrace Open\"}",
     }.Concat(extra).Append("{\"t\":\"end\"}"));
@@ -58,16 +58,14 @@ public class DiscoveryServiceTests
     }
 
     [Fact]
-    public async Task AScanReturnsTheCandidatesTheClientTotalAndTheStatus()
+    public async Task AScanReturnsTheCandidatesAndTheStatus()
     {
         var (service, runner) = Service();
         var result = await service.ScanAsync(Request(), CancellationToken.None);
         Assert.Equal(
-            [new DiscoveryCandidate("7z", "7-Zip", "7-Zip", "7-Zip (x64)", 3), new DiscoveryCandidate("grep", "grepWin", "Stefans Tools", "grepWin (x64)", 1)],
+            [new DiscoveryCandidate("7z", "7-Zip", "7-Zip", "7-Zip (x64)"), new DiscoveryCandidate("grep", "grepWin", "Stefans Tools", "grepWin (x64)")],
             result.Candidates);
-        Assert.Equal(4, result.ClientTotal);
-        Assert.Equal(new DateTime(2026, 10, 15, 2, 55, 30), result.InventoryNewest);
-        Assert.Equal("Inventory covers 4 clients; newest data is 2 days old. Discovered 2 apps.", result.StatusText);
+        Assert.Equal("Discovered 2 apps.", result.StatusText);
         Assert.Equal(2, runner.Scripts.Count);
     }
 
@@ -200,7 +198,7 @@ public class DiscoveryServiceTests
     public async Task ARunWithoutTheEndLineGivesAPlainMessageWithoutTheStandardError()
     {
         var (service, runner) = Service();
-        runner.InventoryOutput = "{\"t\":\"row\",\"n\":\"Git\",\"p\":\"\",\"v\":\"\",\"a\":\"x64\",\"c\":[0]}";
+        runner.InventoryOutput = "{\"t\":\"row\",\"n\":\"Git\",\"v\":\"\",\"a\":\"x64\"}";
         var ex = await Assert.ThrowsAsync<DiscoveryException>(() => service.ScanAsync(Request(server: "CM01", database: "CM_MCM"), CancellationToken.None));
         Assert.Contains("CM01 did not finish", ex.Message);
         Assert.DoesNotContain("0x8007", ex.Message);
@@ -219,11 +217,9 @@ public class DiscoveryServiceTests
     public async Task ZeroInventoryRowsReportNoInventoryData()
     {
         var (service, runner) = Service();
-        runner.InventoryOutput = "{\"t\":\"summary\",\"clients\":0,\"newest\":\"\"}\n{\"t\":\"end\"}";
+        runner.InventoryOutput = "{\"t\":\"summary\"}\n{\"t\":\"end\"}";
         var result = await service.ScanAsync(Request(), CancellationToken.None);
         Assert.Empty(result.Candidates);
-        Assert.Equal(0, result.ClientTotal);
-        Assert.Null(result.InventoryNewest);
         Assert.StartsWith("No inventory data", result.StatusText);
     }
 
@@ -231,11 +227,10 @@ public class DiscoveryServiceTests
     public void ParsedRowsKeepNamesWithEscapedCharacters()
     {
         var snapshot = DiscoveryService.ParseInventory(
-            "noise line\n{\"t\":\"row\",\"n\":\"Caf\\u00e9 \\\"Pro\\\" \\\\ x\",\"p\":\"\",\"v\":\"1\",\"a\":\"x86\",\"c\":[0,0,1]}\n{\"t\":\"summary\",\"clients\":2,\"newest\":\"\"}\n{\"t\":\"end\"}",
+            "noise line\n{\"t\":\"row\",\"n\":\"Caf\\u00e9 \\\"Pro\\\" \\\\ x\",\"v\":\"1\",\"a\":\"x86\"}\n{\"t\":\"summary\"}\n{\"t\":\"end\"}",
             new DiscoveryDatabaseTarget("s", "d"), 30);
         var row = Assert.Single(snapshot.Rows);
         Assert.Equal("Café \"Pro\" \\ x", row.DisplayName);
-        Assert.Equal(2, row.Clients.Count);
     }
 
     public static TheoryData<string, string> SqlErrors => new()
@@ -276,16 +271,15 @@ public class DiscoveryServiceTests
         runner.InventoryOutput = File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Fixtures", "Discovery", "cm01-inventory.txt"));
         var result = await service.ScanAsync(Request(server: "CM01", database: "CM_MCM", packagers: definitions, hidden: definitions.Select(d => d.Id).ToList()),
             CancellationToken.None);
-        Assert.Equal(4, result.ClientTotal);
         Assert.Equal(
         [
-            ".NET 10 Desktop Runtime=1", ".NET 8 Desktop Runtime=1", "Git=1", "grepWin=1", "gsudo=1", "HashTools=1",
-            "Microsoft .NET 10=1", "Microsoft .NET 8=1", "Microsoft Edge=4", "Microsoft Edge WebView2 Runtime=4",
-            "Microsoft ODBC Driver 18 for SQL Server=1", "Microsoft OLE DB Driver 19=1",
-            "Microsoft Visual C++ v14 Redistributable (x64)=4", "Microsoft Visual C++ v14 Redistributable (x86)=4",
-            "Windows ADK for Windows 11=1", "Windows PE add-on for the Windows ADK=1",
-        ], result.Candidates.Select(c => $"{c.CMName}={c.ClientCount}"));
-        Assert.Equal("Inventory covers 4 clients; newest data is from today. Discovered 16 apps.", result.StatusText);
+            ".NET 10 Desktop Runtime", ".NET 8 Desktop Runtime", "Git", "grepWin", "gsudo", "HashTools",
+            "Microsoft .NET 10", "Microsoft .NET 8", "Microsoft Edge", "Microsoft Edge WebView2 Runtime",
+            "Microsoft ODBC Driver 18 for SQL Server", "Microsoft OLE DB Driver 19",
+            "Microsoft Visual C++ v14 Redistributable (x64)", "Microsoft Visual C++ v14 Redistributable (x86)",
+            "Windows ADK for Windows 11", "Windows PE add-on for the Windows ADK",
+        ], result.Candidates.Select(c => c.CMName));
+        Assert.Equal("Discovered 16 apps.", result.StatusText);
     }
 
     [Fact]
@@ -303,11 +297,11 @@ public class DiscoveryServiceTests
         Assert.Equal(600, new DiscoveryRequest("MCM", "", "", "", [], [], []).TimeoutSeconds);
 
     [Fact]
-    public void TheParsedSnapshotJsonHasNoClientKeysOutsideTheMatcher()
+    public void TheResultJsonHasNoClientKeys()
     {
         // The public result type is the only object that leaves the service.
-        var json = JsonSerializer.Serialize(new DiscoveryResult([new DiscoveryCandidate("a", "A", "V", "A app", 2)], 4, null, "s"));
-        Assert.DoesNotContain("Clients", json);
+        var json = JsonSerializer.Serialize(new DiscoveryResult([new DiscoveryCandidate("a", "A", "V", "A app")], "s"));
+        Assert.DoesNotContain("Client", json);
         Assert.DoesNotContain("ResourceID", json);
     }
 }

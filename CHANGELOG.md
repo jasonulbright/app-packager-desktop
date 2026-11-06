@@ -4,6 +4,7 @@
 
 ### Changed
 
+- Make Discover unmanaged software read application names and versions only. It no longer reads client keys, client counts, publishers or inventory age. The prompt has no Clients column and the status line shows only the number of apps found.
 - Copy the installer at save time in Add from file. The definition keeps a verified copy in the installers folder beside the definitions folder.
 - Keep the FileVersion scraper cache in the per-user data folder instead of the Windows temp folder.
 - Delete the oldest cached installers when the FileVersion cache passes 2 GiB.

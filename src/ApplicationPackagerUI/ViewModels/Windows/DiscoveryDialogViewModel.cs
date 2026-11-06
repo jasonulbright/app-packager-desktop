@@ -25,11 +25,10 @@ public sealed partial class DiscoveryCandidateRow : ObservableObject
     public required string Id { get; init; }
     public required string Name { get; init; }
     public required string Vendor { get; init; }
-    public required int ClientCount { get; init; }
 }
 
 /// <summary>
-/// The Discover unmanaged software prompt: a checklist of applications with their client
+/// The Discover unmanaged software prompt: a checklist of applications with their
 /// counts and four buttons. A button that needs a checked application and finds none keeps
 /// the prompt open, changes nothing and says so on the note line.
 /// </summary>
@@ -56,14 +55,12 @@ public sealed partial class DiscoveryDialogViewModel : ObservableObject
     public DiscoveryDialogViewModel(IEnumerable<DiscoveryCandidate> candidates, string statusText)
     {
         Rows = new ObservableCollection<DiscoveryCandidateRow>(candidates
-            .OrderByDescending(c => c.ClientCount)
-            .ThenBy(c => c.CMName, StringComparer.OrdinalIgnoreCase)
+            .OrderBy(c => c.CMName, StringComparer.OrdinalIgnoreCase)
             .Select(c => new DiscoveryCandidateRow
             {
                 Id = c.Id,
                 Name = string.IsNullOrWhiteSpace(c.Application) ? c.CMName : c.Application,
-                Vendor = c.Vendor,
-                ClientCount = c.ClientCount
+                Vendor = c.Vendor
             }));
         PromptText = PromptFor(Rows.Count);
         StatusText = statusText ?? "";

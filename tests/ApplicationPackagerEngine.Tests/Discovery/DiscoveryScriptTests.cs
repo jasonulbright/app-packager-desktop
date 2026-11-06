@@ -68,14 +68,29 @@ public sealed class DiscoveryScriptTests : IDisposable
     }
 
     [Fact]
+    public void TheQueryReadsOnlyNamesVersionsAndViewsAndNoClientKeyOrPublisher()
+    {
+        var query = QueryText();
+        foreach (var select in Regex.Matches(query, @"(?is)SELECT DISTINCT\s+(.*?)\s+FROM\s+dbo\.v_GS_ADD_REMOVE_PROGRAMS").Select(m => m.Groups[1].Value))
+        {
+            Assert.DoesNotContain("ResourceID", select);
+            Assert.DoesNotContain("Publisher", select);
+            Assert.DoesNotContain("TimeStamp", select);
+        }
+        Assert.DoesNotContain("COUNT(", query, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Publisher0", query);
+    }
+
+    [Fact]
     public void ObsoleteAndDecommissionedClientsAreExcludedFromEveryInventoryStatement()
     {
         var statements = QueryText().Split(';').Where(s => Regex.IsMatch(s, "(?i)v_GS_ADD_REMOVE_PROGRAMS")).ToList();
-        Assert.Equal(2, statements.Count);
+        Assert.Single(statements);
         foreach (var statement in statements)
         {
-            var joins = Regex.Matches(statement, @"(?i)JOIN dbo\.v_R_System").Count;
-            Assert.True(joins >= 1);
+            // The site filter reads v_R_System in a subquery; no client key is selected.
+            var joins = Regex.Matches(statement, @"(?i)FROM dbo\.v_R_System").Count;
+            Assert.Equal(2, joins);
             Assert.Equal(joins, Regex.Matches(statement, @"(?i)ISNULL\(\w+\.Obsolete0, 0\) = 0").Count);
             Assert.Equal(joins, Regex.Matches(statement, @"(?i)ISNULL\(\w+\.Decommissioned0, 0\) = 0").Count);
         }
@@ -138,33 +153,32 @@ public sealed class DiscoveryScriptTests : IDisposable
         """;
 
     [Fact]
-    public void TheInventoryOutputCarriesOrdinalsNeverResourceIdsAndParsesIntoTheSnapshot()
+    public void TheInventoryOutputCarriesNoClientDataAndParsesIntoTheSnapshot()
     {
         var script = InventoryText + Environment.NewLine + FakeReader + Environment.NewLine + """
             $rows = @(
-                ,@([long]16777301, '7-Zip 26.03 (x64)', 'Igor Pavlov', '26.03', 'x64')
-                ,@([long]16777305, '7-Zip 26.03 (x64)', 'Igor Pavlov', '26.03', 'x64')
-                ,@([long]16777301, '7-Zip 26.03 (x64)', 'Igor Pavlov', '26.03', 'x64')
-                ,@([long]16777309, "Caf$([char]0x00e9) `"Pro`" \ tool", [System.DBNull]::Value, [System.DBNull]::Value, 'x86')
-                ,@([System.DBNull]::Value, 'Ghost', 'P', '1', 'x86')
+                ,@('7-Zip 26.03 (x64)', '26.03', 'x64')
+                ,@('7-Zip 26.03 (x64)', '26.03', 'x64')
+                ,@('7-Zip 26.03 (x64)', '26.03', 'x64')
+                ,@("Caf$([char]0x00e9) `"Pro`" \ tool", [System.DBNull]::Value, 'x86')
             )
-            $summary = @(,@(3, [datetime]'2026-10-15T02:55:30'))
             $apps = @(@(,'Git 2.56.0 (x64)'), @(,'CMTrace Open'))
-            Write-DiscoveryInventory -Reader (New-FakeReader -Sets @(,$rows + ,$summary + ,$apps))
+            Write-DiscoveryInventory -Reader (New-FakeReader -Sets @(,$rows + ,$apps))
             [Console]::Out.WriteLine('{"t":"end"}')
             """;
         var output = RunPowerShell(script);
-        Assert.DoesNotContain("1677730", output);
+        Assert.DoesNotContain("\"p\"", output);
+        Assert.DoesNotContain("\"c\"", output);
+        Assert.DoesNotContain("clients", output);
+        Assert.DoesNotContain("newest", output);
         Assert.All(output.Split('\n', StringSplitOptions.RemoveEmptyEntries), line => Assert.True(line.TrimEnd().All(c => c < 128), line));
 
         var snapshot = DiscoveryService.ParseInventory(output, new DiscoveryDatabaseTarget("s", "d"), 30);
         Assert.Equal(2, snapshot.Rows.Count);
         var sevenZip = snapshot.Rows[0];
-        Assert.Equal(("7-Zip 26.03 (x64)", "Igor Pavlov", "26.03", "x64", 2), (sevenZip.DisplayName, sevenZip.Publisher, sevenZip.Version, sevenZip.Architecture, sevenZip.Clients.Count));
+        Assert.Equal(("7-Zip 26.03 (x64)", "26.03", "x64"), (sevenZip.DisplayName, sevenZip.Version, sevenZip.Architecture));
         var cafe = snapshot.Rows[1];
-        Assert.Equal(("Café \"Pro\" \\ tool", "", "", "x86", 1), (cafe.DisplayName, cafe.Publisher, cafe.Version, cafe.Architecture, cafe.Clients.Count));
-        Assert.Equal(3, snapshot.ClientTotal);
-        Assert.Equal(new DateTime(2026, 10, 15, 2, 55, 30), snapshot.InventoryNewest);
+        Assert.Equal(("Café \"Pro\" \\ tool", "", "x86"), (cafe.DisplayName, cafe.Version, cafe.Architecture));
         Assert.Equal(["Git 2.56.0 (x64)", "CMTrace Open"], snapshot.Applications);
     }
 
@@ -199,12 +213,11 @@ public sealed class DiscoveryScriptTests : IDisposable
     {
         var script = InventoryText + Environment.NewLine + FakeReader + Environment.NewLine + """
             $rows = @(
-                ,@([long]1, "Tool`n", 'P', '1.0', 'x64')
-                ,@([long]2, "Tool`r`n", 'P', '1.0', 'x64')
+                ,@("Tool`n", '1.0', 'x64')
+                ,@("Tool`r`n", '1.0', 'x64')
             )
-            $summary = @(,@(2, [System.DBNull]::Value))
             $apps = @()
-            Write-DiscoveryInventory -Reader (New-FakeReader -Sets @(,$rows + ,$summary + ,$apps))
+            Write-DiscoveryInventory -Reader (New-FakeReader -Sets @(,$rows + ,$apps))
             [Console]::Out.WriteLine('{"t":"end"}')
             """;
         var snapshot = DiscoveryService.ParseInventory(RunPowerShell(script), new DiscoveryDatabaseTarget("s", "d"), 30);

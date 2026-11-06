@@ -5,14 +5,15 @@ namespace ApplicationPackagerEngine.Tests.Discovery;
 
 public class DiscoveryMatcherTests
 {
-    private static int _nextClient = 1000;
-
-    /// <summary>A row with explicit client ordinals, or <paramref name="count"/> clients no other row shares.</summary>
+    /// <summary>
+    /// A title row. The publisher, the client count and the client ordinals are accepted so that the
+    /// fixtures read as before, and dropped: discovery reads application names and versions only.
+    /// </summary>
     private static InventoryRow Row(string name, string publisher, string version, string arch, int count = 1, int[]? clients = null) =>
-        new(name, publisher, version, arch, new HashSet<int>(clients ?? Enumerable.Range(0, count).Select(_ => Interlocked.Increment(ref _nextClient))));
+        new(name, version, arch);
 
     private static InventorySnapshot Snapshot(IEnumerable<InventoryRow> rows, params string[] applications) =>
-        new(rows.ToList(), 4, new DateTime(2026, 10, 15, 2, 55, 30), applications);
+        new(rows.ToList(), applications);
 
     private static DiscoveryPackager Packager(string id, string cmName, string arpName, string vendor = "Vendor", string? version = null, string? arch = null) =>
         new(id, vendor, cmName + " app", cmName, arpName, version, arch);
@@ -34,34 +35,34 @@ public class DiscoveryMatcherTests
     ];
 
     [Fact]
-    public void ThirtyTwoAndSixtyFourBitRowsMergeIntoOneCandidateWithTheDistinctClientCount()
+    public void ThirtyTwoAndSixtyFourBitRowsMergeIntoOneCandidate()
     {
         var c = Find(Snapshot(Rows()), [Packager("7z", "7-Zip", "7-Zip *", "Igor Pavlov")], ["7z"]);
         var only = Assert.Single(c);
-        Assert.Equal(new DiscoveryCandidate("7z", "7-Zip", "Igor Pavlov", "7-Zip app", 4), only);
+        Assert.Equal(new DiscoveryCandidate("7z", "7-Zip", "Igor Pavlov", "7-Zip app"), only);
     }
 
     [Fact]
     public void AWildcardMatchesIgnoringCase() =>
-        Assert.Equal(2, Assert.Single(Find(Snapshot(Rows()), [Packager("npp", "Notepad++", "NOTEPAD++*")], ["npp"])).ClientCount);
+        Assert.Equal("npp", Assert.Single(Find(Snapshot(Rows()), [Packager("npp", "Notepad++", "NOTEPAD++*")], ["npp"])).Id);
 
     [Fact]
     public void AnyPatternOfAMultiPatternArpNameMatches() =>
-        Assert.Equal(3, Assert.Single(Find(Snapshot(Rows()), [Packager("j8", "Java 8", "Java 8 Update * (64-bit) | Java 8 Update ?*")], ["j8"])).ClientCount);
+        Assert.Equal("j8", Assert.Single(Find(Snapshot(Rows()), [Packager("j8", "Java 8", "Java 8 Update * (64-bit) | Java 8 Update ?*")], ["j8"])).Id);
 
     [Fact]
-    public void ARowCountsOnceWhenTwoPatternsMatchIt() =>
-        Assert.Equal(4, Assert.Single(Find(Snapshot(Rows()), [Packager("ff", "Firefox", "Mozilla Firefox* | Mozilla Firefox (x64*")], ["ff"])).ClientCount);
+    public void ARowGivesOneCandidateWhenTwoPatternsMatchIt() =>
+        Assert.Equal("ff", Assert.Single(Find(Snapshot(Rows()), [Packager("ff", "Firefox", "Mozilla Firefox* | Mozilla Firefox (x64*")], ["ff"])).Id);
 
     [Fact]
-    public void AClientCountsOnceWhenItHasTwoMatchingEntries()
+    public void TwoMatchingEntriesGiveOneCandidate()
     {
         var snapshot = Snapshot([
             Row("Java 8 Update 471", "Oracle", "8.0.4710", "x86", clients: [1, 2]),
             Row("Java 8 Update 471 (64-bit)", "Oracle", "8.0.4710", "x64", clients: [2, 3]),
             Row("Java 8 Update 461 (64-bit)", "Oracle", "8.0.4610", "x64", clients: [3]),
         ]);
-        Assert.Equal(3, Assert.Single(Find(snapshot, [Packager("j8", "Java 8", "Java 8 Update *")], ["j8"])).ClientCount);
+        Assert.Equal("j8", Assert.Single(Find(snapshot, [Packager("j8", "Java 8", "Java 8 Update *")], ["j8"])).Id);
     }
 
     [Fact]
@@ -116,12 +117,12 @@ public class DiscoveryMatcherTests
     public void APackagerIsKeptWhenConfigMgrHasOnlyAnotherProductWithTheSameWords(string cmName, string arpName, string row, string title)
     {
         var c = Find(Snapshot([Row(row, "P", "1.0", "x64", 2)], title), [Packager("p", cmName, arpName)], ["p"]);
-        Assert.Equal(2, Assert.Single(c).ClientCount);
+        Assert.Equal("p", Assert.Single(c).Id);
     }
 
     [Fact]
     public void ZeroInventoryRowsGiveNoCandidate() =>
-        Assert.Empty(Find(new InventorySnapshot([], 0, null, []), [Packager("7z", "7-Zip", "7-Zip*")], ["7z"]));
+        Assert.Empty(Find(new InventorySnapshot([], []), [Packager("7z", "7-Zip", "7-Zip*")], ["7z"]));
 
     [Fact]
     public void AHiddenPackagerWithNoMatchingRowIsSkipped() =>
@@ -185,7 +186,7 @@ public class DiscoveryMatcherTests
             Packager("carm", "Corretto arm64", "Amazon Corretto*", arch: "arm64"),
         };
         var c = Find(snapshot, packagers, packagers.Select(p => p.Id));
-        Assert.Equal("c17=1,c17x86=1,c21=2", string.Join(",", c.Select(x => $"{x.Id}={x.ClientCount}")));
+        Assert.Equal("c17,c17x86,c21", string.Join(",", c.Select(x => x.Id)));
     }
 
     [Fact]
@@ -196,35 +197,30 @@ public class DiscoveryMatcherTests
     }
 
     [Fact]
-    public void ACandidateCarriesCountsOnlyAndNoClientKey()
+    public void DiscoveryCarriesNoClientKeyNoClientCountAndNoClientTotal()
     {
-        Assert.Equal(["Id", "CMName", "Vendor", "Application", "ClientCount"],
-            typeof(DiscoveryCandidate).GetProperties().Select(p => p.Name));
-        Assert.Equal(["Candidates", "ClientTotal", "InventoryNewest", "StatusText"],
-            typeof(DiscoveryResult).GetProperties().Select(p => p.Name));
+        Assert.Equal(["Id", "CMName", "Vendor", "Application"], typeof(DiscoveryCandidate).GetProperties().Select(p => p.Name));
+        Assert.Equal(["Candidates", "StatusText"], typeof(DiscoveryResult).GetProperties().Select(p => p.Name));
+        Assert.Equal(["DisplayName", "Version", "Architecture"], typeof(InventoryRow).GetProperties().Select(p => p.Name));
+        Assert.Equal(["Rows", "Applications"], typeof(InventorySnapshot).GetProperties().Select(p => p.Name));
     }
 
     [Fact]
     public void TheStatusSaysNoInventoryDataForZeroRows()
     {
-        var text = DiscoveryMatcher.StatusText(new InventorySnapshot([], 0, null, []), 0, new DateTime(2026, 10, 17, 12, 0, 0));
+        var text = DiscoveryMatcher.StatusText(new InventorySnapshot([], []), 0, new DateTime(2026, 10, 17, 12, 0, 0));
         Assert.StartsWith("No inventory data", text);
         Assert.DoesNotContain("Discovered", text);
     }
 
     [Fact]
-    public void TheStatusStatesTheClientTotalTheAgeAndTheCandidateCount()
+    public void TheStatusStatesOnlyTheCandidateCount()
     {
         var now = new DateTime(2026, 10, 17, 12, 0, 0);
-        var rows = new List<InventoryRow> { Row("A", "P", "1", "x86") };
-        Assert.Equal("Inventory covers 4 clients; newest data is 2 days old. Discovered 3 apps.",
-            DiscoveryMatcher.StatusText(new InventorySnapshot(rows, 4, new DateTime(2026, 10, 15, 2, 55, 30), []), 3, now));
-        Assert.Equal("Inventory covers 1 client; newest data is from today. Discovered 1 app.",
-            DiscoveryMatcher.StatusText(new InventorySnapshot(rows, 1, new DateTime(2026, 10, 17, 8, 0, 0), []), 1, now));
-        Assert.Equal("Inventory covers 1 client; newest data is 1 day old. Discovered 0 apps.",
-            DiscoveryMatcher.StatusText(new InventorySnapshot(rows, 1, new DateTime(2026, 10, 16, 8, 0, 0), []), 0, now));
-        Assert.Equal("Inventory covers 2 clients; age of newest data is unknown. Discovered 0 apps.",
-            DiscoveryMatcher.StatusText(new InventorySnapshot(rows, 2, null, []), 0, now));
+        var snapshot = new InventorySnapshot(new List<InventoryRow> { Row("A", "P", "1", "x86") }, []);
+        Assert.Equal("Discovered 3 apps.", DiscoveryMatcher.StatusText(snapshot, 3, now));
+        Assert.Equal("Discovered 1 app.", DiscoveryMatcher.StatusText(snapshot, 1, now));
+        Assert.Equal("Discovered 0 apps.", DiscoveryMatcher.StatusText(snapshot, 0, now));
     }
 
     [Theory]
