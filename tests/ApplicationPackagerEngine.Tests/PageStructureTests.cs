@@ -115,9 +115,15 @@ public sealed class PageStructureTests
     {
         var doc = Xaml("Controls", "PageHeader.xaml");
         var band = doc.Descendants().Single(e => e.Name.LocalName == "Border");
-        var padding = Attr(band, "Padding").Split(',').Select(double.Parse).ToArray();
-        Assert.True(padding[0] >= 12 && padding[1] >= 8, $"The band padding is {Attr(band, "Padding")}.");
-        var margin = Attr(doc.Root!, "Margin").Split(',').Select(double.Parse).ToArray();
+        // A WPF thickness has one value (all sides), two (across, down) or four (left, top, right, bottom).
+        static double[] Sides(string thickness)
+        {
+            var v = thickness.Split(',').Select(x => double.Parse(x.Trim(), System.Globalization.CultureInfo.InvariantCulture)).ToArray();
+            return v.Length switch { 1 => [v[0], v[0], v[0], v[0]], 2 => [v[0], v[1], v[0], v[1]], _ => v };
+        }
+        var padding = Sides(Attr(band, "Padding"));
+        Assert.True(padding[0] >= 12 && padding[2] >= 12 && padding[1] >= 8 && padding[3] >= 8, $"The band padding is {Attr(band, "Padding")}.");
+        var margin = Sides(Attr(doc.Root!, "Margin"));
         Assert.True(margin[3] >= 8, $"The gap under the band is {margin[3]} px.");
     }
 
@@ -140,6 +146,7 @@ public sealed class PageStructureTests
         var groups = toolbar.Elements().Where(e => e.Name.LocalName != "WrapPanel.Resources").ToList();
         Assert.Equal(3, groups.Count);
         Assert.All(groups, g => Assert.Equal("StackPanel", g.Name.LocalName));
+        Assert.All(groups, g => Assert.Equal("Horizontal", Attr(g, "Orientation")));
         Assert.All(groups, g => Assert.True(g.Elements().Count() >= 3));
     }
 }
