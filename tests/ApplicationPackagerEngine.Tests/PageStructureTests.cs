@@ -63,33 +63,45 @@ public sealed class PageStructureTests
             .Where(p => !p.Contains(Path.DirectorySeparatorChar + "obj" + Path.DirectorySeparatorChar) && !p.Contains(Path.DirectorySeparatorChar + "bin" + Path.DirectorySeparatorChar));
     }
 
-    // The type scale: 12, 14, 16, 20, 28 and the 32 of a result headline; 40 and 48 size a symbol, not text.
+    private static readonly HashSet<string> TypeScale = ["12", "14", "16", "20", "28", "32", "40", "48"];
+
+    // The font sizes of a XAML text that are not on the type scale: 12, 14, 16, 20, 28 and the 32 of a result headline; 40 and 48 size a symbol, not text.
+    internal static IEnumerable<string> OffScaleSizes(string xaml) =>
+        Regex.Matches(xaml, @"FontSize=""(\d+(?:\.\d+)?)""|Property=""FontSize"" Value=""(\d+(?:\.\d+)?)""")
+            .Select(m => m.Groups[1].Success ? m.Groups[1].Value : m.Groups[2].Value)
+            .Where(size => !TypeScale.Contains(size));
+
+    // The margin and padding attributes of a XAML text with a value that is neither 0 to 3 (hairline and optical) nor a multiple of 4.
+    internal static IEnumerable<string> OffGridSpacing(string xaml) =>
+        Regex.Matches(xaml, @"\b(?:Margin|Padding)=""([-0-9., ]+)""|Property=""(?:Margin|Padding)"" Value=""([-0-9., ]+)""")
+            .Where(m => Regex.Matches(m.Groups[1].Success ? m.Groups[1].Value : m.Groups[2].Value, @"\d+(?:\.\d+)?")
+                .Select(n => double.Parse(n.Value, System.Globalization.CultureInfo.InvariantCulture))
+                .Any(v => v > 3 && v % 4 != 0))
+            .Select(m => m.Value);
+
     [Fact]
     public void EveryFontSizeIsOnTheTypeScale()
     {
-        var scale = new HashSet<string> { "12", "14", "16", "20", "28", "32", "40", "48" };
-        var off = new List<string>();
-        foreach (var file in AllXaml())
-            foreach (Match m in Regex.Matches(File.ReadAllText(file), @"FontSize=""(d+(?:.d+)?)""|Property=""FontSize"" Value=""(d+(?:.d+)?)"""))
-            {
-                var size = m.Groups[1].Success ? m.Groups[1].Value : m.Groups[2].Value;
-                if (!scale.Contains(size)) off.Add($"{Path.GetFileName(file)}: {size}");
-            }
+        var off = AllXaml().SelectMany(file => OffScaleSizes(File.ReadAllText(file)).Select(size => $"{Path.GetFileName(file)}: {size}")).ToList();
         Assert.True(off.Count == 0, "Font sizes off the scale: " + string.Join(", ", off));
     }
 
-    // The spacing grid: a margin or padding value is 0 to 3 (hairline and optical) or a multiple of 4.
     [Fact]
     public void EveryMarginAndPaddingIsOnTheGrid()
     {
-        var off = new List<string>();
-        foreach (var file in AllXaml())
-            foreach (Match m in Regex.Matches(File.ReadAllText(file), @"(?:Margin|Padding)=""([-0-9., ]+)""|Property=""(?:Margin|Padding)"" Value=""([-0-9., ]+)"""))
-                foreach (Match n in Regex.Matches(m.Groups[1].Success ? m.Groups[1].Value : m.Groups[2].Value, @"d+(?:.d+)?"))
-                {
-                    var v = double.Parse(n.Value, System.Globalization.CultureInfo.InvariantCulture);
-                    if (v > 3 && v % 4 != 0) off.Add($"{Path.GetFileName(file)}: {m.Value}");
-                }
-        Assert.True(off.Count == 0, "Spacing off the grid: " + string.Join("; ", off.Distinct()));
+        var off = AllXaml().SelectMany(file => OffGridSpacing(File.ReadAllText(file)).Select(v => $"{Path.GetFileName(file)}: {v}")).Distinct().ToList();
+        Assert.True(off.Count == 0, "Spacing off the grid: " + string.Join("; ", off));
+    }
+
+    [Fact]
+    public void TheScaleAndGridChecksSeeAnOffValueAndAcceptAnOnValue()
+    {
+        Assert.Empty(OffScaleSizes("<TextBlock FontSize=\"14\" />"));
+        Assert.Equal(["13"], OffScaleSizes("<TextBlock FontSize=\"13\" />"));
+        Assert.Equal(["11"], OffScaleSizes("<Setter Property=\"FontSize\" Value=\"11\" />"));
+        Assert.Empty(OffGridSpacing("<Border Margin=\"0,4,8,2\" Padding=\"12\" />"));
+        Assert.Equal(["Margin=\"0,6,0,0\""], OffGridSpacing("<Border Margin=\"0,6,0,0\" />"));
+        Assert.Equal(["Padding=\"10\""], OffGridSpacing("<Border Padding=\"10\" />"));
+        Assert.Equal(["Property=\"Margin\" Value=\"0,10\""], OffGridSpacing("<Setter Property=\"Margin\" Value=\"0,10\" />"));
     }
 }
