@@ -55,4 +55,53 @@ public sealed class PageStructureTests
         Assert.Equal("DismissCircle24", bySymbol["Error"]);
         Assert.Equal(4, bySymbol.Count);
     }
+
+    private static IEnumerable<string> AllXaml()
+    {
+        var root = Path.GetDirectoryName(Src("ApplicationPackagerUI.csproj"))!;
+        return Directory.GetFiles(root, "*.xaml", SearchOption.AllDirectories)
+            .Where(p => !p.Contains(Path.DirectorySeparatorChar + "obj" + Path.DirectorySeparatorChar) && !p.Contains(Path.DirectorySeparatorChar + "bin" + Path.DirectorySeparatorChar));
+    }
+
+    private static readonly HashSet<string> TypeScale = ["12", "14", "16", "20", "28", "32", "40", "48"];
+
+    // The font sizes of a XAML text that are not on the type scale: 12, 14, 16, 20, 28 and the 32 of a result headline; 40 and 48 size a symbol, not text.
+    internal static IEnumerable<string> OffScaleSizes(string xaml) =>
+        Regex.Matches(xaml, @"FontSize=""(\d+(?:\.\d+)?)""|Property=""FontSize"" Value=""(\d+(?:\.\d+)?)""")
+            .Select(m => m.Groups[1].Success ? m.Groups[1].Value : m.Groups[2].Value)
+            .Where(size => !TypeScale.Contains(size));
+
+    // The margin and padding attributes of a XAML text with a value that is neither 0 to 3 (hairline and optical) nor a multiple of 4.
+    internal static IEnumerable<string> OffGridSpacing(string xaml) =>
+        Regex.Matches(xaml, @"\b(?:Margin|Padding)=""([-0-9., ]+)""|Property=""(?:Margin|Padding)"" Value=""([-0-9., ]+)""")
+            .Where(m => Regex.Matches(m.Groups[1].Success ? m.Groups[1].Value : m.Groups[2].Value, @"\d+(?:\.\d+)?")
+                .Select(n => double.Parse(n.Value, System.Globalization.CultureInfo.InvariantCulture))
+                .Any(v => v > 3 && v % 4 != 0))
+            .Select(m => m.Value);
+
+    [Fact]
+    public void EveryFontSizeIsOnTheTypeScale()
+    {
+        var off = AllXaml().SelectMany(file => OffScaleSizes(File.ReadAllText(file)).Select(size => $"{Path.GetFileName(file)}: {size}")).ToList();
+        Assert.True(off.Count == 0, "Font sizes off the scale: " + string.Join(", ", off));
+    }
+
+    [Fact]
+    public void EveryMarginAndPaddingIsOnTheGrid()
+    {
+        var off = AllXaml().SelectMany(file => OffGridSpacing(File.ReadAllText(file)).Select(v => $"{Path.GetFileName(file)}: {v}")).Distinct().ToList();
+        Assert.True(off.Count == 0, "Spacing off the grid: " + string.Join("; ", off));
+    }
+
+    [Fact]
+    public void TheScaleAndGridChecksSeeAnOffValueAndAcceptAnOnValue()
+    {
+        Assert.Empty(OffScaleSizes("<TextBlock FontSize=\"14\" />"));
+        Assert.Equal(["13"], OffScaleSizes("<TextBlock FontSize=\"13\" />"));
+        Assert.Equal(["11"], OffScaleSizes("<Setter Property=\"FontSize\" Value=\"11\" />"));
+        Assert.Empty(OffGridSpacing("<Border Margin=\"0,4,8,2\" Padding=\"12\" />"));
+        Assert.Equal(["Margin=\"0,6,0,0\""], OffGridSpacing("<Border Margin=\"0,6,0,0\" />"));
+        Assert.Equal(["Padding=\"10\""], OffGridSpacing("<Border Padding=\"10\" />"));
+        Assert.Equal(["Property=\"Margin\" Value=\"0,10\""], OffGridSpacing("<Setter Property=\"Margin\" Value=\"0,10\" />"));
+    }
 }

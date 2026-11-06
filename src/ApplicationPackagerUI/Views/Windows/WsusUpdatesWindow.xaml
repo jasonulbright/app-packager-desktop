@@ -44,7 +44,7 @@
             </DataGrid.Columns>
         </DataGrid>
 
-        <Border Grid.Row="3" BorderThickness="0,1,0,0" BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}" Padding="16,10">
+        <Border Grid.Row="3" BorderThickness="0,1,0,0" BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}" Padding="16,8">
             <DockPanel>
                 <ui:Button x:Name="btnClose" DockPanel.Dock="Right" Content="Close" MinWidth="90" IsCancel="True" Click="Close_Click"
                            AutomationProperties.AutomationId="btnClose" />

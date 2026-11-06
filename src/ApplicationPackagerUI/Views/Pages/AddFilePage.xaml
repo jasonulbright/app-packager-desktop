@@ -94,7 +94,7 @@
                     </Border>
 
                     <StackPanel Visibility="{Binding HasPackage, Converter={StaticResource AddBoolToVisibility}}" AutomationProperties.AutomationId="pnlAddFilePackage">
-                        <TextBlock Text="Package" Style="{StaticResource AddHeading}" Margin="0,4,0,6" />
+                        <TextBlock Text="Package" Style="{StaticResource AddHeading}" Margin="0,4,0,4" />
                         <Border Style="{StaticResource AddCaution}" BorderThickness="2" Visibility="{Binding HasTrustWarning, Converter={StaticResource AddBoolToVisibility}}"
                                 AutomationProperties.AutomationId="pnlAddFileTrustWarning">
                             <StackPanel Orientation="Horizontal">
@@ -108,7 +108,7 @@
                     </StackPanel>
 
                     <StackPanel Visibility="{Binding HasPatch, Converter={StaticResource AddBoolToVisibility}}" AutomationProperties.AutomationId="pnlAddFilePatch">
-                        <TextBlock Text="Patch" Style="{StaticResource AddHeading}" Margin="0,4,0,6" />
+                        <TextBlock Text="Patch" Style="{StaticResource AddHeading}" Margin="0,4,0,4" />
                         <Border Style="{StaticResource AddCaution}" AutomationProperties.AutomationId="pnlAddFilePatchWarning">
                             <TextBlock Text="{Binding PatchWarning}" Style="{StaticResource AddWarningText}" AutomationProperties.AutomationId="txtAddFilePatchWarning" />
                         </Border>
@@ -116,7 +116,7 @@
                                       AutomationProperties.Name="Patch facts" AutomationProperties.AutomationId="lstAddFilePatch" />
                     </StackPanel>
 
-                    <TextBlock Text="Proposed values" Style="{StaticResource AddHeading}" Margin="0,4,0,6" />
+                    <TextBlock Text="Proposed values" Style="{StaticResource AddHeading}" Margin="0,4,0,4" />
                     <ItemsControl ItemsSource="{Binding Rows}" ItemTemplate="{StaticResource ProposalRowTemplate}" Grid.IsSharedSizeScope="True"
                                   Focusable="False" AutomationProperties.Name="Proposed values" AutomationProperties.AutomationId="lstAddFileValues" />
 
@@ -155,7 +155,7 @@
             <controls:AddResultPanel DataContext="{Binding Result}" VerticalAlignment="Top" AutomationProperties.AutomationId="pnlAddFileResult" />
         </ScrollViewer>
 
-        <TextBlock Grid.Row="2" Text="{Binding StatusText}" Style="{StaticResource AddNote}" FontSize="13" Margin="0,12,0,0"
+        <TextBlock Grid.Row="2" Text="{Binding StatusText}" Style="{StaticResource AddNote}" FontSize="14" Margin="0,12,0,0"
                    AutomationProperties.LiveSetting="Polite" AutomationProperties.AutomationId="txtAddFileStatus" />
     </Grid>
 </Page>

@@ -100,7 +100,7 @@
             </StackPanel>
         </ScrollViewer>
 
-        <Border x:Name="pnlDeployFooter" Grid.Row="2" BorderThickness="0,1,0,0" BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}" Padding="16,10"
+        <Border x:Name="pnlDeployFooter" Grid.Row="2" BorderThickness="0,1,0,0" BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}" Padding="16,8"
                 AutomationProperties.AutomationId="pnlDeployFooter">
             <DockPanel>
                 <WrapPanel DockPanel.Dock="Right">

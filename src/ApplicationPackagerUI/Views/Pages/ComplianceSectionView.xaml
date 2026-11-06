@@ -90,7 +90,7 @@
             </Style>
 
             <DataTemplate x:Key="PropertyTemplate">
-                <StackPanel Margin="0,0,0,6">
+                <StackPanel Margin="0,0,0,4">
                     <TextBlock Text="{Binding Name}" Style="{StaticResource FieldLabel}" Margin="0" />
                     <TextBox Text="{Binding Value, Mode=OneWay}" IsReadOnly="True" TextWrapping="Wrap" TextAlignment="Left" AutomationProperties.Name="{Binding Name}" />
                 </StackPanel>
@@ -305,7 +305,7 @@
                                 <DataTemplate>
                                     <StackPanel Margin="0,2">
                                         <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" ToolTip="{Binding Name}" Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
-                                        <TextBlock FontSize="11" Foreground="{DynamicResource TextFillColorSecondaryBrush}" TextTrimming="CharacterEllipsis">
+                                        <TextBlock FontSize="12" Foreground="{DynamicResource TextFillColorSecondaryBrush}" TextTrimming="CharacterEllipsis">
                                             <Run Text="{Binding CiId, Mode=OneWay}" />
                                             <Run Text=", revision" />
                                             <Run Text="{Binding Revision, Mode=OneWay}" />

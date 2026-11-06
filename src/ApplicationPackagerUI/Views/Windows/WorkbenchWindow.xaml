@@ -19,7 +19,7 @@
         <helpers:InverseBooleanConverter x:Key="InverseBool" />
 
         <Style x:Key="WbLabel" TargetType="TextBlock">
-            <Setter Property="FontSize" Value="13" />
+            <Setter Property="FontSize" Value="14" />
             <Setter Property="VerticalAlignment" Value="Center" />
             <Setter Property="Margin" Value="0,0,12,8" />
             <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
@@ -27,7 +27,7 @@
         <Style x:Key="WbSource" TargetType="TextBlock">
             <Setter Property="FontSize" Value="12" />
             <Setter Property="VerticalAlignment" Value="Center" />
-            <Setter Property="Margin" Value="10,0,10,8" />
+            <Setter Property="Margin" Value="8,0,8,8" />
             <Setter Property="MaxWidth" Value="320" />
             <Setter Property="TextTrimming" Value="CharacterEllipsis" />
             <Setter Property="ToolTip" Value="{Binding Text, RelativeSource={RelativeSource Self}}" />
@@ -36,7 +36,7 @@
         <Style x:Key="WbHeading" TargetType="TextBlock">
             <Setter Property="FontSize" Value="14" />
             <Setter Property="FontWeight" Value="SemiBold" />
-            <Setter Property="Margin" Value="0,10,0,6" />
+            <Setter Property="Margin" Value="0,8,0,4" />
             <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
         </Style>
         <Style x:Key="WbNote" TargetType="TextBlock">
@@ -72,7 +72,7 @@
             <Setter Property="VerticalContentAlignment" Value="Top" />
             <Setter Property="VerticalScrollBarVisibility" Value="Auto" />
             <Setter Property="HorizontalScrollBarVisibility" Value="Auto" />
-            <Setter Property="Padding" Value="6,4" />
+            <Setter Property="Padding" Value="4,4" />
         </Style>
         <Style x:Key="WbGutter" TargetType="TextBox" BasedOn="{StaticResource WbCode}">
             <Setter Property="IsReadOnly" Value="True" />
@@ -136,7 +136,7 @@
 
         <ui:TitleBar Grid.Row="0" Title="Workbench" />
 
-        <Grid Grid.Row="1" Margin="16,4,16,10">
+        <Grid Grid.Row="1" Margin="16,4,16,8">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="320*" MinWidth="170" MaxWidth="320" />
@@ -151,7 +151,7 @@
 
             <TextBlock Grid.Column="0" Text="Application" Style="{StaticResource WbLabel}" Margin="0,0,8,0" />
             <ComboBox Grid.Column="1" x:Name="cboApplication" IsEditable="True" IsTextSearchEnabled="True"
-                      StaysOpenOnEdit="True" Margin="0,0,14,0"
+                      StaysOpenOnEdit="True" Margin="0,0,12,0"
                       ItemsSource="{Binding Applications}" SelectedItem="{Binding SelectedApplication}"
                       DisplayMemberPath="DisplayLabel" TextSearch.TextPath="DisplayLabel"
                       ToolTip="{Binding SelectedApplication.DisplayLabel}" />
@@ -205,11 +205,11 @@
                         <Setter Property="Template">
                             <Setter.Value>
                                 <ControlTemplate TargetType="ListBoxItem">
-                                    <Border x:Name="Chrome" Margin="6,2" CornerRadius="4" Background="Transparent">
+                                    <Border x:Name="Chrome" Margin="4,2" CornerRadius="4" Background="Transparent">
                                         <Grid>
                                             <Border x:Name="Marker" Width="3" Height="16" CornerRadius="1.5" HorizontalAlignment="Left"
                                                     Background="{DynamicResource AccentFillColorDefaultBrush}" Visibility="Collapsed" />
-                                            <ContentPresenter Margin="14,9,10,9" VerticalAlignment="Center" />
+                                            <ContentPresenter Margin="12,8,8,8" VerticalAlignment="Center" />
                                         </Grid>
                                     </Border>
                                     <ControlTemplate.Triggers>
@@ -230,7 +230,7 @@
 
             <Border Grid.Column="1" Background="{DynamicResource ControlStrokeColorDefaultBrush}" />
 
-            <Grid Grid.Column="2" Margin="18,14,18,10">
+            <Grid Grid.Column="2" Margin="16,12,16,8">
 
                 <ScrollViewer x:Name="pnlApplication" VerticalScrollBarVisibility="Auto"
                               Visibility="{Binding SelectedSectionIndex, Converter={StaticResource SectionVisibility}, ConverterParameter=0}">
@@ -268,13 +268,13 @@
                         <ui:Button Grid.Row="1" Grid.Column="3" x:Name="btnPublisherReset" Content="Reset" Style="{StaticResource WbInlineButton}"
                                    Command="{Binding ResetFieldCommand}" CommandParameter="Application.Publisher" />
 
-                        <TextBlock Grid.Row="2" Grid.Column="0" Text="Description" Style="{StaticResource WbLabel}" VerticalAlignment="Top" Margin="0,6,12,8" />
+                        <TextBlock Grid.Row="2" Grid.Column="0" Text="Description" Style="{StaticResource WbLabel}" VerticalAlignment="Top" Margin="0,4,12,8" />
                         <ui:TextBox Grid.Row="2" Grid.Column="1" x:Name="txtDescription" Height="72" Margin="0,0,0,8"
                                     AcceptsReturn="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" VerticalContentAlignment="Top"
                                     ClearButtonEnabled="False"
                                     Text="{Binding Description, UpdateSourceTrigger=PropertyChanged}" />
                         <TextBlock Grid.Row="2" Grid.Column="2" x:Name="lblDescriptionSrc" Text="{Binding DescriptionSource}" Style="{StaticResource WbSource}"
-                                   VerticalAlignment="Top" Margin="10,8,10,8" />
+                                   VerticalAlignment="Top" Margin="8,8,8,8" />
                         <ui:Button Grid.Row="2" Grid.Column="3" x:Name="btnDescriptionReset" Content="Reset" Style="{StaticResource WbInlineButton}"
                                    VerticalAlignment="Top" Command="{Binding ResetFieldCommand}" CommandParameter="Application.Description" />
 
@@ -298,7 +298,7 @@
                         <TextBlock Grid.Row="6" Grid.Column="1" Grid.ColumnSpan="3" x:Name="txtProvenance" Text="{Binding ProvenanceText}"
                                    Style="{StaticResource WbNote}" />
 
-                        <TextBlock Grid.Row="7" Grid.Column="0" Text="Icon" Style="{StaticResource WbLabel}" VerticalAlignment="Top" Margin="0,6,12,8" />
+                        <TextBlock Grid.Row="7" Grid.Column="0" Text="Icon" Style="{StaticResource WbLabel}" VerticalAlignment="Top" Margin="0,4,12,8" />
                         <Grid Grid.Row="7" Grid.Column="1" Grid.ColumnSpan="3" Margin="0,0,0,8">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto" />
@@ -323,15 +323,15 @@
                             </StackPanel>
                         </Grid>
 
-                        <TextBlock Grid.Row="8" Grid.Column="0" Grid.ColumnSpan="4" x:Name="txtAppNote" Style="{StaticResource WbNote}" Margin="0,10,0,0"
+                        <TextBlock Grid.Row="8" Grid.Column="0" Grid.ColumnSpan="4" x:Name="txtAppNote" Style="{StaticResource WbNote}" Margin="0,8,0,0"
                                    Text="The displayed title is separate from the stable identity: renaming a profile never renames an existing site application, and the output folder keeps the packager name." />
 
-                        <StackPanel Grid.Row="9" Grid.Column="0" Grid.ColumnSpan="4" x:Name="pnlByoSource" Margin="0,6,0,0"
+                        <StackPanel Grid.Row="9" Grid.Column="0" Grid.ColumnSpan="4" x:Name="pnlByoSource" Margin="0,4,0,0"
                                     Visibility="{Binding IsByo, Converter={StaticResource BoolToVisibility}}">
                             <TextBlock Text="Installer source" Style="{StaticResource WbHeading}" />
                             <TextBlock x:Name="txtByoSource" Text="{Binding ByoSourceText}" Style="{StaticResource WbNote}" />
                             <DataGrid x:Name="gridByoSources" Style="{StaticResource WbGrid}" ItemsSource="{Binding ByoSources}"
-                                      IsReadOnly="True" MaxHeight="190" Margin="0,0,0,10">
+                                      IsReadOnly="True" MaxHeight="190" Margin="0,0,0,8">
                                 <DataGrid.Columns>
                                     <DataGridTextColumn Header="Revision" Width="90" Binding="{Binding Revision}" />
                                     <DataGridTextColumn Header="Installer" Width="1.2*" MinWidth="140" Binding="{Binding FileName}" />
@@ -406,10 +406,10 @@
                         <ui:TextBox Grid.Row="1" Grid.Column="1" x:Name="txtReturnCodes" Style="{StaticResource WbField}"
                                     Text="{Binding ReturnCodes, UpdateSourceTrigger=PropertyChanged}"
                                     PlaceholderText="inherit (e.g. 0,3010=SoftReboot,1641=HardReboot)" />
-                        <TextBlock Grid.Row="1" Grid.Column="2" Text="Reboot" Style="{StaticResource WbLabel}" Margin="14,0,12,8" />
+                        <TextBlock Grid.Row="1" Grid.Column="2" Text="Reboot" Style="{StaticResource WbLabel}" Margin="12,0,12,8" />
                         <ComboBox Grid.Row="1" Grid.Column="3" x:Name="cboRebootPolicy" Style="{StaticResource WbCombo}"
                                   ItemsSource="{Binding RebootPolicyOptions}" SelectedItem="{Binding RebootPolicy}" />
-                        <TextBlock Grid.Row="1" Grid.Column="4" Text="Working dir" Style="{StaticResource WbLabel}" Margin="14,0,12,8" />
+                        <TextBlock Grid.Row="1" Grid.Column="4" Text="Working dir" Style="{StaticResource WbLabel}" Margin="12,0,12,8" />
                         <ui:TextBox Grid.Row="1" Grid.Column="5" x:Name="txtWorkingDirectory" Style="{StaticResource WbField}"
                                     Text="{Binding WorkingDirectory, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="inherit" />
                     </Grid>
@@ -429,8 +429,8 @@
                             <TextBlock DockPanel.Dock="Left" x:Name="lblScriptCaption" Text="{Binding ScriptCaption}" Style="{StaticResource WbHeading}"
                                        Margin="0,0,12,0" VerticalAlignment="Center" />
                             <StackPanel DockPanel.Dock="Right" x:Name="pnlFind" Orientation="Horizontal" Visibility="Collapsed">
-                                <ui:TextBox x:Name="txtFind" Width="180" Margin="0,0,6,0" PlaceholderText="Find" KeyDown="FindBox_KeyDown" />
-                                <ui:Button x:Name="btnFindNext" Content="Next" MinWidth="70" Margin="0,0,6,0" Click="FindNext_Click" />
+                                <ui:TextBox x:Name="txtFind" Width="180" Margin="0,0,4,0" PlaceholderText="Find" KeyDown="FindBox_KeyDown" />
+                                <ui:Button x:Name="btnFindNext" Content="Next" MinWidth="70" Margin="0,0,4,0" Click="FindNext_Click" />
                                 <ui:Button x:Name="btnFindClose" Content="Close" MinWidth="70" Click="FindClose_Click" />
                             </StackPanel>
                         </DockPanel>
@@ -459,7 +459,7 @@
                             <TextBox Grid.Row="1" x:Name="txtHookBefore" Style="{StaticResource WbCode}" Margin="0,0,0,8"
                                      IsEnabled="{Binding HooksEnabled}" Text="{Binding HookBefore, UpdateSourceTrigger=PropertyChanged}" />
                             <TextBlock Grid.Row="2" Text="After" Style="{StaticResource WbNote}" Margin="0,0,0,3" />
-                            <TextBox Grid.Row="3" x:Name="txtHookAfter" Style="{StaticResource WbCode}" Margin="0,0,0,6"
+                            <TextBox Grid.Row="3" x:Name="txtHookAfter" Style="{StaticResource WbCode}" Margin="0,0,0,4"
                                      IsEnabled="{Binding HooksEnabled}" Text="{Binding HookAfter, UpdateSourceTrigger=PropertyChanged}" />
                             <CheckBox Grid.Row="4" x:Name="chkAfterOnFailure" IsEnabled="{Binding HooksEnabled}"
                                       IsChecked="{Binding AfterRunsOnFailure}">
@@ -506,7 +506,7 @@
                                    HorizontalAlignment="Left" Margin="12,0,8,8" Command="{Binding ResetDetectionSectionCommand}" />
                     </Grid>
 
-                    <TextBlock Grid.Row="1" x:Name="txtDetectionInherited" Text="{Binding DetectionInheritedText}" Style="{StaticResource WbNote}" Margin="0,4,0,6" />
+                    <TextBlock Grid.Row="1" x:Name="txtDetectionInherited" Text="{Binding DetectionInheritedText}" Style="{StaticResource WbNote}" Margin="0,4,0,4" />
 
                     <Grid Grid.Row="2">
                         <ScrollViewer x:Name="pnlDetectionTyped" VerticalScrollBarVisibility="Auto"
@@ -610,7 +610,7 @@
                                              ScrollViewer.ScrollChanged="DetectScript_ScrollChanged" />
                                 </DockPanel>
                             </Border>
-                            <CheckBox Grid.Row="2" x:Name="chkIntuneScriptConversion" Margin="0,8,0,6" IsEnabled="{Binding IsDetectionCustom}"
+                            <CheckBox Grid.Row="2" x:Name="chkIntuneScriptConversion" Margin="0,8,0,4" IsEnabled="{Binding IsDetectionCustom}"
                                       IsChecked="{Binding IntuneScriptConversion}"
                                       Content="Allow Intune to publish this rule as a converted detection script"
                                       ToolTip="Native clauses without an Intune mapping stay blocked until this is chosen explicitly." />
@@ -641,7 +641,7 @@
                         <TextBlock Grid.Row="0" Style="{StaticResource WbNote}"
                                    Text="Requirements decide eligibility; detection decides installed state. Operations are keyed by rule id so adding an application-wide rule cannot silently gate a variant fallback." />
 
-                        <DockPanel Grid.Row="1" Margin="0,0,0,6">
+                        <DockPanel Grid.Row="1" Margin="0,0,0,4">
                             <TextBlock DockPanel.Dock="Left" Text="Requirement operations" Style="{StaticResource WbHeading}" Margin="0,0,12,0" VerticalAlignment="Center" />
                             <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" HorizontalAlignment="Right">
                                 <ComboBox x:Name="cboReqTemplate" Width="200" Margin="0,0,8,8"
@@ -664,7 +664,7 @@
                             </DataGrid.Columns>
                         </DataGrid>
 
-                        <Grid Grid.Row="3" Margin="0,12,0,6">
+                        <Grid Grid.Row="3" Margin="0,12,0,4">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto" />
                                 <ColumnDefinition Width="180" />
@@ -699,10 +699,10 @@
                             </DataGrid.Columns>
                         </DataGrid>
 
-                        <TextBlock Grid.Row="6" Text="Site condition names" Style="{StaticResource WbHeading}" Margin="0,14,0,4" />
+                        <TextBlock Grid.Row="6" Text="Site condition names" Style="{StaticResource WbHeading}" Margin="0,12,0,4" />
                         <TextBlock Grid.Row="7" Style="{StaticResource WbNote}"
                                    Text="Shared by every application. A rule attaches to the site global condition with this name, creating it on first use; change a name to reuse a condition your site already has. Saved when a field loses focus." />
-                        <Grid Grid.Row="8" Margin="0,0,0,6">
+                        <Grid Grid.Row="8" Margin="0,0,0,4">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto" MinWidth="200" />
                                 <ColumnDefinition Width="*" />
@@ -774,7 +774,7 @@
                         <TextBlock Grid.Row="2" Grid.Column="2" Text="minutes" Style="{StaticResource WbLabel}" Margin="8,0,12,8" />
                         <TextBlock Grid.Row="2" Grid.Column="3" x:Name="lblMaximumEffective" Text="{Binding MaximumEffective}" Style="{StaticResource WbSource}" HorizontalAlignment="Left" />
 
-                        <TextBlock Grid.Row="3" Grid.ColumnSpan="4" x:Name="txtTimingTargets" Style="{StaticResource WbNote}" Margin="0,4,0,10"
+                        <TextBlock Grid.Row="3" Grid.ColumnSpan="4" x:Name="txtTimingTargets" Style="{StaticResource WbNote}" Margin="0,4,0,8"
                                    Text="ConfigMgr receives both values on the deployment type. The Intune publisher sends neither; the values stay in the definition and the review pane reports the gap." />
 
                         <TextBlock Grid.Row="4" Grid.ColumnSpan="4" Text="Execution" Style="{StaticResource WbHeading}" />
@@ -813,7 +813,7 @@
                     <TextBlock Grid.Row="0" Style="{StaticResource WbNote}"
                                Text="Bundled files travel inside the package content. A file only reaches the endpoint when the install script copies it there; destinations are relative to the content root." />
 
-                    <DockPanel Grid.Row="1" Margin="0,0,0,6">
+                    <DockPanel Grid.Row="1" Margin="0,0,0,4">
                         <TextBlock DockPanel.Dock="Left" Text="Custom source files" Style="{StaticResource WbHeading}" Margin="0,0,12,0" VerticalAlignment="Center" />
                         <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" HorizontalAlignment="Right">
                             <ui:Button x:Name="btnSourceAddFile" Content="Add file..." Style="{StaticResource WbInlineButton}" Command="{Binding AddSourceFileCommand}" />
@@ -852,7 +852,7 @@
                         <RowDefinition Height="*" />
                     </Grid.RowDefinitions>
 
-                    <TextBlock Grid.Row="0" Grid.Column="0" Text="Default versus custom" Style="{StaticResource WbHeading}" Margin="0,0,0,6" />
+                    <TextBlock Grid.Row="0" Grid.Column="0" Text="Default versus custom" Style="{StaticResource WbHeading}" Margin="0,0,0,4" />
                     <DataGrid Grid.Row="1" Grid.Column="0" x:Name="dgDiff" Style="{StaticResource WbGrid}" IsReadOnly="True" ItemsSource="{Binding DiffRows}">
                         <DataGrid.Columns>
                             <DataGridTextColumn Header="Field" Width="190" Binding="{Binding Field}" />
@@ -861,7 +861,7 @@
                         </DataGrid.Columns>
                     </DataGrid>
 
-                    <TextBlock Grid.Row="0" Grid.Column="2" Text="Compatibility findings" Style="{StaticResource WbHeading}" Margin="0,0,0,6" />
+                    <TextBlock Grid.Row="0" Grid.Column="2" Text="Compatibility findings" Style="{StaticResource WbHeading}" Margin="0,0,0,4" />
                     <DataGrid Grid.Row="1" Grid.Column="2" x:Name="dgFindings" Style="{StaticResource WbGrid}" IsReadOnly="True" ItemsSource="{Binding Findings}">
                         <DataGrid.Columns>
                             <DataGridTextColumn Header="Severity" Width="80" Binding="{Binding Severity}" />
@@ -903,7 +903,7 @@
 
         <Border Grid.Row="4" Background="{DynamicResource ControlStrokeColorDefaultBrush}" />
 
-        <Grid Grid.Row="5" Margin="16,10,16,12">
+        <Grid Grid.Row="5" Margin="16,8,16,12">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="*" />
@@ -927,7 +927,7 @@
             <TextBlock Grid.Row="0" Grid.Column="1" x:Name="txtSaveState" FontSize="12" TextWrapping="Wrap" VerticalAlignment="Center" Margin="8,0,0,0"
                        Foreground="{DynamicResource TextFillColorSecondaryBrush}" Text="{Binding SaveStateText}" />
 
-            <StackPanel Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,10,0,0">
+            <StackPanel Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,8,0,0">
                 <ui:Button x:Name="btnUseDefaults" Content="Use defaults" Style="{StaticResource WbFooterButton}" MinWidth="106"
                            Command="{Binding UseDefaultsCommand}"
                            ToolTip="Clear every override in this profile and inherit the packager defaults." />
@@ -935,7 +935,7 @@
                 <ui:Button x:Name="btnSaveAs" Content="Save as..." Style="{StaticResource WbFooterButton}" Command="{Binding SaveAsCommand}" />
                 <ui:Button x:Name="btnValidate" Content="Validate" Style="{StaticResource WbFooterButton}" Command="{Binding ValidateCommand}" />
                 <ui:Button x:Name="btnStage" Content="Stage" Style="{StaticResource WbFooterButton}" Command="{Binding StageCommand}" />
-                <TextBlock Text="Publish to:" FontSize="13" VerticalAlignment="Center" Margin="8,0,8,0"
+                <TextBlock Text="Publish to:" FontSize="14" VerticalAlignment="Center" Margin="8,0,8,0"
                            Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
                 <ui:Button x:Name="btnPublishMecm" Content="ConfigMgr" Appearance="Primary" Style="{StaticResource WbFooterButton}"
                            Command="{Binding PublishConfigMgrCommand}" ToolTip="{Binding PublishConfigMgrToolTip}" ToolTipService.ShowOnDisabled="True" />

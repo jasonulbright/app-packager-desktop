@@ -8,7 +8,7 @@
         <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
             <ui:SymbolIcon Symbol="Desktop24" FontSize="48"
                            Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
-            <TextBlock Text="Citrix Workspace" FontSize="24" Margin="0,16,0,8"
+            <TextBlock Text="Citrix Workspace" FontSize="20" Margin="0,16,0,8"
                        HorizontalAlignment="Center"
                        Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
             <TextBlock Text="Configure Citrix Workspace App installation switches."

@@ -30,24 +30,24 @@
                           AutomationProperties.Name="Target kind" AutomationProperties.AutomationId="cboTargetKind" />
             </StackPanel>
             <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding TargetText, UpdateSourceTrigger=PropertyChanged}" AcceptsReturn="True" TextWrapping="NoWrap"
-                     Height="72" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" VerticalContentAlignment="Top" Margin="0,26,8,0"
+                     Height="72" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" VerticalContentAlignment="Top" Margin="0,24,8,0"
                      AutomationProperties.Name="Target" AutomationProperties.AutomationId="txtTarget" />
-            <WrapPanel Grid.Row="0" Grid.Column="2" Orientation="Vertical" Margin="0,26,0,0">
+            <WrapPanel Grid.Row="0" Grid.Column="2" Orientation="Vertical" Margin="0,24,0,0">
                 <ui:Button x:Name="btnResolve" Content="Resolve" Icon="{ui:SymbolIcon PeopleSearch24}" Appearance="Primary" Command="{Binding ResolveCommand}" Style="{StaticResource ToolButton}" MinWidth="130"
                            ToolTip="Reads the devices of the target with one bulk read. A run goes only to resolved targets." AutomationProperties.Name="Resolve the targets"
                            AutomationProperties.AutomationId="btnResolve" />
                 <ui:Button Content="Import TXT or CSV" Icon="{ui:SymbolIcon FolderOpen24}" Command="{Binding ImportTargetsCommand}" Style="{StaticResource ToolButton}" MinWidth="130"
                            ToolTip="Reads device names from a text file, one per line, or from a CSV file." AutomationProperties.AutomationId="btnImportTargets" />
             </WrapPanel>
-            <TextBlock Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="3" Text="{Binding TargetHint}" Style="{StaticResource Note}" Margin="0,6,0,0"
+            <TextBlock Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="3" Text="{Binding TargetHint}" Style="{StaticResource Note}" Margin="0,4,0,0"
                        AutomationProperties.AutomationId="txtTargetHint" />
-            <StackPanel Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="3" Margin="0,6,0,0">
+            <StackPanel Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="3" Margin="0,4,0,0">
                 <DockPanel>
                     <ui:ProgressRing DockPanel.Dock="Left" IsIndeterminate="True" Width="16" Height="16" Margin="0,0,8,0"
                                      Visibility="{Binding IsResolving, Converter={StaticResource BoolToVisibility}}" />
                     <TextBlock Text="{Binding TargetSummary}" Style="{StaticResource Warning}" AutomationProperties.AutomationId="txtTargetSummary" AutomationProperties.LiveSetting="Polite" />
                 </DockPanel>
-                <Border Style="{StaticResource Caution}" Margin="0,6,0,0" Visibility="{Binding ShowBuiltInWarning, Converter={StaticResource BoolToVisibility}}"
+                <Border Style="{StaticResource Caution}" Margin="0,4,0,0" Visibility="{Binding ShowBuiltInWarning, Converter={StaticResource BoolToVisibility}}"
                         AutomationProperties.AutomationId="pnlBuiltInWarning">
                     <TextBlock Text="{Binding EveryDeviceWarningText}" TextWrapping="Wrap"
                                Foreground="{DynamicResource TextFillColorPrimaryBrush}" AutomationProperties.AutomationId="txtBuiltInWarning" />

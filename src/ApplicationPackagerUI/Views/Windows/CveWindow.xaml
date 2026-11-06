@@ -16,7 +16,7 @@
         <!-- The accent text brush follows the theme, so a link stays readable on a dark background. -->
         <Style x:Key="LinkButton" TargetType="Button">
             <Setter Property="Cursor" Value="Hand" />
-            <Setter Property="Margin" Value="0,0,10,2" />
+            <Setter Property="Margin" Value="0,0,8,2" />
             <Setter Property="FontSize" Value="12" />
             <Setter Property="Foreground" Value="{DynamicResource AccentTextFillColorPrimaryBrush}" />
             <Setter Property="ToolTip" Value="{Binding Url}" />
@@ -39,7 +39,7 @@
         </ItemsPanelTemplate>
     </ui:FluentWindow.Resources>
 
-    <Grid Margin="16,10,16,16">
+    <Grid Margin="16,8,16,16">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
@@ -49,7 +49,7 @@
 
         <ui:TitleBar Grid.Row="0" Title="CVEs" ShowMinimize="False" />
 
-        <StackPanel Grid.Row="1" Margin="0,10,0,8">
+        <StackPanel Grid.Row="1" Margin="0,8,0,8">
             <TextBlock Text="{Binding Title}" FontSize="14" FontWeight="SemiBold" TextWrapping="Wrap"
                        AutomationProperties.AutomationId="txtCveTitle" />
             <TextBlock Text="{Binding RangeText}" FontSize="12" TextWrapping="Wrap" Margin="0,4,0,0"
@@ -59,7 +59,7 @@
                        Foreground="{DynamicResource SystemFillColorCautionBrush}"
                        Visibility="{Binding HasNote, Converter={StaticResource BooleanToVisibilityConverter}}"
                        AutomationProperties.AutomationId="txtCveNote" />
-            <DockPanel Margin="0,6,0,0">
+            <DockPanel Margin="0,4,0,0">
                 <TextBlock Text="Product:" FontSize="12" Margin="0,0,8,0" VerticalAlignment="Center"
                            Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
                 <ItemsControl ItemsSource="{Binding ProductLinks}" ItemTemplate="{StaticResource LinkTemplate}"
@@ -114,7 +114,7 @@
             </DataGrid.Columns>
         </DataGrid>
 
-        <DockPanel Grid.Row="3" Margin="0,10,0,0">
+        <DockPanel Grid.Row="3" Margin="0,8,0,0">
             <ui:Button DockPanel.Dock="Right" Content="Close" MinWidth="90" Click="Close_Click"
                        AutomationProperties.AutomationId="btnCveClose" />
             <StackPanel Orientation="Horizontal">

@@ -61,7 +61,7 @@
                                      KeyboardNavigation.TabIndex="0" ToolTip="{x:Static pages:PivotsScriptsPage.EditorKeyHint}" AutomationProperties.HelpText="{x:Static pages:PivotsScriptsPage.EditorKeyHint}"
                                      AutomationProperties.Name="CMPivot query" AutomationProperties.AutomationId="txtQuery" />
                             <DockPanel Grid.Column="1" Margin="8,0,0,0" KeyboardNavigation.TabIndex="1" KeyboardNavigation.TabNavigation="Local">
-                                <ui:Button DockPanel.Dock="Bottom" Content="Use query" Icon="{ui:SymbolIcon ArrowLeft24}" Command="{Binding UseQueryItemCommand}" Margin="0,6,0,0"
+                                <ui:Button DockPanel.Dock="Bottom" Content="Use query" Icon="{ui:SymbolIcon ArrowLeft24}" Command="{Binding UseQueryItemCommand}" Margin="0,4,0,0"
                                            ToolTip="Puts the selected query of the library into the editor." AutomationProperties.AutomationId="btnUseQuery" />
                                 <ListBox ItemsSource="{Binding QueryLibrary}" SelectedItem="{Binding SelectedQueryItem}" ItemTemplate="{StaticResource LibraryItem}" Height="130"
                                          ItemContainerStyle="{StaticResource LibraryListItem}" MouseDoubleClick="OnQueryLibraryDoubleClick"
@@ -191,7 +191,7 @@
                                          KeyboardNavigation.TabIndex="1" ToolTip="{x:Static pages:PivotsScriptsPage.EditorKeyHint}" AutomationProperties.HelpText="{x:Static pages:PivotsScriptsPage.EditorKeyHint}"
                                          AutomationProperties.Name="Script text" AutomationProperties.AutomationId="txtDraft" />
                                 <DockPanel Grid.Row="1" Grid.RowSpan="2" Grid.Column="1" Margin="8,0,0,0" KeyboardNavigation.TabIndex="2" KeyboardNavigation.TabNavigation="Local">
-                                    <ui:Button DockPanel.Dock="Bottom" Content="Use script" Icon="{ui:SymbolIcon ArrowLeft24}" Command="{Binding UseScriptItemCommand}" Margin="0,6,0,0"
+                                    <ui:Button DockPanel.Dock="Bottom" Content="Use script" Icon="{ui:SymbolIcon ArrowLeft24}" Command="{Binding UseScriptItemCommand}" Margin="0,4,0,0"
                                                ToolTip="Puts the selected script of the library into the editor." AutomationProperties.AutomationId="btnUseScript" />
                                     <ListBox ItemsSource="{Binding ScriptLibrary}" SelectedItem="{Binding SelectedScriptItem}" ItemTemplate="{StaticResource LibraryItem}"
                                              ItemContainerStyle="{StaticResource LibraryListItem}" MouseDoubleClick="OnScriptLibraryDoubleClick"

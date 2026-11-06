@@ -61,7 +61,7 @@
                                                   Tag="{Binding}"
                                                   AutomationProperties.Name="{Binding Vendor, StringFormat=Show every application of {0}}"
                                                   VerticalAlignment="Center" Margin="0,0,8,0" />
-                                        <TextBlock Text="{Binding Vendor}" FontWeight="SemiBold" FontSize="13"
+                                        <TextBlock Text="{Binding Vendor}" FontWeight="SemiBold" FontSize="14"
                                                    VerticalAlignment="Center"
                                                    Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
                                     </StackPanel>
@@ -74,7 +74,7 @@
                                                 <CheckBox IsChecked="{Binding IsVisible}"
                                                           Content="{Binding Application}"
                                                           VerticalAlignment="Center" />
-                                                <Border CornerRadius="4" Padding="6,0" Margin="8,0,0,0" BorderThickness="1"
+                                                <Border CornerRadius="4" Padding="4,0" Margin="8,0,0,0" BorderThickness="1"
                                                         VerticalAlignment="Center"
                                                         BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}"
                                                         Background="{DynamicResource ControlFillColorSecondaryBrush}"

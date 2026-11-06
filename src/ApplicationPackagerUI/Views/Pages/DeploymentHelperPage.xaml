@@ -182,7 +182,7 @@
                             <ui:Button Content="Cancel" Icon="{ui:SymbolIcon Dismiss24}" Command="{Binding CancelLoadCommand}" VerticalAlignment="Top"
                                        ToolTip="Stops the read of the objects and collections." Style="{StaticResource ToolButton}"
                                        AutomationProperties.Name="Cancel the read" AutomationProperties.AutomationId="btnDeployCancel" />
-                            <TextBlock Text="{Binding TemplateMessage}" Style="{StaticResource Note}" VerticalAlignment="Top" Margin="0,6,0,8" MaxWidth="420"
+                            <TextBlock Text="{Binding TemplateMessage}" Style="{StaticResource Note}" VerticalAlignment="Top" Margin="0,4,0,8" MaxWidth="420"
                                        AutomationProperties.AutomationId="txtTemplateMessage" />
                         </WrapPanel>
 

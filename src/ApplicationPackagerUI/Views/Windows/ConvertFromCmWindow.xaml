@@ -24,7 +24,7 @@
             <TextBlock x:Name="txtIntro" TextWrapping="Wrap" FontSize="12" Margin="0,0,0,8"
                        Foreground="{DynamicResource TextFillColorSecondaryBrush}"
                        AutomationProperties.AutomationId="txtConvertIntro" />
-            <Grid Margin="0,0,0,6">
+            <Grid Margin="0,0,0,4">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="140" />
                     <ColumnDefinition Width="*" />
@@ -34,7 +34,7 @@
                     <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
                 <TextBlock Grid.Row="0" Text="Application name" VerticalAlignment="Center" />
-                <ui:TextBox Grid.Row="0" Grid.Column="1" Margin="0,0,0,6"
+                <ui:TextBox Grid.Row="0" Grid.Column="1" Margin="0,0,0,4"
                             Text="{Binding ApplicationName, UpdateSourceTrigger=PropertyChanged}"
                             IsEnabled="{Binding Idle}" PlaceholderText="Exact name in the console"
                             AutomationProperties.AutomationId="txtCmApplicationName"
@@ -85,7 +85,7 @@
                      AutomationProperties.AutomationId="txtConvertLog" AutomationProperties.Name="Progress log" />
         </Grid>
 
-        <Border Grid.Row="3" BorderThickness="0,1,0,0" BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}" Padding="16,10">
+        <Border Grid.Row="3" BorderThickness="0,1,0,0" BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}" Padding="16,8">
             <WrapPanel HorizontalAlignment="Right">
                 <ui:Button Content="_Preview" MinWidth="110" Margin="0,0,8,0" IsDefault="True" Command="{Binding PreviewCommand}"
                            ToolTip="Read the application and show the plan. Nothing is written."

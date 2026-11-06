@@ -80,7 +80,7 @@
             </DataGrid.Columns>
         </DataGrid>
 
-        <Border Grid.Row="3" BorderThickness="0,1,0,0" BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}" Padding="16,10" KeyboardNavigation.TabNavigation="Local" KeyboardNavigation.TabIndex="3">
+        <Border Grid.Row="3" BorderThickness="0,1,0,0" BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}" Padding="16,8" KeyboardNavigation.TabNavigation="Local" KeyboardNavigation.TabIndex="3">
             <DockPanel>
                 <TextBlock DockPanel.Dock="Left" Text="Space checks or clears the selected pair." VerticalAlignment="Center" TextWrapping="Wrap" MaxWidth="320"
                            Foreground="{DynamicResource TextFillColorSecondaryBrush}" />

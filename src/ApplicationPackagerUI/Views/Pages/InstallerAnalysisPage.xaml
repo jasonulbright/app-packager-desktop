@@ -19,7 +19,7 @@
             <Style x:Key="SectionLabel" TargetType="TextBlock">
                 <Setter Property="FontSize" Value="16" />
                 <Setter Property="FontWeight" Value="SemiBold" />
-                <Setter Property="Margin" Value="0,16,0,6" />
+                <Setter Property="Margin" Value="0,16,0,4" />
                 <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
             </Style>
 
@@ -218,7 +218,7 @@
                                 </ItemsControl>
                             </Border>
 
-                            <TextBlock Text="Source" Style="{StaticResource SectionLabel}" Margin="0,4,0,6" />
+                            <TextBlock Text="Source" Style="{StaticResource SectionLabel}" Margin="0,4,0,4" />
                             <DataGrid x:Name="dgSource" Style="{StaticResource SectionGrid}" ItemsSource="{Binding SourceRows}"
                                       AutomationProperties.AutomationId="dgSource" AutomationProperties.Name="Source facts">
                                 <DataGrid.Columns>
@@ -495,7 +495,7 @@
                                        ToolTip="Copies every row the filter shows, one tab-separated line per row." AutomationProperties.AutomationId="btnRegistryCopyRows" />
                         </WrapPanel>
                         <TextBlock Grid.Row="1" Text="{Binding RegistryStatus}" Style="{StaticResource Note}" Margin="0,0,0,8" AutomationProperties.AutomationId="txtRegistryStatus" />
-                        <Border Grid.Row="2" Padding="12,6" CornerRadius="6" BorderThickness="1" Margin="0,0,0,8"
+                        <Border Grid.Row="2" Padding="12,4" CornerRadius="6" BorderThickness="1" Margin="0,0,0,8"
                                 BorderBrush="{DynamicResource SystemFillColorCautionBrush}" Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
                                 Visibility="{Binding HasRegistryNotes, Converter={StaticResource BoolToVisibility}}" AutomationProperties.AutomationId="pnlRegistryNotes">
                             <ScrollViewer MaxHeight="72" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Focusable="False">

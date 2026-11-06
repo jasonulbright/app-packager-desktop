@@ -48,7 +48,7 @@
             <TextBox Grid.Row="3" x:Name="txtResults" Text="{Binding ResultsText, Mode=OneWay}" IsReadOnly="True" TextWrapping="Wrap"
                      FontFamily="Consolas" FontSize="12" VerticalScrollBarVisibility="Auto" VerticalContentAlignment="Top"
                      AutomationProperties.Name="Import results" AutomationProperties.AutomationId="txtResults" />
-            <DockPanel Grid.Row="4" Margin="0,10,0,0">
+            <DockPanel Grid.Row="4" Margin="0,8,0,0">
                 <ui:Button x:Name="btnClose" DockPanel.Dock="Right" Content="Close" MinWidth="90" IsCancel="True" Click="Close_Click"
                            Margin="8,0,0,0" AutomationProperties.AutomationId="btnClose" />
                 <TextBlock x:Name="txtStatus" Text="{Binding StatusText}" FontSize="12" VerticalAlignment="Center" TextWrapping="Wrap"
