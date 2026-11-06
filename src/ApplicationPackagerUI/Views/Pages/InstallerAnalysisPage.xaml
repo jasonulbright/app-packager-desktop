@@ -148,7 +148,8 @@
             </WrapPanel>
         </Grid>
 
-        <WrapPanel Grid.Row="2">
+        <WrapPanel Grid.Row="2" AutomationProperties.AutomationId="pnlAnalysisTools">
+            <StackPanel Orientation="Horizontal" Margin="0,0,16,0">
             <ComboBox ItemsSource="{Binding RecentFiles}" SelectedItem="{Binding SelectedRecent}" Width="300" Margin="0,0,8,8"
                       ToolTip="The last 10 installers opened on this page." AutomationProperties.Name="Recent files" AutomationProperties.AutomationId="cboRecentFiles">
                 <ComboBox.ItemTemplate>
@@ -161,16 +162,21 @@
                        AutomationProperties.AutomationId="btnOpenRecent" />
             <ui:Button Content="Clear recent" Icon="{ui:SymbolIcon Delete24}" Command="{Binding ClearRecentCommand}" Style="{StaticResource ToolButton}"
                        ToolTip="Removes every path from the recent files." AutomationProperties.AutomationId="btnClearRecent" />
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" Margin="0,0,16,0">
             <ui:Button Content="Copy summary" Icon="{ui:SymbolIcon Copy24}" Command="{Binding CopySummaryCommand}" Style="{StaticResource ToolButton}"
                        AutomationProperties.AutomationId="btnCopySummary" />
             <ui:Button Content="Copy JSON" Icon="{ui:SymbolIcon Code24}" Command="{Binding CopyJsonCommand}" Style="{StaticResource ToolButton}"
                        ToolTip="Copies the ConfigMgr digest. Key material of a .intunewin package is never included." AutomationProperties.AutomationId="btnCopyJson" />
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" Margin="0,0,16,0">
             <ui:Button Content="Export CSV" Icon="{ui:SymbolIcon DocumentTable24}" Command="{Binding ExportCsvCommand}" Style="{StaticResource ToolButton}"
                        AutomationProperties.AutomationId="btnExportCsv" />
             <ui:Button Content="Export HTML" Icon="{ui:SymbolIcon Globe24}" Command="{Binding ExportHtmlCommand}" Style="{StaticResource ToolButton}"
                        AutomationProperties.AutomationId="btnExportHtml" />
             <ui:Button Content="Open folder" Icon="{ui:SymbolIcon FolderOpen24}" Command="{Binding OpenReportsFolderCommand}" Style="{StaticResource ToolButton}"
                        ToolTip="Opens the folder of the last report." AutomationProperties.AutomationId="btnOpenReportsFolder" />
+            </StackPanel>
         </WrapPanel>
 
         <DockPanel Grid.Row="3" Margin="0,0,0,4" Visibility="{Binding HasBreadcrumb, Converter={StaticResource BoolToVisibility}}"

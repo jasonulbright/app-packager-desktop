@@ -63,7 +63,9 @@
                             <DockPanel Grid.Column="1" Margin="8,0,0,0" KeyboardNavigation.TabIndex="1" KeyboardNavigation.TabNavigation="Local">
                                 <ui:Button DockPanel.Dock="Bottom" Content="Use query" Icon="{ui:SymbolIcon ArrowLeft24}" Command="{Binding UseQueryItemCommand}" Margin="0,4,0,0"
                                            ToolTip="Puts the selected query of the library into the editor." AutomationProperties.AutomationId="btnUseQuery" />
-                                <ListBox ItemsSource="{Binding QueryLibrary}" SelectedItem="{Binding SelectedQueryItem}" ItemTemplate="{StaticResource LibraryItem}" Height="130"
+                                <TextBlock DockPanel.Dock="Top" Text="Query library" FontSize="14" FontWeight="SemiBold" Margin="0,0,0,4"
+                                           Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
+                                <ListBox ItemsSource="{Binding QueryLibrary}" SelectedItem="{Binding SelectedQueryItem}" ItemTemplate="{StaticResource LibraryItem}" Height="100"
                                          ItemContainerStyle="{StaticResource LibraryListItem}" MouseDoubleClick="OnQueryLibraryDoubleClick"
                                          AutomationProperties.Name="Query library" AutomationProperties.AutomationId="lstQueryLibrary" />
                             </DockPanel>
@@ -193,7 +195,9 @@
                                 <DockPanel Grid.Row="1" Grid.RowSpan="2" Grid.Column="1" Margin="8,0,0,0" KeyboardNavigation.TabIndex="2" KeyboardNavigation.TabNavigation="Local">
                                     <ui:Button DockPanel.Dock="Bottom" Content="Use script" Icon="{ui:SymbolIcon ArrowLeft24}" Command="{Binding UseScriptItemCommand}" Margin="0,4,0,0"
                                                ToolTip="Puts the selected script of the library into the editor." AutomationProperties.AutomationId="btnUseScript" />
-                                    <ListBox ItemsSource="{Binding ScriptLibrary}" SelectedItem="{Binding SelectedScriptItem}" ItemTemplate="{StaticResource LibraryItem}"
+                                    <TextBlock DockPanel.Dock="Top" Text="Script library" FontSize="14" FontWeight="SemiBold" Margin="0,0,0,4"
+                                               Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
+                                    <ListBox ItemsSource="{Binding ScriptLibrary}" SelectedItem="{Binding SelectedScriptItem}" ItemTemplate="{StaticResource LibraryItem}" Height="100"
                                              ItemContainerStyle="{StaticResource LibraryListItem}" MouseDoubleClick="OnScriptLibraryDoubleClick"
                                              AutomationProperties.Name="Script library" AutomationProperties.AutomationId="lstScriptLibrary" />
                                 </DockPanel>

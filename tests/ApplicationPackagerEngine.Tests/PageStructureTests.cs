@@ -149,4 +149,29 @@ public sealed class PageStructureTests
         Assert.All(groups, g => Assert.Equal("Horizontal", Attr(g, "Orientation")));
         Assert.All(groups, g => Assert.True(g.Elements().Count() >= 3));
     }
+
+    private static IReadOnlyList<XElement> ToolbarGroups(XDocument doc, string key, string value) =>
+        doc.Descendants().Single(e => e.Name.LocalName == "WrapPanel" && (Attr(e, key) == value))
+            .Elements().Where(e => e.Name.LocalName != "WrapPanel.Resources").ToList();
+
+    [Fact]
+    public void TheInstallerAnalysisAndCollectionToolbarsWrapByGroup()
+    {
+        var analysis = ToolbarGroups(Xaml("Views", "Pages", "InstallerAnalysisPage.xaml"), "AutomationProperties.AutomationId", "pnlAnalysisTools");
+        var collections = ToolbarGroups(Xaml("Views", "Pages", "CollectionCompliancePage.xaml"), "{http://schemas.microsoft.com/winfx/2006/xaml}Name", "pnlCollectionTools");
+        foreach (var groups in new[] { analysis, collections })
+        {
+            Assert.Equal(3, groups.Count);
+            Assert.All(groups, g => Assert.Equal("StackPanel", g.Name.LocalName));
+            Assert.All(groups, g => Assert.Equal("Horizontal", Attr(g, "Orientation")));
+        }
+    }
+
+    [Fact]
+    public void ThePivotsLibrariesHaveHeadings()
+    {
+        var texts = Xaml("Views", "Pages", "PivotsScriptsPage.xaml").Descendants().Where(e => e.Name.LocalName == "TextBlock").Select(e => Attr(e, "Text")).ToList();
+        Assert.Contains("Query library", texts);
+        Assert.Contains("Script library", texts);
+    }
 }

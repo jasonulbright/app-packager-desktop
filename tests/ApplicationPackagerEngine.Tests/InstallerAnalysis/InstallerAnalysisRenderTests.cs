@@ -207,6 +207,20 @@ public sealed class InstallerAnalysisRenderTests
     /// <summary>A header row and six rows of a grid: the least a list tab gives its grid at any window size.</summary>
     private const double GridMinHeight = 250;
 
+
+    [Theory]
+    [InlineData(ApplicationTheme.Light)]
+    [InlineData(ApplicationTheme.Dark)]
+    public void TheToolGroupsFitAtTheMinimumWindowWidth(ApplicationTheme theme)
+    {
+        WithPage(theme, (window, page, _) =>
+        {
+            Settle(window);
+            foreach (var id in new[] { "cboRecentFiles", "btnOpenRecent", "btnClearRecent", "btnCopySummary", "btnCopyJson", "btnExportCsv", "btnExportHtml", "btnOpenReportsFolder" })
+                AssertInside(window, ById<FrameworkElement>(page, id), window.ActualHeight, id);
+        }, width: 900 - NavigationPaneWidth);
+    }
+
     public static TheoryData<ApplicationTheme, double, double> Sizes() => new()
     {
         { ApplicationTheme.Light, 1024 - NavigationPaneWidth, 720 - 48 },
