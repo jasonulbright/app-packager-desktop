@@ -28,6 +28,19 @@ public sealed class IntunePublishOptions
 }
 
 /// <summary>
+/// The finished Graph values of an app converted from ConfigMgr. They replace what a stage derives
+/// from a detection rule: the rules, the return codes, the restart behavior, the hardware minimums
+/// and the architectures. The converted plan carries its own findings, so the compatibility check
+/// of a stage does not run for such an app.
+/// </summary>
+public sealed record IntuneConversionOverrides(
+    IReadOnlyList<JsonObject> Rules,
+    IReadOnlyList<JsonObject> ReturnCodes,
+    string RestartBehavior,
+    IReadOnlyDictionary<string, int> Minimums,
+    string AllowedArchitectures);
+
+/// <summary>
 /// Publishes a packaged .intunewin as an Intune Win32 app through Graph v1.0: create or update
 /// the win32LobApp, create a content version and file entry, wait for the Azure Storage URI,
 /// upload the encrypted payload in blocks, commit with the package's fileEncryptionInfo, wait
@@ -70,9 +83,11 @@ public sealed class IntunePublishService : IDisposable
         Action<string>? onProgress = null,
         CancellationToken ct = default,
         IntuneScriptRuleContext? scriptSigning = null,
-        IReadOnlyList<IntuneCompatibilityFinding>? findings = null)
+        IReadOnlyList<IntuneCompatibilityFinding>? findings = null,
+        IntuneConversionOverrides? conversion = null)
     {
         var meta = _reader.ReadMetadata(intuneWinPath);
+        if (conversion is not null) findings ??= [];
 
         // Decided before the first Graph call: a blocking gap must not leave a
         // half-created app in the tenant. Findings a caller passes were already logged.
@@ -84,7 +99,9 @@ public sealed class IntunePublishService : IDisposable
         if (IntuneCompatibilityFindings.RefusalMessage(findings) is { } refusal)
             throw new InvalidOperationException(refusal);
 
-        var rules = BuildRules(manifest.Detection, scriptSigning);
+        var rules = conversion is null
+            ? BuildRules(manifest.Detection, scriptSigning)
+            : new JsonArray(CloneAll(conversion.Rules, "rules"));
 
         var installCommand = FirstNonBlank(manifest.CommandOverrides?.Install, "install.bat");
         var uninstallCommand = FirstNonBlank(manifest.CommandOverrides?.Uninstall, "uninstall.bat");
@@ -102,7 +119,9 @@ public sealed class IntunePublishService : IDisposable
         // allowedArchitectures is non-null. Both are written on every publish so a repeat
         // publish that moves an app between architectures cannot leave a stale
         // allowedArchitectures behind to override the incoming one.
-        var (applicableArchitectures, allowedArchitectures) = GraphArchitectures(options.Architecture);
+        var (applicableArchitectures, allowedArchitectures) = conversion is null
+            ? GraphArchitectures(options.Architecture)
+            : GraphArchitecturesOfConversion(conversion.AllowedArchitectures);
 
         var appBody = new JsonObject
         {
@@ -127,16 +146,23 @@ public sealed class IntunePublishService : IDisposable
                 ["runAsAccount"] = (manifest.InstallationBehaviorType is { } behavior
                     ? behavior.Equals("InstallForUser", StringComparison.OrdinalIgnoreCase)
                     : manifest.InstallContext.Equals("User", StringComparison.OrdinalIgnoreCase)) ? "user" : "system",
-                ["deviceRestartBehavior"] = DeviceRestartBehavior(manifest.PostExecutionBehavior)
+                ["deviceRestartBehavior"] = conversion?.RestartBehavior ?? DeviceRestartBehavior(manifest.PostExecutionBehavior)
             },
             ["rules"] = rules,
-            ["returnCodes"] = new JsonArray(
-                ReturnCode(0, "success"),
-                ReturnCode(1707, "success"),
-                ReturnCode(3010, "softReboot"),
-                ReturnCode(1641, "hardReboot"),
-                ReturnCode(1618, "retry"))
+            ["returnCodes"] = conversion is null
+                ? new JsonArray(
+                    ReturnCode(0, "success"),
+                    ReturnCode(1707, "success"),
+                    ReturnCode(3010, "softReboot"),
+                    ReturnCode(1641, "hardReboot"),
+                    ReturnCode(1618, "retry"))
+                : new JsonArray(CloneAll(conversion.ReturnCodes, "return codes"))
         };
+        if (conversion is not null)
+        {
+            if (conversion.Minimums.TryGetValue("MinimumMemoryInMB", out var memory)) appBody["minimumMemoryInMB"] = memory;
+            if (conversion.Minimums.TryGetValue("MinimumNumberOfProcessors", out var processors)) appBody["minimumNumberOfProcessors"] = processors;
+        }
 
         // largeIcon is a mimeContent (type + base64 bytes) on the app entity,
         // not a separate upload. An unresolvable icon leaves the property unset
@@ -505,6 +531,29 @@ public sealed class IntunePublishService : IDisposable
         return resolved == InstallerArchitectures.Arm64
             ? ("none", "arm64")
             : (resolved, null);
+    }
+
+    private static JsonNode[] CloneAll(IReadOnlyList<JsonObject> items, string what)
+    {
+        if (items.Any(i => i is null)) throw new InvalidOperationException($"The converted {what} hold an empty entry.");
+        return items.Select(i => (JsonNode)i.DeepClone()).ToArray();
+    }
+
+    /// <summary>
+    /// The architecture properties of a converted app. One architecture, or x86 with x64, is the documented
+    /// applicableArchitectures. A set with arm64 in it is sent as allowedArchitectures, with
+    /// applicableArchitectures set to none.
+    /// </summary>
+    public static (string Applicable, string? Allowed) GraphArchitecturesOfConversion(string architectures)
+    {
+        var set = architectures.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(a => a.ToLowerInvariant()).Distinct().OrderBy(a => a, StringComparer.Ordinal).ToList();
+        var unknown = set.FirstOrDefault(a => a is not ("x86" or "x64" or "arm64"));
+        if (unknown is not null)
+            throw new InvalidOperationException($"The architecture '{unknown}' is not one of x86, x64 and arm64.");
+        if (set.Count == 0) return GraphArchitectures("x64");
+        if (set.Contains("arm64")) return ("none", string.Join(",", set));
+        return (string.Join(",", set), null);
     }
 
     /// <summary>
