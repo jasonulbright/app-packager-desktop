@@ -86,8 +86,13 @@ public sealed class ThemeContrastReportTests(ITestOutputHelper output)
         return Color.FromRgb(Mix(top.R, under.R), Mix(top.G, under.G), Mix(top.B, under.B));
     }
 
-    private static Color? Read(ResourceDictionary resources, string key) =>
-        resources[key] is SolidColorBrush brush ? Color.FromArgb((byte)Math.Round(brush.Color.A * brush.Opacity), brush.Color.R, brush.Color.G, brush.Color.B) : null;
+    // A key holds a brush or a plain color; the accent keys of the library are colors.
+    private static Color? Read(ResourceDictionary resources, string key) => resources[key] switch
+    {
+        SolidColorBrush brush => Color.FromArgb((byte)Math.Round(brush.Color.A * brush.Opacity), brush.Color.R, brush.Color.G, brush.Color.B),
+        Color color => color,
+        _ => null
+    };
 
     // The Light and Dark theme files of the control library. The High Contrast files read the system colors of the machine
     // and are not loadable on their own; Windows High Contrast is measured on a lab machine in step 7 of the pass.
@@ -110,7 +115,11 @@ public sealed class ThemeContrastReportTests(ITestOutputHelper output)
 
     private static string Report(string theme, ResourceDictionary resources, List<string> unreadable)
     {
-        var window = Read(resources, "SolidBackgroundFillColorBaseBrush") ?? Colors.White;
+        if (Read(resources, "SolidBackgroundFillColorBaseBrush") is not { } window || Read(resources, "CardBackgroundFillColorDefaultBrush") is not { } cardFill)
+        {
+            unreadable.Add($"{theme}: the window or the card color");
+            return $"### {theme}{Environment.NewLine}{Environment.NewLine}The window or the card color could not be read; no ratio is reported.{Environment.NewLine}{Environment.NewLine}";
+        }
         var text = new StringBuilder();
         text.AppendLine($"### {theme}");
         text.AppendLine();
@@ -139,7 +148,7 @@ public sealed class ThemeContrastReportTests(ITestOutputHelper output)
         text.AppendLine();
         text.AppendLine("| Status color | On the window | On a card | Need | Result |");
         text.AppendLine("|---|---|---|---|---|");
-        var card = Over(Read(resources, "CardBackgroundFillColorDefaultBrush") ?? Colors.White, window);
+        var card = Over(cardFill, window);
         foreach (var (name, color) in StatusColors)
         {
             var onWindow = Ratio(color, window);
@@ -149,12 +158,20 @@ public sealed class ThemeContrastReportTests(ITestOutputHelper output)
         }
 
         var accent = Read(resources, "SystemAccentColor");
-        var tint = new SolidColorBrush(accent ?? Colors.Transparent);
+        var primaryText = Read(resources, "TextFillColorPrimaryBrush");
         text.AppendLine();
-        var selected = Over(Color.FromArgb(61, (accent ?? Colors.Transparent).R, (accent ?? Colors.Transparent).G, (accent ?? Colors.Transparent).B), window);
-        var primary = Over(Read(resources, "TextFillColorPrimaryBrush") ?? Colors.Black, selected);
-        text.AppendLine(string.Create(CultureInfo.InvariantCulture,
-            $"Selected grid row (accent tint 0.24 over the window): primary text {Ratio(primary, selected):0.00}, row against window {Ratio(selected, window):0.00}. Accent used: {Hex(accent ?? Colors.Transparent)} ({tint.Color}); with `updateAccent: true` the Windows accent replaces it."));
+        if (accent is not { } accentColor || primaryText is not { } primaryColor)
+        {
+            unreadable.Add($"{theme}: SystemAccentColor or TextFillColorPrimaryBrush");
+            text.AppendLine("Selected grid row: the accent or the primary text could not be read; no ratio is reported.");
+        }
+        else
+        {
+            var selected = Over(Color.FromArgb(61, accentColor.R, accentColor.G, accentColor.B), window);
+            var primary = Over(primaryColor, selected);
+            text.AppendLine(string.Create(CultureInfo.InvariantCulture,
+                $"Selected grid row (accent tint 0.24 over the window): primary text {Ratio(primary, selected):0.00}, row against window {Ratio(selected, window):0.00}. Accent of the theme file: {Hex(accentColor)}; with `updateAccent: true` the Windows accent replaces it."));
+        }
         text.AppendLine();
         return text.ToString();
     }
@@ -224,6 +241,7 @@ public sealed class ThemeContrastReportTests(ITestOutputHelper output)
 
         var path = Environment.GetEnvironmentVariable("APD_CONTRAST_REPORT");
         if (string.IsNullOrWhiteSpace(path)) path = Path.Combine(AppContext.BaseDirectory, "contrast-report.md");
+        if (Path.GetDirectoryName(path) is { Length: > 0 } directory) Directory.CreateDirectory(directory);
         File.WriteAllText(path, report.ToString());
         output.WriteLine(report.ToString());
 
