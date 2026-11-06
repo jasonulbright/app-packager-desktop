@@ -18,11 +18,11 @@ BLUF: App Packager Desktop checks GitHub for a newer release. It downloads the s
 1. Open **Settings**. In the **Updates** section, select **Check for updates**. The update window opens and checks at once.
 2. Read the latest version and the release notes. Select **Open the release page** to see the full notes.
 
-![The update window with a newer version available](../images/core-update-available.png)
+   ![The update window with a newer version available](../images/core-update-available.png)
 3. Select **Download**. The app downloads `AppPackagerDesktop-Setup-<version>.exe` and `checksums.txt` into a new empty folder in the temporary folder of your account.
 4. The app checks the file. The status line says that the checksum matches and that `Jason Ulbright` signed the file with a valid, timestamped signature.
 
-![The update window after the download and the checks](../images/core-update-ready.png)
+   ![The update window after the download and the checks](../images/core-update-ready.png)
 5. Select **Install and close**. The app closes and starts the installer. The installer asks for the usual confirmations.
 
 ## The startup check
