@@ -197,7 +197,7 @@
                                                ToolTip="Puts the selected script of the library into the editor." AutomationProperties.AutomationId="btnUseScript" />
                                     <TextBlock DockPanel.Dock="Top" Text="Script library" FontSize="14" FontWeight="SemiBold" Margin="0,0,0,4"
                                                Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
-                                    <ListBox ItemsSource="{Binding ScriptLibrary}" SelectedItem="{Binding SelectedScriptItem}" ItemTemplate="{StaticResource LibraryItem}"
+                                    <ListBox ItemsSource="{Binding ScriptLibrary}" SelectedItem="{Binding SelectedScriptItem}" ItemTemplate="{StaticResource LibraryItem}" Height="100"
                                              ItemContainerStyle="{StaticResource LibraryListItem}" MouseDoubleClick="OnScriptLibraryDoubleClick"
                                              AutomationProperties.Name="Script library" AutomationProperties.AutomationId="lstScriptLibrary" />
                                 </DockPanel>
