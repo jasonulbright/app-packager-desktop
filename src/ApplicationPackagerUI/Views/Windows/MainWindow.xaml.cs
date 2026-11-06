@@ -93,6 +93,16 @@ public partial class MainWindow : IDialogHostWindow
             }
             ContentRendered += ShowSetup;
         }
+        else
+        {
+            // The check runs in the background after the first render and never blocks the app.
+            void StartUpdateCheck(object? sender, EventArgs args)
+            {
+                ContentRendered -= StartUpdateCheck;
+                _ = _serviceProvider.GetRequiredService<UpdateCoordinator>().RunStartupCheckAsync(this);
+            }
+            ContentRendered += StartUpdateCheck;
+        }
 
         Closing += (_, _) =>
         {

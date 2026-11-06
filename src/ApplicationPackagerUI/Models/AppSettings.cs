@@ -7,6 +7,9 @@ public sealed class AppSettings
 {
     public string CompanyName { get; set; } = "";
 
+    /// <summary>Look up the latest GitHub release when the app starts. The manual check is always available.</summary>
+    public bool CheckForUpdatesAtStartup { get; set; } = true;
+
     public string SiteCode { get; set; } = "MCM";
 
     /// <summary>

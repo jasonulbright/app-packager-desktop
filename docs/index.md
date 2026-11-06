@@ -29,6 +29,7 @@ The core is the packaging function of the application.
 - [CVE lookup](core/cve-lookup.md): Check CVEs, the CVE window, CVE Report and the NVD key.
 - [Command-line build](core/command-line-build.md): `AppPackagerBuild`, the CVE report run and the exit codes.
 - [Settings page](core/settings-page.md): every section of the Settings page.
+- [Updates](core/updates.md): the update check, the download checks and Install and close.
 - [Deployment behavior](deployment-behavior.md): the test deployment after Package and the Intune outcomes.
 
 ## Tools

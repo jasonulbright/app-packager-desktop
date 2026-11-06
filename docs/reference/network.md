@@ -2,7 +2,7 @@
 
 This page lists every outbound connection that App Packager Desktop makes.
 
-The app has no telemetry. The code has no analytics call. The app does not check for a new version of itself. A search of the source for web addresses finds no outbound address other than the ones on this page.
+The app has no telemetry. The code has no analytics call. A search of the source for web addresses finds no outbound address other than the ones on this page.
 
 Every call starts from a user action, except where the table says "background".
 
@@ -18,6 +18,7 @@ Every call starts from a user action, except where the table says "background".
 | Vendor version and download hosts. The addresses are in each definition (`VersionScraper.Url`, `DownloadUrl`). The app calls them with `curl.exe`. | Version check and installer download | User: Check Latest, Stage, Publish, One Click, command line | The definition. `FetchRetries` and `FetchMaxTimeSeconds` in a definition. |
 | `api.github.com` | Version check for the definitions that read GitHub releases (101 of 319 definitions) | User | `APP_PACKAGER_GITHUB_TOKEN`, `GITHUB_TOKEN`, or `gh auth login` raise the rate limit |
 | `api.github.com/rate_limit`, `api.github.com/user` | The `Refresh` button of the GitHub API section in Settings | User | The same token sources |
+| `api.github.com/repos/jasonulbright/app-packager-desktop/releases/latest`, and `github.com/jasonulbright/app-packager-desktop/releases/download/` for the Setup exe and `checksums.txt` | Update check and update download. The app checks the SHA-256 value and the signature. No token is sent. | Background at start, once; User: `Check for updates`, `Download` | `CheckForUpdatesAtStartup` |
 | `api.github.com/repos/jasonulbright/app-packager-icons/releases/latest` and its assets | Icon pack download. The app checks the SHA-256 value. | User: `Download icon pack` | None |
 | `github.com/microsoft/Microsoft-Win32-Content-Prep-Tool/raw/master/IntuneWinAppUtil.exe` | Download of the Win32 Content Prep Tool. The app checks the publisher signature. | User: `Download` in Settings, or the first Intune build | None |
 | `officecdn.microsoft.com` (`/pr/wsus/setup.exe`, `/pr/{channel guid}/Office/Data/v64.cab`) | The Office Deployment Tool and the version descriptor of Microsoft 365 | User | `M365Channel` |

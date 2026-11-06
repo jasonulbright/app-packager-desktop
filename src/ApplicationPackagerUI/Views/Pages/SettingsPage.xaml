@@ -107,6 +107,17 @@
 
             <Border Style="{StaticResource SectionDivider}" />
 
+            <TextBlock Text="Updates" Style="{StaticResource SectionHeader}" />
+            <CheckBox Content="Check for a new version when the app starts" IsChecked="{Binding CheckForUpdatesAtStartup}"
+                      AutomationProperties.AutomationId="chkCheckForUpdatesAtStartup"
+                      ToolTip="Asks GitHub for the latest release. No sign-in and no data from this computer are sent. A newer version opens the update window; nothing installs without your click. Save Settings stores this choice." />
+            <ui:Button Content="Check for updates" Icon="{ui:SymbolIcon ArrowSync24}" Margin="0,8,0,8"
+                       Click="CheckForUpdates_Click"
+                       AutomationProperties.AutomationId="btnCheckForUpdates"
+                       ToolTip="Look up the latest release now." />
+
+            <Border Style="{StaticResource SectionDivider}" />
+
             <TextBlock Text="Organization" Style="{StaticResource SectionHeader}" />
 
             <TextBlock Text="Company Name" Style="{StaticResource FieldLabel}" />

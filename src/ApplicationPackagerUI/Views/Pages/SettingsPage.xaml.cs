@@ -1,3 +1,4 @@
+using Microsoft.Extensions.DependencyInjection;
 using ApplicationPackagerUI.ViewModels.Pages;
 
 namespace ApplicationPackagerUI.Views.Pages;
@@ -5,6 +6,9 @@ namespace ApplicationPackagerUI.Views.Pages;
 public partial class SettingsPage
 {
     private readonly SettingsViewModel _viewModel;
+
+    private void CheckForUpdates_Click(object sender, System.Windows.RoutedEventArgs e) =>
+        App.Services.GetRequiredService<Services.UpdateCoordinator>().ShowAndCheck(System.Windows.Window.GetWindow(this));
 
     public SettingsPage(SettingsViewModel viewModel)
     {

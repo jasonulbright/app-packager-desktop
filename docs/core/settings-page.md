@@ -31,6 +31,13 @@ The theme choice **Dark** or **Light** is at the top of the page. The window cha
 
 Each entry has a check box, a **Move up** button and a **Move down** button. **Reset sidebar** restores the default order and shows every entry. These changes apply at once. **Save Settings** is not necessary. The entries are in two groups, the first group and **TOOLS**. An entry moves only inside its group. **App Packager** stays first and cannot be hidden.
 
+### Updates
+
+| Control | Default | Effect |
+|---|---|---|
+| **Check for a new version when the app starts** | On | The app asks GitHub for the latest release once at start. A newer version opens the update window. Select **Save Settings** to store the choice. |
+| **Check for updates** | - | Opens the update window and checks at once. See [Updates](updates.md). |
+
 ### Organization
 
 | Control | Default | Effect |
