@@ -26,6 +26,7 @@ The core is the packaging function of the application.
 - [WSUS Updates and Catalog Import](core/wsus-updates.md): the update list, the catalog import and the certificate trust.
 - [One Click](core/one-click.md): settings, the plan window, the run and the report.
 - [Discover unmanaged software](core/discover-unmanaged-software.md): the prompt, the matching and the SQL access.
+- [Convert from ConfigMgr](core/convert-from-configmgr.md): turn a ConfigMgr application into Intune Win32 apps, with a preview, a content copy, a build and a publish.
 - [CVE lookup](core/cve-lookup.md): Check CVEs, the CVE window, CVE Report and the NVD key.
 - [Command-line build](core/command-line-build.md): `AppPackagerBuild`, the CVE report run and the exit codes.
 - [Settings page](core/settings-page.md): every section of the Settings page.
