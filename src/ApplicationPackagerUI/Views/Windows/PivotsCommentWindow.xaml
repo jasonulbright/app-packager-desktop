@@ -8,7 +8,7 @@
     MinWidth="420" MinHeight="260"
     WindowStartupLocation="CenterOwner"
     ExtendsContentIntoTitleBar="True"
-    WindowBackdropType="Mica">
+    WindowBackdropType="None">
 
     <Grid KeyboardNavigation.TabNavigation="Local">
         <Grid.RowDefinitions>

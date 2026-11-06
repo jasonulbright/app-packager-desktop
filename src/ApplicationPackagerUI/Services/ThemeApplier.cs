@@ -36,6 +36,13 @@ public static class ThemeApplier
         if (Resolve(stored) is { } theme) Apply(theme);
     }
 
+    /// <summary>
+    /// The window material of every theme: a solid surface. Mica takes its color from the wallpaper, so the text contrast and the
+    /// page look change from one computer to the next. The windows declare the same material in their markup: a change of the
+    /// material while a window loads makes WPF throw.
+    /// </summary>
+    public const WindowBackdropType Backdrop = WindowBackdropType.None;
+
     /// <summary>The resource path of the brand palette file of a theme.</summary>
     public static string PalettePath(ApplicationTheme theme) => $"/ApplicationPackagerUI;component/Views/Styles/Palette.{theme}.xaml";
 
@@ -68,10 +75,11 @@ public static class ThemeApplier
         // The Windows accent is not used: the brand palette of the theme sets the accent and the status colors.
         // The Windows accent is not used: the brand palette of the theme sets the accent and the status colors.
         var accent = ApplyPalette(theme);
-        ApplicationThemeManager.Apply(theme, WindowBackdropType.Mica, updateAccent: false);
+        ApplicationThemeManager.Apply(theme, Backdrop, updateAccent: false);
         ApplicationAccentColorManager.Apply(accent, theme);
         foreach (var window in Application.Current.Windows.OfType<FluentWindow>())
         {
+            window.WindowBackdropType = Backdrop;
             WindowBackgroundManager.UpdateBackground(window, theme, window.WindowBackdropType);
             var handle = new WindowInteropHelper(window).Handle;
             if (handle != IntPtr.Zero)

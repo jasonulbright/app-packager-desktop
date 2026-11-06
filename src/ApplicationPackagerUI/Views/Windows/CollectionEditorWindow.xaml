@@ -9,7 +9,7 @@
     MinWidth="{x:Static vm:CollectionEditorViewModel.MinimumWidth}" MinHeight="{x:Static vm:CollectionEditorViewModel.MinimumHeight}"
     WindowStartupLocation="CenterOwner"
     ExtendsContentIntoTitleBar="True"
-    WindowBackdropType="Mica">
+    WindowBackdropType="None">
 
     <ui:FluentWindow.Resources>
         <ResourceDictionary>

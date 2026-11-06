@@ -10,7 +10,7 @@
     MinHeight="420"
     WindowStartupLocation="Manual"
     ExtendsContentIntoTitleBar="True"
-    WindowBackdropType="Mica">
+    WindowBackdropType="None">
 
     <ui:FluentWindow.Resources>
         <!-- The accent text brush follows the theme, so a link stays readable on a dark background. -->

@@ -12,7 +12,7 @@
     WindowStartupLocation="CenterScreen"
     Loaded="FluentWindow_Loaded"
     ExtendsContentIntoTitleBar="True"
-    WindowBackdropType="Mica">
+    WindowBackdropType="None">
 
     <Grid>
         <Grid.RowDefinitions>
