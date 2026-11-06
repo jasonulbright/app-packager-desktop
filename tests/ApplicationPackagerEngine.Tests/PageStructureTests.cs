@@ -104,4 +104,42 @@ public sealed class PageStructureTests
         Assert.Equal(["Padding=\"10\""], OffGridSpacing("<Border Padding=\"10\" />"));
         Assert.Equal(["Property=\"Margin\" Value=\"0,10\""], OffGridSpacing("<Setter Property=\"Margin\" Value=\"0,10\" />"));
     }
+
+    private static XDocument Xaml(params string[] parts) => XDocument.Load(Src(parts));
+
+    private static string Attr(XElement e, string name) => (string?)e.Attribute(name) ?? "";
+
+    // The header band: padding of at least 12 across and 8 down, and a gap of at least 8 to the content below it.
+    [Fact]
+    public void TheHeaderBandHasPaddingAndAGapToTheContent()
+    {
+        var doc = Xaml("Controls", "PageHeader.xaml");
+        var band = doc.Descendants().Single(e => e.Name.LocalName == "Border");
+        var padding = Attr(band, "Padding").Split(',').Select(double.Parse).ToArray();
+        Assert.True(padding[0] >= 12 && padding[1] >= 8, $"The band padding is {Attr(band, "Padding")}.");
+        var margin = Attr(doc.Root!, "Margin").Split(',').Select(double.Parse).ToArray();
+        Assert.True(margin[3] >= 8, $"The gap under the band is {margin[3]} px.");
+    }
+
+    // The description and the status line start where the title starts, not under the icon.
+    [Fact]
+    public void TheDescriptionAndTheStatusLineAlignWithTheTitle()
+    {
+        var doc = Xaml("Controls", "PageHeader.xaml");
+        string Column(string name) => Attr(doc.Descendants().Single(e => Attr(e, "{http://schemas.microsoft.com/winfx/2006/xaml}Name") == name), "Grid.Column");
+        Assert.Equal(Column("TitleText"), Column("DescriptionText"));
+        Assert.Equal(Column("TitleText"), Column("StatusText"));
+    }
+
+    // The App Packager toolbar wraps by group: each child of the wrap panel is a group, so a row never breaks inside a group or starts with a separator.
+    [Fact]
+    public void TheAppPackagerToolbarWrapsByGroup()
+    {
+        var doc = Xaml("Views", "Pages", "PackagesPage.xaml");
+        var toolbar = doc.Descendants().Single(e => e.Name.LocalName == "WrapPanel" && Attr(e, "{http://schemas.microsoft.com/winfx/2006/xaml}Name") == "AppPackagerToolbar");
+        var groups = toolbar.Elements().Where(e => e.Name.LocalName != "WrapPanel.Resources").ToList();
+        Assert.Equal(3, groups.Count);
+        Assert.All(groups, g => Assert.Equal("StackPanel", g.Name.LocalName));
+        Assert.All(groups, g => Assert.True(g.Elements().Count() >= 3));
+    }
 }

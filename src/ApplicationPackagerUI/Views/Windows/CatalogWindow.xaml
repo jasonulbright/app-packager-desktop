@@ -23,7 +23,7 @@
 
         <ui:TitleBar Grid.Row="0" Title="Catalog" ShowMinimize="False" />
 
-        <Grid Grid.Row="1" Margin="24,16,24,16">
+        <Grid Grid.Row="1" Margin="24,8,24,16">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
