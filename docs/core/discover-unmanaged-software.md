@@ -2,7 +2,7 @@
 
 ## What it does
 
-**Discover unmanaged software** finds applications that your clients have installed and that ConfigMgr does not manage. It reads the Add/Remove Programs inventory in the ConfigMgr site database. It offers an application when the inventory has its name and version and the site has no ConfigMgr application for it.
+**Discover unmanaged software** finds applications that your clients have installed and that ConfigMgr does not manage. It reads the Add/Remove Programs inventory in the ConfigMgr site database. It offers an application when the inventory has its name (and its version, when the definition names one) and the site has no ConfigMgr application for it.
 
 An application that you accept appears in the App Packager grid. You can then use **Check Latest**, **Check ConfigMgr**, **Stage** and the publish buttons on it.
 
@@ -26,7 +26,7 @@ Discover reads application names and versions only. It reads no client name, no 
 
 The rights of each page are in [Permissions](../reference/permissions.md).
 
-The database views bypass the role-based access of ConfigMgr. The scan reads the inventory of all active clients, whatever scope your console role has.
+The database views bypass the role-based access of ConfigMgr. The scan reads the inventory of all clients that are not marked obsolete or decommissioned, whatever scope your console role has.
 
 ## Steps
 
@@ -102,7 +102,7 @@ The SMS Provider for the site lookup comes from these places, in this order: **S
 - Discover sends no request to the internet. It connects to the SMS Provider (CIM over DCOM, then WinRM) and to the site database (SQL Server, Windows authentication, read-only).
 - Discover reads inventory that clients have reported. When the inventory has no rows, it reports `No inventory data`.
 - Discover offers one application of each sibling group. See above.
-- Discover reads the inventory of all active clients, not only the clients in your security scope. The result holds no client identity.
+- Discover reads the inventory of all clients that are not marked obsolete or decommissioned, not only the clients in your security scope. The result holds no client identity.
 
 ## Troubleshooting
 

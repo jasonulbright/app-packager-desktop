@@ -14,7 +14,7 @@ BLUF: **Convert from ConfigMgr** reads one ConfigMgr application from the site a
 - **Technology.** A deployment type of the technology Windows Installer (MSI) or Script converts. Another technology is not converted. The report names it as `TechnologyNotConverted`.
 - **Detection.** A flat list of file, folder and registry rules, all joined with AND, becomes native Intune detection rules. Any other detection (OR, groups, a comparison that no native rule carries) becomes one PowerShell detection script. A stored detection script is kept when its language is PowerShell. A detection script in another language blocks the deployment type.
 - **Requirements.** Architecture, memory and processor rules go to the matching Intune properties. A rule that a script can check becomes part of a requirement script. A rule with no Intune equivalent is reported as `RequirementsNotTranslated`. It blocks the deployment type unless you select **Allow untranslated requirements**.
-- **Variants.** An application with more than one deployment type becomes more than one Intune app. ConfigMgr installs the first deployment type whose requirements match. A requirement script on each lower-priority app keeps that rule: the app does not apply where a higher-priority deployment type applies. When the conversion cannot prove that the variants exclude each other, the report tells you to assign each app to its own device group.
+- **Variants.** An application with more than one deployment type becomes more than one Intune app. ConfigMgr installs the first deployment type whose requirements match. With the default strategy, a requirement script on each lower-priority app keeps that rule: the app does not apply where a higher-priority deployment type applies. When the conversion cannot prove that the variants exclude each other, it blocks the deployment type. Select **Assign by group** to convert it, and assign each app to its own device group.
 - **Relationships.** Dependencies and supersedence are listed in `relationships.json`. The conversion does not create them. App Packager calls Microsoft Graph v1.0 only, and v1.0 has no resource for them. Create them in the Intune admin center.
 
 ## When to use it
@@ -39,15 +39,15 @@ BLUF: **Convert from ConfigMgr** reads one ConfigMgr application from the site a
 5. Set the options (table below).
 6. Select **Preview**. The report shows the plan. The status line shows how many deployment types convert, for example `Preview: 2 of 3 deployment types convert. Nothing was written.`
 7. Read the report. Fix what blocks a deployment type, or accept what is marked for review.
-8. Select **Convert**. The log shows each step. Select **Cancel** to stop. Closing the window also stops the run.
+8. Select **Convert**. The log shows each step. Select **Cancel** to stop. Closing the window also stops the run. The content copy does not stop at once: the copy of the deployment type that is running can finish before the run stops.
 9. Read the status line. It shows `Done: <N> app(s) staged in <folder>`, with the number of packages built and published when you asked for them.
 
 ## Options
 
 | Option | Default | Effect |
 |---|---|---|
-| **Assign by group** | off | Makes one app for each variant group of deployment types, instead of one for each deployment type. |
-| **Native detection only** | off | Refuses a deployment type whose detection needs a script. |
+| **Assign by group** | off | Still makes one app for each convertible deployment type. It does not add the requirement script that keeps a lower-priority app off devices where a higher-priority deployment type applies. Assign each app to its own device group. Overlapping assignments can install more than one variant. |
+| **Native detection only** | off | Refuses a deployment type whose detection needs a generated script. It keeps a stored PowerShell detection script. |
 | **Allow untranslated requirements** | off | Converts a deployment type although a requirement has no Intune equivalent. The report lists each one. |
 | **Skip content** | off | Writes the plan and the reports without copying the content. |
 | **Build the .intunewin files** | off | Builds one `.intunewin` file for each converted app. It needs the content, so it cannot be used with **Skip content**. |
@@ -64,7 +64,7 @@ In the output folder, the application gets a folder. It holds:
 - `conversion-plan.json`: a summary of the plan.
 - `relationships.json`: the dependency and supersedence relationships.
 
-The run resolves the content prep tool before it copies anything. When the tool cannot be found or downloaded, the output folder stays unchanged.
+A second conversion of the same application into the same output folder mirrors the source into each `Content` folder. It deletes files in `Content` that the source does not hold. Keep your own files outside `Content`. The run resolves the content prep tool before it copies anything. When the tool cannot be found or downloaded, the output folder stays unchanged.
 
 ## Report findings
 
