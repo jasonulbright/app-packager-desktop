@@ -20,7 +20,11 @@ public sealed class CmImportTests : IDisposable
 
     public void Dispose()
     {
-        try { Directory.Delete(_dir, true); } catch (IOException) { }
+        try { Directory.Delete(_dir, true); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            System.Diagnostics.Trace.WriteLine($"The test folder '{_dir}' was not deleted: {ex.Message}");
+        }
     }
 
     private static string FixtureXml(string name) =>

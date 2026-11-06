@@ -38,12 +38,23 @@ public static class CmImportStage
         var start = new ProcessStartInfo("robocopy.exe") { RedirectStandardOutput = true, RedirectStandardError = true, UseShellExecute = false, CreateNoWindow = true };
         foreach (var argument in new[] { source, destination, "/MIR", "/R:2", "/W:2", "/NFL", "/NDL", "/NJH", "/NJS", "/NP" }) start.ArgumentList.Add(argument);
         using var process = Process.Start(start) ?? throw new InvalidOperationException("robocopy.exe did not start.");
-        var stdout = process.StandardOutput.ReadToEndAsync();
-        var stderr = process.StandardError.ReadToEndAsync();
+        var output = new StringBuilder();
+        void Collect(object sender, DataReceivedEventArgs e)
+        {
+            if (e.Data is null) return;
+            lock (output) output.AppendLine(e.Data);
+        }
+        process.OutputDataReceived += Collect;
+        process.ErrorDataReceived += Collect;
+        process.BeginOutputReadLine();
+        process.BeginErrorReadLine();
+        // The parameterless WaitForExit also waits until both redirected streams are complete.
         process.WaitForExit();
         if (process.ExitCode >= 8)
         {
-            var tail = string.Join(" ", (stdout.Result + stderr.Result).Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).TakeLast(3));
+            string text;
+            lock (output) text = output.ToString();
+            var tail = string.Join(" ", text.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).TakeLast(3));
             throw new InvalidOperationException($"Copying the content of '{source}' failed (robocopy exit {process.ExitCode}): {tail}");
         }
     }
