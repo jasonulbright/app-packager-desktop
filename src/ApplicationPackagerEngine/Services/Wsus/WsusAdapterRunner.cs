@@ -47,6 +47,28 @@ public interface IWsusAdapterRunner
 /// </summary>
 public sealed class WsusAdapterRunner : IWsusAdapterRunner
 {
+    /// <summary>How long one adapter child may run before it is stopped.</summary>
+    public static readonly TimeSpan DefaultChildTimeout = TimeSpan.FromSeconds(1800);
+
+    /// <summary>Runs the child; the seam lets a test stand in for powershell.exe.</summary>
+    internal delegate Task<(int ExitCode, string StdOut, string StdErr)> ChildHost(
+        string script, Action<string>? onProgress, CancellationToken ct, string prefix,
+        IReadOnlyList<string> arguments, string standardInput, TimeSpan timeout);
+
+    private readonly TimeSpan _timeout;
+    private readonly ChildHost _host;
+
+    public WsusAdapterRunner() : this(DefaultChildTimeout) { }
+
+    public WsusAdapterRunner(TimeSpan timeout) : this(timeout, null) { }
+
+    internal WsusAdapterRunner(TimeSpan timeout, ChildHost? host)
+    {
+        _timeout = timeout;
+        _host = host ?? ((script, progress, ct, prefix, arguments, stdin, limit) =>
+            WindowsPowerShellHost.RunAsync(script, progress, ct, prefix, arguments, stdin, limit));
+    }
+
     public const string ResourceName = "ApplicationPackagerEngine.Services.Wsus.WsusAdapter.ps1";
 
     private static readonly JsonSerializerOptions WriteOptions = new() { WriteIndented = false };
@@ -74,9 +96,15 @@ public sealed class WsusAdapterRunner : IWsusAdapterRunner
             document["ResultPath"] = resultPath;
             await File.WriteAllTextAsync(inputPath, document.ToJsonString(WriteOptions), new UTF8Encoding(false), ct);
 
-            var run = await WindowsPowerShellHost.RunAsync(ScriptText(), onProgress, ct, "ap-wsus",
-                ["-InputPath", inputPath], standardInput ?? "");
-            return ReadResult(resultPath, run.ExitCode, run.StdErr);
+            try
+            {
+                var run = await _host(ScriptText(), onProgress, ct, "ap-wsus", ["-InputPath", inputPath], standardInput ?? "", _timeout);
+                return ReadResult(resultPath, run.ExitCode, run.StdErr);
+            }
+            catch (TimeoutException ex)
+            {
+                return WsusAdapterResult.Failure(WsusErrorKinds.Failed, ex.Message);
+            }
         }
         finally
         {

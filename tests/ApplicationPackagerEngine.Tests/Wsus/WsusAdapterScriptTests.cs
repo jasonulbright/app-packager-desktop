@@ -244,7 +244,9 @@ public class WsusAdapterScriptTests : IDisposable
         Assert.False(WsusAdminClient.Bool(result.Data, "UpdateVisible"));
         Assert.Equal("Update lookup timed out", WsusAdminClient.Str(result.Data, "UpdateVisibilityError"));
         Assert.Contains("publish", log);
-        Assert.Contains("decline Tool 4", log);
+        // Earlier versions are declined only after the replacement is approved.
+        Assert.Equal(approvalGroup.Length == 0, log.Contains("decline Tool 4"));
+        Assert.Equal(approvalGroup.Length > 0, WsusAdminClient.Bool(result.Data, "DeclinesSkipped"));
         if (approvalGroup.Length > 0)
         {
             Assert.False(WsusAdminClient.Bool(result.Data!["Approval"]!.AsObject(), "Ok"));
@@ -253,7 +255,7 @@ public class WsusAdapterScriptTests : IDisposable
     }
 
     [Fact]
-    public async Task AppliesTheApprovalAndTheDeclinesToAnExistingUpdateAndReportsEachOutcome()
+    public async Task KeepsTheEarlierVersionsWhenTheApprovalOfAnExistingUpdateFails()
     {
         var request = Request();
         request["ExistingPackageId"] = "bbbbbbbb-0000-0000-0000-000000000002";
@@ -266,9 +268,25 @@ public class WsusAdapterScriptTests : IDisposable
         var approval = result.Data!["Approval"]!.AsObject();
         Assert.False(WsusAdminClient.Bool(approval, "Ok"));
         Assert.Equal("WSUS has no computer group named 'Pilto'.", WsusAdminClient.Str(approval, "Message"));
+        Assert.Empty(result.Data["Declines"]!.AsArray());
+        Assert.True(WsusAdminClient.Bool(result.Data, "DeclinesSkipped"));
+        Assert.Empty(log);
+    }
+
+    [Fact]
+    public async Task DeclinesTheEarlierVersionsOnceTheApprovalOfAnExistingUpdateSucceeds()
+    {
+        var request = Request();
+        request["ExistingPackageId"] = "bbbbbbbb-0000-0000-0000-000000000002";
+        request["ApprovalGroup"] = "Pilot";
+        request["DeclinePackageIds"] = new JsonArray("bbbbbbbb-0000-0000-0000-000000000004");
+        var (result, log) = await StandIn("Default", "Publish", request);
+        Assert.True(result.Ok, result.Error);
+        Assert.True(WsusAdminClient.Bool(result.Data!["Approval"]!.AsObject(), "Ok"), WsusAdminClient.Str(result.Data["Approval"]!.AsObject(), "Message"));
         var decline = Assert.Single(result.Data["Declines"]!.AsArray())!.AsObject();
         Assert.True(WsusAdminClient.Bool(decline, "Ok"));
-        Assert.Equal(["decline Tool 4"], log);
+        Assert.False(WsusAdminClient.Bool(result.Data, "DeclinesSkipped"));
+        Assert.Contains("decline Tool 4", log);
     }
 
     [Fact]

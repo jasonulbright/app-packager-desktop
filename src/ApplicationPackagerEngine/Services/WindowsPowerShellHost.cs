@@ -30,8 +30,14 @@ public static class WindowsPowerShellHost
         string script, Action<string>? onProgress, CancellationToken ct,
         string scriptFilePrefix = "ap-mecm",
         IReadOnlyList<string>? scriptArguments = null,
-        string? standardInput = null)
+        string? standardInput = null,
+        TimeSpan? timeout = null)
     {
+        // The timeout is the child's time limit. The caller's own cancellation stays a cancellation.
+        using var timeoutSource = timeout is { } limit ? new CancellationTokenSource(limit) : null;
+        using var linked = CancellationTokenSource.CreateLinkedTokenSource(ct, timeoutSource?.Token ?? CancellationToken.None);
+        var runToken = linked.Token;
+
         // A script file keeps the script text out of command-line quoting.
         var scriptPath = Path.Combine(Path.GetTempPath(), $"{scriptFilePrefix}-{Guid.NewGuid():N}.ps1");
         await File.WriteAllTextAsync(scriptPath, script, Encoding.UTF8, ct);
@@ -65,7 +71,7 @@ public static class WindowsPowerShellHost
                     // A script that never reads its input can exit first and close the pipe.
                     try
                     {
-                        await process.StandardInput.WriteLineAsync(standardInput.AsMemory(), ct);
+                        await process.StandardInput.WriteLineAsync(standardInput.AsMemory(), runToken);
                         process.StandardInput.Close();
                     }
                     catch (IOException)
@@ -73,13 +79,16 @@ public static class WindowsPowerShellHost
                         try { process.StandardInput.Dispose(); } catch (IOException) { }
                     }
                 }
-                await process.WaitForExitAsync(ct);
+                await process.WaitForExitAsync(runToken);
             }
             catch (OperationCanceledException)
             {
                 BoundedProcessRunner.Terminate(process);
                 try { await Task.WhenAll(stdoutTask, stderrTask).WaitAsync(TimeSpan.FromSeconds(10), CancellationToken.None); }
                 catch (Exception) { }
+                if (timeoutSource is { IsCancellationRequested: true } && !ct.IsCancellationRequested)
+                    throw new TimeoutException(
+                        $"The Windows PowerShell child ({scriptFilePrefix}) did not finish within {(int)timeout!.Value.TotalSeconds} seconds and was stopped.");
                 throw;
             }
 

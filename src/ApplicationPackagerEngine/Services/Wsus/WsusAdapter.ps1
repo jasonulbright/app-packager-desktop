@@ -539,7 +539,13 @@ function Invoke-WsusPublishCommit {
         $data.Approval = $approval
     }
     $declines = New-Object System.Collections.Generic.List[object]
+    # Earlier versions stay offered until the replacement is approved: a failed
+    # approval followed by a decline leaves computers with nothing.
+    $approvalFailed = [bool]$group -and -not [bool]$data.Approval.Ok
+    $data.DeclinesSkipped = $false
+    if ($approvalFailed -and @(Get-InputValue $Request 'DeclinePackageIds' @()).Count -gt 0) { $data.DeclinesSkipped = $true }
     foreach ($id in @(Get-InputValue $Request 'DeclinePackageIds' @())) {
+        if ($approvalFailed) { break }
         $entry = [ordered]@{ PackageId = [string]$id; Ok = $false; Message = '' }
         try {
             $old = Get-WsusUpdateObject -Server $server -PackageId ([guid][string]$id)

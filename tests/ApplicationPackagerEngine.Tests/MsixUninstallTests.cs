@@ -31,17 +31,17 @@ public sealed class MsixUninstallTests : IDisposable
     /// when the filter asks for it.
     /// </summary>
     private static string Stubs(string name) => $$"""
-        function Get-AppxProvisionedPackage { param([switch]$Online)
+        function Get-AppxProvisionedPackage { [CmdletBinding()] param([switch]$Online)
             [pscustomobject]@{ DisplayName = '{{name}}'; PackageName = '{{name}}_1.0.0.0_neutral_~_{{PublisherId}}' }
             [pscustomobject]@{ DisplayName = '{{name}}'; PackageName = '{{name}}_1.0.0.0_neutral_~_otherpublisher1' }
             [pscustomobject]@{ DisplayName = 'Other.App'; PackageName = 'Other.App_1.0.0.0_neutral_~_{{PublisherId}}' } }
-        function Remove-AppxProvisionedPackage { param([switch]$Online, [string]$PackageName) [Console]::Out.WriteLine('deprovision ' + $PackageName + ' online=' + $Online) }
-        function Get-AppxPackage { param([switch]$AllUsers, [string]$Name, [string[]]$PackageTypeFilter)
+        function Remove-AppxProvisionedPackage { [CmdletBinding()] param([switch]$Online, [string]$PackageName) [Console]::Out.WriteLine('deprovision ' + $PackageName + ' online=' + $Online) }
+        function Get-AppxPackage { [CmdletBinding()] param([switch]$AllUsers, [string]$Name, [string[]]$PackageTypeFilter)
             if ($Name -ne '{{name}}') { return }
             $type = if ($PackageTypeFilter -contains 'Bundle') { 'bundle' } else { 'x64' }
             [pscustomobject]@{ PackageFullName = "{{name}}_1.0.0.0_$($type)__{{PublisherId}}"; PublisherId = '{{PublisherId}}' }
             [pscustomobject]@{ PackageFullName = "{{name}}_1.0.0.0_$($type)__otherpublisher1"; PublisherId = 'otherpublisher1' } }
-        function Remove-AppxPackage { param([string]$Package, [switch]$AllUsers) [Console]::Out.WriteLine('remove ' + $Package + ' allusers=' + $AllUsers) }
+        function Remove-AppxPackage { [CmdletBinding()] param([Parameter(ValueFromPipeline)]$InputObject, [string]$Package, [switch]$AllUsers) [Console]::Out.WriteLine('remove ' + $Package + ' allusers=' + $AllUsers) }
         """;
 
     private static async Task<IReadOnlyList<string>> RunAsync(string script)
