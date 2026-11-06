@@ -17,12 +17,12 @@ namespace ApplicationPackagerEngine.Tests;
 /// </summary>
 public sealed class ThemeContrastReportTests(ITestOutputHelper output)
 {
-    private enum Kind { Text, LargeText, Component }
+    internal enum Kind { Text, LargeText, Component }
 
-    private sealed record Pair(string Use, string Foreground, string Background, Kind Kind);
+    internal sealed record Pair(string Use, string Foreground, string Background, Kind Kind);
 
     // The keys are the ones the XAML and the helpers reference. Each use names where the pair shows on a page.
-    private static readonly Pair[] Pairs =
+    internal static readonly Pair[] Pairs =
     [
         new("Body text on the window", "TextFillColorPrimaryBrush", "SolidBackgroundFillColorBaseBrush", Kind.Text),
         new("Secondary text (hints, captions) on the window", "TextFillColorSecondaryBrush", "SolidBackgroundFillColorBaseBrush", Kind.Text),
@@ -87,7 +87,7 @@ public sealed class ThemeContrastReportTests(ITestOutputHelper output)
     }
 
     // A key holds a brush or a plain color; the accent keys of the library are colors.
-    private static Color? Read(ResourceDictionary resources, string key) => resources[key] switch
+    internal static Color? Read(ResourceDictionary resources, string key) => resources[key] switch
     {
         SolidColorBrush brush => Color.FromArgb((byte)Math.Round(brush.Color.A * brush.Opacity), brush.Color.R, brush.Color.G, brush.Color.B),
         Color color => color,
