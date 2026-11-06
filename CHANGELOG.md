@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [2026.1106.5] - 2026-11-06
+
 ### Changed
 
 - Use one fixed app palette in the light and the dark theme instead of the Windows accent. The accent, the status colors, tertiary text and the control and card borders now pass WCAG 2.1 AA (text 4.5 to 1, borders and focus rings 3 to 1). The status column colors follow the theme.
