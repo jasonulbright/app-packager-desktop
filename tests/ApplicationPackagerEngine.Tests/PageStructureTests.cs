@@ -180,10 +180,20 @@ public sealed class PageStructureTests
     [Fact]
     public void NoStyleRemovesTheFocusVisual()
     {
-        var off = new List<string>();
-        foreach (var file in AllXaml())
-            foreach (Match m in Regex.Matches(File.ReadAllText(file), @"FocusVisualStyle""?s*(?:=|Value=)""{x:Null}"""))
-                off.Add(Path.GetFileName(file));
-        Assert.True(off.Count == 0, "A style removes the focus visual: " + string.Join(", ", off.Distinct()));
+        var off = AllXaml().Where(file => RemovesTheFocusVisual(File.ReadAllText(file))).Select(Path.GetFileName).ToList();
+        Assert.True(off.Count == 0, "A style removes the focus visual: " + string.Join(", ", off));
+    }
+
+    // True when a XAML text sets a FocusVisualStyle to {x:Null}, as an attribute or in a setter.
+    internal static bool RemovesTheFocusVisual(string xaml) =>
+        Regex.IsMatch(xaml, @"FocusVisualStyle""?\s*(?:=\s*|Value=\s*)""\{x:Null\}""");
+
+    [Fact]
+    public void TheFocusCheckSeesARemovedFocusVisualAndAcceptsAKeptOne()
+    {
+        Assert.True(RemovesTheFocusVisual("<Button FocusVisualStyle=\"{x:Null}\" />"));
+        Assert.True(RemovesTheFocusVisual("<Setter Property=\"FocusVisualStyle\" Value=\"{x:Null}\" />"));
+        Assert.False(RemovesTheFocusVisual("<Setter Property=\"FocusVisualStyle\" Value=\"{DynamicResource DefaultControlFocusVisualStyle}\" />"));
+        Assert.False(RemovesTheFocusVisual("<Button Focusable=\"False\" />"));
     }
 }
