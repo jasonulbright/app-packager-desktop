@@ -102,7 +102,7 @@ public sealed class ThemeContrastReportTests(ITestOutputHelper output)
         ("Dark", "<ui:ThemesDictionary Theme=\"Dark\" />")
     ];
 
-    private static ResourceDictionary Load(string themeDictionary)
+    internal static ResourceDictionary Load(string themeDictionary)
     {
         // The same way the window tests load the theme: the XAML reader resolves the pack: address of the theme file.
         var markup =

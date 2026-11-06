@@ -354,6 +354,10 @@
                                             <DataTrigger Binding="{Binding Status, Converter={StaticResource StatusCategoryConverter}}" Value="Error">
                                                 <Setter Property="Foreground" Value="{DynamicResource StatusErrorBrush}" />
                                             </DataTrigger>
+                                            <!-- On a selected row the tint lowers the contrast of the status colors, so the text takes the cell color. -->
+                                            <DataTrigger Binding="{Binding IsSelected, RelativeSource={RelativeSource AncestorType=DataGridRow}}" Value="True">
+                                                <Setter Property="Foreground" Value="{Binding Foreground, RelativeSource={RelativeSource AncestorType=DataGridCell}}" />
+                                            </DataTrigger>
                                         </Style.Triggers>
                                     </Style>
                                 </TextBlock.Style>

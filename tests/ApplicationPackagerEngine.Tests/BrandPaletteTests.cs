@@ -94,6 +94,39 @@ public sealed class BrandPaletteTests
         }
     }
 
+    [Theory]
+    [MemberData(nameof(Themes))]
+    public void TheStrongBorderPassesThreeOnEverySurface(ApplicationTheme theme)
+    {
+        Check(theme, "BorderStrongColor", Color_(theme, "BorderStrongColor"), 3.0);
+    }
+
+    // Some status colors fall below 4.5 to 1 on the selected-row tint, so the status text takes the cell color on a selected row.
+    [Fact]
+    public void TheStatusColumnTakesTheCellColorOnASelectedRow()
+    {
+        var folder = new DirectoryInfo(AppContext.BaseDirectory);
+        string Page(DirectoryInfo f) => Path.Combine(f.FullName, "src", "ApplicationPackagerUI", "Views", "Pages", "PackagesPage.xaml");
+        while (folder is not null && !File.Exists(Page(folder))) folder = folder.Parent;
+        Assert.NotNull(folder);
+        var xaml = File.ReadAllText(Page(folder));
+        Assert.Contains("Binding IsSelected, RelativeSource={RelativeSource AncestorType=DataGridRow}", xaml);
+        Assert.Contains("Binding Foreground, RelativeSource={RelativeSource AncestorType=DataGridCell}", xaml);
+    }
+
+    // The surface list above is fixed. This test fails when a library update changes a surface of the theme file.
+    [Theory]
+    [MemberData(nameof(Themes))]
+    public void TheSurfaceListHoldsTheSurfacesOfTheLibraryThemeFile(ApplicationTheme theme)
+    {
+        var resources = ThemeContrastReportTests.Load($"<ui:ThemesDictionary Theme=\"{theme}\" />");
+        foreach (var key in new[] { "SolidBackgroundFillColorBase", "SolidBackgroundFillColorSecondary" })
+        {
+            var color = (Color)resources[key];
+            Assert.Contains(Surfaces[theme], s => C(s) == Color.FromRgb(color.R, color.G, color.B));
+        }
+    }
+
     [Fact]
     public void TheApplierSwapsToThePaletteOfTheTheme()
     {
