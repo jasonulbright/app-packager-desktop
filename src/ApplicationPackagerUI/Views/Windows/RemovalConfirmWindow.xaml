@@ -10,7 +10,7 @@
     ShowInTaskbar="False"
     WindowStartupLocation="CenterOwner"
     ExtendsContentIntoTitleBar="True"
-    WindowBackdropType="Mica">
+    WindowBackdropType="None">
 
     <Grid>
         <Grid.RowDefinitions>

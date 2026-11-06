@@ -128,6 +128,22 @@ public sealed class BrandPaletteTests
     }
 
     [Fact]
+    public void EveryWindowAndTheApplierUseTheSolidSurface()
+    {
+        Assert.Equal(Wpf.Ui.Controls.WindowBackdropType.None, ThemeApplier.Backdrop);
+        var folder = new DirectoryInfo(AppContext.BaseDirectory);
+        string Windows(DirectoryInfo f) => Path.Combine(f.FullName, "src", "ApplicationPackagerUI", "Views", "Windows");
+        while (folder is not null && !Directory.Exists(Windows(folder))) folder = folder.Parent;
+        Assert.NotNull(folder);
+        foreach (var file in Directory.EnumerateFiles(Windows(folder), "*.xaml"))
+        {
+            var root = XDocument.Load(file).Root!;
+            if (root.Name.LocalName != "FluentWindow") continue;
+            Assert.True((string?)root.Attribute("WindowBackdropType") == "None", $"{Path.GetFileName(file)} does not use the solid surface.");
+        }
+    }
+
+    [Fact]
     public void TheApplierSwapsToThePaletteOfTheTheme()
     {
         Assert.EndsWith("Palette.Light.xaml", ThemeApplier.PalettePath(ApplicationTheme.Light));

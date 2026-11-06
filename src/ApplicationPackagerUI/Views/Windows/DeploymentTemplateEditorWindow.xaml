@@ -8,7 +8,7 @@
     MinWidth="460" MinHeight="420"
     WindowStartupLocation="CenterOwner"
     ExtendsContentIntoTitleBar="True"
-    WindowBackdropType="Mica">
+    WindowBackdropType="None">
 
     <ui:FluentWindow.Resources>
         <BooleanToVisibilityConverter x:Key="EditorVisibility" />

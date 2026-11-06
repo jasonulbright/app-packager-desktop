@@ -10,7 +10,7 @@
     ResizeMode="NoResize"
     WindowStartupLocation="CenterOwner"
     ExtendsContentIntoTitleBar="True"
-    WindowBackdropType="Mica">
+    WindowBackdropType="None">
 
     <ui:FluentWindow.Resources>
         <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
