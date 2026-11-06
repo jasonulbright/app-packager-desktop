@@ -33,6 +33,7 @@
 
 ### Added
 
+- Add the engine of the ConfigMgr to Intune conversion: it reads the stored document of an application, plans one Intune Win32 app per deployment type with detection, requirement and variant rules, and stages content, manifests and a report. The site reader, the publish step and the window follow.
 - Add a user guide with 90 pages and 123 screenshots.
 - Add a short README with the product overview.
 - Add web and file entry points and a Catalog window to App Packager.
