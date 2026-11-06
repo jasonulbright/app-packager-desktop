@@ -15,7 +15,7 @@
             <ResourceDictionary.MergedDictionaries>
                 <ResourceDictionary Source="/ApplicationPackagerUI;component/Views/Styles/SelectableRows.xaml" />
             </ResourceDictionary.MergedDictionaries>
-            <helpers:StatusToBrushConverter x:Key="StatusToBrushConverter" />
+            <helpers:StatusCategoryConverter x:Key="StatusCategoryConverter" />
             <Style x:Key="ToolbarSeparator" TargetType="Border">
                 <Setter Property="Width" Value="1" />
                 <Setter Property="Height" Value="24" />
@@ -336,8 +336,28 @@
                             <TextBlock Text="{Binding Status}"
                                        ToolTip="{Binding StatusDetail}"
                                        TextTrimming="CharacterEllipsis"
-                                       Foreground="{Binding Status, Converter={StaticResource StatusToBrushConverter}}"
-                                       VerticalAlignment="Center" Margin="4,0" />
+                                       VerticalAlignment="Center" Margin="4,0">
+                                <TextBlock.Style>
+                                    <!-- One trigger for each color class. A dynamic resource follows the theme when the theme changes. -->
+                                    <Style TargetType="TextBlock" BasedOn="{StaticResource {x:Type TextBlock}}">
+                                        <Setter Property="Foreground" Value="{DynamicResource StatusNeutralBrush}" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding Status, Converter={StaticResource StatusCategoryConverter}}" Value="Success">
+                                                <Setter Property="Foreground" Value="{DynamicResource StatusSuccessBrush}" />
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding Status, Converter={StaticResource StatusCategoryConverter}}" Value="Warning">
+                                                <Setter Property="Foreground" Value="{DynamicResource StatusWarningBrush}" />
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding Status, Converter={StaticResource StatusCategoryConverter}}" Value="Info">
+                                                <Setter Property="Foreground" Value="{DynamicResource StatusInfoBrush}" />
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding Status, Converter={StaticResource StatusCategoryConverter}}" Value="Error">
+                                                <Setter Property="Foreground" Value="{DynamicResource StatusErrorBrush}" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
                         </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>

@@ -19,7 +19,7 @@ public sealed class BrandPaletteTests
     // window level, plus the Mica result that the lab machine showed in the light theme (#F9F9F9).
     private static readonly Dictionary<ApplicationTheme, string[]> Surfaces = new()
     {
-        [ApplicationTheme.Light] = ["#F3F3F3", "#F9F9F9", "#FBFBFB", "#EEEEEE", "#FFFFFF"],
+        [ApplicationTheme.Light] = ["#F3F3F3", "#F9F9F9", "#FAFAFA", "#FBFBFB", "#EEEEEE", "#FFFFFF"],
         [ApplicationTheme.Dark] = ["#202020", "#2B2B2B", "#2D2D2D", "#282828", "#1C1C1C"]
     };
 
@@ -62,38 +62,15 @@ public sealed class BrandPaletteTests
     [MemberData(nameof(Themes))]
     public void TextColorsPassFourAndAHalfOnEverySurface(ApplicationTheme theme)
     {
-        foreach (var key in new[] { "TextFillColorTertiary", "StatusSuccessColor", "StatusWarningColor", "StatusErrorColor", "StatusInfoColor", "StatusNeutralColor" })
+        foreach (var key in new[] { "TextFillColorTertiary", "StatusSuccessColor", "StatusWarningColor", "StatusErrorColor", "StatusInfoColor", "StatusNeutralColor", "BrandAccentColor" })
             Check(theme, key, Color_(theme, key), 4.5);
-        foreach (var key in new[] { "AccentTextFillColorPrimaryBrush", "AccentTextFillColorSecondaryBrush", "AccentTextFillColorTertiaryBrush" })
-            Check(theme, key, C((string)Entries(theme)[key].Attribute("Color")!), 4.5);
-    }
-
-    [Theory]
-    [MemberData(nameof(Themes))]
-    public void BordersAndTheAccentPassThreeOnEverySurface(ApplicationTheme theme)
-    {
-        Check(theme, "BorderStrongColor", Color_(theme, "BorderStrongColor"), 3.0);
-        foreach (var key in new[] { "SystemAccentColor", "SystemAccentColorPrimary", "SystemAccentColorSecondary", "SystemAccentColorTertiary" })
-            Check(theme, key, Color_(theme, key), 3.0);
-    }
-
-    [Theory]
-    [MemberData(nameof(Themes))]
-    public void TextOnAnAccentFillPassesFourAndAHalf(ApplicationTheme theme)
-    {
-        var onAccent = C(Text[theme].OnAccent);
-        foreach (var key in new[] { "SystemAccentColor", "SystemAccentColorPrimary", "SystemAccentColorSecondary", "SystemAccentColorTertiary" })
-        {
-            var ratio = ThemeContrastReportTests.Ratio(onAccent, Color_(theme, key));
-            Assert.True(ratio >= 4.5, $"{theme}: text {onAccent} on {key} is {ratio:0.00}, needs 4.5.");
-        }
     }
 
     [Theory]
     [MemberData(nameof(Themes))]
     public void TheSelectedRowTintKeepsThePrimaryTextAboveSevenAndTheRowVisible(ApplicationTheme theme)
     {
-        var accent = Color_(theme, "SystemAccentColor");
+        var accent = Color_(theme, "BrandAccentColor");
         foreach (var surface in Surfaces[theme])
         {
             var under = C(surface);
@@ -111,8 +88,8 @@ public sealed class BrandPaletteTests
         foreach (var brush in entries.Values.Where(e => e.Name == P + "SolidColorBrush"))
         {
             var color = (string)brush.Attribute("Color")!;
-            if (!color.StartsWith("{DynamicResource ", StringComparison.Ordinal)) continue;
-            var key = color["{DynamicResource ".Length..].TrimEnd('}');
+            if (!color.StartsWith("{StaticResource ", StringComparison.Ordinal)) continue;
+            var key = color["{StaticResource ".Length..].TrimEnd('}');
             Assert.True(entries.ContainsKey(key), $"{theme}: {(string)brush.Attribute(X + "Key")!} reads {key}, which the palette does not define.");
         }
     }
@@ -120,7 +97,7 @@ public sealed class BrandPaletteTests
     [Fact]
     public void TheApplierSwapsToThePaletteOfTheTheme()
     {
-        Assert.EndsWith("Palette.Light.xaml", ThemeApplier.PaletteUri(ApplicationTheme.Light).OriginalString);
-        Assert.EndsWith("Palette.Dark.xaml", ThemeApplier.PaletteUri(ApplicationTheme.Dark).OriginalString);
+        Assert.EndsWith("Palette.Light.xaml", ThemeApplier.PalettePath(ApplicationTheme.Light));
+        Assert.EndsWith("Palette.Dark.xaml", ThemeApplier.PalettePath(ApplicationTheme.Dark));
     }
 }

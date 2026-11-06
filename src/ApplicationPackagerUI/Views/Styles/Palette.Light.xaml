@@ -3,17 +3,12 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
     <!-- The fixed brand palette of the Light theme. It replaces the Windows accent and the control library values that fail
-         the contrast ratios (text 4.5 to 1, borders and focus rings 3 to 1). The theme applier merges this file after
-         the theme file and swaps it with the theme. A test reads every pair in this file. -->
+         the contrast ratios (text 4.5 to 1, borders and focus rings 3 to 1). The theme applier swaps this file with the theme. A test reads every pair in this file. -->
 
-    <!-- One app accent. The accent fill is the secondary color: the theme files take it for the default fill. -->
-    <Color x:Key="SystemAccentColor">#0B5FA5</Color>
-    <Color x:Key="SystemAccentColorPrimary">#0A5599</Color>
-    <Color x:Key="SystemAccentColorSecondary">#0B5FA5</Color>
-    <Color x:Key="SystemAccentColorTertiary">#094C8A</Color>
-    <SolidColorBrush x:Key="AccentTextFillColorPrimaryBrush" Color="#0B5FA5" />
-    <SolidColorBrush x:Key="AccentTextFillColorSecondaryBrush" Color="#0A5599" />
-    <SolidColorBrush x:Key="AccentTextFillColorTertiaryBrush" Color="#094C8A" />
+    <!-- The one app accent. The theme applier gives it to the accent manager of the control library, which derives the hover,
+         pressed and text variants: darker in the light theme, lighter in the dark theme, so every variant passes where the
+         base color passes. -->
+    <Color x:Key="BrandAccentColor">#0B5FA5</Color>
 
     <!-- Text below the primary and secondary levels. Disabled text keeps the library value: the WCAG rules exempt it. -->
     <Color x:Key="TextFillColorTertiary">#6B6B6B</Color>
@@ -25,21 +20,21 @@
     <Color x:Key="StatusErrorColor">#B3261E</Color>
     <Color x:Key="StatusInfoColor">#00579E</Color>
     <Color x:Key="StatusNeutralColor">#5C5C5C</Color>
-    <SolidColorBrush x:Key="StatusSuccessBrush" Color="{DynamicResource StatusSuccessColor}" />
-    <SolidColorBrush x:Key="StatusWarningBrush" Color="{DynamicResource StatusWarningColor}" />
-    <SolidColorBrush x:Key="StatusErrorBrush" Color="{DynamicResource StatusErrorColor}" />
-    <SolidColorBrush x:Key="StatusInfoBrush" Color="{DynamicResource StatusInfoColor}" />
-    <SolidColorBrush x:Key="StatusNeutralBrush" Color="{DynamicResource StatusNeutralColor}" />
-    <SolidColorBrush x:Key="SystemFillColorSuccessBrush" Color="{DynamicResource StatusSuccessColor}" />
-    <SolidColorBrush x:Key="SystemFillColorCautionBrush" Color="{DynamicResource StatusWarningColor}" />
-    <SolidColorBrush x:Key="SystemFillColorCriticalBrush" Color="{DynamicResource StatusErrorColor}" />
-    <SolidColorBrush x:Key="SystemFillColorAttentionBrush" Color="{DynamicResource StatusInfoColor}" />
+    <SolidColorBrush x:Key="StatusSuccessBrush" Color="{StaticResource StatusSuccessColor}" />
+    <SolidColorBrush x:Key="StatusWarningBrush" Color="{StaticResource StatusWarningColor}" />
+    <SolidColorBrush x:Key="StatusErrorBrush" Color="{StaticResource StatusErrorColor}" />
+    <SolidColorBrush x:Key="StatusInfoBrush" Color="{StaticResource StatusInfoColor}" />
+    <SolidColorBrush x:Key="StatusNeutralBrush" Color="{StaticResource StatusNeutralColor}" />
+    <SolidColorBrush x:Key="SystemFillColorSuccessBrush" Color="{StaticResource StatusSuccessColor}" />
+    <SolidColorBrush x:Key="SystemFillColorCautionBrush" Color="{StaticResource StatusWarningColor}" />
+    <SolidColorBrush x:Key="SystemFillColorCriticalBrush" Color="{StaticResource StatusErrorColor}" />
+    <SolidColorBrush x:Key="SystemFillColorAttentionBrush" Color="{StaticResource StatusInfoColor}" />
 
     <!-- Borders that mark a control or a card: 3 to 1 against every surface. -->
     <Color x:Key="BorderStrongColor">#858585</Color>
-    <SolidColorBrush x:Key="ControlStrokeColorDefaultBrush" Color="{DynamicResource BorderStrongColor}" />
-    <SolidColorBrush x:Key="CardStrokeColorDefaultBrush" Color="{DynamicResource BorderStrongColor}" />
-    <SolidColorBrush x:Key="CardBorderBrush" Color="{DynamicResource BorderStrongColor}" />
-    <SolidColorBrush x:Key="ControlElevationBorderBrush" Color="{DynamicResource BorderStrongColor}" />
-    <SolidColorBrush x:Key="TextControlElevationBorderBrush" Color="{DynamicResource BorderStrongColor}" />
+    <SolidColorBrush x:Key="ControlStrokeColorDefaultBrush" Color="{StaticResource BorderStrongColor}" />
+    <SolidColorBrush x:Key="CardStrokeColorDefaultBrush" Color="{StaticResource BorderStrongColor}" />
+    <SolidColorBrush x:Key="CardBorderBrush" Color="{StaticResource BorderStrongColor}" />
+    <SolidColorBrush x:Key="ControlElevationBorderBrush" Color="{StaticResource BorderStrongColor}" />
+    <SolidColorBrush x:Key="TextControlElevationBorderBrush" Color="{StaticResource BorderStrongColor}" />
 </ResourceDictionary>
