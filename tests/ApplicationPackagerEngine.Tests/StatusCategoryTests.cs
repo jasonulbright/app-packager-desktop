@@ -31,7 +31,7 @@ public sealed class StatusCategoryTests
         while (folder is not null && !File.Exists(Relative(folder))) folder = folder.Parent;
         Assert.NotNull(folder);
         var doc = XDocument.Load(Relative(folder));
-        var triggers = doc.Descendants().Where(e => e.Name.LocalName == "DataTrigger" && ((string?)e.Attribute("Binding") ?? "").Contains("StatusCategoryConverter")).ToList();
+        var triggers = doc.Descendants().Where(e => e.Name.LocalName == "DataTrigger" && ((string?)e.Attribute("Binding") ?? "").Contains("StatusCategoryConverter") && e.Descendants().Any(s => s.Name.LocalName == "Setter" && (string?)s.Attribute("Property") == "Foreground")).ToList();
         var brushes = triggers.ToDictionary(t => (string)t.Attribute("Value")!, t => (string)t.Descendants().Single(e => e.Name.LocalName == "Setter").Attribute("Value")!);
         Assert.Equal("{DynamicResource StatusSuccessBrush}", brushes["Success"]);
         Assert.Equal("{DynamicResource StatusWarningBrush}", brushes["Warning"]);

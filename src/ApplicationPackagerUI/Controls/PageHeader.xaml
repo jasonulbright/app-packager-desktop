@@ -6,7 +6,7 @@
     x:Name="Root"
     Focusable="False"
     IsTabStop="False"
-    Margin="0,0,0,8">
+    Margin="0,0,0,0">
 
     <UserControl.Resources>
         <ResourceDictionary Source="/ApplicationPackagerUI;component/Views/Styles/Typography.xaml" />
@@ -16,7 +16,7 @@
          then the title, the description and the status line. -->
     <Border Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
             BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
-            BorderThickness="1" CornerRadius="8" Padding="8,8">
+            BorderThickness="1" CornerRadius="8" Padding="8,1">
         <Grid>
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
