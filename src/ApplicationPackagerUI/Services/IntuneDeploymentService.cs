@@ -172,6 +172,15 @@ public sealed class IntuneDeploymentService(SettingsService settingsService)
         return null;
     }
 
+    /// <summary>
+    /// The stored tenant values as publish options, or null when one is missing. The secret is
+    /// unprotected here and never shown.
+    /// </summary>
+    public IntunePublishOptions? LoadPublishOptions()
+    {
+        return BuildOptions(settingsService.Load().Intune, null, "");
+    }
+
     /// <summary>Downloads the content prep tool into the tool folder; returns its path.</summary>
     public static Task<string> DownloadToolAsync(Action<string>? log = null, CancellationToken ct = default) =>
         EnsureToolAsync(log, ct);
@@ -180,7 +189,7 @@ public sealed class IntuneDeploymentService(SettingsService settingsService)
     /// Returns publish options, or null when any credential is missing. The secret is
     /// unprotected here and never leaves this call path.
     /// </summary>
-    private static IntunePublishOptions? BuildOptions(IntuneSettings stored, StageManifest manifest, string description)
+    private static IntunePublishOptions? BuildOptions(IntuneSettings stored, StageManifest? manifest, string description)
     {
         var secret = IntuneSecretProtector.Unprotect(stored.ClientSecretProtected);
         if (string.IsNullOrWhiteSpace(stored.TenantId) ||
@@ -190,16 +199,17 @@ public sealed class IntuneDeploymentService(SettingsService settingsService)
             return null;
         }
 
-        return new IntunePublishOptions
+        var options = new IntunePublishOptions
         {
             TenantId = stored.TenantId.Trim(),
             ClientId = stored.ClientId.Trim(),
             ClientSecret = secret,
-            Description = description,
-            // The payload's own architecture, never the detection's registry view: a
-            // per-user x64 product detects through the 32-bit view.
-            Architecture = InstallerArchitectures.Resolve(manifest)
+            Description = description
         };
+        // The payload's own architecture, never the detection's registry view: a
+        // per-user x64 product detects through the 32-bit view.
+        if (manifest is not null) options.Architecture = InstallerArchitectures.Resolve(manifest);
+        return options;
     }
 
     /// <summary>Resolves the content prep tool, downloading it into the tool folder on first use.</summary>

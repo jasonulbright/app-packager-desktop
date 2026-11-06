@@ -62,6 +62,14 @@ public static class PackagerServiceRegistration
             return new ConfigMgrSessionHost(() => SessionConnection(settings), sp.GetRequiredService<IAppLog>());
         });
 
+        services.AddSingleton<ApplicationPackagerEngine.Services.CmImport.ICmImportRunner>(sp =>
+            new ApplicationPackagerEngine.Services.CmImport.CmImportRunner(
+                new ApplicationPackagerEngine.Services.CmImport.CmApplicationSiteReader(sp.GetRequiredService<IConfigMgrSession>()),
+                new ApplicationPackagerEngine.Services.CmImport.CmImportPublisher(
+                    new ApplicationPackagerEngine.Services.IntuneWinToolService(),
+                    new ApplicationPackagerEngine.Services.IntunePublishService()),
+                ct => IntuneDeploymentService.DownloadToolAsync(null, ct)));
+
         services.AddSingleton<IInstalledApplicationsService>(_ => new InstalledApplicationsService());
         services.AddSingleton<IDetectionTestService>(_ => new DetectionTestService());
         services.AddSingleton<IDetectionHistoryStore>(sp => new DetectionHistoryStore(log: sp.GetRequiredService<IAppLog>()));
