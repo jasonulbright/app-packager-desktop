@@ -5,7 +5,7 @@ BLUF: App Packager Desktop checks GitHub for a newer release. It downloads the s
 ## What it does
 
 - The app asks GitHub for the latest release of `jasonulbright/app-packager-desktop`. It sends no sign-in, no token and no data from this computer.
-- The check compares the installed version with the tag of the release. The tag has the form `v2026.1103.3`. A tag that is not a version is ignored.
+- The check compares the installed version with the tag of the release. The tag has the form `v2026.1103.3`. A tag that is not a version, such as `v2026.1103.3-beta`, gives the status "The latest release has no version tag that this app understands." The start check stays silent for this status. **Check for updates** shows it.
 - The update window shows the installed version, the latest version and a link to the release notes.
 
 ## When to use it
@@ -45,6 +45,7 @@ Just before the installer starts, the app calculates the SHA-256 value again. A 
 
 | Status line | Cause | Action |
 |---|---|---|
+| The latest release has no version tag that this app understands | The tag is not a number list, or GitHub sent a document the app cannot read | Open the releases page and install by hand |
 | GitHub cannot be reached | The computer is offline, or a proxy blocks `api.github.com` | Try again later |
 | GitHub limits the checks without a sign-in | GitHub allows a small number of checks each hour for an address without a sign-in | Wait for the time in the status line |
 | The update was refused and deleted | A check in the table above failed | Download the installer from the releases page and compare it with `checksums.txt` by hand. Report the status line. |

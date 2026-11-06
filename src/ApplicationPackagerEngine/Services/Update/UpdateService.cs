@@ -25,8 +25,12 @@ public sealed class AuthenticodeSignatureReader : ISignatureReader
 
     public async Task<SignatureInfo?> ReadAsync(string path, CancellationToken ct = default)
     {
-        var (exit, stdout, _) = await WindowsPowerShellHost.RunAsync(Script, null, ct, "ap-update", [path], timeout: TimeSpan.FromSeconds(60)).ConfigureAwait(false);
-        if (exit != 0) return null;
+        var (exit, stdout, stderr) = await WindowsPowerShellHost.RunAsync(Script, null, ct, "ap-update", [path], timeout: TimeSpan.FromSeconds(60)).ConfigureAwait(false);
+        if (exit != 0)
+        {
+            System.Diagnostics.Trace.WriteLine($"The signature read ended with exit code {exit}: {stderr}");
+            return null;
+        }
         try
         {
             using var doc = JsonDocument.Parse(stdout.Trim());
@@ -38,6 +42,7 @@ public sealed class AuthenticodeSignatureReader : ISignatureReader
         }
         catch (Exception ex) when (ex is JsonException or KeyNotFoundException or InvalidOperationException)
         {
+            System.Diagnostics.Trace.WriteLine($"The signature answer could not be read: {ex.Message}");
             return null;
         }
     }
@@ -165,6 +170,7 @@ public sealed class UpdateService : IDisposable
         }
         catch (Exception ex) when (ex is JsonException or KeyNotFoundException or InvalidOperationException)
         {
+            System.Diagnostics.Trace.WriteLine($"The release document could not be read: {ex.Message}");
             return null;
         }
     }

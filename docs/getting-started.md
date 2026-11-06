@@ -34,7 +34,7 @@ For WSUS and Intune requirements, see [Settings page](core/settings-page.md).
    - `AppPackagerDesktop-<version>.zip` is the same build without an installer. Extract it and run `ApplicationPackagerUI.exe`.
 3. Close the application before you install an update by hand. The installer does not replace an executable that is in use. The app can also update itself: see [Updates](core/updates.md).
 
-The application does not check for a new version. To find a new version, open **Settings**, go to **About**, and select **Releases**.
+The application checks for a new version at start. To check at once, open **Settings** and select **Check for updates**. To read the release page, open **Settings**, go to **About**, and select **Releases**.
 
 ### Finish the Setup window
 

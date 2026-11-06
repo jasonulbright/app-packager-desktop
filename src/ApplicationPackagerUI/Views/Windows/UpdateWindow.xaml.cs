@@ -22,6 +22,10 @@ public partial class UpdateWindow
         // Only an https address of the repository's releases opens.
         var url = _viewModel.ReleaseUrl;
         if (!url.StartsWith("https://github.com/", StringComparison.OrdinalIgnoreCase)) return;
-        Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
+        try { Process.Start(new ProcessStartInfo(url) { UseShellExecute = true }); }
+        catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or InvalidOperationException)
+        {
+            _viewModel.StatusText = $"The release page did not open: {ex.Message}";
+        }
     }
 }

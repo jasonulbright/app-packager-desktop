@@ -45,7 +45,8 @@ public sealed class UpdateViewModelTests : IDisposable
         new UpdateAsset("checksums.txt", Base + "checksums.txt", 107)
     ]);
 
-    private (UpdateViewModel Vm, List<string> Launched, int[] Shutdowns) Create(bool launchWorks = true, string status = "Valid", string? json = null)
+    private (UpdateViewModel Vm, List<string> Launched, int[] Shutdowns) Create(bool launchWorks = true, string status = "Valid", string? json = null,
+        Func<string, Exception?>? fail = null)
     {
         var launched = new List<string>();
         var shutdowns = new int[1];
@@ -53,6 +54,7 @@ public sealed class UpdateViewModelTests : IDisposable
         var handler = new Handler(request =>
         {
             var url = request.RequestUri!.ToString();
+            if (fail?.Invoke(url) is { } boom) throw boom;
             if (url.StartsWith("https://api.github.com/")) return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(json ?? Json()) };
             return url.EndsWith("checksums.txt")
                 ? new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(sums) }
@@ -154,6 +156,26 @@ public sealed class UpdateViewModelTests : IDisposable
         await vm.CheckCommand.ExecuteAsync(null);
         Assert.Equal(UpdateStage.UpToDate, vm.Stage);
         Assert.False(vm.DownloadCommand.CanExecute(null));
+    }
+
+    [Fact]
+    public async Task AnUnexpectedFailureOfTheCheckLeavesTheWindowFree()
+    {
+        var (vm, _, _) = Create(fail: _ => new InvalidOperationException("boom"));
+        await vm.CheckCommand.ExecuteAsync(null);
+        Assert.Equal(UpdateStage.Problem, vm.Stage);
+        Assert.Contains("boom", vm.StatusText);
+        Assert.True(vm.CheckCommand.CanExecute(null));
+    }
+
+    [Fact]
+    public async Task ATimeoutOfTheDownloadIsAFailureNotACancel()
+    {
+        var (vm, _, _) = Create(fail: url => url.EndsWith(SetupName) ? new TaskCanceledException("timed out") : null);
+        await vm.CheckCommand.ExecuteAsync(null);
+        await vm.DownloadCommand.ExecuteAsync(null);
+        Assert.Equal(UpdateStage.Problem, vm.Stage);
+        Assert.DoesNotContain("cancelled", vm.StatusText);
     }
 
     [Fact]

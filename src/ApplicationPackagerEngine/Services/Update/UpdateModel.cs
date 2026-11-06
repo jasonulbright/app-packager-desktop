@@ -182,8 +182,9 @@ public static class UpdateSignaturePolicy
                     return true;
             }
         }
-        catch (CryptographicException)
+        catch (CryptographicException ex)
         {
+            System.Diagnostics.Trace.WriteLine($"The signer subject could not be parsed: {ex.Message}");
             return false;
         }
         return false;

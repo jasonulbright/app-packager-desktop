@@ -79,7 +79,16 @@ public sealed partial class UpdateViewModel : ObservableObject
     {
         Stage = UpdateStage.Checking;
         StatusText = "Checking GitHub for the latest release...";
-        Apply(await _service.CheckAsync(CurrentVersion));
+        try
+        {
+            Apply(await _service.CheckAsync(CurrentVersion));
+        }
+        catch (Exception ex)
+        {
+            // The service reports expected problems as a status. Anything else must not leave the window busy.
+            StatusText = $"The check failed: {ex.Message}";
+            Stage = UpdateStage.Problem;
+        }
     }
 
     [RelayCommand(CanExecute = nameof(CanDownload))]
@@ -103,12 +112,12 @@ public sealed partial class UpdateViewModel : ObservableObject
             StatusText = $"The update was refused and deleted: {ex.Message}";
             Stage = UpdateStage.Problem;
         }
-        catch (OperationCanceledException)
+        catch (OperationCanceledException) when (_cts.IsCancellationRequested)
         {
             StatusText = "The download was cancelled.";
             Stage = UpdateStage.Available;
         }
-        catch (Exception ex) when (ex is HttpRequestException or IOException or UnauthorizedAccessException)
+        catch (Exception ex) when (ex is HttpRequestException or IOException or UnauthorizedAccessException or OperationCanceledException)
         {
             StatusText = $"The download failed: {ex.Message}";
             Stage = UpdateStage.Problem;
