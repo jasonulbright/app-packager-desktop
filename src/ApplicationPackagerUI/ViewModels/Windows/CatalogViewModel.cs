@@ -13,7 +13,14 @@ public sealed record CatalogServices(
     Func<Task<IReadOnlyList<PackagerInfo>?>> LoadPackagers,
     Func<Task> RefreshGrid,
     Action<string> ShowSaved,
-    Action<string> Log);
+    Action<string> Log)
+{
+    /// <summary>True while the settings file on disk failed to load: a save then stores nothing.</summary>
+    public Func<bool>? IsSettingsUnreadable { get; init; }
+
+    /// <summary>Shows a caution message (warning icon). When null, ShowSaved shows it.</summary>
+    public Action<string>? ShowCaution { get; init; }
+}
 
 /// <summary>Shows and hides applications in the App Packager grid. Save writes the hidden list and reloads the grid.</summary>
 public partial class CatalogViewModel : ObservableObject
@@ -40,7 +47,12 @@ public partial class CatalogViewModel : ObservableObject
             ShowSaved: message => snackbarService.Show(Title, message,
                 Wpf.Ui.Controls.ControlAppearance.Success,
                 new SymbolIcon(SymbolRegular.Checkmark24), TimeSpan.FromSeconds(2)),
-            Log: packagesViewModel.AppendLog))
+            Log: packagesViewModel.AppendLog)
+        {
+            IsSettingsUnreadable = () => settingsService.IsFileUnreadable,
+            ShowCaution = message => snackbarService.Show(Title, message, Wpf.Ui.Controls.ControlAppearance.Caution,
+                new SymbolIcon(SymbolRegular.Warning24), TimeSpan.FromSeconds(6))
+        })
     {
         packagesViewModel.HiddenApplicationsChanged += (_, _) => ReloadAfterSettingsChange();
     }
@@ -278,6 +290,12 @@ public partial class CatalogViewModel : ObservableObject
             .Select(a => a.Uid)
             .ToArray();
         _services.SaveSettings(s);
+        if (_services.IsSettingsUnreadable?.Invoke() == true)
+        {
+            // The automatic save writes nothing over a file that failed to load, so nothing was stored.
+            (_services.ShowCaution ?? _services.ShowSaved)("Not saved. The settings file could not be read. Open Settings, select Save, then change the Catalog again.");
+            return;
+        }
         _savedHidden = new HashSet<string>(s.HiddenApplications, StringComparer.OrdinalIgnoreCase);
         UpdateCounts();
 

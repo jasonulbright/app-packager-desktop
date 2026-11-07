@@ -173,6 +173,44 @@ public sealed class PublishSettingsContractTests : IDisposable
             OneClickSettingsMap.SetupCompleteLine(new DestinationSet()));
     }
 
+    private const string UnreadableSettings = """{ "AppStates": { "package-a": { "Published": { "WSUS": { "Version": "1.0" """;
+
+    [Fact]
+    public void SetupWithoutConfigMgrOverAnUnreadableFileStillStoresTheSetupAndKeepsACopyOfTheBadFile()
+    {
+        Directory.CreateDirectory(Path.GetDirectoryName(SettingsService.SettingsPath)!);
+        File.WriteAllText(SettingsService.SettingsPath, UnreadableSettings);
+        var service = new SettingsService();
+        service.Load();
+        Assert.True(service.IsFileUnreadable);
+        var host = new Host();
+        var setup = new SetupWindowViewModel(service, host, host) { UseConfigMgr = false, UseIntune = true, IntuneTenantId = "t", IntuneClientId = "c", IntuneClientSecret = "typed-secret" };
+
+        setup.SaveCommand.Execute(null);
+
+        var stored = new SettingsService().Load();
+        Assert.True(stored.FirstRunCompleted);
+        Assert.Equal("t", stored.Intune.TenantId);
+        Assert.False(string.IsNullOrEmpty(stored.Intune.ClientSecretProtected));
+        Assert.Equal("", setup.IntuneClientSecret);
+        Assert.Single(Directory.GetFiles(Path.GetDirectoryName(SettingsService.SettingsPath)!, "settings.json.unreadable-*"));
+    }
+
+    [Fact]
+    public void SkipWithDontShowAgainOverAnUnreadableFileStoresTheChoice()
+    {
+        Directory.CreateDirectory(Path.GetDirectoryName(SettingsService.SettingsPath)!);
+        File.WriteAllText(SettingsService.SettingsPath, UnreadableSettings);
+        var service = new SettingsService();
+        service.Load();
+        var host = new Host();
+        var setup = new SetupWindowViewModel(service, host, host) { DontShowAgain = true };
+
+        setup.SkipCommand.Execute(null);
+
+        Assert.True(new SettingsService().Load().FirstRunCompleted);
+    }
+
     [Fact]
     public void APs1StageNamesItsManifestByTheWrittenLineOrTheStageCompleteFolder()
     {
