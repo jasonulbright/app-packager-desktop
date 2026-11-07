@@ -108,6 +108,28 @@ public sealed class CatalogWindowTests
     }
 
     [Fact]
+    public async Task SaveOverAnUnreadableSettingsFileSaysNothingWasStoredAndDoesNotReloadTheGrid()
+    {
+        var store = new Store { Settings = new AppSettings() };
+        var viewModel = new CatalogViewModel(new CatalogServices(
+            LoadSettings: () => store.Settings,
+            SaveSettings: _ => { },
+            LoadPackagers: () => Task.FromResult<IReadOnlyList<PackagerInfo>?>(Packagers()),
+            RefreshGrid: () => { store.Refreshes++; return Task.CompletedTask; },
+            ShowSaved: store.Shown.Add,
+            Log: store.Log.Add)
+        { IsSettingsUnreadable = () => true });
+        App(viewModel, "grepwin").IsVisible = false;
+
+        await viewModel.SaveCommand.ExecuteAsync(null);
+
+        Assert.Equal(0, store.Refreshes);
+        var shown = Assert.Single(store.Shown);
+        Assert.StartsWith("Not saved.", shown);
+        Assert.DoesNotContain("Saved.", shown);
+    }
+
+    [Fact]
     public async Task AChangeThatIsNotSaved_IsNotDescribedAsTheStateOfTheGrid()
     {
         var (viewModel, _) = Catalog();

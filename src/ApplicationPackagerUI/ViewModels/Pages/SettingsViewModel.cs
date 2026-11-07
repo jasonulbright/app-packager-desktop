@@ -678,22 +678,31 @@ public partial class SettingsViewModel : ObservableObject, ISettingsReload
         // An empty box keeps the stored secret; a typed value replaces it, DPAPI-protected for
         // the current Windows user. The plaintext never reaches settings.json.
         if (!string.IsNullOrEmpty(IntuneClientSecret))
-        {
             s.Intune.ClientSecretProtected = IntuneSecretProtector.Protect(IntuneClientSecret);
-            IntuneClientSecret = "";
-        }
-        HasStoredIntuneSecret = !string.IsNullOrWhiteSpace(s.Intune.ClientSecretProtected);
 
         s.Vulnerability ??= new VulnerabilitySettings();
         s.Vulnerability.LookupAfterCheckCm = LookupCvesAfterCheckMecm;
         // The plaintext key never reaches settings.json.
         if (!string.IsNullOrWhiteSpace(NvdApiKey)) s.Vulnerability.NvdApiKeyProtected = NvdApiKeyStore.Protect(NvdApiKey);
         else if (RemoveNvdApiKey) s.Vulnerability.NvdApiKeyProtected = "";
+
+        // Write first. The typed secret and key stay in their boxes, and the stored flags stay as they were,
+        // until the file holds them; a failed write then loses nothing the operator typed.
+        try
+        {
+            _settingsService.SaveOperatorEdit(s);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException)
+        {
+            _snackbarService.Show("Settings", "The settings were not saved. " + ex.Message, Wpf.Ui.Controls.ControlAppearance.Danger,
+                new SymbolIcon(SymbolRegular.ErrorCircle24), TimeSpan.FromSeconds(6));
+            return;
+        }
+        IntuneClientSecret = "";
+        HasStoredIntuneSecret = !string.IsNullOrWhiteSpace(s.Intune.ClientSecretProtected);
         NvdApiKey = "";
         RemoveNvdApiKey = false;
         HasStoredNvdApiKey = !string.IsNullOrWhiteSpace(s.Vulnerability.NvdApiKeyProtected);
-
-        _settingsService.SaveOperatorEdit(s);
 
         ThemeApplier.Apply(s.Theme);
         _packagesViewModel.RefreshPublishActionState();

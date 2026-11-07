@@ -166,7 +166,8 @@ public partial class SetupWindowViewModel : ObservableObject
         s.Intune.DeploymentTarget = DeploymentTargets.Normalize(defaults.ToTargetName());
 
         s.FirstRunCompleted = true;
-        if (UseConfigMgr) _settingsService.SaveOperatorEdit(s);
+        // An automatic save writes nothing over an unreadable file, and the wizard would show again at every launch.
+        if (UseConfigMgr || _settingsService.IsFileUnreadable) _settingsService.SaveOperatorEdit(s);
         else _settingsService.Save(s);
 
         _settingsViewModel.ReloadFromStore();
@@ -187,7 +188,8 @@ public partial class SetupWindowViewModel : ObservableObject
         {
             var s = _settingsService.Load();
             s.FirstRunCompleted = true;
-            _settingsService.Save(s);
+            if (_settingsService.IsFileUnreadable) _settingsService.SaveOperatorEdit(s);
+            else _settingsService.Save(s);
         }
 
         CloseRequested?.Invoke(this, false);
