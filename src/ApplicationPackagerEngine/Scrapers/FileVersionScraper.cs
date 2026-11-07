@@ -231,7 +231,7 @@ public sealed class FileVersionScraper : IVersionScraper
         }
     }
 
-    private static string ResolveFileName(string url)
+    internal static string ResolveFileName(string url)
     {
         try
         {
@@ -242,7 +242,8 @@ public sealed class FileVersionScraper : IVersionScraper
         }
         catch { }
 
-        var hash = Math.Abs(url.GetHashCode()).ToString("x8");
+        // string.GetHashCode differs in each process, so a later process could not find the file.
+        var hash = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(url)))[..32].ToLowerInvariant();
         return $"download-{hash}.tmp";
     }
 
@@ -293,14 +294,32 @@ public sealed class FileVersionScraper : IVersionScraper
         return CacheRefresh.Current;
     }
 
-    private static async Task DownloadAsync(string url, string outFile, CancellationToken ct)
+    private static Task DownloadAsync(string url, string outFile, CancellationToken ct) =>
+        DownloadAsync(url, outFile, RunCurlAsync, ct);
+
+    /// <summary>The curl run of a download: the arguments, the URL and the cancellation; true when curl ended with success.</summary>
+    internal delegate Task<bool> CurlRunner(IReadOnlyList<string> arguments, string url, CancellationToken ct);
+
+    internal static async Task DownloadAsync(string url, string outFile, CurlRunner runCurl, CancellationToken ct)
     {
         // An empty cache file would otherwise be revalidated forever, since a
         // 304 keeps whatever is on disk.
         if (!File.Exists(outFile) || new FileInfo(outFile).Length == 0)
         {
-            if (!await RunCurlAsync(BuildDownloadArguments(outFile, null), url, ct))
-                TryDelete(outFile);
+            // The first download lands in a side file as well, so the cache path holds a whole file or
+            // no file. Each download has its own side file, so two runs of one URL cannot overwrite each other.
+            var partPath = $"{outFile}.{Guid.NewGuid():N}.part";
+            DeleteStalePartFiles(outFile);
+            TryDelete(outFile);
+            try
+            {
+                if (await runCurl(BuildDownloadArguments(partPath, null), url, ct) && File.Exists(partPath) && new FileInfo(partPath).Length > 0)
+                    File.Move(partPath, outFile, overwrite: true);
+            }
+            finally
+            {
+                TryDelete(partPath);
+            }
             return;
         }
 
@@ -308,7 +327,16 @@ public sealed class FileVersionScraper : IVersionScraper
         // cache, and a 304 leaves no side file at all.
         var refreshPath = outFile + ".refresh";
         TryDelete(refreshPath);
-        var succeeded = await RunCurlAsync(BuildDownloadArguments(refreshPath, outFile), url, ct);
+        bool succeeded;
+        try
+        {
+            succeeded = await runCurl(BuildDownloadArguments(refreshPath, outFile), url, ct);
+        }
+        catch
+        {
+            TryDelete(refreshPath);
+            throw;
+        }
         ApplyRefresh(outFile, refreshPath, succeeded);
     }
 
@@ -316,16 +344,32 @@ public sealed class FileVersionScraper : IVersionScraper
     {
         using var process = CurlProcess.Start(arguments, url);
 
-        var exitTask = process.WaitForExitAsync(ct);
-        var completed = await Task.WhenAny(exitTask, Task.Delay(TimeSpan.FromSeconds(130), ct));
-
-        if (completed != exitTask)
+        // A cancel or a time limit ends curl at once; otherwise it keeps writing its file.
+        try
+        {
+            await process.WaitForExitAsync(ct).WaitAsync(TimeSpan.FromSeconds(130), ct);
+        }
+        catch (Exception ex) when (ex is OperationCanceledException or TimeoutException)
         {
             try { process.Kill(true); } catch { }
+            if (ex is OperationCanceledException) throw;
             return false;
         }
 
         return process.ExitCode == 0;
+    }
+
+    // A side file of a download that a hard kill left behind is deleted after a day.
+    private static void DeleteStalePartFiles(string outFile)
+    {
+        try
+        {
+            var folder = Path.GetDirectoryName(outFile);
+            if (string.IsNullOrEmpty(folder) || !Directory.Exists(folder)) return;
+            foreach (var stale in Directory.EnumerateFiles(folder, Path.GetFileName(outFile) + ".*.part"))
+                if (File.GetLastWriteTimeUtc(stale) < DateTime.UtcNow.AddDays(-1)) TryDelete(stale);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
     }
 
     private static void TryDelete(string path)
