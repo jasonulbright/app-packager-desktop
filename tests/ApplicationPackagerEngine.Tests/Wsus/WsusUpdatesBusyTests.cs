@@ -11,12 +11,18 @@ public sealed class WsusUpdatesBusyTests
     private sealed class GatedClient(FakeWsusAdminClient inner) : IWsusAdminClient
     {
         public TaskCompletionSource Gate { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public TaskCompletionSource? ListGate { get; set; }
         public Task<WsusServerStatus> GetStatusAsync(WsusSettings s, Action<string>? p = null, CancellationToken ct = default) => inner.GetStatusAsync(s, p, ct);
         public Task<WsusServerStatus> CreateSelfSignedCertificateAsync(WsusSettings s, Action<string>? p = null, CancellationToken ct = default) => inner.CreateSelfSignedCertificateAsync(s, p, ct);
         public Task<WsusServerStatus> ImportPfxAsync(WsusSettings s, string pfx, string pw, Action<string>? p = null, CancellationToken ct = default) => inner.ImportPfxAsync(s, pfx, pw, p, ct);
         public Task<string> ExportCertificateAsync(WsusSettings s, string cer, Action<string>? p = null, CancellationToken ct = default) => inner.ExportCertificateAsync(s, cer, p, ct);
         public Task<IReadOnlyList<string>> GetComputerGroupNamesAsync(WsusSettings s, Action<string>? p = null, CancellationToken ct = default) => inner.GetComputerGroupNamesAsync(s, p, ct);
-        public Task<IReadOnlyList<WsusPublishedUpdate>> ListAsync(WsusSettings s, bool other = false, Action<string>? p = null, CancellationToken ct = default) => inner.ListAsync(s, other, p, ct);
+        public async Task<IReadOnlyList<WsusPublishedUpdate>> ListAsync(WsusSettings s, bool other = false, Action<string>? p = null, CancellationToken ct = default)
+        {
+            var result = await inner.ListAsync(s, other, p, ct);
+            if (ListGate is { } gate) await gate.Task;
+            return result;
+        }
         public async Task<IReadOnlyList<WsusItemResult>> SetStateAsync(WsusSettings s, IEnumerable<Guid> ids, string action, string? group = null, Action<string>? p = null, CancellationToken ct = default)
         {
             await Gate.Task;
@@ -59,15 +65,21 @@ public sealed class WsusUpdatesBusyTests
     public async Task TwoToggledBoxesInARowReadOnceMore()
     {
         var fake = new FakeWsusAdminClient { Updates = [Update()] };
-        var vm = new WsusUpdatesViewModel(fake, new WsusSettings { ServerName = "wsus01" }, new FakeWsusPrompts());
-        await vm.LoadAsync();
+        var client = new GatedClient(fake) { ListGate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously) };
+        var vm = new WsusUpdatesViewModel(client, new WsusSettings { ServerName = "wsus01" }, new FakeWsusPrompts());
 
+        // The first read is held on the server while the box is toggled twice.
+        var first = vm.LoadAsync();
+        Assert.True(SpinWait.SpinUntil(() => fake.Calls.Contains("List:False"), TimeSpan.FromSeconds(10)));
         vm.ShowOtherPublishers = true;
         vm.ShowOtherPublishers = false;
-        Assert.True(SpinWait.SpinUntil(() => !vm.Busy, TimeSpan.FromSeconds(10)));
-        await Task.Delay(200);
+        Assert.Single(fake.Calls, c => c.StartsWith("List:", StringComparison.Ordinal));
+
+        client.ListGate.SetResult();
+        await first;
 
         Assert.False(vm.Busy);
-        Assert.Equal("List:False", fake.Calls.Last(c => c.StartsWith("List:")));
+        var reads = fake.Calls.Where(c => c.StartsWith("List:", StringComparison.Ordinal)).ToList();
+        Assert.Equal(["List:False", "List:False"], reads);
     }
 }
