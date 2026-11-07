@@ -37,7 +37,9 @@ $repoRoot = Split-Path -Parent $PSScriptRoot
 $projectPath = Join-Path $repoRoot 'src\ApplicationPackagerUI\ApplicationPackagerUI.csproj'
 $script = Join-Path $repoRoot 'installer\AppPackagerDesktop.nsi'
 $icon = Join-Path $repoRoot 'src\ApplicationPackagerUI\app.ico'
-foreach ($required in @($projectPath, $script, $icon)) {
+$runtimeScript = Join-Path $repoRoot 'installer\Install-DesktopRuntime.ps1'
+$runtimeProps = Join-Path $repoRoot 'src\DesktopRuntime.props'
+foreach ($required in @($projectPath, $script, $icon, $runtimeScript, $runtimeProps)) {
     if (-not (Test-Path -LiteralPath $required)) { throw "Missing: $required" }
 }
 $StageDir = (Resolve-Path -LiteralPath $StageDir).Path
@@ -63,6 +65,12 @@ if (-not $MakeNsis -or -not (Test-Path -LiteralPath $MakeNsis)) {
 $version = (($projectXml.Project.PropertyGroup.Version | Where-Object { $_ }) | Select-Object -First 1)
 if (-not $version) { throw "No <Version> element in $projectPath." }
 $version = "$version".Trim()
+# The lowest .NET Windows Desktop Runtime the application needs; one value for the runtime configuration,
+# the installer check and the script default.
+[xml]$propsXml = Get-Content -LiteralPath $runtimeProps
+$runtimeMin = (($propsXml.Project.PropertyGroup.DesktopRuntimeMinimum | Where-Object { $_ }) | Select-Object -First 1)
+if (-not $runtimeMin -or "$runtimeMin".Trim() -notmatch '^\d+\.\d+\.\d+$') { throw "No usable <DesktopRuntimeMinimum> in $runtimeProps." }
+$runtimeMin = "$runtimeMin".Trim()
 # The version resource takes four numeric parts; a pre-release suffix is
 # dropped there and kept in ProductVersion and DisplayVersion.
 $numeric = ($version -split '-', 2)[0]
@@ -102,6 +110,8 @@ Write-Host "App Packager Desktop $version installer <- $StageDir ($fileCount fil
     "/DOUT_FILE=$outFile" `
     "/DGENERATED_DIR=$generatedDir" `
     "/DICON_FILE=$icon" `
+    "/DRUNTIME_MIN=$runtimeMin" `
+    "/DRUNTIME_SCRIPT=$runtimeScript" `
     $script
 if ($LASTEXITCODE -ne 0) { throw "makensis failed with exit code $LASTEXITCODE" }
 if (-not (Test-Path -LiteralPath $outFile)) { throw "makensis reported success but $outFile is missing." }

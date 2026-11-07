@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+### Changed
+
+- Ship the application without the .NET runtime; it needs the Desktop Runtime 10.0.14 (x64).
+- Install the Desktop Runtime from Microsoft in the installer when it is missing.
+- Make the installer and the update download smaller.
+
 ### Fixed
 - Keep the WSUS Updates window locked while a write to the server works: the "show other publishers" box no longer unlocks Approve, Decline, Expire and Remove under a running write, and reads once when the work ends.
 - Keep what the operator enters when the settings file cannot be stored: Setup and "Don't show again" store their choice over an unreadable file (with a copy of the bad file), Catalog says "Not saved" instead of "Saved", and the Settings page keeps a typed Intune secret and NVD key when the write fails.

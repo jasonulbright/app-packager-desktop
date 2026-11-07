@@ -147,7 +147,8 @@ jobs:
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
-      # The two single-file publishes leave two executables, the application
+      # The release is framework-dependent: the .NET Windows Desktop Runtime is not shipped, and the installer
+      # installs it on demand. The two single-file publishes leave two executables, the application
       # and AppPackagerBuild.exe; any loose DLL beside them is signed as well.
       # The timestamp keeps the signature valid after the short-lived signing
       # certificate expires.
