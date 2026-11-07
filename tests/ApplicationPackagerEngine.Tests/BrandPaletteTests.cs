@@ -32,7 +32,7 @@ public sealed class BrandPaletteTests
 
     private static Color C(string hex) => (Color)System.Windows.Media.ColorConverter.ConvertFromString(hex);
 
-    private static string PalettePath(ApplicationTheme theme)
+    internal static string PalettePath(ApplicationTheme theme)
     {
         var folder = new DirectoryInfo(AppContext.BaseDirectory);
         string Relative(DirectoryInfo f) => Path.Combine(f.FullName, "src", "ApplicationPackagerUI", "Views", "Styles", $"Palette.{theme}.xaml");
