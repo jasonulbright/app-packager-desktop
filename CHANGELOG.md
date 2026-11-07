@@ -3,6 +3,8 @@
 ## [Unreleased]
 
 ### Fixed
+- Stop a hanging `gh auth token` read from blocking every scraper that needs a GitHub token: the read now ends at its 10 second limit.- Keep the results of the apps done before a failure in Convert from ConfigMgr with Package and Publish: the error now names the failed app and lists the earlier apps, which can already be in Intune.
+- Keep the results of the apps done before a failure in Convert from ConfigMgr with Package and Publish: the error now names the failed app and lists the earlier apps, which can already be in Intune.
 - Download the first copy of a FileVersion file to a side file and move it into the cache when it is whole, stop curl when the check is cancelled, name a cache file from a stable hash of its URL, and check the magic bytes of an installer copied from the version cache before it is staged.
 
 - Keep every write blocked on Collection and Compliance and on Maintenance Windows while a run continues after its plan window was force closed, read no list meanwhile, and offer the Undo when the run ends.

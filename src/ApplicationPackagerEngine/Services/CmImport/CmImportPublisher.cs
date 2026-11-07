@@ -36,11 +36,10 @@ public sealed class CmImportPublisher(IntuneWinToolService tool, IntunePublishSe
     public async Task<IReadOnlyList<CmPackagedApp>> PackageAsync(CmImportPlan plan, CmStageResult stage, string toolPath,
         IntunePublishOptions? options, Action<string>? onProgress = null, CancellationToken ct = default)
     {
-        var results = new List<CmPackagedApp>();
         var missing = stage.Staged.FirstOrDefault(s => !Directory.Exists(s.ContentFolder) || !Directory.EnumerateFileSystemEntries(s.ContentFolder).Any());
         if (missing is not null)
             throw new InvalidOperationException($"The content folder of '{missing.Name}' is missing or empty: {missing.ContentFolder}. The stage skipped the content copy, so the app cannot be built or published.");
-        foreach (var item in stage.Staged)
+        return await PackageEachAsync(stage.Staged, async item =>
         {
             var dt = plan.DeploymentTypes.FirstOrDefault(d => d.Convert && d.Name == item.Name)
                 ?? throw new InvalidOperationException($"The plan has no convertible deployment type named '{item.Name}'.");
@@ -62,8 +61,50 @@ public sealed class CmImportPublisher(IntuneWinToolService tool, IntunePublishSe
                 appId = await publisher.PublishAsync(built.IntuneWinPath, ToStageManifest(manifest), perApp, onProgress, ct,
                     conversion: ToOverrides(manifest)).ConfigureAwait(false);
             }
-            results.Add(new CmPackagedApp(item.Name, item.IntuneName, built.IntuneWinPath, appId));
+            return new CmPackagedApp(item.Name, item.IntuneName, built.IntuneWinPath, appId);
+        }).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Runs the step for each app in order. A failure of one app throws <see cref="CmImportPartialException"/>
+    /// with the apps that were done before it, which can already be in Intune. A cancel is not wrapped.
+    /// </summary>
+    internal static async Task<IReadOnlyList<CmPackagedApp>> PackageEachAsync(
+        IReadOnlyList<CmStagedApp> items, Func<CmStagedApp, Task<CmPackagedApp>> packageOne)
+    {
+        var results = new List<CmPackagedApp>();
+        foreach (var item in items)
+        {
+            try { results.Add(await packageOne(item).ConfigureAwait(false)); }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                throw new CmImportPartialException(results, item.Name, ex);
+            }
         }
         return results;
     }
+}
+
+/// <summary>
+/// A packaging or publish step failed for one app after earlier apps were done. <see cref="Completed"/> holds those
+/// apps; with Publish on they are already in Intune. It is an <see cref="InvalidOperationException"/> so a caller
+/// that handled the earlier failure still handles this one.
+/// </summary>
+public sealed class CmImportPartialException : InvalidOperationException
+{
+    public CmImportPartialException(IReadOnlyList<CmPackagedApp> completed, string failedName, Exception inner)
+        : base(Describe(completed, failedName, inner), inner)
+    {
+        Completed = [.. completed];
+        FailedName = failedName;
+    }
+
+    public IReadOnlyList<CmPackagedApp> Completed { get; }
+
+    public string FailedName { get; }
+
+    private static string Describe(IReadOnlyList<CmPackagedApp> completed, string failedName, Exception inner) =>
+        completed.Count == 0
+            ? $"'{failedName}' failed: {inner.Message}"
+            : $"'{failedName}' failed: {inner.Message} Done before it: {string.Join(", ", completed.Select(c => c.AppId.Length > 0 ? $"{c.Name} (published, {c.AppId})" : $"{c.Name} (built)"))}.";
 }

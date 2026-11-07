@@ -89,15 +89,21 @@ public static class GitHubAuth
     private static string? Sanitize(string token)
         => token.AsSpan().IndexOfAny('"', '\r', '\n') >= 0 ? null : token;
 
-    private static string? ReadGhCliToken()
+    private static string? ReadGhCliToken() => ReadCliToken("gh", "auth token", 10_000);
+
+    /// <summary>
+    /// Runs the CLI and returns its output when it ends with success inside the time limit. The output
+    /// is read in the background, so a CLI that hangs cannot hold the caller past the limit.
+    /// </summary>
+    internal static string? ReadCliToken(string fileName, string arguments, int timeoutMs)
     {
         try
         {
             using var process = new Process();
             process.StartInfo = new ProcessStartInfo
             {
-                FileName = "gh",
-                Arguments = "auth token",
+                FileName = fileName,
+                Arguments = arguments,
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
                 UseShellExecute = false,
@@ -105,14 +111,22 @@ public static class GitHubAuth
             };
 
             process.Start();
-            var stdout = process.StandardOutput.ReadToEnd();
-            if (!process.WaitForExit(10_000))
+            var stdout = process.StandardOutput.ReadToEndAsync();
+            var stderr = process.StandardError.ReadToEndAsync();
+            // One deadline covers the wait for the process and the read of its output.
+            var clock = Stopwatch.StartNew();
+            if (!process.WaitForExit(timeoutMs))
             {
                 try { process.Kill(true); } catch { }
                 return null;
             }
 
-            return process.ExitCode == 0 ? stdout.Trim() : null;
+            // The process has ended; its pipes close with it. A child that keeps a pipe open is given only
+            // the time that is left of the limit.
+            var left = TimeSpan.FromMilliseconds(Math.Max(0, timeoutMs - clock.ElapsedMilliseconds));
+            if (!stdout.Wait(left) || !stdout.IsCompletedSuccessfully) return null;
+            _ = stderr;
+            return process.ExitCode == 0 ? stdout.GetAwaiter().GetResult().Trim() : null;
         }
         catch
         {
