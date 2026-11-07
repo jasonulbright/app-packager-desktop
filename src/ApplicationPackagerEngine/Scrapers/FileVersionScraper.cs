@@ -312,6 +312,7 @@ public sealed class FileVersionScraper : IVersionScraper
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
             if (!File.Exists(outFile) || new FileInfo(outFile).Length == 0) throw;
+            System.Diagnostics.Trace.WriteLine($"The move of '{partPath}' onto '{outFile}' was refused ({ex.GetType().Name}: {ex.Message}); a whole file from another run is in place.");
         }
     }
 
