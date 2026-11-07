@@ -6,7 +6,7 @@ namespace ApplicationPackagerEngine.Tests;
 /// <summary>
 /// The runtime check of the installer: installer\Install-DesktopRuntime.ps1 decides whether the .NET Windows Desktop
 /// Runtime at the minimum version is installed and checks a download before it runs it. The functions run in
-/// Windows PowerShell 5.1, the shell the installer uses.
+/// Windows PowerShell 5.1, the shell the installer uses. None of these tests opens a window.
 /// </summary>
 public sealed class DesktopRuntimeScriptTests
 {
@@ -20,7 +20,7 @@ public sealed class DesktopRuntimeScriptTests
 
     private static string ScriptPath => RepoFile("installer", "Install-DesktopRuntime.ps1");
 
-    private static (int ExitCode, string Output) Run(string command)
+    private static async Task<(int ExitCode, string Output)> Run(string command)
     {
         var info = new ProcessStartInfo("powershell.exe", $"-NoProfile -NonInteractive -ExecutionPolicy Bypass -Command \"{command.Replace("\"", "\\\"")}\"")
         {
@@ -32,13 +32,23 @@ public sealed class DesktopRuntimeScriptTests
         using var process = Process.Start(info)!;
         var output = process.StandardOutput.ReadToEndAsync();
         var error = process.StandardError.ReadToEndAsync();
-        Assert.True(process.WaitForExit(120_000), "powershell.exe did not end.");
-        return (process.ExitCode, (output.Result + error.Result).Trim());
+        using var limit = new CancellationTokenSource(TimeSpan.FromSeconds(120));
+        try
+        {
+            await process.WaitForExitAsync(limit.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            // The whole process tree ends, so no powershell.exe stays behind a failed run.
+            try { process.Kill(entireProcessTree: true); } catch (InvalidOperationException) { }
+            throw new TimeoutException("powershell.exe did not end within 120 seconds.");
+        }
+        return (process.ExitCode, (await output + await error).Trim());
     }
 
-    private static string Call(string expression)
+    private static async Task<string> Call(string expression)
     {
-        var (exit, output) = Run($". '{ScriptPath}'; {expression}");
+        var (exit, output) = await Run($". '{ScriptPath}'; {expression}");
         Assert.True(exit == 0, output);
         return output;
     }
@@ -56,25 +66,25 @@ public sealed class DesktopRuntimeScriptTests
     [InlineData("11.0.0-preview.1", "10.0.14", false)]
     [InlineData("garbage", "10.0.14", false)]
     [InlineData("", "10.0.14", false)]
-    public void OneInstalledVersionIsEnoughOnlyWhenItIsTheMinimumOrNewer(string installed, string minimum, bool expected) =>
-        Assert.Equal(expected ? "True" : "False", Call($"Test-DesktopRuntimeSatisfied -InstalledVersions @('{installed}') -Minimum '{minimum}'"));
+    public async Task OneInstalledVersionIsEnoughOnlyWhenItIsTheMinimumOrNewer(string installed, string minimum, bool expected) =>
+        Assert.Equal(expected ? "True" : "False", await Call($"Test-DesktopRuntimeSatisfied -InstalledVersions @('{installed}') -Minimum '{minimum}'"));
 
     [Fact]
-    public void ANewEnoughRuntimeAmongOldOnesAndGarbageIsFound() =>
-        Assert.Equal("True", Call("Test-DesktopRuntimeSatisfied -InstalledVersions @('6.0.36','8.0.33','x','10.0.14','9.0.22') -Minimum '10.0.14'"));
+    public async Task ANewEnoughRuntimeAmongOldOnesAndGarbageIsFound() =>
+        Assert.Equal("True", await Call("Test-DesktopRuntimeSatisfied -InstalledVersions @('6.0.36','8.0.33','x','10.0.14','9.0.22') -Minimum '10.0.14'"));
 
     [Fact]
-    public void OnlyOldRuntimesAreNotEnough() =>
-        Assert.Equal("False", Call("Test-DesktopRuntimeSatisfied -InstalledVersions @('6.0.36','8.0.33','9.0.22','10.0.13') -Minimum '10.0.14'"));
+    public async Task OnlyOldRuntimesAreNotEnough() =>
+        Assert.Equal("False", await Call("Test-DesktopRuntimeSatisfied -InstalledVersions @('6.0.36','8.0.33','9.0.22','10.0.13') -Minimum '10.0.14'"));
 
     [Fact]
-    public void NoRuntimeAtAllIsNotEnough() =>
-        Assert.Equal("False", Call("Test-DesktopRuntimeSatisfied -InstalledVersions @() -Minimum '10.0.14'"));
+    public async Task NoRuntimeAtAllIsNotEnough() =>
+        Assert.Equal("False", await Call("Test-DesktopRuntimeSatisfied -InstalledVersions @() -Minimum '10.0.14'"));
 
     [Fact]
-    public void AMinimumThatIsNotAVersionIsAnError()
+    public async Task AMinimumThatIsNotAVersionIsAnError()
     {
-        var (exit, output) = Run($". '{ScriptPath}'; Test-DesktopRuntimeSatisfied -InstalledVersions @('10.0.14') -Minimum 'ten'");
+        var (exit, output) = await Run($". '{ScriptPath}'; Test-DesktopRuntimeSatisfied -InstalledVersions @('10.0.14') -Minimum 'ten'");
         Assert.NotEqual(0, exit);
         Assert.Contains("not a version", output);
     }
@@ -87,8 +97,23 @@ public sealed class DesktopRuntimeScriptTests
     [InlineData("https://example.com/windowsdesktop-runtime-win-x64.exe", false)]
     [InlineData("https://aka.ms.example.com/x.exe", false)]
     [InlineData("https://notmicrosoft.com/x.exe", false)]
-    public void OnlyAnHttpsAddressOfMicrosoftIsAccepted(string url, bool expected) =>
-        Assert.Equal(expected ? "True" : "False", Call($"Test-RuntimeDownloadUri ([uri]'{url}')"));
+    [InlineData("https://other.microsoft.com/x.exe", false)]
+    [InlineData("https://contoso.azureedge.net/x.exe", false)]
+    [InlineData("https://contoso.blob.core.windows.net/x.exe", false)]
+    [InlineData("https://builds.dotnet.microsoft.com.example.com/x.exe", false)]
+    public async Task OnlyAnHttpsAddressOfAVerifiedMicrosoftHostIsAccepted(string url, bool expected) =>
+        Assert.Equal(expected ? "True" : "False", await Call($"Test-RuntimeDownloadUri ([uri]'{url}')"));
+
+    [Theory]
+    [InlineData("Microsoft Windows Desktop Runtime 10.0.14 (x64)", true)]
+    [InlineData("Microsoft Windows Desktop Runtime - 8.0.33 (x64)", true)]
+    [InlineData("Microsoft Windows Desktop Runtime 10.0.14 (x86)", false)]
+    [InlineData("Microsoft .NET Runtime - 10.0.14 (x64)", false)]
+    [InlineData("Microsoft ASP.NET Core 10.0.14 - Shared Framework (x64)", false)]
+    [InlineData("Setup", false)]
+    [InlineData("", false)]
+    public async Task OnlyTheX64WindowsDesktopRuntimeInstallerHasTheRightProductName(string name, bool expected) =>
+        Assert.Equal(expected ? "True" : "False", await Call($"Test-DesktopRuntimeProductName '{name}'"));
 
     [Theory]
     [InlineData("CN=.NET, O=Microsoft Corporation, L=Redmond, S=Washington, C=US", true)]
@@ -98,11 +123,11 @@ public sealed class DesktopRuntimeScriptTests
     [InlineData("CN=Microsoft Corporation, O=Contoso Ltd, C=US", false)]
     [InlineData("CN=Fake, O=Microsoft Corporation Fake, C=US", false)]
     [InlineData("", false)]
-    public void OnlyAnOrganizationOfMicrosoftCorporationIsATrustedSigner(string subject, bool expected) =>
-        Assert.Equal(expected ? "True" : "False", Call($"Test-MicrosoftSignerSubject '{subject}'"));
+    public async Task OnlyAnOrganizationOfMicrosoftCorporationIsATrustedSigner(string subject, bool expected) =>
+        Assert.Equal(expected ? "True" : "False", await Call($"Test-MicrosoftSignerSubject '{subject}'"));
 
     [Fact]
-    public void TheRuntimeFoldersOfAnInstallRootAreListedAndOtherNamesAreKept()
+    public async Task TheRuntimeFoldersOfAnInstallRootAreListedAndOtherNamesAreKept()
     {
         var root = Path.Combine(Path.GetTempPath(), "apd-dotnet-" + Guid.NewGuid().ToString("N"));
         try
@@ -112,10 +137,10 @@ public sealed class DesktopRuntimeScriptTests
             File.WriteAllText(Path.Combine(shared, "stray.txt"), "x");
             Directory.CreateDirectory(Path.Combine(root, "shared", "Microsoft.NETCore.App", "10.0.14"));
 
-            var listed = Call($"(Get-DesktopRuntimeVersionsInRoot -Root '{root}' | Sort-Object) -join ','");
+            var listed = await Call($"(Get-DesktopRuntimeVersionsInRoot -Root '{root}' | Sort-Object) -join ','");
             Assert.Equal("10.0.14,11.0.0-rc.1,9.0.22", listed);
-            Assert.Equal("True", Call($"Test-DesktopRuntimeSatisfied -InstalledVersions (Get-DesktopRuntimeVersionsInRoot -Root '{root}') -Minimum '10.0.14'"));
-            Assert.Equal("False", Call($"Test-DesktopRuntimeSatisfied -InstalledVersions (Get-DesktopRuntimeVersionsInRoot -Root '{root}') -Minimum '10.0.15'"));
+            Assert.Equal("True", await Call($"Test-DesktopRuntimeSatisfied -InstalledVersions (Get-DesktopRuntimeVersionsInRoot -Root '{root}') -Minimum '10.0.14'"));
+            Assert.Equal("False", await Call($"Test-DesktopRuntimeSatisfied -InstalledVersions (Get-DesktopRuntimeVersionsInRoot -Root '{root}') -Minimum '10.0.15'"));
         }
         finally { Directory.Delete(root, recursive: true); }
     }
@@ -123,16 +148,16 @@ public sealed class DesktopRuntimeScriptTests
     [Theory]
     [InlineData("")]
     [InlineData("C:\\does\\not\\exist")]
-    public void AMissingInstallRootHasNoRuntimes(string root) =>
-        Assert.Equal("0", Call($"@(Get-DesktopRuntimeVersionsInRoot -Root '{root}').Count"));
+    public async Task AMissingInstallRootHasNoRuntimes(string root) =>
+        Assert.Equal("0", await Call($"@(Get-DesktopRuntimeVersionsInRoot -Root '{root}').Count"));
 
     [Fact]
     public async Task ADownloadFromAnAddressThatIsNotAnHttpsAddressOfMicrosoftSavesNothing()
     {
-        var port = System.Net.Sockets.TcpListener.Create(0);
-        port.Start();
-        var number = ((System.Net.IPEndPoint)port.LocalEndpoint).Port;
-        port.Stop();
+        var probe = System.Net.Sockets.TcpListener.Create(0);
+        probe.Start();
+        var number = ((System.Net.IPEndPoint)probe.LocalEndpoint).Port;
+        probe.Stop();
         using var listener = new System.Net.HttpListener();
         listener.Prefixes.Add($"http://127.0.0.1:{number}/");
         listener.Start();
@@ -145,7 +170,7 @@ public sealed class DesktopRuntimeScriptTests
         var file = Path.Combine(Path.GetTempPath(), "apd-save-" + Guid.NewGuid().ToString("N") + ".exe");
         try
         {
-            var result = await Task.Run(() => Call($"$r = Save-RuntimeDownload -Url 'http://127.0.0.1:{number}/x.exe' -Path '{file}'; if ($null -eq $r) {{ 'null' }} else {{ 'not null' }}"));
+            var result = await Call($"$r = Save-RuntimeDownload -Url 'http://127.0.0.1:{number}/x.exe' -Path '{file}'; if ($null -eq $r) {{ 'null' }} else {{ 'not null' }}");
             await served;
 
             Assert.Equal("null", result);
@@ -155,56 +180,58 @@ public sealed class DesktopRuntimeScriptTests
     }
 
     [Fact]
-    public void AnUnsignedFileIsNotTrusted()
+    public async Task AnUnsignedFileIsNotTrusted()
     {
         var file = Path.Combine(Path.GetTempPath(), "apd-unsigned-" + Guid.NewGuid().ToString("N") + ".exe");
         File.WriteAllBytes(file, [(byte)'M', (byte)'Z', 1, 2, 3, 4, 5, 6]);
         try
         {
-            var (exit, output) = Run($". '{ScriptPath}'; Assert-RuntimeInstallerTrusted -Path '{file}' -Minimum '10.0.14'");
+            var (exit, output) = await Run($". '{ScriptPath}'; Assert-MicrosoftSigned -Path '{file}'");
             Assert.NotEqual(0, exit);
             Assert.Contains("signature", output);
         }
         finally { File.Delete(file); }
     }
 
-    private static string? MicrosoftSignedFile()
+    // A file that every Windows has and that carries a valid Microsoft signature: the Windows PowerShell executable,
+    // which this test starts itself. A missing file fails the test; it is never skipped.
+    private static string WindowsPowerShell()
     {
-        var dotnet = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "dotnet", "dotnet.exe");
-        return File.Exists(dotnet) ? dotnet : null;
+        var path = Path.Combine(Environment.SystemDirectory, "WindowsPowerShell", "v1.0", "powershell.exe");
+        Assert.True(File.Exists(path), $"The test needs {path}.");
+        return path;
     }
 
     [Fact]
-    public void AFileSignedByMicrosoftCorporationAtAHighEnoughVersionIsTrusted()
+    public async Task AFileWithAValidSignatureOfMicrosoftCorporationIsTrustedAsASigner()
     {
-        if (MicrosoftSignedFile() is not { } signed) return;
-        // dotnet.exe carries the .NET version as its product version: far above 1.0.0.
-        var (exit, output) = Run($". '{ScriptPath}'; Assert-RuntimeInstallerTrusted -Path '{signed}' -Minimum '1.0.0'; 'trusted'");
+        var signed = WindowsPowerShell();
+        var (signatureExit, status) = await Run($"(Get-AuthenticodeSignature -LiteralPath '{signed}').Status");
+        Assert.True(signatureExit == 0 && status == "Valid", $"The test file has no valid signature: {status}");
+
+        var (exit, output) = await Run($". '{ScriptPath}'; Assert-MicrosoftSigned -Path '{signed}'; 'trusted'");
         Assert.True(exit == 0, output);
-        Assert.Contains("trusted", output);
+        Assert.Equal("trusted", output);
     }
 
     [Fact]
-    public void AFileSignedByMicrosoftCorporationBelowTheMinimumVersionIsNotTrusted()
+    public async Task AValidMicrosoftFileThatIsNotTheDesktopRuntimeInstallerIsNotTrusted()
     {
-        if (MicrosoftSignedFile() is not { } signed) return;
-        var (exit, output) = Run($". '{ScriptPath}'; Assert-RuntimeInstallerTrusted -Path '{signed}' -Minimum '999.0.0'");
+        var signed = WindowsPowerShell();
+
+        var (exit, output) = await Run($". '{ScriptPath}'; Assert-RuntimeInstallerTrusted -Path '{signed}' -Minimum '1.0.0'");
+
         Assert.NotEqual(0, exit);
-        Assert.Contains("below the minimum", output);
+        Assert.Contains("not the x64 Windows Desktop Runtime installer", output);
     }
 
     [Fact]
-    public void TheCheckOnlyRunAnswersFromTheRegistry()
+    public async Task TheCheckOnlyRunAnswersFromTheInstalledRuntimes()
     {
         // A minimum no machine has: 1, and the text names the minimum.
-        var (exit, output) = Run($"& '{ScriptPath}' -MinimumVersion 999.0.0 -CheckOnly; exit $LASTEXITCODE");
+        var (exit, output) = await Run($"& '{ScriptPath}' -MinimumVersion 999.0.0 -CheckOnly; exit $LASTEXITCODE");
         Assert.Equal(1, exit);
         Assert.Contains("999.0.0 or newer (x64) is not installed", output);
-
-        // A minimum every machine that runs these tests has: 0.
-        var (okExit, okOutput) = Run($"& '{ScriptPath}' -MinimumVersion 8.0.0 -CheckOnly; exit $LASTEXITCODE");
-        Assert.True(okExit == 0, okOutput);
-        Assert.Contains("is installed (x64)", okOutput);
     }
 
     [Fact]

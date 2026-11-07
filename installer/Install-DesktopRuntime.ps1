@@ -103,14 +103,19 @@ function Get-InstalledDesktopRuntimeVersions {
     return @($names | Select-Object -Unique)
 }
 
-# True when the address is https and its host is one that Microsoft serves the runtime from.
+# True when the address is https and its host is exactly one that the runtime is served from: the aka.ms redirect
+# and the two Microsoft download hosts. A host of a wider kind (a storage or CDN domain) is not accepted.
 function Test-RuntimeDownloadUri {
     param([uri]$Uri)
     if ($null -eq $Uri -or $Uri.Scheme -ne 'https') { return $false }
-    foreach ($suffix in @('aka.ms', 'dot.net', 'microsoft.com', 'visualstudio.microsoft.com', 'azureedge.net', 'windows.net')) {
-        if ($Uri.Host -eq $suffix -or $Uri.Host.EndsWith('.' + $suffix, [StringComparison]::OrdinalIgnoreCase)) { return $true }
-    }
-    return $false
+    return ($Uri.Host -in @('aka.ms', 'builds.dotnet.microsoft.com', 'download.visualstudio.microsoft.com'))
+}
+
+# True when the product name is the Windows Desktop Runtime installer for x64, for example
+# "Microsoft Windows Desktop Runtime 10.0.14 (x64)" (the 8.0 installers write "Runtime - 8.0.33 (x64)").
+function Test-DesktopRuntimeProductName {
+    param([string]$ProductName)
+    return ($ProductName -match '^Microsoft Windows Desktop Runtime( -)? \d+\.\d+\.\d+ \(x64\)$')
 }
 
 # True when the certificate subject names Microsoft Corporation as the organization.
@@ -119,9 +124,9 @@ function Test-MicrosoftSignerSubject {
     return ($Subject -match '(^|, )O=Microsoft Corporation(,|$)')
 }
 
-# Throws unless the file is signed by Microsoft Corporation with a valid signature and carries at least the minimum version.
-function Assert-RuntimeInstallerTrusted {
-    param([string]$Path, [string]$Minimum)
+# Throws unless the file has a valid Authenticode signature of Microsoft Corporation.
+function Assert-MicrosoftSigned {
+    param([string]$Path)
     $signature = Get-AuthenticodeSignature -LiteralPath $Path
     if ($signature.Status -ne 'Valid') { throw "The signature of the download is not valid ($($signature.Status))." }
     $subject = [string]$signature.SignerCertificate.Subject
@@ -129,7 +134,18 @@ function Assert-RuntimeInstallerTrusted {
     if (-not (Test-MicrosoftSignerSubject $subject)) {
         throw "The download is signed by '$subject', not by Microsoft Corporation."
     }
-    $fileVersion = (Get-Item -LiteralPath $Path).VersionInfo.ProductVersion
+}
+
+# Throws unless the file is signed by Microsoft Corporation, is the x64 Windows Desktop Runtime installer and carries at
+# least the minimum version.
+function Assert-RuntimeInstallerTrusted {
+    param([string]$Path, [string]$Minimum)
+    Assert-MicrosoftSigned -Path $Path
+    $info = (Get-Item -LiteralPath $Path).VersionInfo
+    if (-not (Test-DesktopRuntimeProductName ([string]$info.ProductName))) {
+        throw "The download is '$($info.ProductName)', not the x64 Windows Desktop Runtime installer."
+    }
+    $fileVersion = $info.ProductVersion
     $numbers = [regex]::Match([string]$fileVersion, '^\d+\.\d+\.\d+').Value
     if (-not (Test-DesktopRuntimeSatisfied -InstalledVersions @($numbers) -Minimum $Minimum)) {
         throw "The download is version '$fileVersion', below the minimum $Minimum."

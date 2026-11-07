@@ -101,7 +101,7 @@ dotnet test tests\ApplicationPackagerEngine.Tests\ApplicationPackagerEngine.Test
 tools\build-release.ps1
 ```
 
-`tools\build-release.ps1` publishes framework-dependent single-file win-x64 builds of the window and of the command-line build. The .NET Windows Desktop Runtime is not shipped. The minimum version is `DesktopRuntimeMinimum` in `srcDesktopRuntime.props`. It compiles the installer when NSIS is installed. It writes `AppPackagerDesktop-Setup-<version>.exe`, `AppPackagerDesktop-<version>.zip` and `checksums.txt` into `publish\`.
+`tools\build-release.ps1` publishes framework-dependent single-file win-x64 builds of the window and of the command-line build. The .NET Windows Desktop Runtime is not shipped. The minimum version is `DesktopRuntimeMinimum` in `src/DesktopRuntime.props`. It compiles the installer when NSIS is installed. It writes `AppPackagerDesktop-Setup-<version>.exe`, `AppPackagerDesktop-<version>.zip` and `checksums.txt` into `publish\`.
 
 | Project | Content |
 |---|---|
