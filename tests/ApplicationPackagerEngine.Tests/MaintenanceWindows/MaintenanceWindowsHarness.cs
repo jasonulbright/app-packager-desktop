@@ -119,6 +119,7 @@ internal sealed class FakeMaintenanceService : IMaintenanceWindowService
 
     /// <summary>Called after each change was reported; a test can cancel here.</summary>
     public Action<int>? AfterChange;
+    public TaskCompletionSource? ApplyGate;
 
     public static MaintenanceSchedule Weekly(DateTime start, int hours = 4) =>
         new(MaintenanceScheduleKind.Weekly, start, TimeSpan.FromHours(hours), false, 1, DayOfWeek.Sunday, null, null, 0, null);
@@ -175,6 +176,7 @@ internal sealed class FakeMaintenanceService : IMaintenanceWindowService
     {
         if (InConfirmedRun is { } check) Assert.True(check(), "A write ran outside a confirmed change plan.");
         lock (Applied) Applied.Add(changes.ToList());
+        if (ApplyGate is { } gate) await gate.Task;
         var outcomes = new List<MaintenanceOutcome>();
         for (var i = 0; i < changes.Count; i++)
         {

@@ -115,6 +115,7 @@ public sealed partial class CollectionComplianceViewModel : ObservableObject
     private int _generation;
     private int _listGeneration;
     private bool _writing;
+    private bool _background;
     private CollectionPlan? _lastRunPlan;
     private IReadOnlyList<CollectionGridRow> _selectedRows = [];
 
@@ -190,6 +191,11 @@ public sealed partial class CollectionComplianceViewModel : ObservableObject
     public void SetSelectedRows(IEnumerable<CollectionGridRow> rows)
     {
         _selectedRows = rows.ToList();
+        EditCollectionCommand.NotifyCanExecuteChanged();
+        CopyCollectionCommand.NotifyCanExecuteChanged();
+        AddDirectMembersCommand.NotifyCanExecuteChanged();
+        AddIncludeRuleCommand.NotifyCanExecuteChanged();
+        AddExcludeRuleCommand.NotifyCanExecuteChanged();
         EvaluateCommand.NotifyCanExecuteChanged();
     }
 
@@ -728,10 +734,16 @@ public sealed partial class CollectionComplianceViewModel : ObservableObject
         bool checkState = true,
         IReadOnlyList<CollectionPlanEntry>? extraSkips = null)
     {
-        if (_writing) return null;
+        if (_writing)
+        {
+            // A refused start says why when a run still works in the background.
+            if (_background) { StatusMessage = BackgroundRunText; report?.Invoke(BackgroundRunText); }
+            return null;
+        }
         _writing = true;
         _lastRunPlan = null;
         NotifyWriteCommands();
+        var detached = false;
         try
         {
             var generation = _generation;
@@ -787,12 +799,50 @@ public sealed partial class CollectionComplianceViewModel : ObservableObject
                 : new CollectionPlan(built.Action, built.Plan.Title, built.Plan.ActionName, [.. skips, .. built.Entries], built.Plan.IsDestructive, built.Plan.HasUndo) { IsUndo = built.IsUndo };
 
             var outcome = _services.Plans.Show(plan.Plan, _services.Writer.RunFor(plan), plan.Plan.HasUndo ? _services.Writer.UndoFor(plan) : null);
+            // A window force closed while the run works: the run still changes ConfigMgr, so every
+            // write stays blocked and no list is read until the run ends.
+            if (outcome.Result?.Stop == ChangePlanStop.Detached || outcome.UndoResult?.Stop == ChangePlanStop.Detached)
+            {
+                detached = true;
+                _background = true;
+                _ = WaitForBackgroundRunAsync(plan, outcome.UndoResult is null);
+                Refuse(BackgroundRunText);
+                return null;
+            }
             if (outcome.Confirmed) _lastRunPlan = plan;
             ShowOutcome(plan, outcome);
             return (plan, outcome);
         }
         finally
         {
+            if (!detached)
+            {
+                _writing = false;
+                NotifyWriteCommands();
+            }
+        }
+    }
+
+    public const string BackgroundRunText =
+        "The plan window was closed while the run was still working. The run continues in the background and can still change ConfigMgr. Wait until it ends before you start another change.";
+    public const string BackgroundRunEndedText = "The run that continued in the background has ended. Refresh the lists to see the result.";
+
+    /// <summary>Keeps every write blocked until the run that a closed plan window left working ends. No list is read meanwhile; the Undo of the run is offered when it ends.</summary>
+    private async Task WaitForBackgroundRunAsync(CollectionPlan plan, bool offerUndo)
+    {
+        try { await _services.Writer.Running; }
+        catch (Exception ex)
+        {
+            _services.Log.Warning(LogArea, $"A run that continued in the background failed ({FailureName(ex)}).");
+        }
+        finally
+        {
+            LastPlan = offerUndo ? (plan.UndoChanges().Count > 0 ? plan : null) : plan.Remaining(plan.UndoOutcomes);
+            if (_active)
+            {
+                StatusMessage = BackgroundRunEndedText;
+            }
+            _background = false;
             _writing = false;
             NotifyWriteCommands();
         }
@@ -800,6 +850,11 @@ public sealed partial class CollectionComplianceViewModel : ObservableObject
 
     private void NotifyWriteCommands()
     {
+        EditCollectionCommand.NotifyCanExecuteChanged();
+        CopyCollectionCommand.NotifyCanExecuteChanged();
+        AddDirectMembersCommand.NotifyCanExecuteChanged();
+        AddIncludeRuleCommand.NotifyCanExecuteChanged();
+        AddExcludeRuleCommand.NotifyCanExecuteChanged();
         EvaluateCommand.NotifyCanExecuteChanged();
         RemoveCollectionCommand.NotifyCanExecuteChanged();
         RemoveDirectMembersCommand.NotifyCanExecuteChanged();
@@ -833,7 +888,8 @@ public sealed partial class CollectionComplianceViewModel : ObservableObject
     /// <summary>Reads the list, the selected detail, the WQL rules and the saved queries again after a write.</summary>
     private async Task AfterWriteAsync()
     {
-        if (!_active) return;
+        // A run left working in the background still writes: nothing is read until it ends.
+        if (!_active || _writing) return;
         var status = StatusMessage;
         // A load that started before the write can return the state before it; the list is read
         // again once that load ends.

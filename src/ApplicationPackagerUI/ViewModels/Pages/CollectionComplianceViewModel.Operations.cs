@@ -190,9 +190,9 @@ public sealed partial class CollectionComplianceViewModel
     }
 
 
-    private bool CanChangeSelected() => SelectedRow is { IsBuiltIn: false };
+    private bool CanChangeSelected() => !_writing && SelectedRow is { IsBuiltIn: false };
 
-    private bool CanCopySelected() => SelectedRow is not null;
+    private bool CanCopySelected() => !_writing && SelectedRow is not null;
 
     private CollectionChange Request(CollectionChangeKind kind, CollectionRow row, CollectionRow? after = null, CollectionRule? ruleBefore = null,
         CollectionRule? ruleAfter = null, IReadOnlyList<string>? impact = null) =>

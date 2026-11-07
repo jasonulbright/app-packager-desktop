@@ -52,6 +52,7 @@ internal sealed class FakeCollectionService : ICollectionService
 
     /// <summary>Called after each change was reported; a test can cancel here.</summary>
     public Action<int>? AfterChange;
+    public TaskCompletionSource? ApplyGate;
 
 
 
@@ -233,6 +234,7 @@ internal sealed class FakeCollectionService : ICollectionService
     {
         if (InConfirmedRun is { } check) Assert.True(check(), "A write ran outside a confirmed change plan.");
         lock (Applied) Applied.Add(changes.ToList());
+        if (ApplyGate is { } gate) await gate.Task;
         var outcomes = new List<CollectionOutcome>();
         for (var i = 0; i < changes.Count; i++)
         {
