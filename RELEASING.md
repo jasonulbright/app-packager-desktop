@@ -64,11 +64,21 @@ The workflow:
 3. Reads the `## [<ver>]` section of `CHANGELOG.md` and writes the release notes: `## <headline>`, the section, and `Full changelog: CHANGELOG.md`.
 4. Runs the engine tests.
 5. Publishes the application and `AppPackagerBuild.exe` with `tools/build-release.ps1 -PublishOnly`.
-6. Signs the published executables (the builds are framework-dependent: the .NET Windows Desktop Runtime is not shipped, and the installer installs it on demand), builds the installer from the signed stage with `tools/build-installer.ps1`, and signs the installer.
+6. Signs the published executables (the builds are framework-dependent: the .NET Windows Desktop Runtime is not shipped, and the installer installs it on demand). Builds the uninstaller with `tools/build-installer.ps1 -UninstallerOnly` and signs it, because Windows Defender removes an unsigned `Uninstall.exe` that an installer writes. Then builds the installer from the signed stage and the signed uninstaller, and signs the installer.
 7. Verifies every signature with `tools/verify-signatures.ps1`.
 8. Zips the stage, writes `checksums.txt`, tags the commit `v<ver>` and publishes the release with the installer, the zip and `checksums.txt`.
 
 The signing identity comes from the federated credential of the Azure app registration. The credential must trust the subject of the run. The run takes no environment, so the subject has the form `repo:<owner>@<owner id>/<repository>@<repository id>:ref:refs/heads/main`.
+
+### Dry run
+
+To test the signed installer on a lab machine before a release, run the workflow from `main` with `dry_run`:
+
+```bash
+gh workflow run release.yml -R jasonulbright/app-packager-desktop --ref main -f dry_run=true -f headline="dry run"
+```
+
+The run tests, builds, signs and verifies everything, but creates no tag and no GitHub release. It skips the version and tag checks, so the version of the last release works. The signed installer, the zip and `checksums.txt` stay as the workflow artifact `release-dry-run` for 3 days: `gh run download <run id> -n release-dry-run`.
 
 ## 6. Verify the published release
 
