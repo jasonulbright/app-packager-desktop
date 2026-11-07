@@ -300,6 +300,22 @@ public sealed class FileVersionScraper : IVersionScraper
     /// <summary>The curl run of a download: the arguments, the URL and the cancellation; true when curl ended with success.</summary>
     internal delegate Task<bool> CurlRunner(IReadOnlyList<string> arguments, string url, CancellationToken ct);
 
+    // Two runs of one URL can finish together and both move a whole file onto the cache path. The second move can be
+    // refused while the first one holds the file. One whole file at the cache path is what both runs need, so the
+    // refusal is not an error when that file is there.
+    private static void MoveIntoPlace(string partPath, string outFile)
+    {
+        try
+        {
+            File.Move(partPath, outFile, overwrite: true);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            if (!File.Exists(outFile) || new FileInfo(outFile).Length == 0) throw;
+            System.Diagnostics.Trace.WriteLine($"The move of '{partPath}' onto '{outFile}' was refused ({ex.GetType().Name}: {ex.Message}); a whole file from another run is in place.");
+        }
+    }
+
     internal static async Task DownloadAsync(string url, string outFile, CurlRunner runCurl, CancellationToken ct)
     {
         // An empty cache file would otherwise be revalidated forever, since a
@@ -314,7 +330,7 @@ public sealed class FileVersionScraper : IVersionScraper
             try
             {
                 if (await runCurl(BuildDownloadArguments(partPath, null), url, ct) && File.Exists(partPath) && new FileInfo(partPath).Length > 0)
-                    File.Move(partPath, outFile, overwrite: true);
+                    MoveIntoPlace(partPath, outFile);
             }
             finally
             {

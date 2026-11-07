@@ -111,4 +111,27 @@ public sealed class FileVersionCacheSafetyTests : IDisposable
         Assert.False(File.Exists(stale));
         Assert.True(File.Exists(fresh));
     }
+
+    [Fact]
+    public async Task AWholeFileThatAnotherRunHoldsAtTheCachePath_IsEnoughAndIsNotAnError()
+    {
+        var cache = Path.Combine(_folder, "setup.exe");
+        FileStream? holder = null;
+        try
+        {
+            // The other run has moved its whole file into place and still holds it when this run moves its own.
+            await FileVersionScraper.DownloadAsync("https://example.test/setup.exe", cache, (args, _, _) =>
+            {
+                File.WriteAllBytes(OutFile(args), [1, 2, 3]);
+                holder = new FileStream(cache, FileMode.Create, FileAccess.ReadWrite, FileShare.None);
+                holder.Write([9, 9, 9, 9]);
+                holder.Flush();
+                return Task.FromResult(true);
+            }, CancellationToken.None);
+        }
+        finally { holder?.Dispose(); }
+
+        Assert.Equal([9, 9, 9, 9], File.ReadAllBytes(cache));
+        Assert.Equal([cache], Directory.GetFiles(_folder));
+    }
 }
