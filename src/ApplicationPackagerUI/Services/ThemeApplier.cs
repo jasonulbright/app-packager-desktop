@@ -73,7 +73,6 @@ public static class ThemeApplier
     {
         if (Application.Current is null) return;
         // The Windows accent is not used: the brand palette of the theme sets the accent and the status colors.
-        // The Windows accent is not used: the brand palette of the theme sets the accent and the status colors.
         var accent = ApplyPalette(theme);
         ApplicationThemeManager.Apply(theme, Backdrop, updateAccent: false);
         ApplicationAccentColorManager.Apply(accent, theme);
