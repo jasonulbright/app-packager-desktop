@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [2026.1107.6] - 2026-11-07
+
 ### Changed
 
 - Ship the application without the .NET runtime; it needs the Desktop Runtime 10.0.14 (x64).
@@ -9,15 +11,14 @@
 - Make the installer and the update download smaller.
 
 ### Fixed
-- Keep the WSUS Updates window locked while a write to the server works: the "show other publishers" box no longer unlocks Approve, Decline, Expire and Remove under a running write, and reads once when the work ends.
-- Keep what the operator enters when the settings file cannot be stored: Setup and "Don't show again" store their choice over an unreadable file (with a copy of the bad file), Catalog says "Not saved" instead of "Saved", and the Settings page keeps a typed Intune secret and NVD key when the write fails.
-- Stop a hanging `gh auth token` read from blocking every scraper that needs a GitHub token: the read now ends at its 10 second limit.- Keep the results of the apps done before a failure in Convert from ConfigMgr with Package and Publish: the error now names the failed app and lists the earlier apps, which can already be in Intune.
-- Keep the results of the apps done before a failure in Convert from ConfigMgr with Package and Publish: the error now names the failed app and lists the earlier apps, which can already be in Intune.
-- Download the first copy of a FileVersion file to a side file and move it into the cache when it is whole, stop curl when the check is cancelled, name a cache file from a stable hash of its URL, and check the magic bytes of an installer copied from the version cache before it is staged.
 
-- Keep every write blocked on Collection and Compliance and on Maintenance Windows while a run continues after its plan window was force closed, read no list meanwhile, and offer the Undo when the run ends.
-
-- A stage run that fails over a version folder that already holds a stage now puts back the launchers, the generated scripts and the manifest of that stage. Before, the folder stayed without launchers.
+- Keep the earlier stage when a re-stage of the same version fails.
+- Keep the FileVersion download cache whole; check the installer copied from it.
+- Keep writes blocked after a force-closed plan run on Collection and Compliance and Maintenance Windows.
+- End a hanging `gh auth token` read at its 10 second limit.
+- Keep the results of earlier apps when a Convert from ConfigMgr publish fails.
+- Keep the Setup and Settings entries when the settings file cannot be written; Catalog says "Not saved".
+- Keep the WSUS Updates window locked while a write to the server works.
 
 ## [2026.1106.5] - 2026-11-06
 
