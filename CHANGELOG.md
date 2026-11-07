@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [2026.1107.7] - 2026-11-07
+
 ### Fixed
 
 - Keep a FileVersion download from failing when two runs of one URL finish together.
