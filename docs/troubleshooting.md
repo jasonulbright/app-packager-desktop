@@ -45,6 +45,15 @@ A disabled publish button shows a tooltip that names the missing setting.
 | SiteCode is required. Open Settings. | **Check ConfigMgr** ran with an empty site code. | Enter the site code. |
 | No packagers selected. | A button was selected and no row is checked. | Check at least one row. |
 
+## Install and start
+
+| Message | Cause | Fix |
+|---|---|---|
+| You must install .NET Desktop Runtime to run this application. (dialog titled `ApplicationPackagerUI.exe`) | The application started without the .NET Windows Desktop Runtime 10.0.14 or newer (x64). This happens with the zip, or when the runtime was removed later. | Select **Download it now**, install the **Desktop Runtime**, **x64**, and start the application again. Or run the installer: it installs the runtime. |
+| The .NET Windows Desktop Runtime 10.0.14 or newer is required and could not be downloaded. | The installer could not reach Microsoft. | Check the internet connection and the proxy. Or install the runtime from [dotnet.microsoft.com](https://dotnet.microsoft.com/download/dotnet/10.0) and run the installer again. |
+| The .NET Windows Desktop Runtime download failed a safety check. | The download was not from an https address of Microsoft, was not signed by Microsoft Corporation with a valid signature, or was older than the minimum. The installer did not run it. | Install the runtime from [dotnet.microsoft.com](https://dotnet.microsoft.com/download/dotnet/10.0) and run the installer again. |
+| The .NET Windows Desktop Runtime 10.0.14 or newer was not installed. The installation was declined or failed. | You declined the Windows consent window, or the runtime installer failed. | Run the installer again and accept the consent window. Or install the runtime by hand. |
+
 ## ConfigMgr connection
 
 | Message | Cause | Fix |

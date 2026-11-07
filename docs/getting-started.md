@@ -20,7 +20,7 @@ Use this page on a new installation, or when you connect the application to a di
 - 7-Zip, for applications whose installer is an archive.
 - A window of at least 1024 by 720 pixels. The window opens at 1200 by 800 and cannot be made smaller than 900 by 600. A size below 1024 by 720 can work and is not supported.
 
-The release is self-contained. A separate .NET runtime is not necessary.
+The .NET Windows Desktop Runtime 10.0.14 or newer (x64) must be on the computer. The runtime is not part of the release. The installer checks for it and, when it is missing or older, downloads the latest 10.x runtime from Microsoft, checks its Microsoft signature and installs it. Windows asks for consent. Without the installer, install the runtime yourself from [dotnet.microsoft.com](https://dotnet.microsoft.com/download/dotnet/10.0): choose **Desktop Runtime**, **x64**.
 
 For WSUS and Intune requirements, see [Settings page](core/settings-page.md).
 
@@ -30,8 +30,8 @@ For WSUS and Intune requirements, see [Settings page](core/settings-page.md).
 
 1. Download the release from the Releases page of the project.
 2. Choose one of the two files:
-   - `AppPackagerDesktop-Setup-<version>.exe` installs for the current user without elevation. It adds a Start Menu shortcut. The switch `/S` installs silently.
-   - `AppPackagerDesktop-<version>.zip` is the same build without an installer. Extract it and run `ApplicationPackagerUI.exe`.
+   - `AppPackagerDesktop-Setup-<version>.exe` installs for the current user without elevation. It adds a Start Menu shortcut. The switch `/S` installs silently. When the .NET Desktop Runtime is missing, the installer downloads it from Microsoft, checks the signature and installs it first. Windows asks for consent.
+   - `AppPackagerDesktop-<version>.zip` is the same build without an installer. Install the .NET Desktop Runtime first, then extract it and run `ApplicationPackagerUI.exe`.
 3. Close the application before you install an update by hand. The installer does not replace an executable that is in use. The app can also update itself: see [Updates](core/updates.md).
 
 The application checks for a new version at start. To check at once, open **Settings** and select **Check for updates**. To read the release page, open **Settings**, go to **About**, and select **Releases**.

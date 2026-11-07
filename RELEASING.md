@@ -64,7 +64,7 @@ The workflow:
 3. Reads the `## [<ver>]` section of `CHANGELOG.md` and writes the release notes: `## <headline>`, the section, and `Full changelog: CHANGELOG.md`.
 4. Runs the engine tests.
 5. Publishes the application and `AppPackagerBuild.exe` with `tools/build-release.ps1 -PublishOnly`.
-6. Signs the published executables, builds the installer from the signed stage with `tools/build-installer.ps1`, and signs the installer.
+6. Signs the published executables (the builds are framework-dependent: the .NET Windows Desktop Runtime is not shipped, and the installer installs it on demand), builds the installer from the signed stage with `tools/build-installer.ps1`, and signs the installer.
 7. Verifies every signature with `tools/verify-signatures.ps1`.
 8. Zips the stage, writes `checksums.txt`, tags the commit `v<ver>` and publishes the release with the installer, the zip and `checksums.txt`.
 

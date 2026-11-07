@@ -1,0 +1,15 @@
+<Project>
+
+  <!--
+    App Packager Desktop is not self-contained. The .NET Windows Desktop Runtime is external and is not shipped:
+    the installer checks for it and installs it on demand (installer\Install-DesktopRuntime.ps1).
+    DesktopRuntimeMinimum is the one place that names the lowest version. The runtime configuration of both
+    executables, the installer build and the script's default all read it.
+  -->
+  <PropertyGroup>
+    <DesktopRuntimeMinimum>10.0.14</DesktopRuntimeMinimum>
+    <RuntimeFrameworkVersion>$(DesktopRuntimeMinimum)</RuntimeFrameworkVersion>
+    <SelfContained>false</SelfContained>
+  </PropertyGroup>
+
+</Project>

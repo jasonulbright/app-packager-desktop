@@ -4,7 +4,7 @@
 
 .DESCRIPTION
     Publishes ApplicationPackagerUI and the command-line build (ApplicationPackagerBuild,
-    AppPackagerBuild.exe) as self-contained, single-file win-x64 Release builds into one
+    AppPackagerBuild.exe) as framework-dependent, single-file win-x64 Release builds into one
     stage folder, compiles the installer from it (tools\build-installer.ps1, when
     makensis is installed), then zips the stage into <OutputRoot>\AppPackagerDesktop-<version>.zip
     and writes checksums.txt covering the zip and the installer.
@@ -73,13 +73,15 @@ if (-not $PackageOnly) {
     if (Test-Path $stageDir) { Remove-Item -LiteralPath $stageDir -Recurse -Force }
     New-Item -ItemType Directory -Path $stageDir -Force | Out-Null
 
-    foreach ($project in @($projectPath, $buildProjectPath)) {
+    # The command-line build references the window project. A framework-dependent publish of it leaves the small
+    # apphost of the window project in the stage, so the window project is published last and its single-file
+    # executable is the one that stays.
+    foreach ($project in @($buildProjectPath, $projectPath)) {
         & dotnet publish $project `
             --configuration $Configuration `
             --runtime win-x64 `
-            --self-contained true `
+            --self-contained false `
             -p:PublishSingleFile=true `
-            -p:IncludeNativeLibrariesForSelfExtract=true `
             --output $stageDir
         if ($LASTEXITCODE -ne 0) { throw "dotnet publish of $(Split-Path -Leaf $project) failed with exit code $LASTEXITCODE" }
     }
@@ -89,6 +91,8 @@ if (-not $PackageOnly) {
 
     foreach ($published in @($exePath, $buildExePath)) {
         if (-not (Test-Path $published)) { throw "Published executable missing: $published" }
+        # A single-file executable carries the application and the engine; the apphost stub is under 1 MB.
+        if ((Get-Item -LiteralPath $published).Length -lt 1MB) { throw "$published is the small apphost, not the single-file executable." }
     }
 
     # The license of the product and the notices of the bundled components ship with the binaries.

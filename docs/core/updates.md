@@ -23,7 +23,7 @@ BLUF: App Packager Desktop checks GitHub for a newer release. It downloads the s
 4. The app checks the file. The status line says that the checksum matches and that `Jason Ulbright` signed the file with a valid, timestamped signature.
 
    ![The update window after the download and the checks](../images/core-update-ready.png)
-5. Select **Install and close**. The app closes and starts the installer. The installer asks for the usual confirmations.
+5. Select **Install and close**. The app closes and starts the installer. The installer asks for the usual confirmations. The installer is small because it does not carry the .NET Desktop Runtime. It checks for the runtime first and installs it when it is missing: see [Getting started](../getting-started.md).
 
 ## The startup check
 

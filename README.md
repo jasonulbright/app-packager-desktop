@@ -38,13 +38,13 @@ The user guide is in [docs/index.md](docs/index.md). It has a page for each feat
 - 7-Zip, for applications whose installer is an archive.
 - A window of at least 1024 by 720 pixels. The window opens at 1200 by 800. A smaller size can work and is not supported.
 
-The release is self-contained. A separate .NET runtime is not necessary.
+The .NET Windows Desktop Runtime 10.0.14 or newer (x64) must be on the computer. The runtime is not part of the release. The installer checks for it and, when it is missing or older, downloads the latest 10.x runtime from Microsoft, checks its Microsoft signature and installs it. Windows asks for consent. Without the installer, install the runtime yourself from [dotnet.microsoft.com](https://dotnet.microsoft.com/download/dotnet/10.0): choose **Desktop Runtime**, **x64**.
 
 ## Install
 
 1. Download the release from the [releases page](https://github.com/jasonulbright/app-packager-desktop/releases).
-   - The installer `AppPackagerDesktop-Setup-<version>.exe` installs for the current user without elevation and adds a Start Menu shortcut. `/S` installs silently.
-   - The zip `AppPackagerDesktop-<version>.zip` is the same build without an installer. Extract it and run `ApplicationPackagerUI.exe`.
+   - The installer `AppPackagerDesktop-Setup-<version>.exe` installs for the current user without elevation and adds a Start Menu shortcut. `/S` installs silently. When the .NET Desktop Runtime is missing, the installer downloads and installs it first, and Windows asks for consent.
+   - The zip `AppPackagerDesktop-<version>.zip` is the same build without an installer. Install the .NET Desktop Runtime first, then extract the zip and run `ApplicationPackagerUI.exe`.
 2. Close the application before you install an update by hand. The installer does not replace an executable that is in use.
 3. The app checks GitHub for a newer release at start and in **Settings**, **Check for updates**. It downloads the installer, checks the checksum and the signature, and starts it only after you select **Install and close**. See [Updates](docs/core/updates.md).
 
@@ -101,7 +101,7 @@ dotnet test tests\ApplicationPackagerEngine.Tests\ApplicationPackagerEngine.Test
 tools\build-release.ps1
 ```
 
-`tools\build-release.ps1` publishes self-contained single-file win-x64 builds of the window and of the command-line build. It compiles the installer when NSIS is installed. It writes `AppPackagerDesktop-Setup-<version>.exe`, `AppPackagerDesktop-<version>.zip` and `checksums.txt` into `publish\`.
+`tools\build-release.ps1` publishes framework-dependent single-file win-x64 builds of the window and of the command-line build. The .NET Windows Desktop Runtime is not shipped. The minimum version is `DesktopRuntimeMinimum` in `srcDesktopRuntime.props`. It compiles the installer when NSIS is installed. It writes `AppPackagerDesktop-Setup-<version>.exe`, `AppPackagerDesktop-<version>.zip` and `checksums.txt` into `publish\`.
 
 | Project | Content |
 |---|---|

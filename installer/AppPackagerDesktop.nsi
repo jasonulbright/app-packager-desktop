@@ -28,6 +28,12 @@ Unicode true
 !ifndef ICON_FILE
   !error "ICON_FILE is required: the application icon"
 !endif
+!ifndef RUNTIME_MIN
+  !error "RUNTIME_MIN is required: the lowest .NET Windows Desktop Runtime version, e.g. /DRUNTIME_MIN=10.0.14"
+!endif
+!ifndef RUNTIME_SCRIPT
+  !error "RUNTIME_SCRIPT is required: installer\Install-DesktopRuntime.ps1"
+!endif
 
 !define PRODUCT_NAME "App Packager Desktop"
 !define PRODUCT_PUBLISHER "Jason Ulbright"
@@ -64,7 +70,45 @@ VIAddVersionKey "LegalCopyright" "MIT License"
 !insertmacro MUI_UNPAGE_INSTFILES
 !insertmacro MUI_LANGUAGE "English"
 
+!define RUNTIME_URL "https://dotnet.microsoft.com/download/dotnet/10.0"
+
 Section "Install"
+  ; The application is not self-contained: it needs the .NET Windows Desktop Runtime (x64) at the minimum
+  ; version, and the runtime is not shipped. The script checks for it before any file is copied. When it is
+  ; missing or older, the script downloads the latest 10.x runtime installer from Microsoft over https, checks
+  ; the Microsoft signature and the version, and runs it (Windows asks for consent). A failure stops here.
+  InitPluginsDir
+  File "/oname=$PLUGINSDIR\Install-DesktopRuntime.ps1" "${RUNTIME_SCRIPT}"
+  DetailPrint "Checking for the .NET Windows Desktop Runtime ${RUNTIME_MIN} or newer (x64)..."
+  ${If} ${Silent}
+    StrCpy $2 " -Quiet"
+  ${Else}
+    StrCpy $2 ""
+  ${EndIf}
+  nsExec::ExecToLog 'powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$PLUGINSDIR\Install-DesktopRuntime.ps1" -MinimumVersion ${RUNTIME_MIN}$2'
+  Pop $0
+  ${If} $0 == 10
+    DetailPrint "The runtime is installed. Windows asks for a restart; the application can start now."
+  ${ElseIf} $0 != 0
+    ${If} $0 == 2
+      StrCpy $1 "The .NET Windows Desktop Runtime ${RUNTIME_MIN} or newer is required and could not be downloaded. Check the internet connection, or install the runtime from ${RUNTIME_URL}, then run this installer again."
+    ${ElseIf} $0 == 3
+      StrCpy $1 "The .NET Windows Desktop Runtime download failed a safety check (https address, Microsoft signature or version). It was not installed. Install the runtime from ${RUNTIME_URL}, then run this installer again."
+    ${ElseIf} $0 == 4
+      StrCpy $1 "The .NET Windows Desktop Runtime ${RUNTIME_MIN} or newer was not installed. The installation was declined or failed. Install the runtime from ${RUNTIME_URL}, then run this installer again."
+    ${ElseIf} $0 == 5
+      StrCpy $1 "The .NET Windows Desktop Runtime installer ended, but the runtime ${RUNTIME_MIN} or newer is still missing. Install the runtime from ${RUNTIME_URL}, then run this installer again."
+    ${Else}
+      StrCpy $1 "The check for the .NET Windows Desktop Runtime ${RUNTIME_MIN} or newer failed (code $0). Install the runtime from ${RUNTIME_URL}, then run this installer again."
+    ${EndIf}
+    ${IfNot} ${Silent}
+      MessageBox MB_ICONSTOP "$1"
+    ${EndIf}
+    DetailPrint "$1"
+    SetErrorLevel 2
+    Abort "$1"
+  ${EndIf}
+
   SetOutPath "$INSTDIR"
 
   ; A running instance holds its executable open; the copy below would fail
