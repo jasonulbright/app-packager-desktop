@@ -29,6 +29,10 @@ public sealed class DesktopRuntimeScriptTests
             UseShellExecute = false,
             CreateNoWindow = true
         };
+        // A test run started from PowerShell 7 (the CI shell) carries the module path of PowerShell 7, and Windows
+        // PowerShell 5.1 then cannot load its own security module. The installer starts the script with a normal
+        // environment; the child here gets the same.
+        info.Environment.Remove("PSModulePath");
         using var process = Process.Start(info)!;
         var output = process.StandardOutput.ReadToEndAsync();
         var error = process.StandardError.ReadToEndAsync();
