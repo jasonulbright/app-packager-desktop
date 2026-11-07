@@ -1056,24 +1056,33 @@ public sealed class MaintenanceWindowsViewModelTests
         SynchronizationContext.SetSynchronizationContext(null);
         var harness = new MaintenanceWindowsHarness();
         harness.Service.InConfirmedRun = null;
-        harness.Service.ApplyGate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        var dialogs = new DetachingPlanDialogs(() => { lock (harness.Service.Applied) return harness.Service.Applied.Count > 0; });
+        // The second run is the one that detaches; the first one ran to its end and left an Undo.
+        var dialogs = new DetachingPlanDialogs(() => { lock (harness.Service.Applied) return harness.Service.Applied.Count > 1; }) { Before = harness.Plans };
         var vm = new MaintenanceWindowsViewModel(new MaintenanceWindowsPageServices(
             harness.Service, harness.Projector, harness.Store, harness.Reports, harness.Prompts, dialogs, harness.Writer(),
             () => harness.Settings, () => harness.Saved, s => harness.Saved = s, harness.Log, () => MaintenanceWindowsHarness.Now));
         await vm.OnNavigatedToAsync();
         Select(vm, "Nightly");
+        await vm.RemoveWindowsCommand.ExecuteAsync(null);
+        Assert.True(vm.HasUndo);
+        Assert.True(vm.UndoLastCommand.CanExecute(null));
+        harness.Service.ApplyGate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        Select(vm, "Weekend");
 
         await vm.RemoveWindowsCommand.ExecuteAsync(null);
 
         Assert.True(dialogs.Dialog!.IsDetached);
         Assert.False(vm.RemoveWindowsCommand.CanExecute(null));
         Assert.False(vm.ToggleEnabledCommand.CanExecute(null));
+        Assert.False(vm.EditWindowCommand.CanExecute(null));
         Assert.False(vm.UndoLastCommand.CanExecute(null));
         Assert.Equal(MaintenanceWindowsViewModel.BackgroundRunText, vm.StatusMessage);
 
         harness.Service.ApplyGate.SetResult();
-        Assert.True(SpinWait.SpinUntil(() => vm.StatusMessage == MaintenanceWindowsViewModel.BackgroundRunEndedText, TimeSpan.FromSeconds(10)));
-        Assert.True(vm.RemoveWindowsCommand.CanExecute(null));
+        Assert.True(SpinWait.SpinUntil(() => vm.StatusMessage == MaintenanceWindowsViewModel.BackgroundRunEndedText
+            && vm.RemoveWindowsCommand.CanExecute(null), TimeSpan.FromSeconds(10)));
+        // The cancelled run changed nothing, so it leaves no Undo and the Undo of the earlier run is gone.
+        Assert.False(vm.HasUndo);
+        Assert.False(vm.UndoLastCommand.CanExecute(null));
     }
 }

@@ -115,6 +115,7 @@ public sealed partial class CollectionComplianceViewModel : ObservableObject
     private int _generation;
     private int _listGeneration;
     private bool _writing;
+    private bool _background;
     private CollectionPlan? _lastRunPlan;
     private IReadOnlyList<CollectionGridRow> _selectedRows = [];
 
@@ -190,6 +191,11 @@ public sealed partial class CollectionComplianceViewModel : ObservableObject
     public void SetSelectedRows(IEnumerable<CollectionGridRow> rows)
     {
         _selectedRows = rows.ToList();
+        EditCollectionCommand.NotifyCanExecuteChanged();
+        CopyCollectionCommand.NotifyCanExecuteChanged();
+        AddDirectMembersCommand.NotifyCanExecuteChanged();
+        AddIncludeRuleCommand.NotifyCanExecuteChanged();
+        AddExcludeRuleCommand.NotifyCanExecuteChanged();
         EvaluateCommand.NotifyCanExecuteChanged();
     }
 
@@ -728,7 +734,12 @@ public sealed partial class CollectionComplianceViewModel : ObservableObject
         bool checkState = true,
         IReadOnlyList<CollectionPlanEntry>? extraSkips = null)
     {
-        if (_writing) return null;
+        if (_writing)
+        {
+            // A refused start says why when a run still works in the background.
+            if (_background) { StatusMessage = BackgroundRunText; report?.Invoke(BackgroundRunText); }
+            return null;
+        }
         _writing = true;
         _lastRunPlan = null;
         NotifyWriteCommands();
@@ -793,6 +804,7 @@ public sealed partial class CollectionComplianceViewModel : ObservableObject
             if (outcome.Result?.Stop == ChangePlanStop.Detached || outcome.UndoResult?.Stop == ChangePlanStop.Detached)
             {
                 detached = true;
+                _background = true;
                 _ = WaitForBackgroundRunAsync(plan, outcome.UndoResult is null);
                 Refuse(BackgroundRunText);
                 return null;
@@ -825,11 +837,12 @@ public sealed partial class CollectionComplianceViewModel : ObservableObject
         }
         finally
         {
+            LastPlan = offerUndo ? (plan.UndoChanges().Count > 0 ? plan : null) : plan.Remaining(plan.UndoOutcomes);
             if (_active)
             {
-                if (offerUndo && plan.UndoChanges().Count > 0) LastPlan = plan;
                 StatusMessage = BackgroundRunEndedText;
             }
+            _background = false;
             _writing = false;
             NotifyWriteCommands();
         }
@@ -837,6 +850,11 @@ public sealed partial class CollectionComplianceViewModel : ObservableObject
 
     private void NotifyWriteCommands()
     {
+        EditCollectionCommand.NotifyCanExecuteChanged();
+        CopyCollectionCommand.NotifyCanExecuteChanged();
+        AddDirectMembersCommand.NotifyCanExecuteChanged();
+        AddIncludeRuleCommand.NotifyCanExecuteChanged();
+        AddExcludeRuleCommand.NotifyCanExecuteChanged();
         EvaluateCommand.NotifyCanExecuteChanged();
         RemoveCollectionCommand.NotifyCanExecuteChanged();
         RemoveDirectMembersCommand.NotifyCanExecuteChanged();

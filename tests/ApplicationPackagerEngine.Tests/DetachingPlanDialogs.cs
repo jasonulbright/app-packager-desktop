@@ -8,8 +8,16 @@ internal sealed class DetachingPlanDialogs(Func<bool> started) : IChangePlanDial
 {
     public ChangePlanViewModel? Dialog;
 
+    /// <summary>Answers the first plan itself, so a test can leave an earlier run behind before the one that detaches.</summary>
+    public IChangePlanDialogs? Before;
+
     public ChangePlanOutcome Show(ChangePlan plan, ChangePlanRun run, ChangePlanRun? undo = null)
     {
+        if (Before is { } first)
+        {
+            Before = null;
+            return first.Show(plan, run, undo);
+        }
         var dialog = new ChangePlanViewModel(plan, run, undo, TimeSpan.Zero) { DestructiveAcknowledged = true, ExtraAcknowledged = true };
         Dialog = dialog;
         _ = dialog.ConfirmCommand.ExecuteAsync(null);

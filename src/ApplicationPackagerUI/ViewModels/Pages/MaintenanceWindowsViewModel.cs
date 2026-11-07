@@ -128,6 +128,7 @@ public sealed partial class MaintenanceWindowsViewModel : ObservableObject
     private Task? _loading;
     private int _generation;
     private bool _writing;
+    private bool _background;
     private MaintenancePlan? _lastRunPlan;
     private IReadOnlyList<MaintenanceWindowRow> _selectedWindows = [];
     private IReadOnlyList<CoverageRow> _selectedCoverage = [];
@@ -215,6 +216,7 @@ public sealed partial class MaintenanceWindowsViewModel : ObservableObject
     public void SetSelectedWindows(IEnumerable<MaintenanceWindowRow> rows)
     {
         _selectedWindows = rows.ToList();
+        EditWindowCommand.NotifyCanExecuteChanged();
         ToggleEnabledCommand.NotifyCanExecuteChanged();
         RemoveWindowsCommand.NotifyCanExecuteChanged();
         OnPropertyChanged(nameof(RemoveTooltip));
@@ -677,7 +679,12 @@ public sealed partial class MaintenanceWindowsViewModel : ObservableObject
         Action<string>? report = null,
         bool checkState = true)
     {
-        if (_writing) return null;
+        if (_writing)
+        {
+            // A refused start says why when a run still works in the background.
+            if (_background) { StatusMessage = BackgroundRunText; report?.Invoke(BackgroundRunText); }
+            return null;
+        }
         _writing = true;
         _lastRunPlan = null;
         NotifyWriteCommands();
@@ -740,6 +747,7 @@ public sealed partial class MaintenanceWindowsViewModel : ObservableObject
             if (outcome.Result?.Stop == ChangePlanStop.Detached || outcome.UndoResult?.Stop == ChangePlanStop.Detached)
             {
                 detached = true;
+                _background = true;
                 _ = WaitForBackgroundRunAsync(plan, outcome.UndoResult is null);
                 Refuse(BackgroundRunText);
                 return null;
@@ -772,8 +780,9 @@ public sealed partial class MaintenanceWindowsViewModel : ObservableObject
         }
         finally
         {
-            if (offerUndo && plan.UndoChanges().Count > 0) LastPlan = plan;
+            LastPlan = offerUndo && plan.UndoChanges().Count > 0 ? plan : null;
             StatusMessage = BackgroundRunEndedText;
+            _background = false;
             _writing = false;
             NotifyWriteCommands();
         }
@@ -781,6 +790,7 @@ public sealed partial class MaintenanceWindowsViewModel : ObservableObject
 
     private void NotifyWriteCommands()
     {
+        EditWindowCommand.NotifyCanExecuteChanged();
         ToggleEnabledCommand.NotifyCanExecuteChanged();
         RemoveWindowsCommand.NotifyCanExecuteChanged();
         UndoLastCommand.NotifyCanExecuteChanged();
@@ -944,7 +954,7 @@ public sealed partial class MaintenanceWindowsViewModel : ObservableObject
         if (editor.Saved || _lastRunPlan is not null) await AfterWriteAsync(_lastRunPlan);
     }
 
-    private bool CanEdit() => SelectedRow is { HasWindow: true, IsScheduleHeld: true };
+    private bool CanEdit() => !_writing && SelectedRow is { HasWindow: true, IsScheduleHeld: true };
 
     [RelayCommand(CanExecute = nameof(CanEdit))]
     private async Task EditWindow()
