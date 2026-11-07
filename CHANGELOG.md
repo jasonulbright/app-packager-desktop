@@ -3,6 +3,7 @@
 ## [Unreleased]
 
 ### Fixed
+- Download the first copy of a FileVersion file to a side file and move it into the cache when it is whole, stop curl when the check is cancelled, name a cache file from a stable hash of its URL, and check the magic bytes of an installer copied from the version cache before it is staged.
 
 - A stage run that fails over a version folder that already holds a stage now puts back the launchers, the generated scripts and the manifest of that stage. Before, the folder stayed without launchers.
 
