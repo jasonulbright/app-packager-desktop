@@ -101,7 +101,7 @@ public sealed class DetectionTesterPageTests
         });
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
     public void BothTabsRenderInTheTheme(ApplicationTheme theme)
@@ -144,7 +144,7 @@ public sealed class DetectionTesterPageTests
         });
     }
 
-    [Fact]
+    [WindowFact]
     public void AResultShowsItsStateInTheResultPanel()
     {
         WithPage(ApplicationTheme.Dark, (window, page, harness) =>
@@ -162,7 +162,7 @@ public sealed class DetectionTesterPageTests
 
     private static DetectionTesterViewModel ViewModelOf(DetectionTesterPage page) => (DetectionTesterViewModel)page.DataContext;
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
     public void TheTitleUsesTheThemeTextColour(ApplicationTheme theme)
@@ -177,7 +177,7 @@ public sealed class DetectionTesterPageTests
         });
     }
 
-    [Fact]
+    [WindowFact]
     public void TheCompoundTreeRendersEveryClauseThroughItsTemplate()
     {
         WithPage(ApplicationTheme.Light, (window, page, harness) =>
@@ -205,7 +205,7 @@ public sealed class DetectionTesterPageTests
         }, setup: h => h.Prompts.ManifestPath = DetectionTesterHarness.FixturePath);
     }
 
-    [Fact]
+    [WindowFact]
     public void AScriptResultShowsTheOutputPanelAndTheSystemNote()
     {
         WithPage(ApplicationTheme.Dark, (window, page, harness) =>
@@ -227,7 +227,7 @@ public sealed class DetectionTesterPageTests
         }, setup: h => h.Tests.Answer = _ => FakeDetectionTestService.Result(true, true, "Detected.", "installed", "warning text", 3));
     }
 
-    [Fact]
+    [WindowFact]
     public void InvalidAndCancelledUseTheCautionColour()
     {
         WithPage(ApplicationTheme.Light, (window, page, harness) =>
@@ -257,7 +257,7 @@ public sealed class DetectionTesterPageTests
         });
     }
 
-    [Fact]
+    [WindowFact]
     public void ALongHistoryRendersAndTheDescriptionCellCarriesTheFullText()
     {
         var longText = "HKLM\\SOFTWARE\\" + new string('k', 400) + " equals 1.0 (64-bit view)";
@@ -281,7 +281,7 @@ public sealed class DetectionTesterPageTests
         });
     }
 
-    [Fact]
+    [WindowFact]
     public void ANarrowWindowKeepsTheControlsOnScreen()
     {
         WithPage(ApplicationTheme.Light, (window, page, harness) =>
@@ -304,7 +304,7 @@ public sealed class DetectionTesterPageTests
         }, width: 760, height: 640);
     }
 
-    [Fact]
+    [WindowFact]
     public void TheNotesShowAndTheEditorCarriesTheKeyHint()
     {
         WithPage(ApplicationTheme.Light, (window, page, harness) =>
@@ -321,7 +321,7 @@ public sealed class DetectionTesterPageTests
         });
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(System.Windows.Input.ModifierKeys.Control, true)]
     [InlineData(System.Windows.Input.ModifierKeys.None, false)]
     public void CtrlTabInTheEditorIsTakenByTheEditorAndKeepsTheTab(System.Windows.Input.ModifierKeys modifiers, bool handled)
@@ -342,7 +342,7 @@ public sealed class DetectionTesterPageTests
         });
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(System.Windows.Input.Key.Tab, System.Windows.Input.ModifierKeys.Control, System.Windows.Input.FocusNavigationDirection.Next)]
     [InlineData(System.Windows.Input.Key.Tab, System.Windows.Input.ModifierKeys.Control | System.Windows.Input.ModifierKeys.Shift, System.Windows.Input.FocusNavigationDirection.Previous)]
     [InlineData(System.Windows.Input.Key.Tab, System.Windows.Input.ModifierKeys.None, null)]
@@ -351,7 +351,7 @@ public sealed class DetectionTesterPageTests
     public void EditorExitMovesFocusOnlyForCtrlTab(System.Windows.Input.Key key, System.Windows.Input.ModifierKeys modifiers, System.Windows.Input.FocusNavigationDirection? expected) =>
         Assert.Equal(expected, DetectionTesterPage.EditorExit(key, modifiers));
 
-    [Fact]
+    [WindowFact]
     public void AKeyPathPrefixChangesTheHiveSelectorAndTheStatusLineShowsIt()
     {
         WithPage(ApplicationTheme.Light, (window, page, harness) =>
@@ -387,7 +387,7 @@ public sealed class DetectionTesterPageTests
         return (ById<DataGrid>(page, "dgApplications"), ById<FrameworkElement>(page, "pnlApplicationSide"));
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(1024, 768)]
     [InlineData(804, 700)]
     public void AtA1024PixelScreenTheNameAndPublisherColumnsStayReadable(double width, double height)
@@ -406,7 +406,7 @@ public sealed class DetectionTesterPageTests
         }, width: width, height: height);
     }
 
-    [Fact]
+    [WindowFact]
     public void AtANarrowWidthTheDetailPanelMovesUnderTheGrid()
     {
         WithPage(ApplicationTheme.Light, (window, page, harness) =>
@@ -420,7 +420,7 @@ public sealed class DetectionTesterPageTests
         }, width: 804, height: 700);
     }
 
-    [Fact]
+    [WindowFact]
     public void AtA1440PixelScreenTheDetailPanelStaysBesideTheGrid()
     {
         WithPage(ApplicationTheme.Dark, (window, page, harness) =>
@@ -437,7 +437,7 @@ public sealed class DetectionTesterPageTests
         }, width: 1440, height: 900);
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
     public void TheSelectedTabHeaderUsesDifferentBrushesFromTheOtherHeader(ApplicationTheme theme)
@@ -474,7 +474,7 @@ public sealed class DetectionTesterPageTests
         return (parts.OfType<TextBlock>().Single(t => t.Name == "TabHeaderText"), parts.OfType<Border>().Single(b => b.Name == "TabHeaderUnderline"));
     }
 
-    [Fact]
+    [WindowFact]
     public void TheSystemComponentsCheckBoxReloadsTheList()
     {
         WithPage(ApplicationTheme.Dark, (window, page, harness) =>
@@ -490,7 +490,7 @@ public sealed class DetectionTesterPageTests
         });
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
     public void EveryMainGridShowsAtLeastThreeWholeRowsAtTheMinimumSize(ApplicationTheme theme)
@@ -519,7 +519,7 @@ public sealed class DetectionTesterPageTests
         });
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
     public void TheResultColumnOfTheHistoryFollowsTheOutcomeAndReadsInBothStates(ApplicationTheme theme)
@@ -560,7 +560,7 @@ public sealed class DetectionTesterSettingsTests : IDisposable
         File.WriteAllText(SettingsService.SettingsPath, json);
     }
 
-    [Fact]
+    [WindowFact]
     public void ASettingsFileFromBeforeThePageLoadsWithoutPageChoices()
     {
         WriteSettings("{ \"FirstRunCompleted\": true, \"SiteCode\": \"LAB\", \"SiteCodeSaved\": true }");
@@ -570,7 +570,7 @@ public sealed class DetectionTesterSettingsTests : IDisposable
         Assert.Null(DetectionTesterPreferences.Load(new SettingsService()));
     }
 
-    [Fact]
+    [WindowFact]
     public void ThePageChoicesSaveIntoTheSettingsFileAndKeepTheOtherValues()
     {
         WriteSettings("{ \"FirstRunCompleted\": true, \"SiteCode\": \"LAB\", \"SiteCodeSaved\": true, \"Theme\": \"Light\" }");
@@ -584,7 +584,7 @@ public sealed class DetectionTesterSettingsTests : IDisposable
         Assert.Equal("LAB", loaded.SiteCode);
     }
 
-    [Fact]
+    [WindowFact]
     public void AnUnreadableSettingsFileIsNotOverwritten()
     {
         WriteSettings("{ this is not json");
@@ -592,7 +592,7 @@ public sealed class DetectionTesterSettingsTests : IDisposable
         Assert.Equal("{ this is not json", File.ReadAllText(SettingsService.SettingsPath));
     }
 
-    [Fact]
+    [WindowFact]
     public void TheApplicationServicesBuildThePageViewModel()
     {
         var services = new ServiceCollection().AddPackagerServices().AddSidebar();

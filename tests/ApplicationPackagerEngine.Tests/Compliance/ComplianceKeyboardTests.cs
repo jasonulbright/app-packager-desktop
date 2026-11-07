@@ -56,7 +56,7 @@ public sealed class ComplianceKeyboardTests
         return null!;
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
     public void TabReachesTheCatalogAndTheArrowKeysSelectAnEntryForDeploy(ApplicationTheme theme)
@@ -86,7 +86,7 @@ public sealed class ComplianceKeyboardTests
         });
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
     public void TabReachesTheSettingsAndTheArrowKeysSelectASettingForEdit(ApplicationTheme theme)
@@ -112,7 +112,7 @@ public sealed class ComplianceKeyboardTests
         });
     }
 
-    [Fact]
+    [WindowFact]
     public void TabReachesEveryGridOfTheLiveAndAuditingTabs()
     {
         WithSection(ApplicationTheme.Light, (window, page, viewModel, harness) =>

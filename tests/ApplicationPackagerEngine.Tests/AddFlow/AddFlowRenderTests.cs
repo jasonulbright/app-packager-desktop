@@ -150,7 +150,7 @@ public sealed class AddFlowRenderTests : IDisposable
         StaTestHelper.PumpUntil(() => viewModel.Stage == AddFileStage.Review);
     }
 
-    [Theory]
+    [WindowTheory]
     [MemberData(nameof(Sizes))]
     public void AddFromFileFitsInEveryStage(ApplicationTheme theme, int width, int height)
     {
@@ -196,7 +196,7 @@ public sealed class AddFlowRenderTests : IDisposable
         });
     }
 
-    [Theory]
+    [WindowTheory]
     [MemberData(nameof(Sizes))]
     public void ThePackageAndPatchSectionsFitAndTheTrustWarningShows(ApplicationTheme theme, int width, int height)
     {
@@ -237,7 +237,7 @@ public sealed class AddFlowRenderTests : IDisposable
             finally { window.Close(); }
         });
     }
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
     public void TheResultPanelMakesDoneTheDefaultForAConfidentResult(ApplicationTheme theme)
@@ -262,7 +262,7 @@ public sealed class AddFlowRenderTests : IDisposable
         });
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
     public void TheKeyboardReachesTheDropZoneThroughThePickerAndTheReviewInOrder(ApplicationTheme theme)
@@ -305,7 +305,7 @@ public sealed class AddFlowRenderTests : IDisposable
         return viewModel;
     }
 
-    [Theory]
+    [WindowTheory]
     [MemberData(nameof(Sizes))]
     public void AddFromWebFitsOnEveryStep(ApplicationTheme theme, int width, int height)
     {
@@ -347,7 +347,7 @@ public sealed class AddFlowRenderTests : IDisposable
         });
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
     public void TheAddFromWebTitleUsesThePrimaryTextColor(ApplicationTheme theme)
@@ -366,7 +366,7 @@ public sealed class AddFlowRenderTests : IDisposable
         });
     }
 
-    [Fact]
+    [WindowFact]
     public void NoAddFromWebStringNamesTheOldPage()
     {
         WithApplication(ApplicationTheme.Light, () =>
@@ -394,7 +394,7 @@ public sealed class AddFlowRenderTests : IDisposable
         new() { ApplicationId = "byo:0123", Origin = ApplicationOrigin.Byo, DisplayName = "Saved Installer", Publisher = "Northwind" }
     ];
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
     public void TheOpenDefinitionListFitsItsColumnsAndShowsTheSelection(ApplicationTheme theme)
@@ -420,7 +420,7 @@ public sealed class AddFlowRenderTests : IDisposable
         });
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
     public void TheWorkbenchHeaderFitsTheOpenDefinitionButtonAtTheSmallestWindow(ApplicationTheme theme)

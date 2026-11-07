@@ -38,7 +38,7 @@ public sealed class PackagesGridRenderTests
         element.SetValue(key, value);
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
     public void ASelectedRowDiffersClearlyFromAHoveredRowAndAnUnselectedRow(ApplicationTheme theme)

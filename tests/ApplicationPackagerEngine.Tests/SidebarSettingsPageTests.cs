@@ -110,7 +110,7 @@ public sealed class SidebarSettingsPageTests
         StaTestHelper.Flush();
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
     public void TheSidebarSectionShowsOneRowPerEntryWithThePinnedRowLocked(ApplicationTheme theme)
@@ -134,7 +134,7 @@ public sealed class SidebarSettingsPageTests
         }, new SidebarLayout { Order = [], Hidden = ["b"] }, theme);
     }
 
-    [Fact]
+    [WindowFact]
     public void TheButtonsOfARowMoveItAndResetRestoresTheDefault()
     {
         WithPage(h =>
@@ -151,7 +151,7 @@ public sealed class SidebarSettingsPageTests
         });
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData("Move Window up", "w", new[] { "home", "a", "w", "b", "t" })]
     [InlineData("Move Alpha down", "a", new[] { "home", "b", "a", "w", "t" })]
     [InlineData("Move Tool up", "t", new[] { "home", "a", "b", "t", "w" })]
@@ -172,7 +172,7 @@ public sealed class SidebarSettingsPageTests
         });
     }
 
-    [Fact]
+    [WindowFact]
     public void UpStepsOverAHiddenRowAndKeepsFocus()
     {
         WithPage(h =>
@@ -189,7 +189,7 @@ public sealed class SidebarSettingsPageTests
     private static string[] ShownCaptions(Harness h) =>
         Descendants(SidebarList(h)).OfType<TextBlock>().Where(t => t.IsVisible && t.Text is "MAIN" or "MORE" or "TOOLS").Select(t => t.Text).ToArray();
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
     public void TheSidebarSectionShowsEachGroupCaptionAboveItsRowsAndMovesStayInTheGroup(ApplicationTheme theme)
@@ -211,7 +211,7 @@ public sealed class SidebarSettingsPageTests
         }, theme: theme, registry: SidebarGroupFixtures.Registry());
     }
 
-    [Fact]
+    [WindowFact]
     public void TheDefaultSidebarSectionShowsTheFirstGroupWithoutACaptionAndTheToolsUnderTheirCaption()
     {
         WithPage(h =>
@@ -238,7 +238,7 @@ public sealed class SidebarSettingsPageTests
         }, registry: SidebarRegistry.CreateDefault());
     }
 
-    [Fact]
+    [WindowFact]
     public void EveryIconOnTheSettingsPageIsADefinedSymbol()
     {
         WithPage(h =>

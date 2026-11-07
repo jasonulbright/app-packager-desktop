@@ -36,7 +36,7 @@ public sealed class CollectionComplianceViewModelTests
                 Assert.DoesNotContain(text, entry.Message, StringComparison.OrdinalIgnoreCase);
     }
 
-    [Fact]
+    [WindowFact]
     public void TheConstructorReadsNothing()
     {
         var harness = new CollectionComplianceHarness();
@@ -46,7 +46,7 @@ public sealed class CollectionComplianceViewModelTests
         Assert.Equal(0, harness.Store.Reads);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task TheFirstVisitListsTheCollectionsWithTheirCountsAndReadsNoMembers()
     {
         var harness = new CollectionComplianceHarness();
@@ -62,7 +62,7 @@ public sealed class CollectionComplianceViewModelTests
         Assert.Equal("Servers (LAB00010)", servers.ToString());
     }
 
-    [Fact]
+    [WindowFact]
     public async Task SelectingACollectionLoadsItsDetailAndMembersPageByPage()
     {
         var harness = new CollectionComplianceHarness();
@@ -88,7 +88,7 @@ public sealed class CollectionComplianceViewModelTests
 
     private static string HarnessWql() => CollectionComplianceHarness.ServersWql;
 
-    [Fact]
+    [WindowFact]
     public async Task TheFiltersNarrowTheGridAndTheCountSaysHowMany()
     {
         var harness = new CollectionComplianceHarness();
@@ -116,7 +116,7 @@ public sealed class CollectionComplianceViewModelTests
         Assert.Equal(["Pilot"], viewModel.Rows.Select(r => r.Name));
     }
 
-    [Fact]
+    [WindowFact]
     public async Task AParentFolderEntryListsTheCollectionsOfThatFolderAndEveryFolderBelowIt()
     {
         var harness = new CollectionComplianceHarness();
@@ -130,7 +130,7 @@ public sealed class CollectionComplianceViewModelTests
         Assert.Empty(viewModel.Rows);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task AMissingSiteCodeShowsOneMessageAndReadsNothing()
     {
         var harness = new CollectionComplianceHarness();
@@ -144,7 +144,7 @@ public sealed class CollectionComplianceViewModelTests
         Assert.Equal(CollectionComplianceViewModel.NotInUseMessage, viewModel.ConnectionMessage);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task AFailedReadShowsAPlainMessageAndLogsNoRawText()
     {
         var harness = new CollectionComplianceHarness();
@@ -163,7 +163,7 @@ public sealed class CollectionComplianceViewModelTests
         Assert.Equal(4, viewModel.Rows.Count);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task LeavingThePageDuringALoadDiscardsTheLateResult()
     {
         var harness = new CollectionComplianceHarness();
@@ -179,7 +179,7 @@ public sealed class CollectionComplianceViewModelTests
         Assert.False(viewModel.IsDataLoaded);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task LeavingThePageReleasesTheDataAndTheNextVisitReadsAgain()
     {
         var harness = new CollectionComplianceHarness();
@@ -193,7 +193,7 @@ public sealed class CollectionComplianceViewModelTests
         Assert.Equal(2, harness.Service.ListCalls);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task ADetailThatArrivesAfterTheSelectionChangedIsDiscarded()
     {
         var harness = new CollectionComplianceHarness();
@@ -220,7 +220,7 @@ public sealed class CollectionComplianceViewModelTests
         Assert.False(viewModel.IsDetailLoading);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task OpenByIdReadsOneCollectionWithoutTheList()
     {
         var harness = new CollectionComplianceHarness();
@@ -245,7 +245,7 @@ public sealed class CollectionComplianceViewModelTests
         Assert.Equal(1, harness.Service.DetailCalls);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task OpenByIdSelectsACollectionOfALoadedList()
     {
         var harness = new CollectionComplianceHarness();
@@ -256,7 +256,7 @@ public sealed class CollectionComplianceViewModelTests
         Assert.Equal("Pilot", viewModel.SelectedRow?.Name);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task ConnectSiteTestsTheConnectionWithOneReadAndNoInventory()
     {
         var harness = new CollectionComplianceHarness();
@@ -284,7 +284,7 @@ public sealed class CollectionComplianceViewModelTests
         editor.SelectedLimiting = editor.LimitingChoices.Single(c => c.Row.CollectionId == limitingId);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task NewCollectionWritesOnlyThroughAConfirmedPlanAndOffersUndo()
     {
         var harness = new CollectionComplianceHarness();
@@ -321,7 +321,7 @@ public sealed class CollectionComplianceViewModelTests
         AssertNoSiteTextInLog(harness, "CCM-Test-1", "Pilot ring");
     }
 
-    [Fact]
+    [WindowFact]
     public async Task ADeclinedPlanChangesNothingAndTheEditorSaysSo()
     {
         var harness = new CollectionComplianceHarness();
@@ -342,7 +342,7 @@ public sealed class CollectionComplianceViewModelTests
         Assert.Equal(1, harness.Service.ListCalls);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task TheEditorRefusesAMissingOrTakenNameAndAMissingOrSelfLimitingCollection()
     {
         var harness = new CollectionComplianceHarness();
@@ -371,7 +371,7 @@ public sealed class CollectionComplianceViewModelTests
         Assert.Equal(CollectionEditorViewModel.NameRequired, editor.ValidationMessage);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task TheLimitingListFiltersAndOffersNoTargetThatWouldLimitItself()
     {
         var harness = new CollectionComplianceHarness();
@@ -384,7 +384,7 @@ public sealed class CollectionComplianceViewModelTests
         await Task.CompletedTask;
     }
 
-    [Fact]
+    [WindowFact]
     public async Task EditShowsOldAndNewValuesAndUndoSetsThemBack()
     {
         var harness = new CollectionComplianceHarness();
@@ -408,7 +408,7 @@ public sealed class CollectionComplianceViewModelTests
         Assert.Equal("Periodic", harness.Service.Collections.Single(c => c.CollectionId == "LAB00011").RefreshType);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task ABuiltInCollectionCannotBeEditedOrRemoved()
     {
         var harness = new CollectionComplianceHarness();
@@ -422,7 +422,7 @@ public sealed class CollectionComplianceViewModelTests
         Assert.True(viewModel.EvaluateCommand.CanExecute(null));
     }
 
-    [Fact]
+    [WindowFact]
     public async Task CopyCreatesTheCopyThroughAPlanAndUndoRemovesIt()
     {
         var harness = new CollectionComplianceHarness();
@@ -444,7 +444,7 @@ public sealed class CollectionComplianceViewModelTests
         Assert.DoesNotContain(viewModel.Rows, r => r.Name == "Servers 2");
     }
 
-    [Fact]
+    [WindowFact]
     public async Task EvaluateListsTheCollectionsAndHasNoUndo()
     {
         var harness = new CollectionComplianceHarness();
@@ -460,7 +460,7 @@ public sealed class CollectionComplianceViewModelTests
         Assert.Equal("Update membership: 2 changed, 0 failed.", viewModel.ResultSummary);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task RemoveShowsTheImpactLinesIsDestructiveAndSaysWhatUndoRestores()
     {
         var harness = new CollectionComplianceHarness();
@@ -479,7 +479,7 @@ public sealed class CollectionComplianceViewModelTests
         Assert.Contains(viewModel.LastResults, r => r.Message.Contains(CollectionWriter.RecreatedNote, StringComparison.Ordinal));
     }
 
-    [Fact]
+    [WindowFact]
     public async Task RemovingALimitingCollectionIsRefusedWithThePlainMessage()
     {
         var harness = new CollectionComplianceHarness();
@@ -489,7 +489,7 @@ public sealed class CollectionComplianceViewModelTests
         Assert.Equal("Workstations is the limiting collection of another collection and cannot be removed.", viewModel.StatusMessage);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task AStateChangeBetweenTheReadAndThePlanShowsThePlainMessageAndWritesNothing()
     {
         var harness = new CollectionComplianceHarness();
@@ -504,7 +504,7 @@ public sealed class CollectionComplianceViewModelTests
         Assert.Empty(harness.Service.Applied);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task DirectMembersAreFoundByNameAndEachIsAPlanLine()
     {
         var harness = new CollectionComplianceHarness();
@@ -524,7 +524,7 @@ public sealed class CollectionComplianceViewModelTests
         AssertNoSiteTextInLog(harness, "PC01");
     }
 
-    [Fact]
+    [WindowFact]
     public async Task ADeviceNameWithAQuoteIsQuotedInTheLookup()
     {
         var harness = new CollectionComplianceHarness();
@@ -540,7 +540,7 @@ public sealed class CollectionComplianceViewModelTests
         Assert.Single(harness.Plans.Shown);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task RemovingDirectMembersIsDestructiveAndUndoAddsThemBack()
     {
         var harness = new CollectionComplianceHarness();
@@ -556,7 +556,7 @@ public sealed class CollectionComplianceViewModelTests
         Assert.Contains(harness.Service.Rules["LAB00010"], r => r.Kind == CollectionRuleKind.Direct && r.ResourceId == "16777001");
     }
 
-    [Fact]
+    [WindowFact]
     public async Task IncludeAndExcludeRulesNameBothCollectionsAndSayTheyChangeMembership()
     {
         var harness = new CollectionComplianceHarness();
@@ -593,7 +593,7 @@ public sealed class CollectionComplianceViewModelTests
         return viewModel;
     }
 
-    [Fact]
+    [WindowFact]
     public async Task TheWqlTreeGroupsTheCollectionsByFolderAndFilters()
     {
         var harness = new CollectionComplianceHarness();
@@ -607,7 +607,7 @@ public sealed class CollectionComplianceViewModelTests
         Assert.True(viewModel.WqlTree.Single().IsExpanded);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task ValidateAndPreviewShowTheResultAndPreviewCanBeCancelled()
     {
         var harness = new CollectionComplianceHarness();
@@ -639,7 +639,7 @@ public sealed class CollectionComplianceViewModelTests
         AssertNoSiteTextInLog(harness, "SMS_R_System");
     }
 
-    [Fact]
+    [WindowFact]
     public async Task AddRuleShowsTheWqlAndTheCountOfTheLastPreviewOfThatWql()
     {
         var harness = new CollectionComplianceHarness();
@@ -662,7 +662,7 @@ public sealed class CollectionComplianceViewModelTests
         Assert.Equal(["All devices", "All devices 2"], viewModel.WqlRules.Select(r => r.RuleName));
     }
 
-    [Fact]
+    [WindowFact]
     public async Task AddRuleNeedsACollectionANameThatIsNotTakenAndAQuery()
     {
         var harness = new CollectionComplianceHarness();
@@ -688,7 +688,7 @@ public sealed class CollectionComplianceViewModelTests
         Assert.Empty(harness.Plans.Shown);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task UpdateRuleStatesTheSafeOrderAndUndoRestoresTheOldWql()
     {
         var harness = new CollectionComplianceHarness();
@@ -710,7 +710,7 @@ public sealed class CollectionComplianceViewModelTests
         Assert.Equal(CollectionComplianceHarness.ServersWql, harness.Service.Rules["LAB00010"].Single(r => r.Kind == CollectionRuleKind.Query).Expression);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task RemoveRuleIsDestructiveAndShowsTheWql()
     {
         var harness = new CollectionComplianceHarness();
@@ -723,7 +723,7 @@ public sealed class CollectionComplianceViewModelTests
         Assert.Empty(viewModel.WqlRules);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task EditInTheWqlEditorOpensTheRuleOfTheDetailPanel()
     {
         var harness = new CollectionComplianceHarness();
@@ -736,7 +736,7 @@ public sealed class CollectionComplianceViewModelTests
         Assert.Equal(CollectionComplianceHarness.ServersWql, viewModel.WqlText);
     }
 
-    [Fact]
+    [WindowFact]
     public void TemplateValuesAreLiteralsWithBackslashEscapesOrWholeNumbersAndControlCharactersAreRefused()
     {
         Assert.Equal("where Build = 22631", WqlParameters.Insert("where Build = {Build}", [("{Build}", "22631")]));
@@ -755,7 +755,7 @@ public sealed class CollectionComplianceViewModelTests
         Assert.Equal("{Build}", WqlParameters.Placeholder("Build"));
     }
 
-    [Fact]
+    [WindowFact]
     public async Task ParameterizedTemplatesShowTheFinalWqlBeforeUse()
     {
         var harness = new CollectionComplianceHarness();
@@ -784,7 +784,7 @@ public sealed class CollectionComplianceViewModelTests
         Assert.Equal("Software installed by name", viewModel.WqlRuleName);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task ApplyTemplateSkipsACollectionWithThatRuleNameAndUndoRemovesOnlyTheAddedRules()
     {
         var harness = new CollectionComplianceHarness();
@@ -811,7 +811,7 @@ public sealed class CollectionComplianceViewModelTests
         Assert.Contains(harness.Service.Rules["LAB00012"], r => r.RuleName == "All workstations");
     }
 
-    [Fact]
+    [WindowFact]
     public async Task ACancelDuringABulkApplyKeepsThePartialResultsAndTheirUndo()
     {
         var harness = new CollectionComplianceHarness();
@@ -833,7 +833,7 @@ public sealed class CollectionComplianceViewModelTests
         Assert.Equal(SiteOperationOutcome.Cancelled, harness.History.Entries.Single().Outcome);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task ApplyTemplateNeedsTheParametersFirst()
     {
         var harness = new CollectionComplianceHarness();
@@ -845,7 +845,7 @@ public sealed class CollectionComplianceViewModelTests
         Assert.EndsWith("SMS_R_System.Build = 22631", viewModel.TemplateWql);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task ASkippedUserTemplateFileShowsThePlainMessageOfTheStore()
     {
         var harness = new CollectionComplianceHarness();
@@ -858,7 +858,7 @@ public sealed class CollectionComplianceViewModelTests
         Assert.Equal(3, next.TemplateRows.Count);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task ATemplateParameterStartsWithItsDefaultValue()
     {
         var harness = new CollectionComplianceHarness();
@@ -871,7 +871,7 @@ public sealed class CollectionComplianceViewModelTests
         Assert.Equal("Shipped", viewModel.SelectedTemplate.Source);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task SavedQueriesLoadWhenTheTabOpensAndEveryWriteHasAPlanAndUndo()
     {
         var harness = new CollectionComplianceHarness();
@@ -918,7 +918,7 @@ public sealed class CollectionComplianceViewModelTests
         AssertNoSiteTextInLog(harness, "No client", "Client = 0");
     }
 
-    [Fact]
+    [WindowFact]
     public async Task ADoubleClickOnSaveShowsOnePlan()
     {
         var harness = new CollectionComplianceHarness();
@@ -935,7 +935,7 @@ public sealed class CollectionComplianceViewModelTests
         Assert.Single(harness.Service.Applied);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task AWriteWaitsForARunningLoadAndThenReadsAgain()
     {
         var harness = new CollectionComplianceHarness();
@@ -955,7 +955,7 @@ public sealed class CollectionComplianceViewModelTests
         Assert.Equal("changed", viewModel.Rows.Single(r => r.CollectionId == "LAB00011").Row.Comment);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task ExportWritesTheShownRowsAndOpensTheFolder()
     {
         var harness = new CollectionComplianceHarness();
@@ -969,7 +969,7 @@ public sealed class CollectionComplianceViewModelTests
         Assert.Equal(CollectionComplianceViewModel.ReportFailed("HTML"), viewModel.StatusMessage);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task ThePageHasNoCommandThatStartsTheSuiteTool()
     {
         Assert.Null(typeof(CollectionComplianceViewModel).GetProperty("OpenComplianceBaselinesCommand"));
@@ -978,7 +978,7 @@ public sealed class CollectionComplianceViewModelTests
         Assert.True(viewModel.IsCollectionsSection);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task AVisitThatOpensOnTheComplianceSectionReadsNoCollectionsUntilTheSwitch()
     {
         var harness = new CollectionComplianceHarness { Saved = new ApplicationPackagerUI.Models.CollectionComplianceSettings { Section = CollectionComplianceViewModel.ComplianceSection } };
@@ -995,7 +995,7 @@ public sealed class CollectionComplianceViewModelTests
         Assert.Equal(CollectionComplianceViewModel.CollectionsSection, harness.Saved!.Section);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task TheSectionChoiceIsKept()
     {
         var harness = new CollectionComplianceHarness();
@@ -1008,7 +1008,7 @@ public sealed class CollectionComplianceViewModelTests
         Assert.False(again.IsCollectionsSection);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task TheTabAndFiltersComeBackOnTheNextStartAndOlderFilesUseTheDefaults()
     {
         var harness = new CollectionComplianceHarness();
@@ -1041,7 +1041,7 @@ public sealed class CollectionComplianceViewModelTests
         Assert.Equal(CollectionComplianceViewModel.AllCategories, odd.CategoryFilter);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task LeavingThePageWaitsForTheSaveOfTheChoices()
     {
         var harness = new CollectionComplianceHarness();
@@ -1054,7 +1054,7 @@ public sealed class CollectionComplianceViewModelTests
         Assert.Equal("x", harness.Saved.TextFilter);
     }
 
-    [Fact]
+    [WindowFact]
     public void AnOlderSettingsFileHasNoCollectionComplianceObject()
     {
         var settings = System.Text.Json.JsonSerializer.Deserialize<AppSettings>("{\"SiteCode\":\"LAB\"}")!;
@@ -1063,7 +1063,7 @@ public sealed class CollectionComplianceViewModelTests
         Assert.DoesNotContain("CollectionCompliance", text);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task AFailedWriteKeepsTheResultsAndTheUndoOfTheChangesThatWereMade()
     {
         var harness = new CollectionComplianceHarness();
@@ -1084,7 +1084,7 @@ public sealed class CollectionComplianceViewModelTests
 
     // ---- A plan window force closed while the run still works ----------------------------------
 
-    [Fact]
+    [WindowFact]
     public async Task AWindowClosedDuringARunKeepsEveryWriteBlockedUntilTheRunEnds()
     {
         SynchronizationContext.SetSynchronizationContext(null);

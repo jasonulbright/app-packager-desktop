@@ -30,7 +30,7 @@ public sealed class DeploymentHelperRegistrationTests : IDisposable
         return services.BuildServiceProvider(new ServiceProviderOptions { ValidateOnBuild = false, ValidateScopes = true });
     }
 
-    [Fact]
+    [WindowFact]
     public void TheApplicationServicesBuildOnePageViewModelThatReadsNothing()
     {
         using var provider = Provider();
@@ -47,7 +47,7 @@ public sealed class DeploymentHelperRegistrationTests : IDisposable
         Assert.False(File.Exists(SettingsService.SettingsPath));
     }
 
-    [Fact]
+    [WindowFact]
     public void TheRegisteredAuditLogFollowsThePageSettingAtEveryCall()
     {
         using var provider = Provider();
@@ -64,14 +64,14 @@ public sealed class DeploymentHelperRegistrationTests : IDisposable
         Assert.Equal(DeploymentAuditLog.DefaultPath(), log.Path);
     }
 
-    [Fact]
+    [WindowFact]
     public void EveryPageTypeHasOneConstructorSoTheContainerCanBuildIt()
     {
         foreach (var type in new[] { typeof(DeploymentHelperViewModel), typeof(DeploymentHelperPage), typeof(DeploymentWriter), typeof(DeploymentHelperDialogs) })
             Assert.Single(type.GetConstructors());
     }
 
-    [Fact]
+    [WindowFact]
     public void TheSavedChoicesRoundTripThroughTheSettingsFileAndKeepOtherValues()
     {
         var settings = new SettingsService();

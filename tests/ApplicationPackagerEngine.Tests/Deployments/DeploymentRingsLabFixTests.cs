@@ -66,7 +66,7 @@ public sealed class DeploymentRingsLabFixTests : IDisposable
         Settle(window);
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
     public void ARingSetRequiredStaysRequiredWhenAnotherRingIsSelected(ApplicationTheme theme)
@@ -97,7 +97,7 @@ public sealed class DeploymentRingsLabFixTests : IDisposable
         });
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light, false, false)]
     [InlineData(ApplicationTheme.Dark, false, true)]
     [InlineData(ApplicationTheme.Light, true, false)]
@@ -124,7 +124,7 @@ public sealed class DeploymentRingsLabFixTests : IDisposable
         });
     }
 
-    [Fact]
+    [WindowFact]
     public void ANewPlanStartsWithoutRingsTakes100CollectionsAndRefusesAnEmptySave()
     {
         var chosen = Enumerable.Range(1, 100).Select(i => Row($"LABH{i:0000}", $"Wave {i}")).ToList();
@@ -156,7 +156,7 @@ public sealed class DeploymentRingsLabFixTests : IDisposable
         return (rings, h);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task AValidateFailureOfARingIsListedOnceWithThePlainLabelOfThePlanRules()
     {
         const string Message = "The deadline of ring Wave 1 is earlier than the deadline of ring Pilot.";
@@ -184,7 +184,7 @@ public sealed class DeploymentRingsLabFixTests : IDisposable
         Assert.Equal($"The run cannot be created: Ring Wave 1: Plan rules: {Message}", rings.FormMessage);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task AFailedCheckOfAHeldRingStillRefusesTheRunAndNamesItsReason()
     {
         const string Message = "Ring 3 (Wave 2) names collection LAB00012, which does not exist.";
@@ -204,7 +204,7 @@ public sealed class DeploymentRingsLabFixTests : IDisposable
         Assert.Empty(h.Rings.Applied);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task TheEditorRefusesATaskSequenceOptionCombinationThatValidateBlocks()
     {
         var plan = Plan("Three Rings", required: false);
@@ -221,7 +221,7 @@ public sealed class DeploymentRingsLabFixTests : IDisposable
         Assert.True(editor.Saved);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task ASummaryRowWithoutCountsReadsAsNotSummarizedAndShowsUnknownInEveryCountCell()
     {
         using var h = new RingHarness();
@@ -251,7 +251,7 @@ public sealed class DeploymentRingsLabFixTests : IDisposable
             RingText.PromoteState(run, new Dictionary<int, RingLiveCounts> { [1] = none }).Reason);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task AnUndoRunThatKeepsDeploymentsReportsRemovedAndKeptAndCountsNoFailure()
     {
         var h = new DeploymentPageHarness();
@@ -282,7 +282,7 @@ public sealed class DeploymentRingsLabFixTests : IDisposable
         Assert.Equal((2, 0, 2), (entry.Counts["changed"], entry.Counts["failed"], entry.Counts["kept"]));
     }
 
-    [Fact]
+    [WindowFact]
     public async Task AnUndoRunWhoseRemovalIsRefusedAtApplySkipsItsCloseLineAndCountsNoFailure()
     {
         var h = new DeploymentPageHarness();
@@ -301,7 +301,7 @@ public sealed class DeploymentRingsLabFixTests : IDisposable
         Assert.Equal(0, h.History.Entries.Last().Counts["failed"]);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task TheUndoPlanOfTheRingServiceStatesEachFactOnce()
     {
         using var h = new RingHarness();
@@ -331,7 +331,7 @@ public sealed class DeploymentRingsLabFixTests : IDisposable
         { "TaskSequence", "Available" }, { "TaskSequence", "Required" }, { "SoftwareUpdateGroup", "Available" }, { "SoftwareUpdateGroup", "Required" }
     };
 
-    [Theory]
+    [WindowTheory]
     [MemberData(nameof(TypesAndPurposes))]
     public async Task ThePromoteAndRunPlansUsePlainOptionLabelsAndTheRightArticle(string typeName, string purpose)
     {
@@ -370,7 +370,7 @@ public sealed class DeploymentRingsLabFixTests : IDisposable
         Assert.Equal(lines.Length, lines.Distinct().Count());
     }
 
-    [Fact]
+    [WindowFact]
     public async Task ThePageStatusLineDropsARefusalWhenTheFormChangesAndALockMessageAfterASuccessfulReload()
     {
         var h = new DeploymentPageHarness();
@@ -403,7 +403,7 @@ public sealed class DeploymentRingsLabFixTests : IDisposable
             CollectionId: $"LABC{i:0000}", CollectionName: $"RG-Test-C{i:000}", Purpose: "Available", AvailableTime: new DateTime(2026, 10, 19, 8, 0, 0), Deadline: null,
             Created: new DateTime(2026, 10, 19, 8, 0, 0), CreatedBy: @"LAB\admin"), [], [], null);
 
-    [Fact]
+    [WindowFact]
     public void TheRemovalQuestionOfManyDeploymentsStatesTheCountAndListsOneDeploymentPerLine()
     {
         var text = DeploymentWriter.RemovalQuestion(Enumerable.Range(1, 100).Select(Removal).ToList());
@@ -415,7 +415,7 @@ public sealed class DeploymentRingsLabFixTests : IDisposable
             DeploymentWriter.RemovalQuestion([Removal(1)]));
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light, 1080 - 48)]
     [InlineData(ApplicationTheme.Dark, 1080 - 48)]
     [InlineData(ApplicationTheme.Light, 768 - 40)]
@@ -440,7 +440,7 @@ public sealed class DeploymentRingsLabFixTests : IDisposable
         });
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
     public void TheChangePlanOf100RingsKeepsItsCheckBoxesAndButtonsVisible(ApplicationTheme theme)
@@ -468,7 +468,7 @@ public sealed class DeploymentRingsLabFixTests : IDisposable
         });
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(false)]
     [InlineData(true)]
     public void ACopySavedUnchangedEqualsTheOriginalFileExceptTheName(bool required)

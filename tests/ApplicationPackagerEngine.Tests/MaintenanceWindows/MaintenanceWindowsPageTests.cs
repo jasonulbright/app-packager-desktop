@@ -116,7 +116,7 @@ public sealed class MaintenanceWindowsPageTests
         });
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
     public void TheThreeTabsRenderInTheTheme(ApplicationTheme theme)
@@ -167,7 +167,7 @@ public sealed class MaintenanceWindowsPageTests
         });
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
     public void AWindowWhoseScheduleThePageCannotHoldDisablesEditAndRemoveWithATooltip(ApplicationTheme theme)
@@ -207,7 +207,7 @@ public sealed class MaintenanceWindowsPageTests
 
     private const string OwnDescription = "Patch the file servers first.";
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
     public void TheDetailPanelShowsTheOwnDescriptionOnly(ApplicationTheme theme)
@@ -248,7 +248,7 @@ public sealed class MaintenanceWindowsPageTests
         });
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
     public void TheEditorShowsTheOwnDescriptionReadOnlyWithANote(ApplicationTheme theme)
@@ -374,7 +374,7 @@ public sealed class MaintenanceWindowsPageTests
         }
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(1440)]
     [InlineData(1024)]
     public void TheWindowsGridKeepsReadableResizableColumnsAtACommonWidth(double width)
@@ -415,7 +415,7 @@ public sealed class MaintenanceWindowsPageTests
         }, width - NavigationPaneWidth);
     }
 
-    [Fact]
+    [WindowFact]
     public void AutoSizingATemplateColumnKeepsTheOtherColumnsReadable()
     {
         WithPage(ApplicationTheme.Light, (window, page, harness) =>
@@ -443,7 +443,7 @@ public sealed class MaintenanceWindowsPageTests
         }, 1440 - NavigationPaneWidth);
     }
 
-    [Fact]
+    [WindowFact]
     public void TheCoverageGridKeepsReadableResizableColumns()
     {
         WithPage(ApplicationTheme.Dark, (window, page, harness) =>
@@ -460,7 +460,7 @@ public sealed class MaintenanceWindowsPageTests
         }, 1024 - NavigationPaneWidth);
     }
 
-    [Fact]
+    [WindowFact]
     public void TheApplyTemplateListKeepsReadableResizableColumns()
     {
         WithApplication(ApplicationTheme.Light, () =>
@@ -483,7 +483,7 @@ public sealed class MaintenanceWindowsPageTests
         });
     }
 
-    [Fact]
+    [WindowFact]
     public void ScreenReadersHearPlainNamesForRowsAndItems()
     {
         WithPage(ApplicationTheme.Dark, (window, page, harness) =>
@@ -510,7 +510,7 @@ public sealed class MaintenanceWindowsPageTests
         });
     }
 
-    [Fact]
+    [WindowFact]
     public void KeyboardFocusOnACollectionSelectsIt()
     {
         WithApplication(ApplicationTheme.Light, () =>
@@ -535,7 +535,7 @@ public sealed class MaintenanceWindowsPageTests
         });
     }
 
-    [Fact]
+    [WindowFact]
     public void TheEditorShowsTheOwnCollectionOfTheWindow()
     {
         WithApplication(ApplicationTheme.Light, () =>
@@ -560,7 +560,7 @@ public sealed class MaintenanceWindowsPageTests
         });
     }
 
-    [Fact]
+    [WindowFact]
     public void TheApplyTemplateCheckBoxFitsItsColumn()
     {
         WithApplication(ApplicationTheme.Light, () =>
@@ -586,7 +586,7 @@ public sealed class MaintenanceWindowsPageTests
         });
     }
 
-    [Fact]
+    [WindowFact]
     public void ThePlanDetailWrapsAndHasATooltip()
     {
         WithApplication(ApplicationTheme.Light, () =>
@@ -606,7 +606,7 @@ public sealed class MaintenanceWindowsPageTests
         });
     }
 
-    [Fact]
+    [WindowFact]
     public void AConnectionProblemShowsItsMessageAboveTheTabs()
     {
         WithApplication(ApplicationTheme.Dark, () =>
@@ -628,7 +628,7 @@ public sealed class MaintenanceWindowsPageTests
         });
     }
 
-    [Fact]
+    [WindowFact]
     public void TheResultsPanelAndUndoShowAfterAWrite()
     {
         WithPage(ApplicationTheme.Light, (window, page, harness) =>
@@ -647,7 +647,7 @@ public sealed class MaintenanceWindowsPageTests
         });
     }
 
-    [Fact]
+    [WindowFact]
     public void ANarrowPageMovesTheDetailsUnderTheGrid()
     {
         Assert.True(MaintenanceWindowsPage.DetailsBelow(900));
@@ -667,7 +667,7 @@ public sealed class MaintenanceWindowsPageTests
         return data;
     }
 
-    [Theory]
+    [WindowTheory]
     [MemberData(nameof(KindsAndThemes))]
     public void TheEditorRendersEachScheduleKind(MaintenanceScheduleKind kind, ApplicationTheme theme)
     {
@@ -711,7 +711,7 @@ public sealed class MaintenanceWindowsPageTests
         });
     }
 
-    [Fact]
+    [WindowFact]
     public void TheEditorClipsALongCollectionNameWithATooltipAndFitsTheWorkArea()
     {
         WithApplication(ApplicationTheme.Dark, () =>
@@ -743,7 +743,7 @@ public sealed class MaintenanceWindowsPageTests
         });
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
     public void TheTemplateEditorAndTheApplyDialogRender(ApplicationTheme theme)
@@ -775,7 +775,7 @@ public sealed class MaintenanceWindowsPageTests
         });
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
     public void ThePlanWindowShowsALongBulkPlan(ApplicationTheme theme)
@@ -901,7 +901,7 @@ public sealed class MaintenanceWindowsPageTests
         Assert.True(mark >= 1.15, $"{name}: a selected row ({MostCommon(selected)}) is not visibly different from an unselected row ({MostCommon(plain)}): {mark:0.00}.");
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
     public void ThePageGridsShowReadableRowsAndAVisibleSelectionInTheTheme(ApplicationTheme theme)
@@ -935,7 +935,7 @@ public sealed class MaintenanceWindowsPageTests
         });
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light, ApplicationTheme.Dark)]
     [InlineData(ApplicationTheme.Dark, ApplicationTheme.Light)]
     public void TheWindowsGridFollowsALiveThemeSwitch(ApplicationTheme start, ApplicationTheme next)
@@ -951,7 +951,7 @@ public sealed class MaintenanceWindowsPageTests
         });
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
     public void TheDialogListsShowReadableRowsAndAVisibleSelectionInTheTheme(ApplicationTheme theme)
@@ -1007,7 +1007,7 @@ public sealed class MaintenanceWindowsPageTests
         });
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
     public void EveryMainGridShowsAtLeastThreeWholeRowsAtTheMinimumSize(ApplicationTheme theme)

@@ -40,7 +40,7 @@ public sealed class MaintenanceWindowPartialWriteTests
             ? new ConfigMgrSessionException(failure, "The session ended.")
             : null;
 
-    [Fact]
+    [WindowFact]
     public async Task ARenameWhoseCreateSucceededBeforeAnAccessDeniedKeepsTheUndoOfTheNewWindow()
     {
         _site.Add("MCM00015", "Old", WeeklyToken, description: Custom);
@@ -61,7 +61,7 @@ public sealed class MaintenanceWindowPartialWriteTests
         Assert.Equal(Custom, Assert.Single(_site.Windows).Description);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task ACreateThatFailsAfterTheWindowExistsReportsTheWindowWithItsUndo()
     {
         FailAfter("Create");
@@ -74,7 +74,7 @@ public sealed class MaintenanceWindowPartialWriteTests
         Assert.Empty(_site.Windows);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task AnUpdateThatFailsAfterTheChangeKeepsTheUndoToTheOldValues()
     {
         _site.Add("MCM00015", "Patch", WeeklyToken);
@@ -91,7 +91,7 @@ public sealed class MaintenanceWindowPartialWriteTests
         Assert.Equal(WeeklyToken, _site.Windows.Single().Schedules);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task AToggleThatFailsAfterTheChangeKeepsItsUndo()
     {
         _site.Add("MCM00015", "Patch", WeeklyToken);
@@ -107,7 +107,7 @@ public sealed class MaintenanceWindowPartialWriteTests
         Assert.True(_site.Windows.Single().Enabled);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task ARemoveThatFailsAfterTheWindowIsGoneKeepsTheUndoThatCreatesItAgain()
     {
         _site.Add("MCM00015", "Patch", WeeklyToken, description: Custom);
@@ -124,7 +124,7 @@ public sealed class MaintenanceWindowPartialWriteTests
         Assert.Equal(Custom, _site.Windows.Single(w => w.Name == "Patch").Description);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task AFailureBeforeAnyChangeHasNoUndo()
     {
         _site.Add("MCM00015", "Patch", WeeklyToken);
@@ -138,7 +138,7 @@ public sealed class MaintenanceWindowPartialWriteTests
         Assert.Equal(WeeklyToken, _site.Windows.Single().Schedules);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task AnAccessDeniedPartialWithNoStoredChangeKeepsThePermissionHint()
     {
         var window = _site.Add("MCM00015", "Patch", WeeklyToken);
@@ -154,7 +154,7 @@ public sealed class MaintenanceWindowPartialWriteTests
         Assert.Equal(WeeklyToken, window.Schedules);
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ChangeKind.Update)]
     [InlineData(ChangeKind.Rename)]
     [InlineData(ChangeKind.Remove)]

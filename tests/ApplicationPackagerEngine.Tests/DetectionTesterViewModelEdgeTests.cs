@@ -33,7 +33,7 @@ public sealed class DetectionTesterViewModelEdgeTests
 
     // Import
 
-    [Fact]
+    [WindowFact]
     public async Task AManifestWithoutADetectionSaysSoAndLeavesTheInputs()
     {
         _h.Prompts.ManifestPath = "empty.json";
@@ -48,7 +48,7 @@ public sealed class DetectionTesterViewModelEdgeTests
         Assert.DoesNotContain(_h.Log.Entries, e => e.Message.StartsWith("Imported", StringComparison.Ordinal));
     }
 
-    [Fact]
+    [WindowFact]
     public async Task AManifestWithDeploymentTypesImportsTheFirstAndSaysSo()
     {
         _h.Prompts.ManifestPath = "dts.json";
@@ -72,7 +72,7 @@ public sealed class DetectionTesterViewModelEdgeTests
         Assert.Contains("App 2.0", viewModel.StatusMessage);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task ADeploymentTypeWithoutItsOwnDetectionUsesTheManifestDetection()
     {
         _h.Prompts.ManifestPath = "dts.json";
@@ -88,7 +88,7 @@ public sealed class DetectionTesterViewModelEdgeTests
         Assert.StartsWith("Imported the detection of App.", viewModel.StatusMessage);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task DeploymentTypesWithoutAnyDetectionImportNothing()
     {
         _h.Prompts.ManifestPath = "dts.json";
@@ -103,7 +103,7 @@ public sealed class DetectionTesterViewModelEdgeTests
         AssertInputsKept(viewModel);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task AnUnsupportedClauseTypeIsReportedWithoutASuccessMessageOrLogLine()
     {
         _h.Prompts.ManifestPath = "wmi.json";
@@ -117,7 +117,7 @@ public sealed class DetectionTesterViewModelEdgeTests
         Assert.DoesNotContain(_h.Log.Entries, e => e.Message.StartsWith("Imported", StringComparison.Ordinal));
     }
 
-    [Fact]
+    [WindowFact]
     public void LoadDetectionReturnsFalseForAnUnsupportedTypeAndTrueOtherwise()
     {
         var viewModel = _h.Create();
@@ -127,7 +127,7 @@ public sealed class DetectionTesterViewModelEdgeTests
         Assert.Equal("RegistryKey", viewModel.SelectedClauseType);
     }
 
-    [Fact]
+    [WindowFact]
     public void LoadDetectionRejectsAnUnsupportedScriptLanguageWithoutChangingTheInputs()
     {
         var viewModel = _h.Create();
@@ -146,7 +146,7 @@ public sealed class DetectionTesterViewModelEdgeTests
         Assert.Contains("VBScript", viewModel.StatusMessage);
     }
 
-    [Fact]
+    [WindowFact]
     public void LoadDetectionRejectsAnUnsupportedScriptNestedInACompoundTree()
     {
         var viewModel = _h.Create();
@@ -177,7 +177,7 @@ public sealed class DetectionTesterViewModelEdgeTests
         Assert.Contains("VBScript", viewModel.StatusMessage);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task UseSelectedOnAnUnsupportedRowKeepsTheUnsupportedMessage()
     {
         _h.History.Entries.Add(DetectionTesterHarness.Entry(DateTimeOffset.Now, new StageDetection { Type = "Wmi" }, negative: true));
@@ -188,7 +188,7 @@ public sealed class DetectionTesterViewModelEdgeTests
         Assert.False(viewModel.Negative);
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData("Matches", "String", "The operator Matches is not offered. The inputs use IsEquals.")]
     [InlineData("IsEquals", "Binary", "The data type Binary is not offered. The inputs use String.")]
     public async Task AnUnknownOperatorOrDataTypeFallsBackAndSaysSo(string op, string propertyType, string note)
@@ -205,7 +205,7 @@ public sealed class DetectionTesterViewModelEdgeTests
         Assert.EndsWith(note, viewModel.StatusMessage);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task AnUnknownFileOperatorFallsBackAndSaysSo()
     {
         var detection = new StageDetection { Type = "File", FilePath = @"C:\A", FileName = "a.exe", PropertyType = "Version", Operator = "Between", ExpectedValue = "1.0" };
@@ -217,7 +217,7 @@ public sealed class DetectionTesterViewModelEdgeTests
         Assert.Equal("Filled the inputs from the selected test. The operator Between is not offered. The inputs use GreaterEquals.", viewModel.StatusMessage);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task AKnownOperatorWithOtherCaseIsNotReported()
     {
         _h.Prompts.ManifestPath = "case.json";
@@ -232,7 +232,7 @@ public sealed class DetectionTesterViewModelEdgeTests
         Assert.Equal("Imported the detection of App. Press Run to test it.", viewModel.StatusMessage);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task AManifestOverTheSizeLimitIsNotRead()
     {
         var path = Path.Combine(Path.GetTempPath(), "apkg-dt-huge-" + Guid.NewGuid().ToString("N") + ".json");
@@ -251,7 +251,7 @@ public sealed class DetectionTesterViewModelEdgeTests
         finally { File.Delete(path); }
     }
 
-    [Fact]
+    [WindowFact]
     public async Task APathToAFolderReportsTheImportFailure()
     {
         var folder = Path.Combine(Path.GetTempPath(), "apkg-dt-dir-" + Guid.NewGuid().ToString("N"));
@@ -268,7 +268,7 @@ public sealed class DetectionTesterViewModelEdgeTests
         finally { Directory.Delete(folder); }
     }
 
-    [Fact]
+    [WindowFact]
     public async Task AnUnexpectedReadFailureIsReportedWithoutItsText()
     {
         _h.Prompts.ManifestPath = "boom.json";
@@ -283,7 +283,7 @@ public sealed class DetectionTesterViewModelEdgeTests
 
     // History failures
 
-    [Theory]
+    [WindowTheory]
     [InlineData(typeof(IOException))]
     [InlineData(typeof(FormatException))]
     public async Task AHistoryReadFailureIsReportedAndLoggedByTypeOnly(Type failure)
@@ -296,7 +296,7 @@ public sealed class DetectionTesterViewModelEdgeTests
         Assert.All(_h.Log.Entries, e => Assert.DoesNotContain("hidden-detail", e.Message));
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(typeof(UnauthorizedAccessException))]
     [InlineData(typeof(ArgumentException))]
     public async Task AHistorySaveFailureKeepsTheResultAndReportsIt(Type failure)
@@ -313,7 +313,7 @@ public sealed class DetectionTesterViewModelEdgeTests
         Assert.All(_h.Log.Entries, e => Assert.DoesNotContain("hidden-detail", e.Message));
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(typeof(IOException))]
     [InlineData(typeof(NotSupportedException))]
     public async Task AHistoryClearFailureKeepsTheRows(Type failure)
@@ -328,7 +328,7 @@ public sealed class DetectionTesterViewModelEdgeTests
         Assert.All(_h.Log.Entries, e => Assert.DoesNotContain("hidden-detail", e.Message));
     }
 
-    [Fact]
+    [WindowFact]
     public async Task AnUnexpectedReportFailureIsReportedWithoutItsText()
     {
         _h.Reports.Failure = new FormatException("hidden-detail");
@@ -340,7 +340,7 @@ public sealed class DetectionTesterViewModelEdgeTests
         Assert.All(_h.Log.Entries, e => Assert.DoesNotContain("hidden-detail", e.Message));
     }
 
-    [Fact]
+    [WindowFact]
     public async Task AnUnexpectedEnumerateFailureIsReported()
     {
         _h.Applications.Failure = new FormatException("hidden-detail");
@@ -352,7 +352,7 @@ public sealed class DetectionTesterViewModelEdgeTests
         Assert.All(_h.Log.Entries, e => Assert.DoesNotContain("hidden-detail", e.Message));
     }
 
-    [Fact]
+    [WindowFact]
     public async Task HistoryInMemoryKeepsTheNewest500()
     {
         for (var i = 0; i < DetectionTesterViewModel.HistoryLimit; i++)
@@ -370,13 +370,13 @@ public sealed class DetectionTesterViewModelEdgeTests
         Assert.Equal("old 2", viewModel.History[^1].Description);
     }
 
-    [Fact]
+    [WindowFact]
     public void TheHistoryNoteSaysWhatIsKept() =>
         Assert.Equal("History keeps the clause text, including script text, on this computer.", DetectionTesterViewModel.HistoryNote);
 
     // Clipboard
 
-    [Fact]
+    [WindowFact]
     public async Task AClipboardFailureIsReported()
     {
         _h.Applications.Applications.Add(new InstalledApplication("7-Zip", "Igor Pavlov", "24.09", "", "HKLM 64-bit", @"HKLM\SOFTWARE\X", "", "", ""));
@@ -394,7 +394,7 @@ public sealed class DetectionTesterViewModelEdgeTests
 
     // Preferences
 
-    [Fact]
+    [WindowFact]
     public async Task ChoicesAreSavedOffTheUiThreadAndOnlyWhenTheyChange()
     {
         _h.Saved = new DetectionTesterSettings { ClauseType = "RegistryKey", Hive = "HKLM", View = "64-bit" };
@@ -412,7 +412,7 @@ public sealed class DetectionTesterViewModelEdgeTests
         Assert.Equal("32-bit", _h.Saved!.View);
     }
 
-    [Fact]
+    [WindowFact]
     public void ChoicesAreSavedOnAPoolThreadWhenTheRunStartsOnTheUiThread()
     {
         StaTestHelper.Run(() =>
@@ -429,7 +429,7 @@ public sealed class DetectionTesterViewModelEdgeTests
         });
     }
 
-    [Fact]
+    [WindowFact]
     public async Task ASaveFailureDoesNotStopTheRunAndIsTriedAgain()
     {
         _h.SaveFailure = new FormatException("x");
@@ -444,7 +444,7 @@ public sealed class DetectionTesterViewModelEdgeTests
         Assert.Equal("RegistryKey", _h.Saved!.ClauseType);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task AFalsePreferenceSaveDoesNotStopTheRunAndIsTriedAgain()
     {
         _h.SaveResult = false;
@@ -462,7 +462,7 @@ public sealed class DetectionTesterViewModelEdgeTests
         Assert.Equal("RegistryKey", _h.Saved!.ClauseType);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task ConcurrentChoiceChangesSaveTheLatestSnapshot()
     {
         var viewModel = await _h.OpenAsync();
@@ -489,7 +489,7 @@ public sealed class DetectionTesterViewModelEdgeTests
 
     // Show system components
 
-    [Fact]
+    [WindowFact]
     public async Task ShowSystemComponentsIsOffByDefaultReloadsOnToggleAndIsRemembered()
     {
         _h.Saved = new DetectionTesterSettings { ClauseType = "File", Hive = "HKCU", View = "32-bit" };
@@ -516,7 +516,7 @@ public sealed class DetectionTesterViewModelEdgeTests
         Assert.Equal([true], reopened.Applications.Includes);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task TogglingBeforeTheTabOpensReadsNothing()
     {
         var viewModel = await _h.OpenAsync();
@@ -528,7 +528,7 @@ public sealed class DetectionTesterViewModelEdgeTests
         Assert.Equal([true], _h.Applications.Includes);
     }
 
-    [Fact]
+    [WindowFact]
     public void ASettingsFileWithoutTheFlagReadsAsOff()
     {
         var settings = System.Text.Json.JsonSerializer.Deserialize<DetectionTesterSettings>("{\"ClauseType\":\"Script\"}")!;
@@ -537,7 +537,7 @@ public sealed class DetectionTesterViewModelEdgeTests
 
     // Leaving the page, repeated commands, cancel order
 
-    [Fact]
+    [WindowFact]
     public async Task LeavingThePageDuringTheLoadDiscardsTheResultAndTheNextVisitReadsAgain()
     {
         _h.Applications.Applications.Add(new InstalledApplication("7-Zip", "", "", "", "HKLM 64-bit", @"HKLM\SOFTWARE\X", "", "", ""));
@@ -563,7 +563,7 @@ public sealed class DetectionTesterViewModelEdgeTests
         Assert.Equal(2, _h.Applications.Calls);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task LeavingAndReturningDuringTheLoadStartsAFreshLoad()
     {
         _h.Applications.Applications.Add(new InstalledApplication("7-Zip", "", "", "", "HKLM 64-bit", @"HKLM\SOFTWARE\X", "", "", ""));
@@ -583,7 +583,7 @@ public sealed class DetectionTesterViewModelEdgeTests
         Assert.Equal("1 applications", viewModel.ApplicationCount);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task LeavingThePageDuringARunKeepsTheRunAndRecordsItsResult()
     {
         _h.Tests.Pending = new TaskCompletionSource<DetectionTestResult>(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -603,7 +603,7 @@ public sealed class DetectionTesterViewModelEdgeTests
         Assert.Single(_h.History.Entries);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task ASecondRunDuringARunStartsNothing()
     {
         _h.Tests.Pending = new TaskCompletionSource<DetectionTestResult>(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -623,7 +623,7 @@ public sealed class DetectionTesterViewModelEdgeTests
         Assert.Single(_h.History.Entries);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task ACancelBeforeTheServiceCompletesShowsCancelledAndRecordsNothing()
     {
         _h.Tests.Pending = new TaskCompletionSource<DetectionTestResult>(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -643,7 +643,7 @@ public sealed class DetectionTesterViewModelEdgeTests
         Assert.Empty(viewModel.History);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task ACompletionBeforeTheCancelKeepsTheResult()
     {
         _h.Tests.Pending = new TaskCompletionSource<DetectionTestResult>(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -661,7 +661,7 @@ public sealed class DetectionTesterViewModelEdgeTests
         Assert.Single(_h.History.Entries);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task ACancellationTheOperatorDidNotAskForIsAnError()
     {
         _h.Tests.Failure = new OperationCanceledException();
@@ -674,7 +674,7 @@ public sealed class DetectionTesterViewModelEdgeTests
         Assert.Empty(_h.History.Entries);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task AnOperatorCancelThatTheServiceReportsAsCancelledShowsCancelled()
     {
         _h.Tests.Pending = new TaskCompletionSource<DetectionTestResult>(TaskCreationOptions.RunContinuationsAsynchronously);

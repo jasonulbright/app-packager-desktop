@@ -76,7 +76,7 @@ public sealed class AddFromWebViewModelTests : IDisposable
         test(new Harness(_root, withDownloadRoot ? Path.Combine(_root, "downloads") : null));
     });
 
-    [Fact]
+    [WindowFact]
     public void TheWizardHasTheAnalysisAndDetectionSteps() => OnSta(h =>
     {
         var titles = new List<string>();
@@ -91,7 +91,7 @@ public sealed class AddFromWebViewModelTests : IDisposable
         Assert.Equal(["HttpRegex", "JsonQuery", "FileVersion"], h.ViewModel.ScraperTypeOptions);
     });
 
-    [Fact]
+    [WindowFact]
     public void TheAnalysisFetchesTheInstallerOnceAndAnalyzesIt() => OnSta(h =>
     {
         h.Scrape();
@@ -107,7 +107,7 @@ public sealed class AddFromWebViewModelTests : IDisposable
         Assert.Equal("Predicted, not verified", h.ViewModel.AnalysisRows.Single(r => r.Label == "Uninstall arguments").MarkerText);
     });
 
-    [Fact]
+    [WindowFact]
     public void TheAnalysisNeedsTheScrapedVersionWhenTheUrlHasAToken() => OnSta(h =>
     {
         h.ViewModel.AnalyzeCommand.Execute(null);
@@ -116,7 +116,7 @@ public sealed class AddFromWebViewModelTests : IDisposable
         Assert.Contains("Test Scrape", h.ViewModel.AnalysisStatus);
     });
 
-    [Fact]
+    [WindowFact]
     public void TheAnalysisNeedsTheDownloadRoot() => OnSta(h =>
     {
         h.Scrape();
@@ -126,7 +126,7 @@ public sealed class AddFromWebViewModelTests : IDisposable
         Assert.Contains("download root", h.ViewModel.AnalysisStatus);
     }, withDownloadRoot: false);
 
-    [Fact]
+    [WindowFact]
     public void ProgressAndCancelWorkOnTheAnalysis() => OnSta(h =>
     {
         h.Scrape();
@@ -142,7 +142,7 @@ public sealed class AddFromWebViewModelTests : IDisposable
         Assert.Equal("The analysis was cancelled.", h.ViewModel.AnalysisStatus);
     });
 
-    [Fact]
+    [WindowFact]
     public void ALateAnalysisResultIsDiscarded() => OnSta(h =>
     {
         h.Scrape();
@@ -160,7 +160,7 @@ public sealed class AddFromWebViewModelTests : IDisposable
         Assert.Equal("second", h.ViewModel.AnalyzedFile);
     });
 
-    [Fact]
+    [WindowFact]
     public void AcceptCopiesOnlyTheAcceptedProposalsIntoTheFields() => OnSta(h =>
     {
         h.Scrape();
@@ -182,7 +182,7 @@ public sealed class AddFromWebViewModelTests : IDisposable
         Assert.Equal("Manual", h.ViewModel.InstallArgsMarker);
     });
 
-    [Fact]
+    [WindowFact]
     public void TheReviewWarnsWhileDetectionIsTheDefault() => OnSta(h =>
     {
         h.GoTo(7);
@@ -210,7 +210,7 @@ public sealed class AddFromWebViewModelTests : IDisposable
         return Assert.Single(h.Service.Saves);
     }
 
-    [Fact]
+    [WindowFact]
     public void ValuesNobodyAcceptedOrChanged_AreNotSentSoTheAnalysisValuesStay() => OnSta(h =>
     {
         h.Scrape();
@@ -228,7 +228,7 @@ public sealed class AddFromWebViewModelTests : IDisposable
         Assert.Null(options.UninstallArgs);
     });
 
-    [Theory]
+    [WindowTheory]
     [InlineData("MSI")]
     [InlineData("EXE")]
     [InlineData("ZIP")]
@@ -248,7 +248,7 @@ public sealed class AddFromWebViewModelTests : IDisposable
         Assert.Equal(type, options.InstallerType);
     });
 
-    [Fact]
+    [WindowFact]
     public void TheReviewShowsTheAnalysisValuesTheSaveKeeps() => OnSta(h =>
     {
         h.Scrape();
@@ -266,7 +266,7 @@ public sealed class AddFromWebViewModelTests : IDisposable
         Assert.Contains($"Uninstall arguments: {reviewed.UninstallArguments.Value}", h.ViewModel.ReviewSummary);
     });
 
-    [Theory]
+    [WindowTheory]
     [InlineData("MSP")]
     [InlineData("MSIX")]
     public void TheReviewOfAPatchOrAPackage_ShowsTheValuesOfTheDefinitionTheSaveBuilds(string type) => OnSta(h =>
@@ -286,7 +286,7 @@ public sealed class AddFromWebViewModelTests : IDisposable
         Assert.Contains($"Install arguments:   {definition.InstallArgs}", h.ViewModel.ReviewSummary);
     });
 
-    [Theory]
+    [WindowTheory]
     [InlineData(Evidence.Predicted)]
     [InlineData(Evidence.None)]
     public void AnInstallerArchitectureThatIsNotConfirmed_LeavesTheArchitectureOfStep1(Evidence evidence) => OnSta(h =>
@@ -305,7 +305,7 @@ public sealed class AddFromWebViewModelTests : IDisposable
         Assert.Contains("Architecture:        x64", h.ViewModel.ReviewSummary);
     });
 
-    [Fact]
+    [WindowFact]
     public void ChangedValues_AreSent() => OnSta(h =>
     {
         h.Scrape();
@@ -326,7 +326,7 @@ public sealed class AddFromWebViewModelTests : IDisposable
 
     private static AppDefinition ReadDefinition(string path) => JsonSerializer.Deserialize<AppDefinition>(File.ReadAllText(path))!;
 
-    [Fact]
+    [WindowFact]
     public void SaveWritesTheDetectionAndEndsOnTheResultPanel() => OnSta(h =>
     {
         h.Scrape();
@@ -355,7 +355,7 @@ public sealed class AddFromWebViewModelTests : IDisposable
         Assert.Empty(h.Actions.Staged);
     });
 
-    [Fact]
+    [WindowFact]
     public void AnEmptyRegistryKeyIsNeverSavedAndTheResultAsksForReview() => OnSta(h =>
     {
         h.ViewModel.InstallArgs = "/S";
@@ -372,7 +372,7 @@ public sealed class AddFromWebViewModelTests : IDisposable
         Assert.Equal("Detection needs review.", h.ViewModel.Result.ReasonText);
     });
 
-    [Theory]
+    [WindowTheory]
     [InlineData("EXE", true)]
     [InlineData("MSI", false)]
     public void AnExeSavedWithoutAnalysisAndWithoutSilentArguments_NeedsReview(string type, bool flagged) => OnSta(h =>
@@ -388,7 +388,7 @@ public sealed class AddFromWebViewModelTests : IDisposable
         Assert.Equal(flagged, h.ViewModel.Result.ReasonText.Contains(AddFromInstallerService.NoSilentSwitchReason, StringComparison.Ordinal));
     });
 
-    [Fact]
+    [WindowFact]
     public void SaveAndOpenInWorkbenchOpensTheNewDefinition() => OnSta(h =>
     {
         h.GoTo(7);
@@ -401,7 +401,7 @@ public sealed class AddFromWebViewModelTests : IDisposable
         Assert.Empty(h.Actions.Staged);
     });
 
-    [Fact]
+    [WindowFact]
     public void AGridThatCannotSelectTheNewRow_DoesNotFailTheSaveAfterTheDefinitionIsWritten() => OnSta(h =>
     {
         h.Actions.SelectFails = new InvalidOperationException("The grid is not loaded.");
@@ -417,7 +417,7 @@ public sealed class AddFromWebViewModelTests : IDisposable
 
     private string Downloaded => Path.Combine(_root, "downloads", "setup.msi");
 
-    [Theory]
+    [WindowTheory]
     [InlineData(true)]
     [InlineData(false)]
     public void TheDownloadIsDiscardedWhenTheDefinitionIsSaved_WhetherOrNotTheAnalysisWasAccepted(bool accept) => OnSta(h =>
@@ -435,7 +435,7 @@ public sealed class AddFromWebViewModelTests : IDisposable
         Assert.Equal([Downloaded], h.Service.Discarded);
     });
 
-    [Fact]
+    [WindowFact]
     public void AFailedSave_KeepsTheDownload() => OnSta(h =>
     {
         h.Scrape();
@@ -451,7 +451,7 @@ public sealed class AddFromWebViewModelTests : IDisposable
         Assert.False(h.ViewModel.IsResultVisible);
     });
 
-    [Fact]
+    [WindowFact]
     public void ACancelledAnalysisDiscardsTheDownload() => OnSta(h =>
     {
         h.Scrape();
@@ -464,7 +464,7 @@ public sealed class AddFromWebViewModelTests : IDisposable
         Assert.Equal([Downloaded], h.Service.Discarded);
     });
 
-    [Fact]
+    [WindowFact]
     public void ARepeatedAnalysisDiscardsTheDownloadOfThePreviousRun() => OnSta(h =>
     {
         h.Scrape();
@@ -480,7 +480,7 @@ public sealed class AddFromWebViewModelTests : IDisposable
         Assert.Equal([Downloaded], h.Service.Discarded);
     });
 
-    [Fact]
+    [WindowFact]
     public void AFailedAnalysisDiscardsTheDownload() => OnSta(h =>
     {
         h.Scrape();
@@ -491,7 +491,7 @@ public sealed class AddFromWebViewModelTests : IDisposable
         Assert.Equal([Downloaded], h.Service.Discarded);
     });
 
-    [Fact]
+    [WindowFact]
     public void DoneStartsANewWizard() => OnSta(h =>
     {
         h.GoTo(7);

@@ -19,7 +19,7 @@ public sealed class ComplianceLayoutTests
         { ApplicationTheme.Dark, 1440 - NavigationPaneWidth, 900 - 48 }
     };
 
-    [Theory]
+    [WindowTheory]
     [MemberData(nameof(Sizes))]
     public void TheResultsTakeAtMostAThirdOfTheSectionAndCollapse(ApplicationTheme theme, double width, double height)
     {
@@ -67,7 +67,7 @@ public sealed class ComplianceLayoutTests
         Assert.Equal(tooltip ?? text, block.ToolTip);
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
     public void UnknownCountsAndLiveComplianceFitTheirMinimumWidths(ApplicationTheme theme)
@@ -100,7 +100,7 @@ public sealed class ComplianceLayoutTests
         });
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
     public void DeploymentPaneResizeKeepsItsToolbarAndRestoresItsGridHeight(ApplicationTheme theme)

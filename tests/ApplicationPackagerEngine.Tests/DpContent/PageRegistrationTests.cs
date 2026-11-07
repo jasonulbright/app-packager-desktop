@@ -32,7 +32,7 @@ public sealed class PageRegistrationTests : IDisposable
         return services.BuildServiceProvider(new ServiceProviderOptions { ValidateOnBuild = false, ValidateScopes = true });
     }
 
-    [Fact]
+    [WindowFact]
     public void TheApplicationServicesBuildOnePageViewModelThatReadsNothing()
     {
         using var provider = Provider();
@@ -48,14 +48,14 @@ public sealed class PageRegistrationTests : IDisposable
         Assert.False(File.Exists(SettingsService.SettingsPath));
     }
 
-    [Fact]
+    [WindowFact]
     public void EveryPageTypeHasOneConstructorSoTheContainerCanBuildIt()
     {
         foreach (var type in new[] { typeof(DpContentManagerViewModel), typeof(DpContentManagerPage), typeof(DpContentWriter), typeof(DpContentDialogs), typeof(DpContentPairsViewModel) })
             Assert.Single(type.GetConstructors());
     }
 
-    [Fact]
+    [WindowFact]
     public void TheSavedChoicesRoundTripThroughTheSettingsFileAndKeepOtherValues()
     {
         var settings = new SettingsService();
@@ -75,7 +75,7 @@ public sealed class PageRegistrationTests : IDisposable
         Assert.Equal("lab-nightly", new SettingsService().Load().DeploymentHelper?.TemplateId);
     }
 
-    [Fact]
+    [WindowFact]
     public void ASettingsFileFromBeforeThePageLoadsWithoutThePageChoices()
     {
         Directory.CreateDirectory(Path.GetDirectoryName(SettingsService.SettingsPath)!);

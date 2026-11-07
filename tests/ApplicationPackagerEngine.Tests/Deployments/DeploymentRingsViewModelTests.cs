@@ -36,7 +36,7 @@ public sealed class DeploymentRingsViewModelTests
 
     // ---- Loading ----------------------------------------------------------------------------------
 
-    [Fact]
+    [WindowFact]
     public async Task NothingOfTheRingsTabIsReadBeforeTheTabIsShown()
     {
         var page = await _h.OpenAsync();
@@ -52,7 +52,7 @@ public sealed class DeploymentRingsViewModelTests
         Assert.Contains(page.Rings.Objects, o => o.Object.Id == _h.SevenZip.Id);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task LeavingThePageDuringALoadDiscardsItAndReleasesTheData()
     {
         var page = await _h.OpenAsync();
@@ -71,7 +71,7 @@ public sealed class DeploymentRingsViewModelTests
 
     // ---- Expand and edits for this run ------------------------------------------------------------
 
-    [Fact]
+    [WindowFact]
     public async Task ExpandShowsEachRingWithItsDatesAndMemberCount()
     {
         var rings = await ExpandedAsync();
@@ -84,7 +84,7 @@ public sealed class DeploymentRingsViewModelTests
         Assert.Equal(1, _h.Rings.ExpandCalls);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task ACollectionSetForThisRunIsMarkedAndTravelsWithTheRunOnly()
     {
         var rings = await ExpandedAsync();
@@ -105,7 +105,7 @@ public sealed class DeploymentRingsViewModelTests
         Assert.Empty(_h.Rings.Saved);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task ABuiltInOrSharedCollectionCannotBeSetForARing()
     {
         var rings = await ExpandedAsync();
@@ -119,7 +119,7 @@ public sealed class DeploymentRingsViewModelTests
         Assert.Equal("LAB00010", rings.PreviewRows[0].Row.CollectionId);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task AnExpansionThatEndsAfterTheFormChangedIsDiscarded()
     {
         var rings = await RingsAsync();
@@ -135,7 +135,7 @@ public sealed class DeploymentRingsViewModelTests
         Assert.Equal(DeploymentRingsViewModel.ChangedDuringExpand, rings.ValidationMessage);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task ChangingThePlanOrTheStartAfterExpandClearsTheRings()
     {
         var rings = await ExpandedAsync();
@@ -148,7 +148,7 @@ public sealed class DeploymentRingsViewModelTests
 
     // ---- Validate ----------------------------------------------------------------------------------
 
-    [Fact]
+    [WindowFact]
     public async Task ValidateShowsTheChecksOfTheRunAndOfEachRing()
     {
         var rings = await ExpandedAsync();
@@ -159,7 +159,7 @@ public sealed class DeploymentRingsViewModelTests
         Assert.Equal("Every check passed.", rings.ValidationMessage);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task AValidationResultIsDiscardedWhenTheFormChangedWhileItRan()
     {
         var rings = await ExpandedAsync();
@@ -173,7 +173,7 @@ public sealed class DeploymentRingsViewModelTests
         Assert.Equal(DeploymentRingsViewModel.ChangedDuringCheck, rings.ValidationMessage);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task AnEditAfterValidateDropsTheChecks()
     {
         var rings = await ExpandedAsync();
@@ -193,7 +193,7 @@ public sealed class DeploymentRingsViewModelTests
 
     // ---- Create run --------------------------------------------------------------------------------
 
-    [Fact]
+    [WindowFact]
     public async Task CreateAllShowsEveryDeploymentAndTheRequiredBoxReachesTheService()
     {
         var rings = await ExpandedAsync();
@@ -213,7 +213,7 @@ public sealed class DeploymentRingsViewModelTests
         Assert.StartsWith("Ring run of 7-Zip with Pilot-Rings: 3 changed, 0 failed.", rings.Shared.ResultSummary);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task AFailedSecondRingStopsTheRunAndTheThirdIsNotAttempted()
     {
         var rings = await ExpandedAsync();
@@ -230,7 +230,7 @@ public sealed class DeploymentRingsViewModelTests
         Assert.Equal((1, 1, 1), (entry.Counts["changed"], entry.Counts["failed"], entry.Counts["skipped"]));
     }
 
-    [Fact]
+    [WindowFact]
     public async Task HoldCreatesTheFirstRingAndHoldsTheOthers()
     {
         var rings = await ExpandedAsync(hold: true);
@@ -246,7 +246,7 @@ public sealed class DeploymentRingsViewModelTests
         Assert.False(_h.Rings.Plans.Single(p => p.Name == "Pilot-Rings").HoldLaterRings);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task ARunThatDistributesFirstOffersCreateNowAndOnlyAChosenBoxTravels()
     {
         _h.Rings.Plans[1] = _h.PilotRings with { Rings = [_h.PilotRings.Rings[0] with { DpGroup = "All DPs" }, .. _h.PilotRings.Rings.Skip(1)] };
@@ -257,7 +257,7 @@ public sealed class DeploymentRingsViewModelTests
         Assert.False(_h.Rings.Applied.Single().Single().CreateNowContentDistributing);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task APlanThatACheckBlocksIsNotShown()
     {
         _h.Rings.AfterPrepare = c => c.Kind == RingChangeKind.CreateRun
@@ -270,7 +270,7 @@ public sealed class DeploymentRingsViewModelTests
         Assert.Empty(_h.Rings.Applied);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task ThePlanComesFromThePreparedChangeEvenWhenTheFormChangesDuringPrepare()
     {
         var rings = await ExpandedAsync();
@@ -287,7 +287,7 @@ public sealed class DeploymentRingsViewModelTests
         Assert.False(_h.Rings.Applied.Single().Single().Plan!.HoldLaterRings);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task ADoubleClickOnCreateRunPreparesOnceAndTheSecondIsRefusedPlainly()
     {
         var rings = await ExpandedAsync();
@@ -303,7 +303,7 @@ public sealed class DeploymentRingsViewModelTests
         Assert.Single(_h.Rings.Applied);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task ADeclinedPlanChangesNothing()
     {
         var rings = await ExpandedAsync();
@@ -313,7 +313,7 @@ public sealed class DeploymentRingsViewModelTests
         Assert.Equal(DeploymentShared.NotConfirmed, rings.Shared.StatusMessage);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task APreparationFailureShowsThePlainServiceMessageOnly()
     {
         var rings = await ExpandedAsync();
@@ -340,7 +340,7 @@ public sealed class DeploymentRingsViewModelTests
         return rings;
     }
 
-    [Fact]
+    [WindowFact]
     public async Task TheSelectedRunShowsItsRingsAndUnknownCountsAsUnknown()
     {
         HeldRun();
@@ -354,7 +354,7 @@ public sealed class DeploymentRingsViewModelTests
         Assert.Equal("1 created, 2 held", rings.Runs[0].Rings);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task LiveCountsThatArriveAfterAnotherRunWasSelectedAreDiscarded()
     {
         HeldRun();
@@ -372,7 +372,7 @@ public sealed class DeploymentRingsViewModelTests
         Assert.Equal(RingText.UnknownCount, rings.RunRings.Single().Targeted);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task PromoteOfARequiredRingShowsItsOwnPlanWithTheSecondBox()
     {
         HeldRun();
@@ -390,7 +390,7 @@ public sealed class DeploymentRingsViewModelTests
         Assert.Equal("Promote creates the deployment of ring Broad. The live counts are read again before the plan.", rings.PromoteReason);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task TheThresholdGateStaysShutWithoutCountsAndBelowTheThresholdAndSaysWhy()
     {
         HeldRun(threshold: 90);
@@ -411,7 +411,7 @@ public sealed class DeploymentRingsViewModelTests
         Assert.Equal("95 %", rings.RunRings[0].SuccessRate);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task PromoteIsOffWhenThePreviousRingIsNotCreated()
     {
         _h.Rings.AddRun("RUN-100", _h.SevenZip, ("Pilot", "LAB00010", "Removed", null, "Available"), ("Early", "LAB00011", "Held", null, "Available"));
@@ -420,7 +420,7 @@ public sealed class DeploymentRingsViewModelTests
         Assert.Equal("Ring Pilot is removed, not created, so ring Early cannot be promoted. Select Refresh and reconcile.", rings.PromoteReason);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task APlanPreparedOnAnOlderRunFileIsSkippedWithAPlainMessage()
     {
         HeldRun(secondPurpose: "Available");
@@ -433,7 +433,7 @@ public sealed class DeploymentRingsViewModelTests
         Assert.Equal("1 created, 2 held", rings.Runs.Single().Rings);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task AHeldLockRefusesTheActionAndNamesItsOwner()
     {
         HeldRun();
@@ -449,7 +449,7 @@ public sealed class DeploymentRingsViewModelTests
         Assert.Empty(_h.Rings.Applied);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task ReconcileReadsEveryOpenRunAndAFinishedRunMovesToTheClosedList()
     {
         _h.Rings.AddRun("RUN-100", _h.SevenZip, ("Pilot", "LAB00010", "Created", null, "Available"), ("Early", "LAB00011", "Removed", null, "Available"));
@@ -472,7 +472,7 @@ public sealed class DeploymentRingsViewModelTests
     private void HeldRunAs(string id) =>
         _h.Rings.AddRun(id, _h.Office with { Program = "Install" }, ("Pilot", "LAB00010", "Created", null, "Available"), ("Early", "LAB00011", "Held", null, "Available"));
 
-    [Fact]
+    [WindowFact]
     public async Task UndoRunKeepsAChangedDeploymentCancelsHeldRingsAndAsksTheRemovalQuestion()
     {
         _h.Rings.AddRun("RUN-100", _h.SevenZip, ("Pilot", "LAB00010", "Created", null, "Available"), ("Early", "LAB00011", "Created", null, "Required"),
@@ -500,7 +500,7 @@ public sealed class DeploymentRingsViewModelTests
         Assert.Equal("1 created, 1 removed, 1 cancelled", rings.Runs.Single().Rings);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task UndoRunOfAnOpenRunWithoutAKeptDeploymentEndsWithCloseRun()
     {
         _h.Rings.AddRun("RUN-100", _h.SevenZip, ("Pilot", "LAB00010", "Created", null, "Available"), ("Broad", "LAB00012", "Held", null, "Required"));
@@ -513,7 +513,7 @@ public sealed class DeploymentRingsViewModelTests
         Assert.Empty(rings.Runs);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task UndoRunOfAClosedRunRemovesItsDeploymentsAndHasNoCloseLine()
     {
         var run = _h.Rings.AddRun("RUN-100", _h.SevenZip, ("Pilot", "LAB00010", "Created", null, "Available"), ("Early", "LAB00011", "Removed", null, "Available"));
@@ -528,7 +528,7 @@ public sealed class DeploymentRingsViewModelTests
         Assert.Contains("The run is closed and stays closed.", plan.Items[0].Detail);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task ADeclinedRemovalQuestionChangesNothing()
     {
         HeldRun();
@@ -541,7 +541,7 @@ public sealed class DeploymentRingsViewModelTests
         Assert.Single(rings.Runs);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task CloseRunShowsItsPlanAndMovesTheRunToTheClosedList()
     {
         HeldRun();
@@ -554,7 +554,7 @@ public sealed class DeploymentRingsViewModelTests
         Assert.Empty(rings.Runs);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task ASecondActionWhileARunIsWritingIsRefusedWithAPlainMessage()
     {
         HeldRun();
@@ -572,7 +572,7 @@ public sealed class DeploymentRingsViewModelTests
         Assert.Equal(1, _h.Rings.PrepareCalls);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task ADoubleClickOnPromoteAndUndoRunPreparesOnce()
     {
         HeldRun();
@@ -605,7 +605,7 @@ public sealed class DeploymentRingsViewModelTests
         }
     }
 
-    [Fact]
+    [WindowFact]
     public async Task ARunLeftWorkingKeepsWritesBlockedAndRefreshesTheRunsWhenItEnds()
     {
         HeldRun();
@@ -634,7 +634,7 @@ public sealed class DeploymentRingsViewModelTests
         Assert.Equal(DeploymentShared.BackgroundRunEndedText, page.Shared.StatusMessage);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task LeavingThePageDuringAWriteKeepsTheRunAndTheNextVisitShowsIt()
     {
         HeldRun();
@@ -660,7 +660,7 @@ public sealed class DeploymentRingsViewModelTests
 
     // ---- Plans -------------------------------------------------------------------------------------
 
-    [Fact]
+    [WindowFact]
     public async Task ShippedPlansCannotBeEditedOrDeletedOnlyCopied()
     {
         var rings = await RingsAsync();
@@ -693,7 +693,7 @@ public sealed class DeploymentRingsViewModelTests
         Assert.Equal("Saved the plan Workstation-Rings copy.", rings.PlansMessage);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task EditingAUserPlanUnderANewNameSavesTheNewAndDeletesTheOld()
     {
         var rings = await RingsAsync();
@@ -709,7 +709,7 @@ public sealed class DeploymentRingsViewModelTests
         Assert.DoesNotContain(rings.Plans, p => p.Name == "Pilot-Rings");
     }
 
-    [Fact]
+    [WindowFact]
     public async Task APlanTheServiceRefusesKeepsTheEditorOpenWithItsPlainMessage()
     {
         var rings = await RingsAsync();
@@ -734,7 +734,7 @@ public sealed class DeploymentRingsViewModelTests
         Assert.Equal(DeploymentRingsViewModel.PlanSaveFailed, editor.ValidationMessage);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task DeletingAUserPlanAsksFirstAndKeepsItWhenDeclined()
     {
         var rings = await RingsAsync();
@@ -751,7 +751,7 @@ public sealed class DeploymentRingsViewModelTests
 
     // ---- Persistence and log ------------------------------------------------------------------------
 
-    [Fact]
+    [WindowFact]
     public async Task TheRingsTabAndThePlanComeBackOnTheNextStart()
     {
         var page = await PageAsync();
@@ -766,7 +766,7 @@ public sealed class DeploymentRingsViewModelTests
         Assert.Equal("Pilot-Rings", next.Rings.SelectedPlan?.Name);
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(0, DeploymentHelperViewModel.DeployTab)]
     [InlineData(1, DeploymentHelperViewModel.HistoryTab)]
     [InlineData(2, DeploymentHelperViewModel.OptionsTab)]
@@ -778,7 +778,7 @@ public sealed class DeploymentRingsViewModelTests
         if (stored <= 3) Assert.Equal(stored, DeploymentHelperViewModel.StoredTab(tab));
     }
 
-    [Fact]
+    [WindowFact]
     public async Task TheLogAndTheSiteHistoryOfARunKeepCountsOnly()
     {
         var rings = await ExpandedAsync();
@@ -793,7 +793,7 @@ public sealed class DeploymentRingsViewModelTests
 
     // ---- Writer --------------------------------------------------------------------------------------
 
-    [Fact]
+    [WindowFact]
     public async Task TheWriterHoldsBackARunWithARequiredRingWhenThePlanAskedNoSecondBox()
     {
         var rings = await ExpandedAsync();
@@ -809,7 +809,7 @@ public sealed class DeploymentRingsViewModelTests
         Assert.All(dialog.ResultRows, r => Assert.Equal(RingWriter.NotAcknowledgedText, r.Message));
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(false)]
     [InlineData(true)]
     public async Task ACancelBetweenRingsKeepsTheCreatedRingAndReportsTheRestAsSkipped(bool ignoreCancel)
@@ -837,7 +837,7 @@ public sealed class DeploymentRingsViewModelTests
         }
     }
 
-    [Fact]
+    [WindowFact]
     public void TheWriterSendsEachFlagOnlyAsThePlanAskedAndClearsThePartOneFlags()
     {
         var part = new DeploymentChange(Kind: DeploymentChangeKind.Create, Object: _h.SevenZip, Collection: new DeploymentCollection("LAB00010", "Pilot Workstations", "", 3),
@@ -851,7 +851,7 @@ public sealed class DeploymentRingsViewModelTests
         Assert.True(RingWriter.Confirmed(change, required: true, backdated: false, createNow: true) is { RequiredConfirmed: true, BackdatedAcknowledged: false, CreateNowContentDistributing: true });
     }
 
-    [Fact]
+    [WindowFact]
     public async Task TheWriterRefusesAConfirmedPlanThatIsNotItsPlan()
     {
         var rings = await ExpandedAsync();
@@ -867,7 +867,7 @@ public sealed class DeploymentRingsViewModelTests
 
     // ---- Options -------------------------------------------------------------------------------------
 
-    [Fact]
+    [WindowFact]
     public async Task TheRingFoldersAreSavedCheckedAndTheStaleLockAgeIsShown()
     {
         var page = await _h.OpenAsync(DeploymentHelperViewModel.OptionsTab);
@@ -905,7 +905,7 @@ public sealed class DeploymentRingsViewModelTests
             Extra = [new("PlanName", "Pilot-Rings"), new("RingIndex", index.ToString(System.Globalization.CultureInfo.InvariantCulture)), new("RingName", ring), new("RunId", runId)]
         };
 
-    [Fact]
+    [WindowFact]
     public async Task TheHistoryShowsTheRingFieldsAndFiltersByRun()
     {
         _h.Audit.Records.Add(_h.Record("Create", DeploymentObjectType.Application, "Notepad++", "LAB00011", "{DEP-1}"));
@@ -926,7 +926,7 @@ public sealed class DeploymentRingsViewModelTests
         Assert.Equal("{DEP-3}", history.Rows.Single().DeploymentId);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task UndoFromHistoryWorksForARingRecordAsForASingleOne()
     {
         _h.Service.Deployments.Add(new DeploymentRecord(DeploymentId: "{0A1B2C3D-0000-4000-8000-000000000002}", Type: DeploymentObjectType.Application, ObjectId: "16777300", ObjectName: "7-Zip",
@@ -941,7 +941,7 @@ public sealed class DeploymentRingsViewModelTests
         Assert.Empty(_h.Service.Deployments);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task TheHistoryHidesTheRingColumnsWhenNoRecordIsARingRecord()
     {
         _h.Audit.Records.Add(_h.Record("Create", DeploymentObjectType.Application, "Notepad++", "LAB00011", "{DEP-1}"));

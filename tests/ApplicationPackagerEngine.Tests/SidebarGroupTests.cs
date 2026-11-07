@@ -37,7 +37,7 @@ public sealed class SidebarGroupRegistryTests
         SidebarIds.CollectionCompliance, SidebarIds.MaintenanceWindows, SidebarIds.DpContentManager, SidebarIds.SiteHygiene
     ];
 
-    [Fact]
+    [WindowFact]
     public void TheDefaultRegistryHasOneCaptionedGroupTools()
     {
         var registry = SidebarRegistry.CreateDefault();
@@ -47,7 +47,7 @@ public sealed class SidebarGroupRegistryTests
         Assert.All(registry.Groups, g => Assert.Equal(g.Caption.ToUpperInvariant(), g.Caption));
     }
 
-    [Fact]
+    [WindowFact]
     public void TheFirstGroupHasNoCaptionAndHoldsAppPackagerTheAddEntriesAndTheWorkbenchInThatOrder()
     {
         var registry = SidebarRegistry.CreateDefault();
@@ -63,7 +63,7 @@ public sealed class SidebarGroupRegistryTests
         Assert.Equal(SidebarItemKind.Window, first[3].Kind);
     }
 
-    [Fact]
+    [WindowFact]
     public void TheToolsGroupHoldsTheEightToolsInTheirOrder()
     {
         var registry = SidebarRegistry.CreateDefault();
@@ -77,7 +77,7 @@ public sealed class SidebarGroupRegistryTests
         Assert.Equal(tools, registry.Items.Skip(4));
     }
 
-    [Fact]
+    [WindowFact]
     public void TheApplicationsEntryIsNotInTheSidebar()
     {
         var registry = SidebarRegistry.CreateDefault();
@@ -86,7 +86,7 @@ public sealed class SidebarGroupRegistryTests
         Assert.DoesNotContain(registry.Items, i => i.Title is "Applications" or "Add App" or "Catalog" or "Packages" or "Application Workbench");
     }
 
-    [Fact]
+    [WindowFact]
     public void RegistrationRefusesAnUnknownGroupAGroupSplitByAnotherGroupAndARepeatedGroup()
     {
         var registry = SidebarGroupFixtures.Registry();
@@ -105,7 +105,7 @@ public sealed class SidebarGroupRegistryTests
 
 public sealed class SidebarGroupServiceTests
 {
-    [Fact]
+    [WindowFact]
     public void MoveKeepsTheEntryInsideItsGroup()
     {
         var service = SidebarGroupFixtures.Service();
@@ -117,7 +117,7 @@ public sealed class SidebarGroupServiceTests
         Assert.False(service.Move("x", 0));
     }
 
-    [Fact]
+    [WindowFact]
     public void MoveVisibleKeepsTheEntryInsideItsGroup()
     {
         var service = SidebarGroupFixtures.Service();
@@ -129,7 +129,7 @@ public sealed class SidebarGroupServiceTests
         Assert.False(service.MoveVisible("a", 3));
     }
 
-    [Fact]
+    [WindowFact]
     public void AMoveDownToTheEndOfAGroupStaysBeforeAHiddenEntryOfTheNextGroup()
     {
         var service = SidebarGroupFixtures.Service(new SidebarLayout { Order = [], Hidden = ["w"] });
@@ -139,7 +139,7 @@ public sealed class SidebarGroupServiceTests
         Assert.Equal(["home", "b", "a", "w", "t", "x"], SidebarFixtures.Ids(service.Items));
     }
 
-    [Fact]
+    [WindowFact]
     public void AFlatSavedOrderLoadsWithEachGroupInItsSavedRelativeOrder()
     {
         var service = SidebarGroupFixtures.Service(new SidebarLayout { Order = ["t", "x", "gone", "b", "w", "home", "a", "t"], Hidden = ["x", "gone"] });
@@ -147,14 +147,14 @@ public sealed class SidebarGroupServiceTests
         Assert.Equal(["x"], SidebarFixtures.Ids(service.Hidden));
     }
 
-    [Fact]
+    [WindowFact]
     public void AnIdMissingFromTheSavedOrderIsAppendedToTheEndOfItsGroup()
     {
         var service = SidebarGroupFixtures.Service(new SidebarLayout { Order = ["x", "b"], Hidden = [] });
         Assert.Equal(["home", "b", "a", "x", "w", "t"], SidebarFixtures.Ids(service.All));
     }
 
-    [Fact]
+    [WindowFact]
     public void HideAndShowKeepTheEntryInItsGroup()
     {
         var service = SidebarGroupFixtures.Service();
@@ -165,7 +165,7 @@ public sealed class SidebarGroupServiceTests
         Assert.Equal(["home", "a", "b", "w", "x", "t"], SidebarFixtures.Ids(service.Items));
     }
 
-    [Fact]
+    [WindowFact]
     public void ResetRestoresTheGroupOrderAndShowsEveryEntry()
     {
         var service = SidebarGroupFixtures.Service(new SidebarLayout { Order = ["x", "t", "w", "b", "a"], Hidden = ["a", "t"] });
@@ -174,7 +174,7 @@ public sealed class SidebarGroupServiceTests
         Assert.Empty(service.Hidden);
     }
 
-    [Fact]
+    [WindowFact]
     public void ThePinnedEntryStaysFirstShownAndUnmovable()
     {
         var service = SidebarGroupFixtures.Service(new SidebarLayout { Order = ["a", "home"], Hidden = ["home"] });
@@ -186,7 +186,7 @@ public sealed class SidebarGroupServiceTests
         Assert.Equal(["home", "b", "a"], SidebarFixtures.Ids(service.All.Take(3)));
     }
 
-    [Fact]
+    [WindowFact]
     public void TheServiceGivesTheGroupOfEachEntry()
     {
         var service = SidebarGroupFixtures.Service();
@@ -196,7 +196,7 @@ public sealed class SidebarGroupServiceTests
         Assert.Null(new SidebarService(SidebarFixtures.Registry(), new InMemorySidebarStore()).GroupOf(SidebarFixtures.Registry().Items[1]));
     }
 
-    [Fact]
+    [WindowFact]
     public void ADefaultSidebarMoveOfAToolIntoTheFirstGroupStopsAtTheFirstTool()
     {
         var service = new SidebarService(SidebarRegistry.CreateDefault(), new InMemorySidebarStore());
@@ -208,7 +208,7 @@ public sealed class SidebarGroupServiceTests
 
 public sealed class SidebarGroupDropMathTests
 {
-    [Theory]
+    [WindowTheory]
     [InlineData(500, 1, 2, 2)]
     [InlineData(-5, 1, 2, 1)]
     [InlineData(61, 2, 3, 2)]
@@ -227,7 +227,7 @@ public sealed class SidebarGroupSettingsEditorTests
         return (new SidebarSettingsEditor(service), service);
     }
 
-    [Fact]
+    [WindowFact]
     public void TheFirstRowOfEachGroupCarriesTheGroupCaption()
     {
         var (editor, _) = Create();
@@ -237,7 +237,7 @@ public sealed class SidebarGroupSettingsEditorTests
         Assert.Equal("More group", editor.Rows[3].GroupAutomationName);
     }
 
-    [Fact]
+    [WindowFact]
     public void TheGroupStartFollowsAMoveInsideTheGroup()
     {
         var (editor, service) = Create();
@@ -248,7 +248,7 @@ public sealed class SidebarGroupSettingsEditorTests
         Assert.False(editor.Rows.Single(r => r.Id == "w").IsGroupStart);
     }
 
-    [Fact]
+    [WindowFact]
     public void TheRowsAtTheEdgesOfAGroupCannotMoveOutOfIt()
     {
         var (editor, service) = Create();
@@ -259,7 +259,7 @@ public sealed class SidebarGroupSettingsEditorTests
         Assert.Equal(["home", "a", "b", "w", "t", "x"], SidebarFixtures.Ids(service.All));
     }
 
-    [Fact]
+    [WindowFact]
     public void UpOnAShownRowWithOnlyHiddenRowsAboveInItsGroupMovesItToTheStartOfTheGroup()
     {
         var (editor, service) = Create(new SidebarLayout { Order = [], Hidden = ["w", "t"] });
@@ -298,7 +298,7 @@ public sealed class SidebarGroupMigrationTests : IDisposable
             "Hidden": ["detection-tester", "suite-launcher", "packages", "applications", "add-app"] } }
         """;
 
-    [Fact]
+    [WindowFact]
     public void ASettingsFileWithToolsOrderedBeforeTheFirstGroupAndRemovedEntriesLoadsGroupByGroup()
     {
         Directory.CreateDirectory(Path.GetDirectoryName(SettingsService.SettingsPath)!);

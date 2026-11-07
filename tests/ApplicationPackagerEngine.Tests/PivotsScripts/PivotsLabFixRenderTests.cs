@@ -60,7 +60,7 @@ public sealed class PivotsLabFixRenderTests
         Settle(window);
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
     public void TabTypesATabInTheQueryEditorAndCtrlTabOrEscThenTabLeavesItOnThePivotTab(ApplicationTheme theme)
@@ -120,7 +120,7 @@ public sealed class PivotsLabFixRenderTests
         return id;
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light, "txtQuery")]
     [InlineData(ApplicationTheme.Dark, "txtQuery")]
     [InlineData(ApplicationTheme.Light, "txtDraft")]
@@ -176,7 +176,7 @@ public sealed class PivotsLabFixRenderTests
         });
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
     public void TheParametersDialogSaysNoDefaultForAParameterWithoutADefault(ApplicationTheme theme)
@@ -201,7 +201,7 @@ public sealed class PivotsLabFixRenderTests
         });
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
     public void AKeyboardOnlyQueryRunReachesTheEditorRightAfterTheTargetButtonsAndRunQuerySoonAfterIt(ApplicationTheme theme)
@@ -248,7 +248,7 @@ public sealed class PivotsLabFixRenderTests
         });
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
     public void TheLibraryItemsCarryTheirNameForAScreenReaderAndNotTheRecordText(ApplicationTheme theme)
@@ -277,7 +277,7 @@ public sealed class PivotsLabFixRenderTests
     private const string LabScript = "param(\r\n    [string]$Label = 'psl'\r\n)\r\n$build = (Get-ItemProperty 'HKLM:\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion').CurrentBuild\r\n"
         + "[pscustomobject]@{ Label = $Label; Build = $build; Time = (Get-Date).ToString('s') } | ConvertTo-Json -Compress";
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light, 820)]
     [InlineData(ApplicationTheme.Dark, 620)]
     public void ThePlanShowsTheScriptTextWithItsOwnSpacing(ApplicationTheme theme, double width)
@@ -317,7 +317,7 @@ public sealed class PivotsLabFixRenderTests
         });
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light, 1440 - CollapsedPaneWidth, 900 - 48)]
     [InlineData(ApplicationTheme.Dark, 1440 - NavigationPaneWidth, 900 - 48)]
     [InlineData(ApplicationTheme.Light, 1024 - NavigationPaneWidth, 720 - 48)]

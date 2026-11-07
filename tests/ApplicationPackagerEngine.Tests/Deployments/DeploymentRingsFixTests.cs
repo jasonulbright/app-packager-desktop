@@ -58,7 +58,7 @@ public sealed class DeploymentRingsFixTests
 
     // ---- P1: the editor keeps every ring option ------------------------------------------------------
 
-    [Fact]
+    [WindowFact]
     public void EditingAPlanWithEveryFieldSetSavesItUnchanged()
     {
         var plan = EveryField();
@@ -68,7 +68,7 @@ public sealed class DeploymentRingsFixTests
         Assert.Equal((plan.Name, plan.Description, plan.HoldLaterRings, plan.TimeBasedOn), (built.Name, built.Description, built.HoldLaterRings, built.TimeBasedOn));
     }
 
-    [Fact]
+    [WindowFact]
     public void RenamingARingChangesItsNameOnlyAndATaskSequenceRingStaysMediaAndPxe()
     {
         var plan = EveryField();
@@ -80,7 +80,7 @@ public sealed class DeploymentRingsFixTests
         Assert.Equal(plan.Rings[1], built.Rings[1]);
     }
 
-    [Fact]
+    [WindowFact]
     public void ACopyAndADuplicateKeepEveryOption()
     {
         var plan = EveryField();
@@ -92,7 +92,7 @@ public sealed class DeploymentRingsFixTests
         Assert.Equal(plan.Rings[1] with { Name = "Shops copy", CollectionId = "", CollectionName = "" }, copy.Rings[2].ToDefinition());
     }
 
-    [Fact]
+    [WindowFact]
     public void FillOffsetsAndApplyToAllChangeOnlyWhatTheyName()
     {
         var plan = EveryField();
@@ -121,7 +121,7 @@ public sealed class DeploymentRingsFixTests
             (second.TaskSequenceAvailability, second.TaskSequenceDeploymentOption, second.RerunBehavior, second.RebootOutsideServiceWindow));
     }
 
-    [Fact]
+    [WindowFact]
     public void ApplyToAllSetsAnOptionBackToItsDefaultWhenTheSourceHasTheDefault()
     {
         var plan = EveryField();
@@ -134,7 +134,7 @@ public sealed class DeploymentRingsFixTests
         Assert.All(editor.Rings, r => Assert.Equal((null, null), (r.ToDefinition().FastNetworkOption, r.ToDefinition().TaskSequenceDeploymentOption)));
     }
 
-    [Fact]
+    [WindowFact]
     public async Task SavingThroughThePageWritesTheRingsWithEveryOption()
     {
         var h = new DeploymentPageHarness();
@@ -153,7 +153,7 @@ public sealed class DeploymentRingsFixTests
 
     // ---- P2: a refresh keeps the run choices ---------------------------------------------------------
 
-    [Fact]
+    [WindowFact]
     public async Task ARefreshKeepsTheHoldChoiceTheExpansionAndThePlanRow()
     {
         var h = new DeploymentPageHarness();
@@ -179,7 +179,7 @@ public sealed class DeploymentRingsFixTests
 
     // ---- P3 and P4: run reads ------------------------------------------------------------------------
 
-    [Fact]
+    [WindowFact]
     public async Task ATabLoadThatEndsAfterANewerRunsReadDoesNotShowItsOlderRuns()
     {
         var h = new DeploymentPageHarness();
@@ -198,7 +198,7 @@ public sealed class DeploymentRingsFixTests
         Assert.False(rings.IsLoadingRuns);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task TheRunsMessageIsClearedByTheNextReadAndByAnotherRun()
     {
         var h = new DeploymentPageHarness();
@@ -222,7 +222,7 @@ public sealed class DeploymentRingsFixTests
 
     // ---- P5: the ring folders ------------------------------------------------------------------------
 
-    [Fact]
+    [WindowFact]
     public async Task SavingTheRingFoldersReleasesTheRingsTabAndIsRefusedWhileAChangeRuns()
     {
         var h = new DeploymentPageHarness();
@@ -253,7 +253,7 @@ public sealed class DeploymentRingsFixTests
 
     // ---- P6: the plan start follows the plan's time basis --------------------------------------------
 
-    [Fact]
+    [WindowFact]
     public async Task TheDefaultPlanStartUsesTheClockOfThePlanUntilTheOperatorSetsIt()
     {
         var zone = TimeZoneInfo.CreateCustomTimeZone("Plus2", TimeSpan.FromHours(2), "Plus2", "Plus2");
@@ -306,7 +306,7 @@ public sealed class DeploymentRingsFixTests
         catch (InvalidOperationException) { return null; }
     }
 
-    [Fact]
+    [WindowFact]
     public void ADoubleClickPicksOnlyOnARowOfTheSinglePicker()
     {
         WithApplication(ApplicationTheme.Light, () =>
@@ -337,7 +337,7 @@ public sealed class DeploymentRingsFixTests
         });
     }
 
-    [Fact]
+    [WindowFact]
     public void ADoubleClickInTheMultiSelectPickerPicksNothing()
     {
         WithApplication(ApplicationTheme.Dark, () =>
@@ -361,7 +361,7 @@ public sealed class DeploymentRingsFixTests
         });
     }
 
-    [Fact]
+    [WindowFact]
     public void TheDoubleClickRuleNamesWhatPicks()
     {
         Assert.False(RingCollectionPickerWindow.PicksOnDoubleClick(false, null));
@@ -370,7 +370,7 @@ public sealed class DeploymentRingsFixTests
 
     // ---- P8: the old plan cannot be removed ----------------------------------------------------------
 
-    [Fact]
+    [WindowFact]
     public async Task ASavedPlanWhoseOldNameCannotBeRemovedIsReportedAsSaved()
     {
         var h = new DeploymentPageHarness();
@@ -390,14 +390,14 @@ public sealed class DeploymentRingsFixTests
 
     // ---- P9 and P10: rings from collections ----------------------------------------------------------
 
-    [Fact]
+    [WindowFact]
     public void NumbersInNamesSortAsNumbers()
     {
         string[] names = ["Zone 10", "zone 2", "Zone 1", "Zone 02b", "Alpha"];
         Assert.Equal(["Alpha", "Zone 1", "zone 2", "Zone 02b", "Zone 10"], names.Order(NaturalNameComparer.Instance));
     }
 
-    [Fact]
+    [WindowFact]
     public void TheSortBoxSortsByNameAndTheClearedBoxKeepsTheOrderThePickerShows()
     {
         IReadOnlyList<CollectionRow> chosen = [Row("LABZ0010", "Zone 10", @"Deploy\A"), Row("LABZ0002", "Zone 2", @"Deploy\B"), Row("LABZ0001", "Zone 1", @"Deploy\C")];
@@ -419,7 +419,7 @@ public sealed class DeploymentRingsFixTests
         Assert.Equal(["LABZ0010", "LABZ0002", "LABZ0001"], picker.Results.Select(c => c.CollectionId));
     }
 
-    [Fact]
+    [WindowFact]
     public void ALongCollectionNameMakesARingNameOfAtMostSixtyFourCharacters()
     {
         var name = new string('N', 70);
@@ -433,7 +433,7 @@ public sealed class DeploymentRingsFixTests
         Assert.Null(problem);
     }
 
-    [Fact]
+    [WindowFact]
     public void AHundredRingsSixtyDaysApartAreRefusedWithThePlainMessageOfTheBuilder()
     {
         IReadOnlyList<CollectionRow> chosen = [.. Enumerable.Range(1, 100).Select(i => Row("LABH" + i.ToString("0000", CultureInfo.InvariantCulture), $"Wave {i}"))];
@@ -448,7 +448,7 @@ public sealed class DeploymentRingsFixTests
 
     // ---- P11: closing the editor ---------------------------------------------------------------------
 
-    [Fact]
+    [WindowFact]
     public void TheEditorClosesWithoutAQuestionUntilSomethingChangesAndAfterASave()
     {
         var asked = 0;
@@ -471,7 +471,7 @@ public sealed class DeploymentRingsFixTests
         Assert.Equal(2, asked);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task ASavedEditorClosesWithoutTheQuestion()
     {
         var h = new DeploymentPageHarness();
@@ -489,7 +489,7 @@ public sealed class DeploymentRingsFixTests
         Assert.Equal(1, h.Dialogs.DiscardPrompts);
     }
 
-    [Fact]
+    [WindowFact]
     public void TheEditorWindowStaysOpenOnCancelEscapeOrCloseWhenTheOperatorKeepsTheChanges()
     {
         WithApplication(ApplicationTheme.Light, () =>
@@ -522,7 +522,7 @@ public sealed class DeploymentRingsFixTests
 
     // ---- P12, C1 and C3: the plan texts --------------------------------------------------------------
 
-    [Fact]
+    [WindowFact]
     public void TheSecondBoxNeverHasAnEmptyText()
     {
         Assert.Equal($"I understand that {RingText.BackdatedSentence}.", RingText.SecondConfirmation(0, 0, null, [], "local time", anyBackdated: true));
@@ -549,7 +549,7 @@ public sealed class DeploymentRingsFixTests
         return (rings, h);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task ABackdatedRingTheRowsDoNotNameStillGetsTheSecondBox()
     {
         var h = new DeploymentPageHarness();
@@ -560,7 +560,7 @@ public sealed class DeploymentRingsFixTests
         Assert.Equal($"I understand that {RingText.BackdatedSentence}.", plan!.Plan.ExtraConfirmation);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task TheCreateRunPlanShowsTheSettingsOfEachRingAlsoOfAHeldRing()
     {
         var plan = EveryField() with { Rings = [EveryField().Rings[0] with { DpGroup = "" }, EveryField().Rings[1] with { DpGroup = "" }] };
@@ -579,7 +579,7 @@ public sealed class DeploymentRingsFixTests
         Assert.Null(created.Plan.OptionalChoice);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task AHeldTaskSequenceRingShowsItsAvailabilityContentAndProgress()
     {
         var h = new DeploymentPageHarness();
@@ -594,7 +594,7 @@ public sealed class DeploymentRingsFixTests
         Assert.Contains("Distribution point group: All DPs.", held);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task CreateNowIsOfferedOnlyWhenARingCreatedNowDistributesAndTravelsAsTheRunFlag()
     {
         var (rings, h) = await ExpandedAsync(EveryField(), hold: true);
@@ -630,7 +630,7 @@ public sealed class DeploymentRingsFixTests
     private static async Task<RingChange> PreparedRunAsync(RingHarness h, RingPlan plan, DeployableObject obj) =>
         await h.PrepareAsync(RingHarness.CreateRun(plan, obj, await h.ExpandAsync(plan, obj)));
 
-    [Fact]
+    [WindowFact]
     public async Task TheWriterCreatesARequiredRunOnlyWithTheSecondBox()
     {
         using var h = new RingHarness();
@@ -650,7 +650,7 @@ public sealed class DeploymentRingsFixTests
         Assert.Equal(3, h.Site.List("AppAssignments").Count);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task TheWriterStopsAtAFailedSecondRingAndUndoRunRemovesTheFirstAndClosesTheRun()
     {
         using var h = new RingHarness();
@@ -680,7 +680,7 @@ public sealed class DeploymentRingsFixTests
         Assert.True(h.Run(run.RunId).IsClosed);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task TheWriterPromotesTheNextHeldRingOfAHeldRun()
     {
         using var h = new RingHarness();
@@ -703,7 +703,7 @@ public sealed class DeploymentRingsFixTests
         Assert.Equal([RingStatuses.Created, RingStatuses.Created, RingStatuses.Held], h.Run(run.RunId).Rings.Select(r => r.Status));
     }
 
-    [Fact]
+    [WindowFact]
     public async Task TheWriterUndoesARunThatReconcileClosedAndTheRunStaysClosed()
     {
         using var h = new RingHarness();

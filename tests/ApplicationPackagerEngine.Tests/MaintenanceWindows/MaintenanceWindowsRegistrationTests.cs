@@ -19,7 +19,7 @@ public sealed class MaintenanceWindowsRegistrationTests : IDisposable
         try { Directory.Delete(_root, recursive: true); } catch (IOException) { }
     }
 
-    [Fact]
+    [WindowFact]
     public async Task ThePackagerServicesRegisterOneOfEachMaintenanceWindowsServiceUnderTheDataRoot()
     {
         await using var services = new ServiceCollection().AddPackagerServices().BuildServiceProvider();
@@ -39,7 +39,7 @@ public sealed class MaintenanceWindowsRegistrationTests : IDisposable
         Assert.StartsWith(Path.Combine(AppDataPaths.Root, "MaintenanceWindows", "Reports"), report);
     }
 
-    [Fact]
+    [WindowFact]
     public void ThePageServicesResolveAndARegisteredServiceIsKept()
     {
         var service = new FakeMaintenanceService();

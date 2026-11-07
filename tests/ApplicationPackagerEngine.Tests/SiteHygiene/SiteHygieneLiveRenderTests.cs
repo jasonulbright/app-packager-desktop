@@ -78,7 +78,7 @@ public sealed class SiteHygieneLiveRenderTests
 
     private static LiveViewChoice Pane(LivePane pane) => SiteHygieneLiveLabels.Views.Single(v => v.Pane == pane);
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
     public void EveryLiveViewVirtualizesAHundredThousandRowsAndShowsTheStatusAsAGlyphAndAWord(ApplicationTheme theme)
@@ -127,7 +127,7 @@ public sealed class SiteHygieneLiveRenderTests
         }
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light, 1440 - CollapsedPaneWidth)]
     [InlineData(ApplicationTheme.Dark, 1440 - CollapsedPaneWidth)]
     [InlineData(ApplicationTheme.Light, 1440 - NavigationPaneWidth)]
@@ -211,7 +211,7 @@ public sealed class SiteHygieneLiveRenderTests
     /// The real Live service over the stub site and the real SQL script: every cell the service writes, in every column
     /// that is not a name column, fits its column with room, and no grid scrolls sideways.
     /// </summary>
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light, 1440 - CollapsedPaneWidth)]
     [InlineData(ApplicationTheme.Dark, 1440 - NavigationPaneWidth)]
     public void EveryCellTheRealServiceWritesFitsItsColumn(ApplicationTheme theme, double width)
@@ -262,7 +262,7 @@ public sealed class SiteHygieneLiveRenderTests
         Assert.True(bounds.Bottom + scroller.VerticalOffset <= scroller.ExtentHeight + 0.5, $"{id} ends below the area the tab scrolls to.");
     }
 
-    [Theory]
+    [WindowTheory]
     [MemberData(nameof(Sizes))]
     public void EveryLivePaneFitsItsWidthKeepsItsLeastHeightAndScrollsToEveryControl(ApplicationTheme theme, double width, double height)
     {
@@ -295,7 +295,7 @@ public sealed class SiteHygieneLiveRenderTests
         }, width, height);
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
     public void TheChartBreaksTheLineAtEachGapMovesThePointWithTheKeysAndDrawsTheLineWithContrast(ApplicationTheme theme)
@@ -331,7 +331,7 @@ public sealed class SiteHygieneLiveRenderTests
         });
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
     public void AChartOfOnePointOrOfNoPointShowsItsAxesWithoutALine(ApplicationTheme theme)
@@ -390,7 +390,7 @@ public sealed class SiteHygieneLiveRenderTests
         Assert.Fail($"Tab never reaches {AutomationProperties.GetAutomationId(grid)}: {string.Join(" > ", path)}");
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
     public void TabReachesEachLiveGridOnceAndTheKeyboardRefreshesAndSwitchesTheView(ApplicationTheme theme)
@@ -421,7 +421,7 @@ public sealed class SiteHygieneLiveRenderTests
         });
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
     public void TheAlertBannerShowsOnEveryTabAsOneLineAndLeavesWhenTheAlertsAreSeen(ApplicationTheme theme)
@@ -461,7 +461,7 @@ public sealed class SiteHygieneLiveRenderTests
     /// table: the chart keeps its least height, the table shows its header and three whole measured rows, and the tab
     /// scrolls to the bottom of the table instead of cutting it.
     /// </summary>
-    [Theory]
+    [WindowTheory]
     [MemberData(nameof(TrendSizes))]
     public void TheTrendsTableKeepsThreeWholeRowsBelowAWrappedReadoutAndNote(ApplicationTheme theme, double width, double height)
     {
@@ -496,7 +496,7 @@ public sealed class SiteHygieneLiveRenderTests
     }
 
     /// <summary>The Alerts intro on the Options tab says that the first read of a session raises no alert, and shows every wrapped line in full.</summary>
-    [Theory]
+    [WindowTheory]
     [MemberData(nameof(TrendSizes))]
     public void TheAlertsIntroShowsTheStartingStateRuleInFullAtEverySize(ApplicationTheme theme, double width, double height)
     {
@@ -523,7 +523,7 @@ public sealed class SiteHygieneLiveRenderTests
     }
 
     /// <summary>An auto-refresh that brings other rows keeps the scroll position, the selected row and the keyboard focus of the grid.</summary>
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
     public void ARefreshWithOtherRowsKeepsTheGridScrollPositionSelectionAndFocus(ApplicationTheme theme)
@@ -560,7 +560,7 @@ public sealed class SiteHygieneLiveRenderTests
         System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();
     }
 
-    [Fact]
+    [WindowFact]
     public void TheGridRowsOfARefreshAreBuiltOffTheUiThread()
     {
         var threads = new System.Collections.Concurrent.ConcurrentBag<int>();
@@ -590,7 +590,7 @@ public sealed class SiteHygieneLiveRenderTests
     };
 
     /// <summary>The import window opens with the focus on the plan; the plan box shows whole lines up to its limit and a scroll bar only when lines are left.</summary>
-    [Theory]
+    [WindowTheory]
     [MemberData(nameof(ImportCases))]
     public void TheImportWindowOpensOnThePlanAndShowsWholeLines(ApplicationTheme theme, int extraLines)
     {
@@ -619,7 +619,7 @@ public sealed class SiteHygieneLiveRenderTests
         });
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
     public void TheStatusColumnsFollowTheOutcomeAndReadOnTheRowFillSelectedOrNot(ApplicationTheme theme)

@@ -58,7 +58,7 @@ public sealed class BrandPaletteTests
 
     public static TheoryData<ApplicationTheme> Themes => new() { ApplicationTheme.Light, ApplicationTheme.Dark };
 
-    [Theory]
+    [WindowTheory]
     [MemberData(nameof(Themes))]
     public void TextColorsPassFourAndAHalfOnEverySurface(ApplicationTheme theme)
     {
@@ -66,7 +66,7 @@ public sealed class BrandPaletteTests
             Check(theme, key, Color_(theme, key), 4.5);
     }
 
-    [Theory]
+    [WindowTheory]
     [MemberData(nameof(Themes))]
     public void TheSelectedRowTintKeepsThePrimaryTextAboveSevenAndTheRowVisible(ApplicationTheme theme)
     {
@@ -80,7 +80,7 @@ public sealed class BrandPaletteTests
         }
     }
 
-    [Theory]
+    [WindowTheory]
     [MemberData(nameof(Themes))]
     public void EveryBrushOfThePaletteReadsAColorOfThePalette(ApplicationTheme theme)
     {
@@ -94,7 +94,7 @@ public sealed class BrandPaletteTests
         }
     }
 
-    [Theory]
+    [WindowTheory]
     [MemberData(nameof(Themes))]
     public void TheStrongBorderPassesThreeOnEverySurface(ApplicationTheme theme)
     {
@@ -102,7 +102,7 @@ public sealed class BrandPaletteTests
     }
 
     // Some status colors fall below 4.5 to 1 on the selected-row tint, so the status text takes the cell color on a selected row.
-    [Fact]
+    [WindowFact]
     public void TheStatusColumnTakesTheCellColorOnASelectedRow()
     {
         var folder = new DirectoryInfo(AppContext.BaseDirectory);
@@ -115,7 +115,7 @@ public sealed class BrandPaletteTests
     }
 
     // The surface list above is fixed. This test fails when a library update changes a surface of the theme file.
-    [Theory]
+    [WindowTheory]
     [MemberData(nameof(Themes))]
     public void TheSurfaceListHoldsTheSurfacesOfTheLibraryThemeFile(ApplicationTheme theme)
     {
@@ -127,7 +127,7 @@ public sealed class BrandPaletteTests
         }
     }
 
-    [Fact]
+    [WindowFact]
     public void EveryWindowAndTheApplierUseTheSolidSurface()
     {
         Assert.Equal(Wpf.Ui.Controls.WindowBackdropType.None, ThemeApplier.Backdrop);
@@ -143,7 +143,7 @@ public sealed class BrandPaletteTests
         }
     }
 
-    [Fact]
+    [WindowFact]
     public void TheApplierSwapsToThePaletteOfTheTheme()
     {
         Assert.EndsWith("Palette.Light.xaml", ThemeApplier.PalettePath(ApplicationTheme.Light));

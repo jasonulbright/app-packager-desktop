@@ -62,7 +62,7 @@ public sealed class MaintenanceWindowServiceSafetyTests
         { "0043BE00202BFC00", "every 15 months" },
     };
 
-    [Theory]
+    [WindowTheory]
     [MemberData(nameof(TokensOutsideTheLimits))]
     public async Task AWindowOutsideTheLimitsIsReadOnlyAndCanOnlyBeEnabledOrDisabled(string token, string why)
     {
@@ -85,7 +85,7 @@ public sealed class MaintenanceWindowServiceSafetyTests
         Assert.Equal(token, window.Schedules);
     }
 
-    [Theory]
+    [WindowTheory]
     [MemberData(nameof(TokensOutsideTheLimits))]
     public async Task UpdateRenameAndRemoveRefuseABeforeOutsideTheLimitsWithoutAWrite(string token, string why)
     {
@@ -105,7 +105,7 @@ public sealed class MaintenanceWindowServiceSafetyTests
         Assert.Equal(token, Assert.Single(_site.Windows).Schedules);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task ADayLongDurationStoredInTheDayFieldIsReadable()
     {
         _site.Add("MCM00015", "Day", "0043BE00005F2000");
@@ -114,7 +114,7 @@ public sealed class MaintenanceWindowServiceSafetyTests
         Assert.NotNull(info.NextOccurrence);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task TheFakeStoresTheTokenTheLabSiteStoredForTheSameParameters()
     {
         var schedule = new MaintenanceSchedule(K.Weekly, new DateTime(2026, 11, 3, 22, 30, 0), TimeSpan.FromHours(2), false, 1, DayOfWeek.Saturday, null, null, 0, null);
@@ -122,7 +122,7 @@ public sealed class MaintenanceWindowServiceSafetyTests
         Assert.Equal("7AC3BE00101F2000", Assert.Single(_site.Windows).Schedules);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task ListedWindowsCarryTheirDescription()
     {
         _site.Add("MCM00015", "Patch", WeeklyToken, description: Custom);
@@ -132,7 +132,7 @@ public sealed class MaintenanceWindowServiceSafetyTests
         Assert.Equal("Occurs every 1 weeks on Saturday effective 11/3/2026 2:00 AM", info.ScheduleText);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task RenameKeepsAnOwnDescription()
     {
         _site.Add("MCM00015", "Old", WeeklyToken, description: Custom);
@@ -150,7 +150,7 @@ public sealed class MaintenanceWindowServiceSafetyTests
         Assert.Equal(("Old", Custom), (restored.Name, restored.Description));
     }
 
-    [Fact]
+    [WindowFact]
     public async Task RenameOfAWindowWithConfigMgrsOwnTextWritesNoDescription()
     {
         _site.Add("MCM00015", "Old", WeeklyToken);
@@ -162,7 +162,7 @@ public sealed class MaintenanceWindowServiceSafetyTests
         Assert.Equal(before.Description, Assert.Single(_site.Windows).Description);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task UndoOfRemoveRecreatesTheDescription()
     {
         _site.Add("MCM00015", "Patch", WeeklyToken, type: 4, enabled: false, description: Custom);
@@ -178,7 +178,7 @@ public sealed class MaintenanceWindowServiceSafetyTests
         Assert.Equal(before with { ServiceWindowId = recreated.ServiceWindowId }, recreated);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task AnUndoOfRemoveWhoseDescriptionIsNotKeptSaysSo()
     {
         _site.Add("MCM00015", "Patch", WeeklyToken, description: Custom);
@@ -193,7 +193,7 @@ public sealed class MaintenanceWindowServiceSafetyTests
         Assert.Contains(_log.Lines, l => l.Contains("The description could not be set."));
     }
 
-    [Fact]
+    [WindowFact]
     public async Task UpdateKeepsAnOwnDescriptionAndItsUndoKeepsItToo()
     {
         var window = _site.Add("MCM00015", "Patch", WeeklyToken, description: Custom);
@@ -207,7 +207,7 @@ public sealed class MaintenanceWindowServiceSafetyTests
         Assert.Equal((WeeklyToken, Custom), (window.Schedules, window.Description));
     }
 
-    [Fact]
+    [WindowFact]
     public async Task UpdateOfAWindowWithConfigMgrsOwnTextTakesConfigMgrsNewText()
     {
         var window = _site.Add("MCM00015", "Patch", WeeklyToken);
@@ -219,7 +219,7 @@ public sealed class MaintenanceWindowServiceSafetyTests
         Assert.Equal("Occurs every 1 weeks on Sunday effective 11/3/2026 3:00 AM", window.Description);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task WhenTheDescriptionCannotBeWrittenRenameAndRemoveOfAWindowWithAnOwnDescriptionAreRefused()
     {
         _site.DescriptionWritable = false;
@@ -246,7 +246,7 @@ public sealed class MaintenanceWindowServiceSafetyTests
         Assert.Single(_site.Windows);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task WhenTheDescriptionCannotBeWrittenAWindowWithConfigMgrsOwnTextCanStillBeRemoved()
     {
         _site.DescriptionWritable = false;
@@ -256,7 +256,7 @@ public sealed class MaintenanceWindowServiceSafetyTests
         Assert.Empty(_site.Windows);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task ARenameWhoseDescriptionIsNotKeptLeavesTheOldWindow()
     {
         _site.Add("MCM00015", "Old", WeeklyToken, description: Custom);
@@ -271,7 +271,7 @@ public sealed class MaintenanceWindowServiceSafetyTests
         Assert.Equal((ChangeKind.Remove, "New"), (outcome.UndoChange!.Kind, outcome.UndoChange.WindowName));
     }
 
-    [Fact]
+    [WindowFact]
     public async Task RemoveOfAWindowThatSharesItsNameRemovesOnlyThatWindow()
     {
         var target = _site.Add("MCM00015", "Patch", WeeklyToken);
@@ -285,7 +285,7 @@ public sealed class MaintenanceWindowServiceSafetyTests
         Assert.Empty(_site.RemovedByName);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task RemoveOfAWindowThatSharesItsNameIsRefusedWhenOnlyARemoveByNameIsPossible()
     {
         _site.DescriptionWritable = false;
@@ -300,7 +300,7 @@ public sealed class MaintenanceWindowServiceSafetyTests
         Assert.Equal(2, _site.Windows.Count);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task PrepareWithoutAnIdRefusesANameThatSeveralWindowsShare()
     {
         _site.Add("MCM00015", "Patch", WeeklyToken);
@@ -313,7 +313,7 @@ public sealed class MaintenanceWindowServiceSafetyTests
         }
     }
 
-    [Fact]
+    [WindowFact]
     public async Task ARenameOfAWindowRemovedAfterThePlanCreatesNothing()
     {
         var old = _site.Add("MCM00015", "Old", WeeklyToken);
@@ -329,7 +329,7 @@ public sealed class MaintenanceWindowServiceSafetyTests
         Assert.Null(outcome.UndoChange);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task ARenameOfAWindowChangedAfterThePlanCreatesNothing()
     {
         var old = _site.Add("MCM00015", "Old", WeeklyToken);
@@ -343,7 +343,7 @@ public sealed class MaintenanceWindowServiceSafetyTests
         Assert.Empty(_site.Writes);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task ARenameWhoseOldWindowIsGoneAtTheRemoveDoesNotSayBothExist()
     {
         _site.Add("MCM00015", "Old", WeeklyToken);
@@ -358,7 +358,7 @@ public sealed class MaintenanceWindowServiceSafetyTests
         Assert.Equal((ChangeKind.Remove, "New"), (outcome.UndoChange!.Kind, outcome.UndoChange.WindowName));
     }
 
-    [Fact]
+    [WindowFact]
     public async Task AnUnexpectedFailureInOneChangeKeepsTheOtherOutcomesAndTheirUndo()
     {
         _site.Throw = call => call.Script == "WriteMaintenanceWindow" && (string?)call.Parameters.GetValueOrDefault("Name") == "w2"
@@ -382,7 +382,7 @@ public sealed class MaintenanceWindowServiceSafetyTests
         Assert.Contains(_log.Lines, l => l.Contains("InvalidOperationException"));
     }
 
-    [Fact]
+    [WindowFact]
     public async Task ATuesdayScheduleStoredInAnotherEquivalentFormIsNotReportedAsDifferent()
     {
         var thirdTuesday = new MaintenanceSchedule(K.MonthlyByWeekday, new DateTime(2026, 11, 3, 2, 0, 0), TimeSpan.FromHours(4), false, 1, DayOfWeek.Tuesday, null, 3, 0, null);
@@ -395,7 +395,7 @@ public sealed class MaintenanceWindowServiceSafetyTests
         Assert.Equal("Created window Third on MCM00016.", outcome.Message);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task ASecondTuesdayMonthlyByWeekdayIsTheSameScheduleAsPatchTuesday()
     {
         var secondTuesday = new MaintenanceSchedule(K.MonthlyByWeekday, new DateTime(2026, 11, 3, 2, 0, 0), TimeSpan.FromHours(4), false, 1, DayOfWeek.Tuesday, null, 2, 0, null);
@@ -403,7 +403,7 @@ public sealed class MaintenanceWindowServiceSafetyTests
         Assert.Equal("Created window Second on MCM00016.", outcome.Message);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task AWindowStoredInTheOffsetFormOfAPatchTuesdayScheduleCanBeChanged()
     {
         var window = _site.Add("MCM00015", "Third", "0043BE0020331600");

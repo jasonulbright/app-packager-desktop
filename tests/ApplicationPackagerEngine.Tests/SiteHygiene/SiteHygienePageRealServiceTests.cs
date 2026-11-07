@@ -101,7 +101,7 @@ public sealed class SiteHygienePageRealServiceTests
         Assert.DoesNotContain(" at ", message, StringComparison.Ordinal);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task ADeleteWithEveryBoxRunsTheTypedFixOfThePlanAndTheRowLeavesTheList()
     {
         using var p = new SiteHygieneRealPage();
@@ -127,7 +127,7 @@ public sealed class SiteHygienePageRealServiceTests
         Assert.DoesNotContain(p.Log.Entries, e => e.Message.Contains("SHL-", StringComparison.Ordinal) || e.Message.Contains(EmptyPackage, StringComparison.Ordinal));
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(HygieneFixKind.RemovePackage)]
     [InlineData(HygieneFixKind.SetCollectionRefreshType)]
     public async Task ThePlanNotesStateTheOneAtATimeAndReadBackRuleOnce(HygieneFixKind kind)
@@ -142,7 +142,7 @@ public sealed class SiteHygienePageRealServiceTests
         Assert.Single(notes, n => n.Contains(before, StringComparison.Ordinal));
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(HygieneFixKind.RemovePackage, "PKG-01", EmptyPackage)]
     [InlineData(HygieneFixKind.RemoveCollection, "COL-01", "MCM00215")]
     public async Task ADeletePlanStatesTheCheckBeforeEachDeleteOnce(HygieneFixKind kind, string checkId, string key)
@@ -158,7 +158,7 @@ public sealed class SiteHygienePageRealServiceTests
         }
     }
 
-    [Fact]
+    [WindowFact]
     public async Task APlanWithoutTheSecondBoxReachesTheRealServiceUnconfirmedAndEveryObjectIsSkippedWithAPlainMessage()
     {
         using var p = new SiteHygieneRealPage();
@@ -172,7 +172,7 @@ public sealed class SiteHygienePageRealServiceTests
         Assert.Equal(SiteOperationOutcome.Skipped, p.History.Entries.Single().Outcome);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task AFindingThatStopsHoldingBetweenThePlanAndTheConfirmIsSkippedOnThePage()
     {
         using var p = new SiteHygieneRealPage();
@@ -187,7 +187,7 @@ public sealed class SiteHygienePageRealServiceTests
         Assert.Empty(p.Site.Site.Commands);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task AFindingThatStoppedHoldingBeforeThePlanMakesNoPlanAndThePageNamesTheObjectAndTheReason()
     {
         using var p = new SiteHygieneRealPage();
@@ -201,7 +201,7 @@ public sealed class SiteHygienePageRealServiceTests
         AssertPlain(vm.StatusMessage);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task ADeleteOverTheCapIsRefusedOnThePageWithTheMessageOfTheService()
     {
         using var p = new SiteHygieneRealPage(maxDeletes: 1);
@@ -213,7 +213,7 @@ public sealed class SiteHygienePageRealServiceTests
         Assert.Equal("The plan cannot run. Nothing was changed. The plan holds 2 findings. One run deletes at most 1 object. Filter the findings and run them in parts. The site was not read.", vm.StatusMessage);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task AStalePlanIsRefusedByTheRealServiceAndEveryLineSaysSo()
     {
         using var p = new SiteHygieneRealPage();
@@ -227,7 +227,7 @@ public sealed class SiteHygienePageRealServiceTests
         Assert.Empty(p.Site.Site.Commands);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task AConfirmedPlanSentTwiceRunsOnceAndTheSecondSendIsSkipped()
     {
         using var p = new SiteHygieneRealPage();
@@ -240,7 +240,7 @@ public sealed class SiteHygienePageRealServiceTests
         Assert.Equal([SiteOperationOutcome.Succeeded, SiteOperationOutcome.Skipped], p.History.Entries.Select(e => e.Outcome));
     }
 
-    [Fact]
+    [WindowFact]
     public async Task AWriteWhoseReadBackShowsNoChangeIsUnchangedAndNeverCountsAsDone()
     {
         var state = SiteHygieneFixtures.StubState();
@@ -264,7 +264,7 @@ public sealed class SiteHygienePageRealServiceTests
         Assert.Equal((0, 0, 1), (entry.Counts!["changed"], entry.Counts["failed"], entry.Counts["unchanged"]));
     }
 
-    [Fact]
+    [WindowFact]
     public async Task AnApplicationTheSiteStillReportsAsDeployedIsLeftOutWithTheReasonOfTheLag()
     {
         using var p = new SiteHygieneRealPage();
@@ -278,7 +278,7 @@ public sealed class SiteHygienePageRealServiceTests
         Assert.Empty(p.Site.Site.Commands);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task AScanOfSomeAreasCountsTheChecksOfTheOtherAreasAsNotSelectedNotAsNotRun()
     {
         using var p = new SiteHygieneRealPage();
@@ -293,7 +293,7 @@ public sealed class SiteHygienePageRealServiceTests
         Assert.False(File.Exists(p.ScanStore.Path));
     }
 
-    [Fact]
+    [WindowFact]
     public async Task AnInactiveDeviceIsOneFindingPerDeviceAndItsDeleteRunsThroughThePage()
     {
         var state = SiteHygieneFixtures.StubState();
@@ -312,7 +312,7 @@ public sealed class SiteHygienePageRealServiceTests
         Assert.Equal(["Remove-CMDevice -ResourceId 16777222 -Force"], p.Site.Site.Commands);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task TheRealStoresKeepASuppressionByKeyAndTheNextFullScanMarksOnlyUnseenFindingsNew()
     {
         using var p = new SiteHygieneRealPage();
@@ -336,7 +336,7 @@ public sealed class SiteHygienePageRealServiceTests
         Assert.Contains("Site Hygiene: Findings.", File.ReadAllText(HygieneReportWriter.AboutPath(file)), StringComparison.Ordinal);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task EachDeploymentOfAFindingShowsItsOwnResultAndTheFindingStaysWhileOneRemains()
     {
         using var p = new SiteHygieneRealPage(SiteHygieneRunBindingTests.RetiredWithTwoDeployments());
@@ -355,7 +355,7 @@ public sealed class SiteHygienePageRealServiceTests
         Assert.EndsWith(": 1 done, 1 failed.", vm.ResultSummary);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task ASettingsChangeToAnotherProviderBetweenThePlanAndTheConfirmChangesNothing()
     {
         using var p = new SiteHygieneRealPage();
@@ -370,7 +370,7 @@ public sealed class SiteHygienePageRealServiceTests
         Assert.Contains(vm.FindingRows, r => r.Finding.ObjectKey == EmptyPackage);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task AResultOfAnotherProviderOfTheSameSiteCodeIsNotFixed()
     {
         using var p = new SiteHygieneRealPage();

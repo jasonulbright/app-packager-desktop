@@ -116,7 +116,7 @@ public sealed class PivotsScriptsRenderTests
         Settle(window);
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
     public void TheFiveTabsRenderAndTheResultGridsVirtualizeTwentyThousandRows(ApplicationTheme theme)
@@ -150,7 +150,7 @@ public sealed class PivotsScriptsRenderTests
         }, harness: () => LongHarness(20_000));
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light, 1440 - NavigationPaneWidth)]
     [InlineData(ApplicationTheme.Dark, 1440 - NavigationPaneWidth)]
     [InlineData(ApplicationTheme.Light, 1440 - CollapsedPaneWidth)]
@@ -189,7 +189,7 @@ public sealed class PivotsScriptsRenderTests
         ("dgPivotsHistory", "Verified", "✓ Verified"), ("dgPivotsHistory", "Devices", "25,000"), ("dgPivotsHistory", "User", @"CONTOSO\labadmin")
     ];
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light, 1440 - CollapsedPaneWidth)]
     [InlineData(ApplicationTheme.Dark, 1440 - CollapsedPaneWidth)]
     [InlineData(ApplicationTheme.Light, 1440 - NavigationPaneWidth)]
@@ -217,7 +217,7 @@ public sealed class PivotsScriptsRenderTests
         }, width);
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
     public void EveryGridShowsReadableRowsAndAVisibleSelection(ApplicationTheme theme)
@@ -253,7 +253,7 @@ public sealed class PivotsScriptsRenderTests
         { ApplicationTheme.Dark, 1440 - CollapsedPaneWidth, 900 - 48 }
     };
 
-    [Theory]
+    [WindowTheory]
     [MemberData(nameof(Sizes))]
     public void EveryTabFitsItsWidthAndScrollsToEveryControl(ApplicationTheme theme, double width, double height)
     {
@@ -332,7 +332,7 @@ public sealed class PivotsScriptsRenderTests
         return focused is null ? "none" : AutomationProperties.GetAutomationId(focused) is { Length: > 0 } id ? id : focused.GetType().Name + " in " + (Ancestor<DataGrid>(focused)?.Name ?? "-");
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
     public void TabReachesEveryGridAsOneStopAndTheFocusedRowIsSelected(ApplicationTheme theme)
@@ -380,7 +380,7 @@ public sealed class PivotsScriptsRenderTests
         });
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
     public void TheSummaryLineShowsOnEveryTabAfterAReturnToThePage(ApplicationTheme theme)
@@ -440,7 +440,7 @@ public sealed class PivotsScriptsRenderTests
         return plan;
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
     public void TheScriptPlanOfFiveHundredDevicesShowsTheTextAndKeepsItsBoxesAndButtonsInsideA1366By768WorkArea(ApplicationTheme theme)
@@ -479,7 +479,7 @@ public sealed class PivotsScriptsRenderTests
         });
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
     public void TheScriptPlanShowsTheHashPrefixAndTheParametersInItsDeviceCountBoxAndWrapsTheText(ApplicationTheme theme)
@@ -511,7 +511,7 @@ public sealed class PivotsScriptsRenderTests
         });
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
     public void SelectingEveryDeviceIsOneSelectionChangeAndTheHiddenPanelMirrorsWhenItShows(ApplicationTheme theme)
@@ -539,7 +539,7 @@ public sealed class PivotsScriptsRenderTests
         }, harness: () => LongHarness(2_000));
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
     public void AFilterThatKeepsTheSelectedRowKeepsTheSelection(ApplicationTheme theme)
@@ -560,7 +560,7 @@ public sealed class PivotsScriptsRenderTests
         });
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
     public void ThePlanWindowOpensOnTheFirstLineAndReachesConfirmAfterItsBoxes(ApplicationTheme theme)
@@ -588,7 +588,7 @@ public sealed class PivotsScriptsRenderTests
         });
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
     public void TheParametersAndCommentWindowsOpenOnTheirFirstFieldAndKeepTheirButtonsInside(ApplicationTheme theme)
@@ -639,7 +639,7 @@ public sealed class PivotsScriptsRenderTests
         });
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
     public void EveryMainGridShowsAtLeastThreeWholeRowsAtTheMinimumSize(ApplicationTheme theme)

@@ -14,7 +14,7 @@ public sealed class AddFileDropRoutingTests
         test();
     });
 
-    [Fact]
+    [WindowFact]
     public void ADropOnTheGridOpensAddFromFileWithTheFilePreloaded() => OnSta(() =>
     {
         var service = new FakeAddService();
@@ -32,7 +32,7 @@ public sealed class AddFileDropRoutingTests
         Assert.Equal(AddFileStage.Analyzing, addFile.Stage);
     });
 
-    [Fact]
+    [WindowFact]
     public void ADropOfTwoFilesOpensTheSamePageAndSaysOneAtATime() => OnSta(() =>
     {
         var service = new FakeAddService();
@@ -45,7 +45,7 @@ public sealed class AddFileDropRoutingTests
         Assert.Contains("one installer at a time", addFile.StatusText);
     });
 
-    [Fact]
+    [WindowFact]
     public void ADroppedFileOfAnotherTypeIsRefusedOnThePage() => OnSta(() =>
     {
         var service = new FakeAddService();

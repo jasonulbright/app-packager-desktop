@@ -6,13 +6,13 @@ Maintainer procedure for publishing a release. Run every command from the reposi
 
 - You are on `main`, the working tree is clean and `main` is level with `origin/main`.
 - Every commit on `main` is part of a release.
-- The engine tests pass:
+- The engine tests pass. Run them in CI (the `ci` workflow, started by hand on any branch) or on a lab machine with `APD_ALLOW_WINDOW_TESTS=1`. Never run them on the dev PC: the tests that open windows take its focus and are skipped there.
 
 ```bash
 dotnet test tests/ApplicationPackagerEngine.Tests/ApplicationPackagerEngine.Tests.csproj --configuration Release --nologo
 ```
 
-Any failure stops the release. The workflow runs the same tests again.
+Any failure stops the release. The workflow runs the same tests again, with the opt-in set.
 
 ## 2. Version
 

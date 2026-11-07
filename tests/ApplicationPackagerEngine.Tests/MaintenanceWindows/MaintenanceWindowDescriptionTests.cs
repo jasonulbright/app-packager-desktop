@@ -61,7 +61,7 @@ public sealed class MaintenanceWindowDescriptionTests : IDisposable
         _vm.SetSelectedWindows(rows);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task TheServiceHelperSeparatesTheOwnDescriptionFromConfigMgrsText()
     {
         await _vm.OnNavigatedToAsync();
@@ -72,7 +72,7 @@ public sealed class MaintenanceWindowDescriptionTests : IDisposable
         Assert.Null(MaintenanceWindowService.OwnDescription(null, _projector));
     }
 
-    [Fact]
+    [WindowFact]
     public async Task ThePropertiesShowTheOwnDescriptionOnly()
     {
         await _vm.OnNavigatedToAsync();
@@ -86,7 +86,7 @@ public sealed class MaintenanceWindowDescriptionTests : IDisposable
         Assert.DoesNotContain(_vm.Properties, p => p.Name == "Description");
     }
 
-    [Fact]
+    [WindowFact]
     public async Task TheEditorShowsTheOwnDescriptionReadOnlyAndKeepsIt()
     {
         await _vm.OnNavigatedToAsync();
@@ -124,7 +124,7 @@ public sealed class MaintenanceWindowDescriptionTests : IDisposable
         return Assert.Single(_plans.Shown[^1].Items);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task TheEditAndRenamePlansSayTheDescriptionIsKeptWhenThereIsOne()
     {
         await _vm.OnNavigatedToAsync();
@@ -135,7 +135,7 @@ public sealed class MaintenanceWindowDescriptionTests : IDisposable
         Assert.Empty(_site.Writes);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task TheUndoPlanOfARemoveSaysTheDescriptionIsKeptAndTheUndoKeepsIt()
     {
         await _vm.OnNavigatedToAsync();
@@ -150,7 +150,7 @@ public sealed class MaintenanceWindowDescriptionTests : IDisposable
         Assert.Equal(Own, _site.Windows.Single(w => w.Name == "Own text").Description);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task WhenTheDescriptionCannotBeKeptEditShowsTheServicesRefusalAndWritesNothing()
     {
         await _vm.OnNavigatedToAsync();
@@ -177,7 +177,7 @@ public sealed class MaintenanceWindowDescriptionTests : IDisposable
         Assert.Empty(_site.Writes);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task WhenTheDescriptionCannotBeKeptRemoveSkipsThatWindowWithTheServicesRefusal()
     {
         await _vm.OnNavigatedToAsync();

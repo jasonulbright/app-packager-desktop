@@ -28,7 +28,7 @@ public sealed class CollectionWriterTests : IDisposable
     private static CollectionPlan PlanOf(params CollectionChange[] changes) =>
         new("Evaluate", "Update membership", "Update", changes.Select(c => CollectionPlanEntry.Write(new ChangePlanItem("Evaluate", c.CollectionName, null), c)), hasUndo: false);
 
-    [Fact]
+    [WindowFact]
     public async Task AConfirmedPlanOfOtherItemsIsRefusedAndWritesNothing()
     {
         var harness = new CollectionComplianceHarness();
@@ -42,7 +42,7 @@ public sealed class CollectionWriterTests : IDisposable
         Assert.Empty(harness.History.Entries);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task EachOutcomeCountsOnceAndTheHistoryGetsCountsOnly()
     {
         var harness = new CollectionComplianceHarness();
@@ -59,7 +59,7 @@ public sealed class CollectionWriterTests : IDisposable
         Assert.All(harness.Log.Entries, e => Assert.DoesNotContain("Servers", e.Message));
     }
 
-    [Fact]
+    [WindowFact]
     public void ASkippedOutcomeOfACancelledRunCountsAsSkipped()
     {
         Assert.StartsWith(CollectionWriter.SkippedPrefix, FakeCollectionService.CancelledSkip, StringComparison.Ordinal);
@@ -73,7 +73,7 @@ public sealed class CollectionWriterTests : IDisposable
         return type;
     }
 
-    [Fact]
+    [WindowFact]
     public void NoTypeOfTheDesktopButTheWriterAndThePageHoldsTheCollectionService()
     {
         var allowed = new[] { typeof(CollectionWriter), typeof(CollectionComplianceViewModel), typeof(CollectionCompliancePageServices), typeof(CompliancePageServices),
@@ -92,7 +92,7 @@ public sealed class CollectionWriterTests : IDisposable
         Assert.All(holders, t => Assert.Contains(t, allowed));
     }
 
-    [Fact]
+    [WindowFact]
     public void ThePageServicesResolveAndARegisteredServiceIsKept()
     {
         var service = new FakeCollectionService();
@@ -112,7 +112,7 @@ public sealed class CollectionWriterTests : IDisposable
         Assert.IsType<CollectionCompliancePrompts>(provider.GetRequiredService<ICollectionCompliancePrompts>());
     }
 
-    [Fact]
+    [WindowFact]
     public async Task ThePageChoicesAreStoredInTheSettingsFileWithoutChangingOtherValues()
     {
         var settings = new SettingsService();
@@ -146,7 +146,7 @@ public sealed class CollectionWriterTests : IDisposable
             .ToDictionary(f => Path.GetRelativePath(root, f), f => MaintenanceWindowWriterTests.Code(File.ReadAllText(f)), StringComparer.OrdinalIgnoreCase);
     }
 
-    [Fact]
+    [WindowFact]
     public void OnlyTheWriterCallsTheCollectionServiceWriteAndThePageCallsOnlyItsReads()
     {
         var code = UiCode();

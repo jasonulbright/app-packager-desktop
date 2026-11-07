@@ -93,7 +93,7 @@ public sealed class SiteHygieneRenderTests
         Settle(window);
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
     public void TheFourTabsRenderAndTheFindingsGridVirtualizesFiftyThousandRows(ApplicationTheme theme)
@@ -125,7 +125,7 @@ public sealed class SiteHygieneRenderTests
         }, harness: () => LongHarness(50_000));
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light, 1440 - NavigationPaneWidth)]
     [InlineData(ApplicationTheme.Dark, 1440 - NavigationPaneWidth)]
     [InlineData(ApplicationTheme.Light, 1440 - CollapsedPaneWidth)]
@@ -145,7 +145,7 @@ public sealed class SiteHygieneRenderTests
         }, width);
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
     public void EveryGridShowsReadableRowsAndAVisibleSelection(ApplicationTheme theme)
@@ -205,7 +205,7 @@ public sealed class SiteHygieneRenderTests
         yield return ("dgChecks", "Findings", "123,456");
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light, 1440 - CollapsedPaneWidth)]
     [InlineData(ApplicationTheme.Dark, 1440 - CollapsedPaneWidth)]
     [InlineData(ApplicationTheme.Light, 1440 - NavigationPaneWidth)]
@@ -253,7 +253,7 @@ public sealed class SiteHygieneRenderTests
         { ApplicationTheme.Dark, 1440 - CollapsedPaneWidth, 900 - 48 }
     };
 
-    [Theory]
+    [WindowTheory]
     [MemberData(nameof(Sizes))]
     public void EveryTabFitsItsWidthAndScrollsToEveryControl(ApplicationTheme theme, double width, double height)
     {
@@ -303,7 +303,7 @@ public sealed class SiteHygieneRenderTests
         }, width, height);
     }
 
-    [Theory]
+    [WindowTheory]
     [MemberData(nameof(Sizes))]
     public void TheMissingAuditRecordWarningShowsWithTheResultsAtEverySize(ApplicationTheme theme, double width, double height)
     {
@@ -366,7 +366,7 @@ public sealed class SiteHygieneRenderTests
         return data;
     }
 
-    [Theory]
+    [WindowTheory]
     [MemberData(nameof(HistoryDetailCases))]
     public void TheHistoryDetailShowsEveryObjectLineUpToItsLimitAndAVisibleScrollBarBeyondIt(ApplicationTheme theme, double width, double height, int objects)
     {
@@ -415,7 +415,7 @@ public sealed class SiteHygieneRenderTests
     /// detail box shows every line up to its limit inside the tab. At 1024x720 the tab scrolls; the detail box keeps its full
     /// height of lines and the tab scrolls to it.
     /// </summary>
-    [Theory]
+    [WindowTheory]
     [MemberData(nameof(HistoryDetailCases))]
     public void AfterAFixRunTheHistoryDetailShowsEveryLineUpToItsLimitWithoutAScrollOfTheTab(ApplicationTheme theme, double width, double height, int objects)
     {
@@ -541,7 +541,7 @@ public sealed class SiteHygieneRenderTests
     /// collapsed and open, the Findings, History and Relationships tabs do not scroll and the detail of the selected finding
     /// shows in full. At 1024x720 the tab scrolls, and the scroll shows every part of the detail in full.
     /// </summary>
-    [Theory]
+    [WindowTheory]
     [MemberData(nameof(FixRunCases))]
     public void AfterAFixRunTheTabsKeepTheirHeightAndTheSelectedFindingShowsInFull(ApplicationTheme theme, double width, double height, int objects, bool auditIncomplete)
     {
@@ -699,7 +699,7 @@ public sealed class SiteHygieneRenderTests
     /// At 1440x900, with the sidebar collapsed and open, the open result card of 2, 3 and 10 result rows leaves the Findings
     /// tab without a scroll: the grid keeps its least height and the detail of the selected APP-02 finding shows in full.
     /// </summary>
-    [Theory]
+    [WindowTheory]
     [MemberData(nameof(OpenCardCases))]
     public void WithTheResultCardOpenTheFindingsTabDoesNotScrollAt1440By900(ApplicationTheme theme, double width, int rows)
     {
@@ -735,7 +735,7 @@ public sealed class SiteHygieneRenderTests
     /// result card collapsed, at least <see cref="SiteHygienePage.MinFixLines"/> with the card open, and a scroll bar that
     /// shows without the pointer when lines are left. The box and the detail never make the Findings tab scroll.
     /// </summary>
-    [Theory]
+    [WindowTheory]
     [MemberData(nameof(FixLineCases))]
     public void TheFixTextBoxShowsWholeLinesAndAVisibleScrollBarWithoutAScrollOfTheTab(ApplicationTheme theme, double width, int lines, bool open) =>
         AssertFixTextBox(theme: theme, width: width, lines: lines, open: open, font: null);
@@ -744,7 +744,7 @@ public sealed class SiteHygieneRenderTests
     /// A font list of which no font is installed falls back to a font whose laid-out line height differs from the line
     /// spacing of the list: the box still shows whole lines, and the scroll bar only when lines are left.
     /// </summary>
-    [Theory]
+    [WindowTheory]
     [InlineData(4)]
     [InlineData(12)]
     public void TheFixTextBoxShowsWholeLinesWhenTheListedFontsAreMissing(int lines) =>
@@ -823,7 +823,7 @@ public sealed class SiteHygieneRenderTests
         return null!;
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
     public void TabReachesEveryGridOnceAndTheFindingsActionsComeRightAfterTheGrid(ApplicationTheme theme)
@@ -861,7 +861,7 @@ public sealed class SiteHygieneRenderTests
         });
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
     public void TheTreeOpensAChainWithTheKeyboardAndShowsTheHealthAsText(ApplicationTheme theme)
@@ -889,7 +889,7 @@ public sealed class SiteHygieneRenderTests
         });
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
     public void TheSummaryLineShowsOnEveryTabAfterAReturnToThePage(ApplicationTheme theme)
@@ -932,7 +932,7 @@ public sealed class SiteHygieneRenderTests
         return count;
     }
 
-    [Theory]
+    [WindowTheory]
     [MemberData(nameof(Sizes))]
     public void EveryCheckBoxOfTheOptionsTabShowsItsWholeText(ApplicationTheme theme, double width, double height)
     {
@@ -945,7 +945,7 @@ public sealed class SiteHygieneRenderTests
         }, width, height);
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
     public void ThePickerOfFiveHundredFindingsScrollsItsListOpensOnTheFirstFindingAndReachesContinueInThreeTabs(ApplicationTheme theme)
@@ -1005,7 +1005,7 @@ public sealed class SiteHygieneRenderTests
         return plan!;
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
     public void TheDeletePlanOpensOnTheFirstLineReachesConfirmAfterItsBoxesAndFitsA1366By768WorkArea(ApplicationTheme theme)
@@ -1044,7 +1044,7 @@ public sealed class SiteHygieneRenderTests
         });
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
     public void ThePlanNotesAndThePowerShellTextAreLeftAlignedNotJustified(ApplicationTheme theme)
@@ -1086,7 +1086,7 @@ public sealed class SiteHygieneRenderTests
         Assert.True(marked >= share, $"{where}: the thumb is not readable on the box background {back}: {marked:P0} of its pixels have a contrast of 3 or more.");
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light, false)]
     [InlineData(ApplicationTheme.Dark, false)]
     [InlineData(ApplicationTheme.Light, true)]
@@ -1148,7 +1148,7 @@ public sealed class SiteHygieneRenderTests
     /// A plan of 14 note lines and 2 changes: the change list has room above its least height, so the notes box takes that
     /// room and shows every line in the opened window, in whole lines.
     /// </summary>
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light, false)]
     [InlineData(ApplicationTheme.Dark, false)]
     [InlineData(ApplicationTheme.Light, true)]
@@ -1200,7 +1200,7 @@ public sealed class SiteHygieneRenderTests
     /// <see cref="ChangePlanWindow.BodyLines"/> lines, without a scroll bar; else that many whole lines and a scroll bar
     /// that shows without the pointer. The notes box above it shows whole lines too.
     /// </summary>
-    [Theory]
+    [WindowTheory]
     [MemberData(nameof(PlanBodyCases))]
     public void ThePlanWindowShowsThePowerShellTextInWholeLinesAndAScrollBarOnlyWhenLinesAreLeft(ApplicationTheme theme, int objects)
     {
@@ -1232,7 +1232,7 @@ public sealed class SiteHygieneRenderTests
         });
     }
 
-    [Fact]
+    [WindowFact]
     public void AToolTipThatShowsWhenThePlanWindowOpensIsClosedFirst()
     {
         WithApplication(ApplicationTheme.Light, () =>
@@ -1267,7 +1267,7 @@ public sealed class SiteHygieneRenderTests
         });
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
     public void TheFocusGoesBackToTheSelectedFindingWhenThePlanWindowCloses(ApplicationTheme theme)
@@ -1291,7 +1291,7 @@ public sealed class SiteHygieneRenderTests
         });
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
     public void TheFocusGoesToTheFindingFilterWhenAFixRemovesTheLastRowOfTheView(ApplicationTheme theme)
@@ -1315,7 +1315,7 @@ public sealed class SiteHygieneRenderTests
         }, harness: () => new SiteHygienePageHarness());
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
     public void TheToolTipOfATrimmedCellIsLeftAlignedNotJustified(ApplicationTheme theme)
@@ -1339,7 +1339,7 @@ public sealed class SiteHygieneRenderTests
         });
     }
 
-    [Fact]
+    [WindowFact]
     public void TheApplicationMergesTheToolTipStyleAfterTheControlLibrary()
     {
         var folder = new DirectoryInfo(AppContext.BaseDirectory);
@@ -1362,7 +1362,7 @@ public sealed class SiteHygieneRenderTests
         { ApplicationTheme.Dark, 1440 - CollapsedPaneWidth, 900 - 48 }
     };
 
-    [Theory]
+    [WindowTheory]
     [MemberData(nameof(TreeSizes))]
     public void TheTreeKeepsLongTextInsideTheWindowAndTrimsItWithATooltip(ApplicationTheme theme, double width, double height)
     {
@@ -1400,7 +1400,7 @@ public sealed class SiteHygieneRenderTests
         }, width, height);
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
     public void RunFixIsDisabledWithItsReasonOnTheFirstVisit(ApplicationTheme theme)
@@ -1414,7 +1414,7 @@ public sealed class SiteHygieneRenderTests
         });
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
     public void TheSuppressCommentWindowOpensOnTheCommentBox(ApplicationTheme theme)
@@ -1434,7 +1434,7 @@ public sealed class SiteHygieneRenderTests
         });
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
     public void EveryMainGridShowsAtLeastThreeWholeRowsAtTheMinimumSize(ApplicationTheme theme)

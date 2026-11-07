@@ -41,7 +41,7 @@ public sealed class WindowGridRowsMoreTests
         FolderPath: @"Deploy\Finance", LimitingCollectionId: "SMS00001", LimitingCollectionName: "All Systems", MemberCount: 9, IsBuiltIn: false,
         RefreshType: "Periodic", Comment: "", DirectRuleCount: 0, QueryRuleCount: 0, IncludeRuleCount: 0, ExcludeRuleCount: 0)).ToList();
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
     public void TheDiscoveryGridShowsAtLeastThreeWholeRows(ApplicationTheme theme)
@@ -61,7 +61,7 @@ public sealed class WindowGridRowsMoreTests
         });
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
     public void TheWsusUpdatesGridShowsAtLeastThreeWholeRows(ApplicationTheme theme)
@@ -89,7 +89,7 @@ public sealed class WindowGridRowsMoreTests
         });
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
     public void TheCatalogImportBoxesShowAtLeastThreeLines(ApplicationTheme theme)
@@ -115,7 +115,7 @@ public sealed class WindowGridRowsMoreTests
         });
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
     public void TheDpContentPairsGridShowsAtLeastThreeWholeRows(ApplicationTheme theme)
@@ -136,7 +136,7 @@ public sealed class WindowGridRowsMoreTests
         });
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
     public void TheCollectionPickerGridShowsAtLeastThreeWholeRows(ApplicationTheme theme)
@@ -156,7 +156,7 @@ public sealed class WindowGridRowsMoreTests
         });
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
     public void TheHygieneFindingsPickerGridShowsAtLeastThreeWholeRows(ApplicationTheme theme)
@@ -177,7 +177,7 @@ public sealed class WindowGridRowsMoreTests
         });
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
     public void TheRingCollectionPickerGridShowsAtLeastThreeWholeRows(ApplicationTheme theme)
@@ -197,7 +197,7 @@ public sealed class WindowGridRowsMoreTests
         });
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
     public void TheRingPlanEditorGridShowsAtLeastThreeWholeRows(ApplicationTheme theme)
@@ -222,7 +222,7 @@ public sealed class WindowGridRowsMoreTests
         });
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
     public void TheApplyTemplateGridShowsAtLeastThreeWholeRows(ApplicationTheme theme)
@@ -243,7 +243,7 @@ public sealed class WindowGridRowsMoreTests
         });
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light, 0)]
     [InlineData(ApplicationTheme.Dark, 0)]
     [InlineData(ApplicationTheme.Light, 2)]
@@ -309,7 +309,7 @@ public sealed class WindowGridRowsMoreTests
 [Collection(ProcessEnvironmentCollection.Name)]
 public sealed class WindowStatusColumnTests
 {
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
     public void TheOutcomeColumnsOfTheOperationHistoryFollowTheOutcomeAndReadInBothStates(ApplicationTheme theme)
@@ -359,7 +359,7 @@ public sealed class WindowStatusColumnTests
         }
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
     public void TheStatusAndStateColumnsOfTheDpPairsFollowTheOutcomeAndReadInBothStates(ApplicationTheme theme)

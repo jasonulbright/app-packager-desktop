@@ -28,7 +28,7 @@ public sealed class AddFileViewModelTests
         StaTestHelper.PumpUntil(() => h.ViewModel.Stage == AddFileStage.Review);
     }
 
-    [Fact]
+    [WindowFact]
     public void ThePickerStartsTheAnalysisOfTheChosenFile() => OnSta(h =>
     {
         h.Prompts.Pick = @"C:\in\contoso.msi";
@@ -40,7 +40,7 @@ public sealed class AddFileViewModelTests
         Assert.True(h.ViewModel.IsBusy);
     });
 
-    [Fact]
+    [WindowFact]
     public void ACancelledPickerStartsNothing() => OnSta(h =>
     {
         h.ViewModel.OpenInstallerCommand.Execute(null);
@@ -50,7 +50,7 @@ public sealed class AddFileViewModelTests
         Assert.Equal(AddFileStage.Pick, h.ViewModel.Stage);
     });
 
-    [Fact]
+    [WindowFact]
     public void ThePickerFilterAndTheDropZoneNameEveryAcceptedFormat() => OnSta(h =>
     {
         h.ViewModel.OpenInstallerCommand.Execute(null);
@@ -62,7 +62,7 @@ public sealed class AddFileViewModelTests
         Assert.DoesNotContain("*.*", h.Prompts.Filter);
     });
 
-    [Theory]
+    [WindowTheory]
     [InlineData("patch.msp")]
     [InlineData("app.msix")]
     [InlineData("app.appxbundle")]
@@ -72,7 +72,7 @@ public sealed class AddFileViewModelTests
         Assert.Equal(@"C:\in\" + file, h.Service.WaitForAnalysis(0).Path);
     });
 
-    [Theory]
+    [WindowTheory]
     [InlineData("payload.zip")]
     [InlineData("readme.txt")]
     [InlineData("folder")]
@@ -86,7 +86,7 @@ public sealed class AddFileViewModelTests
         Assert.Contains(".msixbundle", h.ViewModel.StatusText);
     });
 
-    [Fact]
+    [WindowFact]
     public void TheProgressOfTheAnalysisShows() => OnSta(h =>
     {
         h.ViewModel.AnalyzeFileCommand.Execute(@"C:\in\contoso.msi");
@@ -94,7 +94,7 @@ public sealed class AddFileViewModelTests
         StaTestHelper.PumpUntil(() => h.ViewModel.ProgressText == "Reading the MSI database");
     });
 
-    [Fact]
+    [WindowFact]
     public void CancelStopsTheAnalysisAndReturnsToThePicker() => OnSta(h =>
     {
         h.ViewModel.AnalyzeFileCommand.Execute(@"C:\in\contoso.msi");
@@ -107,7 +107,7 @@ public sealed class AddFileViewModelTests
         Assert.Equal("The analysis was cancelled.", h.ViewModel.StatusText);
     });
 
-    [Fact]
+    [WindowFact]
     public void ALateResultOfAnEarlierFileIsDiscarded() => OnSta(h =>
     {
         h.ViewModel.AnalyzeFileCommand.Execute(@"C:\in\first.msi");
@@ -127,7 +127,7 @@ public sealed class AddFileViewModelTests
         Assert.Equal(@"C:\in\second.msi", h.ViewModel.FilePath);
     });
 
-    [Fact]
+    [WindowFact]
     public void TheReviewShowsEveryProposedValueWithItsMarker() => OnSta(h =>
     {
         h.ViewModel.AnalyzeFileCommand.Execute(@"C:\in\contoso.msi");
@@ -145,7 +145,7 @@ public sealed class AddFileViewModelTests
         Assert.False(h.ViewModel.ShowReviewWarning);
     });
 
-    [Fact]
+    [WindowFact]
     public void NeedsReviewShowsAWarningWithTheReason() => OnSta(h =>
     {
         h.ViewModel.AnalyzeFileCommand.Execute(@"C:\in\setup.exe");
@@ -155,7 +155,7 @@ public sealed class AddFileViewModelTests
         Assert.Contains("No silent switch could be derived.", h.ViewModel.ReviewWarning);
     });
 
-    [Fact]
+    [WindowFact]
     public void AnInstallerWithNoSilentSwitchGetsAManualFieldAndAWarning() => OnSta(h =>
     {
         h.ViewModel.AnalyzeFileCommand.Execute(@"C:\in\setup.exe");
@@ -173,7 +173,7 @@ public sealed class AddFileViewModelTests
         Assert.True(h.ViewModel.ShowReviewWarning);
     });
 
-    [Fact]
+    [WindowFact]
     public void APatchShowsItsFactsAndTheBaseProductWarning() => OnSta(h =>
     {
         h.ViewModel.AnalyzeFileCommand.Execute(@"C:\in\fix.msp");
@@ -192,7 +192,7 @@ public sealed class AddFileViewModelTests
         Assert.Equal("1.2.4", facts["Version after the patch"]);
     });
 
-    [Theory]
+    [WindowTheory]
     [InlineData(PackageTrust.Unsigned, "Not signed")]
     [InlineData(PackageTrust.Untrusted, "Signed, not trusted on this computer")]
     [InlineData(PackageTrust.Expired, "Signed, the certificate expired and has no valid timestamp")]
@@ -212,7 +212,7 @@ public sealed class AddFileViewModelTests
         Assert.Equal(signature, facts["Signature"]);
     });
 
-    [Fact]
+    [WindowFact]
     public void ExtraValuesShowWithTheirMarkersAndTheInstallModeIsSaved() => OnSta(h =>
     {
         h.ViewModel.AnalyzeFileCommand.Execute(@"C:\in\setup.exe");
@@ -236,7 +236,7 @@ public sealed class AddFileViewModelTests
         Assert.Equal("\"unins000.exe\" /VERYSILENT", reviewed.UninstallCommand!.Value);
     });
 
-    [Fact]
+    [WindowFact]
     public void ARefusalOfTheServiceIsShownAsItIs() => OnSta(h =>
     {
         h.ViewModel.AnalyzeFileCommand.Execute(@"C:\in\contoso.msi");
@@ -245,7 +245,7 @@ public sealed class AddFileViewModelTests
         Assert.Equal("The path is a folder. Add from file takes one installer file.", h.ViewModel.StatusText);
     });
 
-    [Fact]
+    [WindowFact]
     public void SaveNeedsThePredictedValuesAccepted() => OnSta(h =>
     {
         h.ViewModel.AnalyzeFileCommand.Execute(@"C:\in\contoso.msi");
@@ -257,7 +257,7 @@ public sealed class AddFileViewModelTests
         Assert.True(h.ViewModel.SaveCommand.CanExecute(null));
     });
 
-    [Fact]
+    [WindowFact]
     public void SaveSendsTheReviewedValuesAndShowsTheResultPanel() => OnSta(h =>
     {
         h.ViewModel.AnalyzeFileCommand.Execute(@"C:\in\contoso.msi");
@@ -281,7 +281,7 @@ public sealed class AddFileViewModelTests
         Assert.Empty(h.Actions.Staged);
     });
 
-    [Fact]
+    [WindowFact]
     public void ADefaultDetectionMakesOpenInWorkbenchTheDefault() => OnSta(h =>
     {
         h.ViewModel.AnalyzeFileCommand.Execute(@"C:\in\contoso.msi");
@@ -297,7 +297,7 @@ public sealed class AddFileViewModelTests
         Assert.Equal("Detection needs review.", h.ViewModel.Result.ReasonText);
     });
 
-    [Fact]
+    [WindowFact]
     public void ADropDuringTheSaveIsIgnored() => OnSta(h =>
     {
         h.ViewModel.AnalyzeFileCommand.Execute(@"C:\in\contoso.msi");
@@ -317,7 +317,7 @@ public sealed class AddFileViewModelTests
         Assert.Equal(AddFileStage.Result, h.ViewModel.Stage);
     });
 
-    [Fact]
+    [WindowFact]
     public void DoneReturnsToThePicker() => OnSta(h =>
     {
         h.ViewModel.AnalyzeFileCommand.Execute(@"C:\in\contoso.msi");
@@ -331,7 +331,7 @@ public sealed class AddFileViewModelTests
         Assert.Empty(h.ViewModel.Rows);
     });
 
-    [Fact]
+    [WindowFact]
     public void AFailedAnalysisSaysWhyAndReturnsToThePicker() => OnSta(h =>
     {
         h.ViewModel.AnalyzeFileCommand.Execute(@"C:\in\contoso.msi");
@@ -341,7 +341,7 @@ public sealed class AddFileViewModelTests
         Assert.Equal("The analysis failed: The file is not an MSI database.", h.ViewModel.StatusText);
     });
 
-    [Fact]
+    [WindowFact]
     public void AGridThatCannotSelectTheNewRow_DoesNotFailTheSaveAfterTheDefinitionIsWritten() => OnSta(h =>
     {
         h.Actions.SelectFails = new InvalidOperationException("The grid is not loaded.");
@@ -369,7 +369,7 @@ public sealed class AddFileViewModelTests
         Assert.Equal(AddFileStage.Result, h.ViewModel.Stage);
     }
 
-    [Fact]
+    [WindowFact]
     public void AFileDroppedWhileTheResultShows_StartsNoAnalysis() => OnSta(h =>
     {
         SaveToTheResultPanel(h);
@@ -385,7 +385,7 @@ public sealed class AddFileViewModelTests
         Assert.Equal(AddFileViewModel.ResultOpenStatus, h.ViewModel.StatusText);
     });
 
-    [Fact]
+    [WindowFact]
     public void ChooseAnotherFile_CannotRunWhileTheSaveRuns_AndTheResultOfTheSaveShows() => OnSta(h =>
     {
         h.ViewModel.AnalyzeFileCommand.Execute(@"C:\in\contoso.msi");
@@ -404,7 +404,7 @@ public sealed class AddFileViewModelTests
         Assert.True(h.ViewModel.DiscardCommand.CanExecute(null));
     });
 
-    [Fact]
+    [WindowFact]
     public void ASaveThatEndsAfterTheReviewWasLeft_DoesNotShowTheResultPanel() => OnSta(h =>
     {
         h.ViewModel.AnalyzeFileCommand.Execute(@"C:\in\contoso.msi");
@@ -422,7 +422,7 @@ public sealed class AddFileViewModelTests
         Assert.False(h.ViewModel.Result.IsVisible);
     });
 
-    [Fact]
+    [WindowFact]
     public void DoneCancelsARunningAnalysisAndALateResultDoesNotPullThePageBackToTheReview() => OnSta(h =>
     {
         h.ViewModel.AnalyzeFileCommand.Execute(@"C:\in\contoso.msi");

@@ -73,7 +73,7 @@ public sealed class SidebarGroupWindowTests
 
     private static string[] Headers(System.Windows.Controls.ContextMenu menu) => menu.Items.OfType<MenuItem>().Select(m => (string)m.Header).ToArray();
 
-    [Fact]
+    [WindowFact]
     public void ACaptionRowStandsBeforeEachGroupAndKeepsItsInstance()
     {
         WithSidebar(h =>
@@ -93,7 +93,7 @@ public sealed class SidebarGroupWindowTests
         });
     }
 
-    [Fact]
+    [WindowFact]
     public void AnEntryWithoutAGroupHasNoCaption()
     {
         WithSidebar(h =>
@@ -102,7 +102,7 @@ public sealed class SidebarGroupWindowTests
         }, registry: SidebarFixtures.Registry());
     }
 
-    [Fact]
+    [WindowFact]
     public void TheCaptionTakesNoFocusAndAScreenReaderReadsItsGroupName()
     {
         WithSidebar(h =>
@@ -127,7 +127,7 @@ public sealed class SidebarGroupWindowTests
         });
     }
 
-    [Fact]
+    [WindowFact]
     public void TabMovesThroughTheEntriesInOrderAndNeverStopsOnACaption()
     {
         WithSidebar(h =>
@@ -155,7 +155,7 @@ public sealed class SidebarGroupWindowTests
         });
     }
 
-    [Fact]
+    [WindowFact]
     public void AltUpAndAltDownStopAtTheEdgesOfTheGroup()
     {
         WithSidebar(h =>
@@ -174,7 +174,7 @@ public sealed class SidebarGroupWindowTests
         });
     }
 
-    [Fact]
+    [WindowFact]
     public void ADragIntoAnotherGroupDropsAtTheNearestPlaceInsideItsOwnGroup()
     {
         WithSidebar(h =>
@@ -196,7 +196,7 @@ public sealed class SidebarGroupWindowTests
         });
     }
 
-    [Fact]
+    [WindowFact]
     public void TheDropMarkerAtTheEndOfAGroupSitsAboveTheNextCaption()
     {
         WithSidebar(h =>
@@ -213,7 +213,7 @@ public sealed class SidebarGroupWindowTests
         });
     }
 
-    [Fact]
+    [WindowFact]
     public void TheEntryMenuNamesTheEntryAndKeepsShowAndReset()
     {
         WithSidebar(h =>
@@ -225,7 +225,7 @@ public sealed class SidebarGroupWindowTests
         }, layout: new SidebarLayout { Order = [], Hidden = ["w"] });
     }
 
-    [Fact]
+    [WindowFact]
     public void AClosedPaneShowsADividerInPlaceOfEachCaption()
     {
         WithSidebar(h =>
@@ -249,7 +249,7 @@ public sealed class SidebarGroupWindowTests
         });
     }
 
-    [Fact]
+    [WindowFact]
     public void TheDefaultSidebarShowsTheFirstGroupWithoutACaptionThenTheToolsCaption()
     {
         WithSidebar(h =>
@@ -301,7 +301,7 @@ public sealed class SidebarGroupWindowTests
         }, registry: SidebarRegistry.CreateDefault());
     }
 
-    [Fact]
+    [WindowFact]
     public void ADefaultSidebarDragOfAToolAboveTheWorkbenchStaysFirstInTheTools()
     {
         WithSidebar(h =>

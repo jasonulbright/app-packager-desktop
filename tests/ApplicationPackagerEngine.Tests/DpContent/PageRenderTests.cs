@@ -86,7 +86,7 @@ public sealed class PageRenderTests
         Settle(window);
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
     public void TheFourTabsRenderAndEveryGridVirtualizesThirtyThousandRows(ApplicationTheme theme)
@@ -120,7 +120,7 @@ public sealed class PageRenderTests
         }, harness: () => LongHarness(300, 100));
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light, 1440 - NavigationPaneWidth)]
     [InlineData(ApplicationTheme.Dark, 1440 - NavigationPaneWidth)]
     [InlineData(ApplicationTheme.Light, 1440 - CollapsedPaneWidth)]
@@ -140,7 +140,7 @@ public sealed class PageRenderTests
         }, width);
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
     public void EveryGridShowsReadableRowsAndAVisibleSelection(ApplicationTheme theme)
@@ -175,7 +175,7 @@ public sealed class PageRenderTests
         { ApplicationTheme.Dark, 1440 - CollapsedPaneWidth, 900 - 48 }
     };
 
-    [Theory]
+    [WindowTheory]
     [MemberData(nameof(Sizes))]
     public void EveryTabFitsItsWidthAndScrollsToEveryControl(ApplicationTheme theme, double width, double height)
     {
@@ -250,7 +250,7 @@ public sealed class PageRenderTests
         return null!;
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
     public void TabReachesEveryGridAndTheFocusedRowIsSelected(ApplicationTheme theme)
@@ -294,7 +294,7 @@ public sealed class PageRenderTests
         });
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
     public void FromThePerDpGridsOneOrTwoTabsReachTheActions(ApplicationTheme theme)
@@ -335,7 +335,7 @@ public sealed class PageRenderTests
     /// <summary>History values must fit with this much room: a lab window cut a value the test measured as just fitting.</summary>
     private const double HistoryRoom = 1.1;
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light, 1440 - CollapsedPaneWidth)]
     [InlineData(ApplicationTheme.Dark, 1440 - CollapsedPaneWidth)]
     [InlineData(ApplicationTheme.Light, 1440 - NavigationPaneWidth)]
@@ -372,7 +372,7 @@ public sealed class PageRenderTests
         }, width);
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
     public void AClickOnAColumnHeaderSortsThroughThePageAndShowsTheDirection(ApplicationTheme theme)
@@ -416,7 +416,7 @@ public sealed class PageRenderTests
         return count;
     }
 
-    [Theory]
+    [WindowTheory]
     [MemberData(nameof(Sizes))]
     public void EveryCheckBoxOfThePageShowsItsWholeText(ApplicationTheme theme, double width, double height)
     {
@@ -441,7 +441,7 @@ public sealed class PageRenderTests
         return plan;
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
     public void ThePlanWindowOfFiveHundredPairsKeepsItsBoxesAndButtonsInsideA1366By768WorkArea(ApplicationTheme theme)
@@ -477,7 +477,7 @@ public sealed class PageRenderTests
         });
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
     public void ThePairWindowOfFiveHundredPairsScrollsItsListAndKeepsItsButtonsInsideA1366By768WorkArea(ApplicationTheme theme)
@@ -539,7 +539,7 @@ public sealed class PageRenderTests
         return FocusedId();
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
     public void ThePairWindowOpensOnTheFirstPairAndReachesContinueInThreeTabs(ApplicationTheme theme)
@@ -562,7 +562,7 @@ public sealed class PageRenderTests
         });
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
     public void ThePlanWindowOpensOnTheFirstLineAndReachesConfirmAfterItsBoxes(ApplicationTheme theme)
@@ -601,7 +601,7 @@ public sealed class PageRenderTests
         });
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
     public void AtTheMinimumSizeAWrappedMessageTakesAtMostTwoLinesSoTheHistoryShowsSeveralRows(ApplicationTheme theme)
@@ -628,7 +628,7 @@ public sealed class PageRenderTests
         }, 1024 - NavigationPaneWidth, 720 - 48);
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
     public void TheHistoryDetailsBoxShowsEveryLineOfALongRecordWithoutScrolling(ApplicationTheme theme)
@@ -645,7 +645,7 @@ public sealed class PageRenderTests
         }, 1440 - CollapsedPaneWidth);
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
     public void EveryMainGridShowsAtLeastThreeWholeRowsAtTheMinimumSize(ApplicationTheme theme)

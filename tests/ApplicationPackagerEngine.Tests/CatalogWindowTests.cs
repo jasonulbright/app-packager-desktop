@@ -44,7 +44,7 @@ public sealed class CatalogWindowTests
 
     private static AppVisibilityItem App(CatalogViewModel viewModel, string uid) => viewModel.VendorGroups.SelectMany(g => g.Apps).Single(a => a.Uid == uid);
 
-    [Fact]
+    [WindowFact]
     public void TheCountsAndTheTextNameTheAppPackagerGrid()
     {
         var (viewModel, _) = Catalog("gsudo");
@@ -54,7 +54,7 @@ public sealed class CatalogWindowTests
         Assert.Equal(["Gerardo Grignoli", "Git", "Stefan Kueng"], viewModel.VendorGroups.Select(g => g.Vendor));
     }
 
-    [Fact]
+    [WindowFact]
     public void TheSearchMatchesApplicationsAndVendorsAndHidesGroupsWithoutAMatch()
     {
         var (viewModel, _) = Catalog();
@@ -76,7 +76,7 @@ public sealed class CatalogWindowTests
         Assert.Equal(4, viewModel.MatchCount);
     }
 
-    [Fact]
+    [WindowFact]
     public void HideAllAndShowAllChangeOnlyTheMatchesAndEveryApplicationWithoutASearch()
     {
         var (viewModel, _) = Catalog();
@@ -95,7 +95,7 @@ public sealed class CatalogWindowTests
         Assert.Equal(4, viewModel.VisibleCount);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task SaveWritesTheHiddenListReloadsTheGridAndReports()
     {
         var (viewModel, store) = Catalog();
@@ -107,7 +107,7 @@ public sealed class CatalogWindowTests
         Assert.Empty(store.Log);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task SaveOverAnUnreadableSettingsFileSaysNothingWasStoredAndDoesNotReloadTheGrid()
     {
         var cautions = new List<string>();
@@ -131,7 +131,7 @@ public sealed class CatalogWindowTests
         Assert.DoesNotContain("Saved.", shown);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task AChangeThatIsNotSaved_IsNotDescribedAsTheStateOfTheGrid()
     {
         var (viewModel, _) = Catalog();
@@ -147,7 +147,7 @@ public sealed class CatalogWindowTests
         Assert.Equal("0 of 4 applications are visible in the App Packager grid.", viewModel.CountText);
     }
 
-    [Fact]
+    [WindowFact]
     public void AChangeThatIsUndone_DescribesTheGridAgain()
     {
         var (viewModel, _) = Catalog("gsudo");
@@ -162,7 +162,7 @@ public sealed class CatalogWindowTests
         { ApplicationTheme.Light, false }, { ApplicationTheme.Dark, false }, { ApplicationTheme.Light, true }, { ApplicationTheme.Dark, true }
     };
 
-    [Theory]
+    [WindowTheory]
     [MemberData(nameof(Windows))]
     public void TheWindowIsTitledCatalogShowsEveryControlAndOpensOnTheSearch(ApplicationTheme theme, bool smallest)
     {
@@ -209,7 +209,7 @@ public sealed class CatalogWindowTests
         });
     }
 
-    [Fact]
+    [WindowFact]
     public void TheSearchBoxFiltersTheVendorGroupsInTheWindow()
     {
         WithApplication(ApplicationTheme.Dark, () =>
@@ -228,7 +228,7 @@ public sealed class CatalogWindowTests
         });
     }
 
-    [Fact]
+    [WindowFact]
     public void TheVendorCheckBoxChangesOnlyTheApplicationsTheSearchShows()
     {
         WithApplication(ApplicationTheme.Light, () =>
@@ -254,7 +254,7 @@ public sealed class CatalogWindowTests
 
     private static string AutomationPropertiesName(DependencyObject element) => System.Windows.Automation.AutomationProperties.GetName(element);
 
-    [Fact]
+    [WindowFact]
     public void EscapeClosesTheWindow()
     {
         WithApplication(ApplicationTheme.Light, () =>

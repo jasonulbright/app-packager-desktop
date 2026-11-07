@@ -40,7 +40,7 @@ public sealed class ChangePlanGridTests
 
     private static ChangePlanViewModel ModelOf(Window window) => (ChangePlanViewModel)window.DataContext;
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
     public void BothGridsShowAtLeastThreeWholeRowsAtTheDefaultSize(ApplicationTheme theme)
@@ -56,7 +56,7 @@ public sealed class ChangePlanGridTests
         });
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
     public void TheResultColumnFollowsTheOutcomeAndReadsOnTheRowFillSelectedOrNot(ApplicationTheme theme)

@@ -26,7 +26,7 @@ public sealed class ComplianceViewModelTests
         return viewModel;
     }
 
-    [Fact]
+    [WindowFact]
     public async Task NothingReachesConfigMgrBeforeATabIsVisitedAndTheCatalogNeedsNoSite()
     {
         var harness = new ComplianceHarness();
@@ -42,7 +42,7 @@ public sealed class ComplianceViewModelTests
         Assert.Equal(0, harness.Collections.ListCalls);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task TheLiveTabReadsItsThreeListsOnceAndASelectionReadsNothing()
     {
         var harness = new ComplianceHarness();
@@ -60,7 +60,7 @@ public sealed class ComplianceViewModelTests
         Assert.Equal("2 configuration items, 2 baselines, 3 deployments", viewModel.Live.CountText);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task WithoutASiteCodeTheTabsShowOneMessageAndReadNothing()
     {
         var harness = new ComplianceHarness();
@@ -71,7 +71,7 @@ public sealed class ComplianceViewModelTests
         Assert.Empty(viewModel.Live.Items);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task TheCatalogFiltersBySubcategorySeverityReferenceOsAndText()
     {
         var harness = new ComplianceHarness();
@@ -97,7 +97,7 @@ public sealed class ComplianceViewModelTests
         Assert.Equal(3, catalog.Rows.Count);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task TheDetailPanelNamesWhatTheEntryChecksAndCreates()
     {
         var harness = new ComplianceHarness();
@@ -113,7 +113,7 @@ public sealed class ComplianceViewModelTests
         Assert.Equal("Windows 10, Windows 11; Server 2022", details["Operating systems"]);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task TheLsaCatalogDetailsExplainThatRemediationIsUnsupported()
     {
         var (_, viewModel) = await CatalogOn("lsa-protection-runasppl", harness =>
@@ -134,7 +134,7 @@ public sealed class ComplianceViewModelTests
         return (harness, viewModel);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task ADeployIsDetectOnlyByDefaultWithTheSiteFromTheSettingsAndRunsOnlyThroughAConfirmedPlan()
     {
         var (harness, viewModel) = await CatalogOn("autorun-disable");
@@ -174,7 +174,7 @@ public sealed class ComplianceViewModelTests
         Assert.Single(harness.History.Entries);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task ADeployWithRemediationNeedsTheSecondConfirmationThatNamesTheDevices()
     {
         var (harness, viewModel) = await CatalogOn("autorun-disable");
@@ -206,7 +206,7 @@ public sealed class ComplianceViewModelTests
         Assert.True(Assert.Single(Assert.Single(harness.Service.Applied)).RemediateAfter);
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData("-Force", "CollectionName cannot start with a dash.")]
     [InlineData("Servers\nWorkstations", "CollectionName contains a line break or another control character.")]
     [InlineData("Unknown collection", "No device collection named Unknown collection exists.")]
@@ -225,7 +225,7 @@ public sealed class ComplianceViewModelTests
         Assert.Equal(0, harness.Service.PrepareCalls);
     }
 
-    [Fact]
+    [WindowFact]
     public void TheParameterRulesRefuseLongTextBadSiteValuesAndAllowQuotesAndSemicolons()
     {
         var name = ComplianceHarness.Text("ClientDownloadMode");
@@ -237,7 +237,7 @@ public sealed class ComplianceViewModelTests
         Assert.Equal(CatalogParameterRules.Required("SiteServer"), CatalogParameterRules.Check(ComplianceHarness.Text("SiteServer", true), " "));
     }
 
-    [Fact]
+    [WindowFact]
     public async Task EmptySiteSettingsLeaveTheSiteFieldsEditable()
     {
         var (harness, viewModel) = await CatalogOn("autorun-disable");
@@ -252,7 +252,7 @@ public sealed class ComplianceViewModelTests
         Assert.Equal(1, harness.Dialogs.DeployShows);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task AMissingDependencyBlocksTheDeployAndCreateRunsItsOwnPlan()
     {
         var (harness, viewModel) = await CatalogOn("specexec-mitigations");
@@ -285,7 +285,7 @@ public sealed class ComplianceViewModelTests
         Assert.Contains("Deploys to Devices: HT Disabled (LAB00013): 1 member now.", harness.Plans.Shown[1].Items[0].Detail);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task SkipDeployNeedsNoDependencyAndDeploysToNoCollection()
     {
         var (harness, viewModel) = await CatalogOn("specexec-mitigations");
@@ -300,7 +300,7 @@ public sealed class ComplianceViewModelTests
         Assert.Contains("Deploys to no collection.", harness.Plans.Shown[0].Items[0].Detail);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task ThePickerSetsOneCollectionAndRefusesTwo()
     {
         var (harness, viewModel) = await CatalogOn("autorun-disable");
@@ -324,7 +324,7 @@ public sealed class ComplianceViewModelTests
         Assert.Equal(1, harness.Dialogs.PickerShows);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task ADoubleClickOnDeployOpensOneForm()
     {
         var (harness, viewModel) = await CatalogOn("autorun-disable");
@@ -337,7 +337,7 @@ public sealed class ComplianceViewModelTests
         Assert.Equal(1, harness.Dialogs.DeployShows);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task ADeclinedPlanChangesNothingAndKeepsTheFormOpen()
     {
         var (harness, viewModel) = await CatalogOn("autorun-disable");
@@ -352,7 +352,7 @@ public sealed class ComplianceViewModelTests
         Assert.Equal(ComplianceShared.NotConfirmed, viewModel.Shared.StatusMessage);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task EnableRemediationNeedsTheSecondConfirmationAndUndoSetsTheModeBack()
     {
         var harness = new ComplianceHarness();
@@ -373,7 +373,7 @@ public sealed class ComplianceViewModelTests
         Assert.False(viewModel.Shared.HasUndo);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task DisableRemediationHasNoSecondCheckAndAModeAlreadySetIsNoPlan()
     {
         var harness = new ComplianceHarness();
@@ -391,7 +391,7 @@ public sealed class ComplianceViewModelTests
         Assert.Single(plan.Items);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task DeleteIsDestructiveNamesTheCountsAndUndoRecreates()
     {
         var harness = new ComplianceHarness();
@@ -412,7 +412,7 @@ public sealed class ComplianceViewModelTests
         Assert.Contains(ComplianceWriter.RecreatedNote, harness.Plans.Shown[1].Items[0].Detail);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task AWithoutTheDestructiveCheckDeleteRunsNothing()
     {
         var harness = new ComplianceHarness();
@@ -424,7 +424,7 @@ public sealed class ComplianceViewModelTests
         Assert.Equal(3, harness.Service.Deployments.Count);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task RedeployShowsTheOrderAndTheFallback()
     {
         var harness = new ComplianceHarness();
@@ -437,7 +437,7 @@ public sealed class ComplianceViewModelTests
         Assert.Equal(ComplianceChangeKind.Redeploy, harness.Service.Applied.Single().Single().Kind);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task ReassignTakesOneOtherCollectionAndAsksTheSecondCheckForARemediatingDeployment()
     {
         var harness = new ComplianceHarness();
@@ -461,7 +461,7 @@ public sealed class ComplianceViewModelTests
         Assert.Equal("LAB00010", harness.Service.Applied.Single().Single().ToCollectionId);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task AStaleDeploymentIsASkipLineInABulkPlanAndStopsASinglePlan()
     {
         var harness = new ComplianceHarness();
@@ -481,7 +481,7 @@ public sealed class ComplianceViewModelTests
         Assert.Equal("The deployment of TLS Legacy Disable to Servers no longer exists.", viewModel.Shared.StatusMessage);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task ADoubleClickOnAnActionShowsOnePlan()
     {
         var harness = new ComplianceHarness();
@@ -493,7 +493,7 @@ public sealed class ComplianceViewModelTests
         Assert.Single(harness.Plans.Shown);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task ThePlanOfAWriteShowsTheImpactLinesOfTheService()
     {
         var harness = new ComplianceHarness();
@@ -514,7 +514,7 @@ public sealed class ComplianceViewModelTests
         return (harness, viewModel);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task TheEditorReadsTheSettingsOfTheSelectedItemOnly()
     {
         var (harness, viewModel) = await EditorOnSmb();
@@ -524,7 +524,7 @@ public sealed class ComplianceViewModelTests
         Assert.Equal("SMB Signing (CI-SMB) revision 1", viewModel.Editor.SelectedItemText);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task AddingARegistrySettingShowsTheNewValuesAndTheRevisionNote()
     {
         var (harness, viewModel) = await EditorOnSmb();
@@ -553,7 +553,7 @@ public sealed class ComplianceViewModelTests
         Assert.Equal(3, viewModel.Editor.Settings.Count);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task EditingAScriptSettingShowsOldAndNewScriptTextInThePlanAndNeverInTheLog()
     {
         var (harness, viewModel) = await EditorOnSmb();
@@ -577,7 +577,7 @@ public sealed class ComplianceViewModelTests
         Assert.Equal("Get-SecretProbe -Token 42", harness.Service.Settings["CI-SMB"].Single(s => s.SettingId == "S-2").DiscoveryScript);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task RemovingASettingIsDestructiveAndUndoAddsItAgain()
     {
         var (harness, viewModel) = await EditorOnSmb();
@@ -591,7 +591,7 @@ public sealed class ComplianceViewModelTests
         Assert.Equal(2, harness.Service.Settings["CI-SMB"].Count);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task ASettingRemovedWhileTheDialogIsOpenStopsThePlanWithAPlainMessage()
     {
         var (harness, viewModel) = await EditorOnSmb();
@@ -609,7 +609,7 @@ public sealed class ComplianceViewModelTests
         Assert.Empty(harness.Service.Applied);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task ASettingsReadThatEndsAfterAnotherSelectionIsDiscarded()
     {
         var harness = new ComplianceHarness();
@@ -630,7 +630,7 @@ public sealed class ComplianceViewModelTests
         Assert.Equal("0 settings", viewModel.Editor.SettingsMessage);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task EditSettingsOnTheLiveTabOpensTheItemInTheEditor()
     {
         var harness = new ComplianceHarness();
@@ -642,7 +642,7 @@ public sealed class ComplianceViewModelTests
         Assert.Equal("CI-TLS", viewModel.Editor.SelectedItem?.CiId);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task AuditingFiltersByStateAndStaleAndExportsEveryRowOfBothLists()
     {
         var harness = new ComplianceHarness();
@@ -670,7 +670,7 @@ public sealed class ComplianceViewModelTests
         Assert.DoesNotContain("disk text", viewModel.Shared.StatusMessage);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task AnHtmlExportRightAfterACsvExportWritesItsOwnReportAndOpensNoWindow()
     {
         var harness = new ComplianceHarness();
@@ -690,7 +690,7 @@ public sealed class ComplianceViewModelTests
         Assert.Equal([@"C:\data\Collections\Reports"], harness.Dialogs.OpenedFolders);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task LeavingThePageDuringAReadDiscardsItAndReleasesEveryTab()
     {
         var harness = new ComplianceHarness();
@@ -715,7 +715,7 @@ public sealed class ComplianceViewModelTests
         Assert.Equal(2, viewModel.Live.Items.Count);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task ACancelledReadSaysSoAndKeepsNoRows()
     {
         var harness = new ComplianceHarness();
@@ -730,7 +730,7 @@ public sealed class ComplianceViewModelTests
         Assert.Empty(viewModel.Live.Items);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task AReadFailureShowsAPlainMessageWithoutTheExceptionText()
     {
         var harness = new ComplianceHarness();
@@ -740,7 +740,7 @@ public sealed class ComplianceViewModelTests
         Assert.DoesNotContain(harness.Log.Entries.Select(e => e.Message), l => l.Contains("raw provider text", StringComparison.Ordinal));
     }
 
-    [Fact]
+    [WindowFact]
     public async Task LeavingThePageDuringAPlanDiscardsItsOutcome()
     {
         var harness = new ComplianceHarness();
@@ -758,7 +758,7 @@ public sealed class ComplianceViewModelTests
         Assert.Single(rows);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task TheTabFiltersAndPanelsComeBackAndAnOlderFileUsesTheDefaults()
     {
         var harness = new ComplianceHarness();
@@ -788,7 +788,7 @@ public sealed class ComplianceViewModelTests
         Assert.Equal("", opened.Catalog.TextFilter);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task LeavingThePageWaitsForTheSaveOfTheChoices()
     {
         var harness = new ComplianceHarness();

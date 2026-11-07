@@ -248,7 +248,7 @@ public sealed class SiteHygieneLiveFitTests
     private static bool SidewaysBarShows(DataGrid grid) =>
         Descendants(grid).OfType<ScrollBar>().Any(b => b.Orientation == System.Windows.Controls.Orientation.Horizontal && b.IsVisible && b.ActualWidth > 0);
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light, 1440 - CollapsedPaneWidth)]
     [InlineData(ApplicationTheme.Dark, 1440 - CollapsedPaneWidth)]
     [InlineData(ApplicationTheme.Light, 1440 - NavigationPaneWidth)]
@@ -276,7 +276,7 @@ public sealed class SiteHygieneLiveFitTests
         });
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
     public void TheStatusAndCountColumnsTakeTheirMeasuredNeedAndTheNamesTakeTheRest(ApplicationTheme theme)
@@ -311,7 +311,7 @@ public sealed class SiteHygieneLiveFitTests
     };
 
     /// <summary>At 1024x720 a grid whose least column widths exceed it scrolls sideways; a value is never cut, a name of typical length wraps whole, and an alert message wraps whole.</summary>
-    [Theory]
+    [WindowTheory]
     [MemberData(nameof(SmallSizes))]
     public void AtTheMinimumSizeEveryGridWrapsOrScrollsAndCutsNoValue(ApplicationTheme theme, double width, double height)
     {
@@ -343,7 +343,7 @@ public sealed class SiteHygieneLiveFitTests
     /// At 1024x720 the Deployments grid scrolls sideways, so each name column is wide enough to show every real name on
     /// at most <see cref="LiveColumnFit.NameLines"/> lines without a cut and without a word broken inside.
     /// </summary>
-    [Theory]
+    [WindowTheory]
     [MemberData(nameof(SmallSizes))]
     public void AtTheMinimumSizeTheRealDeploymentNamesShowWholeWhenTheGridScrollsSideways(ApplicationTheme theme, double width, double height)
     {
@@ -383,7 +383,7 @@ public sealed class SiteHygieneLiveFitTests
         });
     }
 
-    [Theory]
+    [WindowTheory]
     [MemberData(nameof(SmallSizes))]
     [InlineData(ApplicationTheme.Light, 1440 - CollapsedPaneWidth, 900 - TitleBar)]
     [InlineData(ApplicationTheme.Dark, 1440 - NavigationPaneWidth, 900 - TitleBar)]
@@ -443,7 +443,7 @@ public sealed class SiteHygieneLiveFitTests
     /// column or a value column; no identifier value breaks inside a word; no header is cut; and a grid whose least
     /// column widths exceed its width scrolls sideways.
     /// </summary>
-    [Theory]
+    [WindowTheory]
     [MemberData(nameof(AllSizes))]
     public void NoRealIdentifierOfAnyViewBreaksInsideAWordAndNoHeaderIsCut(ApplicationTheme theme, double width, double height)
     {
@@ -565,7 +565,7 @@ public sealed class SiteHygieneLiveFitTests
     /// right edge of the last header; otherwise every header ends inside the grid and the grid does not scroll sideways.
     /// No header lies under the vertical scroll bar.
     /// </summary>
-    [Theory]
+    [WindowTheory]
     [MemberData(nameof(RowCountSizes))]
     public void EveryLiveViewFitsOrScrollsSidewaysToItsLastHeaderAtEveryRowCount(ApplicationTheme theme, double width, double height, int rows)
     {
@@ -615,7 +615,7 @@ public sealed class SiteHygieneLiveFitTests
     }
 
     /// <summary>A grid that a filter empties scrolls sideways to its last header, and the rows that come back are virtualized again.</summary>
-    [Fact]
+    [WindowFact]
     public void AnEmptiedGridScrollsSidewaysAndVirtualizesTheRowsThatComeBack()
     {
         WithPage(ApplicationTheme.Light, 1024 - NavigationPaneWidth, 720 - TitleBar, (window, page, viewModel, harness) =>
@@ -640,7 +640,7 @@ public sealed class SiteHygieneLiveFitTests
         });
     }
 
-    [Fact]
+    [WindowFact]
     public void TheWidestWordCountsWhenItsValueIsShorterThanTheLongestValuesMeasured()
     {
         WithPage(ApplicationTheme.Light, 1024 - CollapsedPaneWidth, 720 - TitleBar, (window, page, viewModel, harness) =>
@@ -654,7 +654,7 @@ public sealed class SiteHygieneLiveFitTests
         });
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
     public void AColumnTheUserResizedKeepsItsWidthAfterARefresh(ApplicationTheme theme)
@@ -691,7 +691,7 @@ public sealed class SiteHygieneLiveFitTests
         }
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
     public void TheChartIsAFocusableAutomationElementWithItsMetricAsNameAndTheReadoutAsValue(ApplicationTheme theme)
@@ -728,7 +728,7 @@ public sealed class SiteHygieneLiveFitTests
         });
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
     public void AKeyboardRefreshAllKeepsTheFocusOnTheButton(ApplicationTheme theme)
@@ -757,7 +757,7 @@ public sealed class SiteHygieneLiveFitTests
         });
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
     public void TheImportNoteShowsOnTheOptionsImportRowAsWholeLines(ApplicationTheme theme)

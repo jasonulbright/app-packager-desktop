@@ -96,7 +96,7 @@ public sealed class SidebarWindowTests
 
     private static void Click(MenuItem item) => item.RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent, item));
 
-    [Fact]
+    [WindowFact]
     public void TheMenuItemsFollowTheServiceAndKeepTheirInstancesAcrossChanges()
     {
         WithSidebar(h =>
@@ -115,7 +115,7 @@ public sealed class SidebarWindowTests
         });
     }
 
-    [Fact]
+    [WindowFact]
     public void PackagesStaysTheFirstItemAndTheStartPageWhateverTheSavedLayout()
     {
         WithSidebar(h =>
@@ -127,7 +127,7 @@ public sealed class SidebarWindowTests
         }, SidebarRegistry.CreateDefault(), new SidebarLayout { Order = [SidebarIds.Workbench, SidebarIds.Packages], Hidden = [SidebarIds.Packages, SidebarIds.AddApp] });
     }
 
-    [Fact]
+    [WindowFact]
     public void HideOnTheEntryMenuHidesTheEntryAndShowToolBringsItBack()
     {
         WithSidebar(h =>
@@ -148,7 +148,7 @@ public sealed class SidebarWindowTests
         });
     }
 
-    [Fact]
+    [WindowFact]
     public void ThePinnedEntryMenuHasNoHide()
     {
         WithSidebar(h =>
@@ -159,7 +159,7 @@ public sealed class SidebarWindowTests
         });
     }
 
-    [Fact]
+    [WindowFact]
     public void TheEmptyAreaMenuShowsHiddenToolsAndResets()
     {
         WithSidebar(h =>
@@ -174,7 +174,7 @@ public sealed class SidebarWindowTests
         }, layout: new SidebarLayout { Order = [], Hidden = ["w", "t"] });
     }
 
-    [Fact]
+    [WindowFact]
     public void TheEmptyAreaOfThePaneTakesTheRightClick()
     {
         WithSidebar(h =>
@@ -187,7 +187,7 @@ public sealed class SidebarWindowTests
         });
     }
 
-    [Fact]
+    [WindowFact]
     public void ADragPastTheThresholdShowsTheMarkerAndTheDropMovesTheEntry()
     {
         WithSidebar(h =>
@@ -213,7 +213,7 @@ public sealed class SidebarWindowTests
         });
     }
 
-    [Fact]
+    [WindowFact]
     public void ThePinnedEntryIsNotADropTargetAboveIt()
     {
         WithSidebar(h =>
@@ -227,7 +227,7 @@ public sealed class SidebarWindowTests
         });
     }
 
-    [Fact]
+    [WindowFact]
     public void ThePinnedEntryDoesNotStartADrag()
     {
         WithSidebar(h =>
@@ -241,7 +241,7 @@ public sealed class SidebarWindowTests
         });
     }
 
-    [Fact]
+    [WindowFact]
     public void EscapeCancelsTheDrag()
     {
         WithSidebar(h =>
@@ -264,7 +264,7 @@ public sealed class SidebarWindowTests
         });
     }
 
-    [Fact]
+    [WindowFact]
     public void ADropOutsideTheListChangesNothing()
     {
         WithSidebar(h =>
@@ -278,7 +278,7 @@ public sealed class SidebarWindowTests
         });
     }
 
-    [Fact]
+    [WindowFact]
     public void APressAndReleaseOnAWindowEntryOpensItAndADragDoesNot()
     {
         WithSidebar(h =>
@@ -298,7 +298,7 @@ public sealed class SidebarWindowTests
         });
     }
 
-    [Fact]
+    [WindowFact]
     public void AKeyboardOrAutomationClickOnAToolEntryOpensIt()
     {
         WithSidebar(h =>
@@ -309,7 +309,7 @@ public sealed class SidebarWindowTests
         });
     }
 
-    [Fact]
+    [WindowFact]
     public void AltUpAndAltDownMoveTheFocusedEntryAndKeepItFocused()
     {
         WithSidebar(h =>
@@ -327,7 +327,7 @@ public sealed class SidebarWindowTests
         });
     }
 
-    [Fact]
+    [WindowFact]
     public void AltDownSkipsOverAHiddenEntry()
     {
         WithSidebar(h =>
@@ -365,7 +365,7 @@ public sealed class SidebarWindowTests
         }
     }
 
-    [Fact]
+    [WindowFact]
     public void AMouseTapOnAWindowEntryIsTakenFromTheNavigationViewAndOpensItOnce()
     {
         WithSidebar(h =>
@@ -381,7 +381,7 @@ public sealed class SidebarWindowTests
         });
     }
 
-    [Fact]
+    [WindowFact]
     public void AMouseTapOnAPageEntryIsLeftToTheNavigationView()
     {
         WithSidebar(h =>
@@ -399,7 +399,7 @@ public sealed class SidebarWindowTests
         });
     }
 
-    [Fact]
+    [WindowFact]
     public void AMouseDragOfAWindowEntryCapturesTheMouseMovesTheEntryAndDoesNotOpenIt()
     {
         WithSidebar(h =>
@@ -426,7 +426,7 @@ public sealed class SidebarWindowTests
         });
     }
 
-    [Fact]
+    [WindowFact]
     public void AMouseDropOfAPageEntryIsTakenFromTheNavigationView()
     {
         WithSidebar(h =>
@@ -443,7 +443,7 @@ public sealed class SidebarWindowTests
         });
     }
 
-    [Fact]
+    [WindowFact]
     public void AMoveWithTheLeftButtonUpCancelsTheDrag()
     {
         WithSidebar(h =>
@@ -466,7 +466,7 @@ public sealed class SidebarWindowTests
         });
     }
 
-    [Fact]
+    [WindowFact]
     public void ALostCaptureCancelsTheDrag()
     {
         WithSidebar(h =>
@@ -487,7 +487,7 @@ public sealed class SidebarWindowTests
         });
     }
 
-    [Fact]
+    [WindowFact]
     public void EscapeAfterAMouseMoveCancelsTheDragAndReleasesTheMouse()
     {
         WithSidebar(h =>
@@ -513,7 +513,7 @@ public sealed class SidebarWindowTests
         });
     }
 
-    [Fact]
+    [WindowFact]
     public void AMouseMoveRaisedWhileTheDragTakesTheMouseIsIgnored()
     {
         WithSidebar(h =>
@@ -537,7 +537,7 @@ public sealed class SidebarWindowTests
         });
     }
 
-    [Fact]
+    [WindowFact]
     public void HidingTheShownPagesEntryOpensTheStartPageAndShowingItAgainLeavesNoHighlight()
     {
         WithSidebar(h =>
@@ -567,7 +567,7 @@ public sealed class SidebarWindowTests
         });
     }
 
-    [Fact]
+    [WindowFact]
     public void ANavigationToTheTypeOfAnEntryHiddenFromTheStartShowsThatPage()
     {
         WithSidebar(h =>
@@ -578,7 +578,7 @@ public sealed class SidebarWindowTests
         }, layout: new SidebarLayout { Hidden = ["a"] });
     }
 
-    [Fact]
+    [WindowFact]
     public void ANavigationToTheTypeOfAnEntryHiddenLaterShowsThatPage()
     {
         WithSidebar(h =>
@@ -589,7 +589,7 @@ public sealed class SidebarWindowTests
         });
     }
 
-    [Fact]
+    [WindowFact]
     public void HidingTheShownPagesEntryThroughItsMenuOpensTheStartPage()
     {
         WithSidebar(h =>
@@ -601,7 +601,7 @@ public sealed class SidebarWindowTests
         });
     }
 
-    [Fact]
+    [WindowFact]
     public void AnEntryThatLeavesTheMenuLosesItsHighlightWhenTheStartPageNavigationIsCancelled()
     {
         WithSidebar(h =>
@@ -617,7 +617,7 @@ public sealed class SidebarWindowTests
         });
     }
 
-    [Fact]
+    [WindowFact]
     public void HidingAnotherEntryOrResettingKeepsTheShownPage()
     {
         WithSidebar(h =>
@@ -634,7 +634,7 @@ public sealed class SidebarWindowTests
         });
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
     public void TheMarkerAndTheMenusUseTheThemeResources(ApplicationTheme theme)
