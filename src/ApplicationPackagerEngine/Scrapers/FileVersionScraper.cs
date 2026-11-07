@@ -243,7 +243,7 @@ public sealed class FileVersionScraper : IVersionScraper
         catch { }
 
         // string.GetHashCode differs in each process, so a later process could not find the file.
-        var hash = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(url)))[..8].ToLowerInvariant();
+        var hash = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(url)))[..32].ToLowerInvariant();
         return $"download-{hash}.tmp";
     }
 
@@ -307,9 +307,9 @@ public sealed class FileVersionScraper : IVersionScraper
         if (!File.Exists(outFile) || new FileInfo(outFile).Length == 0)
         {
             // The first download lands in a side file as well, so the cache path holds a whole file or
-            // no file: an app exit or a cancel in the middle leaves a .part file the next run deletes.
-            var partPath = outFile + ".part";
-            TryDelete(partPath);
+            // no file. Each download has its own side file, so two runs of one URL cannot overwrite each other.
+            var partPath = $"{outFile}.{Guid.NewGuid():N}.part";
+            DeleteStalePartFiles(outFile);
             TryDelete(outFile);
             try
             {
@@ -357,6 +357,19 @@ public sealed class FileVersionScraper : IVersionScraper
         }
 
         return process.ExitCode == 0;
+    }
+
+    // A side file of a download that a hard kill left behind is deleted after a day.
+    private static void DeleteStalePartFiles(string outFile)
+    {
+        try
+        {
+            var folder = Path.GetDirectoryName(outFile);
+            if (string.IsNullOrEmpty(folder) || !Directory.Exists(folder)) return;
+            foreach (var stale in Directory.EnumerateFiles(folder, Path.GetFileName(outFile) + ".*.part"))
+                if (File.GetLastWriteTimeUtc(stale) < DateTime.UtcNow.AddDays(-1)) TryDelete(stale);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
     }
 
     private static void TryDelete(string path)

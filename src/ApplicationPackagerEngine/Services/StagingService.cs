@@ -1244,7 +1244,13 @@ public sealed class StagingService
                 onProgress?.Invoke($"Copied from version cache: {installerFileName}");
                 // The cache holds what the scrape downloaded; no hash covers it for most definitions.
                 try { ValidateInstallerMagic(installerPath, magicType); }
-                catch { File.Delete(installerPath); throw; }
+                catch
+                {
+                    // The cache file is bad as well; a later stage then downloads a fresh copy.
+                    foreach (var bad in new[] { installerPath, cachedPath })
+                        try { File.Delete(bad); } catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
+                    throw;
+                }
             }
             else if (sharedCacheRoot is not null)
             {
