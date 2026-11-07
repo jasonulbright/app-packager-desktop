@@ -57,8 +57,24 @@ public partial class WsusUpdatesViewModel : ObservableObject
 
     /// <summary>Lists the updates and, the first time, the computer groups.</summary>
     [RelayCommand(CanExecute = nameof(Idle))]
-    public async Task LoadAsync()
+    public Task LoadAsync()
     {
+        // The "show other publishers" box calls this directly. A read that starts while a read or a write works
+        // would clear Busy when it ends and unlock the commands under that work. It waits for that work instead,
+        // which reads again once it has ended.
+        if (Busy)
+        {
+            _reloadRequested = true;
+            return _work ?? Task.CompletedTask;
+        }
+        return _work = LoadCoreAsync();
+    }
+
+    private Task? _work;
+
+    private async Task LoadCoreAsync()
+    {
+        _reloadRequested = false;
         Busy = true;
         try
         {
@@ -87,7 +103,10 @@ public partial class WsusUpdatesViewModel : ObservableObject
         {
             Busy = false;
         }
+        if (_reloadRequested) await LoadAsync();
     }
+
+    private bool _reloadRequested;
 
     [RelayCommand(CanExecute = nameof(Idle))]
     private Task RefreshAsync() => LoadAsync();
@@ -125,7 +144,9 @@ public partial class WsusUpdatesViewModel : ObservableObject
         return $"{action}: {done} of {selected} update(s) done.{(failed.Count > 0 ? " " + string.Join(" | ", failed) : "")}";
     }
 
-    private async Task ApplyAsync(string action)
+    private Task ApplyAsync(string action) => _work = ApplyCoreAsync(action);
+
+    private async Task ApplyCoreAsync(string action)
     {
         var selected = _selection;
         if (selected.Count == 0) { SummaryText = "Select one or more updates first."; return; }

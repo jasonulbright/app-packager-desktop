@@ -3,6 +3,7 @@
 ## [Unreleased]
 
 ### Fixed
+- Keep the WSUS Updates window locked while a write to the server works: the "show other publishers" box no longer unlocks Approve, Decline, Expire and Remove under a running write, and reads once when the work ends.
 - Keep what the operator enters when the settings file cannot be stored: Setup and "Don't show again" store their choice over an unreadable file (with a copy of the bad file), Catalog says "Not saved" instead of "Saved", and the Settings page keeps a typed Intune secret and NVD key when the write fails.
 - Stop a hanging `gh auth token` read from blocking every scraper that needs a GitHub token: the read now ends at its 10 second limit.- Keep the results of the apps done before a failure in Convert from ConfigMgr with Package and Publish: the error now names the failed app and lists the earlier apps, which can already be in Intune.
 - Keep the results of the apps done before a failure in Convert from ConfigMgr with Package and Publish: the error now names the failed app and lists the earlier apps, which can already be in Intune.
