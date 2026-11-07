@@ -5,7 +5,9 @@ name: Release
 # executables (the application and AppPackagerBuild.exe) with Azure Artifact
 # Signing, compiles the installer from the signed stage and signs that too,
 # verifies both signatures, zips, tags v<version> and publishes the GitHub
-# release with the installer, the zip and their checksums.
+# release with the installer, the zip and their checksums. The uninstaller that
+# the installer carries is built and signed first (see the steps below). A run
+# with dry_run builds and signs everything but creates no tag and no release.
 #
 # The Azure login exchanges this job's OIDC token for the signing identity.
 # The federated credential on the app registration must carry this run's
@@ -21,6 +23,11 @@ on:
         description: "Release notes headline: one concrete outcome metric (becomes the ## line). Not used when the changelog section is 'Initial release'."
         required: false
         type: string
+      dry_run:
+        description: "Build, sign and verify everything, but create no tag and no GitHub release. The installer and the zip are kept as a workflow artifact for 3 days, to test the signed files on a lab machine. The version and tag checks are skipped."
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -59,12 +66,15 @@ jobs:
           $version = (($proj.Project.PropertyGroup.Version | Where-Object { $_ }) | Select-Object -First 1).Trim()
           if (-not $version) { throw 'No <Version> in the UI project.' }
           $tag = "v$version"
-          & tools/test-release-version.ps1 -Version $version -ExistingTag @(git tag -l)
-          if (git tag -l $tag) { throw "Tag $tag already exists; bump <Version> before releasing." }
-          $existing = gh release view $tag --json tagName 2>$null
-          if ($LASTEXITCODE -eq 0) { throw "Release $tag already exists." }
-          # The step wrapper exits with the last native exit code; a missing release is the wanted case.
-          $global:LASTEXITCODE = 0
+          # A dry run builds a version that may already be released: it creates no tag and no release.
+          if ($env:DRY_RUN -ne 'true') {
+            & tools/test-release-version.ps1 -Version $version -ExistingTag @(git tag -l)
+            if (git tag -l $tag) { throw "Tag $tag already exists; bump <Version> before releasing." }
+            $existing = gh release view $tag --json tagName 2>$null
+            if ($LASTEXITCODE -eq 0) { throw "Release $tag already exists." }
+            # The step wrapper exits with the last native exit code; a missing release is the wanted case.
+            $global:LASTEXITCODE = 0
+          }
 
           $changelog = Get-Content CHANGELOG.md -Raw
           $section = [regex]::Match($changelog, "(?ms)^## \[$([regex]::Escape($version))\][^\r\n]*\r?\n(.*?)(?=^## \[|\z)")
@@ -91,6 +101,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           HEADLINE: ${{ inputs.headline }}
+          DRY_RUN: ${{ inputs.dry_run }}
 
       - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
         with:
@@ -175,11 +186,43 @@ jobs:
           exclude-azure-developer-cli-credential: true
           exclude-interactive-browser-credential: true
 
+      # The uninstaller is built and signed before the installer, because Windows
+      # Defender removes an unsigned Uninstall.exe that an installer writes at
+      # install time (Trojan:Win32/Bearfoos.A!ml, a cloud heuristic). The
+      # installer then carries the signed file.
+      - name: Build the uninstaller
+        shell: pwsh
+        run: ./tools/build-installer.ps1 -UninstallerOnly -StageDir "$env:RUNNER_TEMP\publish\release-stage" -OutputDir "$env:RUNNER_TEMP\publish"
+
+      - name: Sign the uninstaller
+        uses: azure/artifact-signing-action@c7ab2a863ab5f9a846ddb8265964877ef296ee82 # v2
+        with:
+          endpoint: ${{ env.SIGN_ENDPOINT }}
+          signing-account-name: ${{ env.SIGN_ACCOUNT }}
+          certificate-profile-name: ${{ env.SIGN_PROFILE }}
+          files-folder: ${{ runner.temp }}\publish\uninstaller
+          files-folder-filter: exe
+          files-folder-recurse: false
+          file-digest: SHA256
+          timestamp-rfc3161: http://timestamp.acs.microsoft.com
+          timestamp-digest: SHA256
+          exclude-environment-credential: true
+          exclude-workload-identity-credential: true
+          exclude-managed-identity-credential: true
+          exclude-shared-token-cache-credential: true
+          exclude-visual-studio-credential: true
+          exclude-visual-studio-code-credential: true
+          exclude-azure-cli-credential: false
+          exclude-azure-powershell-credential: true
+          exclude-azure-developer-cli-credential: true
+          exclude-interactive-browser-credential: true
+
       # The installer is compiled from the signed stage, so the executable it
-      # carries is the signed one, then signed itself.
+      # carries is the signed one, and it carries the signed uninstaller, then
+      # it is signed itself.
       - name: Build the installer
         shell: pwsh
-        run: ./tools/build-installer.ps1 -StageDir "$env:RUNNER_TEMP\publish\release-stage" -OutputDir "$env:RUNNER_TEMP\publish"
+        run: ./tools/build-installer.ps1 -StageDir "$env:RUNNER_TEMP\publish\release-stage" -OutputDir "$env:RUNNER_TEMP\publish" -SignedUninstaller "$env:RUNNER_TEMP\publish\uninstaller\Uninstall.exe"
 
       # Non-recursive on purpose: the publish root holds the installer, and the
       # already signed stage sits in a subfolder.
@@ -215,7 +258,21 @@ jobs:
         shell: pwsh
         run: ./tools/build-release.ps1 -PackageOnly -OutputRoot "$env:RUNNER_TEMP\publish"
 
+      # A dry run keeps the signed installer and zip for a test on a lab machine.
+      - name: Keep the installer and the zip (dry run)
+        if: ${{ inputs.dry_run }}
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
+        with:
+          name: release-dry-run
+          path: |
+            ${{ runner.temp }}\publish\AppPackagerDesktop-*.zip
+            ${{ runner.temp }}\publish\AppPackagerDesktop-Setup-*.exe
+            ${{ runner.temp }}\publish\checksums.txt
+          retention-days: 3
+          if-no-files-found: error
+
       - name: Tag the release commit
+        if: ${{ !inputs.dry_run }}
         shell: pwsh
         run: |
           git config user.name "github-actions[bot]"
@@ -228,6 +285,7 @@ jobs:
       # Assets upload onto a draft; the release goes public only once every
       # upload succeeded, so a half-uploaded release is never downloadable.
       - name: Publish the GitHub release
+        if: ${{ !inputs.dry_run }}
         shell: pwsh
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

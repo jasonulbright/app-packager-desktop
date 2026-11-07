@@ -72,6 +72,31 @@ VIAddVersionKey "LegalCopyright" "MIT License"
 
 !define RUNTIME_URL "https://dotnet.microsoft.com/download/dotnet/10.0"
 
+; The uninstaller is built before the installer so that it can be signed. Windows Defender removes an unsigned
+; Uninstall.exe that the installer writes (a cloud heuristic, seen as Trojan:Win32/Bearfoos.A!ml) together with the
+; uninstall registry entry. tools\build-installer.ps1 builds in two passes:
+;   1. BUILD_UNINSTALLER: this script compiles to a small generator that writes the uninstaller to UNINSTALLER_FILE
+;      and ends. The release signs that file.
+;   2. SIGNED_UNINSTALLER: this script compiles to the installer, which carries the signed file as Uninstall.exe.
+; Without SIGNED_UNINSTALLER (a local build) the installer writes its own, unsigned uninstaller as before.
+!ifdef SIGNED_UNINSTALLER
+  !pragma warning disable 6020
+!endif
+
+!ifdef BUILD_UNINSTALLER
+!ifndef UNINSTALLER_FILE
+  !error "UNINSTALLER_FILE is required with BUILD_UNINSTALLER: the path of the uninstaller to write"
+!endif
+Function .onInit
+  WriteUninstaller "${UNINSTALLER_FILE}"
+  SetErrorLevel 0
+  Quit
+FunctionEnd
+
+Section "Install"
+  ; Pass 1 installs nothing: .onInit ends the run.
+SectionEnd
+!else
 Section "Install"
   ; The application is not self-contained: it needs the .NET Windows Desktop Runtime (x64) at the minimum
   ; version, and the runtime is not shipped. The script checks for it before any file is copied. When it is
@@ -147,7 +172,11 @@ Section "Install"
   ${EndIf}
 
   File /r "${STAGE_DIR}\*.*"
+!ifdef SIGNED_UNINSTALLER
+  File "/oname=$INSTDIR\Uninstall.exe" "${SIGNED_UNINSTALLER}"
+!else
   WriteUninstaller "$INSTDIR\Uninstall.exe"
+!endif
 
   CreateShortcut "$SMPROGRAMS\${PRODUCT_NAME}.lnk" "$INSTDIR\${PRODUCT_EXE}"
 
@@ -165,6 +194,7 @@ Section "Install"
   IntFmt $0 "0x%08X" $0
   WriteRegDWORD HKCU "${ARP_KEY}" "EstimatedSize" "$0"
 SectionEnd
+!endif
 
 Section "Uninstall"
   ; One Delete per shipped file and one RMDir per shipped folder, generated

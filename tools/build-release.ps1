@@ -134,6 +134,8 @@ $lines = & (Join-Path $PSScriptRoot 'write-checksums.ps1') -Path $artifacts -Des
 Remove-Item -LiteralPath $stageDir -Recurse -Force
 $generatedDir = Join-Path $OutputRoot 'installer-generated'
 if (Test-Path -LiteralPath $generatedDir) { Remove-Item -LiteralPath $generatedDir -Recurse -Force }
+$uninstallerDir = Join-Path $OutputRoot 'uninstaller'
+if (Test-Path -LiteralPath $uninstallerDir) { Remove-Item -LiteralPath $uninstallerDir -Recurse -Force }
 
 Write-Host ''
 foreach ($artifact in $artifacts) {

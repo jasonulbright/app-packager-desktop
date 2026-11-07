@@ -20,14 +20,25 @@
 .PARAMETER MakeNsis
     makensis.exe to use. Found on PATH or under the default NSIS folder when omitted.
 
+.PARAMETER UninstallerOnly
+    Pass 1 of 2. Builds the uninstaller on its own into <OutputDir>\uninstaller\Uninstall.exe and stops. The release
+    signs that file, then runs this script again with -SignedUninstaller. Windows Defender removes an unsigned
+    Uninstall.exe that the installer writes at install time.
+
+.PARAMETER SignedUninstaller
+    Pass 2 of 2. The signed Uninstall.exe from pass 1. The installer carries this file instead of writing its own.
+    Without it (a local build) the installer writes an unsigned uninstaller and this script warns.
+
 .OUTPUTS
-    The installer path.
+    The installer path, or with -UninstallerOnly the uninstaller path.
 #>
 [CmdletBinding()]
 param(
     [Parameter(Mandatory)][string]$StageDir,
     [Parameter(Mandatory)][string]$OutputDir,
-    [string]$MakeNsis
+    [string]$MakeNsis,
+    [switch]$UninstallerOnly,
+    [string]$SignedUninstaller
 )
 
 $ErrorActionPreference = 'Stop'
@@ -101,18 +112,52 @@ $includePath = Join-Path $generatedDir 'shipped-files.nsh'
 [IO.File]::WriteAllLines($includePath, $lines, [Text.UTF8Encoding]::new($true))
 
 $fileCount = (Get-ChildItem -LiteralPath $StageDir -File -Recurse | Measure-Object).Count
-Write-Host "App Packager Desktop $version installer <- $StageDir ($fileCount files)"
 
-& $MakeNsis /V2 /INPUTCHARSET UTF8 `
-    "/DVERSION=$version" `
-    "/DVERSION4=$version4" `
-    "/DSTAGE_DIR=$StageDir" `
-    "/DOUT_FILE=$outFile" `
-    "/DGENERATED_DIR=$generatedDir" `
-    "/DICON_FILE=$icon" `
-    "/DRUNTIME_MIN=$runtimeMin" `
-    "/DRUNTIME_SCRIPT=$runtimeScript" `
-    $script
+# Both passes read the same defines.
+$commonDefines = @(
+    "/DVERSION=$version",
+    "/DVERSION4=$version4",
+    "/DSTAGE_DIR=$StageDir",
+    "/DGENERATED_DIR=$generatedDir",
+    "/DICON_FILE=$icon",
+    "/DRUNTIME_MIN=$runtimeMin",
+    "/DRUNTIME_SCRIPT=$runtimeScript"
+)
+
+if ($UninstallerOnly) {
+    # Pass 1: compile the generator, run it and keep the uninstaller it writes. The release signs that file, then
+    # runs this script again with -SignedUninstaller. The generator is deleted.
+    $uninstallerDir = Join-Path $OutputDir 'uninstaller'
+    if (Test-Path -LiteralPath $uninstallerDir) { Remove-Item -LiteralPath $uninstallerDir -Recurse -Force }
+    New-Item -ItemType Directory -Path $uninstallerDir -Force | Out-Null
+    $uninstallerPath = Join-Path $uninstallerDir 'Uninstall.exe'
+    $generator = Join-Path $generatedDir 'uninstaller-generator.exe'
+    if (Test-Path -LiteralPath $generator) { Remove-Item -LiteralPath $generator -Force }
+    Write-Host "App Packager Desktop $version uninstaller <- $StageDir ($fileCount files)"
+    & $MakeNsis /V2 /INPUTCHARSET UTF8 @commonDefines "/DBUILD_UNINSTALLER" "/DUNINSTALLER_FILE=$uninstallerPath" "/DOUT_FILE=$generator" $script
+    if ($LASTEXITCODE -ne 0) { throw "makensis failed with exit code $LASTEXITCODE (uninstaller generator)" }
+    $run = Start-Process -FilePath $generator -ArgumentList '/S' -Wait -PassThru
+    if ($run.ExitCode -ne 0) { throw "The uninstaller generator ended with exit code $($run.ExitCode)." }
+    Remove-Item -LiteralPath $generator -Force
+    if (-not (Test-Path -LiteralPath $uninstallerPath)) { throw "The generator ran but $uninstallerPath is missing." }
+    $uninstaller = Get-Item -LiteralPath $uninstallerPath
+    Write-Host ("uninstaller: {0} ({1:N0} KB)" -f $uninstaller.FullName, ($uninstaller.Length / 1KB))
+    $uninstallerPath
+    return
+}
+
+Write-Host "App Packager Desktop $version installer <- $StageDir ($fileCount files)"
+$signedDefine = @()
+if ($SignedUninstaller) {
+    if (-not (Test-Path -LiteralPath $SignedUninstaller)) { throw "Signed uninstaller not found: $SignedUninstaller" }
+    $signedDefine = @("/DSIGNED_UNINSTALLER=$((Resolve-Path -LiteralPath $SignedUninstaller).Path)")
+    Write-Host "uninstaller: $SignedUninstaller (built before and signed)"
+}
+else {
+    Write-Warning 'No signed uninstaller given; the installer writes its own, unsigned uninstaller.'
+}
+
+& $MakeNsis /V2 /INPUTCHARSET UTF8 @commonDefines @signedDefine "/DOUT_FILE=$outFile" $script
 if ($LASTEXITCODE -ne 0) { throw "makensis failed with exit code $LASTEXITCODE" }
 if (-not (Test-Path -LiteralPath $outFile)) { throw "makensis reported success but $outFile is missing." }
 
