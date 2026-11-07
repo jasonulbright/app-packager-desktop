@@ -763,8 +763,8 @@ public sealed class StagingService
         }
         finally
         {
-            partial.RemoveUnlessCompleted(onProgress);
-            stageLock?.Dispose();
+            try { partial.RemoveUnlessCompleted(onProgress); }
+            finally { stageLock?.Dispose(); }
         }
     }
 
@@ -811,6 +811,7 @@ public sealed class StagingService
         private const long SnapshotFileLimit = 8L * 1024 * 1024;
         private string? _existing;
         private string? _backup;
+        private string? _unprotected;
 
         private void SnapshotExisting(string folder)
         {
@@ -827,7 +828,9 @@ public sealed class StagingService
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {
                 // No backup: the run proceeds as before and a failure leaves the folder as it is then.
+                // A partial copy is dropped too: a restore of some names would mix earlier and failed-run files.
                 DropBackup();
+                _unprotected = folder;
             }
         }
 
@@ -859,6 +862,8 @@ public sealed class StagingService
         public void RemoveUnlessCompleted(Action<string>? onProgress)
         {
             if (Completed) { DropBackup(); return; }
+            if (_unprotected is not null)
+                onProgress?.Invoke($"The run failed and the earlier stage files in {_unprotected} could not be kept. Stage the version again.");
             RestoreExisting(onProgress);
             if (_content is null || _topCreated is null) return;
             if (!WritesManifest && File.Exists(Path.Combine(_content, "stage-manifest.json")))
@@ -1659,8 +1664,8 @@ public sealed class StagingService
         }
         finally
         {
-            partial.RemoveUnlessCompleted(onProgress);
-            stageLock?.Dispose();
+            try { partial.RemoveUnlessCompleted(onProgress); }
+            finally { stageLock?.Dispose(); }
         }
     }
 
@@ -1953,8 +1958,8 @@ public sealed class StagingService
         }
         finally
         {
-            partial.RemoveUnlessCompleted(onProgress);
-            stageLock?.Dispose();
+            try { partial.RemoveUnlessCompleted(onProgress); }
+            finally { stageLock?.Dispose(); }
         }
     }
 
@@ -2820,8 +2825,8 @@ public sealed class StagingService
         }
         finally
         {
-            partial.RemoveUnlessCompleted(onProgress);
-            stageLock?.Dispose();
+            try { partial.RemoveUnlessCompleted(onProgress); }
+            finally { stageLock?.Dispose(); }
         }
     }
 

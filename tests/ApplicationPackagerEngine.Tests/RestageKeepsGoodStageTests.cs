@@ -62,6 +62,7 @@ public sealed class RestageKeepsGoodStageTests : IDisposable
     public void ACompletedRunOverAGoodStage_KeepsTheNewFilesAndLeavesNoBackup()
     {
         var version = GoodStage();
+        var before = BackupFolders();
         var partial = new StagingService.PartialStage();
         partial.Track(_root, version);
 
@@ -70,11 +71,32 @@ public sealed class RestageKeepsGoodStageTests : IDisposable
         partial.Completed = true;
         partial.RemoveUnlessCompleted(null);
 
+        Assert.Equal(before, BackupFolders());
+
         Assert.Equal("new install", File.ReadAllText(Path.Combine(version, "install.ps1")));
         Assert.Equal("half written", File.ReadAllText(Path.Combine(version, "stage-manifest.json")));
         Assert.Empty(Directory.GetDirectories(Path.Combine(_root, "Tool-x64"), "*", SearchOption.TopDirectoryOnly)
             .Where(d => !string.Equals(d, version, StringComparison.OrdinalIgnoreCase)));
         Assert.Single(Directory.GetDirectories(_root));
+    }
+
+    // The backup folders of the temp path, sorted, so a test sees only what its own run adds.
+    private static string[] BackupFolders() =>
+        Directory.GetDirectories(Path.GetTempPath(), "apd-restage-*").Order().ToArray();
+
+    [Fact]
+    public void AFailedRunWhoseSnapshotCouldNotBeMade_SaysThatTheEarlierStageIsNotKept()
+    {
+        var version = GoodStage();
+        var messages = new List<string>();
+        // A file another process holds open cannot be copied, so the snapshot fails.
+        using var held = new FileStream(Path.Combine(version, "install.ps1"), FileMode.Open, FileAccess.Read, FileShare.None);
+        var partial = new StagingService.PartialStage();
+        partial.Track(_root, version);
+
+        partial.RemoveUnlessCompleted(messages.Add);
+
+        Assert.Contains(messages, m => m.Contains("could not be kept"));
     }
 
     [Fact]
