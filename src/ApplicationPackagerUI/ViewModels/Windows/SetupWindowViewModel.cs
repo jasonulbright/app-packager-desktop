@@ -147,7 +147,6 @@ public partial class SetupWindowViewModel : ObservableObject
             if (!string.IsNullOrEmpty(IntuneClientSecret))
             {
                 s.Intune.ClientSecretProtected = IntuneSecretProtector.Protect(IntuneClientSecret);
-                IntuneClientSecret = "";
             }
         }
 
@@ -169,6 +168,8 @@ public partial class SetupWindowViewModel : ObservableObject
         // An automatic save writes nothing over an unreadable file, and the wizard would show again at every launch.
         if (UseConfigMgr || _settingsService.IsFileUnreadable) _settingsService.SaveOperatorEdit(s);
         else _settingsService.Save(s);
+        // Cleared only after the file holds the setup; a failed write keeps the typed secret for a retry.
+        IntuneClientSecret = "";
 
         _settingsViewModel.ReloadFromStore();
         _packagesViewModel.RefreshPublishActionState();

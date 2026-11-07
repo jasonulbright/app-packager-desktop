@@ -692,7 +692,7 @@ public partial class SettingsViewModel : ObservableObject, ISettingsReload
         {
             _settingsService.SaveOperatorEdit(s);
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException or ArgumentException)
         {
             _snackbarService.Show("Settings", "The settings were not saved. " + ex.Message, Wpf.Ui.Controls.ControlAppearance.Danger,
                 new SymbolIcon(SymbolRegular.ErrorCircle24), TimeSpan.FromSeconds(6));

@@ -184,13 +184,15 @@ public sealed class PublishSettingsContractTests : IDisposable
         service.Load();
         Assert.True(service.IsFileUnreadable);
         var host = new Host();
-        var setup = new SetupWindowViewModel(service, host, host) { UseConfigMgr = false, UseIntune = true, IntuneTenantId = "t", IntuneClientId = "c" };
+        var setup = new SetupWindowViewModel(service, host, host) { UseConfigMgr = false, UseIntune = true, IntuneTenantId = "t", IntuneClientId = "c", IntuneClientSecret = "typed-secret" };
 
         setup.SaveCommand.Execute(null);
 
         var stored = new SettingsService().Load();
         Assert.True(stored.FirstRunCompleted);
         Assert.Equal("t", stored.Intune.TenantId);
+        Assert.False(string.IsNullOrEmpty(stored.Intune.ClientSecretProtected));
+        Assert.Equal("", setup.IntuneClientSecret);
         Assert.Single(Directory.GetFiles(Path.GetDirectoryName(SettingsService.SettingsPath)!, "settings.json.unreadable-*"));
     }
 
