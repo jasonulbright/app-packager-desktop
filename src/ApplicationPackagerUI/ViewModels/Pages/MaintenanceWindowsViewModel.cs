@@ -681,6 +681,7 @@ public sealed partial class MaintenanceWindowsViewModel : ObservableObject
         _writing = true;
         _lastRunPlan = null;
         NotifyWriteCommands();
+        var detached = false;
         try
         {
             var generation = _generation;
@@ -734,12 +735,45 @@ public sealed partial class MaintenanceWindowsViewModel : ObservableObject
                 : new MaintenancePlan(built.Action, built.Plan.Title, built.Plan.ActionName, [.. skips, .. built.Entries], built.Plan.IsDestructive, built.Plan.HasUndo);
 
             var outcome = _services.Plans.Show(plan.Plan, _services.Writer.RunFor(plan), plan.Plan.HasUndo ? _services.Writer.UndoFor(plan) : null);
+            // A window force closed while the run works: the run still changes ConfigMgr, so every
+            // write stays blocked and no list is read until the run ends.
+            if (outcome.Result?.Stop == ChangePlanStop.Detached || outcome.UndoResult?.Stop == ChangePlanStop.Detached)
+            {
+                detached = true;
+                _ = WaitForBackgroundRunAsync(plan, outcome.UndoResult is null);
+                Refuse(BackgroundRunText);
+                return null;
+            }
             if (outcome.Confirmed) _lastRunPlan = plan;
             ShowOutcome(plan, outcome);
             return (plan, outcome);
         }
         finally
         {
+            if (!detached)
+            {
+                _writing = false;
+                NotifyWriteCommands();
+            }
+        }
+    }
+
+    public const string BackgroundRunText =
+        "The plan window was closed while the run was still working. The run continues in the background and can still change ConfigMgr. Wait until it ends before you start another change.";
+    public const string BackgroundRunEndedText = "The run that continued in the background has ended. Refresh the lists to see the result.";
+
+    /// <summary>Keeps every write blocked until the run that a closed plan window left working ends. No list is read meanwhile; the Undo of the run is offered when it ends.</summary>
+    private async Task WaitForBackgroundRunAsync(MaintenancePlan plan, bool offerUndo)
+    {
+        try { await _services.Writer.Running; }
+        catch (Exception ex)
+        {
+            _services.Log.Warning(LogArea, $"A run that continued in the background failed ({FailureName(ex)}).");
+        }
+        finally
+        {
+            if (offerUndo && plan.UndoChanges().Count > 0) LastPlan = plan;
+            StatusMessage = BackgroundRunEndedText;
             _writing = false;
             NotifyWriteCommands();
         }
@@ -780,6 +814,8 @@ public sealed partial class MaintenanceWindowsViewModel : ObservableObject
     /// </summary>
     private async Task AfterWriteAsync(MaintenancePlan? plan)
     {
+        // A run left working in the background still writes: nothing is read until it ends.
+        if (_writing) return;
         var status = StatusMessage;
         // A load that started before the write can return the state before it; the list is
         // read again once that load ends.

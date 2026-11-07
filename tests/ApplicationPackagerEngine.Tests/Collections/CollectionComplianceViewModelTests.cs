@@ -1081,4 +1081,33 @@ public sealed class CollectionComplianceViewModelTests
         Assert.True(viewModel.HasUndo);
         Assert.Equal(SiteOperationOutcome.PartlySucceeded, harness.History.Entries.Single().Outcome);
     }
+
+    // ---- A plan window force closed while the run still works ----------------------------------
+
+    [Fact]
+    public async Task AWindowClosedDuringARunKeepsEveryWriteBlockedUntilTheRunEnds()
+    {
+        SynchronizationContext.SetSynchronizationContext(null);
+        var harness = new CollectionComplianceHarness();
+        harness.Service.InConfirmedRun = null;
+        harness.Service.ApplyGate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var dialogs = new DetachingPlanDialogs(() => { lock (harness.Service.Applied) return harness.Service.Applied.Count > 0; });
+        var viewModel = new CollectionComplianceViewModel(new CollectionCompliancePageServices(
+            harness.Service, harness.Store, harness.Reports, harness.Prompts, dialogs, harness.Writer(),
+            () => harness.Settings, () => harness.Saved, s => harness.Saved = s, harness.Log));
+        await viewModel.OnNavigatedToAsync();
+        await SelectAsync(viewModel, "LAB00012");
+
+        await viewModel.RemoveCollectionCommand.ExecuteAsync(null);
+
+        Assert.True(dialogs.Dialog!.IsDetached);
+        Assert.False(viewModel.RemoveCollectionCommand.CanExecute(null));
+        Assert.False(viewModel.EvaluateCommand.CanExecute(null));
+        Assert.False(viewModel.UndoLastCommand.CanExecute(null));
+        Assert.Equal(CollectionComplianceViewModel.BackgroundRunText, viewModel.StatusMessage);
+
+        harness.Service.ApplyGate.SetResult();
+        Assert.True(SpinWait.SpinUntil(() => viewModel.StatusMessage == CollectionComplianceViewModel.BackgroundRunEndedText, TimeSpan.FromSeconds(10)));
+        Assert.True(viewModel.RemoveCollectionCommand.CanExecute(null));
+    }
 }

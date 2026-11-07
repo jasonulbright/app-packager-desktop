@@ -144,9 +144,24 @@ public sealed class CollectionWriter(ICollectionService service, ISiteOperationH
     public const string RecreatedNote = "A recreated collection is a new collection with a new ID. Deployments and maintenance windows are not restored.";
     public const string NewQueryIdNote = "A recreated query has a new query ID.";
 
-    public ChangePlanRun RunFor(CollectionPlan plan) => (confirmed, progress, ct) => ApplyAsync(confirmed, plan, progress, ct);
+    /// <summary>The run that a closed plan window left working; a completed task when none works.</summary>
+    public Task Running
+    {
+        get { lock (_runLock) return _running; }
+    }
 
-    public ChangePlanRun UndoFor(CollectionPlan plan) => (confirmed, progress, ct) => UndoAsync(confirmed, plan, progress, ct);
+    private readonly object _runLock = new();
+    private Task _running = Task.CompletedTask;
+
+    private Task<ChangePlanResult> Track(Task<ChangePlanResult> run)
+    {
+        lock (_runLock) _running = run;
+        return run;
+    }
+
+    public ChangePlanRun RunFor(CollectionPlan plan) => (confirmed, progress, ct) => Track(ApplyAsync(confirmed, plan, progress, ct));
+
+    public ChangePlanRun UndoFor(CollectionPlan plan) => (confirmed, progress, ct) => Track(UndoAsync(confirmed, plan, progress, ct));
 
     public async Task<ChangePlanResult> ApplyAsync(ConfirmedChangePlan confirmed, CollectionPlan plan, IProgress<ChangePlanItemResult> progress, CancellationToken ct)
     {

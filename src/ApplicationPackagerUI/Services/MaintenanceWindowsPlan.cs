@@ -104,9 +104,24 @@ public sealed class MaintenanceWindowWriter(IMaintenanceWindowService service, I
     public const string NoResultText = "No result: the service did not report this change.";
     public const string RecreatedNote = "A recreated window is a new window with a new id.";
 
-    public ChangePlanRun RunFor(MaintenancePlan plan) => (confirmed, progress, ct) => ApplyAsync(confirmed, plan, progress, ct);
+    /// <summary>The run that a closed plan window left working; a completed task when none works.</summary>
+    public Task Running
+    {
+        get { lock (_runLock) return _running; }
+    }
 
-    public ChangePlanRun UndoFor(MaintenancePlan plan) => (confirmed, progress, ct) => UndoAsync(confirmed, plan, progress, ct);
+    private readonly object _runLock = new();
+    private Task _running = Task.CompletedTask;
+
+    private Task<ChangePlanResult> Track(Task<ChangePlanResult> run)
+    {
+        lock (_runLock) _running = run;
+        return run;
+    }
+
+    public ChangePlanRun RunFor(MaintenancePlan plan) => (confirmed, progress, ct) => Track(ApplyAsync(confirmed, plan, progress, ct));
+
+    public ChangePlanRun UndoFor(MaintenancePlan plan) => (confirmed, progress, ct) => Track(UndoAsync(confirmed, plan, progress, ct));
 
     public async Task<ChangePlanResult> ApplyAsync(ConfirmedChangePlan confirmed, MaintenancePlan plan, IProgress<ChangePlanItemResult> progress, CancellationToken ct)
     {

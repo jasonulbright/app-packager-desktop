@@ -4,6 +4,8 @@
 
 ### Fixed
 
+- Keep every write blocked on Collection and Compliance and on Maintenance Windows while a run continues after its plan window was force closed, read no list meanwhile, and offer the Undo when the run ends.
+
 - A stage run that fails over a version folder that already holds a stage now puts back the launchers, the generated scripts and the manifest of that stage. Before, the folder stayed without launchers.
 
 ## [2026.1106.5] - 2026-11-06

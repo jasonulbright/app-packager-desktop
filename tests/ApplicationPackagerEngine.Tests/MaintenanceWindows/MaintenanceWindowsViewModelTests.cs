@@ -1047,4 +1047,33 @@ public sealed class MaintenanceWindowsViewModelTests
         await vm.NewWindowCommand.ExecuteAsync(null);
         Assert.Equal((760d, 720d), (shown!.Width, shown.Height));
     }
+
+    // ---- A plan window force closed while the run still works ----------------------------------
+
+    [Fact]
+    public async Task AWindowClosedDuringARunKeepsEveryWriteBlockedUntilTheRunEnds()
+    {
+        SynchronizationContext.SetSynchronizationContext(null);
+        var harness = new MaintenanceWindowsHarness();
+        harness.Service.InConfirmedRun = null;
+        harness.Service.ApplyGate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var dialogs = new DetachingPlanDialogs(() => { lock (harness.Service.Applied) return harness.Service.Applied.Count > 0; });
+        var vm = new MaintenanceWindowsViewModel(new MaintenanceWindowsPageServices(
+            harness.Service, harness.Projector, harness.Store, harness.Reports, harness.Prompts, dialogs, harness.Writer(),
+            () => harness.Settings, () => harness.Saved, s => harness.Saved = s, harness.Log, () => MaintenanceWindowsHarness.Now));
+        await vm.OnNavigatedToAsync();
+        Select(vm, "Nightly");
+
+        await vm.RemoveWindowsCommand.ExecuteAsync(null);
+
+        Assert.True(dialogs.Dialog!.IsDetached);
+        Assert.False(vm.RemoveWindowsCommand.CanExecute(null));
+        Assert.False(vm.ToggleEnabledCommand.CanExecute(null));
+        Assert.False(vm.UndoLastCommand.CanExecute(null));
+        Assert.Equal(MaintenanceWindowsViewModel.BackgroundRunText, vm.StatusMessage);
+
+        harness.Service.ApplyGate.SetResult();
+        Assert.True(SpinWait.SpinUntil(() => vm.StatusMessage == MaintenanceWindowsViewModel.BackgroundRunEndedText, TimeSpan.FromSeconds(10)));
+        Assert.True(vm.RemoveWindowsCommand.CanExecute(null));
+    }
 }
