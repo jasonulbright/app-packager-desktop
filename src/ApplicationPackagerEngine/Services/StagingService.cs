@@ -775,7 +775,7 @@ public sealed class StagingService
     /// concurrent run of the same version can have completed there. A manifest from a failed write of the run is
     /// removed with its folder. A parent folder the run created is removed only while it is empty.
     /// </summary>
-    private sealed class PartialStage
+    internal sealed class PartialStage
     {
         private string? _content;
         private string? _topCreated;
@@ -790,8 +790,13 @@ public sealed class StagingService
         {
             var fullRoot = Path.TrimEndingDirectorySeparator(Path.GetFullPath(root));
             var current = Path.TrimEndingDirectorySeparator(Path.GetFullPath(contentPath));
-            if (Directory.Exists(current) || !current.StartsWith(fullRoot + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
+            if (!current.StartsWith(fullRoot + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
                 return;
+            if (Directory.Exists(current))
+            {
+                SnapshotExisting(current);
+                return;
+            }
             _content = current;
             while (current.Length > fullRoot.Length && !Directory.Exists(current))
             {
@@ -800,9 +805,62 @@ public sealed class StagingService
             }
         }
 
+        // A version folder that held a stage before the run: the files at its top level that a run deletes or
+        // rewrites (launchers, generated scripts, manifest) are copied aside, so a failed run puts them back.
+        // A file over the size limit is an installer; a download lands in it by a move and is not copied.
+        private const long SnapshotFileLimit = 8L * 1024 * 1024;
+        private string? _existing;
+        private string? _backup;
+
+        private void SnapshotExisting(string folder)
+        {
+            try
+            {
+                var backup = Path.Combine(Path.GetTempPath(), "apd-restage-" + Guid.NewGuid().ToString("N"));
+                Directory.CreateDirectory(backup);
+                _backup = backup;
+                _existing = folder;
+                foreach (var file in Directory.EnumerateFiles(folder))
+                    if (new FileInfo(file).Length <= SnapshotFileLimit)
+                        File.Copy(file, Path.Combine(backup, Path.GetFileName(file)));
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                // No backup: the run proceeds as before and a failure leaves the folder as it is then.
+                DropBackup();
+            }
+        }
+
+        private void DropBackup()
+        {
+            var backup = _backup;
+            _backup = null;
+            _existing = null;
+            if (backup is null) return;
+            try { Directory.Delete(backup, recursive: true); } catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
+        }
+
+        private void RestoreExisting(Action<string>? onProgress)
+        {
+            if (_backup is null || _existing is null) return;
+            try
+            {
+                foreach (var saved in Directory.EnumerateFiles(_backup))
+                    File.Copy(saved, Path.Combine(_existing, Path.GetFileName(saved)), overwrite: true);
+                onProgress?.Invoke($"The run failed. The earlier stage files are back in {_existing}");
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                onProgress?.Invoke($"The run failed and the earlier stage files could not be restored in {_existing}. Stage the version again. {ex.Message}");
+            }
+            finally { DropBackup(); }
+        }
+
         public void RemoveUnlessCompleted(Action<string>? onProgress)
         {
-            if (Completed || _content is null || _topCreated is null) return;
+            if (Completed) { DropBackup(); return; }
+            RestoreExisting(onProgress);
+            if (_content is null || _topCreated is null) return;
             if (!WritesManifest && File.Exists(Path.Combine(_content, "stage-manifest.json")))
             {
                 onProgress?.Invoke($"The stage folder holds a stage manifest and is kept: {_content}");

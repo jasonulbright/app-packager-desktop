@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- A stage run that fails over a version folder that already holds a stage now puts back the launchers, the generated scripts and the manifest of that stage. Before, the folder stayed without launchers.
+
 ## [2026.1106.5] - 2026-11-06
 
 ### Changed
