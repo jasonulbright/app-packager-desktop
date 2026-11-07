@@ -3,10 +3,10 @@
 ## [Unreleased]
 
 ### Fixed
-
-- Download the first copy of a FileVersion file to a side file and move it into the cache when it is whole, stop curl when the check is cancelled, name a cache file from a stable hash of its URL, and check the magic bytes of an installer copied from the version cache before it is staged.
-- Stop a hanging `gh auth token` read from blocking every scraper that needs a GitHub token: the read now ends at its 10 second limit.
+- Stop a hanging `gh auth token` read from blocking every scraper that needs a GitHub token: the read now ends at its 10 second limit.- Keep the results of the apps done before a failure in Convert from ConfigMgr with Package and Publish: the error now names the failed app and lists the earlier apps, which can already be in Intune.
 - Keep the results of the apps done before a failure in Convert from ConfigMgr with Package and Publish: the error now names the failed app and lists the earlier apps, which can already be in Intune.
+- Download the first copy of a FileVersion file to a side file and move it into the cache when it is whole, stop curl when the check is cancelled, name a cache file from a stable hash of its URL, and check the magic bytes of an installer copied from the version cache before it is staged.
+
 - Keep every write blocked on Collection and Compliance and on Maintenance Windows while a run continues after its plan window was force closed, read no list meanwhile, and offer the Undo when the run ends.
 
 - A stage run that fails over a version folder that already holds a stage now puts back the launchers, the generated scripts and the manifest of that stage. Before, the folder stayed without launchers.
@@ -28,8 +28,6 @@
 
 ### Fixed
 
-- Stop a hanging `gh auth token` read from blocking every scraper that needs a GitHub token: the read now ends at its 10 second limit.
-- Keep the results of the apps done before a failure in Convert from ConfigMgr with Package and Publish: the error now names the failed app and lists the earlier apps, which can already be in Intune.
 - Show the whole check box in the Discover unmanaged software list. The default cell clipped its right side.
 - Drop the second "Discovered N apps." line from the Discover prompt. It repeated the title.
 - Write "1 of 1 deployment type converts" in the Convert from ConfigMgr preview, and show hint text in its empty plan and log boxes.
@@ -53,8 +51,6 @@
 
 ### Fixed
 
-- Stop a hanging `gh auth token` read from blocking every scraper that needs a GitHub token: the read now ends at its 10 second limit.
-- Keep the results of the apps done before a failure in Convert from ConfigMgr with Package and Publish: the error now names the failed app and lists the earlier apps, which can already be in Intune.
 - Install Vim, pgAdmin 4 and AIMP with the switches the PowerShell app proved: `/S /allusers` for Vim, `/ALLUSERS` for pgAdmin 4, `/AUTO /SILENT` for AIMP.
 - Uninstall Vim through the UninstallString of its entry, Anaconda in place with its folder deleted after, and the AWS Session Manager plugin from its bundle cache copy.
 - Count exit code 1223 as success for the Android Studio install, and read its newest release from the feed again. The feed names new installers without the version.
@@ -87,8 +83,6 @@
 
 ### Fixed
 
-- Stop a hanging `gh auth token` read from blocking every scraper that needs a GitHub token: the read now ends at its 10 second limit.
-- Keep the results of the apps done before a failure in Convert from ConfigMgr with Package and Publish: the error now names the failed app and lists the earlier apps, which can already be in Intune.
 - Repair the keyboard shortcuts and the conflict dialog.
 - Repair the focus ring of the change-plan grid.
 - Show clear empty-state messages in Site Hygiene Live.

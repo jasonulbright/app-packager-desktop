@@ -113,16 +113,20 @@ public static class GitHubAuth
             process.Start();
             var stdout = process.StandardOutput.ReadToEndAsync();
             var stderr = process.StandardError.ReadToEndAsync();
+            // One deadline covers the wait for the process and the read of its output.
+            var clock = Stopwatch.StartNew();
             if (!process.WaitForExit(timeoutMs))
             {
                 try { process.Kill(true); } catch { }
                 return null;
             }
 
-            // The process has ended; its pipes close with it, so the reads end at once.
-            if (!stdout.Wait(TimeSpan.FromSeconds(5))) return null;
+            // The process has ended; its pipes close with it. A child that keeps a pipe open is given only
+            // the time that is left of the limit.
+            var left = TimeSpan.FromMilliseconds(Math.Max(0, timeoutMs - clock.ElapsedMilliseconds));
+            if (!stdout.Wait(left) || !stdout.IsCompletedSuccessfully) return null;
             _ = stderr;
-            return process.ExitCode == 0 ? stdout.Result.Trim() : null;
+            return process.ExitCode == 0 ? stdout.GetAwaiter().GetResult().Trim() : null;
         }
         catch
         {
