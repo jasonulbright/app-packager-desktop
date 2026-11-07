@@ -107,6 +107,11 @@ public sealed class SignedUninstallerBuildTests
     }
 
     [Fact]
-    public void ThePackageStepRemovesTheUninstallerFolder() =>
-        Assert.Contains("'uninstaller'", Text("tools", "build-release.ps1"));
+    public void ThePackageStepRemovesTheUninstallerFolder()
+    {
+        var script = Text("tools", "build-release.ps1");
+
+        Assert.Contains("$uninstallerDir = Join-Path $OutputRoot 'uninstaller'", script);
+        Assert.Contains("Remove-Item -LiteralPath $uninstallerDir -Recurse -Force", script);
+    }
 }
