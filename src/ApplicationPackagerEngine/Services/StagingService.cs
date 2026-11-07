@@ -1242,6 +1242,9 @@ public sealed class StagingService
             {
                 File.Copy(cachedPath, installerPath);
                 onProgress?.Invoke($"Copied from version cache: {installerFileName}");
+                // The cache holds what the scrape downloaded; no hash covers it for most definitions.
+                try { ValidateInstallerMagic(installerPath, magicType); }
+                catch { File.Delete(installerPath); throw; }
             }
             else if (sharedCacheRoot is not null)
             {
