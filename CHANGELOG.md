@@ -4,6 +4,7 @@
 
 ### Fixed
 
+- Keep a FileVersion download from failing when two runs of one URL finish together.
 - Sign the uninstaller that the installer writes, so Windows Defender keeps it.
 
 ## [2026.1107.6] - 2026-11-07
