@@ -132,7 +132,20 @@ jobs:
 
       - name: Engine tests
         shell: pwsh
-        run: dotnet test tests/ApplicationPackagerEngine.Tests/ApplicationPackagerEngine.Tests.csproj --configuration Release --nologo
+        run: dotnet test tests/ApplicationPackagerEngine.Tests/ApplicationPackagerEngine.Tests.csproj --configuration Release --nologo --logger "trx;LogFileName=window-guard.trx"
+
+      # The window tests are skipped unless APD_ALLOW_WINDOW_TESTS=1 reaches the test run. A run in which the opt-in
+      # was lost would skip them all and still pass, so the number of skipped tests is checked.
+      - name: Window tests ran
+        shell: pwsh
+        run: |
+          $trx = Get-ChildItem tests/ApplicationPackagerEngine.Tests/TestResults -Filter window-guard.trx -Recurse | Select-Object -First 1
+          if (-not $trx) { throw 'The test run wrote no window-guard.trx.' }
+          [xml]$result = Get-Content -LiteralPath $trx.FullName
+          $skipped = @($result.TestRun.Results.UnitTestResult | Where-Object { $_.outcome -eq 'NotExecuted' }).Count
+          $limit = 5
+          Write-Host "skipped tests: $skipped (limit $limit)"
+          if ($skipped -gt $limit) { throw "$skipped tests were skipped, more than $limit. Check that APD_ALLOW_WINDOW_TESTS=1 reaches the test run." }
 
       - name: Publish the application
         shell: pwsh
