@@ -34,7 +34,7 @@ public sealed class PivotsScriptsWriterTests
         return dialog;
     }
 
-    [Fact]
+    [WindowFact]
     public void AScriptRunCarriesRunConfirmedOnlyWhenTheConfirmedPlanAskedBothBoxes()
     {
         var h = new PivotsScriptsHarness();
@@ -55,7 +55,7 @@ public sealed class PivotsScriptsWriterTests
         Assert.Null(bare.Outcome!.OperationId);
     }
 
-    [Fact]
+    [WindowFact]
     public void TheEveryDeviceFlagTravelsOnlyForABuiltInCollectionWhosePlanAskedIt()
     {
         var h = new PivotsScriptsHarness();
@@ -71,7 +71,7 @@ public sealed class PivotsScriptsWriterTests
         Assert.False(h2.Service.Applied.Single().EveryDeviceAcknowledged);
     }
 
-    [Fact]
+    [WindowFact]
     public void AScriptActionNeverCarriesTheRunFlags()
     {
         var h = new PivotsScriptsHarness();
@@ -85,7 +85,7 @@ public sealed class PivotsScriptsWriterTests
         Assert.Equal("Approved", dialog.Outcome.Result!.Items.Single().OutcomeText);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task TheWriterRefusesAPlanThatIsNotTheConfirmedOne()
     {
         var h = new PivotsScriptsHarness();
@@ -101,7 +101,7 @@ public sealed class PivotsScriptsWriterTests
         Assert.Empty(h.Service.Applied);
     }
 
-    [Fact]
+    [WindowFact]
     public void EachDeviceGetsItsOwnRowAndAProgressReportIsAStepOnly()
     {
         var h = new PivotsScriptsHarness();
@@ -116,7 +116,7 @@ public sealed class PivotsScriptsWriterTests
         Assert.NotNull(plan.Outcome!.OperationId);
     }
 
-    [Fact]
+    [WindowFact]
     public void TheRowOfADeviceStateKeepsFailuresAndSkipsApart()
     {
         var item = new ChangePlanItem("Run query", "x", null);
@@ -147,7 +147,7 @@ public sealed class PivotsScriptsWriterTests
 
     private static string P(params string[] parts) => Path.Combine(["ApplicationPackagerUI", .. parts]);
 
-    [Fact]
+    [WindowFact]
     public void OnlyTheWriterCallsTheServiceApply()
     {
         Assert.Matches(@"\bservice\s*\.\s*ApplyAsync\b", MaintenanceWindowWriterTests.Code(File.ReadAllText(Path.Combine(SourceRoot(), P("Services", "PivotsScriptsPlan.cs")))));
@@ -160,7 +160,7 @@ public sealed class PivotsScriptsWriterTests
         Assert.Equal(["CheckScriptAsync", "EndWaitsAtExit", "LoadScriptAsync", "LoadScriptsAsync", "PrepareAsync", "ResolveTargetsAsync", "TestConnectionAsync", "WaitForResultsAsync"], calls);
     }
 
-    [Fact]
+    [WindowFact]
     public void NoTypeOfTheDesktopButTheWriterAndThePageServicesHoldsTheService()
     {
         var allowed = new[] { typeof(PivotsScriptsWriter), typeof(PivotsScriptsPageServices), typeof(PivotsScriptsRegistration) };
@@ -201,7 +201,7 @@ public sealed class PivotsScriptsRegistrationTests : IDisposable
         return services.BuildServiceProvider(new ServiceProviderOptions { ValidateOnBuild = false, ValidateScopes = true });
     }
 
-    [Fact]
+    [WindowFact]
     public void TheApplicationServicesBuildOnePageViewModelThatReadsNothing()
     {
         using var provider = Provider();
@@ -219,14 +219,14 @@ public sealed class PivotsScriptsRegistrationTests : IDisposable
         Assert.False(File.Exists(SettingsService.SettingsPath));
     }
 
-    [Fact]
+    [WindowFact]
     public void EveryPageTypeHasOneConstructorSoTheContainerCanBuildIt()
     {
         foreach (var type in new[] { typeof(PivotsScriptsViewModel), typeof(PivotsScriptsPage), typeof(PivotsScriptsWriter), typeof(PivotsDialogs) })
             Assert.Single(type.GetConstructors());
     }
 
-    [Fact]
+    [WindowFact]
     public void TheSavedChoicesRoundTripThroughTheSettingsFileAndKeepOtherValues()
     {
         var settings = new SettingsService();
@@ -243,7 +243,7 @@ public sealed class PivotsScriptsRegistrationTests : IDisposable
         Assert.DoesNotContain("Get-", File.ReadAllText(SettingsService.SettingsPath));
     }
 
-    [Fact]
+    [WindowFact]
     public void ASettingsFileFromBeforeThePageLoadsWithoutThePageChoices()
     {
         Directory.CreateDirectory(Path.GetDirectoryName(SettingsService.SettingsPath)!);

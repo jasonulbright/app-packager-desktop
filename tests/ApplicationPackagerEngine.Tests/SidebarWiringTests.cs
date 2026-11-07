@@ -18,7 +18,7 @@ public sealed class SidebarWiringTests : IDisposable
         TestCleanup.DeleteDirectory(_root);
     }
 
-    [Fact]
+    [WindowFact]
     public void TheRegistrationGivesOneServiceOverTheDefaultRegistryAndTheSettingsFile()
     {
         using var provider = new ServiceCollection().AddPackagerServices().AddSidebar().BuildServiceProvider();
@@ -92,7 +92,7 @@ public sealed class SidebarWiringTests : IDisposable
         return window;
     }
 
-    [Fact]
+    [WindowFact]
     public void TheMainWindowTakesItsEntriesFromTheRegistryAndKeepsSettingsAloneInTheFooter()
     {
         StaTestHelper.Run(() =>
@@ -111,7 +111,7 @@ public sealed class SidebarWiringTests : IDisposable
         });
     }
 
-    [Fact]
+    [WindowFact]
     public void AnUnsavedSidebarChangeShowsTheCautionSnackbarAndASavedOneShowsNothing()
     {
         StaTestHelper.Run(() =>
@@ -141,7 +141,7 @@ public sealed class SidebarWiringTests : IDisposable
         });
     }
 
-    [Fact]
+    [WindowFact]
     public void StartupShowsPackagesWhateverTheSavedLayout()
     {
         StaTestHelper.Run(() =>
@@ -165,7 +165,7 @@ public sealed class SidebarWiringTests : IDisposable
         });
     }
 
-    [Fact]
+    [WindowFact]
     public void HidingTheShownPageInTheMainWindowOpensPackagesAndShowingItAgainLeavesNoHighlight()
     {
         StaTestHelper.Run(() =>
@@ -209,7 +209,7 @@ public sealed class SidebarWiringTests : IDisposable
     private static string[] Titles(ApplicationPackagerUI.Views.Windows.MainWindow window) =>
         window.GetNavigation().MenuItems.OfType<Wpf.Ui.Controls.NavigationViewItem>().Select(i => (string)i.Content).ToArray();
 
-    [Fact]
+    [WindowFact]
     public void TheMainWindowBuildsItsEntriesFromTheServiceAndFollowsAHide()
     {
         StaTestHelper.Run(() =>
@@ -229,7 +229,7 @@ public sealed class SidebarWiringTests : IDisposable
         });
     }
 
-    [Fact]
+    [WindowFact]
     public void TheMainWindowShowsTheEightToolEntriesHidesOneAndShowsItAgain()
     {
         StaTestHelper.Run(() =>
@@ -266,7 +266,7 @@ public sealed class SidebarWiringTests : IDisposable
         });
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData("Add from web", typeof(ApplicationPackagerUI.Views.Pages.AddAppPage))]
     [InlineData("Add from file", typeof(ApplicationPackagerUI.Views.Pages.AddFilePage))]
     public void TheAddEntriesOpenTheirPages(string title, Type page)
@@ -289,7 +289,7 @@ public sealed class SidebarWiringTests : IDisposable
         });
     }
 
-    [Fact]
+    [WindowFact]
     public void TheAddFromFilePageShowsItsHeader()
     {
         Compliance.RenderKit.WithApplication(Wpf.Ui.Appearance.ApplicationTheme.Light, () =>
@@ -305,7 +305,7 @@ public sealed class SidebarWiringTests : IDisposable
         });
     }
 
-    [Fact]
+    [WindowFact]
     public void TheDetectionTesterEntryOpensItsPage()
     {
         StaTestHelper.Run(() =>
@@ -325,7 +325,7 @@ public sealed class SidebarWiringTests : IDisposable
         });
     }
 
-    [Fact]
+    [WindowFact]
     public void TheMaintenanceWindowsEntryOpensItsPage()
     {
         StaTestHelper.Run(() =>
@@ -345,7 +345,7 @@ public sealed class SidebarWiringTests : IDisposable
         });
     }
 
-    [Fact]
+    [WindowFact]
     public void TheCollectionAndComplianceEntryOpensItsPage()
     {
         StaTestHelper.Run(() =>
@@ -365,7 +365,7 @@ public sealed class SidebarWiringTests : IDisposable
         });
     }
 
-    [Fact]
+    [WindowFact]
     public void TheInstallerAnalysisEntryOpensItsPage()
     {
         StaTestHelper.Run(() =>
@@ -385,7 +385,7 @@ public sealed class SidebarWiringTests : IDisposable
         });
     }
 
-    [Fact]
+    [WindowFact]
     public void TheDeploymentHelperEntryOpensItsPage()
     {
         StaTestHelper.Run(() =>
@@ -405,7 +405,7 @@ public sealed class SidebarWiringTests : IDisposable
         });
     }
 
-    [Fact]
+    [WindowFact]
     public void ASavedLayoutWithTheDeploymentHelperEntryMovedAndHiddenKeepsItsPlaceAsAPage()
     {
         WriteSettings("""
@@ -421,7 +421,7 @@ public sealed class SidebarWiringTests : IDisposable
         Assert.Equal(typeof(ApplicationPackagerUI.Views.Pages.DeploymentHelperPage), service.Items[4].PageType);
     }
 
-    [Fact]
+    [WindowFact]
     public void TheDpContentManagerEntryOpensItsPage()
     {
         StaTestHelper.Run(() =>
@@ -441,7 +441,7 @@ public sealed class SidebarWiringTests : IDisposable
         });
     }
 
-    [Fact]
+    [WindowFact]
     public void ASavedLayoutWithTheDpContentManagerEntryMovedAndHiddenKeepsItsPlaceAsAPage()
     {
         WriteSettings("""
@@ -457,7 +457,7 @@ public sealed class SidebarWiringTests : IDisposable
         Assert.Equal(typeof(ApplicationPackagerUI.Views.Pages.DpContentManagerPage), service.Items[4].PageType);
     }
 
-    [Fact]
+    [WindowFact]
     public void ThePivotsAndScriptsEntryOpensItsPage()
     {
         StaTestHelper.Run(() =>
@@ -477,7 +477,7 @@ public sealed class SidebarWiringTests : IDisposable
         });
     }
 
-    [Fact]
+    [WindowFact]
     public void ASavedLayoutWithThePivotsAndScriptsEntryMovedAndHiddenKeepsItsPlaceAsAPage()
     {
         WriteSettings("""
@@ -493,7 +493,7 @@ public sealed class SidebarWiringTests : IDisposable
         Assert.Equal(typeof(ApplicationPackagerUI.Views.Pages.PivotsScriptsPage), service.Items[4].PageType);
     }
 
-    [Fact]
+    [WindowFact]
     public void ASavedLayoutWithTheMaintenanceWindowsEntryMovedAndHiddenKeepsItsPlaceAsAPage()    {
         WriteSettings("""
             { "FirstRunCompleted": true,
@@ -508,7 +508,7 @@ public sealed class SidebarWiringTests : IDisposable
         Assert.Equal(typeof(ApplicationPackagerUI.Views.Pages.MaintenanceWindowsPage), service.Items[4].PageType);
     }
 
-    [Fact]
+    [WindowFact]
     public void TheSiteHygieneEntryOpensItsPage()
     {
         StaTestHelper.Run(() =>
@@ -528,7 +528,7 @@ public sealed class SidebarWiringTests : IDisposable
         });
     }
 
-    [Fact]
+    [WindowFact]
     public void ASavedLayoutWithTheSiteHygieneEntryMovedAndHiddenKeepsItsPlaceAsAPage()
     {
         WriteSettings("""

@@ -69,7 +69,7 @@ public sealed class ByoReplacementDialogRenderTests
         });
     }
 
-    [Theory]
+    [WindowTheory]
     [MemberData(nameof(Sizes))]
     public void NoLabelOfTheReplaceDialogTouchesAnEdge(ApplicationTheme theme, int width, int height)
     {

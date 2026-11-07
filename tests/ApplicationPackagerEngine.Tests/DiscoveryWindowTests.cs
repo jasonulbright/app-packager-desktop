@@ -33,7 +33,7 @@ public sealed class DiscoveryWindowTests
 
     private static void RunSta(Action action) => StaTestHelper.Run(action);
 
-    [Theory]
+    [WindowTheory]
     [InlineData("Application", "Name")]
     [InlineData("Vendor", "Vendor")]
     public void ALongApplicationOrVendorIsTrimmedWithTheFullTextInATooltip(string header, string path)
@@ -44,7 +44,7 @@ public sealed class DiscoveryWindowTests
         Assert.Equal("{Binding " + path + "}", setters["ToolTip"]);
     }
 
-    [Fact]
+    [WindowFact]
     public void TheCheckColumnHasAnAutomationNameAndSpaceTogglesTheFocusedRow()
     {
         var doc = Markup();
@@ -58,7 +58,7 @@ public sealed class DiscoveryWindowTests
         Assert.Equal("{Binding SelectedItem, ElementName=gridDiscover}", (string?)binding.Attribute("CommandParameter"));
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
     public void TheCheckColumnHeaderUsesTheThemedHeaderLook(ApplicationTheme theme)
@@ -87,7 +87,7 @@ public sealed class DiscoveryWindowTests
         });
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
     public void TheCheckBoxOfARowIsNotClippedByItsCell(ApplicationTheme theme)
@@ -125,7 +125,7 @@ public sealed class DiscoveryWindowTests
         _ => brush.GetType().Name
     };
 
-    [Fact]
+    [WindowFact]
     public void EnableSelectedIsTheDefaultButtonAndNotNowTheCancelButton()
     {
         var doc = Markup();
@@ -137,7 +137,7 @@ public sealed class DiscoveryWindowTests
 
     private static readonly string[] Buttons = ["btnEnableSelected", "btnEnableAll", "btnNotNow", "btnDismiss"];
 
-    [Fact]
+    [WindowFact]
     public void TheFourButtonsHaveDistinctAccessKeys()
     {
         var doc = Markup();
@@ -151,7 +151,7 @@ public sealed class DiscoveryWindowTests
         Assert.Equal(keys.Count, keys.Distinct().Count());
     }
 
-    [Fact]
+    [WindowFact]
     public void TheButtonTemplateTurnsTheUnderscoreIntoAnAccessKey()
     {
         RunSta(() =>
@@ -178,7 +178,7 @@ public sealed class DiscoveryWindowTests
         }
     }
 
-    [Fact]
+    [WindowFact]
     public void ToggleCheckedFlipsTheRowAndIgnoresOtherItems()
     {
         var vm = new DiscoveryDialogViewModel([new DiscoveryCandidate("a", "A", "V", "A app")], "");
@@ -192,7 +192,7 @@ public sealed class DiscoveryWindowTests
         Assert.False(row.Selected);
     }
 
-    [Fact]
+    [WindowFact]
     public void AMinimizedOwnerIsRestoredBeforeThePromptOpens()
     {
         RunSta(() =>
@@ -213,7 +213,7 @@ public sealed class DiscoveryWindowTests
         });
     }
 
-    [Fact]
+    [WindowFact]
     public void AnOwnerThatIsMissingOrNotShownIsNotUsed()
     {
         RunSta(() =>

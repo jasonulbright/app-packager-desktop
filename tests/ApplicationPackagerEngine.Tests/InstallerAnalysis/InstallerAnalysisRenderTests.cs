@@ -125,7 +125,7 @@ public sealed class InstallerAnalysisRenderTests
         return grid;
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
     public void EveryTabRendersItsRowsWithLongValues(ApplicationTheme theme)
@@ -155,7 +155,7 @@ public sealed class InstallerAnalysisRenderTests
         });
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
     public void EveryGridShowsReadableRowsAndAVisibleSelection(ApplicationTheme theme)
@@ -178,7 +178,7 @@ public sealed class InstallerAnalysisRenderTests
         { ApplicationTheme.Dark, 1440 - CollapsedPaneWidth }
     };
 
-    [Theory]
+    [WindowTheory]
     [MemberData(nameof(Widths))]
     public void EveryGridShowsAllItsColumnsAt1440Pixels(ApplicationTheme theme, double width)
     {
@@ -208,7 +208,7 @@ public sealed class InstallerAnalysisRenderTests
     private const double GridMinHeight = 250;
 
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
     public void TheToolGroupsFitAtTheMinimumWindowWidth(ApplicationTheme theme)
@@ -229,7 +229,7 @@ public sealed class InstallerAnalysisRenderTests
         { ApplicationTheme.Dark, 1440 - NavigationPaneWidth, 900 - 48 }
     };
 
-    [Theory]
+    [WindowTheory]
     [MemberData(nameof(Sizes))]
     public void EveryControlFitsTheWidthAndEveryTabScrollsToItsControls(ApplicationTheme theme, double width, double height)
     {
@@ -273,7 +273,7 @@ public sealed class InstallerAnalysisRenderTests
         }, width, height);
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
     public void TheModesRegistryAndOverviewShowTheContractFieldsAndTheRegistryNotes(ApplicationTheme theme)
@@ -302,7 +302,7 @@ public sealed class InstallerAnalysisRenderTests
         });
     }
 
-    [Fact]
+    [WindowFact]
     public void TheRegistryNotesPanelIsHiddenWhenTheReadHasNoNote()
     {
         WithPage(ApplicationTheme.Light, (window, page, viewModel) =>
@@ -313,7 +313,7 @@ public sealed class InstallerAnalysisRenderTests
         }, analyze: false);
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
     public void TheBreadcrumbShowsEveryLevelAfterADrillDownAndBackGoesUp(ApplicationTheme theme)
@@ -342,7 +342,7 @@ public sealed class InstallerAnalysisRenderTests
         });
     }
 
-    [Fact]
+    [WindowFact]
     public void ScreenReadersHearPlainNamesForRowsAndControls()
     {
         WithPage(ApplicationTheme.Dark, (window, page, viewModel) =>
@@ -365,7 +365,7 @@ public sealed class InstallerAnalysisRenderTests
         });
     }
 
-    [Fact]
+    [WindowFact]
     public void BeforeAnAnalysisTheOverviewSaysHowToStartAndNothingIsRead()
     {
         WithPage(ApplicationTheme.Light, (window, page, viewModel) =>
@@ -428,7 +428,7 @@ public sealed class InstallerAnalysisRenderTests
         _ => "txtInstallerPath"
     };
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
     public void TabReachesEveryGridAndTheFocusedRowIsTheSelectedRow(ApplicationTheme theme)
@@ -454,7 +454,7 @@ public sealed class InstallerAnalysisRenderTests
         });
     }
 
-    [Fact]
+    [WindowFact]
     public void EnterInThePathBoxAnalyzesTheTypedPath()
     {
         WithApplication(ApplicationTheme.Light, () =>
@@ -506,7 +506,7 @@ public sealed class InstallerAnalysisRenderTests
         return menu.Items.OfType<MenuItem>().Single(m => (string)m.Header == header);
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
     public void ARightClickSelectsTheRowUnderThePointerAndTheMenuActsOnThatRow(ApplicationTheme theme)
@@ -550,7 +550,7 @@ public sealed class InstallerAnalysisRenderTests
         });
     }
 
-    [Fact]
+    [WindowFact]
     public void TheFiltersWaitForTypingToPauseAndThePathBoxDoesNot()
     {
         WithPage(ApplicationTheme.Light, (window, page, viewModel) =>
@@ -565,7 +565,7 @@ public sealed class InstallerAnalysisRenderTests
         }, analyze: false);
     }
 
-    [Fact]
+    [WindowFact]
     public void TheSizeColumnsSortByTheByteCount()
     {
         WithPage(ApplicationTheme.Light, (window, page, viewModel) =>
@@ -579,7 +579,7 @@ public sealed class InstallerAnalysisRenderTests
         }, analyze: false);
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light, 1024 - NavigationPaneWidth, 720 - 48)]
     [InlineData(ApplicationTheme.Dark, 1440 - NavigationPaneWidth, 900 - 48)]
     public void TheHashShowsInAReadOnlyBoxWithACopyButton(ApplicationTheme theme, double width, double height)
@@ -603,7 +603,7 @@ public sealed class InstallerAnalysisRenderTests
         }, width, height);
     }
 
-    [Fact]
+    [WindowFact]
     public void ADropOfOneFileIsReadFromTheFileListAndTextIsIgnored()
     {
         StaTestHelper.Run(() =>
@@ -614,7 +614,7 @@ public sealed class InstallerAnalysisRenderTests
         });
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
     public void EveryMainGridShowsAtLeastThreeWholeRowsAtTheMinimumSize(ApplicationTheme theme)

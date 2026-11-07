@@ -38,7 +38,7 @@ public sealed class ChangePlanTests
     private static Task<ChangePlanResult> Succeed(ConfirmedChangePlan c, IProgress<ChangePlanItemResult> _, CancellationToken __) =>
         Task.FromResult(AllSucceeded(c));
 
-    [Fact]
+    [WindowFact]
     public void AConfirmedPlanCannotBeMadeOutsideTheConfirmation()
     {
         var type = typeof(ConfirmedChangePlan);
@@ -49,7 +49,7 @@ public sealed class ChangePlanTests
             m => m.ReturnType == type);
     }
 
-    [Fact]
+    [WindowFact]
     public void TheIssueKeyHasOnlyAPrivateConstructorAndIssueRefusesAMissingKey()
     {
         var key = typeof(ChangePlanViewModel).GetNestedType("IssueKey", BindingFlags.NonPublic)!;
@@ -86,7 +86,7 @@ public sealed class ChangePlanTests
         return Path.Combine(folder!.FullName, "src", "ApplicationPackagerUI");
     }
 
-    [Fact]
+    [WindowFact]
     public void OnlyTheDialogFilesIssueOrConstructAConfirmedPlan()
     {
         var root = UiSourceRoot();
@@ -105,7 +105,7 @@ public sealed class ChangePlanTests
         Assert.True(ReferencesIssuance(File.ReadAllText(Path.Combine(root, IssuanceAllowed[1]))));
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData("var c = ConfirmedChangePlan.Issue(key, plan, true);")]
     [InlineData("var c = ApplicationPackagerUI.Services.ConfirmedChangePlan .Issue(k, p, false);")]
     [InlineData("ChangePlanViewModel.IssueKey k = null!;")]
@@ -117,7 +117,7 @@ public sealed class ChangePlanTests
         Assert.True(ReferencesIssuance(source));
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData("public Task Run(ConfirmedChangePlan plan, CancellationToken ct) => _service.RemoveAsync(plan.Plan.Items, ct);")]
     [InlineData("ChangePlanOutcome outcome = _dialogs.Show(plan, RunAsync);")]
     public void TheIssuanceScanLetsAWritePageTakeAConfirmedPlan(string source)
@@ -125,21 +125,21 @@ public sealed class ChangePlanTests
         Assert.False(ReferencesIssuance(source));
     }
 
-    [Fact]
+    [WindowFact]
     public void TheRunDelegateTakesOnlyAConfirmedPlan()
     {
         var invoke = typeof(ChangePlanRun).GetMethod("Invoke")!;
         Assert.Equal(typeof(ConfirmedChangePlan), invoke.GetParameters()[0].ParameterType);
     }
 
-    [Fact]
+    [WindowFact]
     public void APlanNeedsAnActionNameAndAtLeastOneItem()
     {
         Assert.Throws<ArgumentException>(() => new ChangePlan("T", " ", [new ChangePlanItem("A", "B", null)]));
         Assert.Throws<ArgumentException>(() => new ChangePlan("T", "Go", []));
     }
 
-    [Fact]
+    [WindowFact]
     public void APlanCopiesTheItemsItWasGiven()
     {
         var source = new List<ChangePlanItem> { new("Remove", "A", null) };
@@ -148,7 +148,7 @@ public sealed class ChangePlanTests
         Assert.Single(plan.Items);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task TheItemsOfAConfirmedPlanCannotBeChangedByACast()
     {
         ConfirmedChangePlan? confirmed = null;
@@ -168,7 +168,7 @@ public sealed class ChangePlanTests
         Assert.Equal(2, confirmed.Plan.Items.Count);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task NothingRunsUntilConfirmAndConfirmRunsOnce()
     {
         var runs = 0;
@@ -194,7 +194,7 @@ public sealed class ChangePlanTests
         Assert.Equal(1, runs);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task ADestructivePlanNeedsTheExtraCheckBeforeConfirmRuns()
     {
         var runs = 0;
@@ -212,7 +212,7 @@ public sealed class ChangePlanTests
         Assert.Equal(1, runs);
     }
 
-    [Fact]
+    [WindowFact]
     public void CancelBeforeConfirmClosesWithoutARun()
     {
         var runs = 0;
@@ -226,7 +226,7 @@ public sealed class ChangePlanTests
         Assert.Equal(0, runs);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task CancelDuringTheRunCancelsItsTokenAndReportsIt()
     {
         var started = new TaskCompletionSource();
@@ -265,7 +265,7 @@ public sealed class ChangePlanTests
         public IReadOnlyList<AppLogEntry> Tail() { lock (Entries) return Entries.ToList(); }
     }
 
-    [Fact]
+    [WindowFact]
     public async Task AFailedRunShowsAFixedLineAndLogsTheMaskedDetail()
     {
         var log = new RecordingLog();
@@ -280,7 +280,7 @@ public sealed class ChangePlanTests
         Assert.DoesNotContain("Zq9secret", entry.Message);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task AFailedRunWithoutALogStillShowsTheFixedLine()
     {
         var vm = new ChangePlanViewModel(Plan(), (_, _, _) => throw new InvalidOperationException("raw detail"));
@@ -288,7 +288,7 @@ public sealed class ChangePlanTests
         Assert.Equal(ChangePlanViewModel.FailedText, vm.ResultText);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task ItemMessagesStayVisibleButPassTheSecretMask()
     {
         var vm = new ChangePlanViewModel(Plan(), (c, _, _) => Task.FromResult(new ChangePlanResult(
@@ -298,7 +298,7 @@ public sealed class ChangePlanTests
         Assert.Equal("Denied for token=*** on CM01.", vm.ResultRows[1].Message);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task ARunThatChangesThreeOfFiveAndThenThrowsKeepsThePartialResult()
     {
         var plan = new ChangePlan("Remove maintenance windows", "Remove 5 windows",
@@ -331,7 +331,7 @@ public sealed class ChangePlanTests
         Assert.NotNull(undone);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task ACancelledRunKeepsTheOutcomesReportedBeforeTheCancel()
     {
         var reported = new TaskCompletionSource();
@@ -357,7 +357,7 @@ public sealed class ChangePlanTests
         Assert.Equal(5, vm.ResultRows.Count);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task ARunThatIgnoresItsCancelOffersAForceCloseThatReturnsThePartialOutcome()
     {
         var reported = new TaskCompletionSource();
@@ -403,7 +403,7 @@ public sealed class ChangePlanTests
         Assert.Equal(1, closed);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task ARunThatStopsAfterTheCancelNeverOffersAForceClose()
     {
         var started = new TaskCompletionSource();
@@ -422,7 +422,7 @@ public sealed class ChangePlanTests
         Assert.False(vm.IsDetached);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task APartlyFailedRunCountsBoth()
     {
         var vm = new ChangePlanViewModel(Plan(), (c, _, _) => Task.FromResult(new ChangePlanResult(
@@ -432,7 +432,7 @@ public sealed class ChangePlanTests
         Assert.Equal(["Changed", "Failed"], vm.ResultRows.Select(r => r.OutcomeText));
     }
 
-    [Fact]
+    [WindowFact]
     public async Task UndoIsOfferedOnlyWhenThePlanDeclaresItAndRunsWithTheSameConfirmedPlan()
     {
         ConfirmedChangePlan? ran = null, undone = null;
@@ -454,7 +454,7 @@ public sealed class ChangePlanTests
         Assert.NotNull(vm.Outcome.UndoResult);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task CancelRemainsVisibleAndCancelsAnUndoRun()
     {
         var undoStarted = new TaskCompletionSource();
@@ -479,14 +479,14 @@ public sealed class ChangePlanTests
         Assert.False(vm.ShowCancel);
     }
 
-    [Fact]
+    [WindowFact]
     public void UndoMustMatchThePlan()
     {
         Assert.Throws<ArgumentException>(() => new ChangePlanViewModel(Plan(undo: true), Succeed));
         Assert.Throws<ArgumentException>(() => new ChangePlanViewModel(Plan(undo: false), Succeed, Succeed));
     }
 
-    [Fact]
+    [WindowFact]
     public async Task APlanWithoutUndoNeverShowsUndo()
     {
         var vm = new ChangePlanViewModel(Plan(), Succeed);
@@ -495,7 +495,7 @@ public sealed class ChangePlanTests
         Assert.False(vm.UndoCommand.CanExecute(null));
     }
 
-    [Fact]
+    [WindowFact]
     public async Task CloseAfterTheRunClosesTheWindow()
     {
         var vm = new ChangePlanViewModel(Plan(), Succeed);
@@ -507,7 +507,7 @@ public sealed class ChangePlanTests
         Assert.True(closed);
     }
 
-    [Fact]
+    [WindowFact]
     public void APageReachesTheDialogThroughTheInterface()
     {
         var fake = new FakeDialogs();
@@ -561,7 +561,7 @@ public sealed class ChangePlanTests
         StaTestHelper.Flush();
     }
 
-    [Fact]
+    [WindowFact]
     public void TheRenderedConfirmButtonShowsTheActionNameLiterallyWithoutAnAccessKey()
     {
         var vm = new ChangePlanViewModel(new ChangePlan("T", "Delete CM_ABC", [new ChangePlanItem("Delete", "x", null)]), Succeed);
@@ -576,7 +576,7 @@ public sealed class ChangePlanTests
         });
     }
 
-    [Fact]
+    [WindowFact]
     public void ClickingTheRenderedConfirmButtonRunsThePlanAndItIsNeverTheDefaultButton()
     {
         var runs = 0;
@@ -596,7 +596,7 @@ public sealed class ChangePlanTests
         });
     }
 
-    [Fact]
+    [WindowFact]
     public void TheRenderedDestructiveCheckGatesConfirmAndUndoRunsTheUndo()
     {
         var undone = 0;
@@ -624,7 +624,7 @@ public sealed class ChangePlanTests
         });
     }
 
-    [Fact]
+    [WindowFact]
     public async Task TheWindowShowsTheCheckOnlyForADestructivePlanAndUndoOnlyAfterTheRun()
     {
         var vm = new ChangePlanViewModel(Plan(destructive: true, undo: true), Succeed, Succeed);
@@ -653,7 +653,7 @@ public sealed class ChangePlanTests
         });
     }
 
-    [Fact]
+    [WindowFact]
     public void ACellOfThePlanGridDrawsTheThemeFocusRingNotTheSystemRectangle()
     {
         RenderKit.WithApplication(ApplicationTheme.Dark, () =>
@@ -668,7 +668,7 @@ public sealed class ChangePlanTests
         });
     }
 
-    [Fact]
+    [WindowFact]
     public async Task TheWindowShowsTheForceCloseChoiceWhenTheViewModelOffersIt()
     {
         // The run never completes: its completion would update collections bound on the ended STA thread.

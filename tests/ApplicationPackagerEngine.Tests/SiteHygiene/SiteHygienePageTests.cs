@@ -18,7 +18,7 @@ public sealed class SiteHygienePageTests
         Assert.True(condition());
     }
 
-    [Fact]
+    [WindowFact]
     public async Task TheConstructorReadsNothingAndTheFirstVisitShowsTheStoredScanWithoutASiteCall()
     {
         var h = new SiteHygienePageHarness();
@@ -42,7 +42,7 @@ public sealed class SiteHygienePageTests
         Assert.Contains("stored result", vm.SummaryLine);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task WithNoStoredScanThePageSaysSoAndReadsNothingFromTheSite()
     {
         var h = new SiteHygienePageHarness();
@@ -53,7 +53,7 @@ public sealed class SiteHygienePageTests
         Assert.Empty(vm.FindingRows);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task WithoutASiteCodeThePageShowsOnePlainMessageAndTheScanAsksNothing()
     {
         var h = new SiteHygienePageHarness();
@@ -65,7 +65,7 @@ public sealed class SiteHygienePageTests
         Assert.Equal(vm.ConnectionMessage, vm.StatusMessage);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task AScanShowsTheCountsBySeverityTheChecksThatDidNotRunAndTheirReason()
     {
         var h = new SiteHygienePageHarness();
@@ -90,7 +90,7 @@ public sealed class SiteHygienePageTests
         Assert.DoesNotContain(h.Log.Entries, e => e.Message.Contains("Contoso", StringComparison.Ordinal) || e.Message.Contains("MCM000", StringComparison.Ordinal));
     }
 
-    [Fact]
+    [WindowFact]
     public async Task APartialScanUsesTheCheckedAreasAndIsNotStoredAsTheLastScan()
     {
         var h = new SiteHygienePageHarness();
@@ -113,7 +113,7 @@ public sealed class SiteHygienePageTests
         Assert.Contains("not stored as the last scan", vm.StatusMessage);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task ACancelledScanThatEndsLaterIsDiscardedAndTheEarlierResultStays()
     {
         var h = new SiteHygienePageHarness();
@@ -136,7 +136,7 @@ public sealed class SiteHygienePageTests
         Assert.Empty(h.ScanStore.Saved);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task AScanThatEndsAfterTheSiteSettingsChangedIsDiscarded()
     {
         var h = new SiteHygienePageHarness();
@@ -151,7 +151,7 @@ public sealed class SiteHygienePageTests
         Assert.False(vm.HasResult);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task ATruncatedReadMarksEveryCountNotKnownAndNoCheckRanNeverReadsAsZero()
     {
         var h = new SiteHygienePageHarness();
@@ -169,7 +169,7 @@ public sealed class SiteHygienePageTests
         Assert.All(vm2.CategoryRows, r => Assert.Equal("Not known", r.Error));
     }
 
-    [Fact]
+    [WindowFact]
     public async Task EveryFilterNarrowsTheRowsAndTheCountSaysHowMany()
     {
         var h = new SiteHygienePageHarness();
@@ -192,7 +192,7 @@ public sealed class SiteHygienePageTests
         Assert.Equal("", Row(vm, h.UnusedApp2).New);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task TheSelectionIsKeptByKeyAcrossAFilterASortAndANewScan()
     {
         var h = new SiteHygienePageHarness();
@@ -211,7 +211,7 @@ public sealed class SiteHygienePageTests
         Assert.Contains("Remove-CMCollection -Id MCM00012", vm.DetailFixText);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task SuppressSavesACommentByCheckAndObjectKeyHidesTheRowsAndUnsuppressShowsThemAgain()
     {
         var h = new SiteHygienePageHarness();
@@ -245,7 +245,7 @@ public sealed class SiteHygienePageTests
         Assert.Single(h.Suppressions.Items);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task ASuppressionStoreThatFailsChangesNoRowAndGivesThePlainReason()
     {
         var h = new SiteHygienePageHarness();
@@ -259,7 +259,7 @@ public sealed class SiteHygienePageTests
         Assert.Equal(8, vm.FindingRows.Count);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task ASuppressionOfAnotherSessionIsReadFromTheStoreAndNotFromTheScan()
     {
         var h = new SiteHygienePageHarness();
@@ -269,7 +269,7 @@ public sealed class SiteHygienePageTests
         Assert.Contains("1 suppressed.", vm.SummaryLine);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task ADeleteShowsThePlanFromThePreparedChangeSendsTheSecondConfirmationAndTakesTheFixedRowOut()
     {
         var h = new SiteHygienePageHarness();
@@ -299,7 +299,7 @@ public sealed class SiteHygienePageTests
         Assert.DoesNotContain(h.Log.Entries, e => e.Message.Contains("SHL", StringComparison.Ordinal) || e.Message.Contains("MCM00012", StringComparison.Ordinal));
     }
 
-    [Fact]
+    [WindowFact]
     public async Task ABulkFixShowsThePickerAndOnlyTheCheckedObjectsArePreparedAndPlanned()
     {
         var h = new SiteHygienePageHarness();
@@ -324,7 +324,7 @@ public sealed class SiteHygienePageTests
         Assert.Single(h.Service.PrepareRequests);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task MixedFixesReportOnlyFindingsAndSuppressedFindingsMakeNoPlan()
     {
         var h = new SiteHygienePageHarness();
@@ -348,7 +348,7 @@ public sealed class SiteHygienePageTests
         Assert.Empty(h.Plans.Shown);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task ADeleteWithoutTheSecondBoxCannotRunAndSendsNothing()
     {
         var h = new SiteHygienePageHarness();
@@ -363,7 +363,7 @@ public sealed class SiteHygienePageTests
         Assert.Contains(vm.FindingRows, r => r.Finding == h.UnusedApp);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task AFindingThatStopsHoldingBetweenPlanAndConfirmIsSkippedAndStaysInTheList()
     {
         var h = new SiteHygienePageHarness();
@@ -378,7 +378,7 @@ public sealed class SiteHygienePageTests
         Assert.Equal(0, h.History.Entries.Single().Counts!["changed"]);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task AFindingThatStoppedHoldingBeforeThePlanMakesNoPlanAndSaysWhy()
     {
         var h = new SiteHygienePageHarness();
@@ -391,7 +391,7 @@ public sealed class SiteHygienePageTests
         Assert.Contains("Left out: Application Contoso Fonts 2.1 (16777300). Skipped: the finding no longer holds", vm.StatusMessage);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task ADeleteAboveTheCapIsRefusedWithTheMessageOfTheService()
     {
         var h = SiteHygienePageHarness.Large(0);
@@ -405,7 +405,7 @@ public sealed class SiteHygienePageTests
         Assert.Equal($"The plan cannot run. Nothing was changed. A run deletes at most {FakeSiteHygieneService.Cap} objects. Filter the findings to {FakeSiteHygieneService.Cap} or fewer.", vm.StatusMessage);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task PartialResultsKeepEachOutcomeAndOnlyTheDoneRowsLeaveTheList()
     {
         var h = new SiteHygienePageHarness();
@@ -419,7 +419,7 @@ public sealed class SiteHygienePageTests
         Assert.Equal(SiteOperationOutcome.PartlySucceeded, h.History.Entries.Single().Outcome);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task OnlyTheFinalOutcomeIsAResultSoAFailedReadBackKeepsTheFinding()
     {
         var h = new SiteHygienePageHarness();
@@ -436,7 +436,7 @@ public sealed class SiteHygienePageTests
         Assert.Equal(0, h.History.Entries.Single().Counts!["changed"]);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task APlanIsDiscardedWhenTheSelectionOrTheResultChangedDuringTheCheck()
     {
         var h = new SiteHygienePageHarness();
@@ -466,7 +466,7 @@ public sealed class SiteHygienePageTests
         Assert.Empty(h.Service.Applied);
     }
 
-    [Theory]
+    [WindowTheory]
     [MemberData(nameof(FixKinds))]
     public async Task EveryFixKindHasAPlanFromThePreparedChangeAndOnlyADeleteAsksTheSecondBox(HygieneFixKind kind)
     {
@@ -493,7 +493,7 @@ public sealed class SiteHygienePageTests
         return data;
     }
 
-    [Fact]
+    [WindowFact]
     public void ThePlanTextComesFromThePreparedChangeAndNotFromTheScanRows()
     {
         var h = new SiteHygienePageHarness();
@@ -522,7 +522,7 @@ public sealed class SiteHygienePageTests
         }
     }
 
-    [Fact]
+    [WindowFact]
     public async Task AFixLeftRunningBlocksTheNextFixAndTakesItsRowsOutWhenItEndsAfterTheOperatorLeft()
     {
         var h = new SiteHygienePageHarness();
@@ -546,7 +546,7 @@ public sealed class SiteHygienePageTests
         Assert.Contains("1 finding fixed since the scan.", vm.SummaryLine);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task LeavingThePageDuringAScanKeepsItRunningAndTheReturnShowsItsResultAndTheSummaryLine()
     {
         var h = new SiteHygienePageHarness();
@@ -568,7 +568,7 @@ public sealed class SiteHygienePageTests
         Assert.Equal(1, h.Service.ScanCalls);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task ExportWritesTheRowsTheFiltersShowNamesTheChecksThatDidNotRunAndRefusesWithoutRows()
     {
         var h = new SiteHygienePageHarness();
@@ -615,7 +615,7 @@ public sealed class SiteHygienePageTests
         Assert.Equal([@"C:\Data\SiteHygiene\Reports"], h.Dialogs.OpenedFolders);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task TheOptionsTabMessageNamesEachTabThatExportsAndOnlyThose()
     {
         var h = new SiteHygienePageHarness();
@@ -633,7 +633,7 @@ public sealed class SiteHygienePageTests
         Assert.Equal("Findings or History", VM.OrList(["Findings", "History"]));
     }
 
-    [Fact]
+    [WindowFact]
     public async Task ATruncatedScanIsNamedInTheExportHeader()
     {
         var h = new SiteHygienePageHarness();
@@ -645,7 +645,7 @@ public sealed class SiteHygienePageTests
         Assert.StartsWith("The read was truncated: the findings are not complete.", report.Note);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task RelationshipsAreReadOnRequestFilteredAndBuiltIntoChainsWithACycleMark()
     {
         var h = new SiteHygienePageHarness();
@@ -696,7 +696,7 @@ public sealed class SiteHygienePageTests
         Assert.True(h.Reports.Written[^1].Report.Truncated);
     }
 
-    [Fact]
+    [WindowFact]
     public void TheTreeOfFiftyThousandEdgesIsBuiltInLinearWorkAndOpensOnlyTheLinesTheOperatorExpands()
     {
         var edges = Enumerable.Range(0, 50_000).Select(i => new RelationEdge($"{i}", $"App {i}", $"{i + 1}", $"App {i + 1}", "Supersedes", "Healthy")).ToList();
@@ -722,7 +722,7 @@ public sealed class SiteHygienePageTests
         return node.Children[0].Text;
     }
 
-    [Fact]
+    [WindowFact]
     public async Task TheChoicesRoundTripAndAnOlderOrStrangeFileGivesTheDefaults()
     {
         var h = new SiteHygienePageHarness();
@@ -760,7 +760,7 @@ public sealed class SiteHygienePageTests
         Assert.Null(vm3.SortOf(VM.FindingsGrid));
     }
 
-    [Fact]
+    [WindowFact]
     public async Task CopyPutsTheFixTextOnTheClipboardAndAReportOnlyFindingHasNothingToCopy()
     {
         var h = new SiteHygienePageHarness();
@@ -776,7 +776,7 @@ public sealed class SiteHygienePageTests
         Assert.Equal(VM.NoFindingSelected, vm.DetailTitle);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task AScanFailureKeepsTheEarlierResultAndShowsAFixedMessage()
     {
         var h = new SiteHygienePageHarness();
@@ -791,7 +791,7 @@ public sealed class SiteHygienePageTests
         Assert.Equal("The SMS Provider refused the read of the boundaries.", vm.StatusMessage);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task AStoredResultThatCannotBeSavedSaysTheNextStartShowsNoStoredResult()
     {
         var h = new SiteHygienePageHarness();
@@ -802,7 +802,7 @@ public sealed class SiteHygienePageTests
         Assert.True(vm.HasResult);
     }
 
-    [Fact]
+    [WindowFact]
     public void TheFindingKeyUsesTheObjectKeySoTwoObjectsWithOneNameStayTwoRows()
     {
         var a = Finding("APP-01", "Applications", HygieneSeverity.Warning, "Application", "16777300", "Contoso Fonts", HygieneFixKind.RemoveApplication);
@@ -813,7 +813,7 @@ public sealed class SiteHygienePageTests
         Assert.Equal(a.Key.ToUpperInvariant(), SiteHygieneLabels.Key(a));
     }
 
-    [Fact]
+    [WindowFact]
     public async Task AReportOnlyFixKindDisablesRunFixWithTheReasonAndItsTextStaysCopyable()
     {
         var h = new SiteHygienePageHarness();
@@ -852,7 +852,7 @@ public sealed class SiteHygienePageTests
             Assert.False(SiteHygieneLabels.CanRun(kind));
     }
 
-    [Fact]
+    [WindowFact]
     public async Task AMixedSelectionPlansTheOneFixAndNamesWhatWasLeftOutAndTwoFixesNeedTwoRuns()
     {
         var h = new SiteHygienePageHarness();
@@ -869,7 +869,7 @@ public sealed class SiteHygienePageTests
         Assert.EndsWith("1 selected finding had no fix or was suppressed and was not in the plan.", vm.StatusMessage);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task InactiveDevicesAreOneRowPerDeviceSoEachHasItsOwnSuppressionAndPlanLine()
     {
         var h = new SiteHygienePageHarness();
@@ -894,7 +894,7 @@ public sealed class SiteHygienePageTests
         Assert.Equal(["Done", "Done"], vm.LastResults.Select(r => r.OutcomeText));
     }
 
-    [Fact]
+    [WindowFact]
     public async Task ChecksOfAreasThatWereNotScannedAreNotSelectedAndNeverCountAsChecksThatDidNotRun()
     {
         var h = new SiteHygienePageHarness();
@@ -917,7 +917,7 @@ public sealed class SiteHygienePageTests
         Assert.Equal(h.Service.ScannedUtc, report.ScannedUtc);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task APreparedChangeWithSeveralObjectsPerFindingListsEveryObjectAndEachTakesTheOutcomeOfItsFinding()
     {
         var h = new SiteHygienePageHarness();

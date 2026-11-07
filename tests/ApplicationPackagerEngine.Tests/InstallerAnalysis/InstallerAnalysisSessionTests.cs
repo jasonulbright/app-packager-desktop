@@ -28,7 +28,7 @@ public sealed class InstallerAnalysisSessionTests : IDisposable
         await lifetime.StopAsync(CancellationToken.None);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task AtStartACrashedSessionIsRemovedAndASessionOfAnotherRunningInstanceIsKeptWhateverItsAge()
     {
         var root = _temp.PathOf("Temp");
@@ -55,7 +55,7 @@ public sealed class InstallerAnalysisSessionTests : IDisposable
         Assert.Empty(_log.Entries);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task ASessionThePageCreatedSurvivesARestartWhileThisProcessRunsAndGoesOnceTheOwnerIsGone()
     {
         var root = _temp.PathOf("Temp");
@@ -81,7 +81,7 @@ public sealed class InstallerAnalysisSessionTests : IDisposable
         Assert.False(Directory.Exists(session));
     }
 
-    [Fact]
+    [WindowFact]
     public void TheOwnerOfThisProcessIsAliveAndAnUnknownOrRestartedProcessIsNot()
     {
         using var self = Process.GetCurrentProcess();
@@ -91,7 +91,7 @@ public sealed class InstallerAnalysisSessionTests : IDisposable
         Assert.False(InstallerAnalysisSessions.IsAlive(int.MaxValue - 7, ticks));
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData("")]
     [InlineData("not a marker")]
     [InlineData("12 abc")]
@@ -103,7 +103,7 @@ public sealed class InstallerAnalysisSessionTests : IDisposable
         Assert.Null(InstallerAnalysisSessions.ReadOwner(session));
     }
 
-    [Fact]
+    [WindowFact]
     public void TheStopAtExitRunsOffTheDispatcherAndFinishes()
     {
         StaTestHelper.Run(() =>
@@ -120,7 +120,7 @@ public sealed class InstallerAnalysisSessionTests : IDisposable
         });
     }
 
-    [Fact]
+    [WindowFact]
     public void AStopThatNeverEndsIsAbandonedAfterTheTimeout()
     {
         var clock = Stopwatch.StartNew();

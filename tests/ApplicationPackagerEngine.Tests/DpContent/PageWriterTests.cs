@@ -33,7 +33,7 @@ public sealed class PageWriterTests
         return dialog;
     }
 
-    [Fact]
+    [WindowFact]
     public void ARemovalCarriesRemovalConfirmedAndTheLastCopyFlagOnlyAsTheConfirmedPlanAskedThem()
     {
         var (keep, h) = Plan(DpContentChangeKind.Remove, x => x.Service.SetState(x.SevenZipOnBranch, 0), x => x.SevenZipOnDp01);
@@ -49,7 +49,7 @@ public sealed class PageWriterTests
         Assert.True(h2.Service.Applied.Single().Single().LastCopyAcknowledged);
     }
 
-    [Fact]
+    [WindowFact]
     public void AChangeThatRemovesNothingNeverCarriesTheRemovalFlags()
     {
         var (plan, h) = Plan(DpContentChangeKind.Redistribute, x => x.SevenZipOnDp02);
@@ -60,7 +60,7 @@ public sealed class PageWriterTests
         Assert.False(sent.LastCopyAcknowledged);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task TheWriterRefusesAPlanThatIsNotTheConfirmedOne()
     {
         var (plan, h) = Plan(DpContentChangeKind.Validate, x => x.SevenZipOnDp01);
@@ -75,7 +75,7 @@ public sealed class PageWriterTests
         Assert.Empty(h.Service.Applied);
     }
 
-    [Fact]
+    [WindowFact]
     public void TheConfirmWindowNeedsEveryBoxOfARemovalBeforeTheChangeIsSent()
     {
         var (plan, h) = Plan(DpContentChangeKind.Remove, x => x.OfficeOnDp01);
@@ -87,7 +87,7 @@ public sealed class PageWriterTests
         Assert.Empty(h.Service.Applied);
     }
 
-    [Fact]
+    [WindowFact]
     public void EachPairGetsItsOwnResultOnceAndTheSiteHistoryGetsCountsOnly()
     {
         var (plan, h) = Plan(DpContentChangeKind.Redistribute, x => x.SevenZipOnDp02, x => x.SevenZipOnBranch, x => x.BootOnDp01);
@@ -103,7 +103,7 @@ public sealed class PageWriterTests
         Assert.DoesNotContain(h.Log.Entries, e => e.Message.Contains("DP0", StringComparison.Ordinal) || e.Message.Contains("LAB0", StringComparison.Ordinal));
     }
 
-    [Fact]
+    [WindowFact]
     public void ACancelBetweenChunksReportsTheRestSkippedAndKeepsTheResultsMade()
     {
         var (plan, h) = Plan(DpContentChangeKind.Redistribute, x => x.SevenZipOnDp02, x => x.SevenZipOnBranch, x => x.BootOnDp01);
@@ -122,7 +122,7 @@ public sealed class PageWriterTests
         Assert.Equal(SiteOperationOutcome.Cancelled, h.History.Entries.Single().Outcome);
     }
 
-    [Fact]
+    [WindowFact]
     public void AnOutcomeWithoutPairsGivesItsMessageToEveryPairAndASkippedMessageStaysSkipped()
     {
         var item = new ChangePlanItem("Remove from DP", "x", null);
@@ -135,7 +135,7 @@ public sealed class PageWriterTests
         Assert.True(DpContentWriter.Row(item, "Unchanged", "x").Succeeded);
     }
 
-    [Fact]
+    [WindowFact]
     public void ARemovalTheServiceRefusesShowsSkippedForEveryPair()
     {
         var (plan, h) = Plan(DpContentChangeKind.Remove, x => x.SevenZipOnDp01, x => x.SevenZipOnDp02);
@@ -165,7 +165,7 @@ public sealed class PageWriterTests
 
     private static string P(params string[] parts) => Path.Combine(["ApplicationPackagerUI", .. parts]);
 
-    [Fact]
+    [WindowFact]
     public void OnlyTheWriterCallsTheDpContentServiceWrite()
     {
         var naming = UiFilesWith(new Regex(@"\bIDpContentService\b", RegexOptions.CultureInvariant));
@@ -185,7 +185,7 @@ public sealed class PageWriterTests
         Assert.Equal(["LoadAsync", "PrepareAsync"], calls.Order());
     }
 
-    [Fact]
+    [WindowFact]
     public void NoTypeOfTheDesktopButTheWriterAndThePageServicesHoldsTheDpContentService()
     {
         var allowed = new[] { typeof(DpContentWriter), typeof(DpContentPageServices), typeof(DpContentRegistration) };

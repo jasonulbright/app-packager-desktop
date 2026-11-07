@@ -14,7 +14,7 @@ public sealed class OutcomeColorTests
 
     private static readonly string[] OutcomeHeaders = ["Status", "State", "Result", "Verified"];
 
-    [Theory]
+    [WindowTheory]
     [InlineData("✓ Installed", OutcomeKind.Success)]
     [InlineData("✓ Verified", OutcomeKind.Success)]
     [InlineData("✗ Failed", OutcomeKind.Critical)]
@@ -36,7 +36,7 @@ public sealed class OutcomeColorTests
     [InlineData(null, OutcomeKind.None)]
     public void TheTextOfACellGivesItsOutcome(string? text, OutcomeKind expected) => Assert.Equal(expected, OutcomeKindConverter.Classify(text));
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
     public void EveryOutcomeBrushIsReadableOnTheThemeBackground(ApplicationTheme theme)
@@ -78,7 +78,7 @@ public sealed class OutcomeColorTests
         return Descendants(grid).OfType<System.Windows.Controls.TextBlock>().Single(t => t.Text == status);
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData("StatusCell", "✓ Installed", "SystemFillColorSuccessBrush")]
     [InlineData("StatusCell", "! Not verified", "SystemFillColorCautionBrush")]
     [InlineData("StatusCell", "✗ Failed", "SystemFillColorCriticalBrush")]
@@ -110,7 +110,7 @@ public sealed class OutcomeColorTests
         });
     }
 
-    [Fact]
+    [WindowFact]
     public void EveryOutcomeColumnOfThePagesUsesAStatusCellStyle()
     {
         var pages = Path.Combine(CatalogServiceTests.RepositoryRoot(), "src", "ApplicationPackagerUI", "Views", "Pages");

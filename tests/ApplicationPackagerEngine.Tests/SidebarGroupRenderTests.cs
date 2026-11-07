@@ -140,7 +140,7 @@ public sealed class SidebarGroupRenderTests : IDisposable
         return data;
     }
 
-    [Theory]
+    [WindowTheory]
     [MemberData(nameof(Cases))]
     public void TheCaptionsShowWholeTheDividersReplaceThemWhenClosedAndTheSelectedEntryStandsOut(ApplicationTheme theme, int width, int height, bool open)
     {
@@ -237,7 +237,7 @@ public sealed class SidebarGroupRenderTests : IDisposable
         });
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
     public void TheWorkbenchWindowTitleIsWorkbench(ApplicationTheme theme)

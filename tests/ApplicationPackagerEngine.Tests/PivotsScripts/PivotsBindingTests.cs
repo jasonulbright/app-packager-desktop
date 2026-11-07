@@ -25,7 +25,7 @@ public sealed class PivotsBindingTests
 
     // ---- The send names the planned script ------------------------------------------------------
 
-    [Fact]
+    [WindowFact]
     public async Task AScriptRunSendsThePlannedSiteHashAndVersionInTheOperationMessage()
     {
         using var h = new PivotsHarness();
@@ -37,7 +37,7 @@ public sealed class PivotsBindingTests
         Assert.False(o.Partial);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task AScriptRunSendsTheDefaultOfAParameterWithoutAValue()
     {
         using var h = new PivotsHarness();
@@ -46,7 +46,7 @@ public sealed class PivotsBindingTests
         Assert.Contains(":Count=1(Int32);Label=only(String):", Assert.Single(h.Site.Log, l => l.StartsWith("RunScript:", StringComparison.Ordinal)));
     }
 
-    [Fact]
+    [WindowFact]
     public async Task AScriptThatChangesDuringTheSendMakesTheRunPartialAndIsInTheAuditLog()
     {
         using var h = new PivotsHarness();
@@ -66,7 +66,7 @@ public sealed class PivotsBindingTests
         Assert.True(session.Partial);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task ApproveSendsThePlannedHashesAndRefusesATextThatChangesAfterTheServiceCheck()
     {
         using var h = new PivotsHarness();
@@ -86,7 +86,7 @@ public sealed class PivotsBindingTests
         Assert.Equal(0, (int)h.Site.Script(StubPivotsSite.ScriptGuid)!["ApprovalState"]!);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task ATextThatChangesWhileTheApprovalIsStoredMakesTheActionPartial()
     {
         using var h = new PivotsHarness();
@@ -101,7 +101,7 @@ public sealed class PivotsBindingTests
 
     // ---- The service needs the plan confirmation for every kind ---------------------------------
 
-    [Fact]
+    [WindowFact]
     public async Task EveryKindOfChangeIsRefusedWithoutThePlanConfirmation()
     {
         using var h = new PivotsHarness();
@@ -125,7 +125,7 @@ public sealed class PivotsBindingTests
         Assert.False((await h.Service.PrepareAsync(pivot with { ChangeConfirmed = true }, CancellationToken.None)).ChangeConfirmed);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task TheWriterConfirmsAScriptActionOnlyFromTheConfirmedPlan()
     {
         using var h = new PivotsHarness();
@@ -143,7 +143,7 @@ public sealed class PivotsBindingTests
 
     // ---- Cut CMPivot results -----------------------------------------------------------------------
 
-    [Fact]
+    [WindowFact]
     public async Task ACutResultWhoseWholeResultCannotBeReadMakesTheDeviceAndTheRunPartial()
     {
         using var h = new PivotsHarness();
@@ -164,7 +164,7 @@ public sealed class PivotsBindingTests
         Assert.True(h.Sessions.Read(o.SessionId!)!.Partial);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task ACutResultGetsTheWholeResultOnTheRetryAfterOneFailedRead()
     {
         using var h = new PivotsHarness();
@@ -182,7 +182,7 @@ public sealed class PivotsBindingTests
 
     // ---- The saved session holds no parameter value -------------------------------------------------
 
-    [Fact]
+    [WindowFact]
     public async Task TheSessionFileHoldsTheParameterNamesButNotTheValues()
     {
         using var h = new PivotsHarness();
@@ -201,7 +201,7 @@ public sealed class PivotsBindingTests
         Assert.DoesNotContain(secret, File.ReadAllText(Path.Combine(h.Sessions.Folder, o.SessionId + ".json")));
     }
 
-    [Fact]
+    [WindowFact]
     public void TheStoreKeepsTheParameterNamesOfACallerAndNeverWritesTheMapOfAnEarlierVersion()
     {
         using var h = new PivotsHarness();
@@ -224,7 +224,7 @@ public sealed class PivotsBindingTests
 
     // ---- The Finished record of a reloaded run --------------------------------------------------------
 
-    [Fact]
+    [WindowFact]
     public async Task AReloadedSendOnlyRunWhoseStartedRecordIsOlderThanTheReadWindowGetsItsFinishedRecord()
     {
         using var h = new PivotsHarness();
@@ -249,14 +249,14 @@ public sealed class PivotsBindingTests
 
     // ---- The CSV import --------------------------------------------------------------------------------
 
-    [Fact]
+    [WindowFact]
     public void ACsvCommentWithALineBreakDoesNotAddATarget()
     {
         var csv = "Name,Comment\r\nWKS-001,\"first line\r\nCLIENT01\"\r\nWKS-002,\"say \"\"hi\"\", then\nCM01, DC01\"\r\n\"WKS-003\",plain\r\n";
         Assert.Equal(["WKS-001", "WKS-002", "WKS-003"], PivotsTargetFile.FromCsv(csv));
     }
 
-    [Fact]
+    [WindowFact]
     public void ACsvNameThatHoldsALineBreakOrASeparatorIsNotImported()
     {
         var csv = "Comment;Name\n\"x\";\"WKS-001\nCLIENT01\"\n\"y\";\"WKS-002,CM01\"\n\"z\";WKS-004\n";
@@ -265,7 +265,7 @@ public sealed class PivotsBindingTests
 
     // ---- The page says that parameter values are not stored ---------------------------------------
 
-    [Fact]
+    [WindowFact]
     public async Task TheHistorySaysThatParameterValuesAreNotStored()
     {
         var h = new PivotsScriptsHarness();

@@ -63,7 +63,7 @@ public sealed class DeploymentRemovalPromptTests
         new(new ChangePlanViewModel(new ChangePlan("Deploy 7-Zip", "Create deployment", [new ChangePlanItem("Create deployment", "7-Zip", null)]),
             (_, _, _) => Task.FromResult(new ChangePlanResult([]))));
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
     public void TheQuestionIsOwnedByThePlanWindowFocusesCancelAndTakesEscapeAndEnterFromItsFirstAppearance(ApplicationTheme theme)
@@ -96,7 +96,7 @@ public sealed class DeploymentRemovalPromptTests
         });
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
     public void AQuestionThatIsClosedWithoutAChoiceIsDeclined(ApplicationTheme theme)

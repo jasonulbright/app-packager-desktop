@@ -32,7 +32,7 @@ public sealed class SiteHygieneWriterTests
         return dialog;
     }
 
-    [Fact]
+    [WindowFact]
     public void ADeleteCarriesDeleteConfirmedOnlyWhenTheConfirmedPlanAskedTheSecondBox()
     {
         var (plan, h) = Plan(HygieneFixKind.RemoveApplication, x => x.UnusedApp);
@@ -47,7 +47,7 @@ public sealed class SiteHygieneWriterTests
         Assert.Single(h.Service.Applied);
     }
 
-    [Fact]
+    [WindowFact]
     public void APlanWithoutTheSecondBoxReachesTheServiceUnconfirmedAndTheServiceSkipsEveryObject()
     {
         var (plan, h) = Plan(HygieneFixKind.RemoveApplication, x => x.UnusedApp, x => x.UnusedApp2);
@@ -58,7 +58,7 @@ public sealed class SiteHygieneWriterTests
         Assert.All(dialog.Outcome.Result!.Items, r => Assert.True(r.Skipped));
     }
 
-    [Fact]
+    [WindowFact]
     public void AChangeKindNeverCarriesDeleteConfirmedEvenWhenTheChangeHadIt()
     {
         var (plan, h) = Plan(HygieneFixKind.SetCollectionRefreshType, x => x.RefreshType);
@@ -67,7 +67,7 @@ public sealed class SiteHygieneWriterTests
         Assert.False(Assert.Single(h.Service.Applied).DeleteConfirmed);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task TheWriterRefusesAPlanThatIsNotTheConfirmedOne()
     {
         var (plan, h) = Plan(HygieneFixKind.RemoveApplication, x => x.UnusedApp);
@@ -82,7 +82,7 @@ public sealed class SiteHygieneWriterTests
         Assert.Empty(h.Service.Applied);
     }
 
-    [Fact]
+    [WindowFact]
     public void AProgressOutcomeIsAStepOnlyAndEachObjectGetsOneResultFromTheFinalOutcome()
     {
         var (plan, h) = Plan(HygieneFixKind.RemoveApplication, x => x.UnusedApp, x => x.UnusedApp2);
@@ -99,7 +99,7 @@ public sealed class SiteHygieneWriterTests
         Assert.DoesNotContain(h.Log.Entries, e => e.Message.Contains("Contoso", StringComparison.Ordinal) || e.Message.Contains("1677730", StringComparison.Ordinal));
     }
 
-    [Fact]
+    [WindowFact]
     public void ACancelBetweenObjectsReportsTheRestSkippedAndKeepsTheResultsMade()
     {
         var (plan, h) = Plan(HygieneFixKind.RemoveApplication, x => x.UnusedApp, x => x.UnusedApp2);
@@ -117,7 +117,7 @@ public sealed class SiteHygieneWriterTests
         Assert.Equal(SiteOperationOutcome.Cancelled, h.History.Entries.Single().Outcome);
     }
 
-    [Fact]
+    [WindowFact]
     public void AnObjectResultKeepsItsWordsAndASkippedMessageStartsWithSkipped()
     {
         var item = new ChangePlanItem("Delete application", "x", null);
@@ -149,7 +149,7 @@ public sealed class SiteHygieneWriterTests
 
     private static string P(params string[] parts) => Path.Combine(["ApplicationPackagerUI", .. parts]);
 
-    [Fact]
+    [WindowFact]
     public void OnlyTheWriterCallsTheSiteHygieneServiceWrite()
     {
         var naming = UiFilesWith(new Regex(@"\bISiteHygieneService\b", RegexOptions.CultureInvariant));
@@ -169,7 +169,7 @@ public sealed class SiteHygieneWriterTests
         Assert.Equal(["LoadRelationsAsync", "PrepareAsync", "ScanAsync"], calls.Order());
     }
 
-    [Fact]
+    [WindowFact]
     public void NoTypeOfTheDesktopButTheWriterThePageServicesAndTheRegistrationHoldsTheSiteHygieneService()
     {
         var allowed = new[] { typeof(SiteHygieneWriter), typeof(SiteHygienePageServices), typeof(SiteHygieneRegistration) };
@@ -210,7 +210,7 @@ public sealed class SiteHygieneRegistrationTests : IDisposable
         return services.BuildServiceProvider(new ServiceProviderOptions { ValidateOnBuild = false, ValidateScopes = true });
     }
 
-    [Fact]
+    [WindowFact]
     public void TheApplicationServicesBuildOnePageViewModelThatReadsNothing()
     {
         using var provider = Provider();
@@ -228,14 +228,14 @@ public sealed class SiteHygieneRegistrationTests : IDisposable
         Assert.False(File.Exists(SettingsService.SettingsPath));
     }
 
-    [Fact]
+    [WindowFact]
     public void EveryPageTypeHasOneConstructorSoTheContainerCanBuildIt()
     {
         foreach (var type in new[] { typeof(SiteHygieneViewModel), typeof(SiteHygienePage), typeof(SiteHygieneWriter), typeof(SiteHygieneDialogs), typeof(HygieneFindingsPickerViewModel) })
             Assert.Single(type.GetConstructors());
     }
 
-    [Fact]
+    [WindowFact]
     public void TheSavedChoicesRoundTripThroughTheSettingsFileAndKeepOtherValues()
     {
         var settings = new SettingsService();
@@ -256,7 +256,7 @@ public sealed class SiteHygieneRegistrationTests : IDisposable
         Assert.Equal(2, new SettingsService().Load().DpContent?.SelectedTab);
     }
 
-    [Fact]
+    [WindowFact]
     public void ASettingsFileFromBeforeThePageLoadsWithoutThePageChoices()
     {
         Directory.CreateDirectory(Path.GetDirectoryName(SettingsService.SettingsPath)!);
@@ -270,7 +270,7 @@ public sealed class SiteHygieneRegistrationTests : IDisposable
         Assert.Null(loaded.Areas);
     }
 
-    [Fact]
+    [WindowFact]
     public void TheApplicationContainerGivesThePageTheSixRealLiveServicesAndTheSaveWritesTheLiveOptions()
     {
         using var provider = Provider();
@@ -299,7 +299,7 @@ public sealed class SiteHygieneRegistrationTests : IDisposable
         Assert.Equal(30, SiteHygieneLivePreferences.ToLiveSettings(after).RefreshMinutes);
     }
 
-    [Fact]
+    [WindowFact]
     public void ThePageGetsTheRealServiceStoresAndReportWriterInTheDataFolder()
     {
         using var provider = Provider();

@@ -34,7 +34,7 @@ public sealed class PageReviewTests
         return (dialog.Outcome.Result!, plan, history, steps);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task TheFinalReadBackResultOfTheRealServiceReplacesItsInterimRequested()
     {
         using var h = new DpContentHarness();
@@ -53,7 +53,7 @@ public sealed class PageReviewTests
         Assert.All(plan.Outcomes, o => Assert.True(o.Final));
     }
 
-    [Fact]
+    [WindowFact]
     public async Task ARemovalWhoseFinalResultIsFailedShowsFailedAndOffersNoUndo()
     {
         using var h = new DpContentHarness();
@@ -69,7 +69,7 @@ public sealed class PageReviewTests
 
     private static DpContentPageHarness Harness() => new();
 
-    [Fact]
+    [WindowFact]
     public void ThePlanTakesTheRemainingDpsAndTheDeploymentsFromThePreparedImpact()
     {
         var h = Harness();
@@ -90,7 +90,7 @@ public sealed class PageReviewTests
         Assert.NotNull(plan.Plan.SecondConfirmation);
     }
 
-    [Fact]
+    [WindowFact]
     public void WithoutAPreparedImpactAPairThatFailedToInstallIsNotCountedAsACopy()
     {
         var h = Harness();
@@ -111,7 +111,7 @@ public sealed class PageReviewTests
             Dropped = [new DpContentPairOutcome(Pair: h.BootOnDp01, Result: "Skipped", Message: "Skipped: the state changed from Removal failed to Installed since the list was loaded.", StateAfter: 0)]
         };
 
-    [Fact]
+    [WindowFact]
     public void APairTheServiceLeftOutIsNamedWithItsReasonAndTheChecksThatNeedAttentionComeFirst()
     {
         var h = Harness();
@@ -124,7 +124,7 @@ public sealed class PageReviewTests
         Assert.Equal("Pairs: Pass. 1 pair on 1 distribution point.", notes[3]);
     }
 
-    [Fact]
+    [WindowFact]
     public void APlanWithNoPairLeftNamesThePairsTheServiceLeftOut()
     {
         var h = Harness();
@@ -141,7 +141,7 @@ public sealed class PageReviewTests
         return vm;
     }
 
-    [Fact]
+    [WindowFact]
     public async Task AChangeWithoutAnUndoKeepsTheUndoOfTheLastRemoval()
     {
         var h = Harness();
@@ -167,7 +167,7 @@ public sealed class PageReviewTests
             Pairs: [new DpContentAuditPair(PackageId: "LAB00001", ContentName: "7-Zip 26.04", DpName: "DP01.lab.local", NalPath: "nal1", StateBefore: 0, Result: "Confirmed")],
             Message: "Done.");
 
-    [Fact]
+    [WindowFact]
     public async Task TheHistoryTabIsReadAgainAfterARun()
     {
         var h = Harness();
@@ -190,7 +190,7 @@ public sealed class PageReviewTests
         Assert.Equal(["Validate", "Remove"], vm.HistoryRows.Select(r => r.Action));
     }
 
-    [Fact]
+    [WindowFact]
     public async Task ARemovalWithNoSelectedDpChecksNoPairAndAValidationChecksEvery()
     {
         var h = Harness();
@@ -206,7 +206,7 @@ public sealed class PageReviewTests
         Assert.Equal(3, checkedCount);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task TheSelectedHistoryRowStaysSelectedAfterARefresh()
     {
         var h = Harness();
@@ -219,7 +219,7 @@ public sealed class PageReviewTests
         Assert.Equal("run-1", vm.SelectedHistory?.Record.RunId);
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(VM.MaxHistoryRecords, false)]
     [InlineData(VM.MaxHistoryRecords + 1, true)]
     public async Task TheHistoryIsCappedOnlyWhenTheLogHoldsMoreRecordsThanTheList(int records, bool capped)
@@ -234,7 +234,7 @@ public sealed class PageReviewTests
         Assert.Equal("run-" + (records - 1), vm.HistoryRows[0].Record.RunId);
     }
 
-    [Fact]
+    [WindowFact]
     public void AContentWithoutKnownCountsShowsUnknown()
     {
         var row = new ContentGridRow(new ContentRow(PackageId: "LAB00009", Name: "Unread", ContentType: "Package", SizeMb: 1, DpsTargeted: 0, Installed: 0, InProgress: 0,

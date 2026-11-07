@@ -73,7 +73,7 @@ public sealed class CollectionComplianceViewModelEdgeTests
         return (code.ToString(), literals);
     }
 
-    [Fact]
+    [WindowFact]
     public void AQuotedValueEscapesQuotesAndBackslashesWithABackslash()
     {
         Assert.Equal(@"like '%O\'Brien%'", Build("like '%{P}%'", "O'Brien"));
@@ -84,7 +84,7 @@ public sealed class CollectionComplianceViewModelEdgeTests
         Assert.Equal(@"Name = 'O\'Brien-PC'", "Name = " + WqlParameters.Literal("O'Brien-PC"));
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData("' or 1=1 or '")]
     [InlineData(@"\' or 1=1 ; delete")]
     [InlineData(@"x\")]
@@ -101,7 +101,7 @@ public sealed class CollectionComplianceViewModelEdgeTests
         Assert.Equal(Tokens(template.Replace("{P}", "", StringComparison.Ordinal)).Code, code);
     }
 
-    [Fact]
+    [WindowFact]
     public void ABarePlaceholderTakesAWholeNumberOnly()
     {
         const string template = "select * from SMS_R_System where DATEDIFF(day,LastHardwareScan,GetDate()) > {P})";
@@ -113,7 +113,7 @@ public sealed class CollectionComplianceViewModelEdgeTests
         Assert.Equal(WqlParameters.WholeNumber("Days"), ProblemOf(template, "99999999999999999999", "Days"));
     }
 
-    [Fact]
+    [WindowFact]
     public void ABarePlaceholderInAnInListTakesWholeNumbersSeparatedByCommas()
     {
         const string template = "select * from SMS_G_System_SYSTEM_ENCLOSURE where ChassisTypes in ({P})";
@@ -123,7 +123,7 @@ public sealed class CollectionComplianceViewModelEdgeTests
         Assert.Equal(WqlParameters.WholeNumbers("Chassis"), ProblemOf(template, "'8", "Chassis"));
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData('%')]
     [InlineData('_')]
     [InlineData('[')]
@@ -135,7 +135,7 @@ public sealed class CollectionComplianceViewModelEdgeTests
         Assert.EndsWith($"= '7{wildcard}Zip'", Build("where DisplayName = '{P}'", $"7{wildcard}Zip"));
     }
 
-    [Fact]
+    [WindowFact]
     public void ControlCharactersAndLongValuesAreRefused()
     {
         Assert.Equal(WqlParameters.ControlCharacter, ProblemOf("= '{P}'", "a\nb"));
@@ -144,7 +144,7 @@ public sealed class CollectionComplianceViewModelEdgeTests
         Assert.Equal(WqlParameters.Required, ProblemOf("= {P}", " "));
     }
 
-    [Fact]
+    [WindowFact]
     public void EveryShippedParameterizedTemplateBuildsAQueryTheGuardAccepts()
     {
         var folder = Path.Combine(Path.GetTempPath(), "apkg-cc-none-" + Guid.NewGuid().ToString("N"));
@@ -166,7 +166,7 @@ public sealed class CollectionComplianceViewModelEdgeTests
         Assert.Equal(WqlParameters.WholeNumber("Days"), WqlParameters.Build(days.Expression, [(days.Parameters[0], "Days", "14)) or (1=1")]).Problem);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task AGeneratedQueryReachesTheRealScriptUnchanged()
     {
         if (!WindowsPowerShellPresent) return;
@@ -183,7 +183,7 @@ public sealed class CollectionComplianceViewModelEdgeTests
         Assert.Contains(site.QueryRules("MCM00010"), r => r.Name == "Named" && r.Expression == wql);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task TheTemplatesTabRefusesANonNumberForABarePlaceholderWithAPlainMessage()
     {
         var harness = new CollectionComplianceHarness();
@@ -197,7 +197,7 @@ public sealed class CollectionComplianceViewModelEdgeTests
         Assert.True(viewModel.ApplyTemplateCommand.CanExecute(null));
     }
 
-    [Fact]
+    [WindowFact]
     public async Task ACancelledDialogAfterAnEarlierWriteDoesNotReadTheListAgain()
     {
         var harness = new CollectionComplianceHarness();
@@ -219,7 +219,7 @@ public sealed class CollectionComplianceViewModelEdgeTests
         Assert.Equal(lists, harness.Service.ListCalls);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task AfterOpenByIdTheWritesThatNeedTheWholeListAskForARefresh()
     {
         var harness = new CollectionComplianceHarness();
@@ -245,7 +245,7 @@ public sealed class CollectionComplianceViewModelEdgeTests
         Assert.Equal(0, harness.Prompts.EditorShows + harness.Prompts.PickerShows);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task LeavingThePageReleasesTheResultsTheUndoAndTheEditorText()
     {
         var harness = new CollectionComplianceHarness();
@@ -279,7 +279,7 @@ public sealed class CollectionComplianceViewModelEdgeTests
         Assert.Contains(CollectionComplianceViewModel.NoPreviewNote, harness.Plans.Shown[^1].Items[0].Detail);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task AWriteThatEndsAfterThePageWasLeftDoesNotFillTheList()
     {
         var harness = new CollectionComplianceHarness();
@@ -298,7 +298,7 @@ public sealed class CollectionComplianceViewModelEdgeTests
         Assert.False(viewModel.HasUndo);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task MemberPagingKeepsThePageUntilTheNextArrivesAndIsOffWhileItLoads()
     {
         var harness = new CollectionComplianceHarness();
@@ -330,7 +330,7 @@ public sealed class CollectionComplianceViewModelEdgeTests
         Assert.True(viewModel.NextMemberPageCommand.CanExecute(null));
     }
 
-    [Fact]
+    [WindowFact]
     public async Task ADeviceNameThatMatchesSeveralDevicesIsSkippedAndAResourceIdAddsOne()
     {
         var harness = new CollectionComplianceHarness();
@@ -362,7 +362,7 @@ public sealed class CollectionComplianceViewModelEdgeTests
     private static string IntervalToken(int minutes = 0, int hours = 0, int days = 0) =>
         ((2UL << 19) | ((ulong)minutes << 13) | ((ulong)hours << 8) | ((ulong)days << 3) | (1UL << 44) | (1UL << 48) | (30UL << 38)).ToString("X16", CultureInfo.InvariantCulture);
 
-    [Fact]
+    [WindowFact]
     public void TheRefreshIntervalIsReadFromTheScheduleToken()
     {
         Assert.Equal(new RefreshInterval(7, "Days"), CollectionsText.IntervalOf(IntervalToken(days: 7)));
@@ -375,7 +375,7 @@ public sealed class CollectionComplianceViewModelEdgeTests
         Assert.Equal("every 12 hours", CollectionsText.Every(new RefreshInterval(12, "Hours")));
     }
 
-    [Fact]
+    [WindowFact]
     public void TheEditorValidatesTheRefreshIntervalForPeriodicRefreshOnly()
     {
         var harness = new CollectionComplianceHarness();
@@ -413,7 +413,7 @@ public sealed class CollectionComplianceViewModelEdgeTests
         Assert.Null(editor.BuildRow()!.RefreshInterval);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task TheCreatePlanShowsTheIntervalAndTheDefaultWhenNoneWasGiven()
     {
         var harness = new CollectionComplianceHarness();
@@ -450,7 +450,7 @@ public sealed class CollectionComplianceViewModelEdgeTests
         Assert.Contains("Refresh: Manual.", harness.Plans.Shown[^1].Items[0].Detail);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task TheEditPlanShowsTheOldAndNewIntervalAndAnUnchangedOneIsNotSent()
     {
         var harness = new CollectionComplianceHarness();
@@ -492,7 +492,7 @@ public sealed class CollectionComplianceViewModelEdgeTests
         Assert.Null(harness.Service.Applied[^1][0].AfterRow!.RefreshInterval);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task ARefreshReadsTheDetailOfTheSelectedCollectionAgain()
     {
         var harness = new CollectionComplianceHarness();
@@ -507,7 +507,7 @@ public sealed class CollectionComplianceViewModelEdgeTests
         Assert.Contains(viewModel.Properties, p => p.Name == "Comment" && p.Value == "Patched monthly");
     }
 
-    [Fact]
+    [WindowFact]
     public async Task TheWqlEditorFollowsTheRefreshedCollectionAndDropsARemovedOne()
     {
         var harness = new CollectionComplianceHarness();
@@ -529,7 +529,7 @@ public sealed class CollectionComplianceViewModelEdgeTests
         Assert.Equal(CollectionComplianceViewModel.WqlCollectionGone("Servers renamed (LAB00010)"), viewModel.WqlMessage);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task AFullLoadThatEndsAfterOpenByIdDoesNotReplaceTheOpenedCollection()
     {
         var harness = new CollectionComplianceHarness();
@@ -547,7 +547,7 @@ public sealed class CollectionComplianceViewModelEdgeTests
         Assert.True(viewModel.RefreshCommand.CanExecute(null));
     }
 
-    [Fact]
+    [WindowFact]
     public async Task AnOpenByIdThatEndsAfterARefreshStartedIsDiscarded()
     {
         var harness = new CollectionComplianceHarness();
@@ -563,7 +563,7 @@ public sealed class CollectionComplianceViewModelEdgeTests
         Assert.Equal("5 collections", viewModel.RowCount);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task ConnectSiteAndOpenByIdThatEndAfterLeavingThePageChangeNothing()
     {
         var harness = new CollectionComplianceHarness();
@@ -582,7 +582,7 @@ public sealed class CollectionComplianceViewModelEdgeTests
         Assert.Null(viewModel.SelectedRow);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task APartialUndoKeepsTheUndoOfTheChangesThatAreStillMade()
     {
         var harness = new CollectionComplianceHarness();
@@ -609,7 +609,7 @@ public sealed class CollectionComplianceViewModelEdgeTests
         Assert.False(viewModel.HasUndo);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task APartialUndoInThePlanWindowKeepsTheUndoOfTheRest()
     {
         var harness = new CollectionComplianceHarness();

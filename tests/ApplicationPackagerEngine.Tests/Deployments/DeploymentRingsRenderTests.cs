@@ -81,7 +81,7 @@ public sealed class DeploymentRingsRenderTests
         Settle(window);
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light, 13)]
     [InlineData(ApplicationTheme.Dark, 13)]
     [InlineData(ApplicationTheme.Light, 100)]
@@ -107,7 +107,7 @@ public sealed class DeploymentRingsRenderTests
         });
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light, 2)]
     [InlineData(ApplicationTheme.Dark, 13)]
     [InlineData(ApplicationTheme.Light, 100)]
@@ -163,7 +163,7 @@ public sealed class DeploymentRingsRenderTests
         { ApplicationTheme.Dark, 1024 - NavigationPaneWidth, 720 - 48 }
     };
 
-    [Theory]
+    [WindowTheory]
     [MemberData(nameof(GridSizes))]
     public void EveryDateAndRingColumnShowsAFullDateAndEighteenCharactersOfARing(ApplicationTheme theme, double width, double height)
     {
@@ -218,7 +218,7 @@ public sealed class DeploymentRingsRenderTests
         return count;
     }
 
-    [Theory]
+    [WindowTheory]
     [MemberData(nameof(Sizes))]
     public void TheRingsTabFitsItsWidthScrollsToEveryControlAndWrapsItsCheckBoxes(ApplicationTheme theme, double width, double height, int count)
     {
@@ -266,7 +266,7 @@ public sealed class DeploymentRingsRenderTests
         return null!;
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
     public void TabReachesEveryRingsGridAndSelectsTheFocusedRow(ApplicationTheme theme)
@@ -286,7 +286,7 @@ public sealed class DeploymentRingsRenderTests
         });
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light, 2)]
     [InlineData(ApplicationTheme.Dark, 2)]
     [InlineData(ApplicationTheme.Light, 100)]
@@ -330,7 +330,7 @@ public sealed class DeploymentRingsRenderTests
         });
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
     public void TheMultiSelectPickerShowsItsCheckBoxesAndReadableRows(ApplicationTheme theme)
@@ -360,7 +360,7 @@ public sealed class DeploymentRingsRenderTests
         });
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
     public void TheOptionsTabShowsTheRingFoldersAndTheHistoryItsRingColumns(ApplicationTheme theme)
@@ -395,7 +395,7 @@ public sealed class DeploymentRingsRenderTests
         });
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
     public void EveryRingsGridShowsAtLeastThreeWholeRowsAtTheMinimumSize(ApplicationTheme theme)

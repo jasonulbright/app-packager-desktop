@@ -56,7 +56,7 @@ public sealed class ComplianceWriterServiceTests
         Assert.True(row.Succeeded, row.Message);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task EnableRemediationReachesConfigMgrWithTheSecondConfirmation()
     {
         var site = Site();
@@ -66,7 +66,7 @@ public sealed class ComplianceWriterServiceTests
         Assert.True((bool)site.Assignment(16777270)!["Enforcement"]!);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task RedeployOfARemediatingDeploymentKeepsRemediation()
     {
         var site = Site();
@@ -77,7 +77,7 @@ public sealed class ComplianceWriterServiceTests
         Assert.True((bool)site.Assignment(16777300)!["Enforcement"]!);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task ReassignOfARemediatingDeploymentAndItsUndoReachConfigMgr()
     {
         var site = Site();
@@ -111,7 +111,7 @@ public sealed class ComplianceWriterServiceTests
         Assert.NotNull(plan.Remaining(plan.UndoOutcomes));
     }
 
-    [Fact]
+    [WindowFact]
     public async Task UndoInThePlanWindowOfDisableRemediationDoesNotTurnRemediationOnWithoutTheCheck()
     {
         var site = Site();
@@ -122,7 +122,7 @@ public sealed class ComplianceWriterServiceTests
         Assert.False((bool)site.Assignment(Remediating)!["Enforcement"]!);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task UndoInThePlanWindowOfADeleteOfARemediatingDeploymentCreatesNothingWithoutTheCheck()
     {
         var site = Site();
@@ -134,7 +134,7 @@ public sealed class ComplianceWriterServiceTests
         Assert.Null(site.Assignment(16777300));
     }
 
-    [Fact]
+    [WindowFact]
     public async Task UndoInThePlanWindowOfAReassignWhosePlanHadTheCheckMovesTheRemediatingDeploymentBack()
     {
         var site = Site();
@@ -147,7 +147,7 @@ public sealed class ComplianceWriterServiceTests
         Assert.Equal(("MCM00081", true), ((string)back["CollectionID"]!, (bool)back["Enforcement"]!));
     }
 
-    [Fact]
+    [WindowFact]
     public async Task UndoInThePlanWindowOfDetectOnlyChangesNeedsNoCheck()
     {
         var site = Site();
@@ -158,7 +158,7 @@ public sealed class ComplianceWriterServiceTests
         Assert.False((bool)site.Assignment(16777300)!["Enforcement"]!);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task TheUndoPlanOfThePageAsksTheSecondConfirmationAndPassesItOn()
     {
         var site = Site();
@@ -175,7 +175,7 @@ public sealed class ComplianceWriterServiceTests
         Assert.True((bool)site.Assignment(16777300)!["Enforcement"]!);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task ARemediatingDeployReachesTheBuilderWithTheSecondConfirmation()
     {
         var site = ComplianceCatalogDeployTests.Site();
@@ -189,7 +189,7 @@ public sealed class ComplianceWriterServiceTests
         Assert.DoesNotContain("-DetectOnly", builder.Arguments!);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task APlanThatTurnsRemediationOnWithoutTheSecondCheckBoxDoesNotRun()
     {
         SynchronizationContext.SetSynchronizationContext(null);

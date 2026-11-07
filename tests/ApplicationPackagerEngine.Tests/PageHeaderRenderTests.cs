@@ -165,7 +165,7 @@ public sealed class PageHeaderRenderTests : IDisposable
         else WithApplication(theme, test);
     }
 
-    [Theory]
+    [WindowTheory]
     [MemberData(nameof(Cases))]
     public void EveryPageTitleIsReadableAndTheHeaderStaysSmall(string name, ApplicationTheme theme, int width, int height)
     {
@@ -213,7 +213,7 @@ public sealed class PageHeaderRenderTests : IDisposable
         return new HeaderPlace(At(header).Y, At(header).X, At(header.TitleElement).Y, At(header.TitleElement).X, next - bottom);
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
     public void EveryPageHeaderSitsAtTheSamePlaceWithTheSameGapToTheContent(ApplicationTheme theme)
@@ -262,7 +262,7 @@ public sealed class PageHeaderRenderTests : IDisposable
         Assert.True(differing.Count == 0, $"{theme}: App Packager has {reference}. Different: {string.Join("; ", differing)}.");
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
     public void TheSiteHygieneDescriptionShowsWholeOnOneLineAtTheMinimumSize(ApplicationTheme theme)

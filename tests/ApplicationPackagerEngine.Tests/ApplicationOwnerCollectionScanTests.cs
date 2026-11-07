@@ -8,7 +8,7 @@ public sealed class ApplicationOwnerCollectionScanTests
 {
     private static readonly Regex CreatesApplication = new(@"WithApplication\(|new\s+(System\.Windows\.)?Application\s*\(", RegexOptions.Compiled);
 
-    [Fact]
+    [WindowFact]
     public void EveryTestClassThatCreatesAnApplicationRunsInTheSerialCollection()
     {
         var root = Path.Combine(CatalogServiceTests.RepositoryRoot(), "tests", "ApplicationPackagerEngine.Tests");
@@ -23,7 +23,7 @@ public sealed class ApplicationOwnerCollectionScanTests
         Assert.True(wrong.Count == 0, "These files create an Application outside the serial collection: " + string.Join(", ", wrong));
     }
 
-    [Fact]
+    [WindowFact]
     public void TheThemeResourceWindowTestsRunInTheSerialCollection()
     {
         var file = Path.Combine(CatalogServiceTests.RepositoryRoot(), "tests", "ApplicationPackagerEngine.Tests", "DiscoveryWindowTests.cs");

@@ -25,7 +25,7 @@ public sealed class WindowGridRowsTests
         Show(window);
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
     public void TheCveWindowGridShowsAtLeastThreeWholeRows(ApplicationTheme theme)
@@ -50,7 +50,7 @@ public sealed class WindowGridRowsTests
         });
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
     public void TheOperationHistoryGridsShowAtLeastThreeWholeRows(ApplicationTheme theme)
@@ -94,7 +94,7 @@ public sealed class WindowGridRowsTests
         public Task<bool> RunAsync(IReadOnlyList<OneClickPlanItem> rows, OneClickRunOptions options, CancellationToken ct) => Task.FromResult(false);
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
     public void TheOneClickPlanGridShowsAtLeastThreeWholeRows(ApplicationTheme theme)

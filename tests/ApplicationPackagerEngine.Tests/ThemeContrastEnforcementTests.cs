@@ -31,7 +31,7 @@ public sealed class ThemeContrastEnforcementTests
         pair.Foreground.Contains("Disabled", StringComparison.Ordinal) || pair.Foreground.Contains("Accent", StringComparison.Ordinal)
         || pair.Background.Contains("Accent", StringComparison.Ordinal);
 
-    [Theory]
+    [WindowTheory]
     [MemberData(nameof(Themes))]
     public void EveryBrushPairOfThePagesPassesTheRatios(ApplicationTheme theme)
     {

@@ -60,7 +60,7 @@ public sealed class AppPackagerFitTests
         return new PackagesPage(viewModel);
     }
 
-    [Theory]
+    [WindowTheory]
     [MemberData(nameof(Sizes))]
     public void TheToolbarFitsTheGridShowsWholeRowsAndTheCatalogButtonWorks(ApplicationTheme theme, int width, int height)
     {

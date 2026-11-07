@@ -93,7 +93,7 @@ public sealed class DeploymentHelperRenderTests
         Settle(window);
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
     public void TheFourTabsRenderWithLongValues(ApplicationTheme theme)
@@ -125,7 +125,7 @@ public sealed class DeploymentHelperRenderTests
         });
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light, 1440 - NavigationPaneWidth)]
     [InlineData(ApplicationTheme.Dark, 1440 - NavigationPaneWidth)]
     [InlineData(ApplicationTheme.Light, 1440 - CollapsedPaneWidth)]
@@ -151,7 +151,7 @@ public sealed class DeploymentHelperRenderTests
         }, width);
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
     public void EveryGridShowsReadableRowsAndAVisibleSelection(ApplicationTheme theme)
@@ -194,7 +194,7 @@ public sealed class DeploymentHelperRenderTests
         { ApplicationTheme.Dark, 1440 - CollapsedPaneWidth, 900 - 48 }
     };
 
-    [Theory]
+    [WindowTheory]
     [MemberData(nameof(Sizes))]
     public void EveryTabFitsItsWidthAndScrollsToEveryControl(ApplicationTheme theme, double width, double height)
     {
@@ -244,7 +244,7 @@ public sealed class DeploymentHelperRenderTests
         return count;
     }
 
-    [Theory]
+    [WindowTheory]
     [MemberData(nameof(Sizes))]
     public void EveryCheckBoxOfThePageShowsItsWholeText(ApplicationTheme theme, double width, double height)
     {
@@ -264,7 +264,7 @@ public sealed class DeploymentHelperRenderTests
         }, width, height);
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
     public void EveryCheckBoxOfTheTemplateEditorShowsItsWholeTextAtTheMinimumSize(ApplicationTheme theme)
@@ -285,7 +285,7 @@ public sealed class DeploymentHelperRenderTests
         });
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
     public void TheDeployAndOptionsTabsHaveRefreshAndCancel(ApplicationTheme theme)
@@ -337,7 +337,7 @@ public sealed class DeploymentHelperRenderTests
         return null!;
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
     public void TabReachesEveryGridAndTheArrowKeysSelectTheFocusedRow(ApplicationTheme theme)
@@ -375,7 +375,7 @@ public sealed class DeploymentHelperRenderTests
         });
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
     public void AConfirmedCreateKeepsTheObjectAndTheProgramOfThePackageAndClearsOnlyTheChecks(ApplicationTheme theme)
@@ -407,7 +407,7 @@ public sealed class DeploymentHelperRenderTests
         });
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
     public void ValidateKeepsTheFocusOnItsButtonAndDeployIsTheNextTabStop(ApplicationTheme theme)
@@ -441,7 +441,7 @@ public sealed class DeploymentHelperRenderTests
         });
     }
 
-    [Theory]
+    [WindowTheory]
     [MemberData(nameof(Sizes))]
     public void TheCheckBoxOfEachDpGroupFitsItsCell(ApplicationTheme theme, double width, double height)
     {
@@ -475,7 +475,7 @@ public sealed class DeploymentHelperRenderTests
         }, width, height);
     }
 
-    [Theory]
+    [WindowTheory]
     [MemberData(nameof(Sizes))]
     public void TheHistoryShowsResultAndDeploymentIdWithoutASidewaysScroll(ApplicationTheme theme, double width, double height)
     {
@@ -499,7 +499,7 @@ public sealed class DeploymentHelperRenderTests
         }, width, height);
     }
 
-    [Theory]
+    [WindowTheory]
     [MemberData(nameof(Sizes))]
     public void TheHistoryShowsTheVerifiedMarkAndACopyableDetailsLine(ApplicationTheme theme, double width, double height)
     {
@@ -560,7 +560,7 @@ public sealed class DeploymentHelperRenderTests
         }, width, height);
     }
 
-    [Theory]
+    [WindowTheory]
     [MemberData(nameof(Sizes))]
     public void TheDatePickersShowTheirWholeDate(ApplicationTheme theme, double width, double height)
     {
@@ -584,7 +584,7 @@ public sealed class DeploymentHelperRenderTests
         }, width, height);
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
     public void TheRequiredPlanShowsTheSecondCheckBoxAndConfirmStaysOffUntilItIsChecked(ApplicationTheme theme)
@@ -624,7 +624,7 @@ public sealed class DeploymentHelperRenderTests
         });
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
     public void EveryCellOfATallPlanRowStartsAtTheTopOfTheRow(ApplicationTheme theme)
@@ -679,7 +679,7 @@ public sealed class DeploymentHelperRenderTests
         }
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light, 620)]
     [InlineData(ApplicationTheme.Dark, 620)]
     [InlineData(ApplicationTheme.Light, 820)]
@@ -712,7 +712,7 @@ public sealed class DeploymentHelperRenderTests
         });
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
     public void TheTemplateEditorShowsEveryInputAtItsMinimumSize(ApplicationTheme theme)
@@ -764,7 +764,7 @@ public sealed class DeploymentHelperRenderTests
             $"{where}: {id} lies at {bounds} in a {window.ActualWidth:0}x{window.ActualHeight:0} px window.");
     }
 
-    [Theory]
+    [WindowTheory]
     [MemberData(nameof(ActionSizes))]
     public void DeployAndCreateRunStayVisibleWithoutScrolling(ApplicationTheme theme, double width, double height)
     {
@@ -780,7 +780,7 @@ public sealed class DeploymentHelperRenderTests
         }, width, height);
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
     public void EveryMainGridShowsAtLeastThreeWholeRowsAtTheMinimumSize(ApplicationTheme theme)
@@ -801,7 +801,7 @@ public sealed class DeploymentHelperRenderTests
         }, MinimumSizeRows.Width - NavigationPaneWidth, MinimumSizeRows.Height - 48);
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
     public void TheHistoryResultAndVerifiedColumnsFollowTheOutcomeAndReadOnTheRowFillSelectedOrNot(ApplicationTheme theme)

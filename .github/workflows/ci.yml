@@ -16,6 +16,8 @@ concurrency:
 env:
   DOTNET_NOLOGO: "1"
   DOTNET_CLI_TELEMETRY_OPTOUT: "1"
+  # The tests that open windows run only with this opt-in, and never on the dev PC (tests/.../WindowTestGuard.cs).
+  APD_ALLOW_WINDOW_TESTS: "1"
 
 jobs:
   check:

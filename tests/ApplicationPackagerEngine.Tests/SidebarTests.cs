@@ -49,7 +49,7 @@ internal static class SidebarFixtures
 
 public sealed class SidebarRegistryTests
 {
-    [Fact]
+    [WindowFact]
     public void TheDefaultRegistryStartsWithAppPackagerPinnedFirstThenTheAddEntriesAndTheWorkbench()
     {
         var registry = SidebarRegistry.CreateDefault();
@@ -61,7 +61,7 @@ public sealed class SidebarRegistryTests
         Assert.DoesNotContain(registry.Items, i => i.Title == "Settings");
     }
 
-    [Fact]
+    [WindowFact]
     public void TheWorkbenchEntryIsAWindowWithAClickAction()
     {
         var workbench = SidebarRegistry.CreateDefault().Find(SidebarIds.Workbench)!;
@@ -70,14 +70,14 @@ public sealed class SidebarRegistryTests
         Assert.Null(workbench.PageType);
     }
 
-    [Fact]
+    [WindowFact]
     public void EverySymbolNamesAnExistingIcon()
     {
         foreach (var item in SidebarRegistry.CreateDefault().Items)
             Assert.True(Enum.TryParse<Wpf.Ui.Controls.SymbolRegular>(item.Symbol, out _), item.Symbol);
     }
 
-    [Fact]
+    [WindowFact]
     public void AToolRegisteredLaterIsAppendedAndFoundWithoutRegardToCase()
     {
         var registry = SidebarRegistry.CreateDefault();
@@ -87,7 +87,7 @@ public sealed class SidebarRegistryTests
         Assert.Null(registry.Find("unknown"));
     }
 
-    [Fact]
+    [WindowFact]
     public void RegistrationRefusesARepeatedIdAPageWithoutTypeAndAWindowOrToolWithoutAction()
     {
         var registry = SidebarFixtures.Registry();
@@ -98,7 +98,7 @@ public sealed class SidebarRegistryTests
         Assert.Throws<InvalidOperationException>(() => registry.Register(new SidebarItemDefinition(" ", "Blank", "Apps24", SidebarItemKind.Tool) { Activate = _ => { } }));
     }
 
-    [Fact]
+    [WindowFact]
     public void APinnedEntryCannotBeRegisteredAfterAnEntryThatCanMove()
     {
         var registry = SidebarFixtures.Registry();
@@ -115,7 +115,7 @@ public sealed class SidebarServiceTests
         return (new SidebarService(SidebarFixtures.Registry(), store), store);
     }
 
-    [Fact]
+    [WindowFact]
     public void WithoutASavedLayoutTheOrderIsTheRegistryOrderAndNothingIsHidden()
     {
         var (service, store) = Create();
@@ -124,7 +124,7 @@ public sealed class SidebarServiceTests
         Assert.Equal(0, store.Saves);
     }
 
-    [Fact]
+    [WindowFact]
     public void ALayoutWithNullListsLoadsAsTheDefault()
     {
         var (service, _) = Create(new SidebarLayout { Order = null, Hidden = null });
@@ -132,7 +132,7 @@ public sealed class SidebarServiceTests
         Assert.Empty(service.Hidden);
     }
 
-    [Fact]
+    [WindowFact]
     public void TheSavedOrderAndHiddenListApplyAndUnknownIdsAreIgnored()
     {
         var (service, store) = Create(new SidebarLayout { Order = ["t", "gone", "B", "a", "w", "t"], Hidden = ["W", "gone"] });
@@ -142,14 +142,14 @@ public sealed class SidebarServiceTests
         Assert.Equal(0, store.Saves);
     }
 
-    [Fact]
+    [WindowFact]
     public void AnIdMissingFromTheSavedOrderIsAppendedAtTheEndAndShown()
     {
         var (service, _) = Create(new SidebarLayout { Order = ["b", "a"], Hidden = [] });
         Assert.Equal(["home", "b", "a", "w", "t"], SidebarFixtures.Ids(service.Items));
     }
 
-    [Fact]
+    [WindowFact]
     public void ThePinnedEntryStaysFirstAndShownWhateverTheSavedLayout()
     {
         var (service, _) = Create(new SidebarLayout { Order = ["a", "b", "home"], Hidden = ["home"] });
@@ -157,7 +157,7 @@ public sealed class SidebarServiceTests
         Assert.Empty(service.Hidden);
     }
 
-    [Fact]
+    [WindowFact]
     public void MoveReordersPersistsAndRaisesChanged()
     {
         var (service, store) = Create();
@@ -169,7 +169,7 @@ public sealed class SidebarServiceTests
         Assert.Equal([true], events);
     }
 
-    [Fact]
+    [WindowFact]
     public void MoveClampsBelowThePinnedEntryAndPastTheEnd()
     {
         var (service, _) = Create();
@@ -179,7 +179,7 @@ public sealed class SidebarServiceTests
         Assert.Equal(["home", "a", "w", "t", "b"], SidebarFixtures.Ids(service.Items));
     }
 
-    [Fact]
+    [WindowFact]
     public void MoveOfThePinnedEntryAnUnknownIdOrToTheSamePlaceDoesNothing()
     {
         var (service, store) = Create();
@@ -193,7 +193,7 @@ public sealed class SidebarServiceTests
         Assert.Equal(0, store.Saves);
     }
 
-    [Fact]
+    [WindowFact]
     public void MoveVisibleCountsOnlyShownEntriesAndKeepsHiddenOnesInTheOrder()
     {
         var (service, _) = Create(new SidebarLayout { Order = ["a", "b", "w", "t"], Hidden = ["b"] });
@@ -209,7 +209,7 @@ public sealed class SidebarServiceTests
         Assert.Equal(["home", "w", "t", "a"], SidebarFixtures.Ids(service.Items));
     }
 
-    [Fact]
+    [WindowFact]
     public void HideRemovesTheEntryAndShowReturnsItToItsSavedPlace()
     {
         var (service, store) = Create();
@@ -224,7 +224,7 @@ public sealed class SidebarServiceTests
         Assert.Empty(store.Stored!.Hidden!);
     }
 
-    [Fact]
+    [WindowFact]
     public void HideOfThePinnedEntryAnUnknownIdOrAHiddenEntryReturnsFalse()
     {
         var (service, store) = Create();
@@ -238,7 +238,7 @@ public sealed class SidebarServiceTests
         Assert.Equal(1, store.Saves);
     }
 
-    [Fact]
+    [WindowFact]
     public void ShowOfAShownOrUnknownEntryReturnsFalse()
     {
         var (service, _) = Create();
@@ -247,7 +247,7 @@ public sealed class SidebarServiceTests
         Assert.False(service.Show("home"));
     }
 
-    [Fact]
+    [WindowFact]
     public void ResetRestoresTheRegistryOrderShowsEverythingAndSaves()
     {
         var (service, store) = Create(new SidebarLayout { Order = ["t", "w", "b", "a"], Hidden = ["a", "w"] });
@@ -261,7 +261,7 @@ public sealed class SidebarServiceTests
         Assert.Equal(1, changed);
     }
 
-    [Fact]
+    [WindowFact]
     public void ARefusedSaveKeepsTheChangeForTheSessionAndReportsItUnsaved()
     {
         var (service, store) = Create();
@@ -274,7 +274,7 @@ public sealed class SidebarServiceTests
         Assert.Null(store.Stored);
     }
 
-    [Fact]
+    [WindowFact]
     public void ANewServiceOnTheSameStoreLoadsTheSavedLayout()
     {
         var (service, store) = Create();
@@ -285,7 +285,7 @@ public sealed class SidebarServiceTests
         Assert.Equal(["b"], SidebarFixtures.Ids(reloaded.Hidden));
     }
 
-    [Fact]
+    [WindowFact]
     public void AToolAddedToTheRegistryAfterASaveAppearsAtTheEndShown()
     {
         var (service, store) = Create();
@@ -299,7 +299,7 @@ public sealed class SidebarServiceTests
 
 public sealed class SidebarDropMathTests
 {
-    [Theory]
+    [WindowTheory]
     [InlineData(-5, 1)]
     [InlineData(10, 1)]
     [InlineData(25, 1)]
@@ -312,7 +312,7 @@ public sealed class SidebarDropMathTests
         Assert.Equal(expected, SidebarDropMath.InsertionIndex([20, 60, 100], y, minimum: 1));
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(1, 0, 0)]
     [InlineData(1, 1, 1)]
     [InlineData(1, 2, 1)]
@@ -323,7 +323,7 @@ public sealed class SidebarDropMathTests
         Assert.Equal(expected, SidebarDropMath.FinalIndex(source, insertion));
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(3, 3, false)]
     [InlineData(4, 0, true)]
     [InlineData(0, -4, true)]
@@ -342,7 +342,7 @@ public sealed class SidebarSettingsEditorTests
         return (new SidebarSettingsEditor(service), service);
     }
 
-    [Fact]
+    [WindowFact]
     public void EveryEntryHasARowInTheSidebarOrderWithItsShownState()
     {
         var (editor, _) = Create(new SidebarLayout { Order = ["b", "a", "w", "t"], Hidden = ["a"] });
@@ -351,7 +351,7 @@ public sealed class SidebarSettingsEditorTests
         Assert.Equal("Bravo", editor.Rows[1].Title);
     }
 
-    [Fact]
+    [WindowFact]
     public void ThePinnedRowCannotBeHiddenOrMovedAndTheRowBelowItCannotMoveUp()
     {
         var (editor, _) = Create();
@@ -365,7 +365,7 @@ public sealed class SidebarSettingsEditorTests
         Assert.True(editor.Rows[^1].CanHide);
     }
 
-    [Fact]
+    [WindowFact]
     public void ClearingAndSettingShownHidesAndShowsTheEntryInTheService()
     {
         var (editor, service) = Create();
@@ -375,7 +375,7 @@ public sealed class SidebarSettingsEditorTests
         Assert.False(service.IsHidden("b"));
     }
 
-    [Fact]
+    [WindowFact]
     public void ClearingShownOnThePinnedRowLeavesItShown()
     {
         var (editor, service) = Create();
@@ -384,7 +384,7 @@ public sealed class SidebarSettingsEditorTests
         Assert.True(editor.Rows[0].Shown);
     }
 
-    [Fact]
+    [WindowFact]
     public void UpAndDownMoveTheEntryOnePlaceInTheService()
     {
         var (editor, service) = Create();
@@ -398,7 +398,7 @@ public sealed class SidebarSettingsEditorTests
         Assert.Equal(["home", "a", "w", "b", "t"], editor.Rows.Select(r => r.Id));
     }
 
-    [Fact]
+    [WindowFact]
     public void UpAndDownOnAShownRowStepOverTheHiddenRowsBetween()
     {
         var (editor, service) = Create(new SidebarLayout { Order = ["a", "b", "w", "t"], Hidden = ["b"] });
@@ -414,7 +414,7 @@ public sealed class SidebarSettingsEditorTests
         Assert.Equal(["home", "w", "b", "t", "a"], editor.Rows.Select(r => r.Id));
     }
 
-    [Fact]
+    [WindowFact]
     public void UpOnAShownRowWithOnlyHiddenRowsAboveMovesItBelowThePinnedRow()
     {
         var (editor, service) = Create(new SidebarLayout { Order = ["a", "b", "w", "t"], Hidden = ["a", "b"] });
@@ -424,7 +424,7 @@ public sealed class SidebarSettingsEditorTests
         Assert.Equal(["home", "w", "a", "b", "t"], SidebarFixtures.Ids(service.All));
     }
 
-    [Fact]
+    [WindowFact]
     public void DownOnAShownRowWithOnlyHiddenRowsBelowMovesItToTheEnd()
     {
         var (editor, service) = Create(new SidebarLayout { Order = ["a", "b", "w", "t"], Hidden = ["w", "t"] });
@@ -432,7 +432,7 @@ public sealed class SidebarSettingsEditorTests
         Assert.Equal(["home", "a", "w", "t", "b"], SidebarFixtures.Ids(service.All));
     }
 
-    [Fact]
+    [WindowFact]
     public void UpAndDownOnAHiddenRowMoveItOnePlace()
     {
         var (editor, service) = Create(new SidebarLayout { Order = ["a", "b", "w", "t"], Hidden = ["w"] });
@@ -445,7 +445,7 @@ public sealed class SidebarSettingsEditorTests
         Assert.True(service.IsHidden("w"));
     }
 
-    [Fact]
+    [WindowFact]
     public void AChangeFromTheSidebarUpdatesTheRowsInPlace()
     {
         var (editor, service) = Create();
@@ -457,7 +457,7 @@ public sealed class SidebarSettingsEditorTests
         Assert.All(editor.Rows, r => Assert.Contains(r, rows));
     }
 
-    [Fact]
+    [WindowFact]
     public void ResetRestoresTheDefaultOrderAndShowsEveryRow()
     {
         var (editor, service) = Create(new SidebarLayout { Order = ["t", "w"], Hidden = ["a"] });
@@ -495,7 +495,7 @@ public sealed class SidebarPersistenceTests : IDisposable
         File.WriteAllText(SettingsService.SettingsPath, json);
     }
 
-    [Fact]
+    [WindowFact]
     public void TheLayoutSurvivesASaveAndANewProcess()
     {
         var service = new SidebarService(SidebarRegistry.CreateDefault(), new SettingsSidebarLayoutStore(new SettingsService()));
@@ -510,7 +510,7 @@ public sealed class SidebarPersistenceTests : IDisposable
         Assert.Equal(SidebarIds.DetectionTester, (string?)stored["Hidden"]![0]);
     }
 
-    [Fact]
+    [WindowFact]
     public void AFileFromTheCurrentReleaseLoadsWithoutALayoutAndGivesTheDefaultSidebar()
     {
         WriteSettings("""{ "SiteCode": "PS1", "CompanyName": "Contoso", "PaneOpen": false }""");
@@ -521,7 +521,7 @@ public sealed class SidebarPersistenceTests : IDisposable
         Assert.Equal("""{ "SiteCode": "PS1", "CompanyName": "Contoso", "PaneOpen": false }""", File.ReadAllText(SettingsService.SettingsPath));
     }
 
-    [Fact]
+    [WindowFact]
     public void ANullLayoutOrNullListsLoad()
     {
         WriteSettings("""{ "Sidebar": null }""");
@@ -531,7 +531,7 @@ public sealed class SidebarPersistenceTests : IDisposable
         Assert.Equal(SidebarRegistry.CreateDefault().Items.Count, service.Items.Count);
     }
 
-    [Fact]
+    [WindowFact]
     public void ASidebarSaveKeepsEveryOtherStoredValue()
     {
         WriteSettings("""{ "SiteCode": "PS1", "SiteCodeSaved": true, "CompanyName": "Contoso", "HiddenApplications": ["git"] }""");
@@ -544,7 +544,7 @@ public sealed class SidebarPersistenceTests : IDisposable
         Assert.Equal([SidebarIds.Workbench], loaded.Sidebar!.Hidden!);
     }
 
-    [Fact]
+    [WindowFact]
     public void ASidebarSaveDoesNotStoreTheLauncherSiteCode()
     {
         WriteSettings("""{ "CompanyName": "Contoso" }""");
@@ -556,7 +556,7 @@ public sealed class SidebarPersistenceTests : IDisposable
         Assert.False(stored.ContainsKey("SiteCodeSaved") && (bool?)stored["SiteCodeSaved"] == true);
     }
 
-    [Fact]
+    [WindowFact]
     public void AnUnreadableFileIsNotReplacedAndTheChangeIsReportedUnsaved()
     {
         WriteSettings("{ not json");
@@ -568,7 +568,7 @@ public sealed class SidebarPersistenceTests : IDisposable
         Assert.Equal("{ not json", File.ReadAllText(SettingsService.SettingsPath));
     }
 
-    [Fact]
+    [WindowFact]
     public void ASaveOfAnotherSettingAfterASidebarChangeKeepsTheLayout()
     {
         var settings = new SettingsService();

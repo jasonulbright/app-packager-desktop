@@ -148,7 +148,7 @@ public sealed class CollectionCompliancePageTests
         Settle(window);
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
     public void TheFourTabsRenderInTheTheme(ApplicationTheme theme)
@@ -213,7 +213,7 @@ public sealed class CollectionCompliancePageTests
         });
     }
 
-    [Fact]
+    [WindowFact]
     public void ThePreviewGridShowsTheColumnsOfTheQueryWithTheirFullNames()
     {
         WithPage(ApplicationTheme.Dark, (window, page, harness) =>
@@ -235,7 +235,7 @@ public sealed class CollectionCompliancePageTests
         });
     }
 
-    [Fact]
+    [WindowFact]
     public void ScreenReadersHearPlainNamesForRowsTreeItemsAndMembers()
     {
         WithPage(ApplicationTheme.Dark, (window, page, harness) =>
@@ -259,7 +259,7 @@ public sealed class CollectionCompliancePageTests
         });
     }
 
-    [Fact]
+    [WindowFact]
     public void SelectingACollectionInTheTreeLoadsItsQueryRules()
     {
         WithPage(ApplicationTheme.Light, (window, page, harness) =>
@@ -353,7 +353,7 @@ public sealed class CollectionCompliancePageTests
         }
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light, 1440 - NavigationPaneWidth)]
     [InlineData(ApplicationTheme.Dark, 1440 - NavigationPaneWidth)]
     [InlineData(ApplicationTheme.Light, 1440 - 48)]
@@ -411,7 +411,7 @@ public sealed class CollectionCompliancePageTests
         }, width);
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(900)]
     [InlineData(1440 - NavigationPaneWidth)]
     public void TheDetailsSitUnderTheGridWithTheirTabsOnOneLine(double width)
@@ -439,7 +439,7 @@ public sealed class CollectionCompliancePageTests
     /// <summary>A main window of 1440x900 gives the page its height less the title bar.</summary>
     private const double PageHeightAt900 = 900 - 48;
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
     public void AtNineHundredPixelsTheGridShowsSixRowsWithTheDetailsAndMoreWithoutThem(ApplicationTheme theme)
@@ -468,7 +468,7 @@ public sealed class CollectionCompliancePageTests
         }, height: PageHeightAt900);
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
     public void AtTheMinimumSizeTheDetailsScrollIntoViewWhole(ApplicationTheme theme)
@@ -489,7 +489,7 @@ public sealed class CollectionCompliancePageTests
         }, width: 1024 - NavigationPaneWidth, height: 720 - 48);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task TheDetailsChoiceIsKept()
     {
         var harness = new CollectionComplianceHarness();
@@ -502,7 +502,7 @@ public sealed class CollectionCompliancePageTests
         Assert.False(again.ShowDetails);
     }
 
-    [Fact]
+    [WindowFact]
     public void AConnectionProblemShowsItsMessageAboveTheTabs()
     {
         WithPage(ApplicationTheme.Dark, (window, page, harness) =>
@@ -512,7 +512,7 @@ public sealed class CollectionCompliancePageTests
         }, arrange: h => h.Settings.SiteCode = "");
     }
 
-    [Fact]
+    [WindowFact]
     public void ASkippedUserTemplateFileShowsTheMessageOnTheTemplatesTab()
     {
         WithPage(ApplicationTheme.Light, (window, page, harness) =>
@@ -523,7 +523,7 @@ public sealed class CollectionCompliancePageTests
         }, arrange: h => h.Store.Message = "1 user template file was skipped: broken.json.");
     }
 
-    [Fact]
+    [WindowFact]
     public void TheResultsPanelAndUndoShowAfterAWrite()
     {
         WithPage(ApplicationTheme.Light, (window, page, harness) =>
@@ -638,7 +638,7 @@ public sealed class CollectionCompliancePageTests
         Assert.True(mark >= 1.15, $"{name}: the selected item ({MostCommon(selected)}) is not visibly different from another ({MostCommon(plain)}): {mark:0.00}.");
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
     public void ThePageGridsShowReadableRowsAndAVisibleSelectionInTheTheme(ApplicationTheme theme)
@@ -681,7 +681,7 @@ public sealed class CollectionCompliancePageTests
         });
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light, ApplicationTheme.Dark)]
     [InlineData(ApplicationTheme.Dark, ApplicationTheme.Light)]
     public void TheCollectionsGridFollowsALiveThemeSwitch(ApplicationTheme start, ApplicationTheme next)
@@ -706,7 +706,7 @@ public sealed class CollectionCompliancePageTests
         return data;
     }
 
-    [Theory]
+    [WindowTheory]
     [MemberData(nameof(ModesAndThemes))]
     public void TheCollectionEditorRendersEachMode(CollectionEditorMode mode, ApplicationTheme theme)
     {
@@ -745,7 +745,7 @@ public sealed class CollectionCompliancePageTests
         });
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
     public void AtItsMinimumSizeThePeriodicEditorShowsEveryControlAboveTheFooter(ApplicationTheme theme)
@@ -781,7 +781,7 @@ public sealed class CollectionCompliancePageTests
         });
     }
 
-    [Fact]
+    [WindowFact]
     public async Task ARememberedEditorSizeBelowTheMinimumOpensAtTheMinimum()
     {
         var harness = new CollectionComplianceHarness { Saved = new ApplicationPackagerUI.Models.CollectionComplianceSettings { EditorWidth = 480, EditorHeight = 420 } };
@@ -792,7 +792,7 @@ public sealed class CollectionCompliancePageTests
         Assert.Equal((CollectionEditorViewModel.MinimumWidth, CollectionEditorViewModel.MinimumHeight), opened);
     }
 
-    [Fact]
+    [WindowFact]
     public void AFilterThatHidesTheSelectedLimitingCollectionKeepsIt()
     {
         WithApplication(ApplicationTheme.Light, () =>
@@ -813,7 +813,7 @@ public sealed class CollectionCompliancePageTests
         });
     }
 
-    [Fact]
+    [WindowFact]
     public void KeyboardFocusOnALimitingCollectionSelectsIt()
     {
         WithApplication(ApplicationTheme.Dark, () =>
@@ -838,7 +838,7 @@ public sealed class CollectionCompliancePageTests
         });
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
     public void ThePickerAndThePromptRenderInTheTheme(ApplicationTheme theme)
@@ -879,7 +879,7 @@ public sealed class CollectionCompliancePageTests
         });
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
     public void AtItsDefaultSizeThePlanWindowShowsTheWholeDetailOfARemove(ApplicationTheme theme)
@@ -910,7 +910,7 @@ public sealed class CollectionCompliancePageTests
         });
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
     public void AtItsDefaultSizeThePlanWindowShowsALongObjectNameAndIdUncut(ApplicationTheme theme)
@@ -939,7 +939,7 @@ public sealed class CollectionCompliancePageTests
         });
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
     public void ThePlanWindowShowsALongTemplatePlan(ApplicationTheme theme)
@@ -968,7 +968,7 @@ public sealed class CollectionCompliancePageTests
         });
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
     public void TheCollectionsGridShowsAtLeastThreeWholeRowsAtTheMinimumSizeWithTheDetailsOpen(ApplicationTheme theme)

@@ -53,7 +53,7 @@ public sealed class DropReviewDialogRenderTests
         DetectionHint = "The key is predicted from the application name."
     };
 
-    [Fact]
+    [WindowFact]
     public void AnEmptyValueIsNeverBadgedConfirmed()
     {
         var empty = ProposedFieldRow.From("Uninstall command", ProposedField.Confirmed("", "installer script"));
@@ -104,7 +104,7 @@ public sealed class DropReviewDialogRenderTests
 
     private static Rect Bounds(FrameworkElement element, Window window) => element.TransformToAncestor(window).TransformBounds(new Rect(element.RenderSize));
 
-    [Theory]
+    [WindowTheory]
     [MemberData(nameof(Sizes))]
     public void TheReviewKeepsItsFooterInTheWindowShowsFieldsAndScrollsToTheRest(ApplicationTheme theme, int width, int height)
     {
@@ -149,7 +149,7 @@ public sealed class DropReviewDialogRenderTests
         });
     }
 
-    [Theory]
+    [WindowTheory]
     [MemberData(nameof(Sizes))]
     public void TheBadgesUseThemeBrushesAndTheEmptyUninstallCommandShowsNotConfirmed(ApplicationTheme theme, int width, int height)
     {

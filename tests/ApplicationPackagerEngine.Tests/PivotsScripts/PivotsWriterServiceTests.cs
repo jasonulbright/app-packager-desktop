@@ -46,7 +46,7 @@ public sealed class PivotsWriterServiceTests
         return captured!;
     }
 
-    [Fact]
+    [WindowFact]
     public void ACMPivotRunGoesThroughTheRealServiceAndThePlanWindowClosesAfterTheSend()
     {
         using var h = new PivotsHarness();
@@ -69,7 +69,7 @@ public sealed class PivotsWriterServiceTests
         Assert.Equal(SiteOperationOutcome.PartlySucceeded, history.Entries.Single().Outcome);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task AScriptRunGoesThroughTheRealServiceWithBothBoxes()
     {
         using var h = new PivotsHarness();
@@ -86,7 +86,7 @@ public sealed class PivotsWriterServiceTests
         Assert.Single(h.Finished());
     }
 
-    [Fact]
+    [WindowFact]
     public async Task AScriptRunWithoutTheBoxesIsAPlainSkippedRowAndThePlanStaysForAResend()
     {
         using var h = new PivotsHarness();
@@ -105,7 +105,7 @@ public sealed class PivotsWriterServiceTests
         Assert.Equal(1, h.Site.Count("RunScript:"));
     }
 
-    [Fact]
+    [WindowFact]
     public void ABuiltInCollectionWithoutItsBoxIsAPlainSkippedRow()
     {
         using var h = new PivotsHarness();
@@ -119,7 +119,7 @@ public sealed class PivotsWriterServiceTests
         Assert.Equal(0, h.Admin.Sends);
     }
 
-    [Fact]
+    [WindowFact]
     public void AScriptWhoseTextChangedAfterThePlanIsAPlainSkippedRow()
     {
         using var h = new PivotsHarness();
@@ -134,7 +134,7 @@ public sealed class PivotsWriterServiceTests
         Assert.Equal(SiteOperationOutcome.Failed, history.Entries.Single().Outcome);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task ASecondSendOfTheSamePlanIsRefusedPlainlyAsADoubleClick()
     {
         using var h = new PivotsHarness();
@@ -161,7 +161,7 @@ public sealed class PivotsWriterServiceTests
         return (new VM(services), plans);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task ThePageRunsAQueryThroughTheRealServiceAndTheWaitWritesTheOneFinishedRecord()
     {
         using var h = new PivotsHarness();
@@ -180,7 +180,7 @@ public sealed class PivotsWriterServiceTests
         Assert.Equal(1, h.Admin.Sends);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task ThePageWaitsAgainForASavedRunAfterARestart()
     {
         using var h = new PivotsHarness();

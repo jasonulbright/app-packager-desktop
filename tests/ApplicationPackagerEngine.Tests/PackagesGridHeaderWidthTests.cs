@@ -93,7 +93,7 @@ public sealed class PackagesGridHeaderWidthTests
         return grid.Columns.ToDictionary(c => (string)c.Header, c => Math.Ceiling(c.ActualWidth));
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(false, false)]
     [InlineData(true, false)]
     [InlineData(false, true)]
@@ -125,7 +125,7 @@ public sealed class PackagesGridHeaderWidthTests
         });
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(false)]
     [InlineData(true)]
     public void NoColumnCanShrinkBelowItsHeader(bool withHiddenColumns)

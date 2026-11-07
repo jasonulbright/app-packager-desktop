@@ -48,7 +48,7 @@ public sealed class MaintenanceWindowServiceTests
         Assert.DoesNotContain("Microsoft.ConfigurationManagement", outcome.Message);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task ListWindowsDecodesTheScheduleAndProjectsTheNextOccurrence()
     {
         _site.Add("MCM00014", "Daily Maintenance Window", "008C8E0030100008");
@@ -71,7 +71,7 @@ public sealed class MaintenanceWindowServiceTests
         Assert.Equal(new DateTime(2026, 10, 24, 6, 0, 0), weekly.NextOccurrence);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task AWindowWithAScheduleThePageCannotHoldShowsConfigMgrsTextAndNoNextOccurrence()
     {
         var window = _site.Add("MCM00014", "Every 8 hours", "7AC3BE0008100800");
@@ -90,7 +90,7 @@ public sealed class MaintenanceWindowServiceTests
         Assert.False(window.Enabled);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task ListCollectionsReadsCollectionsOnlyAndFlagsBuiltInOnes()
     {
         var collections = await Service().ListCollectionsAsync(CancellationToken.None);
@@ -100,7 +100,7 @@ public sealed class MaintenanceWindowServiceTests
         Assert.Equal(true, _site.Calls.Single().Parameters["CollectionsOnly"]);
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData("", "")]
     [InlineData("/", "")]
     [InlineData("/Servers", "Servers")]
@@ -110,7 +110,7 @@ public sealed class MaintenanceWindowServiceTests
         Assert.Equal(expected, MaintenanceWindowService.FolderPath(objectPath));
     }
 
-    [Fact]
+    [WindowFact]
     public async Task CreateMakesTheWindowAndItsUndoRemovesExactlyThatWindow()
     {
         var request = Change(ChangeKind.Create, "MCM00016", "Patch night", after: New("MCM00016", "Patch night", PatchTuesday(3), "SoftwareUpdates"));
@@ -141,7 +141,7 @@ public sealed class MaintenanceWindowServiceTests
         Assert.Empty(_site.Windows);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task EveryScheduleKindTravelsAsScriptParametersAndIsStoredAsRequested()
     {
         var schedules = new[]
@@ -163,7 +163,7 @@ public sealed class MaintenanceWindowServiceTests
             Assert.Equal(schedules[i], listed[$"w{i}"].Schedule);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task ABuiltInCollectionIsRefusedWithoutAConfigMgrCall()
     {
         var request = Change(ChangeKind.Create, "SMS00001", "x", after: New("SMS00001", "x", Weekly()));
@@ -175,7 +175,7 @@ public sealed class MaintenanceWindowServiceTests
         Assert.Empty(_site.Calls);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task PrepareReportsAMissingCollectionATakenNameAndAnInvalidSchedulePlainly()
     {
         _site.Add("MCM00016", "Existing", "00CF8E00201F2000");
@@ -196,7 +196,7 @@ public sealed class MaintenanceWindowServiceTests
         Assert.Equal("Enter a window name.", noName.Message);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task UpdateCapturesTheOldValuesAndItsUndoSetsThemBack()
     {
         var original = _site.Add("MCM00015", "Patch Saturday", "00CF8E00201F2000", type: 4);
@@ -221,7 +221,7 @@ public sealed class MaintenanceWindowServiceTests
         Assert.True(original.Enabled);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task AWindowChangedAfterThePlanIsNotWrittenAndTheMessageSaysSo()
     {
         var window = _site.Add("MCM00015", "Patch Saturday", "00CF8E00201F2000");
@@ -238,7 +238,7 @@ public sealed class MaintenanceWindowServiceTests
         Assert.Equal("008C8E0030100008", window.Schedules);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task AWindowRemovedAfterThePlanGivesAPlainMessage()
     {
         var window = _site.Add("MCM00015", "Gone", "00CF8E00201F2000");
@@ -251,7 +251,7 @@ public sealed class MaintenanceWindowServiceTests
         Assert.Equal("The window Gone does not exist on All Workstations any more. Refresh the list.", prepare.Message);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task ACollectionDeletedAfterThePlanGivesAPlainMessage()
     {
         var prepared = await Service().PrepareAsync(
@@ -261,7 +261,7 @@ public sealed class MaintenanceWindowServiceTests
         Assert.Equal("The collection All Servers (MCM00016) does not exist any more. Refresh the list.", outcome.Message);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task RenameCreatesTheNewWindowBeforeItRemovesTheOldOneAndItsUndoRestoresTheOldName()
     {
         _site.Add("MCM00015", "Old name", "00CF8E00201F2000", type: 5);
@@ -285,7 +285,7 @@ public sealed class MaintenanceWindowServiceTests
         Assert.Equal(before with { ServiceWindowId = restored.Id }, await Window("MCM00015", "Old name"));
     }
 
-    [Fact]
+    [WindowFact]
     public async Task ARenameWhoseCreateFailsLeavesTheOldWindowAndRemovesNothing()
     {
         _site.Add("MCM00015", "Old name", "00CF8E00201F2000");
@@ -302,7 +302,7 @@ public sealed class MaintenanceWindowServiceTests
         Assert.Contains(_site.Windows, w => w.Name == "Old name");
     }
 
-    [Fact]
+    [WindowFact]
     public async Task ARenameWhoseRemoveFailsSaysBothWindowsExistAndItsUndoRemovesTheNewOne()
     {
         _site.Add("MCM00015", "Old name", "00CF8E00201F2000");
@@ -322,7 +322,7 @@ public sealed class MaintenanceWindowServiceTests
         Assert.Contains(_log.Lines, l => l.Contains(RawError));
     }
 
-    [Fact]
+    [WindowFact]
     public async Task ARenameToTheSameNameInAnotherCaseIsRefused()
     {
         _site.Add("MCM00015", "Old name", "00CF8E00201F2000");
@@ -332,7 +332,7 @@ public sealed class MaintenanceWindowServiceTests
         Assert.Equal("Collection All Workstations already has a window named OLD NAME.", error.Message);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task ToggleSetsTheStateAndItsUndoTogglesBack()
     {
         var a = _site.Add("MCM00014", "A", "008C8E0030100008");
@@ -354,7 +354,7 @@ public sealed class MaintenanceWindowServiceTests
         Assert.False(b.Enabled);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task RemoveCapturesTheWindowAndItsUndoRecreatesTheSameValuesUnderANewId()
     {
         _site.Add("MCM00015", "Patch Saturday", "00CF8E00201F2000", type: 4, enabled: false);
@@ -375,7 +375,7 @@ public sealed class MaintenanceWindowServiceTests
         Assert.Equal(before with { ServiceWindowId = recreated.ServiceWindowId }, recreated);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task ApplyTemplateFlagsTakenNamesKeepsPartialResultsAndReportsEachOutcomeInOrder()
     {
         _site.Add("MCM00015", "Patch Tuesday + 3 Days", "00CF8E00201F2000");
@@ -408,7 +408,7 @@ public sealed class MaintenanceWindowServiceTests
         Assert.Equal(["MCM00015"], _site.Windows.Select(w => w.CollectionId).ToArray());
     }
 
-    [Fact]
+    [WindowFact]
     public async Task ApplyTemplateWithANewNameForATakenCollectionCreatesTheWindowUnderThatName()
     {
         _site.Add("MCM00015", "Template", "00CF8E00201F2000");
@@ -419,7 +419,7 @@ public sealed class MaintenanceWindowServiceTests
         Assert.Contains(_site.Windows, w => w.Name == "Template 2");
     }
 
-    [Fact]
+    [WindowFact]
     public async Task CancelStopsBetweenChangesAndReportsTheRestAsSkipped()
     {
         using var cancel = new CancellationTokenSource();
@@ -438,7 +438,7 @@ public sealed class MaintenanceWindowServiceTests
         Assert.Contains(_log.Lines, l => l.Contains("2 succeeded, 0 failed, 2 skipped"));
     }
 
-    [Fact]
+    [WindowFact]
     public async Task AccessDeniedNamesTheMissingPermission()
     {
         _site.Throw = call => call.Script == "WriteMaintenanceWindow"
@@ -448,7 +448,7 @@ public sealed class MaintenanceWindowServiceTests
         Assert.Equal("ConfigMgr denied the change to window x on MCM00016. " + MaintenanceWindowService.AccessHint, outcome.Message);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task AScriptFailureKeepsTheRawTextOutOfTheMessage()
     {
         _site.Throw = call => call.Script == "WriteMaintenanceWindow"
@@ -460,7 +460,7 @@ public sealed class MaintenanceWindowServiceTests
         Assert.Contains(_log.Lines, l => l.Contains(RawError));
     }
 
-    [Fact]
+    [WindowFact]
     public async Task ARejectedScheduleGivesAPlainMessage()
     {
         _site.Answer = _ => ("schedule-rejected", RawError);
@@ -469,7 +469,7 @@ public sealed class MaintenanceWindowServiceTests
         NoRawText(outcome);
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ConfigMgrFailure.Timeout)]
     [InlineData(ConfigMgrFailure.ProcessDied)]
     public async Task AWriteWithAnUnknownResultSaysToRefresh(ConfigMgrFailure failure)
@@ -480,7 +480,7 @@ public sealed class MaintenanceWindowServiceTests
         Assert.Null(outcome.UndoChange);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task AReadFailureBecomesAPlainMessageAndTheModuleMessagePassesThrough()
     {
         _site.Throw = _ => new ConfigMgrSessionException(ConfigMgrFailure.ScriptFailed, "The ConfigMgr command ListMaintenanceWindows failed: " + RawError);
@@ -496,7 +496,7 @@ public sealed class MaintenanceWindowServiceTests
         Assert.Equal("The SMS Provider CM01 denied access. " + MaintenanceWindowService.AccessHint, access.Message);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task AReadIsCancellable()
     {
         using var cancel = new CancellationTokenSource();
@@ -504,7 +504,7 @@ public sealed class MaintenanceWindowServiceTests
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => Service().ListWindowsAsync(cancel.Token));
     }
 
-    [Fact]
+    [WindowFact]
     public async Task AScheduleConfigMgrStoresDifferentlyIsNamedInTheMessage()
     {
         _site.Store = token => token[..8] + "08" + token[10..];
@@ -513,7 +513,7 @@ public sealed class MaintenanceWindowServiceTests
         Assert.Contains("ConfigMgr stored a different schedule: Occurs every 1 weeks on Saturday effective 11/3/2026 2:00 AM, 1h long.", outcome.Message);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task AnUnpreparedChangeToAnExistingWindowIsNotApplied()
     {
         var outcome = Assert.Single(await Apply(Change(ChangeKind.Remove, "MCM00015", "x")));
@@ -522,7 +522,7 @@ public sealed class MaintenanceWindowServiceTests
         Assert.Empty(_site.Writes);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task TheLogCarriesKindsAndCountsButNoScheduleValues()
     {
         await Apply(Change(ChangeKind.Create, "MCM00016", "Secret window", after: New("MCM00016", "Secret window", Weekly())));

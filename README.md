@@ -101,6 +101,8 @@ dotnet test tests\ApplicationPackagerEngine.Tests\ApplicationPackagerEngine.Test
 tools\build-release.ps1
 ```
 
+Tests that open a window take the focus of the computer they run on, so they are skipped unless the run opts in. Set `APD_ALLOW_WINDOW_TESTS=1` to run them, on a machine where the focus does not matter: the CI workflow and the lab runs set it. They never run on the dev PC (the computer named `AYW`), with or without the opt-in. In the test project, a test class that uses WPF marks its tests `[WindowFact]` and `[WindowTheory]`; a test checks that no such class keeps a plain `[Fact]` or `[Theory]`.
+
 `tools\build-release.ps1` publishes framework-dependent single-file win-x64 builds of the window and of the command-line build. The .NET Windows Desktop Runtime is not shipped. The minimum version is `DesktopRuntimeMinimum` in `src/DesktopRuntime.props`. It compiles the installer when NSIS is installed. It writes `AppPackagerDesktop-Setup-<version>.exe`, `AppPackagerDesktop-<version>.zip` and `checksums.txt` into `publish\`.
 
 | Project | Content |

@@ -86,7 +86,7 @@ public sealed class MaintenanceWindowsEndToEndTests : IDisposable
 
     private IEnumerable<string> Operations() => _site.Writes.Select(c => (string)c.Parameters["Operation"]!);
 
-    [Fact]
+    [WindowFact]
     public async Task ThePageDrivesTheRealServiceThroughConfirmedPlansOnly()
     {
         await _vm.OnNavigatedToAsync();
@@ -169,7 +169,7 @@ public sealed class MaintenanceWindowsEndToEndTests : IDisposable
         NoRawTextOnThePage();
     }
 
-    [Fact]
+    [WindowFact]
     public async Task ApplyTemplateSkipsTakenNamesAndUsesTodayAsTheEffectiveDate()
     {
         await _vm.OnNavigatedToAsync();
@@ -205,7 +205,7 @@ public sealed class MaintenanceWindowsEndToEndTests : IDisposable
         NoRawTextOnThePage();
     }
 
-    [Fact]
+    [WindowFact]
     public async Task ACancelMidRunKeepsThePartialResultsAndRecordsACancelledRun()
     {
         await _vm.OnNavigatedToAsync();
@@ -246,7 +246,7 @@ public sealed class MaintenanceWindowsEndToEndTests : IDisposable
         NoRawTextOnThePage();
     }
 
-    [Fact]
+    [WindowFact]
     public async Task RawErrorsFromConfigMgrNeverReachThePage()
     {
         await _vm.OnNavigatedToAsync();
@@ -276,7 +276,7 @@ public sealed class MaintenanceWindowsEndToEndTests : IDisposable
         NoRawTextOnThePage(editorMessage);
     }
 
-    [Fact]
+    [WindowFact]
     public async Task TheHistoryHoldsCountsOnlyAndExportsAndTemplatesUseTheirFolders()
     {
         await _vm.OnNavigatedToAsync();

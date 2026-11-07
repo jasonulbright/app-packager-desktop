@@ -56,7 +56,7 @@ public sealed class ComplianceRenderTests
         Settle(window);
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
     public void TheSectionSwitchShowsTheFourComplianceTabs(ApplicationTheme theme)
@@ -85,7 +85,7 @@ public sealed class ComplianceRenderTests
         });
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light, 1440 - NavigationPaneWidth)]
     [InlineData(ApplicationTheme.Dark, 1440 - NavigationPaneWidth)]
     [InlineData(ApplicationTheme.Light, 1440 - 48)]
@@ -146,7 +146,7 @@ public sealed class ComplianceRenderTests
         { ApplicationTheme.Dark, 1440 - NavigationPaneWidth, 900 - 48 }
     };
 
-    [Theory]
+    [WindowTheory]
     [MemberData(nameof(Sizes))]
     public void EveryTabFitsItsWidthAndScrollsToEveryControl(ApplicationTheme theme, double width, double height)
     {
@@ -181,7 +181,7 @@ public sealed class ComplianceRenderTests
         }, width, height);
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
     public void EveryGridShowsReadableRowsAndAVisibleSelection(ApplicationTheme theme)
@@ -220,7 +220,7 @@ public sealed class ComplianceRenderTests
         });
     }
 
-    [Fact]
+    [WindowFact]
     public void ScreenReadersHearPlainNamesForRowsAndItems()
     {
         WithSection(ApplicationTheme.Dark, (window, page, viewModel, harness) =>
@@ -237,7 +237,7 @@ public sealed class ComplianceRenderTests
         });
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
     public void TheCatalogDetailsCollapseAndComeBack(ApplicationTheme theme)
@@ -259,7 +259,7 @@ public sealed class ComplianceRenderTests
         });
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
     public void TheDeployFormRendersEveryParameterAndTheDependencyPanel(ApplicationTheme theme)
@@ -302,7 +302,7 @@ public sealed class ComplianceRenderTests
         return data;
     }
 
-    [Theory]
+    [WindowTheory]
     [MemberData(nameof(EditorCases))]
     public void TheSettingDialogShowsTheInputsOfItsKind(CiSettingEditorMode mode, string kind, ApplicationTheme theme)
     {
@@ -347,7 +347,7 @@ public sealed class ComplianceRenderTests
         });
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
     public void ThePlanWindowShowsALongObjectAndTheRemediationCheckUncut(ApplicationTheme theme)
@@ -385,7 +385,7 @@ public sealed class ComplianceRenderTests
         });
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
     public void EveryMainGridShowsAtLeastThreeWholeRowsAtTheMinimumSize(ApplicationTheme theme)
@@ -426,7 +426,7 @@ public sealed class ComplianceRenderTests
         }, MinimumSizeRows.Width - NavigationPaneWidth, MinimumSizeRows.Height - 48);
     }
 
-    [Theory]
+    [WindowTheory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
     public void TheStatusColumnsFollowTheOutcomeAndReadOnTheRowFillSelectedOrNot(ApplicationTheme theme)

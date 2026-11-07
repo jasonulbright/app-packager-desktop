@@ -222,7 +222,7 @@ public sealed class ThemeContrastReportTests(ITestOutputHelper output)
 
     private static string Hex(Color c) => $"#{c.R:X2}{c.G:X2}{c.B:X2}";
 
-    [Fact]
+    [WindowFact]
     public void ReportsTheContrastOfEveryBrushPairInEveryTheme()
     {
         var unreadable = new List<string>();
