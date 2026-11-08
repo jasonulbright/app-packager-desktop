@@ -112,6 +112,11 @@ public sealed class PublishTargetTests : IDisposable
         var stage = await service.StageAsync(row);
         Assert.Equal(0, stage.ExitCode);
         var manifest = new ManifestService().Read(stage.OutLogPath!);
+        // A .intunewin newer than the manifest is reused, so the publish never downloads the content prep
+        // tool: without it the test depends on a download from the network and fails when that download fails.
+        var content = Path.GetDirectoryName(stage.OutLogPath!)!;
+        File.WriteAllText(IntuneWinArtifact.PathFor(manifest, content), "x");
+        File.SetLastWriteTimeUtc(stage.OutLogPath!, DateTime.UtcNow.AddMinutes(-5));
         var reopenedInventory = new ApplicationInventoryService();
         var package = Assert.IsType<InventoryPackageState>(reopenedInventory.GetPackageState(ProfileStageFixture.ApplicationId, profile.ProfileId));
         Assert.Equal(manifest.BuildId, package.BuildId);
