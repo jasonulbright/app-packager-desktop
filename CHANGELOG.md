@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [2026.1108.8] - 2026-11-08
+
+### Fixed
+
+- Keep the shared download cache whole when a hash mismatch forces a new download.
+- Run detection after an installer that returns exit 1641 in the definition test runner.
+
 ## [2026.1107.7] - 2026-11-07
 
 ### Fixed

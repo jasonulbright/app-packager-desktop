@@ -12,7 +12,7 @@
     <AssemblyName>ApplicationPackagerUI</AssemblyName>
     <RootNamespace>ApplicationPackagerUI</RootNamespace>
     <RollForward>LatestMajor</RollForward>
-    <Version>2026.1107.7</Version>
+    <Version>2026.1108.8</Version>
   </PropertyGroup>
 
   <ItemGroup>
