@@ -262,6 +262,11 @@ public partial class WorkbenchWindowViewModel : ObservableObject
         SetValidatedState(false);
         SaveStateText = _session.IsDirty ? UnsavedText : CleanText;
 
+        // A profile that could not be read is replaced by the default; the operator is told in a
+        // message, because no status line is visible in every section.
+        if (_session.LoadWarning is { } loadWarning && Prompts is not null)
+            await Prompts.InfoAsync("Profile Not Read", loadWarning);
+
         // The fields show this application's saved profile while the prompt is open, not the
         // application shown before it.
         if (_session.PendingDraft is not null)

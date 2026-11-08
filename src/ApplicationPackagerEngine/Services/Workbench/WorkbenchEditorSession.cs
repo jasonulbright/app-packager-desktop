@@ -64,6 +64,12 @@ public sealed class WorkbenchEditorSession
 
     public string ProfileId => Profile.IsDefault ? ApplicationIds.DefaultProfileId : Profile.ProfileId;
 
+    /// <summary>
+    /// Set when the profile asked for could not be read and the packager default was loaded in its place;
+    /// null after a load that worked. A save of the default then creates a new profile.
+    /// </summary>
+    public string? LoadWarning { get; private set; }
+
     /// <summary>A stored draft found when the profile loaded, waiting for Recover or Discard.</summary>
     public JsonObject? PendingDraft { get; private set; }
 
@@ -81,10 +87,12 @@ public sealed class WorkbenchEditorSession
             profileId = Store.GetApplicationDefinition(ApplicationId).ActiveProfileId;
 
         WorkbenchProfile loaded;
+        LoadWarning = null;
         try { loaded = Store.GetProfile(ApplicationId, profileId!); }
         catch (Exception ex) when (ex is InvalidOperationException or ArgumentException or IOException or System.Text.Json.JsonException)
         {
             loaded = WorkbenchProfile.CreateDefault(ApplicationId);
+            LoadWarning = $"Profile '{profileId}' could not be read ({ex.Message}); the packager default is shown. Saving creates a new profile.";
         }
 
         Profile = loaded;
@@ -312,6 +320,7 @@ public sealed class WorkbenchEditorSession
         Profile = saved;
         _baseline = Canonical(Profile.Data);
         PendingDraft = null;
+        LoadWarning = null;
         return new WorkbenchSaveResult(WorkbenchSaveStatus.Saved,
             $"Saved \"{saved.Name}\" at revision {saved.Revision}. Existing builds are now stale relative to this profile; nothing was deployed.");
     }

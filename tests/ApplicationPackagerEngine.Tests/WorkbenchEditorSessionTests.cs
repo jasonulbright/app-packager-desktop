@@ -340,4 +340,53 @@ public sealed class WorkbenchEditorSessionTests : IDisposable
         session.ResetField("Variants.Split");
         Assert.False(session.IsDirty);
     }
+
+    [Fact]
+    public void AProfileThatCannotBeReadFallsBackToTheDefaultAndSaysSo()
+    {
+        var saved = _t.NewProfile(App, "Broken");
+        File.WriteAllText(Path.Combine(_t.Store.GetProfileFolder(App, saved.ProfileId), "profile.json"), "{ \"SchemaVersion\": 99 }");
+
+        var session = NewSession(saved.ProfileId);
+
+        Assert.True(session.IsDefaultProfile);
+        Assert.NotNull(session.LoadWarning);
+        Assert.Contains(saved.ProfileId, session.LoadWarning);
+        Assert.Contains("default", session.LoadWarning, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void AProfileThatLoadsHasNoLoadWarning_AndALaterLoadClearsAnEarlierOne()
+    {
+        var good = _t.NewProfile(App, "Good");
+        var broken = _t.NewProfile(App, "Broken");
+        File.WriteAllText(Path.Combine(_t.Store.GetProfileFolder(App, broken.ProfileId), "profile.json"), "{ \"SchemaVersion\": 99 }");
+        var session = NewSession(broken.ProfileId);
+        Assert.NotNull(session.LoadWarning);
+
+        session.Load(good.ProfileId);
+
+        Assert.Null(session.LoadWarning);
+        Assert.False(session.IsDefaultProfile);
+    }
+
+    [Fact]
+    public void ASuccessfulSaveClearsTheLoadWarningAndAFailedSaveKeepsIt()
+    {
+        var broken = _t.NewProfile(App, "Broken");
+        File.WriteAllText(Path.Combine(_t.Store.GetProfileFolder(App, broken.ProfileId), "profile.json"), "{ \"SchemaVersion\": 99 }");
+        var session = NewSession(broken.ProfileId);
+        Assert.NotNull(session.LoadWarning);
+
+        var cancelled = session.Save(askName: (_, _) => null);
+        Assert.Equal(WorkbenchSaveStatus.Cancelled, cancelled.Status);
+        Assert.NotNull(session.LoadWarning);
+
+        var saved = session.Save(askName: (_, _) => "Replacement");
+        Assert.Equal(WorkbenchSaveStatus.Saved, saved.Status);
+        Assert.Null(session.LoadWarning);
+    }
+
+    [Fact]
+    public void TheDefaultProfileHasNoLoadWarning() => Assert.Null(NewSession().LoadWarning);
 }
