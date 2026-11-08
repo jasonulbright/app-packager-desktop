@@ -6,7 +6,7 @@
 
 ### Fixed
 
-- Sign a script again, up to three times, when the timestamp server does not answer.
+- Make up to three signing attempts when the timestamp server does not answer.
 
 ## [2026.1108.8] - 2026-11-08
 
