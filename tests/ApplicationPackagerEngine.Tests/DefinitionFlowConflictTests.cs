@@ -89,15 +89,17 @@ public sealed class DefinitionFlowConflictTests
     [Fact]
     public async Task StagingRefusesAConflictingDefinitionBeforeAnyDownload()
     {
-        var def = new AppDefinition { InstallerType = "MSI", ExtractSetup = new ExtractSetupConfig(), DownloadUrl = "https://example.test/setup.exe" };
+        using var server = new LoopbackFileServer(new Dictionary<string, byte[]> { ["setup.exe"] = [(byte)'M', (byte)'Z'] });
+        var def = new AppDefinition { InstallerType = "MSI", ExtractSetup = new ExtractSetupConfig(), DownloadUrl = server.Url("setup.exe") };
         var root = Path.Combine(Path.GetTempPath(), "apkg-flow-" + Guid.NewGuid().ToString("N"));
         try
         {
             var result = await new StagingService(new ScraperRegistry(), new DownloadService(), new MsiInspectionService(),
-                new WrapperGeneratorService(), new ManifestService()).StageAsync(def, root);
+                new WrapperGeneratorService(), new ManifestService()).StageAsync(def, root, knownVersion: "1.0.0");
 
             Assert.False(result.Success);
             Assert.Contains("ExtractSetup", result.ErrorMessage);
+            Assert.Empty(server.Requests);
             Assert.False(Directory.Exists(root), "A refused definition must write nothing under the download root.");
         }
         finally { try { Directory.Delete(root, true); } catch (IOException) { } }
