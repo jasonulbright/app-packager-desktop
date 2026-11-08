@@ -317,4 +317,23 @@ public sealed class SharedDownloadCacheTests : IDisposable
         Assert.False(File.Exists(target));
         Assert.False(File.Exists(cached + ".lock"));
     }
+
+    [Fact]
+    public async Task AFreshFetchReplacesAnEntryThatAppearsBeforePublication()
+    {
+        using var server = new ConditionalServer();
+        var cacheRoot = Path.Combine(_root, "_cache");
+        var target = Path.Combine(_root, "a", "setup.exe");
+        var cached = Path.Combine(cacheRoot, SharedDownloadCache.Key(server.Url, "setup.exe"));
+
+        await SharedDownloadCache.RefetchAsync(new DownloadService(), server.Url, target, cacheRoot, path =>
+        {
+            Assert.False(File.Exists(cached), "The replacement must be verified before it is published.");
+            Assert.Equal(server.Body, File.ReadAllBytes(path));
+            File.WriteAllText(cached, "stale concurrent cache entry");
+        });
+
+        Assert.Equal(server.Body, File.ReadAllBytes(target));
+        Assert.Equal(server.Body, File.ReadAllBytes(cached));
+    }
 }

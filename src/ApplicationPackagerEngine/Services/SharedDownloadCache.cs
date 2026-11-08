@@ -120,7 +120,7 @@ public static class SharedDownloadCache
             CopyWithTimestamp(fresh, outFile);
             verify(outFile);
 
-            File.Move(fresh, cached);
+            File.Move(fresh, cached, overwrite: true);
         }
         catch
         {
