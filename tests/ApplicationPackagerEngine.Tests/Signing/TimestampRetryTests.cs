@@ -94,7 +94,12 @@ public sealed class TimestampRetryTests(SigningCertificateFixture fixture)
         {
             Assert.Equal(Server, server);
             calls++;
-            return ScriptSigningService.SignFile(path, certificate, hash, null);
+            var error = ScriptSigningService.SignFile(path, certificate, hash, null);
+            Assert.Equal(0u, error);
+            var verification = ScriptSignatureVerifier.Verify(path);
+            Assert.True(verification.SignatureIntact, verification.Status + " " + verification.Reason);
+            Assert.False(verification.Timestamped);
+            return error;
         }
 
         var service = new ScriptSigningService(null, Fake, TimeSpan.Zero);
