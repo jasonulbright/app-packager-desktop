@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [2026.1108.12] - 2026-11-08
+
+### Fixed
+
+- End a One Click run with a report when the run stops on an error.
+
 ## [2026.1108.11] - 2026-11-08
 
 ### Fixed
