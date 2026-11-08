@@ -1340,8 +1340,10 @@ public sealed class StagingService
         if (def.ExtractSetup is not null) flows.Add("ExtractSetup");
         if (flows.Count > 1)
             return $"The definition names more than one stage flow ({string.Join(", ", flows)}); keep one.";
-        if (def.ExtractSetup is not null && !def.InstallerType.Equals("EXE", StringComparison.OrdinalIgnoreCase))
-            return $"The definition has ExtractSetup, which wraps an EXE installer, but InstallerType is {def.InstallerType}; ExtractSetup would be ignored.";
+        if (string.Equals(def.InstallerType, "ODT", StringComparison.OrdinalIgnoreCase) && flows.Count > 0)
+            return $"The definition has InstallerType ODT and {flows[0]}; the ODT flow runs first and {flows[0]} would be ignored.";
+        if (def.ExtractSetup is not null && !string.Equals(def.InstallerType, "EXE", StringComparison.OrdinalIgnoreCase))
+            return $"The definition has ExtractSetup, which wraps an EXE installer, but InstallerType is {def.InstallerType ?? "empty"}; ExtractSetup would be ignored.";
         return null;
     }
 

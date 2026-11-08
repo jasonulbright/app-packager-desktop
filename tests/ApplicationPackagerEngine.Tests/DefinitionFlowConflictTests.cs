@@ -38,6 +38,55 @@ public sealed class DefinitionFlowConflictTests
     }
 
     [Fact]
+    public void BootstrapperLayoutWithZipPayloadIsRefusedAndNamesBothFields()
+    {
+        var def = new AppDefinition { InstallerType = "EXE", BootstrapperLayout = new BootstrapperLayoutConfig(), ZipPayload = new ZipPayloadConfig() };
+
+        var message = StagingService.FlowConflict(def);
+
+        Assert.NotNull(message);
+        Assert.Contains("BootstrapperLayout", message);
+        Assert.Contains("ZipPayload", message);
+    }
+
+    [Fact]
+    public void AllThreeFlowsAreNamedInOneMessage()
+    {
+        var def = new AppDefinition
+        {
+            InstallerType = "EXE", BootstrapperLayout = new BootstrapperLayoutConfig(),
+            ZipPayload = new ZipPayloadConfig(), ExtractSetup = new ExtractSetupConfig()
+        };
+
+        var message = StagingService.FlowConflict(def);
+
+        Assert.NotNull(message);
+        Assert.Contains("BootstrapperLayout", message);
+        Assert.Contains("ZipPayload", message);
+        Assert.Contains("ExtractSetup", message);
+    }
+
+    [Fact]
+    public void AnOdtDefinitionWithABootstrapperLayoutIsRefused()
+    {
+        var def = new AppDefinition { InstallerType = "ODT", BootstrapperLayout = new BootstrapperLayoutConfig() };
+
+        var message = StagingService.FlowConflict(def);
+
+        Assert.NotNull(message);
+        Assert.Contains("ODT", message);
+        Assert.Contains("BootstrapperLayout", message);
+    }
+
+    [Fact]
+    public void ANullInstallerTypeWithExtractSetupIsRefusedNotThrown()
+    {
+        var def = new AppDefinition { InstallerType = null!, ExtractSetup = new ExtractSetupConfig() };
+
+        Assert.Contains("ExtractSetup", StagingService.FlowConflict(def));
+    }
+
+    [Fact]
     public async Task StagingRefusesAConflictingDefinitionBeforeAnyDownload()
     {
         var def = new AppDefinition { InstallerType = "MSI", ExtractSetup = new ExtractSetupConfig(), DownloadUrl = "https://example.test/setup.exe" };
@@ -49,12 +98,14 @@ public sealed class DefinitionFlowConflictTests
 
             Assert.False(result.Success);
             Assert.Contains("ExtractSetup", result.ErrorMessage);
+            Assert.False(Directory.Exists(root), "A refused definition must write nothing under the download root.");
         }
         finally { try { Directory.Delete(root, true); } catch (IOException) { } }
     }
 
     [Theory]
     [InlineData("EXE", false)]
+    [InlineData("EXE", true)]
     [InlineData("MSI", false)]
     public void ADefinitionWithOneFlowHasNoConflict(string type, bool extract)
     {
