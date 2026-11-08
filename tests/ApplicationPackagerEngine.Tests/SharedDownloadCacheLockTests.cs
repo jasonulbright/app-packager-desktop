@@ -134,4 +134,33 @@ public sealed class SharedDownloadCacheLockTests : IDisposable
             Assert.True(File.Exists(cached + ".lock"));
         Assert.False(File.Exists(cached + ".lock"));
     }
+
+    [Fact]
+    public async Task InvalidatingAnEntryWaitsForTheStageThatHoldsItsLock()
+    {
+        var url = "https://example.test/setup.exe";
+        var cached = Path.Combine(_root, SharedDownloadCache.Key(url, "setup.exe"));
+        await File.WriteAllTextAsync(cached, "payload");
+        var holder = await SharedDownloadCache.AcquireEntryLockAsync(cached, CancellationToken.None);
+
+        var invalidate = SharedDownloadCache.InvalidateAsync(_root, url, "setup.exe", CancellationToken.None);
+        await Task.Delay(400);
+
+        Assert.False(invalidate.IsCompleted, "The purge must wait for the lock.");
+        Assert.True(File.Exists(cached), "The purge must not delete the entry while another stage holds the lock.");
+
+        await holder.DisposeAsync();
+        await invalidate;
+
+        Assert.False(File.Exists(cached));
+        Assert.False(File.Exists(cached + ".lock"));
+    }
+
+    [Fact]
+    public async Task InvalidatingAnAbsentEntryDoesNothing()
+    {
+        await SharedDownloadCache.InvalidateAsync(_root, "https://example.test/none.exe", "none.exe", CancellationToken.None);
+
+        Assert.Empty(Directory.GetFileSystemEntries(_root));
+    }
 }

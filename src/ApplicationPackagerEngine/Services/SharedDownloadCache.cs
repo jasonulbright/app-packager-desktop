@@ -91,6 +91,23 @@ public static class SharedDownloadCache
         return cached;
     }
 
+    /// <summary>
+    /// Deletes the cache entry for <paramref name="url"/> under the entry lock, so a stage that
+    /// reads or refreshes the entry never loses the file. A later <see cref="FetchAsync"/>
+    /// downloads the entry again. An absent entry is not an error.
+    /// </summary>
+    public static async Task InvalidateAsync(string cacheRoot, string url, string fileName, CancellationToken ct = default)
+    {
+        Directory.CreateDirectory(cacheRoot);
+        var cached = Path.Combine(cacheRoot, Key(url, fileName));
+        await using var entryLock = await AcquireEntryLockAsync(cached, ct);
+        try { File.Delete(cached); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            throw new InvalidOperationException($"The shared download cache entry {cached} could not be removed: {ex.Message}", ex);
+        }
+    }
+
     private static string CachedAge(string cached)
     {
         var age = DateTime.UtcNow - File.GetLastWriteTimeUtc(cached);
