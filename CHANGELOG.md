@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [2026.1108.11] - 2026-11-08
+
+### Fixed
+
+- Tell the operator when the Workbench cannot read a profile and shows the default.
+
 ## [2026.1108.10] - 2026-11-08
 
 ### Fixed
