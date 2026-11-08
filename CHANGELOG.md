@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [2026.1108.10] - 2026-11-08
+
+### Fixed
+
+- Refuse a definition that names two stage flows, before any download.
+
 ## [2026.1108.9] - 2026-11-08
 
 ### Fixed
