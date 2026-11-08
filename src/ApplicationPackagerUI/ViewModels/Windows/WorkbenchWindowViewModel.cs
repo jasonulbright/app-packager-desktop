@@ -244,7 +244,8 @@ public partial class WorkbenchWindowViewModel : ObservableObject
         try
         {
             SourceTypeText = application.SourceType;
-            IdentityText = $"Application id {application.ApplicationId}; output folders and vendor discovery keep using the packager identity, not the displayed title.";
+            IdentityText = $"Application id {application.ApplicationId}; output folders and vendor discovery keep using the packager identity, not the displayed title."
+                + (_session.LoadWarning is { } warning ? " " + warning : "");
             ProvenanceText = string.IsNullOrWhiteSpace(application.SourcePath)
                 ? "Manual updates; no vendor discovery source is configured for this application."
                 : application.SourcePath;
