@@ -320,6 +320,7 @@ public sealed class WorkbenchEditorSession
         Profile = saved;
         _baseline = Canonical(Profile.Data);
         PendingDraft = null;
+        LoadWarning = null;
         return new WorkbenchSaveResult(WorkbenchSaveStatus.Saved,
             $"Saved \"{saved.Name}\" at revision {saved.Revision}. Existing builds are now stale relative to this profile; nothing was deployed.");
     }

@@ -371,5 +371,22 @@ public sealed class WorkbenchEditorSessionTests : IDisposable
     }
 
     [Fact]
+    public void ASuccessfulSaveClearsTheLoadWarningAndAFailedSaveKeepsIt()
+    {
+        var broken = _t.NewProfile(App, "Broken");
+        File.WriteAllText(Path.Combine(_t.Store.GetProfileFolder(App, broken.ProfileId), "profile.json"), "{ \"SchemaVersion\": 99 }");
+        var session = NewSession(broken.ProfileId);
+        Assert.NotNull(session.LoadWarning);
+
+        var cancelled = session.Save(askName: (_, _) => null);
+        Assert.Equal(WorkbenchSaveStatus.Cancelled, cancelled.Status);
+        Assert.NotNull(session.LoadWarning);
+
+        var saved = session.Save(askName: (_, _) => "Replacement");
+        Assert.Equal(WorkbenchSaveStatus.Saved, saved.Status);
+        Assert.Null(session.LoadWarning);
+    }
+
+    [Fact]
     public void TheDefaultProfileHasNoLoadWarning() => Assert.Null(NewSession().LoadWarning);
 }

@@ -244,8 +244,7 @@ public partial class WorkbenchWindowViewModel : ObservableObject
         try
         {
             SourceTypeText = application.SourceType;
-            IdentityText = $"Application id {application.ApplicationId}; output folders and vendor discovery keep using the packager identity, not the displayed title."
-                + (_session.LoadWarning is { } warning ? " " + warning : "");
+            IdentityText = $"Application id {application.ApplicationId}; output folders and vendor discovery keep using the packager identity, not the displayed title.";
             ProvenanceText = string.IsNullOrWhiteSpace(application.SourcePath)
                 ? "Manual updates; no vendor discovery source is configured for this application."
                 : application.SourcePath;
@@ -262,6 +261,11 @@ public partial class WorkbenchWindowViewModel : ObservableObject
         RefreshAll();
         SetValidatedState(false);
         SaveStateText = _session.IsDirty ? UnsavedText : CleanText;
+
+        // A profile that could not be read is replaced by the default; the operator is told in a
+        // message, because no status line is visible in every section.
+        if (_session.LoadWarning is { } loadWarning && Prompts is not null)
+            await Prompts.InfoAsync("Profile Not Read", loadWarning);
 
         // The fields show this application's saved profile while the prompt is open, not the
         // application shown before it.
