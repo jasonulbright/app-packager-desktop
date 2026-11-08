@@ -60,6 +60,22 @@ public sealed class TimestampRetryTests(SigningCertificateFixture fixture)
     }
 
     [Fact]
+    public void AnUntimestampedSignatureIsKeptWhenLaterAttemptsFailWithNetworkErrors()
+    {
+        // Call 1 signs without a timestamp; calls 2 and 3 fail. The optional-timestamp result of call 1 must survive.
+        var calls = 0;
+        uint Fake(string path, X509Certificate2 certificate, string hash, string? server) =>
+            ++calls == 1 ? ScriptSigningService.SignFile(path, certificate, hash, null) : CannotConnect;
+        var service = new ScriptSigningService(null, Fake, TimeSpan.Zero);
+        var path = NewScript();
+
+        var result = service.SignForCategory(path, fixture.Policy(sd: true, timestamp: Server), SigningCategory.Detection);
+
+        Assert.Equal(3, calls);
+        Assert.Equal(SigningStatus.SignedAndVerified, result.Status);
+        Assert.True(ScriptSignatureVerifier.Verify(path).SignatureIntact);
+    }
+    [Fact]
     public void ARequiredTimestampStillThrowsAfterTheRetries()
     {
         var (service, calls) = Signer(failures: int.MaxValue);

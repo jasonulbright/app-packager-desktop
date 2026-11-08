@@ -144,6 +144,7 @@ public sealed class ScriptSigningService
         // The signer reports success when the timestamp server did not answer, and the file then carries a
         // signature without a timestamp. Sign again a bounded number of times before that result is accepted.
         ScriptSignatureVerification verify;
+        byte[]? untimestamped = null;
         for (var attempt = 1; ; attempt++)
         {
             uint error;
@@ -159,16 +160,32 @@ public sealed class ScriptSigningService
             if (error != 0)
             {
                 // A timestamp server that refuses the connection fails the signing with a network error.
-                if (timestampConfigured && IsNetworkError(error) && attempt < TimestampAttempts)
+                if (timestampConfigured && IsNetworkError(error))
                 {
-                    if (_timestampRetryDelay > TimeSpan.Zero) Thread.Sleep(_timestampRetryDelay);
-                    continue;
+                    if (attempt < TimestampAttempts)
+                    {
+                        if (_timestampRetryDelay > TimeSpan.Zero) Thread.Sleep(_timestampRetryDelay);
+                        continue;
+                    }
+                    // An earlier attempt made a valid signature without a timestamp, which the optional-timestamp
+                    // policy accepts. A later failed attempt may have changed the file, so put that result back.
+                    if (untimestamped is not null)
+                    {
+                        try { File.WriteAllBytes(path, untimestamped); }
+                        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                        {
+                            return SigningFailed(ex.Message, ex);
+                        }
+                        verify = ScriptSignatureVerifier.Verify(path);
+                        break;
+                    }
                 }
                 return SigningFailed($"The operating system signer returned 0x{error:X8}: {new Win32Exception(unchecked((int)error)).Message}");
             }
 
             verify = ScriptSignatureVerifier.Verify(path);
             if (!timestampConfigured || verify.Timestamped || attempt >= TimestampAttempts) break;
+            if (verify.SignatureIntact && !normalized.TimestampRequired) untimestamped = File.ReadAllBytes(path);
             if (_timestampRetryDelay > TimeSpan.Zero) Thread.Sleep(_timestampRetryDelay);
         }
         var (status, reason) = Classify(verify, cert.Thumbprint);
