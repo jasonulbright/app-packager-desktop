@@ -95,7 +95,7 @@ public static class SharedDownloadCache
     /// Replaces the cache entry for <paramref name="url"/> with a fresh full download, then copies it
     /// to <paramref name="outFile"/> and runs <paramref name="verify"/> on that copy. The purge, the
     /// download and the check run under one entry lock, so no other stage reads or refills the entry
-    /// in between. A replacement that fails the check is removed from the cache and the exception goes on.
+    /// in between. The replacement is published to the shared cache only after the copy passes the check.
     /// </summary>
     public static async Task<string> RefetchAsync(
         DownloadService downloads, string url, string outFile, string cacheRoot, Action<string> verify,
@@ -112,16 +112,19 @@ public static class SharedDownloadCache
         {
             throw new InvalidOperationException($"The shared download cache entry {cached} could not be removed: {ex.Message}", ex);
         }
-        onProgress?.Invoke($"Downloading                  : {url}");
-        await downloads.DownloadAsync(url, cached, onProgress: onProgress, ct: ct, headers: headers, extraArguments: ["-R"]);
+        var fresh = $"{cached}.{Guid.NewGuid():N}.refetch";
         try
         {
-            CopyWithTimestamp(cached, outFile);
+            onProgress?.Invoke($"Downloading                  : {url}");
+            await downloads.DownloadAsync(url, fresh, onProgress: onProgress, ct: ct, headers: headers, extraArguments: ["-R"]);
+            CopyWithTimestamp(fresh, outFile);
             verify(outFile);
+
+            File.Move(fresh, cached);
         }
         catch
         {
-            foreach (var bad in new[] { cached, outFile })
+            foreach (var bad in new[] { fresh, outFile })
                 try { File.Delete(bad); } catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
             throw;
         }

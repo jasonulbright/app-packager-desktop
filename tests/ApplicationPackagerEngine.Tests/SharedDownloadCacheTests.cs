@@ -279,7 +279,11 @@ public sealed class SharedDownloadCacheTests : IDisposable
         var holder = await SharedDownloadCache.AcquireEntryLockAsync(cached, CancellationToken.None);
         var target = Path.Combine(_root, "b", "setup.exe");
 
-        var refetch = SharedDownloadCache.RefetchAsync(new DownloadService(), server.Url, target, cacheRoot, _ => { });
+        var refetch = SharedDownloadCache.RefetchAsync(new DownloadService(), server.Url, target, cacheRoot, path =>
+        {
+            Assert.False(File.Exists(cached), "Fresh bytes must pass verification before they enter the shared cache.");
+            Assert.Equal(Encoding.ASCII.GetBytes("MZ payload two"), File.ReadAllBytes(path));
+        });
         await Task.Delay(500);
 
         Assert.False(refetch.IsCompleted, "The purge and the fresh download must wait for the entry lock.");
@@ -302,7 +306,11 @@ public sealed class SharedDownloadCacheTests : IDisposable
 
         var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
             SharedDownloadCache.RefetchAsync(new DownloadService(), server.Url, target, cacheRoot,
-                _ => throw new InvalidOperationException("hash mismatch")));
+                _ =>
+                {
+                    Assert.False(File.Exists(cached), "Unverified bytes must not be published to the shared cache.");
+                    throw new InvalidOperationException("hash mismatch");
+                }));
 
         Assert.Equal("hash mismatch", ex.Message);
         Assert.False(File.Exists(cached), "A replacement that fails the check must not stay in the shared cache.");
