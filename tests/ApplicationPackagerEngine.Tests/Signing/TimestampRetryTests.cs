@@ -87,6 +87,25 @@ public sealed class TimestampRetryTests(SigningCertificateFixture fixture)
     }
 
     [Fact]
+    public void ARequiredTimestampThrowsAfterThreeSuccessfulUntimestampedSignatures()
+    {
+        var calls = 0;
+        uint Fake(string path, X509Certificate2 certificate, string hash, string? server)
+        {
+            Assert.Equal(Server, server);
+            calls++;
+            return ScriptSigningService.SignFile(path, certificate, hash, null);
+        }
+
+        var service = new ScriptSigningService(null, Fake, TimeSpan.Zero);
+
+        Assert.Throws<InvalidOperationException>(() =>
+            service.SignForCategory(NewScript(), fixture.Policy(sd: true, timestamp: Server, timestampRequired: true), SigningCategory.Detection));
+
+        Assert.Equal(3, calls);
+    }
+
+    [Fact]
     public void AnErrorThatIsNotANetworkErrorIsNotTriedAgain()
     {
         var (service, calls) = Signer(failures: int.MaxValue, error: 0x80090010);
