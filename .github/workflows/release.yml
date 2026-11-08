@@ -32,6 +32,7 @@ on:
 permissions:
   contents: write
   id-token: write
+  actions: read
 
 env:
   SIGN_ENDPOINT: https://eus.codesigning.azure.net/
@@ -57,6 +58,21 @@ jobs:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
           fetch-depth: 0
+          # The token is not left in the git config for the steps that build and sign;
+          # only the tag push below presents it.
+          persist-credentials: false
+
+      # A release is built from a commit the CI workflow has passed. The newest finished run on this commit decides;
+      # a cancelled run counts for nothing, and a run still going refuses the release.
+      - name: Require a green CI run on this commit
+        if: ${{ !inputs.dry_run }}
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $runs = gh run list --workflow ci.yml --commit "${{ github.sha }}" --limit 30 --json databaseId,status,conclusion,event,createdAt,headSha
+          if ($LASTEXITCODE -ne 0) { throw 'gh run list failed.' }
+          & tools/assert-ci-green.ps1 -Sha "${{ github.sha }}" -RunsJson ($runs -join "`n")
 
       - name: Resolve the version and its changelog section
         id: meta
@@ -278,9 +294,11 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git tag -a "${{ steps.meta.outputs.tag }}" -m "$env:HEADLINE"
-          git push origin "${{ steps.meta.outputs.tag }}"
+          $basic = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes("x-access-token:$env:GH_TOKEN"))
+          git -c "http.https://github.com/.extraheader=AUTHORIZATION: basic $basic" push origin "${{ steps.meta.outputs.tag }}"
         env:
           HEADLINE: ${{ inputs.headline }}
+          GH_TOKEN: ${{ github.token }}
 
       # Assets upload onto a draft; the release goes public only once every
       # upload succeeded, so a half-uploaded release is never downloadable.

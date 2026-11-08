@@ -60,13 +60,14 @@ The headline becomes the `##` line of the release notes. It is one concrete outc
 The workflow:
 
 1. Refuses to run off `main`.
-2. Reads the version from the UI project, checks it with `tools/test-release-version.ps1` and checks that the tag and the release do not exist.
-3. Reads the `## [<ver>]` section of `CHANGELOG.md` and writes the release notes: `## <headline>`, the section, and `Full changelog: CHANGELOG.md`.
-4. Runs the engine tests.
-5. Publishes the application and `AppPackagerBuild.exe` with `tools/build-release.ps1 -PublishOnly`.
-6. Signs the published executables (the builds are framework-dependent: the .NET Windows Desktop Runtime is not shipped, and the installer installs it on demand). Builds the uninstaller with `tools/build-installer.ps1 -UninstallerOnly` and signs it, because Windows Defender removes an unsigned `Uninstall.exe` that an installer writes. Then builds the installer from the signed stage and the signed uninstaller, and signs the installer.
-7. Verifies every signature with `tools/verify-signatures.ps1`.
-8. Zips the stage, writes `checksums.txt`, tags the commit `v<ver>` and publishes the release with the installer, the zip and `checksums.txt`.
+2. Refuses a commit that the CI workflow has not passed (`tools/assert-ci-green.ps1`): a failed run, a run still going or no run on the commit stops the release. Start the CI workflow on the commit and wait for it before the release. A dry run skips this check.
+3. Reads the version from the UI project, checks it with `tools/test-release-version.ps1` and checks that the tag and the release do not exist.
+4. Reads the `## [<ver>]` section of `CHANGELOG.md` and writes the release notes: `## <headline>`, the section, and `Full changelog: CHANGELOG.md`.
+5. Runs the engine tests.
+6. Publishes the application and `AppPackagerBuild.exe` with `tools/build-release.ps1 -PublishOnly`.
+7. Signs the published executables (the builds are framework-dependent: the .NET Windows Desktop Runtime is not shipped, and the installer installs it on demand). Builds the uninstaller with `tools/build-installer.ps1 -UninstallerOnly` and signs it, because Windows Defender removes an unsigned `Uninstall.exe` that an installer writes. Then builds the installer from the signed stage and the signed uninstaller, and signs the installer.
+8. Verifies every signature with `tools/verify-signatures.ps1`.
+9. Zips the stage, writes `checksums.txt`, tags the commit `v<ver>` and publishes the release with the installer, the zip and `checksums.txt`.
 
 The signing identity comes from the federated credential of the Azure app registration. The credential must trust the subject of the run. The run takes no environment, so the subject has the form `repo:<owner>@<owner id>/<repository>@<repository id>:ref:refs/heads/main`.
 
