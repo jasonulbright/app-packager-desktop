@@ -195,4 +195,61 @@ public sealed class OneClickPlanViewModelTests : IDisposable
         Assert.False(beta.Include);
         Assert.Equal("no local source folder", beta.Reason);
     }
+
+    private sealed class ThrowingRunner(Action<IReadOnlyList<OneClickPlanItem>> before) : IOneClickRunner
+    {
+        public Task<bool> RunAsync(IReadOnlyList<OneClickPlanItem> rows, OneClickRunOptions options, CancellationToken ct)
+        {
+            before(rows);
+            throw new InvalidOperationException("the share went away");
+        }
+    }
+
+    private sealed class CancelingRunner(Action<IReadOnlyList<OneClickPlanItem>> work) : IOneClickRunner
+    {
+        public Task<bool> RunAsync(IReadOnlyList<OneClickPlanItem> rows, OneClickRunOptions options, CancellationToken ct)
+        {
+            work(rows);
+            return Task.FromResult(true);
+        }
+    }
+
+    [Fact]
+    public async Task ARunnerThatThrowsEndsTheRunWithAReportAndASummaryNotARunningWindow()
+    {
+        var runner = new ThrowingRunner(rows => rows[0].Step = "staging Alpha");
+        var vm = Window(runner);
+
+        await vm.RunCommand.ExecuteAsync(null);
+
+        Assert.False(vm.IsRunning);
+        Assert.StartsWith("Failed: the share went away. Report: one-click-", vm.SummaryText);
+        Assert.True(File.Exists(vm.ReportPath));
+        Assert.All(vm.Rows.Where(r => r.Include), r => Assert.DoesNotContain(r.Step, new[] { "Pending", "staging Alpha" }));
+        var md = File.ReadAllText(vm.ReportPath);
+        Assert.Contains("run stopped during this application: the share went away", md);
+        Assert.Contains("run stopped before this application: the share went away", md);
+        Assert.Equal("Interrupted", vm.Rows.Single(r => r.Key == "package-alpha").Step);
+        Assert.Equal("Not started", vm.Rows.Single(r => r.Key == "package-beta").Step);
+    }
+
+    [Fact]
+    public async Task ACanceledRunMarksTheRowsItNeverReachedNotStartedNotPending()
+    {
+        var runner = new CancelingRunner(rows =>
+        {
+            rows[0].SetResult("ConfigMgr", "published Alpha");
+            rows[0].Outcome = OneClickOutcomes.Published;
+            rows[0].Step = OneClickOutcomes.Published;
+        });
+        var vm = Window(runner);
+
+        await vm.RunCommand.ExecuteAsync(null);
+
+        var reached = vm.Rows.Single(r => r.Key == "package-alpha");
+        var notReached = vm.Rows.Single(r => r.Key == "package-beta");
+        Assert.Equal(OneClickOutcomes.Published, reached.Step);
+        Assert.Equal("Not started", notReached.Step);
+        Assert.StartsWith("Canceled:", vm.SummaryText);
+    }
 }
