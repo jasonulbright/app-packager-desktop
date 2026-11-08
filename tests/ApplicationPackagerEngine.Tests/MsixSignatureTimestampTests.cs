@@ -48,7 +48,7 @@ public sealed class MsixSignatureTimestampTests : IDisposable
         foreach (var usage in usages) oids.Add(new Oid(usage));
         // RFC 3161 section 2.3: the TSA certificate carries the time stamping usage in a critical extension.
         request.CertificateExtensions.Add(new X509EnhancedKeyUsageExtension(oids, critical: usages.Contains("1.3.6.1.5.5.7.3.8")));
-        var serial = RandomNumberGenerator.GetBytes(8);
+        var serial = Serial();
         using var issued = request.Create(_root, notBefore, notAfter, serial);
         return issued.CopyWithPrivateKey(key);
     }
@@ -64,10 +64,31 @@ public sealed class MsixSignatureTimestampTests : IDisposable
         return new AsnEncodedData(new Oid("1.2.840.113549.1.9.16.2.47"), writer.Encode());
     }
 
+    /// <summary>
+    /// A random 8-byte big-endian serial whose first byte is 0x01 to 0x7F. A random first byte of 0x00 or 0xFF (or a first 9 bits that are all equal)
+    /// is a redundant leading byte, which ASN.1 refuses; that made the test fail about once in 256 runs.
+    /// </summary>
+    internal static byte[] Serial()
+    {
+        var serial = RandomNumberGenerator.GetBytes(8);
+        serial[0] = (byte)(1 + serial[0] % 127);
+        return serial;
+    }
+
+    [Fact]
+    public void ASerialIsAlwaysAValidAsn1Integer()
+    {
+        for (var i = 0; i < 20000; i++)
+        {
+            var writer = new System.Formats.Asn1.AsnWriter(System.Formats.Asn1.AsnEncodingRules.DER);
+            writer.WriteInteger(Serial());
+        }
+    }
+
     private static byte[] TimestampToken(SignerInfo signer, X509Certificate2 tsa, DateTimeOffset at)
     {
         var info = new Rfc3161TimestampTokenInfo(new Oid("1.2.3.4"), new Oid("2.16.840.1.101.3.4.2.1"),
-            SHA256.HashData(signer.GetSignature()), RandomNumberGenerator.GetBytes(8), at);
+            SHA256.HashData(signer.GetSignature()), Serial(), at);
         var cms = new SignedCms(new ContentInfo(new Oid("1.2.840.113549.1.9.16.1.4"), info.Encode()));
         var tsaSigner = new CmsSigner(tsa) { IncludeOption = X509IncludeOption.EndCertOnly };
         tsaSigner.SignedAttributes.Add(SigningCertificateV2(tsa));
