@@ -1,3 +1,4 @@
+using ApplicationPackagerEngine.Models;
 using ApplicationPackagerEngine.Services;
 
 namespace ApplicationPackagerEngine.Tests;
@@ -8,6 +9,42 @@ namespace ApplicationPackagerEngine.Tests;
 /// </summary>
 public sealed class DefinitionTestRunnerInstallGateTests
 {
+    [Fact]
+    public async Task RunAsyncWithHardRebootInitiatedStillEvaluatesDetection()
+    {
+        var stagedContentPath = Path.Combine(Path.GetTempPath(), $"test-runner-1641-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(stagedContentPath);
+        try
+        {
+            File.WriteAllText(Path.Combine(stagedContentPath, "install.bat"),
+                "@echo off\r\necho installed>installed.marker\r\nexit /b 1641\r\n");
+            var manifest = new StageManifest
+            {
+                AppName = "Installer test",
+                InstallContext = "User",
+                Detection = new StageDetection
+                {
+                    Type = "File",
+                    FilePath = stagedContentPath,
+                    FileName = "installed.marker",
+                    PropertyType = "Existence"
+                }
+            };
+            var definition = new AppDefinition { Id = "installer-test", CanUninstall = false };
+
+            var result = await new DefinitionTestRunner().RunAsync(stagedContentPath, manifest, definition);
+
+            Assert.Equal(1641, result.InstallExitCode);
+            Assert.Equal("PASS (hard reboot initiated)", result.InstallResult);
+            Assert.Equal("PASS", result.DetectResult);
+            Assert.Equal("PASS", result.OverallResult);
+        }
+        finally
+        {
+            Directory.Delete(stagedContentPath, recursive: true);
+        }
+    }
+
     [Theory]
     [InlineData(0, "PASS")]
     [InlineData(3010, "PASS (reboot required)")]
