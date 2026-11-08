@@ -7,12 +7,14 @@ namespace ApplicationPackagerEngine.Tests.Signing;
 
 /// <summary>
 /// A signing that fails because the timestamp server did not answer is tried again a bounded number of
-/// times before the failure is reported (or thrown when a timestamp is required).
+/// times before the failure is reported (or thrown when a timestamp is required). The signer is a
+/// fake that answers with a fixed network error, so no test depends on the host's network.
 /// </summary>
 [Collection(SigningCollection.Name)]
 public sealed class TimestampRetryTests(SigningCertificateFixture fixture)
 {
-    private const string UnreachableServer = "http://127.0.0.1:9/";
+    private const string Server = "http://timestamp.test/";
+    private const uint CannotConnect = 0x80072EFD;
 
     private string NewScript()
     {
@@ -21,47 +23,82 @@ public sealed class TimestampRetryTests(SigningCertificateFixture fixture)
         return path;
     }
 
-    private static (ScriptSigningService Service, Func<int> Calls) Counting(SigningCertificateFixture f)
+    /// <summary>A signer that fails with <paramref name="error"/> for the first <paramref name="failures"/> calls, then signs without a timestamp.</summary>
+    private static (ScriptSigningService Service, Func<int> Calls) Signer(int failures, uint error = CannotConnect)
     {
         var calls = 0;
-        uint Signer(string p, X509Certificate2 c, string h, string? t) { calls++; return ScriptSigningService.SignFile(p, c, h, t); }
-        return (new ScriptSigningService(null, Signer, TimeSpan.Zero), () => calls);
+        uint Fake(string path, X509Certificate2 certificate, string hash, string? server) =>
+            ++calls <= failures ? error : ScriptSigningService.SignFile(path, certificate, hash, null);
+        return (new ScriptSigningService(null, Fake, TimeSpan.Zero), () => calls);
     }
 
     [Fact]
-    public void AnUnreachableTimestampServerIsTriedAgainTwiceBeforeTheSigningIsReportedFailed()
+    public void ANetworkErrorIsTriedAgainTwiceBeforeTheSigningIsReportedFailed()
     {
-        var (service, calls) = Counting(fixture);
-        var path = NewScript();
+        var (service, calls) = Signer(failures: int.MaxValue);
 
-        var result = service.SignForCategory(path, fixture.Policy(sd: true, timestamp: UnreachableServer), SigningCategory.Detection);
+        var result = service.SignForCategory(NewScript(), fixture.Policy(sd: true, timestamp: Server), SigningCategory.Detection);
 
         Assert.Equal(3, calls());
         Assert.Equal(SigningStatus.Failed, result.Status);
         Assert.Contains("0x80072EFD", result.Reason);
     }
 
+    [Theory]
+    [InlineData(1)]
+    [InlineData(2)]
+    public void ASigningThatSucceedsOnALaterAttemptEndsSigned(int failures)
+    {
+        var (service, calls) = Signer(failures);
+        var path = NewScript();
+
+        var result = service.SignForCategory(path, fixture.Policy(sd: true, timestamp: Server), SigningCategory.Detection);
+
+        Assert.Equal(failures + 1, calls());
+        Assert.Equal(SigningStatus.SignedAndVerified, result.Status);
+        Assert.True(ScriptSignatureVerifier.Verify(path).SignatureIntact);
+    }
+
     [Fact]
     public void ARequiredTimestampStillThrowsAfterTheRetries()
     {
-        var (service, calls) = Counting(fixture);
-        var path = NewScript();
+        var (service, calls) = Signer(failures: int.MaxValue);
 
         Assert.Throws<InvalidOperationException>(() =>
-            service.SignForCategory(path, fixture.Policy(sd: true, timestamp: UnreachableServer, timestampRequired: true), SigningCategory.Detection));
+            service.SignForCategory(NewScript(), fixture.Policy(sd: true, timestamp: Server, timestampRequired: true), SigningCategory.Detection));
 
         Assert.Equal(3, calls());
     }
 
     [Fact]
-    public void NoTimestampServerMeansOneAttempt()
+    public void AnErrorThatIsNotANetworkErrorIsNotTriedAgain()
     {
-        var (service, calls) = Counting(fixture);
-        var path = NewScript();
+        var (service, calls) = Signer(failures: int.MaxValue, error: 0x80090010);
 
-        var result = service.SignForCategory(path, fixture.Policy(sd: true), SigningCategory.Detection);
+        var result = service.SignForCategory(NewScript(), fixture.Policy(sd: true, timestamp: Server), SigningCategory.Detection);
 
         Assert.Equal(1, calls());
-        Assert.Equal(SigningStatus.SignedAndVerified, result.Status);
+        Assert.Equal(SigningStatus.Failed, result.Status);
     }
+
+    [Fact]
+    public void NoTimestampServerMeansOneAttempt()
+    {
+        var (service, calls) = Signer(failures: int.MaxValue);
+
+        var result = service.SignForCategory(NewScript(), fixture.Policy(sd: true), SigningCategory.Detection);
+
+        Assert.Equal(1, calls());
+        Assert.Equal(SigningStatus.Failed, result.Status);
+    }
+
+    [Theory]
+    [InlineData(0x80072EDFu, false)]
+    [InlineData(0x80072EE0u, true)]
+    [InlineData(0x80072EE7u, true)]
+    [InlineData(0x80072EFDu, true)]
+    [InlineData(0x80072F8Fu, true)]
+    [InlineData(0x80072F90u, false)]
+    public void OnlyTheNetworkErrorRangeIsRetried(uint error, bool retried) =>
+        Assert.Equal(retried, ScriptSigningService.IsNetworkError(error));
 }
