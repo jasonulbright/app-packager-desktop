@@ -101,6 +101,21 @@ public sealed class ReleaseCiGateTests
     }
 
     [Fact]
+    public void CheckoutKeepsNoCredentialAndOnlyTheTagPushPresentsTheToken()
+    {
+        var yaml = File.ReadAllText(RepoFile(".github", "workflows", "release.yml"));
+
+        var checkout = yaml.IndexOf("actions/checkout@", StringComparison.Ordinal);
+        var gate = yaml.IndexOf("- name: Require a green CI run on this commit", StringComparison.Ordinal);
+        Assert.Contains("persist-credentials: false", yaml[checkout..gate]);
+
+        var tag = yaml.IndexOf("- name: Tag the release commit", StringComparison.Ordinal);
+        var publish = yaml.IndexOf("- name: Publish the GitHub release", StringComparison.Ordinal);
+        var block = yaml[tag..publish];
+        Assert.Contains("http.https://github.com/.extraheader=AUTHORIZATION: basic", block);
+        Assert.Contains("GH_TOKEN: ${{ github.token }}", block);
+    }
+    [Fact]
     public void TheReleaseWorkflowRunsTheGateBeforeAnythingIsBuiltOrPublished()
     {
         var yaml = File.ReadAllText(RepoFile(".github", "workflows", "release.yml"));
