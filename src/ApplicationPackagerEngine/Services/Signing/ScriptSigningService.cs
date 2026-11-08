@@ -15,10 +15,23 @@ namespace ApplicationPackagerEngine.Services.Signing;
 public sealed class ScriptSigningService
 {
     private readonly SigningCertificateService _certificates;
+    private readonly Func<string, X509Certificate2, string, string?, uint> _signer;
+    private readonly TimeSpan _timestampRetryDelay;
+
+    /// <summary>The attempts to sign one file while the timestamp server does not answer: the first and two more.</summary>
+    internal const int TimestampAttempts = 3;
 
     public ScriptSigningService(SigningCertificateService? certificates = null)
+        : this(certificates, null, null)
+    {
+    }
+
+    internal ScriptSigningService(SigningCertificateService? certificates,
+        Func<string, X509Certificate2, string, string?, uint>? signer, TimeSpan? timestampRetryDelay)
     {
         _certificates = certificates ?? new SigningCertificateService();
+        _signer = signer ?? SignFile;
+        _timestampRetryDelay = timestampRetryDelay ?? TimeSpan.FromSeconds(2);
     }
 
     public SigningCertificateService Certificates => _certificates;
@@ -128,20 +141,36 @@ public sealed class ScriptSigningService
             return result;
         }
 
-        uint error;
-        try
+        // The signer reports success when the timestamp server did not answer, and the file then carries a
+        // signature without a timestamp. Sign again a bounded number of times before that result is accepted.
+        ScriptSignatureVerification verify;
+        for (var attempt = 1; ; attempt++)
         {
-            error = SignFile(path, cert, normalized.HashAlgorithm, timestampConfigured ? normalized.TimestampServer : null);
-        }
-        catch (Exception ex) when (ex is ArgumentException or IOException or UnauthorizedAccessException
-                                       or System.Security.Cryptography.CryptographicException)
-        {
-            return SigningFailed(ex.Message, ex);
-        }
-        if (error != 0)
-            return SigningFailed($"The operating system signer returned 0x{error:X8}: {new Win32Exception(unchecked((int)error)).Message}");
+            uint error;
+            try
+            {
+                error = _signer(path, cert, normalized.HashAlgorithm, timestampConfigured ? normalized.TimestampServer : null);
+            }
+            catch (Exception ex) when (ex is ArgumentException or IOException or UnauthorizedAccessException
+                                           or System.Security.Cryptography.CryptographicException)
+            {
+                return SigningFailed(ex.Message, ex);
+            }
+            if (error != 0)
+            {
+                // A timestamp server that refuses the connection fails the signing with a network error.
+                if (timestampConfigured && IsNetworkError(error) && attempt < TimestampAttempts)
+                {
+                    if (_timestampRetryDelay > TimeSpan.Zero) Thread.Sleep(_timestampRetryDelay);
+                    continue;
+                }
+                return SigningFailed($"The operating system signer returned 0x{error:X8}: {new Win32Exception(unchecked((int)error)).Message}");
+            }
 
-        var verify = ScriptSignatureVerifier.Verify(path);
+            verify = ScriptSignatureVerifier.Verify(path);
+            if (!timestampConfigured || verify.Timestamped || attempt >= TimestampAttempts) break;
+            if (_timestampRetryDelay > TimeSpan.Zero) Thread.Sleep(_timestampRetryDelay);
+        }
         var (status, reason) = Classify(verify, cert.Thumbprint);
         if (verify.SignatureIntact && status == SigningStatus.Failed)
             return SigningFailed(reason);
@@ -159,6 +188,9 @@ public sealed class ScriptSigningService
         result.Reason = reason;
         return result;
     }
+
+    /// <summary>True for a WinINet network error (12000 to 12175 as an HRESULT): no connection, a reset, a timeout.</summary>
+    internal static bool IsNetworkError(uint error) => error is >= 0x80072EE0 and <= 0x80072F8F;
 
     /// <summary>
     /// The status a signing attempt earns from the verification that follows
