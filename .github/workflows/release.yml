@@ -32,6 +32,7 @@ on:
 permissions:
   contents: write
   id-token: write
+  actions: read
 
 env:
   SIGN_ENDPOINT: https://eus.codesigning.azure.net/
@@ -57,6 +58,18 @@ jobs:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
           fetch-depth: 0
+
+      # A release is built from a commit the CI workflow has passed. The newest finished run on this commit decides;
+      # a cancelled run counts for nothing, and a run still going refuses the release.
+      - name: Require a green CI run on this commit
+        if: ${{ !inputs.dry_run }}
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $runs = gh run list --workflow ci.yml --commit "${{ github.sha }}" --limit 30 --json databaseId,status,conclusion,event,createdAt,headSha
+          if ($LASTEXITCODE -ne 0) { throw 'gh run list failed.' }
+          & tools/assert-ci-green.ps1 -Sha "${{ github.sha }}" -RunsJson ($runs -join "`n")
 
       - name: Resolve the version and its changelog section
         id: meta

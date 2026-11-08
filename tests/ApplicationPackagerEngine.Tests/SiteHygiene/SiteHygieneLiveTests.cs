@@ -508,10 +508,17 @@ public sealed class SiteHygieneLiveTests
         vm.SelectedTrendRow = vm.TrendRows[1];
         Assert.Equal(1, vm.TrendSelectedIndex);
 
+        // Each change starts a read; the first is replaced by the second. Both run off the UI thread, so the
+        // replaced read can reach the history after the newer one: wait for both, then check what was asked
+        // and what the window shows, not which call came last.
         vm.TrendDays = 7;
+        var replaced = vm.TrendTask;
         vm.SelectedTrendMetric = SiteHygieneLiveLabels.Metrics.Single(m => m.Column == LiveMetrics.DPOffline);
-        await vm.TrendTask;
-        Assert.Equal((LiveMetrics.DPOffline, 7, VM.MaxTrendPoints), Live(h).History.SeriesCalls[^1]);
+        await Task.WhenAll(replaced, vm.TrendTask);
+        lock (Live(h).History.SeriesCalls)
+            Assert.Contains((LiveMetrics.DPOffline, 7, VM.MaxTrendPoints), Live(h).History.SeriesCalls);
+        Assert.Equal(LiveMetrics.DPOffline, vm.SelectedTrendMetric.Column);
+        Assert.Equal(7, vm.TrendDays);
 
         await vm.ExportCsvCommand.ExecuteAsync(null);
         var (format, report) = Assert.Single(Live(h).Reports.Written);
