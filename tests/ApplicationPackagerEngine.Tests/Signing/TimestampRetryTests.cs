@@ -44,18 +44,18 @@ public sealed class TimestampRetryTests(SigningCertificateFixture fixture)
         Assert.Contains("0x80072EFD", result.Reason);
     }
 
-    [Theory]
-    [InlineData(1)]
-    [InlineData(2)]
-    public void ASigningThatSucceedsOnALaterAttemptEndsSigned(int failures)
+    [Fact]
+    public void ASignatureWithoutATimestampIsSignedAgainUpToTheBoundThenAccepted()
     {
-        var (service, calls) = Signer(failures);
+        // The fake signer signs without a timestamp after its first failure, as a signer does when the server name does not resolve.
+        var (service, calls) = Signer(failures: 1);
         var path = NewScript();
 
         var result = service.SignForCategory(path, fixture.Policy(sd: true, timestamp: Server), SigningCategory.Detection);
 
-        Assert.Equal(failures + 1, calls());
+        Assert.Equal(3, calls());
         Assert.Equal(SigningStatus.SignedAndVerified, result.Status);
+        Assert.False(result.Timestamped);
         Assert.True(ScriptSignatureVerifier.Verify(path).SignatureIntact);
     }
 
