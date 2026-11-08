@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [2026.1108.9] - 2026-11-08
+
+### Fixed
+
+- Make up to three signing attempts when the timestamp server does not answer.
+
 ## [2026.1108.8] - 2026-11-08
 
 ### Fixed
