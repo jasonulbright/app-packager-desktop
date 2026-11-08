@@ -290,6 +290,9 @@ public sealed class StagingService
         // starting a download whose result nobody wants.
         ct.ThrowIfCancellationRequested();
 
+        if (FlowConflict(def) is { } conflict)
+            return new StagingResult { Success = false, ErrorMessage = conflict };
+
         // The signing certificate resolves before anything is written, so an unusable
         // one refuses the build with no partial content.
         StageFinalizer finalizer;
@@ -1323,6 +1326,26 @@ public sealed class StagingService
 
     private static readonly System.Text.RegularExpressions.Regex VersionToken =
         new(@"\{[A-Za-z_]*version[A-Za-z_]*\}", System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.Compiled);
+
+    /// <summary>
+    /// The message for a definition whose fields name two stage flows, or null. The stage takes the first
+    /// matching branch, so the second flow would be ignored without a message. Bootstrapper layout, ZIP
+    /// payload and extract-setup are three flows of their own, and extract-setup wraps an EXE installer.
+    /// </summary>
+    public static string? FlowConflict(AppDefinition def)
+    {
+        var flows = new List<string>();
+        if (def.BootstrapperLayout is not null) flows.Add("BootstrapperLayout");
+        if (def.ZipPayload is not null) flows.Add("ZipPayload");
+        if (def.ExtractSetup is not null) flows.Add("ExtractSetup");
+        if (flows.Count > 1)
+            return $"The definition names more than one stage flow ({string.Join(", ", flows)}); keep one.";
+        if (string.Equals(def.InstallerType, "ODT", StringComparison.OrdinalIgnoreCase) && flows.Count > 0)
+            return $"The definition has InstallerType ODT and {flows[0]}; the ODT flow runs first and {flows[0]} would be ignored.";
+        if (def.ExtractSetup is not null && !string.Equals(def.InstallerType, "EXE", StringComparison.OrdinalIgnoreCase))
+            return $"The definition has ExtractSetup, which wraps an EXE installer, but InstallerType is {def.InstallerType ?? "empty"}; ExtractSetup would be ignored.";
+        return null;
+    }
 
     /// <summary>
     /// True for a definition whose download URL serves the current release under one
