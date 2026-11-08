@@ -226,6 +226,11 @@ public sealed class OneClickPlanViewModelTests : IDisposable
         Assert.StartsWith("Failed: the share went away. Report: one-click-", vm.SummaryText);
         Assert.True(File.Exists(vm.ReportPath));
         Assert.All(vm.Rows.Where(r => r.Include), r => Assert.DoesNotContain(r.Step, new[] { "Pending", "staging Alpha" }));
+        var md = File.ReadAllText(vm.ReportPath);
+        Assert.Contains("run stopped during this application: the share went away", md);
+        Assert.Contains("run stopped before this application: the share went away", md);
+        Assert.Equal("Interrupted", vm.Rows.Single(r => r.Key == "package-alpha").Step);
+        Assert.Equal("Not started", vm.Rows.Single(r => r.Key == "package-beta").Step);
     }
 
     [Fact]

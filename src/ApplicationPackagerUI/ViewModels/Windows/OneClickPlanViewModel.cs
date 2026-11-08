@@ -313,8 +313,12 @@ public partial class OneClickPlanViewModel : ObservableObject
         // A row the run did not finish no longer reads as pending or as the step it was in.
         foreach (var r in included.Where(r => r.Outcome.Length == 0 && (canceled || stopped is not null)))
         {
-            r.Step = r.Step == "Pending" ? "Not started" : "Interrupted";
-            if (stopped is not null) r.Reason = "run stopped: " + stopped;
+            var notStarted = r.Step == "Pending";
+            r.Step = notStarted ? "Not started" : "Interrupted";
+            if (stopped is null) continue;
+            // The report states the difference: a row cut off in a step failed, a row never reached was skipped.
+            r.Outcome = notStarted ? OneClickOutcomes.Skipped : OneClickOutcomes.Failed;
+            r.Reason = notStarted ? "run stopped before this application: " + stopped : "run stopped during this application: " + stopped;
         }
 
         var paths = WriteReport(_context.Clock(), canceled);
