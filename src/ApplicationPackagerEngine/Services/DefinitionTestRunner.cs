@@ -19,6 +19,18 @@ public sealed class DefinitionTestRunner
     }
 
     /// <summary>
+    /// The label of an install exit code and whether the next phase runs. Exit 0, 3010 (reboot required)
+    /// and 1641 (the installer started the reboot) mean the install worked; every label that starts with PASS runs the next phase.
+    /// </summary>
+    internal static (string Result, bool Proceed) ClassifyInstallExit(int exitCode) => exitCode switch
+    {
+        0 => ("PASS", true),
+        3010 => ("PASS (reboot required)", true),
+        1641 => ("PASS (hard reboot initiated)", true),
+        _ => ($"FAIL (exit {exitCode})", false)
+    };
+
+    /// <summary>
     /// Runs the full test pipeline: install → detect → uninstall → verify clean.
     /// </summary>
     public async Task<TestResult> RunAsync(
@@ -65,12 +77,11 @@ public sealed class DefinitionTestRunner
         }
 
         result.InstallExitCode = installExit;
-        result.InstallResult = installExit == 0 ? "PASS" : $"FAIL (exit {installExit})";
-        if (installExit == 3010) result.InstallResult = "PASS (reboot required)";
-        if (installExit == 1641) result.InstallResult = "PASS (hard reboot initiated)";
+        var (installResult, installProceeds) = ClassifyInstallExit(installExit);
+        result.InstallResult = installResult;
         onProgress?.Invoke($"  Install: {result.InstallResult}");
 
-        if (installExit != 0 && installExit != 3010)
+        if (!installProceeds)
         {
             result.OverallResult = "FAIL";
             LogResult(def, manifest, result, sw.ElapsedMilliseconds);

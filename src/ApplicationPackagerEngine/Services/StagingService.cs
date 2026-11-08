@@ -1294,13 +1294,22 @@ public sealed class StagingService
             File.Delete(installerPath);
             if (sharedCacheRoot is not null)
             {
-                var cached = Path.Combine(sharedCacheRoot, SharedDownloadCache.Key(downloadUrl, installerFileName));
-                if (File.Exists(cached)) File.Delete(cached);
+                // The purge, the fresh download and both checks run under the entry lock; a replacement
+                // that fails a check leaves no entry in the shared cache.
+                await SharedDownloadCache.RefetchAsync(_downloadService, downloadUrl, installerPath, sharedCacheRoot,
+                    path =>
+                    {
+                        ValidateInstallerMagic(path, magicType);
+                        VerifyPayloadHash(path, expectedHash, onProgress);
+                    }, headers, onProgress, ct);
             }
-            await _downloadService.DownloadAsync(downloadUrl, installerPath,
-                onProgress: onProgress, ct: ct, headers: headers);
-            ValidateInstallerMagic(installerPath, magicType);
-            VerifyPayloadHash(installerPath, expectedHash, onProgress);
+            else
+            {
+                await _downloadService.DownloadAsync(downloadUrl, installerPath,
+                    onProgress: onProgress, ct: ct, headers: headers);
+                ValidateInstallerMagic(installerPath, magicType);
+                VerifyPayloadHash(installerPath, expectedHash, onProgress);
+            }
         }
 
         if (!string.IsNullOrWhiteSpace(expectedHash))

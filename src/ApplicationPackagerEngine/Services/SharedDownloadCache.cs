@@ -91,6 +91,46 @@ public static class SharedDownloadCache
         return cached;
     }
 
+    /// <summary>
+    /// Replaces the cache entry for <paramref name="url"/> with a fresh full download, then copies it
+    /// to <paramref name="outFile"/> and runs <paramref name="verify"/> on that copy. The purge, the
+    /// download and the check run under one entry lock, so no other stage reads or refills the entry
+    /// in between. The replacement is published to the shared cache only after the copy passes the check.
+    /// </summary>
+    public static async Task<string> RefetchAsync(
+        DownloadService downloads, string url, string outFile, string cacheRoot, Action<string> verify,
+        IReadOnlyList<string>? headers = null, Action<string>? onProgress = null, CancellationToken ct = default)
+    {
+        CurlProcess.ValidateUrl(url);
+        Directory.CreateDirectory(cacheRoot);
+        var cached = Path.Combine(cacheRoot, Key(url, Path.GetFileName(outFile)));
+
+        await using var entryLock = await AcquireEntryLockAsync(cached, ct);
+
+        try { File.Delete(cached); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            throw new InvalidOperationException($"The shared download cache entry {cached} could not be removed: {ex.Message}", ex);
+        }
+        var fresh = $"{cached}.{Guid.NewGuid():N}.refetch";
+        try
+        {
+            onProgress?.Invoke($"Downloading                  : {url}");
+            await downloads.DownloadAsync(url, fresh, onProgress: onProgress, ct: ct, headers: headers, extraArguments: ["-R"]);
+            CopyWithTimestamp(fresh, outFile);
+            verify(outFile);
+
+            File.Move(fresh, cached, overwrite: true);
+        }
+        catch
+        {
+            foreach (var bad in new[] { fresh, outFile })
+                try { File.Delete(bad); } catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
+            throw;
+        }
+        return cached;
+    }
+
     private static string CachedAge(string cached)
     {
         var age = DateTime.UtcNow - File.GetLastWriteTimeUtc(cached);
