@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [2026.1108.13] - 2026-11-08
+
+### Changed
+
+- Refuse to release a commit that the CI workflow has not passed.
+
 ## [2026.1108.12] - 2026-11-08
 
 ### Fixed
