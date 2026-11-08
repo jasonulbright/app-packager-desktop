@@ -267,4 +267,46 @@ public sealed class SharedDownloadCacheTests : IDisposable
         var def = new AppDefinition { DownloadUrl = url, VersionScraper = new VersionScraperConfig { DownloadUrlQuery = query } };
         Assert.Equal(expected, StagingService.IsFixedNameDownload(def));
     }
+
+    [Fact]
+    public async Task AFreshFetchWaitsForTheStageThatHoldsTheEntryLockAndRefillsTheCache()
+    {
+        using var server = new ConditionalServer();
+        var cacheRoot = Path.Combine(_root, "_cache");
+        var first = Path.Combine(_root, "a", "setup.exe");
+        var cached = await SharedDownloadCache.FetchAsync(new DownloadService(), server.Url, first, cacheRoot);
+        server.Body = Encoding.ASCII.GetBytes("MZ payload two");
+        var holder = await SharedDownloadCache.AcquireEntryLockAsync(cached, CancellationToken.None);
+        var target = Path.Combine(_root, "b", "setup.exe");
+
+        var refetch = SharedDownloadCache.RefetchAsync(new DownloadService(), server.Url, target, cacheRoot, _ => { });
+        await Task.Delay(500);
+
+        Assert.False(refetch.IsCompleted, "The purge and the fresh download must wait for the entry lock.");
+        Assert.Equal(Encoding.ASCII.GetBytes("MZ payload one"), File.ReadAllBytes(cached));
+
+        await holder.DisposeAsync();
+        await refetch;
+
+        Assert.Equal(server.Body, File.ReadAllBytes(target));
+        Assert.Equal(server.Body, File.ReadAllBytes(cached));
+    }
+
+    [Fact]
+    public async Task AFreshFetchThatFailsTheCheckLeavesNoEntryInTheCache()
+    {
+        using var server = new ConditionalServer();
+        var cacheRoot = Path.Combine(_root, "_cache");
+        var target = Path.Combine(_root, "a", "setup.exe");
+        var cached = Path.Combine(cacheRoot, SharedDownloadCache.Key(server.Url, "setup.exe"));
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            SharedDownloadCache.RefetchAsync(new DownloadService(), server.Url, target, cacheRoot,
+                _ => throw new InvalidOperationException("hash mismatch")));
+
+        Assert.Equal("hash mismatch", ex.Message);
+        Assert.False(File.Exists(cached), "A replacement that fails the check must not stay in the shared cache.");
+        Assert.False(File.Exists(target));
+        Assert.False(File.Exists(cached + ".lock"));
+    }
 }

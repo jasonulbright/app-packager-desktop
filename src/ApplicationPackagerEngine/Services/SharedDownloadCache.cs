@@ -92,20 +92,40 @@ public static class SharedDownloadCache
     }
 
     /// <summary>
-    /// Deletes the cache entry for <paramref name="url"/> under the entry lock, so a stage that
-    /// reads or refreshes the entry never loses the file. A later <see cref="FetchAsync"/>
-    /// downloads the entry again. An absent entry is not an error.
+    /// Replaces the cache entry for <paramref name="url"/> with a fresh full download, then copies it
+    /// to <paramref name="outFile"/> and runs <paramref name="verify"/> on that copy. The purge, the
+    /// download and the check run under one entry lock, so no other stage reads or refills the entry
+    /// in between. A replacement that fails the check is removed from the cache and the exception goes on.
     /// </summary>
-    public static async Task InvalidateAsync(string cacheRoot, string url, string fileName, CancellationToken ct = default)
+    public static async Task<string> RefetchAsync(
+        DownloadService downloads, string url, string outFile, string cacheRoot, Action<string> verify,
+        IReadOnlyList<string>? headers = null, Action<string>? onProgress = null, CancellationToken ct = default)
     {
+        CurlProcess.ValidateUrl(url);
         Directory.CreateDirectory(cacheRoot);
-        var cached = Path.Combine(cacheRoot, Key(url, fileName));
+        var cached = Path.Combine(cacheRoot, Key(url, Path.GetFileName(outFile)));
+
         await using var entryLock = await AcquireEntryLockAsync(cached, ct);
+
         try { File.Delete(cached); }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
             throw new InvalidOperationException($"The shared download cache entry {cached} could not be removed: {ex.Message}", ex);
         }
+        onProgress?.Invoke($"Downloading                  : {url}");
+        await downloads.DownloadAsync(url, cached, onProgress: onProgress, ct: ct, headers: headers, extraArguments: ["-R"]);
+        try
+        {
+            CopyWithTimestamp(cached, outFile);
+            verify(outFile);
+        }
+        catch
+        {
+            foreach (var bad in new[] { cached, outFile })
+                try { File.Delete(bad); } catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
+            throw;
+        }
+        return cached;
     }
 
     private static string CachedAge(string cached)
