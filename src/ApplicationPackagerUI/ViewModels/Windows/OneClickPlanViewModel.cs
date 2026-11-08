@@ -287,6 +287,7 @@ public partial class OneClickPlanViewModel : ObservableObject
 
         _runCts = new CancellationTokenSource();
         var canceled = false;
+        string? stopped = null;
         try
         {
             canceled = await _runner.RunAsync(included, new OneClickRunOptions(_context.Action, Force, _context.OnExisting, _context.Comment), _runCts.Token);
@@ -294,6 +295,12 @@ public partial class OneClickPlanViewModel : ObservableObject
         catch (OperationCanceledException)
         {
             canceled = true;
+        }
+        catch (Exception ex)
+        {
+            // Any other exception ends the run as well: the window leaves the run state and writes the report.
+            stopped = ex.Message;
+            _context.Log?.Invoke("One Click run stopped: " + ex.Message);
         }
         finally
         {
@@ -303,10 +310,18 @@ public partial class OneClickPlanViewModel : ObservableObject
             IsRunning = false;
         }
 
+        // A row the run did not finish no longer reads as pending or as the step it was in.
+        foreach (var r in included.Where(r => r.Outcome.Length == 0 && (canceled || stopped is not null)))
+        {
+            r.Step = r.Step == "Pending" ? "Not started" : "Interrupted";
+            if (stopped is not null) r.Reason = "run stopped: " + stopped;
+        }
+
         var paths = WriteReport(_context.Clock(), canceled);
         var published = Rows.Count(r => r.Outcome == OneClickOutcomes.Published);
         var failed = Rows.Count(r => r.Outcome == OneClickOutcomes.Failed);
-        SummaryText = $"{(canceled ? "Canceled" : "Complete")}: {published} published, {failed} failed. Report: {Path.GetFileName(paths.MarkdownPath)}";
+        var label = stopped is not null ? $"Failed: {stopped}." : $"{(canceled ? "Canceled" : "Complete")}: {published} published, {failed} failed.";
+        SummaryText = $"{label} Report: {Path.GetFileName(paths.MarkdownPath)}";
     }
 
     [RelayCommand(CanExecute = nameof(IsRunning))]
