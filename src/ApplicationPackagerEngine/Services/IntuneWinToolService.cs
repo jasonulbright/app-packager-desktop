@@ -24,7 +24,7 @@ public sealed class IntuneWinToolService
     public const string PinnedSha256 = "C1BA45B5CB939E84AF064BB7FF4B38FB3DFE33C8DC1078FD9B157672EAE671F6";
 
     public const string DefaultDownloadUrl =
-        "https://github.com/microsoft/Microsoft-Win32-Content-Prep-Tool/raw/v1.8.7/IntuneWinAppUtil.exe";
+        $"https://github.com/microsoft/Microsoft-Win32-Content-Prep-Tool/raw/v{PinnedVersion}/IntuneWinAppUtil.exe";
 
     private readonly DownloadService _downloads;
 
