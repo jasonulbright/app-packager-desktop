@@ -21,7 +21,9 @@ This page is generated from the shipped definitions. A test fails when it differ
 | With any SHA-256 source | 18 |
 | That require a SHA-256 (`RequirePayloadHash`) | 3 |
 | That require a valid signature (`RequireValidSignature`) | 4 |
-| With neither a SHA-256 source nor a required signature (file-type check only) | 297 |
+| With no SHA-256 source and `RequireValidSignature` not set | 297 |
+
+The counts describe the settings of the definitions. An installer from a local source folder is always checked for a valid signature; the last count does not include that check.
 
 ## Definitions with a SHA-256 source
 

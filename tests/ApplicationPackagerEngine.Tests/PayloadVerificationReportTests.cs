@@ -71,7 +71,8 @@ public sealed class PayloadVerificationReportTests
         var page = PayloadVerificationReport.Build(entries);
 
         Assert.Contains("| Shipped definitions | 4 |", page);
-        Assert.Contains("| With neither a SHA-256 source nor a required signature (file-type check only) | 2 |", page);
+        Assert.Contains("| With no SHA-256 source and `RequireValidSignature` not set | 2 |", page);
+        Assert.Contains("the last count does not include that check", page);
         Assert.Contains("| `a.json` | Yes |", page);
         Assert.Contains("- `b.json`", page);
     }

@@ -62,7 +62,9 @@ public static class PayloadVerificationReport
         Line($"| With any SHA-256 source | {hashed.Count} |");
         Line($"| That require a SHA-256 (`RequirePayloadHash`) | {all.Count(e => e.RequireHash)} |");
         Line($"| That require a valid signature (`RequireValidSignature`) | {signed.Count} |");
-        Line($"| With neither a SHA-256 source nor a required signature (file-type check only) | {neither} |");
+        Line($"| With no SHA-256 source and `RequireValidSignature` not set | {neither} |");
+        Line();
+        Line("The counts describe the settings of the definitions. An installer from a local source folder is always checked for a valid signature; the last count does not include that check.");
         Line();
         Line("## Definitions with a SHA-256 source");
         Line();
