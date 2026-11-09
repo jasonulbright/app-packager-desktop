@@ -34,7 +34,9 @@ public sealed class UpdateViewModelTests : IDisposable
 
     private sealed class Signature(SignatureInfo info) : ISignatureReader
     {
-        public Task<SignatureInfo?> ReadAsync(string path, CancellationToken ct = default) => Task.FromResult<SignatureInfo?>(info);
+        /// <summary>The answer of the reader; a test can change it after the download.</summary>
+        public SignatureInfo Info { get; set; } = info;
+        public Task<SignatureInfo?> ReadAsync(string path, CancellationToken ct = default) => Task.FromResult<SignatureInfo?>(Info);
     }
 
     private static readonly byte[] Setup = Encoding.UTF8.GetBytes("installer");
@@ -46,7 +48,7 @@ public sealed class UpdateViewModelTests : IDisposable
     ]);
 
     private (UpdateViewModel Vm, List<string> Launched, int[] Shutdowns) Create(bool launchWorks = true, string status = "Valid", string? json = null,
-        Func<string, Exception?>? fail = null)
+        Func<string, Exception?>? fail = null, Signature? signature = null)
     {
         var launched = new List<string>();
         var shutdowns = new int[1];
@@ -60,7 +62,7 @@ public sealed class UpdateViewModelTests : IDisposable
                 ? new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(sums) }
                 : new HttpResponseMessage(HttpStatusCode.OK) { Content = new ByteArrayContent(Setup) };
         });
-        var service = new UpdateService(handler, new Signature(new SignatureInfo(status, "CN=Jason Ulbright, O=Jason Ulbright, L=Apex, S=nc, C=US", true)),
+        var service = new UpdateService(handler, signature ?? new Signature(new SignatureInfo(status, "CN=Jason Ulbright, O=Jason Ulbright, L=Apex, S=nc, C=US", true)),
             newFolder: () => Path.Combine(_root, Guid.NewGuid().ToString("N")));
         var vm = new UpdateViewModel(service, "2026.1103.3", path => { launched.Add(path); return launchWorks; }, () => shutdowns[0]++);
         return (vm, launched, shutdowns);
@@ -151,6 +153,21 @@ public sealed class UpdateViewModelTests : IDisposable
         Assert.Empty(launched);
         Assert.Equal(0, shutdowns[0]);
         Assert.Equal(UpdateStage.Problem, vm.Stage);
+    }
+
+    [Fact]
+    public async Task ASignatureThatFailsAfterTheDownloadIsNotStarted()
+    {
+        var signature = new Signature(new SignatureInfo("Valid", "CN=Jason Ulbright, O=Jason Ulbright, L=Apex, S=nc, C=US", true));
+        var (vm, launched, shutdowns) = Create(signature: signature);
+        await vm.CheckCommand.ExecuteAsync(null);
+        await vm.DownloadCommand.ExecuteAsync(null);
+        signature.Info = new SignatureInfo("HashMismatch", "CN=Jason Ulbright, O=Jason Ulbright, L=Apex, S=nc, C=US", true);
+        await vm.InstallCommand.ExecuteAsync(null);
+        Assert.Empty(launched);
+        Assert.Equal(0, shutdowns[0]);
+        Assert.Equal(UpdateStage.Problem, vm.Stage);
+        Assert.Contains("installer will not start", vm.StatusText);
     }
 
     [Fact]
