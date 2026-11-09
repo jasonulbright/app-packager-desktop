@@ -24,6 +24,8 @@ public sealed class IntunePublishCancellationTests : IDisposable
     {
         public bool PatchSent;
         public List<string> Steps { get; } = [];
+        /// <summary>Completes when the publish has sent the request of the stuck step.</summary>
+        public TaskCompletionSource Reached { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
         {
@@ -33,6 +35,7 @@ public sealed class IntunePublishCancellationTests : IDisposable
             if (step == "activate") PatchSent = true;
             if (step == stuck)
             {
+                Reached.TrySetResult();
                 await Task.Delay(Timeout.Infinite, ct);
             }
             return step switch
@@ -90,17 +93,19 @@ public sealed class IntunePublishCancellationTests : IDisposable
         Detection = new StageDetection { Type = "RegistryKeyValue", RegistryKeyRelative = @"SOFTWARE\Contoso", ExpectedValue = "1.2.3.4", Operator = "GreaterEquals" }
     };
 
-    /// <summary>Runs a publish, cancels it 300 ms in, and returns how long the cancellation took to show.</summary>
+    /// <summary>Runs a publish, cancels it when it is in the stuck step, and returns how long the cancellation took to show.</summary>
     private async Task<(SteppedHandler Handler, TimeSpan Elapsed)> CancelledPublishAsync(string stuck)
     {
         var handler = new SteppedHandler(stuck);
         using var service = new IntunePublishService(handler);
         using var cancellation = new CancellationTokenSource();
         var package = IntuneWinFixture.Create(_dir);
-        var clock = Stopwatch.StartNew();
-
         var publish = service.PublishAsync(package, Manifest(), Options(), ct: cancellation.Token);
-        cancellation.CancelAfter(TimeSpan.FromMilliseconds(300));
+
+        // Cancel when the publish is in the stuck step, not after a fixed time: a slow machine reaches the step later.
+        await handler.Reached.Task.WaitAsync(TimeSpan.FromSeconds(60));
+        var clock = Stopwatch.StartNew();
+        cancellation.Cancel();
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => publish.WaitAsync(TimeSpan.FromSeconds(20)));
 
         return (handler, clock.Elapsed);
