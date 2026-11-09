@@ -11,8 +11,9 @@ The release contains the components below. The full license texts and the notice
 | SQLite native library | 3.53.4 | Public domain | Copyright 2014-2026 SourceGear, LLC (package) | None |
 | CommunityToolkit.Mvvm | 8.4.2 | MIT | Copyright (c) .NET Foundation and Contributors | `communitytoolkit-mvvm-License.md`, `communitytoolkit-mvvm-ThirdPartyNotices.txt` |
 | WPF-UI, WPF-UI.Abstractions, WPF-UI.DependencyInjection | 4.2.0 | MIT | Copyright (c) 2021-2025 Leszek Pomianowski and WPF UI Contributors | `wpf-ui-LICENSE.md`, `wpf-ui-ThirdPartyNotices.txt` |
+| NSIS (Nullsoft Scriptable Install System), in the installer only | 3.12 | zlib/libpng for the installer stub and plug-ins; Common Public License 1.0 for the LZMA compression module (the installer uses LZMA); bzip2 license for the bzip2 module | Copyright (C) 1999-2026 Contributors | `nsis-COPYING.txt` |
 
-The installer is built with NSIS (Nullsoft Scriptable Install System), which is under the zlib/libpng license.
+The installer is built with NSIS. The installer file and its uninstaller carry the NSIS stub and the LZMA decompression code. `nsis-COPYING.txt` holds the NSIS license text with the zlib/libpng, bzip2 and Common Public License terms. The release zip carries the file in its `licenses` folder.
 
 The application downloads these items at run time. They are not part of the release:
 

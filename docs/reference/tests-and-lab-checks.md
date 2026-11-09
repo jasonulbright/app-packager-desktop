@@ -42,3 +42,13 @@ The download URL is built from `PinnedVersion`. To take a new release of the too
 | `IntunePublishCancellationTests` | A publish that is cancelled while it waits for the token, for the storage address, for a block upload or for the commit ends within seconds. No request activates the app. The tenant stand-in blocks one step until the token of that request is cancelled. A second test cancels a publish during the wait between two reads (an interval of five minutes) and shows that it ends at once and sends no further request. |
 
 **Lab check.** A real cancel test needs an Intune tenant, which the lab does not have. The stand-in tenant covers the same code path, because the service sends every request through one `HttpClient`.
+
+## Third-party notices and the NSIS license
+
+The installer is built with NSIS. The license text of NSIS is in `licenses\nsis-COPYING.txt`, and `THIRD-PARTY-NOTICES.md` names it.
+
+| Test class | What it proves |
+|---|---|
+| `ThirdPartyNoticesTests` | Each file that the notices name is in the `licenses` folder, and each file in the folder is named in the notices. The NSIS license file is there, and the notices name its three licenses. The release stage copies the `licenses` folder, and the installer uses LZMA compression. |
+
+**Lab check.** None. The tests read files in the repository, and no lab machine is needed.
