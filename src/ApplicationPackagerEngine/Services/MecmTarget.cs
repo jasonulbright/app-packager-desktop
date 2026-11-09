@@ -323,6 +323,7 @@ public sealed partial class MecmTarget
         sb.AppendLine($"if ($existing.Count -gt 1) {{ throw \"Multiple existing MECM applications matched '{EscDq(appName)}'; refusing to package until the duplicate names are resolved.\" }}");
         sb.AppendLine("$app = $null");
         sb.AppendLine("$replaceExisting = $false");
+        sb.AppendLine("$createdApp = $false");
         sb.AppendLine("$replaceDtNames = @()");
         sb.AppendLine("if ($existing.Count -eq 1) {");
         sb.AppendLine("    $app = $existing[0]");
@@ -395,6 +396,7 @@ public sealed partial class MecmTarget
 
         sb.AppendLine("if (-not $app) {");
         sb.AppendLine("    Write-Host 'Creating application...'");
+        sb.AppendLine("    $createdApp = $true");
         sb.Append($"    $app = New-CMApplication -Name '{Esc(appName)}'");
         sb.Append($" -Publisher '{Esc(manifest.Publisher)}'");
         sb.Append($" -SoftwareVersion '{Esc(manifest.SoftwareVersion)}'");
@@ -406,6 +408,10 @@ public sealed partial class MecmTarget
         sb.AppendLine("}");
         sb.AppendLine("Write-Host \"CI_ID: $($app.CI_ID)\"");
 
+        // From here the site can refuse a step (a value it does not accept, a content path it cannot read). The steps run in a
+        // try block so that a failure does not leave a half-built application: one that this run created is removed, and the
+        // staging deployment types of this run are removed from one that was already there.
+        sb.AppendLine("try {");
         for (var i = 0; i < specs.Count; i++)
         {
             var spec = specs[i];
@@ -520,6 +526,19 @@ public sealed partial class MecmTarget
             sb.AppendLine($"    Write-Host \"Renamed deployment type      : $dtName{i}\"");
             sb.AppendLine("}");
         }
+        sb.AppendLine("} catch {");
+        sb.AppendLine("    $stepError = $_");
+        // The detection clauses are built on the file system drive; the cleanup needs the site drive.
+        sb.AppendLine($"    Set-Location '{Esc(siteCode)}:'");
+        sb.AppendLine("    if ($createdApp) {");
+        sb.AppendLine($"        try {{ Remove-CMApplication -Name '{Esc(appName)}' -Force -ErrorAction Stop; Write-Host 'Removed the incomplete application' }}");
+        sb.AppendLine("        catch { Write-Host \"The incomplete application was not removed: $($_.Exception.Message)\" }");
+        sb.AppendLine("    } else {");
+        sb.AppendLine($"        try {{ @(Get-CMDeploymentType -ApplicationName '{Esc(appName)}' -ErrorAction Stop | Where-Object {{ [string]$_.LocalizedDisplayName -like '* (staging)' }}) | ForEach-Object {{ Remove-CMDeploymentType -ApplicationName '{Esc(appName)}' -DeploymentTypeName $_.LocalizedDisplayName -Force -ErrorAction Stop; Write-Host \"Removed staging deployment type: $($_.LocalizedDisplayName)\" }} }}");
+        sb.AppendLine("        catch { Write-Host \"The staging deployment types were not removed: $($_.Exception.Message)\" }");
+        sb.AppendLine("    }");
+        sb.AppendLine("    throw $stepError");
+        sb.AppendLine("}");
 
         sb.AppendLine("if ($existing.Count -eq 1) {");
         sb.Append($"    Set-CMApplication -Name '{Esc(appName)}' -SoftwareVersion '{Esc(manifest.SoftwareVersion)}'");

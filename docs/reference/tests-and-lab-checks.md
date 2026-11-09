@@ -87,3 +87,21 @@ The review finding A1 said that the replaced content never reaches the distribut
 4. The probe application and its source folder were deleted.
 
 Result (2026-11-09): as described. The lab machines were started for the check and stopped afterwards. No snapshot was used.
+
+## ConfigMgr publish: a refused step leaves no half-built application
+
+When the site refuses a deployment-type step, the publish script removes what the run built. An application that the run created is removed. For an application that was already there (an Overwrite), the staging deployment types of the run are removed and the application stays as it was.
+
+| Test class | What it proves |
+|---|---|
+| `ConfigMgrFailedDeploymentTypeTests` | The steps from the first deployment type to the rename run in a try block. The catch block goes back to the site drive, removes the application only when the run created it (the flag is set in the branch that creates it and nowhere else), removes the staging deployment types otherwise, and throws the original error again. |
+| `SigningOffByteIdentityTests` | The recorded hashes of three generated scripts were changed on purpose, because the scripts now contain the try and catch blocks. |
+
+**Lab check.** The site is the only judge of what it refuses, so this was run on the ConfigMgr lab server with scripts that the code generated, using a maximum run time of 1000 minutes (the site accepts 720 at most):
+
+1. Before the change: the step was refused and the run ended, but the application stayed with 0 deployment types. A second run with good values was refused with "missing deployment type(s) ... fix or remove the partial app".
+2. After the change: the same refusal printed "Removed the incomplete application" and the original error. The application was gone. A second run with good values created the application with 1 deployment type.
+3. After the change, an Overwrite with the refused value: the application stayed with its 1 deployment type, and no staging deployment type was left.
+4. The probe application and its source folder were deleted.
+
+Result (2026-11-09): as described. The lab machines were started for the check and stopped afterwards. No snapshot was used.

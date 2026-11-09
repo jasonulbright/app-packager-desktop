@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [2026.1109.20] - 2026-11-09
+
+### Fixed
+
+- A ConfigMgr publish that the site refuses in a deployment-type step no longer leaves an application with no deployment types. An application that the run created is removed. For an existing application that is replaced, the staging deployment types are removed.
+
 ## [2026.1109.19] - 2026-11-09
 
 ### Fixed
