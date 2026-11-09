@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [2026.1109.16] - 2026-11-09
+
+### Changed
+
+- Download the Intune content prep tool from a fixed release and check its SHA-256.
+
 ## [2026.1108.15] - 2026-11-08
 
 ### Changed
