@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [2026.1108.14] - 2026-11-08
+
+### Fixed
+
+- Correct the definition counts in the documentation.
+
 ## [2026.1108.13] - 2026-11-08
 
 ### Changed
