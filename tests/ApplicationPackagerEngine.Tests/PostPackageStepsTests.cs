@@ -35,9 +35,64 @@ public class PostPackageStepsTests
         var script = MecmTarget.BuildDistributionScript("Test App - 1.0 (x64)", "MCM", "All DPs", "cm01");
 
         Assert.Contains("Start-CMContentDistribution -ApplicationName 'Test App - 1.0 (x64)' -DistributionPointGroupName 'All DPs' -ErrorAction Stop", script);
-        Assert.Contains("-match 'already been targeted|already distributed'", script);
+        Assert.Contains("-match 'already been targeted|already distributed|already been distributed|No content destination was found'", script);
         Assert.Contains("} else { throw }", script);
         Assert.Contains("New-PSDrive -Name 'MCM' -PSProvider CMSite -Root 'cm01'", script);
+    }
+
+    /// <summary>
+    /// Lab result (ConfigMgr 5.00.9146): a second Start-CMContentDistribution for content that a group already holds fails with
+    /// "No content destination was found ... the content has already been distributed". That text is also the answer for a group that
+    /// does not exist, so the script must read it as done only when the group is there.
+    /// </summary>
+    [Fact]
+    public void DistributionScript_ReadsTheSiteAnswerForAlreadyDistributedContentAsDoneOnlyForAGroupThatExists()
+    {
+        var script = MecmTarget.BuildDistributionScript("Test App", "MCM", "All DPs", null);
+
+        Assert.Contains("No content destination was found", script);
+        Assert.Contains("already been distributed", script);
+        Assert.Contains("Get-CMDistributionPointGroup -Name 'All DPs'", script);
+        Assert.Contains("was not found", script);
+        Assert.True(script.IndexOf("Get-CMDistributionPointGroup", StringComparison.Ordinal) > script.IndexOf("catch {", StringComparison.Ordinal),
+            "The group is looked up only after the distribution was refused.");
+    }
+
+    /// <summary>
+    /// The generated script runs against stand-ins for the ConfigMgr cmdlets. The distribution cmdlet gives the answer that the lab
+    /// site gave; the group lookup finds the group, finds nothing, or fails.
+    /// </summary>
+    [Theory]
+    [InlineData("exists", true, "Content already targeted")]
+    [InlineData("missing", false, "Distribution point group 'All DPs' was not found.")]
+    [InlineData("lookup-denied", false, "Lookup denied")]
+    [InlineData("other-error", false, "Access is denied")]
+    public async Task DistributionScript_RunsToTheRightEndForEachSiteAnswer(string case_, bool succeeds, string expectedText)
+    {
+        var distributeAnswer = case_ == "other-error"
+            ? "throw 'Access is denied'"
+            : "throw 'No content destination was found. This can happen if the content has already been distributed to the specified destination.'";
+        var standIns = $$"""
+            $env:SMS_ADMIN_UI_PATH = $env:TEMP
+            function Import-Module { param($Name) }
+            function Get-PSDrive { [CmdletBinding()] param($Name) return 'MCM' }
+            function Set-Location { param($Path) }
+            function Start-CMContentDistribution {
+                [CmdletBinding()] param($ApplicationName, $DistributionPointGroupName)
+                {{distributeAnswer}}
+            }
+            function Get-CMDistributionPointGroup {
+                [CmdletBinding()] param($Name)
+                if ('{{case_}}' -eq 'lookup-denied') { throw 'Lookup denied' }
+                if ('{{case_}}' -eq 'exists') { [pscustomobject]@{ Name = $Name } }
+            }
+            """;
+        var script = MecmTarget.BuildDistributionScript("Test App", "MCM", "All DPs", null);
+
+        var result = await WindowsPowerShellHost.RunAsync(standIns + Environment.NewLine + script, null, default);
+
+        Assert.Equal(succeeds, result.ExitCode == 0);
+        Assert.Contains(expectedText, succeeds ? result.StdOut : result.StdErr);
     }
 
     [Fact]

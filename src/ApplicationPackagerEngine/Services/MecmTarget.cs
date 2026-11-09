@@ -886,8 +886,8 @@ public sealed partial class MecmTarget
     /// <summary>
     /// Distributes content for a packaged application to a DP group. Call after
     /// PackageAsync succeeds. A group that already holds the content makes the
-    /// cmdlet throw "already been targeted"; that is the wanted end state and
-    /// counts as success.
+    /// cmdlet throw ("already been targeted", or on the tested site "No content destination was found"); that is the wanted end state and
+    /// counts as success when the group exists.
     /// </summary>
     public async Task<bool> DistributeAsync(
         string appName, string siteCode, string dpGroupName = "All DPs",
@@ -909,7 +909,11 @@ public sealed partial class MecmTarget
         sb.AppendLine($"  Start-CMContentDistribution -ApplicationName '{Esc(appName)}' -DistributionPointGroupName '{Esc(dpGroupName)}' -ErrorAction Stop");
         sb.AppendLine($"  Write-Host 'Content distribution initiated: {Esc(appName)} to {Esc(dpGroupName)}'");
         sb.AppendLine("} catch {");
-        sb.AppendLine("  if ($_.Exception.Message -match 'already been targeted|already distributed') {");
+        // The site answers a second distribution of content that a group already holds with "No content destination was found
+        // ... has already been distributed" (lab: ConfigMgr 5.00.9146). It gives the same answer for a group that does not
+        // exist, so the group is looked up before the answer counts as done.
+        sb.AppendLine("  if ($_.Exception.Message -match 'already been targeted|already distributed|already been distributed|No content destination was found') {");
+        sb.AppendLine($"    if (-not (Get-CMDistributionPointGroup -Name '{Esc(dpGroupName)}' -ErrorAction Stop)) {{ throw \"Distribution point group '{EscDq(dpGroupName)}' was not found.\" }}");
         sb.AppendLine($"    Write-Host 'Content already targeted: {Esc(appName)} on {Esc(dpGroupName)}'");
         sb.AppendLine("  } else { throw }");
         sb.AppendLine("}");
