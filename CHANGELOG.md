@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [2026.1108.15] - 2026-11-08
+
+### Changed
+
+- Log "NOT verified" when a download has no SHA-256, and list which definitions verify theirs.
+
 ## [2026.1108.14] - 2026-11-08
 
 ### Fixed
