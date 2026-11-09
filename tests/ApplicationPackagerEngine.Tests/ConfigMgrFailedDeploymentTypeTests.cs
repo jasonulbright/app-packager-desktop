@@ -36,7 +36,7 @@ public sealed class ConfigMgrFailedDeploymentTypeTests
         var cleanup = script[catchAt..script.IndexOf("Updated application version", StringComparison.Ordinal)];
         Assert.Contains("Remove-ApkgIncompleteWork -ApplicationName 'App' -SiteCode 'P01' -CreatedApp $createdApp -CreatedStaging $createdStaging -OldDtRemoved $oldDtRemoved", cleanup);
         Assert.Contains("throw $stepError", cleanup);
-        Assert.Contains(MecmTarget.IncompleteWorkCleanupFunction, script);
+        Assert.Contains(MecmTarget.IncompleteWorkCleanupFunction.ReplaceLineEndings(), script);
     }
 
     [Fact]

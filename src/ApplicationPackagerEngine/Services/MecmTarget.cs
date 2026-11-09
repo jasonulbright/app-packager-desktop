@@ -413,7 +413,7 @@ public sealed partial class MecmTarget
         // From here the site can refuse a step (a value it does not accept, a content path it cannot read). The steps run in a
         // try block so that a failure does not leave a half-built application: one that this run created is removed, and the
         // staging deployment types of this run are removed from one that was already there.
-        sb.AppendLine(IncompleteWorkCleanupFunction);
+        sb.AppendLine(IncompleteWorkCleanupFunction.ReplaceLineEndings());
         sb.AppendLine("try {");
         for (var i = 0; i < specs.Count; i++)
         {
