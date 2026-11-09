@@ -35,9 +35,27 @@ public class PostPackageStepsTests
         var script = MecmTarget.BuildDistributionScript("Test App - 1.0 (x64)", "MCM", "All DPs", "cm01");
 
         Assert.Contains("Start-CMContentDistribution -ApplicationName 'Test App - 1.0 (x64)' -DistributionPointGroupName 'All DPs' -ErrorAction Stop", script);
-        Assert.Contains("-match 'already been targeted|already distributed'", script);
+        Assert.Contains("-match 'already been targeted|already distributed|already been distributed|No content destination was found'", script);
         Assert.Contains("} else { throw }", script);
         Assert.Contains("New-PSDrive -Name 'MCM' -PSProvider CMSite -Root 'cm01'", script);
+    }
+
+    /// <summary>
+    /// Lab result (ConfigMgr 5.00.9146): a second Start-CMContentDistribution for content that a group already holds fails with
+    /// "No content destination was found ... the content has already been distributed". That text is also the answer for a group that
+    /// does not exist, so the script must read it as done only when the group is there.
+    /// </summary>
+    [Fact]
+    public void DistributionScript_ReadsTheSiteAnswerForAlreadyDistributedContentAsDoneOnlyForAGroupThatExists()
+    {
+        var script = MecmTarget.BuildDistributionScript("Test App", "MCM", "All DPs", null);
+
+        Assert.Contains("No content destination was found", script);
+        Assert.Contains("already been distributed", script);
+        Assert.Contains("Get-CMDistributionPointGroup -Name 'All DPs'", script);
+        Assert.Contains("was not found", script);
+        Assert.True(script.IndexOf("Get-CMDistributionPointGroup", StringComparison.Ordinal) > script.IndexOf("catch {", StringComparison.Ordinal),
+            "The group is looked up only after the distribution was refused.");
     }
 
     [Fact]

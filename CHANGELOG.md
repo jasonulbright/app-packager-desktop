@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [2026.1109.19] - 2026-11-09
+
+### Fixed
+
+- Content distribution after a replace of a ConfigMgr application no longer fails when the site says the content is already distributed. A DP group that does not exist is now refused with a clear message.
+
 ## [2026.1109.18] - 2026-11-09
 
 ### Fixed

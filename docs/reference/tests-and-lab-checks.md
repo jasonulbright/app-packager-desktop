@@ -68,3 +68,22 @@ The installer is built with NSIS. The license text of NSIS is in `licenses\nsis-
 3. A file signed by another publisher: status `Valid` with another signer. Expected: the signer check refuses.
 
 Result (2026-11-09): all three results matched. The lab machines were started for the check and stopped afterwards. No snapshot was used.
+
+## ConfigMgr content distribution after a replace
+
+After a run with `OnExisting=Overwrite`, the deployment types of the application are replaced and the content is distributed to the DP group again.
+
+The review finding A1 said that the replaced content never reaches the distribution points. The lab did not show that. On ConfigMgr 5.00.9146 the new deployment type got a new content ID, and the site sent the new content to the DP at once; the file on the DP held the new text. The defect that the lab did show is in the second distribution request: the site refuses it with "No content destination was found ... the content has already been distributed". The old check looked for other words, so the run reported a failed distribution and skipped the test-collection deployment. The same answer also comes for a DP group that does not exist.
+
+| Test class | What it proves |
+|---|---|
+| `PostPackageStepsTests` | The distribution script reads the site answers for content that is already there as done. It looks up the DP group first, and refuses the answer with "was not found" when the group does not exist. The lookup comes after the refusal, so a first distribution does not pay for it. |
+
+**Lab check.** A probe application with two content folders (version one and version two) was distributed to the DP group. Its deployment type was then replaced the way the Overwrite path does it (new type, remove old type), and the generated distribution script was run.
+
+1. Before the fix: the second request failed with the text above.
+2. The new content was on the DP: its file held "version two", and the old content ID still existed until the site cleans it.
+3. After the fix: the script printed "Content already targeted" for the existing group, and refused a group named `No Such Group` with "Distribution point group 'No Such Group' was not found."
+4. The probe application and its source folder were deleted.
+
+Result (2026-11-09): as described. The lab machines were started for the check and stopped afterwards. No snapshot was used.
