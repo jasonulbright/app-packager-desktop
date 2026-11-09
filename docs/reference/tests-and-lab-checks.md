@@ -52,3 +52,19 @@ The installer is built with NSIS. The license text of NSIS is in `licenses\nsis-
 | `ThirdPartyNoticesTests` | Each file that the notices name is in the `licenses` folder, and each file in the folder is named in the notices. The NSIS license file is there, and the notices name its three licenses. The release stage copies the `licenses` folder, and the installer uses LZMA compression. |
 
 **Lab check.** None. The tests read files in the repository, and no lab machine is needed.
+
+## Update install: signature check just before the start
+
+`UpdateService.ConfirmBeforeLaunchAsync` runs when the user chooses Install, after the download and the first checks and just before the installer starts. It confirms that the file has not changed (hash and size), reads the Authenticode signature again, applies the update signature policy, and requires the same signer subject as the first check. If any step fails, the installer does not start and the message ends with "The installer will not start."
+
+| Test class | What it proves |
+|---|---|
+| `UpdateTests` (the `ConfirmBeforeLaunch` cases) | The check passes when nothing changed. It refuses a signature that is no longer valid, has no timestamp, or cannot be read. It refuses a signer that passes the policy but differs from the signer of the first check. It still catches a file that was swapped after the first check. |
+
+**Lab check.** A unit test uses a stand-in for the signature reader. The real reader was checked on the ConfigMgr lab server with a real signed installer:
+
+1. The genuine installer: status `Valid`, with a timestamp. Expected: the check passes.
+2. A copy with one changed byte: status `HashMismatch`. Expected: the check refuses.
+3. A file signed by another publisher: status `Valid` with another signer. Expected: the signer check refuses.
+
+Result (2026-11-09): all three results matched. The lab machines were started for the check and stopped afterwards. No snapshot was used.
