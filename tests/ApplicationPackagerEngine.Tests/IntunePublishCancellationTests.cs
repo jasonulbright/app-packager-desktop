@@ -23,11 +23,13 @@ public sealed class IntunePublishCancellationTests : IDisposable
     private sealed class SteppedHandler(string stuck) : HttpMessageHandler
     {
         public bool PatchSent;
+        public List<string> Steps { get; } = [];
 
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
         {
             var uri = request.RequestUri!.ToString();
             var step = Step(request, uri);
+            lock (Steps) Steps.Add(step);
             if (step == "activate") PatchSent = true;
             if (step == stuck)
             {
@@ -39,7 +41,8 @@ public sealed class IntunePublishCancellationTests : IDisposable
                 "find" => Json("""{"value":[]}"""),
                 "contentVersion" => Json("""{"id":"7"}"""),
                 "file" => Json("""{"id":"file-1","uploadState":"azureStorageUriRequestPending"}"""),
-                "storagePoll" => Json("""{"id":"file-1","uploadState":"azureStorageUriRequestPending"}"""),
+                // The first read of the file asks for the storage address; the tenant gives it at once unless this step is the stuck one.
+                "storagePoll" => Json("""{"id":"file-1","uploadState":"azureStorageUriRequestSuccess","azureStorageUri":"https://x.blob.core.windows.net/c/b?sv=1"}"""),
                 "block" or "blocklist" => new HttpResponseMessage(HttpStatusCode.Created) { Content = new StringContent("") },
                 "commit" => new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent("") },
                 "commitPoll" => Json("""{"id":"file-1","uploadState":"commitFilePending","azureStorageUri":"https://x.blob.core.windows.net/c/b?sv=1"}"""),
@@ -47,7 +50,7 @@ public sealed class IntunePublishCancellationTests : IDisposable
             };
         }
 
-        private bool _storageGiven;
+        private bool _storageRead;
 
         private string Step(HttpRequestMessage request, string uri)
         {
@@ -59,8 +62,12 @@ public sealed class IntunePublishCancellationTests : IDisposable
             if (uri.EndsWith("/commit") && request.Method == HttpMethod.Post) return "commit";
             if (uri.Contains("/files/file-1") && request.Method == HttpMethod.Get)
             {
-                if (!_storageGiven && stuck == "storagePoll") return "storagePoll";
-                _storageGiven = true;
+                // The first read is the wait for the storage address (before the upload); every later read is the wait for the commit.
+                if (!_storageRead)
+                {
+                    _storageRead = true;
+                    return "storagePoll";
+                }
                 return "commitPoll";
             }
             if (request.Method == HttpMethod.Patch) return "activate";
@@ -110,5 +117,19 @@ public sealed class IntunePublishCancellationTests : IDisposable
 
         Assert.True(elapsed < TimeSpan.FromSeconds(10), $"The cancellation took {elapsed.TotalSeconds:0.0} s at step '{stuck}'.");
         Assert.False(handler.PatchSent, "A cancelled publish must not activate the app.");
+
+        // The publish reached the step that was stuck and went no further: the upload follows the storage address,
+        // the commit follows the upload, and the wait for the commit follows the commit request.
+        string[] seen;
+        lock (handler.Steps) seen = handler.Steps.ToArray();
+        Assert.Contains(stuck, seen);
+        if (stuck is "token" or "storagePoll") Assert.DoesNotContain("block", seen);
+        if (stuck is "token" or "storagePoll" or "block") Assert.DoesNotContain("commit", seen);
+        if (stuck == "commitPoll")
+        {
+            Assert.Contains("block", seen);
+            Assert.Contains("commit", seen);
+            Assert.Equal(2, seen.Count(s => s is "storagePoll" or "commitPoll"));
+        }
     }
 }

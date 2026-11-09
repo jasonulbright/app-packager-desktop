@@ -18,7 +18,7 @@ The download of `IntuneWinAppUtil.exe` is pinned to the Microsoft release 1.8.7 
 
 | Test class | What it proves |
 |---|---|
-| `IntuneWinToolPinTests` | The default URL names a tag (`/raw/v1.8.7/`), not a branch. The pinned hash is a SHA-256 digest. A file with another hash is refused before the signature check, and nothing is installed. A file with the right hash must still carry a Microsoft Corporation signature. |
+| `IntuneWinToolPinTests` | The default URL names a tag (`/raw/v1.8.7/`), not a branch. The pinned hash is a SHA-256 digest. A file with another hash is refused before the signature check, and nothing is installed. A file with the right hash must still pass the signature check; the test uses an unsigned file. The check for a valid signature from another publisher is not covered by a test. |
 
 The checks apply to a file that the app downloads. A copy of the tool that is already in the Tools folder or on the PATH is used as it is.
 
@@ -31,7 +31,7 @@ The checks apply to a file that the app downloads. A copy of the tool that is al
 
 Result (2026-11-09): all expected values were seen. The lab machines were started for the check and stopped afterwards. No snapshot was used.
 
-To take a new release of the tool, change `PinnedVersion` and `PinnedSha256` together, repeat this check, and update the URL in [Network](network.md).
+The download URL is built from `PinnedVersion`. To take a new release of the tool, change `PinnedVersion` and `PinnedSha256` together, repeat this check, and update the URL in [Network](network.md).
 
 ## Intune publish and cancellation
 
