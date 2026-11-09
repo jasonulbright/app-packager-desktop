@@ -95,11 +95,17 @@ public sealed class StagingService
     /// mismatch means the payload is not the build the feed described — a
     /// truncated transfer, a mirror serving a different build, or a
     /// substituted file — and staging must not continue on it.
-    /// A null or empty expected hash is not a verification and passes.
+    /// A null or empty expected hash is not a verification: the file passes
+    /// and the run says "NOT verified", so the log never reads as a checked file.
+    /// The check that remains is the file type (see <see cref="ValidateInstallerMagic"/>).
     /// </summary>
     public static void VerifyPayloadHash(string path, string? expectedSha256, Action<string>? onProgress = null)
     {
-        if (string.IsNullOrWhiteSpace(expectedSha256)) return;
+        if (string.IsNullOrWhiteSpace(expectedSha256))
+        {
+            onProgress?.Invoke("Payload SHA256 NOT verified: no hash is pinned, published in the version feed or listed in a checksum file for this download; only the file type was checked.");
+            return;
+        }
 
         var expected = expectedSha256.Trim().ToUpperInvariant();
         if (!System.Text.RegularExpressions.Regex.IsMatch(expected, "^[0-9A-F]{64}$"))
