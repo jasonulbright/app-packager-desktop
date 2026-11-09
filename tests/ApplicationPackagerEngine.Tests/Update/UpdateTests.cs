@@ -522,4 +522,16 @@ public sealed class UpdateServiceTests : IDisposable
 
         Assert.Equal(1, signature.Reads);
     }
+
+    [Fact]
+    public async Task ConfirmBeforeLaunchRefusesAMissingInstallerAndReadsNoSignature()
+    {
+        var (service, signature, verified) = await VerifiedAsync();
+        using var _ = service;
+        File.Delete(verified.Path);
+
+        await Assert.ThrowsAsync<UpdateRefusedException>(() => service.ConfirmBeforeLaunchAsync(verified));
+
+        Assert.Equal(1, signature.Reads);
+    }
 }

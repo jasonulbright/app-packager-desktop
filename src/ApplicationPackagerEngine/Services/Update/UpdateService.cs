@@ -227,7 +227,8 @@ public sealed class UpdateService : IDisposable
     /// </summary>
     public async Task ConfirmBeforeLaunchAsync(VerifiedUpdate update, CancellationToken ct = default)
     {
-        ConfirmUnchanged(update);
+        // The hash of a large installer is read off the calling thread, so the window does not freeze.
+        await Task.Run(() => ConfirmUnchanged(update), ct).ConfigureAwait(false);
 
         var info = await _signatures.ReadAsync(update.Path, ct).ConfigureAwait(false);
         if (UpdateSignaturePolicy.Evaluate(info) is { } refusal)

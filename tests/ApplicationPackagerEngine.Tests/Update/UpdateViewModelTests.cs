@@ -108,7 +108,7 @@ public sealed class UpdateViewModelTests : IDisposable
         var (vm, launched, shutdowns) = Create();
         await vm.CheckCommand.ExecuteAsync(null);
         await vm.DownloadCommand.ExecuteAsync(null);
-        vm.InstallCommand.Execute(null);
+        await vm.InstallCommand.ExecuteAsync(null);
         Assert.Single(launched);
         Assert.EndsWith(SetupName, launched[0]);
         Assert.Equal(1, shutdowns[0]);
@@ -120,7 +120,7 @@ public sealed class UpdateViewModelTests : IDisposable
         var (vm, launched, shutdowns) = Create(launchWorks: false);
         await vm.CheckCommand.ExecuteAsync(null);
         await vm.DownloadCommand.ExecuteAsync(null);
-        vm.InstallCommand.Execute(null);
+        await vm.InstallCommand.ExecuteAsync(null);
         Assert.Single(launched);
         Assert.Equal(0, shutdowns[0]);
         Assert.Equal(UpdateStage.Problem, vm.Stage);
@@ -147,7 +147,7 @@ public sealed class UpdateViewModelTests : IDisposable
         await vm.DownloadCommand.ExecuteAsync(null);
         var file = Directory.EnumerateFiles(_root, SetupName, SearchOption.AllDirectories).Single();
         File.WriteAllText(file, "swapped");
-        vm.InstallCommand.Execute(null);
+        await vm.InstallCommand.ExecuteAsync(null);
         Assert.Empty(launched);
         Assert.Equal(0, shutdowns[0]);
         Assert.Equal(UpdateStage.Problem, vm.Stage);
