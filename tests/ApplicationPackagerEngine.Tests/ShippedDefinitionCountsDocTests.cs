@@ -88,7 +88,8 @@ public sealed class ShippedDefinitionCountsDocTests
         AssertPairs("Architecture", CountBy(d => Text(d, "Architecture")), Row(Definitions_md, "`Architecture`")[1]);
 
         Assert.Equal(Definitions.Value.Select(d => Text(d, "Vendor")).Where(v => !string.IsNullOrEmpty(v)).Distinct().Count().ToString(), Row(Definitions_md, "Vendors")[1]);
-        Assert.StartsWith(Definitions.Value.Count(d => Text(d, "InstallContext") == "User").ToString(), Row(Definitions_md, "`InstallContext` `User`")[1]);
+        var userRow = Row(Definitions_md, "`InstallContext` `User`")[1];
+        Assert.Equal(Definitions.Value.Count(d => Text(d, "InstallContext") == "User"), int.Parse(Regex.Match(userRow, @"^\d+").Value));
 
         var none = Definitions.Value.Count(d => Text(d, "ArpName") == "none");
         var pattern = Definitions.Value.Count(d => !string.IsNullOrEmpty(Text(d, "ArpName")) && Text(d, "ArpName") != "none");
