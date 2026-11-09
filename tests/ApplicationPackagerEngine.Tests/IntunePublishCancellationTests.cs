@@ -20,7 +20,7 @@ public sealed class IntunePublishCancellationTests : IDisposable
     }
 
     /// <summary>Answers each step like a tenant, except the step named <c>stuck</c>, which waits for the token of its request.</summary>
-    private sealed class SteppedHandler(string stuck) : HttpMessageHandler
+    private sealed class SteppedHandler(string stuck, string? signalAfter = null) : HttpMessageHandler
     {
         public bool PatchSent;
         public List<string> Steps { get; } = [];
@@ -33,6 +33,7 @@ public sealed class IntunePublishCancellationTests : IDisposable
             var step = Step(request, uri);
             lock (Steps) Steps.Add(step);
             if (step == "activate") PatchSent = true;
+            if (step == signalAfter) Reached.TrySetResult();
             if (step == stuck)
             {
                 Reached.TrySetResult();
@@ -81,10 +82,10 @@ public sealed class IntunePublishCancellationTests : IDisposable
             new(HttpStatusCode.OK) { Content = new StringContent(json, System.Text.Encoding.UTF8, "application/json") };
     }
 
-    private static IntunePublishOptions Options() => new()
+    private static IntunePublishOptions Options(TimeSpan? pollInterval = null, TimeSpan? commitPollInterval = null) => new()
     {
         TenantId = "tenant-id", ClientId = "client-id", ClientSecret = "secret",
-        PollInterval = TimeSpan.FromMilliseconds(20), CommitPollInterval = TimeSpan.FromMilliseconds(20), PollTimeoutSec = 120
+        PollInterval = pollInterval ?? TimeSpan.FromMilliseconds(20), CommitPollInterval = commitPollInterval ?? TimeSpan.FromMilliseconds(20), PollTimeoutSec = 120
     };
 
     private static StageManifest Manifest() => new()
@@ -136,5 +137,34 @@ public sealed class IntunePublishCancellationTests : IDisposable
             Assert.Contains("commit", seen);
             Assert.Equal(2, seen.Count(s => s is "storagePoll" or "commitPoll"));
         }
+    }
+
+    /// <summary>
+    /// The wait between two reads of the file is a delay of its own. With an interval far above the test deadline, a publish
+    /// that ignored the token in the delay would still be waiting when the assertions run.
+    /// </summary>
+    [Theory]
+    [InlineData("file", "storage")]
+    [InlineData("commit", "commit")]
+    public async Task APublishCancelledDuringAPollDelayEndsAtOnceAndSendsNoMoreRequests(string signalAfter, string delay)
+    {
+        var handler = new SteppedHandler(stuck: "none", signalAfter);
+        using var service = new IntunePublishService(handler);
+        using var cancellation = new CancellationTokenSource();
+        var longInterval = TimeSpan.FromMinutes(5);
+        var options = delay == "storage" ? Options(pollInterval: longInterval) : Options(commitPollInterval: longInterval);
+        var publish = service.PublishAsync(IntuneWinFixture.Create(_dir), Manifest(), options, ct: cancellation.Token);
+
+        await handler.Reached.Task.WaitAsync(TimeSpan.FromSeconds(60));
+        var clock = Stopwatch.StartNew();
+        cancellation.Cancel();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => publish.WaitAsync(TimeSpan.FromSeconds(20)));
+
+        Assert.True(clock.Elapsed < TimeSpan.FromSeconds(10), $"The cancellation took {clock.Elapsed.TotalSeconds:0.0} s in the {delay} delay.");
+        Assert.False(handler.PatchSent);
+        string[] seen;
+        lock (handler.Steps) seen = handler.Steps.ToArray();
+        if (delay == "storage") Assert.DoesNotContain("storagePoll", seen);
+        else Assert.DoesNotContain("commitPoll", seen);
     }
 }
