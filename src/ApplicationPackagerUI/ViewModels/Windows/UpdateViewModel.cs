@@ -130,12 +130,13 @@ public sealed partial class UpdateViewModel : ObservableObject
     }
 
     [RelayCommand(CanExecute = nameof(CanInstall))]
-    private void Install()
+    private async Task InstallAsync()
     {
         if (_verified is null) return;
         try
         {
-            UpdateService.ConfirmUnchanged(_verified);
+            // The hash and the signature are read again at the last moment before the installer starts.
+            await _service.ConfirmBeforeLaunchAsync(_verified);
         }
         catch (UpdateRefusedException ex)
         {

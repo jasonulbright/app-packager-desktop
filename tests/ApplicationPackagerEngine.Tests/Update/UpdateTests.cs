@@ -438,4 +438,88 @@ public sealed class UpdateServiceTests : IDisposable
         Assert.Equal("NotSigned", info!.Status);
         Assert.NotNull(UpdateSignaturePolicy.Evaluate(info));
     }
+
+    /// <summary>A signature reader whose answer can change between the download check and the start of the installer.</summary>
+    private sealed class SwitchableSignature(SignatureInfo? first) : ISignatureReader
+    {
+        public SignatureInfo? Current { get; set; } = first;
+        public int Reads { get; private set; }
+
+        public Task<SignatureInfo?> ReadAsync(string path, CancellationToken ct = default)
+        {
+            Reads++;
+            return Task.FromResult(Current);
+        }
+    }
+
+    private async Task<(UpdateService Service, SwitchableSignature Signature, VerifiedUpdate Verified)> VerifiedAsync()
+    {
+        var signature = new SwitchableSignature(Good);
+        var (content, sums) = Payload();
+        var service = new UpdateService(Downloads(content, sums), signature, Repo, () => Path.Combine(_root, "dl-" + Guid.NewGuid().ToString("N")));
+        var verified = await service.DownloadAsync(Release());
+        return (service, signature, verified);
+    }
+
+    [Fact]
+    public async Task ConfirmBeforeLaunchReadsTheSignatureAgainAndPassesWhenNothingChanged()
+    {
+        var (service, signature, verified) = await VerifiedAsync();
+        using var _ = service;
+        var readsAfterDownload = signature.Reads;
+
+        await service.ConfirmBeforeLaunchAsync(verified);
+
+        Assert.Equal(readsAfterDownload + 1, signature.Reads);
+    }
+
+    [Theory]
+    [InlineData("NotSigned", "", false)]
+    [InlineData("HashMismatch", "CN=Jason Ulbright, O=Jason Ulbright", true)]
+    [InlineData("Valid", "CN=Jason Ulbright, O=Jason Ulbright", false)]
+    [InlineData("Valid", "CN=Someone Else, O=Someone Else", true)]
+    public async Task ConfirmBeforeLaunchRefusesASignatureThatNoLongerPasses(string status, string subject, bool timestamp)
+    {
+        var (service, signature, verified) = await VerifiedAsync();
+        using var _ = service;
+        signature.Current = new SignatureInfo(status, subject, timestamp);
+
+        var ex = await Assert.ThrowsAsync<UpdateRefusedException>(() => service.ConfirmBeforeLaunchAsync(verified));
+
+        Assert.Contains("will not start", ex.Message);
+    }
+
+    [Fact]
+    public async Task ConfirmBeforeLaunchRefusesASignatureThatCannotBeRead()
+    {
+        var (service, signature, verified) = await VerifiedAsync();
+        using var _ = service;
+        signature.Current = null;
+
+        await Assert.ThrowsAsync<UpdateRefusedException>(() => service.ConfirmBeforeLaunchAsync(verified));
+    }
+
+    [Fact]
+    public async Task ConfirmBeforeLaunchRefusesAnotherSignerWhoPassesThePolicy()
+    {
+        var (service, signature, verified) = await VerifiedAsync();
+        using var _ = service;
+        signature.Current = new SignatureInfo("Valid", "CN=Jason Ulbright, O=Another Company", true);
+
+        var ex = await Assert.ThrowsAsync<UpdateRefusedException>(() => service.ConfirmBeforeLaunchAsync(verified));
+
+        Assert.Contains("signer", ex.Message);
+    }
+
+    [Fact]
+    public async Task ConfirmBeforeLaunchStillCatchesAFileSwappedAfterTheCheck()
+    {
+        var (service, signature, verified) = await VerifiedAsync();
+        using var _ = service;
+        File.WriteAllText(verified.Path, "swapped");
+
+        await Assert.ThrowsAsync<UpdateRefusedException>(() => service.ConfirmBeforeLaunchAsync(verified));
+
+        Assert.Equal(1, signature.Reads);
+    }
 }

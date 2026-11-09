@@ -220,6 +220,22 @@ public sealed class UpdateService : IDisposable
             throw new UpdateRefusedException("The downloaded installer changed after the check. It will not start.");
     }
 
+    /// <summary>
+    /// The check just before the installer starts: the hash again, then the Authenticode signature again, against the same
+    /// policy as the download check and for the same signer. A file replaced after the download, or a signature that no longer
+    /// passes, throws <see cref="UpdateRefusedException"/> and the installer does not start.
+    /// </summary>
+    public async Task ConfirmBeforeLaunchAsync(VerifiedUpdate update, CancellationToken ct = default)
+    {
+        ConfirmUnchanged(update);
+
+        var info = await _signatures.ReadAsync(update.Path, ct).ConfigureAwait(false);
+        if (UpdateSignaturePolicy.Evaluate(info) is { } refusal)
+            throw new UpdateRefusedException(refusal + " The installer will not start.");
+        if (!string.Equals(info!.Subject, update.Subject, StringComparison.Ordinal))
+            throw new UpdateRefusedException($"The signer changed from '{update.Subject}' to '{info.Subject}' after the check. The installer will not start.");
+    }
+
     private async Task DownloadFileAsync(UpdateAsset asset, string path, long maxBytes, Action<long, long>? progress, CancellationToken ct)
     {
         using var request = Get(asset.Url, "application/octet-stream");
