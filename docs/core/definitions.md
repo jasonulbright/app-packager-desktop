@@ -91,11 +91,11 @@ The `Detection` field decides when ConfigMgr, Intune or WSUS counts the applicat
 
 | Type | Checks | Definitions | Example |
 |---|---|---|---|
-| `RegistryKeyValue` | A value under a registry key, compared with the version. | 208 | `7zip.json` |
-| `File` | The version of a file, or that the file exists. | 91 | `notepadplusplus.json` |
-| `RegistryKey` | That a registry key exists. | 11 | `corretto-jdk8-x64.json` |
-| `Script` | That a script writes text to the output stream. | 4 | `tableaudesktop.json` |
-| `Compound` | Several clauses that you join with `And` or `Or`. | 3 | `nomachine.json` |
+| `RegistryKeyValue` | A value under a registry key, compared with the version. | 215 | `7zip.json` |
+| `File` | The version of a file, or that the file exists. | 82 | `notepadplusplus.json` |
+| `RegistryKey` | That a registry key exists. | 10 | `corretto-jdk8-x64.json` |
+| `Script` | That a script writes text to the output stream. | 6 | `tableaudesktop.json` |
+| `Compound` | Several clauses that you join with `And` or `Or`. | 4 | `nomachine.json` |
 | `ArpEntry` | An Add/Remove Programs entry. The stage turns it into a script. | 2 | `aspnethostingbundle10.json` |
 
 ## Counts in the shipped catalog
@@ -106,12 +106,12 @@ These counts come from the 319 files.
 |---|---|
 | Vendors | 200 |
 | `InstallerType` | `MSI` 155, `EXE` 155, `ODT` 6, `MSIX` 2, `ZIP` 1 |
-| `InstallerFramework` | `NativeMSI` 149, `InnoSetup` 56, `NSIS` 41, `WixBurn` 20, `NativeEXE` 16, `Unknown` 13, `InstallShield` 10, `ODT` 6, `Squirrel` 3, `MSIX` 3, `ZIP` 2 |
+| `InstallerFramework` | `NativeMSI` 149, `InnoSetup` 56, `NSIS` 41, `WixBurn` 20, `NativeEXE` 16, `Unknown` 13, `InstallShield` 9, `ODT` 6, `Squirrel` 3, `MSIX` 3, `ZIP` 2, `AdvancedInstaller` 1 |
 | `Architecture` | `x64` 299, `x86` 19, `ARM64` 1 |
 | `InstallContext` `User` | 12 (the other definitions use the default `Machine`) |
 | `ArpName` pattern / `none` | 295 / 24 |
 | `Cpe` | 294 |
-| `WsusSupport` `Yes` / `No (...)` | 243 / 76 |
+| `WsusSupport` `Yes` / `No (...)` | 255 / 64 |
 | `IconSource` | `Installer` 240, `External` 34, `None` 31. 14 definitions declare no value, which counts as `None`. |
 | `InstallerSettings` | 13 |
 
