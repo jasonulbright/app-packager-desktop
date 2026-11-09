@@ -95,7 +95,7 @@ See [One Click](one-click.md). The section has **Action on update** (**Report on
 |---|---|
 | **Configuration Manager console** | Shows if the console is found. |
 | **7-Zip command line** | Shows if `7z.exe` is found. Installer analysis and archive extraction need it. |
-| **Win32 Content Prep Tool**, **Download** | Fetches `IntuneWinAppUtil.exe` and checks its publisher signature before use. |
+| **Win32 Content Prep Tool**, **Download** | Fetches `IntuneWinAppUtil.exe` and checks its pinned SHA-256 and its publisher signature before use. |
 
 ### Packager Icon Pack and GitHub API
 
