@@ -67,6 +67,8 @@ The tools are the eight entries of the TOOLS group of the sidebar. A tool with m
 - [Definition format: sections](reference/definition-format-sections.md): the nested sections of a definition.
 - [Site Hygiene checks](reference/site-hygiene-checks.md): the checks and the scan areas.
 - [Shipped content](reference/shipped-content.md): the templates, plans, catalog entries and library files that ship with the application.
+- [Payload verification](reference/payload-verification.md): which definitions check the file that they download, and how.
+- [Tests and lab checks](reference/tests-and-lab-checks.md): the tests for the release, trust and update paths, and the checks done on lab machines.
 
 ## External references
 
