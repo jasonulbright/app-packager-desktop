@@ -64,7 +64,13 @@ public sealed class PayloadHashVerificationTests : IDisposable
         StagingService.VerifyPayloadHash(path, null, log.Add);
         StagingService.VerifyPayloadHash(path, "   ", log.Add);
 
-        Assert.Empty(log);
+        // The run says so: no hash was checked, and the log never reads as a verification.
+        Assert.Equal(2, log.Count);
+        Assert.All(log, line =>
+        {
+            Assert.StartsWith("Payload SHA256 NOT verified:", line);
+            Assert.DoesNotContain("verified:", line.Replace("NOT verified:", ""));
+        });
     }
 
     [Fact]
