@@ -14,8 +14,17 @@ public sealed record IntuneWinBuildResult(string IntuneWinPath, long SizeBytes, 
 /// </summary>
 public sealed class IntuneWinToolService
 {
+    /// <summary>The release of the Microsoft repository that the download is pinned to.</summary>
+    public const string PinnedVersion = "1.8.7";
+
+    /// <summary>
+    /// The SHA-256 of IntuneWinAppUtil.exe in the tagged release <see cref="PinnedVersion"/>. The file is Authenticode-signed by
+    /// Microsoft Corporation (checked when the pin was set). A new release of the tool is taken by changing both constants.
+    /// </summary>
+    public const string PinnedSha256 = "C1BA45B5CB939E84AF064BB7FF4B38FB3DFE33C8DC1078FD9B157672EAE671F6";
+
     public const string DefaultDownloadUrl =
-        "https://github.com/microsoft/Microsoft-Win32-Content-Prep-Tool/raw/master/IntuneWinAppUtil.exe";
+        "https://github.com/microsoft/Microsoft-Win32-Content-Prep-Tool/raw/v1.8.7/IntuneWinAppUtil.exe";
 
     private readonly DownloadService _downloads;
 
@@ -23,15 +32,17 @@ public sealed class IntuneWinToolService
         => _downloads = downloads ?? new DownloadService();
 
     /// <summary>
-    /// Downloads IntuneWinAppUtil.exe into <paramref name="destinationFolder"/>. The file is
-    /// verified as Authenticode-Valid and Microsoft-signed before it lands at its final path;
-    /// a download that fails verification is deleted and the call throws.
+    /// Downloads IntuneWinAppUtil.exe into <paramref name="destinationFolder"/>. The file must match
+    /// <paramref name="expectedSha256"/> (the pinned release by default; null skips this check for a
+    /// download from another source), and must be Authenticode-Valid and Microsoft-signed, before it lands at
+    /// its final path; a download that fails either check is deleted and the call throws.
     /// </summary>
     public async Task<string> InstallAsync(
         string destinationFolder,
         string downloadUrl = DefaultDownloadUrl,
         Action<string>? onProgress = null,
-        CancellationToken ct = default)
+        CancellationToken ct = default,
+        string? expectedSha256 = PinnedSha256)
     {
         Directory.CreateDirectory(destinationFolder);
         var target = Path.Combine(destinationFolder, "IntuneWinAppUtil.exe");
@@ -40,6 +51,13 @@ public sealed class IntuneWinToolService
         try
         {
             await _downloads.DownloadAsync(downloadUrl, temp, onProgress: onProgress, ct: ct).ConfigureAwait(false);
+            if (!string.IsNullOrWhiteSpace(expectedSha256))
+            {
+                var actual = StagingService.ComputeSha256(temp);
+                if (!string.Equals(actual, expectedSha256.Trim(), StringComparison.OrdinalIgnoreCase))
+                    throw new InvalidOperationException(
+                        $"IntuneWinAppUtil.exe download SHA-256 '{actual}' does not match the pinned value '{expectedSha256.Trim().ToUpperInvariant()}'; file discarded.");
+            }
             VerifyMicrosoftSignature(temp);
             File.Move(temp, target, overwrite: true);
             onProgress?.Invoke($"IntuneWinAppUtil.exe verified and installed: {target}");
