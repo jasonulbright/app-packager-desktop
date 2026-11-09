@@ -324,6 +324,8 @@ public sealed partial class MecmTarget
         sb.AppendLine("$app = $null");
         sb.AppendLine("$replaceExisting = $false");
         sb.AppendLine("$createdApp = $false");
+        sb.AppendLine("$createdStaging = @()");
+        sb.AppendLine("$oldDtRemoved = $false");
         sb.AppendLine("$replaceDtNames = @()");
         sb.AppendLine("if ($existing.Count -eq 1) {");
         sb.AppendLine("    $app = $existing[0]");
@@ -411,6 +413,7 @@ public sealed partial class MecmTarget
         // From here the site can refuse a step (a value it does not accept, a content path it cannot read). The steps run in a
         // try block so that a failure does not leave a half-built application: one that this run created is removed, and the
         // staging deployment types of this run are removed from one that was already there.
+        sb.AppendLine(IncompleteWorkCleanupFunction);
         sb.AppendLine("try {");
         for (var i = 0; i < specs.Count; i++)
         {
@@ -505,6 +508,8 @@ public sealed partial class MecmTarget
             if (ruleVars[i].Count > 0)
                 sb.Append($" -AddRequirement @({string.Join(", ", ruleVars[i])})");
             sb.AppendLine(" | Out-Null");
+            // The cleanup removes only the deployment types that this run created.
+            sb.AppendLine($"$createdStaging += $dtCreateName{i}");
 
             if (isScriptDetection)
             {
@@ -517,6 +522,7 @@ public sealed partial class MecmTarget
 
         sb.AppendLine("foreach ($oldDt in $replaceDtNames) {");
         sb.AppendLine($"    Remove-CMDeploymentType -ApplicationName '{Esc(appName)}' -DeploymentTypeName $oldDt -Force -ErrorAction Stop");
+        sb.AppendLine("    $oldDtRemoved = $true");
         sb.AppendLine("    Write-Host \"Removed old deployment type  : $oldDt\"");
         sb.AppendLine("}");
         for (var i = 0; i < specs.Count; i++)
@@ -528,15 +534,7 @@ public sealed partial class MecmTarget
         }
         sb.AppendLine("} catch {");
         sb.AppendLine("    $stepError = $_");
-        // The detection clauses are built on the file system drive; the cleanup needs the site drive.
-        sb.AppendLine($"    Set-Location '{Esc(siteCode)}:'");
-        sb.AppendLine("    if ($createdApp) {");
-        sb.AppendLine($"        try {{ Remove-CMApplication -Name '{Esc(appName)}' -Force -ErrorAction Stop; Write-Host 'Removed the incomplete application' }}");
-        sb.AppendLine("        catch { Write-Host \"The incomplete application was not removed: $($_.Exception.Message)\" }");
-        sb.AppendLine("    } else {");
-        sb.AppendLine($"        try {{ @(Get-CMDeploymentType -ApplicationName '{Esc(appName)}' -ErrorAction Stop | Where-Object {{ [string]$_.LocalizedDisplayName -like '* (staging)' }}) | ForEach-Object {{ Remove-CMDeploymentType -ApplicationName '{Esc(appName)}' -DeploymentTypeName $_.LocalizedDisplayName -Force -ErrorAction Stop; Write-Host \"Removed staging deployment type: $($_.LocalizedDisplayName)\" }} }}");
-        sb.AppendLine("        catch { Write-Host \"The staging deployment types were not removed: $($_.Exception.Message)\" }");
-        sb.AppendLine("    }");
+        sb.AppendLine($"    Remove-ApkgIncompleteWork -ApplicationName '{Esc(appName)}' -SiteCode '{Esc(siteCode)}' -CreatedApp $createdApp -CreatedStaging $createdStaging -OldDtRemoved $oldDtRemoved");
         sb.AppendLine("    throw $stepError");
         sb.AppendLine("}");
 
@@ -1060,6 +1058,32 @@ public sealed partial class MecmTarget
         sb.AppendLine($"{indent}    Write-Host 'Task-sequence install        : disabled (deployment type requires a user context)'");
         sb.AppendLine($"{indent}}}");
     }
+
+    /// <summary>
+    /// What the package script does when the site refuses a deployment-type step. An application that the run created goes
+    /// away. For an application that was already there, only the deployment types that this run created go, and only while no
+    /// old deployment type has been removed yet: after that the new ones are the replacement and stay. The detection clauses are
+    /// built on the file system drive, so the function goes back to the site drive first.
+    /// </summary>
+    internal const string IncompleteWorkCleanupFunction = """
+        function Remove-ApkgIncompleteWork {
+            param([string]$ApplicationName, [string]$SiteCode, [bool]$CreatedApp, [string[]]$CreatedStaging, [bool]$OldDtRemoved)
+            Set-Location "${SiteCode}:"
+            if ($CreatedApp) {
+                try { Remove-CMApplication -Name $ApplicationName -Force -ErrorAction Stop; Write-Host 'Removed the incomplete application' }
+                catch { Write-Host "The incomplete application was not removed: $($_.Exception.Message)" }
+                return
+            }
+            if ($OldDtRemoved) {
+                Write-Host 'An old deployment type was already removed, so the new deployment types stay. Publish again after the cause is fixed.'
+                return
+            }
+            foreach ($name in @($CreatedStaging)) {
+                try { Remove-CMDeploymentType -ApplicationName $ApplicationName -DeploymentTypeName $name -Force -ErrorAction Stop; Write-Host "Removed deployment type of this run: $name" }
+                catch { Write-Host "The deployment type '$name' of this run was not removed: $($_.Exception.Message)" }
+            }
+        }
+        """;
 
     private static string Esc(string value) => PowerShellLiteral.EscapeSingleQuoted(value);
 
