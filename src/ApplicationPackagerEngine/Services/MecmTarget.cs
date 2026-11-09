@@ -913,7 +913,7 @@ public sealed partial class MecmTarget
         // ... has already been distributed" (lab: ConfigMgr 5.00.9146). It gives the same answer for a group that does not
         // exist, so the group is looked up before the answer counts as done.
         sb.AppendLine("  if ($_.Exception.Message -match 'already been targeted|already distributed|already been distributed|No content destination was found') {");
-        sb.AppendLine($"    if (-not (Get-CMDistributionPointGroup -Name '{Esc(dpGroupName)}' -ErrorAction SilentlyContinue)) {{ throw \"Distribution point group '{EscDq(dpGroupName)}' was not found.\" }}");
+        sb.AppendLine($"    if (-not (Get-CMDistributionPointGroup -Name '{Esc(dpGroupName)}' -ErrorAction Stop)) {{ throw \"Distribution point group '{EscDq(dpGroupName)}' was not found.\" }}");
         sb.AppendLine($"    Write-Host 'Content already targeted: {Esc(appName)} on {Esc(dpGroupName)}'");
         sb.AppendLine("  } else { throw }");
         sb.AppendLine("}");
