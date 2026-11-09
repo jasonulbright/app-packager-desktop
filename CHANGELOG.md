@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [2026.1109.17] - 2026-11-09
+
+### Changed
+
+- Add tests that show a cancelled Intune publish stops at each step that waits. The program code did not change.
+
 ## [2026.1109.16] - 2026-11-09
 
 ### Changed
