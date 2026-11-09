@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+## [2026.1109.18] - 2026-11-09
+
+### Fixed
+
+- Check the signature of a downloaded update again just before the installer starts. The update does not start if the file or its signature changed since the first check.
+
+### Changed
+
+- Add the license text of NSIS to the licenses folder and name it in the third-party notices. This was already in the previous package.
+
 ## [2026.1109.17] - 2026-11-09
 
 ### Changed
