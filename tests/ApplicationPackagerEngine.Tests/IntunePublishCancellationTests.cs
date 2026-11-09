@@ -156,6 +156,15 @@ public sealed class IntunePublishCancellationTests : IDisposable
         var publish = service.PublishAsync(IntuneWinFixture.Create(_dir), Manifest(), options, ct: cancellation.Token);
 
         await handler.Reached.Task.WaitAsync(TimeSpan.FromSeconds(60));
+
+        // Reached is set when the request arrives, before its response returns. Wait until the publish has been quiet for a
+        // full second: with an interval of five minutes, no further request can come then, so the publish is in the delay.
+        int before;
+        lock (handler.Steps) before = handler.Steps.Count;
+        await Task.Delay(TimeSpan.FromSeconds(1));
+        lock (handler.Steps) Assert.Equal(before, handler.Steps.Count);
+        Assert.False(publish.IsCompleted, "The publish ended before the delay was cancelled.");
+
         var clock = Stopwatch.StartNew();
         cancellation.Cancel();
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => publish.WaitAsync(TimeSpan.FromSeconds(20)));
