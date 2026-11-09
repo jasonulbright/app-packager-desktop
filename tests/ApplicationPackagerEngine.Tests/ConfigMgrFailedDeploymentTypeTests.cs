@@ -67,10 +67,11 @@ public sealed class ConfigMgrFailedDeploymentTypeTests
     [InlineData("created-app-refused", true, false, "The incomplete application was not removed: App is in use", "")]
     [InlineData("staging", false, false, "Removed deployment type of this run: New (staging)", "REMOVED-DT New (staging)")]
     [InlineData("old-removed", false, true, "An old deployment type was already removed", "")]
+    [InlineData("drive-switch-fails", true, false, "Cleanup could not return to the site drive: Drive not found", "")]
     public async Task TheCleanupRemovesOnlyWhatThisRunCreated(string case_, bool createdApp, bool oldRemoved, string expectedOutput, string expectedRemoval)
     {
         var standIns = $$"""
-            function Set-Location { param($Path) }
+            function Set-Location { [CmdletBinding()] param($Path) if ('{{case_}}' -eq 'drive-switch-fails') { throw 'Drive not found' } }
             function Get-CMDeploymentType { Write-Host 'QUERIED-SITE'; [pscustomobject]@{ LocalizedDisplayName = 'Operator (staging)' } }
             function Remove-CMApplication {
                 [CmdletBinding()] param($Name, [switch]$Force)

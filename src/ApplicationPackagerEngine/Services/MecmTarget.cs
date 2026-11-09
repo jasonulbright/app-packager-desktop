@@ -1068,7 +1068,8 @@ public sealed partial class MecmTarget
     internal const string IncompleteWorkCleanupFunction = """
         function Remove-ApkgIncompleteWork {
             param([string]$ApplicationName, [string]$SiteCode, [bool]$CreatedApp, [string[]]$CreatedStaging, [bool]$OldDtRemoved)
-            Set-Location "${SiteCode}:"
+            try { Set-Location "${SiteCode}:" -ErrorAction Stop }
+            catch { Write-Host "Cleanup could not return to the site drive: $($_.Exception.Message)"; return }
             if ($CreatedApp) {
                 try { Remove-CMApplication -Name $ApplicationName -Force -ErrorAction Stop; Write-Host 'Removed the incomplete application' }
                 catch { Write-Host "The incomplete application was not removed: $($_.Exception.Message)" }

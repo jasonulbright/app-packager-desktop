@@ -128,14 +128,14 @@ public sealed class SigningOffByteIdentityTests
     [InlineData(false)]
     [InlineData(true)]
     public void RegistryDetection_MecmScriptIsUnchanged(bool withContext) =>
-        Assert.Equal("540545AD5CD2AD13A247DF07A4DCC0F64E7ABEBDCF00C5590FC6BE47CF6C4B4A",
+        Assert.Equal("C47002A7A1B9B0C24BE38CF5F6F98585AF56AC3162B1A3CFFDE6ADBB5DB0183E",
             Sha(WithoutDefaultReboot(Build(Registry(), signing: withContext ? AllOff : null))));
 
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
     public void FileDetectionWithWqlAndBuiltInRequirements_MecmScriptIsUnchanged(bool withContext) =>
-        Assert.Equal("4F0414EBF2E5A5D848788D9EB8A08B0E28F84493C2C953A07D6C9FA34D02B44B",
+        Assert.Equal("D8A594086404D10032E51E5503D20972BF1798AFC000DB1ABBC3DAD712C1C633",
             Sha(WithoutDefaultReboot(Build(FileVersionUserInstall(),
                 [new StageRequirement { ConditionId = "cpu-arch", Value = "x64" },
                  new StageRequirement { ConditionId = "os-language", Cultures = ["de-DE"] }],
@@ -145,7 +145,7 @@ public sealed class SigningOffByteIdentityTests
     [InlineData(false)]
     [InlineData(true)]
     public void CompoundMultiDeploymentType_MecmScriptIsUnchanged(bool withContext) =>
-        Assert.Equal("C720DC45387E4DDDD1603387A421702B96C4365F7DCF7781734E673BB37F1545",
+        Assert.Equal("AC09A1E6662C414412A19F39F97142FEE1E49FD0646C03F191D9B87B3558BB8B",
             Sha(WithoutDefaultReboot(Build(CompoundMultiDt(), signing: withContext ? AllOff : null), deploymentTypes: 2)));
 
     /// <summary>A checkout can rewrite the fixture's line endings; the generated script always uses CRLF.</summary>
