@@ -17,7 +17,7 @@
 - **Intune** selected under **Systems in use** in Settings.
 - **Tenant ID**, **Client ID** and **Client Secret** set in Settings, Intune.
 - Access to `login.microsoftonline.com` and `graph.microsoft.com`. Graph returns the address of the Azure storage upload. The app uses that address at run time.
-- The Win32 Content Prep Tool (`IntuneWinAppUtil.exe`). The first Intune build downloads it. You can also select **Download** in Settings, Detected Tools. The app checks the SHA-256 of the pinned release (1.8.7) and the publisher signature of the file before it uses it.
+- The Win32 Content Prep Tool (`IntuneWinAppUtil.exe`). The first Intune build downloads it. You can also select **Download** in Settings, Detected Tools. The app checks the SHA-256 of the pinned release (1.8.7) and the publisher signature of a file that it downloads, before it installs that file. A copy of the tool that is already in the Tools folder or on the PATH is used as it is and is not checked again.
 - Staged content for the application. See [Stage and publish](stage-and-publish.md).
 
 ## Steps

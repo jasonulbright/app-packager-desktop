@@ -14,7 +14,7 @@ public sealed class IntuneWinToolPinTests : IDisposable
 
     public void Dispose()
     {
-        try { Directory.Delete(_folder, true); } catch (IOException) { }
+        try { Directory.Delete(_folder, true); } catch (IOException ex) { System.Diagnostics.Trace.WriteLine($"The test folder {_folder} was not deleted: {ex.Message}"); }
     }
 
     [Fact]
