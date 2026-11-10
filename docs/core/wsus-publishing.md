@@ -124,6 +124,8 @@ A refusal code with the severity Blocking stops the publish. The codes are in th
 | `PayloadMissing` | A file that the stage recorded is no longer in the staged content. Run Stage again. |
 | `PayloadTooLarge` | The payload is larger than 2047 MB. An update is one signed cab. |
 
+The update carries the return codes 0, 1707, 3010 and 1641 for an EXE. When the definition lists exit codes of its own (`RebootExitCodes`, `SuccessExitCodes`), they are added: a reboot code is a success with a restart, a success code is a success. A code that the fixed list has keeps its meaning. The return codes belong to an update when it is created: an update that is already on the server keeps its old return codes, so expire it in the [WSUS Updates](wsus-updates.md) window and publish again.
+
 Two findings do not stop the publish. `RequirementsNotTranslated` means the app does not translate ConfigMgr requirement rules into WSUS rules. Approve the update only for computer groups that meet them. `RunningProcessNotClosed` means WSUS cannot close a running process before the install.
 
 ### Detection rules

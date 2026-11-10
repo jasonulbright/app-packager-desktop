@@ -36,6 +36,18 @@ public sealed class StageManifest
     public string UninstallArgs { get; set; } = "";
     public string? ProductCode { get; set; }
     public string[]? RunningProcess { get; set; }
+
+    /// <summary>
+    /// Installer exit codes that mean "reboot required", from the definition. The EXE wrappers report each as 3010. WSUS runs the
+    /// installer itself, so it gets each as a return code: a success with a restart (WsusPublishService.ReturnCodesFor).
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public int[]? RebootExitCodes { get; set; }
+
+    /// <summary>Installer exit codes that follow a complete install, from the definition. The EXE wrappers report each as 0.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public int[]? SuccessExitCodes { get; set; }
+
     public StageDetection Detection { get; set; } = new();
     /// <summary>
     /// The product's Add/Remove Programs entry, read by WSUS in place of
