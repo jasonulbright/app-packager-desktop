@@ -240,7 +240,7 @@ public sealed class SevenZipPolicyTests : IDisposable
         var exe = RequireSevenZip();
         var zip = WriteZip(_temp.PathOf("ended.zip"), ("a.txt", Text("A")));
         // The assignment waits for the process to end and then fails, as Windows does for a process that has ended.
-        var tool = new SevenZipTool(exe) { AssignJob = p => { p.WaitForExit(); return null; } };
+        var tool = new SevenZipTool(exe) { AssignJob = p => { p.WaitForExit(30_000); return null; } };
 
         var entries = await tool.ListAsync(zip, Limits, CancellationToken.None);
 
