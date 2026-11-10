@@ -37,6 +37,9 @@ internal sealed class SevenZipTool(string exePath)
     /// <summary>Puts the started 7-Zip in a kill-on-close job, so it ends with this process; null when that is not possible.</summary>
     internal Func<Process, IDisposable?> AssignJob { get; init; } = KillOnCloseJob.TryAssign;
 
+    /// <summary>Whether the process has ended when the job assignment was refused. A seam so that a test can decide the case.</summary>
+    internal Func<Process, bool> HasEnded { get; init; } = p => p.HasExited;
+
     /// <summary>Called with the path of each entry list file once it is written.</summary>
     internal Action<string>? ListFileCreated { get; init; }
 
@@ -209,7 +212,9 @@ internal sealed class SevenZipTool(string exePath)
         // The application exits through Environment.Exit, which skips this method's cleanup;
         // the job ends 7-Zip when the application's handle to it closes.
         using var job = AssignJob(process);
-        if (job is null)
+        // A listing of a small archive can end before the process is assigned to the job; Windows then refuses the assignment. A
+        // process that has ended has nothing left to stop, and 7-Zip starts no child process, so the run goes on.
+        if (job is null && !HasEnded(process))
         {
             BoundedProcessRunner.Terminate(process);
             throw new InstallerAnalysisException(NoJobMessage);

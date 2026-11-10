@@ -193,14 +193,30 @@ public sealed class CollectionComplianceViewModelTests
         Assert.Equal(2, harness.Service.ListCalls);
     }
 
+    /// <summary>
+    /// The view model reads a detail on a pool thread, and the fake service looks at its gate when that read starts. A test that
+    /// changes the gate right after the selection must first wait until the read has started, or the read may see the new gate.
+    /// </summary>
+    private static async Task WaitForDetailCallAsync(CollectionComplianceHarness harness, int callsBefore)
+    {
+        var deadline = DateTime.UtcNow.AddSeconds(30);
+        while (Volatile.Read(ref harness.Service.DetailCalls) <= callsBefore)
+        {
+            if (DateTime.UtcNow > deadline) throw new TimeoutException("The detail read did not start.");
+            await Task.Delay(5);
+        }
+    }
+
     [Fact]
     public async Task ADetailThatArrivesAfterTheSelectionChangedIsDiscarded()
     {
         var harness = new CollectionComplianceHarness();
         var viewModel = await harness.OpenAsync();
         harness.Service.DetailGate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var callsBefore = Volatile.Read(ref harness.Service.DetailCalls);
         viewModel.SelectedRow = viewModel.Rows.Single(r => r.CollectionId == "LAB00010");
         var first = viewModel.DetailLoad;
+        await WaitForDetailCallAsync(harness, callsBefore);
         harness.Service.DetailGate = null;
         viewModel.SelectedRow = viewModel.Rows.Single(r => r.CollectionId == "LAB00012");
         await viewModel.DetailLoad;
@@ -210,8 +226,10 @@ public sealed class CollectionComplianceViewModelTests
         Assert.Contains(viewModel.Properties, p => p.Name == "Name" && p.Value == "Pilot");
 
         harness.Service.DetailGate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        callsBefore = Volatile.Read(ref harness.Service.DetailCalls);
         viewModel.SelectedRow = viewModel.Rows.Single(r => r.CollectionId == "LAB00010");
         var pending = viewModel.DetailLoad;
+        await WaitForDetailCallAsync(harness, callsBefore);
         await viewModel.OnNavigatedFromAsync();
         harness.Service.DetailGate.SetResult();
         await pending;

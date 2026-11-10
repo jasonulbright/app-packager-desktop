@@ -214,3 +214,17 @@ Each update that App Packager creates now carries a line in its description, `Ap
 | `WsusPublishServiceTests` | The plan description ends with the digest line; a repeat publish of the same stage finds the update unchanged and warns about nothing; a changed install command, reboot code, success code or detection fails with the kind `UpdateDiffers`, names the remedy, and sends no publish request; an update without a digest is reported with a log note and no warning; a script signed again with the same body does not make the update differ, and a corrected script body does; a changed installer file fails; a declined update that differs fails and says it is declined; the failure is a failed step and not a refusal. |
 
 **Lab check.** None. The lab has no WSUS server. The tests use the fake adapter that the other publish tests use, so they show what the publisher sends and decides, not how a WSUS server stores the description.
+
+## Tests that failed at random in the full run
+
+In five full runs on 2026-11-10 (CI and the release workflow), a different test failed each time, and each passed on the next run of the same code. A release cannot start while the run on the commit is red, so each failure cost a rerun of about 40 minutes. The causes were read from the code and the CI logs; none of them could be made to fail on purpose, so the fixes have no test that was red first.
+
+| Test | Cause | Fix |
+|---|---|---|
+| `CollectionComplianceViewModelTests.ADetailThatArrivesAfterTheSelectionChangedIsDiscarded` | Test race. The view model reads a detail on a pool thread, and the fake service looked at its gate only when that read started. The test cleared the gate right after the selection, so the first read could see the new, empty gate and finish at once. | The test waits until the read has started before it changes the gate. The fake service reads the gate before it counts the call. |
+| `SiteHygieneLiveTests.TheLiveChoicesRoundTripAndValuesNeverSetStayNull` | Test race. Each property setter starts a save, so the SQL server and the database can be written by two saves; the test read the last save only. | The test reads what is stored in the settings. |
+| `AddFileViewModelTests.APackageShowsItsIdentityAndAProminentTrustWarning` | Probable test and environment cause. The test waits for two steps on the thread pool with a limit of 10 seconds, and a full run keeps the pool busy. | The limit of `StaTestHelper.PumpUntil` is 60 seconds; a passing test still returns as soon as its condition holds. |
+| `WrappedMsiAndInstallerCopyTests.AnExeWithNoMsiInside_KeepsNoProductCodeAndSaysWhy` | Product race, probable. A listing of a small archive can end before 7-Zip is assigned to its job object, Windows then refuses the assignment, and the listing failed with "could not be listed". | `SevenZipTool` goes on when the process has already ended: it has nothing left to stop, and 7-Zip starts no child process. `SevenZipPolicyTests` has a test for the case (the job assignment waits for 7-Zip to end and then fails); the test of the refusal decides by a seam that the process is still running, so it does not depend on timing. |
+| `PostInstallKillProcessesTests.TheWrapperReturnsTheInstallerExitCodeAndStopsTheLaunchedChild` | Product race in the install wrapper (a fast installer exit is read as 0). Not part of this change; it has its own change. | None here. |
+
+**Lab check.** None. These are timing faults of tests and of one process start; the lab adds nothing. The proof is that the full run no longer fails at random, which needs several runs.
