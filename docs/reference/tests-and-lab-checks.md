@@ -111,3 +111,17 @@ The original error is thrown again after the cleanup.
 4. The probe application and its source folder were deleted.
 
 Result (2026-11-09): as described. The lab machines were started for the check and stopped afterwards. No snapshot was used.
+
+## ConfigMgr publish: a skipped version is named
+
+With `OnExisting=Skip` (the default of One Click and the command line), a run that finds the title on the site leaves the application alone and succeeds. A title without a version matches every version, so a new version is skipped too. Until now the log did not say so.
+
+The log now has one line from `MecmTarget.ExistingApplicationSkipMessage`. For another version it reads: ConfigMgr holds the application at version 1.2.3; version 1.2.4 was NOT published by this Skip run; choose Overwrite to replace the deployment types. For the same version it says that nothing was changed. The result is the same as before (Success and AlreadyExists; exit code 0 for a ConfigMgr-only run; the outcome is "already present", and One Click records it as skipped); only the log line is new. On the Packages page, the first pass runs with Skip and then offers Overwrite, so the line can be followed by an overwrite when the user chooses it.
+
+| Test class | What it proves |
+|---|---|
+| `ConfigMgrSkipMessageTests` | The full text of the message for a different version, the same version, an unread site version and an empty staged version. The decision after the probe (`DecideAfterProbe`, called by `PackageAsync`): no title lets the run go on; Skip ends it with success and logs the site version first and the staged version second; Fail ends it with the refusal and logs no Skip line. |
+
+**Lab check.** The message is built from the version that the site returns, so the probe script was run on the ConfigMgr lab server against a real application at version 1.2.3 with an incoming version of 1.2.4. Expected and seen: the conflict line `existing app='...' version='1.2.3' incoming='1.2.4'`, which is the input of the message. The probe application was deleted afterwards.
+
+Result (2026-11-09): as described. The lab machines were started for the check and stopped afterwards. No snapshot was used.

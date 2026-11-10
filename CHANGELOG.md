@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [2026.1109.21] - 2026-11-09
+
+### Changed
+
+- A ConfigMgr publish with OnExisting=Skip that finds the title on the site now says in the log which version the site holds and that the new version was not published.
+
 ## [2026.1109.20] - 2026-11-09
 
 ### Fixed
