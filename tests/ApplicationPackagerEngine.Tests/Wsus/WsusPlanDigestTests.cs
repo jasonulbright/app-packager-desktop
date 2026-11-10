@@ -39,18 +39,33 @@ public sealed class WsusPlanDigestTests
     public void ARenamedCompanionFileWithTheSameBytesChangesTheDigest() =>
         Assert.NotEqual(Digest(files: [("setup.exe", "aa"), ("setup.ini", "bb")]), Digest(files: [("setup.exe", "aa"), ("config.ini", "bb")]));
 
-    [Fact]
-    public void AScriptCountsByItsNameBecauseItsSignatureChangesAtEachStaging()
-    {
-        var first = Digest(files: [("setup.exe", "aa"), ("tool.ps1", "11")]);
-        var resigned = Digest(files: [("setup.exe", "aa"), ("tool.ps1", "22")]);
-        var renamed = Digest(files: [("setup.exe", "aa"), ("other.ps1", "11")]);
-        var removed = Digest(files: [("setup.exe", "aa")]);
+    private const string Body = "Start-Process setup.exe -ArgumentList '/S' -Wait\r\nexit 0\r\n";
 
-        Assert.Equal(first, resigned);
-        Assert.NotEqual(first, renamed);
-        Assert.NotEqual(first, removed);
+    private static string Signed(string body, string signature) => body + "\r\n# SIG # Begin signature block\r\n" + signature + "\r\n# SIG # End signature block\r\n";
+
+    [Fact]
+    public void AScriptHashDoesNotDependOnTheSignature()
+    {
+        Assert.Equal(WsusPlanDigest.ScriptHash(Body), WsusPlanDigest.ScriptHash(Signed(Body, "MIIabc")));
+        Assert.Equal(WsusPlanDigest.ScriptHash(Signed(Body, "MIIabc")), WsusPlanDigest.ScriptHash(Signed(Body, "MIIxyz-with-another-timestamp")));
     }
+
+    [Fact]
+    public void AnEditOfTheScriptBodyChangesTheScriptHashWithOrWithoutASignature()
+    {
+        var edited = Body.Replace("/S", "/S /norestart");
+
+        Assert.NotEqual(WsusPlanDigest.ScriptHash(Body), WsusPlanDigest.ScriptHash(edited));
+        Assert.NotEqual(WsusPlanDigest.ScriptHash(Signed(Body, "MIIabc")), WsusPlanDigest.ScriptHash(Signed(edited, "MIIabc")));
+    }
+
+    [Theory]
+    [InlineData("tool.ps1", true)]
+    [InlineData("Tool.PSM1", true)]
+    [InlineData("config.psd1", false)]
+    [InlineData("setup.exe", false)]
+    public void OnlyScriptsAndModulesAreHashedWithoutTheirSignature(string path, bool expected) =>
+        Assert.Equal(expected, WsusPlanDigest.IsSignedScript(path));
 
     [Fact]
     public void AValueMovedToAnotherFieldDoesNotKeepTheDigest() =>

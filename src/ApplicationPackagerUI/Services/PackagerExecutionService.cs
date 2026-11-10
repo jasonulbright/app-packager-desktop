@@ -403,7 +403,7 @@ public class PackagerExecutionService(
         // A stage made before the manifest carried the exit codes of the definition gets them from the definition.
         if (packager.IsJsonDefined && packager.DefinitionPath is not null)
         {
-            if (manifest.RebootExitCodes is null && manifest.SuccessExitCodes is null)
+            if (string.Equals(manifest.InstallerType, "EXE", StringComparison.OrdinalIgnoreCase) && manifest.RebootExitCodes is null && manifest.SuccessExitCodes is null)
             {
                 try { ApplicationPackagerEngine.Services.Wsus.WsusPublishService.CarryExitCodes(manifest, LoadDefinition(packager.DefinitionPath)); }
                 catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException or InvalidOperationException)

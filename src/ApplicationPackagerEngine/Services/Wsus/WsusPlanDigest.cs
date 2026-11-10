@@ -27,16 +27,27 @@ public static partial class WsusPlanDigest
             "installed:" + isInstalled,
             "installable:" + isInstallable,
             "codes:" + string.Join(",", returnCodes.Select(c => $"{c.Code}={c.Result}/{(c.Reboot ? "reboot" : "none")}")),
-            "files:" + string.Join(",", payloadFiles.Select(f => $"{f.Path}={(IsSignedAgainAtEachStaging(f.Path) ? "script" : f.Hash)}")));
+            "files:" + string.Join(",", payloadFiles.Select(f => $"{f.Path}={f.Hash}")));
         return Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(text)))[..16];
     }
 
+    private const string SignatureBegin = "# SIG # Begin signature block";
+
     /// <summary>
-    /// App Packager signs its PowerShell scripts again at each staging, and a timestamped signature has other bytes each time. A script
-    /// in the payload therefore counts by its name only: adding, removing or renaming one changes the digest, editing one does not.
+    /// The hash of a PowerShell script that does not depend on its signature. App Packager signs its scripts again at each staging, and
+    /// a timestamped signature has other bytes each time, so the hash of the file would change although the script did not. The text
+    /// before the signature block is hashed, without trailing white space; an edit of the script body changes it.
     /// </summary>
-    private static bool IsSignedAgainAtEachStaging(string path) =>
-        path.EndsWith(".ps1", StringComparison.OrdinalIgnoreCase) || path.EndsWith(".psm1", StringComparison.OrdinalIgnoreCase) || path.EndsWith(".psd1", StringComparison.OrdinalIgnoreCase);
+    public static string ScriptHash(string text)
+    {
+        var at = text.IndexOf(SignatureBegin, StringComparison.Ordinal);
+        var body = (at >= 0 ? text[..at] : text).TrimEnd();
+        return Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(body)));
+    }
+
+    /// <summary>True for the files whose hash is taken without the signature: the scripts and modules that App Packager signs.</summary>
+    public static bool IsSignedScript(string path) =>
+        path.EndsWith(".ps1", StringComparison.OrdinalIgnoreCase) || path.EndsWith(".psm1", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>The description line for a digest.</summary>
     public static string Line(string digest) => Marker + digest;

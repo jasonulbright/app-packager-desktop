@@ -289,6 +289,33 @@ public class WsusPublishServiceTests : IDisposable
         Assert.Contains(progress, line => line.Contains("earlier release") && line.Contains("not compared"));
     }
 
+    private void WriteScript(string body, string signature) =>
+        File.WriteAllText(Path.Combine(_content, "tool.ps1"), body + "\r\n# SIG # Begin signature block\r\n" + signature + "\r\n# SIG # End signature block\r\n");
+
+    [Fact]
+    public async Task AScriptThatIsSignedAgainWithTheSameBodyDoesNotMakeTheUpdateDiffer()
+    {
+        WriteScript("Write-Host 'one'", "SIGNATURE-A");
+        await PublishedOnTheServerAsync(Hashed());
+        WriteScript("Write-Host 'one'", "SIGNATURE-B");
+
+        var result = await Service(out _).PublishAsync(Hashed(), _content, _settings);
+
+        Assert.Equal(WsusPublishOutcome.AlreadyPublished, result.Outcome);
+    }
+
+    [Fact]
+    public async Task AScriptWithACorrectedBodyMakesTheUpdateDiffer()
+    {
+        WriteScript("Write-Host 'one'", "SIGNATURE-A");
+        await PublishedOnTheServerAsync(Hashed());
+        WriteScript("Write-Host 'corrected'", "SIGNATURE-A");
+
+        var ex = await Assert.ThrowsAsync<WsusOperationException>(() => Service(out _).PublishAsync(Hashed(), _content, _settings));
+
+        Assert.Equal(WsusErrorKinds.UpdateDiffers, ex.Kind);
+    }
+
     [Fact]
     public async Task AChangedPayloadFileFailsTheRepeatPublish()
     {

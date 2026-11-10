@@ -124,7 +124,8 @@ public sealed class WsusPublishService(IWsusAdapterRunner? runner = null, WsusRu
         var title = WsusIdentity.Title(manifest);
         var installerType = (manifest.InstallerType ?? "").Equals("MSI", StringComparison.OrdinalIgnoreCase) ? "MSI" : "EXE";
         var planDigest = WsusPlanDigest.Compute(CommandLineFor(manifest, installerType), installerType, payload[0], rules.IsInstalled, rules.IsInstallable,
-            ReturnCodesFor(manifest), payload.Zip(WsusPayload.RecordedHashes(manifest, payload), (file, hash) => (file, hash)));
+            ReturnCodesFor(manifest), payload.Zip(WsusPayload.RecordedHashes(manifest, payload),
+                (file, hash) => (file, WsusPlanDigest.IsSignedScript(file) ? WsusPlanDigest.ScriptHash(File.ReadAllText(WsusPayload.ResolvePath(contentFolder, file))) : hash)));
 
         var prepareRequest = WsusAdminClient.Request(normalized);
         prepareRequest["IdentityTag"] = identity;
