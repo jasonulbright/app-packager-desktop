@@ -158,21 +158,25 @@ Three checks of the ConfigMgr publish accepted values that the site then refused
 **Lab check.** The generated script for a `RegistryKeyValue` definition with `PropertyType: Existence` was run on the ConfigMgr lab server. Before the change the builder refused this definition. After the change the site accepted the clause: the application and its deployment type were created, and the detection of the deployment type names the value `InstallDir` and the 64-bit setting. The rule type in the stored detection was not decoded; the site accepted the form and reported no error. The probe application and its source folder were deleted afterwards.
 
 Result (2026-11-09): as described. The lab machines were started for the check and stopped afterwards. No snapshot was used.
-## ConfigMgr publish: a replace writes the same metadata as a new application
 
-A replace (`OnExisting=Overwrite`, or a new version of an application that exists) replaced the deployment types and wrote the version and the publisher, and nothing else (review finding A7). The application kept its old Software Center name, and an empty comment did not clear the old description, because the comment was written only when it was not empty. A new application gets both from the manifest.
+## ConfigMgr publish: a replace writes the Software Center name of the manifest
 
-The replace block now writes the comment as the description also when it is empty, and writes the Software Center name (`-LocalizedApplicationName`) when the manifest has a display name. Without a display name, the Software Center name is not touched.
+A replace (`OnExisting=Overwrite`) replaced the deployment types and wrote the version and the publisher, and nothing else (review finding A7). The application kept its old Software Center name, although a new application gets the name from the manifest.
+
+The replace block now writes the Software Center name (`-LocalizedApplicationName`) when the manifest has a display name. Without a display name, the name is not touched. The run comment is written as the description when there is one, as before.
+
+An empty comment does not clear an existing description. The review finding asked for that, but the comment is a value of the run, not of the manifest. The command line (without `--comment`) and One Click (with an empty comment field) pass an empty comment when the operator gave none. A replace that cleared the description for them would remove a note that an administrator typed in the console, without any message. Clearing a description on purpose stays a decision for the owner; it needs a way to tell "no comment given" from "comment cleared", which the run settings do not have today.
 
 | Test class | What it proves |
 |---|---|
-| `ConfigMgrReplaceMetadataTests` | The replace block carries the Software Center name of the manifest, and none when the manifest has no display name; it carries the description for a comment, an empty comment and a blank comment; a new application and a replace carry the same name and description; quotes in the name and the comment are escaped. |
+| `ConfigMgrReplaceMetadataTests` | The replace block carries the Software Center name of the manifest, and none when the manifest has no display name or an empty one. It carries the run comment as the description, and no description for an empty or blank comment. A new application and a replace carry the same name and comment. Quotes in the name and the comment are escaped. |
 | `SigningOffByteIdentityTests` | The recorded hash of the generated script of a replace was changed on purpose. |
 
-**Lab check.** The site decides what the console shows, so the generated scripts were run on the ConfigMgr lab server. An application was created with the Software Center name "Old Software Center Name" and the comment "old comment". Then a replace ran with the name "New Software Center Name" and an empty comment.
+**Lab check.** The site decides what the console shows, so the generated scripts were run on the ConfigMgr lab server. An application with one display language was created with the Software Center name "Old Software Center Name" and the comment "old comment". Then a replace ran with the name "New Software Center Name" and an empty comment.
 
-1. Before the change: after the replace, the name was still "Old Software Center Name" and the description was still "old comment".
-2. After the change: the name was "New Software Center Name" and the description was empty.
-3. The probe application and its source folder were deleted.
+1. Before the change: after the replace, the name was still "Old Software Center Name".
+2. After the change: the name was "New Software Center Name".
+3. The description was empty in this run because the script of the change then still wrote the empty comment; the final code does not write an empty comment, so the description stays "old comment". That last behavior is covered by the tests above and was not run on the lab server.
+4. The probe application and its source folder were deleted.
 
 Result (2026-11-10): as described. The lab machines were started for the check and stopped afterwards. No snapshot was used.

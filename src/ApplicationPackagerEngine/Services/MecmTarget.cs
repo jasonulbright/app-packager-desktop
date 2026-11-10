@@ -577,9 +577,11 @@ public sealed partial class MecmTarget
         sb.AppendLine("if ($existing.Count -eq 1) {");
         sb.Append($"    Set-CMApplication -Name '{Esc(appName)}' -SoftwareVersion '{Esc(manifest.SoftwareVersion)}'");
         sb.Append($" -Publisher '{Esc(manifest.Publisher)}'");
-        // The same metadata as a new application gets (see New-CMApplication above): the comment is written also when it is
-        // empty, so a cleared comment clears the description, and the Software Center name follows the manifest.
-        sb.Append($" -Description '{Esc(comment)}'");
+        // The Software Center name follows the manifest, as it does for a new application. The comment is written only when there
+        // is one: the command line and One Click pass an empty comment when the operator gave none, and a description that an
+        // administrator typed in the console must survive that.
+        if (!string.IsNullOrWhiteSpace(comment))
+            sb.Append($" -Description '{Esc(comment)}'");
         if (!string.IsNullOrEmpty(manifest.DisplayName))
             sb.Append($" -LocalizedApplicationName '{Esc(manifest.DisplayName)}'");
         sb.AppendLine(" -ErrorAction Stop");

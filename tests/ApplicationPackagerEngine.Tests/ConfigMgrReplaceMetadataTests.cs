@@ -4,9 +4,9 @@ using ApplicationPackagerEngine.Services;
 namespace ApplicationPackagerEngine.Tests;
 
 /// <summary>
-/// A replace (OnExisting=Overwrite, or a new version of an application that exists) must leave the application object with the
-/// same metadata as a new application would get: the Software Center name from the manifest, and the comment as the description,
-/// also when the comment is empty. Without this, an old name or an old comment stays on the application.
+/// A replace (OnExisting=Overwrite) must leave the application object with the Software Center name of the manifest, as a new
+/// application gets it, and with the run comment as the description when there is one. An empty comment never clears a
+/// description: the command line and One Click pass an empty comment when the operator gave none.
 /// </summary>
 public sealed class ConfigMgrReplaceMetadataTests
 {
@@ -43,19 +43,34 @@ public sealed class ConfigMgrReplaceMetadataTests
         Assert.DoesNotContain("-LocalizedApplicationName", block);
     }
 
+    [Fact]
+    public void AReplaceWritesTheRunCommentAsTheDescription()
+    {
+        var block = ReplaceBlock(Replace(Manifest("Contoso App"), "a comment"));
+
+        Assert.Contains("-Description 'a comment'", block);
+    }
+
     [Theory]
-    [InlineData("a comment", "-Description 'a comment'")]
-    [InlineData("", "-Description ''")]
-    [InlineData("   ", "-Description '   '")]
-    public void AReplaceWritesTheCommentAsTheDescriptionAlsoWhenItIsEmpty(string comment, string expected)
+    [InlineData("")]
+    [InlineData("   ")]
+    public void AReplaceWithoutACommentLeavesTheDescriptionAlone(string comment)
     {
         var block = ReplaceBlock(Replace(Manifest("Contoso App"), comment));
 
-        Assert.Contains(expected, block);
+        Assert.DoesNotContain("-Description", block);
     }
 
     [Fact]
-    public void ANewApplicationAndAReplaceUseTheSameMetadata()
+    public void AnEmptyDisplayNameLeavesTheSoftwareCenterNameAlone()
+    {
+        var block = ReplaceBlock(Replace(Manifest(""), "a comment"));
+
+        Assert.DoesNotContain("-LocalizedApplicationName", block);
+    }
+
+    [Fact]
+    public void ANewApplicationAndAReplaceUseTheSameNameAndComment()
     {
         var script = Replace(Manifest("Contoso App"), "a comment");
         var create = script[script.IndexOf("New-CMApplication -Name 'App'", StringComparison.Ordinal)..];
