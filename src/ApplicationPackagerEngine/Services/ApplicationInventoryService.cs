@@ -277,7 +277,9 @@ public sealed partial class ApplicationInventoryService
         ValidateEnvironmentObservation(result.PackagerUid, result.Environment, result.Application);
         Required(result.Action, nameof(result.Action));
         Required(result.Version, nameof(result.Version));
-        var succeeded = result.Outcome is InventoryOutcome.Succeeded or InventoryOutcome.AlreadyPresent;
+        // Partial: the object exists on the site (a ConfigMgr application whose content step failed), so its version, id and
+        // CI_ID are kept as the last success; the attempt outcome still says Partial and carries the reason.
+        var succeeded = result.Outcome is InventoryOutcome.Succeeded or InventoryOutcome.AlreadyPresent or InventoryOutcome.Partial;
         Mutate((connection, transaction) =>
         {
             if (result.Application is not null) RegisterIdentity(connection, transaction, result.Application, result.At);

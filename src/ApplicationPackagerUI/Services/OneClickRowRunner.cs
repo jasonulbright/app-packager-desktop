@@ -238,7 +238,10 @@ public sealed class OneClickRowRunner(IOneClickExecution execution, ISettingsRea
                         }
                         else if (result.ExitCode != 0)
                         {
-                            destinationOutcome = InventoryOutcome.Failed;
+                            // A content step failed after the application was created: the run failed, and the application exists.
+                            var applicationExists = result.ConfigMgrOutcome == InventoryOutcome.Partial;
+                            destinationOutcome = applicationExists ? InventoryOutcome.Partial : InventoryOutcome.Failed;
+                            if (applicationExists) (ciId, modelName) = (result.ConfigMgrCiId, result.ConfigMgrModelName);
                             StdErr?.Invoke(result.StdErr);
                             cell = $"failed: exit code {result.ExitCode}";
                             detail = result.StdErr.Trim();

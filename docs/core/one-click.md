@@ -91,6 +91,7 @@ The plan leaves a row or a destination out for these reasons:
 - **Stage** and **Stage and Publish** stage the application with the saved install parameters. They show no review dialog.
 - A publish goes to ConfigMgr first, then to WSUS, then to Intune.
 - When a destination refuses an application, One Click remembers the refusal until the version changes.
+- When the ConfigMgr application was created but the content distribution or the test deployment failed, the row is Failed and the inventory records the ConfigMgr destination as Partial. The application exists, so the version counts as published and the next run skips it. To run the steps again, select **Force** together with **Existing ConfigMgr app** set to Overwrite, or distribute the content in the ConfigMgr console.
 - One Click publishes again when the Workbench profile or the signing policy changed after the last publish.
 - **Force: ignore the cadence and publish again** ignores the cadence, the refusal memory and the already-published guard. It does not override **Existing ConfigMgr app**. It does not override a destination that is not ready.
 - When an application needs a local installer folder and none is set, a prompt asks for the folder before the run starts. The prompt text is `Choose the folder that holds the <application> installer. Its download requires a sign-in, so it stages from a local copy.` A cancelled prompt removes the row from the run with the reason `no local source folder`.

@@ -125,3 +125,18 @@ The log now has one line from `MecmTarget.ExistingApplicationSkipMessage`. For a
 **Lab check.** The message is built from the version that the site returns, so the probe script was run on the ConfigMgr lab server against a real application at version 1.2.3 with an incoming version of 1.2.4. Expected and seen: the conflict line `existing app='...' version='1.2.3' incoming='1.2.4'`, which is the input of the message. The probe application was deleted afterwards.
 
 Result (2026-11-09): as described. The lab machines were started for the check and stopped afterwards. No snapshot was used.
+
+## ConfigMgr publish: a failed content step fails the run
+
+After a ConfigMgr application is created, a run can distribute its content to a DP group and deploy it to a test collection. If one of these steps fails, the application exists, but clients cannot install it. Until now the failure went to the log and the run still ended with success (review finding D-6).
+
+Now `DistributeAsync` and `DeployToTestCollectionAsync` return a result with the reason, `RunPostPackageStepsAsync` passes it on, and `PackagingOutcomeComposer.Compose` fails the run (exit code 1). The inventory record of the ConfigMgr destination is Partial and carries the sentence as its detail. The message is one sentence: "ConfigMgr application created, but a step after it failed: Content distribution to 'All DPs' failed: <first line of the provider text>". If the Intune publish also failed, the message names both. A distribution that fails skips the test deployment, as before. An Intune-only run has no ConfigMgr step and is not changed. The full provider text stays in the log.
+
+| Test class | What it proves |
+|---|---|
+| `ConfigMgrContentStepOutcomeTests` | The two steps run in their order through `MecmTarget.RunContentStepsAsync`: a failed distribution skips the test deployment and returns its sentence; a failed test deployment after a good distribution returns its sentence; two good steps return nothing; without a test deployment only the distribution runs. The inventory records the ConfigMgr destination as Partial when the application exists and a content step failed, and the summary of the destinations treats Partial like a failure (its earlier rules are kept). A failed content step fails a ConfigMgr-only run and keeps the reason; no failure (or a blank one) keeps the success; a run that published to Intune is still failed by the content step; a failed Intune publish and a failed content step are both reported; an Intune-only run is not changed; the sentence names the step, the target and the first line of the provider text, cuts a very long text, and gives a message for an empty reason. |
+| `ApplicationInventoryServiceTests` and `OneClickRowRunnerTests` | A Partial ConfigMgr outcome keeps the version, the object id and the CI_ID of the application as the last success, and the attempt outcome says Partial with the reason. A One Click run whose content step failed records Partial with the CI_ID and shows the row as failed. |
+
+**Lab check.** The provider text is the input of the sentence, so the distribution script was run on the ConfigMgr lab server with an application that has no content. The site refused it with "There is no object that can distribute content." The earlier check of the distribution script (page section on content distribution after a replace) showed the text for a DP group that does not exist: "Distribution point group 'No Such Group' was not found." Both are single lines that the sentence takes as the reason. The probe application was deleted afterwards.
+
+Result (2026-11-09): as described. The lab machines were started for the check and stopped afterwards. No snapshot was used.

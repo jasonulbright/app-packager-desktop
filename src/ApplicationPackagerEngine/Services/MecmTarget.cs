@@ -942,16 +942,47 @@ public sealed partial class MecmTarget
     /// cmdlet throw ("already been targeted", or on the tested site "No content destination was found"); that is the wanted end state and
     /// counts as success when the group exists.
     /// </summary>
-    public async Task<bool> DistributeAsync(
+    public async Task<ContentStepResult> DistributeAsync(
         string appName, string siteCode, string dpGroupName = "All DPs",
         Action<string>? onProgress = null, string? providerMachine = null,
         CancellationToken ct = default)
     {
         var result = await WindowsPowerShellHost.RunAsync(
             BuildDistributionScript(appName, siteCode, dpGroupName, providerMachine), onProgress, ct);
-        if (result.ExitCode != 0)
-            onProgress?.Invoke($"Distribution failed: {result.StdErr}");
-        return result.ExitCode == 0;
+        if (result.ExitCode == 0) return ContentStepResult.Ok;
+        onProgress?.Invoke($"Distribution failed: {result.StdErr}");
+        return ContentStepResult.Failed(ContentStepFailureText("distribution", dpGroupName, result.StdErr));
+    }
+
+    /// <summary>The outcome of a step after the application exists: distribution or test deployment.</summary>
+    public sealed record ContentStepResult(bool Succeeded, string? Failure)
+    {
+        public static ContentStepResult Ok { get; } = new(true, null);
+        public static ContentStepResult Failed(string failure) => new(false, failure);
+    }
+
+    /// <summary>
+    /// Runs the content steps in their order: distribution first, then the test deployment when there is one. A distribution
+    /// that fails skips the deployment. Returns the sentence of the first step that failed, or null when all steps succeeded.
+    /// </summary>
+    public static async Task<string?> RunContentStepsAsync(Func<Task<ContentStepResult>> distribute, Func<Task<ContentStepResult>>? deployToTest)
+    {
+        var distributed = await distribute().ConfigureAwait(false);
+        if (!distributed.Succeeded) return distributed.Failure;
+        if (deployToTest is null) return null;
+        var deployed = await deployToTest().ConfigureAwait(false);
+        return deployed.Succeeded ? null : deployed.Failure;
+    }
+
+    /// <summary>The sentence that names a failed content step, its target and the reason of the provider.</summary>
+    public static string ContentStepFailureText(string step, string target, string reason)
+    {
+        // The first line of the provider text is the reason; the rest is position information, and the log has all of it.
+        var text = reason.Split('\n', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ?? "";
+        if (text.Length > 300) text = text[..300] + "...";
+        if (text.Length == 0) text = "the provider gave no reason.";
+        var title = step.Equals("distribution", StringComparison.Ordinal) ? "Content distribution" : "Test deployment";
+        return $"{title} to '{target}' failed: {text}";
     }
 
     public static string BuildDistributionScript(string appName, string siteCode, string dpGroupName, string? providerMachine)
@@ -980,16 +1011,16 @@ public sealed partial class MecmTarget
     /// permission skips the deployment and reports it; an existing deployment
     /// counts as success.
     /// </summary>
-    public async Task<bool> DeployToTestCollectionAsync(
+    public async Task<ContentStepResult> DeployToTestCollectionAsync(
         string appName, string siteCode, string collectionName, bool createIfMissing,
         Action<string>? onProgress = null, string? providerMachine = null,
         CancellationToken ct = default, bool userCollection = false)
     {
         var result = await WindowsPowerShellHost.RunAsync(
             BuildTestCollectionDeploymentScript(appName, siteCode, collectionName, createIfMissing, providerMachine, userCollection), onProgress, ct);
-        if (result.ExitCode != 0)
-            onProgress?.Invoke($"Test deployment failed: {result.StdErr}");
-        return result.ExitCode == 0;
+        if (result.ExitCode == 0) return ContentStepResult.Ok;
+        onProgress?.Invoke($"Test deployment failed: {result.StdErr}");
+        return ContentStepResult.Failed(ContentStepFailureText("test deployment", collectionName, result.StdErr));
     }
 
     public static string BuildTestCollectionDeploymentScript(

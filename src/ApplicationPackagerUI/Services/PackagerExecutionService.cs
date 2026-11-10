@@ -590,12 +590,7 @@ public class PackagerExecutionService(
         var outcomes = new List<InventoryOutcome>();
         if (!DeploymentTargets.SkipsMecm(target)) outcomes.Add(result.ConfigMgrOutcome ?? InventoryOutcome.Failed);
         if (DeploymentTargets.PublishesToIntune(target)) outcomes.Add(result.IntuneOutcome ?? InventoryOutcome.Failed);
-        if (outcomes.Any(value => value is InventoryOutcome.Succeeded or InventoryOutcome.AlreadyPresent)
-            && outcomes.Any(value => value is InventoryOutcome.Failed or InventoryOutcome.Refused)) return InventoryOutcome.Partial;
-        if (outcomes.Any(value => value == InventoryOutcome.Refused)) return InventoryOutcome.Refused;
-        if (outcomes.All(value => value is InventoryOutcome.Succeeded or InventoryOutcome.AlreadyPresent)) return InventoryOutcome.Succeeded;
-        if (outcomes.All(value => value == InventoryOutcome.Skipped)) return InventoryOutcome.Skipped;
-        return InventoryOutcome.Failed;
+        return PackagingOutcomeComposer.SummarizeDestinations(outcomes);
     }
 
     private static string? NonBlank(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
@@ -795,6 +790,7 @@ public class PackagerExecutionService(
             // An Intune-only run stops at the staged content: no site connection, no share
             // copy, no MECM application. The build and publish below work from local content.
             var afterMecm = "";
+            string? contentFailure = null;
             if (!DeploymentTargets.SkipsMecm(target))
             {
                 var mecmTarget = new ApplicationPackagerEngine.Services.MecmTarget();
@@ -822,7 +818,7 @@ public class PackagerExecutionService(
                 stdErr = result.ErrorMessage ?? "";
                 RecordMecmPublication(manifest, result, settings, Report);
                 if (result.Success && !result.AlreadyExists)
-                    afterMecm = await RunPostPackageStepsAsync(mecmTarget, result, manifest, stagedContentPath, settings, target, Report, ct);
+                    (afterMecm, contentFailure) = await RunPostPackageStepsAsync(mecmTarget, result, manifest, stagedContentPath, settings, target, Report, ct);
             }
             else
             {
@@ -845,7 +841,7 @@ public class PackagerExecutionService(
             var outcome = PackagingOutcomeComposer.Compose(
                 PackagingOutcomeComposer.MecmStatus(
                     !DeploymentTargets.SkipsMecm(target), mecmSucceeded, mecmAlreadyExists),
-                stdErr, intuneRequested, notes);
+                stdErr, intuneRequested, notes, contentFailure);
 
             return new PackagerExecutionResult
             {
@@ -855,11 +851,10 @@ public class PackagerExecutionService(
                 IntuneWinNote = notes.BuildNote.Length > 0 ? notes.BuildNote : afterMecm,
                 IntunePublishNote = notes.PublishNote,
                 Conflict = conflicts.Result,
-                ConfigMgrOutcome = DeploymentTargets.SkipsMecm(target) ? null
-                    : mecmAlreadyExists ? InventoryOutcome.AlreadyPresent
-                    : mecmSucceeded ? InventoryOutcome.Succeeded : InventoryOutcome.Failed,
+                ConfigMgrOutcome = PackagingOutcomeComposer.ConfigMgrInventoryOutcome(
+                    !DeploymentTargets.SkipsMecm(target), mecmSucceeded, mecmAlreadyExists, contentFailure),
                 ConfigMgrObjectId = stdOut.StartsWith("Packaged: ", StringComparison.OrdinalIgnoreCase) ? stdOut[10..].Trim() : null,
-                ConfigMgrDetail = stdErr,
+                ConfigMgrDetail = FirstNonBlank(stdErr, contentFailure),
                 ConfigMgrCiId = NonBlank(mecmResult?.CiId),
                 ConfigMgrModelName = NonBlank(mecmResult?.ModelName),
                 IntuneOutcome = !intuneRequested ? null : IntuneOutcome(notes),
@@ -1191,6 +1186,7 @@ public class PackagerExecutionService(
         PackagingResult? mecmResult = null;
 
         var afterMecm = "";
+            string? contentFailure = null;
         if (!DeploymentTargets.SkipsMecm(target))
         {
             var mecmTarget = new MecmTarget();
@@ -1214,7 +1210,7 @@ public class PackagerExecutionService(
             stdErr = result.ErrorMessage ?? "";
             RecordMecmPublication(manifest, result, settings, Report);
             if (result.Success && !result.AlreadyExists)
-                afterMecm = await RunPostPackageStepsAsync(mecmTarget, result, manifest, stagedContentPath, settings, target, Report, ct);
+                (afterMecm, contentFailure) = await RunPostPackageStepsAsync(mecmTarget, result, manifest, stagedContentPath, settings, target, Report, ct);
         }
         else
         {
@@ -1230,7 +1226,7 @@ public class PackagerExecutionService(
         var outcome = PackagingOutcomeComposer.Compose(
             PackagingOutcomeComposer.MecmStatus(
                 !DeploymentTargets.SkipsMecm(target), mecmSucceeded, mecmAlreadyExists),
-            stdErr, intuneRequested, notes);
+            stdErr, intuneRequested, notes, contentFailure);
 
         return new PackagerExecutionResult
         {
@@ -1240,11 +1236,10 @@ public class PackagerExecutionService(
             IntuneWinNote = notes.BuildNote.Length > 0 ? notes.BuildNote : afterMecm,
             IntunePublishNote = notes.PublishNote,
             Conflict = conflicts.Result,
-            ConfigMgrOutcome = DeploymentTargets.SkipsMecm(target) ? null
-                : mecmAlreadyExists ? InventoryOutcome.AlreadyPresent
-                : mecmSucceeded ? InventoryOutcome.Succeeded : InventoryOutcome.Failed,
+            ConfigMgrOutcome = PackagingOutcomeComposer.ConfigMgrInventoryOutcome(
+                !DeploymentTargets.SkipsMecm(target), mecmSucceeded, mecmAlreadyExists, contentFailure),
             ConfigMgrObjectId = stdOut.StartsWith("Packaged: ", StringComparison.OrdinalIgnoreCase) ? stdOut[10..].Trim() : null,
-            ConfigMgrDetail = stdErr,
+            ConfigMgrDetail = FirstNonBlank(stdErr, contentFailure),
             ConfigMgrCiId = NonBlank(mecmResult?.CiId),
             ConfigMgrModelName = NonBlank(mecmResult?.ModelName),
             IntuneOutcome = !intuneRequested ? null : IntuneOutcome(notes),
@@ -1266,15 +1261,17 @@ public class PackagerExecutionService(
     /// the configured DP group, a test-collection deployment once the content is
     /// targeted, and, for a run that does not publish to Intune, the stage's
     /// .intunewin stored beside the network content when the content prep tool is
-    /// present. Each step reports its own outcome and none of them fails the run,
-    /// because the application already exists. Returns the .intunewin note, or an
-    /// empty string when none was stored.
+    /// present. Each step reports its own outcome in the log. A distribution or a test
+    /// deployment that fails does not undo the application, but it fails the run: the
+    /// returned ContentFailure is the sentence for it, and null when no step failed. Also
+    /// returns the .intunewin note, or an empty string when none was stored.
     /// </summary>
-    private async Task<string> RunPostPackageStepsAsync(
+    private async Task<(string IntuneNote, string? ContentFailure)> RunPostPackageStepsAsync(
         MecmTarget mecmTarget, PackagingResult result, StageManifest manifest, string stagedContentPath,
         AppSettings settings, string target, Action<string> report, CancellationToken ct)
     {
         var distribution = settings.ContentDistribution;
+        string? contentFailure = null;
         if (distribution.AutoDistribute)
         {
             if (string.IsNullOrWhiteSpace(distribution.DpGroupName))
@@ -1283,23 +1280,24 @@ public class PackagerExecutionService(
             }
             else
             {
-                var distributed = await mecmTarget.DistributeAsync(
-                    result.ApplicationName, settings.SiteCode, distribution.DpGroupName.Trim(),
-                    report, settings.ProviderMachine, ct);
-                if (distributed && distribution.DeployToTestCollection && !string.IsNullOrWhiteSpace(distribution.TestCollectionName))
-                {
-                    await mecmTarget.DeployToTestCollectionAsync(
-                        result.ApplicationName, settings.SiteCode, distribution.TestCollectionName.Trim(),
-                        distribution.CreateTestCollectionIfMissing, report, settings.ProviderMachine, ct,
-                        userCollection: distribution.TestCollectionIsUser);
-                }
+                var deployToTest = distribution.DeployToTestCollection && !string.IsNullOrWhiteSpace(distribution.TestCollectionName);
+                contentFailure = await MecmTarget.RunContentStepsAsync(
+                    () => mecmTarget.DistributeAsync(
+                        result.ApplicationName, settings.SiteCode, distribution.DpGroupName.Trim(),
+                        report, settings.ProviderMachine, ct),
+                    deployToTest
+                        ? () => mecmTarget.DeployToTestCollectionAsync(
+                            result.ApplicationName, settings.SiteCode, distribution.TestCollectionName.Trim(),
+                            distribution.CreateTestCollectionIfMissing, report, settings.ProviderMachine, ct,
+                            userCollection: distribution.TestCollectionIsUser)
+                        : null);
             }
         }
 
         if (!DeploymentTargets.PublishesToIntune(target))
-            return await intuneDeploymentService.BuildBesideContentAsync(manifest, stagedContentPath, result.NetworkContentPath, report, ct, settings.ContentLayout);
+            return (await intuneDeploymentService.BuildBesideContentAsync(manifest, stagedContentPath, result.NetworkContentPath, report, ct, settings.ContentLayout), contentFailure);
 
-        return "";
+        return ("", contentFailure);
     }
 
     /// <summary>

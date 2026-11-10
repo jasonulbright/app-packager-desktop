@@ -205,6 +205,33 @@ public sealed class OneClickRowRunnerTests : IDisposable
     }
 
     [Fact]
+    public async Task AConfigMgrApplicationWhoseContentStepFailedIsRecordedAsPartialWithItsCiId()
+    {
+        const string model = "ScopeId_X/Application_Widget";
+        const string reason = "ConfigMgr application created, but a step after it failed: Content distribution to 'All DPs' failed: denied";
+        var execution = new FakeExecution(Path.Combine(_root, "workbench"))
+        {
+            Package = _ => new PackagerExecutionResult
+            {
+                ExitCode = 1, StdOut = "Packaged: Widget 2.0", StdErr = reason,
+                ConfigMgrOutcome = InventoryOutcome.Partial, ConfigMgrCiId = "16780662", ConfigMgrModelName = model
+            }
+        };
+        var item = Item(true, false, false);
+
+        await Runner(execution).RunAsync(item, Publish, CancellationToken.None);
+
+        var settings = new SettingsService().Load();
+        var environment = ApplicationInventoryProjection.Environments(settings).Single(e => e.Destination == "ConfigMgr").Environment;
+        var state = new ApplicationInventoryService().GetDestinationState("widget", environment, "Publish")!;
+        Assert.Equal(InventoryOutcome.Partial, state.LastAttemptOutcome);
+        Assert.Equal(("Widget 2.0", "16780662", model), (state.LastSuccessObjectId, state.ConfigMgrCiId, state.ConfigMgrModelName));
+        Assert.Contains("Content distribution to 'All DPs' failed: denied", state.LastAttemptDetail);
+        Assert.StartsWith("failed", item.ResultConfigMgr);
+        Assert.Equal(OneClickOutcomes.Failed, item.Outcome);
+    }
+
+    [Fact]
     public async Task AFailedDestinationIsNotRecordedAsPublished()
     {
         var execution = new FakeExecution(Path.Combine(_root, "workbench"))
