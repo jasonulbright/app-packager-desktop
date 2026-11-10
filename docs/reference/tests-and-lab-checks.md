@@ -152,9 +152,31 @@ Three checks of the ConfigMgr publish accepted values that the site then refused
 | Test class | What it proves |
 |---|---|
 | `StageFinalizationPublishTests` | A maximum of 14, 721 and 1441 minutes is refused with the range 15 to 720; 15 and 720 are accepted; the earlier refusals (estimate 0, estimate above maximum) are kept. |
-| `ConfigMgrPrecheckTests` | The three list operators are refused for a registry value and for a file, with a message that does not offer them; the operators that take one value still produce the same clause; a registry value existence produces the exact clause of the existence form, without an expected value, and keeps the 64-bit switch. |
+| `ConfigMgrPrecheckTests` | The three list operators are refused for a registry value and for a file, with a message that does not offer them; the operators that take one value still produce the same clause; a registry value existence produces the exact clause of the existence form, without an expected value, and keeps the 64-bit switch; the property type Existence is read without regard to case or surrounding spaces, for a registry value and for a file. |
 | `WorkbenchFindingsTests` | A maximum of 14, 721 and 1440 gives the Review finding, 15 and 720 give none, and the finding blocks no target. |
 
 **Lab check.** The generated script for a `RegistryKeyValue` definition with `PropertyType: Existence` was run on the ConfigMgr lab server. Before the change the builder refused this definition. After the change the site accepted the clause: the application and its deployment type were created, and the detection of the deployment type names the value `InstallDir` and the 64-bit setting. The rule type in the stored detection was not decoded; the site accepted the form and reported no error. The probe application and its source folder were deleted afterwards.
 
 Result (2026-11-09): as described. The lab machines were started for the check and stopped afterwards. No snapshot was used.
+
+## ConfigMgr publish: a replace writes the Software Center name of the manifest
+
+A replace (`OnExisting=Overwrite`) replaced the deployment types and wrote the version and the publisher, and nothing else (review finding A7). The application kept its old Software Center name, although a new application gets the name from the manifest.
+
+The replace block now writes the Software Center name (`-LocalizedApplicationName`) when the manifest has a display name. Without a display name, the name is not touched. The run comment is written as the description when there is one, as before.
+
+An empty comment does not clear an existing description. The review finding asked for that, but the comment is a value of the run, not of the manifest. The command line (without `--comment`) and One Click (with an empty comment field) pass an empty comment when the operator gave none. A replace that cleared the description for them would remove a note that an administrator typed in the console, without any message. Clearing a description on purpose stays a decision for the owner; it needs a way to tell "no comment given" from "comment cleared", which the run settings do not have today.
+
+| Test class | What it proves |
+|---|---|
+| `ConfigMgrReplaceMetadataTests` | The replace block carries the Software Center name of the manifest, and none when the manifest has no display name or an empty one. It carries the run comment as the description, and no description for an empty or blank comment. A new application and a replace carry the same name and comment. Quotes in the name and the comment are escaped. |
+| `SigningOffByteIdentityTests` | The recorded hash of the generated script of a replace was changed on purpose. |
+
+**Lab check.** The site decides what the console shows, so the generated scripts were run on the ConfigMgr lab server. An application with one display language was created with the Software Center name "Old Software Center Name" and the comment "old comment". Then a replace ran with the name "New Software Center Name" and an empty comment.
+
+1. Before the change: after the replace, the name was still "Old Software Center Name", and the description was still "old comment". The script before the change leaves out `-Description` for an empty comment, as the final code does.
+2. After the change: the name was "New Software Center Name".
+3. The lab run of the change used an intermediate script that wrote the empty comment, so the description was empty in that run. The final code leaves out `-Description` for an empty comment, as the script before the change did (item 1). The tests check the script text. The final script was not run on the lab server.
+4. The probe application and its source folder were deleted.
+
+Result (2026-11-10): as described. The lab machines were started for the check and stopped afterwards. No snapshot was used.
