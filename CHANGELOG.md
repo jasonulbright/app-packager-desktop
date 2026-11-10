@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [2026.1109.22] - 2026-11-09
+
+### Fixed
+
+- A ConfigMgr run now fails, with the reason, when the content distribution or the test deployment after the application fails. Before, the failure was only in the log and the run reported success.
+
 ## [2026.1109.21] - 2026-11-09
 
 ### Changed

@@ -32,7 +32,8 @@ public static class PackagingOutcomeComposer
         MecmStepStatus mecm,
         string? mecmError,
         bool intuneRequested,
-        IntuneRunOutcome intune)
+        IntuneRunOutcome intune,
+        string? contentStepFailure = null)
     {
         // MECM runs first and gates the Intune step, so its failure is the whole story.
         // A failed run does not always carry a message, and an empty StdErr on a failing
@@ -43,8 +44,15 @@ public static class PackagingOutcomeComposer
 
         // Only a published app satisfies a requested Intune target. Treating "did not run"
         // as acceptable is how a skipped step passes for a success.
+        // A content step (distribution, test deployment) that failed leaves an application that clients cannot install.
+        // It fails the run, whatever the Intune step did.
+        var contentFailure = mecm == MecmStepStatus.NotRequested || string.IsNullOrWhiteSpace(contentStepFailure)
+            ? null : contentStepFailure.Trim();
+
         if (!intuneRequested || intune.Succeeded)
-            return new PackagingExitOutcome(0, "");
+            return contentFailure is null
+                ? new PackagingExitOutcome(0, "")
+                : new PackagingExitOutcome(1, $"ConfigMgr application created, but a step after it failed: {contentFailure}");
 
         var reason = intune.Status switch
         {
@@ -65,7 +73,8 @@ public static class PackagingOutcomeComposer
             _ => ""
         };
 
-        return new PackagingExitOutcome(1, $"{prefix}{reason}{note}");
+        var also = contentFailure is null ? "" : $" A step after the ConfigMgr application also failed: {contentFailure}";
+        return new PackagingExitOutcome(1, $"{prefix}{reason}{note}{also}");
     }
 
     /// <summary>The MECM status for one run, from the target's own result.</summary>
