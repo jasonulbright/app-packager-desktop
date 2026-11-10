@@ -100,6 +100,24 @@ public sealed class ApplicationInventoryServiceTests : IDisposable
     }
 
     [Fact]
+    public void APartialConfigMgrOutcomeStillRecordsTheApplicationThatExistsOnTheSite()
+    {
+        var env = new InventoryEnvironmentIdentity("ConfigMgr", "MCM|CM01");
+        var at = DateTimeOffset.Parse("2026-10-04T10:00:00Z");
+        _inventory.RecordDestinationOutcome(new InventoryDestinationOutcome("app", null, env, "Publish", "1.0", InventoryOutcome.Succeeded, "Tool 1.0", at, ConfigMgrCiId: "16780662", ConfigMgrModelName: "M1"));
+
+        _inventory.RecordDestinationOutcome(new InventoryDestinationOutcome("app", null, env, "Publish", "2.0", InventoryOutcome.Partial, "Tool 2.0", at.AddMinutes(1),
+            Detail: "Content distribution to 'All DPs' failed: denied", ConfigMgrCiId: "16780700", ConfigMgrModelName: "M2"));
+
+        var row = _inventory.GetDestinationState("app", env, "Publish")!;
+        Assert.Equal(InventoryOutcome.Partial, row.LastAttemptOutcome);
+        Assert.Equal("2.0", row.LastSuccessVersion);
+        Assert.Equal("Tool 2.0", row.LastSuccessObjectId);
+        Assert.Equal(("16780700", "M2"), (row.ConfigMgrCiId, row.ConfigMgrModelName));
+        Assert.Equal("Content distribution to 'All DPs' failed: denied", row.LastAttemptDetail);
+    }
+
+    [Fact]
     public void LateCompletionsDoNotReplaceNewerFacts()
     {
         var older = DateTimeOffset.Parse("2026-10-04T10:00:00Z");
