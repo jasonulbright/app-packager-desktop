@@ -28,8 +28,11 @@ public sealed class PostInstallKillProcessesTests : IDisposable
 
         Assert.Equal(
             "$exePath = Join-Path $PSScriptRoot 'picpick_inst.exe'\r\n" +
-            "$proc = Start-Process -FilePath $exePath -ArgumentList '/S' -PassThru -NoNewWindow\r\n" +
-            "$null = $proc.Handle\r\n" +
+            "$startInfo = New-Object System.Diagnostics.ProcessStartInfo\r\n" +
+            "$startInfo.FileName = $exePath\r\n" +
+            "$startInfo.Arguments = '/S'\r\n" +
+            "$startInfo.UseShellExecute = $false\r\n" +
+            "$proc = [System.Diagnostics.Process]::Start($startInfo)\r\n" +
             "$proc.WaitForExit()\r\n" +
             "Start-Sleep -Seconds 3\r\n" +
             "foreach ($pn in @('picpick')) { Get-Process -Name $pn -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue }\r\n" +
@@ -105,23 +108,62 @@ public sealed class PostInstallKillProcessesTests : IDisposable
         Assert.Empty(others);
     }
 
+    /// <summary>Puts a pause right after the line that starts the installer: a slow host, which looks at the process late.</summary>
+    private static string Wait(string script) => System.Text.RegularExpressions.Regex.Replace(script, @"(?m)^(\$proc = .*)\r$", "$1\r\nStart-Sleep -Milliseconds 1500");
+
     /// <summary>
-    /// Without -Wait and without the handle read, Windows PowerShell reports a
-    /// null ExitCode for an exited process and the wrapper exits 0.
+    /// The cause of the old wrapper: a process from Start-Process -PassThru without -Wait holds no handle, so when it ends before
+    /// the script reads the handle, Windows PowerShell reports a null ExitCode and the wrapper exits 0. The test pins that
+    /// behavior of the host with a slow reader (the installer ends at once, the script looks 1.5 seconds later).
     /// </summary>
     [Fact]
-    public void WithoutTheHandleRead_TheExitCodeIsLost()
+    public void StartProcessWithoutTheWaitLosesTheExitCodeOfAProcessThatEndedBeforeTheHandleWasRead()
     {
         File.Copy(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System), "cmd.exe"), Path.Combine(_dir, "setup.exe"));
-        var script = WrapperGeneratorService.BuildExeInstallScript("setup.exe", "/c exit 5", null, ["packr-none"]);
-        File.WriteAllText(Path.Combine(_dir, "install.ps1"), script.Replace("$null = $proc.Handle\r\n", ""));
+        File.WriteAllText(Path.Combine(_dir, "probe.ps1"),
+            "$exePath = Join-Path $PSScriptRoot 'setup.exe'\r\n" +
+            "$proc = Start-Process -FilePath $exePath -ArgumentList '/c exit 5' -PassThru -NoNewWindow\r\n" +
+            "Start-Sleep -Milliseconds 1500\r\n" +
+            "$null = $proc.Handle\r\n" +
+            "$proc.WaitForExit()\r\n" +
+            "$proc.ExitCode | Out-File (Join-Path $PSScriptRoot 'exitcode.txt') -NoNewline\r\n" +
+            "exit $proc.ExitCode");
 
-        var (lostCode, lostFile) = WrapperRun.Ps1(_dir, "install.ps1");
-        Assert.Equal(0, lostCode);
-        Assert.True(string.IsNullOrEmpty(lostFile), lostFile);
+        var (code, file) = WrapperRun.Ps1(_dir, "probe.ps1");
 
+        Assert.Equal(0, code);
+        Assert.True(string.IsNullOrEmpty(file), file);
+    }
+
+    /// <summary>
+    /// The wrapper starts the installer so that the process object holds its handle from the start. An installer that ends at once,
+    /// before the script looks at it (here: 1.5 seconds later), still gives its own exit code.
+    /// </summary>
+    [Fact]
+    public void AnInstallerThatEndsBeforeTheWrapperLooksAtItKeepsItsExitCode()
+    {
+        File.Copy(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System), "cmd.exe"), Path.Combine(_dir, "setup.exe"));
+        var script = Wait(WrapperGeneratorService.BuildExeInstallScript("setup.exe", "/c exit 5", null, ["packr-none"]));
         File.WriteAllText(Path.Combine(_dir, "install.ps1"), script);
+
         Assert.Equal((5, "5"), WrapperRun.Ps1(_dir, "install.ps1"));
+    }
+
+    [Fact]
+    public void AnInstallerWithoutArgumentsIsStartedWithoutAnArgumentsLine()
+    {
+        var script = WrapperGeneratorService.BuildExeInstallScript("setup.exe", "", null, ["App"]);
+
+        Assert.DoesNotContain("$startInfo.Arguments", script);
+        Assert.Contains("[System.Diagnostics.Process]::Start($startInfo)", script);
+    }
+
+    [Fact]
+    public void AnArgumentWithAnApostropheIsEscapedInTheArgumentsLine()
+    {
+        var script = WrapperGeneratorService.BuildExeInstallScript("setup.exe", "/D=C:\\Bob's", null, ["App"]);
+
+        Assert.Contains("$startInfo.Arguments = '/D=C:\\Bob''s'", script);
     }
 
     /// <summary>

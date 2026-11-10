@@ -175,8 +175,11 @@ public sealed class WrapperGeneratorService
     /// launched instances are stopped before the exit code is reported. A
     /// Process returned by Start-Process -PassThru without -Wait holds no
     /// handle, and in Windows PowerShell its ExitCode reads null once the
-    /// process has exited, which the wrapper reports as 0; reading Handle
-    /// while the installer runs keeps the exit code.
+    /// process has exited, which the wrapper reports as 0. Reading Handle
+    /// afterwards does not help when the installer ended first, so a failed
+    /// installer that exits at once was reported as a success. The wrapper
+    /// starts the installer with [System.Diagnostics.Process]::Start, which
+    /// holds the handle from the start, and its ExitCode is always read.
     /// Post-install configuration runs only after a successful install and
     /// reports 0, so a configuration step never masks the installer's code.
     /// </summary>
@@ -187,8 +190,11 @@ public sealed class WrapperGeneratorService
         var lines = new List<string> { $"$exePath = Join-Path $PSScriptRoot '{EscapePsLiteral(exeFileName)}'" };
         if (kill.Count > 0)
         {
-            lines.Add($"$proc = Start-Process -FilePath $exePath{ArgumentList(installArgs)} -PassThru -NoNewWindow");
-            lines.Add("$null = $proc.Handle");
+            lines.Add("$startInfo = New-Object System.Diagnostics.ProcessStartInfo");
+            lines.Add("$startInfo.FileName = $exePath");
+            if (!string.IsNullOrWhiteSpace(installArgs)) lines.Add($"$startInfo.Arguments = '{EscapePsLiteral(installArgs)}'");
+            lines.Add("$startInfo.UseShellExecute = $false");
+            lines.Add("$proc = [System.Diagnostics.Process]::Start($startInfo)");
             lines.Add("$proc.WaitForExit()");
             lines.Add("Start-Sleep -Seconds 3");
             var names = string.Join(", ", kill.Select(p => "'" + EscapePsLiteral(p.Trim()) + "'"));
