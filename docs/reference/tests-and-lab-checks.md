@@ -116,7 +116,7 @@ Result (2026-11-09): as described. The lab machines were started for the check a
 
 With `OnExisting=Skip` (the default of One Click and the command line), a run that finds the title on the site leaves the application alone and succeeds. A title without a version matches every version, so a new version is skipped too. Until now the log did not say so.
 
-The log now has one line from `MecmTarget.ExistingApplicationSkipMessage`. For another version it reads: ConfigMgr holds the application at version 1.2.3; version 1.2.4 was NOT published by this Skip run; choose Overwrite to replace the deployment types. For the same version it says that nothing was changed. The result is the same as before (Success and AlreadyExists, exit code 0, outcome "already present"); only the log line is new. On the Packages page, the first pass runs with Skip and then offers Overwrite, so the line can be followed by an overwrite when the user chooses it.
+The log now has one line from `MecmTarget.ExistingApplicationSkipMessage`. For another version it reads: ConfigMgr holds the application at version 1.2.3; version 1.2.4 was NOT published by this Skip run; choose Overwrite to replace the deployment types. For the same version it says that nothing was changed. The result is the same as before (Success and AlreadyExists; exit code 0 for a ConfigMgr-only run; the outcome is "already present", and One Click records it as skipped); only the log line is new. On the Packages page, the first pass runs with Skip and then offers Overwrite, so the line can be followed by an overwrite when the user chooses it.
 
 | Test class | What it proves |
 |---|---|

@@ -46,6 +46,10 @@ public sealed class ConfigMgrSkipMessageTests
     }
 
     [Fact]
+    public void OverwriteHasNoDecisionAfterTheProbe() =>
+        Assert.Null(MecmTarget.DecideAfterProbe(OnExistingBehavior.Overwrite, true, "Contoso App", "1.2.3", "1.2.4"));
+
+    [Fact]
     public void SkipEndsTheRunWithSuccessKeepsTheApplicationAndLogsTheSiteVersionFirst()
     {
         var decision = MecmTarget.DecideAfterProbe(OnExistingBehavior.Skip, true, "Contoso App", "1.2.3", "1.2.4");

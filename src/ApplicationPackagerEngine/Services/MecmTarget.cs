@@ -217,7 +217,8 @@ public sealed partial class MecmTarget
     /// </summary>
     public static ProbeDecision? DecideAfterProbe(OnExistingBehavior onExisting, bool conflicted, string appName, string siteVersion, string incomingVersion)
     {
-        if (!conflicted) return null;
+        // Overwrite never probes (ProbesBeforeContentCopy), so it has no decision here.
+        if (!conflicted || onExisting == OnExistingBehavior.Overwrite) return null;
         if (onExisting == OnExistingBehavior.Fail)
             return new ProbeDecision(new PackagingResult { Success = false, ErrorMessage = ExistingApplicationFailMessage(appName, siteVersion) }, null);
         return new ProbeDecision(
