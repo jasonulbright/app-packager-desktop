@@ -241,4 +241,13 @@ The wrapper now starts the installer with `[System.Diagnostics.Process]::Start`,
 |---|---|
 | `PostInstallKillProcessesTests` | The exact text of the new start; no arguments line for empty arguments; an apostrophe in the arguments is escaped. A characterization test shows the cause on this host: `Start-Process -PassThru` with a late read gives a null exit code and exit 0. An installer that exits 5 at once and a wrapper that looks at it 1.5 seconds later (a pause put right after the start line) still gives 5; this test fails with the old wrapper. The earlier test of the stand-in installer that starts a child and exits 5 (the child is stopped, the code is 5, the file holds 5) passes with the new start. |
 
-**Lab check.** See the result below.
+**Lab check.** The old and the new text of the wrapper were run with Windows PowerShell 5.1 on the ConfigMgr lab server, with a stand-in installer (a copy of `cmd.exe` that exits 5 at once):
+
+1. Old wrapper, 120 runs, 8 at a time: exit code 5 in all 120. The race did not show on its own.
+2. New wrapper, the same 120 runs: exit code 5 in all 120.
+3. Old wrapper with a pause of 1.5 seconds right after the start line (a host that looks at the process late), 16 runs: exit code 0 in all 16. The installer's code was lost.
+4. New wrapper with the same pause, 16 runs: exit code 5 in all 16.
+
+So the loss needs a host that looks at the process after the installer has ended. It was seen once in CI (`PostInstallKillProcessesTests`, expected 5, actual 0), and the pause reproduces it every time. The lab machines were started for the check and stopped afterwards. No snapshot was used. The probe folder was deleted.
+
+Result (2026-11-10): as described.
