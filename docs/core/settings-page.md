@@ -141,7 +141,7 @@ The section has three **Sign** check boxes and three **Require valid ... signatu
 | Control | Default | Effect |
 |---|---|---|
 | **Estimated Runtime (mins)** | 15 | Range 1 to 120. |
-| **Maximum Runtime (mins)** | 30 | Range 1 to 720. |
+| **Maximum Runtime (mins)** | 30 | Range 15 to 720. The site refuses other values. |
 | **Fallback DPs** | **Allow - use the site default boundary group** | The other choice is **Deny - current and neighbor groups only**. |
 | **Neighbor/default DP** | **Download content and install** | The other choice is **Do not download content**. |
 | **Include version in application name** | Cleared | One ConfigMgr application for each release. Existing applications are not renamed. |

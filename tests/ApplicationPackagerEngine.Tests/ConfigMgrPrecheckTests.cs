@@ -68,6 +68,18 @@ public sealed class ConfigMgrPrecheckTests
         Assert.DoesNotContain("-ExpectedValue", script.Split("$clause = New-CMDetectionClauseRegistryKeyValue")[1].Split('\n')[0]);
     }
 
+    [Theory]
+    [InlineData("existence")]
+    [InlineData(" Existence ")]
+    public void TheExistencePropertyTypeIsReadWithoutRegardToCase(string propertyType)
+    {
+        var registry = new StageDetection { Type = "RegistryKeyValue", RegistryKeyRelative = @"SOFTWARE\Vendor\App", ValueName = "InstallDir", PropertyType = propertyType };
+        var file = new StageDetection { Type = "File", FilePath = @"C:\Program Files\App", FileName = "app.exe", PropertyType = propertyType };
+
+        Assert.Contains("-PropertyType String -Existence", Script(registry));
+        Assert.Contains("New-CMDetectionClauseFile -Path 'C:\\Program Files\\App' -FileName 'app.exe' -Existence", Script(file));
+    }
+
     [Fact]
     public void ARegistryValueExistenceKeepsTheSixtyFourBitSwitch()
     {

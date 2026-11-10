@@ -851,18 +851,22 @@ public sealed partial class MecmTarget
                    $"Detection {field} '{value}' is not a value the ConfigMgr cmdlet accepts. Use one of: {string.Join(", ", accepted)}.");
     }
 
+    /// <summary>The property type Existence, compared without regard to case like the detection tester and the WSUS rules do.</summary>
+    private static bool IsExistence(StageDetection det) =>
+        string.Equals(det.PropertyType?.Trim(), "Existence", StringComparison.OrdinalIgnoreCase);
+
     private static string BuildDetectionClausePs(StageDetection det)
     {
         return det.Type switch
         {
-            "File" when det.PropertyType == "Existence" =>
+            "File" when IsExistence(det) =>
                 $"$clause = New-CMDetectionClauseFile -Path '{Esc(det.FilePath ?? "")}' -FileName '{Esc(det.FileName ?? "")}' -Existence{(det.Is64Bit ? " -Is64Bit" : "")}",
 
             "File" =>
                 $"$clause = New-CMDetectionClauseFile -Path '{Esc(det.FilePath ?? "")}' -FileName '{Esc(det.FileName ?? "")}' -PropertyType {CmdletWord(det.PropertyType, "Version", FilePropertyTypes, "File PropertyType")} -Value -ExpressionOperator {CmdletWord(det.Operator, "GreaterEquals", FileOperators, "File Operator")} -ExpectedValue '{Esc(det.ExpectedValue ?? "")}'{(det.Is64Bit ? " -Is64Bit" : "")}",
 
             // The existence form of the cmdlet has no operator and no expected value, and it still needs a property type.
-            "RegistryKeyValue" when det.PropertyType == "Existence" =>
+            "RegistryKeyValue" when IsExistence(det) =>
                 $"$clause = New-CMDetectionClauseRegistryKeyValue -Hive {CmHive(det)} -KeyName '{Esc(det.RegistryKeyRelative ?? "")}' -ValueName '{Esc(det.ValueName ?? "DisplayVersion")}' -PropertyType String -Existence{(det.Is64Bit ? " -Is64Bit" : "")}",
 
             "RegistryKeyValue" =>

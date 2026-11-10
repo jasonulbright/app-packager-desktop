@@ -33,7 +33,7 @@ public class DetectionClauseValueTests
     [Theory]
     [InlineData("Version", "GreaterEquals", "-PropertyType Version -Value -ExpressionOperator GreaterEquals")]
     [InlineData("size", "lessthan", "-PropertyType Size -Value -ExpressionOperator LessThan")]
-    [InlineData("DateModified", "Between", "-PropertyType DateModified -Value -ExpressionOperator Between")]
+    [InlineData("DateModified", "LessThan", "-PropertyType DateModified -Value -ExpressionOperator LessThan")]
     [InlineData(null, null, "-PropertyType Version -Value -ExpressionOperator GreaterEquals")]
     public void AFileClauseCarriesAnAcceptedValueInTheCmdletSpelling(string? propertyType, string? op, string expected) =>
         Assert.Contains(expected, MecmTarget.BuildDetectionClauseBlockPs(FileClause(propertyType, op)));
@@ -44,7 +44,7 @@ public class DetectionClauseValueTests
     [InlineData("Version", "$(whoami)")]
     [InlineData("DateCreated", "IsEquals")]
     [InlineData("Size", "IsEquals")]
-    [InlineData("Existence", "IsEquals")]
+    [InlineData("String", "Between")]
     public void ARegistryValueClauseRefusesAnyOtherValue(string propertyType, string op)
     {
         var error = Assert.Throws<InvalidOperationException>(() => MecmTarget.BuildDetectionClauseBlockPs(Registry(propertyType, op)));

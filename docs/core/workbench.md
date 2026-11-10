@@ -143,6 +143,7 @@ Finding codes that **Validate** can show:
 |---|---|---|
 | `TIMING-RANGE` | Blocking | Estimated and maximum minutes must both be at least 1. |
 | `TIMING-ORDER` | Blocking | Estimated minutes are greater than maximum minutes. |
+| `TIMING-CONFIGMGR-RANGE` | Review | The maximum minutes are outside 15 to 720. A ConfigMgr publish stops before it writes anything. |
 | `TIMING-INTUNE` | Info | Intune does not receive the timing. |
 | `INSTALL-CUSTOM` | Review | A custom script no longer follows the wrapper of the packager. |
 | `DETECT-NO-OUTPUT` | Blocking | The detection script writes nothing to STDOUT. |

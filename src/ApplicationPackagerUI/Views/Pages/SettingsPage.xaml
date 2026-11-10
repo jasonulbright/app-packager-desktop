@@ -611,7 +611,7 @@
                 <StackPanel Grid.Column="2">
                     <TextBlock Text="Maximum Runtime (mins)" Style="{StaticResource FieldLabel}" />
                     <ui:NumberBox Value="{Binding MaximumRuntimeMins, Mode=TwoWay}"
-                                  Minimum="1" Maximum="720" SmallChange="5" LargeChange="30"
+                                  Minimum="15" Maximum="720" SmallChange="5" LargeChange="30"
                                   SpinButtonPlacementMode="Compact"
                                   Width="140" HorizontalAlignment="Left"
                                   ToolTip="Maximum time before ConfigMgr considers the install as failed. Default 30 minutes." />

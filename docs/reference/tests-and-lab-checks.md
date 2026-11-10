@@ -140,6 +140,7 @@ Now `DistributeAsync` and `DeployToTestCollectionAsync` return a result with the
 **Lab check.** The provider text is the input of the sentence, so the distribution script was run on the ConfigMgr lab server with an application that has no content. The site refused it with "There is no object that can distribute content." The earlier check of the distribution script (page section on content distribution after a replace) showed the text for a DP group that does not exist: "Distribution point group 'No Such Group' was not found." Both are single lines that the sentence takes as the reason. The probe application was deleted afterwards.
 
 Result (2026-11-09): as described. The lab machines were started for the check and stopped afterwards. No snapshot was used.
+
 ## ConfigMgr publish: values that the site refuses are refused first
 
 Three checks of the ConfigMgr publish accepted values that the site then refused, or refused a value that the format page allows (review findings A6 and C4).
@@ -154,6 +155,6 @@ Three checks of the ConfigMgr publish accepted values that the site then refused
 | `ConfigMgrPrecheckTests` | The three list operators are refused for a registry value and for a file, with a message that does not offer them; the operators that take one value still produce the same clause; a registry value existence produces the exact clause of the existence form, without an expected value, and keeps the 64-bit switch. |
 | `WorkbenchFindingsTests` | A maximum of 14, 721 and 1440 gives the Review finding, 15 and 720 give none, and the finding blocks no target. |
 
-**Lab check.** The generated script for a `RegistryKeyValue` definition with `PropertyType: Existence` was run on the ConfigMgr lab server. Before the change the builder refused this definition. After the change the site accepted the clause: the application and its deployment type were created, and the detection of the deployment type names the value `InstallDir` and the 64-bit setting. I did not decode the rule type in the stored detection; the site accepted the form and did not report an error. The probe application and its source folder were deleted afterwards.
+**Lab check.** The generated script for a `RegistryKeyValue` definition with `PropertyType: Existence` was run on the ConfigMgr lab server. Before the change the builder refused this definition. After the change the site accepted the clause: the application and its deployment type were created, and the detection of the deployment type names the value `InstallDir` and the 64-bit setting. The rule type in the stored detection was not decoded; the site accepted the form and reported no error. The probe application and its source folder were deleted afterwards.
 
 Result (2026-11-09): as described. The lab machines were started for the check and stopped afterwards. No snapshot was used.
