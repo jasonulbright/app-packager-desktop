@@ -68,6 +68,10 @@ public sealed class WsusPublishService(IWsusAdapterRunner? runner = null, WsusRu
         (1641, "Succeeded", true)
     ];
 
+    /// <summary>The command line of the update: the MSI properties of the arguments, or the EXE arguments as they are.</summary>
+    private static string CommandLineFor(StageManifest manifest, string installerType) =>
+        installerType == "MSI" ? WsusMsiCommandLine.Convert(manifest.InstallArgs) : manifest.InstallArgs ?? "";
+
     /// <summary>
     /// The return codes of the update. WSUS runs the installer itself, so the exit codes of the definition that the ConfigMgr and
     /// Intune wrappers turn into 3010 and 0 must be in the update: a reboot code is a success with a restart, a success code is a
@@ -98,7 +102,7 @@ public sealed class WsusPublishService(IWsusAdapterRunner? runner = null, WsusRu
     /// <exception cref="WsusRefusedException">A blocking finding; nothing reached the server.</exception>
     /// <exception cref="WsusPayloadException">The staged bytes do not match the manifest.</exception>
     /// <exception cref="WsusRuleException">The detection cannot be mapped.</exception>
-    /// <exception cref="WsusOperationException">The settings or a server call failed.</exception>
+    /// <exception cref="WsusOperationException">The settings or a server call failed, or the update of this version on the server differs from the stage.</exception>
     /// <param name="supportUrl">The vendor page for the update's support link, such as the definition's VendorUrl; a value that is not an absolute URI is left out.</param>
     public async Task<WsusPublishResult> PublishAsync(StageManifest manifest, string contentFolder, WsusSettings settings,
         Action<string>? onProgress = null, CancellationToken ct = default, string? supportUrl = null)
@@ -119,6 +123,9 @@ public sealed class WsusPublishService(IWsusAdapterRunner? runner = null, WsusRu
         var formerIdentities = WsusIdentity.FormerIdentityTags(manifest);
         var title = WsusIdentity.Title(manifest);
         var installerType = (manifest.InstallerType ?? "").Equals("MSI", StringComparison.OrdinalIgnoreCase) ? "MSI" : "EXE";
+        var planDigest = WsusPlanDigest.Compute(CommandLineFor(manifest, installerType), installerType, payload[0], rules.IsInstalled, rules.IsInstallable,
+            ReturnCodesFor(manifest), payload.Zip(WsusPayload.RecordedHashes(manifest, payload),
+                (file, hash) => (file, WsusPlanDigest.IsSignedScript(file) ? WsusPlanDigest.ScriptHash(File.ReadAllText(WsusPayload.ResolvePath(contentFolder, file))) : hash)));
 
         var prepareRequest = WsusAdminClient.Request(normalized);
         prepareRequest["IdentityTag"] = identity;
@@ -157,6 +164,17 @@ public sealed class WsusPublishService(IWsusAdapterRunner? runner = null, WsusRu
         // revision 1, and Configuration Manager keeps the content it recorded for
         // that id and revision, so a reused id installs with a digest mismatch.
         var existing = decision.Existing;
+        // An update cannot change on the server. A repeat publish of a stage that differs from the update must not report the old
+        // update as current: it is refused, and the update is expired by hand. An update from an earlier release has no digest.
+        var existingFromEarlierRelease = false;
+        if (existing is not null)
+        {
+            var recorded = WsusPlanDigest.Parse(existing.Description);
+            if (recorded is null) existingFromEarlierRelease = true;
+            else if (!string.Equals(recorded, planDigest, StringComparison.Ordinal))
+                throw new WsusOperationException(WsusErrorKinds.UpdateDiffers,
+                    $"Version {version} is already on the server ({existing.PackageId}{(existing.Declined ? ", declined" : "")}), and this stage differs from it: the install command, the rules, the return codes or the files are not the same. WSUS cannot change a published update, and the update on the server was left as it is. Expire it in WSUS Updates, then publish again.");
+        }
         var packageId = existing is not null ? Guid.Parse(existing.PackageId) : Guid.NewGuid();
         var skipFollowUp = existing?.Declined == true;
         var declineTargets = normalized.DeclineSuperseded && !skipFollowUp
@@ -179,7 +197,7 @@ public sealed class WsusPublishService(IWsusAdapterRunner? runner = null, WsusRu
             // The adapter copies the live stage files later; it checks its private copy
             // against these, so a file changed after AssertIntegrity is never published.
             commit["PayloadSha256"] = new JsonArray(WsusPayload.RecordedHashes(manifest, payload).Select(h => (JsonNode)JsonValue.Create(h)!).ToArray());
-            commit["Plan"] = BuildPlan(manifest, packageId, title, normalized.Classification, rules, decision.Earlier, installerType, payload[0], supportUrl);
+            commit["Plan"] = BuildPlan(manifest, packageId, title, normalized.Classification, rules, decision.Earlier, installerType, payload[0], supportUrl, planDigest);
             onProgress?.Invoke($"Publishing to WSUS            : {title} ({packageId}) on {serverName}");
         }
 
@@ -221,6 +239,8 @@ public sealed class WsusPublishService(IWsusAdapterRunner? runner = null, WsusRu
             }
         }
 
+        if (existingFromEarlierRelease)
+            onProgress?.Invoke("WSUS update comparison       : the update on the server was published by an earlier release, so its install command, rules, return codes and files were not compared with this stage");
         var outcome = existing is null ? WsusPublishOutcome.Published : WsusPublishOutcome.AlreadyPublished;
         IReadOnlyList<Guid> superseded = outcome == WsusPublishOutcome.Published ? decision.Earlier.Select(u => Guid.Parse(u.PackageId)).ToList() : [];
         var message = ComposeMessage(outcome, packageId, rules, approved, superseded.Count, declined.Count, decision.RetiredCount, warnings);
@@ -255,11 +275,11 @@ public sealed class WsusPublishService(IWsusAdapterRunner? runner = null, WsusRu
     /// </summary>
     public static JsonObject BuildPlan(StageManifest manifest, Guid packageId, string title, string classification,
         WsusApplicabilityRules rules, IEnumerable<WsusUpdateCandidate> superseded, string installerType, string installerFile,
-        string? supportUrl = null) => new()
+        string? supportUrl = null, string? planDigest = null) => new()
     {
         ["PackageId"] = packageId.ToString(),
         ["Title"] = title,
-        ["Description"] = WsusIdentity.Description(manifest),
+        ["Description"] = planDigest is null ? WsusIdentity.Description(manifest) : WsusIdentity.Description(manifest) + "\r\n" + WsusPlanDigest.Line(planDigest),
         ["VendorName"] = WsusIdentity.VendorName,
         ["ProductName"] = WsusIdentity.ProductName,
         ["Classification"] = classification,
@@ -269,7 +289,7 @@ public sealed class WsusPublishService(IWsusAdapterRunner? runner = null, WsusRu
         ["SupersededPackageIds"] = new JsonArray(superseded.Select(u => (JsonNode)JsonValue.Create(u.PackageId)!).ToArray()),
         ["InstallerType"] = installerType,
         ["InstallerFile"] = installerFile,
-        ["CommandLine"] = installerType == "MSI" ? WsusMsiCommandLine.Convert(manifest.InstallArgs) : manifest.InstallArgs ?? "",
+        ["CommandLine"] = CommandLineFor(manifest, installerType),
         ["ReturnCodes"] = new JsonArray(ReturnCodesFor(manifest).Select(c => (JsonNode)new JsonObject
         {
             ["Code"] = c.Code,

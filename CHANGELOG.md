@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [2026.1110.25] - 2026-11-10
+
+### Fixed
+
+- A WSUS publish of a version that is already on the server now checks that the update matches your stage. Before, it reported the old update as current, and a corrected install command, rule, return code or file never reached the server. Now the publish fails with the remedy (expire the update in WSUS Updates, then publish again) and changes nothing. An update published by an earlier release is reported as before, and the log says that it was not compared.
+
 ## [2026.1110.24] - 2026-11-10
 
 ### Fixed

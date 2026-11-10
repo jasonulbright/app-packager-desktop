@@ -49,8 +49,8 @@ public sealed class WsusReturnCodesTests
 
         WsusPublishService.CarryExitCodes(manifest, new AppDefinition { RebootExitCodes = [2], SuccessExitCodes = [1223] });
 
-        Assert.Equal([2], manifest.RebootExitCodes);
-        Assert.Equal([1223], manifest.SuccessExitCodes);
+        Assert.Equal([2], manifest.RebootExitCodes!);
+        Assert.Equal([1223], manifest.SuccessExitCodes!);
     }
 
     [Fact]
@@ -60,7 +60,7 @@ public sealed class WsusReturnCodesTests
 
         WsusPublishService.CarryExitCodes(manifest, new AppDefinition { RebootExitCodes = [2], SuccessExitCodes = [1223] });
 
-        Assert.Equal([5], manifest.RebootExitCodes);
+        Assert.Equal([5], manifest.RebootExitCodes!);
         Assert.Null(manifest.SuccessExitCodes);
     }
 

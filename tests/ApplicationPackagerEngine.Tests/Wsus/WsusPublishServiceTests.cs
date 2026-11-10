@@ -130,7 +130,8 @@ public class WsusPublishServiceTests : IDisposable
         var description = plan["Description"]!.GetValue<string>();
         Assert.Contains(WsusIdentity.IdentityLine(Identity, "Update"), description);
         Assert.Contains("build 20260929-101500-abcdef01", description);
-        Assert.EndsWith("; type Update; version 5.4.2", description);
+        Assert.Contains("; type Update; version 5.4.2", description);
+        Assert.Equal("5.4.2", WsusIdentity.ParseIdentity(description)!.Version);
         Assert.Matches("^<bar:RegSzToVersion .*Comparison=\"GreaterThanOrEqualTo\"", plan["IsInstalled"]!.GetValue<string>());
         Assert.Matches("^<lar:And><bar:RegValueExists .*<bar:RegSzToVersion .*Comparison=\"LessThan\"", plan["IsInstallable"]!.GetValue<string>());
         Assert.Null(plan["PackageType"]);
@@ -212,6 +213,151 @@ public class WsusPublishServiceTests : IDisposable
         Assert.Equal(["Pilot"], _approvals);
         Assert.Equal([older.ToString()], _declines);
         Assert.StartsWith($"already on the server {current}", result.Message);
+    }
+
+    /// <summary>Publishes once, and puts the update that the first publish made on the server, as the server would hold it.</summary>
+    private async Task<Guid> PublishedOnTheServerAsync(StageManifest manifest)
+    {
+        await Service(out _).PublishAsync(manifest, _content, _settings);
+        var plan = Assert.Single(_plans);
+        var id = Guid.Parse(plan["PackageId"]!.GetValue<string>());
+        _serverUpdates.Add(Update(id, plan["Title"]!.GetValue<string>(), plan["Description"]!.GetValue<string>()));
+        _plans.Clear();
+        _publishRequests.Clear();
+        return id;
+    }
+
+    [Fact]
+    public async Task ThePlanDescriptionEndsWithTheDigestLine()
+    {
+        await Service(out _).PublishAsync(Hashed(), _content, _settings);
+
+        var description = Assert.Single(_plans)["Description"]!.GetValue<string>();
+        Assert.Matches(@"\r\nAppPackager plan: [0-9a-f]{16}$", description);
+        Assert.NotNull(WsusIdentity.ParseIdentity(description));
+    }
+
+    [Fact]
+    public async Task ARepeatPublishOfTheSameStageFindsTheUpdateUnchanged()
+    {
+        var id = await PublishedOnTheServerAsync(Hashed());
+
+        var result = await Service(out _).PublishAsync(Hashed(), _content, _settings);
+
+        Assert.Equal(WsusPublishOutcome.AlreadyPublished, result.Outcome);
+        Assert.Equal(id, result.PackageId);
+        Assert.Empty(result.Warnings);
+    }
+
+    public static TheoryData<string> ChangedStages => new() { "install command", "reboot code", "success code", "detection" };
+
+    [Theory]
+    [MemberData(nameof(ChangedStages))]
+    public async Task ARepeatPublishOfAChangedStageIsRefusedAndNothingReachesTheServer(string change)
+    {
+        await PublishedOnTheServerAsync(Hashed());
+        var changed = Hashed();
+        switch (change)
+        {
+            case "install command": changed.InstallArgs = "/S /norestart"; break;
+            case "reboot code": changed.RebootExitCodes = [2]; break;
+            case "success code": changed.SuccessExitCodes = [1223]; break;
+            default: changed.Detection.ExpectedValue = "9.9.9"; break;
+        }
+
+        var ex = await Assert.ThrowsAsync<WsusOperationException>(() => Service(out _).PublishAsync(changed, _content, _settings));
+
+        Assert.Equal(WsusErrorKinds.UpdateDiffers, ex.Kind);
+        Assert.Contains("already on the server", ex.Message);
+        Assert.Contains("Expire it", ex.Message);
+        Assert.Empty(_publishRequests);
+        Assert.Empty(_plans);
+    }
+
+    [Fact]
+    public async Task AnUpdateFromAnEarlierReleaseHasNoDigestAndIsReportedWithAWarning()
+    {
+        _serverUpdates.Add(Update(Guid.Parse("00000000-0000-0000-0000-000000000542"), "Contoso Tool 5.4.2", Line("5.4.2")));
+
+        var progress = new List<string>();
+
+        var result = await Service(out _).PublishAsync(Hashed(), _content, _settings, progress.Add);
+
+        Assert.Equal(WsusPublishOutcome.AlreadyPublished, result.Outcome);
+        // A warning would make a command-line build exit with 1 at each run; the note is a log line.
+        Assert.Empty(result.Warnings);
+        Assert.Contains(progress, line => line.Contains("earlier release") && line.Contains("not compared"));
+    }
+
+    private void WriteScript(string body, string signature) =>
+        File.WriteAllText(Path.Combine(_content, "tool.ps1"), body + "\r\n# SIG # Begin signature block\r\n" + signature + "\r\n# SIG # End signature block\r\n");
+
+    [Fact]
+    public async Task AScriptThatIsSignedAgainWithTheSameBodyDoesNotMakeTheUpdateDiffer()
+    {
+        WriteScript("Write-Host 'one'", "SIGNATURE-A");
+        await PublishedOnTheServerAsync(Hashed());
+        WriteScript("Write-Host 'one'", "SIGNATURE-B");
+
+        var result = await Service(out _).PublishAsync(Hashed(), _content, _settings);
+
+        Assert.Equal(WsusPublishOutcome.AlreadyPublished, result.Outcome);
+    }
+
+    [Fact]
+    public async Task AScriptWithACorrectedBodyMakesTheUpdateDiffer()
+    {
+        WriteScript("Write-Host 'one'", "SIGNATURE-A");
+        await PublishedOnTheServerAsync(Hashed());
+        WriteScript("Write-Host 'corrected'", "SIGNATURE-A");
+
+        var ex = await Assert.ThrowsAsync<WsusOperationException>(() => Service(out _).PublishAsync(Hashed(), _content, _settings));
+
+        Assert.Equal(WsusErrorKinds.UpdateDiffers, ex.Kind);
+    }
+
+    [Fact]
+    public async Task AChangedPayloadFileFailsTheRepeatPublish()
+    {
+        await PublishedOnTheServerAsync(Hashed());
+        // A corrected installer: other bytes, and a manifest that records them.
+        File.WriteAllText(Path.Combine(_content, "setup.exe"), "corrected installer bytes");
+        var changed = Hashed();
+
+        var ex = await Assert.ThrowsAsync<WsusOperationException>(() => Service(out _).PublishAsync(changed, _content, _settings));
+
+        Assert.Equal(WsusErrorKinds.UpdateDiffers, ex.Kind);
+    }
+
+    [Fact]
+    public async Task ADeclinedExistingUpdateThatDiffersFailsAndSaysItIsDeclined()
+    {
+        var id = await PublishedOnTheServerAsync(Hashed());
+        var onServer = _serverUpdates.Single(u => u["PackageId"]!.GetValue<string>() == id.ToString());
+        onServer["Declined"] = true;
+        var changed = Hashed();
+        changed.InstallArgs = "/S /other";
+
+        var ex = await Assert.ThrowsAsync<WsusOperationException>(() => Service(out _).PublishAsync(changed, _content, _settings));
+
+        Assert.Equal(WsusErrorKinds.UpdateDiffers, ex.Kind);
+        Assert.Contains(", declined)", ex.Message);
+    }
+
+    [Fact]
+    public async Task TheUpdateDiffersFailureIsAFailedStepAndNotARefusal()
+    {
+        await PublishedOnTheServerAsync(Hashed());
+        var changed = Hashed();
+        changed.InstallArgs = "/S /other";
+
+        var step = await WsusPublishStep.RunAsync(Service(out _), changed, _content, _settings);
+
+        // A refusal would be remembered by One Click as "not supported" until the version changes.
+        Assert.Equal(WsusStepStatus.Failed, step.Status);
+        Assert.Contains("Expire it in WSUS Updates", step.Message);
+        Assert.Empty(step.RefusalCodes);
+        Assert.False(step.Refused);
     }
 
     [Fact]
