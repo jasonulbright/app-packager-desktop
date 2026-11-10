@@ -6,7 +6,7 @@
 
 ### Fixed
 
-- A WSUS publish now refuses an EXE installer whose definition lists exit codes of its own (reboot required or success). WSUS knows only the return codes 0, 1707, 3010 and 1641, so it would have recorded a successful install with another code as failed. The One Click plan shows the refusal before a run. This concerns Dell Command Update, Android Studio and CCleaner.
+- A WSUS update now carries the exit codes of the definition in its return codes: a reboot code as a success with a restart, a success code as a success. Before, WSUS knew only 0, 1707, 3010 and 1641 and recorded a successful install with another code as failed. This changes Dell Command Update, whose installer reports 2 for a restart. A stage made before this release takes the codes from the definition when it is published.
 
 ## [2026.1110.23] - 2026-11-10
 

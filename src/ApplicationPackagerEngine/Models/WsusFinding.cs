@@ -19,7 +19,6 @@ public static class WsusRefusalCodes
     public const string PerUserInstall = "PerUserInstall";
     public const string InteractiveInstall = "InteractiveInstall";
     public const string CustomInstall = "CustomInstall";
-    public const string ExitCodes = "ExitCodes";
     public const string PayloadOutsideStage = "PayloadOutsideStage";
     public const string InstallerMissing = "InstallerMissing";
     public const string InstallerInSubfolder = "InstallerInSubfolder";

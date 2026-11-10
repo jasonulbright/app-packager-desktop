@@ -111,7 +111,7 @@ These counts come from the 319 files.
 | `InstallContext` `User` | 12 (the other definitions use the default `Machine`) |
 | `ArpName` pattern / `none` | 295 / 24 |
 | `Cpe` | 294 |
-| `WsusSupport` `Yes` / `No (...)` | 254 / 65 |
+| `WsusSupport` `Yes` / `No (...)` | 255 / 64 |
 | `IconSource` | `Installer` 240, `External` 34, `None` 31. 14 definitions declare no value, which counts as `None`. |
 | `InstallerSettings` | 13 |
 

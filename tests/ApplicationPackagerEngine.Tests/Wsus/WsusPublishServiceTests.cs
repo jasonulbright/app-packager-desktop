@@ -144,6 +144,21 @@ public class WsusPublishServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task TheReturnCodesOfThePlanCarryTheExitCodesOfTheDefinition()
+    {
+        var manifest = Hashed();
+        manifest.RebootExitCodes = [2];
+        manifest.SuccessExitCodes = [1223];
+
+        await Service(out _).PublishAsync(manifest, _content, _settings);
+
+        var plan = Assert.Single(_plans);
+        Assert.Equal(
+            [(0, "Succeeded", false), (1707, "Succeeded", false), (3010, "Succeeded", true), (1641, "Succeeded", true), (2, "Succeeded", true), (1223, "Succeeded", false)],
+            (plan["ReturnCodes"] as JsonArray)!.Select(n => (n!["Code"]!.GetValue<int>(), n["Result"]!.GetValue<string>(), n["Reboot"]!.GetValue<bool>())));
+    }
+
+    [Fact]
     public async Task NamesTheAddRemoveProgramsEntryInTheResultWhenTheRulesComeFromTheStagedMsi()
     {
         var runner = new FakeAdapterRunner(Handle);

@@ -1,7 +1,7 @@
 {
     "Schema":  1,
     "Id":  "0da14e79601b4c1f",
-    "WsusSupport":  "No (CustomInstall|ExitCodes)",
+    "WsusSupport":  "No (CustomInstall)",
     "IconSource":  "Installer",
     "Vendor":  "Piriform Software Ltd.",
     "Application":  "CCleaner",

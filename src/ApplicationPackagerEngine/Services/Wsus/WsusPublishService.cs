@@ -68,6 +68,33 @@ public sealed class WsusPublishService(IWsusAdapterRunner? runner = null, WsusRu
         (1641, "Succeeded", true)
     ];
 
+    /// <summary>
+    /// The return codes of the update. WSUS runs the installer itself, so the exit codes of the definition that the ConfigMgr and
+    /// Intune wrappers turn into 3010 and 0 must be in the update: a reboot code is a success with a restart, a success code is a
+    /// success. A code that the fixed table has keeps the meaning of the table. An MSI has the table only.
+    /// </summary>
+    public static IReadOnlyList<(int Code, string Result, bool Reboot)> ReturnCodesFor(StageManifest manifest)
+    {
+        var codes = ExeReturnCodes.ToList();
+        if (!string.Equals(manifest.InstallerType, "EXE", StringComparison.OrdinalIgnoreCase)) return codes;
+        foreach (var code in manifest.RebootExitCodes ?? [])
+            if (codes.All(c => c.Code != code)) codes.Add((code, "Succeeded", true));
+        foreach (var code in manifest.SuccessExitCodes ?? [])
+            if (codes.All(c => c.Code != code)) codes.Add((code, "Succeeded", false));
+        return codes;
+    }
+
+    /// <summary>
+    /// A manifest that was staged before the manifest carried the exit codes has none. The publish takes them from the definition
+    /// of the application, so such a stage does not publish with the fixed table. A manifest that has codes is left as it is.
+    /// </summary>
+    public static void CarryExitCodes(StageManifest manifest, AppDefinition? definition)
+    {
+        if (definition is null || manifest.RebootExitCodes is not null || manifest.SuccessExitCodes is not null) return;
+        manifest.RebootExitCodes = definition.RebootExitCodes;
+        manifest.SuccessExitCodes = definition.SuccessExitCodes;
+    }
+
     /// <exception cref="WsusRefusedException">A blocking finding; nothing reached the server.</exception>
     /// <exception cref="WsusPayloadException">The staged bytes do not match the manifest.</exception>
     /// <exception cref="WsusRuleException">The detection cannot be mapped.</exception>
@@ -243,7 +270,7 @@ public sealed class WsusPublishService(IWsusAdapterRunner? runner = null, WsusRu
         ["InstallerType"] = installerType,
         ["InstallerFile"] = installerFile,
         ["CommandLine"] = installerType == "MSI" ? WsusMsiCommandLine.Convert(manifest.InstallArgs) : manifest.InstallArgs ?? "",
-        ["ReturnCodes"] = new JsonArray(ExeReturnCodes.Select(c => (JsonNode)new JsonObject
+        ["ReturnCodes"] = new JsonArray(ReturnCodesFor(manifest).Select(c => (JsonNode)new JsonObject
         {
             ["Code"] = c.Code,
             ["Result"] = c.Result,

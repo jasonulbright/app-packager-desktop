@@ -166,8 +166,6 @@ public class WsusCompatibilityTests : IDisposable
         { WsusRefusalCodes.CustomInstall, m => m.SetupFile = "Deploy-Application.exe" },
         { WsusRefusalCodes.CustomInstall, m => m.CustomAssets = [new StageCustomAsset { Category = "InstallBefore", RelativePath = "install-before.ps1" }] },
         { WsusRefusalCodes.CustomInstall, m => m.CommandOverrides = new StageCommandOverrides { Install = "setup.exe /quiet", Uninstall = "" } },
-        { WsusRefusalCodes.ExitCodes, m => m.RebootExitCodes = [2] },
-        { WsusRefusalCodes.ExitCodes, m => m.SuccessExitCodes = [0, 1223] },
         { WsusRefusalCodes.InstallerMissing, m => m.InstallerFile = "absent.exe" },
         { WsusRefusalCodes.InstallerMissing, m => m.InstallerFile = "" },
         { WsusRefusalCodes.DetectionNotMappable, m => m.Detection = new StageDetection { Type = "Script", ScriptText = "exit 0" } }
@@ -178,34 +176,6 @@ public class WsusCompatibilityTests : IDisposable
     public void Blocks(string code, Action<StageManifest> change)
     {
         Assert.Single(WsusCompatibility.Evaluate(Manifest(change), _content), f => f.Severity == WsusSeverity.Blocking && f.Code == code);
-    }
-
-    [Fact]
-    public void TheExitCodesFindingNamesTheCodesAndTheTableWsusKnows()
-    {
-        var finding = Assert.Single(WsusCompatibility.Evaluate(Manifest(m => { m.RebootExitCodes = [2]; m.SuccessExitCodes = [1223]; }), _content),
-            f => f.Code == WsusRefusalCodes.ExitCodes);
-
-        Assert.Equal(WsusSeverity.Blocking, finding.Severity);
-        Assert.Contains("reboot required: 2", finding.Message);
-        Assert.Contains("success: 1223", finding.Message);
-        Assert.Contains("0, 1707, 3010, 1641", finding.Message);
-    }
-
-    [Theory]
-    [InlineData("MSI")]
-    public void AnMsiIgnoresTheExitCodesOfTheWrappers(string installerType)
-    {
-        var findings = WsusCompatibility.Evaluate(Manifest(m => { m.InstallerType = installerType; m.RebootExitCodes = [2]; }), _content);
-
-        Assert.DoesNotContain(findings, f => f.Code == WsusRefusalCodes.ExitCodes);
-    }
-
-    [Fact]
-    public void NoExitCodesOrEmptyListsDoNotBlock()
-    {
-        Assert.DoesNotContain(WsusCompatibility.Evaluate(Manifest(), _content), f => f.Code == WsusRefusalCodes.ExitCodes);
-        Assert.DoesNotContain(WsusCompatibility.Evaluate(Manifest(m => { m.RebootExitCodes = []; m.SuccessExitCodes = []; }), _content), f => f.Code == WsusRefusalCodes.ExitCodes);
     }
 
     [Fact]

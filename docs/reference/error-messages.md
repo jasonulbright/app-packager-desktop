@@ -135,7 +135,6 @@ See [WSUS publishing](../core/wsus-publishing.md).
 | WSUS rejected the package: <server text> <hint> | The server refused the publish. Other hints cover signing, a SQL timeout, too many categories, the console version and the cab size. | Follow the hint. |
 | This application installs for the signed-in user. WSUS installs as SYSTEM, so a per-user installer would land in the wrong profile. | Refusal code PerUserInstall. | None. The app does not publish this application to WSUS. |
 | This build installs through a custom command or script. WSUS runs the vendor installer with its silent arguments, so the customization would not reach the client. | Refusal code CustomInstall. | None. The app does not publish it. |
-| The installer reports exit codes of its own (reboot required: <codes>; success: <codes>). WSUS knows only 0, 1707, 3010, 1641, so a successful install would be recorded as failed. | Refusal code ExitCodes. | None. The app does not publish it to WSUS. Publish to ConfigMgr or Intune. |
 | This application has deployment-type variants. A WSUS update carries one installer, so the variant set cannot be published as one update. | Refusal code MultipleDeploymentTypes. | None. The app does not publish it. |
 | The installer payload is N MB. A locally published update is one signed cab, and a cab cannot exceed 2047 MB. | Refusal code PayloadTooLarge. | The code names no fix. |
 | WSUS server name '<x>' is not a host name. | The server name is malformed. | Correct the name. |
