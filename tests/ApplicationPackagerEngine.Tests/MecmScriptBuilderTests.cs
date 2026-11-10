@@ -75,7 +75,7 @@ public sealed class MecmScriptBuilderTests
 
         Assert.Contains("$dtCreateName0 = if ($replaceDtNames.Count -gt 0) { \"$dtName0 (staging)\" } else { $dtName0 }", script);
         var lastAdd = script.LastIndexOf("Add-CMScriptDeploymentType", StringComparison.Ordinal);
-        var remove = script.IndexOf("Remove-CMDeploymentType", StringComparison.Ordinal);
+        var remove = script.IndexOf("Remove-CMDeploymentType -ApplicationName 'App' -DeploymentTypeName $oldDt", StringComparison.Ordinal);
         var rename = script.IndexOf("-NewDeploymentTypeName", StringComparison.Ordinal);
         Assert.True(lastAdd < remove, "every deployment type is created before any old one is removed");
         Assert.True(remove < rename, "old deployment types are removed before the staged names are taken");

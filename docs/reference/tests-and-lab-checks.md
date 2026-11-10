@@ -87,3 +87,27 @@ The review finding A1 said that the replaced content never reaches the distribut
 4. The probe application and its source folder were deleted.
 
 Result (2026-11-09): as described. The lab machines were started for the check and stopped afterwards. No snapshot was used.
+
+## ConfigMgr publish: a refused step leaves no half-built application
+
+When the site refuses a deployment-type step, the publish script cleans up what this run built, with the function `Remove-ApkgIncompleteWork`:
+
+- An application that the run created is removed.
+- For an application that was already there (an Overwrite), only the deployment types that this run created are removed. The script records each name when it adds the type, and the function never asks the site for other types, so an operator's type, or one that an earlier run left, is out of reach even if it is named like a staging type.
+- Once an old deployment type has been removed, nothing is removed: the new types are then the replacement, and the application needs them.
+
+The original error is thrown again after the cleanup.
+
+| Test class | What it proves |
+|---|---|
+| `ConfigMgrFailedDeploymentTypeTests` | The steps from the first deployment type to the rename run in a try block that calls the cleanup and throws the original error. The script records the created application, each added type and each removed old type. The cleanup function runs against stand-ins for the cmdlets: it removes a created application, reports a refused removal without failing, removes only the type of this run, never asks the site for other types, and removes nothing after an old type was removed. |
+| `SigningOffByteIdentityTests` | The recorded hashes of three generated scripts were changed on purpose, because the scripts now contain the cleanup function and the try and catch blocks. |
+
+**Lab check.** The site is the only judge of what it refuses, so this was run on the ConfigMgr lab server with scripts that the code generated, using a maximum run time of 1000 minutes (the site accepts 720 at most):
+
+1. Before the change: the step was refused and the run ended, but the application stayed with 0 deployment types. A second run with good values was refused with "missing deployment type(s) ... fix or remove the partial app".
+2. After the change: the same refusal printed "Removed the incomplete application" and the original error. The application was gone. A second run with good values created the application with 1 deployment type.
+3. After the change, an Overwrite with the refused value: the application stayed with its 1 deployment type, and no other type was left. In this case the site refused the new type before it existed, so the lab did not show the removal of a created type. The stand-in tests cover that case.
+4. The probe application and its source folder were deleted.
+
+Result (2026-11-09): as described. The lab machines were started for the check and stopped afterwards. No snapshot was used.
