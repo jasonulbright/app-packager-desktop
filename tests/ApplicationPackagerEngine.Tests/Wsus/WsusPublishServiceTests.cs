@@ -130,7 +130,8 @@ public class WsusPublishServiceTests : IDisposable
         var description = plan["Description"]!.GetValue<string>();
         Assert.Contains(WsusIdentity.IdentityLine(Identity, "Update"), description);
         Assert.Contains("build 20260929-101500-abcdef01", description);
-        Assert.EndsWith("; type Update; version 5.4.2", description);
+        Assert.Contains("; type Update; version 5.4.2", description);
+        Assert.Equal("5.4.2", WsusIdentity.ParseIdentity(description)!.Version);
         Assert.Matches("^<bar:RegSzToVersion .*Comparison=\"GreaterThanOrEqualTo\"", plan["IsInstalled"]!.GetValue<string>());
         Assert.Matches("^<lar:And><bar:RegValueExists .*<bar:RegSzToVersion .*Comparison=\"LessThan\"", plan["IsInstallable"]!.GetValue<string>());
         Assert.Null(plan["PackageType"]);
@@ -212,6 +213,76 @@ public class WsusPublishServiceTests : IDisposable
         Assert.Equal(["Pilot"], _approvals);
         Assert.Equal([older.ToString()], _declines);
         Assert.StartsWith($"already on the server {current}", result.Message);
+    }
+
+    /// <summary>Publishes once, and puts the update that the first publish made on the server, as the server would hold it.</summary>
+    private async Task<Guid> PublishedOnTheServerAsync(StageManifest manifest)
+    {
+        await Service(out _).PublishAsync(manifest, _content, _settings);
+        var plan = Assert.Single(_plans);
+        var id = Guid.Parse(plan["PackageId"]!.GetValue<string>());
+        _serverUpdates.Add(Update(id, plan["Title"]!.GetValue<string>(), plan["Description"]!.GetValue<string>()));
+        _plans.Clear();
+        _publishRequests.Clear();
+        return id;
+    }
+
+    [Fact]
+    public async Task ThePlanDescriptionEndsWithTheDigestLine()
+    {
+        await Service(out _).PublishAsync(Hashed(), _content, _settings);
+
+        var description = Assert.Single(_plans)["Description"]!.GetValue<string>();
+        Assert.Matches(@"\r\nAppPackager plan: [0-9a-f]{16}$", description);
+        Assert.NotNull(WsusIdentity.ParseIdentity(description));
+    }
+
+    [Fact]
+    public async Task ARepeatPublishOfTheSameStageFindsTheUpdateUnchanged()
+    {
+        var id = await PublishedOnTheServerAsync(Hashed());
+
+        var result = await Service(out _).PublishAsync(Hashed(), _content, _settings);
+
+        Assert.Equal(WsusPublishOutcome.AlreadyPublished, result.Outcome);
+        Assert.Equal(id, result.PackageId);
+        Assert.Empty(result.Warnings);
+    }
+
+    public static TheoryData<string> ChangedStages => new() { "install command", "reboot code", "success code", "detection" };
+
+    [Theory]
+    [MemberData(nameof(ChangedStages))]
+    public async Task ARepeatPublishOfAChangedStageIsRefusedAndNothingReachesTheServer(string change)
+    {
+        await PublishedOnTheServerAsync(Hashed());
+        var changed = Hashed();
+        switch (change)
+        {
+            case "install command": changed.InstallArgs = "/S /norestart"; break;
+            case "reboot code": changed.RebootExitCodes = [2]; break;
+            case "success code": changed.SuccessExitCodes = [1223]; break;
+            default: changed.Detection.ExpectedValue = "9.9.9"; break;
+        }
+
+        var ex = await Assert.ThrowsAsync<WsusOperationException>(() => Service(out _).PublishAsync(changed, _content, _settings));
+
+        Assert.Equal(WsusErrorKinds.UpdateDiffers, ex.Kind);
+        Assert.Contains("already on the server", ex.Message);
+        Assert.Contains("Expire it", ex.Message);
+        Assert.Empty(_publishRequests);
+        Assert.Empty(_plans);
+    }
+
+    [Fact]
+    public async Task AnUpdateFromAnEarlierReleaseHasNoDigestAndIsReportedWithAWarning()
+    {
+        _serverUpdates.Add(Update(Guid.Parse("00000000-0000-0000-0000-000000000542"), "Contoso Tool 5.4.2", Line("5.4.2")));
+
+        var result = await Service(out _).PublishAsync(Hashed(), _content, _settings);
+
+        Assert.Equal(WsusPublishOutcome.AlreadyPublished, result.Outcome);
+        Assert.Contains(result.Warnings, w => w.Contains("earlier release") && w.Contains("not compared"));
     }
 
     [Fact]

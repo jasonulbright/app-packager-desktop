@@ -25,6 +25,9 @@ public static class WsusErrorKinds
     public const string NoCertificate = "NoCertificate";
     public const string SelfSignedRefused = "SelfSignedRefused";
     public const string PublishRejected = "PublishRejected";
+
+    /// <summary>A repeat publish of a version whose update on the server differs from the stage.</summary>
+    public const string UpdateDiffers = "UpdateDiffers";
     public const string Input = "Input";
     public const string Failed = "Failed";
 }
