@@ -174,9 +174,9 @@ An empty comment does not clear an existing description. The review finding aske
 
 **Lab check.** The site decides what the console shows, so the generated scripts were run on the ConfigMgr lab server. An application with one display language was created with the Software Center name "Old Software Center Name" and the comment "old comment". Then a replace ran with the name "New Software Center Name" and an empty comment.
 
-1. Before the change: after the replace, the name was still "Old Software Center Name".
+1. Before the change: after the replace, the name was still "Old Software Center Name", and the description was still "old comment". The script before the change leaves out `-Description` for an empty comment, as the final code does.
 2. After the change: the name was "New Software Center Name".
-3. The description was empty in this run because the script of the change then still wrote the empty comment; the final code does not write an empty comment, so the description stays "old comment". That last behavior is covered by the tests above and was not run on the lab server.
+3. The lab run of the change used an intermediate script that wrote the empty comment, so the description was empty in that run. The final code leaves out `-Description` for an empty comment, as the script before the change did (item 1). The tests check the script text. The final script was not run on the lab server.
 4. The probe application and its source folder were deleted.
 
 Result (2026-11-10): as described. The lab machines were started for the check and stopped afterwards. No snapshot was used.
