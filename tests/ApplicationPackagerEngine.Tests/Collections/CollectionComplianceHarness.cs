@@ -119,9 +119,11 @@ internal sealed class FakeCollectionService : ICollectionService
 
     public async Task<CollectionDetail> GetDetailAsync(string collectionId, int memberPage, CancellationToken ct)
     {
+        // The gate is read before the call is counted: a test that waits for the count may then change the gate.
+        var gate = DetailGate;
         Interlocked.Increment(ref DetailCalls);
         lock (DetailPages) DetailPages.Add(memberPage);
-        if (DetailGate is { } gate) await gate.Task.WaitAsync(ct);
+        if (gate is not null) await gate.Task.WaitAsync(ct);
         lock (Collections)
         {
             var row = Find(collectionId) ?? throw new CollectionServiceException($"The collection {collectionId} no longer exists.");
