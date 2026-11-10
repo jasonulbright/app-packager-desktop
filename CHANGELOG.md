@@ -2,18 +2,13 @@
 
 ## [Unreleased]
 
-## [2026.1110.24] - 2026-11-10
-
-### Fixed
-
-- A replace of a ConfigMgr application now writes the Software Center name of the manifest, as a new application does. Before, the old name stayed. An empty run comment still leaves an existing description alone.
-
-## [2026.1109.23] - 2026-11-09
+## [2026.1110.23] - 2026-11-10
 
 ### Fixed
 
 - A ConfigMgr publish now refuses a maximum run time outside 15 to 720 minutes, and the operators Between, OneOf and NoneOf, before it touches the site. Before, the site refused them in the middle of the run.
 - A registry value detection with the property type Existence now publishes to ConfigMgr. Before, the publish refused it although the format page allows it.
+- A replace of a ConfigMgr application now writes the Software Center name of the manifest, as a new application does. Before, the old name stayed. An empty run comment still leaves an existing description alone.
 
 ## [2026.1109.22] - 2026-11-09
 
