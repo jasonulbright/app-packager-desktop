@@ -109,7 +109,9 @@ public sealed class StageFinalizationPublishTests : IDisposable
 
     [Theory]
     [InlineData(0, 30, "out of range: estimated installation time is 0 minutes")]
-    [InlineData(10, 1441, "out of range: maximum allowed run time is 1441 minutes")]
+    [InlineData(10, 721, "out of range: maximum allowed run time is 721 minutes; use a whole number of minutes from 15 to 720")]
+    [InlineData(10, 1441, "out of range: maximum allowed run time is 1441 minutes; use a whole number of minutes from 15 to 720")]
+    [InlineData(5, 14, "out of range: maximum allowed run time is 14 minutes; use a whole number of minutes from 15 to 720")]
     [InlineData(60, 30, "inconsistent: estimated installation time 60 minutes exceeds the maximum allowed run time 30 minutes")]
     public void TimingOutsideTheBoundsIsRefused(int estimated, int maximum, string message)
     {
@@ -118,16 +120,13 @@ public sealed class StageFinalizationPublishTests : IDisposable
         Assert.Contains("Timing for the deployment type 'App' is " + message, ex.Message);
     }
 
-    [Fact]
-    public void AMaximumAboveTwelveHoursIsReportedNotRefused()
+    [Theory]
+    [InlineData(15)]
+    [InlineData(720)]
+    public void TheLimitsOfTheSiteAreAccepted(int maximum)
     {
-        var log = new List<string>();
-        var timing = DeploymentTypeTiming.Resolve(new StageTiming { MaximumMinutes = 721 }, 15, 30, onLog: log.Add);
-        Assert.Equal(721, timing.MaximumRuntimeMins);
-        Assert.Contains(log, l => l.Contains("exceeds the 12-hour monitoring ceiling"));
-        log.Clear();
-        DeploymentTypeTiming.Resolve(new StageTiming { MaximumMinutes = 720 }, 15, 30, onLog: log.Add);
-        Assert.Empty(log);
+        var timing = DeploymentTypeTiming.Resolve(new StageTiming { EstimatedMinutes = 10, MaximumMinutes = maximum }, 15, 30);
+        Assert.Equal(maximum, timing.MaximumRuntimeMins);
     }
 
     private static StageManifest Registry() => new()

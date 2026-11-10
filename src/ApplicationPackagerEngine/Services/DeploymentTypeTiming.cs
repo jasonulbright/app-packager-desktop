@@ -9,14 +9,17 @@ public sealed record ResolvedTiming(int EstimatedRuntimeMins, int MaximumRuntime
 public static class DeploymentTypeTiming
 {
     public const int MinimumMinutes = 1;
-    public const int MaximumAllowedMinutes = 1440;
-    public const int MonitoringCeilingMinutes = 720;
+
+    /// <summary>The site refuses a maximum run time below 15 minutes (lab: ConfigMgr 5.00.9146, range 15 to 720).</summary>
+    public const int MinimumMaximumRuntimeMinutes = 15;
+
+    /// <summary>The site refuses a maximum run time above 720 minutes, so the publish refuses it before it writes anything.</summary>
+    public const int MaximumAllowedMinutes = 720;
 
     /// <summary>
-    /// The manifest's Timing wins over the caller's defaults. Both values are whole
-    /// minutes from 1 to 1440 and the estimate may not exceed the maximum. A maximum
-    /// above the 12-hour monitoring ceiling is accepted and reported, because a
-    /// maximum longer than a maintenance window keeps the deployment type from running.
+    /// The manifest's Timing wins over the caller's defaults. The estimate is a whole number of minutes from 1 to 720, the
+    /// maximum a whole number from 15 to 720, and the estimate may not exceed the maximum. These are the limits of the
+    /// ConfigMgr cmdlet, so a value outside them is refused here, before the site is touched.
     /// </summary>
     public static ResolvedTiming Resolve(StageTiming? timing, int defaultEstimated = 15, int defaultMaximum = 30,
         string context = "deployment type", Action<string>? onLog = null)
@@ -27,17 +30,19 @@ public static class DeploymentTypeTiming
         if (timing?.EstimatedMinutes is int e) { estimated = e; source = "manifest"; }
         if (timing?.MaximumMinutes is int m) { maximum = m; source = "manifest"; }
 
-        foreach (var (name, value) in new[] { ("estimated installation time", estimated), ("maximum allowed run time", maximum) })
+        foreach (var (name, value, low) in new[]
+                 {
+                     ("estimated installation time", estimated, MinimumMinutes),
+                     ("maximum allowed run time", maximum, MinimumMaximumRuntimeMinutes)
+                 })
         {
-            if (value < MinimumMinutes || value > MaximumAllowedMinutes)
+            if (value < low || value > MaximumAllowedMinutes)
                 throw new InvalidOperationException(
-                    $"Timing for the {context} is out of range: {name} is {value} minutes; use a whole number of minutes from 1 to 1440.");
+                    $"Timing for the {context} is out of range: {name} is {value} minutes; use a whole number of minutes from {low} to {MaximumAllowedMinutes}.");
         }
         if (estimated > maximum)
             throw new InvalidOperationException(
                 $"Timing for the {context} is inconsistent: estimated installation time {estimated} minutes exceeds the maximum allowed run time {maximum} minutes.");
-        if (maximum > MonitoringCeilingMinutes)
-            onLog?.Invoke($"Maximum allowed run time      : {maximum} minutes exceeds the 12-hour monitoring ceiling; a maintenance window shorter than this blocks the deployment type.");
 
         return new ResolvedTiming(estimated, maximum, source);
     }

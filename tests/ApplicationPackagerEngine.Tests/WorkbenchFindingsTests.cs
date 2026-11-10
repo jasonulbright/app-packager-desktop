@@ -23,6 +23,29 @@ public sealed class WorkbenchFindingsTests
             "Intune install timeout is not sent by this publisher; the value is recorded in the definition only."), only);
     }
 
+    [Theory]
+    [InlineData(14, true)]
+    [InlineData(15, false)]
+    [InlineData(720, false)]
+    [InlineData(721, true)]
+    [InlineData(1440, true)]
+    public void AMaximumOutsideWhatTheSiteAccepts_IsAReviewFindingThatBlocksNothing(int maximum, bool expected)
+    {
+        var profile = Profile();
+        profile.Set("Timing.EstimatedMinutes", 10);
+        profile.Set("Timing.MaximumMinutes", maximum);
+
+        var findings = WorkbenchFindings.Local(profile, Inherited);
+
+        var finding = findings.SingleOrDefault(f => f.Code == "TIMING-CONFIGMGR-RANGE");
+        Assert.Equal(expected, finding is not null);
+        if (finding is null) return;
+        Assert.Equal("Review", finding.Severity);
+        Assert.Equal("ConfigMgr accepts a maximum runtime from 15 to 720 minutes. A ConfigMgr publish with this value stops before it writes anything.", finding.Message);
+        Assert.Empty(WorkbenchFindings.BlockingFor(findings, RunTargets.Mecm));
+        Assert.Empty(WorkbenchFindings.BlockingFor(findings, RunTargets.IntuneOnly));
+    }
+
     [Fact]
     public void AnEstimateAboveTheInheritedMaximum_IsBlocking()
     {

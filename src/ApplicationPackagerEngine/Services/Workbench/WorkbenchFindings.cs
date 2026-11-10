@@ -46,6 +46,9 @@ public static class WorkbenchFindings
             Add(WorkbenchFinding.Blocking, "TIMING-RANGE", "Estimated duration and maximum runtime must both be at least one minute.");
         else if (estimated > maximum)
             Add(WorkbenchFinding.Blocking, "TIMING-ORDER", "Estimated install duration is greater than the maximum runtime.");
+        if (maximum >= 1 && (maximum < DeploymentTypeTiming.MinimumMaximumRuntimeMinutes || maximum > DeploymentTypeTiming.MaximumAllowedMinutes))
+            Add(WorkbenchFinding.Review, "TIMING-CONFIGMGR-RANGE",
+                $"ConfigMgr accepts a maximum runtime from {DeploymentTypeTiming.MinimumMaximumRuntimeMinutes} to {DeploymentTypeTiming.MaximumAllowedMinutes} minutes. A ConfigMgr publish with this value stops before it writes anything.");
         Add(WorkbenchFinding.Info, "TIMING-INTUNE", "Intune install timeout is not sent by this publisher; the value is recorded in the definition only.");
 
         foreach (var section in new[] { "Install", "Uninstall" })
