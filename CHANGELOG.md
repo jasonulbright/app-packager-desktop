@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [2026.1110.26] - 2026-11-10
+
+### Fixed
+
+- Reading the files inside an installer (Add from file) no longer fails at random with "could not be listed" when 7-Zip ends before it is assigned to its job object, which can happen with a small archive on a busy computer.
+
 ## [2026.1110.25] - 2026-11-10
 
 ### Fixed

@@ -695,8 +695,9 @@ public sealed class SiteHygieneLiveTests
         Assert.True(await vm.SaveAsync());
         var saved = h.Saved!;
         Assert.Equal((SiteHygieneSettings.LiveTabLayout, VM.LiveTab, "SiteHealth", "Warning", "SMS_", 180), (saved.TabLayout, saved.SelectedTab, saved.LiveView, saved.LiveStatus, saved.LiveText, saved.TrendDays));
-        var (live, server, database) = Live(h).LiveSaves[^1];
-        Assert.Equal(("sql01.contoso.com", "CM_MCM"), (server, database));
+        // Each setter starts a save, so the server and the database may be written by two saves; what counts is what is stored.
+        var live = Live(h).LiveSaves[^1].Live;
+        Assert.Equal(("sql01.contoso.com", "CM_MCM"), (h.Settings.DiscoverySqlServer, h.Settings.DiscoverySqlDatabase));
         Assert.Equal((90, (int?)null, (bool?)null), (live.InactiveDays, live.RefreshMinutes, live.TrustSqlCertificate));
         Assert.Equal(((bool?)false, (bool?)null), (live.AlertDpCritical, live.AlertsEnabled));
         Assert.Same(live, h.Settings.SiteHygieneLive);

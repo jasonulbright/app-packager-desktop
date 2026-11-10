@@ -209,7 +209,9 @@ internal sealed class SevenZipTool(string exePath)
         // The application exits through Environment.Exit, which skips this method's cleanup;
         // the job ends 7-Zip when the application's handle to it closes.
         using var job = AssignJob(process);
-        if (job is null)
+        // A listing of a small archive can end before the process is assigned to the job; Windows then refuses the assignment. A
+        // process that has ended has nothing left to stop, and 7-Zip starts no child process, so the run goes on.
+        if (job is null && !process.HasExited)
         {
             BoundedProcessRunner.Terminate(process);
             throw new InstallerAnalysisException(NoJobMessage);
