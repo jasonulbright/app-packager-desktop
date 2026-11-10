@@ -1,7 +1,7 @@
 {
   "Schema": 1,
   "Id": "cd723cf101a1faaa",
-  "WsusSupport": "No (CustomInstall)",
+  "WsusSupport": "No (CustomInstall|ExitCodes)",
   "Vendor": "Google",
   "Application": "Android Studio (x64)",
   "CMName": "Android Studio",

@@ -180,3 +180,17 @@ An empty comment does not clear an existing description. The review finding aske
 4. The probe application and its source folder were deleted.
 
 Result (2026-11-10): as described. The lab machines were started for the check and stopped afterwards. No snapshot was used.
+
+## WSUS publish: installer exit codes that WSUS does not know
+
+An EXE installer can report exit codes of its own. A definition lists them as `RebootExitCodes` (reboot required) and `SuccessExitCodes` (a complete install). For ConfigMgr and Intune the generated wrappers turn them into 3010 and 0. WSUS runs the installer itself, with one fixed table of return codes (0, 1707, 3010 and 1641). Any other exit code counts as a failed install. The shipped definition `dellcommandupdate.json` declared `WsusSupport: Yes` and lists `RebootExitCodes: [2]`, so a successful install would have been recorded as failed (review finding C1).
+
+The publish does not translate the codes. It refuses them: `WsusCompatibility` gives the blocking finding `ExitCodes` for an EXE whose stage manifest carries `RebootExitCodes` or `SuccessExitCodes`, before any server call, with a message that names the codes. The stage manifest now carries both lists from the definition. An MSI ignores them, because the wrappers apply them to EXE installers only. The three shipped definitions that have exit codes declare the refusal: `dellcommandupdate.json` (`No (ExitCodes)`), `androidstudio.json` and `ccleaner.json` (`No (CustomInstall|ExitCodes)`). The One Click plan reads the declared value, so it shows `not supported: ExitCodes` before a run.
+
+| Test class | What it proves |
+|---|---|
+| `WsusCompatibilityTests` | Reboot codes and success codes of an EXE block with the code `ExitCodes`, and the message names them and the codes that WSUS knows; an MSI, no codes and empty lists do not block. |
+| `WsusSupportTagTests` | The declared value of every shipped definition equals what the check gives for its default build (this found the two other definitions); the Dell definition declares `No (ExitCodes)`, and its grid and plan row carries `ExitCodes`. |
+| `ShippedDefinitionCountsDocTests` | The counts on the definitions page follow: `Yes` 254, `No (...)` 65. |
+
+**Lab check.** None. The lab has no WSUS server, and the change only refuses a publish before it contacts a server. The tests run the real check on the staged default build of each shipped definition.

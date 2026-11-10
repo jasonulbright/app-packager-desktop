@@ -724,6 +724,8 @@ public sealed class StagingService
                 UninstallCommand = modeUninstallCommandLine,
                 ProductCode = productCode,
                 RunningProcess = def.RunningProcess,
+                RebootExitCodes = def.RebootExitCodes,
+                SuccessExitCodes = def.SuccessExitCodes,
                 Detection = detection,
                 WsusDetection = msixPackage is null ? BuildWsusDetection(def, displayVersion, settingsValues, tokens) : null,
                 MsixPackage = msixPackage,
@@ -1682,6 +1684,8 @@ public sealed class StagingService
                 UninstallCommand = $"{bootstrapperFileName} {layout.QuietSwitch} {layout.UninstallSwitch}",
                 ProductCode = msiProps.ProductCode,
                 RunningProcess = def.RunningProcess,
+                RebootExitCodes = def.RebootExitCodes,
+                SuccessExitCodes = def.SuccessExitCodes,
                 Detection = detection
             };
             IconExtractionService.StageIcon(def, contentPath, manifest, onProgress);
@@ -1979,6 +1983,8 @@ public sealed class StagingService
                 InstallArgs = "/configure install.xml",
                 UninstallArgs = "/configure uninstall.xml",
                 RunningProcess = def.RunningProcess,
+                RebootExitCodes = def.RebootExitCodes,
+                SuccessExitCodes = def.SuccessExitCodes,
                 Detection = detection
             };
             IconExtractionService.StageIcon(def, contentPath, manifest, onProgress);

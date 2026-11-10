@@ -379,7 +379,7 @@ public sealed class VendorFixDefinitionTests : IDisposable
     [Fact]
     public void WsusCannotTakeTheBuildsWhoseWrapperOrDetectionItCannotCarry()
     {
-        Assert.Equal("No (CustomInstall)", Wsus.DefaultBuildWsusCheck.Compute(DefinitionFixture.Load("ccleaner.json")).Text);
+        Assert.Equal("No (CustomInstall|ExitCodes)", Wsus.DefaultBuildWsusCheck.Compute(DefinitionFixture.Load("ccleaner.json")).Text);
         Assert.Equal("No (DetectionNotMappable)", Wsus.DefaultBuildWsusCheck.Compute(DefinitionFixture.Load("anaconda.json")).Text);
         Assert.Equal("Yes", Wsus.DefaultBuildWsusCheck.Compute(DefinitionFixture.Load("jabradirect.json")).Text);
         Assert.Equal("Yes", Wsus.DefaultBuildWsusCheck.Compute(DefinitionFixture.Load("windowsadmincenter.json")).Text);

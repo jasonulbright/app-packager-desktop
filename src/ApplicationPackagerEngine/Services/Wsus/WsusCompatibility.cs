@@ -45,6 +45,19 @@ public static partial class WsusCompatibility
                 Add(WsusSeverity.Blocking, WsusRefusalCodes.CustomInstall, $"install.ps1 does more than run the installer: {string.Join(", ", extras)}. WSUS runs only the installer with its arguments, so these steps would not reach the client.");
         }
 
+        // The EXE wrappers turn the exit codes of the definition into 3010 (reboot required) and 0 (complete install). WSUS runs the
+        // installer itself and knows only the table of the publisher, so any other code of the installer counts as a failed install.
+        if (installerType.Equals("EXE", StringComparison.OrdinalIgnoreCase)
+            && (manifest.RebootExitCodes is { Length: > 0 } || manifest.SuccessExitCodes is { Length: > 0 }))
+        {
+            var codes = new List<string>();
+            if (manifest.RebootExitCodes is { Length: > 0 } reboot) codes.Add($"reboot required: {string.Join(", ", reboot)}");
+            if (manifest.SuccessExitCodes is { Length: > 0 } success) codes.Add($"success: {string.Join(", ", success)}");
+            var known = string.Join(", ", WsusPublishService.ExeReturnCodes.Select(c => c.Code));
+            Add(WsusSeverity.Blocking, WsusRefusalCodes.ExitCodes,
+                $"The installer reports exit codes of its own ({string.Join("; ", codes)}). WSUS knows only {known}, so a successful install would be recorded as failed.");
+        }
+
         var installerFile = manifest.InstallerFile ?? "";
         var outside = new List<string>();
         if (hasContent)

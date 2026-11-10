@@ -116,6 +116,7 @@ A refusal code with the severity Blocking stops the publish. The codes are in th
 | `PerUserInstall` | The application installs for the signed-in user. WSUS installs as SYSTEM. |
 | `InteractiveInstall` | The deployment type lets the user interact with the installation. WSUS installs silently. |
 | `CustomInstall` | The build installs through a custom command or script, or `install.ps1` does more than run the installer. |
+| `ExitCodes` | The definition lists installer exit codes of its own (`RebootExitCodes` or `SuccessExitCodes`) for an EXE. WSUS runs the installer itself and knows only the return codes 0, 1707, 3010 and 1641, so it would record a successful install with another code as failed. |
 | `PayloadOutsideStage` | The stage manifest names a file that is not inside the content folder. |
 | `InstallerMissing` | The manifest names no installer, or the installer is not in the staged content. |
 | `InstallerInSubfolder` | The installer is in a subfolder. An update carries its files in one folder. |

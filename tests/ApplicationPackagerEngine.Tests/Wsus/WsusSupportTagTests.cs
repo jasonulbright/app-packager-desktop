@@ -16,8 +16,22 @@ public sealed class WsusSupportTagTests
         WsusRefusalCodes.MultipleDeploymentTypes, WsusRefusalCodes.InstallerTypeUnsupported, WsusRefusalCodes.PerUserInstall,
         WsusRefusalCodes.InteractiveInstall, WsusRefusalCodes.CustomInstall, WsusRefusalCodes.PayloadOutsideStage,
         WsusRefusalCodes.InstallerMissing, WsusRefusalCodes.InstallerInSubfolder, WsusRefusalCodes.DetectionNotMappable,
-        WsusRefusalCodes.PayloadInSubfolder, WsusRefusalCodes.PayloadMissing, WsusRefusalCodes.PayloadTooLarge
+        WsusRefusalCodes.PayloadInSubfolder, WsusRefusalCodes.PayloadMissing, WsusRefusalCodes.PayloadTooLarge,
+        WsusRefusalCodes.ExitCodes
     ];
+
+    [Fact]
+    public void DellCommandUpdateDeclaresTheExitCodesRefusalBecauseItReportsARebootCodeOfItsOwn()
+    {
+        var path = Path.Combine(AppContext.BaseDirectory, "Definitions", "dellcommandupdate.json");
+        var def = System.Text.Json.JsonSerializer.Deserialize<AppDefinition>(File.ReadAllText(path), new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true })!;
+
+        Assert.Equal([2], def.RebootExitCodes);
+        Assert.Equal("No (ExitCodes)", def.WsusSupport);
+        Assert.Equal("ExitCodes", WsusSupportTag.NotSupportedCodes(def.WsusSupport));
+        // The row of the grid and of the One Click plan carries the refusal, so the plan shows it before a run.
+        Assert.Equal("ExitCodes", PackagerDiscoveryService.DefinitionRow(def, "dellcommandupdate.json").WsusNotSupported);
+    }
 
     private static IEnumerable<string> DefinitionFiles() =>
         Directory.GetFiles(Path.Combine(AppContext.BaseDirectory, "Definitions"), "*.json")
@@ -135,7 +149,7 @@ public sealed class WsusSupportTagTests
         var supported = PackagerDiscoveryService.DefinitionRow(DefinitionFixture.Load("7zip.json"), "7zip.json");
         var silent = PackagerDiscoveryService.DefinitionRow(new AppDefinition { Id = "x", Application = "X" }, "x.json");
 
-        Assert.Equal("CustomInstall", refused.WsusNotSupported);
+        Assert.Equal("CustomInstall|ExitCodes", refused.WsusNotSupported);
         Assert.Equal("", supported.WsusNotSupported);
         Assert.Equal("", silent.WsusNotSupported);
     }

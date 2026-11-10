@@ -168,7 +168,9 @@ internal static class DefaultBuildWsusCheck
             ProductCode = productCode,
             Detection = detection,
             WsusDetection = msix is null ? StagingService.BuildWsusDetection(def, Version, null, tokens) : null,
-            MsixPackage = msix
+            MsixPackage = msix,
+            RebootExitCodes = def.RebootExitCodes,
+            SuccessExitCodes = def.SuccessExitCodes
         };
     }
 }
