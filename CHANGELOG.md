@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [2026.1110.27] - 2026-11-10
+
+### Fixed
+
+- The install wrapper of an EXE definition that lists processes to stop (Picpick, HashTools, Windows Admin Center) now reports the exit code of an installer that ends at once. Before, such an installer could be reported as a success (exit 0) when it failed.
+
 ## [2026.1110.26] - 2026-11-10
 
 ### Fixed

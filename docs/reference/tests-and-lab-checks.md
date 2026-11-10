@@ -228,3 +228,26 @@ In five full runs on 2026-11-10 (CI and the release workflow), a different test 
 | `PostInstallKillProcessesTests.TheWrapperReturnsTheInstallerExitCodeAndStopsTheLaunchedChild` | Product race in the install wrapper (a fast installer exit is read as 0). Not part of this change; it has its own change. | None here. |
 
 **Lab check.** None. These are timing faults of tests and of one process start; the lab adds nothing. The proof is that the full run no longer fails at random, which needs several runs.
+
+## EXE install wrapper: the exit code of an installer that ends at once
+
+Some definitions list processes to stop after the install (`PostInstallKillProcesses`; today Picpick, HashTools and Windows Admin Center). For them the install wrapper does not use `Start-Process -Wait`, because `-Wait` also waits for every process that the installer started, and an installer that starts its application would never return under a system-context deployment. The wrapper waits for the installer process alone and then stops the named processes.
+
+It started the installer with `Start-Process -PassThru` and read the handle afterwards. A process from `Start-Process -PassThru` without `-Wait` holds no handle, so when the installer ended before the script read the handle, Windows PowerShell gave a null `ExitCode` and the wrapper exited 0. An installer that failed at once (for example exit code 1603) was reported as a success (found when `PostInstallKillProcessesTests` failed at random in a full run: expected 5, actual 0).
+
+The wrapper now starts the installer with `[System.Diagnostics.Process]::Start`, which holds the handle from the start, and it reads `ExitCode` after `WaitForExit()`. The arguments go into `ProcessStartInfo.Arguments` as one string, which is what `Start-Process -ArgumentList '<string>'` passed. If the installer cannot start, the null-process guard exits 1.
+
+| Test class | What it proves |
+|---|---|
+| `PostInstallKillProcessesTests` | The exact text of the new start; no arguments line for empty arguments; an apostrophe in the arguments is escaped. An installer that exits 5 at once and a wrapper that looks at it 1.5 seconds later (a pause put right after the start line) still gives 5; this test fails with the old wrapper. The earlier test of the stand-in installer that starts a child and exits 5 (the child is stopped, the code is 5, the file holds 5) passes with the new start. |
+
+**Lab check.** The old and the new text of the wrapper were run with Windows PowerShell 5.1 on the ConfigMgr lab server, with a stand-in installer (a copy of `cmd.exe` that exits 5 at once):
+
+1. Old wrapper, 120 runs, 8 at a time: exit code 5 in all 120. The race did not show on its own.
+2. New wrapper, the same 120 runs: exit code 5 in all 120.
+3. Old wrapper with a pause of 1.5 seconds right after the start line (a host that looks at the process late), 16 runs: exit code 0 in all 16. The installer's code was lost.
+4. New wrapper with the same pause, 16 runs: exit code 5 in all 16.
+
+So the loss needs a host that looks at the process after the installer has ended. It was seen once in CI (`PostInstallKillProcessesTests`, expected 5, actual 0), and the pause reproduces it every time. The lab machines were started for the check and stopped afterwards. No snapshot was used. The probe folder was deleted.
+
+Result (2026-11-10): as described.
