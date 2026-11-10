@@ -224,13 +224,27 @@ public sealed class SevenZipPolicyTests : IDisposable
     {
         var exe = RequireSevenZip();
         System.Diagnostics.Process? child = null;
-        var tool = new SevenZipTool(exe) { AssignJob = p => { child = System.Diagnostics.Process.GetProcessById(p.Id); return null; } };
+        // A small listing can end before the check; the run counts as still running, so the case does not depend on timing.
+        var tool = new SevenZipTool(exe) { AssignJob = p => { child = System.Diagnostics.Process.GetProcessById(p.Id); return null; }, HasEnded = _ => false };
 
         var ex = await Assert.ThrowsAsync<InstallerAnalysisException>(() => tool.ListAsync(Fixture("nsis-mk-lzma-solid-unicode.bin"), Limits, CancellationToken.None));
 
         Assert.NotNull(child);
         using (child) Assert.True(child!.HasExited);
         Assert.Equal(SevenZipTool.NoJobMessage, ex.Message);
+    }
+
+    [Fact]
+    public async Task A7ZipRunThatEndedBeforeTheJobAssignmentIsNotRefused()
+    {
+        var exe = RequireSevenZip();
+        var zip = WriteZip(_temp.PathOf("ended.zip"), ("a.txt", Text("A")));
+        // The assignment waits for the process to end and then fails, as Windows does for a process that has ended.
+        var tool = new SevenZipTool(exe) { AssignJob = p => { p.WaitForExit(); return null; } };
+
+        var entries = await tool.ListAsync(zip, Limits, CancellationToken.None);
+
+        Assert.Contains(entries, e => e.Path.EndsWith("a.txt", StringComparison.Ordinal));
     }
 
     [Fact]

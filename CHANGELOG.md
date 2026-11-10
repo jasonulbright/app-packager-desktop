@@ -6,7 +6,7 @@
 
 ### Fixed
 
-- Reading the files inside an installer (Add from file) no longer fails at random with "could not be listed" when 7-Zip ends before it is assigned to its job object, which can happen with a small archive on a busy computer.
+- Reading the files inside an installer (Add from file and Installer Analysis) no longer fails at random when 7-Zip ends before it is assigned to its job object, which can happen with a small archive on a busy computer. The page showed "could not be listed" or the message about a job that could not be used.
 
 ## [2026.1110.25] - 2026-11-10
 
