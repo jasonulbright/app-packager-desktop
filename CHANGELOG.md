@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [2026.1109.23] - 2026-11-09
+
+### Fixed
+
+- A ConfigMgr publish now refuses a maximum run time outside 15 to 720 minutes, and the operators Between, OneOf and NoneOf, before it touches the site. Before, the site refused them in the middle of the run.
+- A registry value detection with the property type Existence now publishes to ConfigMgr. Before, the publish refused it although the format page allows it.
+
 ## [2026.1109.22] - 2026-11-09
 
 ### Fixed
