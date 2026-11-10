@@ -1,4 +1,5 @@
 using ApplicationPackagerEngine.Models;
+using ApplicationPackagerEngine.Models.Inventory;
 
 namespace ApplicationPackagerEngine.Services;
 
@@ -75,6 +76,28 @@ public static class PackagingOutcomeComposer
 
         var also = contentFailure is null ? "" : $" A step after the ConfigMgr application also failed: {contentFailure}";
         return new PackagingExitOutcome(1, $"{prefix}{reason}{note}{also}");
+    }
+
+    /// <summary>
+    /// The inventory outcome of the ConfigMgr destination. An application that exists but whose content step failed is
+    /// Partial: the object is there, and clients cannot install it. Null when the target did not ask for ConfigMgr.
+    /// </summary>
+    public static InventoryOutcome? ConfigMgrInventoryOutcome(bool requested, bool succeeded, bool alreadyExists, string? contentStepFailure) =>
+        !requested ? null
+        : alreadyExists ? InventoryOutcome.AlreadyPresent
+        : !succeeded ? InventoryOutcome.Failed
+        : string.IsNullOrWhiteSpace(contentStepFailure) ? InventoryOutcome.Succeeded
+        : InventoryOutcome.Partial;
+
+    /// <summary>One outcome for the run from the outcomes of its destinations (ConfigMgr and Intune, as requested).</summary>
+    public static InventoryOutcome SummarizeDestinations(IReadOnlyList<InventoryOutcome> outcomes)
+    {
+        if (outcomes.Any(value => value is InventoryOutcome.Succeeded or InventoryOutcome.AlreadyPresent)
+            && outcomes.Any(value => value is InventoryOutcome.Failed or InventoryOutcome.Refused or InventoryOutcome.Partial)) return InventoryOutcome.Partial;
+        if (outcomes.Any(value => value == InventoryOutcome.Refused)) return InventoryOutcome.Refused;
+        if (outcomes.All(value => value is InventoryOutcome.Succeeded or InventoryOutcome.AlreadyPresent)) return InventoryOutcome.Succeeded;
+        if (outcomes.All(value => value == InventoryOutcome.Skipped)) return InventoryOutcome.Skipped;
+        return InventoryOutcome.Failed;
     }
 
     /// <summary>The MECM status for one run, from the target's own result.</summary>

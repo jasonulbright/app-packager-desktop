@@ -7,6 +7,7 @@
 ### Fixed
 
 - A ConfigMgr run now fails, with the reason, when the content distribution or the test deployment after the application fails. Before, the failure was only in the log and the run reported success.
+- The inventory records the ConfigMgr destination of such a run as Partial, with the reason. In a command-line build with ConfigMgr and Intune, the run stops at the failed ConfigMgr destination, as it does for any failed destination.
 
 ## [2026.1109.21] - 2026-11-09
 

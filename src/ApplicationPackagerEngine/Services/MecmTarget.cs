@@ -961,6 +961,19 @@ public sealed partial class MecmTarget
         public static ContentStepResult Failed(string failure) => new(false, failure);
     }
 
+    /// <summary>
+    /// Runs the content steps in their order: distribution first, then the test deployment when there is one. A distribution
+    /// that fails skips the deployment. Returns the sentence of the first step that failed, or null when all steps succeeded.
+    /// </summary>
+    public static async Task<string?> RunContentStepsAsync(Func<Task<ContentStepResult>> distribute, Func<Task<ContentStepResult>>? deployToTest)
+    {
+        var distributed = await distribute().ConfigureAwait(false);
+        if (!distributed.Succeeded) return distributed.Failure;
+        if (deployToTest is null) return null;
+        var deployed = await deployToTest().ConfigureAwait(false);
+        return deployed.Succeeded ? null : deployed.Failure;
+    }
+
     /// <summary>The sentence that names a failed content step, its target and the reason of the provider.</summary>
     public static string ContentStepFailureText(string step, string target, string reason)
     {
