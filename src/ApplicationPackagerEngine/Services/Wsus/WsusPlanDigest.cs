@@ -18,7 +18,7 @@ public static partial class WsusPlanDigest
 
     /// <summary>The first 16 hex characters of the SHA-256 of the inputs, each on its own line so that no value runs into the next.</summary>
     public static string Compute(string commandLine, string installerType, string installerFile, string isInstalled, string isInstallable,
-        IEnumerable<(int Code, string Result, bool Reboot)> returnCodes, IEnumerable<string> payloadHashes)
+        IEnumerable<(int Code, string Result, bool Reboot)> returnCodes, IEnumerable<(string Path, string Hash)> payloadFiles)
     {
         var text = string.Join("\n",
             "command:" + commandLine,
@@ -27,9 +27,16 @@ public static partial class WsusPlanDigest
             "installed:" + isInstalled,
             "installable:" + isInstallable,
             "codes:" + string.Join(",", returnCodes.Select(c => $"{c.Code}={c.Result}/{(c.Reboot ? "reboot" : "none")}")),
-            "files:" + string.Join(",", payloadHashes));
+            "files:" + string.Join(",", payloadFiles.Select(f => $"{f.Path}={(IsSignedAgainAtEachStaging(f.Path) ? "script" : f.Hash)}")));
         return Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(text)))[..16];
     }
+
+    /// <summary>
+    /// App Packager signs its PowerShell scripts again at each staging, and a timestamped signature has other bytes each time. A script
+    /// in the payload therefore counts by its name only: adding, removing or renaming one changes the digest, editing one does not.
+    /// </summary>
+    private static bool IsSignedAgainAtEachStaging(string path) =>
+        path.EndsWith(".ps1", StringComparison.OrdinalIgnoreCase) || path.EndsWith(".psm1", StringComparison.OrdinalIgnoreCase) || path.EndsWith(".psd1", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>The description line for a digest.</summary>
     public static string Line(string digest) => Marker + digest;

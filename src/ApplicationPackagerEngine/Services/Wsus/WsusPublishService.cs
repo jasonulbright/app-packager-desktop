@@ -124,7 +124,7 @@ public sealed class WsusPublishService(IWsusAdapterRunner? runner = null, WsusRu
         var title = WsusIdentity.Title(manifest);
         var installerType = (manifest.InstallerType ?? "").Equals("MSI", StringComparison.OrdinalIgnoreCase) ? "MSI" : "EXE";
         var planDigest = WsusPlanDigest.Compute(CommandLineFor(manifest, installerType), installerType, payload[0], rules.IsInstalled, rules.IsInstallable,
-            ReturnCodesFor(manifest), WsusPayload.RecordedHashes(manifest, payload));
+            ReturnCodesFor(manifest), payload.Zip(WsusPayload.RecordedHashes(manifest, payload), (file, hash) => (file, hash)));
 
         var prepareRequest = WsusAdminClient.Request(normalized);
         prepareRequest["IdentityTag"] = identity;
@@ -172,7 +172,7 @@ public sealed class WsusPublishService(IWsusAdapterRunner? runner = null, WsusRu
             if (recorded is null) existingFromEarlierRelease = true;
             else if (!string.Equals(recorded, planDigest, StringComparison.Ordinal))
                 throw new WsusOperationException(WsusErrorKinds.UpdateDiffers,
-                    $"Version {version} is already on the server ({existing.PackageId}), and this stage differs from it: the install command, the rules, the return codes or the files are not the same. WSUS cannot change a published update, and the update on the server was left as it is. Expire it in WSUS Updates, then publish again.");
+                    $"Version {version} is already on the server ({existing.PackageId}{(existing.Declined ? ", declined" : "")}), and this stage differs from it: the install command, the rules, the return codes or the files are not the same. WSUS cannot change a published update, and the update on the server was left as it is. Expire it in WSUS Updates, then publish again.");
         }
         var packageId = existing is not null ? Guid.Parse(existing.PackageId) : Guid.NewGuid();
         var skipFollowUp = existing?.Declined == true;
@@ -239,7 +239,7 @@ public sealed class WsusPublishService(IWsusAdapterRunner? runner = null, WsusRu
         }
 
         if (existingFromEarlierRelease)
-            warnings.Add("the update on the server was published by an earlier release, so its install command, rules, return codes and files were not compared with this stage");
+            onProgress?.Invoke("WSUS update comparison       : the update on the server was published by an earlier release, so its install command, rules, return codes and files were not compared with this stage");
         var outcome = existing is null ? WsusPublishOutcome.Published : WsusPublishOutcome.AlreadyPublished;
         IReadOnlyList<Guid> superseded = outcome == WsusPublishOutcome.Published ? decision.Earlier.Select(u => Guid.Parse(u.PackageId)).ToList() : [];
         var message = ComposeMessage(outcome, packageId, rules, approved, superseded.Count, declined.Count, decision.RetiredCount, warnings);

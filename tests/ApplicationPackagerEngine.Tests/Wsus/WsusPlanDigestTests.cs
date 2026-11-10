@@ -11,8 +11,8 @@ public sealed class WsusPlanDigestTests
     private static readonly (int, string, bool)[] Codes = [(0, "Succeeded", false), (3010, "Succeeded", true)];
 
     private static string Digest(string commandLine = "/S", string installerType = "EXE", string installerFile = "setup.exe",
-        string isInstalled = "<installed/>", string isInstallable = "<installable/>", (int, string, bool)[]? codes = null, string[]? hashes = null) =>
-        WsusPlanDigest.Compute(commandLine, installerType, installerFile, isInstalled, isInstallable, codes ?? Codes, hashes ?? ["aa", "bb"]);
+        string isInstalled = "<installed/>", string isInstallable = "<installable/>", (int, string, bool)[]? codes = null, (string, string)[]? files = null) =>
+        WsusPlanDigest.Compute(commandLine, installerType, installerFile, isInstalled, isInstallable, codes ?? Codes, files ?? [("setup.exe", "aa"), ("data.cab", "bb")]);
 
     [Fact]
     public void TheSameInputsGiveTheSameSixteenHexCharacters()
@@ -31,8 +31,25 @@ public sealed class WsusPlanDigestTests
         Assert.NotEqual(baseline, Digest(isInstalled: "<installed2/>"));
         Assert.NotEqual(baseline, Digest(isInstallable: "<installable2/>"));
         Assert.NotEqual(baseline, Digest(codes: [(0, "Succeeded", false), (3010, "Succeeded", true), (2, "Succeeded", true)]));
-        Assert.NotEqual(baseline, Digest(hashes: ["aa", "cc"]));
-        Assert.NotEqual(baseline, Digest(hashes: ["aa"]));
+        Assert.NotEqual(baseline, Digest(files: [("setup.exe", "aa"), ("data.cab", "cc")]));
+        Assert.NotEqual(baseline, Digest(files: [("setup.exe", "aa")]));
+    }
+
+    [Fact]
+    public void ARenamedCompanionFileWithTheSameBytesChangesTheDigest() =>
+        Assert.NotEqual(Digest(files: [("setup.exe", "aa"), ("setup.ini", "bb")]), Digest(files: [("setup.exe", "aa"), ("config.ini", "bb")]));
+
+    [Fact]
+    public void AScriptCountsByItsNameBecauseItsSignatureChangesAtEachStaging()
+    {
+        var first = Digest(files: [("setup.exe", "aa"), ("tool.ps1", "11")]);
+        var resigned = Digest(files: [("setup.exe", "aa"), ("tool.ps1", "22")]);
+        var renamed = Digest(files: [("setup.exe", "aa"), ("other.ps1", "11")]);
+        var removed = Digest(files: [("setup.exe", "aa")]);
+
+        Assert.Equal(first, resigned);
+        Assert.NotEqual(first, renamed);
+        Assert.NotEqual(first, removed);
     }
 
     [Fact]
