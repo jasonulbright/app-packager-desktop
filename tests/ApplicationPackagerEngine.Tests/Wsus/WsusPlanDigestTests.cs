@@ -59,6 +59,16 @@ public sealed class WsusPlanDigestTests
         Assert.NotEqual(WsusPlanDigest.ScriptHash(Signed(Body, "MIIabc")), WsusPlanDigest.ScriptHash(Signed(edited, "MIIabc")));
     }
 
+    [Fact]
+    public void ATextThatNamesTheMarkerInsideALineIsNotCutThere()
+    {
+        // The marker inside a string is not a line of its own; an edit after it must change the hash.
+        var first = "$marker = '# SIG # Begin signature block'\r\nWrite-Host 'one'";
+        var edited = "$marker = '# SIG # Begin signature block'\r\nWrite-Host 'corrected'";
+
+        Assert.NotEqual(WsusPlanDigest.ScriptHash(first), WsusPlanDigest.ScriptHash(edited));
+    }
+
     [Theory]
     [InlineData("tool.ps1", true)]
     [InlineData("Tool.PSM1", true)]

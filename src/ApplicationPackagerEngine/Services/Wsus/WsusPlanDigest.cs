@@ -31,7 +31,8 @@ public static partial class WsusPlanDigest
         return Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(text)))[..16];
     }
 
-    private const string SignatureBegin = "# SIG # Begin signature block";
+    [GeneratedRegex(@"(?m)^# SIG # Begin signature block[ \t]*\r?$")]
+    private static partial Regex SignatureBeginLine();
 
     /// <summary>
     /// The hash of a PowerShell script that does not depend on its signature. App Packager signs its scripts again at each staging, and
@@ -40,8 +41,10 @@ public static partial class WsusPlanDigest
     /// </summary>
     public static string ScriptHash(string text)
     {
-        var at = text.IndexOf(SignatureBegin, StringComparison.Ordinal);
-        var body = (at >= 0 ? text[..at] : text).TrimEnd();
+        // The signature block is the last thing in the file, and its first line starts a line. A script that names the marker in its
+        // own text (inside a string, for example) is cut at the last line that is the marker, not at the first mention.
+        var matches = SignatureBeginLine().Matches(text);
+        var body = (matches.Count > 0 ? text[..matches[^1].Index] : text).TrimEnd();
         return Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(body)));
     }
 
