@@ -90,12 +90,11 @@ public sealed partial class MecmTarget
                     BuildExistingProbeScript(appName, version, siteCode, providerMachine), WatchProbe, ct);
                 if (probe.ExitCode != 0)
                     return new PackagingResult { Success = false, ErrorMessage = probe.StdErr };
-                if (conflicted && onExisting == OnExistingBehavior.Fail)
-                    return new PackagingResult { Success = false, ErrorMessage = ExistingApplicationFailMessage(appName, siteVersion) };
-                if (conflicted)
+                var decision = DecideAfterProbe(onExisting, conflicted, appName, siteVersion, version);
+                if (decision is not null)
                 {
-                    onProgress?.Invoke(ExistingApplicationSkipMessage(appName, siteVersion, version));
-                    return new PackagingResult { Success = true, AlreadyExists = true, ApplicationName = appName };
+                    if (decision.LogLine is not null) onProgress?.Invoke(decision.LogLine);
+                    return decision.Result;
                 }
             }
 
@@ -204,7 +203,26 @@ public sealed partial class MecmTarget
         if (site.Length > 0 && string.Equals(site, incoming, StringComparison.Ordinal))
             return $"ConfigMgr already holds '{appName}' at version {site}. Nothing was changed (OnExisting=Skip).";
         var held = site.Length > 0 ? $"ConfigMgr holds '{appName}' at version {site}" : $"ConfigMgr holds '{appName}'";
-        return $"{held}; version {incoming} was NOT published (OnExisting=Skip). Choose Overwrite to replace the deployment types.";
+        var staged = incoming.Length > 0 ? $"version {incoming}" : "the staged version";
+        return $"{held}; {staged} was NOT published by this Skip run. Choose Overwrite to replace the deployment types.";
+    }
+
+    /// <summary>What a run does after the existing-application probe: its result and an optional log line.</summary>
+    public sealed record ProbeDecision(PackagingResult Result, string? LogLine);
+
+    /// <summary>
+    /// The decision after the probe. A title found under Fail ends the run with the refusal. A title found under Skip ends it
+    /// successfully, leaves the application alone and logs which version was not published. No title found returns null and
+    /// the run goes on.
+    /// </summary>
+    public static ProbeDecision? DecideAfterProbe(OnExistingBehavior onExisting, bool conflicted, string appName, string siteVersion, string incomingVersion)
+    {
+        if (!conflicted) return null;
+        if (onExisting == OnExistingBehavior.Fail)
+            return new ProbeDecision(new PackagingResult { Success = false, ErrorMessage = ExistingApplicationFailMessage(appName, siteVersion) }, null);
+        return new ProbeDecision(
+            new PackagingResult { Success = true, AlreadyExists = true, ApplicationName = appName },
+            ExistingApplicationSkipMessage(appName, siteVersion, incomingVersion));
     }
 
     /// <summary>The refusal of a Fail run that found the title on the site.</summary>
