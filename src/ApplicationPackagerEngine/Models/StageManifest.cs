@@ -39,7 +39,7 @@ public sealed class StageManifest
 
     /// <summary>
     /// Installer exit codes that mean "reboot required", from the definition. The EXE wrappers report each as 3010. WSUS runs the
-    /// installer itself, so it cannot report them: a definition that has them is not published to WSUS.
+    /// installer itself, so it gets each as a return code: a success with a restart (WsusPublishService.ReturnCodesFor).
     /// </summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public int[]? RebootExitCodes { get; set; }

@@ -187,11 +187,13 @@ An EXE installer can report exit codes of its own. A definition lists them as `R
 
 The return codes of a WSUS update are built for each publish, so they now carry the codes of the definition: `WsusPublishService.ReturnCodesFor` adds each reboot code as a success with a restart and each success code as a success, after the fixed codes 0, 1707, 3010 and 1641. A code that the fixed table has keeps the meaning of the table, and appears once. An MSI gets the fixed codes only, because the wrappers apply the codes to EXE installers only. The stage manifest carries both lists (`RebootExitCodes`, `SuccessExitCodes`), written when the application is staged.
 
-A manifest that was staged before the manifest carried the lists has none. When the publish reads such a manifest, `WsusPublishService.CarryExitCodes` takes the lists from the definition of the application, so an older stage does not publish with the fixed codes. A manifest that has lists is left as it is. The One Click plan, the Packages page and the command line all read the manifest in this one place.
+A manifest that was staged before the manifest carried the lists has none. When the publish reads such a manifest, `WsusPublishService.CarryExitCodes` takes the lists from the definition of the application, so an older stage does not publish with the fixed codes. A manifest that has lists is left as it is. The One Click run, the Packages page, the Workbench and the command line all publish through this one place.
 
 | Test class | What it proves |
 |---|---|
 | `WsusReturnCodesTests` | Without codes the table is the fixed one; a reboot code becomes a success with a restart and a success code a success; a code that the table has keeps the meaning of the table and appears once; an MSI and empty lists add nothing; an older manifest takes the codes from the definition, a manifest that has codes keeps them, and without a definition nothing changes. |
 | `WsusPublishServiceTests` | The plan that goes to the adapter carries the codes of the definition after the fixed ones. |
+
+**An update that is already on the server.** The return codes belong to an update when it is created. A repeat publish of a version that has an update which is not expired sends only the id of that update and reapplies the approval (review finding C2, still open), so it keeps its old return codes. An update of Dell Command Update that was published before this release must be expired in the WSUS Updates window and published again; the repeat publish then creates a new update with the new codes.
 
 **Lab check.** None. The lab has no WSUS server. The tests check the plan that the publisher sends to the adapter; they do not show how a WSUS client reads the return codes. The adapter already creates each return code from the plan (`ReturnCodeValue`, `InstallationResult`, `IsRebootRequired`), and this change adds entries to the same list.
