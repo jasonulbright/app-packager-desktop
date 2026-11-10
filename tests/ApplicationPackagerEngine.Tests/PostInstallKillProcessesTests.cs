@@ -112,30 +112,6 @@ public sealed class PostInstallKillProcessesTests : IDisposable
     private static string Wait(string script) => System.Text.RegularExpressions.Regex.Replace(script, @"(?m)^(\$proc = .*)\r$", "$1\r\nStart-Sleep -Milliseconds 1500");
 
     /// <summary>
-    /// The cause of the old wrapper: a process from Start-Process -PassThru without -Wait holds no handle, so when it ends before
-    /// the script reads the handle, Windows PowerShell reports a null ExitCode and the wrapper exits 0. The test pins that
-    /// behavior of the host with a slow reader (the installer ends at once, the script looks 1.5 seconds later).
-    /// </summary>
-    [Fact]
-    public void StartProcessWithoutTheWaitLosesTheExitCodeOfAProcessThatEndedBeforeTheHandleWasRead()
-    {
-        File.Copy(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System), "cmd.exe"), Path.Combine(_dir, "setup.exe"));
-        File.WriteAllText(Path.Combine(_dir, "probe.ps1"),
-            "$exePath = Join-Path $PSScriptRoot 'setup.exe'\r\n" +
-            "$proc = Start-Process -FilePath $exePath -ArgumentList '/c exit 5' -PassThru -NoNewWindow\r\n" +
-            "Start-Sleep -Milliseconds 1500\r\n" +
-            "$null = $proc.Handle\r\n" +
-            "$proc.WaitForExit()\r\n" +
-            "$proc.ExitCode | Out-File (Join-Path $PSScriptRoot 'exitcode.txt') -NoNewline\r\n" +
-            "exit $proc.ExitCode");
-
-        var (code, file) = WrapperRun.Ps1(_dir, "probe.ps1");
-
-        Assert.Equal(0, code);
-        Assert.True(string.IsNullOrEmpty(file), file);
-    }
-
-    /// <summary>
     /// The wrapper starts the installer so that the process object holds its handle from the start. An installer that ends at once,
     /// before the script looks at it (here: 1.5 seconds later), still gives its own exit code.
     /// </summary>

@@ -65,6 +65,12 @@ public static partial class WsusInstallScriptScan
         "Equals", "GetType", "Where", "ForEach"
     };
 
+    // The settings that the wrapper which stops launched processes gives to its start object before the one launch.
+    private static readonly HashSet<string> StartSettings = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "$startInfo.FileName", "$startInfo.Arguments", "$startInfo.UseShellExecute"
+    };
+
     [GeneratedRegex(@"\.(exe|com|cmd|bat)$", RegexOptions.IgnoreCase)]
     private static partial Regex NativeExtension();
 
@@ -96,6 +102,9 @@ public static partial class WsusInstallScriptScan
                 if (Aliases.TryGetValue(name, out var resolved)) name = resolved;
                 if (Neutral.Contains(name)) continue;
                 if (name.Equals("Out-File", StringComparison.OrdinalIgnoreCase) && StatementText(tokens, i).Contains("exitcode.txt", StringComparison.OrdinalIgnoreCase)) continue;
+                // The wrapper that stops launched processes builds the start settings of its one installer launch in this object.
+                if (name.Equals("New-Object", StringComparison.OrdinalIgnoreCase)
+                    && StatementText(tokens, i).Trim().Equals("New-Object System.Diagnostics.ProcessStartInfo", StringComparison.OrdinalIgnoreCase)) continue;
                 if (name.Equals("Start-Process", StringComparison.OrdinalIgnoreCase) || NativeExtension().IsMatch(name) || !name.Contains('-'))
                 {
                     launches++;
@@ -109,6 +118,13 @@ public static partial class WsusInstallScriptScan
                 && tokens[i + 1].Kind == TokenKind.Operator && tokens[i + 1].Text == "::" && tokens[i + 2].Kind == TokenKind.Word)
             {
                 var typeName = token.Text;
+                if (typeName.Equals("System.Diagnostics.Process", StringComparison.OrdinalIgnoreCase)
+                    && tokens[i + 2].Text.Equals("Start", StringComparison.OrdinalIgnoreCase))
+                {
+                    launches++;
+                    i += 2;
+                    continue;
+                }
                 if (!PathTypes.Contains(typeName)) extras.Add($"[{typeName}]::{tokens[i + 2].Text}");
                 i += 2;
                 continue;
@@ -139,7 +155,7 @@ public static partial class WsusInstallScriptScan
                     {
                         var target = new StringBuilder(token.Text);
                         for (var k = i + 1; k <= end; k++) target.Append(tokens[k].Text);
-                        extras.Add($"{target} assignment");
+                        if (!StartSettings.Contains(target.ToString())) extras.Add($"{target} assignment");
                     }
                 }
             }
