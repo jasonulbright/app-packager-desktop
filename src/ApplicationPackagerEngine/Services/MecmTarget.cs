@@ -577,8 +577,11 @@ public sealed partial class MecmTarget
         sb.AppendLine("if ($existing.Count -eq 1) {");
         sb.Append($"    Set-CMApplication -Name '{Esc(appName)}' -SoftwareVersion '{Esc(manifest.SoftwareVersion)}'");
         sb.Append($" -Publisher '{Esc(manifest.Publisher)}'");
-        if (!string.IsNullOrWhiteSpace(comment))
-            sb.Append($" -Description '{Esc(comment)}'");
+        // The same metadata as a new application gets (see New-CMApplication above): the comment is written also when it is
+        // empty, so a cleared comment clears the description, and the Software Center name follows the manifest.
+        sb.Append($" -Description '{Esc(comment)}'");
+        if (!string.IsNullOrEmpty(manifest.DisplayName))
+            sb.Append($" -LocalizedApplicationName '{Esc(manifest.DisplayName)}'");
         sb.AppendLine(" -ErrorAction Stop");
         sb.AppendLine($"    Write-Host 'Updated application version  : {Esc(manifest.SoftwareVersion)}'");
         sb.AppendLine("}");

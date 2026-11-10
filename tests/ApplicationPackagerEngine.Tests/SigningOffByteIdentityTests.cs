@@ -135,7 +135,7 @@ public sealed class SigningOffByteIdentityTests
     [InlineData(false)]
     [InlineData(true)]
     public void FileDetectionWithWqlAndBuiltInRequirements_MecmScriptIsUnchanged(bool withContext) =>
-        Assert.Equal("D8A594086404D10032E51E5503D20972BF1798AFC000DB1ABBC3DAD712C1C633",
+        Assert.Equal("E5A5528FAF12C58F917C90F0E9348C0A8D1858D3EFD616185B005B011EB1B033",
             Sha(WithoutDefaultReboot(Build(FileVersionUserInstall(),
                 [new StageRequirement { ConditionId = "cpu-arch", Value = "x64" },
                  new StageRequirement { ConditionId = "os-language", Cultures = ["de-DE"] }],

@@ -152,9 +152,27 @@ Three checks of the ConfigMgr publish accepted values that the site then refused
 | Test class | What it proves |
 |---|---|
 | `StageFinalizationPublishTests` | A maximum of 14, 721 and 1441 minutes is refused with the range 15 to 720; 15 and 720 are accepted; the earlier refusals (estimate 0, estimate above maximum) are kept. |
-| `ConfigMgrPrecheckTests` | The three list operators are refused for a registry value and for a file, with a message that does not offer them; the operators that take one value still produce the same clause; a registry value existence produces the exact clause of the existence form, without an expected value, and keeps the 64-bit switch. |
+| `ConfigMgrPrecheckTests` | The three list operators are refused for a registry value and for a file, with a message that does not offer them; the operators that take one value still produce the same clause; a registry value existence produces the exact clause of the existence form, without an expected value, and keeps the 64-bit switch; the property type Existence is read without regard to case or surrounding spaces, for a registry value and for a file. |
 | `WorkbenchFindingsTests` | A maximum of 14, 721 and 1440 gives the Review finding, 15 and 720 give none, and the finding blocks no target. |
 
 **Lab check.** The generated script for a `RegistryKeyValue` definition with `PropertyType: Existence` was run on the ConfigMgr lab server. Before the change the builder refused this definition. After the change the site accepted the clause: the application and its deployment type were created, and the detection of the deployment type names the value `InstallDir` and the 64-bit setting. The rule type in the stored detection was not decoded; the site accepted the form and reported no error. The probe application and its source folder were deleted afterwards.
 
 Result (2026-11-09): as described. The lab machines were started for the check and stopped afterwards. No snapshot was used.
+## ConfigMgr publish: a replace writes the same metadata as a new application
+
+A replace (`OnExisting=Overwrite`, or a new version of an application that exists) replaced the deployment types and wrote the version and the publisher, and nothing else (review finding A7). The application kept its old Software Center name, and an empty comment did not clear the old description, because the comment was written only when it was not empty. A new application gets both from the manifest.
+
+The replace block now writes the comment as the description also when it is empty, and writes the Software Center name (`-LocalizedApplicationName`) when the manifest has a display name. Without a display name, the Software Center name is not touched.
+
+| Test class | What it proves |
+|---|---|
+| `ConfigMgrReplaceMetadataTests` | The replace block carries the Software Center name of the manifest, and none when the manifest has no display name; it carries the description for a comment, an empty comment and a blank comment; a new application and a replace carry the same name and description; quotes in the name and the comment are escaped. |
+| `SigningOffByteIdentityTests` | The recorded hash of the generated script of a replace was changed on purpose. |
+
+**Lab check.** The site decides what the console shows, so the generated scripts were run on the ConfigMgr lab server. An application was created with the Software Center name "Old Software Center Name" and the comment "old comment". Then a replace ran with the name "New Software Center Name" and an empty comment.
+
+1. Before the change: after the replace, the name was still "Old Software Center Name" and the description was still "old comment".
+2. After the change: the name was "New Software Center Name" and the description was empty.
+3. The probe application and its source folder were deleted.
+
+Result (2026-11-10): as described. The lab machines were started for the check and stopped afterwards. No snapshot was used.

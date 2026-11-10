@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [2026.1110.24] - 2026-11-10
+
+### Fixed
+
+- A replace of a ConfigMgr application now writes the Software Center name and the comment of the manifest, as a new application does. Before, the old name stayed, and an empty comment did not clear the old description.
+
 ## [2026.1109.23] - 2026-11-09
 
 ### Fixed
