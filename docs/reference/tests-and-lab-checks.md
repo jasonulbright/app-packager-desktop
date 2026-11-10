@@ -111,3 +111,17 @@ The original error is thrown again after the cleanup.
 4. The probe application and its source folder were deleted.
 
 Result (2026-11-09): as described. The lab machines were started for the check and stopped afterwards. No snapshot was used.
+
+## ConfigMgr publish: a skipped version is named
+
+With `OnExisting=Skip` (the default of One Click and the command line), a run that finds the title on the site leaves the application alone and succeeds. A title without a version matches every version, so a new version is skipped too. Until now the log did not say so.
+
+The log now has one line from `MecmTarget.ExistingApplicationSkipMessage`. For another version it reads: ConfigMgr holds the application at version 1.2.3; version 1.2.4 was NOT published (OnExisting=Skip); choose Overwrite to replace the deployment types. For the same version it says that nothing was changed. The exit state is the same as before (the run is "Existing ConfigMgr application kept"); only the message is new.
+
+| Test class | What it proves |
+|---|---|
+| `ConfigMgrSkipMessageTests` | The message names the application, both versions, `OnExisting=Skip` and the Overwrite choice; it says "NOT published" only when the versions differ; an unread site version still gives the "NOT published" line. |
+
+**Lab check.** The message is built from the version that the site returns, so the probe script was run on the ConfigMgr lab server against a real application at version 1.2.3 with an incoming version of 1.2.4. Expected and seen: the conflict line `existing app='...' version='1.2.3' incoming='1.2.4'`, which is the input of the message. The probe application was deleted afterwards.
+
+Result (2026-11-09): as described. The lab machines were started for the check and stopped afterwards. No snapshot was used.

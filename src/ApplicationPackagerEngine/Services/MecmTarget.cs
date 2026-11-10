@@ -93,7 +93,10 @@ public sealed partial class MecmTarget
                 if (conflicted && onExisting == OnExistingBehavior.Fail)
                     return new PackagingResult { Success = false, ErrorMessage = ExistingApplicationFailMessage(appName, siteVersion) };
                 if (conflicted)
+                {
+                    onProgress?.Invoke(ExistingApplicationSkipMessage(appName, siteVersion, version));
                     return new PackagingResult { Success = true, AlreadyExists = true, ApplicationName = appName };
+                }
             }
 
             onProgress?.Invoke($"Network content path: {networkContentPath}");
@@ -189,6 +192,20 @@ public sealed partial class MecmTarget
     /// </summary>
     public static bool ProbesBeforeContentCopy(OnExistingBehavior onExisting) =>
         onExisting is OnExistingBehavior.Skip or OnExistingBehavior.Fail;
+
+    /// <summary>
+    /// What a Skip run says when it finds the title on the site. A title without a version matches every version, so a new
+    /// version is skipped as well; the line says so instead of leaving the run to look like a publish.
+    /// </summary>
+    public static string ExistingApplicationSkipMessage(string appName, string siteVersion, string incomingVersion)
+    {
+        var site = siteVersion.Trim();
+        var incoming = incomingVersion.Trim();
+        if (site.Length > 0 && string.Equals(site, incoming, StringComparison.Ordinal))
+            return $"ConfigMgr already holds '{appName}' at version {site}. Nothing was changed (OnExisting=Skip).";
+        var held = site.Length > 0 ? $"ConfigMgr holds '{appName}' at version {site}" : $"ConfigMgr holds '{appName}'";
+        return $"{held}; version {incoming} was NOT published (OnExisting=Skip). Choose Overwrite to replace the deployment types.";
+    }
 
     /// <summary>The refusal of a Fail run that found the title on the site.</summary>
     public static string ExistingApplicationFailMessage(string appName, string siteVersion) =>
