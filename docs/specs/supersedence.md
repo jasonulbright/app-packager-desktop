@@ -60,6 +60,8 @@ So the program applies `Exact` to a clause only when it holds a value that was r
 3. The program compares the recorded value with the expected value. It compares the text after it replaces the separators `+` and `-` with `.`. It does not ignore zero parts, because it is not known whether the ConfigMgr client treats `3.7.7` and `3.7.7.0` as equal with `IsEquals`. The lab test checks that.
 4. If the values are equal, `Exact` is applied.
 5. If the values are not equal, or the program holds no such value, `Exact` is blocked for that clause. The preflight panel shows the two values, or says that no installed value exists. The administrator can accept the block for that title. The clause is then written as `Minimum`, the title is marked "Exact not applied", and `Replace and uninstall` is blocked for that title.
+6. An accepted block is stored per title and per version. A new version needs its own value or its own acceptance, because the installed value of a new version can differ.
+7. One Click publishes unattended and runs no test install. For a row that reaches the guard block, One Click reports the row as blocked with the guard text, and creates nothing. It does not write `Minimum` by itself and it does not reuse an acceptance of an earlier version. An administrator who wants the row to run opens the title, runs the test install or accepts the block for that version, and starts One Click again.
 ## Supersedence mode
 
 | Value | Result on ConfigMgr |
@@ -85,7 +87,11 @@ The lookup is new. The existing-application check matches one exact title and ca
 3. It keeps the applications whose `SoftwareVersion` is lower than the packaged version. The compare uses the version compare of the program. If a version cannot be parsed, the program skips that application and says so.
 4. It skips retired applications.
 5. It takes the newest of the rest. If there is none, the supersedence step does not run, and the result says "No older version found".
-6. Inside the old application, the program pairs each deployment type of the new application with the deployment type of the same architecture. The architecture of an old deployment type is read from the name that staging writes for it. The code step confirms on the lab site where the architecture is stored. A deployment type whose architecture cannot be read has no pair, gets a warning, and no relation is made for it. The program never links x86 to x64 or to arm64.
+6. The program pairs the deployment types of the new application with those of the old application:
+   - When the new and the old application each have one deployment type, the program pairs them directly. The lookup key already limits the match to one title form, so the architecture is the same.
+   - When an application has more than one deployment type, the program pairs by the suffix of the deployment type name that staging writes (`<AppName> - <NameSuffix>`). The code step confirms on the lab site where the architecture is stored.
+   - A deployment type with no pair gets a warning, and no relation is made for it.
+   - The program never links x86 to x64 or to arm64.
 
 ### The step
 
@@ -178,11 +184,11 @@ Unit tests (run in CI):
 
 1. The emitted detection text has `IsEquals` for `Exact` and `GreaterEquals` for `Minimum`, for File and Registry version clauses, and only for those, including the registry clauses of MSI definitions.
 2. Clauses with other operators and existence clauses are not changed. A clause with a token expected value that is not the packaged version is not changed, and the chain check warns.
-3. The Exact guard: equal values, different values (including `3.7.7` and `3.7.7.1234`), no installed value (blocked), the MSI `ProductVersion` case, and the accepted block that writes `Minimum`.
+3. The Exact guard: equal values, different values (including `3.7.7` and `3.7.7.1234`), no installed value (blocked), the MSI `ProductVersion` case, and the accepted block that writes `Minimum`. An acceptance is stored per title and per version, and it does not carry to the next version. A One Click row at the block is reported as blocked and creates nothing.
 4. The blocked combination is refused, and the text is the one in this specification. It is checked after resolution, for the command line, the per-title override, and the site default, for each setting by itself.
 5. The key of the per-title override for a catalog title and for a title without a definition.
 6. The old-application lookup (architecture kept in the key, lower version only, newest first, retired skipped, unparseable version skipped, an application with the same title as the new one is never returned, a title without a version gives no supersedence).
-7. The pairing of deployment types by architecture, and the warning for one with no pair.
+7. The pairing of deployment types: one-to-one for single-type applications, by name suffix for multi-type applications, and the warning for one with no pair.
 8. The script for the supersedence step (parameter text, quoting, uninstall option, existing relations are not added again).
 9. A failed supersedence step gives the separate state and keeps the new application. A second run (publish with Skip or Overwrite, and a One Click run) runs only that step. A One Click row in this state is not skipped as published. The "Apply supersedence" action runs it without a publish.
 10. The chain check gives the expected warnings.
