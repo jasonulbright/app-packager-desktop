@@ -126,6 +126,22 @@ public sealed class IntunePublishServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task Publish_OfAnAppThatIsAlreadyInIntune_SendsTheNewMinimumWindowsReleaseInTheUpdate()
+    {
+        var package = IntuneWinFixture.Create(_dir);
+        var handler = BuildHandler(ExistingApp);
+        using var svc = new IntunePublishService(handler);
+        var options = Options();
+        options.MinimumSupportedWindowsRelease = "Windows11_23H2";
+
+        await svc.PublishAsync(package, Manifest(), options);
+
+        var patches = handler.Requests.Where(r => r.Method == HttpMethod.Patch && r.Uri.Contains("app-existing")).ToList();
+        Assert.NotEmpty(patches);
+        Assert.Contains(patches, p => p.Body.Contains("\"minimumSupportedWindowsRelease\":\"Windows11_23H2\""));
+    }
+
+    [Fact]
     public async Task Publish_WhenAppMissing_CreatesApp()
     {
         var package = IntuneWinFixture.Create(_dir);

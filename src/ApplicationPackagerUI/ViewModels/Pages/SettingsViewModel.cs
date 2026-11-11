@@ -69,7 +69,8 @@ public partial class SettingsViewModel : ObservableObject, ISettingsReload
     [ObservableProperty] private string _intuneTenantId = "";
     [ObservableProperty] private string _intuneClientId = "";
     [ObservableProperty] private string _intuneMinimumWindowsRelease = ApplicationPackagerEngine.Services.IntuneWindowsReleases.Default;
-    public IReadOnlyList<string> IntuneWindowsReleaseChoices => ApplicationPackagerEngine.Services.IntuneWindowsReleases.Known;
+    /// <summary>The releases the page offers, and the stored one when the list does not know it, so that the box shows what is published.</summary>
+    [ObservableProperty] private IReadOnlyList<string> _intuneWindowsReleaseChoices = ApplicationPackagerEngine.Services.IntuneWindowsReleases.Known;
 
     /// <summary>
     /// Secret entry only. Never loaded from settings and never persisted in this form: an empty
@@ -595,7 +596,11 @@ public partial class SettingsViewModel : ObservableObject, ISettingsReload
 
         IntuneTenantId = s.Intune.TenantId;
         IntuneClientId = s.Intune.ClientId;
-        IntuneMinimumWindowsRelease = ApplicationPackagerEngine.Services.IntuneWindowsReleases.Resolve(s.Intune.MinimumWindowsRelease);
+        var storedRelease = ApplicationPackagerEngine.Services.IntuneWindowsReleases.Resolve(s.Intune.MinimumWindowsRelease);
+        IntuneWindowsReleaseChoices = ApplicationPackagerEngine.Services.IntuneWindowsReleases.Known.Contains(storedRelease)
+            ? ApplicationPackagerEngine.Services.IntuneWindowsReleases.Known
+            : [.. ApplicationPackagerEngine.Services.IntuneWindowsReleases.Known, storedRelease];
+        IntuneMinimumWindowsRelease = storedRelease;
         IntuneClientSecret = "";
         HasStoredIntuneSecret = !string.IsNullOrWhiteSpace(s.Intune.ClientSecretProtected);
 

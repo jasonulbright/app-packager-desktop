@@ -309,9 +309,9 @@ The list on the page (`Windows10_1607` to `Windows11_25H2`) is written from the 
 
 | Test class | What it proves |
 |---|---|
-| `IntuneWindowsReleaseTests` | The default is `Windows10_21H2` in the options class and in the settings; the list contains the default, has no duplicate, and every entry has the shape; an empty, blank or unknown-case value resolves to the canonical name; a malformed value gives the default; a well-formed value that the list does not know passes through; the setting survives a save and a load, and a file without it gets the default. |
-| `IntunePublishServiceTests` | The app body carries the release of the options (a known release, a lower-case release in its canonical spelling) and the default for an empty or malformed value. |
+| `IntuneWindowsReleaseTests` | The default is `Windows10_21H2` in the options class and in the settings; the list contains the default, has no duplicate, and every entry has the shape; an empty, blank or unknown-case value resolves to the canonical name; a malformed value gives the default; a well-formed value that the list does not know passes through; the setting survives a JSON save and load of the settings class, and a file without it gets the default (the Settings page code that loads and saves the box is checked by the build only). |
+| `IntunePublishServiceTests` | The app body carries the release of the options (a known release, a lower-case release in its canonical spelling) and the default for an empty or malformed value. The update of an app that is already in Intune carries the release too. |
 
-**Lab check.** None. The lab has no Intune tenant. The tests check the body that the program sends. They do not show that a tenant accepts each name in the list.
+**Lab check.** None. The lab has no Intune tenant. The tests check the body that the program sends. They do not show that a tenant accepts each name in the list, or whether Graph refuses a release that it does not know (a well-formed value that is not in the list goes through). On a repeat publish such a refusal would come at the last step, after the upload.
 
 A per-definition override of the release is not part of this change.

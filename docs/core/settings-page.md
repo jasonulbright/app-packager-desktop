@@ -110,7 +110,7 @@ See [One Click](one-click.md). The section has **Action on update** (**Report on
 |---|---|
 | **Tenant ID**, **Client ID** | The Entra app registration. The application permission `DeviceManagementApps.ReadWrite.All` must have admin consent. |
 | **Client Secret** | Stored encrypted for the current Windows user. An empty box keeps the saved secret. |
-| **Minimum Windows release** | The oldest Windows release that an Intune app is offered to. Every Intune app that is published gets it. Default: `Windows10_21H2`, which every app got before the setting existed. A change applies to the next publish; it does not change an app that is already in Intune. |
+| **Minimum Windows release** | The oldest Windows release that an Intune app is offered to. Every Intune app that is published gets it. Default: `Windows10_21H2`, which every app got before the setting existed. The setting changes nothing in Intune by itself. The next publish of an app sends the new value, also for an app that is already in Intune, and devices below that release then no longer get the app. |
 | **NVD API key** | Stored encrypted for the current Windows user. An empty box keeps the saved key. Without a saved key, the `NVD_API_KEY` variable is used. |
 | **Remove the saved key on Save** | Deletes the saved key when you select **Save Settings**. |
 | **Look up CVEs after Check ConfigMgr** | Cleared at first. Runs the CVE lookup after **Check ConfigMgr**. |
