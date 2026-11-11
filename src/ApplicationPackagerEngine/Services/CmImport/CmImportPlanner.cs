@@ -201,7 +201,7 @@ public static class CmImportPlanner
                     }
                 }
                 if (req.Predicates.OfType<CmOsPlatformPredicate>().Any(p => p.Pairs.Any(x => x.MinimumBuild < 19044)))
-                    Add("Info", "WindowsFloorRaised", "ConfigMgr allowed Windows 10 releases that Microsoft no longer supports. The Intune app keeps its minimum release (Windows10_21H2).");
+                    Add("Info", "WindowsFloorRaised", "ConfigMgr allowed Windows 10 releases that Microsoft no longer supports. The Intune app gets the minimum Windows release of the Intune setting (default Windows10_21H2).");
             }
 
             var installCommand = dt.InstallCommand;

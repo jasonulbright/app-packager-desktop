@@ -300,3 +300,18 @@ The rule now takes the type from the property type of the detection:
 | `IntuneRuleMappingTests` | Each integer type name (in any case) gives the integer comparison with the same value; a value that is not an integer, empty, with a space, or too large is refused; a version of one number or of several gives the version comparison; a version property with a value that is not a dotted version gives text; `String` or no property keeps the guess (`1.2.3.4` is a version, `124` is text); an unknown property type is refused; `Existence` gives the exists rule for the named value; an integer and a version clause in an AND compound keep their rules. |
 
 **Lab check.** None. The lab has no Intune tenant. The names of the comparison types come from the Microsoft Graph reference (`string`, `integer`, `version`). The tests check the rule that the program builds, not how the service compares at the client. This stays unverified against a tenant.
+
+## Intune publish: the minimum Windows release is a setting
+
+Every Intune app was published with the minimum Windows release `Windows10_21H2`, and no setting changed it (review finding B3). The Settings page now has **Minimum Windows release** in the Intune section. The value is stored in the Intune settings, the default is `Windows10_21H2` (a settings file from an earlier release gets it), and every publish to Intune sends it, also the publish of a ConfigMgr conversion. A value that is empty or not of the shape `Windows10_<release>` or `Windows11_<release>` gives the default. A well-formed value that the list on the page does not know goes through to Graph, so that a newer release can be set in the settings file before the list has it.
+
+The list on the page (`Windows10_1607` to `Windows11_25H2`) is written from the names that Intune uses. The Graph reference gives only the example `Windows11_23H2`, so the other names are not checked against a tenant.
+
+| Test class | What it proves |
+|---|---|
+| `IntuneWindowsReleaseTests` | The default is `Windows10_21H2` in the options class and in the settings; the list contains the default, has no duplicate, and every entry has the shape; an empty, blank or unknown-case value resolves to the canonical name; a malformed value gives the default; a well-formed value that the list does not know passes through; the setting survives a JSON save and load of the settings class, and a file without it gets the default (the Settings page code that loads and saves the box is checked by the build only). |
+| `IntunePublishServiceTests` | The app body carries the release of the options (a known release, a lower-case release in its canonical spelling) and the default for an empty or malformed value. The update of an app that is already in Intune carries the release too. |
+
+**Lab check.** None. The lab has no Intune tenant. The tests check the body that the program sends. They do not show that a tenant accepts each name in the list, or whether Graph refuses a release that it does not know (a well-formed value that is not in the list goes through). On a repeat publish such a refusal would come at the last step, after the upload.
+
+A per-definition override of the release is not part of this change.

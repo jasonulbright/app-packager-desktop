@@ -106,6 +106,41 @@ public sealed class IntunePublishServiceTests : IDisposable
     private static readonly string ExistingApp =
         """{"value":[{"id":"app-existing","@odata.type":"#microsoft.graph.win32LobApp"}]}""";
 
+    [Theory]
+    [InlineData("Windows11_23H2", "Windows11_23H2")]
+    [InlineData("windows11_24h2", "Windows11_24H2")]
+    [InlineData("", "Windows10_21H2")]
+    [InlineData("not a release\"", "Windows10_21H2")]
+    public async Task Publish_SendsTheMinimumWindowsReleaseOfTheOptions(string release, string sent)
+    {
+        var package = IntuneWinFixture.Create(_dir);
+        var handler = BuildHandler(NoApps);
+        using var svc = new IntunePublishService(handler);
+        var options = Options();
+        options.MinimumSupportedWindowsRelease = release;
+
+        await svc.PublishAsync(package, Manifest(), options);
+
+        var create = handler.Requests.Single(r => r.Method == HttpMethod.Post && r.Uri.EndsWith("/deviceAppManagement/mobileApps"));
+        Assert.Contains($"\"minimumSupportedWindowsRelease\":\"{sent}\"", create.Body);
+    }
+
+    [Fact]
+    public async Task Publish_OfAnAppThatIsAlreadyInIntune_SendsTheNewMinimumWindowsReleaseInTheUpdate()
+    {
+        var package = IntuneWinFixture.Create(_dir);
+        var handler = BuildHandler(ExistingApp);
+        using var svc = new IntunePublishService(handler);
+        var options = Options();
+        options.MinimumSupportedWindowsRelease = "Windows11_23H2";
+
+        await svc.PublishAsync(package, Manifest(), options);
+
+        var patches = handler.Requests.Where(r => r.Method == HttpMethod.Patch && r.Uri.Contains("app-existing")).ToList();
+        Assert.NotEmpty(patches);
+        Assert.Contains(patches, p => p.Body.Contains("\"minimumSupportedWindowsRelease\":\"Windows11_23H2\""));
+    }
+
     [Fact]
     public async Task Publish_WhenAppMissing_CreatesApp()
     {

@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [2026.1111.31] - 2026-11-11
+
+### Added
+
+- Settings has a new setting, **Minimum Windows release**, in the Intune section. Every Intune app that is published gets it. The default is Windows10_21H2, which every app got before.
+
 ## [2026.1111.30] - 2026-11-11
 
 ### Fixed
