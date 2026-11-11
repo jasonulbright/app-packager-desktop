@@ -226,7 +226,7 @@ public sealed class IntunePublishService : IDisposable
             && !string.IsNullOrEmpty((string?)match["committedContentVersion"])
             && CarriesContentTag((string?)match["notes"], contentTag))
         {
-            onProgress?.Invoke($"Intune content unchanged   : upload skipped (same package, content version {(string?)match["committedContentVersion"]})");
+            onProgress?.Invoke($"Intune content unchanged    : upload skipped (same package, content version {(string?)match["committedContentVersion"]})");
             await GraphJsonAsync(HttpMethod.Patch, $"{graph}/deviceAppManagement/mobileApps/{appId}", token, appBody, ct).ConfigureAwait(false);
             onProgress?.Invoke($"Published to Intune          : {manifest.AppName} (app id {appId})");
             return appId;
