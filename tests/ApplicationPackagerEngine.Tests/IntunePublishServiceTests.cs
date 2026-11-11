@@ -325,14 +325,16 @@ public sealed class IntunePublishServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task Publish_OfAConvertedApp_SendsZeroForAMinimumThatIsNotSet_SoARepeatPublishClearsAnOldOne()
+    public async Task Publish_OfAConvertedApp_SendsNullForAMinimumThatIsNotSet_SoARepeatPublishClearsAnOldOne()
     {
         var body = await CreatedBodyOfAConvertedApp(new() { ["MinimumMemoryInMB"] = 4096 });
 
         Assert.Equal(4096, (int?)body["minimumMemoryInMB"]);
-        Assert.Equal(0, (int?)body["minimumNumberOfProcessors"]);
-        Assert.Equal(0, (int?)body["minimumCpuSpeedInMHz"]);
-        Assert.Equal(0, (int?)body["minimumFreeDiskSpaceInMB"]);
+        foreach (var property in new[] { "minimumNumberOfProcessors", "minimumCpuSpeedInMHz", "minimumFreeDiskSpaceInMB" })
+        {
+            Assert.True(body.ContainsKey(property), property + " is sent");
+            Assert.Null(body[property]);
+        }
     }
 
     [Fact]
@@ -345,8 +347,10 @@ public sealed class IntunePublishServiceTests : IDisposable
 
         var patch = handler.Requests.Last(r => r.Method == HttpMethod.Patch);
         var body = (JsonObject)JsonNode.Parse(patch.Body)!;
-        Assert.Equal(0, (int?)body["minimumFreeDiskSpaceInMB"]);
-        Assert.Equal(0, (int?)body["minimumCpuSpeedInMHz"]);
+        Assert.True(body.ContainsKey("minimumFreeDiskSpaceInMB"));
+        Assert.Null(body["minimumFreeDiskSpaceInMB"]);
+        Assert.True(body.ContainsKey("minimumCpuSpeedInMHz"));
+        Assert.Null(body["minimumCpuSpeedInMHz"]);
     }
 
     [Fact]

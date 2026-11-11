@@ -364,13 +364,13 @@ The Intune publish sent each request once. A throttled call, a busy service, a l
 
 ## Intune publish: all four hardware minimums of a converted app
 
-The publish of a converted ConfigMgr application copied the minimum memory and the minimum number of processors and dropped the other two hardware minimums of the Graph resource, the minimum free disk space and the minimum CPU speed (review finding B8). The PowerShell app passes all four. The publish now sends all four, and sends 0 for one that the plan does not carry, so that a repeat publish clears a minimum that an earlier publish set and that the app no longer has. A negative minimum is refused before the first Graph call.
+The publish of a converted ConfigMgr application copied the minimum memory and the minimum number of processors and dropped the other two hardware minimums of the Graph resource, the minimum free disk space and the minimum CPU speed (review finding B8). The PowerShell app passes all four. The publish now sends all four, and sends null (the value of an app with no minimum) for one that the plan does not carry, so that a repeat publish clears a minimum that an earlier publish set and that the app no longer has, or that someone set by hand in the Intune admin center. The PowerShell app omits an unset minimum and never clears it. A negative minimum is refused before the first Graph call.
 
 The importer still derives only memory and processors from ConfigMgr rules. A disk space rule of ConfigMgr has a partition option (the system drive, any drive, or one drive letter) that the single Intune value cannot carry, and the logical name and the unit of the CPU speed rule are not verified, so those rules stay "not converted". Only a plan that carries the values sends them.
 
 | Test class | What it proves |
 |---|---|
-| `IntunePublishServiceTests` | A converted plan with all four minimums sends all four properties; a plan with one sends 0 for the other three; the update of an existing app sends the zeros; a key that is not a hardware minimum is ignored; a negative minimum stops the publish before any request; a publish of a stage that is not converted sends no hardware minimum. |
-| `CmImportPublishTests` | The converted plan still sends the memory and the processor minimums that the importer derives. |
+| `IntunePublishServiceTests` | A converted plan with all four minimums sends all four properties; a plan with one sends null for the other three; the update of an existing app sends the nulls; a key that is not a hardware minimum is ignored; a negative minimum stops the publish before any request; a publish of a stage that is not converted sends no hardware minimum. |
+| `CmImportPublishTests` | The converted plan still sends the memory and the processor minimums that the importer derives, and null for the disk and CPU speed minimums that it does not derive. |
 
-**Lab check.** None. The lab has no Intune tenant. The tests check the body that the program sends. They do not show that Graph accepts 0 for the four properties on create and update (the reference gives 0 as the lowest value).
+**Lab check.** None. The lab has no Intune tenant. The tests check the body that the program sends. They do not show that Graph accepts the four properties, with null for an unset one, on create and update.

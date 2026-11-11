@@ -233,13 +233,10 @@ public sealed class IntunePublishService : IDisposable
         if (conversion is not null)
         {
             // All four hardware minimums of the Graph resource. A minimum that the conversion does not
-            // carry is sent as 0 (no minimum), so a repeat publish clears a value that an earlier
-            // publish set and that the app no longer has.
+            // carry is sent as null, the value of an app with no minimum, so a repeat publish clears a
+            // value that an earlier publish set and that the app no longer has.
             foreach (var (key, property) in HardwareMinimums)
-            {
-                var value = conversion.Minimums.TryGetValue(key, out var carried) ? carried : 0;
-                appBody[property] = value;
-            }
+                appBody[property] = conversion.Minimums.TryGetValue(key, out var carried) ? carried : null;
         }
 
         // largeIcon is a mimeContent (type + base64 bytes) on the app entity,
