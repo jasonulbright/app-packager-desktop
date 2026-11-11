@@ -19,7 +19,7 @@ This specification adds two settings:
 |---|---|
 | New application | The application that this publish creates. |
 | Old application | An application of an earlier version of the same title that is already on the site. |
-| Base title | The title of the application without its version and without its architecture suffix. |
+| Base title | The title of the application without its version. The architecture suffix stays in it. |
 | Detection clause | One rule of the detection method of a deployment type. |
 | Version clause | A detection clause of type File or Registry value that compares a version. |
 | Chain | The old applications of one base title on the site, from the oldest to the newest. |
@@ -43,7 +43,7 @@ Some administrators do not want `Exact`. A self-updating application changes its
 
 Rules:
 
-1. The definition does not change. The shipped definitions use `GreaterEquals` in 221 detection clauses (the count in `docs/reference/definition-format.md`, in 240 of 319 definition files). They keep it. Only the operator that the publish step writes changes.
+1. The definition does not change. About 240 of the 319 shipped definition files use `GreaterEquals` in a detection clause (`docs/reference/definition-format.md` gives the counts by operator). They keep it. Only the operator that the publish step writes changes.
 2. The rule changes a clause only when all of these are true: the clause is a version clause, its operator in the definition is `GreaterEquals`, and its expected value comes from the packaged version. A clause with another operator is not changed. An existence clause is not changed.
 3. A definition for an MSI installer has no special case. Its detection is a registry version clause (`Uninstall\{ProductCode}`, `DisplayVersion`, `GreaterEquals`), and rule 2 changes it like any other version clause.
 4. A clause that rule 2 skips stays as it is. This is possible when the expected value is a token that is not the packaged version, or when a compound detection has a skipped part. The chain check (see below) warns when a new application keeps a `GreaterEquals` version clause while the mode is `Replace and uninstall`.
@@ -51,15 +51,15 @@ Rules:
 
 ### Exact guard
 
-`GreaterEquals` hides a small difference between the version in the manifest and the version that the product reports on the device. `IsEquals` does not hide it. Example: the staged value is `3.7.7` and the file reports `3.7.7.1234`. With `Exact`, every install would report as failed.
+`GreaterEquals` hides a small difference between the version in the manifest and the version that the product reports on the device. `IsEquals` does not hide it. Example: the setup file reports `3.7.7`, the installed file reports `3.7.7.1234`, and the staged value is `3.7.7`. With `Exact`, every install would report as failed. The installer file does not show the installed value, and the staged value comes from the same source as the installer analysis, so a comparison with the installer analysis proves nothing.
 
-So the program applies `Exact` to a clause only after it checks the expected value:
+So the program applies `Exact` to a clause only when it holds a value that was read from the installed product:
 
-1. The program compares the expected value with the version that the installer analysis read from the installer or from the main file (the same source that the definition names). The comparison uses the version compare of the program, with trailing zero parts ignored.
-2. If the values are equal, `Exact` is applied.
-3. If the values are not equal, or the program cannot read the version, the preflight panel shows a block for that clause with the two values. The administrator can accept the block for that title; the clause is then written as `Minimum` and the title is marked "Exact not applied". `Replace and uninstall` is blocked for that title.
-4. The lab tests check that the detection tester reads the same value on the lab client.
-
+1. For a clause on the Windows Installer product (an MSI), the value is the `ProductVersion` of the package.
+2. For any other clause, the value is the one that the detection tester read from a machine after a test install of this version: the test step of Add App, or the lab check. The program records it for the title and the version.
+3. The program compares the recorded value with the expected value. It compares the text after it replaces the separators `+` and `-` with `.`. It does not ignore zero parts, because it is not known whether the ConfigMgr client treats `3.7.7` and `3.7.7.0` as equal with `IsEquals`. The lab test checks that.
+4. If the values are equal, `Exact` is applied.
+5. If the values are not equal, or the program holds no such value, `Exact` is blocked for that clause. The preflight panel shows the two values, or says that no installed value exists. The administrator can accept the block for that title. The clause is then written as `Minimum`, the title is marked "Exact not applied", and `Replace and uninstall` is blocked for that title.
 ## Supersedence mode
 
 | Value | Result on ConfigMgr |
@@ -72,7 +72,7 @@ So the program applies `Exact` to a clause only after it checks the expected val
 
 Supersedence needs an old application that is a separate application. It does not apply when:
 
-1. The title mode is `NoVersion` with Overwrite. There is one application, and Overwrite replaces its deployment types. The application cannot supersede itself. The preflight panel says so when the mode is not `Off`.
+1. The resolved title of the new application is the same as the title of the application that is already on the site (for example the title mode is `NoVersion`, or the definition has no version in its title). There is one application, and Overwrite replaces its deployment types. The application cannot supersede itself. The program decides this from the resolved title and not from the title mode, and the lookup never returns an application with the same title as the new one. The preflight panel says so when the mode is not `Off`.
 2. The publish is a repeat of the same version (the replace path).
 3. The deployment type is MSIX (the program does not publish a native MSIX deployment type).
 
@@ -80,12 +80,12 @@ Supersedence needs an old application that is a separate application. It does no
 
 The lookup is new. The existing-application check matches one exact title and cannot find an older version under a different title.
 
-1. The program builds the base title with the same naming rule that staging uses for the application title (title mode, architecture suffix, profile).
-2. It lists the applications on the site whose base title is the same.
+1. The program builds the title of the new application with the same naming rule that staging uses (title mode, architecture suffix, profile), and replaces the version in it. The architecture stays in the key, so an x64 application is matched with x64 applications only.
+2. It lists the applications on the site whose title has the same form, and whose title is not the title of the new application.
 3. It keeps the applications whose `SoftwareVersion` is lower than the packaged version. The compare uses the version compare of the program. If a version cannot be parsed, the program skips that application and says so.
 4. It skips retired applications.
 5. It takes the newest of the rest. If there is none, the supersedence step does not run, and the result says "No older version found".
-6. The program pairs each deployment type of the new application with the deployment type of the old application of the same architecture. A deployment type with no pair gets a warning, and no relation is made for it. The program never links x86 to x64 or to arm64.
+6. Inside the old application, the program pairs each deployment type of the new application with the deployment type of the same architecture. The architecture of an old deployment type is read from the name that staging writes for it. The code step confirms on the lab site where the architecture is stored. A deployment type whose architecture cannot be read has no pair, gets a warning, and no relation is made for it. The program never links x86 to x64 or to arm64.
 
 ### The step
 
@@ -98,7 +98,7 @@ The lookup is new. The existing-application check matches one exact title and ca
 A failed supersedence step does not use `Partial`. `Partial` means that the object is there and clients cannot install it. Here the application is complete.
 
 1. The outcome is a separate state, "Published, supersedence not applied", with the reason. The new application stays.
-2. One Click shows the row as published with a warning. On the next run, with Skip or Overwrite, the program finds the application, sees that the relation is missing, and runs the supersedence step again. The step is the only work that it repeats.
+2. One Click shows the row as published with a warning. It keeps the version pending in its inventory for a supersedence-only pass: on the next run, the program does not publish the version again. It runs the lookup and the supersedence step for that application, and nothing else. The step reads the existing relations first, so a second run adds only the missing ones.
 3. The publish page has an "Apply supersedence" action for one application. It runs the lookup and the step without a new publish.
 
 ## Blocked combination
@@ -178,13 +178,13 @@ Unit tests (run in CI):
 
 1. The emitted detection text has `IsEquals` for `Exact` and `GreaterEquals` for `Minimum`, for File and Registry version clauses, and only for those, including the registry clauses of MSI definitions.
 2. Clauses with other operators and existence clauses are not changed. A clause with a token expected value that is not the packaged version is not changed, and the chain check warns.
-3. The Exact guard: equal values (with trailing zeros), different values, and a version that cannot be read.
+3. The Exact guard: equal values, different values (including `3.7.7` and `3.7.7.1234`), no installed value (blocked), the MSI `ProductVersion` case, and the accepted block that writes `Minimum`.
 4. The blocked combination is refused, and the text is the one in this specification. It is checked after resolution, for the command line, the per-title override, and the site default, for each setting by itself.
 5. The key of the per-title override for a catalog title and for a title without a definition.
-6. The old-application lookup (base title, lower version only, newest first, retired skipped, unparseable version skipped, `NoVersion` with Overwrite gives no lookup).
+6. The old-application lookup (architecture kept in the key, lower version only, newest first, retired skipped, unparseable version skipped, an application with the same title as the new one is never returned, a title without a version gives no supersedence).
 7. The pairing of deployment types by architecture, and the warning for one with no pair.
 8. The script for the supersedence step (parameter text, quoting, uninstall option, existing relations are not added again).
-9. A failed supersedence step gives the separate state and keeps the new application. A second run runs only that step. The "Apply supersedence" action runs it without a publish.
+9. A failed supersedence step gives the separate state and keeps the new application. A second run (publish with Skip or Overwrite, and a One Click run) runs only that step. A One Click row in this state is not skipped as published. The "Apply supersedence" action runs it without a publish.
 10. The chain check gives the expected warnings.
 11. The rewrite step: changes only the clauses that it must, is blocked with a required deployment, writes the log, and "Restore" reads the log.
 12. The shipped site default is `Minimum` and `Off`, and a current user's publish output does not change.
@@ -195,7 +195,7 @@ Lab tests on the ConfigMgr lab site, with the lab client. Each test checks that 
 2. `Minimum` with `Replace` (no uninstall): the old application stays, and the new one supersedes it.
 3. The blocked combination: the program refuses it and creates nothing.
 4. The rewrite step on an old application with `GreaterEquals` and only available deployments: the clause is `Exact` afterwards, and the uninstall reports success. A second old application with a required deployment is refused. "Restore" writes the old operator again.
-5. The Exact guard: a product whose file version has more parts than the packaged version is blocked.
+5. The Exact guard: a product whose installed file version has more parts than the packaged version is blocked. A product with an equal installed value gets `Exact`, and the detection tester on the lab client reads the same value. A check of `3.7.7` against `3.7.7.0` with `IsEquals` on the lab client records how the client compares them.
 
 The lab rules apply: only the lab site server, the lab client and the lab domain controller, never more than three machines at once, no snapshot or checkpoint, and the test removes what it installed.
 
