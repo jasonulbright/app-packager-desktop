@@ -81,8 +81,19 @@ public class IntuneRetryTests
     public void RetryAfterReplacesTheComputedWaitAndIsCapped()
     {
         Assert.Equal(TimeSpan.FromSeconds(5), IntuneRetry.Delay(3, TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(60)));
-        Assert.Equal(TimeSpan.FromSeconds(60), IntuneRetry.Delay(0, TimeSpan.FromSeconds(500), TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(60)));
+        Assert.Equal(TimeSpan.FromSeconds(120), IntuneRetry.Delay(0, TimeSpan.FromSeconds(120), TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(60)));
+        Assert.Equal(TimeSpan.FromMinutes(5), IntuneRetry.Delay(0, TimeSpan.FromSeconds(5000), TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(60)));
         Assert.Equal(TimeSpan.Zero, IntuneRetry.Delay(3, TimeSpan.Zero, TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(60)));
+    }
+
+    [Theory]
+    [InlineData(HttpStatusCode.TooManyRequests, true)]
+    [InlineData(HttpStatusCode.ServiceUnavailable, false)]
+    [InlineData(HttpStatusCode.InternalServerError, false)]
+    [InlineData(HttpStatusCode.BadGateway, false)]
+    public void ACreateOfTheAppIsRepeatedOnlyAfterThrottling(HttpStatusCode status, bool expected)
+    {
+        Assert.Equal(expected, IntuneRetry.IsTransient(status, repeatable: false, throttleOnly: true));
     }
 
     [Fact]

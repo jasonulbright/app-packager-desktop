@@ -799,15 +799,105 @@ public sealed class IntunePublishServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task Publish_RetriesACreateThatTheServiceRefusedForLoad()
+    public async Task Publish_DoesNotRepeatTheCreateOfTheAppAfterABusyAnswerThatMayHaveComeFromAFrontEnd()
     {
-        var refused = 0;
-        var handler = BuildHandler(NoApps, r => IsAppCreate(r) && refused++ == 0 ? Status(HttpStatusCode.ServiceUnavailable) : null);
+        var handler = BuildHandler(NoApps, r => IsAppCreate(r) ? Status(HttpStatusCode.ServiceUnavailable) : null);
+        using var svc = new IntunePublishService(handler);
+
+        await Assert.ThrowsAsync<HttpRequestException>(() => svc.PublishAsync(IntuneWinFixture.Create(_dir), Manifest(), Options()));
+
+        Assert.Single(handler.Requests, r => r.Method == HttpMethod.Post && r.Uri.EndsWith("/deviceAppManagement/mobileApps"));
+    }
+
+    [Fact]
+    public async Task Publish_RepeatsTheCreateOfTheAppAfterThrottling()
+    {
+        var throttled = 0;
+        var handler = BuildHandler(NoApps, r => IsAppCreate(r) && throttled++ == 0 ? Status(HttpStatusCode.TooManyRequests, "0") : null);
         using var svc = new IntunePublishService(handler);
 
         await svc.PublishAsync(IntuneWinFixture.Create(_dir), Manifest(), Options());
 
         Assert.Equal(2, handler.Requests.Count(r => r.Method == HttpMethod.Post && r.Uri.EndsWith("/deviceAppManagement/mobileApps")));
+    }
+
+    [Fact]
+    public async Task Publish_RepeatsTheContentVersionCreateAfterABusyAnswer()
+    {
+        var busy = 0;
+        var handler = BuildHandler(NoApps, r => r.Method == HttpMethod.Post && r.RequestUri!.AbsolutePath.EndsWith("/contentVersions", StringComparison.Ordinal) && busy++ == 0
+            ? Status(HttpStatusCode.ServiceUnavailable) : null);
+        using var svc = new IntunePublishService(handler);
+
+        await svc.PublishAsync(IntuneWinFixture.Create(_dir), Manifest(), Options());
+
+        Assert.Equal(2, handler.Requests.Count(r => r.Method == HttpMethod.Post && r.Uri.EndsWith("/contentVersions")));
+    }
+
+    [Fact]
+    public async Task Publish_RepeatsTheRenewalRequestAfterAServerError_AndOnlyAcceptsANewAddress()
+    {
+        var blobAnswers = 0;
+        var renewalPosts = 0;
+        var polls = 0;
+        var renewalRequested = false;
+        var handler = BuildHandler(NoApps, r =>
+        {
+            if (IsBlob(r)) return blobAnswers++ == 0 ? Status(HttpStatusCode.Forbidden) : null;
+            if (r.Method == HttpMethod.Post && r.RequestUri!.AbsolutePath.EndsWith("/renewUpload", StringComparison.Ordinal))
+            {
+                renewalRequested = true;
+                return renewalPosts++ == 0 ? Status(HttpStatusCode.InternalServerError) : FakeGraphHandler.Json("{}");
+            }
+            if (renewalRequested && polls < 2 && r.Method == HttpMethod.Get && r.RequestUri!.AbsolutePath.EndsWith("/files/file-1", StringComparison.Ordinal))
+            {
+                // The first poll still shows the old address with the old state; the second shows the new one.
+                return FakeGraphHandler.Json(polls++ == 0
+                    ? """{"id":"file-1","uploadState":"azureStorageUriRenewalSuccess","azureStorageUri":"https://x.blob.core.windows.net/c/b?sv=1"}"""
+                    : """{"id":"file-1","uploadState":"azureStorageUriRenewalSuccess","azureStorageUri":"https://x.blob.core.windows.net/c/b?sv=2"}""");
+            }
+            return null;
+        });
+        using var svc = new IntunePublishService(handler);
+
+        await svc.PublishAsync(IntuneWinFixture.Create(_dir), Manifest(), Options());
+
+        Assert.Equal(2, renewalPosts);
+        Assert.Equal(2, polls);
+        Assert.Contains("sv=2", handler.Requests.Last(r => r.Uri.Contains("blob.core.windows.net")).Uri);
+    }
+
+    [Fact]
+    public async Task Publish_CountsRenewalsOfExpiredAddressesInARowAndNotInTheWholeUpload()
+    {
+        // The payload has one block and a block list. The address expires at the block and again at the list:
+        // two renewals in one upload, with one allowed in a row.
+        var blobAnswers = 0;
+        var pendingPoll = false;
+        var renewals = 0;
+        var handler = BuildHandler(NoApps, r =>
+        {
+            if (IsBlob(r)) { var n = blobAnswers++; return n == 0 || n == 2 ? Status(HttpStatusCode.Forbidden) : null; }
+            if (r.Method == HttpMethod.Post && r.RequestUri!.AbsolutePath.EndsWith("/renewUpload", StringComparison.Ordinal))
+            {
+                renewals++;
+                pendingPoll = true;
+                return FakeGraphHandler.Json("{}");
+            }
+            if (pendingPoll && r.Method == HttpMethod.Get && r.RequestUri!.AbsolutePath.EndsWith("/files/file-1", StringComparison.Ordinal))
+            {
+                pendingPoll = false;
+                return FakeGraphHandler.Json($$"""{"id":"file-1","uploadState":"azureStorageUriRenewalSuccess","azureStorageUri":"https://x.blob.core.windows.net/c/b?sv={{renewals + 1}}"}""");
+            }
+            return null;
+        });
+        using var svc = new IntunePublishService(handler);
+        var options = Options();
+        options.MaxStorageUriRenewals = 1;
+
+        await svc.PublishAsync(IntuneWinFixture.Create(_dir), Manifest(), options);
+
+        Assert.Equal(2, renewals);
     }
 
     [Fact]
@@ -967,7 +1057,7 @@ public sealed class IntunePublishServiceTests : IDisposable
             if (pendingPoll && r.Method == HttpMethod.Get && r.RequestUri!.AbsolutePath.EndsWith("/files/file-1", StringComparison.Ordinal))
             {
                 pendingPoll = false;
-                return FakeGraphHandler.Json("""{"id":"file-1","uploadState":"azureStorageUriRenewalSuccess","azureStorageUri":"https://x.blob.core.windows.net/c/b?sv=2"}""");
+                return FakeGraphHandler.Json($$"""{"id":"file-1","uploadState":"azureStorageUriRenewalSuccess","azureStorageUri":"https://x.blob.core.windows.net/c/b?sv={{renewalRequests + 1}}"}""");
             }
             return null;
         });
