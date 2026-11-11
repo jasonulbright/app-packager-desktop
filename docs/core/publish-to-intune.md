@@ -88,10 +88,24 @@ A storage error message shows the endpoint path and the HTTP status. It does not
 | Blocking | `InteractiveInstall` | The deployment type allows user interaction. Intune runs Win32 installs silently. |
 | Blocking | `DetectionNotMappable` | The detection rule has no Intune equivalent. |
 | Blocking | `ArchitectureUnsupported` | The architecture is not x86, x64 or arm64. |
-| Review | `RequirementsNotTranslated` | The app does not translate ConfigMgr requirement rules. The Win32 app has no equivalent gating. |
+| Blocking | `RequirementNotTranslatable` | A requirement rule has no Intune rule (an unknown condition, a value the template does not map, a condition kind that has no script form). The app would install on devices that ConfigMgr skips. Accept the drop of that rule for the application, or remove the requirement. |
+| Review | `RequirementDropped` | A requirement rule has no Intune rule and its drop is accepted for this application. The Win32 app is not gated by it. |
+| Info | `RequirementTranslated` | A requirement rule is published as a PowerShell requirement rule. |
 | Review | `ArchitectureUnresolved` | The manifest has no architecture. |
 | Info | `TimingNotApplied` | Runtime minutes are not sent. |
 | Info | `SetupFileFromPackage` | The setup file comes from the `.intunewin` metadata. |
+
+## Requirement rules
+
+The ConfigMgr requirement rules of an application (from its manifest and from the saved deployment conditions) go to Intune as PowerShell requirement rules. Each script prints `True` or `False`, and the rule passes when the script prints `True` (or `False` for a rule that expects `False`). The rule runs as the system account in the 64-bit PowerShell. The scripts that the program writes itself (WMI value, language) are not signed. The script of a script condition (for example `vpn-connected`) follows the signing policy of the requirement category: with **Sign requirement scripts** it is signed, and with **Require valid requirement signatures** it must be signed, or the publish stops before the first Graph call, and the rule sets `enforceSignatureCheck`. The setting **Require valid detection signatures** does not apply to requirement scripts.
+
+| Condition | What the script checks |
+|---|---|
+| `cpu-arch` (and any WQL condition with a value) | Some row of the WMI class has the value, for example `Win32_Processor.Architecture` is 9 for x64 or 12 for ARM64. |
+| `os-language` | The installed UI language of the operating system is one of the cultures. |
+| `vpn-connected` (and any script condition that gives a boolean) | The script of the condition prints `True`. |
+
+A requirement that has no such form blocks the Intune publish before the first Graph call: an unknown condition, a culture code that does not exist, a value that the template does not map, a WQL condition of another rule type, a built-in condition other than the language, a script condition that is not a boolean. The way out is to accept the drop of that rule for that application. The setting `Intune.AcceptedRequirementDrops` in the settings file takes entries of the form `<identity tag of the application>|<condition id>`. The blocking finding prints the exact entry to add. The identity tag is the tag that finds the app again on the next publish, so the entry does not change with the version. For an application of an unprofiled build the tag is made from the application name, so it follows a change of the title settings. There is no button for it yet. The saved conditions of a run replace the requirement rules of the manifest, as they do on ConfigMgr. An accepted rule is left out of the app, and the log and the findings say so.
 
 ## Options and settings
 
@@ -111,7 +125,7 @@ See [Settings reference](../reference/settings.md).
 
 - The tests use simulated Graph responses. The app is not validated against a live Intune tenant.
 - The app does not create assignments.
-- The app does not translate ConfigMgr requirement rules.
+- A requirement rule is published as a PowerShell requirement rule that the Intune agent runs on the device (see [Requirement rules](#requirement-rules)). The rules were written from the Graph reference and are not validated against a live tenant.
 - Graph waits are limited by configured values: the wait for the storage address and the wait for the commit each end after 600 seconds.
 - A PS1 packager cannot publish to Intune. The log shows `Intune publishing applies to JSON-defined apps; this PS1 packager runs the ConfigMgr flow only.`
 

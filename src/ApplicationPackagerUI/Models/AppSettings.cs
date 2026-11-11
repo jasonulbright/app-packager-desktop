@@ -220,6 +220,13 @@ public sealed class IntuneSettings
     /// the setting existed). An empty or malformed value reads as the default.
     /// </summary>
     public string MinimumWindowsRelease { get; set; } = ApplicationPackagerEngine.Services.IntuneWindowsReleases.Default;
+
+    /// <summary>
+    /// Requirement rules that may be left out of an Intune app because they have no Intune rule.
+    /// Each entry is the application name, a bar and the condition id. A rule that is not listed
+    /// blocks the publish. There is no button for it yet; the list is edited in the settings file.
+    /// </summary>
+    public string[] AcceptedRequirementDrops { get; set; } = [];
 }
 
 /// <summary>

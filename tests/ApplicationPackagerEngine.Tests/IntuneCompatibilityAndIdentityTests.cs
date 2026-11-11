@@ -49,14 +49,15 @@ public sealed class IntuneCompatibilityAndIdentityTests : IDisposable
     }
 
     [Fact]
-    public void UntranslatedRequirementsAndAMissingArchitectureNeedReview()
+    public void TranslatedRequirementsAreInformationAndAMissingArchitectureNeedsReview()
     {
         var m = Manifest();
         m.Requirements = [new StageRequirement { ConditionId = "cpu-arch", Value = "x64" }];
         m.Architecture = "";
         var findings = IntuneCompatibilityFindings.Build(m, [new StageRequirement { ConditionId = "vpn-connected", Value = true }]);
-        Assert.Equal(["Review:RequirementsNotTranslated", "Review:ArchitectureUnresolved"], findings.Select(f => $"{f.Severity}:{f.Code}"));
-        Assert.Contains("carries 2 ConfigMgr requirement rule(s)", findings[0].Message);
+        // The saved conditions of the run replace the requirement rules of the manifest, as on ConfigMgr.
+        Assert.Equal(["Info:RequirementTranslated", "Review:ArchitectureUnresolved"], findings.Select(f => $"{f.Severity}:{f.Code}"));
+        Assert.Contains("'vpn-connected'", findings[0].Message);
     }
 
     [Fact]

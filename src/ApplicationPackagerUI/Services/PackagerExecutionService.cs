@@ -997,6 +997,13 @@ public class PackagerExecutionService(
         }
     }
 
+    /// <summary>The saved condition templates, or null (the built-in ones) when the file cannot be read.</summary>
+    private static ConditionTemplateDocument? ConditionTemplatesOrNull()
+    {
+        try { return new ConditionTemplateService().Load(); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { return null; }
+    }
+
     /// <summary>
     /// The Intune compatibility findings for the stage a Package run would publish, with
     /// the operator's variant split and requirement selections applied as the run applies
@@ -1024,11 +1031,12 @@ public class PackagerExecutionService(
 
             var manifest = new ManifestService().Read(manifestPath);
             if (def is null || source is null || !ProfileSource.LegacyMapsApplyTo(manifest, source))
-                return IntuneCompatibilityFindings.Build(manifest);
+                return IntuneCompatibilityFindings.Build(manifest, null, ConditionTemplatesOrNull(), settingsService.Load().Intune.AcceptedRequirementDrops);
             var conditions = deploymentConditionsService.GetConditions(def.Id);
             DeploymentConditionsService.ApplyVariantSplit(manifest, conditions, Path.GetDirectoryName(manifestPath)!,
                 definitionDeclaresOptionalArchitecturePayloads: def.PayloadVariants is { Length: > 0 });
-            return IntuneCompatibilityFindings.Build(manifest, DeploymentConditionsService.BuildRequirements(conditions));
+            return IntuneCompatibilityFindings.Build(manifest, DeploymentConditionsService.BuildRequirements(conditions),
+                ConditionTemplatesOrNull(), settingsService.Load().Intune.AcceptedRequirementDrops);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException or InvalidOperationException)
         {

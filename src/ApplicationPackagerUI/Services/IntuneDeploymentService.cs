@@ -49,11 +49,17 @@ public sealed class IntuneDeploymentService(SettingsService settingsService)
         // Reading settings and resolving options can both fail on stored data; neither is
         // a published app, so both answer through the same failure path.
         IntunePublishOptions? options;
+        IntuneRequirementPlan requirementPlan;
         try
         {
             var settings = settingsService.Load();
             options = BuildOptions(settings.Intune, manifest, description);
             signingPolicy ??= settings.ScriptSigning;
+            // The requirement rules of the application: the saved conditions of the run, the condition
+            // templates that give them their meaning, the drops the administrator accepted, and the
+            // signing policy that a script condition follows.
+            requirementPlan = IntuneRequirementPlan.Of(untranslatedRequirements,
+                new ConditionTemplateService().Load(w => log?.Invoke(w)), settings.Intune.AcceptedRequirementDrops, signingPolicy);
         }
         catch (OperationCanceledException)
         {
@@ -67,7 +73,7 @@ public sealed class IntuneDeploymentService(SettingsService settingsService)
             return IntuneRunOutcome.PublishRefused(winNote,
                 "Intune credentials not configured; set Tenant ID, Client ID, and Client Secret in Settings.");
 
-        var findings = IntuneCompatibilityFindings.Build(manifest, untranslatedRequirements);
+        var findings = IntuneCompatibilityFindings.Build(manifest, requirementPlan.Extra, requirementPlan.Templates, requirementPlan.AcceptedDrops);
         foreach (var finding in findings) log?.Invoke(IntuneCompatibilityFindings.LogLine(finding));
         if (IntuneCompatibilityFindings.RefusalMessage(findings) is { } refusal)
             return IntuneRunOutcome.PublishRefused(winNote, refusal);
@@ -76,7 +82,7 @@ public sealed class IntuneDeploymentService(SettingsService settingsService)
         {
             using var publisher = new IntunePublishService();
             var appId = await publisher.PublishAsync(intuneWinPath, manifest, options, log, ct,
-                IntuneScriptRuleContext.FromManifest(manifest, signingPolicy, stagedContentPath), findings).ConfigureAwait(false);
+                IntuneScriptRuleContext.FromManifest(manifest, signingPolicy, stagedContentPath), findings, requirements: requirementPlan).ConfigureAwait(false);
             PublicationRecords.TryAppend(manifest, PublicationRecords.Intune, PublicationRecords.Succeeded, appId, options.TenantId, onLog: log);
             return IntuneRunOutcome.Published(winNote, $"published (app id {appId})");
         }

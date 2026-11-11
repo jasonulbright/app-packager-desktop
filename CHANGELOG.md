@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [2026.1111.32] - 2026-11-11
+
+### Fixed
+
+- The requirement rules of an application now go to Intune as PowerShell requirement rules (CPU architecture, operating system language, VPN connected, and any condition of the same kind). Before, the Intune app had no gating and could install on devices that ConfigMgr skips. A rule that has no Intune form blocks the Intune publish, unless its drop is accepted for that application in the setting `Intune.AcceptedRequirementDrops`.
+
 ## [2026.1111.31] - 2026-11-11
 
 ### Added

@@ -39,8 +39,11 @@ public static partial class IntuneCompatibilityFindings
 
     /// <param name="manifest">The manifest as the publish would read it.</param>
     /// <param name="untranslatedRequirements">ConfigMgr requirement rules the run applies outside the manifest.</param>
+    /// <param name="templates">The condition templates the requirement specs bind to; the built-in ones when null.</param>
+    /// <param name="acceptedDrops">The <see cref="IntuneRequirementPlan.DropKey"/> values of the rules whose drop the administrator accepted.</param>
     public static IReadOnlyList<IntuneCompatibilityFinding> Build(
-        StageManifest manifest, IReadOnlyList<StageRequirement>? untranslatedRequirements = null)
+        StageManifest manifest, IReadOnlyList<StageRequirement>? untranslatedRequirements = null,
+        ConditionTemplateDocument? templates = null, IEnumerable<string>? acceptedDrops = null)
     {
         var findings = new List<IntuneCompatibilityFinding>();
 
@@ -73,10 +76,20 @@ public static partial class IntuneCompatibilityFindings
             findings.Add(new(Blocking, "DetectionNotMappable", ex.Message));
         }
 
-        var requirementCount = (manifest.Requirements?.Count(r => r is not null) ?? 0) + (untranslatedRequirements?.Count ?? 0);
-        if (requirementCount > 0)
-            findings.Add(new(Review, "RequirementsNotTranslated",
-                $"This application carries {requirementCount} ConfigMgr requirement rule(s). The Intune adapter does not translate them, so the published app has no equivalent gating."));
+        var requirementPlan = IntuneRequirementPlan.Of(untranslatedRequirements, templates, acceptedDrops);
+        foreach (var translation in IntuneRequirementRules.Translate(requirementPlan.AllSpecs(manifest), requirementPlan.Templates))
+        {
+            var id = translation.Spec.ConditionId ?? "";
+            if (translation.Translated)
+                findings.Add(new(Info, "RequirementTranslated",
+                    $"The requirement '{id}' is published as a PowerShell requirement rule."));
+            else if (requirementPlan.AcceptedDrops.Contains(IntuneRequirementPlan.DropKey(manifest, id)))
+                findings.Add(new(Review, "RequirementDropped",
+                    $"The requirement '{id}' has no Intune rule ({translation.Gap}) and its drop is accepted for this application, so the published app is not gated by it."));
+            else
+                findings.Add(new(Blocking, "RequirementNotTranslatable",
+                    $"The requirement '{id}' has no Intune rule: {translation.Gap} The app would install on devices that ConfigMgr skips. Remove the requirement, or accept its drop by adding this entry to the setting Intune.AcceptedRequirementDrops: {IntuneRequirementPlan.DropKey(manifest, id)}"));
+        }
 
         if (string.IsNullOrWhiteSpace(manifest.Architecture))
             findings.Add(new(Review, "ArchitectureUnresolved",
