@@ -56,6 +56,8 @@ public sealed class CmImportPublisher(IntuneWinToolService tool, IntunePublishSe
                     GraphBase = options.GraphBase, TokenAuthority = options.TokenAuthority,
                     PollTimeoutSec = options.PollTimeoutSec, PollInterval = options.PollInterval,
                     CommitPollInterval = options.CommitPollInterval, BlockSizeBytes = options.BlockSizeBytes,
+                    MaxRetries = options.MaxRetries, RetryBaseDelay = options.RetryBaseDelay, RetryMaxDelay = options.RetryMaxDelay,
+                    MaxStorageUriRenewals = options.MaxStorageUriRenewals,
                     Description = string.IsNullOrWhiteSpace(manifest.Description) ? options.Description : manifest.Description
                 };
                 appId = await publisher.PublishAsync(built.IntuneWinPath, ToStageManifest(manifest), perApp, onProgress, ct,

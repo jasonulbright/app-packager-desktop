@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [2026.1111.35] - 2026-11-11
+
+### Fixed
+
+- The Intune publish no longer fails at the first throttled or busy answer of Microsoft Graph or of the storage service. It waits and sends the request again (up to 5 times, with the wait that the service asks for), asks for a new token when the token expires during a long upload, and renews the upload address when the storage service refuses it as expired, so that a large upload is not lost at its last block. A request that creates something is not sent again after a failure that may have run it.
+
 ## [2026.1111.34] - 2026-11-11
 
 ### Changed

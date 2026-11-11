@@ -44,7 +44,8 @@ public sealed class IntunePublishServiceTests : IDisposable
         ClientSecret = "secret",
         PollInterval = TimeSpan.Zero,
         CommitPollInterval = TimeSpan.Zero,
-        PollTimeoutSec = 30
+        PollTimeoutSec = 30,
+        RetryBaseDelay = TimeSpan.Zero
     };
 
     private static StageManifest Manifest(string appName = "Contoso App") => new()
@@ -767,5 +768,311 @@ public sealed class IntunePublishServiceTests : IDisposable
         await svc.PublishAsync(package, Manifest(), Options());
 
         Assert.Equal(["detection"], CreatedRules(handler).Select(r => (string?)r!["ruleType"]));
+    }
+
+    // ---- retries, token renewal and upload address renewal ----
+
+    private static HttpResponseMessage Status(HttpStatusCode code, string? retryAfter = null)
+    {
+        var response = new HttpResponseMessage(code) { Content = new StringContent("busy") };
+        if (retryAfter is not null) response.Headers.TryAddWithoutValidation("Retry-After", retryAfter);
+        return response;
+    }
+
+    private static bool IsAppList(HttpRequestMessage r) => r.Method == HttpMethod.Get && r.RequestUri!.ToString().Contains("mobileApps?");
+    private static bool IsAppCreate(HttpRequestMessage r) => r.Method == HttpMethod.Post && r.RequestUri!.ToString().EndsWith("/deviceAppManagement/mobileApps");
+    private static bool IsBlob(HttpRequestMessage r) => r.RequestUri!.Host.EndsWith("blob.core.windows.net", StringComparison.Ordinal);
+
+    [Fact]
+    public async Task Publish_RetriesAThrottledRead_AfterTheWaitOfTheService()
+    {
+        var throttled = 0;
+        var handler = BuildHandler(NoApps, r => IsAppList(r) && throttled++ == 0 ? Status(HttpStatusCode.TooManyRequests, "0") : null);
+        using var svc = new IntunePublishService(handler);
+        var log = new List<string>();
+
+        var appId = await svc.PublishAsync(IntuneWinFixture.Create(_dir), Manifest(), Options(), log.Add);
+
+        Assert.Equal("app-100", appId);
+        Assert.True(throttled >= 2, "the throttled read was sent again");
+        Assert.Contains(log, l => l.StartsWith("Intune request retry") && l.Contains("429"));
+    }
+
+    [Fact]
+    public async Task Publish_RetriesACreateThatTheServiceRefusedForLoad()
+    {
+        var refused = 0;
+        var handler = BuildHandler(NoApps, r => IsAppCreate(r) && refused++ == 0 ? Status(HttpStatusCode.ServiceUnavailable) : null);
+        using var svc = new IntunePublishService(handler);
+
+        await svc.PublishAsync(IntuneWinFixture.Create(_dir), Manifest(), Options());
+
+        Assert.Equal(2, handler.Requests.Count(r => r.Method == HttpMethod.Post && r.Uri.EndsWith("/deviceAppManagement/mobileApps")));
+    }
+
+    [Fact]
+    public async Task Publish_DoesNotRetryACreateAfterAFailureThatMayHaveRunIt()
+    {
+        var handler = BuildHandler(NoApps, r => IsAppCreate(r) ? Status(HttpStatusCode.InternalServerError) : null);
+        using var svc = new IntunePublishService(handler);
+
+        await Assert.ThrowsAsync<HttpRequestException>(() => svc.PublishAsync(IntuneWinFixture.Create(_dir), Manifest(), Options()));
+
+        Assert.Single(handler.Requests, r => r.Method == HttpMethod.Post && r.Uri.EndsWith("/deviceAppManagement/mobileApps"));
+    }
+
+    [Fact]
+    public async Task Publish_DoesNotRetryACreateThatLostItsConnection()
+    {
+        var handler = BuildHandler(NoApps, r => IsAppCreate(r) ? throw new HttpRequestException("connection reset") : null);
+        using var svc = new IntunePublishService(handler);
+
+        await Assert.ThrowsAsync<HttpRequestException>(() => svc.PublishAsync(IntuneWinFixture.Create(_dir), Manifest(), Options()));
+
+        Assert.Single(handler.Requests, r => r.Method == HttpMethod.Post && r.Uri.EndsWith("/deviceAppManagement/mobileApps"));
+    }
+
+    [Fact]
+    public async Task Publish_RetriesAReadThatLostItsConnection()
+    {
+        var lost = 0;
+        var handler = BuildHandler(NoApps, r => IsAppList(r) && lost++ == 0 ? throw new HttpRequestException("connection reset") : null);
+        using var svc = new IntunePublishService(handler);
+
+        Assert.Equal("app-100", await svc.PublishAsync(IntuneWinFixture.Create(_dir), Manifest(), Options()));
+    }
+
+    [Fact]
+    public async Task Publish_RetriesAnUpdateOfTheAppAfterABadGateway()
+    {
+        var failed = 0;
+        var handler = BuildHandler(ExistingApp, r => r.Method == HttpMethod.Patch && failed++ == 0 ? Status(HttpStatusCode.BadGateway) : null);
+        using var svc = new IntunePublishService(handler);
+
+        await svc.PublishAsync(IntuneWinFixture.Create(_dir), Manifest(), Options());
+
+        Assert.Equal(2, handler.Requests.Count(r => r.Method == HttpMethod.Patch && r.Uri.EndsWith("/deviceAppManagement/mobileApps/app-existing")));
+    }
+
+    [Fact]
+    public async Task Publish_GivesUpAfterTheConfiguredRetries()
+    {
+        var handler = BuildHandler(NoApps, r => IsAppList(r) ? Status(HttpStatusCode.ServiceUnavailable) : null);
+        using var svc = new IntunePublishService(handler);
+        var options = Options();
+        options.MaxRetries = 2;
+
+        var error = await Assert.ThrowsAsync<HttpRequestException>(() => svc.PublishAsync(IntuneWinFixture.Create(_dir), Manifest(), options));
+
+        Assert.Contains("503", error.Message);
+        Assert.Equal(3, handler.Requests.Count(r => r.Method == HttpMethod.Get && r.Uri.Contains("isof(")));
+    }
+
+    [Fact]
+    public async Task Publish_WithRetriesTurnedOffSendsEachRequestOnce()
+    {
+        var handler = BuildHandler(NoApps, r => IsAppList(r) ? Status(HttpStatusCode.ServiceUnavailable) : null);
+        using var svc = new IntunePublishService(handler);
+        var options = Options();
+        options.MaxRetries = 0;
+
+        await Assert.ThrowsAsync<HttpRequestException>(() => svc.PublishAsync(IntuneWinFixture.Create(_dir), Manifest(), options));
+
+        Assert.Single(handler.Requests, r => r.Method == HttpMethod.Get && r.Uri.Contains("isof("));
+    }
+
+    [Theory]
+    [InlineData(HttpStatusCode.BadRequest)]
+    [InlineData(HttpStatusCode.NotFound)]
+    [InlineData(HttpStatusCode.Conflict)]
+    public async Task Publish_DoesNotRetryAnAnswerThatARetryCannotChange(HttpStatusCode code)
+    {
+        var handler = BuildHandler(NoApps, r => IsAppList(r) ? Status(code) : null);
+        using var svc = new IntunePublishService(handler);
+
+        await Assert.ThrowsAsync<HttpRequestException>(() => svc.PublishAsync(IntuneWinFixture.Create(_dir), Manifest(), Options()));
+
+        Assert.Single(handler.Requests, r => r.Method == HttpMethod.Get && r.Uri.Contains("isof("));
+    }
+
+    [Fact]
+    public async Task Publish_RetriesATransientAnswerOfTheTokenEndpoint()
+    {
+        var failed = 0;
+        var handler = BuildHandler(NoApps, r => r.RequestUri!.ToString().Contains("/oauth2/v2.0/token") && failed++ == 0 ? Status(HttpStatusCode.ServiceUnavailable) : null);
+        using var svc = new IntunePublishService(handler);
+
+        Assert.Equal("app-100", await svc.PublishAsync(IntuneWinFixture.Create(_dir), Manifest(), Options()));
+    }
+
+    [Fact]
+    public async Task Publish_RetriesABlobBlockThatTheStorageServiceAnsweredWithAnError()
+    {
+        var failed = 0;
+        var handler = BuildHandler(NoApps, r => IsBlob(r) && failed++ < 2 ? Status(HttpStatusCode.ServiceUnavailable) : null);
+        using var svc = new IntunePublishService(handler);
+
+        await svc.PublishAsync(IntuneWinFixture.Create(_dir), Manifest(), Options());
+
+        Assert.Equal(4, handler.Requests.Count(r => r.Uri.Contains("blob.core.windows.net")));
+    }
+
+    [Fact]
+    public async Task Publish_RenewsAnExpiredUploadAddress_AndContinuesWithTheNewOne()
+    {
+        var blobAnswers = 0;
+        var renewalRequested = false;
+        var renewalPolled = false;
+        var handler = BuildHandler(NoApps, r =>
+        {
+            if (IsBlob(r)) return blobAnswers++ == 0 ? Status(HttpStatusCode.Forbidden) : null;
+            if (r.Method == HttpMethod.Post && r.RequestUri!.AbsolutePath.EndsWith("/renewUpload", StringComparison.Ordinal))
+            {
+                renewalRequested = true;
+                return FakeGraphHandler.Json("{}");
+            }
+            if (renewalRequested && !renewalPolled && r.Method == HttpMethod.Get && r.RequestUri!.AbsolutePath.EndsWith("/files/file-1", StringComparison.Ordinal))
+            {
+                renewalPolled = true;
+                return FakeGraphHandler.Json("""{"id":"file-1","uploadState":"azureStorageUriRenewalSuccess","azureStorageUri":"https://x.blob.core.windows.net/c/b?sv=2"}""");
+            }
+            return null;
+        });
+        using var svc = new IntunePublishService(handler);
+        var log = new List<string>();
+
+        await svc.PublishAsync(IntuneWinFixture.Create(_dir), Manifest(), Options(), log.Add);
+
+        var blobUris = handler.Requests.Where(r => r.Uri.Contains("blob.core.windows.net")).Select(r => r.Uri).ToList();
+        Assert.Contains("sv=1", blobUris[0]);
+        Assert.All(blobUris.Skip(1), u => Assert.Contains("sv=2", u));
+        Assert.Single(handler.Requests, r => r.Uri.EndsWith("/renewUpload"));
+        Assert.Contains(log, l => l.Contains("renewing"));
+    }
+
+    [Fact]
+    public async Task Publish_RenewsTheUploadAddressOnlyTheConfiguredNumberOfTimes()
+    {
+        var renewalRequests = 0;
+        var pendingPoll = false;
+        var handler = BuildHandler(NoApps, r =>
+        {
+            if (IsBlob(r)) return Status(HttpStatusCode.Forbidden);
+            if (r.Method == HttpMethod.Post && r.RequestUri!.AbsolutePath.EndsWith("/renewUpload", StringComparison.Ordinal))
+            {
+                renewalRequests++;
+                pendingPoll = true;
+                return FakeGraphHandler.Json("{}");
+            }
+            if (pendingPoll && r.Method == HttpMethod.Get && r.RequestUri!.AbsolutePath.EndsWith("/files/file-1", StringComparison.Ordinal))
+            {
+                pendingPoll = false;
+                return FakeGraphHandler.Json("""{"id":"file-1","uploadState":"azureStorageUriRenewalSuccess","azureStorageUri":"https://x.blob.core.windows.net/c/b?sv=2"}""");
+            }
+            return null;
+        });
+        using var svc = new IntunePublishService(handler);
+        var options = Options();
+        options.MaxStorageUriRenewals = 2;
+
+        var error = await Assert.ThrowsAsync<HttpRequestException>(() => svc.PublishAsync(IntuneWinFixture.Create(_dir), Manifest(), options));
+
+        Assert.Contains("403", error.Message);
+        Assert.Equal(2, renewalRequests);
+    }
+
+    [Fact]
+    public async Task Publish_StopsWhenTheRenewalOfTheUploadAddressFails()
+    {
+        var renewalRequested = false;
+        var handler = BuildHandler(NoApps, r =>
+        {
+            if (IsBlob(r)) return Status(HttpStatusCode.Forbidden);
+            if (r.Method == HttpMethod.Post && r.RequestUri!.AbsolutePath.EndsWith("/renewUpload", StringComparison.Ordinal))
+            {
+                renewalRequested = true;
+                return FakeGraphHandler.Json("{}");
+            }
+            if (renewalRequested && r.Method == HttpMethod.Get && r.RequestUri!.AbsolutePath.EndsWith("/files/file-1", StringComparison.Ordinal))
+                return FakeGraphHandler.Json("""{"id":"file-1","uploadState":"azureStorageUriRenewalFailed"}""");
+            return null;
+        });
+        using var svc = new IntunePublishService(handler);
+
+        var error = await Assert.ThrowsAsync<InvalidOperationException>(() => svc.PublishAsync(IntuneWinFixture.Create(_dir), Manifest(), Options()));
+
+        Assert.Contains("Renewal of the Azure storage URI failed", error.Message);
+    }
+
+    [Fact]
+    public async Task Publish_WithNoRenewalsAllowedFailsOnTheFirstRefusalOfTheStorageService()
+    {
+        var handler = BuildHandler(NoApps, r => IsBlob(r) ? Status(HttpStatusCode.Forbidden) : null);
+        using var svc = new IntunePublishService(handler);
+        var options = Options();
+        options.MaxStorageUriRenewals = 0;
+
+        await Assert.ThrowsAsync<HttpRequestException>(() => svc.PublishAsync(IntuneWinFixture.Create(_dir), Manifest(), options));
+
+        Assert.DoesNotContain(handler.Requests, r => r.Uri.EndsWith("/renewUpload"));
+    }
+
+    [Fact]
+    public async Task Publish_RequestsANewTokenOnceWhenTheServiceRefusesTheOldOne()
+    {
+        var unauthorized = 0;
+        var handler = BuildHandler(NoApps, r => IsAppList(r) && unauthorized++ == 0 ? Status(HttpStatusCode.Unauthorized) : null);
+        using var svc = new IntunePublishService(handler);
+        var log = new List<string>();
+
+        await svc.PublishAsync(IntuneWinFixture.Create(_dir), Manifest(), Options(), log.Add);
+
+        Assert.Equal(2, handler.Requests.Count(r => r.Uri.Contains("/oauth2/v2.0/token")));
+        Assert.Contains(log, l => l.Contains("requesting a new token"));
+    }
+
+    [Fact]
+    public async Task Publish_DoesNotAskForTokensInALoopWhenEveryCallIsUnauthorized()
+    {
+        var handler = BuildHandler(NoApps, r => IsAppList(r) ? Status(HttpStatusCode.Unauthorized) : null);
+        using var svc = new IntunePublishService(handler);
+
+        await Assert.ThrowsAsync<HttpRequestException>(() => svc.PublishAsync(IntuneWinFixture.Create(_dir), Manifest(), Options()));
+
+        Assert.Equal(2, handler.Requests.Count(r => r.Uri.Contains("/oauth2/v2.0/token")));
+    }
+
+    [Fact]
+    public async Task Publish_StopsAtOnceWhenTheRunIsCancelledDuringTheWaitBeforeARetry()
+    {
+        var handler = BuildHandler(NoApps, r => IsAppList(r) ? Status(HttpStatusCode.TooManyRequests) : null);
+        using var svc = new IntunePublishService(handler);
+        var options = Options();
+        options.RetryBaseDelay = TimeSpan.FromSeconds(30);
+        using var cancellation = new CancellationTokenSource(TimeSpan.FromMilliseconds(300));
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+            svc.PublishAsync(IntuneWinFixture.Create(_dir), Manifest(), options, ct: cancellation.Token));
+
+        Assert.Single(handler.Requests, r => r.Method == HttpMethod.Get && r.Uri.Contains("isof("));
+    }
+
+    [Fact]
+    public async Task Publish_TheRetryLogNamesNoQueryOfTheStorageAddress()
+    {
+        var failed = 0;
+        var handler = BuildHandler(NoApps, r =>
+        {
+            if (r.Method == HttpMethod.Get && r.RequestUri!.AbsolutePath.EndsWith("/files/file-1", StringComparison.Ordinal))
+                return FakeGraphHandler.Json("""{"id":"file-1","uploadState":"commitFileSuccess","azureStorageUri":"https://x.blob.core.windows.net/c/b?sv=1&sig=private-upload-credential"}""");
+            return IsBlob(r) && failed++ == 0 ? Status(HttpStatusCode.ServiceUnavailable) : null;
+        });
+        using var svc = new IntunePublishService(handler);
+        var log = new List<string>();
+
+        await svc.PublishAsync(IntuneWinFixture.Create(_dir), Manifest(), Options(), log.Add);
+
+        Assert.Contains(log, l => l.StartsWith("Intune request retry") && l.Contains("https://x.blob.core.windows.net/c/b"));
+        Assert.DoesNotContain(log, l => l.Contains("sig=") || l.Contains("private-upload-credential"));
     }
 }
