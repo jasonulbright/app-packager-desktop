@@ -330,12 +330,26 @@ public sealed class IntuneCompatibilityAndIdentityTests : IDisposable
         Assert.False(IntunePublishService.CarriesAnyTag("text only"));
     }
 
+    // The ConfigMgr post-execution behavior and the Intune restart behavior mean the same thing:
+    // "No specific action" suppresses a restart, "The software install may force a restart" allows
+    // one, and "The client will force a mandatory restart" forces one.
     [Theory]
     [InlineData(null, "basedOnReturnCode")]
+    [InlineData("", "basedOnReturnCode")]
     [InlineData("BasedOnExitCode", "basedOnReturnCode")]
-    [InlineData("NoAction", "basedOnReturnCode")]
-    [InlineData("ProgramReboot", "basedOnReturnCode")]
-    [InlineData("ForceReboot", "basedOnReturnCode")]
-    public void EveryPostExecutionBehaviorPublishesBasedOnReturnCode(string? behavior, string expected) =>
+    [InlineData("NoAction", "suppress")]
+    [InlineData("ProgramReboot", "allow")]
+    [InlineData("ForceReboot", "force")]
+    [InlineData("forcereboot", "force")]
+    [InlineData(" ForceReboot ", "force")]
+    [InlineData("SomethingElse", "basedOnReturnCode")]
+    public void ThePostExecutionBehaviorPublishesTheMatchingRestartBehavior(string? behavior, string expected) =>
         Assert.Equal(expected, IntunePublishService.DeviceRestartBehavior(behavior));
+
+    [Fact]
+    public void TheConversionOfAConfigMgrApplicationUsesTheSameMapping()
+    {
+        foreach (var behavior in new[] { "BasedOnExitCode", "NoAction", "ProgramReboot", "ForceReboot", "" })
+            Assert.Equal(IntunePublishService.DeviceRestartBehavior(behavior), ApplicationPackagerEngine.Services.CmImport.CmImportPlanner.RestartBehavior(behavior));
+    }
 }
