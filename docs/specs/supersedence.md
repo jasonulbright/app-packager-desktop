@@ -84,18 +84,26 @@ The lookup is new. The existing-application check matches one exact title and ca
 
 A title with the version removed does not identify a product line. Vendors use one product name for several lines and put the line only in the version (for example two major lines of one runtime). A lookup by title could take the application of another line as the old application, and ConfigMgr would then uninstall it. So the lookup uses an identity record and not the title.
 
-**Identity record.** When the program publishes an application to ConfigMgr, it writes a marker that names the identity of the title: the definition identifier for a catalog title, or the per-title key (the base title) for a title without a definition. The marker goes into a field of the application that the program owns and that the publish does not otherwise use (the keywords of the application are preferred). The code step confirms the field on the lab site. The replace path keeps the marker.
+**Identity record.** When the program publishes an application to ConfigMgr, it writes a marker that names the identity of the title. The marker has three parts:
 
-1. The program reads the identity of the new application: the definition identifier, or the per-title key.
-2. It lists the applications on the site that carry the same identity marker, and whose title is not the title of the new application. The architecture stays in the match, so an x64 application is matched with x64 applications only (the architecture is part of the identity marker).
+- The title identity: the definition identifier for a catalog title. For a title without a definition, a generated identifier that the program stores in the per-title override and that the administrator links once (see below). The base title is never used as an identity.
+- The profile identifier. Each profile of a definition is its own application line. The default profile has its own identifier.
+- The architecture.
+
+The marker goes into a field of the application that the program owns and that the publish does not otherwise use (the keywords of the application are preferred). The code step confirms the field on the lab site. The replace path keeps the marker.
+
+1. The program reads the identity of the new application: the three parts above.
+2. It lists the applications on the site that carry the same marker, and whose title is not the title of the new application. Only an application with all three parts equal is a candidate, so Pilot and Production profiles of one definition do not supersede each other, and an x64 application is matched with x64 applications only.
 3. It keeps the applications whose `SoftwareVersion` is lower than the packaged version. The compare uses the version compare of the program. If a version cannot be parsed, the program skips that application and says so.
 4. It skips retired applications.
 5. It takes the newest of the rest. If there is none, the supersedence step does not run, and the result says "No older version found".
 
-An application without the marker (for example one that an earlier release published, or one that an administrator made by hand) is never chosen by the lookup. The chain warning lists applications whose title has the same form but which have no marker, so the administrator sees why no old application was found. The administrator can set the old application for one title once, from the list on the publish page ("Use this as the old application"). The program then writes the marker on that application, shows the title and version first, and asks for confirmation.
+An application without the marker (for example one that an earlier release published, or one that an administrator made by hand) is never chosen by the lookup. The chain warning lists applications whose title has the same form but which have no marker, so the administrator sees why no old application was found. The administrator can set the old application for one title once, from the list on the publish page ("Use this as the old application"). The program shows the title and version first and asks for confirmation. It then writes the marker on that application.
+
+For a title without a definition, the lookup never chooses an application by itself. The first publish has no marker, so it offers the candidates, and the administrator links one with "Use this as the old application" or chooses none. The generated identifier is stored in the per-title override and is written into the marker at each later publish, so later versions are found without a new question.
 6. The program pairs the deployment types of the new application with those of the old application:
-   - When the new and the old application each have one deployment type, the program pairs them directly. The lookup key already limits the match to one title form, so the architecture is the same.
-   - When an application has more than one deployment type, the program pairs by the suffix of the deployment type name that staging writes (`<AppName> - <NameSuffix>`). The code step confirms on the lab site where the architecture is stored.
+   - When the new and the old application each have one deployment type, the program pairs them directly. The marker already limits the match to one architecture.
+   - When an application has more than one deployment type, the program pairs by the suffix of the deployment type name that staging writes (`<AppName> - <NameSuffix>`). The code step confirms on the lab site where the architecture is stored, and that the keywords field takes the marker.
    - A deployment type with no pair gets a warning, and no relation is made for it.
    - The program never links x86 to x64 or to arm64.
 
@@ -193,7 +201,7 @@ Unit tests (run in CI):
 3. The Exact guard: equal values, different values (including `3.7.7` and `3.7.7.1234`), no installed value (blocked), the MSI `ProductVersion` case, and the accepted block that writes `Minimum`. An acceptance is stored per title and per version, and it does not carry to the next version. A One Click row at the block is reported as blocked and creates nothing.
 4. The blocked combination is refused, and the text is the one in this specification. It is checked after resolution, for the command line, the per-title override, and the site default, for each setting by itself.
 5. The key of the per-title override for a catalog title and for a title without a definition.
-6. The old-application lookup (identity marker required, architecture kept in the match, lower version only, newest first, retired skipped, unparseable version skipped, an application with the same title as the new one is never returned, a title without a version gives no supersedence). Two definitions whose titles reduce to the same form are not linked. An application without a marker is never chosen, and the chain warning lists it. "Use this as the old application" writes the marker only after confirmation. The publish writes the marker, and the replace path keeps it.
+6. The old-application lookup (identity marker required, architecture kept in the match, lower version only, newest first, retired skipped, unparseable version skipped, an application with the same title as the new one is never returned, a title without a version gives no supersedence). Two definitions whose titles reduce to the same form are not linked. Two profiles of one definition are not linked. Two titles without a definition that have the same base title are not linked without the confirmation. An application without a marker is never chosen, and the chain warning lists it. "Use this as the old application" writes the marker only after confirmation. The publish writes the marker, and the replace path keeps it.
 7. The pairing of deployment types: one-to-one for single-type applications, by name suffix for multi-type applications, and the warning for one with no pair.
 8. The script for the supersedence step (parameter text, quoting, uninstall option, existing relations are not added again).
 9. A failed supersedence step gives the separate state and keeps the new application. A second run (publish with Skip or Overwrite, and a One Click run) runs only that step. A One Click row in this state is not skipped as published. The "Apply supersedence" action runs it without a publish.
