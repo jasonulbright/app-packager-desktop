@@ -83,12 +83,12 @@ public static partial class IntuneCompatibilityFindings
             if (translation.Translated)
                 findings.Add(new(Info, "RequirementTranslated",
                     $"The requirement '{id}' is published as a PowerShell requirement rule."));
-            else if (requirementPlan.AcceptedDrops.Contains(IntuneRequirementPlan.DropKey(manifest.AppName, id)))
+            else if (requirementPlan.AcceptedDrops.Contains(IntuneRequirementPlan.DropKey(manifest, id)))
                 findings.Add(new(Review, "RequirementDropped",
                     $"The requirement '{id}' has no Intune rule ({translation.Gap}) and its drop is accepted for this application, so the published app is not gated by it."));
             else
                 findings.Add(new(Blocking, "RequirementNotTranslatable",
-                    $"The requirement '{id}' has no Intune rule: {translation.Gap} The app would install on devices that ConfigMgr skips. Accept the drop of this rule for this application, or remove the requirement."));
+                    $"The requirement '{id}' has no Intune rule: {translation.Gap} The app would install on devices that ConfigMgr skips. Remove the requirement, or accept its drop by adding this entry to the setting Intune.AcceptedRequirementDrops: {IntuneRequirementPlan.DropKey(manifest, id)}"));
         }
 
         if (string.IsNullOrWhiteSpace(manifest.Architecture))

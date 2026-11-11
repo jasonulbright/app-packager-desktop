@@ -195,15 +195,16 @@ public class IntuneRequirementRuleTests
     public void TheAcceptedDropOfThatRuleForThatApplicationTurnsTheBlockIntoAReviewFinding()
     {
         var m = Manifest(new StageRequirement { ConditionId = "no-such-condition" });
-        var findings = IntuneCompatibilityFindings.Build(m, null, null, [IntuneRequirementPlan.DropKey("Contoso Tool", "no-such-condition")]);
+        var findings = IntuneCompatibilityFindings.Build(m, null, null, [IntuneRequirementPlan.DropKey(Manifest(), "no-such-condition")]);
 
         Assert.Equal(["Review:RequirementDropped"], Codes(findings));
         Assert.Null(IntuneCompatibilityFindings.RefusalMessage(findings));
     }
 
     [Theory]
-    [InlineData("Other Tool|no-such-condition")]
-    [InlineData("Contoso Tool|other-condition")]
+    [InlineData("AppPackager:legacy:Other-Tool/default|no-such-condition")]
+    [InlineData("AppPackager:legacy:Contoso-Tool/default|other-condition")]
+    [InlineData("Contoso Tool|no-such-condition")]
     [InlineData("no-such-condition")]
     public void AnAcceptedDropOfAnotherRuleOrAnotherApplicationDoesNotCount(string key)
     {
@@ -215,16 +216,91 @@ public class IntuneRequirementRuleTests
     [Fact]
     public void TheAcceptedDropIsCaseInsensitive()
     {
-        var findings = IntuneCompatibilityFindings.Build(Manifest(new StageRequirement { ConditionId = "no-such-condition" }), null, null, ["contoso tool|NO-SUCH-CONDITION"]);
+        var key = IntuneRequirementPlan.DropKey(Manifest(), "no-such-condition").ToUpperInvariant();
+        var findings = IntuneCompatibilityFindings.Build(Manifest(new StageRequirement { ConditionId = "no-such-condition" }), null, null, [key]);
 
         Assert.Equal(["Review:RequirementDropped"], Codes(findings));
+    }
+
+    [Fact]
+    public void TheBlockingFindingPrintsTheExactEntryToAccept()
+    {
+        var m = Manifest(new StageRequirement { ConditionId = "no-such-condition" });
+        var blocking = IntuneCompatibilityFindings.Build(m).Single(f => f.Code == "RequirementNotTranslatable");
+
+        Assert.Contains(IntuneRequirementPlan.DropKey(m, "no-such-condition"), blocking.Message);
+        Assert.Contains("Intune.AcceptedRequirementDrops", blocking.Message);
+    }
+
+    [Fact]
+    public void TheKeyDoesNotChangeWithTheVersionOrTheTitleOfAProfiledApplication()
+    {
+        var a = Manifest();
+        a.ApplicationId = "app-1";
+        a.AppName = "Contoso Tool - 1.0 (x64)";
+        var b = Manifest();
+        b.ApplicationId = "app-1";
+        b.AppName = "Contoso Tool - 2.0 (x64)";
+
+        Assert.Equal(IntuneRequirementPlan.DropKey(a, "vpn-connected"), IntuneRequirementPlan.DropKey(b, "vpn-connected"));
+        b.ProfileId = "pilot";
+        Assert.NotEqual(IntuneRequirementPlan.DropKey(a, "vpn-connected"), IntuneRequirementPlan.DropKey(b, "vpn-connected"));
+    }
+
+    [Fact]
+    public void ACultureCodeThatDoesNotExistIsAGapAndNotAnException()
+    {
+        var t = One(new StageRequirement { ConditionId = "os-language", Cultures = ["german"] });
+
+        Assert.False(t.Translated);
+        Assert.False(string.IsNullOrWhiteSpace(t.Gap));
+        var findings = IntuneCompatibilityFindings.Build(Manifest(new StageRequirement { ConditionId = "os-language", Cultures = ["de DE"] }));
+        Assert.Equal(["Blocking:RequirementNotTranslatable"], Codes(findings));
+    }
+
+    [Fact]
+    public void TheSavedConditionsOfARunReplaceTheRequirementRulesOfTheManifest()
+    {
+        var m = Manifest(new StageRequirement { ConditionId = "cpu-arch", Value = "x64" });
+        var plan = IntuneRequirementPlan.Of([new StageRequirement { ConditionId = "cpu-arch", Value = "ARM64" }], null, null);
+
+        Assert.Equal(["ARM64"], plan.AllSpecs(m).Select(s => s.Value?.ToString()));
+        Assert.Equal(["x64"], IntuneRequirementPlan.Of(null, null, null).AllSpecs(m).Select(s => s.Value?.ToString()));
+    }
+
+    [Fact]
+    public void WithoutASigningPolicyAScriptConditionIsPublishedUnsignedAndNotEnforced()
+    {
+        var t = One(new StageRequirement { ConditionId = "vpn-connected", Value = true });
+
+        Assert.False((bool)t.Rule!["enforceSignatureCheck"]!);
+    }
+
+    [Fact]
+    public void ARequiredRequirementSignatureThatIsNotProducedIsNotAGapThatADropCouldAccept()
+    {
+        var policy = new ApplicationPackagerEngine.Models.Signing.SigningPolicy { RequireRequirements = true };
+
+        Assert.Throws<IntuneRequirementSigningException>(() =>
+            IntuneRequirementRules.Translate([new StageRequirement { ConditionId = "vpn-connected", Value = true }], Defaults, policy));
+    }
+
+    [Fact]
+    public void TheScriptsThatTheProgramWritesItselfAreNotSignedUnderARequiredPolicy()
+    {
+        var policy = new ApplicationPackagerEngine.Models.Signing.SigningPolicy { RequireRequirements = true };
+
+        var t = IntuneRequirementRules.Translate([new StageRequirement { ConditionId = "cpu-arch", Value = "x64" }], Defaults, policy).Single();
+
+        Assert.True(t.Translated, t.Gap);
+        Assert.False((bool)t.Rule!["enforceSignatureCheck"]!);
     }
 
     [Fact]
     public void OneAcceptedDropDoesNotHideASecondRuleThatHasNoRule()
     {
         var m = Manifest(new StageRequirement { ConditionId = "no-such-condition" }, new StageRequirement { ConditionId = "another-missing" });
-        var findings = IntuneCompatibilityFindings.Build(m, null, null, [IntuneRequirementPlan.DropKey("Contoso Tool", "no-such-condition")]);
+        var findings = IntuneCompatibilityFindings.Build(m, null, null, [IntuneRequirementPlan.DropKey(Manifest(), "no-such-condition")]);
 
         Assert.Equal(["Review:RequirementDropped", "Blocking:RequirementNotTranslatable"], Codes(findings));
     }

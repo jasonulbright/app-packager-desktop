@@ -577,7 +577,7 @@ public sealed class IntunePublishServiceTests : IDisposable
         var handler = BuildHandler(NoApps);
         using var svc = new IntunePublishService(handler);
         var manifest = ManifestWithRequirements(new StageRequirement { ConditionId = "no-such-condition" }, new StageRequirement { ConditionId = "cpu-arch", Value = "x64" });
-        var plan = IntuneRequirementPlan.Of(null, null, [IntuneRequirementPlan.DropKey(manifest.AppName, "no-such-condition")]);
+        var plan = IntuneRequirementPlan.Of(null, null, [IntuneRequirementPlan.DropKey(manifest, "no-such-condition")]);
 
         await svc.PublishAsync(package, manifest, Options(), requirements: plan);
 
@@ -597,6 +597,22 @@ public sealed class IntunePublishServiceTests : IDisposable
         await svc.PublishAsync(package, Manifest(), Options(), requirements: plan);
 
         Assert.Equal(["detection", "requirement"], CreatedRules(handler).Select(r => (string?)r!["ruleType"]));
+    }
+
+    [Fact]
+    public async Task Publish_StopsBeforeTheFirstGraphCallWhenARequiredRequirementSignatureIsNotProduced()
+    {
+        var package = IntuneWinFixture.Create(_dir);
+        var handler = BuildHandler(NoApps);
+        using var svc = new IntunePublishService(handler);
+        var policy = new ApplicationPackagerEngine.Models.Signing.SigningPolicy { RequireRequirements = true };
+        var plan = IntuneRequirementPlan.Of(null, null, null, policy);
+
+        var ex = await Assert.ThrowsAsync<IntuneRequirementSigningException>(() =>
+            svc.PublishAsync(package, ManifestWithRequirements(new StageRequirement { ConditionId = "vpn-connected", Value = true }), Options(), requirements: plan));
+
+        Assert.Contains("signing is required", ex.Message);
+        Assert.Empty(handler.Requests);
     }
 
     [Fact]

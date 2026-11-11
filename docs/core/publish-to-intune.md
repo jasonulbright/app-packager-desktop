@@ -97,7 +97,7 @@ A storage error message shows the endpoint path and the HTTP status. It does not
 
 ## Requirement rules
 
-The ConfigMgr requirement rules of an application (from its manifest and from the saved deployment conditions) go to Intune as PowerShell requirement rules. Each script prints `True` or `False`, and the rule passes when the script prints `True` (or `False` for a rule that expects `False`). The rule runs as the system account in the 64-bit PowerShell. The scripts are not signed, and the setting **Require valid detection signatures** does not apply to them.
+The ConfigMgr requirement rules of an application (from its manifest and from the saved deployment conditions) go to Intune as PowerShell requirement rules. Each script prints `True` or `False`, and the rule passes when the script prints `True` (or `False` for a rule that expects `False`). The rule runs as the system account in the 64-bit PowerShell. The scripts that the program writes itself (WMI value, language) are not signed. The script of a script condition (for example `vpn-connected`) follows the signing policy of the requirement category: with **Sign requirement scripts** it is signed, and with **Require valid requirement signatures** it must be signed, or the publish stops before the first Graph call, and the rule sets `enforceSignatureCheck`. The setting **Require valid detection signatures** does not apply to requirement scripts.
 
 | Condition | What the script checks |
 |---|---|
@@ -105,7 +105,7 @@ The ConfigMgr requirement rules of an application (from its manifest and from th
 | `os-language` | The installed UI language of the operating system is one of the cultures. |
 | `vpn-connected` (and any script condition that gives a boolean) | The script of the condition prints `True`. |
 
-A requirement that has no such form blocks the Intune publish before the first Graph call: an unknown condition, a value that the template does not map, a WQL condition of another rule type, a built-in condition other than the language, a script condition that is not a boolean. The way out is to accept the drop of that rule for that application. The setting `Intune.AcceptedRequirementDrops` in the settings file takes entries of the form `Application name|condition-id`. There is no button for it yet. An accepted rule is left out of the app, and the log and the findings say so.
+A requirement that has no such form blocks the Intune publish before the first Graph call: an unknown condition, a culture code that does not exist, a value that the template does not map, a WQL condition of another rule type, a built-in condition other than the language, a script condition that is not a boolean. The way out is to accept the drop of that rule for that application. The setting `Intune.AcceptedRequirementDrops` in the settings file takes entries of the form `<identity tag of the application>|<condition id>`. The blocking finding prints the exact entry to add. The identity tag is the tag that finds the app again on the next publish, so the entry does not change with the version. For an application of an unprofiled build the tag is made from the application name, so it follows a change of the title settings. There is no button for it yet. The saved conditions of a run replace the requirement rules of the manifest, as they do on ConfigMgr. An accepted rule is left out of the app, and the log and the findings say so.
 
 ## Options and settings
 

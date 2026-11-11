@@ -110,10 +110,10 @@ public sealed class IntunePublishService : IDisposable
             // above already refused every other one, and this check holds when a caller passed
             // findings of its own.
             var plan = requirements ?? IntuneRequirementPlan.Of(null, null, null);
-            foreach (var translation in IntuneRequirementRules.Translate(plan.AllSpecs(manifest), plan.Templates))
+            foreach (var translation in IntuneRequirementRules.Translate(plan.AllSpecs(manifest), plan.Templates, plan.SigningPolicy))
             {
                 if (translation.Rule is { } requirementRule) rules.Add(requirementRule.DeepClone());
-                else if (!plan.AcceptedDrops.Contains(IntuneRequirementPlan.DropKey(manifest.AppName, translation.Spec.ConditionId ?? "")))
+                else if (!plan.AcceptedDrops.Contains(IntuneRequirementPlan.DropKey(manifest, translation.Spec.ConditionId ?? "")))
                     throw new InvalidOperationException(
                         $"The requirement '{translation.Spec.ConditionId}' has no Intune rule: {translation.Gap}");
             }
