@@ -149,7 +149,7 @@ Finding codes that **Validate** can show:
 | `DETECT-NO-OUTPUT` | Blocking | The detection script writes nothing to STDOUT. |
 | `DETECT-PARSE` | Blocking | The detection script does not parse. |
 | `DETECT-INTUNE-COMPOUND` | Blocking | Intune cannot express an OR or grouped detection without script conversion. |
-| `REQ-INTUNE` | Review | The Intune publisher does not translate requirement rules. |
+| `REQ-INTUNE` | Review | The Intune publisher turns each requirement rule into a PowerShell requirement rule. A rule that has no Intune form blocks the Intune publish until its drop is accepted for the application. |
 | `VARIANT-INTUNE` | Blocking | Intune does not support a variant split. |
 | `SOURCE-PATH` | Blocking | A source file destination leaves the content root. |
 

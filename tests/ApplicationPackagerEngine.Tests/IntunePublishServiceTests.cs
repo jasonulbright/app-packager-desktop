@@ -528,4 +528,86 @@ public sealed class IntunePublishServiceTests : IDisposable
         var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => svc.GetTokenAsync(Options()));
         Assert.Contains("no access_token", ex.Message);
     }
+
+    private static StageManifest ManifestWithRequirements(params StageRequirement[] requirements)
+    {
+        var m = Manifest();
+        m.Requirements = requirements;
+        return m;
+    }
+
+    private static JsonArray CreatedRules(FakeGraphHandler handler)
+    {
+        var create = handler.Requests.Single(r => r.Method == HttpMethod.Post && r.Uri.EndsWith("/deviceAppManagement/mobileApps"));
+        return (JsonArray)JsonNode.Parse(create.Body)!["rules"]!;
+    }
+
+    [Fact]
+    public async Task Publish_SendsTheRequirementRulesAfterTheDetectionRules()
+    {
+        var package = IntuneWinFixture.Create(_dir);
+        var handler = BuildHandler(NoApps);
+        using var svc = new IntunePublishService(handler);
+
+        await svc.PublishAsync(package, ManifestWithRequirements(new StageRequirement { ConditionId = "cpu-arch", Value = "x64" }), Options());
+
+        var rules = CreatedRules(handler);
+        Assert.Equal(["detection", "requirement"], rules.Select(r => (string?)r!["ruleType"]));
+        Assert.Equal("#microsoft.graph.win32LobAppPowerShellScriptRule", (string?)rules[1]!["@odata.type"]);
+    }
+
+    [Fact]
+    public async Task Publish_RefusesARequirementWithNoRuleBeforeTheFirstGraphCall()
+    {
+        var package = IntuneWinFixture.Create(_dir);
+        var handler = BuildHandler(NoApps);
+        using var svc = new IntunePublishService(handler);
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            svc.PublishAsync(package, ManifestWithRequirements(new StageRequirement { ConditionId = "no-such-condition" }), Options()));
+
+        Assert.Contains("no-such-condition", ex.Message);
+        Assert.Empty(handler.Requests);
+    }
+
+    [Fact]
+    public async Task Publish_LeavesOutARequirementWhoseDropWasAccepted_AndKeepsTheOthers()
+    {
+        var package = IntuneWinFixture.Create(_dir);
+        var handler = BuildHandler(NoApps);
+        using var svc = new IntunePublishService(handler);
+        var manifest = ManifestWithRequirements(new StageRequirement { ConditionId = "no-such-condition" }, new StageRequirement { ConditionId = "cpu-arch", Value = "x64" });
+        var plan = IntuneRequirementPlan.Of(null, null, [IntuneRequirementPlan.DropKey(manifest.AppName, "no-such-condition")]);
+
+        await svc.PublishAsync(package, manifest, Options(), requirements: plan);
+
+        var rules = CreatedRules(handler);
+        Assert.Equal(2, rules.Count);
+        Assert.Equal("APKG - CPU Architecture", (string?)rules[1]!["displayName"]);
+    }
+
+    [Fact]
+    public async Task Publish_SendsTheRequirementsThatTheRunAppliesBesideTheManifest()
+    {
+        var package = IntuneWinFixture.Create(_dir);
+        var handler = BuildHandler(NoApps);
+        using var svc = new IntunePublishService(handler);
+        var plan = IntuneRequirementPlan.Of([new StageRequirement { ConditionId = "vpn-connected", Value = true }], null, null);
+
+        await svc.PublishAsync(package, Manifest(), Options(), requirements: plan);
+
+        Assert.Equal(["detection", "requirement"], CreatedRules(handler).Select(r => (string?)r!["ruleType"]));
+    }
+
+    [Fact]
+    public async Task Publish_OfAnAppWithoutRequirements_SendsOnlyTheDetectionRules()
+    {
+        var package = IntuneWinFixture.Create(_dir);
+        var handler = BuildHandler(NoApps);
+        using var svc = new IntunePublishService(handler);
+
+        await svc.PublishAsync(package, Manifest(), Options());
+
+        Assert.Equal(["detection"], CreatedRules(handler).Select(r => (string?)r!["ruleType"]));
+    }
 }

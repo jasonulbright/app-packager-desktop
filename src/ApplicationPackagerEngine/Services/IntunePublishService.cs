@@ -84,7 +84,8 @@ public sealed class IntunePublishService : IDisposable
         CancellationToken ct = default,
         IntuneScriptRuleContext? scriptSigning = null,
         IReadOnlyList<IntuneCompatibilityFinding>? findings = null,
-        IntuneConversionOverrides? conversion = null)
+        IntuneConversionOverrides? conversion = null,
+        IntuneRequirementPlan? requirements = null)
     {
         var meta = _reader.ReadMetadata(intuneWinPath);
         if (conversion is not null) findings ??= [];
@@ -93,7 +94,7 @@ public sealed class IntunePublishService : IDisposable
         // half-created app in the tenant. Findings a caller passes were already logged.
         if (findings is null)
         {
-            findings = IntuneCompatibilityFindings.Build(manifest);
+            findings = IntuneCompatibilityFindings.Build(manifest, requirements?.Extra, requirements?.Templates, requirements?.AcceptedDrops);
             foreach (var finding in findings) onProgress?.Invoke(IntuneCompatibilityFindings.LogLine(finding));
         }
         if (IntuneCompatibilityFindings.RefusalMessage(findings) is { } refusal)
@@ -102,6 +103,21 @@ public sealed class IntunePublishService : IDisposable
         var rules = conversion is null
             ? BuildRules(manifest.Detection, scriptSigning)
             : new JsonArray(CloneAll(conversion.Rules, "rules"));
+        if (conversion is null)
+        {
+            // The requirement rules of the application follow its detection rules. A rule with no
+            // Intune form is left out only when the administrator accepted that drop; the findings
+            // above already refused every other one, and this check holds when a caller passed
+            // findings of its own.
+            var plan = requirements ?? IntuneRequirementPlan.Of(null, null, null);
+            foreach (var translation in IntuneRequirementRules.Translate(plan.AllSpecs(manifest), plan.Templates))
+            {
+                if (translation.Rule is { } requirementRule) rules.Add(requirementRule.DeepClone());
+                else if (!plan.AcceptedDrops.Contains(IntuneRequirementPlan.DropKey(manifest.AppName, translation.Spec.ConditionId ?? "")))
+                    throw new InvalidOperationException(
+                        $"The requirement '{translation.Spec.ConditionId}' has no Intune rule: {translation.Gap}");
+            }
+        }
 
         var installCommand = FirstNonBlank(manifest.CommandOverrides?.Install, "install.bat");
         var uninstallCommand = FirstNonBlank(manifest.CommandOverrides?.Uninstall, "uninstall.bat");

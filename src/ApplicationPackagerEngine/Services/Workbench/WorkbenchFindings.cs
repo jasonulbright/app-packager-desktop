@@ -77,7 +77,7 @@ public static class WorkbenchFindings
 
         if (WorkbenchProfileValidator.Items(profile.Get("Requirements.Operations").Value).Any(o => o is not null))
             Add(WorkbenchFinding.Review, "REQ-INTUNE",
-                "Requirement rules are not translated by the Intune publisher; the ConfigMgr deployment type carries them.");
+                "The Intune publisher turns each requirement rule into a PowerShell requirement rule. A rule that has no Intune form blocks the Intune publish until its drop is accepted for the application.");
 
         if (WorkbenchJson.IsTruthy(profile.Get("Variants.Split").Value))
             Add(WorkbenchFinding.Blocking, "VARIANT-INTUNE",
