@@ -122,6 +122,7 @@ public sealed class IntunePublishService : IDisposable
         var installCommand = FirstNonBlank(manifest.CommandOverrides?.Install, "install.bat");
         var uninstallCommand = FirstNonBlank(manifest.CommandOverrides?.Uninstall, "uninstall.bat");
         var identityTag = IdentityTag(manifest);
+        var contentTag = ContentTag(meta);
 
         var token = await GetTokenAsync(options, ct).ConfigureAwait(false);
         var graph = options.GraphBase.TrimEnd('/');
@@ -153,7 +154,7 @@ public sealed class IntunePublishService : IDisposable
             ["setupFilePath"] = FirstNonBlank(manifest.SetupFile, meta.SetupFile),
             ["installCommandLine"] = installCommand,
             ["uninstallCommandLine"] = uninstallCommand,
-            ["notes"] = NotesWithTag((string?)match?["notes"], identityTag),
+            ["notes"] = NotesWithTag((string?)match?["notes"], identityTag, contentTag),
             ["minimumSupportedWindowsRelease"] = IntuneWindowsReleases.Resolve(options.MinimumSupportedWindowsRelease),
             ["installExperience"] = new JsonObject
             {
@@ -214,6 +215,21 @@ public sealed class IntunePublishService : IDisposable
             var created = await GraphJsonAsync(HttpMethod.Post, $"{graph}/deviceAppManagement/mobileApps", token, appBody, ct).ConfigureAwait(false);
             appId = (string?)created?["id"] ?? throw new InvalidOperationException("Graph returned no app id for the created Win32 app.");
             onProgress?.Invoke($"Intune app id                : {appId}");
+        }
+
+        // The same package is already the content of the app: the digest of the package is in the notes
+        // and the app has committed content. Upload nothing and update only the app, so a repeat publish
+        // of an unchanged package does not send the payload again. An app that never had content
+        // committed (a first publish that stopped after it created the app) has the digest in its notes
+        // too, so the committed content is part of the test.
+        if (match is not null && contentTag is not null
+            && !string.IsNullOrEmpty((string?)match["committedContentVersion"])
+            && CarriesContentTag((string?)match["notes"], contentTag))
+        {
+            onProgress?.Invoke($"Intune content unchanged    : upload skipped (same package, content version {(string?)match["committedContentVersion"]})");
+            await GraphJsonAsync(HttpMethod.Patch, $"{graph}/deviceAppManagement/mobileApps/{appId}", token, appBody, ct).ConfigureAwait(false);
+            onProgress?.Invoke($"Published to Intune          : {manifest.AppName} (app id {appId})");
+            return appId;
         }
 
         var lobBase = $"{graph}/deviceAppManagement/mobileApps/{appId}/microsoft.graph.win32LobApp";
@@ -382,6 +398,21 @@ public sealed class IntunePublishService : IDisposable
 
     private const string IdentityTagPrefix = "AppPackager:";
 
+    /// <summary>
+    /// The prefix of the notes line that records the digest of the package that the app holds. It does
+    /// not start with the identity prefix (the colon comes after "AppPackager"), so it never counts as
+    /// an identity tag.
+    /// </summary>
+    private const string ContentTagPrefix = "AppPackagerContent:";
+
+    /// <summary>The notes line for the digest of a package; null when the package carries no digest.</summary>
+    public static string? ContentTag(IntuneWinMetadata meta) =>
+        string.IsNullOrWhiteSpace(meta.FileDigest) ? null : ContentTagPrefix + meta.FileDigest.Trim();
+
+    /// <summary>True when one line of <paramref name="notes"/> is exactly the content line.</summary>
+    public static bool CarriesContentTag(string? notes, string contentTag) =>
+        NoteLines(notes).Any(line => line == contentTag);
+
     private static IEnumerable<string> NoteLines(string? notes) =>
         (notes ?? "").Split('\n').Select(line => line.Trim());
 
@@ -405,17 +436,19 @@ public sealed class IntunePublishService : IDisposable
 
     /// <summary>
     /// The notes an app is written with: the operator's lines as they were, without any
-    /// identity tag line, then the identity tag on its own line.
+    /// identity tag line or content line, then the identity tag on its own line, then the
+    /// content line (the digest of the package) when there is one.
     /// </summary>
-    public static string NotesWithTag(string? notes, string identityTag)
+    public static string NotesWithTag(string? notes, string identityTag, string? contentTag = null)
     {
-        if (string.IsNullOrWhiteSpace(notes)) return identityTag;
-        var newline = notes.Contains("\r\n", StringComparison.Ordinal) ? "\r\n" : "\n";
-        var kept = notes.Split('\n').Select(line => line.TrimEnd('\r'))
-            .Where(line => !line.Trim().StartsWith(IdentityTagPrefix, StringComparison.Ordinal))
+        var newline = (notes ?? "").Contains("\r\n", StringComparison.Ordinal) ? "\r\n" : "\n";
+        var kept = (notes ?? "").Split('\n').Select(line => line.TrimEnd('\r'))
+            .Where(line => !line.Trim().StartsWith(IdentityTagPrefix, StringComparison.Ordinal)
+                        && !line.Trim().StartsWith(ContentTagPrefix, StringComparison.Ordinal))
             .ToList();
         while (kept.Count > 0 && string.IsNullOrWhiteSpace(kept[^1])) kept.RemoveAt(kept.Count - 1);
         kept.Add(identityTag);
+        if (contentTag is not null) kept.Add(contentTag);
         return string.Join(newline, kept);
     }
 

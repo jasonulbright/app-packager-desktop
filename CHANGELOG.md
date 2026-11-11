@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [2026.1111.34] - 2026-11-11
+
+### Changed
+
+- A repeat publish to Intune of the same package no longer uploads the payload again. The notes of the app now carry a second line with the digest of the package; when the digest is the same and the app has content, only the app is updated. The first publish of an app that an earlier release created uploads once and records the digest.
+
 ## [2026.1111.33] - 2026-11-11
 
 ### Fixed
