@@ -329,3 +329,13 @@ The three built-in conditions and any template of the same shape become PowerShe
 | `IntuneCompatibilityAndIdentityTests` | The findings of an application with requirements: translated rules are informational and a missing architecture still needs review. |
 
 **Lab check.** None. The lab has no Intune tenant. The tests check the rules that the program sends. They do not show how the Intune agent runs the scripts or compares their output: the use of the string comparison with `True`, the system account, the language read from `InstalledUICulture`, and the display name length are not validated against a tenant. A WMI condition with several rows is read as "some row has the value", which is a choice of this program; ConfigMgr's own behavior for several rows is not documented.
+
+## Intune publish: the restart behavior follows the post-execution behavior
+
+Every Intune app was published with the restart behavior `basedOnReturnCode`, whatever the post-execution behavior of the deployment type said, so `ForceReboot` had no effect (review finding B5). The restart behavior now follows the behavior: `NoAction` gives `suppress`, `ProgramReboot` gives `allow`, `ForceReboot` gives `force`, and `BasedOnExitCode` or no value gives `basedOnReturnCode`. The conversion of a ConfigMgr application used this mapping already, and now both use one function. The two shipped definitions that set `ForceReboot` (the Visual C++ runtimes) now restart devices on Intune.
+
+| Test class | What it proves |
+|---|---|
+| `IntuneCompatibilityAndIdentityTests` | Each behavior gives its restart behavior (also in other letter case, with spaces, with no value, and with an unknown value); the conversion of a ConfigMgr application gives the same result as the publish for every behavior. |
+
+**Lab check.** None. The lab has no Intune tenant. The tests check the value that the program sends.

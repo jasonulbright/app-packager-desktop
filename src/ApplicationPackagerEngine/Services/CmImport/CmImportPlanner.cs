@@ -34,10 +34,7 @@ public static class CmImportPlanner
         ];
     }
 
-    public static string RestartBehavior(string postInstallBehavior) => postInstallBehavior switch
-    {
-        "NoAction" => "suppress", "ProgramReboot" => "allow", "ForceReboot" => "force", _ => "basedOnReturnCode"
-    };
+    public static string RestartBehavior(string postInstallBehavior) => IntunePublishService.DeviceRestartBehavior(postInstallBehavior);
 
     private static string FirstToken(string commandLine)
     {

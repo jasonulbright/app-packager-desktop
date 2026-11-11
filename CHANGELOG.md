@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [2026.1111.33] - 2026-11-11
+
+### Fixed
+
+- The restart behavior of an Intune app now follows the post-execution behavior of the deployment type: no specific action suppresses a restart, the program may restart, and force restarts the device. Before, every app used the return codes, so a forced restart had no effect. The two Visual C++ runtime definitions set a forced restart, so they now restart devices on Intune as they do on ConfigMgr.
+
 ## [2026.1111.32] - 2026-11-11
 
 ### Fixed

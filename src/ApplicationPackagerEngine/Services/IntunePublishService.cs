@@ -314,11 +314,19 @@ public sealed class IntunePublishService : IDisposable
         "legacy:" + System.Text.RegularExpressions.Regex.Replace(manifest.AppName ?? "", @"[^\w.-]", "-");
 
     /// <summary>
-    /// The installExperience.deviceRestartBehavior for every published app. The restart
-    /// decision follows the installer's return code whatever the ConfigMgr post-execution
-    /// behavior is; the return code table carries the soft and hard reboot codes.
+    /// The installExperience.deviceRestartBehavior of a published app, from the ConfigMgr
+    /// post-execution behavior of the deployment type: NoAction suppresses a restart,
+    /// ProgramReboot allows the installer to restart, ForceReboot forces a restart, and
+    /// BasedOnExitCode (or no value) lets the return codes decide (the return code table carries
+    /// the soft and hard reboot codes).
     /// </summary>
-    public static string DeviceRestartBehavior(string? postExecutionBehavior) => "basedOnReturnCode";
+    public static string DeviceRestartBehavior(string? postExecutionBehavior) => (postExecutionBehavior ?? "").Trim().ToLowerInvariant() switch
+    {
+        "noaction" => "suppress",
+        "programreboot" => "allow",
+        "forcereboot" => "force",
+        _ => "basedOnReturnCode"
+    };
 
     /// <summary>
     /// The existing Win32 app this publish updates. notes is not a filterable property, so
