@@ -156,7 +156,7 @@ Example (`rtools.json`, two hops):
 | `Operator` | string or null | `RegistryKeyValue`, `File` | `IsEquals`, `NotEquals`, `GreaterThan`, `GreaterEquals`, `LessThan`, `LessEquals`, `BeginsWith`, `EndsWith` or `Contains`. | `"IsEquals"` |
 | `FilePath` | string or null | `File` | Folder of the file. `{version}` is replaced at stage. | `null` |
 | `FileName` | string or null | `File` | Name of the file. | `null` |
-| `PropertyType` | string or null | `RegistryKeyValue`, `File` | `Version`, `String`, `Existence` or an integer type (`Integer`, `Int`, `Int32`, `Int64`, `DWORD`, `QWORD`). When absent, stage uses `String` for a registry value and `Version` for a file. | `null` |
+| `PropertyType` | string or null | `RegistryKeyValue`, `File` | `Version`, `String`, `Existence` or an integer type (`Integer`, `Int`, `Int32`, `Int64`, `DWORD`, `QWORD`). For a file, `Size` (the value is in bytes), `DateModified` and `DateCreated` (a date with a UTC offset, for example `2025-03-01T10:00:00Z`) also work. When absent, stage uses `String` for a registry value and `Version` for a file. | `null` |
 | `Is64Bit` | bool | Registry, `File` | `true` reads the 64-bit view. `false` reads the 32-bit view. | `true` |
 | `ExpectedValue` | string or null | `RegistryKeyValue`, `File` | The value to compare, instead of the scraped version. Takes `{version}`, `{version_parts:N}`, `{version_part:N}`, `{ProductVersion}` and `{HeaderDisplayVersion}`. | `null` |
 | `ScriptLanguage` | string or null | `Script` | `PowerShell`, `VBScript` or `JavaScript`. | `null` (PowerShell) |

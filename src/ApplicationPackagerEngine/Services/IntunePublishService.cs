@@ -683,7 +683,7 @@ public sealed class IntunePublishService : IDisposable
                 // detect a different state than the definition and ConfigMgr do.
                 var fileProperty = (d.PropertyType ?? "").Trim();
                 if (fileProperty.Equals("Size", StringComparison.OrdinalIgnoreCase))
-                    return FileValueRule(d, check32, "sizeInMB", FileSizeInMegabytes(d.ExpectedValue));
+                    return FileValueRule(d, check32, "sizeInMB", FileSizeInMegabytes(d.ExpectedValue, d.Operator));
                 if (fileProperty.Equals("DateModified", StringComparison.OrdinalIgnoreCase))
                     return FileValueRule(d, check32, "modifiedDate", FileDateInUtc(d.ExpectedValue, "modified date"));
                 if (fileProperty.Equals("DateCreated", StringComparison.OrdinalIgnoreCase))
@@ -789,8 +789,16 @@ public sealed class IntunePublishService : IDisposable
     /// Graph rule compares megabytes, so a size that is not a whole number of megabytes
     /// cannot keep its meaning and is refused.
     /// </summary>
-    private static string FileSizeInMegabytes(string? bytesText)
+    private static string FileSizeInMegabytes(string? bytesText, string? operatorName)
     {
+        // The Graph rule compares the size in MiB rounded down. "At least N MiB" and "less than N MiB" give the
+        // same answer as a comparison in bytes against N MiB. The other operators do not: "equal" matches every
+        // size in [N, N+1) MiB, and "greater than", "at most" and "not equal" miss or add the sizes in between.
+        var op = string.IsNullOrWhiteSpace(operatorName) ? "GreaterEquals" : operatorName.Trim();
+        if (!op.Equals("GreaterEquals", StringComparison.OrdinalIgnoreCase) && !op.Equals("LessThan", StringComparison.OrdinalIgnoreCase)
+            && RuleOperators.ContainsKey(op))
+            throw new InvalidOperationException(
+                $"File size detection with operator '{op}' cannot keep its meaning in the Intune rule, which compares the size in megabytes rounded down. Only GreaterEquals and LessThan give the same answer. Use one of those, a Version or date detection, or a Script detection, or publish this application to ConfigMgr only.");
         const long Megabyte = 1024L * 1024L;
         if (long.TryParse(bytesText, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var bytes)
             && bytes > 0 && bytes % Megabyte == 0)
@@ -808,7 +816,12 @@ public sealed class IntunePublishService : IDisposable
         if (!string.IsNullOrWhiteSpace(text)
             && System.Text.RegularExpressions.Regex.IsMatch(text.Trim(), @"(Z|[+-]\d{2}:?\d{2})$", System.Text.RegularExpressions.RegexOptions.IgnoreCase)
             && DateTimeOffset.TryParse(text.Trim(), System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out var when))
+        {
+            if (when.Ticks % TimeSpan.TicksPerSecond != 0)
+                throw new InvalidOperationException(
+                    $"File {what} detection value '{text}' has fractions of a second. The Intune rule is sent in whole seconds, which would move the boundary; give the value in whole seconds.");
             return when.ToUniversalTime().ToString("yyyy-MM-dd'T'HH:mm:ss'Z'", System.Globalization.CultureInfo.InvariantCulture);
+        }
         throw new InvalidOperationException(
             $"File {what} detection value '{text}' is not a date with a UTC offset (for example 2025-03-01T10:00:00Z). The Intune rule compares an absolute time, so the value needs an offset.");
     }

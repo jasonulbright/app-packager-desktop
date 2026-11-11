@@ -6,7 +6,7 @@
 
 ### Fixed
 
-- A file detection on the size or on a date of a file now keeps its meaning in the Intune rule. Before, it was published as "file exists". A size must be a whole number of megabytes, and a date needs a UTC offset; a value that cannot keep its meaning is refused with the reason.
+- A file detection on the size or on a date of a file now keeps its meaning in the Intune rule. Before, it was published as "file exists". A size must be a whole number of megabytes with the operator "at least" or "less than" (the Intune rule rounds the size down), and a date needs a UTC offset and whole seconds. A value that cannot keep its meaning is refused with the reason.
 
 ## [2026.1111.28] - 2026-11-11
 

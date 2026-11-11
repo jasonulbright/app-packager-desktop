@@ -273,13 +273,13 @@ A file detection on the size or on a date of the file was published to Intune as
 
 The Intune rule now keeps the property:
 
-- `Size`: the definition carries bytes and the Graph rule compares whole megabytes (`sizeInMB`). A size that is not a whole number of megabytes (and a size of 0 or a text that is not a number) is refused with a message that names the reason.
-- `DateModified` and `DateCreated`: the rule is `modifiedDate` or `createdDate`, and the value is sent in UTC. A value without a UTC offset, or one that is not a date, is refused, because the offset of such a value is not known.
+- `Size`: the definition carries bytes and the Graph rule compares the size in megabytes **rounded down** (`sizeInMB`, as the Microsoft Graph reference states). A size that is not a whole number of megabytes (and a size of 0 or a text that is not a number) is refused. Only the operators `GreaterEquals` and `LessThan` give the same answer as a comparison in bytes against a whole number of megabytes; `IsEquals`, `NotEquals`, `GreaterThan` and `LessEquals` are refused with that reason.
+- `DateModified` and `DateCreated`: the rule is `modifiedDate` or `createdDate`, and the value is sent in UTC in whole seconds. A value without a UTC offset, one that is not a date, or one with fractions of a second is refused, because the offset is not known, or the whole-second value would move the boundary.
 - `Existence` (or no property) still gives "file exists". Any other property is refused and does not become "file exists".
 - The operator is mapped as before. A string operator (`BeginsWith` and others) on a size or date is refused.
 
 | Test class | What it proves |
 |---|---|
-| `IntuneRuleMappingTests` | A size of whole megabytes gives `sizeInMB` with the megabyte count; sizes that are not whole megabytes, zero, negative, text, and empty are refused; a date with an offset gives `modifiedDate` or `createdDate` in UTC; a date without an offset, a text that is not a date, and an empty value are refused; `Existence` in any case gives "file exists"; an unknown property is refused; a string operator on a size is refused; a size clause in an AND compound keeps its rule. |
+| `IntuneRuleMappingTests` | A size of whole megabytes gives `sizeInMB` with the megabyte count; sizes that are not whole megabytes, zero, negative, text, and empty are refused; `LessThan` is accepted; `IsEquals`, `NotEquals`, `GreaterThan` and `LessEquals` are refused because of the rounding down; a date with fractions of a second is refused; a date with an offset gives `modifiedDate` or `createdDate` in UTC; a date without an offset, a text that is not a date, and an empty value are refused; `Existence` in any case gives "file exists"; an unknown property is refused; a string operator on a size is refused; a size clause in an AND compound keeps its rule. |
 
-**Lab check.** None. The lab has no Intune tenant, and the Graph operation names (`sizeInMB`, `modifiedDate`, `createdDate`) are taken from the Graph reference. The tests check the rule that the program builds, not how the service stores it. This stays unverified against a tenant.
+**Lab check.** None. The lab has no Intune tenant, and the Graph operation names (`sizeInMB`, `modifiedDate`, `createdDate`) and the rounding down of the size are taken from the Graph reference. The text format of a date comparison value is not stated there. The tests check the rule that the program builds, not how the service stores it. This stays unverified against a tenant.

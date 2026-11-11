@@ -486,13 +486,47 @@ public class IntuneRuleMappingTests
     }
 
     [Fact]
+    public void File_SizeLessThan_MapsToTheSizeRule()
+    {
+        var rule = Single(FileProperty("Size", "3145728", "LessThan"));
+
+        Assert.Equal("lessThan", (string?)rule["operator"]);
+        Assert.Equal("3", (string?)rule["comparisonValue"]);
+    }
+
+    // The Graph rule compares the size in MiB rounded down. Only "at least N MiB" and "less than N MiB" keep
+    // the meaning of a comparison in bytes; the other operators match a whole range of sizes or miss one.
+    [Theory]
+    [InlineData("IsEquals")]
+    [InlineData("NotEquals")]
+    [InlineData("GreaterThan")]
+    [InlineData("LessEquals")]
+    public void File_SizeWithAnOperatorThatTheRoundingDownChanges_IsRefused(string op)
+    {
+        var ex = Assert.Throws<InvalidOperationException>(() => IntunePublishService.BuildRules(FileProperty("Size", "5242880", op)));
+
+        Assert.Contains("rounded down", ex.Message);
+        Assert.Contains(op, ex.Message);
+    }
+
+    [Theory]
+    [InlineData("2025-03-01T10:00:00.5Z")]
+    [InlineData("2025-03-01T10:00:00.250+01:00")]
+    public void File_DateWithFractionsOfASecond_IsRefused(string expected)
+    {
+        var ex = Assert.Throws<InvalidOperationException>(() => IntunePublishService.BuildRules(FileProperty("DateModified", expected)));
+
+        Assert.Contains("fractions of a second", ex.Message);
+    }
+
+    [Fact]
     public void File_SizeInACompoundAndDetection_KeepsItsRule()
     {
         var rules = IntunePublishService.BuildRules(new StageDetection
         {
             Type = "Compound",
             Connector = "And",
-            Clauses = [new() { Type = "RegistryKeyValue", RegistryKeyRelative = @"SOFTWARE\A", ExpectedValue = "1.2.3.4" }, FileProperty("Size", "1048576", "IsEquals")]
+            Clauses = [new() { Type = "RegistryKeyValue", RegistryKeyRelative = @"SOFTWARE\A", ExpectedValue = "1.2.3.4" }, FileProperty("Size", "1048576", "GreaterEquals")]
         });
 
         Assert.Equal("sizeInMB", (string?)rules[1]!["operationType"]);
