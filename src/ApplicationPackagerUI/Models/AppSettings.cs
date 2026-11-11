@@ -214,6 +214,12 @@ public sealed class IntuneSettings
     /// The plaintext secret is never persisted and never logged.
     /// </summary>
     public string ClientSecretProtected { get; set; } = "";
+
+    /// <summary>
+    /// The minimum Windows release of every Intune app that is published (Windows10_21H2 until
+    /// the setting existed). An empty or malformed value reads as the default.
+    /// </summary>
+    public string MinimumWindowsRelease { get; set; } = ApplicationPackagerEngine.Services.IntuneWindowsReleases.Default;
 }
 
 /// <summary>

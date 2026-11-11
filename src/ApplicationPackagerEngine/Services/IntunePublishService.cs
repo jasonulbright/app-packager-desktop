@@ -16,7 +16,7 @@ public sealed class IntunePublishOptions
     public string ClientId { get; set; } = "";
     public string ClientSecret { get; set; } = "";
     public string Description { get; set; } = "";
-    public string MinimumSupportedWindowsRelease { get; set; } = "Windows10_21H2";
+    public string MinimumSupportedWindowsRelease { get; set; } = IntuneWindowsReleases.Default;
     /// <summary>x86 or x64.</summary>
     public string Architecture { get; set; } = "x64";
     public string GraphBase { get; set; } = "https://graph.microsoft.com/v1.0";
@@ -138,7 +138,7 @@ public sealed class IntunePublishService : IDisposable
             ["installCommandLine"] = installCommand,
             ["uninstallCommandLine"] = uninstallCommand,
             ["notes"] = NotesWithTag((string?)match?["notes"], identityTag),
-            ["minimumSupportedWindowsRelease"] = options.MinimumSupportedWindowsRelease,
+            ["minimumSupportedWindowsRelease"] = IntuneWindowsReleases.Resolve(options.MinimumSupportedWindowsRelease),
             ["installExperience"] = new JsonObject
             {
                 // A per-user deployment runs its installer in the user's session; a

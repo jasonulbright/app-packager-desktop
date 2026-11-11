@@ -68,6 +68,8 @@ public partial class SettingsViewModel : ObservableObject, ISettingsReload
 
     [ObservableProperty] private string _intuneTenantId = "";
     [ObservableProperty] private string _intuneClientId = "";
+    [ObservableProperty] private string _intuneMinimumWindowsRelease = ApplicationPackagerEngine.Services.IntuneWindowsReleases.Default;
+    public IReadOnlyList<string> IntuneWindowsReleaseChoices => ApplicationPackagerEngine.Services.IntuneWindowsReleases.Known;
 
     /// <summary>
     /// Secret entry only. Never loaded from settings and never persisted in this form: an empty
@@ -593,6 +595,7 @@ public partial class SettingsViewModel : ObservableObject, ISettingsReload
 
         IntuneTenantId = s.Intune.TenantId;
         IntuneClientId = s.Intune.ClientId;
+        IntuneMinimumWindowsRelease = ApplicationPackagerEngine.Services.IntuneWindowsReleases.Resolve(s.Intune.MinimumWindowsRelease);
         IntuneClientSecret = "";
         HasStoredIntuneSecret = !string.IsNullOrWhiteSpace(s.Intune.ClientSecretProtected);
 
@@ -675,6 +678,7 @@ public partial class SettingsViewModel : ObservableObject, ISettingsReload
             SetOrRemove(s.SideFiles, row.Key, row.Path);
         s.Intune.TenantId = IntuneTenantId.Trim();
         s.Intune.ClientId = IntuneClientId.Trim();
+        s.Intune.MinimumWindowsRelease = ApplicationPackagerEngine.Services.IntuneWindowsReleases.Resolve(IntuneMinimumWindowsRelease);
         // An empty box keeps the stored secret; a typed value replaces it, DPAPI-protected for
         // the current Windows user. The plaintext never reaches settings.json.
         if (!string.IsNullOrEmpty(IntuneClientSecret))

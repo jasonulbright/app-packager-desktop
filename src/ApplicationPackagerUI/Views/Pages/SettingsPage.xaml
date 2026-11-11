@@ -436,6 +436,15 @@
             <ui:TextBox Text="{Binding IntuneClientId, UpdateSourceTrigger=PropertyChanged}"
                         PlaceholderText="App registration (client) ID" Margin="0,0,0,12" />
 
+            <TextBlock Text="Minimum Windows release" Style="{StaticResource FieldLabel}" />
+            <ComboBox ItemsSource="{Binding IntuneWindowsReleaseChoices}"
+                      SelectedItem="{Binding IntuneMinimumWindowsRelease}"
+                      Width="240" HorizontalAlignment="Left" Margin="0,0,0,4"
+                      AutomationProperties.Name="Minimum Windows release" AutomationProperties.AutomationId="cboIntuneMinimumWindowsRelease"
+                      ToolTip="The oldest Windows release that an Intune app is offered to. Every app that this program publishes to Intune gets it. Default: Windows10_21H2." />
+            <TextBlock Text="Every Intune app that is published gets this minimum release. Default: Windows10_21H2."
+                       Foreground="{DynamicResource TextFillColorTertiaryBrush}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,12" />
+
             <TextBlock Text="Client Secret" Style="{StaticResource FieldLabel}" />
             <ui:PasswordBox Password="{Binding IntuneClientSecret, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                             PlaceholderText="{Binding IntuneSecretHint}" Margin="0,0,0,4" />

@@ -204,7 +204,8 @@ public sealed class IntuneDeploymentService(SettingsService settingsService)
             TenantId = stored.TenantId.Trim(),
             ClientId = stored.ClientId.Trim(),
             ClientSecret = secret,
-            Description = description
+            Description = description,
+            MinimumSupportedWindowsRelease = IntuneWindowsReleases.Resolve(stored.MinimumWindowsRelease)
         };
         // The payload's own architecture, never the detection's registry view: a
         // per-user x64 product detects through the 32-bit view.
