@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [2026.1111.30] - 2026-11-11
+
+### Fixed
+
+- A registry value detection with an integer property type now compares as an integer in the Intune rule, and a version property compares as a version also when it is one number. Before, both compared as text, so 10 was lower than 9. A value that is not an integer for an integer property is refused with the reason, and a registry value detection on existence checks that the value exists.
+
 ## [2026.1111.29] - 2026-11-11
 
 ### Fixed

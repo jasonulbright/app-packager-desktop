@@ -532,4 +532,108 @@ public class IntuneRuleMappingTests
         Assert.Equal("sizeInMB", (string?)rules[1]!["operationType"]);
         Assert.Equal("1", (string?)rules[1]!["comparisonValue"]);
     }
+
+    private static StageDetection RegistryValue(string? propertyType, string? expected, string op = "GreaterEquals") => new()
+    {
+        Type = "RegistryKeyValue",
+        RegistryKeyRelative = @"SOFTWARE\Contoso",
+        ValueName = "Build",
+        PropertyType = propertyType,
+        ExpectedValue = expected,
+        Operator = op
+    };
+
+    [Theory]
+    [InlineData("Integer")]
+    [InlineData("Int")]
+    [InlineData("Int32")]
+    [InlineData("Int64")]
+    [InlineData("DWORD")]
+    [InlineData("QWORD")]
+    [InlineData("integer")]
+    public void RegistryValue_IntegerProperty_ComparesAsAnInteger(string propertyType)
+    {
+        var rule = Single(RegistryValue(propertyType, "124"));
+
+        Assert.Equal("integer", (string?)rule["operationType"]);
+        Assert.Equal("greaterThanOrEqual", (string?)rule["operator"]);
+        Assert.Equal("124", (string?)rule["comparisonValue"]);
+    }
+
+    [Theory]
+    [InlineData("1.2")]
+    [InlineData("abc")]
+    [InlineData("")]
+    [InlineData("12 3")]
+    [InlineData("99999999999999999999")]
+    public void RegistryValue_IntegerPropertyWithAValueThatIsNotAnInteger_IsRefused(string expected)
+    {
+        var ex = Assert.Throws<InvalidOperationException>(() => IntunePublishService.BuildRules(RegistryValue("DWORD", expected)));
+
+        Assert.Contains("not an integer", ex.Message);
+    }
+
+    [Theory]
+    [InlineData("7")]
+    [InlineData("124")]
+    [InlineData("1.2.3.4")]
+    public void RegistryValue_VersionProperty_ComparesWithVersionSemantics(string expected)
+    {
+        var rule = Single(RegistryValue("Version", expected));
+
+        Assert.Equal("version", (string?)rule["operationType"]);
+        Assert.Equal(expected, (string?)rule["comparisonValue"]);
+    }
+
+    [Theory]
+    [InlineData("1.2.3-beta")]
+    [InlineData("2024-R2")]
+    [InlineData("1.2.3.4.5")]
+    public void RegistryValue_VersionPropertyWithAValueThatIsNotADottedVersion_ComparesAsText(string expected)
+    {
+        Assert.Equal("string", (string?)Single(RegistryValue("Version", expected))["operationType"]);
+    }
+
+    [Theory]
+    [InlineData("String", "1.2.3.4", "version")]
+    [InlineData(null, "1.2.3.4", "version")]
+    [InlineData("String", "124", "string")]
+    [InlineData(null, "124", "string")]
+    [InlineData("String", "2024-R2", "string")]
+    public void RegistryValue_StringOrNoProperty_KeepsTheGuessFromTheValue(string? propertyType, string expected, string operationType)
+    {
+        Assert.Equal(operationType, (string?)Single(RegistryValue(propertyType, expected))["operationType"]);
+    }
+
+    [Fact]
+    public void RegistryValue_UnknownProperty_IsRefused()
+    {
+        var ex = Assert.Throws<InvalidOperationException>(() => IntunePublishService.BuildRules(RegistryValue("Binary", "01")));
+
+        Assert.Contains("Binary", ex.Message);
+    }
+
+    [Fact]
+    public void RegistryValue_ExistenceProperty_MapsToTheExistsRuleForTheValue()
+    {
+        var rule = Single(RegistryValue("Existence", null, ""));
+
+        Assert.Equal("exists", (string?)rule["operationType"]);
+        Assert.Equal("notConfigured", (string?)rule["operator"]);
+        Assert.Equal("Build", (string?)rule["valueName"]);
+        Assert.Null(rule["comparisonValue"]);
+    }
+
+    [Fact]
+    public void RegistryValue_IntegerInAnAndCompound_KeepsItsRule()
+    {
+        var rules = IntunePublishService.BuildRules(new StageDetection
+        {
+            Type = "Compound",
+            Connector = "And",
+            Clauses = [RegistryValue("Integer", "5"), RegistryValue("Version", "1.2.3.4")]
+        });
+
+        Assert.Equal(["integer", "version"], rules.Select(r => (string?)r!["operationType"]));
+    }
 }
