@@ -82,11 +82,17 @@ Supersedence needs an old application that is a separate application. It does no
 
 The lookup is new. The existing-application check matches one exact title and cannot find an older version under a different title.
 
-1. The program builds the title of the new application with the same naming rule that staging uses (title mode, architecture suffix, profile), and replaces the version in it. The architecture stays in the key, so an x64 application is matched with x64 applications only.
-2. It lists the applications on the site whose title has the same form, and whose title is not the title of the new application.
+A title with the version removed does not identify a product line. Vendors use one product name for several lines and put the line only in the version (for example two major lines of one runtime). A lookup by title could take the application of another line as the old application, and ConfigMgr would then uninstall it. So the lookup uses an identity record and not the title.
+
+**Identity record.** When the program publishes an application to ConfigMgr, it writes a marker that names the identity of the title: the definition identifier for a catalog title, or the per-title key (the base title) for a title without a definition. The marker goes into a field of the application that the program owns and that the publish does not otherwise use (the keywords of the application are preferred). The code step confirms the field on the lab site. The replace path keeps the marker.
+
+1. The program reads the identity of the new application: the definition identifier, or the per-title key.
+2. It lists the applications on the site that carry the same identity marker, and whose title is not the title of the new application. The architecture stays in the match, so an x64 application is matched with x64 applications only (the architecture is part of the identity marker).
 3. It keeps the applications whose `SoftwareVersion` is lower than the packaged version. The compare uses the version compare of the program. If a version cannot be parsed, the program skips that application and says so.
 4. It skips retired applications.
 5. It takes the newest of the rest. If there is none, the supersedence step does not run, and the result says "No older version found".
+
+An application without the marker (for example one that an earlier release published, or one that an administrator made by hand) is never chosen by the lookup. The chain warning lists applications whose title has the same form but which have no marker, so the administrator sees why no old application was found. The administrator can set the old application for one title once, from the list on the publish page ("Use this as the old application"). The program then writes the marker on that application, shows the title and version first, and asks for confirmation.
 6. The program pairs the deployment types of the new application with those of the old application:
    - When the new and the old application each have one deployment type, the program pairs them directly. The lookup key already limits the match to one title form, so the architecture is the same.
    - When an application has more than one deployment type, the program pairs by the suffix of the deployment type name that staging writes (`<AppName> - <NameSuffix>`). The code step confirms on the lab site where the architecture is stored.
@@ -187,7 +193,7 @@ Unit tests (run in CI):
 3. The Exact guard: equal values, different values (including `3.7.7` and `3.7.7.1234`), no installed value (blocked), the MSI `ProductVersion` case, and the accepted block that writes `Minimum`. An acceptance is stored per title and per version, and it does not carry to the next version. A One Click row at the block is reported as blocked and creates nothing.
 4. The blocked combination is refused, and the text is the one in this specification. It is checked after resolution, for the command line, the per-title override, and the site default, for each setting by itself.
 5. The key of the per-title override for a catalog title and for a title without a definition.
-6. The old-application lookup (architecture kept in the key, lower version only, newest first, retired skipped, unparseable version skipped, an application with the same title as the new one is never returned, a title without a version gives no supersedence).
+6. The old-application lookup (identity marker required, architecture kept in the match, lower version only, newest first, retired skipped, unparseable version skipped, an application with the same title as the new one is never returned, a title without a version gives no supersedence). Two definitions whose titles reduce to the same form are not linked. An application without a marker is never chosen, and the chain warning lists it. "Use this as the old application" writes the marker only after confirmation. The publish writes the marker, and the replace path keeps it.
 7. The pairing of deployment types: one-to-one for single-type applications, by name suffix for multi-type applications, and the warning for one with no pair.
 8. The script for the supersedence step (parameter text, quoting, uninstall option, existing relations are not added again).
 9. A failed supersedence step gives the separate state and keeps the new application. A second run (publish with Skip or Overwrite, and a One Click run) runs only that step. A One Click row in this state is not skipped as published. The "Apply supersedence" action runs it without a publish.
@@ -209,7 +215,7 @@ The lab rules apply: only the lab site server, the lab client and the lab domain
 
 One pull request for this specification. Then the implementation in four pull requests, one at a time. Each has its tests, its test documentation, a version change and a changelog entry.
 
-1. Settings, the version rule, and the Exact guard (engine, publish, Options, per-title override, command line).
+1. Settings, the version rule, the Exact guard, and the identity marker that every ConfigMgr publish writes (engine, publish, Options, per-title override, command line). The marker comes first so that applications published from now on can be found by the lookup.
 2. The old-application lookup, the ConfigMgr supersedence step with its separate outcome and the "Apply supersedence" action, the blocked combination in the preflight panel, and the lab tests 1 to 3.
 3. The chain check.
 4. The rewrite step with "Restore", and the lab tests 4 and 5.
