@@ -85,9 +85,9 @@ The run stages an application first when it has no stage of its latest version. 
 |---|---|
 | `Staging...` | The run stages the application. |
 | `Publishing to WSUS...` | The run publishes to the server. |
-| `Published` | The update is new on the server. |
-| `Already on the server` | An update of the same identity and version exists. The run applies the approval and the decline again. |
-| `Published, warning` or `Already on the server, warning` | The update is on the server. A follow-up step failed. |
+| `Published (updates only)` | The update is new on the server. It reaches only a computer that already has an older version of the application. It does not install the application on a computer without it. |
+| `Already on the server (updates only)` | An update of the same identity and version exists. The run applies the approval and the decline again. The same limit applies: only a computer with an older version gets it. |
+| `Published (updates only), warning` or `Already on the server (updates only), warning` | The update is on the server. A follow-up step failed. |
 | `not supported: <codes>` | WSUS refused the application. The codes are separated by commas. |
 | `Publish error` | The stage or a server call failed. |
 | `Cancelled` | You cancelled the run. |

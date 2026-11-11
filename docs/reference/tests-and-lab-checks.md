@@ -251,3 +251,18 @@ The wrapper now starts the installer with `[System.Diagnostics.Process]::Start`,
 So the loss needs a host that looks at the process after the installer has ended. It was seen once in CI (`PostInstallKillProcessesTests`, expected 5, actual 0), and the pause reproduces it every time. The lab machines were started for the check and stopped afterwards. No snapshot was used. The probe folder was deleted.
 
 Result (2026-11-10): as described.
+
+## WSUS publish result: a first install is not possible
+
+A WSUS update applies only where the detection finds the application with an older version. WSUS does not install the application on a computer that does not have it. The result of a WSUS publish said "Published" or "Already on the server" and did not say that (review finding C3).
+
+The result now says it in three places: the WSUS result message and the log line (`published <id>; applies only to a computer that already has an older version of the application and does not install it on a computer without it`), the status of a WSUS-only publish row (`Published (updates only)`, `Already on the server (updates only)`, with `, warning` after it when a follow-up step failed), and the detail of the WSUS result in One Click and its report.
+
+| Test class | What it proves |
+|---|---|
+| `WsusPublishServiceTests` | The message of a new update carries the note. |
+| `PublishRowOutcomeTests` | The status of a WSUS-only row carries "(updates only)" for a new update, a reused update, and each with a warning. The detail of a success without a warning carries the note. |
+| `PublishRunServiceTests` | The command-line publish row for a new update and for a repeat publish carries the new status. |
+| `OneClickPlannerTests` | The WSUS result of a published or reused update carries the note as its detail. The cell stays "published <id>". |
+
+**Lab check.** None. The change is wording. The lab has no WSUS server.

@@ -59,6 +59,15 @@ public sealed class WsusPublishService(IWsusAdapterRunner? runner = null, WsusRu
     private readonly WsusRuleBuilder _rules = rules ?? new WsusRuleBuilder(new MsiInspectionService());
     private readonly Func<DateTimeOffset> _clock = clock ?? (() => DateTimeOffset.Now);
 
+    /// <summary>
+    /// What a WSUS update does and does not do. The update applies only where the detection finds the
+    /// product with an older version, so WSUS cannot give a first install of the application.
+    /// </summary>
+    public const string UpdatesOnlyNote = "applies only to a computer that already has an older version of the application and does not install it on a computer without it";
+
+    /// <summary>The same note as a sentence for a result detail or a report.</summary>
+    public const string UpdatesOnlySentence = "WSUS: this update " + UpdatesOnlyNote + ".";
+
     /// <summary>Exit codes an EXE reports; any other code fails the install.</summary>
     public static readonly IReadOnlyList<(int Code, string Result, bool Reboot)> ExeReturnCodes =
     [
@@ -251,12 +260,13 @@ public sealed class WsusPublishService(IWsusAdapterRunner? runner = null, WsusRu
     /// <summary>
     /// The result message: what happened to the package id, the MSI entry the
     /// rules read, the approval, the supersedence and decline counts, the
-    /// retired-type note, then each warning; joined with '; '.
+    /// retired-type note, then each warning; joined with '; '. The second part says that the update
+    /// applies only to a computer that already has an older version.
     /// </summary>
     public static string ComposeMessage(WsusPublishOutcome outcome, Guid packageId, WsusApplicabilityRules rules, string approved,
         int supersededCount, int declinedCount, int retiredCount, IEnumerable<string> warnings)
     {
-        var parts = new List<string> { $"{(outcome == WsusPublishOutcome.Published ? "published" : "already on the server")} {packageId}" };
+        var parts = new List<string> { $"{(outcome == WsusPublishOutcome.Published ? "published" : "already on the server")} {packageId}", UpdatesOnlyNote };
         if (rules.Source == WsusRuleSource.MsiEntry && rules.Entry is not null)
             parts.Add($"rules read the Add/Remove Programs entry that the MSI registers: {rules.Entry.Describe()}");
         if (approved.Length > 0) parts.Add($"approved for {approved}");

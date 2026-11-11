@@ -12,10 +12,10 @@ public class PublishRowOutcomeTests
     private static readonly WsusStepResult WsusAgainWarned = new(WsusStepStatus.AlreadyPublished, "already on the server x; approval for P failed: no", [], ["approval for P failed: no"]);
 
     [Theory]
-    [InlineData("ok", PublishRowOutcomeKind.Success, "Published", true, "")]
-    [InlineData("again", PublishRowOutcomeKind.Success, "Already on the server", true, "")]
-    [InlineData("againWarned", PublishRowOutcomeKind.Success, "Already on the server, warning", true, "already on the server x; approval for P failed: no")]
-    [InlineData("warned", PublishRowOutcomeKind.Success, "Published, warning", true, "published x; approval for P failed: no")]
+    [InlineData("ok", PublishRowOutcomeKind.Success, "Published (updates only)", true, "WSUS: this update applies only to a computer that already has an older version of the application and does not install it on a computer without it.")]
+    [InlineData("again", PublishRowOutcomeKind.Success, "Already on the server (updates only)", true, "WSUS: this update applies only to a computer that already has an older version of the application and does not install it on a computer without it.")]
+    [InlineData("againWarned", PublishRowOutcomeKind.Success, "Already on the server (updates only), warning", true, "already on the server x; approval for P failed: no")]
+    [InlineData("warned", PublishRowOutcomeKind.Success, "Published (updates only), warning", true, "published x; approval for P failed: no")]
     [InlineData("refused", PublishRowOutcomeKind.NotSupported, "not supported: InstallerTypeUnsupported,CustomInstall", false, "cannot")]
     [InlineData("failed", PublishRowOutcomeKind.Failed, "Publish error", false, "rejected")]
     [InlineData("none", PublishRowOutcomeKind.Failed, "Publish error", false, "")]

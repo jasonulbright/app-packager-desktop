@@ -1,3 +1,5 @@
+using ApplicationPackagerEngine.Services.Wsus;
+
 namespace ApplicationPackagerEngine.Models;
 
 /// <summary>
@@ -101,10 +103,11 @@ public sealed record PublishRowOutcome(PublishRowOutcomeKind Kind, string Status
         {
             if (wsus.Ok)
             {
-                var status = wsus.Status == WsusStepStatus.AlreadyPublished ? "Already on the server" : "Published";
+                // A WSUS update reaches only a computer that already has an older version, so the status says so.
+                var status = (wsus.Status == WsusStepStatus.AlreadyPublished ? "Already on the server" : "Published") + " (updates only)";
                 return wsusWarned
                     ? new(PublishRowOutcomeKind.Success, status + ", warning", true, wsus.Message)
-                    : new(PublishRowOutcomeKind.Success, status, true);
+                    : new(PublishRowOutcomeKind.Success, status, true, WsusPublishService.UpdatesOnlySentence);
             }
             if (wsus.Refused) return new(PublishRowOutcomeKind.NotSupported, wsus.NotSupportedReason, false, wsus.Message);
             return new(PublishRowOutcomeKind.Failed, "Publish error", false, wsus.Message);

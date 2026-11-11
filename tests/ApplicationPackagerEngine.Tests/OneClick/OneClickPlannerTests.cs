@@ -519,7 +519,9 @@ public sealed class OneClickPlannerTests
 
         var reused = OneClickPlanner.WsusResult(new WsusStepResult(WsusStepStatus.AlreadyPublished, "already", [], [], "id-1"));
         Assert.Equal(("already on the server id-1", "id-1", true, true), (reused.Cell, reused.Id, reused.Ok, reused.AlreadyPresent));
-        Assert.Equal("published id-2", OneClickPlanner.WsusResult(new WsusStepResult(WsusStepStatus.Published, "p", [], [], "id-2")).Cell);
+        var published = OneClickPlanner.WsusResult(new WsusStepResult(WsusStepStatus.Published, "p", [], [], "id-2"));
+        Assert.Equal(("published id-2", "WSUS: this update applies only to a computer that already has an older version of the application and does not install it on a computer without it."), (published.Cell, published.Detail));
+        Assert.Equal("WSUS: this update applies only to a computer that already has an older version of the application and does not install it on a computer without it.", reused.Detail);
         Assert.Equal("failed: server down", OneClickPlanner.WsusResult(new WsusStepResult(WsusStepStatus.Failed, "server down", [], [])).Cell);
     }
 }

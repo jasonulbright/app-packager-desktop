@@ -1,4 +1,5 @@
 using ApplicationPackagerEngine.Models;
+using ApplicationPackagerEngine.Services.Wsus;
 
 namespace ApplicationPackagerEngine.Services.OneClick;
 
@@ -461,8 +462,8 @@ public static class OneClickPlanner
     /// </summary>
     public static (string Cell, string Detail, string Id, bool Ok, bool AlreadyPresent) WsusResult(WsusStepResult step) => step.Status switch
     {
-        WsusStepStatus.Published => ("published " + step.PackageId, "", step.PackageId, true, false),
-        WsusStepStatus.AlreadyPublished => ("already on the server " + step.PackageId, "", step.PackageId, true, true),
+        WsusStepStatus.Published => ("published " + step.PackageId, WsusPublishService.UpdatesOnlySentence, step.PackageId, true, false),
+        WsusStepStatus.AlreadyPublished => ("already on the server " + step.PackageId, WsusPublishService.UpdatesOnlySentence, step.PackageId, true, true),
         WsusStepStatus.Refused => (step.NotSupportedReason, step.Message, "", false, false),
         _ => (string.IsNullOrWhiteSpace(step.Message) ? "failed" : "failed: " + step.Message, step.Message, "", false, false)
     };
