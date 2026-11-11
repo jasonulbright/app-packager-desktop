@@ -25,6 +25,15 @@ public sealed class IntunePublishOptions
     public TimeSpan PollInterval { get; set; } = TimeSpan.FromSeconds(3);
     public TimeSpan CommitPollInterval { get; set; } = TimeSpan.FromSeconds(5);
     public int BlockSizeBytes { get; set; } = 6 * 1024 * 1024;
+
+    /// <summary>How many times a request is sent again after a transient failure (throttling, a gateway error, a lost connection). 0 turns it off.</summary>
+    public int MaxRetries { get; set; } = 5;
+    /// <summary>The wait before the first retry; each later retry waits twice as long (a Retry-After header of the service is used instead).</summary>
+    public TimeSpan RetryBaseDelay { get; set; } = TimeSpan.FromSeconds(2);
+    /// <summary>The longest wait before one retry.</summary>
+    public TimeSpan RetryMaxDelay { get; set; } = TimeSpan.FromSeconds(60);
+    /// <summary>How many times the upload address of the payload is renewed when the storage service refuses it as expired.</summary>
+    public int MaxStorageUriRenewals { get; set; } = 3;
 }
 
 /// <summary>
@@ -56,6 +65,15 @@ public sealed class IntunePublishService : IDisposable
     private readonly bool _ownsClient;
     private readonly IntuneWinPackageReader _reader;
 
+    // Set at the start of a publish (a service instance is used for one publish). Without a publish,
+    // a call is sent once, as before.
+    private int _maxRetries;
+    private TimeSpan _retryBaseDelay = TimeSpan.Zero;
+    private TimeSpan _retryMaxDelay = TimeSpan.FromSeconds(60);
+    private Action<string>? _log;
+    private Func<CancellationToken, Task<string>>? _refreshToken;
+    private string? _freshToken;
+
     public IntunePublishService(HttpMessageHandler? handler = null, IntuneWinPackageReader? reader = null)
     {
         _http = handler is null ? new HttpClient() : new HttpClient(handler, disposeHandler: false);
@@ -86,6 +104,30 @@ public sealed class IntunePublishService : IDisposable
         IReadOnlyList<IntuneCompatibilityFinding>? findings = null,
         IntuneConversionOverrides? conversion = null,
         IntuneRequirementPlan? requirements = null)
+    {
+        try
+        {
+            return await PublishCoreAsync(intuneWinPath, manifest, options, onProgress, ct, scriptSigning, findings, conversion, requirements).ConfigureAwait(false);
+        }
+        finally
+        {
+            // The log, the token renewal and the new token belong to this publish only.
+            _log = null;
+            _refreshToken = null;
+            _freshToken = null;
+        }
+    }
+
+    private async Task<string> PublishCoreAsync(
+        string intuneWinPath,
+        StageManifest manifest,
+        IntunePublishOptions options,
+        Action<string>? onProgress,
+        CancellationToken ct,
+        IntuneScriptRuleContext? scriptSigning,
+        IReadOnlyList<IntuneCompatibilityFinding>? findings,
+        IntuneConversionOverrides? conversion,
+        IntuneRequirementPlan? requirements)
     {
         var meta = _reader.ReadMetadata(intuneWinPath);
         if (conversion is not null) findings ??= [];
@@ -124,6 +166,14 @@ public sealed class IntunePublishService : IDisposable
         var identityTag = IdentityTag(manifest);
         var contentTag = ContentTag(meta);
 
+        _maxRetries = Math.Max(0, options.MaxRetries);
+        _retryBaseDelay = options.RetryBaseDelay;
+        _retryMaxDelay = options.RetryMaxDelay;
+        _log = onProgress;
+        _freshToken = null;
+        // An app-only token lives about an hour; a large upload can outlast it, so a call that the
+        // service refuses as unauthorized gets one new token and is sent again.
+        _refreshToken = c => GetTokenAsync(options, c);
         var token = await GetTokenAsync(options, ct).ConfigureAwait(false);
         var graph = options.GraphBase.TrimEnd('/');
 
@@ -212,7 +262,7 @@ public sealed class IntunePublishService : IDisposable
         else
         {
             onProgress?.Invoke($"Creating Intune Win32 app    : {manifest.AppName}");
-            var created = await GraphJsonAsync(HttpMethod.Post, $"{graph}/deviceAppManagement/mobileApps", token, appBody, ct).ConfigureAwait(false);
+            var created = await GraphJsonAsync(HttpMethod.Post, $"{graph}/deviceAppManagement/mobileApps", token, appBody, ct, throttleOnly: true).ConfigureAwait(false);
             appId = (string?)created?["id"] ?? throw new InvalidOperationException("Graph returned no app id for the created Win32 app.");
             onProgress?.Invoke($"Intune app id                : {appId}");
         }
@@ -257,7 +307,8 @@ public sealed class IntunePublishService : IDisposable
             var storageUri = await WaitForStorageUriAsync(fileUri, token, options, ct).ConfigureAwait(false);
 
             onProgress?.Invoke($"Uploading encrypted payload  : {Math.Round(payloadSize / 1048576.0, 1)} MB");
-            await UploadBlockBlobAsync(storageUri, payloadPath, options.BlockSizeBytes, onProgress, ct).ConfigureAwait(false);
+            await UploadBlockBlobAsync(storageUri, payloadPath, options.BlockSizeBytes, onProgress, ct,
+                renewUri: (current, c) => RenewStorageUriAsync(fileUri, token, options, current, c), maxRenewals: options.MaxStorageUriRenewals).ConfigureAwait(false);
 
             var commitBody = new JsonObject
             {
@@ -456,7 +507,8 @@ public sealed class IntunePublishService : IDisposable
     public async Task<string> GetTokenAsync(IntunePublishOptions options, CancellationToken ct = default)
     {
         var uri = $"{options.TokenAuthority.TrimEnd('/')}/{options.TenantId}/oauth2/v2.0/token";
-        using var request = new HttpRequestMessage(HttpMethod.Post, uri)
+        // A token request can be sent again: it only reads.
+        using var response = await SendWithRetryAsync(() => new HttpRequestMessage(HttpMethod.Post, uri)
         {
             Content = new FormUrlEncodedContent(new Dictionary<string, string>
             {
@@ -465,8 +517,7 @@ public sealed class IntunePublishService : IDisposable
                 ["client_secret"] = options.ClientSecret,
                 ["scope"] = "https://graph.microsoft.com/.default"
             })
-        };
-        using var response = await _http.SendAsync(request, ct).ConfigureAwait(false);
+        }, repeatable: true, ct).ConfigureAwait(false);
         await EnsureSuccessAsync(response, uri, ct).ConfigureAwait(false);
 
         var json = await response.Content.ReadFromJsonAsync<JsonObject>(JsonOptions, ct).ConfigureAwait(false);
@@ -477,19 +528,79 @@ public sealed class IntunePublishService : IDisposable
     }
 
     /// <summary>One Graph REST call. Central so retries and tests hang off one seam.</summary>
-    public async Task<JsonObject?> GraphJsonAsync(HttpMethod method, string uri, string token, JsonNode? body, CancellationToken ct = default)
+    /// <param name="repeatable">Whether the request can be sent again after a failure that may have run it. Null: a POST cannot, the other methods can.</param>
+    /// <param name="throttleOnly">Send the request again only after 429 (the create of the app).</param>
+    public async Task<JsonObject?> GraphJsonAsync(HttpMethod method, string uri, string token, JsonNode? body, CancellationToken ct = default,
+        bool? repeatable = null, bool throttleOnly = false)
     {
-        using var request = new HttpRequestMessage(method, uri);
-        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
-        if (body is not null)
-            request.Content = new StringContent(body.ToJsonString(), Encoding.UTF8, "application/json");
+        var refreshed = false;
+        // A create (POST) is not sent again after a failure that may have run it, because it could
+        // make a second app or a second content version. A read, an update with the same body and the
+        // other calls are.
+        var canRepeat = repeatable ?? method != HttpMethod.Post;
+        while (true)
+        {
+            using var response = await SendWithRetryAsync(() =>
+            {
+                var request = new HttpRequestMessage(method, uri);
+                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _freshToken ?? token);
+                if (body is not null)
+                    request.Content = new StringContent(body.ToJsonString(), Encoding.UTF8, "application/json");
+                return request;
+            }, canRepeat, ct, throttleOnly).ConfigureAwait(false);
 
-        using var response = await _http.SendAsync(request, ct).ConfigureAwait(false);
-        await EnsureSuccessAsync(response, uri, ct).ConfigureAwait(false);
+            if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized && _refreshToken is not null && !refreshed)
+            {
+                refreshed = true;
+                _log?.Invoke("Intune token                 : refused as unauthorized; requesting a new token");
+                _freshToken = await _refreshToken(ct).ConfigureAwait(false);
+                continue;
+            }
 
-        var text = await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
-        if (string.IsNullOrWhiteSpace(text)) return null;
-        return JsonNode.Parse(text) as JsonObject;
+            await EnsureSuccessAsync(response, uri, ct).ConfigureAwait(false);
+
+            var text = await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+            if (string.IsNullOrWhiteSpace(text)) return null;
+            return JsonNode.Parse(text) as JsonObject;
+        }
+    }
+
+    /// <summary>
+    /// Sends one request and sends it again after a transient failure, as <see cref="IntuneRetry"/> decides,
+    /// waiting between the tries. The caller gets the last response (success or not) and checks it.
+    /// A request is built again for each try. The log line names the path of the request and never its
+    /// query, which can carry the credential of a storage address.
+    /// </summary>
+    private async Task<HttpResponseMessage> SendWithRetryAsync(Func<HttpRequestMessage> build, bool repeatable, CancellationToken ct, bool throttleOnly = false)
+    {
+        for (var attempt = 0; ; attempt++)
+        {
+            TimeSpan? retryAfter = null;
+            string reason;
+            try
+            {
+                using var request = build();
+                var response = await _http.SendAsync(request, ct).ConfigureAwait(false);
+                if (attempt >= _maxRetries || !IntuneRetry.IsTransient(response.StatusCode, repeatable, throttleOnly))
+                    return response;
+                retryAfter = IntuneRetry.RetryAfter(response.Headers, DateTimeOffset.UtcNow);
+                reason = $"{(int)response.StatusCode} {response.ReasonPhrase}";
+                response.Dispose();
+                var path = request.RequestUri?.GetLeftPart(UriPartial.Path) ?? "";
+                await WaitBeforeRetryAsync(attempt, retryAfter, reason, path, ct).ConfigureAwait(false);
+            }
+            catch (Exception ex) when (attempt < _maxRetries && !throttleOnly && IntuneRetry.IsTransient(ex, repeatable, ct.IsCancellationRequested))
+            {
+                await WaitBeforeRetryAsync(attempt, null, ex.GetType().Name, "", ct).ConfigureAwait(false);
+            }
+        }
+    }
+
+    private async Task WaitBeforeRetryAsync(int attempt, TimeSpan? retryAfter, string reason, string path, CancellationToken ct)
+    {
+        var delay = IntuneRetry.Delay(attempt, retryAfter, _retryBaseDelay, _retryMaxDelay);
+        _log?.Invoke($"Intune request retry         : {reason}{(path.Length > 0 ? " from " + path : "")}; waiting {Math.Round(delay.TotalSeconds, 1)} s (retry {attempt + 1} of {_maxRetries})");
+        if (delay > TimeSpan.Zero) await Task.Delay(delay, ct).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -497,12 +608,40 @@ public sealed class IntunePublishService : IDisposable
     /// &amp;comp=block&amp;blockid=&lt;base64 id&gt;, then PUT the ordered block list to &amp;comp=blocklist.
     /// 6 MiB blocks keep each request under proxy limits without ballooning the block count.
     /// </summary>
+    /// <param name="renewUri">Asks for a new upload address (it gets the one in use) when the storage service refuses the one in use as expired (403); null does not renew.</param>
+    /// <param name="maxRenewals">How many refusals in a row are answered with a renewal. A request that succeeds resets the count.</param>
     public async Task UploadBlockBlobAsync(
         string uri, string filePath, int blockSize = 6 * 1024 * 1024,
-        Action<string>? onProgress = null, CancellationToken ct = default)
+        Action<string>? onProgress = null, CancellationToken ct = default,
+        Func<string, CancellationToken, Task<string>>? renewUri = null, int maxRenewals = 0)
     {
         var blockIds = new List<string>();
         var buffer = new byte[blockSize];
+        var currentUri = uri;
+        var renewals = 0;
+
+        // One PUT with the retries of the transient failures. A 403 from the storage service is how
+        // an expired address answers: the address is renewed (the blocks that are already there stay)
+        // and the same request is sent again.
+        async Task PutAsync(Func<string, HttpRequestMessage> build)
+        {
+            while (true)
+            {
+                var target = currentUri;
+                using var response = await SendWithRetryAsync(() => build(target), repeatable: true, ct).ConfigureAwait(false);
+                if (response.StatusCode == System.Net.HttpStatusCode.Forbidden && renewUri is not null && renewals < maxRenewals)
+                {
+                    renewals++;
+                    onProgress?.Invoke($"Intune upload address        : refused as expired; renewing (renewal {renewals} of {maxRenewals})");
+                    currentUri = await renewUri(currentUri, ct).ConfigureAwait(false);
+                    continue;
+                }
+                await EnsureSuccessAsync(response, target, ct, includeResponseBody: false).ConfigureAwait(false);
+                // The limit counts refusals in a row. A long upload meets one expiry for each lifetime of the address.
+                renewals = 0;
+                return;
+            }
+        }
 
         await using (var stream = File.OpenRead(filePath))
         {
@@ -513,16 +652,18 @@ public sealed class IntunePublishService : IDisposable
                 var blockId = Convert.ToBase64String(Encoding.ASCII.GetBytes($"block-{index:D6}"));
                 blockIds.Add(blockId);
 
-                var blockUri = $"{uri}&comp=block&blockid={Uri.EscapeDataString(blockId)}";
-                using var request = new HttpRequestMessage(HttpMethod.Put, blockUri);
                 var chunk = new byte[read];
                 Buffer.BlockCopy(buffer, 0, chunk, 0, read);
-                request.Content = new ByteArrayContent(chunk);
-                request.Content.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
-                request.Headers.TryAddWithoutValidation("x-ms-blob-type", "BlockBlob");
-
-                using var response = await _http.SendAsync(request, ct).ConfigureAwait(false);
-                await EnsureSuccessAsync(response, blockUri, ct, includeResponseBody: false).ConfigureAwait(false);
+                await PutAsync(address =>
+                {
+                    var request = new HttpRequestMessage(HttpMethod.Put, $"{address}&comp=block&blockid={Uri.EscapeDataString(blockId)}")
+                    {
+                        Content = new ByteArrayContent(chunk)
+                    };
+                    request.Content.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
+                    request.Headers.TryAddWithoutValidation("x-ms-blob-type", "BlockBlob");
+                    return request;
+                }).ConfigureAwait(false);
                 index++;
             }
         }
@@ -530,13 +671,10 @@ public sealed class IntunePublishService : IDisposable
         var xml = "<?xml version=\"1.0\" encoding=\"utf-8\"?><BlockList>"
                   + string.Concat(blockIds.Select(id => $"<Latest>{id}</Latest>"))
                   + "</BlockList>";
-        var listUri = $"{uri}&comp=blocklist";
-        using (var request = new HttpRequestMessage(HttpMethod.Put, listUri))
+        await PutAsync(address => new HttpRequestMessage(HttpMethod.Put, $"{address}&comp=blocklist")
         {
-            request.Content = new StringContent(xml, Encoding.UTF8, "text/plain");
-            using var response = await _http.SendAsync(request, ct).ConfigureAwait(false);
-            await EnsureSuccessAsync(response, listUri, ct, includeResponseBody: false).ConfigureAwait(false);
-        }
+            Content = new StringContent(xml, Encoding.UTF8, "text/plain")
+        }).ConfigureAwait(false);
 
         onProgress?.Invoke($"Uploaded payload             : {blockIds.Count} block(s)");
     }
@@ -1016,6 +1154,32 @@ public sealed class IntunePublishService : IDisposable
         if (string.IsNullOrEmpty(storageUri))
             throw new TimeoutException("Timed out waiting for the Azure storage upload URI.");
         return storageUri;
+    }
+
+    /// <summary>
+    /// Asks Graph for a new upload address of a content file (renewUpload) and waits until the renewal
+    /// is done. The blocks that are already in the blob stay valid under the new address.
+    /// </summary>
+    private async Task<string> RenewStorageUriAsync(string fileUri, string token, IntunePublishOptions options, string currentUri, CancellationToken ct)
+    {
+        // Asking again for a new address is harmless, so the request may be sent again after a transient failure.
+        await GraphJsonAsync(HttpMethod.Post, $"{fileUri}/renewUpload", token, null, ct, repeatable: true).ConfigureAwait(false);
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(options.PollTimeoutSec);
+        string state;
+        do
+        {
+            await Task.Delay(options.PollInterval, ct).ConfigureAwait(false);
+            var file = await GraphJsonAsync(HttpMethod.Get, fileUri, token, null, ct).ConfigureAwait(false);
+            state = (string?)file?["uploadState"] ?? "";
+            if (state.Contains("Failed", StringComparison.Ordinal) || state.Contains("TimedOut", StringComparison.Ordinal))
+                throw new InvalidOperationException($"Renewal of the Azure storage URI failed: {state}");
+                        // The file keeps the state of the earlier renewal until Graph starts the next one, so the address in
+            // use is not accepted as the new one.
+            if (state == "azureStorageUriRenewalSuccess" && (string?)file?["azureStorageUri"] is { Length: > 0 } renewed && renewed != currentUri)
+                return renewed;
+        }
+        while (DateTimeOffset.UtcNow <= deadline);
+        throw new TimeoutException($"Timed out waiting for the renewal of the Azure storage upload URI (last state: {state}).");
     }
 
     private async Task WaitForCommitAsync(string fileUri, string token, IntunePublishOptions options, CancellationToken ct)

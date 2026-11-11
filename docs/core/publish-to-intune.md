@@ -96,6 +96,20 @@ A storage error message shows the endpoint path and the HTTP status. It does not
 | Info | `TimingNotApplied` | Runtime minutes are not sent. |
 | Info | `SetupFileFromPackage` | The setup file comes from the `.intunewin` metadata. |
 
+## Retries, new tokens and new upload addresses
+
+A publish to Intune talks to Microsoft Graph and to the Azure storage service. Both can answer that they are busy, and a long upload can outlast a token or the upload address. The program handles these cases and does not fail the publish at the first one:
+
+| Case | What the program does |
+|---|---|
+| Throttling (429) or busy service (503) | Waits and sends the request again. The wait is the value of the `Retry-After` header (up to 5 minutes); without one, 2 s doubled for each retry (2, 4, 8, 16, 32 s) with up to a quarter added at random, never longer than 60 s. Up to 5 retries. The create of the app itself is sent again only after 429: a front end can answer 503 after the app was made, and a second app with the same tag would stop every later publish. |
+| Timeout (408), error of the service (500), bad or timed-out gateway (502, 504), a lost connection | The same, but only for a request that can be sent again without harm: a read, an update of the app, a block of the upload. A request that creates something (the app, the content version, the content file, the commit) is not sent again, because it may already have run and a second one could make a second app. The publish fails with the answer, and the next publish picks up the app by its tag. |
+| The token is refused (401) during the run | Asks for one new token and sends the request again once. A second refusal fails the publish. |
+| The storage service refuses the upload address as expired (403) | Asks Graph for a new address (`renewUpload`; this request is also sent again after a transient failure), waits until the file shows a new address, and continues with the same block. The blocks that are already in the blob stay valid. Up to 3 refusals in a row are answered with a renewal; a request that succeeds resets the count, so a long upload can renew once for each lifetime of the address. |
+| Any other answer (for example 400, 404, 409) | Fails at once. A retry cannot change it. |
+
+The log shows each wait: `Intune request retry         : 429 Too Many Requests from <path>; waiting 5 s (retry 1 of 5)`. The log line names the path of the request and never its query, which can carry the credential of a storage address. A cancel stops the wait at once. The values (5 retries, 2 s, 60 s, 3 renewals in a row) are fixed in this release; they are not settings.
+
 ## Repeat publish of an unchanged package
 
 The notes of an app that the program publishes carry two lines of its own at the end: the identity tag (`AppPackager:...`) and the digest of the package (`AppPackagerContent:...`). A repeat publish compares the digest of the `.intunewin` file with the digest in the notes of the existing app. When they are the same, and the app has committed content, the program does not upload the package again. It updates only the app (name, description, commands, rules, minimum Windows release, restart behavior, icon) and the log says `Intune content unchanged    : upload skipped`.
