@@ -634,7 +634,21 @@ public sealed class IntunePublishService : IDisposable
                             $"Detection operator '{opName}' on registry value '{valueName}' has no native Intune rule; converting it to a PowerShell detection script is an explicit profile choice (Detection.IntuneScriptConversion). Set it in the workbench, or publish this application to ConfigMgr only.");
                     return RegistryValueScriptRule(d, valueName, expected, opName, signing);
                 }
-                var operationType = Version.TryParse(expected, out _) ? "version" : "string";
+                var registryProperty = (d.PropertyType ?? "").Trim();
+                // A value that is only checked for existence has no comparison.
+                if (registryProperty.Equals("Existence", StringComparison.OrdinalIgnoreCase))
+                    return new JsonObject
+                    {
+                        ["@odata.type"] = "#microsoft.graph.win32LobAppRegistryRule",
+                        ["ruleType"] = "detection",
+                        ["check32BitOn64System"] = check32,
+                        ["keyPath"] = RegistryKeyPath(d),
+                        ["valueName"] = valueName,
+                        ["operationType"] = "exists",
+                        ["operator"] = "notConfigured",
+                        ["comparisonValue"] = null
+                    };
+                var operationType = RegistryOperationType(registryProperty, expected, valueName);
                 return new JsonObject
                 {
                     ["@odata.type"] = "#microsoft.graph.win32LobAppRegistryRule",
@@ -765,6 +779,33 @@ public sealed class IntunePublishService : IDisposable
 
     /// <summary>Operators Graph has no rule operator for; they map to a script rule.</summary>
     private static readonly string[] ScriptOperators = ["BeginsWith", "EndsWith", "Contains"];
+
+    /// <summary>The names that the definition format gives to an integer registry value type.</summary>
+    private static readonly string[] IntegerPropertyTypes = ["Integer", "Int", "Int32", "Int64", "DWORD", "QWORD"];
+
+    /// <summary>
+    /// The Graph operation of a registry value comparison. An integer property compares as an
+    /// integer, so that 10 is greater than 9, and a version property compares with version
+    /// semantics, also for a version of one number. A string property, or none, keeps the guess
+    /// from the value, because the manifest cannot tell a declared String from the default that
+    /// stage writes.
+    /// </summary>
+    private static string RegistryOperationType(string propertyType, string expected, string valueName)
+    {
+        if (propertyType.Length == 0 || propertyType.Equals("String", StringComparison.OrdinalIgnoreCase))
+            return Version.TryParse(expected, out _) ? "version" : "string";
+        if (IntegerPropertyTypes.Contains(propertyType, StringComparer.OrdinalIgnoreCase))
+        {
+            if (long.TryParse(expected, System.Globalization.NumberStyles.AllowLeadingSign, System.Globalization.CultureInfo.InvariantCulture, out _))
+                return "integer";
+            throw new InvalidOperationException(
+                $"Detection value '{expected}' on registry value '{valueName}' is not an integer, but its property type is '{propertyType}'. The Intune rule compares it as an integer, so the value cannot be published; correct the detection value.");
+        }
+        if (propertyType.Equals("Version", StringComparison.OrdinalIgnoreCase))
+            return System.Text.RegularExpressions.Regex.IsMatch(expected, @"^\d+(\.\d+){0,3}$") ? "version" : "string";
+        throw new InvalidOperationException(
+            $"Registry detection property '{propertyType}' on registry value '{valueName}' has no Intune rule mapping. Use Version, String, Integer or Existence, or a Script detection.");
+    }
 
     /// <summary>A file-system detection rule that compares the size or a date of the file.</summary>
     private static JsonObject FileValueRule(StageDetection d, bool check32, string operationType, string comparisonValue)

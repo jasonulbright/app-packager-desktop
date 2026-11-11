@@ -283,3 +283,20 @@ The Intune rule now keeps the property:
 | `IntuneRuleMappingTests` | A size of whole megabytes gives `sizeInMB` with the megabyte count; sizes that are not whole megabytes, zero, negative, text, and empty are refused; `LessThan` is accepted; `IsEquals`, `NotEquals`, `GreaterThan` and `LessEquals` are refused because of the rounding down; a date with fractions of a second is refused; a date with an offset gives `modifiedDate` or `createdDate` in UTC; a date without an offset, a text that is not a date, and an empty value are refused; `Existence` in any case gives "file exists"; an unknown property is refused; a string operator on a size is refused; a size clause in an AND compound keeps its rule. |
 
 **Lab check.** None. The lab has no Intune tenant, and the Graph operation names (`sizeInMB`, `modifiedDate`, `createdDate`) and the rounding down of the size are taken from the Graph reference. The text format of a date comparison value is not stated there. The tests check the rule that the program builds, not how the service stores it. This stays unverified against a tenant.
+
+## Intune publish: the comparison type of a registry value
+
+The Intune rule of a registry value chose its comparison type from the format of the expected value: a value that `System.Version` could parse compared as a version, anything else as text. A value of one number (`124`, `7`) and every integer property compared as text, so `10` was lower than `9` (review finding B2).
+
+The rule now takes the type from the property type of the detection:
+
+- An integer property type (`Integer`, `Int`, `Int32`, `Int64`, `DWORD`, `QWORD`) compares as an integer. A value that is not an integer is refused.
+- `Version` compares with version semantics, also for a version of one number. A value that is not a dotted version of one to four numbers (for example `1.2.3-beta`) compares as text, as before.
+- `String` or no property keeps the guess from the format of the value. The manifest cannot tell a declared `String` from the default that stage writes, so a change here would turn working rules into text comparisons.
+- `Existence` gives the rule "value exists". Any other property type is refused.
+
+| Test class | What it proves |
+|---|---|
+| `IntuneRuleMappingTests` | Each integer type name (in any case) gives the integer comparison with the same value; a value that is not an integer, empty, with a space, or too large is refused; a version of one number or of several gives the version comparison; a version property with a value that is not a dotted version gives text; `String` or no property keeps the guess (`1.2.3.4` is a version, `124` is text); an unknown property type is refused; `Existence` gives the exists rule for the named value; an integer and a version clause in an AND compound keep their rules. |
+
+**Lab check.** None. The lab has no Intune tenant. The names of the comparison types come from the Microsoft Graph reference (`string`, `integer`, `version`). The tests check the rule that the program builds, not how the service compares at the client. This stays unverified against a tenant.
