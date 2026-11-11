@@ -115,7 +115,7 @@ The status of the row in the App Packager grid shows `Published`, `Published, pa
 
 Each run and each **Plan only** writes two files: `one-click-<yyyyMMdd-HHmmss>.md` and `one-click-<yyyyMMdd-HHmmss>.json`. A name clash adds `-2`, `-3` and so on. The folder is `Logs\OneClick` under `%LOCALAPPDATA%\SRLPackr`. See [Data folders](../reference/data-folders.md).
 
-The Markdown report has these parts: a table with Started, Ended, Operator, Computer, Action, the counts of applications, published, not supported, skipped and failed; `## Scope`; `## Applications`; `## Details` with the full refusal and failure text; `## Rollback`.
+The Markdown report has these parts: a table with Started, Ended, Operator, Computer, Action, the counts of applications, published, not supported, skipped and failed; `## Scope`; `## Applications`; `## Details` with the full refusal and failure text, and for a WSUS success the note that the update reaches only a computer that has an older version; `## Rollback`.
 
 The scope text of each destination:
 

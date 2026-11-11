@@ -1,3 +1,5 @@
+using ApplicationPackagerEngine.Services.Wsus;
+
 namespace ApplicationPackagerEngine.Models;
 
 /// <summary>
@@ -76,8 +78,10 @@ public enum PublishRowOutcomeKind
 /// The row status after one application's publish run. An Intune or WSUS run
 /// succeeds only when its publish succeeds; a ConfigMgr run that also
 /// publishes to WSUS carries the WSUS result as a status suffix. A WSUS run
-/// states its result in the words of the One Click result cell, and Detail
-/// holds the full server or refusal text behind a short status.
+/// states its result in a short status ("Published (updates only)"), and
+/// Detail holds the full text behind it: the server or refusal text, the
+/// result with its warnings, or the note that a WSUS update reaches only a
+/// computer that has an older version.
 /// </summary>
 public sealed record PublishRowOutcome(PublishRowOutcomeKind Kind, string Status, bool Published, string Detail = "")
 {
@@ -101,10 +105,11 @@ public sealed record PublishRowOutcome(PublishRowOutcomeKind Kind, string Status
         {
             if (wsus.Ok)
             {
-                var status = wsus.Status == WsusStepStatus.AlreadyPublished ? "Already on the server" : "Published";
+                // A WSUS update reaches only a computer that already has an older version, so the status says so.
+                var status = (wsus.Status == WsusStepStatus.AlreadyPublished ? "Already on the server" : "Published") + " (updates only)";
                 return wsusWarned
                     ? new(PublishRowOutcomeKind.Success, status + ", warning", true, wsus.Message)
-                    : new(PublishRowOutcomeKind.Success, status, true);
+                    : new(PublishRowOutcomeKind.Success, status, true, WsusPublishService.UpdatesOnlySentence);
             }
             if (wsus.Refused) return new(PublishRowOutcomeKind.NotSupported, wsus.NotSupportedReason, false, wsus.Message);
             return new(PublishRowOutcomeKind.Failed, "Publish error", false, wsus.Message);

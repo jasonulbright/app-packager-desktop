@@ -40,7 +40,9 @@ public sealed record OneClickReportSummary(DateTime Started, string Action, int 
 /// <summary>
 /// One Markdown and one JSON file per run under &lt;Logs&gt;\OneClick:
 /// the header table, Scope, Applications, Details (full refusal and failure
-/// text) and Rollback lines for the destinations in the scope only.
+/// text, and for a WSUS success the note that the update reaches only a
+/// computer that has an older version) and Rollback lines for the
+/// destinations in the scope only.
 /// </summary>
 public static class OneClickReportWriter
 {

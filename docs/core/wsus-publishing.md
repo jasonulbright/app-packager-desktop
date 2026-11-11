@@ -85,16 +85,16 @@ The run stages an application first when it has no stage of its latest version. 
 |---|---|
 | `Staging...` | The run stages the application. |
 | `Publishing to WSUS...` | The run publishes to the server. |
-| `Published` | The update is new on the server. |
-| `Already on the server` | An update of the same identity and version exists. The run applies the approval and the decline again. |
-| `Published, warning` or `Already on the server, warning` | The update is on the server. A follow-up step failed. |
+| `Published (updates only)` | The update is new on the server. It applies only where the detection finds an older version of the application, so WSUS cannot give a first install of it. |
+| `Already on the server (updates only)` | An update of the same identity and version exists. The run applies the approval and the decline again. The same limit applies: only a computer with an older version gets it. |
+| `Published (updates only), warning` or `Already on the server (updates only), warning` | The update is on the server. A follow-up step failed. |
 | `not supported: <codes>` | WSUS refused the application. The codes are separated by commas. |
 | `Publish error` | The stage or a server call failed. |
 | `Cancelled` | You cancelled the run. |
 
 Hold the pointer over a `not supported` or `warning` status. The tooltip shows the full text.
 
-The log line `WSUS publish:` ends with the result. The result can contain these parts, separated by `;`: the package ID, the Add/Remove Programs entry that the rules read, the approval group, the number of superseded and declined earlier versions, and each warning.
+The log line `WSUS publish:` ends with the result. The result can contain these parts, separated by `;`: the package ID, the Add/Remove Programs entry that the rules read, the note that the update applies only where the detection finds an older version, the approval group, the number of superseded and declined earlier versions, the note about updates of the retired type Application, and each warning.
 
 ## What the update contains
 

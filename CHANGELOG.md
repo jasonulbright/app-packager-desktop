@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [2026.1111.28] - 2026-11-11
+
+### Changed
+
+- The result of a WSUS publish now says that a WSUS update applies only where the detection finds an older version of the application, so WSUS cannot give a first install of it. The status of a WSUS-only row reads "Published (updates only)" or "Already on the server (updates only)". The result message, the log and the One Click report carry the same note.
+
 ## [2026.1110.27] - 2026-11-10
 
 ### Fixed

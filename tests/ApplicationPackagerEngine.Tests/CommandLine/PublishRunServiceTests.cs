@@ -69,7 +69,7 @@ public sealed class PublishRunServiceTests : IDisposable
         Assert.False(run.StageFailed);
         Assert.Equal(1, publisher.Calls);
         Assert.Equal((WsusStepStatus.Published, id.ToString()), (run.Step!.Status, run.Step.PackageId));
-        Assert.Equal((PublishRowOutcomeKind.Success, "Published"), (run.Outcome!.Kind, row.Status));
+        Assert.Equal((PublishRowOutcomeKind.Success, "Published (updates only)"), (run.Outcome!.Kind, row.Status));
         Assert.Equal($"  Stage manifest found: {row.StagedManifestPath}", log[0]);
         Assert.Equal("WSUS publish: " + run.Step.Message, log[^1]);
     }
@@ -99,8 +99,8 @@ public sealed class PublishRunServiceTests : IDisposable
 
         var run = await Service(publisher).PublishWsusRowAsync(row, null, _ => { }, CancellationToken.None);
 
-        Assert.Equal((PublishRowOutcomeKind.Success, "Already on the server"), (run.Outcome!.Kind, row.Status));
-        Assert.Null(row.StatusDetail);
+        Assert.Equal((PublishRowOutcomeKind.Success, "Already on the server (updates only)"), (run.Outcome!.Kind, row.Status));
+        Assert.Equal(WsusPublishService.UpdatesOnlySentence, row.StatusDetail);
     }
 
     [Fact]
