@@ -284,6 +284,105 @@ public sealed class IntunePublishServiceTests : IDisposable
         await Assert.ThrowsAnyAsync<Exception>(() => svc.PublishAsync(package, Manifest(), Options()));
     }
 
+    // ---- the hardware minimums of a converted app ----
+
+    private static IntuneConversionOverrides Conversion(Dictionary<string, int> minimums) => new(
+        [new JsonObject
+        {
+            ["@odata.type"] = "#microsoft.graph.win32LobAppFileSystemRule",
+            ["ruleType"] = "detection",
+            ["path"] = @"C:\Program Files\Contoso",
+            ["fileOrFolderName"] = "app.exe",
+            ["check32BitOn64System"] = false,
+            ["operationType"] = "exists",
+            ["operator"] = "notConfigured",
+            ["comparisonValue"] = null
+        }],
+        [new JsonObject { ["returnCode"] = 0, ["type"] = "success" }],
+        "basedOnReturnCode", minimums, "x64");
+
+    private async Task<JsonObject> CreatedBodyOfAConvertedApp(Dictionary<string, int> minimums)
+    {
+        var handler = BuildHandler(NoApps);
+        using var svc = new IntunePublishService(handler);
+        await svc.PublishAsync(IntuneWinFixture.Create(_dir), Manifest(), Options(), conversion: Conversion(minimums));
+        var create = handler.Requests.Single(r => r.Method == HttpMethod.Post && r.Uri.EndsWith("/deviceAppManagement/mobileApps"));
+        return (JsonObject)JsonNode.Parse(create.Body)!;
+    }
+
+    [Fact]
+    public async Task Publish_OfAConvertedApp_SendsAllFourHardwareMinimums()
+    {
+        var body = await CreatedBodyOfAConvertedApp(new()
+        {
+            ["MinimumMemoryInMB"] = 4096, ["MinimumNumberOfProcessors"] = 2, ["MinimumCpuSpeedInMHz"] = 2400, ["MinimumFreeDiskSpaceInMB"] = 1024
+        });
+
+        Assert.Equal(4096, (int?)body["minimumMemoryInMB"]);
+        Assert.Equal(2, (int?)body["minimumNumberOfProcessors"]);
+        Assert.Equal(2400, (int?)body["minimumCpuSpeedInMHz"]);
+        Assert.Equal(1024, (int?)body["minimumFreeDiskSpaceInMB"]);
+    }
+
+    [Fact]
+    public async Task Publish_OfAConvertedApp_SendsZeroForAMinimumThatIsNotSet_SoARepeatPublishClearsAnOldOne()
+    {
+        var body = await CreatedBodyOfAConvertedApp(new() { ["MinimumMemoryInMB"] = 4096 });
+
+        Assert.Equal(4096, (int?)body["minimumMemoryInMB"]);
+        Assert.Equal(0, (int?)body["minimumNumberOfProcessors"]);
+        Assert.Equal(0, (int?)body["minimumCpuSpeedInMHz"]);
+        Assert.Equal(0, (int?)body["minimumFreeDiskSpaceInMB"]);
+    }
+
+    [Fact]
+    public async Task Publish_OfAConvertedApp_TheUpdateOfAnExistingAppClearsTheMinimumsThatTheConversionNoLongerHas()
+    {
+        var handler = BuildHandler(ExistingApp);
+        using var svc = new IntunePublishService(handler);
+
+        await svc.PublishAsync(IntuneWinFixture.Create(_dir), Manifest(), Options(), conversion: Conversion([]));
+
+        var patch = handler.Requests.Last(r => r.Method == HttpMethod.Patch);
+        var body = (JsonObject)JsonNode.Parse(patch.Body)!;
+        Assert.Equal(0, (int?)body["minimumFreeDiskSpaceInMB"]);
+        Assert.Equal(0, (int?)body["minimumCpuSpeedInMHz"]);
+    }
+
+    [Fact]
+    public async Task Publish_OfAConvertedApp_IgnoresAKeyThatIsNotAHardwareMinimum()
+    {
+        var body = await CreatedBodyOfAConvertedApp(new() { ["MinimumColor"] = 5 });
+
+        Assert.Null(body["minimumColor"]);
+    }
+
+    [Fact]
+    public async Task Publish_OfAConvertedApp_RefusesANegativeMinimumBeforeTheFirstGraphCall()
+    {
+        var handler = BuildHandler(NoApps);
+        using var svc = new IntunePublishService(handler);
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            svc.PublishAsync(IntuneWinFixture.Create(_dir), Manifest(), Options(), conversion: Conversion(new() { ["MinimumFreeDiskSpaceInMB"] = -1 })));
+
+        Assert.Contains("MinimumFreeDiskSpaceInMB", ex.Message);
+        Assert.Empty(handler.Requests);
+    }
+
+    [Fact]
+    public async Task Publish_OfAStageThatIsNotConverted_SendsNoHardwareMinimum()
+    {
+        var handler = BuildHandler(NoApps);
+        using var svc = new IntunePublishService(handler);
+        await svc.PublishAsync(IntuneWinFixture.Create(_dir), Manifest(), Options());
+        var create = handler.Requests.Single(r => r.Method == HttpMethod.Post && r.Uri.EndsWith("/deviceAppManagement/mobileApps"));
+
+        Assert.DoesNotContain("minimumFreeDiskSpaceInMB", create.Body);
+        Assert.DoesNotContain("minimumCpuSpeedInMHz", create.Body);
+        Assert.DoesNotContain("minimumMemoryInMB", create.Body);
+    }
+
     [Fact]
     public async Task Publish_WhenAppMissing_CreatesApp()
     {

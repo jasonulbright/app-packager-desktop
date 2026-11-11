@@ -142,6 +142,11 @@ public sealed class IntunePublishService : IDisposable
         if (IntuneCompatibilityFindings.RefusalMessage(findings) is { } refusal)
             throw new InvalidOperationException(refusal);
 
+        if (conversion is not null)
+            foreach (var (key, _) in HardwareMinimums)
+                if (conversion.Minimums.TryGetValue(key, out var minimum) && minimum < 0)
+                    throw new InvalidOperationException($"The hardware minimum {key} is {minimum}; a minimum cannot be negative.");
+
         var rules = conversion is null
             ? BuildRules(manifest.Detection, scriptSigning)
             : new JsonArray(CloneAll(conversion.Rules, "rules"));
@@ -227,8 +232,14 @@ public sealed class IntunePublishService : IDisposable
         };
         if (conversion is not null)
         {
-            if (conversion.Minimums.TryGetValue("MinimumMemoryInMB", out var memory)) appBody["minimumMemoryInMB"] = memory;
-            if (conversion.Minimums.TryGetValue("MinimumNumberOfProcessors", out var processors)) appBody["minimumNumberOfProcessors"] = processors;
+            // All four hardware minimums of the Graph resource. A minimum that the conversion does not
+            // carry is sent as 0 (no minimum), so a repeat publish clears a value that an earlier
+            // publish set and that the app no longer has.
+            foreach (var (key, property) in HardwareMinimums)
+            {
+                var value = conversion.Minimums.TryGetValue(key, out var carried) ? carried : 0;
+                appBody[property] = value;
+            }
         }
 
         // largeIcon is a mimeContent (type + base64 bytes) on the app entity,
@@ -1202,6 +1213,15 @@ public sealed class IntunePublishService : IDisposable
 
     private static JsonObject ReturnCode(int code, string type)
         => new() { ["returnCode"] = code, ["type"] = type };
+
+    /// <summary>The hardware minimums of a converted app and the Graph properties that carry them.</summary>
+    private static readonly (string Key, string Property)[] HardwareMinimums =
+    [
+        ("MinimumMemoryInMB", "minimumMemoryInMB"),
+        ("MinimumNumberOfProcessors", "minimumNumberOfProcessors"),
+        ("MinimumCpuSpeedInMHz", "minimumCpuSpeedInMHz"),
+        ("MinimumFreeDiskSpaceInMB", "minimumFreeDiskSpaceInMB")
+    ];
 
     private static string FirstNonBlank(string? candidate, string fallback)
         => string.IsNullOrWhiteSpace(candidate) ? fallback : candidate;
