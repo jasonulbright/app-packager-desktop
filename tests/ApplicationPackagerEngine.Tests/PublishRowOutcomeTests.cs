@@ -12,8 +12,8 @@ public class PublishRowOutcomeTests
     private static readonly WsusStepResult WsusAgainWarned = new(WsusStepStatus.AlreadyPublished, "already on the server x; approval for P failed: no", [], ["approval for P failed: no"]);
 
     [Theory]
-    [InlineData("ok", PublishRowOutcomeKind.Success, "Published (updates only)", true, "WSUS: this update applies only to a computer that already has an older version of the application and does not install it on a computer without it.")]
-    [InlineData("again", PublishRowOutcomeKind.Success, "Already on the server (updates only)", true, "WSUS: this update applies only to a computer that already has an older version of the application and does not install it on a computer without it.")]
+    [InlineData("ok", PublishRowOutcomeKind.Success, "Published (updates only)", true, "This update applies only where the detection finds an older version of the application, so WSUS cannot give a first install of it.")]
+    [InlineData("again", PublishRowOutcomeKind.Success, "Already on the server (updates only)", true, "This update applies only where the detection finds an older version of the application, so WSUS cannot give a first install of it.")]
     [InlineData("againWarned", PublishRowOutcomeKind.Success, "Already on the server (updates only), warning", true, "already on the server x; approval for P failed: no")]
     [InlineData("warned", PublishRowOutcomeKind.Success, "Published (updates only), warning", true, "published x; approval for P failed: no")]
     [InlineData("refused", PublishRowOutcomeKind.NotSupported, "not supported: InstallerTypeUnsupported,CustomInstall", false, "cannot")]

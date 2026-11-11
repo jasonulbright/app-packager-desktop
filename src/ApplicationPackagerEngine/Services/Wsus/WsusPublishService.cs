@@ -63,10 +63,10 @@ public sealed class WsusPublishService(IWsusAdapterRunner? runner = null, WsusRu
     /// What a WSUS update does and does not do. The update applies only where the detection finds the
     /// product with an older version, so WSUS cannot give a first install of the application.
     /// </summary>
-    public const string UpdatesOnlyNote = "applies only to a computer that already has an older version of the application and does not install it on a computer without it";
+    public const string UpdatesOnlyNote = "applies only where the detection finds an older version of the application, so WSUS cannot give a first install of it";
 
     /// <summary>The same note as a sentence for a result detail or a report.</summary>
-    public const string UpdatesOnlySentence = "WSUS: this update " + UpdatesOnlyNote + ".";
+    public const string UpdatesOnlySentence = "This update " + UpdatesOnlyNote + ".";
 
     /// <summary>Exit codes an EXE reports; any other code fails the install.</summary>
     public static readonly IReadOnlyList<(int Code, string Result, bool Reboot)> ExeReturnCodes =

@@ -141,7 +141,7 @@ public class WsusPublishServiceTests : IDisposable
             (plan["ReturnCodes"] as JsonArray)!.Select(n => (n!["Code"]!.GetValue<int>(), n["Result"]!.GetValue<string>(), n["Reboot"]!.GetValue<bool>())));
         Assert.Equal(["PublishPrepare", "Publish"], runner.Calls.Select(c => c.Operation));
         Assert.DoesNotContain("rules read", result.Message);
-        Assert.Equal($"published {expectedId}; applies only to a computer that already has an older version of the application and does not install it on a computer without it", result.Message);
+        Assert.Equal($"published {expectedId}; applies only where the detection finds an older version of the application, so WSUS cannot give a first install of it", result.Message);
     }
 
     [Fact]

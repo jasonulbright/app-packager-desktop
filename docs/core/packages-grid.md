@@ -65,8 +65,8 @@ The color of the status text follows the value. Green: **Staged**, **Packaged**,
 | **Skipped** | The row was left out. The reason is a canceled **Configure** dialog, an existing application that you kept, or a local source folder that you did not choose. |
 | **Packaging...**, **Packaged** | **Publish to ConfigMgr** is working, or it succeeded. |
 | **Package error** | The ConfigMgr publish ended with an exit code other than 0. |
-| **Published**, **Publish error** | The Intune-only or WSUS-only publish succeeded, or it failed. |
-| **Published (updates only)**, **Already on the server (updates only)**, and the same with **, warning** | The WSUS publish succeeded, the WSUS update for this version existed already, or a follow-up step gave a warning. A WSUS update reaches only a computer that already has an older version of the application. It does not install the application on a computer without it. |
+| **Published**, **Publish error** | The Intune-only publish succeeded, or the Intune-only or WSUS-only publish failed. A WSUS-only success reads **Published (updates only)**. |
+| **Published (updates only)**, **Already on the server (updates only)**, and the same with **, warning** | The WSUS publish succeeded, the WSUS update for this version existed already, or a follow-up step gave a warning. A WSUS update applies only where the detection finds an older version of the application, so WSUS cannot give a first install of it. |
 | `not supported: <codes>` | WSUS refused the application. See [WSUS publishing](wsus-publishing.md). |
 
 A WSUS run that follows a ConfigMgr publish adds a suffix such as `, WSUS not supported`, `, WSUS failed` or `, WSUS warning`. The One Click statuses are in [One Click](one-click.md). **Check Latest** sets no tooltip. A WSUS publish sets the tooltip text of the **Status** cell. The spelling **Canceled** (one l) also appears in a publish status. It comes from the internal name of the outcome.

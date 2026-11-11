@@ -462,11 +462,15 @@ public static class OneClickPlanner
     /// </summary>
     public static (string Cell, string Detail, string Id, bool Ok, bool AlreadyPresent) WsusResult(WsusStepResult step) => step.Status switch
     {
-        WsusStepStatus.Published => ("published " + step.PackageId, WsusPublishService.UpdatesOnlySentence, step.PackageId, true, false),
-        WsusStepStatus.AlreadyPublished => ("already on the server " + step.PackageId, WsusPublishService.UpdatesOnlySentence, step.PackageId, true, true),
+        WsusStepStatus.Published => ("published " + step.PackageId, SuccessDetail(step), step.PackageId, true, false),
+        WsusStepStatus.AlreadyPublished => ("already on the server " + step.PackageId, SuccessDetail(step), step.PackageId, true, true),
         WsusStepStatus.Refused => (step.NotSupportedReason, step.Message, "", false, false),
         _ => (string.IsNullOrWhiteSpace(step.Message) ? "failed" : "failed: " + step.Message, step.Message, "", false, false)
     };
+
+    /// <summary>The detail of a WSUS success: the full result when a follow-up step warned, else the updates-only note.</summary>
+    private static string SuccessDetail(WsusStepResult step) =>
+        step.Warnings.Count > 0 ? step.Message : WsusPublishService.UpdatesOnlySentence;
 
     /// <summary>True for a result cell that counts as neither a publish nor a failure.</summary>
     public static bool IsSkipOrRefusal(string cell) =>

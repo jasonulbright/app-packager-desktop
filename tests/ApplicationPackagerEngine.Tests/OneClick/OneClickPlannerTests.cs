@@ -520,8 +520,11 @@ public sealed class OneClickPlannerTests
         var reused = OneClickPlanner.WsusResult(new WsusStepResult(WsusStepStatus.AlreadyPublished, "already", [], [], "id-1"));
         Assert.Equal(("already on the server id-1", "id-1", true, true), (reused.Cell, reused.Id, reused.Ok, reused.AlreadyPresent));
         var published = OneClickPlanner.WsusResult(new WsusStepResult(WsusStepStatus.Published, "p", [], [], "id-2"));
-        Assert.Equal(("published id-2", "WSUS: this update applies only to a computer that already has an older version of the application and does not install it on a computer without it."), (published.Cell, published.Detail));
-        Assert.Equal("WSUS: this update applies only to a computer that already has an older version of the application and does not install it on a computer without it.", reused.Detail);
+        Assert.Equal(("published id-2", "This update applies only where the detection finds an older version of the application, so WSUS cannot give a first install of it."), (published.Cell, published.Detail));
+        Assert.Equal("This update applies only where the detection finds an older version of the application, so WSUS cannot give a first install of it.", reused.Detail);
         Assert.Equal("failed: server down", OneClickPlanner.WsusResult(new WsusStepResult(WsusStepStatus.Failed, "server down", [], [])).Cell);
+        // A follow-up warning is not hidden behind the note.
+        var warned = OneClickPlanner.WsusResult(new WsusStepResult(WsusStepStatus.Published, "published id-3; approval for P failed: no", [], ["approval for P failed: no"], "id-3"));
+        Assert.Equal("published id-3; approval for P failed: no", warned.Detail);
     }
 }

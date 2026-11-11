@@ -256,7 +256,7 @@ Result (2026-11-10): as described.
 
 A WSUS update applies only where the detection finds the application with an older version. WSUS does not install the application on a computer that does not have it. The result of a WSUS publish said "Published" or "Already on the server" and did not say that (review finding C3).
 
-The result now says it in three places: the WSUS result message and the log line (`published <id>; applies only to a computer that already has an older version of the application and does not install it on a computer without it`), the status of a WSUS-only publish row (`Published (updates only)`, `Already on the server (updates only)`, with `, warning` after it when a follow-up step failed), and the detail of the WSUS result in One Click and its report.
+The result now says it in three places: the WSUS result message and the log line (`published <id>; applies only where the detection finds an older version of the application, so WSUS cannot give a first install of it`), the status of a WSUS-only publish row (`Published (updates only)`, `Already on the server (updates only)`, with `, warning` after it when a follow-up step failed), and the detail of the WSUS result in One Click and its report.
 
 | Test class | What it proves |
 |---|---|
