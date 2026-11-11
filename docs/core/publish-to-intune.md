@@ -96,6 +96,12 @@ A storage error message shows the endpoint path and the HTTP status. It does not
 | Info | `TimingNotApplied` | Runtime minutes are not sent. |
 | Info | `SetupFileFromPackage` | The setup file comes from the `.intunewin` metadata. |
 
+## Repeat publish of an unchanged package
+
+The notes of an app that the program publishes carry two lines of its own at the end: the identity tag (`AppPackager:...`) and the digest of the package (`AppPackagerContent:...`). A repeat publish compares the digest of the `.intunewin` file with the digest in the notes of the existing app. When they are the same, and the app has committed content, the program does not upload the package again. It updates only the app (name, description, commands, rules, minimum Windows release, restart behavior, icon) and the log says `Intune content unchanged   : upload skipped`.
+
+The digest belongs to the `.intunewin` file, which the content prep tool encrypts with new keys at each build. So the upload is skipped when Stage's file is reused (`Intunewin reused`), and it is not skipped after a new build, even from the same source files. An app that an earlier release published has no digest line, so its next publish uploads once and records the digest. Do not remove or edit the two lines in the notes: without them the next publish uploads again.
+
 ## Requirement rules
 
 The ConfigMgr requirement rules of an application (from its manifest and from the saved deployment conditions) go to Intune as PowerShell requirement rules. Each script prints `True` or `False`, and the rule passes when the script prints `True` (or `False` for a rule that expects `False`). The rule runs as the system account in the 64-bit PowerShell. The scripts that the program writes itself (WMI value, language) are not signed. The script of a script condition (for example `vpn-connected`) follows the signing policy of the requirement category: with **Sign requirement scripts** it is signed, and with **Require valid requirement signatures** it must be signed, or the publish stops before the first Graph call, and the rule sets `enforceSignatureCheck`. The setting **Require valid detection signatures** does not apply to requirement scripts.

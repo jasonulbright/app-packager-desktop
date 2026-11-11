@@ -141,6 +141,148 @@ public sealed class IntunePublishServiceTests : IDisposable
         Assert.Contains(patches, p => p.Body.Contains("\"minimumSupportedWindowsRelease\":\"Windows11_23H2\""));
     }
 
+    // ---- a repeat publish of an unchanged package ----
+
+    private const string IdentityLine = "AppPackager:legacy:Contoso-App/default";
+    private const string ContentLine = "AppPackagerContent:DIGEST";
+
+    private static string ExistingAppWith(string notesJsonText, string? committedContentVersion = "3") =>
+        "{\"value\":[{\"id\":\"app-existing\",\"@odata.type\":\"#microsoft.graph.win32LobApp\"," +
+        (committedContentVersion is null ? "" : $"\"committedContentVersion\":\"{committedContentVersion}\",") +
+        $"\"notes\":\"{notesJsonText}\"}}]}}";
+
+    private static bool UploadedContent(FakeGraphHandler handler) =>
+        handler.Requests.Any(r => r.Uri.EndsWith("/contentVersions") || r.Uri.Contains("blob.core.windows.net"));
+
+    [Fact]
+    public async Task Publish_OfAnUnchangedPackage_SkipsTheUploadAndUpdatesOnlyTheApp()
+    {
+        var package = IntuneWinFixture.Create(_dir);
+        var handler = BuildHandler(ExistingAppWith($"{IdentityLine}\\n{ContentLine}"));
+        using var svc = new IntunePublishService(handler);
+        var log = new List<string>();
+
+        var appId = await svc.PublishAsync(package, Manifest(), Options(), log.Add);
+
+        Assert.Equal("app-existing", appId);
+        Assert.False(UploadedContent(handler));
+        var patch = Assert.Single(handler.Requests, r => r.Method == HttpMethod.Patch);
+        Assert.EndsWith("/deviceAppManagement/mobileApps/app-existing", patch.Uri);
+        Assert.DoesNotContain("committedContentVersion", patch.Body);
+        Assert.Contains("\"minimumSupportedWindowsRelease\"", patch.Body);
+        Assert.Contains($"{IdentityLine}\\n{ContentLine}", patch.Body);
+        Assert.Contains(log, l => l.Contains("upload skipped"));
+        Assert.Contains(log, l => l.StartsWith("Published to Intune"));
+    }
+
+    [Fact]
+    public async Task Publish_OfAnUnchangedPackage_StillUpdatesTheMetadataOfTheApp()
+    {
+        var package = IntuneWinFixture.Create(_dir);
+        var handler = BuildHandler(ExistingAppWith($"{IdentityLine}\\n{ContentLine}"));
+        using var svc = new IntunePublishService(handler);
+        var options = Options();
+        options.MinimumSupportedWindowsRelease = "Windows11_23H2";
+
+        await svc.PublishAsync(package, Manifest(), options);
+
+        var patch = Assert.Single(handler.Requests, r => r.Method == HttpMethod.Patch);
+        Assert.Contains("\"minimumSupportedWindowsRelease\":\"Windows11_23H2\"", patch.Body);
+        Assert.Contains("\"installCommandLine\":\"install.bat\"", patch.Body);
+    }
+
+    [Fact]
+    public async Task Publish_WhenThePackageDigestDiffers_UploadsAndRecordsTheNewDigest()
+    {
+        var package = IntuneWinFixture.Create(_dir);
+        var handler = BuildHandler(ExistingAppWith($"{IdentityLine}\\nAppPackagerContent:OLD-DIGEST"));
+        using var svc = new IntunePublishService(handler);
+
+        await svc.PublishAsync(package, Manifest(), Options());
+
+        Assert.True(UploadedContent(handler));
+        var patch = handler.Requests.Last(r => r.Method == HttpMethod.Patch);
+        Assert.Contains("\"committedContentVersion\":\"7\"", patch.Body);
+        Assert.Contains($"{IdentityLine}\\n{ContentLine}", patch.Body);
+        Assert.DoesNotContain("OLD-DIGEST", patch.Body);
+    }
+
+    [Fact]
+    public async Task Publish_OfAnAppThatNeverHadContentCommitted_UploadsEvenWhenTheNotesCarryTheDigest()
+    {
+        // A first publish that stopped after it created the app leaves the digest in the notes and no content.
+        var package = IntuneWinFixture.Create(_dir);
+        var handler = BuildHandler(ExistingAppWith($"{IdentityLine}\\n{ContentLine}", committedContentVersion: null));
+        using var svc = new IntunePublishService(handler);
+
+        await svc.PublishAsync(package, Manifest(), Options());
+
+        Assert.True(UploadedContent(handler));
+    }
+
+    [Fact]
+    public async Task Publish_OfAnAppThatEarlierReleasesPublished_UploadsOnceAndRecordsTheDigest()
+    {
+        var package = IntuneWinFixture.Create(_dir);
+        var handler = BuildHandler(ExistingAppWith(IdentityLine));
+        using var svc = new IntunePublishService(handler);
+
+        await svc.PublishAsync(package, Manifest(), Options());
+
+        Assert.True(UploadedContent(handler));
+        Assert.Contains(ContentLine, handler.Requests.Last(r => r.Method == HttpMethod.Patch).Body);
+    }
+
+    [Fact]
+    public async Task Publish_OfANewApp_RecordsTheDigestInTheNotesOfTheCreate()
+    {
+        var package = IntuneWinFixture.Create(_dir);
+        var handler = BuildHandler(NoApps);
+        using var svc = new IntunePublishService(handler);
+
+        await svc.PublishAsync(package, Manifest(), Options());
+
+        var create = handler.Requests.Single(r => r.Method == HttpMethod.Post && r.Uri.EndsWith("/deviceAppManagement/mobileApps"));
+        Assert.Contains($"\"notes\":\"{IdentityLine}\\n{ContentLine}\"", create.Body);
+    }
+
+    [Fact]
+    public async Task Publish_KeepsTheLinesOfTheOperatorAndReplacesTheOldDigestLine()
+    {
+        var package = IntuneWinFixture.Create(_dir);
+        var handler = BuildHandler(ExistingAppWith($"Owner: desktop team\\n{IdentityLine}\\nAppPackagerContent:OLD"));
+        using var svc = new IntunePublishService(handler);
+
+        await svc.PublishAsync(package, Manifest(), Options());
+
+        var patch = handler.Requests.Last(r => r.Method == HttpMethod.Patch);
+        Assert.Contains($"\"notes\":\"Owner: desktop team\\n{IdentityLine}\\n{ContentLine}\"", patch.Body);
+    }
+
+    [Fact]
+    public async Task Publish_WhenThePackageCarriesNoDigest_AlwaysUploads()
+    {
+        var package = IntuneWinFixture.Create(_dir, detectionXml: IntuneWinFixture.DetectionXml().Replace("<FileDigest>DIGEST</FileDigest>", "<FileDigest></FileDigest>"));
+        var handler = BuildHandler(ExistingAppWith($"{IdentityLine}\\nAppPackagerContent:"));
+        using var svc = new IntunePublishService(handler);
+
+        await svc.PublishAsync(package, Manifest(), Options());
+
+        Assert.True(UploadedContent(handler));
+        Assert.DoesNotContain("AppPackagerContent:", handler.Requests.Last(r => r.Method == HttpMethod.Patch).Body);
+    }
+
+    [Fact]
+    public async Task Publish_WhenAnUnchangedPackageUpdateFails_ThePublishFails()
+    {
+        var package = IntuneWinFixture.Create(_dir);
+        var handler = BuildHandler(ExistingAppWith($"{IdentityLine}\\n{ContentLine}"),
+            request => request.Method == HttpMethod.Patch ? new HttpResponseMessage(HttpStatusCode.BadRequest) { Content = new StringContent("bad") } : null);
+        using var svc = new IntunePublishService(handler);
+
+        await Assert.ThrowsAnyAsync<Exception>(() => svc.PublishAsync(package, Manifest(), Options()));
+    }
+
     [Fact]
     public async Task Publish_WhenAppMissing_CreatesApp()
     {

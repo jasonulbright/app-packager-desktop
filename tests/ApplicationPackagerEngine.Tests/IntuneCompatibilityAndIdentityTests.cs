@@ -173,7 +173,7 @@ public sealed class IntuneCompatibilityAndIdentityTests : IDisposable
         await svc.PublishAsync(IntuneWinFixture.Create(_dir), manifest, Options());
 
         var update = handler.Requests.First(r => r.Method == HttpMethod.Patch && r.Uri.EndsWith("/mobileApps/app-former"));
-        Assert.Contains("\"notes\":\"AppPackager:catalog:contoso/default\"", update.Body);
+        Assert.Contains("\"notes\":\"AppPackager:catalog:contoso/default\\nAppPackagerContent:", update.Body);
     }
 
     [Fact]
@@ -219,7 +219,7 @@ public sealed class IntuneCompatibilityAndIdentityTests : IDisposable
         await svc.PublishAsync(IntuneWinFixture.Create(_dir), Manifest(), Options());
 
         var create = handler.Requests.Single(r => r.Method == HttpMethod.Post && r.Uri.EndsWith("/deviceAppManagement/mobileApps"));
-        Assert.Contains("\"notes\":\"AppPackager:legacy:Contoso-App/default\"", create.Body);
+        Assert.Contains("\"notes\":\"AppPackager:legacy:Contoso-App/default\\nAppPackagerContent:", create.Body);
         Assert.Contains("\"deviceRestartBehavior\":\"basedOnReturnCode\"", create.Body);
     }
 
@@ -292,7 +292,7 @@ public sealed class IntuneCompatibilityAndIdentityTests : IDisposable
 
         Assert.DoesNotContain(handler.Requests, r => r.Uri.Contains("/mobileApps/other-profile"));
         var create = handler.Requests.Single(r => r.Method == HttpMethod.Post && r.Uri.EndsWith("/deviceAppManagement/mobileApps"));
-        Assert.Contains("\"notes\":\"AppPackager:legacy:Contoso-App/default\"", create.Body);
+        Assert.Contains("\"notes\":\"AppPackager:legacy:Contoso-App/default\\nAppPackagerContent:", create.Body);
     }
 
     [Fact]
@@ -307,7 +307,7 @@ public sealed class IntuneCompatibilityAndIdentityTests : IDisposable
         await svc.PublishAsync(IntuneWinFixture.Create(_dir), Manifest(), Options());
 
         var update = handler.Requests.First(r => r.Method == HttpMethod.Patch && r.Uri.EndsWith("/mobileApps/app-tagged"));
-        Assert.Contains($"\"notes\":\"Owner: desktop team\\r\\nTicket 4411\\r\\n{tag}\"", update.Body);
+        Assert.Contains($"\"notes\":\"Owner: desktop team\\r\\nTicket 4411\\r\\n{tag}\\r\\nAppPackagerContent:", update.Body);
         Assert.DoesNotContain(handler.Requests, r => Uri.UnescapeDataString(r.Uri).Contains("displayName eq"));
     }
 
@@ -320,6 +320,32 @@ public sealed class IntuneCompatibilityAndIdentityTests : IDisposable
     public void TheTagReplacesAnyEarlierTagLineAndKeepsTheRest(string? notes, string expected)
     {
         Assert.Equal(expected.Replace("T", "AppPackager:x/default"), IntunePublishService.NotesWithTag(notes, "AppPackager:x/default"));
+    }
+
+    [Theory]
+    [InlineData(null, "T\nC")]
+    [InlineData("", "T\nC")]
+    [InlineData("note", "note\nT\nC")]
+    [InlineData("note\r\nAppPackager:old/default\r\nAppPackagerContent:old\r\n", "note\r\nT\r\nC")]
+    [InlineData("AppPackagerContent:old", "T\nC")]
+    [InlineData("AppPackager:old/default\nnote after", "note after\nT\nC")]
+    public void TheContentLineIsWrittenAfterTheTagAndReplacesAnEarlierOne(string? notes, string expected)
+    {
+        Assert.Equal(expected.Replace("T", "AppPackager:x/default").Replace("C", "AppPackagerContent:d1"),
+            IntunePublishService.NotesWithTag(notes, "AppPackager:x/default", "AppPackagerContent:d1"));
+    }
+
+    [Fact]
+    public void TheContentLineIsNotAnIdentityTagAndDoesNotChangeWhoseAppItIs()
+    {
+        const string notes = "AppPackager:x/default\nAppPackagerContent:d1";
+
+        Assert.True(IntunePublishService.CarriesTag(notes, "AppPackager:x/default"));
+        Assert.False(IntunePublishService.CarriesAnyTag("AppPackagerContent:d1"));
+        Assert.True(IntunePublishService.CarriesOnlyTagsOf(notes, ["AppPackager:x/default"]));
+        Assert.True(IntunePublishService.CarriesContentTag(notes, "AppPackagerContent:d1"));
+        Assert.False(IntunePublishService.CarriesContentTag(notes, "AppPackagerContent:d2"));
+        Assert.False(IntunePublishService.CarriesContentTag("see AppPackagerContent:d1 here", "AppPackagerContent:d1"));
     }
 
     [Fact]

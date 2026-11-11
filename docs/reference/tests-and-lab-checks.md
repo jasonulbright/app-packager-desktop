@@ -339,3 +339,14 @@ Every Intune app was published with the restart behavior `basedOnReturnCode`, wh
 | `IntuneCompatibilityAndIdentityTests` | Each behavior gives its restart behavior (also in other letter case, with spaces, with no value, and with an unknown value); the conversion of a ConfigMgr application gives the same result as the publish for every behavior. |
 
 **Lab check.** None. The lab has no Intune tenant. The tests check the value that the program sends.
+
+## Intune publish: an unchanged package is not uploaded again
+
+A repeat publish of an app always created a new content version and uploaded the whole payload, even when the `.intunewin` file was the one that the app already held (review finding B6). The notes of the app now record the digest of the package (`AppPackagerContent:<digest>`, after the identity tag), and a repeat publish whose package has the same digest, for an app that has committed content, skips the upload and updates only the app.
+
+| Test class | What it proves |
+|---|---|
+| `IntunePublishServiceTests` | An unchanged package makes no content-version request and no blob upload, and sends one update of the app without `committedContentVersion` and with the identity and content lines; the metadata of the app (minimum release, commands) still changes; a different digest uploads, commits and records the new digest; an app with the digest in its notes but no committed content uploads; an app from an earlier release (no digest line) uploads once and records the digest; a new app records the digest in the notes of the create; the lines of the operator are kept and an old digest line is replaced; a package with no digest always uploads and writes no digest line; a failed update of an unchanged package fails the publish. |
+| `IntuneCompatibilityAndIdentityTests` | The notes keep the identity tag first and the content line after it, in the style of the operator's line endings; the content line is never an identity tag (it does not change which app is found); an exact line match is needed. |
+
+**Lab check.** None. The lab has no Intune tenant. The tests check the requests that the program sends. They do not show that Graph accepts an update of an app without a new content version, which the program relies on: the update sends the same properties as the update that activates a new content version, except `committedContentVersion`. This stays unverified against a tenant.
