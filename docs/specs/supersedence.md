@@ -18,7 +18,7 @@ This specification adds two settings:
 | Term | Meaning |
 |---|---|
 | New application | The application that this publish creates. |
-| Old application | An application of an earlier version of the same title that is already on the site. |
+| Old application | An application of an earlier version with the same marker that is already on the site. |
 | Base title | The title of the application without its version. The architecture suffix stays in it. |
 | Detection clause | One rule of the detection method of a deployment type. |
 | Version clause | A detection clause of type File or Registry value that compares a version. |
@@ -75,7 +75,7 @@ So the program applies `Exact` to a clause only when it holds a value that was r
 Supersedence needs an old application that is a separate application. It does not apply when:
 
 1. The resolved title of the new application is the same as the title of the application that is already on the site (for example the title mode is `NoVersion`, or the definition has no version in its title). There is one application, and Overwrite replaces its deployment types. The application cannot supersede itself. The program decides this from the resolved title and not from the title mode, and the lookup never returns an application with the same title as the new one. The preflight panel says so when the mode is not `Off`.
-2. The publish is a repeat of the same version (the replace path).
+2. The publish is a repeat of the same version (the replace path). The supersedence **step** does not look for a new old application, but the replace path must keep the relations that the new application already has. ConfigMgr stores supersedence on the superseding (new) deployment type, and the replace path removes the old deployment types of the application and creates new ones, which would take the relations with them. So the replace path reads the relations of the deployment types that it is about to remove, and adds them to the new deployment types after it creates them. If it cannot add one, the result is "Published, supersedence not applied" with the reason, and the retry in "Failure and retry" applies. The same read and add applies when the application is itself the old application of another one (a relation that points at its deployment types); the code step checks on the lab site whether ConfigMgr refuses to remove a deployment type that another type supersedes.
 3. The deployment type is MSIX (the program does not publish a native MSIX deployment type).
 
 ### Lookup of the old application
@@ -86,7 +86,7 @@ A title with the version removed does not identify a product line. Vendors use o
 
 **Identity record.** When the program publishes an application to ConfigMgr, it writes a marker that names the identity of the title. The marker has three parts:
 
-- The title identity: the definition identifier for a catalog title. For a title without a definition, a generated identifier that the program stores in the per-title override and that the administrator links once (see below). The base title is never used as an identity.
+- The title identity: the definition identifier for a catalog title. For a title without a definition, a generated identifier that the program stores in the entry of the line name and that the administrator links once (see below). The base title is never used as an identity.
 - The profile identifier. Each profile of a definition is its own application line. The default profile has its own identifier.
 - The architecture.
 
@@ -158,7 +158,7 @@ The program can rewrite the version clause of an old application to `Exact`. It 
 1. The program counts the old applications and clauses to change, and shows the count and the names first.
 2. The step is blocked for an old application that has a required (mandatory) deployment. A device that has a newer version, because it updated itself or got it in another way, would read "not installed" and ConfigMgr would install the old version again. The panel lists those deployments. The administrator removes the required deployment, or leaves that application out.
 3. For an application with only available deployments or none, the administrator confirms. The confirmation text says that ConfigMgr evaluates the detection again on the devices, and that a device with a newer version reads "not installed".
-4. The program rewrites only version clauses with `GreaterEquals` whose expected value is the version of that old application.
+4. The program rewrites only version clauses with `GreaterEquals` whose expected value is the version of that old application, and only when the Exact guard passes for that old application and version (the MSI `ProductVersion`, or a recorded detection-tester value). Without a matching installed value, the clause is not rewritten. The panel lists the clause and the reason. A wrong rewrite would make every device with that version read "not installed", and the uninstall of the old application would never run.
 5. The log records the application, the clause, the old operator, and the new operator. A "Restore" action reads the log and writes the old operator again. The publish script purges the revision history, so the log is the only way back.
 
 The cmdlet that changes a detection clause of an existing deployment type is confirmed on the lab site before the code is written.
@@ -192,7 +192,7 @@ WSUS keeps its own supersedence and its own "decline superseded" setting. This s
 | The supersedence cmdlet fails | "Published, supersedence not applied", with the reason. The new application stays. |
 | `Replace and uninstall` and the old deployment type has no uninstall command | The program warns before the publish. ConfigMgr cannot uninstall without a command. |
 | Detection is not a version compare (for example an existence clause) | The version rule has no effect. `Replace and uninstall` is allowed. |
-| Title mode `NoVersion` with Overwrite | Supersedence does not apply. The preflight panel says so. |
+| The resolved title equals the title that is already on the site (for example `NoVersion` with Overwrite) | Supersedence does not apply. The preflight panel says so. |
 
 ## Tests
 
@@ -208,15 +208,17 @@ Unit tests (run in CI):
 8. The script for the supersedence step (parameter text, quoting, uninstall option, existing relations are not added again).
 9. A failed supersedence step gives the separate state and keeps the new application. A second run (publish with Skip or Overwrite, and a One Click run) runs only that step. A One Click row in this state is not skipped as published. The "Apply supersedence" action runs it without a publish.
 10. The chain check gives the expected warnings.
-11. The rewrite step: changes only the clauses that it must, is blocked with a required deployment, writes the log, and "Restore" reads the log.
-12. The shipped site default is `Minimum` and `Off`, and a current user's publish output does not change.
+11. The rewrite step: changes only the clauses that it must, is blocked with a required deployment, skips a clause that fails the Exact guard and lists the reason, writes the log, and "Restore" reads the log.
+12. The shipped site default is `Minimum` and `Off`, and a current user's publish output does not change, except that it carries the identity marker.
+13. The replace path of an application that supersedes another one keeps its relations. If it cannot add one, the result is "Published, supersedence not applied".
 
-Lab tests on the ConfigMgr lab site, with the lab client. Each test checks that the **uninstall of the old application reports success** on the client. The tests use WinRM and the session that is logged on, as it is. They do not sign out, lock, disconnect, restart, or power off any lab machine.
+Lab tests on the ConfigMgr lab site, with the lab client. Tests 1, 4 and the rewrite check that the **uninstall of the old application reports success** on the client. The tests use WinRM and the session that is logged on, as it is. They do not sign out, lock, disconnect, restart, or power off any lab machine.
 
 1. `Exact` with `Replace and uninstall`.
 2. `Minimum` with `Replace` (no uninstall): the old application stays, and the new one supersedes it.
 3. The blocked combination: the program refuses it and creates nothing.
-4. The rewrite step on an old application with `GreaterEquals` and only available deployments: the clause is `Exact` afterwards, and the uninstall reports success. A second old application with a required deployment is refused. "Restore" writes the old operator again.
+4. The rewrite step on an old application with `GreaterEquals` and only available deployments: the clause is `Exact` afterwards, and the uninstall reports success. A second old application with a required deployment is refused. An old application whose installed file reports more version parts than the clause is not rewritten. "Restore" writes the old operator again.
+6. An Overwrite publish of an application that supersedes another one keeps the relations.
 5. The Exact guard: a product whose installed file version has more parts than the packaged version is blocked. A product with an equal installed value gets `Exact`, and the detection tester on the lab client reads the same value. A check of `3.7.7` against `3.7.7.0` with `IsEquals` on the lab client records how the client compares them.
 
 The lab rules apply: only the lab site server, the lab client and the lab domain controller, never more than three machines at once, no snapshot or checkpoint, and the test removes what it installed.
@@ -225,10 +227,10 @@ The lab rules apply: only the lab site server, the lab client and the lab domain
 
 One pull request for this specification. Then the implementation in four pull requests, one at a time. Each has its tests, its test documentation, a version change and a changelog entry.
 
-1. Settings, the version rule, the Exact guard, and the identity marker that every ConfigMgr publish writes (engine, publish, Options, per-title override, command line). The marker comes first so that applications published from now on can be found by the lookup.
-2. The old-application lookup, the ConfigMgr supersedence step with its separate outcome and the "Apply supersedence" action, the blocked combination in the preflight panel, and the lab tests 1 to 3.
+1. Settings, the version rule, the Exact guard, and the identity marker that every ConfigMgr publish writes (engine, publish, Options, per-title override, command line). The marker comes first so that applications published from now on can be found by the lookup. The lab confirmation of the marker field (the keywords field is visible to users in Software Center, so the marker is appended to the keywords that an administrator set and never replaces them, or another field is used) and the lab test 5 belong to this step. The command line behaves like One Click: a blocked row creates nothing, and a title without a definition gets no supersedence.
+2. The old-application lookup, the ConfigMgr supersedence step with its separate outcome and the "Apply supersedence" action, the replace path that keeps the relations, the blocked combination in the preflight panel, and the lab tests 1 to 3 and 6.
 3. The chain check.
-4. The rewrite step with "Restore", and the lab tests 4 and 5.
+4. The rewrite step with "Restore", and the lab test 4.
 
 ## Not covered
 
