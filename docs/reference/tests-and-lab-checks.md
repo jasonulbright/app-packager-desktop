@@ -266,3 +266,20 @@ The result now says it in three places: the WSUS result message and the log line
 | `OneClickPlannerTests` | The WSUS result of a published or reused update carries the note as its detail. The cell stays "published <id>". |
 
 **Lab check.** None. The change is wording. The lab has no WSUS server.
+
+## Intune publish: a file detection on size or date
+
+A file detection on the size or on a date of the file was published to Intune as "file exists". The rule detected a different state than the definition and the ConfigMgr application did (review finding B1). No shipped definition uses these properties, but an imported or hand-made definition can.
+
+The Intune rule now keeps the property:
+
+- `Size`: the definition carries bytes and the Graph rule compares whole megabytes (`sizeInMB`). A size that is not a whole number of megabytes (and a size of 0 or a text that is not a number) is refused with a message that names the reason.
+- `DateModified` and `DateCreated`: the rule is `modifiedDate` or `createdDate`, and the value is sent in UTC. A value without a UTC offset, or one that is not a date, is refused, because the offset of such a value is not known.
+- `Existence` (or no property) still gives "file exists". Any other property is refused and does not become "file exists".
+- The operator is mapped as before. A string operator (`BeginsWith` and others) on a size or date is refused.
+
+| Test class | What it proves |
+|---|---|
+| `IntuneRuleMappingTests` | A size of whole megabytes gives `sizeInMB` with the megabyte count; sizes that are not whole megabytes, zero, negative, text, and empty are refused; a date with an offset gives `modifiedDate` or `createdDate` in UTC; a date without an offset, a text that is not a date, and an empty value are refused; `Existence` in any case gives "file exists"; an unknown property is refused; a string operator on a size is refused; a size clause in an AND compound keeps its rule. |
+
+**Lab check.** None. The lab has no Intune tenant, and the Graph operation names (`sizeInMB`, `modifiedDate`, `createdDate`) are taken from the Graph reference. The tests check the rule that the program builds, not how the service stores it. This stays unverified against a tenant.

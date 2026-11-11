@@ -398,4 +398,104 @@ public class IntuneRuleMappingTests
 
         Assert.Contains("script rule", ex.Message);
     }
+
+    private static StageDetection FileProperty(string propertyType, string? expected, string? op = "GreaterEquals") => new()
+    {
+        Type = "File",
+        PropertyType = propertyType,
+        FilePath = @"C:\Program Files\Contoso",
+        FileName = "app.exe",
+        ExpectedValue = expected,
+        Operator = op
+    };
+
+    [Fact]
+    public void File_SizeInWholeMegabytes_MapsToTheSizeRule()
+    {
+        var rule = Single(FileProperty("Size", "5242880"));
+
+        Assert.Equal("#microsoft.graph.win32LobAppFileSystemRule", (string?)rule["@odata.type"]);
+        Assert.Equal("sizeInMB", (string?)rule["operationType"]);
+        Assert.Equal("greaterThanOrEqual", (string?)rule["operator"]);
+        Assert.Equal("5", (string?)rule["comparisonValue"]);
+    }
+
+    [Theory]
+    [InlineData("5242881")]
+    [InlineData("1000")]
+    [InlineData("0")]
+    [InlineData("-1048576")]
+    [InlineData("about 5 MB")]
+    [InlineData("")]
+    public void File_SizeThatIsNotAWholeNumberOfMegabytes_IsRefused(string expected)
+    {
+        var ex = Assert.Throws<InvalidOperationException>(() => IntunePublishService.BuildRules(FileProperty("Size", expected)));
+
+        Assert.Contains("whole number of megabytes", ex.Message);
+        Assert.DoesNotContain("exists", ex.Message);
+    }
+
+    [Theory]
+    [InlineData("DateModified", "modifiedDate")]
+    [InlineData("DateCreated", "createdDate")]
+    public void File_DateWithAnOffset_MapsToTheDateRuleInUtc(string propertyType, string operationType)
+    {
+        var rule = Single(FileProperty(propertyType, "2025-03-01T12:00:00+02:00", "IsEquals"));
+
+        Assert.Equal(operationType, (string?)rule["operationType"]);
+        Assert.Equal("equal", (string?)rule["operator"]);
+        Assert.Equal("2025-03-01T10:00:00Z", (string?)rule["comparisonValue"]);
+    }
+
+    [Theory]
+    [InlineData("2025-03-01 10:00:00")]
+    [InlineData("2025-03-01")]
+    [InlineData("yesterday")]
+    [InlineData("")]
+    public void File_DateWithoutAnOffsetOrNotADate_IsRefused(string expected)
+    {
+        var ex = Assert.Throws<InvalidOperationException>(() => IntunePublishService.BuildRules(FileProperty("DateModified", expected)));
+
+        Assert.Contains("UTC offset", ex.Message);
+    }
+
+    [Theory]
+    [InlineData("Existence")]
+    [InlineData("existence")]
+    public void File_ExistenceProperty_MapsToTheExistsRule(string propertyType)
+    {
+        var rule = Single(FileProperty(propertyType, null, null));
+
+        Assert.Equal("exists", (string?)rule["operationType"]);
+        Assert.Equal("notConfigured", (string?)rule["operator"]);
+        Assert.Null(rule["comparisonValue"]);
+    }
+
+    [Fact]
+    public void File_UnknownProperty_IsRefusedAndNotPublishedAsExists()
+    {
+        var ex = Assert.Throws<InvalidOperationException>(() => IntunePublishService.BuildRules(FileProperty("Checksum", "abc")));
+
+        Assert.Contains("Checksum", ex.Message);
+    }
+
+    [Fact]
+    public void File_SizeWithAStringOperator_IsRefused()
+    {
+        Assert.Throws<InvalidOperationException>(() => IntunePublishService.BuildRules(FileProperty("Size", "5242880", "BeginsWith")));
+    }
+
+    [Fact]
+    public void File_SizeInACompoundAndDetection_KeepsItsRule()
+    {
+        var rules = IntunePublishService.BuildRules(new StageDetection
+        {
+            Type = "Compound",
+            Connector = "And",
+            Clauses = [new() { Type = "RegistryKeyValue", RegistryKeyRelative = @"SOFTWARE\A", ExpectedValue = "1.2.3.4" }, FileProperty("Size", "1048576", "IsEquals")]
+        });
+
+        Assert.Equal("sizeInMB", (string?)rules[1]!["operationType"]);
+        Assert.Equal("1", (string?)rules[1]!["comparisonValue"]);
+    }
 }

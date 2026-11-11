@@ -678,6 +678,19 @@ public sealed class IntunePublishService : IDisposable
                         ["comparisonValue"] = d.ExpectedValue ?? ""
                     };
                 }
+                // Size and the two dates have their own Graph operations. A property that
+                // the rule cannot carry is refused: publishing it as "file exists" would
+                // detect a different state than the definition and ConfigMgr do.
+                var fileProperty = (d.PropertyType ?? "").Trim();
+                if (fileProperty.Equals("Size", StringComparison.OrdinalIgnoreCase))
+                    return FileValueRule(d, check32, "sizeInMB", FileSizeInMegabytes(d.ExpectedValue));
+                if (fileProperty.Equals("DateModified", StringComparison.OrdinalIgnoreCase))
+                    return FileValueRule(d, check32, "modifiedDate", FileDateInUtc(d.ExpectedValue, "modified date"));
+                if (fileProperty.Equals("DateCreated", StringComparison.OrdinalIgnoreCase))
+                    return FileValueRule(d, check32, "createdDate", FileDateInUtc(d.ExpectedValue, "created date"));
+                if (fileProperty.Length > 0 && !fileProperty.Equals("Existence", StringComparison.OrdinalIgnoreCase))
+                    throw new InvalidOperationException(
+                        $"File detection property '{d.PropertyType}' has no Intune rule mapping; the rule would publish as \"file exists\" and detect a different state. Use Version, Size, DateModified, DateCreated or Existence, or a Script detection.");
                 return new JsonObject
                 {
                     ["@odata.type"] = "#microsoft.graph.win32LobAppFileSystemRule",
@@ -752,6 +765,53 @@ public sealed class IntunePublishService : IDisposable
 
     /// <summary>Operators Graph has no rule operator for; they map to a script rule.</summary>
     private static readonly string[] ScriptOperators = ["BeginsWith", "EndsWith", "Contains"];
+
+    /// <summary>A file-system detection rule that compares the size or a date of the file.</summary>
+    private static JsonObject FileValueRule(StageDetection d, bool check32, string operationType, string comparisonValue)
+    {
+        // The same default as the ConfigMgr clause builder gives a file detection.
+        var opName = string.IsNullOrWhiteSpace(d.Operator) ? "GreaterEquals" : d.Operator!;
+        return new JsonObject
+        {
+            ["@odata.type"] = "#microsoft.graph.win32LobAppFileSystemRule",
+            ["ruleType"] = "detection",
+            ["path"] = d.FilePath ?? "",
+            ["fileOrFolderName"] = d.FileName ?? "",
+            ["check32BitOn64System"] = check32,
+            ["operationType"] = operationType,
+            ["operator"] = MapOperator(opName, "file " + (operationType == "sizeInMB" ? "size" : "date")),
+            ["comparisonValue"] = comparisonValue
+        };
+    }
+
+    /// <summary>
+    /// The size of a file detection in whole megabytes. The definition carries bytes and the
+    /// Graph rule compares megabytes, so a size that is not a whole number of megabytes
+    /// cannot keep its meaning and is refused.
+    /// </summary>
+    private static string FileSizeInMegabytes(string? bytesText)
+    {
+        const long Megabyte = 1024L * 1024L;
+        if (long.TryParse(bytesText, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var bytes)
+            && bytes > 0 && bytes % Megabyte == 0)
+            return (bytes / Megabyte).ToString(System.Globalization.CultureInfo.InvariantCulture);
+        throw new InvalidOperationException(
+            $"File size detection value '{bytesText}' is not a whole number of megabytes. The Intune rule compares the size in whole megabytes, so it cannot keep this value; use a Version or date detection, or a Script detection, or publish this application to ConfigMgr only.");
+    }
+
+    /// <summary>
+    /// A date of a file detection as UTC text. The value needs a UTC offset, because Intune
+    /// compares an absolute time and the offset of a value without one is not known.
+    /// </summary>
+    private static string FileDateInUtc(string? text, string what)
+    {
+        if (!string.IsNullOrWhiteSpace(text)
+            && System.Text.RegularExpressions.Regex.IsMatch(text.Trim(), @"(Z|[+-]\d{2}:?\d{2})$", System.Text.RegularExpressions.RegexOptions.IgnoreCase)
+            && DateTimeOffset.TryParse(text.Trim(), System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out var when))
+            return when.ToUniversalTime().ToString("yyyy-MM-dd'T'HH:mm:ss'Z'", System.Globalization.CultureInfo.InvariantCulture);
+        throw new InvalidOperationException(
+            $"File {what} detection value '{text}' is not a date with a UTC offset (for example 2025-03-01T10:00:00Z). The Intune rule compares an absolute time, so the value needs an offset.");
+    }
 
     private static string MapOperator(string name, string context)
         => RuleOperators.TryGetValue(name, out var mapped)
