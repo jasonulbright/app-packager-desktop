@@ -26,6 +26,15 @@ public class ConfigMgrPublishWarningTests
         Assert.Equal(["The application icon was not found: \\\\fs\\content\\App\\1.0\\app.png"], warnings);
     }
 
+    [Theory]
+    [InlineData("Application icon not applied : \r\nCI_ID: 1234")]
+    [InlineData("Application icon not applied :\nCI_ID: 1234")]
+    [InlineData("Application icon not found   :   \r\nCI_ID: 1234")]
+    public void AnEmptyReasonDoesNotTakeTheNextLineAsTheReason(string output)
+    {
+        Assert.Empty(MecmTarget.ReadWarnings(output));
+    }
+
     [Fact]
     public void AnIconThatWasSetIsNoWarning()
     {

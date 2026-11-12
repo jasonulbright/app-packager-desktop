@@ -650,7 +650,7 @@ public sealed partial class MecmTarget
         return (final ?? lines.LastOrDefault())?.Groups[1].Value ?? "";
     }
 
-    [System.Text.RegularExpressions.GeneratedRegex(@"^Application icon (not applied|not found)\s*:\s*(.+?)\s*$", System.Text.RegularExpressions.RegexOptions.Multiline)]
+    [System.Text.RegularExpressions.GeneratedRegex(@"^Application icon (not applied|not found)[ \t]*:[ \t]*(\S.*?)[ \t]*\r?$", System.Text.RegularExpressions.RegexOptions.Multiline)]
     private static partial System.Text.RegularExpressions.Regex IconWarningLine();
 
     /// <summary>
