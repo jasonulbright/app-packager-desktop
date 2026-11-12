@@ -63,6 +63,11 @@ public sealed class CmImportPublishTests : IDisposable
         Assert.Null(body["allowedArchitectures"]);
         Assert.Equal(4096, (int?)body["minimumMemoryInMB"]);
         Assert.Equal(2, (int?)body["minimumNumberOfProcessors"]);
+        // The importer carries no disk or CPU speed minimum; the app gets none.
+        Assert.True(body.ContainsKey("minimumFreeDiskSpaceInMB"));
+        Assert.Null(body["minimumFreeDiskSpaceInMB"]);
+        Assert.True(body.ContainsKey("minimumCpuSpeedInMHz"));
+        Assert.Null(body["minimumCpuSpeedInMHz"]);
         var rule = Assert.Single(body["rules"]!.AsArray())!.AsObject();
         Assert.Equal("#microsoft.graph.win32LobAppFileSystemRule", (string?)rule["@odata.type"]);
         Assert.Equal(("exists", "app.exe"), ((string?)rule["operationType"], (string?)rule["fileOrFolderName"]));

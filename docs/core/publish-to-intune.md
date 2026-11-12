@@ -60,6 +60,7 @@ The Win32 app carries these values:
 | Return codes | 0 and 1707 are success. 3010 is soft reboot. 1641 is hard reboot. 1618 is retry. |
 | Device restart behavior | From the post-execution behavior of the deployment type: `NoAction` gives `suppress`, `ProgramReboot` gives `allow`, `ForceReboot` gives `force`, and `BasedOnExitCode` or no value gives `basedOnReturnCode`. A forced restart restarts the device after the install, so a definition that sets `ForceReboot` (the two Visual C++ runtime definitions do) restarts devices on Intune as it does on ConfigMgr. |
 | Minimum Windows release | The setting **Minimum Windows release** in [Settings](settings-page.md) (default `Windows10_21H2`). |
+| Hardware minimums | Only for an app that was converted from ConfigMgr. All four properties of the Graph resource are sent: `minimumMemoryInMB`, `minimumNumberOfProcessors`, `minimumCpuSpeedInMHz` and `minimumFreeDiskSpaceInMB`. A minimum that the plan does not carry is sent as null (no minimum), so a repeat publish clears a value that an earlier publish set, and also a value that someone set by hand in the Intune admin center: the next publish replaces it, as it replaces the rules and the return codes. A negative minimum stops the publish before the first Graph call. |
 | Run as account | `user` for a per-user install. Otherwise `system`. |
 | Architecture | The architecture of the installer. |
 | Icon | The icon of the staged manifest, if it resolves. |

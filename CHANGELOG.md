@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [2026.1111.36] - 2026-11-11
+
+### Fixed
+
+- The Intune publish of an app that was converted from ConfigMgr now sends all four hardware minimums of the Graph resource (memory, processors, CPU speed, free disk space). Before, it sent only memory and processors. A minimum that the plan does not carry is sent as null, so a repeat publish clears an old one, also one that was set by hand in the Intune admin center. The importer still derives only memory and processors from ConfigMgr rules.
+
 ## [2026.1111.35] - 2026-11-11
 
 ### Fixed
