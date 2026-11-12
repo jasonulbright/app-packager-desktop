@@ -470,3 +470,16 @@ The probe must run before the content is copied to the share, and the package mu
 | `ConfigMgrContentStepOutcomeTests` | One script holds both steps and loads the module once; the distribution comes first and its failure ends the script; no test collection means no deployment block; each step keeps the body of its own script; the exit code names the step that failed. |
 
 **Lab check.** A ConfigMgr publish on CM01 with auto-distribute and a test collection: the log shows both steps and one module load; a missing DP group fails the distribution and creates no deployment. No sign-out and no restart. Not run in this session: the lab needs credentials that this session does not hold.
+
+## Before a publish: what it does and does not do, and the accept button
+
+The review of the outside publish asked for a preflight statement per target. The Packages page now writes one sentence per target of the run to the log (`Before publish: ...`) before anything starts, and the Intune review window repeats the sentences above its findings. The sentences say what the publish does not do: ConfigMgr does not supersede an older application and does not deploy to a production collection; Intune does not assign the app to a group; WSUS makes no first install and does not approve the update.
+
+A requirement that has no Intune rule blocks the Intune publish. The finding now carries its accept key, and the Intune review window shows **Accept dropped requirements and continue** when a finding can be accepted. The button adds the keys to `Intune.AcceptedRequirementDrops`, writes a log line for each, and continues. The next review shows the finding as `RequirementDropped` (Review).
+
+| Test class | What it proves |
+|---|---|
+| `PublishPreflightTests` | Each deployment target gets the sentences of its own targets; the sentences name what the publish does not do. |
+| `IntuneRequirementRuleTests` | The blocking finding carries the key that the button stores; the stored key turns it into the accepted finding, which cannot be accepted again. |
+
+**Lab check.** None. The window is WPF and is not exercised by a test; the dialog code adds the keys that the tests show to be accepted by the finding builder. The Intune result is not verified against a tenant.

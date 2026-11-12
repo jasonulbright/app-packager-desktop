@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [2026.1111.44] - 2026-11-12
+
+### Added
+
+- Before a publish, the Packages page writes what the publish does and does not do for each target to the log, and the Intune review window shows it. ConfigMgr does not supersede or deploy to production, Intune does not assign the app, WSUS makes no first install.
+- The Intune review window has the button **Accept dropped requirements and continue**. It stores the accepted drop of each requirement that has no Intune rule in `Intune.AcceptedRequirementDrops`, so no one edits the settings file by hand.
+
 ## [2026.1111.43] - 2026-11-12
 
 ### Changed

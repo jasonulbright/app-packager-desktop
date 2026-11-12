@@ -4,7 +4,11 @@ using ApplicationPackagerEngine.Models;
 namespace ApplicationPackagerEngine.Services;
 
 /// <summary>One thing an Intune publish of a manifest would or would not do.</summary>
-public sealed record IntuneCompatibilityFinding(string Severity, string Code, string Message);
+public sealed record IntuneCompatibilityFinding(string Severity, string Code, string Message, string? DropKey = null)
+{
+    /// <summary>True for a requirement that has no Intune rule and that an administrator can accept as dropped.</summary>
+    public bool CanAcceptDrop => DropKey is not null && Severity == IntuneCompatibilityFindings.Blocking;
+}
 
 /// <summary>
 /// What an Intune publish of a manifest would and would not do, decided before any
@@ -88,7 +92,8 @@ public static partial class IntuneCompatibilityFindings
                     $"The requirement '{id}' has no Intune rule ({translation.Gap}) and its drop is accepted for this application, so the published app is not gated by it."));
             else
                 findings.Add(new(Blocking, "RequirementNotTranslatable",
-                    $"The requirement '{id}' has no Intune rule: {translation.Gap} The app would install on devices that ConfigMgr skips. Remove the requirement, or accept its drop by adding this entry to the setting Intune.AcceptedRequirementDrops: {IntuneRequirementPlan.DropKey(manifest, id)}"));
+                    $"The requirement '{id}' has no Intune rule: {translation.Gap} The app would install on devices that ConfigMgr skips. Remove the requirement, or accept its drop by adding this entry to the setting Intune.AcceptedRequirementDrops: {IntuneRequirementPlan.DropKey(manifest, id)}",
+                    IntuneRequirementPlan.DropKey(manifest, id)));
         }
 
         if (string.IsNullOrWhiteSpace(manifest.Architecture))
