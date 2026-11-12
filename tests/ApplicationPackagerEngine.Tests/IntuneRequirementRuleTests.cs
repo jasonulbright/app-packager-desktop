@@ -233,6 +233,20 @@ public class IntuneRequirementRuleTests
     }
 
     [Fact]
+    public void TheBlockingFindingCarriesTheKeyThatTheAcceptButtonStores()
+    {
+        var m = Manifest(new StageRequirement { ConditionId = "no-such-condition" });
+        var blocking = IntuneCompatibilityFindings.Build(m).Single(f => f.Code == "RequirementNotTranslatable");
+
+        Assert.Equal(IntuneRequirementPlan.DropKey(m, "no-such-condition"), blocking.DropKey);
+        Assert.True(blocking.CanAcceptDrop);
+        // The stored key turns the blocking finding into the accepted one.
+        var accepted = IntuneCompatibilityFindings.Build(m, null, null, [blocking.DropKey!]);
+        Assert.Equal(["Review:RequirementDropped"], Codes(accepted));
+        Assert.All(accepted, f => Assert.False(f.CanAcceptDrop));
+    }
+
+    [Fact]
     public void TheKeyDoesNotChangeWithTheVersionOrTheTitleOfAProfiledApplication()
     {
         var a = Manifest();

@@ -854,7 +854,10 @@ public partial class PackagesViewModel : ObservableObject
         if (selected.Count == 0) { ShowNoneSelected("Package"); return; }
         selected = ConfirmLocalSourceFolders(selected);
         if (selected.Count == 0) return;
-        if (DeploymentTargets.PublishesToIntune(target) && !await ReviewIntuneCompatibilityAsync(selected))
+        // What this publish does and does not do, before anything starts.
+        foreach (var sentence in ApplicationPackagerEngine.Services.PublishPreflight.Lines(target))
+            AddLogLine("Before publish: " + sentence);
+        if (DeploymentTargets.PublishesToIntune(target) && !await ReviewIntuneCompatibilityAsync(selected, target))
         {
             AddLogLine("Intune review: run cancelled.");
             return;
@@ -1346,15 +1349,17 @@ public partial class PackagesViewModel : ObservableObject
     /// and, when any finding blocks or needs a decision, in a dialog. A blocked application is
     /// refused by its own publish; Cancel stops the whole run. One Click logs and continues.
     /// </summary>
-    private async Task<bool> ReviewIntuneCompatibilityAsync(List<PackagerInfo> selected)
+    private async Task<bool> ReviewIntuneCompatibilityAsync(List<PackagerInfo> selected, string target)
     {
         var lines = new List<string>();
+        var acceptable = new List<string>();
         foreach (var p in selected)
         {
             var findings = _executionService.ReviewIntuneCompatibility(p);
             if (findings is null) continue;
             foreach (var f in findings)
             {
+                if (f.CanAcceptDrop) acceptable.Add(f.DropKey!);
                 AddLogLine($"{p.Application}: {ApplicationPackagerEngine.Services.IntuneCompatibilityFindings.LogLine(f)}");
                 if (f.Severity != ApplicationPackagerEngine.Services.IntuneCompatibilityFindings.Info)
                     lines.Add($"{p.Application}: [{f.Severity}] {f.Code} - {f.Message}");
@@ -1365,12 +1370,42 @@ public partial class PackagesViewModel : ObservableObject
         var dialog = new ContentDialog
         {
             Title = "Intune review",
-            Content = new TextBlock { Text = string.Join("\n\n", lines), TextWrapping = System.Windows.TextWrapping.Wrap },
+            Content = new TextBlock
+            {
+                Text = string.Join("\n\n", ApplicationPackagerEngine.Services.PublishPreflight.Lines(target).Concat(lines)),
+                TextWrapping = System.Windows.TextWrapping.Wrap
+            },
             PrimaryButtonText = "Continue",
+            // A requirement that has no Intune rule blocks its publish. This button accepts the drop for those requirements.
+            SecondaryButtonText = acceptable.Count > 0 ? "Accept dropped requirements and continue" : "",
             CloseButtonText = "Cancel",
             DefaultButton = ContentDialogButton.Close
         };
-        return await _contentDialogService.ShowAsync(dialog, CancellationToken.None) == ContentDialogResult.Primary;
+        var answer = await _contentDialogService.ShowAsync(dialog, CancellationToken.None);
+        if (answer == ContentDialogResult.Secondary && acceptable.Count > 0)
+        {
+            if (_settingsService.IsFileUnreadable)
+            {
+                AddLogLine("Intune review: the settings file cannot be read, so the accepted drops were not stored. The run is cancelled.");
+                return false;
+            }
+            try
+            {
+                var settings = _settingsService.Load();
+                settings.Intune.AcceptedRequirementDrops = (settings.Intune.AcceptedRequirementDrops ?? [])
+                    .Concat(acceptable).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+                _settingsService.Save(settings);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                AddLogLine($"Intune review: the accepted drops were not stored ({ex.Message}). The run is cancelled.");
+                return false;
+            }
+            foreach (var key in acceptable.Distinct(StringComparer.OrdinalIgnoreCase))
+                AddLogLine($"Intune review: the drop of the requirement is accepted ({key}).");
+            return true;
+        }
+        return answer == ContentDialogResult.Primary;
     }
 
     private void ShowNoneSelected(string operation)
