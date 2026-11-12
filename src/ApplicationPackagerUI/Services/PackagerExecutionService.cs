@@ -787,6 +787,7 @@ public class PackagerExecutionService(
             // copy, no MECM application. The build and publish below work from local content.
             var afterMecm = "";
             string? contentFailure = null;
+            ApplicationPackagerEngine.Services.Supersedence.SupersedenceStepResult? supersedenceResult = null;
             if (!DeploymentTargets.SkipsMecm(target))
             {
                 var mecmTarget = new ApplicationPackagerEngine.Services.MecmTarget();
@@ -795,7 +796,6 @@ public class PackagerExecutionService(
                     settings.EstimatedRuntimeMins, settings.MaximumRuntimeMins,
                     Report,
                     identityMarker: supersedence.Marker,
-                    supersedenceMode: supersedence.Mode,
                     commandOverrides: commandOverrides,
                     conditionTemplates: new ApplicationPackagerEngine.Services.ConditionTemplateService()
                         .Load(warning => onOutputLine?.Invoke(warning)),
@@ -816,7 +816,7 @@ public class PackagerExecutionService(
                 stdErr = result.ErrorMessage ?? "";
                 RecordMecmPublication(manifest, result, settings, Report);
                 if (result.Success && !result.AlreadyExists)
-                    (afterMecm, contentFailure) = await RunPostPackageStepsAsync(mecmTarget, result, manifest, stagedContentPath, settings, target, Report, ct);
+                    (afterMecm, contentFailure, supersedenceResult) = await RunPostPackageStepsAsync(mecmTarget, result, manifest, stagedContentPath, settings, target, Report, ct, supersedence);
             }
             else
             {
@@ -851,9 +851,9 @@ public class PackagerExecutionService(
                 IntunePublishNote = notes.PublishNote,
                 Conflict = conflicts.Result,
                 ConfigMgrOutcome = PackagingOutcomeComposer.ConfigMgrInventoryOutcome(
-                    !DeploymentTargets.SkipsMecm(target), mecmSucceeded, mecmAlreadyExists, contentFailure, mecmResult?.Supersedence?.Failure),
+                    !DeploymentTargets.SkipsMecm(target), mecmSucceeded, mecmAlreadyExists, contentFailure, supersedenceResult?.Failure),
                 ConfigMgrObjectId = stdOut.StartsWith("Packaged: ", StringComparison.OrdinalIgnoreCase) ? stdOut[10..].Trim() : null,
-                ConfigMgrDetail = PackagingOutcomeComposer.ConfigMgrDetail(stdErr, contentFailure, mecmResult?.Warnings, mecmResult?.Supersedence?.Failure),
+                ConfigMgrDetail = PackagingOutcomeComposer.ConfigMgrDetail(stdErr, contentFailure, mecmResult?.Warnings, supersedenceResult?.Failure),
                 ConfigMgrCiId = NonBlank(mecmResult?.CiId),
                 ConfigMgrModelName = NonBlank(mecmResult?.ModelName),
                 IntuneOutcome = !intuneRequested ? null : IntuneOutcome(notes),
@@ -1212,6 +1212,7 @@ public class PackagerExecutionService(
 
         var afterMecm = "";
             string? contentFailure = null;
+            ApplicationPackagerEngine.Services.Supersedence.SupersedenceStepResult? supersedenceResult = null;
         if (!DeploymentTargets.SkipsMecm(target))
         {
             var mecmTarget = new MecmTarget();
@@ -1220,7 +1221,6 @@ public class PackagerExecutionService(
                 settings.EstimatedRuntimeMins, settings.MaximumRuntimeMins,
                 Report,
                 identityMarker: supersedence.Marker,
-                supersedenceMode: supersedence.Mode,
                 conditionTemplates: new ConditionTemplateService().Load(warning => onOutputLine?.Invoke(warning)),
                 providerMachine: settings.ProviderMachine,
                 onExisting: onExisting,
@@ -1238,7 +1238,7 @@ public class PackagerExecutionService(
             stdErr = result.ErrorMessage ?? "";
             RecordMecmPublication(manifest, result, settings, Report);
             if (result.Success && !result.AlreadyExists)
-                (afterMecm, contentFailure) = await RunPostPackageStepsAsync(mecmTarget, result, manifest, stagedContentPath, settings, target, Report, ct);
+                (afterMecm, contentFailure, supersedenceResult) = await RunPostPackageStepsAsync(mecmTarget, result, manifest, stagedContentPath, settings, target, Report, ct, supersedence);
         }
         else
         {
@@ -1270,9 +1270,9 @@ public class PackagerExecutionService(
             IntunePublishNote = notes.PublishNote,
             Conflict = conflicts.Result,
             ConfigMgrOutcome = PackagingOutcomeComposer.ConfigMgrInventoryOutcome(
-                !DeploymentTargets.SkipsMecm(target), mecmSucceeded, mecmAlreadyExists, contentFailure, mecmResult?.Supersedence?.Failure),
+                !DeploymentTargets.SkipsMecm(target), mecmSucceeded, mecmAlreadyExists, contentFailure, supersedenceResult?.Failure),
             ConfigMgrObjectId = stdOut.StartsWith("Packaged: ", StringComparison.OrdinalIgnoreCase) ? stdOut[10..].Trim() : null,
-            ConfigMgrDetail = PackagingOutcomeComposer.ConfigMgrDetail(stdErr, contentFailure, mecmResult?.Warnings, mecmResult?.Supersedence?.Failure),
+            ConfigMgrDetail = PackagingOutcomeComposer.ConfigMgrDetail(stdErr, contentFailure, mecmResult?.Warnings, supersedenceResult?.Failure),
             ConfigMgrCiId = NonBlank(mecmResult?.CiId),
             ConfigMgrModelName = NonBlank(mecmResult?.ModelName),
             IntuneOutcome = !intuneRequested ? null : IntuneOutcome(notes),
@@ -1342,9 +1342,10 @@ public class PackagerExecutionService(
     /// returned ContentFailure is the sentence for it, and null when no step failed. Also
     /// returns the .intunewin note, or an empty string when none was stored.
     /// </summary>
-    private async Task<(string IntuneNote, string? ContentFailure)> RunPostPackageStepsAsync(
+    private async Task<(string IntuneNote, string? ContentFailure, ApplicationPackagerEngine.Services.Supersedence.SupersedenceStepResult? Supersedence)> RunPostPackageStepsAsync(
         MecmTarget mecmTarget, PackagingResult result, StageManifest manifest, string stagedContentPath,
-        AppSettings settings, string target, Action<string> report, CancellationToken ct)
+        AppSettings settings, string target, Action<string> report, CancellationToken ct,
+        ApplicationPackagerEngine.Services.Supersedence.SupersedencePlan supersedence)
     {
         var distribution = settings.ContentDistribution;
         string? contentFailure = null;
@@ -1365,7 +1366,23 @@ public class PackagerExecutionService(
             }
         }
 
-        return ("", contentFailure);
+        // The supersedence step runs when the application is complete and its content steps did not fail. A failure is reported and
+        // never fails the run: the application stays, and the outcome is "Published, supersedence not applied".
+        ApplicationPackagerEngine.Services.Supersedence.SupersedenceStepResult? supersedenceResult = null;
+        if (contentFailure is null && supersedence.Mode != ApplicationPackagerEngine.Services.Supersedence.SupersedenceMode.Off
+            && !string.IsNullOrWhiteSpace(supersedence.Marker))
+        {
+            supersedenceResult = await mecmTarget.RunSupersedenceAsync(
+                result.ApplicationName, result.CiId, manifest.SoftwareVersion, supersedence.Marker, supersedence.Mode,
+                settings.SiteCode, settings.ProviderMachine, report, ct);
+            report(supersedenceResult.Status switch
+            {
+                ApplicationPackagerEngine.Services.Supersedence.SupersedenceStepStatus.NotApplied => $"Supersedence not applied   : {supersedenceResult.Message}",
+                _ => $"Supersedence               : {supersedenceResult.Message}"
+            });
+            foreach (var warning in supersedenceResult.Warnings) report($"Supersedence warning       : {warning}");
+        }
+        return ("", contentFailure, supersedenceResult);
     }
 
     /// <summary>

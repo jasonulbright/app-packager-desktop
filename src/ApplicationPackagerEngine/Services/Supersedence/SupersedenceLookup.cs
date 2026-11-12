@@ -43,7 +43,12 @@ public static class SupersedenceLookup
             if (app.IsExpired) { notes.Add($"'{app.Title}' is retired and was skipped."); continue; }
             if (!Version.TryParse(VersionCompare.Normalize(app.SoftwareVersion), out _))
             { notes.Add($"The version '{app.SoftwareVersion}' of '{app.Title}' cannot be read, so it was skipped."); continue; }
-            if (VersionCompare.CompareStrict(app.SoftwareVersion, newVersion) >= 0) continue;
+            if (VersionCompare.CompareStrict(app.SoftwareVersion, newVersion) >= 0)
+            {
+                // A line that already holds a higher or an equal version under another title: the new application is not newer than it.
+                notes.Add($"'{app.Title}' {app.SoftwareVersion} is not older than {newVersion} and is not superseded.");
+                continue;
+            }
             candidates.Add(app);
         }
         if (!Version.TryParse(VersionCompare.Normalize(newVersion), out _))

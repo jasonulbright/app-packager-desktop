@@ -48,8 +48,7 @@ public sealed partial class MecmTarget
         MecmScriptSigningContext? scriptSigning = null,
         Workbench.ProfileContentScope? contentScope = null,
         DeploymentTypeContentOptions? contentOptions = null,
-        string? identityMarker = null,
-        SupersedenceMode supersedenceMode = SupersedenceMode.Off)
+        string? identityMarker = null)
     {
         try
         {
@@ -160,30 +159,14 @@ public sealed partial class MecmTarget
             if (result.ExitCode == 0)
             {
                 onProgress?.Invoke($"Packaged: {appName}");
-                var ciId = ReadCiId(result.StdOut);
-                // The application is complete here. A supersedence step that fails does not undo it (see "Failure and retry").
-                SupersedenceStepResult? supersedence = null;
-                if (supersedenceMode != SupersedenceMode.Off && !string.IsNullOrWhiteSpace(identityMarker))
-                {
-                    supersedence = await RunSupersedenceAsync(appName, ciId, version, identityMarker, supersedenceMode,
-                        siteCode, providerMachine, onProgress, ct);
-                    onProgress?.Invoke(supersedence.Status switch
-                    {
-                        SupersedenceStepStatus.Applied => $"Supersedence               : {supersedence.Message}",
-                        SupersedenceStepStatus.NotApplied => $"Supersedence not applied   : {supersedence.Message}",
-                        _ => $"Supersedence               : {supersedence.Message}"
-                    });
-                    foreach (var warning in supersedence.Warnings) onProgress?.Invoke($"Supersedence warning       : {warning}");
-                }
                 return new PackagingResult
                 {
                     Success = true,
                     ApplicationName = appName,
                     NetworkContentPath = networkContentPath,
-                    CiId = ciId,
+                    CiId = ReadCiId(result.StdOut),
                     ModelName = ReadModelName(result.StdOut),
-                    Warnings = ReadWarnings(result.StdOut),
-                    Supersedence = supersedence
+                    Warnings = ReadWarnings(result.StdOut)
                 };
             }
             else
@@ -1057,11 +1040,31 @@ public sealed partial class MecmTarget
         string newApplicationName, string newCiId, string newVersion, string marker, SupersedenceMode mode,
         string siteCode, string? providerMachine, Action<string>? onProgress, CancellationToken ct)
     {
-        if (mode == SupersedenceMode.Off || string.IsNullOrWhiteSpace(marker) || !int.TryParse(newCiId, out _))
+        if (mode == SupersedenceMode.Off || string.IsNullOrWhiteSpace(marker))
             return SupersedenceStepResult.NotRun;
+        if (!int.TryParse(newCiId, out _))
+            return new(SupersedenceStepStatus.NotApplied, "the CI_ID of the new application was not read, so the older version was not looked up.", []);
+        try
+        {
+            return await RunSupersedenceCoreAsync(newApplicationName, newCiId, newVersion, marker, mode, siteCode, providerMachine, onProgress, ct);
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            // The application is complete; whatever goes wrong here is reported and never fails the run.
+            return new(SupersedenceStepStatus.NotApplied, ex.Message, []);
+        }
+    }
 
+    private async Task<SupersedenceStepResult> RunSupersedenceCoreAsync(
+        string newApplicationName, string newCiId, string newVersion, string marker, SupersedenceMode mode,
+        string siteCode, string? providerMachine, Action<string>? onProgress, CancellationToken ct)
+    {
         var lookup = await WindowsPowerShellHost.RunAsync(
-            SupersedenceScripts.BuildLookupScript(siteCode, providerMachine, marker, newCiId), onProgress, ct);
+            SupersedenceScripts.BuildLookupScript(siteCode, providerMachine, marker, newCiId), null, ct);
         if (lookup.ExitCode != 0)
             return new(SupersedenceStepStatus.NotApplied, $"the lookup of the older version failed: {SupersedenceScripts.FailureText(lookup.StdOut, lookup.StdErr)}", []);
 
@@ -1079,7 +1082,7 @@ public sealed partial class MecmTarget
             return new(SupersedenceStepStatus.NoOlderVersion, $"No deployment types to pair with {chosen.Old.Title}.", warnings);
 
         var step = await WindowsPowerShellHost.RunAsync(
-            SupersedenceScripts.BuildStepScript(siteCode, providerMachine, newCiId, chosen.Old.CiId, pairing.Pairs, mode == SupersedenceMode.ReplaceAndUninstall),
+            SupersedenceScripts.BuildStepScript(siteCode, providerMachine, current.Title, chosen.Old.Title, pairing.Pairs, mode == SupersedenceMode.ReplaceAndUninstall),
             onProgress, ct);
         if (step.ExitCode != 0)
             return new(SupersedenceStepStatus.NotApplied, SupersedenceScripts.FailureText(step.StdOut, step.StdErr), warnings);
@@ -1247,7 +1250,4 @@ public sealed class PackagingResult
     public IReadOnlyList<string> Warnings { get; init; } = [];
     public string? ErrorMessage { get; init; }
     public bool AlreadyExists { get; init; }
-
-    /// <summary>The result of the supersedence step; null when the step did not run.</summary>
-    public SupersedenceStepResult? Supersedence { get; init; }
 }

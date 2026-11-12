@@ -28,6 +28,17 @@ public sealed class SupersedenceStepTests
     }
 
     [Fact]
+    public void ALineThatAlreadyHoldsAHigherVersionIsNamedAndNotSuperseded()
+    {
+        var apps = new[] { App("1", "Vendor App 1.0", "1.0.0"), App("2", "Vendor App 2.0", "2.0.0") };
+
+        var result = SupersedenceLookup.Choose(apps, "Vendor App 1.5", "1.5.0");
+
+        Assert.Equal("1", result.Old!.CiId);
+        Assert.Contains(result.Notes, n => n.Contains("Vendor App 2.0") && n.Contains("not superseded"));
+    }
+
+    [Fact]
     public void AnApplicationWithTheTitleOfTheNewOneIsNeverReturned()
     {
         var apps = new[] { App("1", "Vendor App", "1.0.0") };
@@ -149,32 +160,45 @@ public sealed class SupersedenceStepTests
     }
 
     [Fact]
-    public void TheStepScriptSetsOneRelationForEachPairWithTheIdsAndTheUninstallOption()
+    public void TheStepScriptSetsOneRelationForEachPairByNameAndReadsTheRelationsFirst()
     {
         var pairs = new[] { new DeploymentTypePair(Dt("91", "New - x64"), Dt("11", "Old - x64")), new DeploymentTypePair(Dt("92", "New - x86"), Dt("12", "Old - x86")) };
 
-        var uninstall = SupersedenceScripts.BuildStepScript("MCM", "SRV1", "9", "1", pairs, uninstall: true);
-        var keep = SupersedenceScripts.BuildStepScript("MCM", null, "9", "1", pairs, uninstall: false);
+        var uninstall = SupersedenceScripts.BuildStepScript("MCM", "SRV1", "New", "Old", pairs, uninstall: true);
+        var keep = SupersedenceScripts.BuildStepScript("MCM", null, "New", "Old", pairs, uninstall: false);
 
-        Assert.Contains("Set-CMApplicationSupersedence -Id 9 -CurrentDeploymentTypeId 91 -SupersededApplicationId 1 -OldDeploymentTypeId 11 -IsUninstall $true", uninstall);
-        Assert.Contains("Set-CMApplicationSupersedence -Id 9 -CurrentDeploymentTypeId 92 -SupersededApplicationId 1 -OldDeploymentTypeId 12 -IsUninstall $true", uninstall);
-        Assert.Contains("-IsUninstall $false", keep);
-        Assert.DoesNotContain("-IsUninstall $true", keep);
+        // Names, not identifiers: every save of an application makes a new revision with a new CI_ID.
+        Assert.Contains("Set-CMApplicationSupersedence -Name $newApplicationName -CurrentDeploymentTypeName $newDtName -SupersededApplicationName $oldApplicationName -OldDeploymentTypeName $oldDtName -IsUninstall:$true", uninstall);
+        Assert.Equal(2, uninstall.Split("Set-CMApplicationSupersedence").Length - 1);
+        Assert.Contains("$newDtName = 'New - x86'", uninstall);
+        Assert.Contains("$oldDtName = 'Old - x86'", uninstall);
+        Assert.DoesNotContain("-CurrentDeploymentTypeId", uninstall);
+        Assert.Contains("-IsUninstall:$false", keep);
+        Assert.DoesNotContain("-IsUninstall:$true", keep);
         Assert.Contains("'SRV1'", uninstall);
-        // A relation that exists is a success; the script tries every pair and exits 1 when one failed.
-        Assert.Contains("-match 'already'", uninstall);
+        // The relations are read before the write, and again after a failed write; a text of the provider decides nothing.
+        Assert.Contains("Get-CMDeploymentTypeSupersedence -InputObject $dt", uninstall);
+        Assert.DoesNotContain("-match 'already'", uninstall);
+        Assert.True(uninstall.IndexOf("if (Test-Supersedes", StringComparison.Ordinal) < uninstall.IndexOf("Set-CMApplicationSupersedence", StringComparison.Ordinal));
         Assert.Contains("if ($supersedenceFailed) { exit 1 }", uninstall);
     }
 
     [Fact]
-    public void TheStepScriptRefusesAnIdThatIsNotANumber()
+    public void ANameWithDoubleQuotesIsOnlyEverInsideSingleQuotedStrings()
     {
-        var pairs = new[] { new DeploymentTypePair(Dt("91", "N"), Dt("11", "O")) };
+        var pairs = new[] { new DeploymentTypePair(Dt("91", "N\"ew $(calc) - x64"), Dt("11", "O“ld - x64")) };
 
-        Assert.ThrowsAny<FormatException>(() => SupersedenceScripts.BuildStepScript("MCM", null, "9; calc", "1", pairs, false));
-        Assert.ThrowsAny<FormatException>(() => SupersedenceScripts.BuildLookupScript("MCM", null, "m", "x"));
+        var script = SupersedenceScripts.BuildStepScript("MCM", null, "A\"pp", "B”pp", pairs, true);
+
+        Assert.DoesNotContain("Write-Host \"", script);
+        Assert.Contains("-f 'N\"ew $(calc) - x64 supersedes O“ld - x64'", script);
     }
 
+    [Fact]
+    public void TheLookupScriptRefusesAnIdThatIsNotANumber()
+    {
+        Assert.ThrowsAny<FormatException>(() => SupersedenceScripts.BuildLookupScript("MCM", null, "m", "x"));
+    }
     [Fact]
     public void TheFailureTextIsTheReasonOfTheFirstFailedRelation()
     {
@@ -244,6 +268,8 @@ public sealed class SupersedenceStepTests
 
         Assert.Equal(SupersedenceStepStatus.NotRun, off.Status);
         Assert.Equal(SupersedenceStepStatus.NotRun, none.Status);
-        Assert.Equal(SupersedenceStepStatus.NotRun, noId.Status);
+        // The mode is on and the marker is there, but the CI_ID was not read: reported, not silent.
+        Assert.Equal(SupersedenceStepStatus.NotApplied, noId.Status);
+        Assert.Contains("CI_ID", noId.Message);
     }
 }

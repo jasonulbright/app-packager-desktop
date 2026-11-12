@@ -111,8 +111,8 @@ The per-title override is in the user settings. A second administrator, or anoth
 
 ### The step
 
-1. After the new deployment type and its content are complete, the program runs `Add-CMDeploymentTypeSupersedence` for each pair. It passes the uninstall option for `Replace and uninstall`. The cmdlet is `Set-CMApplicationSupersedence` (`-Id`, `-CurrentDeploymentTypeId`, `-SupersededApplicationId`, `-OldDeploymentTypeId`, `-IsUninstall`); the older `Add-CMDeploymentTypeSupersedence` is deprecated since ConfigMgr 2111. The parameter names are from the Microsoft documentation and are confirmed on the lab site in the lab tests.
-2. The step is safe to run again. It reads the existing relations first and adds only the ones that are missing.
+1. After the new deployment type and its content are complete, and when the content steps (distribution, test deployment) did not fail, the program runs `Set-CMApplicationSupersedence` for each pair. It passes the uninstall option for `Replace and uninstall`. The older `Add-CMDeploymentTypeSupersedence` is deprecated since ConfigMgr 2111. The program passes the names of the applications and of the deployment types (`-Name`, `-CurrentDeploymentTypeName`, `-SupersededApplicationName`, `-OldDeploymentTypeName`, `-IsUninstall`), not identifiers: every save of an application makes a new revision with a new CI_ID, so an identifier that the first call read is stale for the second. The parameter names are from the Microsoft documentation and are confirmed on the lab site in the lab tests.
+2. The step is safe to run again. It reads the existing relations of each deployment type first (`Get-CMDeploymentTypeSupersedence`) and adds only the ones that are missing. After a failed write it reads them again, and a relation that is now there counts as done; no text of the provider decides this. A relation that exists is not changed, so a change of the mode from `Replace` to `Replace and uninstall` does not rewrite its uninstall option (the lab confirms what ConfigMgr does).
 3. The program does not delete or retire the old application.
 
 ### Failure and retry

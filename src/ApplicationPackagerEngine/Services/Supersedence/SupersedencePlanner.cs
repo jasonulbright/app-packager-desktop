@@ -46,8 +46,6 @@ public static class SupersedencePlanner
         {
             log.Add($"Version rule (ConfigMgr)    : {SupersedenceNames.Text(resolved.ConfigMgrRule.Value)} ({Where(resolved.ConfigMgrRule.Source)})");
             log.Add($"Supersedence mode           : {SupersedenceNames.Text(resolved.Mode.Value)} ({Where(resolved.Mode.Source)})");
-            if (resolved.Mode.Value != SupersedenceMode.Off)
-                log.Add("Supersedence               : the mode is recorded; this release writes no supersedence relation.");
             if (resolved.Blocked is { } blocked)
                 return new SupersedencePlan(manifest, manifest, null, blocked, log);
         }

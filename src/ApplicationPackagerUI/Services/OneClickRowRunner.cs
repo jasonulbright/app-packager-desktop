@@ -248,7 +248,8 @@ public sealed class OneClickRowRunner(IOneClickExecution execution, ISettingsRea
                         }
                         else
                         {
-                            destinationOutcome = InventoryOutcome.Succeeded;
+                            destinationOutcome = result.ConfigMgrOutcome == InventoryOutcome.PublishedSupersedenceNotApplied
+                                ? InventoryOutcome.PublishedSupersedenceNotApplied : InventoryOutcome.Succeeded;
                             ok = true;
                             cell = "published " + id;
                             (ciId, modelName) = (result.ConfigMgrCiId, result.ConfigMgrModelName);
