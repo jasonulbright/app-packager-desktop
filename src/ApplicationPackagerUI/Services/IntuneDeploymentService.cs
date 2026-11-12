@@ -97,74 +97,6 @@ public sealed class IntuneDeploymentService(SettingsService settingsService)
         }
     }
 
-    /// <summary>
-    /// Builds the .intunewin of a fresh stage when the content prep tool is already
-    /// on this computer; the tool is never downloaded here. Returns the note, or an
-    /// empty string when the tool is absent. A failed build does not fail the stage.
-    /// </summary>
-    public static async Task<string> BuildAtStageAsync(
-        StageManifest manifest,
-        string stagedContentPath,
-        Action<string>? log = null,
-        CancellationToken ct = default)
-    {
-        var toolPath = InstalledToolPath();
-        if (toolPath is null) return "";
-        try
-        {
-            var build = await new IntuneWinToolService().BuildAsync(
-                toolPath, stagedContentPath, SetupFileOf(manifest), IntuneWinArtifact.OutputFolder(stagedContentPath),
-                IntuneWinArtifact.FileName(manifest), onProgress: log, ct: ct).ConfigureAwait(false);
-            return $"built {Path.GetFileName(build.IntuneWinPath)}";
-        }
-        catch (OperationCanceledException)
-        {
-            throw;
-        }
-        catch (Exception ex)
-        {
-            return $"build failed: {ex.Message}";
-        }
-    }
-
-    /// <summary>
-    /// Stores the stage's .intunewin beside the network content version folder of a
-    /// ConfigMgr run: the one Stage built when it is newer than the manifest, else a
-    /// fresh build. Runs only when the content prep tool is on this computer; the
-    /// note is empty otherwise. Failures ride back as the note.
-    /// </summary>
-    public async Task<string> BuildBesideContentAsync(
-        StageManifest manifest,
-        string stagedContentPath,
-        string networkContentPath,
-        Action<string>? log = null,
-        CancellationToken ct = default,
-        string? contentLayout = null)
-    {
-        if (InstalledToolPath() is null && IntuneWinArtifact.Reusable(manifest, stagedContentPath) is null) return "";
-        try
-        {
-            var (intuneWinPath, reused) = await BuildOrReuseAsync(manifest, stagedContentPath, log, ct).ConfigureAwait(false);
-            var verb = reused ? "reused" : "built";
-
-            var target = IntuneWinArtifact.NetworkPathFor(manifest, networkContentPath, contentLayout);
-            if (target is null)
-                return $"{verb} {Path.GetFileName(intuneWinPath)}; no network folder to copy beside";
-
-            File.Copy(intuneWinPath, target, overwrite: true);
-            log?.Invoke($"Intunewin stored: {target}");
-            return $"{verb} {Path.GetFileName(intuneWinPath)}, stored beside the content";
-        }
-        catch (OperationCanceledException)
-        {
-            throw;
-        }
-        catch (Exception ex)
-        {
-            return $"build failed: {ex.Message}";
-        }
-    }
-
     /// <summary>The content prep tool path when it is already present, else null.</summary>
     public static string? InstalledToolPath()
     {
@@ -222,9 +154,9 @@ public sealed class IntuneDeploymentService(SettingsService settingsService)
     /// <summary>Resolves the content prep tool, downloading it into the tool folder on first use.</summary>
     private static async Task<string> EnsureToolAsync(Action<string>? log, CancellationToken ct)
     {
-        var toolPath = Path.Combine(ToolFolder, "IntuneWinAppUtil.exe");
-        if (File.Exists(toolPath))
-            return toolPath;
+        // A copy in the tool folder or on the PATH is used as it is; only a missing tool is downloaded.
+        if (InstalledToolPath() is { } installed)
+            return installed;
 
         log?.Invoke("Downloading Microsoft Win32 Content Prep Tool...");
         var service = new IntuneWinToolService();

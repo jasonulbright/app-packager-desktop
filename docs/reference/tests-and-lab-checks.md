@@ -438,3 +438,13 @@ The Workbench stored `Install.ReturnCodes`, `Install.RebootPolicy` and `Install.
 | `StageFinalizationTests` | A profile with the three install fields changes the manifest; a bad return code list stops the stage. |
 
 **Lab check.** A ConfigMgr publish on CM01 of a test application whose profile sets both working directories and the reboot policy; read the deployment type back with `Get-CMDeploymentType` (`InstallWorkingDirectory`, `UninstallWorkingDirectory`, `PostInstallBehavior`); remove the test application. No sign-out and no restart.
+
+## No .intunewin file unless an Intune publish builds it
+
+The presence of `IntuneWinAppUtil.exe` on a computer decided whether the program built a `.intunewin` bundle. A stage built one next to the staged content, and a ConfigMgr-only run built one and copied it to the content share. The program now builds the bundle only inside an Intune publish. A stage and a ConfigMgr-only run build nothing and copy nothing besides the content.
+
+| Test class | What it proves |
+|---|---|
+| `NoImplicitIntuneWinTests` | The three automatic build methods do not exist; no service other than the Intune deployment service asks whether the tool is installed; the Intune publish resolves the tool from the tool folder or the PATH before it downloads (a copy on the PATH is used). |
+
+**Lab check.** A ConfigMgr-only run with the tool present leaves no `.intunewin` file in the stage folder and none on the content share.

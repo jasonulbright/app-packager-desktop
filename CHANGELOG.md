@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [2026.1111.42] - 2026-11-12
+
+### Fixed
+
+- The program no longer builds a `.intunewin` file because the Content Prep Tool is on the computer. A stage and a ConfigMgr-only run build no bundle and copy nothing besides the content to the file share. Only an Intune publish builds the bundle.
+
 ## [2026.1111.41] - 2026-11-12
 
 ### Fixed

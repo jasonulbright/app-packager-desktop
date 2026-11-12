@@ -26,23 +26,6 @@ public static class IntuneWinArtifact
         Path.Combine(OutputFolder(stagedContentPath), FileName(manifest));
 
     /// <summary>
-    /// Where a ConfigMgr run stores the .intunewin on the share, beside the network content
-    /// version folder and never inside it. Nested: &lt;Vendor&gt;\&lt;App&gt;\&lt;AppName&gt;-&lt;Version&gt;.intunewin,
-    /// in the application's own folder. Flat: &lt;Vendor-App-Version&gt;.intunewin beside the
-    /// folder of the same name, because the parent there is the Applications folder every
-    /// application shares. Null when the content path has no parent.
-    /// </summary>
-    public static string? NetworkPathFor(StageManifest manifest, string networkContentPath, string? contentLayout)
-    {
-        var folder = networkContentPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-        var parent = Path.GetDirectoryName(folder);
-        if (string.IsNullOrEmpty(parent)) return null;
-        return ContentLayouts.IsFlat(contentLayout)
-            ? Path.Combine(parent, Path.GetFileName(folder) + ".intunewin")
-            : Path.Combine(parent, FileName(manifest));
-    }
-
-    /// <summary>
     /// The .intunewin of this stage when one exists and was written after the
     /// stage manifest; null otherwise. An older file belongs to an earlier
     /// stage of the same version and is rebuilt.

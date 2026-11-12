@@ -191,7 +191,6 @@ public class PackagerExecutionService(
             {
                 packager.StagedVersion = Path.GetFileName(result.ContentPath);
                 packager.LocalSourceStagedVersion = result.FromLocalSource ? packager.StagedVersion : null;
-                await BuildIntuneWinAtStageAsync(result.ManifestPath, onOutputLine, ct);
             }
             return new PackagerExecutionResult
             {
@@ -228,7 +227,6 @@ public class PackagerExecutionService(
             };
         if (bridge is not null)
             SealPackagerStage(bridge, staged.StdOut, settings.DownloadRoot, onOutputLine);
-        await BuildIntuneWinAtStageAsync(manifestPath, onOutputLine, ct);
         return staged;
     }
 
@@ -250,22 +248,6 @@ public class PackagerExecutionService(
         {
             return ex.Message;
         }
-    }
-
-    /// <summary>The .intunewin of a stage, built when the content prep tool is on this computer; the note goes to the run log.</summary>
-    private static async Task BuildIntuneWinAtStageAsync(string? manifestPath, Action<string>? onOutputLine, CancellationToken ct)
-    {
-        if (string.IsNullOrWhiteSpace(manifestPath) || !File.Exists(manifestPath) || IntuneDeploymentService.InstalledToolPath() is null) return;
-        StageManifest manifest;
-        try { manifest = new ManifestService().Read(manifestPath); }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException or InvalidOperationException) { return; }
-        void Report(string line)
-        {
-            if (onOutputLine is not null)
-                OutputLineDispatch.Post(onOutputLine, line);
-        }
-        var note = await IntuneDeploymentService.BuildAtStageAsync(manifest, Path.GetDirectoryName(manifestPath)!, Report, ct);
-        if (note.Length > 0) Report($"Intunewin: {note}");
     }
 
     /// <summary>
@@ -1298,9 +1280,7 @@ public class PackagerExecutionService(
     /// <summary>
     /// The optional steps that follow a new MECM application: content distribution to
     /// the configured DP group, a test-collection deployment once the content is
-    /// targeted, and, for a run that does not publish to Intune, the stage's
-    /// .intunewin stored beside the network content when the content prep tool is
-    /// present. Each step reports its own outcome in the log. A distribution or a test
+    /// targeted. No .intunewin is built or copied here: only an Intune publish builds the bundle. Each step reports its own outcome in the log. A distribution or a test
     /// deployment that fails does not undo the application, but it fails the run: the
     /// returned ContentFailure is the sentence for it, and null when no step failed. Also
     /// returns the .intunewin note, or an empty string when none was stored.
@@ -1332,9 +1312,6 @@ public class PackagerExecutionService(
                         : null);
             }
         }
-
-        if (!DeploymentTargets.PublishesToIntune(target))
-            return (await intuneDeploymentService.BuildBesideContentAsync(manifest, stagedContentPath, result.NetworkContentPath, report, ct, settings.ContentLayout), contentFailure);
 
         return ("", contentFailure);
     }
