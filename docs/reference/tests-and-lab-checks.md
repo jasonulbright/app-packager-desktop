@@ -387,3 +387,9 @@ The native script builder is removed. A manifest with the detection type `MSIX` 
 | `MecmScriptBuilderTests` | A script-staged MSIX still builds a script deployment type and does not use the native cmdlet (unchanged test). |
 
 **Lab check.** None. The change removes a path. The script path for an MSIX was run in the lab in the review (the MSIX scripts of that run passed).
+
+## A concurrency test of the metrics history failed on a loaded disk
+
+On 2026-11-11 (01:05 UTC on 2026-11-12) the run of CI on a merge commit failed once in `LiveHistoryAndAlertTests.ConcurrentAppendsFromTwoStoresKeepEveryWholeLineAndOneHeader` (expected 401 lines, found 400) and passed on the rerun of the same code. Cause, from reading the code (the run had no log of the store, so the warning was not seen): the test made 400 appends from eight threads. Each append holds the lock file of the history file for the time of a flush to disk, and a store that waits for the lock gives up after 5 seconds and does not record that refresh (a documented choice of the store, with a log warning). The lock is not fair: the thread of the other store that is queued on the store's own lock takes the lock file again in the short gap, so on a loaded CI disk one store can wait through a long run of the other store's appends. The code shows that a cut or joined line cannot occur under the lock; the count of 400 fits one lost row. The store now takes an optional lock wait (the default stays 5 seconds), the concurrency test gives both stores a wait of two minutes and collects their warnings (a lost row now names its cause), and it makes 60 appends from four threads. Two new tests prove the wait itself with the lock file held by the test: an append waits and then writes its row, and an append that cannot get the lock file in time records nothing and logs the warning.
+
+**Lab check.** None. It is a timing fault of a test.

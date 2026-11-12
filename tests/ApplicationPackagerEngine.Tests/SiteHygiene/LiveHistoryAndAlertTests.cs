@@ -118,24 +118,84 @@ public sealed class LiveHistoryAndAlertTests : IDisposable
         Assert.Null(row.Values[LiveMetrics.ClientHealthy]);
     }
 
+    private sealed class CollectingLog : ApplicationPackagerEngine.Services.Logging.IAppLog
+    {
+        private readonly List<string> _warnings = [];
+        public IReadOnlyList<string> Warnings { get { lock (_warnings) return [.. _warnings]; } }
+        public string? SessionFile => null;
+        public ApplicationPackagerEngine.Services.Logging.AppLogLevel MinimumLevel { get; set; } = ApplicationPackagerEngine.Services.Logging.AppLogLevel.Debug;
+        public event EventHandler<ApplicationPackagerEngine.Services.Logging.AppLogEntry>? Written;
+        public void RegisterSecret(string value) { }
+        public void Write(ApplicationPackagerEngine.Services.Logging.AppLogLevel level, string area, string message)
+        {
+            if (level >= ApplicationPackagerEngine.Services.Logging.AppLogLevel.Warning) lock (_warnings) _warnings.Add(message);
+            Written?.Invoke(this, new ApplicationPackagerEngine.Services.Logging.AppLogEntry(DateTimeOffset.UtcNow, level, area, message));
+        }
+        public IReadOnlyList<ApplicationPackagerEngine.Services.Logging.AppLogEntry> Tail() => [];
+    }
+
+    [Fact]
+    public async Task AnAppendWaitsForTheLockFileAndThenWritesItsRow()
+    {
+        Directory.CreateDirectory(_dir);
+        var store = new MetricsHistoryStore(File1, utcNow: () => Now, lockWait: TimeSpan.FromSeconds(30));
+        using var held = new FileStream(File1 + ".lock", FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
+
+        var append = Task.Run(() => store.Append(Row(Now)));
+        await Task.Delay(400);
+
+        Assert.False(append.IsCompleted, "the append waits while another holder has the lock file");
+        Assert.False(File.Exists(File1) && new FileInfo(File1).Length > 0, "nothing is written while the lock file is held");
+
+        held.Dispose();
+        await append.WaitAsync(TimeSpan.FromSeconds(20));
+
+        Assert.Equal(2, File.ReadAllLines(File1).Length);
+    }
+
+    [Fact]
+    public void AnAppendThatCannotGetTheLockFileInTimeRecordsNothingAndLogsAWarning()
+    {
+        Directory.CreateDirectory(_dir);
+        var log = new CollectingLog();
+        var store = new MetricsHistoryStore(File1, log, () => Now, lockWait: TimeSpan.FromMilliseconds(200));
+        using var held = new FileStream(File1 + ".lock", FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
+
+        store.Append(Row(Now));
+
+        Assert.False(File.Exists(File1) && new FileInfo(File1).Length > 0);
+        Assert.Contains(log.Warnings, w => w.Contains("locked by another program"));
+    }
+
     [Fact]
     public async Task ConcurrentAppendsFromTwoStoresKeepEveryWholeLineAndOneHeader()
     {
-        var a = Store();
-        var b = Store();
-        var tasks = Enumerable.Range(0, 8).Select(i => Task.Run(() =>
+        // Every append holds the lock file for the time of a flush to disk, and a store that waits for the
+        // lock gives up after MetricsHistoryStore.LockWait (5 s): the refresh is then not recorded, by design.
+        // The lock is not fair, so on a loaded CI disk one store can wait through a long run of the other
+        // store's appends and give up (the run of 2026-11-11 lost one row of 400 this way). This test is about
+        // whole lines and one header, not about the wait, so both stores wait a long time; the warnings of
+        // the stores are collected, so that a lost row names its cause.
+        const int Threads = 4;
+        const int PerThread = 15;
+        var log = new CollectingLog();
+        var a = new MetricsHistoryStore(File1, log, () => Now, lockWait: TimeSpan.FromMinutes(2));
+        var b = new MetricsHistoryStore(File1, log, () => Now, lockWait: TimeSpan.FromMinutes(2));
+        var tasks = Enumerable.Range(0, Threads).Select(i => Task.Run(() =>
         {
             var store = i % 2 == 0 ? a : b;
-            for (var n = 0; n < 50; n++) store.Append(Row(Now.AddSeconds(i * 1000 + n), deployments: i * 1000 + n));
+            for (var n = 0; n < PerThread; n++) store.Append(Row(Now.AddSeconds(i * 1000 + n), deployments: i * 1000 + n));
         })).ToArray();
         await Task.WhenAll(tasks);
+        Assert.Empty(log.Warnings);
         var lines = File.ReadAllLines(File1);
+        const int Total = Threads * PerThread;
         Assert.Equal(1, lines.Count(l => l.StartsWith("Timestamp,", StringComparison.Ordinal)));
-        Assert.Equal(401, lines.Length);
+        Assert.Equal(Total + 1, lines.Length);
         var rows = a.Read(30);
-        Assert.Equal(400, rows.Count);
+        Assert.Equal(Total, rows.Count);
         Assert.Equal(0, a.ReadCounted(30).Skipped);
-        Assert.Equal(400, rows.Select(r => r.Values[LiveMetrics.DeploymentTotal]).Distinct().Count());
+        Assert.Equal(Total, rows.Select(r => r.Values[LiveMetrics.DeploymentTotal]).Distinct().Count());
     }
 
     [Fact]
