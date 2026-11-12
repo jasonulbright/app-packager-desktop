@@ -11,7 +11,10 @@ namespace ApplicationPackagerEngine.Tests;
 /// </summary>
 public sealed class PowerShell77AndDotnetRuntimeDefinitionTests
 {
-    /// <summary>The asset names of the releases list of the GitHub API as it was on 2026-11-12, newest published first (trimmed).</summary>
+    /// <summary>
+    /// The releases list of the GitHub API of 2026-11-12 in its real order (v7.7.0, v7.6.10, v7.7.0-rc.1, v7.6.9, trimmed to the asset names).
+    /// Each release body also names its files, as the real ones do, and a body can name a file that the release does not carry.
+    /// </summary>
     private const string Releases = """
         [
           { "tag_name": "v7.7.0", "prerelease": false, "assets": [
@@ -19,8 +22,6 @@ public sealed class PowerShell77AndDotnetRuntimeDefinitionTests
               { "name": "PowerShell-7.7.0-win-x64.zip", "browser_download_url": "https://github.com/PowerShell/PowerShell/releases/download/v7.7.0/PowerShell-7.7.0-win-x64.zip" },
               { "name": "PowerShell-7.7.0-win-x86.zip", "browser_download_url": "https://github.com/PowerShell/PowerShell/releases/download/v7.7.0/PowerShell-7.7.0-win-x86.zip" },
               { "name": "PowerShell-7.7.0.msixbundle", "browser_download_url": "https://github.com/PowerShell/PowerShell/releases/download/v7.7.0/PowerShell-7.7.0.msixbundle" } ] },
-          { "tag_name": "v7.5.14", "prerelease": false, "assets": [
-              { "name": "PowerShell-7.5.14-win-x64.msi", "browser_download_url": "https://github.com/PowerShell/PowerShell/releases/download/v7.5.14/PowerShell-7.5.14-win-x64.msi" } ] },
           { "tag_name": "v7.6.10", "prerelease": false, "assets": [
               { "name": "PowerShell-7.6.10-win-x64.msi", "browser_download_url": "https://github.com/PowerShell/PowerShell/releases/download/v7.6.10/PowerShell-7.6.10-win-x64.msi" },
               { "name": "PowerShell-7.6.10-win-x86.msi", "browser_download_url": "https://github.com/PowerShell/PowerShell/releases/download/v7.6.10/PowerShell-7.6.10-win-x86.msi" } ] },
@@ -40,19 +41,31 @@ public sealed class PowerShell77AndDotnetRuntimeDefinitionTests
 
         var version = HttpRegexScraper.ExtractVersion(Releases, config.Pattern, config.SelectHighestVersion);
 
-        // 7.7.0 is the latest release and has no MSI; 7.5.14 is listed above 7.6.10 (a back-published patch) and is lower.
+        // 7.7.0 is the latest release and has no MSI; the release candidate of 7.7.0 is a prerelease and does not match.
         Assert.Equal("7.6.10", version);
     }
 
     [Fact]
-    public void ThePrereleaseAndTheMsixbundleNeverGiveAVersion()
+    public void APrereleaseAnMsixbundleAnMsixAndABodyThatNamesAFileNeverGiveAVersion()
     {
         var config = Scraper();
         const string onlyUnsuitable = """
-            [{ "assets": [ { "name": "PowerShell-7.7.0-rc.1-win-x64.msi" }, { "name": "PowerShell-7.7.0.msixbundle" }, { "name": "PowerShell-7.7.0-win-x64.zip" } ] }]
+            [{ "body": "- PowerShell-7.8.0-win-x64.msi", "assets": [ { "name": "PowerShell-7.7.0-rc.1-win-x64.msi" }, { "name": "PowerShell-7.7.0.msixbundle" }, { "name": "PowerShell-7.7.1-win-x64.msix" }, { "name": "PowerShell-7.7.0-win-x64.zip" } ] }]
             """;
 
         Assert.Null(HttpRegexScraper.ExtractVersion(onlyUnsuitable, config.Pattern, config.SelectHighestVersion));
+    }
+
+    [Fact]
+    public void ABackPublishedPatchOfAnOlderLineThatIsListedAboveANewerOneDoesNotWin()
+    {
+        // Synthetic: a 7.5 patch published after 7.6.10 is listed first and must not be taken.
+        const string listed = """
+            [{ "assets": [ { "name": "PowerShell-7.5.14-win-x64.msi" } ] }, { "assets": [ { "name": "PowerShell-7.6.10-win-x64.msi" } ] }]
+            """;
+        var config = Scraper();
+
+        Assert.Equal("7.6.10", HttpRegexScraper.ExtractVersion(listed, config.Pattern, config.SelectHighestVersion));
     }
 
     [Fact]

@@ -20,7 +20,7 @@
     "VersionScraper":  {
                            "Type":  "HttpRegex",
                            "Url":  "https://api.github.com/repos/PowerShell/PowerShell/releases?per_page=30",
-                           "Pattern":  "PowerShell-(\\d+\\.\\d+\\.\\d+)-win-x64\\.msi",
+                           "Pattern":  "\"name\":\\s*\"PowerShell-(\\d+\\.\\d+\\.\\d+)-win-x64\\.msi\"",
                            "SelectHighestVersion":  true
                        },
     "DownloadUrl":  "https://github.com/PowerShell/PowerShell/releases/download/v{display_version}/PowerShell-{display_version}-win-x64.msi",

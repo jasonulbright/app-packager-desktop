@@ -17,7 +17,7 @@ A text editor. The file is JSON with the extension `.json`.
 - The property names are not case sensitive when App Packager Desktop reads the file. The files that App Packager Desktop writes use the names on this page.
 - A field that is absent has the default in the column **Default**. `null` means that no value is set. `[]` means an empty list.
 - A file needs an `Id`. A file with an empty `Id` is skipped.
-- The shipped files hold the field `Acquisition` with the empty value `{}` (317 files). The definition model has no such field. App Packager Desktop ignores it.
+- The shipped files hold the field `Acquisition` with the empty value `{}` (321 files). The definition model has no such field. App Packager Desktop ignores it.
 - `Schema` is 1 in all 323 shipped files. No code reads the field.
 - The column **Shipped** gives the number of the 323 shipped files that set the field, and an example file. A field that no shipped file sets has no example.
 
@@ -32,8 +32,8 @@ A text editor. The file is JSON with the extension `.json`.
 | `Vendor` | string | Vendor name. The grid and the content share folders use it. | `""` | 323; `"Simon Tatham"` |
 | `Application` | string | Application name with the bitness. | `""` | 323; `"PuTTY (x64)"` |
 | `CMName` | string | Name that **Check ConfigMgr** uses to find the application in ConfigMgr. | `""` | 323; `"PuTTY"` |
-| `AppName` | string or null | Name of the staged application. `{version}` is the staged version. When set, the name and the publisher do not come from metadata of an extracted EXE. | `null` | 6; `"Microsoft .NET {version} - Windows Server Hosting"` in `aspnethostingbundle10.json` |
-| `Publisher` | string or null | Publisher of the staged application when `AppName` is set. Without it the value of `Vendor` is used. | `null` | 6; `"Microsoft Corporation"` |
+| `AppName` | string or null | Name of the staged application. `{version}` is the staged version. When set, the name and the publisher do not come from metadata of an extracted EXE. | `null` | 8; `"Microsoft .NET {version} - Windows Server Hosting"` in `aspnethostingbundle10.json` |
+| `Publisher` | string or null | Publisher of the staged application when `AppName` is set. Without it the value of `Vendor` is used. | `null` | 8; `"Microsoft Corporation"` |
 | `Architecture` | string | Architecture of the installer: `x64`, `x86` or `ARM64`. | `"x64"` | 323 (302 `x64`, 20 `x86`, 1 `ARM64`) |
 | `VendorUrl` | string | Web site of the vendor. The context menu entry **Open Vendor URL** opens it. | `""` | 323 |
 | `WsusSupport` | string or null | Whether WSUS can take the default build: `Yes`, or `No (Code)` with the blocking refusal codes joined by `\|`. The One Click plan shows a declared refusal before a run. Absent declares nothing. | `null` | 323; `"No (PerUserInstall\|CustomInstall)"` in `githubdesktop.json` |
@@ -46,7 +46,7 @@ A text editor. The file is JSON with the extension `.json`.
 | `ArpName` | string or null | Display-name wildcards of the Add/Remove Programs entry. PowerShell `-like` syntax, not case sensitive. Join several with ` \| `. `none` marks a product without a stable entry, or a variant that inventory cannot tell from its sibling. | `null` | 323 (24 `none`); `"PuTTY release * (64-bit)"`; `"Amazon DCV Client \| NICE DCV Client"` |
 | `ArpVersion` | string or null | Optional wildcard for the Add/Remove Programs version. | `null` | 7; `"11.*"` in `corretto-jdk11-x64.json` |
 | `ArpArch` | string or null | Optional inventory view: `x86` is the 32-bit view, `x64` is the 64-bit view. | `null` | 13; `"x64"` |
-| `SecurityAdvisoryUrl` | string or null | The security advisory page of the vendor. Only an https address shows as a link. | `null` | 94; `"https://www.anaconda.com/security"` in `anaconda.json` |
+| `SecurityAdvisoryUrl` | string or null | The security advisory page of the vendor. Only an https address shows as a link. | `null` | 98; `"https://www.anaconda.com/security"` in `anaconda.json` |
 
 ### Installer and install behavior
 
@@ -59,7 +59,7 @@ A text editor. The file is JSON with the extension `.json`.
 | `InstallerFileName` | string or null | File name for the downloaded installer. Use it when the address has no usable name. Takes `{version}` and `{display_version}`. Both give the display version. | `null` | 86; `"AcroRdrDCx64-{display_version}.exe"` in `adobereader.json` |
 | `InstallArgs` | string | Install arguments. | `""` | 323; `"/qn /norestart"` |
 | `UninstallArgs` | string | Uninstall arguments. `{ProductCode}` is the MSI product code. | `""` | 323; `"/x {ProductCode} /qn /norestart"` |
-| `UninstallCommand` | string or null | A command for the uninstall wrapper. The wrapper calls it directly and does not search Add/Remove Programs. | `null` | 101; `bitwarden.json` |
+| `UninstallCommand` | string or null | A command for the uninstall wrapper. The wrapper calls it directly and does not search Add/Remove Programs. | `null` | 104; `bitwarden.json` |
 | `ExpandInstallArgs` | bool | When `true`, the MSI install wrapper expands `%NAME%` references in `InstallArgs` on the client. | `false` | 6; `ms-openjdk17-msi.json` |
 | `CanUninstall` | bool | Whether the application can be uninstalled. | `true` | 2 (`false`); `edge.json` |
 | `RunningProcess` | string list | Process names of the application. The names go into the stage manifest. The WSUS check lists them as the finding `RunningProcessNotClosed`. | `[]` | 323 (269 with names); `["putty","pageant","plink"]` |
@@ -110,12 +110,12 @@ These fields hold an object or a list. The page [Definition format: sections](de
 |---|---|---|---|---|
 | `Type` | string | `HttpRegex`, `JsonQuery`, `FileVersion`, `ChainedHttpRegex`, `CdnCab`, `DellCatalog` or `HeadProbe`. | `"HttpRegex"` | 323 |
 | `Url` | string | Address to read. `HeadProbe` takes a template with `{version}`. `FileVersion` can take `{build}`. | `""` | 323 |
-| `Pattern` | string | The expression or the property name. The meaning depends on `Type`. See [Definitions](../core/definitions.md#version-sources-scrapers). | `""` | 316; `"tag_name"` in `notepadplusplus.json` |
-| `VersionTransform` | string or null | Chain of `strip_prefix:X`, `insert_dot:N`, `replace:X:Y` and `regex_replace:pattern:replacement` that you separate with `\|`. | `null` | 72; `"strip_prefix:v"` |
+| `Pattern` | string | The expression or the property name. The meaning depends on `Type`. See [Definitions](../core/definitions.md#version-sources-scrapers). | `""` | 320; `"tag_name"` in `notepadplusplus.json` |
+| `VersionTransform` | string or null | Chain of `strip_prefix:X`, `insert_dot:N`, `replace:X:Y` and `regex_replace:pattern:replacement` that you separate with `\|`. | `null` | 71; `"strip_prefix:v"` |
 | `DownloadUrlQuery` | string or null | A query for the download address in the same answer. A found address replaces `DownloadUrl`. For `ChainedHttpRegex` and `DellCatalog` the value is ignored and must not be empty. By convention it is `CHAINED`. | `null` | 127; `"CHAINED"` in `agentransack.json` |
 | `PayloadHashQuery` | string or null | A capture of the payload SHA-256 from the same answer. `HttpRegex`: an expression whose named group `hash`, or group 1, holds the hash. `JsonQuery`: a path to the hash. | `null` | 6; `7zip.json` |
 | `NoUserAgent` | bool | When `true`, the request has no User-Agent header. | `false` | 3; `adobereader.json` |
-| `SelectHighestVersion` | bool | `HttpRegex` only. Takes the highest version of all matches, not the first match. | `false` | 54; `dbvisualizer.json` |
+| `SelectHighestVersion` | bool | `HttpRegex` only. Takes the highest version of all matches, not the first match. | `false` | 56; `dbvisualizer.json` |
 | `ServedUrlTemplate` | string or null | `HttpRegex` only. An address with `{version}`. App Packager Desktop tries the matches from the highest version down. The first version whose address answers a one-byte range request with 200 or 206 is the version. | `null` | 1; `libreoffice.json` |
 | `FetchRetries` | number | `HttpRegex` only. How many times curl repeats a page fetch that timed out or answered 5xx. 0 fetches once. | `0` | 1; `2` in `smathstudio.json` |
 | `FetchMaxTimeSeconds` | number | `HttpRegex` only. Time limit of one fetch attempt, in seconds. 0 uses the default of 25 seconds. | `0` | 1; `20` in `smathstudio.json` |
