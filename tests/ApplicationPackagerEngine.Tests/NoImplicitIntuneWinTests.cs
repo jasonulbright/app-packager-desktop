@@ -32,13 +32,13 @@ public sealed class NoImplicitIntuneWinTests
     }
 
     [Fact]
-    public void TheIntuneDeploymentServiceKeepsTheToolLookupOnlyForTheIntunePublishAndSettings()
+    public void TheIntunePublishUsesAToolOnThePathBeforeItDownloads()
     {
         var source = File.ReadAllText(Path.Combine(FindServicesFolder(), "IntuneDeploymentService.cs"));
-        var uses = source.Split("InstalledToolPath", StringSplitOptions.None).Length - 1;
+        var start = source.IndexOf("Task<string> EnsureToolAsync", StringComparison.Ordinal);
+        var body = source[start..source.IndexOf("InstallAsync", start, StringComparison.Ordinal)];
 
-        // The definition and the Settings page only; no caller in this file decides on the tool.
-        Assert.Equal(1, uses);
+        Assert.Contains("InstalledToolPath()", body);
     }
 
     private static string FindServicesFolder()

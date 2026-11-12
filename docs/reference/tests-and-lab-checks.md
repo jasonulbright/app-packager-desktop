@@ -445,6 +445,6 @@ The presence of `IntuneWinAppUtil.exe` on a computer decided whether the program
 
 | Test class | What it proves |
 |---|---|
-| `NoImplicitIntuneWinTests` | The three automatic build methods do not exist; no service other than the Intune deployment service asks whether the tool is installed; the Intune deployment service keeps only the definition of the lookup (used by Settings). |
+| `NoImplicitIntuneWinTests` | The three automatic build methods do not exist; no service other than the Intune deployment service asks whether the tool is installed; the Intune publish resolves the tool from the tool folder or the PATH before it downloads (a copy on the PATH is used). |
 
-**Lab check.** None. A ConfigMgr-only run with the tool present leaves no `.intunewin` file in the stage folder and none on the content share.
+**Lab check.** A ConfigMgr-only run with the tool present leaves no `.intunewin` file in the stage folder and none on the content share.

@@ -23,8 +23,7 @@ public static class ContentLayouts
     public static bool IsFlat(string? value) => Normalize(value) == Flat;
 
     /// <summary>
-    /// The content version folder for one application: the parent of this folder is
-    /// where a .intunewin built beside the content is stored under either layout.
+    /// The content version folder for one application under the chosen layout.
     /// </summary>
     public static string ContentPath(string fileServerPath, string layout, string vendorFolder, string appFolder, string version)
     {

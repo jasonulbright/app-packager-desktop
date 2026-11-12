@@ -450,7 +450,7 @@
                             PlaceholderText="{Binding IntuneSecretHint}" Margin="0,0,0,4" />
             <TextBlock Text="Stored encrypted for the current Windows user. Leave empty to keep the saved secret."
                        Foreground="{DynamicResource TextFillColorTertiaryBrush}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,8" />
-            <TextBlock Text="Stage builds the .intunewin when the Win32 Content Prep Tool is on this computer; Publish to ConfigMgr stores it beside the network content."
+            <TextBlock Text="Only Publish to Intune builds the .intunewin; the first build downloads the Win32 Content Prep Tool when it is missing."
                        Foreground="{DynamicResource TextFillColorTertiaryBrush}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,8" />
 
             <Border Style="{StaticResource SectionDivider}" />

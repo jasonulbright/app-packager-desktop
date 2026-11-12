@@ -154,9 +154,9 @@ public sealed class IntuneDeploymentService(SettingsService settingsService)
     /// <summary>Resolves the content prep tool, downloading it into the tool folder on first use.</summary>
     private static async Task<string> EnsureToolAsync(Action<string>? log, CancellationToken ct)
     {
-        var toolPath = Path.Combine(ToolFolder, "IntuneWinAppUtil.exe");
-        if (File.Exists(toolPath))
-            return toolPath;
+        // A copy in the tool folder or on the PATH is used as it is; only a missing tool is downloaded.
+        if (InstalledToolPath() is { } installed)
+            return installed;
 
         log?.Invoke("Downloading Microsoft Win32 Content Prep Tool...");
         var service = new IntuneWinToolService();
