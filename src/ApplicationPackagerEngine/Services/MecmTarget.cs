@@ -920,44 +920,6 @@ public sealed partial class MecmTarget
             ? "This stage asks for the native MSIX deployment type of ConfigMgr, which App Packager no longer publishes. "
               + "An MSIX is published as a script deployment type. Stage the application again from its definition (Stage), then publish. If the definition itself has a detection rule of the type MSIX, change that rule to a registry key or a script rule first."
             : null;
-    /// <summary>
-    /// Distributes content for a packaged application to a DP group. Call after
-    /// PackageAsync succeeds. A group that already holds the content makes the
-    /// cmdlet throw ("already been targeted", or on the tested site "No content destination was found"); that is the wanted end state and
-    /// counts as success when the group exists.
-    /// </summary>
-    public async Task<ContentStepResult> DistributeAsync(
-        string appName, string siteCode, string dpGroupName = "All DPs",
-        Action<string>? onProgress = null, string? providerMachine = null,
-        CancellationToken ct = default)
-    {
-        var result = await WindowsPowerShellHost.RunAsync(
-            BuildDistributionScript(appName, siteCode, dpGroupName, providerMachine), onProgress, ct);
-        if (result.ExitCode == 0) return ContentStepResult.Ok;
-        onProgress?.Invoke($"Distribution failed: {result.StdErr}");
-        return ContentStepResult.Failed(ContentStepFailureText("distribution", dpGroupName, result.StdErr));
-    }
-
-    /// <summary>The outcome of a step after the application exists: distribution or test deployment.</summary>
-    public sealed record ContentStepResult(bool Succeeded, string? Failure)
-    {
-        public static ContentStepResult Ok { get; } = new(true, null);
-        public static ContentStepResult Failed(string failure) => new(false, failure);
-    }
-
-    /// <summary>
-    /// Runs the content steps in their order: distribution first, then the test deployment when there is one. A distribution
-    /// that fails skips the deployment. Returns the sentence of the first step that failed, or null when all steps succeeded.
-    /// </summary>
-    public static async Task<string?> RunContentStepsAsync(Func<Task<ContentStepResult>> distribute, Func<Task<ContentStepResult>>? deployToTest)
-    {
-        var distributed = await distribute().ConfigureAwait(false);
-        if (!distributed.Succeeded) return distributed.Failure;
-        if (deployToTest is null) return null;
-        var deployed = await deployToTest().ConfigureAwait(false);
-        return deployed.Succeeded ? null : deployed.Failure;
-    }
-
     /// <summary>The sentence that names a failed content step, its target and the reason of the provider.</summary>
     public static string ContentStepFailureText(string step, string target, string reason)
     {
@@ -973,6 +935,12 @@ public sealed partial class MecmTarget
     {
         var sb = new StringBuilder();
         AppendCmPreamble(sb, siteCode, providerMachine);
+        AppendDistributionBody(sb, appName, dpGroupName);
+        return sb.ToString();
+    }
+
+    private static void AppendDistributionBody(StringBuilder sb, string appName, string dpGroupName)
+    {
         sb.AppendLine("try {");
         sb.AppendLine($"  Start-CMContentDistribution -ApplicationName '{Esc(appName)}' -DistributionPointGroupName '{Esc(dpGroupName)}' -ErrorAction Stop");
         sb.AppendLine($"  Write-Host 'Content distribution initiated: {Esc(appName)} to {Esc(dpGroupName)}'");
@@ -985,26 +953,6 @@ public sealed partial class MecmTarget
         sb.AppendLine($"    Write-Host 'Content already targeted: {Esc(appName)} on {Esc(dpGroupName)}'");
         sb.AppendLine("  } else { throw }");
         sb.AppendLine("}");
-        return sb.ToString();
-    }
-
-    /// <summary>
-    /// Deploys a packaged application to a test collection as Available,
-    /// effective immediately, creating an empty collection limited to All Systems
-    /// or All Users when asked. A missing collection without that
-    /// permission skips the deployment and reports it; an existing deployment
-    /// counts as success.
-    /// </summary>
-    public async Task<ContentStepResult> DeployToTestCollectionAsync(
-        string appName, string siteCode, string collectionName, bool createIfMissing,
-        Action<string>? onProgress = null, string? providerMachine = null,
-        CancellationToken ct = default, bool userCollection = false)
-    {
-        var result = await WindowsPowerShellHost.RunAsync(
-            BuildTestCollectionDeploymentScript(appName, siteCode, collectionName, createIfMissing, providerMachine, userCollection), onProgress, ct);
-        if (result.ExitCode == 0) return ContentStepResult.Ok;
-        onProgress?.Invoke($"Test deployment failed: {result.StdErr}");
-        return ContentStepResult.Failed(ContentStepFailureText("test deployment", collectionName, result.StdErr));
     }
 
     public static string BuildTestCollectionDeploymentScript(
@@ -1012,11 +960,17 @@ public sealed partial class MecmTarget
         bool userCollection = false)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(collectionName);
+        var sb = new StringBuilder();
+        AppendCmPreamble(sb, siteCode, providerMachine);
+        AppendTestDeploymentBody(sb, appName, collectionName, createIfMissing, userCollection);
+        return sb.ToString();
+    }
+
+    private static void AppendTestDeploymentBody(StringBuilder sb, string appName, string collectionName, bool createIfMissing, bool userCollection)
+    {
         var collectionType = userCollection ? "User" : "Device";
         var limitingId = userCollection ? "SMS00002" : "SMS00001";
         var limitingName = userCollection ? "All Users" : "All Systems";
-        var sb = new StringBuilder();
-        AppendCmPreamble(sb, siteCode, providerMachine);
         sb.AppendLine($"$collections = @(Get-CMCollection -CollectionType {collectionType} -Name '{Esc(collectionName)}' -DisableWildcardHandling -ErrorAction Stop)");
         if (createIfMissing)
         {
@@ -1040,8 +994,63 @@ public sealed partial class MecmTarget
         sb.AppendLine($"    Write-Host 'Test deployment already exists: {Esc(appName)} to {Esc(collectionName)}'");
         sb.AppendLine("  } else { throw }");
         sb.AppendLine("}");
+    }
+
+    /// <summary>The exit codes of the one-start content script: the step that failed.</summary>
+    public const int DistributionFailedExitCode = 11;
+    public const int TestDeploymentFailedExitCode = 12;
+
+    /// <summary>
+    /// The distribution and the test deployment in one script, so one PowerShell start and one load of the ConfigMgr module serve
+    /// both. A distribution that fails ends the script (exit 11) and the deployment does not run; a deployment that fails exits 12.
+    /// The error record of a failed step is written to standard error whole, as an uncaught error was before; the sentence takes its first line and the log keeps all of it.
+    /// </summary>
+    public static string BuildContentStepsScript(
+        string appName, string siteCode, string dpGroupName, string? providerMachine,
+        string? testCollectionName, bool createTestCollectionIfMissing, bool userCollection)
+    {
+        var sb = new StringBuilder();
+        AppendCmPreamble(sb, siteCode, providerMachine);
+        sb.AppendLine("$distributionStep = {");
+        AppendDistributionBody(sb, appName, dpGroupName);
+        sb.AppendLine("}");
+        sb.AppendLine("try { & $distributionStep } catch {");
+        sb.AppendLine($"  [Console]::Error.WriteLine(($_ | Out-String).TrimEnd()); exit {DistributionFailedExitCode}");
+        sb.AppendLine("}");
+        if (!string.IsNullOrWhiteSpace(testCollectionName))
+        {
+            sb.AppendLine("$deploymentStep = {");
+            AppendTestDeploymentBody(sb, appName, testCollectionName, createTestCollectionIfMissing, userCollection);
+            sb.AppendLine("}");
+            sb.AppendLine("try { & $deploymentStep } catch {");
+            sb.AppendLine($"  [Console]::Error.WriteLine(($_ | Out-String).TrimEnd()); exit {TestDeploymentFailedExitCode}");
+            sb.AppendLine("}");
+        }
         return sb.ToString();
     }
+
+    /// <summary>
+    /// Distributes the content and, when a test collection is given, deploys to it, in one PowerShell start. Returns the sentence
+    /// of the step that failed, or null when every step succeeded.
+    /// </summary>
+    public async Task<string?> RunContentStepsAsync(
+        string appName, string siteCode, string dpGroupName, string? testCollectionName, bool createTestCollectionIfMissing,
+        bool userCollection, Action<string>? onProgress, string? providerMachine, CancellationToken ct)
+    {
+        var result = await WindowsPowerShellHost.RunAsync(
+            BuildContentStepsScript(appName, siteCode, dpGroupName, providerMachine, testCollectionName, createTestCollectionIfMissing, userCollection),
+            onProgress, ct);
+        var failure = ContentStepFailureFor(result.ExitCode, result.StdErr, dpGroupName, testCollectionName);
+        if (failure is not null)
+            onProgress?.Invoke($"{(result.ExitCode == TestDeploymentFailedExitCode ? "Test deployment" : "Distribution")} failed: {result.StdErr}");
+        return failure;
+    }
+
+    /// <summary>The sentence for the exit code of the one-start content script; null for 0. Any code but 12 is the distribution.</summary>
+    public static string? ContentStepFailureFor(int exitCode, string stdErr, string dpGroupName, string? testCollectionName) =>
+        exitCode == 0 ? null
+        : exitCode == TestDeploymentFailedExitCode ? ContentStepFailureText("test deployment", testCollectionName ?? "", stdErr)
+        : ContentStepFailureText("distribution", dpGroupName, stdErr);
 
     private static void AppendCmPreamble(StringBuilder sb, string siteCode, string? providerMachine = null)
     {

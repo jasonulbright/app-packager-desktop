@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+## [2026.1111.43] - 2026-11-12
+
+### Changed
+
+- A ConfigMgr publish starts one Windows PowerShell process for the content distribution and the test deployment, not two. The ConfigMgr module loads once for both. The messages of a failed step are the same as before.
+
+### Fixed
+
+- An Intune update keeps the description of the existing app when the run has no comment. Before, it wrote the name of the application over a description that an administrator typed in the console. A ConfigMgr replace already kept it.
+
 ## [2026.1111.42] - 2026-11-12
 
 ### Fixed

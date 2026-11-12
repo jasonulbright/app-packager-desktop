@@ -1300,16 +1300,11 @@ public class PackagerExecutionService(
             else
             {
                 var deployToTest = distribution.DeployToTestCollection && !string.IsNullOrWhiteSpace(distribution.TestCollectionName);
-                contentFailure = await MecmTarget.RunContentStepsAsync(
-                    () => mecmTarget.DistributeAsync(
-                        result.ApplicationName, settings.SiteCode, distribution.DpGroupName.Trim(),
-                        report, settings.ProviderMachine, ct),
-                    deployToTest
-                        ? () => mecmTarget.DeployToTestCollectionAsync(
-                            result.ApplicationName, settings.SiteCode, distribution.TestCollectionName.Trim(),
-                            distribution.CreateTestCollectionIfMissing, report, settings.ProviderMachine, ct,
-                            userCollection: distribution.TestCollectionIsUser)
-                        : null);
+                contentFailure = await mecmTarget.RunContentStepsAsync(
+                    result.ApplicationName, settings.SiteCode, distribution.DpGroupName.Trim(),
+                    deployToTest ? distribution.TestCollectionName.Trim() : null,
+                    distribution.CreateTestCollectionIfMissing, distribution.TestCollectionIsUser,
+                    report, settings.ProviderMachine, ct);
             }
         }
 

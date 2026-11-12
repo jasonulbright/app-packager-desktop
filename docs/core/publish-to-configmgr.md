@@ -71,6 +71,8 @@ Deployment types are created in the order of the definition. When the applicatio
 
 These steps are optional. Turn them on in Settings, After Package.
 
+The two steps run in one Windows PowerShell start, so the ConfigMgr module loads once for both. A distribution that fails ends the script, and the test deployment does not run.
+
 1. **Distribute content after Package** starts content distribution of the new application to the **Distribution point group**. A group that already holds the content counts as done.
 2. **Deploy to a test collection after distribution** creates an Available deployment, effective at once, to the **Test collection**. This step runs only after the distribution step. An existing deployment counts as done.
 3. The app finds the collection by its exact name. Wildcard matching is off. **Use a user collection** selects user collections. When it is cleared, the app uses device collections. This choice does not change the install context of the application.
