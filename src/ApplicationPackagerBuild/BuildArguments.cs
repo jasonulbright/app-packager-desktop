@@ -29,6 +29,10 @@ public sealed record BuildOptions
     public string? WsusApprovalGroup { get; init; }
     public bool? WsusDeclineSuperseded { get; init; }
     public OnExistingBehavior OnExisting { get; init; } = OnExistingBehavior.Skip;
+    /// <summary>--version-rule: exact or minimum. Outranks the title override and the site default.</summary>
+    public string? VersionRule { get; init; }
+    /// <summary>--supersedence: off, replace or replace-uninstall. Outranks the title override and the site default.</summary>
+    public string? Supersedence { get; init; }
     public string? LocalSourceFolder { get; init; }
     public string? DataRoot { get; init; }
     public bool Help { get; init; }
@@ -62,7 +66,7 @@ public static class BuildArguments
         "application", "profile", "version", "target", "download-root", "estimated-minutes", "maximum-minutes",
         "packagers-root", "log-folder", "site-code", "provider-machine-name", "file-server-path", "comment",
         "wsus-server", "wsus-port", "wsus-classification", "wsus-approval-group", "on-existing",
-        "local-source-folder", "data-root",
+        "local-source-folder", "data-root", "version-rule", "supersedence",
         "apps", "report-folder", "report-formats", "webhook-url", "drop-folder", "keep-report-days", "config"
     };
 
@@ -146,6 +150,19 @@ public static class BuildArguments
             onExisting = named[0];
         }
 
+        if (values.TryGetValue("version-rule", out var ruleText)
+            && !ApplicationPackagerEngine.Services.Supersedence.SupersedenceNames.TryParseRule(ruleText, out _))
+            return Fail($"Unknown --version-rule value '{ruleText}'; expected exact or minimum.");
+        if (values.TryGetValue("supersedence", out var modeText)
+            && !ApplicationPackagerEngine.Services.Supersedence.SupersedenceNames.TryParseMode(modeText, out _))
+            return Fail($"Unknown --supersedence value '{modeText}'; expected off, replace or replace-uninstall.");
+
+        if (values.TryGetValue("version-rule", out var ruleGiven) && values.TryGetValue("supersedence", out var modeGiven)
+            && ApplicationPackagerEngine.Services.Supersedence.SupersedenceNames.TryParseRule(ruleGiven, out var givenRule)
+            && ApplicationPackagerEngine.Services.Supersedence.SupersedenceNames.TryParseMode(modeGiven, out var givenMode)
+            && ApplicationPackagerEngine.Services.Supersedence.SupersedenceResolver.BlockedCombination(givenRule, givenMode) is { } blocked)
+            return Fail(blocked);
+
         if (!TryMinutes(values, "estimated-minutes", out var estimated, out var error)) return Fail(error!);
         if (!TryMinutes(values, "maximum-minutes", out var maximum, out error)) return Fail(error!);
 
@@ -181,6 +198,8 @@ public static class BuildArguments
             WsusApprovalGroup = values.TryGetValue("wsus-approval-group", out var group) ? group.Trim() : null,
             WsusDeclineSuperseded = Flag(values, "wsus-decline-superseded"),
             OnExisting = onExisting,
+            VersionRule = Text(values, "version-rule"),
+            Supersedence = Text(values, "supersedence"),
             LocalSourceFolder = Text(values, "local-source-folder"),
             DataRoot = Text(values, "data-root")
         };
@@ -233,6 +252,10 @@ public static class BuildArguments
                                       of the profile; a WSUS target stages in the same run
           --target <target>           ContentOnly, MECM (default), MECMAndIntune, IntuneOnly, MECMAndWSUS, WSUSOnly
           --on-existing <behavior>    Existing ConfigMgr application: Skip (default), Overwrite, Fail
+          --version-rule <rule>       Version clause of the detection: minimum (this version or newer) or exact (this version only).
+                                      Outranks the title override and the site default.
+          --supersedence <mode>       off, replace or replace-uninstall (needs --version-rule exact). Outranks the title override
+                                      and the site default.
           --comment <text>            Administrative comment stored on the application
 
         Run overrides (this build only, never written to the profile or the settings):

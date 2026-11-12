@@ -779,6 +779,9 @@ public class PackagerExecutionService(
             var signingPolicy = StageFinalizer.EffectivePolicy(snapshot, settings.ScriptSigning);
             if (applicationTitle != manifest.AppName)
                 Report($"Application title            : {applicationTitle}");
+            var supersedence = PlanSupersedence(manifest, stagedContentPath, settings, target, Report, source?.ApplicationId);
+            if (supersedence.Refusal is not null)
+                return SupersedenceRefused(supersedence.Refusal, target);
 
             // An Intune-only run stops at the staged content: no site connection, no share
             // copy, no MECM application. The build and publish below work from local content.
@@ -788,9 +791,10 @@ public class PackagerExecutionService(
             {
                 var mecmTarget = new ApplicationPackagerEngine.Services.MecmTarget();
                 var result = await mecmTarget.PackageAsync(
-                    manifest, stagedContentPath, settings.SiteCode, settings.FileShareRoot, comment,
+                    supersedence.ConfigMgrManifest, stagedContentPath, settings.SiteCode, settings.FileShareRoot, comment,
                     settings.EstimatedRuntimeMins, settings.MaximumRuntimeMins,
                     Report,
+                    identityMarker: supersedence.Marker,
                     commandOverrides: commandOverrides,
                     conditionTemplates: new ApplicationPackagerEngine.Services.ConditionTemplateService()
                         .Load(warning => onOutputLine?.Invoke(warning)),
@@ -827,8 +831,9 @@ public class PackagerExecutionService(
                 // application. Every path that reads the manifest name for a
                 // content location has already run.
                 manifest.AppName = applicationTitle;
+                supersedence.IntuneManifest.AppName = applicationTitle;
                 notes = await intuneDeploymentService.BuildAndPublishAsync(
-                    manifest, stagedContentPath, Report, comment, ct, signingPolicy, requirements);
+                    supersedence.IntuneManifest, stagedContentPath, Report, comment, ct, signingPolicy, requirements);
             }
 
             var outcome = PackagingOutcomeComposer.Compose(
@@ -1194,6 +1199,9 @@ public class PackagerExecutionService(
         }
         if (applicationTitle != manifest.AppName)
             Report($"Application title            : {applicationTitle}");
+        var supersedence = PlanSupersedence(manifest, stagedContentPath, settings, target, Report);
+        if (supersedence.Refusal is not null)
+            return SupersedenceRefused(supersedence.Refusal, target);
 
         var mecmSucceeded = true;
         var mecmAlreadyExists = false;
@@ -1207,9 +1215,10 @@ public class PackagerExecutionService(
         {
             var mecmTarget = new MecmTarget();
             var result = await mecmTarget.PackageAsync(
-                manifest, stagedContentPath, settings.SiteCode, settings.FileShareRoot, comment,
+                supersedence.ConfigMgrManifest, stagedContentPath, settings.SiteCode, settings.FileShareRoot, comment,
                 settings.EstimatedRuntimeMins, settings.MaximumRuntimeMins,
                 Report,
+                identityMarker: supersedence.Marker,
                 conditionTemplates: new ConditionTemplateService().Load(warning => onOutputLine?.Invoke(warning)),
                 providerMachine: settings.ProviderMachine,
                 onExisting: onExisting,
@@ -1241,7 +1250,8 @@ public class PackagerExecutionService(
         {
             // The Intune display name carries the same title as the ConfigMgr application, as in a definition run.
             manifest.AppName = applicationTitle;
-            notes = await intuneDeploymentService.BuildAndPublishAsync(manifest, stagedContentPath, Report, comment, ct, signingPolicy);
+            supersedence.IntuneManifest.AppName = applicationTitle;
+            notes = await intuneDeploymentService.BuildAndPublishAsync(supersedence.IntuneManifest, stagedContentPath, Report, comment, ct, signingPolicy);
         }
 
         var outcome = PackagingOutcomeComposer.Compose(
@@ -1270,6 +1280,51 @@ public class PackagerExecutionService(
             PublishedBuildId = manifest.BuildId
         };
     }
+
+    /// <summary>The version rule and the supersedence mode that the command line gave; they outrank the other levels. Null outside a command-line build.</summary>
+    public ApplicationPackagerEngine.Services.Supersedence.SupersedenceCommandLine? CommandLineSupersedence { get; set; }
+
+    /// <summary>
+    /// Resolves the version rule and the supersedence mode of one publish and writes the lines to the log. A refused plan (the blocked
+    /// combination, an Exact clause that the guard blocks, a value that is not allowed) creates nothing.
+    /// </summary>
+    private ApplicationPackagerEngine.Services.Supersedence.SupersedencePlan PlanSupersedence(
+        StageManifest manifest, string stagedContentPath, AppSettings settings, string target, Action<string> report,
+        string? fallbackApplicationId = null)
+    {
+        string? MsiProductVersion(StageManifest m)
+        {
+            if (!string.Equals(m.InstallerType, "MSI", StringComparison.OrdinalIgnoreCase)) return null;
+            try
+            {
+                var version = new ApplicationPackagerEngine.Services.MsiInspectionService()
+                    .ReadProperties(Path.Combine(stagedContentPath, m.InstallerFile)).ProductVersion;
+                return string.IsNullOrWhiteSpace(version) ? null : version;
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException
+                                           or System.Runtime.InteropServices.COMException or FileNotFoundException
+                                           or System.Reflection.TargetInvocationException)
+            {
+                return null;
+            }
+        }
+        var plan = ApplicationPackagerEngine.Services.Supersedence.SupersedencePlanner.Plan(
+            manifest, settings.Supersedence ?? new(), CommandLineSupersedence,
+            !DeploymentTargets.SkipsMecm(target), DeploymentTargets.PublishesToIntune(target), MsiProductVersion, fallbackApplicationId);
+        foreach (var line in plan.Log) report(line);
+        return plan;
+    }
+
+    /// <summary>The result of a row that the version rule or the supersedence mode refused: it is recorded as refused, and nothing was created.</summary>
+    private static PackagerExecutionResult SupersedenceRefused(string refusal, string target) => new()
+    {
+        ExitCode = 1,
+        StdErr = refusal,
+        ConfigMgrOutcome = DeploymentTargets.SkipsMecm(target) ? null : InventoryOutcome.Refused,
+        ConfigMgrDetail = DeploymentTargets.SkipsMecm(target) ? null : refusal,
+        IntuneOutcome = DeploymentTargets.PublishesToIntune(target) ? InventoryOutcome.Refused : null,
+        IntuneDetail = DeploymentTargets.PublishesToIntune(target) ? refusal : null
+    };
 
     /// <summary>Appends the ConfigMgr publication record of a snapshot build; other builds record nothing.</summary>
     private static void RecordMecmPublication(StageManifest manifest, PackagingResult result, AppSettings settings, Action<string> report) =>

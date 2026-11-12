@@ -1,6 +1,6 @@
 # Supersedence: version rule and supersedence mode
 
-Status: specification, not yet built. Date: 2026-11-11.
+Status: specification. Step 1 of the delivery is built in part: the settings (Options, settings file, command line), the version rule, the Exact guard with the MSI ProductVersion source, the blocked combination, and the identity marker for an application that has no keywords of its own. Open in step 1: the per-title override on the publish page and the line name, recording the installed value from the test step of Add App, the action that accepts a block, the marker for an application that already has keywords (it needs the lab confirmation of how the provider stores several keywords), and lab test 5. Steps 2 to 4 are not built. Date: 2026-11-11.
 
 ## Summary
 
