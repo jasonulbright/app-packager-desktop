@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [2026.1111.39] - 2026-11-11
+
+### Fixed
+
+- A ConfigMgr publish that created the application but could not apply its icon (the site refused it, or the file was not in the content folder) now records that as a warning in the history of the run. Before, the run read as a plain success. The run still counts as a success.
+
 ## [2026.1111.38] - 2026-11-11
 
 ### Fixed
