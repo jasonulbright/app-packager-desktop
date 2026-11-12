@@ -28,6 +28,29 @@ public sealed class BuildArgumentsTests
     public void HelpNeedsNoOtherArgument(string arg) => Assert.True(Parsed(arg).Help);
 
     [Fact]
+    public void TheVersionRuleAndTheSupersedenceModeParseAndOutrankNothingWhenAbsent()
+    {
+        var given = Parsed("--application", "a", "--package", "--version-rule", "Exact", "--supersedence", "replace-uninstall");
+        var absent = Parsed("--application", "a", "--package");
+
+        Assert.Equal("Exact", given.VersionRule);
+        Assert.Equal("replace-uninstall", given.Supersedence);
+        Assert.Null(absent.VersionRule);
+        Assert.Null(absent.Supersedence);
+    }
+
+    [Theory]
+    [InlineData("--version-rule", "sometimes", "Unknown --version-rule value 'sometimes'; expected exact or minimum.")]
+    [InlineData("--supersedence", "maybe", "Unknown --supersedence value 'maybe'; expected off, replace or replace-uninstall.")]
+    public void AnUnknownVersionRuleOrModeIsRefusedWithTheAllowedWords(string option, string value, string message) =>
+        Assert.Equal(message, Refused("--application", "a", "--package", option, value));
+
+    [Fact]
+    public void ReplaceAndUninstallWithAMinimumRuleOnTheCommandLineIsRefusedAtParseTime() =>
+        Assert.Equal(ApplicationPackagerEngine.Services.Supersedence.SupersedenceResolver.BlockedText,
+            Refused("--application", "a", "--package", "--version-rule", "minimum", "--supersedence", "replace-uninstall"));
+
+    [Fact]
     public void UsageNamesEveryOptionTheParserAccepts()
     {
         foreach (var option in new[]
@@ -36,7 +59,7 @@ public sealed class BuildArgumentsTests
                      "--estimated-minutes", "--maximum-minutes", "--packagers-root", "--log-folder", "--site-code",
                      "--provider-machine-name", "--file-server-path", "--comment", "--wsus-server", "--wsus-port",
                      "--wsus-use-ssl", "--wsus-classification", "--wsus-approval-group", "--wsus-decline-superseded",
-                     "--on-existing", "--local-source-folder", "--data-root", "--help"
+                     "--on-existing", "--local-source-folder", "--data-root", "--version-rule", "--supersedence", "--help"
                  })
             Assert.Contains(option, BuildArguments.Usage);
     }

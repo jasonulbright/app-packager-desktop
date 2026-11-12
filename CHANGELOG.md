@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [2026.1111.45] - 2026-11-12
+
+### Added
+
+- Settings, Supersedence: the version rule for ConfigMgr and for Intune (`Minimum` or `Exact`) and the supersedence mode (`Off`, `Replace` or `Replace and uninstall`), and the command line options `--version-rule` and `--supersedence`. `Exact` writes `IsEquals` to the version clause of the detection, only when a value read from the installed product equals the expected value. `Replace and uninstall` with `Minimum` is refused before anything is created. The shipped values are `Minimum` and `Off`, so the published detection does not change. This release writes no supersedence relation.
+- A ConfigMgr publish writes an identity marker into the keywords of a new or overwritten application that has no keywords of its own. A later release uses it to find the older versions of a product line. The program never rewrites a keyword that you set; when keywords exist, the result carries a warning. The Software Center shows keywords to users, so the marker is visible there.
+
 ## [2026.1111.44] - 2026-11-12
 
 ### Added

@@ -66,6 +66,9 @@ public sealed class AppSettings
 
     public ContentDistributionSettings ContentDistribution { get; set; } = new();
 
+    /// <summary>The version rule and the supersedence mode: site defaults and per-title overrides.</summary>
+    public ApplicationPackagerEngine.Services.Supersedence.SupersedenceSettings Supersedence { get; set; } = new();
+
     public OneClickSettings OneClick { get; set; } = new();
 
     public string[] HiddenApplications { get; set; } = [];

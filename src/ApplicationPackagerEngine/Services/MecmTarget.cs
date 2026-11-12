@@ -3,6 +3,7 @@ using System.Text;
 using ApplicationPackagerEngine.Models;
 using ApplicationPackagerEngine.Models.Signing;
 using ApplicationPackagerEngine.Services.Signing;
+using ApplicationPackagerEngine.Services.Supersedence;
 using ApplicationPackagerEngine.Services.Workbench;
 
 namespace ApplicationPackagerEngine.Services;
@@ -46,7 +47,8 @@ public sealed partial class MecmTarget
         string? applicationTitle = null,
         MecmScriptSigningContext? scriptSigning = null,
         Workbench.ProfileContentScope? contentScope = null,
-        DeploymentTypeContentOptions? contentOptions = null)
+        DeploymentTypeContentOptions? contentOptions = null,
+        string? identityMarker = null)
     {
         try
         {
@@ -150,7 +152,7 @@ public sealed partial class MecmTarget
             var psScript = BuildPackageScript(manifest, appName, networkContentPath,
                 siteCode, comment, estimatedRuntimeMins, maximumRuntimeMins,
                 conditionTemplates, commandOverrides, onProgress, requirements, providerMachine,
-                onExisting, scriptSigning, contentOptions);
+                onExisting, scriptSigning, contentOptions, identityMarker);
 
             var result = await WindowsPowerShellHost.RunAsync(psScript, onProgress, ct);
 
@@ -288,7 +290,8 @@ public sealed partial class MecmTarget
         string? providerMachine = null,
         OnExistingBehavior onExisting = OnExistingBehavior.Skip,
         MecmScriptSigningContext? scriptSigning = null,
-        DeploymentTypeContentOptions? contentOptions = null)
+        DeploymentTypeContentOptions? contentOptions = null,
+        string? identityMarker = null)
     {
         var content = contentOptions ?? DeploymentTypeContentOptions.Default;
         onLog?.Invoke(content.LogLine);
@@ -446,6 +449,8 @@ public sealed partial class MecmTarget
         sb.AppendLine();
         sb.AppendLine("}");
         sb.AppendLine("Write-Host \"CI_ID: $($app.CI_ID)\"");
+        if (!string.IsNullOrWhiteSpace(identityMarker))
+            AppendIdentityMarker(sb, appName, identityMarker);
 
         // From here the site can refuse a step (a value it does not accept, a content path it cannot read). The steps run in a
         // try block so that a failure does not leave a half-built application: one that this run created is removed, and the
@@ -672,7 +677,38 @@ public sealed partial class MecmTarget
             var text = $"The application icon was {match.Groups[1].Value}: {match.Groups[2].Value}";
             if (!warnings.Contains(text)) warnings.Add(text);
         }
+        foreach (System.Text.RegularExpressions.Match match in MarkerWarningLine().Matches(output ?? ""))
+        {
+            var text = $"The identity marker was not written, so a later release cannot find this application as the older version of its line: {match.Groups[1].Value}";
+            if (!warnings.Contains(text)) warnings.Add(text);
+        }
         return warnings;
+    }
+
+    [System.Text.RegularExpressions.GeneratedRegex(@"^Identity marker not written[ \t]*:[ \t]*(\S.*?)[ \t]*\r?$", System.Text.RegularExpressions.RegexOptions.Multiline)]
+    private static partial System.Text.RegularExpressions.Regex MarkerWarningLine();
+
+    /// <summary>
+    /// Writes the identity marker into the keywords of the application. A keyword of an administrator is never rewritten: when the
+    /// application has keywords of its own, or when the keywords cannot be read, nothing is written and the script prints a warning that
+    /// the result carries. An earlier marker is replaced.
+    /// </summary>
+    internal static void AppendIdentityMarker(StringBuilder sb, string appName, string marker)
+    {
+        sb.AppendLine("try {");
+        sb.AppendLine($"    $markerApp = Get-CMApplication -Name '{Esc(appName)}' -DisableWildcardHandling -ErrorAction Stop");
+        sb.AppendLine("    $markerTags = @()");
+        sb.AppendLine("    $markerXml = [Microsoft.ConfigurationManagement.ApplicationManagement.Serialization.SccmSerializer]::DeserializeFromString($markerApp.SDMPackageXML, $true)");
+        sb.AppendLine("    foreach ($markerInfo in $markerXml.DisplayInfo) { foreach ($markerTag in $markerInfo.Tags) { $markerTags += [string]$markerTag } }");
+        // The cmdlet takes the keyword as one value, and how the provider stores several keywords is not confirmed on a lab site. So the
+        // marker is written only when the application has no keywords of its own; a keyword of an administrator is never rewritten.
+        sb.AppendLine($"    $markerOthers = @($markerTags | Where-Object {{ $_ -and -not $_.StartsWith('{IdentityMarker.Prefix}') }})");
+        sb.AppendLine("    if ($markerOthers.Count -gt 0) { throw 'the application has keywords of its own, which a write would replace' }");
+        sb.AppendLine($"    Set-CMApplication -InputObject $markerApp -Keyword '{Esc(marker)}' -ErrorAction Stop");
+        sb.AppendLine($"    Write-Host 'Identity marker             : {Esc(marker)}'");
+        sb.AppendLine("} catch {");
+        sb.AppendLine("    Write-Host \"Identity marker not written : $($_.Exception.Message)\"");
+        sb.AppendLine("}");
     }
 
     private const string InstallForUser = "InstallForUser";

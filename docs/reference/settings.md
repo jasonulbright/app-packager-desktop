@@ -138,6 +138,12 @@ See [Stage and publish](../core/stage-and-publish.md).
 | `Client ID` | `Intune.ClientId` | empty | The app registration (client) ID. |
 | `Client Secret` | `Intune.ClientSecretProtected` | empty | The app registration secret. Stored protected for the current Windows user. An empty box keeps the saved secret. |
 | `Minimum Windows release` | `Intune.MinimumWindowsRelease` | `Windows10_21H2` | The oldest Windows release that an Intune app is offered to. Every Intune app that is published gets it. |
+| `Version rule, ConfigMgr` | `Supersedence.ConfigMgrVersionRule` | `Minimum` | `Minimum` writes `GreaterEquals` (this version or newer) to the version clause of the ConfigMgr detection, as the definition says. `Exact` writes `IsEquals` (this version only), and only when a value read from the installed product equals the expected value. |
+| `Version rule, Intune` | `Supersedence.IntuneVersionRule` | `Minimum` | The same for the Intune detection rule (`greaterThanOrEqual` or `equal`). |
+| `Supersedence mode, ConfigMgr` | `Supersedence.Mode` | `Off` | `Off`, `Replace` or `Replace and uninstall`. `Replace and uninstall` needs the ConfigMgr version rule `Exact`; a publish with `Minimum` is refused. This release records the mode and writes no supersedence relation. |
+| (none) | `Supersedence.TitleOverrides` | empty | Per-title override of the version rule and the mode, keyed by the definition identifier (for example `catalog:vendor-app`). Edited in the settings file. |
+| (none) | `Supersedence.InstalledValues` | empty | Installed values that a test install read, keyed `<definition identifier>|<version>`. The Exact guard compares them with the expected value of a clause. |
+| (none) | `Supersedence.AcceptedExactBlocks` | empty | Blocks of the Exact guard that the administrator accepted, keyed `<definition identifier>|<version>`. The clause is then written as `Minimum`. |
 | (none) | `Intune.AcceptedRequirementDrops` | empty | Requirement rules that have no Intune rule and may be left out of an Intune app. The button **Accept dropped requirements and continue** in the Intune review window adds the entries. Each entry is the identity tag of the application, a bar and the condition id; the blocking finding prints the entry. See [Publish to Intune](../core/publish-to-intune.md#requirement-rules). |
 
 The app registration needs the application permission `DeviceManagementApps.ReadWrite.All`, with admin consent.

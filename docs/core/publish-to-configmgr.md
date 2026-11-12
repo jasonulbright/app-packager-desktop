@@ -71,6 +71,10 @@ Deployment types are created in the order of the definition. When the applicatio
 
 These steps are optional. Turn them on in Settings, After Package.
 
+A new or overwritten application gets an identity marker in its keywords (`APD-Line:<definition identifier>|<profile>|<architecture>`). A later release uses it to find the older versions of one product line. The marker is written only when the application has no keywords of its own: the program never rewrites a keyword that you set. When the application has keywords, or the keywords cannot be read, no marker is written and the result carries a warning. A title with no definition identifier gets no marker. A publish that skips an existing application writes no marker. The Software Center shows keywords to users, so the marker is visible there. A PS1 packager row gets no marker and no version rule.
+
+The version rule (Settings, Supersedence) changes the operator of the version clause of the detection that is published: `Exact` writes `IsEquals` instead of `GreaterEquals`, only for a File or Registry value version clause whose operator is `GreaterEquals` and whose expected value is the packaged version, and only when a value read from the installed product equals the expected value (the MSI ProductVersion, or a value that a test install recorded). The definition does not change. The supersedence mode `Replace and uninstall` needs `Exact`; the combination `Minimum` with `Replace and uninstall` is refused before anything is created. This release writes no supersedence relation.
+
 The two steps run in one Windows PowerShell start, so the ConfigMgr module loads once for both. A distribution that fails ends the script, and the test deployment does not run.
 
 1. **Distribute content after Package** starts content distribution of the new application to the **Distribution point group**. A group that already holds the content counts as done.

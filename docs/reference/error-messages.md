@@ -39,6 +39,10 @@ These messages come from `AppPackagerBuild.exe`. See [Command-line build](../cor
 | --application is required. Run AppPackagerBuild --help for usage. | A build has no `--application`. | Add `--application`. |
 | Unknown target 'x'; expected ContentOnly, MECM, MECMAndIntune, IntuneOnly, MECMAndWSUS, WSUSOnly. | The `--target` value is not in the list. | Use a listed target. |
 | Unknown --on-existing value 'x'; expected Skip, Overwrite or Fail. | The value is not in the list. | Use a listed value. |
+| Unknown --version-rule value 'x'; expected exact or minimum. | The value is not in the list. | Use a listed value. |
+| Unknown --supersedence value 'x'; expected off, replace or replace-uninstall. | The value is not in the list. | Use a listed value. |
+| Replace and uninstall needs the version rule Exact. With Minimum, the detection of the old application still finds the new version after the uninstall, and the uninstall is reported as failed. Set the version rule to Exact, or set the supersedence mode to Replace or Off. | The supersedence mode is Replace and uninstall and the ConfigMgr version rule is Minimum, after the command line, the title override and the site default are resolved. | Set the version rule to Exact, or set the mode to Replace or Off. Nothing was created. |
+| The version rule Exact cannot be applied for ConfigMgr: No installed value exists for ... | The Exact guard has no installed value for the clause and version (an MSI has its ProductVersion; any other title needs a recorded value), or the value differs from the expected value. | Set the version rule of the title to Minimum, record the installed value with a test install, or accept the block for this version. Nothing was created. |
 | Option '--wsus-port' takes a port number from 1 to 65535. | The value is not a number from 1 to 65535. | Give a valid port. |
 | Specify --stage, --package, or both. | The command has neither phase switch. | Add a switch. |
 | A MECMAndWSUS package publishes the build staged in the same run; pass --stage together with --package. | `--package` without `--stage` for the target MECMAndWSUS. | Pass both. |

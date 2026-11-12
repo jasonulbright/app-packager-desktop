@@ -59,6 +59,8 @@ Press Ctrl+C to cancel. The run writes `Cancelled.` and returns exit code 1.
 | `--package` | Publishes to the target. Without `--stage`, it publishes the newest sealed build of the profile. | off |
 | `--target <target>` | `ContentOnly`, `MECM`, `MECMAndIntune`, `IntuneOnly`, `MECMAndWSUS` or `WSUSOnly`. | `MECM` |
 | `--on-existing <behavior>` | `Skip`, `Overwrite` or `Fail` for an existing ConfigMgr application. | `Skip` |
+| `--version-rule <rule>` | `minimum` or `exact`: the operator of the version clause in the detection. It outranks the title override and the site default. | The setting |
+| `--supersedence <mode>` | `off`, `replace` or `replace-uninstall`. `replace-uninstall` needs `exact`. It outranks the title override and the site default. | The setting |
 | `--comment <text>` | Administrative comment stored on the application. | empty |
 | `--estimated-minutes <n>`, `--maximum-minutes <n>` | Timing for this build only. A package of a sealed build refuses them. | profile or Settings |
 | `--download-root <folder>` | Local staging root. A non-default profile stages under `profiles\<ProfileId>`. | Settings |

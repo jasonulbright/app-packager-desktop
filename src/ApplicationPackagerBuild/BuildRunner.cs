@@ -402,6 +402,9 @@ public sealed class BuildRunner(
         var label = destination == Intune ? "Publish to Intune" : "Publish to ConfigMgr";
         output.Info($"{label}: {row.Application} ({row.Script})");
         var onExisting = destination == Intune ? OnExistingBehavior.Skip : _options.OnExisting;
+        executionService.CommandLineSupersedence = _options.VersionRule is null && _options.Supersedence is null
+            ? null
+            : new ApplicationPackagerEngine.Services.Supersedence.SupersedenceCommandLine(_options.VersionRule, _options.Supersedence);
         var packaged = await executionService.PackageAsync(row, _options.Comment, line => output.Info($"  {line}"), ct, onExisting, snapshot, target);
 
         if (packaged.Conflict is { } conflict && packaged.ExitCode == 0)
