@@ -126,6 +126,7 @@ public sealed class ConfigMgrContentStepOutcomeTests
         var script = MecmTarget.BuildContentStepsScript("Contoso App", "MCM", "All DPs", null, "Pilot", false, false);
 
         // The catch of the distribution exits, so the deployment block after it never runs.
+        Assert.Contains($"try {{ & $distributionStep }} catch {{\n  [Console]::Error.WriteLine(($_ | Out-String).TrimEnd()); exit {MecmTarget.DistributionFailedExitCode}\n}}".Replace("\n", Environment.NewLine), script);
         var catchExit = script.IndexOf($"exit {MecmTarget.DistributionFailedExitCode}", StringComparison.Ordinal);
         Assert.InRange(catchExit, 1, script.IndexOf("$deploymentStep", StringComparison.Ordinal));
     }

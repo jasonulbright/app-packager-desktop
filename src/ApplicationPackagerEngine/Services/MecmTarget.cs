@@ -1003,7 +1003,7 @@ public sealed partial class MecmTarget
     /// <summary>
     /// The distribution and the test deployment in one script, so one PowerShell start and one load of the ConfigMgr module serve
     /// both. A distribution that fails ends the script (exit 11) and the deployment does not run; a deployment that fails exits 12.
-    /// The reason of a failed step is written to standard error as one line.
+    /// The error record of a failed step is written to standard error whole, as an uncaught error was before; the sentence takes its first line and the log keeps all of it.
     /// </summary>
     public static string BuildContentStepsScript(
         string appName, string siteCode, string dpGroupName, string? providerMachine,
@@ -1015,7 +1015,7 @@ public sealed partial class MecmTarget
         AppendDistributionBody(sb, appName, dpGroupName);
         sb.AppendLine("}");
         sb.AppendLine("try { & $distributionStep } catch {");
-        sb.AppendLine($"  [Console]::Error.WriteLine(([string]$_.Exception.Message -split \"`r?`n\")[0]); exit {DistributionFailedExitCode}");
+        sb.AppendLine($"  [Console]::Error.WriteLine(($_ | Out-String).TrimEnd()); exit {DistributionFailedExitCode}");
         sb.AppendLine("}");
         if (!string.IsNullOrWhiteSpace(testCollectionName))
         {
@@ -1023,7 +1023,7 @@ public sealed partial class MecmTarget
             AppendTestDeploymentBody(sb, appName, testCollectionName, createTestCollectionIfMissing, userCollection);
             sb.AppendLine("}");
             sb.AppendLine("try { & $deploymentStep } catch {");
-            sb.AppendLine($"  [Console]::Error.WriteLine(([string]$_.Exception.Message -split \"`r?`n\")[0]); exit {TestDeploymentFailedExitCode}");
+            sb.AppendLine($"  [Console]::Error.WriteLine(($_ | Out-String).TrimEnd()); exit {TestDeploymentFailedExitCode}");
             sb.AppendLine("}");
         }
         return sb.ToString();

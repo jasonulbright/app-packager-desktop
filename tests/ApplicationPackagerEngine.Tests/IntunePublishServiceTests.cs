@@ -142,18 +142,19 @@ public sealed class IntunePublishServiceTests : IDisposable
         Assert.Contains(patches, p => p.Body.Contains("\"minimumSupportedWindowsRelease\":\"Windows11_23H2\""));
     }
 
-    private static string ExistingAppWithDescription(string description) =>
-        $"{{\"value\":[{{\"id\":\"app-existing\",\"@odata.type\":\"#microsoft.graph.win32LobApp\",\"description\":\"{description}\"}}]}}";
+    private static string ExistingAppWithDescription(string description, string displayName = "") =>
+        $"{{\"value\":[{{\"id\":\"app-existing\",\"@odata.type\":\"#microsoft.graph.win32LobApp\",\"displayName\":\"{displayName}\",\"description\":\"{description}\"}}]}}";
 
     [Theory]
     [InlineData("", "Typed in the console", "Typed in the console")]
     [InlineData("  ", "Typed in the console", "Typed in the console")]
     [InlineData("A new comment", "Typed in the console", "A new comment")]
     [InlineData("", "", "Contoso App")]
+    [InlineData("", "Contoso App 1.2.2", "Contoso App")]
     public async Task Publish_OfAnExistingApp_KeepsItsDescriptionWhenTheRunHasNoComment(string comment, string existing, string sent)
     {
         var package = IntuneWinFixture.Create(_dir);
-        var handler = BuildHandler(ExistingAppWithDescription(existing));
+        var handler = BuildHandler(ExistingAppWithDescription(existing, "Contoso App 1.2.2"));
         using var svc = new IntunePublishService(handler);
         var options = Options();
         options.Description = comment;

@@ -85,7 +85,8 @@ public sealed class PowerShellLiteralTests : IDisposable
                      MecmTarget.BuildPackageScript(manifest, title, @"\\server\share\App", "P01", title, 15, 30),
                      MecmTarget.BuildPackageScript(manifest, title, @"\\server\share\App", "P01", title, 15, 30, onExisting: OnExistingBehavior.Overwrite),
                      MecmTarget.BuildDistributionScript(title, "P01", title, null),
-                     MecmTarget.BuildTestCollectionDeploymentScript(title, "P01", title, true, null)
+                     MecmTarget.BuildTestCollectionDeploymentScript(title, "P01", title, true, null),
+                     MecmTarget.BuildContentStepsScript(title, "P01", title, null, title, true, false)
                  })
             Assert.Equal((0, 0), Parse(script));
     }
