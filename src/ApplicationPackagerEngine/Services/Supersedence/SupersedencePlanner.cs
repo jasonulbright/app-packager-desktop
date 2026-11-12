@@ -12,7 +12,8 @@ public sealed record SupersedencePlan(
     StageManifest IntuneManifest,
     string? Marker,
     string? Refusal,
-    IReadOnlyList<string> Log);
+    IReadOnlyList<string> Log,
+    SupersedenceMode Mode = SupersedenceMode.Off);
 
 public static class SupersedencePlanner
 {
@@ -97,6 +98,6 @@ public static class SupersedencePlanner
                 "The version rule Exact was not applied to this title (the block is accepted), so Replace and uninstall is blocked for it. Set the supersedence mode of the title to Replace or Off.", log);
 
         var marker = publishesToConfigMgr ? IdentityMarker.For(manifest, applicationId) : null;
-        return new SupersedencePlan(configMgr, intune, marker, null, log);
+        return new SupersedencePlan(configMgr, intune, marker, null, log, resolved.Mode.Value);
     }
 }

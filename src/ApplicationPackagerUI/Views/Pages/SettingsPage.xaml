@@ -475,8 +475,8 @@
             <ComboBox ItemsSource="{Binding SupersedenceModeChoices}" SelectedItem="{Binding SupersedenceMode}"
                       Width="240" HorizontalAlignment="Left" Margin="0,0,0,4"
                       AutomationProperties.Name="Supersedence mode, ConfigMgr" AutomationProperties.AutomationId="cboSupersedenceMode"
-                      ToolTip="Replace and uninstall needs the ConfigMgr version rule Exact. This release records the mode and blocks the combination; it writes no supersedence relation yet." />
-            <TextBlock Text="Replace and uninstall needs the ConfigMgr version rule Exact; a publish with Minimum and Replace and uninstall is refused. This release does not write a supersedence relation yet. Intune supersedence is not available."
+                      ToolTip="Replace and uninstall needs the ConfigMgr version rule Exact. A publish with Replace or Replace and uninstall writes the supersedence relation to the older application of the line." />
+            <TextBlock Text="Replace and uninstall needs the ConfigMgr version rule Exact; a publish with Minimum and Replace and uninstall is refused. The old application is found by the identity marker that a publish writes. Intune supersedence is not available."
                        Foreground="{DynamicResource TextFillColorTertiaryBrush}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,12" />
 
             <Border Style="{StaticResource SectionDivider}" />

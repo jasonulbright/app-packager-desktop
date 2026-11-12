@@ -1,6 +1,6 @@
 # Supersedence: version rule and supersedence mode
 
-Status: specification. Step 1 of the delivery is built in part: the settings (Options, settings file, command line), the version rule, the Exact guard with the MSI ProductVersion source, the blocked combination, and the identity marker for an application that has no keywords of its own. Open in step 1: the per-title override on the publish page and the line name, recording the installed value from the test step of Add App, the action that accepts a block, the marker for an application that already has keywords (it needs the lab confirmation of how the provider stores several keywords), and lab test 5. Steps 2 to 4 are not built. Date: 2026-11-11.
+Status: specification. Step 1 of the delivery is built in part: the settings (Options, settings file, command line), the version rule, the Exact guard with the MSI ProductVersion source, the blocked combination, and the identity marker for an application that has no keywords of its own. Open in step 1: the per-title override on the publish page and the line name, recording the installed value from the test step of Add App, the action that accepts a block, the marker for an application that already has keywords (it needs the lab confirmation of how the provider stores several keywords), and lab test 5. Step 2 is built in part: the lookup of the old application by the marker, the pairing of the deployment types, the supersedence step (`Set-CMApplicationSupersedence`, because `Add-CMDeploymentTypeSupersedence` is deprecated since ConfigMgr 2111), and the separate outcome "Published, supersedence not applied". Open in step 2: the "Apply supersedence" action and the supersedence-only pass of One Click, the replace path that keeps the relations (it needs a lab check of how ConfigMgr treats a deployment type that another one supersedes), the list on the publish page ("Use this as the old application"), and the lab tests 1 to 3 and 6. Steps 3 and 4 are not built. Date: 2026-11-11.
 
 ## Summary
 
@@ -111,7 +111,7 @@ The per-title override is in the user settings. A second administrator, or anoth
 
 ### The step
 
-1. After the new deployment type and its content are complete, the program runs `Add-CMDeploymentTypeSupersedence` for each pair. It passes the uninstall option for `Replace and uninstall`. The exact parameter names are confirmed on the lab site before the code is written.
+1. After the new deployment type and its content are complete, the program runs `Add-CMDeploymentTypeSupersedence` for each pair. It passes the uninstall option for `Replace and uninstall`. The cmdlet is `Set-CMApplicationSupersedence` (`-Id`, `-CurrentDeploymentTypeId`, `-SupersededApplicationId`, `-OldDeploymentTypeId`, `-IsUninstall`); the older `Add-CMDeploymentTypeSupersedence` is deprecated since ConfigMgr 2111. The parameter names are from the Microsoft documentation and are confirmed on the lab site in the lab tests.
 2. The step is safe to run again. It reads the existing relations first and adds only the ones that are missing.
 3. The program does not delete or retire the old application.
 

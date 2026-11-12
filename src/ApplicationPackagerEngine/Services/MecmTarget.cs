@@ -48,7 +48,8 @@ public sealed partial class MecmTarget
         MecmScriptSigningContext? scriptSigning = null,
         Workbench.ProfileContentScope? contentScope = null,
         DeploymentTypeContentOptions? contentOptions = null,
-        string? identityMarker = null)
+        string? identityMarker = null,
+        SupersedenceMode supersedenceMode = SupersedenceMode.Off)
     {
         try
         {
@@ -159,14 +160,30 @@ public sealed partial class MecmTarget
             if (result.ExitCode == 0)
             {
                 onProgress?.Invoke($"Packaged: {appName}");
+                var ciId = ReadCiId(result.StdOut);
+                // The application is complete here. A supersedence step that fails does not undo it (see "Failure and retry").
+                SupersedenceStepResult? supersedence = null;
+                if (supersedenceMode != SupersedenceMode.Off && !string.IsNullOrWhiteSpace(identityMarker))
+                {
+                    supersedence = await RunSupersedenceAsync(appName, ciId, version, identityMarker, supersedenceMode,
+                        siteCode, providerMachine, onProgress, ct);
+                    onProgress?.Invoke(supersedence.Status switch
+                    {
+                        SupersedenceStepStatus.Applied => $"Supersedence               : {supersedence.Message}",
+                        SupersedenceStepStatus.NotApplied => $"Supersedence not applied   : {supersedence.Message}",
+                        _ => $"Supersedence               : {supersedence.Message}"
+                    });
+                    foreach (var warning in supersedence.Warnings) onProgress?.Invoke($"Supersedence warning       : {warning}");
+                }
                 return new PackagingResult
                 {
                     Success = true,
                     ApplicationName = appName,
                     NetworkContentPath = networkContentPath,
-                    CiId = ReadCiId(result.StdOut),
+                    CiId = ciId,
                     ModelName = ReadModelName(result.StdOut),
-                    Warnings = ReadWarnings(result.StdOut)
+                    Warnings = ReadWarnings(result.StdOut),
+                    Supersedence = supersedence
                 };
             }
             else
@@ -1032,6 +1049,44 @@ public sealed partial class MecmTarget
         sb.AppendLine("}");
     }
 
+    /// <summary>
+    /// The supersedence step after a publish: the lookup of the older application of the line (by the identity marker) and one relation for
+    /// each pair of deployment types. A failure never undoes the application: the result says "supersedence not applied" and why.
+    /// </summary>
+    public async Task<SupersedenceStepResult> RunSupersedenceAsync(
+        string newApplicationName, string newCiId, string newVersion, string marker, SupersedenceMode mode,
+        string siteCode, string? providerMachine, Action<string>? onProgress, CancellationToken ct)
+    {
+        if (mode == SupersedenceMode.Off || string.IsNullOrWhiteSpace(marker) || !int.TryParse(newCiId, out _))
+            return SupersedenceStepResult.NotRun;
+
+        var lookup = await WindowsPowerShellHost.RunAsync(
+            SupersedenceScripts.BuildLookupScript(siteCode, providerMachine, marker, newCiId), onProgress, ct);
+        if (lookup.ExitCode != 0)
+            return new(SupersedenceStepStatus.NotApplied, $"the lookup of the older version failed: {SupersedenceScripts.FailureText(lookup.StdOut, lookup.StdErr)}", []);
+
+        var applications = SupersedenceLookup.ParseSiteApplications(lookup.StdOut);
+        var chosen = SupersedenceLookup.Choose(applications, newApplicationName, newVersion);
+        if (chosen.Old is null)
+            return new(SupersedenceStepStatus.NoOlderVersion, chosen.Summary, chosen.Notes);
+
+        var current = applications.FirstOrDefault(a => a.CiId == newCiId);
+        if (current is null)
+            return new(SupersedenceStepStatus.NotApplied, "the new application was not found on the site after it was created.", chosen.Notes);
+        var pairing = SupersedenceLookup.Pair(current, chosen.Old);
+        var warnings = chosen.Notes.Concat(pairing.Warnings).ToList();
+        if (pairing.Pairs.Count == 0)
+            return new(SupersedenceStepStatus.NoOlderVersion, $"No deployment types to pair with {chosen.Old.Title}.", warnings);
+
+        var step = await WindowsPowerShellHost.RunAsync(
+            SupersedenceScripts.BuildStepScript(siteCode, providerMachine, newCiId, chosen.Old.CiId, pairing.Pairs, mode == SupersedenceMode.ReplaceAndUninstall),
+            onProgress, ct);
+        if (step.ExitCode != 0)
+            return new(SupersedenceStepStatus.NotApplied, SupersedenceScripts.FailureText(step.StdOut, step.StdErr), warnings);
+        return new(SupersedenceStepStatus.Applied,
+            $"{current.Title} supersedes {chosen.Old.Title} {chosen.Old.SoftwareVersion}" + (mode == SupersedenceMode.ReplaceAndUninstall ? " and uninstalls it" : ""), warnings);
+    }
+
     /// <summary>The exit codes of the one-start content script: the step that failed.</summary>
     public const int DistributionFailedExitCode = 11;
     public const int TestDeploymentFailedExitCode = 12;
@@ -1088,7 +1143,7 @@ public sealed partial class MecmTarget
         : exitCode == TestDeploymentFailedExitCode ? ContentStepFailureText("test deployment", testCollectionName ?? "", stdErr)
         : ContentStepFailureText("distribution", dpGroupName, stdErr);
 
-    private static void AppendCmPreamble(StringBuilder sb, string siteCode, string? providerMachine = null)
+    internal static void AppendCmPreamble(StringBuilder sb, string siteCode, string? providerMachine = null)
     {
         sb.AppendLine("$ErrorActionPreference = 'Stop'");
         sb.AppendLine("$cmModule = Join-Path $env:SMS_ADMIN_UI_PATH '..\\ConfigurationManager.psd1'");
@@ -1192,4 +1247,7 @@ public sealed class PackagingResult
     public IReadOnlyList<string> Warnings { get; init; } = [];
     public string? ErrorMessage { get; init; }
     public bool AlreadyExists { get; init; }
+
+    /// <summary>The result of the supersedence step; null when the step did not run.</summary>
+    public SupersedenceStepResult? Supersedence { get; init; }
 }

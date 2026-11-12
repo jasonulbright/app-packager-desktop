@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [2026.1111.46] - 2026-11-12
+
+### Added
+
+- Supersedence: with the mode `Replace` or `Replace and uninstall`, a ConfigMgr publish sets the supersedence relation from the new application to the older application of the same product line. The older application is found by the identity marker, with a lower version and another title; the deployment types are paired one to one or by name suffix. `Replace and uninstall` also sets the uninstall option. The older application is not changed. A step that fails does not fail the run: the result is the separate state `Published, supersedence not applied` with the reason. The Intune side has no supersedence.
+
 ## [2026.1111.45] - 2026-11-12
 
 ### Added

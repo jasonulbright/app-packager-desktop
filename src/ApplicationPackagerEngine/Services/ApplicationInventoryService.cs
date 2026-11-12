@@ -279,7 +279,8 @@ public sealed partial class ApplicationInventoryService
         Required(result.Version, nameof(result.Version));
         // Partial: the object exists on the site (a ConfigMgr application whose content step failed), so its version, id and
         // CI_ID are kept as the last success; the attempt outcome still says Partial and carries the reason.
-        var succeeded = result.Outcome is InventoryOutcome.Succeeded or InventoryOutcome.AlreadyPresent or InventoryOutcome.Partial;
+        var succeeded = result.Outcome is InventoryOutcome.Succeeded or InventoryOutcome.AlreadyPresent or InventoryOutcome.Partial
+            or InventoryOutcome.PublishedSupersedenceNotApplied;
         Mutate((connection, transaction) =>
         {
             if (result.Application is not null) RegisterIdentity(connection, transaction, result.Application, result.At);
