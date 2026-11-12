@@ -2745,7 +2745,7 @@ public sealed class StagingService
 
         if (metadata.DetectionType == "MSIX")
         {
-            // MSIX detection handled natively by CM — return existence marker
+            // A display marker of an analysed package. Publishing refuses a stage with this type: an MSIX is published as a script deployment type.
             return new StageDetection
             {
                 Type = "MSIX",

@@ -118,6 +118,7 @@ See [Settings reference](../reference/settings.md).
 | Tooltip: `Publish to ConfigMgr: Needs the ConfigMgr console on this computer.` | The console module is not found. | Install the Configuration Manager console. |
 | Tooltip: `Publish to ConfigMgr: Set the site code in Settings, ConfigMgr Site Settings.` | The site code is empty. | Enter the site code. |
 | Tooltip: `Publish to ConfigMgr: ConfigMgr is not in use. Select it under Systems in use in Settings.` | **ConfigMgr** is not selected. | Select it under **Systems in use**. |
+| `This stage asks for the native MSIX deployment type of ConfigMgr, which App Packager no longer publishes. ...` | The manifest has the detection type `MSIX`: a stage from an older release, or a hand-written definition whose detection rule has the type `MSIX`. App Packager publishes an MSIX as a script deployment type. | Select **Stage** again. For a hand-written definition, change the detection rule to a registry key or a script rule first. |
 | `File Share Root is required. Open Settings to configure.` | The share root is empty. The check runs when the run starts. | Enter the share in Settings. |
 | `Stage manifest not found: <path>. Run Stage for <application> <version> first.` | The application has no staged content for the version. | Select **Stage**. |
 | `Content share not accessible: <path>` | The share is missing or your account cannot reach it. | Check the share path and your access. |

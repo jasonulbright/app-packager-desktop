@@ -51,6 +51,8 @@ public sealed partial class MecmTarget
         {
             ct.ThrowIfCancellationRequested();
             onProgress = WithoutCmdletNotice(onProgress);
+            if (NativeMsixRefusal(manifest) is { } nativeMsix)
+                return new PackagingResult { Success = false, ErrorMessage = nativeMsix };
             // The title decides the application and its deployment type names;
             // the content folder stays on the manifest name so a title change
             // never moves content already on the share.
@@ -142,15 +144,12 @@ public sealed partial class MecmTarget
                 onProgress?.Invoke($"Content integrity verified: {manifest.FileHashes.Length} file(s).");
 
             onProgress?.Invoke("Connecting to ConfigMgr...");
-            // Only a manifest asking for CM's native Appx deployment type takes
-            // that path. An MSIX staged with wrappers and a Script detection is
-            // a script deployment type like every other product.
-            var psScript = manifest.Detection?.Type.Equals("MSIX", StringComparison.OrdinalIgnoreCase) == true
-                ? BuildMsixMecmScript(manifest, appName, networkContentPath, siteCode, comment, providerMachine, contentOptions)
-                : BuildPackageScript(manifest, appName, networkContentPath,
-                    siteCode, comment, estimatedRuntimeMins, maximumRuntimeMins,
-                    conditionTemplates, commandOverrides, onProgress, requirements, providerMachine,
-                    onExisting, scriptSigning, contentOptions);
+            // An MSIX is a script deployment type like every other product: the stage wraps it
+            // and gives it a script or provisioning-key detection.
+            var psScript = BuildPackageScript(manifest, appName, networkContentPath,
+                siteCode, comment, estimatedRuntimeMins, maximumRuntimeMins,
+                conditionTemplates, commandOverrides, onProgress, requirements, providerMachine,
+                onExisting, scriptSigning, contentOptions);
 
             var result = await WindowsPowerShellHost.RunAsync(psScript, onProgress, ct);
 
@@ -885,71 +884,16 @@ public sealed partial class MecmTarget
     }
 
     /// <summary>
-    /// Builds the PowerShell script for creating an MSIX deployment type in MECM.
-    /// CM handles detection, provisioning, and per-user registration natively for MSIX.
-    /// No custom detection clause, install/uninstall commands, or wrappers needed.
+    /// The refusal of a manifest that asks for ConfigMgr's native Appx deployment type (the detection
+    /// type MSIX), or null. App Packager publishes an MSIX as a script deployment type, as it does every
+    /// other product, so a manifest like this one is from an earlier stage: the native path failed on a
+    /// UNC content path and did not read the behavior for an existing application.
     /// </summary>
-    private static string BuildMsixMecmScript(
-        StageManifest manifest, string appName, string networkContentPath,
-        string siteCode, string comment, string? providerMachine = null,
-        DeploymentTypeContentOptions? contentOptions = null)
-    {
-        var sb = new StringBuilder();
-
-        sb.AppendLine("$ErrorActionPreference = 'Stop'");
-        sb.AppendLine("$cmModule = Join-Path $env:SMS_ADMIN_UI_PATH '..\\ConfigurationManager.psd1'");
-        sb.AppendLine("if (Test-Path $cmModule) { Import-Module $cmModule }");
-        sb.AppendLine("else { Import-Module ConfigurationManager }");
-
-        sb.AppendLine($"if (-not (Get-PSDrive -Name '{Esc(siteCode)}' -ErrorAction SilentlyContinue)) {{");
-        sb.AppendLine($"    New-PSDrive -Name '{Esc(siteCode)}' -PSProvider CMSite -Root {CmSiteRoot(providerMachine)} | Out-Null");
-        sb.AppendLine("}");
-        sb.AppendLine($"Set-Location '{Esc(siteCode)}:'");
-        sb.AppendLine("Write-Host 'Connected to MECM'");
-
-        sb.AppendLine("$existing = $null");
-        sb.AppendLine($"try {{ $existing = Get-CMApplication -Name '{Esc(appName)}' -Fast -ErrorAction SilentlyContinue }} catch {{ }}");
-        sb.AppendLine("if ($existing) { Write-Host 'Application already exists'; exit 0 }");
-
-        sb.AppendLine("Write-Host 'Creating application...'");
-        sb.Append($"$app = New-CMApplication -Name '{Esc(appName)}'");
-        sb.Append($" -Publisher '{Esc(manifest.Publisher)}'");
-        sb.Append($" -SoftwareVersion '{Esc(manifest.SoftwareVersion)}'");
-        sb.Append($" -Description '{Esc(comment)}'");
-        sb.Append(" -AutoInstall $true");
-        sb.AppendLine();
-
-        sb.AppendLine("Write-Host \"CI_ID: $($app.CI_ID)\"");
-
-        sb.AppendLine($"$msixFile = Get-ChildItem -Path '{Esc(networkContentPath)}' -Filter '*.msix' -ErrorAction SilentlyContinue | Select-Object -First 1");
-        sb.AppendLine("if (-not $msixFile) { $msixFile = Get-ChildItem -Path '" + Esc(networkContentPath) + "' -Filter '*.appx' -ErrorAction SilentlyContinue | Select-Object -First 1 }");
-        sb.AppendLine("if (-not $msixFile) { throw 'No .msix or .appx file found in content path' }");
-
-        // Add-CMWindowsAppxDeploymentType takes no detection clause: the site detects the package itself.
-        sb.AppendLine("Write-Host 'Adding MSIX deployment type...'");
-        sb.Append($"Add-CMWindowsAppxDeploymentType -ApplicationName '{Esc(appName)}'");
-        sb.Append($" -DeploymentTypeName '{Esc(appName)}'");
-        sb.Append(" -ContentLocation $msixFile.FullName");
-        sb.Append((contentOptions ?? DeploymentTypeContentOptions.Default).CmdletArguments);
-        sb.Append(" -Force");
-        sb.AppendLine(" | Out-Null");
-
-        sb.AppendLine("try {");
-        sb.AppendLine($"  $revisions = Get-CMApplicationRevisionHistory -Id $app.CI_ID -ErrorAction Stop");
-        sb.AppendLine("  if (@($revisions).Count -gt 1) {");
-        sb.AppendLine("    @($revisions) | Sort-Object -Property @{Expression={if ($_.Revision) {$_.Revision} else {$_.CIVersion}}} -Descending | Select-Object -Skip 1 | ForEach-Object {");
-        sb.AppendLine("      Remove-CMApplicationRevisionHistory -InputObject $_ -Force -ErrorAction SilentlyContinue");
-        sb.AppendLine("    }");
-        sb.AppendLine("    Write-Host 'Cleaned revision history'");
-        sb.AppendLine("  }");
-        sb.AppendLine("} catch { Write-Host \"Revision cleanup skipped: $($_.Exception.Message)\" }");
-
-        AppendFinalCiId(sb, appName);
-        sb.AppendLine("Write-Host 'Application created successfully'");
-
-        return sb.ToString();
-    }
-
+    public static string? NativeMsixRefusal(StageManifest manifest) =>
+        manifest.Detection?.Type.Equals("MSIX", StringComparison.OrdinalIgnoreCase) == true
+            ? "This stage asks for the native MSIX deployment type of ConfigMgr, which App Packager no longer publishes. "
+              + "An MSIX is published as a script deployment type. Stage the application again from its definition (Stage), then publish. If the definition itself has a detection rule of the type MSIX, change that rule to a registry key or a script rule first."
+            : null;
     /// <summary>
     /// Distributes content for a packaged application to a DP group. Call after
     /// PackageAsync succeeds. A group that already holds the content makes the
