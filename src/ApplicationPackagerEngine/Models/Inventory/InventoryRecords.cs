@@ -43,7 +43,9 @@ public enum InventoryOutcome
     AlreadyPresent,
     Partial,
     LegacyImported,
-    Unknown
+    Unknown,
+    /// <summary>The ConfigMgr application is complete and clients can install it, but the supersedence relation was not written.</summary>
+    PublishedSupersedenceNotApplied
 }
 
 public sealed record InventoryVendorCheck(

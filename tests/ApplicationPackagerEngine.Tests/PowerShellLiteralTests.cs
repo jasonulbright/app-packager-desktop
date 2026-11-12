@@ -1,6 +1,7 @@
 using System.Text;
 using ApplicationPackagerEngine.Models;
 using ApplicationPackagerEngine.Services;
+using ApplicationPackagerEngine.Services.Supersedence;
 using ApplicationPackagerEngine.Tests.Signing;
 
 namespace ApplicationPackagerEngine.Tests;
@@ -87,6 +88,8 @@ public sealed class PowerShellLiteralTests : IDisposable
                      MecmTarget.BuildDistributionScript(title, "P01", title, null),
                      MecmTarget.BuildTestCollectionDeploymentScript(title, "P01", title, true, null),
                      MecmTarget.BuildContentStepsScript(title, "P01", title, null, title, true, false),
+                     SupersedenceScripts.BuildLookupScript("P01", null, "APD-Line:" + title + "|default|x64", "12"),
+                     SupersedenceScripts.BuildStepScript("P01", null, title, title + "old", [new DeploymentTypePair(new LineDeploymentType("121", title), new LineDeploymentType("111", title))], true),
                      MecmTarget.BuildPackageScript(manifest, title, @"\\server\share\App", "P01", title, 15, 30, identityMarker: "APD-Line:" + title + "|default|x64")
                  })
             Assert.Equal((0, 0), Parse(script));
@@ -105,6 +108,10 @@ public sealed class PowerShellLiteralTests : IDisposable
         foreach (var behavior in new[] { OnExistingBehavior.Skip, OnExistingBehavior.Overwrite, OnExistingBehavior.Fail })
             Assert.Equal((0, 0), Parse(MecmTarget.BuildPackageScript(manifest, title, @"\\server\share\App", "P01", "c", 15, 30, onExisting: behavior)));
         Assert.Equal((0, 0), Parse(MecmTarget.BuildExistingProbeScript(title, "1.0", "P01")));
+        // The names of applications and deployment types come from the site: none of them is expanded or ends a string.
+        var pair = new DeploymentTypePair(new LineDeploymentType("121", title), new LineDeploymentType("111", title));
+        Assert.Equal((0, 0), Parse(SupersedenceScripts.BuildStepScript("P01", null, title, title, [pair], true)));
+        Assert.Equal((0, 0), Parse(SupersedenceScripts.BuildLookupScript("P01", null, "APD-Line:" + title + "|default|x64", "12")));
     }
 
     [Theory]

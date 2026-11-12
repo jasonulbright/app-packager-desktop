@@ -1032,6 +1032,64 @@ public sealed partial class MecmTarget
         sb.AppendLine("}");
     }
 
+    /// <summary>
+    /// The supersedence step after a publish: the lookup of the older application of the line (by the identity marker) and one relation for
+    /// each pair of deployment types. A failure never undoes the application: the result says "supersedence not applied" and why.
+    /// </summary>
+    public async Task<SupersedenceStepResult> RunSupersedenceAsync(
+        string newApplicationName, string newCiId, string newVersion, string marker, SupersedenceMode mode,
+        string siteCode, string? providerMachine, Action<string>? onProgress, CancellationToken ct)
+    {
+        if (mode == SupersedenceMode.Off || string.IsNullOrWhiteSpace(marker))
+            return SupersedenceStepResult.NotRun;
+        if (!int.TryParse(newCiId, out _))
+            return new(SupersedenceStepStatus.NotApplied, "the CI_ID of the new application was not read, so the older version was not looked up.", []);
+        try
+        {
+            return await RunSupersedenceCoreAsync(newApplicationName, newCiId, newVersion, marker, mode, siteCode, providerMachine, onProgress, ct);
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            // The application is complete; whatever goes wrong here is reported and never fails the run.
+            return new(SupersedenceStepStatus.NotApplied, ex.Message, []);
+        }
+    }
+
+    private async Task<SupersedenceStepResult> RunSupersedenceCoreAsync(
+        string newApplicationName, string newCiId, string newVersion, string marker, SupersedenceMode mode,
+        string siteCode, string? providerMachine, Action<string>? onProgress, CancellationToken ct)
+    {
+        var lookup = await WindowsPowerShellHost.RunAsync(
+            SupersedenceScripts.BuildLookupScript(siteCode, providerMachine, marker, newCiId), null, ct);
+        if (lookup.ExitCode != 0)
+            return new(SupersedenceStepStatus.NotApplied, $"the lookup of the older version failed: {SupersedenceScripts.FailureText(lookup.StdOut, lookup.StdErr)}", []);
+
+        var applications = SupersedenceLookup.ParseSiteApplications(lookup.StdOut);
+        var chosen = SupersedenceLookup.Choose(applications, newApplicationName, newVersion);
+        if (chosen.Old is null)
+            return new(SupersedenceStepStatus.NoOlderVersion, chosen.Summary, chosen.Notes);
+
+        var current = applications.FirstOrDefault(a => a.CiId == newCiId);
+        if (current is null)
+            return new(SupersedenceStepStatus.NotApplied, "the new application was not found on the site after it was created.", chosen.Notes);
+        var pairing = SupersedenceLookup.Pair(current, chosen.Old);
+        var warnings = chosen.Notes.Concat(pairing.Warnings).ToList();
+        if (pairing.Pairs.Count == 0)
+            return new(SupersedenceStepStatus.NoOlderVersion, $"No deployment types to pair with {chosen.Old.Title}.", warnings);
+
+        var step = await WindowsPowerShellHost.RunAsync(
+            SupersedenceScripts.BuildStepScript(siteCode, providerMachine, current.Title, chosen.Old.Title, pairing.Pairs, mode == SupersedenceMode.ReplaceAndUninstall),
+            onProgress, ct);
+        if (step.ExitCode != 0)
+            return new(SupersedenceStepStatus.NotApplied, SupersedenceScripts.FailureText(step.StdOut, step.StdErr), warnings);
+        return new(SupersedenceStepStatus.Applied,
+            $"{current.Title} supersedes {chosen.Old.Title} {chosen.Old.SoftwareVersion}" + (mode == SupersedenceMode.ReplaceAndUninstall ? " and uninstalls it" : ""), warnings);
+    }
+
     /// <summary>The exit codes of the one-start content script: the step that failed.</summary>
     public const int DistributionFailedExitCode = 11;
     public const int TestDeploymentFailedExitCode = 12;
@@ -1088,7 +1146,7 @@ public sealed partial class MecmTarget
         : exitCode == TestDeploymentFailedExitCode ? ContentStepFailureText("test deployment", testCollectionName ?? "", stdErr)
         : ContentStepFailureText("distribution", dpGroupName, stdErr);
 
-    private static void AppendCmPreamble(StringBuilder sb, string siteCode, string? providerMachine = null)
+    internal static void AppendCmPreamble(StringBuilder sb, string siteCode, string? providerMachine = null)
     {
         sb.AppendLine("$ErrorActionPreference = 'Stop'");
         sb.AppendLine("$cmModule = Join-Path $env:SMS_ADMIN_UI_PATH '..\\ConfigurationManager.psd1'");

@@ -82,21 +82,24 @@ public static class PackagingOutcomeComposer
     /// The inventory outcome of the ConfigMgr destination. An application that exists but whose content step failed is
     /// Partial: the object is there, and clients cannot install it. Null when the target did not ask for ConfigMgr.
     /// </summary>
-    public static InventoryOutcome? ConfigMgrInventoryOutcome(bool requested, bool succeeded, bool alreadyExists, string? contentStepFailure) =>
+    public static InventoryOutcome? ConfigMgrInventoryOutcome(bool requested, bool succeeded, bool alreadyExists, string? contentStepFailure, string? supersedenceFailure = null) =>
         !requested ? null
         : alreadyExists ? InventoryOutcome.AlreadyPresent
         : !succeeded ? InventoryOutcome.Failed
-        : string.IsNullOrWhiteSpace(contentStepFailure) ? InventoryOutcome.Succeeded
-        : InventoryOutcome.Partial;
+        : !string.IsNullOrWhiteSpace(contentStepFailure) ? InventoryOutcome.Partial
+        // Not Partial: the application is complete. A separate state, with the reason in the detail.
+        : !string.IsNullOrWhiteSpace(supersedenceFailure) ? InventoryOutcome.PublishedSupersedenceNotApplied
+        : InventoryOutcome.Succeeded;
 
     /// <summary>
     /// The ConfigMgr detail of a run for the history: the error, else the failed content step, else the
     /// warnings of a run that succeeded (joined with "; "); null when there is none of them.
     /// </summary>
-    public static string? ConfigMgrDetail(string? error, string? contentStepFailure, IReadOnlyList<string>? warnings)
+    public static string? ConfigMgrDetail(string? error, string? contentStepFailure, IReadOnlyList<string>? warnings, string? supersedenceFailure = null)
     {
         if (!string.IsNullOrWhiteSpace(error)) return error;
         if (!string.IsNullOrWhiteSpace(contentStepFailure)) return contentStepFailure;
+        if (!string.IsNullOrWhiteSpace(supersedenceFailure)) return "Published, supersedence not applied: " + supersedenceFailure;
         var joined = string.Join("; ", (warnings ?? []).Where(w => !string.IsNullOrWhiteSpace(w)));
         return joined.Length > 0 ? joined : null;
     }
@@ -104,10 +107,12 @@ public static class PackagingOutcomeComposer
     /// <summary>One outcome for the run from the outcomes of its destinations (ConfigMgr and Intune, as requested).</summary>
     public static InventoryOutcome SummarizeDestinations(IReadOnlyList<InventoryOutcome> outcomes)
     {
-        if (outcomes.Any(value => value is InventoryOutcome.Succeeded or InventoryOutcome.AlreadyPresent)
+        if (outcomes.Any(value => value is InventoryOutcome.Succeeded or InventoryOutcome.AlreadyPresent or InventoryOutcome.PublishedSupersedenceNotApplied)
             && outcomes.Any(value => value is InventoryOutcome.Failed or InventoryOutcome.Refused or InventoryOutcome.Partial)) return InventoryOutcome.Partial;
         if (outcomes.Any(value => value == InventoryOutcome.Refused)) return InventoryOutcome.Refused;
-        if (outcomes.All(value => value is InventoryOutcome.Succeeded or InventoryOutcome.AlreadyPresent)) return InventoryOutcome.Succeeded;
+        if (outcomes.All(value => value is InventoryOutcome.Succeeded or InventoryOutcome.AlreadyPresent or InventoryOutcome.PublishedSupersedenceNotApplied))
+            return outcomes.Any(value => value == InventoryOutcome.PublishedSupersedenceNotApplied)
+                ? InventoryOutcome.PublishedSupersedenceNotApplied : InventoryOutcome.Succeeded;
         if (outcomes.All(value => value == InventoryOutcome.Skipped)) return InventoryOutcome.Skipped;
         return InventoryOutcome.Failed;
     }
