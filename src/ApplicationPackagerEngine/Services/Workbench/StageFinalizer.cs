@@ -279,6 +279,9 @@ public sealed class StageFinalizer
             }
         }
 
+        // The return codes, reboot policy and working directories of the install step take effect (and a mistake in them stops the stage).
+        ProfileDeploymentSettings.Apply(manifest);
+
         // Commands bind tokens against the packager's own InstallerFile, version and ProductCode.
         foreach (var (field, install) in new[] { ("InstallCommand", true), ("UninstallCommand", false) })
         {

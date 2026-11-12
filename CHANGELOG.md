@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [2026.1111.41] - 2026-11-12
+
+### Fixed
+
+- The install return codes, the reboot policy and the working directories that a Workbench profile stores now take effect. The return codes are added to the Intune return code table and to the exit codes of the WSUS update; the reboot policy sets the reboot behavior of the ConfigMgr deployment type and the restart behavior of the Intune app; the working directories reach the ConfigMgr deployment type. A mistake in the list stops the stage with the entry named. The uninstall return codes and the uninstall reboot policy stay recorded only, and the Workbench says so.
+
 ## [2026.1111.40] - 2026-11-12
 
 ### Fixed

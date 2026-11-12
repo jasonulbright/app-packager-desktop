@@ -143,6 +143,33 @@ public sealed class StageFinalizationTests : IDisposable
     }
 
     [Fact]
+    public void TheInstallReturnCodesRebootPolicyAndWorkingDirectoryOfAProfileTakeEffect()
+    {
+        const string id = "catalog:package-install-fields";
+        var saved = Update(_t.NewProfile(id), p =>
+            p.Set("Install", Json("""{ "ReturnCodes": "3011=SoftReboot,5", "RebootPolicy": "No reboot", "WorkingDirectory": "C:\\Temp" }""")));
+        var manifest = NewManifest();
+
+        Finalizer(Snapshot(id, saved.ProfileId)).Apply(NewStage(), manifest);
+
+        Assert.Equal("NoAction", manifest.PostExecutionBehavior);
+        Assert.Contains(3011, manifest.RebootExitCodes!);
+        Assert.Contains(5, manifest.SuccessExitCodes!);
+        Assert.Equal(@"C:\Temp", manifest.InstallWorkingDirectory!.GetValue<string>());
+    }
+
+    [Fact]
+    public void AMistakeInTheInstallReturnCodesOfAProfileStopsTheStage()
+    {
+        const string id = "catalog:package-install-fields-bad";
+        var saved = Update(_t.NewProfile(id), p => p.Set("Install", Json("""{ "ReturnCodes": "3011=Maybe" }""")));
+
+        var ex = Assert.Throws<InvalidOperationException>(() => Finalizer(Snapshot(id, saved.ProfileId)).Apply(NewStage(), NewManifest()));
+
+        Assert.Contains("Install.ReturnCodes", ex.Message);
+    }
+
+    [Fact]
     public void AppliesCommandsTimingExecutionDetectionAndRequirements()
     {
         const string id = "catalog:package-finalize";

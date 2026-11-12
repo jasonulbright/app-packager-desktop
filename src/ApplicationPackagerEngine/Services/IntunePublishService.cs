@@ -6,6 +6,7 @@ using System.Text.Json.Nodes;
 using ApplicationPackagerEngine.Models;
 using ApplicationPackagerEngine.Models.Signing;
 using ApplicationPackagerEngine.Services.Signing;
+using ApplicationPackagerEngine.Services.Workbench;
 
 namespace ApplicationPackagerEngine.Services;
 
@@ -222,12 +223,7 @@ public sealed class IntunePublishService : IDisposable
             },
             ["rules"] = rules,
             ["returnCodes"] = conversion is null
-                ? new JsonArray(
-                    ReturnCode(0, "success"),
-                    ReturnCode(1707, "success"),
-                    ReturnCode(3010, "softReboot"),
-                    ReturnCode(1641, "hardReboot"),
-                    ReturnCode(1618, "retry"))
+                ? ProfileDeploymentSettings.IntuneReturnCodeArray(manifest)
                 : new JsonArray(CloneAll(conversion.ReturnCodes, "return codes"))
         };
         if (conversion is not null)
