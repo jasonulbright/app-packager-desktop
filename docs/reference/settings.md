@@ -197,8 +197,8 @@ These values go to the ConfigMgr deployment type at `Publish to ConfigMgr`. See 
 | `Maximum Runtime (mins)` | `MaximumRuntimeMins` | 30 | The maximum run time. |
 | `Fallback DPs` | `ContentFallback` | `Allow` | `Allow - use the site default boundary group` or `Deny - current and neighbor groups only`. |
 | `Neighbor/default DP` | `SlowNetworkDeploymentMode` | `Download` | `Download content and install` (`Download`) or `Do not download content` (`DoNothing`). |
-| `Include version in application name` | `IncludeVersionInTitle` | off | Creates one ConfigMgr application for each release. A per-application Workbench choice overrides it. The app does not rename existing applications. |
-| `Remove version from application name` | `RemoveVersionFromTitle` | off | Strips the release version from a vendor product name. It applies only while `Include version in application name` is off. |
+| `Include version in application name` | `IncludeVersionInTitle` | off | Creates one ConfigMgr application for each release. A per-application Workbench choice overrides it. It applies to a definition and also to a dropped installer or a bring-your-own installer that is published from its stage. The app does not rename existing applications. |
+| `Remove version from application name` | `RemoveVersionFromTitle` | off | Strips the release version from a vendor product name. It applies only while `Include version in application name` is off. It applies to a definition and also to a dropped installer or a bring-your-own installer that is published from its stage. |
 
 The environment variables `APP_PACKAGER_DT_CONTENT_FALLBACK` and `APP_PACKAGER_DT_SLOW_NETWORK_MODE` pass the two content options to PS1 packagers.
 

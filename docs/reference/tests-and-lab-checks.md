@@ -405,3 +405,17 @@ The unused method `MecmTarget.DeployAsync` (a deployment to a collection that no
 | `ConfigMgrPublishWarningTests` | An icon that was not applied gives the warning with the reason; an icon that was not found gives the warning with its path; an icon that was set, an empty output and an output without a warning give none; the same warning is reported once; the detail of the step is the error, else the failed content step, else the warnings joined with `; ` (and null when there is none); the dead method no longer exists. |
 
 **Lab check.** None. The change reads lines that the existing script already prints, and removes a method that nothing called.
+
+## Publish of a dropped installer: the title settings apply
+
+A definition run takes its application title from the mode of the stage (a profile), the saved mode of the application, and the global settings **Include version in application name** and **Remove version from application name**. The publish of a dropped installer or a bring-your-own installer (`PackageStagedManifestAsync`) did not read these settings: the ConfigMgr application and the Intune display name always carried the name of the manifest, whatever the settings said (review finding D, "a dropped installer ignores the title settings").
+
+Both paths now call one function (`PackagerExecutionService.RunApplicationTitle`). The staged path passes the title to the ConfigMgr publish, logs it when it differs from the name of the manifest, and gives the Intune publish the same title as its display name, as a definition run does. A dropped installer has no saved mode of its own, so the mode of the manifest and then the global settings decide. The content folders and the detection stay versioned.
+
+The same finding says that the staged-manifest path "skips the requirement list". That is covered by the Intune requirement change (finding B4): the requirement rules of the manifest are now translated for Intune on every path, and the ConfigMgr publish reads the requirement rules of the manifest on every path. A saved per-application condition list belongs to a definition (it is keyed by the definition identifier), so a dropped installer has none.
+
+| Test class | What it proves |
+|---|---|
+| `RunApplicationTitleTests` | With no setting the title is the name of the manifest; the global remove setting strips the version; the include setting adds it and wins over the remove setting; the mode of the manifest outranks the global setting; the saved mode of an application outranks the global setting but not the manifest. |
+
+**Lab check.** None. The title function and its inputs are unit-tested. The staged path runs the same ConfigMgr script as a definition run, with a title argument that the definition run already passes.
