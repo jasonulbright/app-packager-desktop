@@ -374,3 +374,16 @@ The importer still derives only memory and processors from ConfigMgr rules. A di
 | `CmImportPublishTests` | The converted plan still sends the memory and the processor minimums that the importer derives, and null for the disk and CPU speed minimums that it does not derive. |
 
 **Lab check.** None. The lab has no Intune tenant. The tests check the body that the program sends. They do not show that Graph accepts the four properties, with null for an unset one, on create and update.
+
+## ConfigMgr publish: the native MSIX deployment type is removed
+
+The ConfigMgr publish had a second path for a manifest with the detection type `MSIX`: the native Appx deployment type (`Add-CMWindowsAppxDeploymentType`). The lab run of the review showed that this path failed on every call with a UNC content path (the search for the package file used `Get-ChildItem -Filter` on a UNC path) and that a second publish ended with exit code 0 without reading the behavior for an existing application (review finding A2). The PowerShell app publishes an MSIX only as a script deployment type, and the owner decided that App Packager does the same. A staged MSIX already has wrappers and a script or provisioning-key detection, so the script path publishes it with no change.
+
+The native script builder is removed. A manifest with the detection type `MSIX` is refused at the start of the publish, before any share or site work, with the message that the native type is no longer published and that the application is to be staged again. No definition and no current stage produces that type for a publish: the dropped-installer route already refuses an MSIX and sends the user to a definition.
+
+| Test class | What it proves |
+|---|---|
+| `ConfigMgrNativeMsixRemovedTests` | A manifest with the detection type `MSIX` (in any letter case) is refused with a message that names the native type, the script deployment type and Stage; the other detection types are not refused; the package run stops before it connects or touches the share; the native script builder no longer exists. |
+| `MecmScriptBuilderTests` | A script-staged MSIX still builds a script deployment type and does not use the native cmdlet (unchanged test). |
+
+**Lab check.** None. The change removes a path. The script path for an MSIX was run in the lab in the review (the MSIX scripts of that run passed).

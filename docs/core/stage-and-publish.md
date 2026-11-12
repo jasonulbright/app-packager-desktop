@@ -70,7 +70,7 @@ Stage runs these steps for each application, in this order:
 
 A definition from [Add from file](add-from-file.md) has no version source and no download address. For it, step 2 takes the version that you reviewed. Step 4 copies the saved installer into the staged folder. Before the copy, Stage checks that the file exists and has the saved SHA-256. After the copy, it checks the hash of the copy. A missing or changed file stops the stage with a message that gives the path.
 
-A definition with the installer type `MSIX` (a `.msix`, `.appx`, `.msixbundle` or `.appxbundle` file) is checked for its signature and its architecture. A package with no signature, a signature that is not valid, or an architecture that differs from the definition stops the stage. A definition with the installer type `MSP` stages a Windows Installer patch.
+A definition with the installer type `MSIX` (a `.msix`, `.appx`, `.msixbundle` or `.appxbundle` file) is checked for its signature and its architecture. A package with no signature, a signature that is not valid, or an architecture that differs from the definition stops the stage. An MSIX is published to ConfigMgr as a script deployment type, as every other product is: the stage wraps the package and gives it a detection (the provisioning key of the package, or a script). App Packager does not create the native MSIX deployment type of ConfigMgr. A stage that asks for it (a manifest with the detection type `MSIX`, from an older release) is refused at publish with the message to stage the application again. A definition with the installer type `MSP` stages a Windows Installer patch.
 
 Office (ODT) definitions stage through the Office Deployment Tool. They use the channel from Settings, M365 Apps — Channel.
 

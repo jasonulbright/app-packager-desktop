@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [2026.1111.37] - 2026-11-11
+
+### Removed
+
+- The native MSIX deployment type of ConfigMgr is no longer created. It failed on a content path on a network share and did not honor the behavior for an existing application. An MSIX is published as a script deployment type, as every other product is (the stage already wraps it and gives it a detection). A stage from an older release that asks for the native type is refused with the message to stage the application again.
+
 ## [2026.1111.36] - 2026-11-11
 
 ### Fixed
