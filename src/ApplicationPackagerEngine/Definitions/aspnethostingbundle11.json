@@ -1,0 +1,39 @@
+{
+  "Schema": 1,
+  "Id": "3612020d81548483",
+  "WsusSupport": "Yes",
+  "IconSource": "None",
+  "Vendor": "Microsoft",
+  "Application": "ASP.NET 11 Server Hosting Bundle (x64)",
+  "CMName": "Microsoft .NET 11",
+  "AppName": "Microsoft .NET {version} - Windows Server Hosting",
+  "Publisher": "Microsoft Corporation",
+  "Architecture": "x64",
+  "VendorUrl": "https://dotnet.microsoft.com/download/dotnet/11.0",
+  "Cpe": "cpe:2.3:a:microsoft:asp.net_core:11.*:*:*:*:*:*:*:*",
+  "ArpName": "Microsoft .NET 11.* - Windows Server Hosting",
+  "SecurityAdvisoryUrl": "https://msrc.microsoft.com/update-guide",
+  "InstallerType": "EXE",
+  "InstallerFramework": "WixBurn",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "JsonQuery",
+    "Url": "https://builds.dotnet.microsoft.com/dotnet/release-metadata/releases-index.json",
+    "Pattern": "releases-index[?channel-version=11.0].latest-runtime"
+  },
+  "DownloadUrl": "https://builds.dotnet.microsoft.com/dotnet/aspnetcore/Runtime/{version}/dotnet-hosting-{version}-win.exe",
+  "InstallArgs": "/install /quiet /norestart",
+  "UninstallArgs": "/uninstall /quiet /norestart",
+  "Detection": {
+    "Type": "ArpEntry",
+    "ArpEntry": {
+      "View": "32",
+      "DisplayNamePrefix": "Microsoft .NET 11.0.",
+      "DisplayNameSuffix": " - Windows Server Hosting",
+      "Publisher": "Microsoft Corporation",
+      "Version": "{version}"
+    }
+  },
+  "RunningProcess": [],
+  "UninstallCommand": "$exePath = Join-Path $PSScriptRoot (Get-ChildItem $PSScriptRoot -Filter \"dotnet-hosting-*.exe\" | Select-Object -First 1).Name; $proc = Start-Process -FilePath $exePath -ArgumentList \"/uninstall /quiet /norestart\" -Wait -PassThru -NoNewWindow"
+}

@@ -4,7 +4,7 @@
 
 A definition is one JSON file that describes one application. It names the vendor, the place to read the current version, the download address, the install and uninstall commands and the rule that detects the installed application. The App Packager page shows one row for each definition.
 
-Shipped definitions are in the `Definitions` folder beside `ApplicationPackagerUI.exe`. The release ships 319 definitions. You can add your own definitions and you can replace a shipped definition.
+Shipped definitions are in the `Definitions` folder beside `ApplicationPackagerUI.exe`. The release ships 323 definitions. You can add your own definitions and you can replace a shipped definition.
 
 This page explains how definitions work. Every field is in [Definition format](../reference/definition-format.md).
 
@@ -62,8 +62,8 @@ The `VersionScraper.Type` field names the scraper. The comparison ignores case. 
 
 | Type | Definitions | Method | Example |
 |---|---|---|---|
-| `HttpRegex` | 208 | Gets a page or an API answer and matches the version with a regular expression. | `putty.json` |
-| `JsonQuery` | 65 | Reads the version from a JSON API with a path expression. | `notepadplusplus.json` |
+| `HttpRegex` | 209 | Gets a page or an API answer and matches the version with a regular expression. | `putty.json` |
+| `JsonQuery` | 68 | Reads the version from a JSON API with a path expression. | `notepadplusplus.json` |
 | `FileVersion` | 31 | Downloads the installer and reads the version from its properties. | `amazondcv.json` |
 | `ChainedHttpRegex` | 7 | Follows a sequence of pages. Each page is matched with a regular expression. | `agentransack.json` |
 | `CdnCab` | 6 | Reads the Office CDN version descriptor. | `m365apps-x64.json` |
@@ -83,7 +83,7 @@ The scraper first returns the raw version. The `VersionTransform` field then pro
 
 In `DownloadUrl`, `{version}` is the raw version and `{display_version}` is the display version. A `DownloadUrlQuery` finds the address in the same answer. A found address replaces the `DownloadUrl` template. 75 shipped definitions have an empty `DownloadUrl` because the scraper finds the address.
 
-101 of the 319 definitions read `api.github.com`. Without a token, GitHub permits 60 requests each hour. App Packager Desktop takes a token from `APP_PACKAGER_GITHUB_TOKEN`, then `GITHUB_TOKEN`, then `gh auth token`.
+101 of the 323 definitions read `api.github.com`. Without a token, GitHub permits 60 requests each hour. App Packager Desktop takes a token from `APP_PACKAGER_GITHUB_TOKEN`, then `GITHUB_TOKEN`, then `gh auth token`.
 
 ## Detection types
 
@@ -92,27 +92,27 @@ The `Detection` field decides when ConfigMgr, Intune or WSUS counts the applicat
 | Type | Checks | Definitions | Example |
 |---|---|---|---|
 | `RegistryKeyValue` | A value under a registry key, compared with the version. | 215 | `7zip.json` |
-| `File` | The version of a file, or that the file exists. | 82 | `notepadplusplus.json` |
+| `File` | The version of a file, or that the file exists. | 84 | `notepadplusplus.json` |
 | `RegistryKey` | That a registry key exists. | 10 | `corretto-jdk8-x64.json` |
 | `Script` | That a script writes text to the output stream. | 6 | `tableaudesktop.json` |
 | `Compound` | Several clauses that you join with `And` or `Or`. | 4 | `nomachine.json` |
-| `ArpEntry` | An Add/Remove Programs entry. The stage turns it into a script. | 2 | `aspnethostingbundle10.json` |
+| `ArpEntry` | An Add/Remove Programs entry. The stage turns it into a script. | 4 | `aspnethostingbundle10.json` |
 
 ## Counts in the shipped catalog
 
-These counts come from the 319 files.
+These counts come from the 323 files.
 
 | Item | Count |
 |---|---|
 | Vendors | 200 |
-| `InstallerType` | `MSI` 155, `EXE` 155, `ODT` 6, `MSIX` 2, `ZIP` 1 |
-| `InstallerFramework` | `NativeMSI` 149, `InnoSetup` 56, `NSIS` 41, `WixBurn` 20, `NativeEXE` 16, `Unknown` 13, `InstallShield` 9, `ODT` 6, `Squirrel` 3, `MSIX` 3, `ZIP` 2, `AdvancedInstaller` 1 |
-| `Architecture` | `x64` 299, `x86` 19, `ARM64` 1 |
+| `InstallerType` | `EXE` 159, `MSI` 155, `ODT` 6, `MSIX` 2, `ZIP` 1 |
+| `InstallerFramework` | `NativeMSI` 149, `InnoSetup` 56, `NSIS` 41, `WixBurn` 24, `NativeEXE` 16, `Unknown` 13, `InstallShield` 9, `ODT` 6, `MSIX` 3, `Squirrel` 3, `ZIP` 2, `AdvancedInstaller` 1 |
+| `Architecture` | `x64` 302, `x86` 20, `ARM64` 1 |
 | `InstallContext` `User` | 12 (the other definitions use the default `Machine`) |
-| `ArpName` pattern / `none` | 295 / 24 |
-| `Cpe` | 294 |
-| `WsusSupport` `Yes` / `No (...)` | 255 / 64 |
-| `IconSource` | `Installer` 240, `External` 34, `None` 31. 14 definitions declare no value, which counts as `None`. |
+| `ArpName` pattern / `none` | 299 / 24 |
+| `Cpe` | 298 |
+| `WsusSupport` `Yes` / `No (...)` | 257 / 66 |
+| `IconSource` | `Installer` 240, `None` 35, `External` 34. 14 definitions declare no value, which counts as `None`. |
 | `InstallerSettings` | 13 |
 
 ## Steps

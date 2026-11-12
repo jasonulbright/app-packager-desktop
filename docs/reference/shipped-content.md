@@ -8,7 +8,7 @@ A count describes the build that you installed. A user file in a data folder can
 
 | Content | Count | Where it is used |
 |---|---|---|
-| Application definitions | 319 | Core pages. See [definitions](../core/definitions.md). |
+| Application definitions | 323 | Core pages. See [definitions](../core/definitions.md). |
 | Scraper types used by the definitions | 7 | Version checks. See [definitions](../core/definitions.md). |
 | Collection query templates | 245 | [Collections: queries and templates](../tools/collections-queries.md) |
 | Compliance catalog entries | 16 | [Compliance](../tools/compliance.md) |
@@ -25,20 +25,20 @@ A count describes the build that you installed. A user file in a data folder can
 
 ## Application definitions
 
-The folder `src\ApplicationPackagerEngine\Definitions` holds 319 definition files (`*.json`). See [definitions](../core/definitions.md) and [definition format](definition-format.md).
+The folder `src\ApplicationPackagerEngine\Definitions` holds 323 definition files (`*.json`). See [definitions](../core/definitions.md) and [definition format](definition-format.md).
 
 | Property | Count of definitions |
 |---|---|
-| Version scraper `HttpRegex` | 208 |
-| Version scraper `JsonQuery` | 65 |
+| Version scraper `HttpRegex` | 209 |
+| Version scraper `JsonQuery` | 68 |
 | Version scraper `FileVersion` | 31 |
 | Version scraper `ChainedHttpRegex` | 7 |
 | Version scraper `CdnCab` | 6 |
 | Version scraper `DellCatalog` | 1 |
 | Version scraper `HeadProbe` | 1 |
-| `ArpName` with a pattern | 295 |
+| `ArpName` with a pattern | 299 |
 | `ArpName` set to `none` | 24 |
-| With a `Cpe` | 294 |
+| With a `Cpe` | 298 |
 | That read `api.github.com` | 101 |
 | With `InstallerSettings` | 13 |
 

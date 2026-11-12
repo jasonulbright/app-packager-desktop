@@ -18,10 +18,10 @@
 
                     },
     "VersionScraper":  {
-                           "Type":  "JsonQuery",
-                           "Url":  "https://api.github.com/repos/PowerShell/PowerShell/releases/latest",
-                           "Pattern":  "tag_name",
-                           "VersionTransform":  "strip_prefix:v"
+                           "Type":  "HttpRegex",
+                           "Url":  "https://api.github.com/repos/PowerShell/PowerShell/releases?per_page=30",
+                           "Pattern":  "PowerShell-(\\d+\\.\\d+\\.\\d+)-win-x64\\.msi",
+                           "SelectHighestVersion":  true
                        },
     "DownloadUrl":  "https://github.com/PowerShell/PowerShell/releases/download/v{display_version}/PowerShell-{display_version}-win-x64.msi",
     "InstallArgs":  "/quiet /norestart ADD_EXPLORER_CONTEXT_MENU_OPENPOWERSHELL=1 ENABLE_PSREMOTING=1 REGISTER_MANIFEST=1 ADD_PATH=1 USE_MU=0 ENABLE_MU=0",

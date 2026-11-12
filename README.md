@@ -22,7 +22,7 @@ For each application, App Packager Desktop does these steps:
 4. It builds a detection rule from the installer.
 5. It publishes to the destination you select: an application in ConfigMgr, a Win32 app in Intune, or a locally published update in WSUS.
 
-The catalog has 319 application definitions. A definition is one JSON file. You can add your own definitions from the web (**Add from web**) or from an installer file on this computer (**Add from file**).
+The catalog has 323 application definitions. A definition is one JSON file. You can add your own definitions from the web (**Add from web**) or from an installer file on this computer (**Add from file**).
 
 ## Documentation
 
