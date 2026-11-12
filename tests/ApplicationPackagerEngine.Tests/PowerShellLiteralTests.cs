@@ -88,7 +88,7 @@ public sealed class PowerShellLiteralTests : IDisposable
                      MecmTarget.BuildDistributionScript(title, "P01", title, null),
                      MecmTarget.BuildTestCollectionDeploymentScript(title, "P01", title, true, null),
                      MecmTarget.BuildContentStepsScript(title, "P01", title, null, title, true, false),
-                     SupersedenceScripts.BuildLookupScript("P01", null, "APD-Line:" + title + "|default|x64", "12"),
+                     SupersedenceScripts.BuildLookupScript("P01", null, "APD-Line:" + title + "|default|x64", title),
                      SupersedenceScripts.BuildStepScript("P01", null, title, title + "old", [new DeploymentTypePair(new LineDeploymentType("121", title), new LineDeploymentType("111", title))], true),
                      MecmTarget.BuildPackageScript(manifest, title, @"\\server\share\App", "P01", title, 15, 30, identityMarker: "APD-Line:" + title + "|default|x64")
                  })
@@ -111,7 +111,8 @@ public sealed class PowerShellLiteralTests : IDisposable
         // The names of applications and deployment types come from the site: none of them is expanded or ends a string.
         var pair = new DeploymentTypePair(new LineDeploymentType("121", title), new LineDeploymentType("111", title));
         Assert.Equal((0, 0), Parse(SupersedenceScripts.BuildStepScript("P01", null, title, title, [pair], true)));
-        Assert.Equal((0, 0), Parse(SupersedenceScripts.BuildLookupScript("P01", null, "APD-Line:" + title + "|default|x64", "12")));
+        Assert.Equal((0, 0), Parse(SupersedenceScripts.BuildLookupScript("P01", null, "APD-Line:" + title + "|default|x64", title)));
+        Assert.Equal((0, 0), Parse(ChainCheck.BuildDetectionScript("P01", null, title)));
     }
 
     [Theory]

@@ -40,6 +40,14 @@ These messages come from `AppPackagerBuild.exe`. See [Command-line build](../cor
 | Unknown target 'x'; expected ContentOnly, MECM, MECMAndIntune, IntuneOnly, MECMAndWSUS, WSUSOnly. | The `--target` value is not in the list. | Use a listed target. |
 | Unknown --on-existing value 'x'; expected Skip, Overwrite or Fail. | The value is not in the list. | Use a listed value. |
 | Unknown --version-rule value 'x'; expected exact or minimum. | The value is not in the list. | Use a listed value. |
+| Unknown --rewrite-old-versions value 'x'; expected plan, apply or restore. | The value is not in the list. | Use a listed value. |
+| Option '--yes' applies to --rewrite-old-versions only. | `--yes` was given without --rewrite-old-versions. | Remove `--yes`, or add the option. |
+| --rewrite-old-versions applies to a catalog application with a definition. | The application is not a catalog application. | Use a catalog application. |
+| --rewrite-old-versions needs a ConfigMgr site: pass --site-code or set it in Settings. | No site code. | Set the site code. |
+| restore writes the old operator back on the site. Run it again with --yes. | restore without the confirmation. | Read the list that it printed, then run it again with --yes. |
+| The deployments of 'x' were not read to the end, so the plan does not know whether it has a required deployment. | The deployment query printed no end marker. | Run the plan again; check the connection to the site. |
+| --rewrite-old-versions runs alone: it does not stage or package. | The option was given with --stage or --package. | Run the rewrite alone. |
+| apply changes the detection of the old applications. ConfigMgr evaluates the detection again on the devices. ... Run it again with --yes. | apply or restore without the confirmation. | Read the plan, then run it again with --yes. |
 | Unknown --supersedence value 'x'; expected off, replace or replace-uninstall. | The value is not in the list. | Use a listed value. |
 | Replace and uninstall needs the version rule Exact. With Minimum, the detection of the old application still finds the new version after the uninstall, and the uninstall is reported as failed. Set the version rule to Exact, or set the supersedence mode to Replace or Off. | The supersedence mode is Replace and uninstall and the ConfigMgr version rule is Minimum, after the command line, the title override and the site default are resolved. | Set the version rule to Exact, or set the mode to Replace or Off. Nothing was created. |
 | The version rule Exact cannot be applied for ConfigMgr: No installed value exists for ... | The Exact guard has no installed value for the clause and version (an MSI has its ProductVersion; any other title needs a recorded value), or the value differs from the expected value. | Set the version rule of the title to Minimum, record the installed value with a test install, or accept the block for this version. Nothing was created. |

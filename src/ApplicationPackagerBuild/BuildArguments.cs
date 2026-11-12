@@ -33,6 +33,10 @@ public sealed record BuildOptions
     public string? VersionRule { get; init; }
     /// <summary>--supersedence: off, replace or replace-uninstall. Outranks the title override and the site default.</summary>
     public string? Supersedence { get; init; }
+    /// <summary>--rewrite-old-versions: plan, apply or restore. It changes the version clause of the old applications of the line.</summary>
+    public string? RewriteOldVersions { get; init; }
+    /// <summary>--yes: the confirmation of apply and restore.</summary>
+    public bool Yes { get; init; }
     public string? LocalSourceFolder { get; init; }
     public string? DataRoot { get; init; }
     public bool Help { get; init; }
@@ -57,7 +61,7 @@ public static class BuildArguments
 
     private static readonly HashSet<string> Switches = new(StringComparer.OrdinalIgnoreCase)
     {
-        "stage", "package", "wsus-use-ssl", "wsus-decline-superseded", "help",
+        "stage", "package", "yes", "wsus-use-ssl", "wsus-decline-superseded", "help",
         "cve-report", "skip-latest", "skip-mecm", "skip-cve", "notify-always"
     };
 
@@ -66,7 +70,7 @@ public static class BuildArguments
         "application", "profile", "version", "target", "download-root", "estimated-minutes", "maximum-minutes",
         "packagers-root", "log-folder", "site-code", "provider-machine-name", "file-server-path", "comment",
         "wsus-server", "wsus-port", "wsus-classification", "wsus-approval-group", "on-existing",
-        "local-source-folder", "data-root", "version-rule", "supersedence",
+        "local-source-folder", "data-root", "version-rule", "supersedence", "rewrite-old-versions",
         "apps", "report-folder", "report-formats", "webhook-url", "drop-folder", "keep-report-days", "config"
     };
 
@@ -163,6 +167,16 @@ public static class BuildArguments
             && ApplicationPackagerEngine.Services.Supersedence.SupersedenceResolver.BlockedCombination(givenRule, givenMode) is { } blocked)
             return Fail(blocked);
 
+        string? rewrite = null;
+        if (values.TryGetValue("rewrite-old-versions", out var rewriteText))
+        {
+            rewrite = new[] { "plan", "apply", "restore" }.FirstOrDefault(w => w.Equals(rewriteText.Trim(), StringComparison.OrdinalIgnoreCase));
+            if (rewrite is null) return Fail($"Unknown --rewrite-old-versions value '{rewriteText}'; expected plan, apply or restore.");
+            if (Flag(values, "stage") == true || Flag(values, "package") == true)
+                return Fail("--rewrite-old-versions runs alone: it does not stage or package.");
+        }
+        if (Flag(values, "yes") == true && rewrite is null) return Fail("Option '--yes' applies to --rewrite-old-versions only.");
+
         if (!TryMinutes(values, "estimated-minutes", out var estimated, out var error)) return Fail(error!);
         if (!TryMinutes(values, "maximum-minutes", out var maximum, out error)) return Fail(error!);
 
@@ -200,11 +214,13 @@ public static class BuildArguments
             OnExisting = onExisting,
             VersionRule = Text(values, "version-rule"),
             Supersedence = Text(values, "supersedence"),
+            RewriteOldVersions = rewrite,
+            Yes = Flag(values, "yes") == true,
             LocalSourceFolder = Text(values, "local-source-folder"),
             DataRoot = Text(values, "data-root")
         };
 
-        if (!options.Stage && !options.Package) return Fail("Specify --stage, --package, or both.");
+        if (!options.Stage && !options.Package && options.RewriteOldVersions is null) return Fail("Specify --stage, --package, or both.");
         if (options.Target == RunTargets.MecmAndWsus && options.Package && !options.Stage)
             return Fail("A MECMAndWSUS package publishes the build staged in the same run; pass --stage together with --package.");
         return new ParsedArguments(options, null);
@@ -256,6 +272,10 @@ public static class BuildArguments
                                       Outranks the title override and the site default.
           --supersedence <mode>       off, replace or replace-uninstall (needs --version-rule exact). Outranks the title override
                                       and the site default.
+          --rewrite-old-versions <w>  plan, apply or restore: changes the version clause of the OLD applications of the line from
+                                      GreaterEquals to IsEquals (and back). Runs alone. plan only reads the site. apply and restore
+                                      need --yes after the plan was read. Writes the log supersedence-rewrite.jsonl.
+          --yes                       Confirms apply and restore of --rewrite-old-versions.
           --comment <text>            Administrative comment stored on the application
 
         Run overrides (this build only, never written to the profile or the settings):

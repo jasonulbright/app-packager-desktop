@@ -50,6 +50,30 @@ public sealed class BuildArgumentsTests
         Assert.Equal(ApplicationPackagerEngine.Services.Supersedence.SupersedenceResolver.BlockedText,
             Refused("--application", "a", "--package", "--version-rule", "minimum", "--supersedence", "replace-uninstall"));
 
+    [Theory]
+    [InlineData("plan")]
+    [InlineData("APPLY")]
+    [InlineData("restore")]
+    public void TheRewriteOfTheOldVersionsParsesAndTakesTheConfirmation(string word)
+    {
+        var options = Parsed("--application", "a", "--rewrite-old-versions", word, "--yes");
+
+        Assert.Equal(word.ToLowerInvariant(), options.RewriteOldVersions);
+        Assert.True(options.Yes);
+        Assert.False(Parsed("--application", "a", "--rewrite-old-versions", word).Yes);
+        Assert.Null(Parsed("--application", "a", "--package").RewriteOldVersions);
+    }
+
+    [Fact]
+    public void TheRewriteRefusesAnUnknownWordACombinationAndAYesWithoutIt()
+    {
+        Assert.Equal("Unknown --rewrite-old-versions value 'now'; expected plan, apply or restore.",
+            Refused("--application", "a", "--rewrite-old-versions", "now"));
+        Assert.Equal("--rewrite-old-versions runs alone: it does not stage or package.",
+            Refused("--application", "a", "--rewrite-old-versions", "plan", "--package"));
+        Assert.Equal("Option '--yes' applies to --rewrite-old-versions only.", Refused("--application", "a", "--package", "--yes"));
+    }
+
     [Fact]
     public void UsageNamesEveryOptionTheParserAccepts()
     {
@@ -59,7 +83,7 @@ public sealed class BuildArgumentsTests
                      "--estimated-minutes", "--maximum-minutes", "--packagers-root", "--log-folder", "--site-code",
                      "--provider-machine-name", "--file-server-path", "--comment", "--wsus-server", "--wsus-port",
                      "--wsus-use-ssl", "--wsus-classification", "--wsus-approval-group", "--wsus-decline-superseded",
-                     "--on-existing", "--local-source-folder", "--data-root", "--version-rule", "--supersedence", "--help"
+                     "--on-existing", "--local-source-folder", "--data-root", "--version-rule", "--supersedence", "--rewrite-old-versions", "--yes", "--help"
                  })
             Assert.Contains(option, BuildArguments.Usage);
     }

@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+## [2026.1111.51] - 2026-11-12
+
+### Added
+
+- Command line: `--rewrite-old-versions plan|apply|restore` rewrites the version clause of the old applications of a product line from `GreaterEquals` to `IsEquals` (and back), so the uninstall through supersedence is reported as successful. `plan` only reads the site. `apply` and `restore` need `--yes`. An application with a required deployment is blocked, and a clause is rewritten only when a recorded installed value of that version equals it (an administrator adds the value to the settings file; no recorder exists yet). The log `supersedence-rewrite.jsonl` is the way back.
+
+- Supersedence chain check: before a publish with the supersedence mode on, the program reads the detection of the older application of the line and writes warnings to the log when the uninstall through supersedence would be reported as failed or the chain is inconsistent (Exact against Minimum). It never blocks.
+
 ## [2026.1111.50] - 2026-11-12
 
 ### Fixed

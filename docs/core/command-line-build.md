@@ -60,6 +60,8 @@ Press Ctrl+C to cancel. The run writes `Cancelled.` and returns exit code 1.
 | `--target <target>` | `ContentOnly`, `MECM`, `MECMAndIntune`, `IntuneOnly`, `MECMAndWSUS` or `WSUSOnly`. | `MECM` |
 | `--on-existing <behavior>` | `Skip`, `Overwrite` or `Fail` for an existing ConfigMgr application. | `Skip` |
 | `--version-rule <rule>` | `minimum` or `exact`: the operator of the version clause in the detection. It outranks the title override and the site default. | The setting |
+| `--rewrite-old-versions <word>` | `plan`, `apply` or `restore`. Changes the version clause of the **old** applications of the line (every application with the identity marker whose version is lower than the newest one; an application that holds the newest version, a retired application and an application whose version cannot be read are left) from `GreaterEquals` to `IsEquals`, and back. It runs alone. `plan` only reads the site and prints what would change and why each other clause is left. `apply` and `restore` need `--yes` after the plan was read. The log `supersedence-rewrite.jsonl` is the only way back; it is written ahead, one entry before each change, and a restore entry cancels an entry of a change that failed. `restore` prints what it would restore before it asks for `--yes`. | |
+| `--yes` | The confirmation of `apply` and `restore`. | |
 | `--supersedence <mode>` | `off`, `replace` or `replace-uninstall`. `replace-uninstall` needs `exact`. It outranks the title override and the site default. | The setting |
 | `--comment <text>` | Administrative comment stored on the application. | empty |
 | `--estimated-minutes <n>`, `--maximum-minutes <n>` | Timing for this build only. A package of a sealed build refuses them. | profile or Settings |

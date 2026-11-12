@@ -3,6 +3,7 @@ using System.Text.Json.Nodes;
 using ApplicationPackagerEngine.Models;
 using ApplicationPackagerEngine.Models.Workbench;
 using ApplicationPackagerEngine.Services;
+using ApplicationPackagerEngine.Services.Supersedence;
 using ApplicationPackagerEngine.Services.Workbench;
 using ApplicationPackagerEngine.Services.Wsus;
 using ApplicationPackagerUI.Models;
@@ -153,6 +154,12 @@ public sealed class BuildRunner(
         if (isByo) Refuse(() => store.ResolveByoSource(applicationId, o.Version));
         else row = await FindRowAsync(applicationId, discovered, ct);
 
+        if (o.RewriteOldVersions is { } rewriteAction)
+        {
+            await RewriteOldVersionsAsync(rewriteAction, applicationId, profileId, row, result, ct);
+            return;
+        }
+
         var destinations = o.Package ? Destinations(o.Target) : [];
         var stageThisRun = o.Stage || destinations.Contains(Wsus);
         if (row is { IsJsonDefined: true } && stageThisRun && o.Version is not null)
@@ -192,6 +199,72 @@ public sealed class BuildRunner(
                 : await PackageAsync(row!, destination, snapshot, result, ct);
             if (exitCode != 0) return;
         }
+    }
+
+    /// <summary>
+    /// The optional rewrite of the version clause of the old applications of the line (see "Rewrite step" in the specification). plan reads
+    /// the site and prints what would change; apply and restore write, only after --yes, and the log is the way back.
+    /// </summary>
+    private async Task RewriteOldVersionsAsync(string action, string applicationId, string profileId, PackagerInfo? row, BuildResult result, CancellationToken ct)
+    {
+        if (row is null || LoadDefinitionOrNull(row) is not { } definition)
+            throw new BuildRefusal("--rewrite-old-versions applies to a catalog application with a definition.");
+        var settings = settingsService.Load();
+        if (string.IsNullOrWhiteSpace(settings.SiteCode))
+            throw new BuildRefusal("--rewrite-old-versions needs a ConfigMgr site: pass --site-code or set it in Settings.");
+        var marker = IdentityMarker.For(new StageManifest { ApplicationId = applicationId, ProfileId = profileId, Architecture = definition.Architecture })
+            ?? throw new BuildRefusal("The application has no identity marker.");
+        var scope = new RewriteScope(marker, applicationId, settings.SiteCode, settings.ProviderMachine, settings.Supersedence ?? new());
+        var runner = new OldVersionRewriteRunner();
+        var logPath = Path.Combine(AppDataPaths.LegacyRoot, "supersedence-rewrite.jsonl");
+
+        try
+        {
+            if (action == "restore")
+            {
+                var log = File.Exists(logPath) ? RewriteLog.Read(await File.ReadAllTextAsync(logPath, ct)) : [];
+                var pending = RewriteLog.ToRestore(log, log.Select(e => e.Application).Distinct(StringComparer.OrdinalIgnoreCase).ToList());
+                output.Info($"Log: {logPath}. {pending.Count} deployment type(s) to restore.");
+                foreach (var entry in pending) output.Info($"  restore: {entry.Application} / {entry.DeploymentType}: back to {entry.OldOperator}");
+                if (!_options.Yes) throw new BuildRefusal("restore writes the old operator back on the site. Run it again with --yes.");
+                var restored = await runner.RestoreAsync(log, scope, entry => AppendLog(logPath, entry), output.Info, ct);
+                foreach (var failure in restored.Failures) output.Error(failure);
+                output.Info($"Restored {restored.Written.Count} deployment type(s); {restored.Failures.Count} failed.");
+                result.ExitCode = restored.Failures.Count == 0 ? 0 : 1;
+                return;
+            }
+
+            var plan = await runner.PlanAsync(scope, ct);
+            output.Info($"Old applications of the line: {plan.ApplicationCount} with a clause to rewrite; {plan.ClauseCount} clause(s) in all.");
+            foreach (var blocked in plan.Blocked) output.Info($"  blocked: {blocked}");
+            foreach (var item in plan.Items)
+                output.Info(item.Rewrites
+                    ? $"  rewrite: {item.Application} / {item.DeploymentType}: GreaterEquals -> IsEquals"
+                    : $"  left: {item.Application} / {item.DeploymentType}: {item.Skip}");
+            if (action == "plan") { output.Info(RewritePlanner.ConfirmationText); return; }
+
+            if (!_options.Yes)
+                throw new BuildRefusal($"apply changes the detection of the old applications. {RewritePlanner.ConfirmationText} Run it again with --yes.");
+            if (plan.ClauseCount == 0) { output.Info("Nothing to rewrite."); return; }
+            // The log is written ahead, one entry at a time, before the site changes: it is the only way back.
+            var written = await runner.WriteRewriteAsync(plan, scope, entry => AppendLog(logPath, entry), output.Info, ct);
+            foreach (var failure in written.Failures) output.Error(failure);
+            output.Info($"Rewrote {written.Written.Count} deployment type(s); {written.Failures.Count} failed. Log: {logPath}");
+            result.ExitCode = written.Failures.Count == 0 ? 0 : 1;
+        }
+        catch (InvalidOperationException ex)
+        {
+            throw new BuildRefusal(ex.Message);
+        }
+    }
+
+    /// <summary>Appends one entry and closes the file, so the entry is on disk before the caller goes on. A failure stops the rewrite.</summary>
+    private static void AppendLog(string path, RewriteLogEntry entry)
+    {
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        using var stream = new FileStream(path, FileMode.Append, FileAccess.Write, FileShare.Read, 4096, FileOptions.WriteThrough);
+        using var writer = new StreamWriter(stream);
+        writer.WriteLine(RewriteLog.Serialize(entry));
     }
 
     private async Task<PackagerInfo> FindRowAsync(string applicationId, IReadOnlyList<WorkbenchApplication> discovered, CancellationToken ct)
