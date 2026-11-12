@@ -77,6 +77,8 @@ When the supersedence mode (Settings, Supersedence) is `Replace` or `Replace and
 
 The version rule (Settings, Supersedence) changes the operator of the version clause of the detection that is published: `Exact` writes `IsEquals` instead of `GreaterEquals`, only for a File or Registry value version clause whose operator is `GreaterEquals` and whose expected value is the packaged version, and only when a value read from the installed product equals the expected value (the MSI ProductVersion, or a value that a test install recorded). The definition does not change. The supersedence mode `Replace and uninstall` needs `Exact`; the combination `Minimum` with `Replace and uninstall` is refused before anything is created. This release writes no supersedence relation.
 
+Before a publish with the supersedence mode on, the program reads the detection of the older application of the line and writes warnings to the log (`Chain check`), and never blocks: Replace and uninstall with Exact while the older application still has a GreaterEquals version clause (its uninstall will be reported as failed); an older application and a new one that disagree (Exact against Minimum, or the reverse); a new application that keeps a GreaterEquals version clause under Replace and uninstall. The check reads the site once more, so a publish with the mode on takes a little longer.
+
 The two steps run in one Windows PowerShell start, so the ConfigMgr module loads once for both. A distribution that fails ends the script, and the test deployment does not run.
 
 1. **Distribute content after Package** starts content distribution of the new application to the **Distribution point group**. A group that already holds the content counts as done.

@@ -112,6 +112,7 @@ public sealed class PowerShellLiteralTests : IDisposable
         var pair = new DeploymentTypePair(new LineDeploymentType("121", title), new LineDeploymentType("111", title));
         Assert.Equal((0, 0), Parse(SupersedenceScripts.BuildStepScript("P01", null, title, title, [pair], true)));
         Assert.Equal((0, 0), Parse(SupersedenceScripts.BuildLookupScript("P01", null, "APD-Line:" + title + "|default|x64", "12")));
+        Assert.Equal((0, 0), Parse(ChainCheck.BuildDetectionScript("P01", null, title)));
     }
 
     [Theory]

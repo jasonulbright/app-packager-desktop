@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [2026.1111.47] - 2026-11-12
+
+### Added
+
+- Supersedence chain check: before a publish with the supersedence mode on, the program reads the detection of the older application of the line and writes warnings to the log when the uninstall through supersedence would be reported as failed or the chain is inconsistent (Exact against Minimum). It never blocks.
+
 ## [2026.1111.46] - 2026-11-12
 
 ### Added

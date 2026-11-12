@@ -1059,6 +1059,34 @@ public sealed partial class MecmTarget
         }
     }
 
+    /// <summary>
+    /// The chain check before the publish: the detection of the old application is read from the site and compared with the new one. It
+    /// returns warnings and never blocks; a failure to read is itself a warning.
+    /// </summary>
+    public async Task<IReadOnlyList<string>> CheckChainAsync(
+        string newTitle, string newVersion, string marker, VersionRule newRule, SupersedenceMode mode, StageManifest newManifest,
+        string siteCode, string? providerMachine, CancellationToken ct)
+    {
+        try
+        {
+            var lookup = await WindowsPowerShellHost.RunAsync(SupersedenceScripts.BuildLookupScript(siteCode, providerMachine, marker, "0"), null, ct);
+            if (lookup.ExitCode != 0) return [$"The chain check could not read the site: {SupersedenceScripts.FailureText(lookup.StdOut, lookup.StdErr)}"];
+            var chosen = SupersedenceLookup.Choose(SupersedenceLookup.ParseSiteApplications(lookup.StdOut), newTitle, newVersion);
+            if (chosen.Old is null) return [];
+            var detection = await WindowsPowerShellHost.RunAsync(ChainCheck.BuildDetectionScript(siteCode, providerMachine, chosen.Old.Title), null, ct);
+            if (detection.ExitCode != 0) return [$"The chain check could not read the detection of '{chosen.Old.Title}': {SupersedenceScripts.FailureText(detection.StdOut, detection.StdErr)}"];
+            return ChainCheck.Evaluate(newTitle, newRule, mode, newManifest, ChainCheck.ParseDetection(chosen.Old.Title, detection.StdOut));
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            return [$"The chain check failed: {ex.Message}"];
+        }
+    }
+
     private async Task<SupersedenceStepResult> RunSupersedenceCoreAsync(
         string newApplicationName, string newCiId, string newVersion, string marker, SupersedenceMode mode,
         string siteCode, string? providerMachine, Action<string>? onProgress, CancellationToken ct)

@@ -516,3 +516,16 @@ Not built in this step (recorded for the later steps): the "Apply supersedence" 
 | `PowerShellLiteralTests` | The lookup script and the step script parse without error and take a quote in a name. |
 
 **Lab check (open).** On CM01 with two published versions of one test line: `Set-CMApplicationSupersedence -Id <new> -CurrentDeploymentTypeId <dt> -SupersededApplicationId <old> -OldDeploymentTypeId <dt> -IsUninstall $true` creates the relation and a second call reports that it exists (confirm the text that the match `already` relies on); the console shows the relation; the lookup finds the old application through the marker in `SDMPackageXML`; the time of the lookup on the lab site. Lab tests 1 to 3 and 6 of the specification belong to this step. Not run in this session: the lab needs credentials that this session does not hold.
+
+## Supersedence step 3: the chain check
+
+The third of four steps of `docs/specs/supersedence.md`. Before a ConfigMgr publish with the supersedence mode `Replace` or `Replace and uninstall`, the program finds the older application of the line (the same lookup as the step), reads the stored XML of its deployment types, and compares the operators of its version clauses with the new detection. The warnings go to the log and never block: Replace and uninstall with Exact against an older GreaterEquals clause; an Exact clause against Minimum, or the reverse; a new GreaterEquals version clause under Replace and uninstall. The stored XML keeps the detection method as XML text inside an argument, so the reader parses that text as a document of its own.
+
+Not built: the warning that the old deployment type has no uninstall command (it needs the stored form of the uninstall command, which the lab confirms).
+
+| Test class | What it proves |
+|---|---|
+| `SupersedenceChainCheckTests` | The operator of a Version expression is read from the detection method text inside a deployment type XML; an unreadable document or a non-version clause gives none; the site output is parsed per deployment type; the script asks one application by name and escapes it; each warning (uninstall will fail, Exact against Minimum, Minimum against Exact, the new application keeps GreaterEquals only under Replace and uninstall); an existence clause is no version clause; a compound detection and the deployment type detections are walked. |
+| `PowerShellLiteralTests` | The detection script parses with a double quote, a quote and a subexpression in the name. |
+
+**Lab check (open).** On CM01: read the `SDMPackageXML` of a deployment type with a version detection clause and confirm the element names and the operator words (`Equals` and `GreaterEquals`) that `ChainCheck.VersionOperators` reads; compare the log warnings with a real chain.
