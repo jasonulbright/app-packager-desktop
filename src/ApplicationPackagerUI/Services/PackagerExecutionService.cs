@@ -791,6 +791,7 @@ public class PackagerExecutionService(
             if (!DeploymentTargets.SkipsMecm(target))
             {
                 var mecmTarget = new ApplicationPackagerEngine.Services.MecmTarget();
+                await ReportChainCheckAsync(mecmTarget, supersedence, applicationTitle, manifest.SoftwareVersion, settings, Report, ct);
                 var result = await mecmTarget.PackageAsync(
                     supersedence.ConfigMgrManifest, stagedContentPath, settings.SiteCode, settings.FileShareRoot, comment,
                     settings.EstimatedRuntimeMins, settings.MaximumRuntimeMins,
@@ -1216,6 +1217,7 @@ public class PackagerExecutionService(
         if (!DeploymentTargets.SkipsMecm(target))
         {
             var mecmTarget = new MecmTarget();
+            await ReportChainCheckAsync(mecmTarget, supersedence, applicationTitle, manifest.SoftwareVersion, settings, Report, ct);
             var result = await mecmTarget.PackageAsync(
                 supersedence.ConfigMgrManifest, stagedContentPath, settings.SiteCode, settings.FileShareRoot, comment,
                 settings.EstimatedRuntimeMins, settings.MaximumRuntimeMins,
@@ -1317,6 +1319,20 @@ public class PackagerExecutionService(
         return plan;
     }
 
+    /// <summary>
+    /// The chain check before a publish with the supersedence mode on: warnings in the log, never a block. The old application is read
+    /// from the site, so the check runs only when the application carries the marker that finds it.
+    /// </summary>
+    private static async Task ReportChainCheckAsync(
+        MecmTarget mecmTarget, ApplicationPackagerEngine.Services.Supersedence.SupersedencePlan supersedence, string title, string version,
+        AppSettings settings, Action<string> report, CancellationToken ct)
+    {
+        if (supersedence.Mode == ApplicationPackagerEngine.Services.Supersedence.SupersedenceMode.Off || string.IsNullOrWhiteSpace(supersedence.Marker)) return;
+        foreach (var warning in await mecmTarget.CheckChainAsync(title, version, supersedence.Marker, supersedence.ConfigMgrRule, supersedence.Mode,
+                     supersedence.ConfigMgrManifest, settings.SiteCode, settings.ProviderMachine, ct))
+            report($"Chain check                : {warning}");
+    }
+
     /// <summary>The result of a row that the version rule or the supersedence mode refused: it is recorded as refused, and nothing was created.</summary>
     private static PackagerExecutionResult SupersedenceRefused(string refusal, string target) => new()
     {
@@ -1373,7 +1389,7 @@ public class PackagerExecutionService(
             && !string.IsNullOrWhiteSpace(supersedence.Marker))
         {
             supersedenceResult = await mecmTarget.RunSupersedenceAsync(
-                result.ApplicationName, result.CiId, manifest.SoftwareVersion, supersedence.Marker, supersedence.Mode,
+                result.ApplicationName, manifest.SoftwareVersion, supersedence.Marker, supersedence.Mode,
                 settings.SiteCode, settings.ProviderMachine, report, ct);
             report(supersedenceResult.Status switch
             {

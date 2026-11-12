@@ -151,11 +151,13 @@ public sealed class SupersedenceStepTests
     [Fact]
     public void TheLookupScriptMatchesTheMarkerInTheXmlAndAlwaysListsTheNewApplication()
     {
-        var script = SupersedenceScripts.BuildLookupScript("MCM", null, "APD-Line:catalog:o'neil&co|default|x64", "123");
+        var script = SupersedenceScripts.BuildLookupScript("MCM", null, "APD-Line:catalog:o'neil&co|default|x64", "My App");
 
         Assert.Contains("'>APD-Line:catalog:o''neil&amp;co|default|x64<'", script);
-        Assert.Contains("$newApplicationCiId = 123", script);
-        Assert.Contains("$candidate.CI_ID -ne $newApplicationCiId -and", script);
+        // The new application is found by name: every save makes a new revision with a new CI_ID.
+        Assert.Contains("$newApplicationName = 'My App'", script);
+        Assert.Contains("$candidate.LocalizedDisplayName -ne $newApplicationName -and", script);
+        Assert.DoesNotContain("CI_ID -ne", script);
         Assert.Contains("Get-CMDeploymentType -ApplicationName $candidate.LocalizedDisplayName -DisableWildcardHandling", script);
     }
 
@@ -194,11 +196,6 @@ public sealed class SupersedenceStepTests
         Assert.Contains("-f 'N\"ew $(calc) - x64 supersedes O“ld - x64'", script);
     }
 
-    [Fact]
-    public void TheLookupScriptRefusesAnIdThatIsNotANumber()
-    {
-        Assert.ThrowsAny<FormatException>(() => SupersedenceScripts.BuildLookupScript("MCM", null, "m", "x"));
-    }
     [Fact]
     public void TheFailureTextIsTheReasonOfTheFirstFailedRelation()
     {
@@ -262,14 +259,11 @@ public sealed class SupersedenceStepTests
     {
         var target = new MecmTarget();
 
-        var off = await target.RunSupersedenceAsync("App", "5", "1.0", "m", SupersedenceMode.Off, "MCM", null, null, CancellationToken.None);
-        var none = await target.RunSupersedenceAsync("App", "5", "1.0", "", SupersedenceMode.Replace, "MCM", null, null, CancellationToken.None);
-        var noId = await target.RunSupersedenceAsync("App", "", "1.0", "m", SupersedenceMode.Replace, "MCM", null, null, CancellationToken.None);
+        var off = await target.RunSupersedenceAsync("App", "1.0", "m", SupersedenceMode.Off, "MCM", null, null, CancellationToken.None);
+        var none = await target.RunSupersedenceAsync("App", "1.0", "", SupersedenceMode.Replace, "MCM", null, null, CancellationToken.None);
 
         Assert.Equal(SupersedenceStepStatus.NotRun, off.Status);
         Assert.Equal(SupersedenceStepStatus.NotRun, none.Status);
-        // The mode is on and the marker is there, but the CI_ID was not read: reported, not silent.
-        Assert.Equal(SupersedenceStepStatus.NotApplied, noId.Status);
-        Assert.Contains("CI_ID", noId.Message);
+
     }
 }
