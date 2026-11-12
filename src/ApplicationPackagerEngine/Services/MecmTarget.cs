@@ -162,7 +162,8 @@ public sealed partial class MecmTarget
                     ApplicationName = appName,
                     NetworkContentPath = networkContentPath,
                     CiId = ReadCiId(result.StdOut),
-                    ModelName = ReadModelName(result.StdOut)
+                    ModelName = ReadModelName(result.StdOut),
+                    Warnings = ReadWarnings(result.StdOut)
                 };
             }
             else
@@ -649,6 +650,25 @@ public sealed partial class MecmTarget
         return (final ?? lines.LastOrDefault())?.Groups[1].Value ?? "";
     }
 
+    [System.Text.RegularExpressions.GeneratedRegex(@"^Application icon (not applied|not found)[ \t]*:[ \t]*(\S.*?)[ \t]*\r?$", System.Text.RegularExpressions.RegexOptions.Multiline)]
+    private static partial System.Text.RegularExpressions.Regex IconWarningLine();
+
+    /// <summary>
+    /// The warnings of a run that succeeded: an application icon that was not applied or not found. The
+    /// script prints them and carries on, because a missing icon does not stop the packaging, so without
+    /// this a run reads as a plain success. Each distinct warning once, in the order printed.
+    /// </summary>
+    public static IReadOnlyList<string> ReadWarnings(string? output)
+    {
+        var warnings = new List<string>();
+        foreach (System.Text.RegularExpressions.Match match in IconWarningLine().Matches(output ?? ""))
+        {
+            var text = $"The application icon was {match.Groups[1].Value}: {match.Groups[2].Value}";
+            if (!warnings.Contains(text)) warnings.Add(text);
+        }
+        return warnings;
+    }
+
     private const string InstallForUser = "InstallForUser";
 
     private static readonly string[] InstallationBehaviors =
@@ -1017,38 +1037,6 @@ public sealed partial class MecmTarget
         return sb.ToString();
     }
 
-    /// <summary>
-    /// Creates a deployment for a packaged application to a collection.
-    /// Call after DistributeAsync succeeds.
-    /// </summary>
-    public async Task<bool> DeployAsync(
-        string appName, string siteCode, string collectionName,
-        string purpose = "Required", bool overrideServiceWindow = true,
-        Action<string>? onProgress = null, string? providerMachine = null,
-        CancellationToken ct = default)
-    {
-        var sb = new StringBuilder();
-        AppendCmPreamble(sb, siteCode, providerMachine);
-
-        sb.Append($"New-CMApplicationDeployment -Name '{Esc(appName)}'");
-        sb.Append($" -CollectionName '{Esc(collectionName)}'");
-        sb.Append(" -DeployAction Install");
-        sb.Append($" -DeployPurpose {purpose}");
-        sb.Append(" -UserNotification DisplaySoftwareCenterOnly");
-        if (purpose.Equals("Required", StringComparison.OrdinalIgnoreCase) && overrideServiceWindow)
-        {
-            sb.Append(" -OverrideServiceWindow $true");
-            sb.Append(" -RebootOutsideServiceWindow $true");
-        }
-        sb.AppendLine(" -ErrorAction Stop | Out-Null");
-        sb.AppendLine($"Write-Host 'Deployed: {Esc(appName)} to {Esc(collectionName)} ({purpose})'");
-
-        var result = await WindowsPowerShellHost.RunAsync(sb.ToString(), onProgress, ct);
-        if (result.ExitCode != 0)
-            onProgress?.Invoke($"Deployment failed: {result.StdErr}");
-        return result.ExitCode == 0;
-    }
-
     private static void AppendCmPreamble(StringBuilder sb, string siteCode, string? providerMachine = null)
     {
         sb.AppendLine("$ErrorActionPreference = 'Stop'");
@@ -1148,6 +1136,9 @@ public sealed class PackagingResult
     /// <summary>The ModelName of the application, the same for all its revisions and kept on a rename; empty when not read.</summary>
     public string ModelName { get; init; } = "";
     public string NetworkContentPath { get; init; } = "";
+
+    /// <summary>What the run did not do and carried on: an application icon that was not applied or not found.</summary>
+    public IReadOnlyList<string> Warnings { get; init; } = [];
     public string? ErrorMessage { get; init; }
     public bool AlreadyExists { get; init; }
 }

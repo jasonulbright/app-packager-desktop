@@ -867,7 +867,7 @@ public class PackagerExecutionService(
                 ConfigMgrOutcome = PackagingOutcomeComposer.ConfigMgrInventoryOutcome(
                     !DeploymentTargets.SkipsMecm(target), mecmSucceeded, mecmAlreadyExists, contentFailure),
                 ConfigMgrObjectId = stdOut.StartsWith("Packaged: ", StringComparison.OrdinalIgnoreCase) ? stdOut[10..].Trim() : null,
-                ConfigMgrDetail = FirstNonBlank(stdErr, contentFailure),
+                ConfigMgrDetail = PackagingOutcomeComposer.ConfigMgrDetail(stdErr, contentFailure, mecmResult?.Warnings),
                 ConfigMgrCiId = NonBlank(mecmResult?.CiId),
                 ConfigMgrModelName = NonBlank(mecmResult?.ModelName),
                 IntuneOutcome = !intuneRequested ? null : IntuneOutcome(notes),
@@ -1260,7 +1260,7 @@ public class PackagerExecutionService(
             ConfigMgrOutcome = PackagingOutcomeComposer.ConfigMgrInventoryOutcome(
                 !DeploymentTargets.SkipsMecm(target), mecmSucceeded, mecmAlreadyExists, contentFailure),
             ConfigMgrObjectId = stdOut.StartsWith("Packaged: ", StringComparison.OrdinalIgnoreCase) ? stdOut[10..].Trim() : null,
-            ConfigMgrDetail = FirstNonBlank(stdErr, contentFailure),
+            ConfigMgrDetail = PackagingOutcomeComposer.ConfigMgrDetail(stdErr, contentFailure, mecmResult?.Warnings),
             ConfigMgrCiId = NonBlank(mecmResult?.CiId),
             ConfigMgrModelName = NonBlank(mecmResult?.ModelName),
             IntuneOutcome = !intuneRequested ? null : IntuneOutcome(notes),

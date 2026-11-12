@@ -89,6 +89,18 @@ public static class PackagingOutcomeComposer
         : string.IsNullOrWhiteSpace(contentStepFailure) ? InventoryOutcome.Succeeded
         : InventoryOutcome.Partial;
 
+    /// <summary>
+    /// The ConfigMgr detail of a run for the history: the error, else the failed content step, else the
+    /// warnings of a run that succeeded (joined with "; "); null when there is none of them.
+    /// </summary>
+    public static string? ConfigMgrDetail(string? error, string? contentStepFailure, IReadOnlyList<string>? warnings)
+    {
+        if (!string.IsNullOrWhiteSpace(error)) return error;
+        if (!string.IsNullOrWhiteSpace(contentStepFailure)) return contentStepFailure;
+        var joined = string.Join("; ", (warnings ?? []).Where(w => !string.IsNullOrWhiteSpace(w)));
+        return joined.Length > 0 ? joined : null;
+    }
+
     /// <summary>One outcome for the run from the outcomes of its destinations (ConfigMgr and Intune, as requested).</summary>
     public static InventoryOutcome SummarizeDestinations(IReadOnlyList<InventoryOutcome> outcomes)
     {

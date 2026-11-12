@@ -252,6 +252,8 @@ public sealed class OneClickRowRunner(IOneClickExecution execution, ISettingsRea
                             ok = true;
                             cell = "published " + id;
                             (ciId, modelName) = (result.ConfigMgrCiId, result.ConfigMgrModelName);
+                            // A warning of a run that succeeded (an icon that was not applied) goes to the history and the report.
+                            detail = result.ConfigMgrDetail ?? "";
                         }
                         IntuneNotes?.Invoke(p, result);
                         break;

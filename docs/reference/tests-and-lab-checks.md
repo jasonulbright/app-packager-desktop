@@ -393,3 +393,15 @@ The native script builder is removed. A manifest with the detection type `MSIX` 
 On 2026-11-11 (01:05 UTC on 2026-11-12) the run of CI on a merge commit failed once in `LiveHistoryAndAlertTests.ConcurrentAppendsFromTwoStoresKeepEveryWholeLineAndOneHeader` (expected 401 lines, found 400) and passed on the rerun of the same code. Cause, from reading the code (the run had no log of the store, so the warning was not seen): the test made 400 appends from eight threads. Each append holds the lock file of the history file for the time of a flush to disk, and a store that waits for the lock gives up after 5 seconds and does not record that refresh (a documented choice of the store, with a log warning). The lock is not fair: the thread of the other store that is queued on the store's own lock takes the lock file again in the short gap, so on a loaded CI disk one store can wait through a long run of the other store's appends. The code shows that a cut or joined line cannot occur under the lock; the count of 400 fits one lost row. The store now takes an optional lock wait (the default stays 5 seconds), the concurrency test gives both stores a wait of two minutes and collects their warnings (a lost row now names its cause), and it makes 60 appends from four threads. Two new tests prove the wait itself with the lock file held by the test: an append waits and then writes its row, and an append that cannot get the lock file in time records nothing and logs the warning.
 
 **Lab check.** None. It is a timing fault of a test.
+
+## ConfigMgr publish: an icon that was not applied is a warning, and dead code is removed
+
+The ConfigMgr publish script prints `Application icon not applied` or `Application icon not found` when the icon of the application cannot be set, and carries on, because a missing icon does not stop the packaging. The run then read as a plain success and nothing in its result said that the icon was missing (review finding D, "icon failure ... read as success"). The result of the publish now carries these lines as warnings (`PackagingResult.Warnings`), and the history of the run records them as the detail of the ConfigMgr step when the step has no error and no failed content step. The status of the run does not change: the application exists and clients can install it.
+
+The unused method `MecmTarget.DeployAsync` (a deployment to a collection that no part of the program called; the test deployment has its own script) is removed (review finding D, "dead code").
+
+| Test class | What it proves |
+|---|---|
+| `ConfigMgrPublishWarningTests` | An icon that was not applied gives the warning with the reason; an icon that was not found gives the warning with its path; an icon that was set, an empty output and an output without a warning give none; the same warning is reported once; the detail of the step is the error, else the failed content step, else the warnings joined with `; ` (and null when there is none); the dead method no longer exists. |
+
+**Lab check.** None. The change reads lines that the existing script already prints, and removes a method that nothing called.
