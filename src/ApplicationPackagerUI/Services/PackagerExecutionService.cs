@@ -1389,7 +1389,7 @@ public class PackagerExecutionService(
             && !string.IsNullOrWhiteSpace(supersedence.Marker))
         {
             supersedenceResult = await mecmTarget.RunSupersedenceAsync(
-                result.ApplicationName, result.CiId, manifest.SoftwareVersion, supersedence.Marker, supersedence.Mode,
+                result.ApplicationName, manifest.SoftwareVersion, supersedence.Marker, supersedence.Mode,
                 settings.SiteCode, settings.ProviderMachine, report, ct);
             report(supersedenceResult.Status switch
             {

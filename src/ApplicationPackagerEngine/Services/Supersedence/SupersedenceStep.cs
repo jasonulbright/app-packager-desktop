@@ -32,16 +32,18 @@ public sealed record SupersedenceStepResult(SupersedenceStepStatus Status, strin
 public static class SupersedenceScripts
 {
     /// <summary>The applications of the site whose keywords hold the marker, with their deployment types.</summary>
-    public static string BuildLookupScript(string siteCode, string? providerMachine, string marker, string newApplicationCiId)
+    public static string BuildLookupScript(string siteCode, string? providerMachine, string marker, string newApplicationName)
     {
         var sb = new StringBuilder();
         MecmTarget.AppendCmPreamble(sb, siteCode, providerMachine);
         var needle = PowerShellLiteral.EscapeSingleQuoted(">" + marker.Replace("&", "&amp;").Replace("<", "&lt;").Replace(">", "&gt;") + "<");
         sb.AppendLine($"$markerNeedle = '{needle}'");
-        sb.AppendLine($"$newApplicationCiId = {int.Parse(newApplicationCiId)}");
+        // The new application is found by its name: every save makes a new revision with a new CI_ID (checked on the lab site), so an
+        // identifier that the package script read is not reliable here.
+        sb.AppendLine($"$newApplicationName = '{PowerShellLiteral.EscapeSingleQuoted(newApplicationName)}'");
         sb.AppendLine("foreach ($candidate in @(Get-CMApplication)) {");
         // The new application is always listed, with its deployment types, even when it holds no marker (it may have keywords of its own).
-        sb.AppendLine("    if ($candidate.CI_ID -ne $newApplicationCiId -and (-not $candidate.SDMPackageXML -or -not $candidate.SDMPackageXML.Contains($markerNeedle))) { continue }");
+        sb.AppendLine("    if ($candidate.LocalizedDisplayName -ne $newApplicationName -and (-not $candidate.SDMPackageXML -or -not $candidate.SDMPackageXML.Contains($markerNeedle))) { continue }");
         sb.AppendLine("    $titleB64 = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes([string]$candidate.LocalizedDisplayName))");
         sb.AppendLine("    $expired = if ($candidate.IsExpired) { 1 } else { 0 }");
         sb.AppendLine($"    Write-Host (\"{SupersedenceLookup.ApplicationLine}|{{0}}|{{1}}|{{2}}|{{3}}\" -f $candidate.CI_ID, $expired, $candidate.SoftwareVersion, $titleB64)");

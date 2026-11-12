@@ -1037,16 +1037,14 @@ public sealed partial class MecmTarget
     /// each pair of deployment types. A failure never undoes the application: the result says "supersedence not applied" and why.
     /// </summary>
     public async Task<SupersedenceStepResult> RunSupersedenceAsync(
-        string newApplicationName, string newCiId, string newVersion, string marker, SupersedenceMode mode,
+        string newApplicationName, string newVersion, string marker, SupersedenceMode mode,
         string siteCode, string? providerMachine, Action<string>? onProgress, CancellationToken ct)
     {
         if (mode == SupersedenceMode.Off || string.IsNullOrWhiteSpace(marker))
             return SupersedenceStepResult.NotRun;
-        if (!int.TryParse(newCiId, out _))
-            return new(SupersedenceStepStatus.NotApplied, "the CI_ID of the new application was not read, so the older version was not looked up.", []);
         try
         {
-            return await RunSupersedenceCoreAsync(newApplicationName, newCiId, newVersion, marker, mode, siteCode, providerMachine, onProgress, ct);
+            return await RunSupersedenceCoreAsync(newApplicationName, newVersion, marker, mode, siteCode, providerMachine, onProgress, ct);
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested)
         {
@@ -1069,7 +1067,7 @@ public sealed partial class MecmTarget
     {
         try
         {
-            var lookup = await WindowsPowerShellHost.RunAsync(SupersedenceScripts.BuildLookupScript(siteCode, providerMachine, marker, "0"), null, ct);
+            var lookup = await WindowsPowerShellHost.RunAsync(SupersedenceScripts.BuildLookupScript(siteCode, providerMachine, marker, newTitle), null, ct);
             if (lookup.ExitCode != 0) return [$"The chain check could not read the site: {SupersedenceScripts.FailureText(lookup.StdOut, lookup.StdErr)}"];
             var chosen = SupersedenceLookup.Choose(SupersedenceLookup.ParseSiteApplications(lookup.StdOut), newTitle, newVersion);
             if (chosen.Old is null) return [];
@@ -1088,11 +1086,11 @@ public sealed partial class MecmTarget
     }
 
     private async Task<SupersedenceStepResult> RunSupersedenceCoreAsync(
-        string newApplicationName, string newCiId, string newVersion, string marker, SupersedenceMode mode,
+        string newApplicationName, string newVersion, string marker, SupersedenceMode mode,
         string siteCode, string? providerMachine, Action<string>? onProgress, CancellationToken ct)
     {
         var lookup = await WindowsPowerShellHost.RunAsync(
-            SupersedenceScripts.BuildLookupScript(siteCode, providerMachine, marker, newCiId), null, ct);
+            SupersedenceScripts.BuildLookupScript(siteCode, providerMachine, marker, newApplicationName), null, ct);
         if (lookup.ExitCode != 0)
             return new(SupersedenceStepStatus.NotApplied, $"the lookup of the older version failed: {SupersedenceScripts.FailureText(lookup.StdOut, lookup.StdErr)}", []);
 
@@ -1101,7 +1099,7 @@ public sealed partial class MecmTarget
         if (chosen.Old is null)
             return new(SupersedenceStepStatus.NoOlderVersion, chosen.Summary, chosen.Notes);
 
-        var current = applications.FirstOrDefault(a => a.CiId == newCiId);
+        var current = applications.FirstOrDefault(a => string.Equals(a.Title, newApplicationName, StringComparison.Ordinal));
         if (current is null)
             return new(SupersedenceStepStatus.NotApplied, "the new application was not found on the site after it was created.", chosen.Notes);
         var pairing = SupersedenceLookup.Pair(current, chosen.Old);

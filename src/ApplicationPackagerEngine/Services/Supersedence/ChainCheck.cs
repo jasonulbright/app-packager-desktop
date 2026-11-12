@@ -42,9 +42,10 @@ public static class ChainCheck
         XDocument document;
         try { document = XDocument.Parse(xml); }
         catch (System.Xml.XmlException) { return; }
-        // The detection method is stored as XML text inside an argument of the installer, so it is read as a document of its own.
-        foreach (var holder in document.Descendants().Where(e => !e.HasElements && e.Value.Contains("<EnhancedDetectionMethod", StringComparison.Ordinal)))
-            Collect(holder.Value, operators, depth + 1);
+        // The site stores the detection twice (checked on ConfigMgr 5.00.9146): as rule elements of the deployment type, and as XML text
+        // inside an argument of the installer. The elements come first; the text is read as a document of its own only when the
+        // elements hold no version clause, so one clause is never counted twice.
+        var found = new List<string>();
         foreach (var expression in document.Descendants().Where(e => e.Name.LocalName == "Expression"))
         {
             var op = expression.Elements().FirstOrDefault(e => e.Name.LocalName == "Operator")?.Value;
@@ -52,8 +53,13 @@ public static class ChainCheck
             var operands = expression.Elements().FirstOrDefault(e => e.Name.LocalName == "Operands");
             var isVersion = operands?.Descendants().Any(e => e.Name.LocalName is "SettingReference" or "ConstantValue"
                 && string.Equals((string?)e.Attribute("DataType"), "Version", StringComparison.OrdinalIgnoreCase)) == true;
-            if (isVersion) operators.Add(op.Trim());
+            if (isVersion) found.Add(op.Trim());
         }
+        if (found.Count == 0)
+            foreach (var holder in document.Descendants().Where(e => !e.HasElements && e.Value.Contains("<EnhancedDetectionMethod", StringComparison.Ordinal))
+                         .DistinctBy(e => e.Value))
+                Collect(holder.Value, found, depth + 1);
+        operators.AddRange(found);
     }
 
     /// <summary>The version clauses of the new detection that still say "this version or newer" after the rule was written.</summary>
