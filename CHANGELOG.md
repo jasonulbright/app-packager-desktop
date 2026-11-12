@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [2026.1111.38] - 2026-11-11
+
+### Fixed
+
+- A test of the metrics history no longer fails at random on a loaded disk. It was a timing fault of the test: a store that waits more than 5 seconds for the lock file does not record that refresh, by design. The store now takes an optional lock wait (the default stays 5 seconds), so that the test can wait longer.
+
 ## [2026.1111.37] - 2026-11-11
 
 ### Removed

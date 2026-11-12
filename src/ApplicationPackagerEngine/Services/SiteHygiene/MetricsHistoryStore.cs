@@ -52,14 +52,17 @@ public sealed class MetricsHistoryStore : IMetricsHistoryStore
     private readonly string? _path;
     private readonly IAppLog? _log;
     private readonly Func<DateTime> _utcNow;
+    private readonly TimeSpan _lockWait;
     private readonly Lock _gate = new();
     private DateTime? _lastPrune;
 
-    public MetricsHistoryStore(string? path = null, IAppLog? log = null, Func<DateTime>? utcNow = null)
+    /// <param name="lockWait">How long an append waits for the lock file before it gives up; <see cref="LockWait"/> when null. A test of heavy contention sets a long wait.</param>
+    public MetricsHistoryStore(string? path = null, IAppLog? log = null, Func<DateTime>? utcNow = null, TimeSpan? lockWait = null)
     {
         _path = path;
         _log = log;
         _utcNow = utcNow ?? (() => DateTime.UtcNow);
+        _lockWait = lockWait ?? LockWait;
     }
 
     public string Path => _path ?? System.IO.Path.Combine(HygieneFolders.Root(), FileName);
@@ -111,7 +114,7 @@ public sealed class MetricsHistoryStore : IMetricsHistoryStore
                     return;
                 }
                 Directory.CreateDirectory(System.IO.Path.GetDirectoryName(path)!);
-                using var held = LiveFileLock.Acquire(path, LockWait);
+                using var held = LiveFileLock.Acquire(path, _lockWait);
                 if (held is null)
                 {
                     _log?.Warning(SiteHygieneService.LogArea, "The metrics history file is locked by another program; the refresh was not recorded.");
@@ -227,7 +230,7 @@ public sealed class MetricsHistoryStore : IMetricsHistoryStore
             {
                 if (IsLinked(path) || Exists) return false;
                 Directory.CreateDirectory(System.IO.Path.GetDirectoryName(path)!);
-                using var held = LiveFileLock.Acquire(path, LockWait);
+                using var held = LiveFileLock.Acquire(path, _lockWait);
                 if (held is null || Exists) return false;
                 var text = new StringBuilder();
                 text.Append(HeaderLine).Append("\r\n");
