@@ -2,45 +2,23 @@
 
 ## [Unreleased]
 
-## [2026.1111.51] - 2026-11-12
+## [2026.1111.41] - 2026-11-12
+
+### Notes
+
+- This release carries the publish-review work of 2026-11-11 and 2026-11-12. The Intune changes in it are tested against a fake Graph service only. They are not verified against a tenant.
+- The two Visual C++ runtime definitions set a forced restart, so the first new version that is published after this release restarts the devices (Intune now matches ConfigMgr).
 
 ### Added
 
 - Command line: `--rewrite-old-versions plan|apply|restore` rewrites the version clause of the old applications of a product line from `GreaterEquals` to `IsEquals` (and back), so the uninstall through supersedence is reported as successful. `plan` only reads the site. `apply` and `restore` need `--yes`. An application with a required deployment is blocked, and a clause is rewritten only when a recorded installed value of that version equals it (an administrator adds the value to the settings file; no recorder exists yet). The log `supersedence-rewrite.jsonl` is the way back.
-
 - Supersedence chain check: before a publish with the supersedence mode on, the program reads the detection of the older application of the line and writes warnings to the log when the uninstall through supersedence would be reported as failed or the chain is inconsistent (Exact against Minimum). It never blocks.
-
-## [2026.1111.50] - 2026-11-12
-
-### Fixed
-
-- The packager `PowerShell 7 (x64)` stages again. PowerShell 7.7.0 ships no MSI for Windows, so the address that the packager built from the latest release answered 404. The packager now takes the highest release that carries the x64 MSI (7.6.10 today).
-
-### Added
-
 - Packagers for `.NET 9 Desktop Runtime (x86)`, `.NET 11 Desktop Runtime (x64)`, `ASP.NET 9 Server Hosting Bundle` and `ASP.NET 11 Server Hosting Bundle`. .NET 11.0.0 is a stable release, so no preview channel is used. .NET 9 reached the end of support on 2026-11-10, so the two .NET 9 packagers carry its last release. The catalog has 323 definitions. The Intune publish of these packagers is not verified against a tenant.
-
-## [2026.1111.46] - 2026-11-12
-
-### Added
-
 - Supersedence: with the mode `Replace` or `Replace and uninstall`, a ConfigMgr publish sets the supersedence relation from the new application to the older application of the same product line. The older application is found by the identity marker, with a lower version and another title; the deployment types are paired one to one or by name suffix. `Replace and uninstall` also sets the uninstall option. The older application is not changed. A step that fails does not fail the run: the result is the separate state `Published, supersedence not applied` with the reason. The Intune side has no supersedence.
-
-## [2026.1111.45] - 2026-11-12
-
-### Added
-
 - Settings, Supersedence: the version rule for ConfigMgr and for Intune (`Minimum` or `Exact`) and the supersedence mode (`Off`, `Replace` or `Replace and uninstall`), and the command line options `--version-rule` and `--supersedence`. `Exact` writes `IsEquals` to the version clause of the detection, only when a value read from the installed product equals the expected value. `Replace and uninstall` with `Minimum` is refused before anything is created. The shipped values are `Minimum` and `Off`, so the published detection does not change. This release writes no supersedence relation.
 - A ConfigMgr publish writes an identity marker into the keywords of a new or overwritten application that has no keywords of its own. A later release uses it to find the older versions of a product line. The program never rewrites a keyword that you set; when keywords exist, the result carries a warning. The Software Center shows keywords to users, so the marker is visible there.
-
-## [2026.1111.44] - 2026-11-12
-
-### Added
-
 - At the start of a publish, the Packages page writes what the publish does and does not do for each target to the log (ConfigMgr, Intune and WSUS buttons), and the Intune review window shows it when it opens. ConfigMgr does not supersede, Intune does not create or change assignments, WSUS makes no first install and approves only for the group in Settings.
 - The Intune review window has the button **Accept dropped requirements and continue**. It stores the accepted drop of each requirement that has no Intune rule in `Intune.AcceptedRequirementDrops`, so no one edits the settings file by hand.
-
-## [2026.1111.43] - 2026-11-12
 
 ### Changed
 
@@ -48,18 +26,9 @@
 
 ### Fixed
 
+- The packager `PowerShell 7 (x64)` stages again. PowerShell 7.7.0 ships no MSI for Windows, so the address that the packager built from the latest release answered 404. The packager now takes the highest release that carries the x64 MSI (7.6.10 today).
 - An Intune update keeps the description of the existing app when the run has no comment. Before, it wrote the name of the application over a description that an administrator typed in the console. A ConfigMgr replace already kept it.
-
-## [2026.1111.42] - 2026-11-12
-
-### Fixed
-
 - The program no longer builds a `.intunewin` file because the Content Prep Tool is on the computer. A stage and a ConfigMgr-only run build no bundle and copy nothing besides the content to the file share. Only an Intune publish builds the bundle.
-
-## [2026.1111.41] - 2026-11-12
-
-### Fixed
-
 - The install return codes, the reboot policy and the working directories that a Workbench profile stores now take effect. The return codes are added to the Intune return code table and to the exit codes of the WSUS update; the reboot policy sets the reboot behavior of the ConfigMgr deployment type and the restart behavior of the Intune app; the working directories reach the ConfigMgr deployment type. A mistake in the list stops the stage with the entry named. The uninstall return codes and the uninstall reboot policy stay recorded only, and the Workbench says so.
 
 ## [2026.1111.40] - 2026-11-12
