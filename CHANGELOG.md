@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [2026.1111.40] - 2026-11-12
+
+### Fixed
+
+- A dropped installer or a bring-your-own installer that is published from its stage now follows the title settings (**Include version in application name**, **Remove version from application name**), as a definition does. Before, its ConfigMgr application and its Intune display name always carried the name of the stage. A dropped installer that was published earlier under the name of its stage is published as a new ConfigMgr application and a new Intune app when a title setting changes its name; the earlier ones are not renamed or removed.
+
 ## [2026.1111.39] - 2026-11-11
 
 ### Fixed

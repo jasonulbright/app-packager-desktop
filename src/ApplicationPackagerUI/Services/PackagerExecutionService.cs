@@ -793,9 +793,7 @@ public class PackagerExecutionService(
             // there publishes install.bat and uninstall.bat instead.
             var commandOverrides = ApplicationPackagerEngine.Services.DeploymentTypeSpecResolver
                 .ResolveCommandOverrides(manifest, profiled ? null : deploymentConditionsService.GetCommandOverrides(def.Id));
-            var applicationTitle = ApplicationTitle.Resolve(
-                manifest.AppName, manifest.SoftwareVersion,
-                ApplicationTitle.ResolveMode(manifest.TitleMode, conditions?.TitleMode, settings.IncludeVersionInTitle, settings.RemoveVersionFromTitle));
+            var applicationTitle = RunApplicationTitle(manifest, conditions?.TitleMode, settings);
             var signingPolicy = StageFinalizer.EffectivePolicy(snapshot, settings.ScriptSigning);
             if (applicationTitle != manifest.AppName)
                 Report($"Application title            : {applicationTitle}");
@@ -1170,6 +1168,17 @@ public class PackagerExecutionService(
     }
 
     /// <summary>
+    /// The application title of a run: the mode of the manifest (a profile), else the saved mode of the
+    /// application, else the global settings (include or remove the version), resolved for this release.
+    /// One function for the definition path and the staged-manifest path, so a dropped installer follows
+    /// the same title settings as a definition.
+    /// </summary>
+    public static string RunApplicationTitle(StageManifest manifest, string? perApplicationMode, AppSettings settings) =>
+        ApplicationTitle.Resolve(
+            manifest.AppName, manifest.SoftwareVersion,
+            ApplicationTitle.ResolveMode(manifest.TitleMode, perApplicationMode, settings.IncludeVersionInTitle, settings.RemoveVersionFromTitle));
+
+    /// <summary>
     /// Packages an already-staged content folder from its stage manifest. A dropped installer
     /// has no definition and no acquisition version, so the manifest path is the only handle
     /// on its staged content; everything downstream is the same per-target flow. The run's
@@ -1191,6 +1200,8 @@ public class PackagerExecutionService(
             return new PackagerExecutionResult { ExitCode = 1, StdErr = contentRefusal };
         var manifest = new ManifestService().Read(manifestPath);
         var signingPolicy = StageFinalizer.EffectivePolicy(snapshot, settings.ScriptSigning);
+        // The same title settings as a definition: the global include or remove version, and the mode of the manifest.
+        var applicationTitle = RunApplicationTitle(manifest, null, settings);
 
         var conflicts = new ConflictWatch();
         void Report(string line)
@@ -1199,6 +1210,8 @@ public class PackagerExecutionService(
             if (onOutputLine is not null)
                 OutputLineDispatch.Post(onOutputLine, line);
         }
+        if (applicationTitle != manifest.AppName)
+            Report($"Application title            : {applicationTitle}");
 
         var mecmSucceeded = true;
         var mecmAlreadyExists = false;
@@ -1222,7 +1235,8 @@ public class PackagerExecutionService(
                 contentLayout: settings.ContentLayout,
                 scriptSigning: MecmScriptSigningContext.FromManifest(manifest, signingPolicy),
                 contentScope: ProfileContentScope.ForManifest(manifest),
-                contentOptions: ContentOptions(settings, Report));
+                contentOptions: ContentOptions(settings, Report),
+                applicationTitle: applicationTitle);
 
             mecmResult = result;
             mecmSucceeded = result.Success;
@@ -1242,7 +1256,11 @@ public class PackagerExecutionService(
         var intuneRequested = DeploymentTargets.PublishesToIntune(target);
         var notes = IntuneRunOutcome.NotRun;
         if (intuneRequested && mecmSucceeded)
+        {
+            // The Intune display name carries the same title as the ConfigMgr application, as in a definition run.
+            manifest.AppName = applicationTitle;
             notes = await intuneDeploymentService.BuildAndPublishAsync(manifest, stagedContentPath, Report, comment, ct, signingPolicy);
+        }
 
         var outcome = PackagingOutcomeComposer.Compose(
             PackagingOutcomeComposer.MecmStatus(
