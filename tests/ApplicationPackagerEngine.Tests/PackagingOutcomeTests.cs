@@ -42,7 +42,7 @@ public class PackagingOutcomeTests
         Assert.Equal("", outcome.StdErr);
     }
 
-    /// <summary>The .intunewin an MECM-only run stores beside the content is not a target.</summary>
+    /// <summary>A failed optional package build never fails an MECM-only run.</summary>
     [Fact]
     public void MecmOnlyIsUnaffectedByAFailedOptionalPackageBuild()
     {

@@ -66,7 +66,6 @@ Stage runs these steps for each application, in this order:
 9. It copies the side files that you set in Settings, Packager Files.
 10. It signs the scripts that the signing policy covers.
 11. It writes `stage-manifest.json` in the staged folder.
-12. If the Win32 Content Prep Tool is on this computer, it builds the `.intunewin` file.
 
 A definition from [Add from file](add-from-file.md) has no version source and no download address. For it, step 2 takes the version that you reviewed. Step 4 copies the saved installer into the staged folder. Before the copy, Stage checks that the file exists and has the saved SHA-256. After the copy, it checks the hash of the copy. A missing or changed file stops the stage with a message that gives the path.
 
@@ -96,7 +95,7 @@ See [Settings reference](../reference/settings.md) for defaults.
 
 - Stage does not publish anything. It changes no site, tenant or server.
 - `Publish to ConfigMgr` and `Publish to Intune` on the App Packager page use content that Stage already wrote. If the staged manifest is missing, the log shows `Stage manifest not found: <path>. Run Stage for <application> <version> first.` `Publish to WSUS` stages by itself when no stage of the latest version exists.
-- When a Content Prep Tool is not on this computer, Stage does not download it. The first Intune publish downloads it. You can also select **Download** in Settings, Detected Tools.
+- Stage never builds a `.intunewin` file, and never downloads the Content Prep Tool. The first Intune publish downloads it and builds the file. You can also select **Download** in Settings, Detected Tools.
 - The lab validated Stage and ConfigMgr publishing on a lab site with client computers.
 
 ## Troubleshooting

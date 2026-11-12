@@ -54,8 +54,9 @@ For each checked row, in this order:
 5. It copies the content to the share. The copy compares SHA-256 and overwrites a changed file. The log shows `Content synchronized: <n> copied, <n> refreshed, <n> unchanged.`
 6. It checks the copy on the share against the manifest.
 7. It connects to the site (`Connecting to ConfigMgr...`) and creates the application and its deployment types. The log shows `Packaged: <application name>`.
-8. If the Win32 Content Prep Tool is on this computer, it stores the `.intunewin` file beside the content.
-9. It runs the After Package steps that Settings turns on.
+8. It runs the After Package steps that Settings turns on.
+
+A ConfigMgr-only run builds no `.intunewin` file and copies nothing besides the content to the share. Only `Publish to Intune` builds the file, whether or not the Content Prep Tool is on the computer.
 
 The share folder depends on **Content Layout**:
 

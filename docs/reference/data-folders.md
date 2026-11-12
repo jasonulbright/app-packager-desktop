@@ -87,7 +87,7 @@ See [Workbench](../core/workbench.md) and [Definitions](../core/definitions.md).
 | Location | Content |
 |---|---|
 | `<Packagers folder>\packager-preferences.json`, `citrix-workspace-switches.json` | Written for PS1 packagers. |
-| `<FileShareRoot>\Applications\<Vendor>\<App>\<Version>\` (layout `Nested`) or `<FileShareRoot>\Applications\<Vendor>-<App>-<Version>\` (layout `Flat`), with the `.intunewin` file beside the content | The content share for `Publish to ConfigMgr` and the Intune package. |
+| `<FileShareRoot>\Applications\<Vendor>\<App>\<Version>\` (layout `Nested`) or `<FileShareRoot>\Applications\<Vendor>-<App>-<Version>\` (layout `Flat`) | The content share for `Publish to ConfigMgr`. A ConfigMgr run writes only the content here. |
 | `%TEMP%\ap-cmsession-*.ps1`, `%TEMP%\apkg-hdr-*.txt`, `%TEMP%\appackager-sign-*`, and the WSUS adapter files `request.json` and `result.json` in a temporary folder | Short-lived files. |
 | `<DownloadRoot>\AddFromWeb\<8 characters>\` | The installer that step 4 of Add from web downloaded. The app deletes the folder when you save, when a new analysis starts, when an analysis fails and when you select **Done**. |
 | The folder where you chose the installer | The installer file of a definition from Add from file. The definition keeps the path, the SHA-256 and the version. The app does not copy or move the file. |
