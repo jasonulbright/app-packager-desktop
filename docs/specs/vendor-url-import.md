@@ -52,7 +52,7 @@ The loaders read the shipped folder and the user folder. This specification adds
 ```
 
 - `FeedFormat` is 1. Another value is refused with the message that the program is too old or too new for the document.
-- `FeedId` is 3 to 64 characters of `a-z`, `0-9` and `-`. It names the folder of the stored definitions. The administrator confirms or changes it in the preview, because two vendors can use the same id. A document without `FeedId` (or a document that is one definition object without the envelope) gets no id from the document: the preview asks for the vendor name and the `FeedId`.
+- `FeedId` is 3 to 64 characters of `a-z`, `0-9` and `-`, and is not a Windows device name (`con`, `nul`, `aux`, `prn`, `com1` and the others). It names the folder of the stored definitions. The administrator confirms or changes it in the preview, because two vendors can use the same id. A document without `FeedId` (or a document that is one definition object without the envelope) gets no id from the document: the preview asks for the vendor name and the `FeedId`.
 - `Definitions` holds the definitions.
 - **An update matches on the stored feed** (the feed that the administrator selected), never on the `FeedId` in the new document.
 
@@ -90,9 +90,10 @@ The document is parsed and checked by new code, strictly:
 2. Every definition passes the definition loader and these checks.
 3. A property that the format does not know is refused and named. The names `Schema` and `Acquisition` (which the shipped files carry) are allowed. The names `ImportedFrom` and `ImportedVendor` are refused (see "Where the definitions are stored").
 4. `Id` matches `^[A-Za-z0-9._-]{1,64}$`, is not made of dots only, is not a Windows device name (`con`, `nul`, `com1` and the others), and does not end in a dot or a space. It is unique in the document. The file name of a stored definition is built from the validated `Id`, never from another field.
-5. Every address in a definition is `https:`. The check names every field that holds an address: the download address, the version source, the hop addresses of a chained scraper (`Hops[].Url`), `ServedUrlTemplate`, `BootstrapperUrl`, `PayloadVariants[].DownloadUrl`, the checksum file, `SecurityAdvisoryUrl` and `VendorUrl`. A UNC path, a local path, a `file:` address and an address with user information (`user:password@host`) are refused.
-6. The hosts of all addresses of a definition are listed for the preview. An address that a query finds at run time (`DownloadUrlQuery`) cannot be listed; the preview says that such hosts are not known before Check Latest. A hop whose host comes from a captured value or from a relative template is flagged.
-7. `{version}` and other tokens that go into a script are checked for the characters that the program already allows in a version before they are used.
+5. `Application`, `Vendor` and `CMName` are plain names: no path separator, no `..`, not rooted, no drive colon, no device name, at most 100 characters. `Architecture` is exactly `x64`, `x86` or `ARM64`. The stage builds a folder from `Application` and `Architecture` today without checking that it stays under the download root; the first release of the import also changes those call sites to combine the folder under the download root with a sanitized name, so that a document that passed no check cannot write elsewhere.
+6. Every address in a definition is `https:`. The check names every field that holds an address: the download address, the version source, the hop addresses of a chained scraper (`Hops[].Url`), `ServedUrlTemplate`, `BootstrapperUrl`, `PayloadVariants[].DownloadUrl`, the checksum file, `SecurityAdvisoryUrl` and `VendorUrl`. A UNC path, a local path, a `file:` address and an address with user information (`user:password@host`) are refused.
+7. The hosts of all addresses of a definition are listed for the preview. An address that a query finds at run time (`DownloadUrlQuery`) cannot be listed; the preview says that such hosts are not known before Check Latest. A hop that puts a value captured from one host into the address of a **different** host, in the host, the path or the query, is **blocked** (see "Imported definitions run with no ambient credentials"). A relative hop is resolved at run time and must stay on the host of the hop before it.
+8. `{version}` and other tokens that go into a script are checked for the characters that the program already allows in a version before they are used.
 
 The result of validation is a list of findings (blocking, warning, information). A blocking finding keeps the definition out of the import. The administrator can import the other definitions of the document.
 
@@ -103,14 +104,14 @@ A definition **carries code** when it holds text that runs on an endpoint or on 
 | Where | Examples |
 |---|---|
 | A script | A script detection (`Detection.ScriptText`), a script requirement or condition, a post-install script (`PostInstallScript`), an install or uninstall script, a wrapper. |
-| A command | `InstallArgs` with `ExpandInstallArgs`, `UninstallCommand`, `InstallerSettings[].CommandFragment`, `ExtractArgs`. |
+| A command | `InstallArgs` with `ExpandInstallArgs`, `UninstallCommand` (also in `PayloadVariants[]`), `InstallerSettings[].CommandFragment`, `InstallerSettings[].UninstallFragment`, `ExtractArgs`. |
 | A program that runs on the administrator's computer | `BootstrapperLayout` and a bootstrapper that Stage downloads and runs. |
 | A path to a local file | `LocalInstaller`, `LocalSource`, `SideFiles` (the content of the administrator's own files would go into a package). |
 
 The list of properties is made from the definition format when the check is built, and a test fails when the format gets a property that runs code and that the list does not name.
 
 1. A definition that carries code is **blocked** from the import, in the first release of the import and in every trust state, also `Pinned digest` and `Signed by pinned publisher`. A pin proves where the document came from; it does not say that its code is safe. The preview shows the block and the reason. There is no unblock in the first release.
-2. A later release adds an **unblock for a script** (not for the paths to local files and not for a bootstrapper that runs on the administrator's computer, which stay blocked). The unblock is for one definition. The window shows the full text of every script of the definition, the SHA-256 of each, and requires a confirmation that names the definition.
+2. A later release adds an **unblock for a script and for a command** (not for the paths to local files and not for a bootstrapper that runs on the administrator's computer, which stay blocked). Many real definitions have an uninstall command, so the unblock of commands is needed for them to import at all. The unblock is for one definition. The window shows the full text of every script of the definition, the SHA-256 of each, and requires a confirmation that names the definition.
 3. The stored digest of an unblocked script covers the script text **and every setting that the script uses** (`{setting:Key}`, its default, its value maps and its options). An update that changes any of them blocks the definition again. An update that changes nothing in them keeps the unblock.
 4. A script that was unblocked is a script like any other for the signing policy of the program (sign, require signature). The import does not sign or trust it.
 5. Commands (the second row) are always shown in full in the preview, because they run as the system account on endpoints.
@@ -123,7 +124,7 @@ Before anything is written, the program shows one window with:
 
 1. The source: the address, the final address after redirects, the time, the size, the SHA-256 of the document, the vendor name, and the trust state (see "Trust").
 2. For each definition: `Id`, name, vendor, installer type, the hosts of every address, whether the payload has a SHA-256 source (`PayloadSha256`, `PayloadHashQuery`, `PayloadSha256Url`) and whether the definition requires one (`RequirePayloadHash`, `RequireValidSignature`), the detection type, the install and uninstall commands, and the code findings.
-3. The conflicts: a definition whose `Id` is in the shipped definitions, in the user definitions, **or in another feed**. The default is to skip it. The administrator can choose to replace a shipped definition for each `Id`, with a confirmation that names what is replaced. A definition of another feed is never replaced; it is skipped or imported under another feed.
+3. The conflicts: a definition whose `Id` is in the shipped definitions, in the user definitions, **or in another feed**. The default is to skip it. The administrator can choose to replace a shipped definition for each `Id`, with a confirmation that names what is replaced. A definition of another feed is never replaced; it is skipped, or the administrator changes the `FeedId` of this import in the window, so that it goes into a folder of its own (two feeds can then hold the same `Id`, and the second one is shown as a conflict that stays skipped until the first is removed).
 4. The findings of validation.
 5. A button to view the whole text of a definition, and the buttons **Import** and **Cancel**.
 
@@ -149,7 +150,7 @@ Rules:
 
 How the signature is checked:
 
-- The check uses `SignedCms` (a detached CMS signature). `SignedCms.CheckSignature` checks the chain at the current time, so the program reads the RFC 3161 time stamp of the signature (when there is one) and sets the verification time of the chain to it.
+- The check uses `SignedCms` (a detached CMS signature). `SignedCms.CheckSignature` checks the chain at the current time. When the signature has an RFC 3161 time stamp, the program uses its time as the verification time of the chain **only after it checked the time stamp**: the token must be valid for this signature (`Rfc3161TimestampToken.VerifySignatureForSignerInfo`, so its message imprint matches the signature of the signer), and the certificate of the time stamping authority must chain to a trusted root and carry the time-stamping usage (`1.3.6.1.5.5.7.3.8`). An unchecked time stamp is ignored, because anyone who has the key of an expired certificate can attach any time to a signature.
 - The certificate must have the code-signing key usage (`1.3.6.1.5.5.7.3.3`). The chain must reach a trusted root, and the revocation mode is the online check of Windows.
 - The pin is the subject and the issuer, or the public key, and not the thumbprint, so that a renewal of the certificate by the vendor does not break the pin.
 - A document whose `Updated` is older than the stored one is refused as a replay of an older signed document, unless the administrator confirms it.
@@ -166,9 +167,10 @@ A third definition folder, apart from the shipped and the user folders:
 ```
 
 - The loader reads the folder after the shipped folder and before the user folder. A user definition with the same `Id` therefore wins over an imported one. An imported definition with the `Id` of a shipped definition replaces it only when the administrator confirmed that `Id` in the preview. The three loaders that enumerate definitions (the catalog loader, the Workbench discovery and the command-line build) all read the third root, and a new origin, **Imported**, marks these definitions. They never carry the origin **Catalog**, so the program never shows one as a shipped definition.
-- A file is written to a temporary name and moved into place. The folder of a feed is built in a staging folder and swapped in, with `source.json` written last, so a failure leaves the earlier state and no folder whose source record disagrees with its files.
+- A file is written to a temporary name and moved into place. The folder of a feed is built in a staging folder and swapped in, with `source.json` written last, so a failure leaves the earlier state and no folder whose source record disagrees with its files. The swap is two renames, so at start the program recovers: when the folder of a feed is missing and its old copy exists, the old copy is restored.
 - `source.json` holds: the final address (with the query removed), the vendor, the `FeedId`, the time of the fetch, the SHA-256 and the size of the document, the trust state, the pinned digest or the pinned publisher, the signer that was found, the `Id` list, the replaced shipped `Id` list, and the digests of the unblocked scripts. It holds no secret. It has no `Id` and must never be read as a definition.
 - **The origin comes from the folder and from `source.json`**, not from a property of the definition. A feed cannot set its own label, and a copy of a file into the user folder does not carry the label. The grid shows the origin in a column ("Imported: Contoso Software"), and the details show the source address and the trust state.
+- When an imported definition replaces a shipped `Id`, its origin changes from Catalog to Imported. The Workbench state of the shipped application (its profiles, keyed `catalog:<Id>`) stays with the shipped definition and does not apply to the imported one; the preview says so for each replaced `Id`.
 - **Remove feed** deletes the folder and the settings of the feed after a confirmation that names the count of definitions. Stages that already exist stay. The page of the feeds has one **Remove** action with a choice: the credential only (the definitions stay, and cannot be updated without the feed settings), or the feed with its definitions.
 
 ## Update of a feed
@@ -206,8 +208,9 @@ A third definition folder, apart from the shipped and the user folders:
 A definition of the program can read an API with a token that the administrator has (the GitHub token from the environment or from `gh`). A vendor definition must not receive it.
 
 1. A request that an imported definition causes (a version source, a hop, a download) carries **no** ambient credential: not the GitHub token, not a Windows credential, not a stored feed credential of another host.
-2. A hop whose address host comes from a captured value or from a relative template is blocked, because it could send what a first hop read (with the credential of the administrator) to the vendor.
-3. The administrator can allow the GitHub token for one imported definition after a confirmation that names the definition and the host.
+2. A hop that puts a value captured from one host into the address of a different host (in the host, the path or the query) is **blocked**, because it could send what a first hop read to the vendor: with the token of the administrator, or from an intranet page that needs no credential at all. A relative hop (as `{capture}/page.html` in a shipped definition) is resolved at run time and must stay on the host of the hop before it; this is allowed.
+3. The administrator can allow the GitHub token for one imported definition after a confirmation that names the definition and the host. The block in rule 2 stays.
+4. Every request that an imported definition causes through `curl.exe` runs with `--proto =https --proto-redir =https`, so that a redirect cannot downgrade it to HTTP after the static check of the address.
 
 ## Authenticated feeds (addendum)
 
@@ -242,12 +245,12 @@ Some vendors give a feed only to customers. The program supports six methods. Ev
 
 ### Payload downloads and version checks
 
-The payload downloads and the version checks of the program run through `curl.exe`, not through `HttpClient`, and `curl.exe` follows redirects by itself: it removes only `Authorization` and `Cookie` on a redirect to another host, sends a custom header (method 1) to every target, offers a store certificate to any host that asks, and shows a header given on the command line to every process on the computer. So the binding rules do not hold on that path as it is. A request that needs a credential (a download or a scrape from an authenticated feed) does one of two things:
+The payload downloads and the version checks of the program run through `curl.exe`, not through `HttpClient`, and `curl.exe` follows redirects by itself: it removes only `Authorization` and `Cookie` on a redirect to another host, sends a custom header (method 1) to every target, offers a store certificate to any host that asks, and shows a header given on the command line to the other processes of the same user and to administrators. So the binding rules do not hold on that path as it is. A request that needs a credential (a download or a scrape from an authenticated feed) does one of two things:
 
 1. It goes through the **managed fetcher** of the feed (the loop above), with the bound credential.
-2. Or `curl.exe` runs **without `-L`**, with the secret passed on standard input (`-K -`), with `--proto =https --proto-redir =https`, and the program follows the redirects itself under the rules above.
+2. Or `curl.exe` runs **without `-L`**, with the secret passed on standard input (`-K -`), with `--proto =https --proto-redir =https`, and the program follows the redirects itself under the rules above. The program already sends a configuration on standard input for the GitHub API; the two are merged into one configuration, and a secret is never put on the command line.
 
-A request without a credential keeps the behavior of today. The command-line build has no credential store (no user session), so a definition that needs a credential for its payload host fails there with the message that the credential entry is missing.
+A request without a credential keeps the behavior of today. The command-line build does not read the credentials of feeds, by design (a build that runs unattended must not use the secret of a user), so a definition that needs a credential for its payload host fails there with the message that the credential entry is missing.
 
 ### Access is not trust
 
@@ -284,16 +287,16 @@ Unit tests (CI, with a fake HTTP handler):
 2. **Validation:** an unknown property, a duplicate property name (also with different letter case), a duplicate `Id`, an `Id` that is not in the grammar (a path, a device name, a trailing dot), an address with user information, a `file:` or UNC address, a hop with a captured host, and an environment expansion are refused and named; the other definitions of the document import; `Schema` and `Acquisition` are allowed; `ImportedFrom` and `ImportedVendor` are refused; the stored file is the re-serialized model.
 3. **Preview:** nothing is written before the confirmation; Cancel writes nothing; the conflict list (shipped, user, another feed) and the default (skip) are right.
 4. **Trust:** a pinned digest that matches and that does not; a signature that is valid, invalid, from another signer, without the code-signing usage, with an expired certificate and a time stamp inside its life, and older than the stored `Updated`; the wording `Definition document NOT verified` in the preview, the source record, the log and the grid label; `Not verified` asks for a confirmation at each import and update.
-5. **Code:** each property of the list blocks the definition in every trust state, in the first release too; the list is checked against the format; (later release) the unblock needs the confirmation, covers the settings of the script, and a change of a setting blocks again.
+5. **Code:** each property of the list blocks the definition in every trust state, in the first release too; the list is checked against the format; (step 3) the unblock needs the confirmation and covers the settings of the script; (step 4) a change of a setting or of a script blocks again.
 6. **Storage:** the staging folder and the swap; `source.json` last; a failed write keeps the earlier state; the precedence of shipped, imported and user definitions; the new origin in all three loaders; a shipped `Id` replaced only with its confirmation; the label from the folder, not from the file; Remove.
 7. **Update:** the diff lists added, removed and changed definitions and the host, hash and code changes; nothing is written before the confirmation; a changed pin stops the update; an update matches on the stored feed.
 8. **Offline and failures:** every row of the failure table.
 9. **Secrets in addresses and ambient credentials:** the refusal for an anonymous import; no query in any log line (also the download service); an imported definition gets no GitHub token.
-10. **Authenticated feeds, for each method (1 to 6):** the credential is sent to the bound host; a request to another host carries none; a redirect inside the host keeps it; a redirect to another host drops it (a fake handler records every request and the test asserts that no secret header, no cookie and no client certificate reaches the other host); a 401 and a 403 give their messages; an expired token (method 5) is renewed once and then fails; a revoked key gives the 401 message and no retry loop; HTTP and a downgrade redirect are refused; a payload host without an entry is listed in the preview; the curl path gets no `-L` and no secret on its command line.
+10. **Authenticated feeds, for each method (1 to 6):** the credential is sent to the bound host; a request to another host carries none; a redirect inside the host keeps it; a redirect to another host drops it (a fake handler records every request and the test asserts that no secret header and no cookie reaches the other host; the client certificate is proved in the lab); a 401 and a 403 give their messages; an expired token (method 5) is renewed once and then fails; a revoked key gives the 401 message and no retry loop; HTTP and a downgrade redirect are refused; a payload host without an entry is listed in the preview; the curl path gets no `-L` and no secret on its command line.
 11. **Redaction:** a canary secret for each method is not found in any log, error, report, source record, export, settings file, staged manifest or script (the test reads every file that the run writes).
 12. **Credential store:** a secret goes to the store and not to the settings file; Rotate overwrites it; Remove deletes it; a secret over the limit is refused.
 
-A fake handler cannot see a TLS client certificate, so the certificate and integrated-authentication rules are proved in the lab. Lab tests (the lab has a web server and a certificate authority; the rules of the lab apply: no sign-out, no restart, no power-off). There is one lab test for each method that has a transport of its own:
+A fake handler cannot see a TLS client certificate, so the certificate and integrated-authentication rules are proved in the lab. Lab tests (the lab has a web server and a certificate authority, and the test starts a small token endpoint on the web server for method 5; the rules of the lab apply: no sign-out, no restart, no power-off). There is one lab test for each method that has a transport of its own:
 
 1. Method 1 and 2: an HTTPS feed with a header key and with Basic: the right credential imports, a wrong one gives 401, a redirect to a second lab host shows that the second host sees no credential.
 2. Method 3: Windows integrated authentication for a host in the intranet list, and a refusal for a host that is not in the list.
