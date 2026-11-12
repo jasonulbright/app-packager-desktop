@@ -1384,10 +1384,23 @@ public partial class PackagesViewModel : ObservableObject
         var answer = await _contentDialogService.ShowAsync(dialog, CancellationToken.None);
         if (answer == ContentDialogResult.Secondary && acceptable.Count > 0)
         {
-            var settings = _settingsService.Load();
-            settings.Intune.AcceptedRequirementDrops = settings.Intune.AcceptedRequirementDrops
-                .Concat(acceptable).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
-            _settingsService.Save(settings);
+            if (_settingsService.IsFileUnreadable)
+            {
+                AddLogLine("Intune review: the settings file cannot be read, so the accepted drops were not stored. The run is cancelled.");
+                return false;
+            }
+            try
+            {
+                var settings = _settingsService.Load();
+                settings.Intune.AcceptedRequirementDrops = (settings.Intune.AcceptedRequirementDrops ?? [])
+                    .Concat(acceptable).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+                _settingsService.Save(settings);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                AddLogLine($"Intune review: the accepted drops were not stored ({ex.Message}). The run is cancelled.");
+                return false;
+            }
             foreach (var key in acceptable.Distinct(StringComparer.OrdinalIgnoreCase))
                 AddLogLine($"Intune review: the drop of the requirement is accepted ({key}).");
             return true;

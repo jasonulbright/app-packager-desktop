@@ -138,7 +138,7 @@ See [Stage and publish](../core/stage-and-publish.md).
 | `Client ID` | `Intune.ClientId` | empty | The app registration (client) ID. |
 | `Client Secret` | `Intune.ClientSecretProtected` | empty | The app registration secret. Stored protected for the current Windows user. An empty box keeps the saved secret. |
 | `Minimum Windows release` | `Intune.MinimumWindowsRelease` | `Windows10_21H2` | The oldest Windows release that an Intune app is offered to. Every Intune app that is published gets it. |
-| (none) | `Intune.AcceptedRequirementDrops` | empty | Requirement rules that have no Intune rule and may be left out of an Intune app. The button **Accept dropped requirements and continue** in the Intune review window adds the entries. Each entry is the identity tag of the application, a bar and the condition id; the blocking finding prints the entry. No button yet. See [Publish to Intune](../core/publish-to-intune.md#requirement-rules). |
+| (none) | `Intune.AcceptedRequirementDrops` | empty | Requirement rules that have no Intune rule and may be left out of an Intune app. The button **Accept dropped requirements and continue** in the Intune review window adds the entries. Each entry is the identity tag of the application, a bar and the condition id; the blocking finding prints the entry. See [Publish to Intune](../core/publish-to-intune.md#requirement-rules). |
 
 The app registration needs the application permission `DeviceManagementApps.ReadWrite.All`, with admin consent.
 

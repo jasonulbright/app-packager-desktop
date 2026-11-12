@@ -92,6 +92,8 @@ public partial class PackagesViewModel : IOneClickRunner, IPublishActionHost
         if (selected.Count == 0) { ShowNoneSelected(label); return; }
         selected = ConfirmLocalSourceFolders(selected);
         if (selected.Count == 0) return;
+        foreach (var sentence in ApplicationPackagerEngine.Services.PublishPreflight.Lines(DeploymentTargets.WsusOnly))
+            AddLogLine("Before publish: " + sentence);
 
         IsOperationRunning = true;
         ShowProgress = true;

@@ -10,16 +10,18 @@ public static class PublishPreflight
 {
     public const string ConfigMgrSentence =
         "ConfigMgr: creates or updates the application and its deployment types and copies the content to the share. " +
-        "It does not supersede an older application, does not deploy to a production collection, and distributes the content or " +
-        "deploys to the test collection only when Settings turn those steps on.";
+        "It does not supersede an older application. It distributes the content, and deploys (Available, not Required) to the " +
+        "test collection that Settings name, only when Settings turn those steps on.";
 
     public const string IntuneSentence =
-        "Intune: builds the .intunewin file, then creates or updates the Win32 app. It does not assign the app to a group, so no " +
-        "device receives it until you assign it in the Intune admin center.";
+        "Intune: builds or reuses the .intunewin file, then creates or updates the Win32 app. It does not create or change " +
+        "assignments. A new app reaches no device until you assign it in the Intune admin center; an update reaches the devices " +
+        "to which the app is already assigned.";
 
     public const string WsusSentence =
         "WSUS: publishes an update for an installer that a computer already has. It cannot install the product on a computer " +
-        "that does not have it (no first install through WSUS), and it does not approve the update.";
+        "that does not have it (no first install through WSUS). It approves the update only for the approval group in Settings " +
+        "(none when the box is empty), marks earlier versions as superseded, and declines them only when Settings turn that on.";
 
     /// <summary>The sentences of every target that the deployment target publishes to, in a fixed order.</summary>
     public static IReadOnlyList<string> Lines(string? deploymentTarget)
