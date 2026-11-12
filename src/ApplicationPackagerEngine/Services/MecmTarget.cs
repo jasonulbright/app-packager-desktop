@@ -3,6 +3,7 @@ using System.Text;
 using ApplicationPackagerEngine.Models;
 using ApplicationPackagerEngine.Models.Signing;
 using ApplicationPackagerEngine.Services.Signing;
+using ApplicationPackagerEngine.Services.Workbench;
 
 namespace ApplicationPackagerEngine.Services;
 
@@ -527,6 +528,11 @@ public sealed partial class MecmTarget
                 sb.Append(" -RequireUserInteraction:$true");
             sb.Append(content.CmdletArguments);
             sb.Append($" -RebootBehavior {ResolveRebootBehavior(manifest.PostExecutionBehavior)}");
+            // The working directories of the install and uninstall steps of the profile (the client path the command runs in).
+            if (ProfileDeploymentSettings.WorkingDirectoryFor(WorkbenchJson.AsText(manifest.InstallWorkingDirectory), "Install") is { } installDir)
+                sb.Append($" -InstallWorkingDirectory '{Esc(installDir)}'");
+            if (ProfileDeploymentSettings.WorkingDirectoryFor(WorkbenchJson.AsText(manifest.UninstallWorkingDirectory), "Uninstall") is { } uninstallDir)
+                sb.Append($" -UninstallWorkingDirectory '{Esc(uninstallDir)}'");
             sb.Append(" -UserInteractionMode Hidden");
             if (isScriptDetection)
             {

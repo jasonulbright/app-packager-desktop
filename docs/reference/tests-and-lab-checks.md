@@ -419,3 +419,22 @@ The same finding says that the staged-manifest path "skips the requirement list"
 | `RunApplicationTitleTests` | With no setting the title is the name of the manifest; the global remove setting strips the version; the include setting adds it and wins over the remove setting; the mode of the manifest outranks the global setting; the saved mode of an application outranks the global setting but not the manifest. |
 
 **Lab check.** None. The title function and its inputs are unit-tested. The staged path runs the same ConfigMgr script as a definition run, with a title argument that the definition run already passes.
+
+## Profile fields that were stored and ignored: return codes, reboot policy, working directory
+
+The Workbench stored `Install.ReturnCodes`, `Install.RebootPolicy` and `Install.WorkingDirectory` (and the same three for the uninstall step) in the manifest, and no publish read them (review finding D, "stored-but-ignored profile fields"). The install fields now take effect when the stage is finalized and published. The profile is checked at that time, so a mistake in the return code list or the reboot policy stops the stage with a message that names the entry.
+
+| Field | ConfigMgr | Intune | WSUS |
+|---|---|---|---|
+| Install return codes | The wrapper keeps its codes (the cmdlet has no return code parameter). | Added to the default table; a code of the list replaces the default of the same code. | Success and reboot codes join the exit code lists of the update. |
+| Install reboot policy | `-RebootBehavior` | `deviceRestartBehavior` | No change. |
+| Install working directory | `-InstallWorkingDirectory` | No such setting. | No change. |
+| Uninstall working directory | `-UninstallWorkingDirectory` | No such setting. | No change. |
+| Uninstall return codes and reboot policy | Recorded only (Workbench finding `UNINSTALL-FIELDS-NOT-APPLIED`). | Recorded only. | Recorded only. |
+
+| Test class | What it proves |
+|---|---|
+| `ProfileDeploymentSettingsTests` | The list parser (bare number, types, separators, mistakes named); the Intune table (defaults kept, a matching code replaced, others added); the reboot policy mapping; a working directory with a line break is refused; `Apply` joins the codes to the WSUS lists and sets the behavior; the ConfigMgr script carries both working directories with a quote escaped, and none when unset. |
+| `StageFinalizationTests` | A profile with the three install fields changes the manifest; a bad return code list stops the stage. |
+
+**Lab check.** A ConfigMgr publish on CM01 of a test application whose profile sets both working directories and the reboot policy; read the deployment type back with `Get-CMDeploymentType` (`InstallWorkingDirectory`, `UninstallWorkingDirectory`, `PostInstallBehavior`); remove the test application. No sign-out and no restart.

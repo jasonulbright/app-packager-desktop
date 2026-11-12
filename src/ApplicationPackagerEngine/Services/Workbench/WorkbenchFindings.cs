@@ -58,6 +58,13 @@ public static class WorkbenchFindings
                     section + " uses a custom script, so later changes to the packager wrapper no longer reach this profile and need review.");
         }
 
+        if (!string.IsNullOrWhiteSpace(profile.Get("Install.ReturnCodes").Text))
+            Add(WorkbenchFinding.Info, "RETURNCODES-TARGETS",
+                "Install return codes reach the Intune return code table and the WSUS update. ConfigMgr deployment types created by this app keep the return codes of the wrapper, because the cmdlet that creates a script deployment type has no return code parameter.");
+        if (!string.IsNullOrWhiteSpace(profile.Get("Uninstall.ReturnCodes").Text) || !string.IsNullOrWhiteSpace(profile.Get("Uninstall.RebootPolicy").Text) && !string.Equals(profile.Get("Uninstall.RebootPolicy").Text, "Inherit", StringComparison.OrdinalIgnoreCase))
+            Add(WorkbenchFinding.Review, "UNINSTALL-FIELDS-NOT-APPLIED",
+                "Uninstall return codes and the uninstall reboot policy are recorded in the profile only. A deployment type has one reboot behavior, and a publish uses the install reboot policy.");
+
         if (string.Equals(profile.Get("Detection.Mode").Text, "Custom", StringComparison.OrdinalIgnoreCase))
         {
             if (detectionScript is not null && HasCustomDetectionScript(profile))
