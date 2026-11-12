@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [2026.1111.42] - 2026-11-12
+
+### Changed
+
+- Internal: the engine of the import of vendor definitions from a URL (fetch, strict validation, the block of code, the pinned digest, the preview rules and the storage of a third definition folder). The program does not import a feed yet; the loaders, the window and the command come in the next changes.
+
 ## [2026.1111.41] - 2026-11-12
 
 ### Notes

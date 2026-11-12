@@ -1,6 +1,6 @@
 # Import of vendor definitions from a URL
 
-Status: specification, not yet built. Date: 2026-11-12.
+Status: specification. Step 1 is built in part (the engine): the fetch with the manual redirect loop and the limits (`FeedFetcher`), the strict validation with the block of code (`FeedValidator`, `DefinitionCode`), the pinned digest and the wording `Definition document NOT verified` (`VendorFeedImporter`), the preview rules and the conflicts, and the storage in a third folder with the staging swap and the source record (`ImportedDefinitionStore`). Open in step 1: the run-time part of validation rules 7 and 8 (a captured value from one host in an address on another host, and the version grammar for a captured value) - the check at import refuses the forms that a document can show (a relative hop that leaves the host, a placeholder in the scheme or the host), and the scraper must enforce the rest when it runs an imported definition; the new origin **Imported** in the three loaders, the window (preview, Import, Cancel), the grid label, the page of the feeds with Remove feed, the call sites of the stage that build a folder from `Application` and `Architecture` (they still trust a name that a local definition gave), the removal of the query from the logs of the download service, and the lab test of the redirect handler of the runtime. Steps 2 to 6 are not built. Date: 2026-11-12.
 
 ## Summary
 
