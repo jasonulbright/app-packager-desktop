@@ -892,7 +892,7 @@ public sealed partial class MecmTarget
     public static string? NativeMsixRefusal(StageManifest manifest) =>
         manifest.Detection?.Type.Equals("MSIX", StringComparison.OrdinalIgnoreCase) == true
             ? "This stage asks for the native MSIX deployment type of ConfigMgr, which App Packager no longer publishes. "
-              + "An MSIX is published as a script deployment type. Stage the application again from its definition (Stage), then publish."
+              + "An MSIX is published as a script deployment type. Stage the application again from its definition (Stage), then publish. If the definition itself has a detection rule of the type MSIX, change that rule to a registry key or a script rule first."
             : null;
     /// <summary>
     /// Distributes content for a packaged application to a DP group. Call after
