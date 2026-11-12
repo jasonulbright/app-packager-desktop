@@ -16,7 +16,7 @@ Every call starts from a user action, except where the table says "background".
 | Host (kind) | Purpose | Trigger | Settings |
 |---|---|---|---|
 | Vendor version and download hosts. The addresses are in each definition (`VersionScraper.Url`, `DownloadUrl`). The app calls them with `curl.exe`. | Version check and installer download | User: Check Latest, Stage, Publish, One Click, command line | The definition. `FetchRetries` and `FetchMaxTimeSeconds` in a definition. |
-| `api.github.com` | Version check for the definitions that read GitHub releases (101 of 319 definitions) | User | `APP_PACKAGER_GITHUB_TOKEN`, `GITHUB_TOKEN`, or `gh auth login` raise the rate limit |
+| `api.github.com` | Version check for the definitions that read GitHub releases (101 of 323 definitions) | User | `APP_PACKAGER_GITHUB_TOKEN`, `GITHUB_TOKEN`, or `gh auth login` raise the rate limit |
 | `api.github.com/rate_limit`, `api.github.com/user` | The `Refresh` button of the GitHub API section in Settings | User | The same token sources |
 | `api.github.com/repos/jasonulbright/app-packager-desktop/releases/latest`, and `github.com/jasonulbright/app-packager-desktop/releases/download/` for the Setup exe and `checksums.txt` | Update check and update download. The app checks the SHA-256 value and the signature. No token is sent. | Background at start, once; User: `Check for updates`, `Download` | `CheckForUpdatesAtStartup` |
 | `api.github.com/repos/jasonulbright/app-packager-icons/releases/latest` and its assets | Icon pack download. The app checks the SHA-256 value. | User: `Download icon pack` | None |

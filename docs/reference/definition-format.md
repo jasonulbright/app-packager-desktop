@@ -17,9 +17,9 @@ A text editor. The file is JSON with the extension `.json`.
 - The property names are not case sensitive when App Packager Desktop reads the file. The files that App Packager Desktop writes use the names on this page.
 - A field that is absent has the default in the column **Default**. `null` means that no value is set. `[]` means an empty list.
 - A file needs an `Id`. A file with an empty `Id` is skipped.
-- The shipped files hold the field `Acquisition` with the empty value `{}` (317 files). The definition model has no such field. App Packager Desktop ignores it.
-- `Schema` is 1 in all 319 shipped files. No code reads the field.
-- The column **Shipped** gives the number of the 319 shipped files that set the field, and an example file. A field that no shipped file sets has no example.
+- The shipped files hold the field `Acquisition` with the empty value `{}` (321 files). The definition model has no such field. App Packager Desktop ignores it.
+- `Schema` is 1 in all 323 shipped files. No code reads the field.
+- The column **Shipped** gives the number of the 323 shipped files that set the field, and an example file. A field that no shipped file sets has no example.
 
 ## Top-level fields
 
@@ -27,42 +27,42 @@ A text editor. The file is JSON with the extension `.json`.
 
 | Field | Type | Meaning | Default | Shipped |
 |---|---|---|---|---|
-| `Schema` | number | Version of the file format. | `1` | 319 |
-| `Id` | string | Unique identifier. It is the key for stored state, for the show-or-hide list and for the override rule. The shipped and the wizard-made values have 16 characters. | `""` | 319; `"656d16fead444d4e"` in `putty.json` |
-| `Vendor` | string | Vendor name. The grid and the content share folders use it. | `""` | 319; `"Simon Tatham"` |
-| `Application` | string | Application name with the bitness. | `""` | 319; `"PuTTY (x64)"` |
-| `CMName` | string | Name that **Check ConfigMgr** uses to find the application in ConfigMgr. | `""` | 319; `"PuTTY"` |
-| `AppName` | string or null | Name of the staged application. `{version}` is the staged version. When set, the name and the publisher do not come from metadata of an extracted EXE. | `null` | 6; `"Microsoft .NET {version} - Windows Server Hosting"` in `aspnethostingbundle10.json` |
-| `Publisher` | string or null | Publisher of the staged application when `AppName` is set. Without it the value of `Vendor` is used. | `null` | 6; `"Microsoft Corporation"` |
-| `Architecture` | string | Architecture of the installer: `x64`, `x86` or `ARM64`. | `"x64"` | 319 (299 `x64`, 19 `x86`, 1 `ARM64`) |
-| `VendorUrl` | string | Web site of the vendor. The context menu entry **Open Vendor URL** opens it. | `""` | 319 |
-| `WsusSupport` | string or null | Whether WSUS can take the default build: `Yes`, or `No (Code)` with the blocking refusal codes joined by `\|`. The One Click plan shows a declared refusal before a run. Absent declares nothing. | `null` | 319; `"No (PerUserInstall\|CustomInstall)"` in `githubdesktop.json` |
+| `Schema` | number | Version of the file format. | `1` | 323 |
+| `Id` | string | Unique identifier. It is the key for stored state, for the show-or-hide list and for the override rule. The shipped and the wizard-made values have 16 characters. | `""` | 323; `"656d16fead444d4e"` in `putty.json` |
+| `Vendor` | string | Vendor name. The grid and the content share folders use it. | `""` | 323; `"Simon Tatham"` |
+| `Application` | string | Application name with the bitness. | `""` | 323; `"PuTTY (x64)"` |
+| `CMName` | string | Name that **Check ConfigMgr** uses to find the application in ConfigMgr. | `""` | 323; `"PuTTY"` |
+| `AppName` | string or null | Name of the staged application. `{version}` is the staged version. When set, the name and the publisher do not come from metadata of an extracted EXE. | `null` | 8; `"Microsoft .NET {version} - Windows Server Hosting"` in `aspnethostingbundle10.json` |
+| `Publisher` | string or null | Publisher of the staged application when `AppName` is set. Without it the value of `Vendor` is used. | `null` | 8; `"Microsoft Corporation"` |
+| `Architecture` | string | Architecture of the installer: `x64`, `x86` or `ARM64`. | `"x64"` | 323 (302 `x64`, 20 `x86`, 1 `ARM64`) |
+| `VendorUrl` | string | Web site of the vendor. The context menu entry **Open Vendor URL** opens it. | `""` | 323 |
+| `WsusSupport` | string or null | Whether WSUS can take the default build: `Yes`, or `No (Code)` with the blocking refusal codes joined by `\|`. The One Click plan shows a declared refusal before a run. Absent declares nothing. | `null` | 323; `"No (PerUserInstall\|CustomInstall)"` in `githubdesktop.json` |
 
 ### Matching and security
 
 | Field | Type | Meaning | Default | Shipped |
 |---|---|---|---|---|
-| `Cpe` | string or null | CPE 2.3 name of the product, in the URI form or the formatted form. **Check CVEs** needs it. | `null` | 294; `"cpe:2.3:a:7-zip:7-zip:*:*:*:*:*:*:*:*"` |
-| `ArpName` | string or null | Display-name wildcards of the Add/Remove Programs entry. PowerShell `-like` syntax, not case sensitive. Join several with ` \| `. `none` marks a product without a stable entry, or a variant that inventory cannot tell from its sibling. | `null` | 319 (24 `none`); `"PuTTY release * (64-bit)"`; `"Amazon DCV Client \| NICE DCV Client"` |
+| `Cpe` | string or null | CPE 2.3 name of the product, in the URI form or the formatted form. **Check CVEs** needs it. | `null` | 298; `"cpe:2.3:a:7-zip:7-zip:*:*:*:*:*:*:*:*"` |
+| `ArpName` | string or null | Display-name wildcards of the Add/Remove Programs entry. PowerShell `-like` syntax, not case sensitive. Join several with ` \| `. `none` marks a product without a stable entry, or a variant that inventory cannot tell from its sibling. | `null` | 323 (24 `none`); `"PuTTY release * (64-bit)"`; `"Amazon DCV Client \| NICE DCV Client"` |
 | `ArpVersion` | string or null | Optional wildcard for the Add/Remove Programs version. | `null` | 7; `"11.*"` in `corretto-jdk11-x64.json` |
 | `ArpArch` | string or null | Optional inventory view: `x86` is the 32-bit view, `x64` is the 64-bit view. | `null` | 13; `"x64"` |
-| `SecurityAdvisoryUrl` | string or null | The security advisory page of the vendor. Only an https address shows as a link. | `null` | 94; `"https://www.anaconda.com/security"` in `anaconda.json` |
+| `SecurityAdvisoryUrl` | string or null | The security advisory page of the vendor. Only an https address shows as a link. | `null` | 98; `"https://www.anaconda.com/security"` in `anaconda.json` |
 
 ### Installer and install behavior
 
 | Field | Type | Meaning | Default | Shipped |
 |---|---|---|---|---|
-| `InstallerType` | string | `MSI`, `EXE`, `ODT`, `ZIP`, `MSIX` or `MSP`. | `"MSI"` | 319 |
-| `InstallerFramework` | string or null | Installer technology. It drives the automatic derivation of detection and of metadata. When empty, the engine tries to identify the installer. Values in the shipped files: `NativeMSI`, `InnoSetup`, `NSIS`, `WixBurn`, `NativeEXE`, `Unknown`, `InstallShield`, `ODT`, `Squirrel`, `MSIX`, `ZIP`. | `null` | 319; `"NSIS"` in `notepadplusplus.json` |
+| `InstallerType` | string | `MSI`, `EXE`, `ODT`, `ZIP`, `MSIX` or `MSP`. | `"MSI"` | 323 |
+| `InstallerFramework` | string or null | Installer technology. It drives the automatic derivation of detection and of metadata. When empty, the engine tries to identify the installer. Values in the shipped files: `NativeMSI`, `InnoSetup`, `NSIS`, `WixBurn`, `NativeEXE`, `Unknown`, `InstallShield`, `ODT`, `Squirrel`, `MSIX`, `ZIP`. | `null` | 323; `"NSIS"` in `notepadplusplus.json` |
 | `InstallContext` | string | `Machine` (Program Files, HKLM, device collections, runs as SYSTEM) or `User` (`%LOCALAPPDATA%`, HKCU, user collections, runs as the logged-on user). For MSIX the manifest decides, and the field only guides the deployment target. | `"Machine"` | 12 (`"User"`); `apppackagersuite.json` |
-| `DownloadUrl` | string | Template of the installer address. `{version}` is the raw version. `{display_version}` is the display version. Can be empty when a scraper finds the address. | `""` | 319 (75 empty) |
+| `DownloadUrl` | string | Template of the installer address. `{version}` is the raw version. `{display_version}` is the display version. Can be empty when a scraper finds the address. | `""` | 323 (75 empty) |
 | `InstallerFileName` | string or null | File name for the downloaded installer. Use it when the address has no usable name. Takes `{version}` and `{display_version}`. Both give the display version. | `null` | 86; `"AcroRdrDCx64-{display_version}.exe"` in `adobereader.json` |
-| `InstallArgs` | string | Install arguments. | `""` | 319; `"/qn /norestart"` |
-| `UninstallArgs` | string | Uninstall arguments. `{ProductCode}` is the MSI product code. | `""` | 319; `"/x {ProductCode} /qn /norestart"` |
-| `UninstallCommand` | string or null | A command for the uninstall wrapper. The wrapper calls it directly and does not search Add/Remove Programs. | `null` | 101; `bitwarden.json` |
+| `InstallArgs` | string | Install arguments. | `""` | 323; `"/qn /norestart"` |
+| `UninstallArgs` | string | Uninstall arguments. `{ProductCode}` is the MSI product code. | `""` | 323; `"/x {ProductCode} /qn /norestart"` |
+| `UninstallCommand` | string or null | A command for the uninstall wrapper. The wrapper calls it directly and does not search Add/Remove Programs. | `null` | 104; `bitwarden.json` |
 | `ExpandInstallArgs` | bool | When `true`, the MSI install wrapper expands `%NAME%` references in `InstallArgs` on the client. | `false` | 6; `ms-openjdk17-msi.json` |
 | `CanUninstall` | bool | Whether the application can be uninstalled. | `true` | 2 (`false`); `edge.json` |
-| `RunningProcess` | string list | Process names of the application. The names go into the stage manifest. The WSUS check lists them as the finding `RunningProcessNotClosed`. | `[]` | 319 (269 with names); `["putty","pageant","plink"]` |
+| `RunningProcess` | string list | Process names of the application. The names go into the stage manifest. The WSUS check lists them as the finding `RunningProcessNotClosed`. | `[]` | 323 (269 with names); `["putty","pageant","plink"]` |
 | `PostInstallKillProcesses` | string list or null | Process names without `.exe`. The EXE installer starts them on success. The install wrapper waits for the installer alone and then stops these processes. | `null` | 3; `["picpick"]` in `picpick.json` |
 | `RebootExitCodes` | number list or null | Installer exit codes that mean a restart is needed. The wrappers report each as 3010. A WSUS update carries them in its return codes. | `null` | 1; `[2]` in `dellcommandupdate.json` |
 | `SuccessExitCodes` | number list or null | Installer exit codes that follow a complete install. The wrapper reports each as 0. The detection rule still decides. A WSUS update carries them in its return codes. | `null` | 2; `[111111]` in `ccleaner.json`, `[0, 1223]` in `androidstudio.json` |
@@ -108,14 +108,14 @@ These fields hold an object or a list. The page [Definition format: sections](de
 
 | Field | Type | Meaning | Default | Shipped |
 |---|---|---|---|---|
-| `Type` | string | `HttpRegex`, `JsonQuery`, `FileVersion`, `ChainedHttpRegex`, `CdnCab`, `DellCatalog` or `HeadProbe`. | `"HttpRegex"` | 319 |
-| `Url` | string | Address to read. `HeadProbe` takes a template with `{version}`. `FileVersion` can take `{build}`. | `""` | 319 |
-| `Pattern` | string | The expression or the property name. The meaning depends on `Type`. See [Definitions](../core/definitions.md#version-sources-scrapers). | `""` | 316; `"tag_name"` in `notepadplusplus.json` |
-| `VersionTransform` | string or null | Chain of `strip_prefix:X`, `insert_dot:N`, `replace:X:Y` and `regex_replace:pattern:replacement` that you separate with `\|`. | `null` | 72; `"strip_prefix:v"` |
+| `Type` | string | `HttpRegex`, `JsonQuery`, `FileVersion`, `ChainedHttpRegex`, `CdnCab`, `DellCatalog` or `HeadProbe`. | `"HttpRegex"` | 323 |
+| `Url` | string | Address to read. `HeadProbe` takes a template with `{version}`. `FileVersion` can take `{build}`. | `""` | 323 |
+| `Pattern` | string | The expression or the property name. The meaning depends on `Type`. See [Definitions](../core/definitions.md#version-sources-scrapers). | `""` | 320; `"tag_name"` in `notepadplusplus.json` |
+| `VersionTransform` | string or null | Chain of `strip_prefix:X`, `insert_dot:N`, `replace:X:Y` and `regex_replace:pattern:replacement` that you separate with `\|`. | `null` | 71; `"strip_prefix:v"` |
 | `DownloadUrlQuery` | string or null | A query for the download address in the same answer. A found address replaces `DownloadUrl`. For `ChainedHttpRegex` and `DellCatalog` the value is ignored and must not be empty. By convention it is `CHAINED`. | `null` | 127; `"CHAINED"` in `agentransack.json` |
 | `PayloadHashQuery` | string or null | A capture of the payload SHA-256 from the same answer. `HttpRegex`: an expression whose named group `hash`, or group 1, holds the hash. `JsonQuery`: a path to the hash. | `null` | 6; `7zip.json` |
 | `NoUserAgent` | bool | When `true`, the request has no User-Agent header. | `false` | 3; `adobereader.json` |
-| `SelectHighestVersion` | bool | `HttpRegex` only. Takes the highest version of all matches, not the first match. | `false` | 54; `dbvisualizer.json` |
+| `SelectHighestVersion` | bool | `HttpRegex` only. Takes the highest version of all matches, not the first match. | `false` | 56; `dbvisualizer.json` |
 | `ServedUrlTemplate` | string or null | `HttpRegex` only. An address with `{version}`. App Packager Desktop tries the matches from the highest version down. The first version whose address answers a one-byte range request with 200 or 206 is the version. | `null` | 1; `libreoffice.json` |
 | `FetchRetries` | number | `HttpRegex` only. How many times curl repeats a page fetch that timed out or answered 5xx. 0 fetches once. | `0` | 1; `2` in `smathstudio.json` |
 | `FetchMaxTimeSeconds` | number | `HttpRegex` only. Time limit of one fetch attempt, in seconds. 0 uses the default of 25 seconds. | `0` | 1; `20` in `smathstudio.json` |

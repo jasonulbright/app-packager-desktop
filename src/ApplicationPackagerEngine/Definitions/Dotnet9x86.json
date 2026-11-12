@@ -1,0 +1,37 @@
+{
+    "Schema":  1,
+    "Id":  "c4f4f319d2af20de",
+    "WsusSupport":  "No (DetectionNotMappable)",
+    "IconSource":  "None",
+    "Vendor":  "Microsoft",
+    "Application":  ".NET 9 Desktop Runtime (x86)",
+    "CMName":  ".NET 9 Desktop Runtime (x86)",
+    "Architecture":  "x86",
+    "VendorUrl":  "https://dotnet.microsoft.com/download/dotnet/9.0",
+    "Cpe":  "cpe:2.3:a:microsoft:.net:9.*:*:*:*:*:*:*:*",
+    "ArpName":  "Microsoft Windows Desktop Runtime - 9.* (x86)",
+    "SecurityAdvisoryUrl":  "https://msrc.microsoft.com/update-guide",
+    "InstallerType":  "EXE",
+    "InstallerFramework":  "WixBurn",
+    "Acquisition":  {
+
+                    },
+    "VersionScraper":  {
+                           "Type":  "JsonQuery",
+                           "Url":  "https://builds.dotnet.microsoft.com/dotnet/release-metadata/releases-index.json",
+                           "Pattern":  "releases-index[?channel-version=9.0].latest-runtime"
+                       },
+    "DownloadUrl":  "https://builds.dotnet.microsoft.com/dotnet/WindowsDesktop/{version}/windowsdesktop-runtime-{version}-win-x86.exe",
+    "InstallArgs":  "/install /quiet /norestart",
+    "UninstallArgs":  "/uninstall /quiet /norestart",
+    "Detection":  {
+        "Type":  "File",
+        "FilePath":  "C:\\Program Files (x86)\\dotnet\\shared\\Microsoft.WindowsDesktop.App\\{version}",
+        "FileName":  "PresentationFramework.dll",
+        "PropertyType":  "Existence",
+        "Is64Bit":  false
+    },
+    "RunningProcess":  [
+
+                       ]
+}

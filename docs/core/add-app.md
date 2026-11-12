@@ -10,7 +10,7 @@ After the save, the page shows the [result panel](#the-result-panel). The panel 
 
 ## When to use it
 
-- To package an application that is not in the catalog of 319 definitions, and that has a download address and a version source on the web.
+- To package an application that is not in the catalog of 323 definitions, and that has a download address and a version source on the web.
 - To package an application whose installer is an MSI or an EXE with a version that a web page, a JSON API or the installer itself reports.
 
 If you have the installer file already, use [Add from file](add-from-file.md). That page takes `.msi`, `.exe`, `.msp`, `.msix`, `.appx`, `.msixbundle` and `.appxbundle` files, and it needs no download address.

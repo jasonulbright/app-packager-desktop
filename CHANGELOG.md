@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+## [2026.1111.50] - 2026-11-12
+
+### Fixed
+
+- The packager `PowerShell 7 (x64)` stages again. PowerShell 7.7.0 ships no MSI for Windows, so the address that the packager built from the latest release answered 404. The packager now takes the highest release that carries the x64 MSI (7.6.10 today).
+
+### Added
+
+- Packagers for `.NET 9 Desktop Runtime (x86)`, `.NET 11 Desktop Runtime (x64)`, `ASP.NET 9 Server Hosting Bundle` and `ASP.NET 11 Server Hosting Bundle`. .NET 11.0.0 is a stable release, so no preview channel is used. .NET 9 reached the end of support on 2026-11-10, so the two .NET 9 packagers carry its last release. The catalog has 323 definitions. The Intune publish of these packagers is not verified against a tenant.
+
 ## [2026.1111.46] - 2026-11-12
 
 ### Added
