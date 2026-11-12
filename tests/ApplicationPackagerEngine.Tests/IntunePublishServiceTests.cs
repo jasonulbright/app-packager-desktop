@@ -142,6 +142,30 @@ public sealed class IntunePublishServiceTests : IDisposable
         Assert.Contains(patches, p => p.Body.Contains("\"minimumSupportedWindowsRelease\":\"Windows11_23H2\""));
     }
 
+    private static string ExistingAppWithDescription(string description) =>
+        $"{{\"value\":[{{\"id\":\"app-existing\",\"@odata.type\":\"#microsoft.graph.win32LobApp\",\"description\":\"{description}\"}}]}}";
+
+    [Theory]
+    [InlineData("", "Typed in the console", "Typed in the console")]
+    [InlineData("  ", "Typed in the console", "Typed in the console")]
+    [InlineData("A new comment", "Typed in the console", "A new comment")]
+    [InlineData("", "", "Contoso App")]
+    public async Task Publish_OfAnExistingApp_KeepsItsDescriptionWhenTheRunHasNoComment(string comment, string existing, string sent)
+    {
+        var package = IntuneWinFixture.Create(_dir);
+        var handler = BuildHandler(ExistingAppWithDescription(existing));
+        using var svc = new IntunePublishService(handler);
+        var options = Options();
+        options.Description = comment;
+        var manifest = Manifest();
+        manifest.AppName = "Contoso App";
+
+        await svc.PublishAsync(package, manifest, options);
+
+        var patches = handler.Requests.Where(r => r.Method == HttpMethod.Patch && r.Uri.Contains("app-existing")).ToList();
+        Assert.Contains(patches, p => p.Body.Contains($"\"description\":\"{sent}\""));
+    }
+
     // ---- a repeat publish of an unchanged package ----
 
     private const string IdentityLine = "AppPackager:legacy:Contoso-App/default";

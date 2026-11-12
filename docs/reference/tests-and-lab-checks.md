@@ -448,3 +448,25 @@ The presence of `IntuneWinAppUtil.exe` on a computer decided whether the program
 | `NoImplicitIntuneWinTests` | The three automatic build methods do not exist; no service other than the Intune deployment service asks whether the tool is installed; the Intune publish resolves the tool from the tool folder or the PATH before it downloads (a copy on the PATH is used). |
 
 **Lab check.** A ConfigMgr-only run with the tool present leaves no `.intunewin` file in the stage folder and none on the content share.
+
+## A run with no comment keeps the description of an existing application
+
+A ConfigMgr replace already wrote the description only when the run had a comment. The Intune update wrote the name of the application into the description whenever the comment was empty, so a description that an administrator typed in the console was lost on the next publish (review finding A7). An Intune update now keeps the existing description when the run has no comment. A new app, or an existing app with no description, gets the name.
+
+| Test class | What it proves |
+|---|---|
+| `IntunePublishServiceTests` | An empty or blank comment keeps the description of the existing app; a comment replaces it; an existing app with no description gets the name. |
+
+**Lab check.** None for ConfigMgr (the replace path is unchanged). The Intune result is not verified against a tenant.
+
+## ConfigMgr publish: fewer PowerShell starts
+
+A ConfigMgr publish started a Windows PowerShell 5.1 process for the existing-application probe (only for the Skip and Fail answers), one for the package, one for the content distribution and one for the test deployment. Each start loads the ConfigMgr module, which takes several seconds. The distribution and the test deployment now run in one script (one start, one module load): the distribution body first, then the deployment body. A distribution that fails exits with code 11, and the deployment does not run. A deployment that fails exits with code 12. The reason is written to standard error as one line, and the sentence of the failed step is the same as before.
+
+The probe must run before the content is copied to the share, and the package must run after the copy and its checks, so those two stay separate starts. The generated scripts for the WSUS-only runs and the revision cleanup were checked and need no change: the compatibility scan of the WSUS update reads the staged scripts, and the revision cleanup runs only when an application has more than one revision.
+
+| Test class | What it proves |
+|---|---|
+| `ConfigMgrContentStepOutcomeTests` | One script holds both steps and loads the module once; the distribution comes first and its failure ends the script; no test collection means no deployment block; each step keeps the body of its own script; the exit code names the step that failed. |
+
+**Lab check.** A ConfigMgr publish on CM01 with auto-distribute and a test collection: the log shows both steps and one module load; a missing DP group fails the distribution and creates no deployment. No sign-out and no restart. Not run in this session: the lab needs credentials that this session does not hold.

@@ -105,65 +105,59 @@ public sealed class ConfigMgrContentStepOutcomeTests
         Assert.Equal("Content distribution to 'All DPs' failed: " + new string('x', 300) + "...", text);
     }
 
-    // ---- the steps, in their order ----------------------------------------------------------------------------------
+    // ---- the steps, in one PowerShell start ---------------------------------------------------------------------------
 
-    private static Task<MecmTarget.ContentStepResult> Step(List<string> calls, string name, MecmTarget.ContentStepResult result)
+    [Fact]
+    public void BothStepsRunInOneScriptThatLoadsTheModuleOnce()
     {
-        calls.Add(name);
-        return Task.FromResult(result);
+        var script = MecmTarget.BuildContentStepsScript("Contoso App", "MCM", "All DPs", null, "Pilot", true, false);
+
+        Assert.Equal(1, script.Split("$cmModule = Join-Path").Length - 1);
+        Assert.Contains("Start-CMContentDistribution -ApplicationName 'Contoso App' -DistributionPointGroupName 'All DPs'", script);
+        Assert.Contains("New-CMApplicationDeployment -Name 'Contoso App'", script);
+        Assert.True(script.IndexOf("Start-CMContentDistribution", StringComparison.Ordinal) < script.IndexOf("New-CMApplicationDeployment", StringComparison.Ordinal));
+        Assert.Contains($"exit {MecmTarget.DistributionFailedExitCode}", script);
+        Assert.Contains($"exit {MecmTarget.TestDeploymentFailedExitCode}", script);
     }
 
     [Fact]
-    public async Task ADistributionThatFailsSkipsTheTestDeploymentAndReturnsItsSentence()
+    public void ADistributionThatFailsEndsTheScriptBeforeTheTestDeployment()
     {
-        var calls = new List<string>();
+        var script = MecmTarget.BuildContentStepsScript("Contoso App", "MCM", "All DPs", null, "Pilot", false, false);
 
-        var failure = await MecmTarget.RunContentStepsAsync(
-            () => Step(calls, "distribute", MecmTarget.ContentStepResult.Failed("Content distribution to 'All DPs' failed: denied")),
-            () => Step(calls, "deploy", MecmTarget.ContentStepResult.Ok));
-
-        Assert.Equal("Content distribution to 'All DPs' failed: denied", failure);
-        Assert.Equal(["distribute"], calls);
+        // The catch of the distribution exits, so the deployment block after it never runs.
+        var catchExit = script.IndexOf($"exit {MecmTarget.DistributionFailedExitCode}", StringComparison.Ordinal);
+        Assert.InRange(catchExit, 1, script.IndexOf("$deploymentStep", StringComparison.Ordinal));
     }
 
     [Fact]
-    public async Task ATestDeploymentThatFailsAfterADistributionThatWorkedReturnsItsSentence()
+    public void WithoutATestCollectionOnlyTheDistributionIsInTheScript()
     {
-        var calls = new List<string>();
+        var script = MecmTarget.BuildContentStepsScript("Contoso App", "MCM", "All DPs", null, null, false, false);
 
-        var failure = await MecmTarget.RunContentStepsAsync(
-            () => Step(calls, "distribute", MecmTarget.ContentStepResult.Ok),
-            () => Step(calls, "deploy", MecmTarget.ContentStepResult.Failed("Test deployment to 'Pilot' failed: no collection")));
-
-        Assert.Equal("Test deployment to 'Pilot' failed: no collection", failure);
-        Assert.Equal(["distribute", "deploy"], calls);
+        Assert.DoesNotContain("New-CMApplicationDeployment", script);
+        Assert.DoesNotContain($"exit {MecmTarget.TestDeploymentFailedExitCode}", script);
     }
 
     [Fact]
-    public async Task BothStepsThatWorkReturnNoFailure()
+    public void EachStepKeepsTheBodyOfItsOwnScript()
     {
-        var calls = new List<string>();
+        var combined = MecmTarget.BuildContentStepsScript("Contoso App", "MCM", "All DPs", "HOST1", "Pilot", true, true);
+        var distribution = MecmTarget.BuildDistributionScript("Contoso App", "MCM", "All DPs", "HOST1");
+        var deployment = MecmTarget.BuildTestCollectionDeploymentScript("Contoso App", "MCM", "Pilot", true, "HOST1", true);
 
-        var failure = await MecmTarget.RunContentStepsAsync(
-            () => Step(calls, "distribute", MecmTarget.ContentStepResult.Ok),
-            () => Step(calls, "deploy", MecmTarget.ContentStepResult.Ok));
-
-        Assert.Null(failure);
-        Assert.Equal(["distribute", "deploy"], calls);
+        string Body(string script) => script[(script.IndexOf("Set-Location 'MCM:'", StringComparison.Ordinal) + "Set-Location 'MCM:'".Length)..].TrimStart();
+        Assert.Contains(Body(distribution), combined);
+        Assert.Contains(Body(deployment), combined);
     }
 
-    [Fact]
-    public async Task WithoutATestDeploymentOnlyTheDistributionRuns()
-    {
-        var calls = new List<string>();
-
-        var failure = await MecmTarget.RunContentStepsAsync(
-            () => Step(calls, "distribute", MecmTarget.ContentStepResult.Ok), null);
-
-        Assert.Null(failure);
-        Assert.Equal(["distribute"], calls);
-    }
-
+    [Theory]
+    [InlineData(0, null)]
+    [InlineData(11, "Content distribution to 'All DPs' failed: denied")]
+    [InlineData(1, "Content distribution to 'All DPs' failed: denied")]
+    [InlineData(12, "Test deployment to 'Pilot' failed: denied")]
+    public void TheExitCodeNamesTheStepThatFailed(int exitCode, string? expected) =>
+        Assert.Equal(expected, MecmTarget.ContentStepFailureFor(exitCode, "denied", "All DPs", "Pilot"));
     // ---- what the inventory records ----------------------------------------------------------------------------------
 
     [Theory]

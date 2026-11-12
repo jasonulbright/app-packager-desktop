@@ -202,7 +202,11 @@ public sealed class IntunePublishService : IDisposable
             ["applicableArchitectures"] = applicableArchitectures,
             ["allowedArchitectures"] = allowedArchitectures,
             ["displayName"] = manifest.AppName,
-            ["description"] = string.IsNullOrWhiteSpace(options.Description) ? manifest.AppName : options.Description,
+            // A run with no comment leaves the description of an existing app as it is (an administrator may have typed one in the
+            // console); a new app, or an existing one with no description, gets the name.
+            ["description"] = !string.IsNullOrWhiteSpace(options.Description) ? options.Description
+                : match?["description"]?.GetValue<string>() is { } existing && !string.IsNullOrWhiteSpace(existing) ? existing
+                : manifest.AppName,
             ["publisher"] = manifest.Publisher,
             ["fileName"] = Path.GetFileName(intuneWinPath),
             // The real entry the package runs; the prep tool's own setup reference is
