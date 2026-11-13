@@ -11,7 +11,7 @@ namespace ApplicationPackagerEngine.Services.Supersedence;
 public sealed class ExactGuard
 {
     private readonly Func<StageManifest, string?> _msiProductVersion;
-    private readonly IReadOnlyDictionary<string, string> _recorded;
+    private readonly Dictionary<string, string> _recorded;
     private readonly ISet<string> _accepted;
 
     /// <param name="msiProductVersion">Reads the ProductVersion of the staged MSI of a manifest; null when it is not an MSI or unreadable.</param>
@@ -20,7 +20,9 @@ public sealed class ExactGuard
     public ExactGuard(Func<StageManifest, string?> msiProductVersion, IReadOnlyDictionary<string, string>? recorded, IEnumerable<string>? accepted)
     {
         _msiProductVersion = msiProductVersion;
-        _recorded = new Dictionary<string, string>(recorded ?? new Dictionary<string, string>(), StringComparer.OrdinalIgnoreCase);
+        _recorded = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        // A settings file can hold two keys that differ only in letter case; the later one wins and the guard never throws.
+        foreach (var pair in recorded ?? new Dictionary<string, string>()) _recorded[pair.Key] = pair.Value;
         _accepted = new HashSet<string>(accepted ?? [], StringComparer.OrdinalIgnoreCase);
     }
 

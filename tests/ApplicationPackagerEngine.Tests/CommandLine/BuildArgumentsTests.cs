@@ -75,6 +75,34 @@ public sealed class BuildArgumentsTests
     }
 
     [Fact]
+    public void TheRecordOfAnInstalledValueAndTheAcceptanceOfABlockParseAloneWithAVersion()
+    {
+        var record = Parsed("--application", "a", "--version", "1.2.3", "--record-installed-value", "1.2.3.4");
+        var accept = Parsed("--application", "a", "--version", "1.2.3", "--accept-exact-block");
+
+        Assert.Equal("1.2.3.4", record.RecordInstalledValue);
+        Assert.True(record.IsSupersedenceRecord);
+        Assert.False(record.AcceptExactBlock);
+        Assert.True(accept.AcceptExactBlock);
+        Assert.True(accept.IsSupersedenceRecord);
+        Assert.False(Parsed("--application", "a", "--package").IsSupersedenceRecord);
+    }
+
+    [Fact]
+    public void TheRecordRefusesAMissingVersionACombinationAndAValueThatIsNoVersion()
+    {
+        Assert.Equal("--record-installed-value and --accept-exact-block need --version: the value belongs to one version.",
+            Refused("--application", "a", "--accept-exact-block"));
+        Assert.Equal("--record-installed-value and --accept-exact-block run alone: they do not stage, package or rewrite.",
+            Refused("--application", "a", "--version", "1.0", "--accept-exact-block", "--package"));
+        Assert.Equal("--record-installed-value and --accept-exact-block are separate runs; give one.",
+            Refused("--application", "a", "--version", "1.0", "--accept-exact-block", "--record-installed-value", "1.0"));
+        Assert.Contains("is not a version",
+            Refused("--application", "a", "--version", "1.0", "--record-installed-value", "x; rm"));
+        Assert.Contains("needs a value", Refused("--application", "a", "--version", "1.0", "--record-installed-value"));
+    }
+
+    [Fact]
     public void UsageNamesEveryOptionTheParserAccepts()
     {
         foreach (var option in new[]
@@ -83,7 +111,8 @@ public sealed class BuildArgumentsTests
                      "--estimated-minutes", "--maximum-minutes", "--packagers-root", "--log-folder", "--site-code",
                      "--provider-machine-name", "--file-server-path", "--comment", "--wsus-server", "--wsus-port",
                      "--wsus-use-ssl", "--wsus-classification", "--wsus-approval-group", "--wsus-decline-superseded",
-                     "--on-existing", "--local-source-folder", "--data-root", "--version-rule", "--supersedence", "--rewrite-old-versions", "--yes", "--help"
+                     "--on-existing", "--local-source-folder", "--data-root", "--version-rule", "--supersedence", "--rewrite-old-versions", "--yes",
+                     "--record-installed-value", "--accept-exact-block", "--help"
                  })
             Assert.Contains(option, BuildArguments.Usage);
     }

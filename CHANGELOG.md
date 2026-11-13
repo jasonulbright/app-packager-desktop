@@ -4,6 +4,10 @@
 
 ## [2026.1111.42] - 2026-11-12
 
+### Added
+
+- Command line: `--record-installed-value <value> --version <version>` records the version that the installed product shows, and `--accept-exact-block --version <version>` accepts the block of the Exact guard. Both write the settings file and nothing else. A recorded value lets `--rewrite-old-versions` and the Exact guard take effect without editing the settings file by hand.
+
 ### Changed
 
 - Internal: the engine of the import of vendor definitions from a URL (fetch, strict validation, the block of code, the pinned digest, the preview rules and the storage of a third definition folder). The program does not import a feed yet; the loaders, the window and the command come in the next changes.
