@@ -192,8 +192,10 @@ public static class BuildArguments
                 return Fail("--record-installed-value and --accept-exact-block run alone: they do not stage, package or rewrite.");
             if (Text(values, "version") is not { } recordVersion)
                 return Fail("--record-installed-value and --accept-exact-block need --version: the value belongs to one version.");
-            if (!ApplicationPackagerEngine.Services.Supersedence.InstalledValueRecorder.IsValidValue(recordVersion))
-                return Fail($"--version '{recordVersion}' is not a version (it starts with a digit and holds letters, digits and . + _ - only).");
+            if (!ApplicationPackagerEngine.Services.Supersedence.InstalledValueRecorder.IsValidVersionText(recordVersion))
+                return Fail($"--version '{recordVersion}' is empty, longer than 64 characters, or holds a control character, a space at an end, or '|'.");
+            if (Text(values, "profile") is not null)
+                return Fail("--profile does not apply to --record-installed-value and --accept-exact-block: the value belongs to the title and the version.");
             if (record is not null && !ApplicationPackagerEngine.Services.Supersedence.InstalledValueRecorder.IsValidValue(record))
                 return Fail($"--record-installed-value '{record}' is not a version (it starts with a digit and holds letters, digits and . + _ - only).");
         }

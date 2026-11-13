@@ -15,12 +15,16 @@ public static partial class InstalledValueRecorder
     /// <summary>True for the text of a version or an installed value: starts with a digit, letters, digits and . + _ - only, at most 64 characters.</summary>
     public static bool IsValidValue(string? text) => text is not null && ValueGrammar().IsMatch(text);
 
+    /// <summary>True for the version of a title: 1 to 64 characters, no control character, no "|" (the key separator), no leading or trailing space.</summary>
+    public static bool IsValidVersionText(string? text) =>
+        text is not null && text.Length is > 0 and <= 64 && text == text.Trim() && !text.Any(c => char.IsControl(c) || c == '|');
+
     private static string Key(string titleKey, string version)
     {
         if (string.IsNullOrWhiteSpace(titleKey))
             throw new InvalidOperationException("The title has no identifier, so nothing can be recorded for it.");
-        if (!IsValidValue(version))
-            throw new InvalidOperationException($"The version '{version}' is not a version (it starts with a digit and holds letters, digits and . + _ - only).");
+        if (!IsValidVersionText(version))
+            throw new InvalidOperationException($"The version '{version}' is empty, longer than 64 characters, or holds a control character, a space at an end, or '|'.");
         return ExactGuard.RecordKey(titleKey, version);
     }
 
@@ -30,8 +34,11 @@ public static partial class InstalledValueRecorder
         var key = Key(titleKey, version);
         if (!IsValidValue(installedValue))
             throw new InvalidOperationException($"The installed value '{installedValue}' is not a version (it starts with a digit and holds letters, digits and . + _ - only).");
-        settings.InstalledValues ??= new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        settings.InstalledValues[key] = installedValue;
+        // A file that was read back holds a case-sensitive dictionary; rebuild it so that two keys never differ only in case.
+        var values = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var pair in settings.InstalledValues ?? []) values[pair.Key] = pair.Value;
+        values[key] = installedValue;
+        settings.InstalledValues = values;
         return key;
     }
 

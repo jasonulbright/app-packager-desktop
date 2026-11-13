@@ -30,6 +30,19 @@ public sealed class InstalledValueRecorderTests
     }
 
     [Fact]
+    public void AValueRecordedInAnotherLetterCaseReplacesTheOldOneAfterAJsonRoundTrip()
+    {
+        var read = System.Text.Json.JsonSerializer.Deserialize<SupersedenceSettings>(
+            "{\"InstalledValues\":{\"catalog:7zip|24.08\":\"24.08\"}}")!;
+
+        InstalledValueRecorder.Record(read, "catalog:7Zip", "24.08", "24.08.0");
+
+        var pair = Assert.Single(read.InstalledValues);
+        Assert.Equal("24.08.0", pair.Value);
+        _ = new ExactGuard(_ => null, new Dictionary<string, string> { ["a|1"] = "1", ["A|1"] = "2" }, null);
+    }
+
+    [Fact]
     public void AnAcceptanceIsStoredOnceAndPerVersion()
     {
         var settings = new SupersedenceSettings();
@@ -46,10 +59,10 @@ public sealed class InstalledValueRecorderTests
     {
         var settings = new SupersedenceSettings();
 
-        Assert.Throws<InvalidOperationException>(() => InstalledValueRecorder.Record(settings, "catalog:abc", "latest", "1.0"));
+        Assert.Throws<InvalidOperationException>(() => InstalledValueRecorder.Record(settings, "catalog:abc", "a|b", "1.0"));
         Assert.Throws<InvalidOperationException>(() => InstalledValueRecorder.Record(settings, "catalog:abc", "1.0", "newest"));
         Assert.Throws<InvalidOperationException>(() => InstalledValueRecorder.Record(settings, " ", "1.0", "1.0"));
-        Assert.Throws<InvalidOperationException>(() => InstalledValueRecorder.AcceptBlock(settings, "catalog:abc", "x"));
+        Assert.Throws<InvalidOperationException>(() => InstalledValueRecorder.AcceptBlock(settings, "catalog:abc", " 1.0"));
         Assert.Empty(settings.InstalledValues);
         Assert.Empty(settings.AcceptedExactBlocks);
     }

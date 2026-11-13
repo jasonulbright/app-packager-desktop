@@ -1,3 +1,4 @@
+using ApplicationPackagerEngine.Models.Workbench;
 using ApplicationPackagerEngine.Services.Supersedence;
 using ApplicationPackagerEngine.Services.Workbench;
 using ApplicationPackagerUI.Services;
@@ -16,9 +17,14 @@ public sealed class InstalledValueRunner(SettingsService settingsService, Workbe
         try
         {
             var store = WorkbenchStore.Open();
-            var applicationId = ApplicationResolver.Resolve(options.Application, store.DiscoverApplications(applicationCatalog.Roots()));
+            var discovered = store.DiscoverApplications(applicationCatalog.Roots());
+            var applicationId = ApplicationResolver.Resolve(options.Application, discovered);
+            if (!ApplicationIds.IsByo(applicationId) && ApplicationResolver.Source(applicationId, discovered) is null)
+                throw new InvalidOperationException($"The application '{options.Application}' is not in the catalog, so nothing is recorded for it.");
             var version = options.Version ?? throw new InvalidOperationException("--version is required.");
             var settings = settingsService.Load();
+            if (settingsService.IsFileUnreadable || settingsService.TakeLoadWarning() is not null)
+                throw new InvalidOperationException("The settings file cannot be read, so nothing is written. Repair it or close the program that holds it, then run again.");
             settings.Supersedence ??= new SupersedenceSettings();
 
             string key;

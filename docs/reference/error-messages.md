@@ -49,6 +49,8 @@ These messages come from `AppPackagerBuild.exe`. See [Command-line build](../cor
 | --record-installed-value and --accept-exact-block need --version: the value belongs to one version. | No `--version`. | Add `--version`. |
 | --record-installed-value and --accept-exact-block run alone: they do not stage, package or rewrite. | Given with `--stage`, `--package` or `--rewrite-old-versions`. | Run it alone. |
 | --record-installed-value and --accept-exact-block are separate runs; give one. | Both options were given. | Run them one after the other. |
+| --version '…' is empty, longer than 64 characters, or holds a control character, a space at an end, or '\|'. | The version is not usable as a key. | Give the version of the title. |
+| --profile does not apply to --record-installed-value and --accept-exact-block … | `--profile` was given. | Remove it. |
 | --record-installed-value '…' is not a version (…) | The value or the version does not start with a digit, is longer than 64 characters or holds another character. | Give the text that the installed product shows. |
 | --rewrite-old-versions runs alone: it does not stage or package. | The option was given with --stage or --package. | Run the rewrite alone. |
 | apply changes the detection of the old applications. ConfigMgr evaluates the detection again on the devices. ... Run it again with --yes. | apply or restore without the confirmation. | Read the plan, then run it again with --yes. |
