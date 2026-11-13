@@ -52,8 +52,11 @@ public static class Program
                 .AddSingleton<IBuildOutput>(output)
                 .AddSingleton<BuildRunner>()
                 .AddSingleton<CveReportRunner>()
+                .AddSingleton<InstalledValueRunner>()
                 .BuildServiceProvider();
             services.GetRequiredService<LegacyInventoryMigration>().Run();
+            if (options.IsSupersedenceRecord)
+                return services.GetRequiredService<InstalledValueRunner>().Run(options);
             if (options.CveReport is not null)
                 return await services.GetRequiredService<CveReportRunner>().RunAsync(options, cancel.Token);
             var result = await services.GetRequiredService<BuildRunner>().RunAsync(options, cancel.Token);

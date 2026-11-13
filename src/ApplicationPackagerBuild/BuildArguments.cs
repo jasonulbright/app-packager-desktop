@@ -37,6 +37,12 @@ public sealed record BuildOptions
     public string? RewriteOldVersions { get; init; }
     /// <summary>--yes: the confirmation of apply and restore.</summary>
     public bool Yes { get; init; }
+    /// <summary>--record-installed-value: the value read from the installed product of --application and --version.</summary>
+    public string? RecordInstalledValue { get; init; }
+    /// <summary>--accept-exact-block: accepts the block of the Exact guard for --application and --version.</summary>
+    public bool AcceptExactBlock { get; init; }
+    /// <summary>True when the run only writes a supersedence setting and neither stages, packages nor rewrites.</summary>
+    public bool IsSupersedenceRecord => RecordInstalledValue is not null || AcceptExactBlock;
     public string? LocalSourceFolder { get; init; }
     public string? DataRoot { get; init; }
     public bool Help { get; init; }
@@ -61,7 +67,7 @@ public static class BuildArguments
 
     private static readonly HashSet<string> Switches = new(StringComparer.OrdinalIgnoreCase)
     {
-        "stage", "package", "yes", "wsus-use-ssl", "wsus-decline-superseded", "help",
+        "stage", "package", "yes", "accept-exact-block", "wsus-use-ssl", "wsus-decline-superseded", "help",
         "cve-report", "skip-latest", "skip-mecm", "skip-cve", "notify-always"
     };
 
@@ -70,7 +76,7 @@ public static class BuildArguments
         "application", "profile", "version", "target", "download-root", "estimated-minutes", "maximum-minutes",
         "packagers-root", "log-folder", "site-code", "provider-machine-name", "file-server-path", "comment",
         "wsus-server", "wsus-port", "wsus-classification", "wsus-approval-group", "on-existing",
-        "local-source-folder", "data-root", "version-rule", "supersedence", "rewrite-old-versions",
+        "local-source-folder", "data-root", "version-rule", "supersedence", "rewrite-old-versions", "record-installed-value",
         "apps", "report-folder", "report-formats", "webhook-url", "drop-folder", "keep-report-days", "config"
     };
 
@@ -82,7 +88,7 @@ public static class BuildArguments
     private static readonly string[] NonEmpty =
     [
         "data-root", "download-root", "packagers-root", "log-folder", "local-source-folder", "file-server-path",
-        "site-code", "provider-machine-name", "wsus-server",
+        "site-code", "provider-machine-name", "wsus-server", "record-installed-value",
         "report-folder", "drop-folder", "webhook-url", "config", "apps", "report-formats"
     ];
 
@@ -177,6 +183,21 @@ public static class BuildArguments
         }
         if (Flag(values, "yes") == true && rewrite is null) return Fail("Option '--yes' applies to --rewrite-old-versions only.");
 
+        var record = Text(values, "record-installed-value");
+        var accept = Flag(values, "accept-exact-block") == true;
+        if (record is not null || accept)
+        {
+            if (record is not null && accept) return Fail("--record-installed-value and --accept-exact-block are separate runs; give one.");
+            if (rewrite is not null || Flag(values, "stage") == true || Flag(values, "package") == true)
+                return Fail("--record-installed-value and --accept-exact-block run alone: they do not stage, package or rewrite.");
+            if (Text(values, "version") is not { } recordVersion)
+                return Fail("--record-installed-value and --accept-exact-block need --version: the value belongs to one version.");
+            if (!ApplicationPackagerEngine.Services.Supersedence.InstalledValueRecorder.IsValidValue(recordVersion))
+                return Fail($"--version '{recordVersion}' is not a version (it starts with a digit and holds letters, digits and . + _ - only).");
+            if (record is not null && !ApplicationPackagerEngine.Services.Supersedence.InstalledValueRecorder.IsValidValue(record))
+                return Fail($"--record-installed-value '{record}' is not a version (it starts with a digit and holds letters, digits and . + _ - only).");
+        }
+
         if (!TryMinutes(values, "estimated-minutes", out var estimated, out var error)) return Fail(error!);
         if (!TryMinutes(values, "maximum-minutes", out var maximum, out error)) return Fail(error!);
 
@@ -216,11 +237,13 @@ public static class BuildArguments
             Supersedence = Text(values, "supersedence"),
             RewriteOldVersions = rewrite,
             Yes = Flag(values, "yes") == true,
+            RecordInstalledValue = record,
+            AcceptExactBlock = accept,
             LocalSourceFolder = Text(values, "local-source-folder"),
             DataRoot = Text(values, "data-root")
         };
 
-        if (!options.Stage && !options.Package && options.RewriteOldVersions is null) return Fail("Specify --stage, --package, or both.");
+        if (!options.Stage && !options.Package && options.RewriteOldVersions is null && !options.IsSupersedenceRecord) return Fail("Specify --stage, --package, or both.");
         if (options.Target == RunTargets.MecmAndWsus && options.Package && !options.Stage)
             return Fail("A MECMAndWSUS package publishes the build staged in the same run; pass --stage together with --package.");
         return new ParsedArguments(options, null);
@@ -276,6 +299,10 @@ public static class BuildArguments
                                       GreaterEquals to IsEquals (and back). Runs alone. plan only reads the site. apply and restore
                                       need --yes after the plan was read. Writes the log supersedence-rewrite.jsonl.
           --yes                       Confirms apply and restore of --rewrite-old-versions.
+          --record-installed-value <v> Records the version that the installed product of --application and --version shows
+                                      (the Exact guard compares it with the expected value). Needs --version. Runs alone.
+          --accept-exact-block        Accepts the block of the Exact guard for --application and --version (the clause is then
+                                      written as minimum). Needs --version. Runs alone.
           --comment <text>            Administrative comment stored on the application
 
         Run overrides (this build only, never written to the profile or the settings):

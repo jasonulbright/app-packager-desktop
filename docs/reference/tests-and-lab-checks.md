@@ -582,3 +582,14 @@ What the engine does, as the specification says:
 | `VendorImportTests` | Every row above, with a fake HTTP handler (no network) and a temporary folder: the refused addresses and redirects, the limits, the retry and the total time, cancel, the digest and the generic request; the validation of identifiers, names, addresses, duplicates, unknown properties, depth and count; the code block for each kind of code and the classification of the format; the preview, the pin, the confirmation, the conflicts and the replace rules; the storage swap, the failed write, the recovery, the order and Remove. |
 
 **Not yet tested.** The behavior of `SocketsHttpHandler` for headers and certificates on a redirect (the specification asks for a test against the real handler), the signed document (step 2) and the authenticated feeds (steps 5 and 6).
+
+## Supersedence: the recorder of installed values (command line)
+
+`--record-installed-value <value> --version <version>` and `--accept-exact-block --version <version>` write one value of `Supersedence.InstalledValues` or `Supersedence.AcceptedExactBlocks` for the title and the version, and end. They stage, package and send nothing. The key is the one the Exact guard and the rewrite read, so a recorded value takes effect. A value and a version are checked as version texts (a digit first, then letters, digits and `. + _ -`, at most 64 characters), so no free text enters the settings.
+
+| Test class | What it proves |
+|---|---|
+| `InstalledValueRecorderTests` | The grammar of a value; the key equals the key of the guard; a second value replaces the first; an acceptance is stored once and per version; a bad version, value or title is refused and nothing is stored. |
+| `BuildArgumentsTests` | The two options parse, need `--version`, run alone and refuse a value that is no version; the usage names them. |
+
+**Not tested here.** The run of the command against a settings file (policy 2a: no run of the program on the development PC). Lab check: record a value, read the settings file, then `--rewrite-old-versions plan` on the lab site shows the clause as rewritable.
