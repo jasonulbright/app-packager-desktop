@@ -340,6 +340,8 @@
                      and only then scrolls. Each MinWidth holds the header text and the sort arrow. -->
                 <DataGridTextColumn Header="Application" Binding="{Binding Application}" Width="2*" MinWidth="160" IsReadOnly="True" ElementStyle="{StaticResource TrimCell}" />
                 <DataGridTextColumn Header="Vendor" Binding="{Binding Vendor}" Width="140" MinWidth="100" IsReadOnly="True" ElementStyle="{StaticResource TrimCell}" />
+                <DataGridTextColumn x:Name="ColSource" Header="Source" Binding="{Binding SourceLabel}" Width="170" MinWidth="90" IsReadOnly="True" ElementStyle="{StaticResource TrimCell}"
+                                    Visibility="Collapsed" />
                 <DataGridTextColumn Header="Current (ConfigMgr)" Binding="{Binding CurrentVersion}" Width="176" MinWidth="176" IsReadOnly="True" />
                 <DataGridTextColumn Header="Latest" Binding="{Binding LatestVersion}" Width="120" MinWidth="110" IsReadOnly="True" />
 

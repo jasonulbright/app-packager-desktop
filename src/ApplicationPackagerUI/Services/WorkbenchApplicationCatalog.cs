@@ -32,6 +32,7 @@ public sealed class WorkbenchApplicationItem
     {
         ApplicationOrigin.Catalog => "Catalog packager",
         ApplicationOrigin.Custom => "User-authored packager",
+        ApplicationOrigin.Imported => "Imported from a vendor feed",
         _ => "Bring your own installer"
     };
 
@@ -50,6 +51,7 @@ public sealed class WorkbenchApplicationCatalog(SettingsService settingsService,
         CatalogDefinitionsRoot = IconPackService.BundledDefinitionsDirectory(),
         CatalogOverridesRoot = AppDataPaths.UserDefinitionsRoot,
         CustomDefinitionsRoot = AppDataPaths.UserDefinitionsRoot,
+        ImportedDefinitionsRoot = ApplicationPackagerEngine.Services.VendorImport.ImportedDefinitionStore.DefaultRoot,
         PackagersRoot = discoveryService.ResolvePackagersRoot()
     };
 

@@ -141,6 +141,9 @@ public sealed class BuildRunner(
         if (string.IsNullOrWhiteSpace(settings.DownloadRoot))
             throw new BuildRefusal("DownloadRoot is not configured: pass --download-root or set it in Settings.");
 
+        // The build repairs a feed swap that stopped between its two renames, as the program does at start.
+        try { ApplicationPackagerEngine.Services.VendorImport.ImportedDefinitionStore.Default().Recover(); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
         var store = WorkbenchStore.Open();
         var discovered = store.DiscoverApplications(applicationCatalog.Roots());
         var applicationId = ApplicationResolver.Resolve(o.Application, discovered);
@@ -273,7 +276,7 @@ public sealed class BuildRunner(
         if (source?.SourcePath is null)
         {
             var roots = applicationCatalog.Roots();
-            var searched = string.Join(", ", new[] { roots.CatalogDefinitionsRoot, roots.CatalogOverridesRoot, roots.PackagersRoot, roots.CustomDefinitionsRoot ?? WorkbenchStore.Open().CustomDefinitionsRoot }
+            var searched = string.Join(", ", new[] { roots.CatalogDefinitionsRoot, roots.CatalogOverridesRoot, roots.PackagersRoot, roots.CustomDefinitionsRoot ?? WorkbenchStore.Open().CustomDefinitionsRoot, roots.ImportedDefinitionsRoot }
                 .Where(r => !string.IsNullOrWhiteSpace(r)));
             throw new BuildRefusal($"No definition or packager script for application '{applicationId}' under {searched}.");
         }

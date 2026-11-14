@@ -909,7 +909,7 @@ public sealed class StagingService
         if (string.IsNullOrWhiteSpace(def.Id)) return "";
         try
         {
-            var id = Models.Workbench.ApplicationIds.New(Models.Workbench.ApplicationOrigin.Catalog, name: def.Id);
+            var id = Models.Workbench.ApplicationIds.New(Models.Workbench.ApplicationIds.RunOrigin(def.SourceOrigin), name: def.Id);
             return Models.Workbench.ApplicationIds.IsValid(id) ? id : "";
         }
         catch (ArgumentException) { return ""; }

@@ -318,7 +318,7 @@ public static class DefinitionCode
         "DownloadUrl", "InstallerFileName", "InstallArgs", "UninstallArgs", "ReviewBeforeStage", "CanUninstall", "Detection", "RunningProcess",
         "PostInstallKillProcesses", "RebootExitCodes", "SuccessExitCodes", "Icon", "IconFormat", "IconSource", "DisplayVersionOverride",
         "SupportsVariants", "PayloadVariants", "SupportsInstallModes", "CitrixSwitchStream", "PostExecutionBehavior", "ExpectedPayloadVersion",
-        "PayloadSha256Url", "PayloadSha256", "OffersInstallModes", "RequirePayloadHash", "ExpandInstallArgs", "RequireValidSignature", "SourcePath", "SourceOrigin"
+        "PayloadSha256Url", "PayloadSha256", "OffersInstallModes", "RequirePayloadHash", "ExpandInstallArgs", "RequireValidSignature", "SourcePath", "SourceOrigin", "SourceLabel"
     ];
 
     /// <summary>The names of the top-level properties of the format that no list classifies; empty when the lists are complete.</summary>

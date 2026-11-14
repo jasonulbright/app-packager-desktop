@@ -37,7 +37,8 @@ public static class LegacyPreferenceMigration
         var originOf = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         foreach (var application in store.DiscoverApplications(roots))
         {
-            if (application.Origin == ApplicationOrigin.Byo) continue;
+            // Legacy keys are older than imports: an imported application never receives the preferences of the shipped one it replaced.
+            if (application.Origin is ApplicationOrigin.Byo or ApplicationOrigin.Imported) continue;
             var name = application.ApplicationId[(application.ApplicationId.IndexOf(':') + 1)..];
             if (originOf.TryGetValue(name, out var existingId)
                 && existingId.StartsWith(ApplicationIds.CatalogPrefix + ":", StringComparison.OrdinalIgnoreCase))

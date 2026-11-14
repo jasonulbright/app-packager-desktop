@@ -11,7 +11,9 @@ public enum DefinitionSource
     /// <summary>Shipped with the application.</summary>
     Shipped,
     /// <summary>Made by the user with a remote version source: Add from web.</summary>
-    FromWeb
+    FromWeb,
+    /// <summary>Imported from a vendor feed; the label comes from the feed folder.</summary>
+    Imported
 }
 
 public sealed record OpenDefinitionRow(string ApplicationId, string Name, string Publisher, DefinitionSource Source)
@@ -36,6 +38,7 @@ public sealed partial class OpenDefinitionViewModel : ObservableObject
     {
         DefinitionSource.LocalFile => "Local file",
         DefinitionSource.Shipped => "Shipped",
+        DefinitionSource.Imported => "Imported",
         _ => "From web"
     };
 
@@ -43,11 +46,12 @@ public sealed partial class OpenDefinitionViewModel : ObservableObject
     {
         ApplicationOrigin.Catalog => DefinitionSource.Shipped,
         ApplicationOrigin.Byo => DefinitionSource.LocalFile,
+        ApplicationOrigin.Imported => DefinitionSource.Imported,
         _ => item.HasRemoteSource || !item.IsJsonDefinition ? DefinitionSource.FromWeb : DefinitionSource.LocalFile
     };
 
     public IReadOnlyList<string> SourceOptions { get; } =
-        [AllSources, SourceText(DefinitionSource.LocalFile), SourceText(DefinitionSource.Shipped), SourceText(DefinitionSource.FromWeb)];
+        [AllSources, SourceText(DefinitionSource.LocalFile), SourceText(DefinitionSource.Shipped), SourceText(DefinitionSource.FromWeb), SourceText(DefinitionSource.Imported)];
 
     public ObservableCollection<OpenDefinitionRow> Rows { get; } = [];
 

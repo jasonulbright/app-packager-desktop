@@ -43,7 +43,9 @@ public sealed class ImportedDefinitionStore(string root)
 
     public string Root { get; } = root;
 
-    public static ImportedDefinitionStore Default() => new(Path.Combine(AppDataPaths.Root, "ImportedDefinitions"));
+    public static string DefaultRoot => Path.Combine(AppDataPaths.Root, "ImportedDefinitions");
+
+    public static ImportedDefinitionStore Default() => new(DefaultRoot);
 
     private string FolderOf(string feedId)
     {
@@ -55,19 +57,24 @@ public sealed class ImportedDefinitionStore(string root)
     public void Recover()
     {
         if (!Directory.Exists(Root)) return;
+        // One folder that cannot be repaired (a file locked by a scanner) does not stop the repair of the others; it is tried again at the next start.
         foreach (var directory in Directory.GetDirectories(Root))
         {
-            var name = Path.GetFileName(directory);
-            if (name.StartsWith(StagingPrefix, StringComparison.Ordinal))
+            try
             {
-                Directory.Delete(directory, recursive: true);
-                continue;
+                var name = Path.GetFileName(directory);
+                if (name.StartsWith(StagingPrefix, StringComparison.Ordinal))
+                {
+                    Directory.Delete(directory, recursive: true);
+                    continue;
+                }
+                var at = name.IndexOf(OldInfix, StringComparison.Ordinal);
+                if (at <= 0) continue;
+                var feed = Path.Combine(Root, name[..at]);
+                if (Directory.Exists(feed)) Directory.Delete(directory, recursive: true);
+                else Directory.Move(directory, feed);
             }
-            var at = name.IndexOf(OldInfix, StringComparison.Ordinal);
-            if (at <= 0) continue;
-            var feed = Path.Combine(Root, name[..at]);
-            if (Directory.Exists(feed)) Directory.Delete(directory, recursive: true);
-            else Directory.Move(directory, feed);
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
         }
     }
 

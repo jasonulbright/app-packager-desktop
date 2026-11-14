@@ -12,7 +12,10 @@ public enum ApplicationOrigin
     Custom,
 
     /// <summary>A persisted dropped installer with no definition behind it.</summary>
-    Byo
+    Byo,
+
+    /// <summary>A definition that an administrator imported from a vendor feed; the origin comes from the feed folder, never from the file.</summary>
+    Imported
 }
 
 /// <summary>
@@ -24,11 +27,12 @@ public static partial class ApplicationIds
     public const string CatalogPrefix = "catalog";
     public const string CustomPrefix = "custom";
     public const string ByoPrefix = "byo";
+    public const string ImportedPrefix = "imported";
 
     /// <summary>The virtual profile that applies the packager or definition as shipped.</summary>
     public const string DefaultProfileId = "default";
 
-    [GeneratedRegex(@"^(catalog|custom|byo):[A-Za-z0-9._-]+$", RegexOptions.IgnoreCase)]
+    [GeneratedRegex(@"^(catalog|custom|byo|imported):[A-Za-z0-9._-]+$", RegexOptions.IgnoreCase)]
     private static partial Regex ApplicationIdPattern();
 
     [GeneratedRegex(@"^[A-Za-z0-9._-]+$")]
@@ -47,14 +51,23 @@ public static partial class ApplicationIds
             baseName = Path.GetFileNameWithoutExtension(path);
         if (string.IsNullOrWhiteSpace(baseName))
             throw new ArgumentException("An application id needs a script path or a name.");
-        baseName = Path.GetFileNameWithoutExtension(baseName);
+        // An imported Id may hold dots (Contoso.Agent and Contoso.Tools are two applications), so its name is not cut at the last dot.
+        if (origin != ApplicationOrigin.Imported) baseName = Path.GetFileNameWithoutExtension(baseName);
         return $"{PrefixOf(origin)}:{baseName}";
     }
+
+    /// <summary>
+    /// The origin that a run of a definition uses for its profile and its stage identity: an imported definition has its own
+    /// (imported:Id), never the catalog one of the shipped application that it replaced; every other definition keeps catalog:Id.
+    /// </summary>
+    public static ApplicationOrigin RunOrigin(ApplicationOrigin sourceOrigin) =>
+        sourceOrigin == ApplicationOrigin.Imported ? ApplicationOrigin.Imported : ApplicationOrigin.Catalog;
 
     public static string PrefixOf(ApplicationOrigin origin) => origin switch
     {
         ApplicationOrigin.Catalog => CatalogPrefix,
         ApplicationOrigin.Custom => CustomPrefix,
+        ApplicationOrigin.Imported => ImportedPrefix,
         _ => ByoPrefix
     };
 

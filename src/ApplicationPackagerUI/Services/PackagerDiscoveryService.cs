@@ -4,6 +4,7 @@ using System.Text.RegularExpressions;
 using ApplicationPackagerEngine.Models;
 using ApplicationPackagerEngine.Models.Workbench;
 using ApplicationPackagerEngine.Services;
+using ApplicationPackagerEngine.Services.VendorImport;
 using ApplicationPackagerEngine.Services.Workbench;
 using ApplicationPackagerEngine.Services.Wsus;
 using ApplicationPackagerUI.Models;
@@ -149,7 +150,7 @@ public partial class PackagerDiscoveryService(SettingsService settingsService)
     {
         var results = new List<PackagerInfo>();
         foreach (var definition in LoadEffectiveDefinitions(
-                     IconPackService.BundledDefinitionsDirectory(), AppDataPaths.UserDefinitionsRoot))
+                     IconPackService.BundledDefinitionsDirectory(), AppDataPaths.UserDefinitionsRoot, default, ImportedDefinitionStore.DefaultRoot))
         {
             if (hidden is not null && hidden.Contains(definition.Id)) continue;
             results.Add(DefinitionRow(definition, definition.SourcePath, definition.SourceOrigin));
@@ -166,15 +167,29 @@ public partial class PackagerDiscoveryService(SettingsService settingsService)
     public static List<AppDefinition> LoadEffectiveDefinitions(
         string catalogRoot,
         string userRoot,
-        CancellationToken ct = default)
+        CancellationToken ct = default,
+        string? importedRoot = null)
     {
         var catalogDefinitions = ReadDefinitions(catalogRoot, ApplicationOrigin.Catalog, ct);
         var catalogIds = catalogDefinitions.Select(d => d.Id).ToHashSet(StringComparer.OrdinalIgnoreCase);
         var effective = new Dictionary<string, AppDefinition>(StringComparer.OrdinalIgnoreCase);
         foreach (var definition in catalogDefinitions) effective.TryAdd(definition.Id, definition);
 
+        var userDefinitions = ReadDefinitions(userRoot, ApplicationOrigin.Custom, ct);
+        // Imported definitions come between the shipped and the user ones: a user definition with the same Id wins, and a shipped Id is
+        // replaced only when the import was confirmed for that Id. The label comes from the feed folder, never from the file.
+        var userIdSet = userDefinitions.Select(d => d.Id).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        foreach (var imported in ImportedDefinitionResolver.Resolve(importedRoot, catalogIds, userIdSet))
+        {
+            ct.ThrowIfCancellationRequested();
+            var definition = ReadDefinitionFile(imported.Path, ApplicationOrigin.Imported);
+            if (definition is null || !string.Equals(definition.Id, imported.Id, StringComparison.OrdinalIgnoreCase)) continue;
+            definition.SourceLabel = $"Imported: {imported.Feed.Vendor} ({FeedTrust.Label(imported.Feed.TrustState)})";
+            effective[definition.Id] = definition;
+        }
+
         var userIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var definition in ReadDefinitions(userRoot, ApplicationOrigin.Custom, ct))
+        foreach (var definition in userDefinitions)
         {
             if (!userIds.Add(definition.Id)) continue;
             if (catalogIds.Contains(definition.Id)) definition.SourceOrigin = ApplicationOrigin.Catalog;
@@ -195,20 +210,27 @@ public partial class PackagerDiscoveryService(SettingsService settingsService)
                      .OrderBy(path => Path.GetFileName(path), StringComparer.OrdinalIgnoreCase))
         {
             ct.ThrowIfCancellationRequested();
-            try
-            {
-                var definition = JsonSerializer.Deserialize<AppDefinition>(File.ReadAllText(jsonPath), JsonOptions);
-                if (definition is null || string.IsNullOrWhiteSpace(definition.Id)) continue;
-                definition.SourcePath = Path.GetFullPath(jsonPath);
-                definition.SourceOrigin = origin;
-                results.Add(definition);
-            }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
-            {
-                // A bad local definition is isolated; other definitions remain discoverable.
-            }
+            var definition = ReadDefinitionFile(jsonPath, origin);
+            if (definition is not null) results.Add(definition);
         }
         return results;
+    }
+
+    private static AppDefinition? ReadDefinitionFile(string jsonPath, ApplicationOrigin origin)
+    {
+        try
+        {
+            var definition = JsonSerializer.Deserialize<AppDefinition>(File.ReadAllText(jsonPath), JsonOptions);
+            if (definition is null || string.IsNullOrWhiteSpace(definition.Id)) return null;
+            definition.SourcePath = Path.GetFullPath(jsonPath);
+            definition.SourceOrigin = origin;
+            return definition;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
+        {
+            // A bad local definition is isolated; other definitions remain discoverable.
+            return null;
+        }
     }
 
     /// <summary>The run row of one JSON definition file, as the Packages grid lists it.</summary>
@@ -230,6 +252,7 @@ public partial class PackagerDiscoveryService(SettingsService settingsService)
         IsJsonDefined = true,
         DefinitionPath = jsonPath,
         DefinitionOrigin = origin ?? def.SourceOrigin,
+        SourceLabel = def.SourceLabel,
         WsusNotSupported = WsusSupportTag.NotSupportedCodes(def.WsusSupport),
         Status = "Ready"
     };
@@ -292,7 +315,7 @@ public partial class PackagerDiscoveryService(SettingsService settingsService)
         return await Task.Run(() =>
         {
             var results = LoadEffectiveDefinitions(
-                IconPackService.BundledDefinitionsDirectory(), AppDataPaths.UserDefinitionsRoot, ct);
+                IconPackService.BundledDefinitionsDirectory(), AppDataPaths.UserDefinitionsRoot, ct, ImportedDefinitionStore.DefaultRoot);
 
             results.Sort((a, b) =>
             {

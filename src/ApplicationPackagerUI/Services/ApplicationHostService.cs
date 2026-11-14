@@ -29,6 +29,13 @@ public class ApplicationHostService(IServiceProvider serviceProvider) : IHostedS
             return Task.CompletedTask;
         }
 
+        // A swap of an imported feed that stopped between its two renames is repaired before any loader reads the folder.
+        try { ApplicationPackagerEngine.Services.VendorImport.ImportedDefinitionStore.Default().Recover(); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            System.Diagnostics.Debug.WriteLine($"Imported definitions recovery skipped: {ex.Message}");
+        }
+
         // The resource dictionary starts Dark; the stored theme applies before the first window renders.
         ThemeApplier.Apply(serviceProvider.GetRequiredService<SettingsService>().Load().Theme);
 
@@ -67,6 +74,7 @@ public class ApplicationHostService(IServiceProvider serviceProvider) : IHostedS
                         CatalogDefinitionsRoot = IconPackService.BundledDefinitionsDirectory(),
                         CatalogOverridesRoot = AppDataPaths.UserDefinitionsRoot,
                         CustomDefinitionsRoot = AppDataPaths.UserDefinitionsRoot,
+                        ImportedDefinitionsRoot = ApplicationPackagerEngine.Services.VendorImport.ImportedDefinitionStore.DefaultRoot,
                         PackagersRoot = packagersRoot
                     });
             }

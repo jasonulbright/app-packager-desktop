@@ -138,7 +138,7 @@ public class PackagerExecutionService(
             var appSettings = settingsService.Load();
             // A grid run builds from the application's active profile; the default
             // profile runs without a snapshot.
-            var source = ProfileSource.Resolve(WorkbenchStoreOrNull(snapshot), def.Id);
+            var source = ProfileSource.Resolve(WorkbenchStoreOrNull(snapshot), def.Id, ApplicationIds.RunOrigin(def.SourceOrigin));
             if (snapshot is null && source.Failure is not null)
                 return new PackagerExecutionResult { ExitCode = 1, StdErr = source.RefusalMessage() };
             if (snapshot is null && source.ActiveProfileId is { } activeProfile)
@@ -299,7 +299,7 @@ public class PackagerExecutionService(
         {
             var settings = settingsService.Load();
             var def = LoadDefinition(packager.DefinitionPath);
-            var source = ProfileSource.Resolve(WorkbenchStoreOrNull(null), def.Id);
+            var source = ProfileSource.Resolve(WorkbenchStoreOrNull(null), def.Id, ApplicationIds.RunOrigin(def.SourceOrigin));
             if (source.Failure is not null) return null;
             var appRoot = Path.Combine(ProfileContentScope.LocalDownloadRoot(settings.DownloadRoot, source.ActiveProfileId),
                 $"{def.Application.Replace(" ", "")}-{def.Architecture}");
@@ -702,7 +702,7 @@ public class PackagerExecutionService(
         if (packager.IsJsonDefined && packager.DefinitionPath is not null)
         {
             var def = LoadDefinition(packager.DefinitionPath);
-            var source = ProfileSource.Resolve(WorkbenchStoreOrNull(snapshot), def.Id);
+            var source = ProfileSource.Resolve(WorkbenchStoreOrNull(snapshot), def.Id, ApplicationIds.RunOrigin(def.SourceOrigin));
             if (snapshot is null && source.Failure is not null)
                 return new PackagerExecutionResult { ExitCode = 1, StdErr = source.RefusalMessage() };
             // A grid publish packages the stage of the active profile, under that profile's root.
@@ -1007,7 +1007,7 @@ public class PackagerExecutionService(
             {
                 def = LoadDefinition(packager.DefinitionPath);
                 var settings = settingsService.Load();
-                source = ProfileSource.Resolve(WorkbenchStoreOrNull(null), def.Id);
+                source = ProfileSource.Resolve(WorkbenchStoreOrNull(null), def.Id, ApplicationIds.RunOrigin(def.SourceOrigin));
                 var appRoot = Path.Combine(ProfileContentScope.LocalDownloadRoot(settings.DownloadRoot, source.ActiveProfileId),
                     $"{def.Application.Replace(" ", "")}-{def.Architecture}");
                 manifestPath = Path.Combine(appRoot, PublishVersion(packager), "stage-manifest.json");
@@ -1171,7 +1171,7 @@ public class PackagerExecutionService(
             try
             {
                 var def = LoadDefinition(row.DefinitionPath);
-                var source = ProfileSource.Resolve(WorkbenchStoreOrNull(snapshot), def.Id);
+                var source = ProfileSource.Resolve(WorkbenchStoreOrNull(snapshot), def.Id, ApplicationIds.RunOrigin(def.SourceOrigin));
                 fallbackApplicationId = source.ApplicationId;
                 // The marker needs only the application, the profile and the architecture, so a row without a current stage still has one.
                 fromDefinition = new StageManifest { ApplicationId = source.ApplicationId, ProfileId = source.ActiveProfileId, Architecture = def.Architecture };
@@ -1234,7 +1234,7 @@ public class PackagerExecutionService(
             try
             {
                 var def = LoadDefinition(row.DefinitionPath);
-                var source = ProfileSource.Resolve(WorkbenchStoreOrNull(snapshot), def.Id);
+                var source = ProfileSource.Resolve(WorkbenchStoreOrNull(snapshot), def.Id, ApplicationIds.RunOrigin(def.SourceOrigin));
                 fallbackApplicationId = source.ApplicationId;
                 if (ProfileSource.LegacyMapsApplyTo(manifest, source)) titleMode = deploymentConditionsService.GetConditions(def.Id)?.TitleMode;
             }
