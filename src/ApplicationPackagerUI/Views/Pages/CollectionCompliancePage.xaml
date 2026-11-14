@@ -397,11 +397,11 @@
                             <StackPanel Grid.Column="0">
                                 <TextBlock Text="Query rule of the collection" Style="{StaticResource FieldLabel}" />
                                 <ComboBox ItemsSource="{Binding WqlRules}" SelectedItem="{Binding SelectedWqlRule}" DisplayMemberPath="RuleName"
-                                          AutomationProperties.Name="Query rule of the collection" AutomationProperties.AutomationId="cboWqlRule" />
+                                          MinHeight="40" AutomationProperties.Name="Query rule of the collection" AutomationProperties.AutomationId="cboWqlRule" />
                             </StackPanel>
                             <StackPanel Grid.Column="2">
                                 <TextBlock Text="Rule name" Style="{StaticResource FieldLabel}" />
-                                <ui:TextBox Text="{Binding WqlRuleName, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="Rule name"
+                                <ui:TextBox Text="{Binding WqlRuleName, UpdateSourceTrigger=PropertyChanged}" MinHeight="40" VerticalContentAlignment="Center" AutomationProperties.Name="Rule name"
                                             AutomationProperties.AutomationId="txtWqlRuleName" />
                             </StackPanel>
                         </Grid>
