@@ -265,6 +265,6 @@ foreach ($defFile in $defs) {
     Write-Host ""
 }
 
-Write-Host "═══════════════════════════════════════════════" -ForegroundColor White
+Write-Host "===============================================" -ForegroundColor White
 Write-Host "TOTAL: $($defs.Count) | PASSED: $passed | FAILED: $failed | SKIPPED: $skipped"
 Write-Host "Results: $ResultsPath"
