@@ -128,6 +128,14 @@
                        ToolTipService.ShowOnDisabled="True"
                        AutomationProperties.AutomationId="btnPublishConfigMgr"
                        Margin="0,0,4,0" />
+            <ui:Button x:Name="btnApplySupersedence"
+                       Content="Apply supersedence"
+                       Icon="{ui:SymbolIcon ArrowSwap24}"
+                       Command="{Binding ApplySupersedenceCommand}"
+                       ToolTip="Sets the supersedence relation from the checked application to the older version of the same product line on the ConfigMgr site, without a new publish. Needs a published application and the supersedence mode in Options."
+                       ToolTipService.ShowOnDisabled="True"
+                       AutomationProperties.AutomationId="btnApplySupersedence"
+                       Margin="0,0,4,0" />
             <ui:Button x:Name="btnPublishIntune"
                        Content="Publish to Intune"
                        Icon="{ui:SymbolIcon Cloud24}"

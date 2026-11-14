@@ -69,6 +69,22 @@ public sealed class LocalFileGridStageTests : IDisposable
     }
 
     [Fact]
+    public async Task ApplySupersedence_RefusesWithoutAStage_ThenWithoutASiteCode_AndContactsNoSite()
+    {
+        var (row, _) = await SavedRowAsync();
+        var service = Service();
+
+        var unstaged = await service.ApplySupersedenceAsync(row, null, null, CancellationToken.None);
+        Assert.False(unstaged.Ok);
+        Assert.Contains("No stage manifest", unstaged.Message);
+
+        Assert.True((await service.StageAsync(row)).ExitCode == 0);
+        var noSite = await service.ApplySupersedenceAsync(row, null, null, CancellationToken.None);
+        Assert.False(noSite.Ok);
+        Assert.Contains("site code", noSite.Message);
+    }
+
+    [Fact]
     public async Task CheckLatest_ReportsTheSavedVersion_AndTheGridStageUsesIt()
     {
         var (row, _) = await SavedRowAsync();

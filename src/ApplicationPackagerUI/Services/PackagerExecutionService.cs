@@ -1155,6 +1155,68 @@ public class PackagerExecutionService(
         }
         return environment;
     }
+    /// <summary>What the "Apply supersedence" action did for one application.</summary>
+    public sealed record SupersedenceApplyResult(bool Ok, string Message);
+
+    /// <summary>
+    /// The "Apply supersedence" action: the lookup and the supersedence step for the sealed or staged build of one application, without a
+    /// new publish. The step reads the relations first, so a repeat adds only the missing ones. A published application whose earlier step
+    /// failed leaves the state "Published, supersedence not applied" when it succeeds.
+    /// </summary>
+    public async Task<SupersedenceApplyResult> ApplySupersedenceAsync(
+        IPackagerExecutionRequest row, RunSnapshot? snapshot, Action<string>? onOutputLine, CancellationToken ct)
+    {
+        void Report(string line) { if (onOutputLine is not null) OutputLineDispatch.Post(onOutputLine, line); }
+        var manifestPath = StagedManifestPath(row, new PackagerExecutionResult { ExitCode = 0 }, snapshot) ?? ExistingStageManifest(row);
+        if (manifestPath is null) return new(false, "No stage manifest was found for this application. Stage and publish it first.");
+        StageManifest manifest;
+        try { manifest = new ManifestService().Read(manifestPath); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException or InvalidOperationException)
+        {
+            return new(false, $"The stage manifest {manifestPath} could not be read: {ex.Message}");
+        }
+        var settings = settingsService.Load();
+        if (string.IsNullOrWhiteSpace(settings.SiteCode)) return new(false, "Supersedence needs a ConfigMgr site. Set the site code in Options.");
+
+        // The title is resolved as the publish resolves it, so the lookup finds the application that the publish created.
+        string? titleMode = null;
+        string? fallbackApplicationId = null;
+        if (row.IsJsonDefined && row.DefinitionPath is not null)
+        {
+            try
+            {
+                var def = LoadDefinition(row.DefinitionPath);
+                var source = ProfileSource.Resolve(WorkbenchStoreOrNull(snapshot), def.Id);
+                fallbackApplicationId = source.ApplicationId;
+                if (ProfileSource.LegacyMapsApplyTo(manifest, source)) titleMode = deploymentConditionsService.GetConditions(def.Id)?.TitleMode;
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException or InvalidOperationException)
+            {
+                return new(false, $"The definition {row.DefinitionPath} could not be read: {ex.Message}");
+            }
+        }
+        var title = RunApplicationTitle(manifest, titleMode, settings);
+        var plan = PlanSupersedence(manifest, Path.GetDirectoryName(manifestPath)!, settings, DeploymentTargets.Mecm, Report, fallbackApplicationId);
+        if (plan.Refusal is not null) return new(false, plan.Refusal);
+        if (plan.Mode == ApplicationPackagerEngine.Services.Supersedence.SupersedenceMode.Off)
+            return new(false, "Supersedence is off for this title. Turn it on in Options or in the override of the title.");
+        if (string.IsNullOrWhiteSpace(plan.Marker))
+            return new(false, "This application carries no identity marker (it has keywords of its own), so the older version cannot be found.");
+
+        var step = await new MecmTarget().RunSupersedenceAsync(
+            title, manifest.SoftwareVersion, plan.Marker, plan.Mode, settings.SiteCode, settings.ProviderMachine, Report, ct);
+        foreach (var warning in step.Warnings) Report($"Supersedence warning       : {warning}");
+        var ok = step.Status != ApplicationPackagerEngine.Services.Supersedence.SupersedenceStepStatus.NotApplied;
+        if (ok)
+        {
+            var identity = InventoryIdentity(row, snapshot, manifest);
+            RecordDestination(row, identity, settings, "ConfigMgr", manifest.SoftwareVersion, InventoryOutcome.Succeeded, title,
+                FirstNonBlank(manifest.BuildId, snapshot?.BuildId), Guid.NewGuid().ToString("N"), DateTimeOffset.UtcNow,
+                step.Message, onOutputLine);
+        }
+        return new(ok, step.Message);
+    }
+
 
     /// <summary>
     /// The application title of a run: the mode of the manifest (a profile), else the saved mode of the
