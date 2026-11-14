@@ -101,7 +101,7 @@ public sealed class WqlEditorLayoutTests
                 for (var i = 0; i < buttons.Count; i++)
                 {
                     Assert.True(pageBounds.Contains(boxes[i]), $"{name}: {AutomationProperties.GetAutomationId(buttons[i])} lies outside the page.");
-                    Assert.True(buttons[i].ActualWidth + Tolerance >= buttons[i].DesiredSize.Width, $"{name}: {AutomationProperties.GetAutomationId(buttons[i])} is cut off.");
+                    Assert.True(buttons[i].ActualWidth + buttons[i].Margin.Left + buttons[i].Margin.Right + Tolerance >= buttons[i].DesiredSize.Width, $"{name}: {AutomationProperties.GetAutomationId(buttons[i])} is cut off.");
                 }
             }
             finally { window.Close(); }
