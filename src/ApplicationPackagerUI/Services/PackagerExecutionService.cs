@@ -1156,7 +1156,7 @@ public class PackagerExecutionService(
         return environment;
     }
     /// <summary>What the "Apply supersedence" action did for one application.</summary>
-    public sealed record SupersedenceApplyResult(bool Ok, string Message);
+    public sealed record SupersedenceApplyResult(bool Ok, string Message, ApplicationPackagerEngine.Services.Supersedence.SupersedenceStepStatus? Status = null);
 
     /// <summary>
     /// The "Apply supersedence" action: the lookup and the supersedence step for the sealed or staged build of one application, without a
@@ -1168,6 +1168,8 @@ public class PackagerExecutionService(
     {
         void Report(string line) { if (onOutputLine is not null) OutputLineDispatch.Post(onOutputLine, line); }
         var manifestPath = StagedManifestPath(row, new PackagerExecutionResult { ExitCode = 0 }, snapshot) ?? ExistingStageManifest(row);
+        if (!row.IsJsonDefined && row.StagedManifestPath is null)
+            return new(false, "Apply supersedence does not apply to a PS1 packager.");
         if (manifestPath is null) return new(false, "No stage manifest was found for this application. Stage and publish it first.");
         StageManifest manifest;
         try { manifest = new ManifestService().Read(manifestPath); }
@@ -1204,17 +1206,18 @@ public class PackagerExecutionService(
             return new(false, "This application carries no identity marker (it has keywords of its own), so the older version cannot be found.");
 
         var step = await new MecmTarget().RunSupersedenceAsync(
-            title, manifest.SoftwareVersion, plan.Marker, plan.Mode, settings.SiteCode, settings.ProviderMachine, Report, ct);
+            title, manifest.SoftwareVersion, plan.Marker, plan.Mode, settings.SiteCode, settings.ProviderMachine, Report, ct, requirePublished: true);
         foreach (var warning in step.Warnings) Report($"Supersedence warning       : {warning}");
         var ok = step.Status != ApplicationPackagerEngine.Services.Supersedence.SupersedenceStepStatus.NotApplied;
-        if (ok)
+        // Only a step that set a relation changes the inventory; "no older version" proves nothing about the publish.
+        if (step.Status == ApplicationPackagerEngine.Services.Supersedence.SupersedenceStepStatus.Applied)
         {
             var identity = InventoryIdentity(row, snapshot, manifest);
             RecordDestination(row, identity, settings, "ConfigMgr", manifest.SoftwareVersion, InventoryOutcome.Succeeded, title,
                 FirstNonBlank(manifest.BuildId, snapshot?.BuildId), Guid.NewGuid().ToString("N"), DateTimeOffset.UtcNow,
                 step.Message, onOutputLine);
         }
-        return new(ok, step.Message);
+        return new(ok, step.Message, step.Status);
     }
 
 

@@ -36,6 +36,11 @@ public partial class PackagesViewModel : IOneClickRunner, IPublishActionHost
         if (IsOperationRunning) { AddLogLine("Apply supersedence skipped: another operation is running."); return; }
         var selected = SelectedPackagers.ToList();
         if (selected.Count == 0) { ShowNoneSelected("Apply supersedence"); return; }
+        if (PublishRunService.RunGate(PublishRunTargets.ConfigMgr, _settingsService.Load()) is { } blocked)
+        {
+            AddLogLine($"Apply supersedence blocked: {blocked}");
+            return;
+        }
         IsOperationRunning = true;
         ShowProgress = true;
         ProgressCurrent = 0;
@@ -53,13 +58,20 @@ public partial class PackagesViewModel : IOneClickRunner, IPublishActionHost
                 {
                     var result = await _executionService.ApplySupersedenceAsync(p, null, line => AddLogLine($"  {line}"), _operationCts.Token);
                     AddLogLine($"  {(result.Ok ? "Supersedence" : "Supersedence not applied")}: {result.Message}");
-                    p.Status = result.Ok ? "Supersedence applied" : "Supersedence not applied";
+                    p.Status = !result.Ok ? "Supersedence not applied"
+                        : result.Status == ApplicationPackagerEngine.Services.Supersedence.SupersedenceStepStatus.Applied ? "Supersedence applied" : "No older version";
                     p.StatusDetail = result.Ok ? null : result.Message;
                 }
                 catch (OperationCanceledException) when (_operationCts.IsCancellationRequested)
                 {
                     AddLogLine("  Cancelled.");
                     break;
+                }
+                catch (Exception ex)
+                {
+                    AddLogLine($"  Supersedence not applied: {ex.Message}");
+                    p.Status = "Supersedence not applied";
+                    p.StatusDetail = ex.Message;
                 }
             }
         }
