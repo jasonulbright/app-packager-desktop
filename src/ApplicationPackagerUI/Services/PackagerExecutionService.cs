@@ -1162,25 +1162,37 @@ public class PackagerExecutionService(
     public (ApplicationPackagerEngine.Services.Supersedence.RewriteScope? Scope, string? Error) RewriteScopeFor(IPackagerExecutionRequest row, RunSnapshot? snapshot)
     {
         if (!row.IsJsonDefined && row.StagedManifestPath is null) return (null, "The rewrite does not apply to a PS1 packager.");
-        var manifestPath = StagedManifestPath(row, new PackagerExecutionResult { ExitCode = 0 }, snapshot) ?? ExistingStageManifest(row);
-        if (manifestPath is null) return (null, "No stage manifest was found for this application. Stage and publish it first.");
-        StageManifest manifest;
-        try { manifest = new ManifestService().Read(manifestPath); }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException or InvalidOperationException)
-        {
-            return (null, $"The stage manifest {manifestPath} could not be read: {ex.Message}");
-        }
         var settings = settingsService.Load();
         if (string.IsNullOrWhiteSpace(settings.SiteCode)) return (null, "The rewrite needs a ConfigMgr site. Set the site code in Options.");
         string? fallbackApplicationId = null;
+        StageManifest? fromDefinition = null;
         if (row.IsJsonDefined && row.DefinitionPath is not null)
         {
-            try { fallbackApplicationId = ProfileSource.Resolve(WorkbenchStoreOrNull(snapshot), LoadDefinition(row.DefinitionPath).Id).ApplicationId; }
+            try
+            {
+                var def = LoadDefinition(row.DefinitionPath);
+                var source = ProfileSource.Resolve(WorkbenchStoreOrNull(snapshot), def.Id);
+                fallbackApplicationId = source.ApplicationId;
+                // The marker needs only the application, the profile and the architecture, so a row without a current stage still has one.
+                fromDefinition = new StageManifest { ApplicationId = source.ApplicationId, ProfileId = source.ActiveProfileId, Architecture = def.Architecture };
+            }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException or InvalidOperationException)
             {
                 return (null, $"The definition {row.DefinitionPath} could not be read: {ex.Message}");
             }
         }
+        var manifestPath = StagedManifestPath(row, new PackagerExecutionResult { ExitCode = 0 }, snapshot) ?? ExistingStageManifest(row);
+        StageManifest manifest;
+        if (manifestPath is not null)
+        {
+            try { manifest = new ManifestService().Read(manifestPath); }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException or InvalidOperationException)
+            {
+                return (null, $"The stage manifest {manifestPath} could not be read: {ex.Message}");
+            }
+        }
+        else if (fromDefinition is not null) manifest = fromDefinition;
+        else return (null, "No stage manifest was found for this application. Stage and publish it first.");
         var applicationId = string.IsNullOrWhiteSpace(manifest.ApplicationId) ? fallbackApplicationId : manifest.ApplicationId;
         var marker = ApplicationPackagerEngine.Services.Supersedence.IdentityMarker.For(manifest, fallbackApplicationId);
         if (marker is null || string.IsNullOrWhiteSpace(applicationId)) return (null, "This application has no identity marker, so its line cannot be found.");

@@ -102,13 +102,17 @@ public partial class PackagesViewModel : IOneClickRunner, IPublishActionHost
         }
         var p = selected[0];
         IsOperationRunning = true;
+        ShowProgress = true;
+        ProgressCurrent = 0;
+        ProgressTotal = 1;
+        _operationCts = new CancellationTokenSource();
         try
         {
             var (scope, error) = _executionService.RewriteScopeFor(p, null);
             if (scope is null) { AddLogLine($"Rewrite old versions: {error}"); StatusText = "Rewrite old versions not possible."; return; }
             StatusText = $"Reading the line of {p.Application} from the site...";
             AddLogLine($"Rewrite old versions: reading the line of {p.Application}");
-            var plan = await new ApplicationPackagerEngine.Services.Supersedence.OldVersionRewriteRunner().PlanAsync(scope, CancellationToken.None);
+            var plan = await new ApplicationPackagerEngine.Services.Supersedence.OldVersionRewriteRunner().PlanAsync(scope, _operationCts.Token);
             var restorable = RewriteOldVersionsPlans.Pending().Count;
             foreach (var item in plan.Items.Where(i => !i.Rewrites)) AddLogLine($"  left: {item.Application} / {item.DeploymentType}: {item.Skip}");
             foreach (var item in plan.Blocked) AddLogLine($"  blocked: {item}");
@@ -126,15 +130,25 @@ public partial class PackagesViewModel : IOneClickRunner, IPublishActionHost
             }
             if (outcome.Result is { } result) AddLogLine($"Rewrite old versions: {result.Summary}");
             if (outcome.UndoResult is { } undo) AddLogLine($"Restore: {undo.Summary}");
-            StatusText = "Rewrite old versions finished.";
+            if (!outcome.Confirmed) AddLogLine("Rewrite old versions: not confirmed; nothing was changed.");
+            StatusText = !outcome.Confirmed ? "Rewrite old versions not confirmed."
+                : outcome.Result?.Stop == ChangePlanStop.Completed ? "Rewrite old versions finished." : "Rewrite old versions stopped; see the log.";
         }
-        catch (Exception ex) when (ex is InvalidOperationException or IOException or UnauthorizedAccessException)
+        catch (OperationCanceledException)
+        {
+            AddLogLine("Rewrite old versions: cancelled while reading the site. Nothing was changed.");
+            StatusText = "Rewrite old versions cancelled.";
+        }
+        catch (Exception ex)
         {
             AddLogLine($"Rewrite old versions failed: {ex.Message}");
             StatusText = "Rewrite old versions failed.";
         }
         finally
         {
+            ShowProgress = false;
+            _operationCts?.Dispose();
+            _operationCts = null;
             IsOperationRunning = false;
         }
     }
