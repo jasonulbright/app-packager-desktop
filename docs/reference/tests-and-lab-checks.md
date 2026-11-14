@@ -613,3 +613,9 @@ The button **Rewrite old versions** on the Packages page opens the change plan w
 | `RewriteOldVersionsPlansTests` | No window when no clause can be rewritten; one row per rewritable clause with the destructive confirmation, the notes and Undo; the result rows (written, failed with the site text, not reached); the restore row names the operator that comes back. |
 
 **Lab check (not run here).** On CM01 with two published versions of a title and a recorded installed value of the old version: press the button, read the plan, confirm, check that the old application's clause reads IsEquals on the site and that `supersedence-rewrite.jsonl` holds the entry; press Undo and check that GreaterEquals is back. An old application with a required deployment shows as blocked and is not changed.
+
+## WQL Editor layout
+
+`WqlEditorLayoutTests` shows the Collection and Compliance page with the WQL Editor tab selected, in the light and dark theme at 1210 x 900 and 794 x 720, and measures: the gap from a label to its box (4 px), the gaps between the blocks (multiples of 4 px, at least 8 px), the same top and height of the rule box and the rule name box, the size of the query box (at least 120 px high and 360 px wide), the tops of one button row, the gap between buttons (8 px), the gap from the query box to the first button row (8 px), and no button cut off or outside the page. The test found one defect: the combo box was 37 px high and the text box 36 px; both are 40 px now.
+
+**Not done here.** The guide image `docs/images/tools-collections-wql.png` is not retaken. It needs a lab capture on CLIENT01 (policy 2a: no window on the development PC).
