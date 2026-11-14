@@ -9,7 +9,7 @@ using ApplicationPackagerUI.Views.Windows;
 namespace ApplicationPackagerUI.Services;
 
 /// <summary>The WPF side of the publish actions: message boxes, pickers and the WSUS and One Click windows.</summary>
-public sealed class PublishDialogs(IWsusAdminClient wsusClient) : IPublishDialogs, IWsusPrompts
+public sealed class PublishDialogs(IWsusAdminClient wsusClient, IChangePlanDialogs changePlans) : IPublishDialogs, IWsusPrompts
 {
     /// <summary>The active window, so a prompt opened from a dialog stays in front of that dialog.</summary>
     private static Window? Owner() =>
@@ -47,6 +47,8 @@ public sealed class PublishDialogs(IWsusAdminClient wsusClient) : IPublishDialog
         { Owner = Owner() };
         window.ShowDialog();
     }
+
+    public ChangePlanOutcome ShowChangePlan(ChangePlan plan, ChangePlanRun run, ChangePlanRun? undo = null) => changePlans.Show(plan, run, undo);
 
     public void ShowOneClickPlan(OneClickPlanViewModel viewModel)
     {

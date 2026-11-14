@@ -136,6 +136,14 @@
                        ToolTipService.ShowOnDisabled="True"
                        AutomationProperties.AutomationId="btnApplySupersedence"
                        Margin="0,0,4,0" />
+            <ui:Button x:Name="btnRewriteOldVersions"
+                       Content="Rewrite old versions"
+                       Icon="{ui:SymbolIcon ArrowUndo24}"
+                       Command="{Binding RewriteOldVersionsCommand}"
+                       ToolTip="Changes the version clause of the older applications of the checked application's product line from GreaterEquals to IsEquals, so the uninstall through supersedence is reported as successful. Shows the plan first and keeps a log; Undo restores the old operator. Check one application."
+                       ToolTipService.ShowOnDisabled="True"
+                       AutomationProperties.AutomationId="btnRewriteOldVersions"
+                       Margin="0,0,4,0" />
             <ui:Button x:Name="btnPublishIntune"
                        Content="Publish to Intune"
                        Icon="{ui:SymbolIcon Cloud24}"

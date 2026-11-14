@@ -61,6 +61,7 @@ public partial class PackagesViewModel : ObservableObject
     public IAsyncRelayCommand PublishIntuneCommand { get; }
     public IAsyncRelayCommand PublishWsusCommand { get; }
     public IAsyncRelayCommand ApplySupersedenceCommand { get; }
+    public IAsyncRelayCommand RewriteOldVersionsCommand { get; }
     public IRelayCommand WsusUpdatesCommand { get; }
     public IAsyncRelayCommand OneClickCommand { get; }
 
@@ -108,6 +109,7 @@ public partial class PackagesViewModel : ObservableObject
         PublishWsusCommand = new AsyncRelayCommand(() => StartPublishRunAsync(PublishRunTargets.WsusOnly), () => CanRunOperation() && IsPublishWsusAvailable);
         WsusUpdatesCommand = new RelayCommand(OpenWsusUpdates, () => CanRunOperation() && IsWsusUpdatesAvailable);
         ApplySupersedenceCommand = new AsyncRelayCommand(ApplySupersedenceAsync, () => CanRunOperation() && IsPublishConfigMgrAvailable);
+        RewriteOldVersionsCommand = new AsyncRelayCommand(RewriteOldVersionsAsync, () => CanRunOperation() && IsPublishConfigMgrAvailable);
         OneClickCommand = new AsyncRelayCommand(OneClickAsync, CanRunOperation);
         InitializeDiscovery(discovery, discoveryPrompt);
 
@@ -157,6 +159,7 @@ public partial class PackagesViewModel : ObservableObject
         PublishIntuneCommand.NotifyCanExecuteChanged();
         PublishWsusCommand.NotifyCanExecuteChanged();
         ApplySupersedenceCommand.NotifyCanExecuteChanged();
+        RewriteOldVersionsCommand.NotifyCanExecuteChanged();
         WsusUpdatesCommand.NotifyCanExecuteChanged();
         OneClickCommand.NotifyCanExecuteChanged();
         DiscoverCommand.NotifyCanExecuteChanged();
