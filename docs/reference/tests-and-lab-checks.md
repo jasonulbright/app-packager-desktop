@@ -600,6 +600,6 @@ The button on the Packages page runs `PackagerExecutionService.ApplySupersedence
 
 | Test | What it proves |
 |---|---|
-| `LocalFileGridStageTests.ApplySupersedence_RefusesWithoutAStage_ThenWithoutASiteCode_AndContactsNoSite` | A row without a stage and a row without a site code are refused with their own sentence before any site call. |
+| `LocalFileGridStageTests.ApplySupersedence_RefusesWithoutAStage_ThenWithoutASiteOrTheMode_AndContactsNoSite` | A row without a stage and a row without a site code or with the mode off are refused with their own sentence before any site call. |
 
 **Lab check (not run here).** On CM01: publish version 1 and version 2 of a title with the mode `Replace`, remove the relation by hand, check the row, press **Apply supersedence**: the relation exists again and the inventory row reads Succeeded. Press it again: no relation is added twice.

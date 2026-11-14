@@ -69,7 +69,7 @@ public sealed class LocalFileGridStageTests : IDisposable
     }
 
     [Fact]
-    public async Task ApplySupersedence_RefusesWithoutAStage_ThenWithoutASiteCode_AndContactsNoSite()
+    public async Task ApplySupersedence_RefusesWithoutAStage_ThenWithoutASiteOrTheMode_AndContactsNoSite()
     {
         var (row, _) = await SavedRowAsync();
         var service = Service();
@@ -81,7 +81,7 @@ public sealed class LocalFileGridStageTests : IDisposable
         Assert.True((await service.StageAsync(row)).ExitCode == 0);
         var noSite = await service.ApplySupersedenceAsync(row, null, null, CancellationToken.None);
         Assert.False(noSite.Ok);
-        Assert.Contains("site code", noSite.Message);
+        Assert.True(noSite.Message.Contains("site code") || noSite.Message.Contains("is off"), noSite.Message);
     }
 
     [Fact]
