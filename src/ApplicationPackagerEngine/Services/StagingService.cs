@@ -374,8 +374,8 @@ public sealed class StagingService
 
             onProgress?.Invoke($"Version: {displayVersion}");
 
-            var appFolder = $"{def.Application.Replace(" ", "")}-{def.Architecture}";
-            var baseRoot = Path.Combine(downloadRoot, appFolder);
+            var appFolder = StageFolder.Name(def);
+            var baseRoot = Workbench.WorkbenchPaths.CombineUnder(downloadRoot, appFolder);
             var contentPath = Workbench.WorkbenchPaths.CombineUnder(baseRoot, AssertVersionSegment(displayVersion));
             stageLock = await StageLock.AcquireAsync(contentPath, $"{def.Application} {displayVersion}", StageLockTimeout, onProgress, ct);
             partial.Track(downloadRoot, contentPath);
@@ -1580,8 +1580,8 @@ public sealed class StagingService
                 return new StagingResult { Success = false, ErrorMessage = "Could not determine latest version" };
             onProgress?.Invoke($"Version: {version}");
 
-            var appFolder = $"{def.Application.Replace(" ", "")}-{def.Architecture}";
-            var baseRoot = Path.Combine(downloadRoot, appFolder);
+            var appFolder = StageFolder.Name(def);
+            var baseRoot = Workbench.WorkbenchPaths.CombineUnder(downloadRoot, appFolder);
             var contentPath = Path.Combine(baseRoot, version);
 
             AssertLayoutPathLength(contentPath, layout.MaxLayoutPathLength);
@@ -1884,8 +1884,8 @@ public sealed class StagingService
             onProgress?.Invoke($"Version: {version}");
 
             var edition = def.Architecture.Equals("x86", StringComparison.OrdinalIgnoreCase) ? "32" : "64";
-            var appFolder = $"{def.Application.Replace(" ", "")}-{def.Architecture}";
-            var baseRoot = Path.Combine(downloadRoot, appFolder);
+            var appFolder = StageFolder.Name(def);
+            var baseRoot = Workbench.WorkbenchPaths.CombineUnder(downloadRoot, appFolder);
             var contentPath = Path.Combine(baseRoot, version);
             stageLock = await StageLock.AcquireAsync(contentPath, $"{def.Application} {version}", StageLockTimeout, onProgress, ct);
             partial.Track(downloadRoot, contentPath);
@@ -2123,7 +2123,7 @@ public sealed class StagingService
         if (!string.IsNullOrEmpty(urlFileName) && urlFileName.Contains('.'))
             return urlFileName;
 
-        var safeName = def.Application.Replace(" ", "").Replace("(", "").Replace(")", "");
+        var safeName = StageFolder.FileStem(def.Application);
         var ext = def.InstallerType.ToUpperInvariant() switch
         {
             "MSI" => ".msi",
