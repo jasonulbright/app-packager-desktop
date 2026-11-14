@@ -85,6 +85,74 @@ public partial class PackagesViewModel : IOneClickRunner, IPublishActionHost
         }
     }
 
+    /// <summary>
+    /// "Rewrite old versions": the plan of the clauses that the rewrite would change for the checked application, in the change plan
+    /// window with its confirmation and Undo (Restore). When nothing is left to rewrite and an earlier rewrite is pending in the log,
+    /// the window offers that Restore. Works on one application at a time.
+    /// </summary>
+    private async Task RewriteOldVersionsAsync()
+    {
+        if (IsOperationRunning) { AddLogLine("Rewrite old versions skipped: another operation is running."); return; }
+        var selected = SelectedPackagers.ToList();
+        if (selected.Count != 1) { AddLogLine("Rewrite old versions works on one checked application at a time."); StatusText = "Check one application."; return; }
+        if (PublishRunService.RunGate(PublishRunTargets.ConfigMgr, _settingsService.Load()) is { } blocked)
+        {
+            AddLogLine($"Rewrite old versions blocked: {blocked}");
+            return;
+        }
+        var p = selected[0];
+        IsOperationRunning = true;
+        ShowProgress = true;
+        ProgressCurrent = 0;
+        ProgressTotal = 1;
+        _operationCts = new CancellationTokenSource();
+        try
+        {
+            var (scope, error) = _executionService.RewriteScopeFor(p, null);
+            if (scope is null) { AddLogLine($"Rewrite old versions: {error}"); StatusText = "Rewrite old versions not possible."; return; }
+            StatusText = $"Reading the line of {p.Application} from the site...";
+            AddLogLine($"Rewrite old versions: reading the line of {p.Application}");
+            var plan = await new ApplicationPackagerEngine.Services.Supersedence.OldVersionRewriteRunner().PlanAsync(scope, _operationCts.Token);
+            var restorable = RewriteOldVersionsPlans.Pending().Count;
+            foreach (var item in plan.Items.Where(i => !i.Rewrites)) AddLogLine($"  left: {item.Application} / {item.DeploymentType}: {item.Skip}");
+            foreach (var item in plan.Blocked) AddLogLine($"  blocked: {item}");
+            ApplicationPackagerUI.Services.ChangePlanOutcome outcome;
+            if (RewriteOldVersionsPlans.ForRewrite(plan, scope, restorable) is { } rewrite)
+                outcome = _publishDialogs.ShowChangePlan(rewrite.Plan, rewrite.Run, rewrite.Undo);
+            else if (RewriteOldVersionsPlans.ForRestore(scope) is { } restore)
+                outcome = _publishDialogs.ShowChangePlan(restore.Plan, restore.Run);
+            else
+            {
+                AddLogLine("Rewrite old versions: nothing to rewrite and nothing to restore.");
+                StatusText = "Nothing to rewrite.";
+                _publishDialogs.ShowMessage("Rewrite old versions", "No old version of this line has a clause that the rewrite can change, and no earlier rewrite is pending. The log lists each clause and why it is left.");
+                return;
+            }
+            if (outcome.Result is { } result) AddLogLine($"Rewrite old versions: {result.Summary}");
+            if (outcome.UndoResult is { } undo) AddLogLine($"Restore: {undo.Summary}");
+            if (!outcome.Confirmed) AddLogLine("Rewrite old versions: not confirmed; nothing was changed.");
+            StatusText = !outcome.Confirmed ? "Rewrite old versions not confirmed."
+                : outcome.Result?.Stop == ChangePlanStop.Completed ? "Rewrite old versions finished." : "Rewrite old versions stopped; see the log.";
+        }
+        catch (OperationCanceledException)
+        {
+            AddLogLine("Rewrite old versions: cancelled while reading the site. Nothing was changed.");
+            StatusText = "Rewrite old versions cancelled.";
+        }
+        catch (Exception ex)
+        {
+            AddLogLine($"Rewrite old versions failed: {ex.Message}");
+            StatusText = "Rewrite old versions failed.";
+        }
+        finally
+        {
+            ShowProgress = false;
+            _operationCts?.Dispose();
+            _operationCts = null;
+            IsOperationRunning = false;
+        }
+    }
+
     /// <summary>One publish run for the checked rows with the button's own destination; the saved deployment target plays no part.</summary>
     private Task StartPublishRunAsync(string target) =>
         target == PublishRunTargets.WsusOnly ? PublishWsusRunAsync() : PackageAsync(null, target, null);

@@ -603,3 +603,13 @@ The button on the Packages page runs `PackagerExecutionService.ApplySupersedence
 | `LocalFileGridStageTests.ApplySupersedence_RefusesWithoutAStage_ThenWithoutASiteOrTheMode_AndContactsNoSite` | A row without a stage and a row without a site code or with the mode off are refused with their own sentence before any site call. |
 
 **Lab check (not run here).** On CM01: publish version 1 and version 2 of a title with the mode `Replace`, remove the relation by hand, check the row, press **Apply supersedence**: the relation exists again and the inventory row reads Succeeded. Press it again: no relation is added twice.
+
+## Supersedence: the rewrite window (old-version clause, with Restore)
+
+The button **Rewrite old versions** on the Packages page opens the change plan window for the checked application (one at a time). The plan reads the line from the site with `OldVersionRewriteRunner.PlanAsync` (the same plan as `--rewrite-old-versions plan`). The window lists each clause that would change, shows the blocked and left clauses with their reasons in the notes, and asks for the confirmation text of the specification before Confirm. Confirm writes the log ahead and rewrites (the same runner as `--rewrite-old-versions apply`). Undo is Restore (the same runner as `restore`). When nothing is left to rewrite and the log holds a pending rewrite, the window offers that Restore.
+
+| Test class | What it proves |
+|---|---|
+| `RewriteOldVersionsPlansTests` | No window when no clause can be rewritten; one row per rewritable clause with the destructive confirmation, the notes and Undo; the result rows (written, failed with the site text, not reached); the restore row names the operator that comes back. |
+
+**Lab check (not run here).** On CM01 with two published versions of a title and a recorded installed value of the old version: press the button, read the plan, confirm, check that the old application's clause reads IsEquals on the site and that `supersedence-rewrite.jsonl` holds the entry; press Undo and check that GreaterEquals is back. An old application with a required deployment shows as blocked and is not changed.

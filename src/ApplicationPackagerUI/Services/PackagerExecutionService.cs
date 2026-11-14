@@ -1155,6 +1155,52 @@ public class PackagerExecutionService(
         }
         return environment;
     }
+    /// <summary>
+    /// The site, the identity marker and the title key of one application for the rewrite of the old versions of its line. The marker comes
+    /// from the stage manifest of the row, as the publish writes it; the error text is set when none can be made.
+    /// </summary>
+    public (ApplicationPackagerEngine.Services.Supersedence.RewriteScope? Scope, string? Error) RewriteScopeFor(IPackagerExecutionRequest row, RunSnapshot? snapshot)
+    {
+        if (!row.IsJsonDefined && row.StagedManifestPath is null) return (null, "The rewrite does not apply to a PS1 packager.");
+        var settings = settingsService.Load();
+        if (string.IsNullOrWhiteSpace(settings.SiteCode)) return (null, "The rewrite needs a ConfigMgr site. Set the site code in Options.");
+        string? fallbackApplicationId = null;
+        StageManifest? fromDefinition = null;
+        if (row.IsJsonDefined && row.DefinitionPath is not null)
+        {
+            try
+            {
+                var def = LoadDefinition(row.DefinitionPath);
+                var source = ProfileSource.Resolve(WorkbenchStoreOrNull(snapshot), def.Id);
+                fallbackApplicationId = source.ApplicationId;
+                // The marker needs only the application, the profile and the architecture, so a row without a current stage still has one.
+                fromDefinition = new StageManifest { ApplicationId = source.ApplicationId, ProfileId = source.ActiveProfileId, Architecture = def.Architecture };
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException or InvalidOperationException)
+            {
+                return (null, $"The definition {row.DefinitionPath} could not be read: {ex.Message}");
+            }
+        }
+        var manifestPath = StagedManifestPath(row, new PackagerExecutionResult { ExitCode = 0 }, snapshot) ?? ExistingStageManifest(row);
+        StageManifest manifest;
+        if (manifestPath is not null)
+        {
+            try { manifest = new ManifestService().Read(manifestPath); }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException or InvalidOperationException)
+            {
+                return (null, $"The stage manifest {manifestPath} could not be read: {ex.Message}");
+            }
+        }
+        else if (fromDefinition is not null) manifest = fromDefinition;
+        else return (null, "No stage manifest was found for this application. Stage and publish it first.");
+        var applicationId = string.IsNullOrWhiteSpace(manifest.ApplicationId) ? fallbackApplicationId : manifest.ApplicationId;
+        var marker = ApplicationPackagerEngine.Services.Supersedence.IdentityMarker.For(manifest, fallbackApplicationId);
+        if (marker is null || string.IsNullOrWhiteSpace(applicationId)) return (null, "This application has no identity marker, so its line cannot be found.");
+        return (new ApplicationPackagerEngine.Services.Supersedence.RewriteScope(
+            marker, applicationId.Trim(), settings.SiteCode, settings.ProviderMachine,
+            settings.Supersedence ?? new ApplicationPackagerEngine.Services.Supersedence.SupersedenceSettings()), null);
+    }
+
     /// <summary>What the "Apply supersedence" action did for one application.</summary>
     public sealed record SupersedenceApplyResult(bool Ok, string Message, ApplicationPackagerEngine.Services.Supersedence.SupersedenceStepStatus? Status = null);
 

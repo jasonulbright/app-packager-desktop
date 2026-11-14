@@ -95,6 +95,7 @@ The **Cancel** button shows only while an operation runs. Esc works only while a
 | **Stage** | Downloads and prepares the content. | [Stage and publish](stage-and-publish.md) |
 | **Publish to ConfigMgr** | Creates the ConfigMgr application. | [Stage and publish](stage-and-publish.md) |
 | **Apply supersedence** | Sets the supersedence relation from each checked application to the older version of its product line on the ConfigMgr site, without a new publish. It repeats the step that "Published, supersedence not applied" names, and it adds only the relations that are missing. | [Publish to ConfigMgr](publish-to-configmgr.md) |
+| **Rewrite old versions** | Shows the plan of the version clauses of the older applications of the line that would change from GreaterEquals to IsEquals, asks for the confirmation, rewrites, and restores through Undo. One application at a time. | [Publish to ConfigMgr](publish-to-configmgr.md) |
 | **Publish to Intune** | Publishes a Win32 app through Microsoft Graph. | [Stage and publish](stage-and-publish.md) |
 | **Publish to WSUS** | Publishes the installer as a WSUS update. | [WSUS publishing](wsus-publishing.md) |
 | **WSUS Updates** | Lists the updates that App Packager Desktop published to WSUS. | [WSUS publishing](wsus-publishing.md) |

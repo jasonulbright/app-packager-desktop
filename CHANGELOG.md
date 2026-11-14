@@ -8,6 +8,7 @@
 
 - Command line: `--record-installed-value <value> --version <version>` records the version that the installed product shows, and `--accept-exact-block --version <version>` accepts the block of the Exact guard. Both write the settings file and nothing else. A recorded value lets `--rewrite-old-versions` and the Exact guard take effect without editing the settings file by hand.
 - Packages page: the button **Apply supersedence** runs the lookup and the supersedence step for each checked application, with its stage and without a new publish. It needs a ConfigMgr site and the mode in Options (or the override of the title); the application needs the identity marker. The step reads the existing relations first, so a repeat adds only the missing ones. A success also replaces the state "Published, supersedence not applied" in the inventory.
+- Packages page: the button **Rewrite old versions** shows the plan of the clauses that the rewrite would change for the checked application, with the blocked and left clauses and the reason of each, and asks for the confirmation before it writes. Undo restores the old operator from the log `supersedence-rewrite.jsonl`. It is the same plan, runner and log as `--rewrite-old-versions`.
 
 ### Changed
 
