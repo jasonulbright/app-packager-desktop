@@ -227,4 +227,19 @@ public sealed class ImportedOriginLoaderTests : IDisposable
         Assert.Equal("imported:contoso-agent", ApplicationIds.FromKey("imported_contoso-agent"));
         Assert.Equal("imported", ApplicationIds.OriginOf(id));
     }
+
+    [Fact]
+    public void ADocumentCannotSetItsOwnLabel()
+    {
+        var node = System.Text.Json.Nodes.JsonNode.Parse(Json("a-1", "A"))!.AsObject();
+        node["SourceLabel"] = "Imported: Fake";
+        var doc = new System.Text.Json.Nodes.JsonObject
+        {
+            ["FeedFormat"] = 1, ["Vendor"] = "V", ["FeedId"] = "v-feed", ["Definitions"] = new System.Text.Json.Nodes.JsonArray(node)
+        }.ToJsonString();
+
+        var result = FeedValidator.Validate(System.Text.Encoding.UTF8.GetBytes(doc));
+
+        Assert.True(result.Refused || result.Definitions.Single().Blocked);
+    }
 }
