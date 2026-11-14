@@ -132,11 +132,11 @@ public sealed class SettingsDurabilityTests : IDisposable
     [Fact]
     public void AMissingFileWithoutASideFileThatReappearsIsWaitedFor()
     {
-        // No clock: the file appears on the third attempt of the load itself, so the load always sees the name absent first and
-        // present later, however busy the machine is.
+        // The file appears on the second attempt of the load itself, so the load sees the name absent first and present later, with
+        // one short sleep between the two (the quiet period of a load without a side file is 100 ms).
         SettingsService.ReadAttemptHook = attempt =>
         {
-            if (attempt == 3)
+            if (attempt == 2)
                 File.WriteAllText(SettingsService.SettingsPath, """{ "DownloadRoot": "C:\\new", "FirstRunCompleted": true }""");
         };
         try
@@ -157,10 +157,12 @@ public sealed class SettingsDurabilityTests : IDisposable
         // open a file that is written in place before it has its text.
         var incoming = Path.Combine(AppDataPaths.Root, "incoming-" + Guid.NewGuid().ToString("N"));
         File.WriteAllText(incoming, """{ "DownloadRoot": "C:\\new", "FirstRunCompleted": true }""");
-        // No clock: the file arrives on the load's third attempt, as a replace delivers it, with the side file still in place until then.
-        // Without the side file the load would have gone on waiting only for the quiet period; the attempt count makes the order certain.
+        // The file arrives on the load's third attempt, as a replace delivers it, with the side file still in place until then. The
+        // second attempt is held for longer than the quiet period of a load without a side file, so only the side file keeps this
+        // load waiting: without it the load returns first-run defaults after the second attempt. Time can only pass, never run short.
         SettingsService.ReadAttemptHook = attempt =>
         {
+            if (attempt == 2) Thread.Sleep(250);
             if (attempt != 3) return;
             File.Move(incoming, SettingsService.SettingsPath);
             File.Delete(backup);
