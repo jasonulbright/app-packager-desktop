@@ -132,22 +132,20 @@ public sealed class SettingsDurabilityTests : IDisposable
     [Fact]
     public void AMissingFileWithoutASideFileThatReappearsIsWaitedFor()
     {
-        // A dedicated thread: a thread-pool timer under a busy pool can fire after the
-        // quiet period, and the load then returns first-run defaults.
-        using var started = new ManualResetEventSlim();
-        var appear = new Thread(() =>
+        // No clock: the file appears on the third attempt of the load itself, so the load always sees the name absent first and
+        // present later, however busy the machine is.
+        SettingsService.ReadAttemptHook = attempt =>
         {
-            started.Set();
-            Thread.Sleep(20);
-            File.WriteAllText(SettingsService.SettingsPath, """{ "DownloadRoot": "C:\\new", "FirstRunCompleted": true }""");
-        });
-        appear.Start();
-        started.Wait();
+            if (attempt == 3)
+                File.WriteAllText(SettingsService.SettingsPath, """{ "DownloadRoot": "C:\\new", "FirstRunCompleted": true }""");
+        };
+        try
+        {
+            var loaded = new SettingsService().Load();
 
-        var loaded = new SettingsService().Load();
-        appear.Join();
-
-        Assert.Equal(@"C:\new", loaded.DownloadRoot);
+            Assert.Equal(@"C:\new", loaded.DownloadRoot);
+        }
+        finally { SettingsService.ReadAttemptHook = null; }
     }
 
     [Fact]
@@ -159,24 +157,21 @@ public sealed class SettingsDurabilityTests : IDisposable
         // open a file that is written in place before it has its text.
         var incoming = Path.Combine(AppDataPaths.Root, "incoming-" + Guid.NewGuid().ToString("N"));
         File.WriteAllText(incoming, """{ "DownloadRoot": "C:\\new", "FirstRunCompleted": true }""");
-        // A dedicated thread: a thread-pool timer under a busy pool can fire after the
-        // load's bound. The delay is longer than the quiet period a load without a side
-        // file waits, so only the side file keeps this load waiting.
-        using var started = new ManualResetEventSlim();
-        var appear = new Thread(() =>
+        // No clock: the file arrives on the load's third attempt, as a replace delivers it, with the side file still in place until then.
+        // Without the side file the load would have gone on waiting only for the quiet period; the attempt count makes the order certain.
+        SettingsService.ReadAttemptHook = attempt =>
         {
-            started.Set();
-            Thread.Sleep(250);
+            if (attempt != 3) return;
             File.Move(incoming, SettingsService.SettingsPath);
             File.Delete(backup);
-        });
-        appear.Start();
-        started.Wait();
+        };
+        try
+        {
+            var loaded = new SettingsService().Load();
 
-        var loaded = new SettingsService().Load();
-        appear.Join();
-
-        Assert.Equal(@"C:\new", loaded.DownloadRoot);
+            Assert.Equal(@"C:\new", loaded.DownloadRoot);
+        }
+        finally { SettingsService.ReadAttemptHook = null; }
     }
 
     [Fact]

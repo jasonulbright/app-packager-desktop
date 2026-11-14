@@ -18,6 +18,12 @@ public sealed record SiteHygieneLiveServices(
     public Func<TimeSpan, CancellationToken, Task> Delay { get; init; } = Task.Delay;
 
     /// <summary>
+    /// A seam for tests: called when the timer has handled a tick, with true when a refresh was already running (the tick joined it) and
+    /// false when the tick started a refresh. A test waits for it instead of waiting a fixed time. Null in the program.
+    /// </summary>
+    public Action<bool>? TickHandled { get; init; }
+
+    /// <summary>
     /// Saves the Live and Alerts options (<see cref="AppSettings.SiteHygieneLive"/>) with the SQL server and database that
     /// the page shares with Discover; a null SQL value keeps the stored value. False when nothing was written.
     /// </summary>
@@ -555,9 +561,11 @@ public sealed partial class SiteHygieneViewModel
                 // A refresh that runs at the tick counts as this tick: the timer never starts a second one.
                 if (_refreshing is { IsCompleted: false } running)
                 {
+                    live.TickHandled?.Invoke(true);
                     await running;
                     continue;
                 }
+                live.TickHandled?.Invoke(false);
                 var task = RunRefreshAsync();
                 _refreshing = task.IsCompleted ? null : task;
                 await task;

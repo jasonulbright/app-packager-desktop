@@ -45,6 +45,13 @@ public class SettingsService : IRunSettingsReader<AppSettings>
 
     private static readonly TimeSpan MissingFileQuietPeriod = TimeSpan.FromMilliseconds(100);
 
+    /// <summary>
+    /// A seam for tests: called with the number of the attempt (1, 2, 3 ...) at the start of every attempt to read settings.json, on the
+    /// thread of the load. A test makes the file appear at a chosen attempt, so a load that waits for it never depends on a clock.
+    /// Null in the program.
+    /// </summary>
+    public static Action<int>? ReadAttemptHook { get; set; }
+
     private bool _readOnce;
     private (bool Read, string? Text, string? Error) _onceRead;
 
@@ -141,8 +148,10 @@ public class SettingsService : IRunSettingsReader<AppSettings>
     {
         var deadline = DateTime.UtcNow + MissingFileWait;
         var missingQuietDeadline = DateTime.UtcNow + MissingFileQuietPeriod;
+        var attempt = 0;
         while (true)
         {
+            ReadAttemptHook?.Invoke(++attempt);
             try
             {
                 return (File.ReadAllText(SettingsPath), null);

@@ -11,7 +11,7 @@ public sealed class SiteHygieneLiveTests
 {
     private static async Task WaitUntil(Func<bool> condition, string? what = null)
     {
-        for (var i = 0; i < 500 && !condition(); i++) await Task.Delay(10);
+        for (var i = 0; i < 3000 && !condition(); i++) await Task.Delay(10);
         Assert.True(condition(), what ?? "The condition did not hold in time.");
     }
 
@@ -256,8 +256,11 @@ public sealed class SiteHygieneLiveTests
         var gate = Live(h).Service.Gate = new TaskCompletionSource();
         var manual = vm.RefreshLiveAsync();
         await WaitUntil(() => Live(h).Service.RefreshCalls == 2);
+        // No fixed wait: the refresh is released only after the timer has handled the tick while the refresh still runs, so the
+        // result does not depend on how fast the machine schedules the timer.
+        var decision = Live(h).TickDecision = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
         Assert.True(clock.Tick());
-        await Task.Delay(100);
+        Assert.True(await decision.Task.WaitAsync(TimeSpan.FromSeconds(60)), "The tick started a second refresh.");
         Assert.Equal(2, Live(h).Service.RefreshCalls);
         gate.SetResult();
         await manual;

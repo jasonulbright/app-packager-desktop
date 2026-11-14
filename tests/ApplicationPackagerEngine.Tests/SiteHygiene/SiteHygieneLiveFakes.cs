@@ -339,6 +339,9 @@ internal sealed class SiteHygieneLiveFakes
     public List<(SiteHygieneLiveSettings Live, string? Server, string? Database)> LiveSaves { get; } = [];
     public bool LiveSaveFails;
 
+    /// <summary>A test sets this before a tick; the timer completes it with true (the tick joined a running refresh) or false (it started one).</summary>
+    public TaskCompletionSource<bool>? TickDecision;
+
     /// <summary>Writes a save into the settings the page reads, as the settings file does.</summary>
     public Action<SiteHygieneLiveSettings, string?, string?>? Stored;
     public HashSet<string> Files { get; } = new(StringComparer.OrdinalIgnoreCase);
@@ -346,6 +349,7 @@ internal sealed class SiteHygieneLiveFakes
     public SiteHygieneLiveServices Services() => new(Service, History, Alerts, AlertLog, Import, Reports)
     {
         Delay = Clock.Delay,
+        TickHandled = joined => TickDecision?.TrySetResult(joined),
         SaveLive = (live, server, database) =>
         {
             lock (LiveSaves) LiveSaves.Add((live, server, database));
