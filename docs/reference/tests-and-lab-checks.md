@@ -593,3 +593,13 @@ What the engine does, as the specification says:
 | `BuildArgumentsTests` | The two options parse, need `--version`, run alone and refuse a value that is no version; the usage names them. |
 
 **Not tested here.** The run of the command against a settings file (policy 2a: no run of the program on the development PC). Lab check: record a value, read the settings file, then `--rewrite-old-versions plan` on the lab site shows the clause as rewritable.
+
+## Supersedence: the "Apply supersedence" action
+
+The button on the Packages page runs `PackagerExecutionService.ApplySupersedenceAsync` for each checked application: it reads the stage manifest of the sealed or staged build, resolves the title as the publish resolves it, plans the supersedence (the same planner as a publish), and runs the step of `MecmTarget`. It records a success for the ConfigMgr destination in the inventory.
+
+| Test | What it proves |
+|---|---|
+| `LocalFileGridStageTests.ApplySupersedence_RefusesWithoutAStage_ThenWithoutASiteOrTheMode_AndContactsNoSite` | A row without a stage and a row without a site code or with the mode off are refused with their own sentence before any site call. |
+
+**Lab check (not run here).** On CM01: publish version 1 and version 2 of a title with the mode `Replace`, remove the relation by hand, check the row, press **Apply supersedence**: the relation exists again and the inventory row reads Succeeded. Press it again: no relation is added twice.

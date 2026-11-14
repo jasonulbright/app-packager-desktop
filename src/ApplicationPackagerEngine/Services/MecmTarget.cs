@@ -1038,13 +1038,13 @@ public sealed partial class MecmTarget
     /// </summary>
     public async Task<SupersedenceStepResult> RunSupersedenceAsync(
         string newApplicationName, string newVersion, string marker, SupersedenceMode mode,
-        string siteCode, string? providerMachine, Action<string>? onProgress, CancellationToken ct)
+        string siteCode, string? providerMachine, Action<string>? onProgress, CancellationToken ct, bool requirePublished = false)
     {
         if (mode == SupersedenceMode.Off || string.IsNullOrWhiteSpace(marker))
             return SupersedenceStepResult.NotRun;
         try
         {
-            return await RunSupersedenceCoreAsync(newApplicationName, newVersion, marker, mode, siteCode, providerMachine, onProgress, ct);
+            return await RunSupersedenceCoreAsync(newApplicationName, newVersion, marker, mode, siteCode, providerMachine, onProgress, ct, requirePublished);
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested)
         {
@@ -1087,7 +1087,7 @@ public sealed partial class MecmTarget
 
     private async Task<SupersedenceStepResult> RunSupersedenceCoreAsync(
         string newApplicationName, string newVersion, string marker, SupersedenceMode mode,
-        string siteCode, string? providerMachine, Action<string>? onProgress, CancellationToken ct)
+        string siteCode, string? providerMachine, Action<string>? onProgress, CancellationToken ct, bool requirePublished)
     {
         var lookup = await WindowsPowerShellHost.RunAsync(
             SupersedenceScripts.BuildLookupScript(siteCode, providerMachine, marker, newApplicationName), null, ct);
@@ -1095,6 +1095,15 @@ public sealed partial class MecmTarget
             return new(SupersedenceStepStatus.NotApplied, $"the lookup of the older version failed: {SupersedenceScripts.FailureText(lookup.StdOut, lookup.StdErr)}", []);
 
         var applications = SupersedenceLookup.ParseSiteApplications(lookup.StdOut);
+        if (requirePublished)
+        {
+            // The action without a publish: the application of this title and version must be on the site, or nothing is applied.
+            var published = applications.FirstOrDefault(a => string.Equals(a.Title, newApplicationName, StringComparison.OrdinalIgnoreCase));
+            if (published is null)
+                return new(SupersedenceStepStatus.NotApplied, $"The application '{newApplicationName}' is not on the site. Publish it first.", []);
+            if (!ExactGuard.SameVersionText(published.SoftwareVersion ?? "", newVersion))
+                return new(SupersedenceStepStatus.NotApplied, $"The site holds '{newApplicationName}' at version {published.SoftwareVersion}, not {newVersion}. Publish this version first.", []);
+        }
         var chosen = SupersedenceLookup.Choose(applications, newApplicationName, newVersion);
         if (chosen.Old is null)
             return new(SupersedenceStepStatus.NoOlderVersion, chosen.Summary, chosen.Notes);

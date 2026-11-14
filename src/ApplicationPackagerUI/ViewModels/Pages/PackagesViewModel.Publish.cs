@@ -27,6 +27,64 @@ public partial class PackagesViewModel : IOneClickRunner, IPublishActionHost
     /// <summary>The grid status of a ConfigMgr or Intune run row.</summary>
     private static string RowStatus(string target, int exitCode) => PublishRunService.RowStatus(target, exitCode);
 
+    /// <summary>
+    /// "Apply supersedence": the lookup and the supersedence step for each checked application, with its stage and without a new publish.
+    /// Needs a ConfigMgr site; it is available where the ConfigMgr publish is.
+    /// </summary>
+    private async Task ApplySupersedenceAsync()
+    {
+        if (IsOperationRunning) { AddLogLine("Apply supersedence skipped: another operation is running."); return; }
+        var selected = SelectedPackagers.ToList();
+        if (selected.Count == 0) { ShowNoneSelected("Apply supersedence"); return; }
+        if (PublishRunService.RunGate(PublishRunTargets.ConfigMgr, _settingsService.Load()) is { } blocked)
+        {
+            AddLogLine($"Apply supersedence blocked: {blocked}");
+            return;
+        }
+        IsOperationRunning = true;
+        ShowProgress = true;
+        ProgressCurrent = 0;
+        ProgressTotal = selected.Count;
+        _operationCts = new CancellationTokenSource();
+        try
+        {
+            foreach (var p in selected)
+            {
+                if (_operationCts.IsCancellationRequested) break;
+                ProgressCurrent++;
+                StatusText = $"Apply supersedence: {ProgressCurrent} of {ProgressTotal} — {p.Application}";
+                AddLogLine($"Apply supersedence: {p.Application}");
+                try
+                {
+                    var result = await _executionService.ApplySupersedenceAsync(p, null, line => AddLogLine($"  {line}"), _operationCts.Token);
+                    AddLogLine($"  {(result.Ok ? "Supersedence" : "Supersedence not applied")}: {result.Message}");
+                    p.Status = !result.Ok ? "Supersedence not applied"
+                        : result.Status == ApplicationPackagerEngine.Services.Supersedence.SupersedenceStepStatus.Applied ? "Supersedence applied" : "No older version";
+                    p.StatusDetail = result.Ok ? null : result.Message;
+                }
+                catch (OperationCanceledException) when (_operationCts.IsCancellationRequested)
+                {
+                    AddLogLine("  Cancelled.");
+                    break;
+                }
+                catch (Exception ex)
+                {
+                    AddLogLine($"  Supersedence not applied: {ex.Message}");
+                    p.Status = "Supersedence not applied";
+                    p.StatusDetail = ex.Message;
+                }
+            }
+        }
+        finally
+        {
+            ShowProgress = false;
+            StatusText = "Apply supersedence finished.";
+            _operationCts?.Dispose();
+            _operationCts = null;
+            IsOperationRunning = false;
+        }
+    }
+
     /// <summary>One publish run for the checked rows with the button's own destination; the saved deployment target plays no part.</summary>
     private Task StartPublishRunAsync(string target) =>
         target == PublishRunTargets.WsusOnly ? PublishWsusRunAsync() : PackageAsync(null, target, null);
