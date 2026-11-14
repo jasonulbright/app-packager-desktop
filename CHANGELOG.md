@@ -2,7 +2,12 @@
 
 ## [Unreleased]
 
-## [2026.1111.42] - 2026-11-12
+## [2026.1114.42] - 2026-11-14
+
+### Notes
+
+- The Intune changes of this and the last release are tested against a fake Graph service only. They are not verified against a tenant.
+- The buttons Apply supersedence and Rewrite old versions and the command line recorder are tested without a ConfigMgr site. Their lab check on the test site (CM01) is listed in the test documentation and is not run yet.
 
 ### Added
 
