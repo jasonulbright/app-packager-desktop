@@ -24,10 +24,10 @@ public sealed record ProfileSource(string ApplicationId, string? ActiveProfileId
     public string? Failure { get; init; }
 
     /// <summary>Resolves the source for definition <paramref name="definitionId"/>; a null store is one that cannot be opened.</summary>
-    public static ProfileSource Resolve(WorkbenchStore? store, string definitionId)
+    public static ProfileSource Resolve(WorkbenchStore? store, string definitionId, ApplicationOrigin origin = ApplicationOrigin.Catalog)
     {
         string applicationId;
-        try { applicationId = ApplicationIds.New(ApplicationOrigin.Catalog, name: definitionId); }
+        try { applicationId = ApplicationIds.New(origin, name: definitionId); }
         catch (ArgumentException) { return new ProfileSource("", null, true); }
         if (!ApplicationIds.IsValid(applicationId)) return new ProfileSource(applicationId, null, true);
         if (store is null)

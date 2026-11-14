@@ -51,9 +51,17 @@ public static partial class ApplicationIds
             baseName = Path.GetFileNameWithoutExtension(path);
         if (string.IsNullOrWhiteSpace(baseName))
             throw new ArgumentException("An application id needs a script path or a name.");
-        baseName = Path.GetFileNameWithoutExtension(baseName);
+        // An imported Id may hold dots (Contoso.Agent and Contoso.Tools are two applications), so its name is not cut at the last dot.
+        if (origin != ApplicationOrigin.Imported) baseName = Path.GetFileNameWithoutExtension(baseName);
         return $"{PrefixOf(origin)}:{baseName}";
     }
+
+    /// <summary>
+    /// The origin that a run of a definition uses for its profile and its stage identity: an imported definition has its own
+    /// (imported:Id), never the catalog one of the shipped application that it replaced; every other definition keeps catalog:Id.
+    /// </summary>
+    public static ApplicationOrigin RunOrigin(ApplicationOrigin sourceOrigin) =>
+        sourceOrigin == ApplicationOrigin.Imported ? ApplicationOrigin.Imported : ApplicationOrigin.Catalog;
 
     public static string PrefixOf(ApplicationOrigin origin) => origin switch
     {

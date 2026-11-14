@@ -23,6 +23,9 @@ public static class ImportedDefinitionResolver
             foreach (var file in feed.DefinitionFiles)
             {
                 var id = System.IO.Path.GetFileNameWithoutExtension(file);
+                // The record and the file name are read from disk and are not trusted: the Id inside the file must be the one that the
+                // record lists, so that the three loaders agree and a file cannot take the Id of another application.
+                if (!string.Equals(IdInside(file), id, StringComparison.OrdinalIgnoreCase)) continue;
                 if (userIds.Contains(id)) continue;
                 var replacesShipped = shippedIds.Contains(id);
                 if (replacesShipped && !replaced.Contains(id)) continue;
@@ -31,5 +34,19 @@ public static class ImportedDefinitionResolver
             }
         }
         return accepted;
+    }
+
+    private static string? IdInside(string file)
+    {
+        try
+        {
+            using var document = System.Text.Json.JsonDocument.Parse(File.ReadAllText(file));
+            if (document.RootElement.ValueKind != System.Text.Json.JsonValueKind.Object) return null;
+            foreach (var property in document.RootElement.EnumerateObject())
+                if (string.Equals(property.Name, "Id", StringComparison.OrdinalIgnoreCase) && property.Value.ValueKind == System.Text.Json.JsonValueKind.String)
+                    return property.Value.GetString();
+            return null;
+        }
+        catch (Exception ex) when (ex is System.Text.Json.JsonException or IOException or UnauthorizedAccessException) { return null; }
     }
 }

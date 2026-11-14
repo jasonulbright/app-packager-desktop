@@ -164,6 +164,59 @@ public sealed class ImportedOriginLoaderTests : IDisposable
     }
 
     [Fact]
+    public void AFileWhoseIdInsideDiffersFromItsNameIsDroppedByEveryLoader()
+    {
+        _t.NewFile(Path.Combine(_shipped, "a.json"), Json("shared-1", "Shipped One"));
+        Feed("contoso", "Contoso", Early, ["shared-1"], ("agent", "Agent"));
+        // The record lists "agent"; the file now claims the Id of a shipped application.
+        File.WriteAllText(Path.Combine(_imported, "contoso", "agent.json"), Json("shared-1", "Not the agent"));
+
+        var apps = _t.Store.DiscoverApplications(Roots());
+        var loaded = PackagerDiscoveryService.LoadEffectiveDefinitions(_shipped, _user, default, _imported);
+
+        Assert.DoesNotContain(apps, a => a.Origin == ApplicationOrigin.Imported);
+        Assert.Single(apps, a => a.ApplicationId == "catalog:shared-1");
+        Assert.DoesNotContain(loaded, d => d.SourceOrigin == ApplicationOrigin.Imported);
+    }
+
+    [Fact]
+    public void ImportedIdsWithDotsStayTwoApplications()
+    {
+        Feed("contoso", "Contoso", Early, [], ("Contoso.Agent", "Agent"), ("Contoso.Tools", "Tools"));
+
+        var apps = _t.Store.DiscoverApplications(Roots());
+
+        Assert.Single(apps, a => a.ApplicationId == "imported:Contoso.Agent");
+        Assert.Single(apps, a => a.ApplicationId == "imported:Contoso.Tools");
+    }
+
+    [Fact]
+    public void AnImportedDefinitionRunsUnderItsOwnIdentityAndTheOthersKeepTheCatalogOne()
+    {
+        Assert.Equal(ApplicationOrigin.Imported, ApplicationIds.RunOrigin(ApplicationOrigin.Imported));
+        Assert.Equal(ApplicationOrigin.Catalog, ApplicationIds.RunOrigin(ApplicationOrigin.Catalog));
+        Assert.Equal(ApplicationOrigin.Catalog, ApplicationIds.RunOrigin(ApplicationOrigin.Custom));
+        Assert.Equal("imported:x1", ApplicationPackagerEngine.Services.StagingService.CatalogApplicationId(
+            new AppDefinition { Id = "x1", SourceOrigin = ApplicationOrigin.Imported }));
+        Assert.Equal("catalog:x1", ApplicationPackagerEngine.Services.StagingService.CatalogApplicationId(
+            new AppDefinition { Id = "x1", SourceOrigin = ApplicationOrigin.Custom }));
+    }
+
+    [Fact]
+    public void RecoverKeepsGoingAfterAFolderItCannotRepair()
+    {
+        Directory.CreateDirectory(Path.Combine(_imported, ".staging-a"));
+        Directory.CreateDirectory(Path.Combine(_imported, "contoso.old-1"));
+        File.WriteAllText(Path.Combine(_imported, "contoso.old-1", "source.json"), "{}");
+        // The staging folder is locked open, so its delete fails; the old copy of the other feed must still come back.
+        using var locked = new FileStream(Path.Combine(_imported, ".staging-a", "held.tmp"), FileMode.Create, FileAccess.ReadWrite, FileShare.None);
+
+        new ImportedDefinitionStore(_imported).Recover();
+
+        Assert.True(Directory.Exists(Path.Combine(_imported, "contoso")));
+    }
+
+    [Fact]
     public void TheImportedIdIsAValidApplicationIdWithItsOwnStorageKey()
     {
         var id = ApplicationIds.New(ApplicationOrigin.Imported, name: "contoso-agent");
