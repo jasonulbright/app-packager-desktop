@@ -76,6 +76,7 @@ public sealed class WqlEditorLayoutTests
                 AssertOnGrid(ruleName.Left - rules.Right, $"{name}: gap between the two boxes");
                 // The blocks are 8 px apart.
                 AssertOnGrid(ruleLabel.Top - collection.Bottom, $"{name}: collection block to rule row");
+                Assert.True(ruleLabel.Top - collection.Bottom >= 8 - Tolerance, $"{name}: the rule row is {ruleLabel.Top - collection.Bottom} px below the collection block.");
                 AssertOnGrid(editor.Top - rules.Bottom, $"{name}: rule row to the query box");
                 Assert.True(editor.Top - rules.Bottom >= 8 - Tolerance, $"{name}: the query box is {editor.Top - rules.Bottom} px below the rule row.");
 
