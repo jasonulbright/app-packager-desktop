@@ -11,6 +11,8 @@
 - Packages page: the button **Rewrite old versions** shows the plan of the clauses that the rewrite would change for the checked application, with the blocked and left clauses and the reason of each, and asks for the confirmation before it writes. Undo restores the old operator from the log `supersedence-rewrite.jsonl`. It is the same plan, runner and log as `--rewrite-old-versions`.
 
 ### Changed
+
+- Internal: every PowerShell script of the repository and every text file that a script or a test reads is plain ASCII (the box-drawing lines of `tools/RemoteTestHarness/RemoteTestHarness.ps1` are `=` now; the 26 definition files and 5 fixture files lost their UTF-8 byte-order mark; the Unicode characters of one plan-digest fixture are `XXXX` escapes with the same value). A test fails when such a file holds a byte-order mark or a character above 127.
 - Internal: two timing tests depend much less on the speed of the machine. `SettingsDurabilityTests` makes the settings file appear at a chosen read attempt (a seam, `SettingsService.ReadAttemptHook`) instead of after a sleep, and `SiteHygieneLiveTests.ATickWhileARefreshRunsStartsNoSecondRefresh` waits for the timer to report the tick (a seam, `TickHandled`) before it releases the refresh. The cause of the second one: the test waited 100 ms for the timer to look at the running refresh, and on a slow runner the refresh ended first, so the tick rightly started a new one.
 - WQL Editor (Collection and Compliance): the rule box and the rule name box have one height (40 px); before, the combo box was 1 px higher than the text box. A layout test now measures the tab in both themes at two window sizes (label gap, block gaps, box alignment, button rows, query box size, no cut-off button).
 
