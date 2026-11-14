@@ -34,7 +34,7 @@ public sealed class WorkbenchOpenDefinitionTests
         Assert.Equal("Local file", sources["custom:a1"]);
         Assert.Equal("From web", sources["custom:b2"]);
         Assert.Equal("Local file", sources["byo:0123"]);
-        Assert.Equal(["All sources", "Local file", "Shipped", "From web"], picker.SourceOptions);
+        Assert.Equal(["All sources", "Local file", "Shipped", "From web", "Imported"], picker.SourceOptions);
     }
 
     [Fact]

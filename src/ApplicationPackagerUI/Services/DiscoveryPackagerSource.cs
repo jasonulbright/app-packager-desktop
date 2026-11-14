@@ -33,7 +33,7 @@ public static class DiscoveryPackagerSource
     /// <summary>The shipped and user definitions, as the Packages grid resolves them.</summary>
     public static Task<IReadOnlyList<DiscoveryPackager>> LoadAsync(Action<string>? log, CancellationToken ct) =>
         Task.Run<IReadOnlyList<DiscoveryPackager>>(() => FromDefinitions(PackagerDiscoveryService.LoadEffectiveDefinitions(
-            IconPackService.BundledDefinitionsDirectory(), AppDataPaths.UserDefinitionsRoot, ct), log), ct);
+            IconPackService.BundledDefinitionsDirectory(), AppDataPaths.UserDefinitionsRoot, ct, ApplicationPackagerEngine.Services.VendorImport.ImportedDefinitionStore.DefaultRoot), log), ct);
 
     /// <summary>
     /// The case-insensitive object throws ArgumentException on a name that appears twice in

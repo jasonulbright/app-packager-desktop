@@ -43,7 +43,9 @@ public sealed class ImportedDefinitionStore(string root)
 
     public string Root { get; } = root;
 
-    public static ImportedDefinitionStore Default() => new(Path.Combine(AppDataPaths.Root, "ImportedDefinitions"));
+    public static string DefaultRoot => Path.Combine(AppDataPaths.Root, "ImportedDefinitions");
+
+    public static ImportedDefinitionStore Default() => new(DefaultRoot);
 
     private string FolderOf(string feedId)
     {

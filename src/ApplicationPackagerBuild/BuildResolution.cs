@@ -17,7 +17,7 @@ public sealed class BuildRefusal(string message) : Exception(message);
 /// </summary>
 public static partial class ApplicationResolver
 {
-    [GeneratedRegex("^(catalog|custom|byo):", RegexOptions.IgnoreCase)]
+    [GeneratedRegex("^(catalog|custom|byo|imported):", RegexOptions.IgnoreCase)]
     private static partial Regex PrefixPattern();
 
     public static string Resolve(string value, IReadOnlyList<WorkbenchApplication> discovered)
@@ -34,7 +34,7 @@ public static partial class ApplicationResolver
 
         var baseName = Path.GetFileNameWithoutExtension(text);
         if (string.IsNullOrWhiteSpace(baseName)) throw new BuildRefusal($"Invalid application '{value}'.");
-        foreach (var origin in new[] { ApplicationOrigin.Catalog, ApplicationOrigin.Custom })
+        foreach (var origin in new[] { ApplicationOrigin.Catalog, ApplicationOrigin.Custom, ApplicationOrigin.Imported })
         {
             var match = discovered.FirstOrDefault(a => a.Origin == origin && NameOf(a.ApplicationId).Equals(baseName, StringComparison.OrdinalIgnoreCase))
                         ?? discovered.FirstOrDefault(a => a.Origin == origin && a.SourcePath is not null

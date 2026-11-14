@@ -61,4 +61,7 @@ public sealed class WorkbenchDiscoveryRoots
 
     /// <summary>The user-writable definitions folder; each JSON file's Id becomes custom:&lt;Id&gt;.</summary>
     public string? CustomDefinitionsRoot { get; init; }
+
+    /// <summary>The folder of the imported feeds (ImportedDefinitions); each stored definition's Id becomes imported:&lt;Id&gt;.</summary>
+    public string? ImportedDefinitionsRoot { get; init; }
 }

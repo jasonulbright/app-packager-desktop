@@ -40,6 +40,8 @@ public partial class PackagerInfo : ObservableObject, IPackagerExecutionRequest
     public string? DefinitionPath { get; init; }
     /// <summary>Workbench namespace for a JSON definition: shipped/overridden catalog or user-authored custom.</summary>
     public ApplicationOrigin DefinitionOrigin { get; init; } = ApplicationOrigin.Catalog;
+    /// <summary>The grid label of an imported definition ("Imported: vendor (trust state)"); empty for the other origins.</summary>
+    public string SourceLabel { get; init; } = "";
 
     /// <summary>
     /// Stage manifest of an ad-hoc dropped installer. Set, the row packages straight from

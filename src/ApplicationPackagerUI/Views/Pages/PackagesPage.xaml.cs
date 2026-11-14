@@ -20,6 +20,7 @@ public partial class PackagesPage
 
         viewModel.PropertyChanged += OnViewModelPropertyChanged;
         ColIntune.Visibility = viewModel.ShowIntuneColumn ? Visibility.Visible : Visibility.Collapsed;
+        ColSource.Visibility = viewModel.ShowSourceColumn ? Visibility.Visible : Visibility.Collapsed;
 
         PreviewKeyDown += OnPageKeyDown;
         Loaded += (_, _) =>
@@ -116,6 +117,10 @@ public partial class PackagesPage
             ColCveEpss.Visibility = vis;
             ColCveUpdated.Visibility = vis;
             ColCveChecked.Visibility = vis;
+        }
+        else if (e.PropertyName == nameof(PackagesViewModel.ShowSourceColumn))
+        {
+            ColSource.Visibility = ((PackagesViewModel)DataContext!).ShowSourceColumn ? Visibility.Visible : Visibility.Collapsed;
         }
         else if (e.PropertyName == nameof(PackagesViewModel.ShowIntuneColumn))
         {

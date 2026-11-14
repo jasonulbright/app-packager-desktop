@@ -290,6 +290,10 @@ public sealed class AppDefinition
     /// <summary>Workbench identity namespace selected by discovery; never stored in the definition file.</summary>
     [JsonIgnore]
     public ApplicationOrigin SourceOrigin { get; set; } = ApplicationOrigin.Catalog;
+
+    /// <summary>The grid label of an imported definition ("Imported: vendor (trust state)"); empty for every other origin. From the feed folder, never from the file.</summary>
+    [JsonIgnore]
+    public string SourceLabel { get; set; } = "";
 }
 
 /// <summary>One separately acquired architecture payload in a multi-payload stage.</summary>

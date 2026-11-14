@@ -24,7 +24,13 @@ public partial class PackagesViewModel : ObservableObject
     private readonly IPublishDialogs _publishDialogs;
     private readonly PublishRunService _publishRuns;
 
-    [ObservableProperty] private ObservableCollection<PackagerInfo> _packagers = [];
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowSourceColumn))]
+    private ObservableCollection<PackagerInfo> _packagers = [];
+
+    /// <summary>The Source column of the grid shows only while a row is an imported definition; it is empty for every other row.</summary>
+    public bool ShowSourceColumn => Packagers.Any(p => p.SourceLabel.Length > 0);
+
     [ObservableProperty] private ObservableCollection<PackagerInfo> _filteredPackagers = [];
     [ObservableProperty] private string _searchText = "";
     [ObservableProperty] private string _comment = "";

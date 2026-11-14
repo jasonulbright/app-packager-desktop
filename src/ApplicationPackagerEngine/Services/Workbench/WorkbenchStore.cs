@@ -93,6 +93,10 @@ public sealed partial class WorkbenchStore
         var catalogDefinitions = ReadDefinitionFiles(roots.CatalogDefinitionsRoot);
         var catalogIds = catalogDefinitions.Keys.ToHashSet(StringComparer.OrdinalIgnoreCase);
         var overrides = ReadDefinitionFiles(roots.CatalogOverridesRoot);
+        var userIds = ReadDefinitionFiles(roots.CustomDefinitionsRoot ?? CustomDefinitionsRoot).Keys.ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var imported = VendorImport.ImportedDefinitionResolver.Resolve(roots.ImportedDefinitionsRoot, catalogIds, userIds);
+        // A shipped Id that a confirmed import replaces is no longer a catalog application (a user definition still wins over both).
+        var replacedShipped = imported.Where(i => i.ReplacesShipped).Select(i => i.Id).ToHashSet(StringComparer.OrdinalIgnoreCase);
 
         void AddDefinitions(
             string? root,
@@ -134,8 +138,15 @@ public sealed partial class WorkbenchStore
             }
         }
 
-        AddDefinitions(roots.CatalogDefinitionsRoot, ApplicationOrigin.Catalog, overrides);
+        AddDefinitions(roots.CatalogDefinitionsRoot, ApplicationOrigin.Catalog, overrides, excludedIds: replacedShipped);
         AddScripts(roots.PackagersRoot, ApplicationOrigin.Catalog);
+        foreach (var definition in imported)
+        {
+            var applicationId = ApplicationIds.New(ApplicationOrigin.Imported, name: definition.Id);
+            if (!ApplicationIds.IsValid(applicationId) || !seen.Add(applicationId)) continue;
+            var (_, name) = ReadDefinitionIdentity(definition.Path);
+            results.Add(Describe(applicationId, ApplicationOrigin.Imported, name ?? definition.Id, definition.Path, runnable: true));
+        }
         AddDefinitions(roots.CustomDefinitionsRoot ?? CustomDefinitionsRoot, ApplicationOrigin.Custom, excludedIds: catalogIds);
 
         if (Directory.Exists(ApplicationsRoot))

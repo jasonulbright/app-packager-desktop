@@ -581,6 +581,8 @@ What the engine does, as the specification says:
 |---|---|
 | `VendorImportTests` | Every row above, with a fake HTTP handler (no network) and a temporary folder: the refused addresses and redirects, the limits, the retry and the total time, cancel, the digest and the generic request; the validation of identifiers, names, addresses, duplicates, unknown properties, depth and count; the code block for each kind of code and the classification of the format; the preview, the pin, the confirmation, the conflicts and the replace rules; the storage swap, the failed write, the recovery, the order and Remove. |
 
+**Loaders (origin Imported).** `ImportedOriginLoaderTests` proves, with temporary folders: an imported definition gets `imported:<Id>` and the origin Imported and never Catalog; a shipped Id is replaced only for a confirmed Id (and then is no longer a catalog application); a user definition wins over an imported one in the Workbench discovery and in the catalog loader; the earlier of two feeds keeps a shared Id; the grid label `Imported: vendor (Definition document NOT verified)` comes from the feed folder and its record and not from a property of the file; the command-line resolution finds an imported application by name and by prefix; the id and its storage key are valid.
+
 **Not yet tested.** The behavior of `SocketsHttpHandler` for headers and certificates on a redirect (the specification asks for a test against the real handler), the signed document (step 2) and the authenticated feeds (steps 5 and 6).
 
 ## Supersedence: the recorder of installed values (command line)
