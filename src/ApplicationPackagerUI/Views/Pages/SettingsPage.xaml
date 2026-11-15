@@ -21,6 +21,16 @@
             <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
             <Setter Property="Margin" Value="0,0,0,4" />
         </Style>
+        <!-- One size for every input of Options: the same minimum height for a text box, a password box and a drop-down list. -->
+        <Style TargetType="ui:TextBox" BasedOn="{StaticResource {x:Type ui:TextBox}}">
+            <Setter Property="MinHeight" Value="40" />
+        </Style>
+        <Style TargetType="ui:PasswordBox" BasedOn="{StaticResource {x:Type ui:PasswordBox}}">
+            <Setter Property="MinHeight" Value="40" />
+        </Style>
+        <Style TargetType="ComboBox" BasedOn="{StaticResource {x:Type ComboBox}}">
+            <Setter Property="MinHeight" Value="40" />
+        </Style>
         <Style x:Key="SectionDivider" TargetType="Border">
             <Setter Property="BorderThickness" Value="0,0,0,1" />
             <Setter Property="BorderBrush" Value="{DynamicResource CardStrokeColorDefaultBrush}" />
@@ -59,10 +69,10 @@
         <StackPanel Margin="0,0,0,32" MaxWidth="760" HorizontalAlignment="Left">
 
             <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-                <RadioButton Content="Dark" Margin="0,0,16,0"
+                <RadioButton Content="Dark Theme" Margin="0,0,16,0"
                              IsChecked="{Binding CurrentTheme, Converter={StaticResource EnumToBooleanConverter}, ConverterParameter=Dark}"
                              Command="{Binding ChangeThemeCommand}" CommandParameter="Dark" />
-                <RadioButton Content="Light"
+                <RadioButton Content="Light Theme"
                              IsChecked="{Binding CurrentTheme, Converter={StaticResource EnumToBooleanConverter}, ConverterParameter=Light}"
                              Command="{Binding ChangeThemeCommand}" CommandParameter="Light" />
             </StackPanel>

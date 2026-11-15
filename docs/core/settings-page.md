@@ -23,7 +23,7 @@ Use the page after the Setup window, or when a site, share, certificate or key c
 
 ![Top of the Settings page with the Sidebar, Updates, Organization and Systems in Use sections](../images/core-settings-top.png)
 
-The theme choice **Dark** or **Light** is at the top of the page. The window changes at once when you select a theme. **Save Settings** stores the choice. The default theme is **Dark**.
+The theme choice **Dark Theme** or **Light Theme** is at the top of the page. The window changes at once when you select a theme. **Save Settings** stores the choice. The default theme is **Dark Theme**.
 
 ## Options and settings of this page
 
