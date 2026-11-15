@@ -176,6 +176,8 @@ public sealed class FeedFetcher
                     if (!next.Scheme.Equals(Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase))
                         throw new FeedFetchException($"{Host(current)} redirects to a '{next.Scheme}' address, which is refused (HTTPS only).");
                     CheckAddress(next, "The target of a redirect");
+                    if (signature && (!string.Equals(next.Host, start.Host, StringComparison.OrdinalIgnoreCase) || next.Port != start.Port))
+                        throw new FeedFetchException($"The signature file redirects from {Host(start)} to {Host(next)}; the signature must come from the host of the document.");
                     current = next;
                     continue;
                 }

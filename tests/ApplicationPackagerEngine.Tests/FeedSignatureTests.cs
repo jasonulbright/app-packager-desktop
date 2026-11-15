@@ -72,6 +72,35 @@ public sealed class FeedSignatureTests : IDisposable
     // ---- the signature ----
 
     [Fact]
+    public void TheTextOfAPinParsesBackToTheSamePin()
+    {
+        var pin = PinOf(_vendor);
+
+        Assert.True(PublisherPin.TryParse(pin.Text, out var again, out var error), error);
+        Assert.Equal(pin, again);
+        var hash = Convert.ToHexString(SHA256.HashData(_vendor.PublicKey.ExportSubjectPublicKeyInfo()));
+        Assert.True(PublisherPin.TryParse("key:" + hash, out var byKey, out _));
+        Assert.True(PublisherPin.TryParse(byKey.Text, out var keyAgain, out _));
+        Assert.Equal(byKey, keyAgain);
+    }
+
+    [Fact]
+    public void ASignatureThatCarriesABrokenCertificateExtensionIsRefusedWithAReasonAndDoesNotThrow()
+    {
+        // The usage extension of the certificate is garbage; decoding it throws, and the check must report it as a refusal.
+        var broken = FeedSigningFixtures.NewCertificate("CN=Broken", FeedSigningFixtures.CodeSigning, Now.AddYears(-1), Now.AddYears(1));
+        var signature = FeedSigningFixtures.Sign(Document, broken);
+        var corrupted = signature.ToArray();
+        // Flip a byte inside the certificate so that its extension (or its signature) no longer decodes; any outcome must be a refusal.
+        corrupted[corrupted.Length / 3] ^= 0xFF;
+
+        var result = Trusting().Verify(Document, corrupted, PinOf(broken), Now);
+
+        Assert.False(result.Valid);
+        Assert.NotEmpty(result.Error!);
+    }
+
+    [Fact]
     public void ASignatureOfTheExactBytesByThePinnedPublisherIsValid()
     {
         var result = Trusting().Verify(Document, FeedSigningFixtures.Sign(Document, _vendor), PinOf(_vendor), Now);
@@ -225,6 +254,30 @@ public sealed class FeedSignatureTests : IDisposable
 
         Assert.Equal(new Uri("https://vendor.example/feeds/feed.json.p7s"), Assert.Single(handler.Requests));
         Assert.Equal([1, 2, 3], signature.Bytes);
+    }
+
+    [Fact]
+    public async Task TheSignatureFileMustComeFromTheHostOfTheDocument()
+    {
+        var handler = new Handler(request => request.RequestUri!.Host == "vendor.example"
+            ? new HttpResponseMessage(HttpStatusCode.Found) { Headers = { Location = new Uri("https://elsewhere.example/x.p7s") } }
+            : Ok([1], "application/pkcs7-signature"));
+
+        var error = await Assert.ThrowsAsync<FeedFetchException>(() =>
+            Fetcher(handler).FetchSignatureAsync(new Uri("https://vendor.example/feed.json"), CancellationToken.None));
+
+        Assert.Contains("host of the document", error.Message);
+    }
+
+    [Fact]
+    public void ATimeStampFromAnAuthorityThatExpiredSinceIsStillAcceptedAtTheTimeOfTheStamp()
+    {
+        var oldAuthority = FeedSigningFixtures.NewCertificate("CN=Old Authority", FeedSigningFixtures.TimeStamping, Now.AddYears(-5), Now.AddYears(-1));
+        var signature = FeedSigningFixtures.Sign(Document, _expired, s => FeedSigningFixtures.AddTimeStamp(s, oldAuthority, Now.AddYears(-2).AddDays(-30)));
+
+        var result = Verifier(_vendor, _expired, oldAuthority).Verify(Document, signature, PinOf(_expired), Now);
+
+        Assert.True(result.Valid, result.Error);
     }
 
     [Theory]

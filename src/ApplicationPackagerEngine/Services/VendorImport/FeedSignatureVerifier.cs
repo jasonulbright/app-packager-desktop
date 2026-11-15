@@ -10,7 +10,7 @@ namespace ApplicationPackagerEngine.Services.VendorImport;
 /// </summary>
 public sealed record PublisherPin(string? Subject, string? Issuer, string? PublicKeySha256)
 {
-    /// <summary>The text that the record and the window show: the pin as it was given.</summary>
+    /// <summary>The text that the record and the window show. It parses back to the same pin.</summary>
     public string Text => PublicKeySha256 is not null ? "key:" + PublicKeySha256 : $"{Subject} | {Issuer}";
 
     /// <summary>
@@ -48,7 +48,7 @@ public sealed record PublisherPin(string? Subject, string? Issuer, string? Publi
         }
     }
 
-    public static string Normalize(string distinguishedName) => new X500DistinguishedName(distinguishedName.Trim()).Format(false);
+    public static string Normalize(string distinguishedName) => new X500DistinguishedName(distinguishedName.Trim()).Name;
 }
 
 /// <summary>The outcome of the check of a detached signature of a feed document.</summary>
@@ -72,6 +72,12 @@ public sealed class FeedSignatureVerifier(Action<X509ChainPolicy>? configure = n
     private const string TimeStampTokenAttribute = "1.2.840.113549.1.9.16.2.14";
 
     public SignatureResult Verify(byte[] document, byte[] signature, PublisherPin pin, DateTimeOffset now)
+    {
+        try { return VerifyCore(document, signature, pin, now); }
+        catch (CryptographicException ex) { return Fail("The signature could not be checked: " + ex.Message); }
+    }
+
+    private SignatureResult VerifyCore(byte[] document, byte[] signature, PublisherPin pin, DateTimeOffset now)
     {
         SignedCms cms;
         try
@@ -115,7 +121,7 @@ public sealed class FeedSignatureVerifier(Action<X509ChainPolicy>? configure = n
 
     private static SignatureResult Fail(string error) => new(false, null, null, null, error);
 
-    private static string Describe(X500DistinguishedName name) => name.Format(false);
+    private static string Describe(X500DistinguishedName name) => name.Name;
 
     private static bool Matches(PublisherPin pin, string subject, string issuer, string keyHash) =>
         pin.PublicKeySha256 is not null
@@ -139,6 +145,7 @@ public sealed class FeedSignatureVerifier(Action<X509ChainPolicy>? configure = n
         chain.ChainPolicy.RevocationFlag = X509RevocationFlag.ExcludeRoot;
         chain.ChainPolicy.ApplicationPolicy.Add(new Oid(usageOid));
         chain.ChainPolicy.VerificationTime = verificationTime;
+        chain.ChainPolicy.UrlRetrievalTimeout = TimeSpan.FromSeconds(15);
         chain.ChainPolicy.ExtraStore.AddRange(extra);
         configure?.Invoke(chain.ChainPolicy);
         if (chain.Build(certificate)) return null;
@@ -163,7 +170,7 @@ public sealed class FeedSignatureVerifier(Action<X509ChainPolicy>? configure = n
                 if (!HasUsage(authority, TimeStampingUsage))
                     return (null, "the certificate of the time stamping authority does not have the time-stamping usage.");
                 var extra = token.AsSignedCms().Certificates;
-                var failure = BuildChain(authority, extra, now.UtcDateTime, TimeStampingUsage);
+                var failure = BuildChain(authority, extra, token.TokenInfo.Timestamp.UtcDateTime, TimeStampingUsage);
                 if (failure is not null) return (null, "the time stamping authority is not trusted: " + failure.Value.Message);
                 return (token.TokenInfo.Timestamp, "");
             }
