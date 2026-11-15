@@ -5,6 +5,9 @@ namespace ApplicationPackagerUI.Models;
 
 public sealed class AppSettings
 {
+    /// <summary>The GitHub token of the operator, DPAPI-protected for the current Windows user. Empty: none saved. Never the plaintext.</summary>
+    public string GitHubTokenProtected { get; set; } = "";
+
     public string CompanyName { get; set; } = "";
 
     /// <summary>Look up the latest GitHub release when the app starts. The manual check is always available.</summary>

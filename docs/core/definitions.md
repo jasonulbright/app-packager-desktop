@@ -83,7 +83,7 @@ The scraper first returns the raw version. The `VersionTransform` field then pro
 
 In `DownloadUrl`, `{version}` is the raw version and `{display_version}` is the display version. A `DownloadUrlQuery` finds the address in the same answer. A found address replaces the `DownloadUrl` template. 75 shipped definitions have an empty `DownloadUrl` because the scraper finds the address.
 
-101 of the 323 definitions read `api.github.com`. Without a token, GitHub permits 60 requests each hour. App Packager Desktop takes a token from `APP_PACKAGER_GITHUB_TOKEN`, then `GITHUB_TOKEN`, then `gh auth token`.
+101 of the 323 definitions read `api.github.com`. Without a token, GitHub permits 60 requests each hour. App Packager Desktop takes a token from `APP_PACKAGER_GITHUB_TOKEN`, then `GITHUB_TOKEN`, then the token saved in Settings, then `gh auth token`.
 
 ## Detection types
 
@@ -148,7 +148,7 @@ These counts come from the 323 files.
 | `ERROR: No scraper registered for type '<type>'` | `VersionScraper.Type` is not one of the seven types. | Use a type from the table. |
 | `Refused download URL '<url>': it is not an absolute http or https URL.` | A definition holds a download address that is not an absolute http or https address. | Correct the definition. |
 | `ERROR: Could not determine latest version for <application>` | The scraper found no version. | Check `Url` and `Pattern`. Use **Test Scrape** on [Add from web](add-app.md) to test the same values. |
-| `GitHub API rate limit reached for <url> ...` | The scraper reads `api.github.com` without a token. | Set `APP_PACKAGER_GITHUB_TOKEN` or `GITHUB_TOKEN`, or run `gh auth login`. |
+| `GitHub API rate limit reached for <url> ...` | The scraper reads `api.github.com` without a token. | Set `APP_PACKAGER_GITHUB_TOKEN` or `GITHUB_TOKEN`, save a token in Settings, or run `gh auth login`. |
 | A definition is missing from the grid. | The file is not valid JSON, has an empty `Id`, or is hidden. | Check the file. Check the [Catalog](applications.md). |
 
 ## Links

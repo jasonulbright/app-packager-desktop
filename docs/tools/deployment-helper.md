@@ -13,7 +13,7 @@ The page has four tabs: **Deploy**, **Rings**, **History** and **Options**. This
 ## Requirements
 
 - The Configuration Manager console is on this computer. The page runs the console PowerShell module in Windows PowerShell 5.1.
-- **Systems in use** in Settings includes ConfigMgr. The **Site Code** and the **Site Server / SMS Provider Host** are set in Settings, **ConfigMgr Site Settings**. See [Settings page](../core/settings-page.md).
+- **Systems in Use** in Settings includes ConfigMgr. The **Site Code** and the **Site Server / SMS Provider Host** are set in Settings, **ConfigMgr Site Settings**. See [Settings page](../core/settings-page.md).
 - The ConfigMgr account has deployment rights for the object type, distribute content rights and read rights on collections. See [Permissions](../reference/permissions.md). The rights were not tested with a custom security role; the lab used a full administrator.
 - The audit log can be written. The **Options** tab shows this. A deployment is created only when the audit log can be written.
 - The page makes no network request other than the calls to the SMS Provider through the ConfigMgr session.
@@ -130,7 +130,7 @@ For a package or task sequence, the page sends the UTC flag with the available t
 
 | Message | Cause | Fix |
 |---|---|---|
-| ConfigMgr is not in use. Select it under Systems in use in Settings. | ConfigMgr is off in **Systems in use**. | Select ConfigMgr in Settings. |
+| ConfigMgr is not in use. Select it under Systems in Use in Settings. | ConfigMgr is off in **Systems in Use**. | Select ConfigMgr in Settings. |
 | Set the site code in Settings, ConfigMgr Site Settings. | The site code is empty. | Enter the **Site Code**. |
 | Built-in collections cannot be chosen. Pick a device collection that was made at the site. | The collection ID starts with `SMS`. | Select another collection. |
 | A Required deployment installs on every device of the collection and needs its own confirmation, so nothing was created. | The plan was confirmed without the extra box. | Select the box in the plan. |

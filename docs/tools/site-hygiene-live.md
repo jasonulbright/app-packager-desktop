@@ -17,7 +17,7 @@ The scan, the findings and the fixes are in [Site Hygiene: scan the site and fix
 
 | Item | Requirement |
 |---|---|
-| Settings | In Settings, under **Systems in use**, select **ConfigMgr**. Set **Site Code**. |
+| Settings | In Settings, under **Systems in Use**, select **ConfigMgr**. Set **Site Code**. |
 | SMS Provider | **Deployments**, **Content**, **Distribution Points** and **Site Health** read through the SMS Provider. They need read rights on the objects. |
 | Site database | **Client Health** and **Inactive Devices** read the site database. The account needs read rights on it (`db_datareader`). The page uses Windows authentication and a read-only connection. |
 | SQL server | **Discovery SQL Server** and **Discovery Database** in Settings, or the SQL server and database boxes on the **Options** tab. If both are empty, the page finds them from the site definition on the SMS Provider. |

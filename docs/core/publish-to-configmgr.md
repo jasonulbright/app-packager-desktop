@@ -14,7 +14,7 @@
 
 - The Configuration Manager console on this computer. The app reads the module path from the `SMS_ADMIN_UI_PATH` environment variable.
 - Windows PowerShell 5.1.
-- **ConfigMgr** selected under **Systems in use** in Settings.
+- **ConfigMgr** selected under **Systems in Use** in Settings.
 - **Site Code** and **Site Server / SMS Provider Host** set in Settings, ConfigMgr Site Settings.
 - **File Share Root (UNC)** set in Settings. Your account needs write access to the share.
 - A ConfigMgr security role for the site that can create applications and deployment types. For the optional steps, the role also needs the rights to distribute content and to create deployments. The minimum role is not verified with a custom role. See [Permissions](../reference/permissions.md).
@@ -54,7 +54,7 @@ For each checked row, in this order:
 5. It copies the content to the share. The copy compares SHA-256 and overwrites a changed file. The log shows `Content synchronized: <n> copied, <n> refreshed, <n> unchanged.`
 6. It checks the copy on the share against the manifest.
 7. It connects to the site (`Connecting to ConfigMgr...`) and creates the application and its deployment types. The log shows `Packaged: <application name>`.
-8. It runs the After Package steps that Settings turns on.
+8. It runs the Post Packaging steps that Settings turns on.
 
 A ConfigMgr-only run builds no `.intunewin` file and copies nothing besides the content to the share. Only `Publish to Intune` builds the file, whether or not the Content Prep Tool is on the computer.
 
@@ -67,9 +67,9 @@ The share folder depends on **Content Layout**:
 
 Deployment types are created in the order of the definition. When the application changes version, the app creates the new deployment types under names that end in `(staging)` first.
 
-## After Package steps
+## Post Packaging steps
 
-These steps are optional. Turn them on in Settings, After Package.
+These steps are optional. Turn them on in Settings, Post Packaging.
 
 A new or overwritten application gets an identity marker in its keywords (`APD-Line:<definition identifier>|<profile>|<architecture>`). A later release uses it to find the older versions of one product line. The marker is written only when the application has no keywords of its own: the program never rewrites a keyword that you set. When the application has keywords, or the keywords cannot be read, no marker is written and the result carries a warning. A title with no definition identifier gets no marker. A publish that skips an existing application writes no marker. The Software Center shows keywords to users, so the marker is visible there. A PS1 packager row gets no marker and no version rule.
 
@@ -130,7 +130,7 @@ See [Settings reference](../reference/settings.md).
 |---|---|---|
 | Tooltip: `Publish to ConfigMgr: Needs the ConfigMgr console on this computer.` | The console module is not found. | Install the Configuration Manager console. |
 | Tooltip: `Publish to ConfigMgr: Set the site code in Settings, ConfigMgr Site Settings.` | The site code is empty. | Enter the site code. |
-| Tooltip: `Publish to ConfigMgr: ConfigMgr is not in use. Select it under Systems in use in Settings.` | **ConfigMgr** is not selected. | Select it under **Systems in use**. |
+| Tooltip: `Publish to ConfigMgr: ConfigMgr is not in use. Select it under Systems in Use in Settings.` | **ConfigMgr** is not selected. | Select it under **Systems in Use**. |
 | `This stage asks for the native MSIX deployment type of ConfigMgr, which App Packager no longer publishes. ...` | The manifest has the detection type `MSIX`: a stage from an older release, or a hand-written definition whose detection rule has the type `MSIX`. App Packager publishes an MSIX as a script deployment type. | Select **Stage** again. For a hand-written definition, change the detection rule to a registry key or a script rule first. |
 | `The application icon was not applied: <reason>` or `The application icon was not found: <path>` (in the detail of the ConfigMgr step in Operation History, and as `Application icon not applied` or `Application icon not found` in the log) | The application was created, but the site refused the icon or the icon file is not in the content folder. A missing icon does not stop the packaging, so the run counts as a success. | Check that the icon file is in the content folder and that the account can read it, then publish again with **Overwrite**, or set the icon in the console. |
 | `File Share Root is required. Open Settings to configure.` | The share root is empty. The check runs when the run starts. | Enter the share in Settings. |
@@ -142,7 +142,7 @@ See [Settings reference](../reference/settings.md).
 | `The ConfigurationManager PowerShell module was not found. Install the Configuration Manager console on this computer.` | The module file is missing. | Install the console. |
 | `The SMS Provider <name> denied access. The account needs a ConfigMgr security role for site <code>.` | Your account has no role on the site. | Ask the ConfigMgr administrator for a role. |
 | `The CMSite drive for site <code> on <provider> could not connect. Check the site code and the SMS Provider in Settings, ConfigMgr Site Settings.` | The site code or the provider name is wrong. | Correct the values in Settings. |
-| `Distribution failed: <reason>` or `Test deployment failed: <reason>` (log), and `ConfigMgr application created, but a step after it failed: <step> to '<target>' failed: <reason>` (run result, exit code 1) | An After Package step failed. The application exists, but clients cannot install it. The inventory records the ConfigMgr destination as Partial. | Fix the cause. Then distribute the content or deploy the application in the ConfigMgr console, or publish again with Overwrite. A publish with Skip finds the application and does not run the After Package steps again. In One Click, the version counts as published, so a new run skips it: select Force together with Existing ConfigMgr app = Overwrite, or use the console. |
+| `Distribution failed: <reason>` or `Test deployment failed: <reason>` (log), and `ConfigMgr application created, but a step after it failed: <step> to '<target>' failed: <reason>` (run result, exit code 1) | A Post Packaging step failed. The application exists, but clients cannot install it. The inventory records the ConfigMgr destination as Partial. | Fix the cause. Then distribute the content or deploy the application in the ConfigMgr console, or publish again with Overwrite. A publish with Skip finds the application and does not run the Post Packaging steps again. In One Click, the version counts as published, so a new run skips it: select Force together with Existing ConfigMgr app = Overwrite, or use the console. |
 | `Search query parameter 'LocalizedDisplayName' supports wildcards and -DisableWildcardHandling is defined. Search will only return exact matches.` (three times for each publish run) | The ConfigMgr cmdlet writes this warning into the log pane. It does not mean that the publish failed. | None. The message is a warning of the cmdlet. |
 
 See [Error messages](../reference/error-messages.md) and [Troubleshooting](../troubleshooting.md).

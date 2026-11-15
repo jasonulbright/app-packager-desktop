@@ -13,7 +13,7 @@ Use the Collections tab to create, copy, edit, evaluate or remove device collect
 
 ## Requirements
 
-- ConfigMgr must be selected under Systems in use in [Settings](../core/settings-page.md). If it is not, the page shows: "ConfigMgr is not in use. Select it under Systems in use in Settings."
+- ConfigMgr must be selected under Systems in Use in [Settings](../core/settings-page.md). If it is not, the page shows: "ConfigMgr is not in use. Select it under Systems in Use in Settings."
 - The `Site Code` and the `Site Server / SMS Provider Host` must be set in Settings, ConfigMgr Site Settings. If the site code is empty, the page shows: "Set the site code in Settings, ConfigMgr Site Settings."
 - The Configuration Manager console must be installed on this computer. The page uses its PowerShell module through Windows PowerShell 5.1.
 - The account that runs the application needs a ConfigMgr security role with "Read, Modify, Create and Delete on Collection and Query".
@@ -153,7 +153,7 @@ Each completed run adds one line to the operation history. The line holds counts
 
 | Message | Cause | Fix |
 |---|---|---|
-| ConfigMgr is not in use. Select it under Systems in use in Settings. | ConfigMgr is off in Settings. | Select ConfigMgr under Systems in use. |
+| ConfigMgr is not in use. Select it under Systems in Use in Settings. | ConfigMgr is off in Settings. | Select ConfigMgr under Systems in Use. |
 | Set the site code in Settings, ConfigMgr Site Settings. | The site code is empty. | Enter the `Site Code`. |
 | The ConfigurationManager PowerShell module was not found. Install the Configuration Manager console on this computer. | The console module is missing. | Install the Configuration Manager console. |
 | The SMS Provider <name> denied access. The account needs a ConfigMgr security role for site <code>. | The account has no role on the site. | Give the account a role with rights on collections and queries. The page adds: "The ConfigMgr console role needs collection and query rights." |

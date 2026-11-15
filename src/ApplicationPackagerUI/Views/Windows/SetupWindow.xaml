@@ -47,7 +47,7 @@
                     <TextBlock Text="Select the systems you publish to, then fill in their settings. The App Packager page has a publish button for each system. Everything here can be changed later in Settings."
                                Style="{StaticResource HintText}" />
 
-                    <TextBlock Text="Systems in use" Style="{StaticResource FieldLabel}" />
+                    <TextBlock Text="Systems in Use" Style="{StaticResource FieldLabel}" />
                     <CheckBox Content="ConfigMgr" IsChecked="{Binding UseConfigMgr}" Margin="0,0,0,4"
                               AutomationProperties.AutomationId="chkSetupConfigMgr"
                               ToolTip="ConfigMgr applications. Needs the ConfigMgr console, a site and a content share." />

@@ -9,16 +9,27 @@ namespace ApplicationPackagerEngine.Scrapers;
 /// Anonymous api.github.com requests share a 60/hour budget per source address,
 /// which a full-catalog sweep exhausts. A token raises the budget to 5000/hour.
 ///
-/// Resolution order: APP_PACKAGER_GITHUB_TOKEN, GITHUB_TOKEN, then `gh auth token`.
+/// Resolution order: APP_PACKAGER_GITHUB_TOKEN, GITHUB_TOKEN, the token saved in Settings, then `gh auth token`.
 /// No token resolves to null and every request stays anonymous.
 /// </summary>
 public static class GitHubAuth
 {
     private const string ApiHost = "api.github.com";
 
-    private static readonly Lazy<(string? Token, string? Source)> Cached = new(
-        () => ResolveTokenWithSource(Environment.GetEnvironmentVariable, ReadGhCliToken),
+    private static Lazy<(string? Token, string? Source)> Cached = NewCache();
+
+    private static Lazy<(string? Token, string? Source)> NewCache() => new(
+        () => ResolveTokenWithSource(Environment.GetEnvironmentVariable, ReadGhCliToken, StoredTokenProvider),
         LazyThreadSafetyMode.ExecutionAndPublication);
+
+    /// <summary>
+    /// The token that the operator saved in Settings (decrypted for the current Windows user), or null. The application sets it at start.
+    /// It comes after the two environment variables and before the gh CLI.
+    /// </summary>
+    public static Func<string?>? StoredTokenProvider { get; set; }
+
+    /// <summary>Forgets the resolved token, so the next request resolves again (after a save in Settings).</summary>
+    public static void Reset() => Cached = NewCache();
 
     /// <summary>
     /// The resolved token, or null when none is available. Resolved once per process.
@@ -70,13 +81,16 @@ public static class GitHubAuth
     /// search: the operator set it, so falling through would hide the problem.
     /// </summary>
     public static (string? Token, string? Source) ResolveTokenWithSource(
-        Func<string, string?> readEnv, Func<string?> readGhCli)
+        Func<string, string?> readEnv, Func<string?> readGhCli, Func<string?>? readStored = null)
     {
         foreach (var name in new[] { "APP_PACKAGER_GITHUB_TOKEN", "GITHUB_TOKEN" })
         {
             var value = readEnv(name)?.Trim();
             if (!string.IsNullOrEmpty(value)) return (Sanitize(value), name);
         }
+
+        var stored = readStored?.Invoke()?.Trim();
+        if (!string.IsNullOrEmpty(stored)) return (Sanitize(stored), "Settings");
 
         var cli = readGhCli()?.Trim();
         return string.IsNullOrEmpty(cli) ? (null, null) : (Sanitize(cli), "gh auth login");

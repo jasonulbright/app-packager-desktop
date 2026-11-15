@@ -14,7 +14,7 @@
 
 - An Entra app registration with the application permission `DeviceManagementApps.ReadWrite.All`. An administrator must consent to the permission.
 - A client secret for the app registration.
-- **Intune** selected under **Systems in use** in Settings.
+- **Intune** selected under **Systems in Use** in Settings.
 - **Tenant ID**, **Client ID** and **Client Secret** set in Settings, Intune.
 - Access to `login.microsoftonline.com` and `graph.microsoft.com`. Graph returns the address of the Azure storage upload. The app uses that address at run time.
 - The Win32 Content Prep Tool (`IntuneWinAppUtil.exe`). The first Intune build downloads it. You can also select **Download** in Settings, Detected Tools. The app checks the SHA-256 of the pinned release (1.8.7) and the publisher signature of a file that it downloads, before it installs that file. A copy of the tool that is already in the Tools folder or on the PATH is used as it is and is not checked again.
@@ -22,7 +22,7 @@
 
 ## Steps
 
-1. Open **Settings** and select **Intune** under **Systems in use**.
+1. Open **Settings** and select **Intune** under **Systems in Use**.
 2. In the **Intune** section, enter **Tenant ID** and **Client ID**.
 3. Enter the **Client Secret**. The app stores it encrypted for the current Windows user. If you leave the box empty, the app keeps the saved secret.
 4. Select **Save Settings**.
@@ -34,9 +34,9 @@
 10. Watch the log. A successful row shows `Published`. The log shows `Intune publish: published (app id <id>)`.
 11. Open the Intune admin center and assign the app.
 
-![The Intune and CVE lookup sections of Settings](../images/core-settings-intune-cve.png)
+![The Intune and CVE Lookup sections of Settings](../images/core-settings-intune-cve.png)
 
-If the button is disabled, point at it. The tooltip reads `Publish to Intune: Intune is not in use. Select it under Systems in use in Settings.` or `Publish to Intune: set Tenant ID, Client ID and Client Secret in Settings, Intune.`
+If the button is disabled, point at it. The tooltip reads `Publish to Intune: Intune is not in use. Select it under Systems in Use in Settings.` or `Publish to Intune: set Tenant ID, Client ID and Client Secret in Settings, Intune.`
 
 ## What the publish does
 
@@ -133,7 +133,7 @@ A requirement that has no such form blocks the Intune publish before the first G
 
 | Setting (Settings page) | Default | Effect |
 |---|---|---|
-| Intune (Systems in use) | off | Enables the button. |
+| Intune (Systems in Use) | off | Enables the button. |
 | Tenant ID | empty | Entra tenant. |
 | Client ID | empty | App registration. |
 | Client Secret | empty | Stored with DPAPI for the current Windows user. |

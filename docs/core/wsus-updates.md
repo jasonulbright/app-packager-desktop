@@ -15,7 +15,7 @@ This page is the second part of [WSUS publishing](wsus-publishing.md). That page
 
 ## Requirements
 
-- WSUS selected under **Systems in use** in Settings, and a **WSUS server** name. See [WSUS publishing](wsus-publishing.md).
+- WSUS selected under **Systems in Use** in Settings, and a **WSUS server** name. See [WSUS publishing](wsus-publishing.md).
 - The WSUS administration API on this computer. The window opens without it, but the list then shows the error text.
 - An account in the WSUS Administrators group on the server.
 - For Catalog Import: the WSUS server needs internet access. The server downloads the update metadata itself.
@@ -28,7 +28,7 @@ This page is the second part of [WSUS publishing](wsus-publishing.md). That page
 2. Select **WSUS Updates**.
 3. Read the summary line. It shows `<N> update(s) on <server>.`
 
-The button is disabled when **Systems in use** does not include WSUS or when no server is set. The tooltip names the missing setting.
+The button is disabled when **Systems in Use** does not include WSUS or when no server is set. The tooltip names the missing setting.
 
 ![The WSUS Updates window with the locally published updates of the server](../images/core-wsus-updates-window.png)
 

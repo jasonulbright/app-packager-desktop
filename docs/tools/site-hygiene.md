@@ -18,7 +18,7 @@ Do not use a fix on a production site without a backup of the site. Restore from
 
 | Item | Requirement |
 |---|---|
-| Settings | In Settings, under **Systems in use**, select **ConfigMgr**. Set **Site Code**. Set **Site Server / SMS Provider Host** unless this computer is the SMS Provider. |
+| Settings | In Settings, under **Systems in Use**, select **ConfigMgr**. Set **Site Code**. Set **Site Server / SMS Provider Host** unless this computer is the SMS Provider. |
 | Console | The ConfigMgr console must be installed on the computer. |
 | ConfigMgr rights, scan | Read rights on the objects that the selected areas read. |
 | ConfigMgr rights, fix | The right to delete or change the object. |

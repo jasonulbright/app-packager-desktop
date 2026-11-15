@@ -24,7 +24,7 @@ public sealed record PublishReadiness(
 /// </summary>
 public sealed record PublishActionState
 {
-    public const string NotInUse = "not in use. Select it under Systems in use in Settings.";
+    public const string NotInUse = "not in use. Select it under Systems in Use in Settings.";
 
     public required bool CheckMecmEnabled { get; init; }
     public required string CheckMecmToolTip { get; init; }

@@ -126,7 +126,7 @@
 
             <Border Style="{StaticResource SectionDivider}" />
 
-            <TextBlock Text="Systems in use" Style="{StaticResource SectionHeader}"
+            <TextBlock Text="Systems in Use" Style="{StaticResource SectionHeader}"
                        ToolTip="The App Packager page has a publish button for each system. A system that is not in use keeps its buttons disabled." />
             <TextBlock Text="The App Packager page has a publish button for each system. A system that is not in use keeps its buttons disabled."
                        Foreground="{DynamicResource TextFillColorSecondaryBrush}" Margin="0,0,0,8" TextWrapping="Wrap" />
@@ -216,7 +216,7 @@
 
             <Border Style="{StaticResource SectionDivider}" />
 
-            <TextBlock Text="After Package" Style="{StaticResource SectionHeader}" />
+            <TextBlock Text="Post Packaging" Style="{StaticResource SectionHeader}" />
             <TextBlock Text="Optional steps once the ConfigMgr application exists. Content goes to a distribution point group first; the test deployment is created only after that distribution is targeted."
                        Foreground="{DynamicResource TextFillColorSecondaryBrush}" Margin="0,0,0,8" TextWrapping="Wrap" />
 
@@ -407,7 +407,7 @@
             <Border Style="{StaticResource SectionDivider}" />
 
             <TextBlock Text="GitHub API" Style="{StaticResource SectionHeader}" />
-            <TextBlock Text="About a third of the catalog reads api.github.com. Anonymous requests share 60 per hour per address; a token from APP_PACKAGER_GITHUB_TOKEN, GITHUB_TOKEN or gh auth login raises that to 5,000."
+            <TextBlock Text="About a third of the catalog reads api.github.com. Anonymous requests share 60 per hour per address; a token from APP_PACKAGER_GITHUB_TOKEN, GITHUB_TOKEN, the token saved below or gh auth login raises that to 5,000."
                        Foreground="{DynamicResource TextFillColorSecondaryBrush}" Margin="0,0,0,8" TextWrapping="Wrap" />
 
             <DockPanel Margin="0,0,0,8">
@@ -420,6 +420,18 @@
                            Foreground="{DynamicResource TextFillColorSecondaryBrush}"
                            TextWrapping="Wrap" VerticalAlignment="Center" />
             </DockPanel>
+
+            <TextBlock Text="GitHub token" Style="{StaticResource FieldLabel}" />
+            <ui:PasswordBox Password="{Binding GitHubToken, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                            PlaceholderText="{Binding GitHubTokenHint}" Margin="0,0,0,4"
+                            AutomationProperties.AutomationId="pwdGitHubToken" />
+            <TextBlock Text="Stored encrypted for the current Windows user. Leave empty to keep the saved token. The two environment variables are used first, then this token, then gh auth login."
+                       Foreground="{DynamicResource TextFillColorTertiaryBrush}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,8" />
+            <CheckBox Content="Remove the saved token on Save"
+                      IsChecked="{Binding RemoveGitHubToken}"
+                      IsEnabled="{Binding HasStoredGitHubToken}"
+                      Margin="0,0,0,8"
+                      AutomationProperties.AutomationId="chkRemoveGitHubToken" />
 
             <Border Style="{StaticResource SectionDivider}" />
 
@@ -481,7 +493,7 @@
 
             <Border Style="{StaticResource SectionDivider}" />
 
-            <TextBlock Text="CVE lookup" Style="{StaticResource SectionHeader}" />
+            <TextBlock Text="CVE Lookup" Style="{StaticResource SectionHeader}" />
             <TextBlock Text="Check CVEs asks the NIST NVD API for the CVEs between the ConfigMgr version and the latest version of each application. Without a key NVD allows 5 requests in 30 seconds; with a key it allows 50."
                        Foreground="{DynamicResource TextFillColorTertiaryBrush}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,12" />
             <TextBlock Text="NVD API key" Style="{StaticResource FieldLabel}" />
@@ -530,7 +542,7 @@
             <TextBlock Text="{Binding Wsus.StatusText}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,12"
                        AutomationProperties.AutomationId="txtWsusStatus" Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
 
-            <TextBlock Text="Signing certificate" Style="{StaticResource SubHeader}" />
+            <TextBlock Text="Signing Certificate" Style="{StaticResource SubHeader}" />
             <TextBlock Text="{Binding Wsus.CertificateText}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,8"
                        AutomationProperties.AutomationId="txtWsusCert" Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
             <WrapPanel Margin="0,0,0,8">
@@ -584,14 +596,14 @@
             <CheckBox Content="Sign install and uninstall PowerShell scripts" IsChecked="{Binding Signing.SignDeployment}" Margin="0,0,0,12"
                       ToolTip="Signs the deployment execution chain and removes the execution-policy argument from its generated launchers, letting the configured endpoint policy govern. A vendor script that already carries an intact signature is left alone; an unsigned one is signed with this certificate." />
 
-            <TextBlock Text="Require valid signatures" Style="{StaticResource SubHeader}" />
+            <TextBlock Text="Require Valid Signatures" Style="{StaticResource SubHeader}" />
             <TextBlock Text="A publishing constraint, not a change to client execution policy. When a required category fails verification the build stops; there is no unsigned fallback."
                        Foreground="{DynamicResource TextFillColorTertiaryBrush}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,4" />
             <CheckBox Content="Require valid detection signatures" IsChecked="{Binding Signing.RequireDetection}" Margin="0,0,0,4" />
             <CheckBox Content="Require valid requirement signatures" IsChecked="{Binding Signing.RequireRequirements}" Margin="0,0,0,4" />
             <CheckBox Content="Require valid deployment script signatures" IsChecked="{Binding Signing.RequireDeployment}" Margin="0,0,0,12" />
 
-            <TextBlock Text="Signing identity" Style="{StaticResource SubHeader}" />
+            <TextBlock Text="Signing Identity" Style="{StaticResource SubHeader}" />
             <TextBlock Text="Certificate store" Style="{StaticResource FieldLabel}" />
             <ComboBox ItemsSource="{Binding Signing.StoreLocationOptions}" SelectedItem="{Binding Signing.StoreLocation}"
                       AutomationProperties.Name="Certificate store" AutomationProperties.AutomationId="SigningStore"
@@ -683,7 +695,7 @@
 
             <Border Style="{StaticResource SectionDivider}" />
 
-            <TextBlock Text="M365 Apps — Channel" Style="{StaticResource SectionHeader}" />
+            <TextBlock Text="M365 Apps - Channel" Style="{StaticResource SectionHeader}" />
             <TextBlock Text="Update channel for M365 Apps, Project, and Visio packagers."
                        Foreground="{DynamicResource TextFillColorSecondaryBrush}" Margin="0,0,0,8" />
 
@@ -760,7 +772,7 @@
 
             <Border Style="{StaticResource SectionDivider}" />
 
-            <TextBlock Text="Citrix Workspace App — Install Parameters" Style="{StaticResource SectionHeader}" />
+            <TextBlock Text="Citrix Workspace App - Install Parameters" Style="{StaticResource SectionHeader}" />
             <TextBlock Text="Used by the Current Release and LTSR definitions. A shaded box or an empty choice is not set: no switch is passed and the installer default applies."
                        Foreground="{DynamicResource TextFillColorSecondaryBrush}" Margin="0,0,0,8" TextWrapping="Wrap" />
 
@@ -837,7 +849,7 @@
                 </StackPanel>
             </Grid>
 
-            <TextBlock Text="Updates, telemetry and store policy" Style="{StaticResource SubHeader}" />
+            <TextBlock Text="Updates, Telemetry and Store Policy" Style="{StaticResource SubHeader}" />
             <Grid Margin="0,0,0,8">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
@@ -893,7 +905,7 @@
                 </StackPanel>
             </Grid>
 
-            <TextBlock Text="HDX features and display" Style="{StaticResource SubHeader}" />
+            <TextBlock Text="HDX Features and Display" Style="{StaticResource SubHeader}" />
             <Grid Margin="0,0,0,8">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />

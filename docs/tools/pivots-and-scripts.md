@@ -18,7 +18,7 @@ Do not use the page to run code on a device that has no ConfigMgr client. The ru
 
 | Item | Requirement |
 |---|---|
-| Settings | In Settings, under **Systems in use**, select **ConfigMgr**. Set **Site Code**. Set **Site Server / SMS Provider Host**. |
+| Settings | In Settings, under **Systems in Use**, select **ConfigMgr**. Set **Site Code**. Set **Site Server / SMS Provider Host**. |
 | Provider name | Enter the full name of the SMS Provider, the name that its certificate carries. |
 | Certificate | The computer must trust the certificate of the SMS Provider. |
 | Console | The ConfigMgr console must be installed on the computer. |
@@ -133,7 +133,7 @@ Keyboard rules in the editors:
 
 | Message | Cause | Fix |
 |---|---|---|
-| ConfigMgr is not in use. Select it under Systems in use in Settings. | **ConfigMgr** is off in Settings. | Select **ConfigMgr** under **Systems in use**. |
+| ConfigMgr is not in use. Select it under Systems in Use in Settings. | **ConfigMgr** is off in Settings. | Select **ConfigMgr** under **Systems in Use**. |
 | Set the site code in Settings, ConfigMgr Site Settings. | **Site Code** is empty. | Enter the site code. |
 | Set the SMS Provider in Settings, ConfigMgr Site Settings. | **Site Server / SMS Provider Host** is empty. | Enter the provider name. |
 | Select Resolve first. A run goes only to resolved targets. | The target text or kind changed after the last **Resolve**. | Select **Resolve**. |

@@ -10,7 +10,7 @@ using ApplicationPackagerUI.ViewModels.Windows;
 namespace ApplicationPackagerEngine.Tests.OneClick;
 
 /// <summary>
-/// The stored side of publishing per destination: Systems in use, the One Click
+/// The stored side of publishing per destination: Systems in Use, the One Click
 /// destinations and policy, the per-destination history, the retired .intunewin
 /// option, and what Setup saves. Each test points APP_PACKAGER_DATA_ROOT at its own folder.
 /// </summary>

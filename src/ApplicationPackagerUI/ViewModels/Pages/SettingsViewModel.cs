@@ -58,7 +58,7 @@ public partial class SettingsViewModel : ObservableObject, ISettingsReload
     public ObservableCollection<PathSettingRow> LocalSourceRows { get; } = [];
     public ObservableCollection<PathSettingRow> SideFileRows { get; } = [];
 
-    // Systems in use: a publish button whose system is not in use stays disabled.
+    // Systems in Use: a publish button whose system is not in use stays disabled.
     [ObservableProperty] private bool _useConfigMgr = true;
     [ObservableProperty] private bool _useIntune;
     [ObservableProperty] private bool _useWsus;
@@ -92,6 +92,11 @@ public partial class SettingsViewModel : ObservableObject, ISettingsReload
     /// key, a typed value replaces it DPAPI-protected.
     /// </summary>
     [ObservableProperty] private string _nvdApiKey = "";
+    [ObservableProperty] private string _gitHubToken = "";
+    [ObservableProperty] private bool _hasStoredGitHubToken;
+    [ObservableProperty] private bool _removeGitHubToken;
+    public string GitHubTokenHint => HasStoredGitHubToken ? "Stored - leave empty to keep it" : "Not set";
+    partial void OnHasStoredGitHubTokenChanged(bool value) => OnPropertyChanged(nameof(GitHubTokenHint));
     [ObservableProperty] private bool _hasStoredNvdApiKey;
     [ObservableProperty] private bool _removeNvdApiKey;
     [ObservableProperty] private bool _lookupCvesAfterCheckMecm;
@@ -411,18 +416,27 @@ public partial class SettingsViewModel : ObservableObject, ISettingsReload
     [RelayCommand]
     private async Task RefreshGitHubApiStatusAsync()
     {
-        if (GitHubApiBusy) return;
+        // A refresh that is asked for while one runs (a token saved while the first query is out) runs once more after it.
+        if (GitHubApiBusy) { _gitHubRefreshQueued = true; return; }
         GitHubApiBusy = true;
         try
         {
-            var status = await GitHubApiStatusService.QueryAsync();
-            GitHubApiStatus = status.StatusText();
+            do
+            {
+                _gitHubRefreshQueued = false;
+                // The token is read before the first await of the query, and reading it can start the gh CLI: not on the UI thread.
+                var status = await Task.Run(() => GitHubApiStatusService.QueryAsync());
+                GitHubApiStatus = status.StatusText();
+            }
+            while (_gitHubRefreshQueued);
         }
         finally
         {
             GitHubApiBusy = false;
         }
     }
+
+    private bool _gitHubRefreshQueued;
 
     /// <summary>
     /// Downloads and installs the packager icon pack. The service reports every failure
@@ -631,6 +645,9 @@ public partial class SettingsViewModel : ObservableObject, ISettingsReload
         NvdApiKey = "";
         RemoveNvdApiKey = false;
         HasStoredNvdApiKey = !string.IsNullOrWhiteSpace(s.Vulnerability.NvdApiKeyProtected);
+        GitHubToken = "";
+        RemoveGitHubToken = false;
+        HasStoredGitHubToken = !string.IsNullOrWhiteSpace(s.GitHubTokenProtected);
         LookupCvesAfterCheckMecm = s.Vulnerability.LookupAfterCheckCm;
 
         if (Enum.TryParse<ApplicationTheme>(s.Theme, out var theme))
@@ -721,6 +738,10 @@ public partial class SettingsViewModel : ObservableObject, ISettingsReload
         // The plaintext key never reaches settings.json.
         if (!string.IsNullOrWhiteSpace(NvdApiKey)) s.Vulnerability.NvdApiKeyProtected = NvdApiKeyStore.Protect(NvdApiKey);
         else if (RemoveNvdApiKey) s.Vulnerability.NvdApiKeyProtected = "";
+        // The GitHub token: an empty box keeps the saved one, a typed value replaces it (DPAPI, never the plaintext in settings.json).
+        var gitHubTokenChanged = !string.IsNullOrWhiteSpace(GitHubToken) || (RemoveGitHubToken && !string.IsNullOrEmpty(s.GitHubTokenProtected));
+        if (!string.IsNullOrWhiteSpace(GitHubToken)) s.GitHubTokenProtected = GitHubTokenStore.Protect(GitHubToken);
+        else if (RemoveGitHubToken) s.GitHubTokenProtected = "";
 
         // Write first. The typed secret and key stay in their boxes, and the stored flags stay as they were,
         // until the file holds them; a failed write then loses nothing the operator typed.
@@ -739,6 +760,15 @@ public partial class SettingsViewModel : ObservableObject, ISettingsReload
         NvdApiKey = "";
         RemoveNvdApiKey = false;
         HasStoredNvdApiKey = !string.IsNullOrWhiteSpace(s.Vulnerability.NvdApiKeyProtected);
+        GitHubToken = "";
+        RemoveGitHubToken = false;
+        HasStoredGitHubToken = !string.IsNullOrWhiteSpace(s.GitHubTokenProtected);
+        // The next request resolves the token again, and the status row shows where it came from; only a changed token needs it.
+        if (gitHubTokenChanged)
+        {
+            ApplicationPackagerEngine.Scrapers.GitHubAuth.Reset();
+            _ = RefreshGitHubApiStatusAsync();
+        }
 
         ThemeApplier.Apply(s.Theme);
         _packagesViewModel.RefreshPublishActionState();

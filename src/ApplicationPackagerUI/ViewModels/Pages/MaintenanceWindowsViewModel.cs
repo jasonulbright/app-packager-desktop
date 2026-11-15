@@ -82,7 +82,7 @@ public sealed partial class MaintenanceWindowsViewModel : ObservableObject
     public const string All = "All";
     public const string Enabled = "Enabled";
     public const string Disabled = "Disabled";
-    public const string NotInUseMessage = "ConfigMgr is not in use. Select it under Systems in use in Settings.";
+    public const string NotInUseMessage = "ConfigMgr is not in use. Select it under Systems in Use in Settings.";
     public const string SiteCodeMessage = "Set the site code in Settings, ConfigMgr Site Settings.";
     public const string SiteHint = " Check the site code and the SMS Provider in Settings, ConfigMgr Site Settings.";
     public const string AccessHint = " The ConfigMgr console role needs modify rights on collections for maintenance windows.";

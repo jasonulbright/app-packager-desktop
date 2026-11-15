@@ -64,7 +64,7 @@ public sealed class PublishActionStateTests
         var s = State(wsusServer: "wsus01", inUse: ["Wsus"]);
         Assert.False(s.CheckMecmEnabled || s.MecmEnabled);
         Assert.Contains("not in use", s.MecmToolTip);
-        Assert.Contains("Systems in use", s.MecmToolTip);
+        Assert.Contains("Systems in Use", s.MecmToolTip);
         Assert.True(s.WsusEnabled && s.WsusUpdatesEnabled);
         Assert.True(s.SkipMecmPreflight);
     }

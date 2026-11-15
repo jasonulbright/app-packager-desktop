@@ -136,7 +136,7 @@ public partial class PackagesViewModel : ObservableObject
     public static PublishReadiness ReadinessOf(AppSettings settings) => PublishRunService.ReadinessOf(settings);
 
     /// <summary>
-    /// Applies Systems in use and the stored settings to the publish buttons: a button
+    /// Applies Systems in Use and the stored settings to the publish buttons: a button
     /// whose system is not ready is disabled with a tooltip naming the missing setting,
     /// and one whose setting was saved since is enabled again. The only writer of these
     /// bound properties; called at launch, after a Settings save, and after Setup saves.
@@ -406,7 +406,7 @@ public partial class PackagesViewModel : ObservableObject
         if (_skipMecmPreflight)
         {
             MecmConnectionStatus = "Not used";
-            AddLogLine("ConfigMgr: pre-flight version query skipped; ConfigMgr is not in use (Settings, Systems in use).");
+            AddLogLine("ConfigMgr: pre-flight version query skipped; ConfigMgr is not in use (Settings, Systems in Use).");
             return;
         }
 

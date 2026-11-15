@@ -4,6 +4,14 @@
 
 ### Added
 
+- Settings, GitHub API: a **GitHub token** box. The token is stored encrypted for the current Windows user (never as plain text in `settings.json`) and is used by the version checks and the command-line build for `api.github.com` after the two environment variables (`APP_PACKAGER_GITHUB_TOKEN`, `GITHUB_TOKEN`) and before `gh auth login`. An empty box keeps the saved token; **Remove the saved token on Save** deletes it. The status row names the source ("Settings").
+
+### Changed
+
+- Settings: the section **After Package** is **Post Packaging**. The headings are in Title Case (the rule of the suite: each word starts with a capital letter, except and, or, in, of, to, the, a, for, on, at and with): Systems in Use, CVE Lookup, Signing Certificate, Require Valid Signatures, Signing Identity, Updates, Telemetry and Store Policy, HDX Features and Display; the dashes of "M365 Apps - Channel" and "Citrix Workspace App - Install Parameters" are hyphens. A test checks every heading of the page.
+
+### Added
+
 - Main window: a footer, lower right, shows the site code and the site server: "Site P01", a middle dot and "primary.contoso.test"; "Site not set" when both are empty; "Site not set", a middle dot and the server without a site code; "Site P01", a middle dot and "server not set" without a server. It has one font (Segoe UI), size (12, the smallest size of the type scale of this app) and style in both themes (only the color follows the theme), as in every ConfigMgr tool of the suite. It follows a save in Options or in the Setup window at once, and shows the site that the app uses, launcher-supplied values included. The site code and the site server are edited in Options and in the Setup window only; a test fails on an editable site field in any other window.
 
 ### Added
