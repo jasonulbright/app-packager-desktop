@@ -2,54 +2,38 @@
 
 ## [Unreleased]
 
-### Changed
+## [2026.1115.44] - 2026-11-15
 
-- Settings: every text box, password box and drop-down list has one minimum height (40 px) from one style of the page, and the two theme choices read "Dark Theme" and "Light Theme", as the theme toggle of the suite does. A test checks that no input of the page sets its own height.
+### Notes
 
-### Changed
-
-- Text weight (the rule of the suite): the text of every button is bold in both themes (one style for the app, `ButtonText.xaml`, and every page style of a button is based on it). Bold elsewhere is for the title of a field only: the headings of the pages, cards and Settings, the summaries, the results, the status texts and the values are no longer bold (also the sidebar group captions), and the field labels of Settings and the parameter names of the Pivots dialog are bold. The link buttons (the CVE counts and links) are bold too. The tab headers keep their bold selected state until the tabs get another cue. A test fails when a button turns its text normal, when a button style has no bold weight and no BasedOn, and when a text or a text style other than a field title is bold.
+- The Intune changes of the last releases are tested against a fake Graph service only. They are not verified against a tenant.
+- Nothing of this release ran on a machine of the lab yet: the lab checks of Import From URL (unsigned and signed documents), of Rewrite old versions and Restore Old Versions, of the new installer options and of the new footer and text weights are listed in the test documentation and are not run. The screenshots of the guide are not retaken for the new footer, the bold buttons and the Settings headings.
+- A package that you staged before this release keeps its old install.xml (Microsoft 365) and its old install arguments until you stage it again.
 
 ### Added
 
 - Settings, GitHub API: a **GitHub token** box. The token is stored encrypted for the current Windows user (never as plain text in `settings.json`) and is used by the version checks and the command-line build for `api.github.com` after the two environment variables (`APP_PACKAGER_GITHUB_TOKEN`, `GITHUB_TOKEN`) and before `gh auth login`. An empty box keeps the saved token; **Remove the saved token on Save** deletes it. The status row names the source ("Settings").
-
-### Changed
-
-- Settings: the section **After Package** is **Post Packaging**. The headings are in Title Case (the rule of the suite: each word starts with a capital letter, except and, or, in, of, to, the, a, for, on, at and with): Systems in Use, CVE Lookup, Signing Certificate, Require Valid Signatures, Signing Identity, Updates, Telemetry and Store Policy, HDX Features and Display; the dashes of "M365 Apps - Channel" and "Citrix Workspace App - Install Parameters" are hyphens. A test checks every heading of the page.
-
-### Added
-
 - Main window: a footer, lower right, shows the site code and the site server: "Site P01", a middle dot and "primary.contoso.test"; "Site not set" when both are empty; "Site not set", a middle dot and the server without a site code; "Site P01", a middle dot and "server not set" without a server. It has one font (Segoe UI), size (12, the smallest size of the type scale of this app) and style in both themes (only the color follows the theme), as in every ConfigMgr tool of the suite. It follows a save in Options or in the Setup window at once, and shows the site that the app uses, launcher-supplied values included. The site code and the site server are edited in Options and in the Setup window only; a test fails on an editable site field in any other window.
-
-### Added
-
 - Citrix Workspace (Settings, install parameters): `/forceinstall`, a fixed client name (`ENABLE_DYNAMIC_CLIENT_NAME=No` and `CLIENT_NAME`), `/SkipSRAgentUpgrade` with Session recording (Current Release), `AutoUpdateStream` and `AURolloutPriority` (only with `AutoUpdateCheck`), the HDX switches `ALLOW_BIDIRCONTENTREDIRECTION`, `FORCE_LAA` and `ALLOW_CLIENTHOSTEDAPPSURL`, `LEGACYFTAICONS`, `DisableSetting`, and the component `CitrixEnterpriseBrowser` for LTSR. Each is written only when set, so a package with none of them has the install command that it had; a value outside the documented set is skipped with a warning, as for the other switches. The Preview shows each result.
-
-### Added
-
 - Microsoft 365: the install options that the code wrote as fixed lines are settings of the six definitions now. Languages (ODT language IDs separated by commas; the pattern is checked; before, only en-us), Let ConfigMgr manage Office updates (`OfficeMgmtCOM`), Office updates (off writes `Updates Enabled=FALSE`), Close running Office apps (`FORCEAPPSHUTDOWN`), Remove installed Office MSI versions (`RemoveMSI`) and Device-based licensing. The defaults are the values of the fixed lines, so a package that you stage without changing them has the same install.xml (with `DeviceBasedLicensing` 0). An imported configuration.xml is not offered yet.
-
-### Added
-
 - Installer options that the audit of installer options listed as missing, all off or empty by default (the install command is unchanged until you choose one):
   - Adobe Acrobat Reader: Accept the license agreement (`EULA_ACCEPT=YES`), No desktop shortcut (`DISABLEDESKTOPSHORTCUT=1`), Block the Chrome extension (`ENABLE_CHROMEEXT=0`) and No browser plug-in (`DISABLE_BROWSER_INTEGRATION=YES`). `UPDATE_MODE` is not offered: the meaning of its values is not verified.
   - Beyond Compare 5: Turn off remote profiles (`/DisableRemoteProfiles`) and Do not save passwords (`/DisableSavedPasswords`), version 5.2 and later.
   - SQL Server Management Studio: one product language (`--addProductLang`, a code such as `de-de`; another text stops the stage) and Delete the package cache after the install (`--nocache`).
 - A setting of a definition can have a **ValuePattern**, a regular expression that its value must match; a value that does not match stops the stage with a message. See the definition format.
+- Packages page: the button **Restore Old Versions** restores the earlier rewrites of the checked application's line from the log on its own, with its plan and confirmation, beside Rewrite old versions.
+- Import From URL: a document can be signed. Enter a **pinned publisher** (the subject and the issuer of the code-signing certificate separated by `|`, or `key:` and the SHA-256 of its public key; not the thumbprint, so a renewal of the certificate does not break the pin). The program fetches the detached signature (`.p7s` at the address of the document with `.p7s` added, on the same host) and checks it for the exact bytes, the code-signing usage of the certificate, its chain to a trusted root with the online revocation check of Windows, and the signer against the pin. The state is then **Signed by pinned publisher** and needs no confirmation of the state "not verified". An expired certificate is accepted only with a checked RFC 3161 time stamp (its token belongs to this signature, its authority is trusted and has the time-stamping usage); any other time stamp is ignored. A failure stops the import and never falls back to "not verified". A signature does not unblock code in a definition.
+
+### Changed
+
+- Settings: every text box, password box and drop-down list has one minimum height (40 px) from one style of the page, and the two theme choices read "Dark Theme" and "Light Theme", as the theme toggle of the suite does. A test checks that no input of the page sets its own height.
+- Text weight (the rule of the suite): the text of every button is bold in both themes (one style for the app, `ButtonText.xaml`, and every page style of a button is based on it). Bold elsewhere is for the title of a field only: the headings of the pages, cards and Settings, the summaries, the results, the status texts and the values are no longer bold (also the sidebar group captions), and the field labels of Settings and the parameter names of the Pivots dialog are bold. The link buttons (the CVE counts and links) are bold too. The tab headers keep their bold selected state until the tabs get another cue. A test fails when a button turns its text normal, when a button style has no bold weight and no BasedOn, and when a text or a text style other than a field title is bold.
+- Settings: the section **After Package** is **Post Packaging**. The headings are in Title Case (the rule of the suite: each word starts with a capital letter, except and, or, in, of, to, the, a, for, on, at and with): Systems in Use, CVE Lookup, Signing Certificate, Require Valid Signatures, Signing Identity, Updates, Telemetry and Store Policy, HDX Features and Display; the dashes of "M365 Apps - Channel" and "Citrix Workspace App - Install Parameters" are hyphens. A test checks every heading of the page.
 
 ### Fixed
 
 - Rewrite old versions: **Undo**, the restore of the window and `--rewrite-old-versions restore` restore only the rewrites of the line of the checked application. Before, they took every entry of the log, so a restore for one line also tried the clauses of other lines and reported them as failures. The log entries now carry the line (the identity marker); an entry from before has none and stays open to every line (it is left, without a failure, when its application is not in this line).
 - Rewrite old versions: the plan is read again after the confirmation and before the first write. When the clauses to rewrite are not the ones that were shown (the site changed while the window was open), nothing is written and every row says so.
-
-### Added
-
-- Packages page: the button **Restore Old Versions** restores the earlier rewrites of the checked application's line from the log on its own, with its plan and confirmation, beside Rewrite old versions.
-
-### Added
-
-- Import From URL: a document can be signed. Enter a **pinned publisher** (the subject and the issuer of the code-signing certificate separated by `|`, or `key:` and the SHA-256 of its public key; not the thumbprint, so a renewal of the certificate does not break the pin). The program fetches the detached signature (`.p7s` at the address of the document with `.p7s` added, on the same host) and checks it for the exact bytes, the code-signing usage of the certificate, its chain to a trusted root with the online revocation check of Windows, and the signer against the pin. The state is then **Signed by pinned publisher** and needs no confirmation of the state "not verified". An expired certificate is accepted only with a checked RFC 3161 time stamp (its token belongs to this signature, its authority is trusted and has the time-stamping usage); any other time stamp is ignored. A failure stops the import and never falls back to "not verified". A signature does not unblock code in a definition.
 
 ## [2026.1115.43] - 2026-11-15
 
