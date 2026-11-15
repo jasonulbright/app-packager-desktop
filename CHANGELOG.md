@@ -4,7 +4,7 @@
 
 ### Added
 
-- Main window: a footer, lower right, shows the site code and the site server: "Site P01", a middle dot and "primary.contoso.test"; "Site not set" when both are empty; "Site not set", a middle dot and the server without a site code; "Site P01", a middle dot and "server not set" without a server. It has one font (Segoe UI), size (11) and style in both themes (only the color follows the theme), as in every ConfigMgr tool of the suite. It follows a save in Options or in the Setup window at once, and shows the site that the app uses, launcher-supplied values included. The site code and the site server are edited in Options and in the Setup window only; a test fails on an editable site field in any other window.
+- Main window: a footer, lower right, shows the site code and the site server: "Site P01", a middle dot and "primary.contoso.test"; "Site not set" when both are empty; "Site not set", a middle dot and the server without a site code; "Site P01", a middle dot and "server not set" without a server. It has one font (Segoe UI), size (12, the smallest size of the type scale of this app) and style in both themes (only the color follows the theme), as in every ConfigMgr tool of the suite. It follows a save in Options or in the Setup window at once, and shows the site that the app uses, launcher-supplied values included. The site code and the site server are edited in Options and in the Setup window only; a test fails on an editable site field in any other window.
 
 ### Added
 

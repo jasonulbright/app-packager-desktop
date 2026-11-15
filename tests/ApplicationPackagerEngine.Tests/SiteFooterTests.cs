@@ -89,7 +89,7 @@ public sealed class SiteFooterTests
 
         Assert.Equal("Right", (string?)footer.Attribute("HorizontalAlignment"));
         Assert.Equal("Segoe UI", (string?)footer.Attribute("FontFamily"));
-        Assert.Equal("11", (string?)footer.Attribute("FontSize"));
+        Assert.Equal("12", (string?)footer.Attribute("FontSize"));
         Assert.Equal("Normal", (string?)footer.Attribute("FontWeight"));
         Assert.Equal("Normal", (string?)footer.Attribute("FontStyle"));
         // The color is a theme brush, so the two themes differ only in color.

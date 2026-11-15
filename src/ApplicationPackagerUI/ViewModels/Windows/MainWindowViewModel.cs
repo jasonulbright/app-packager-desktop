@@ -43,7 +43,7 @@ public static class SiteFooter
     {
         var code = siteCode?.Trim() ?? "";
         var machine = server?.Trim() ?? "";
-        const string dot = "Â·";
+        var dot = ((char)0x00B7).ToString();
         if (code.Length == 0 && machine.Length == 0) return NotSet;
         if (code.Length == 0) return $"{NotSet} {dot} {machine}";
         if (machine.Length == 0) return $"Site {code} {dot} server not set";
