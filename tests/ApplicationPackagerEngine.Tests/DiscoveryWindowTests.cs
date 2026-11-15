@@ -66,11 +66,8 @@ public sealed class DiscoveryWindowTests
         var gridMarkup = Named(Markup(), "gridDiscover").ToString();
         var hostMarkup =
             "<Grid xmlns=\"http://schemas.microsoft.com/winfx/2006/xaml/presentation\" xmlns:ui=\"http://schemas.lepo.co/wpfui/2022/xaml\">"
-            + "<Grid.Resources><ResourceDictionary><ResourceDictionary.MergedDictionaries>"
-            + $"<ui:ThemesDictionary Theme=\"{theme}\" /><ui:ControlsDictionary />"
-            + "</ResourceDictionary.MergedDictionaries></ResourceDictionary></Grid.Resources>"
             + gridMarkup + "</Grid>";
-        RunSta(() =>
+        ApplicationPackagerEngine.Tests.Compliance.RenderKit.WithApplication(theme, () =>
         {
             var host = (Grid)System.Windows.Markup.XamlReader.Parse(hostMarkup);
             var grid = host.Children.OfType<DataGrid>().Single();
@@ -95,11 +92,8 @@ public sealed class DiscoveryWindowTests
         var gridMarkup = Named(Markup(), "gridDiscover").ToString();
         var hostMarkup =
             "<Grid xmlns=\"http://schemas.microsoft.com/winfx/2006/xaml/presentation\" xmlns:ui=\"http://schemas.lepo.co/wpfui/2022/xaml\">"
-            + "<Grid.Resources><ResourceDictionary><ResourceDictionary.MergedDictionaries>"
-            + $"<ui:ThemesDictionary Theme=\"{theme}\" /><ui:ControlsDictionary />"
-            + "</ResourceDictionary.MergedDictionaries></ResourceDictionary></Grid.Resources>"
             + gridMarkup + "</Grid>";
-        RunSta(() =>
+        ApplicationPackagerEngine.Tests.Compliance.RenderKit.WithApplication(theme, () =>
         {
             var host = (Grid)System.Windows.Markup.XamlReader.Parse(hostMarkup);
             var grid = host.Children.OfType<DataGrid>().Single();

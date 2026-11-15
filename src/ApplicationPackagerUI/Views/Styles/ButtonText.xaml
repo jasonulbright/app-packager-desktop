@@ -3,6 +3,10 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml">
 
+    <ResourceDictionary.MergedDictionaries>
+        <ResourceDictionary Source="/ApplicationPackagerUI;component/Views/Styles/Density.xaml" />
+    </ResourceDictionary.MergedDictionaries>
+
     <!-- The text of a button is always bold, in both themes (decision D-07 of the suite); bold elsewhere is for the title of a field only.
          Every button style of a page is based on this one. A test fails when a button turns its text normal. -->
     <!-- The size of a button: 32 px high at 14 pt (12 px left and right, 4 px above and below), on the 4 px grid. One style for the app. -->

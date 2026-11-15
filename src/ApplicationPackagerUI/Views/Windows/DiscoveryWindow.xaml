@@ -10,6 +10,14 @@
     ExtendsContentIntoTitleBar="True"
     WindowBackdropType="None">
 
+    <ui:FluentWindow.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="/ApplicationPackagerUI;component/Views/Styles/Density.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </ui:FluentWindow.Resources>
+
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
@@ -49,7 +57,7 @@
                     </DataGridTemplateColumn.HeaderStyle>
                     <!-- The default cell clips the check box in a 48 px column. The cell centers its content and clips nothing. -->
                     <DataGridTemplateColumn.CellStyle>
-                        <Style TargetType="DataGridCell" BasedOn="{StaticResource {x:Type DataGridCell}}">
+                        <Style TargetType="DataGridCell" BasedOn="{StaticResource DensityCell}">
                             <Setter Property="Template">
                                 <Setter.Value>
                                     <ControlTemplate TargetType="DataGridCell">
@@ -70,7 +78,7 @@
                 </DataGridTemplateColumn>
                 <DataGridTextColumn Header="Application" Binding="{Binding Name}" Width="*" MinWidth="200" IsReadOnly="True">
                     <DataGridTextColumn.ElementStyle>
-                        <Style TargetType="TextBlock" BasedOn="{StaticResource DefaultDataGridTextElementStyle}">
+                        <Style TargetType="TextBlock" BasedOn="{StaticResource DensityTextCell}">
                             <Setter Property="TextTrimming" Value="CharacterEllipsis" />
                             <Setter Property="ToolTip" Value="{Binding Name}" />
                         </Style>
@@ -78,7 +86,7 @@
                 </DataGridTextColumn>
                 <DataGridTextColumn Header="Vendor" Binding="{Binding Vendor}" Width="200" MinWidth="100" IsReadOnly="True">
                     <DataGridTextColumn.ElementStyle>
-                        <Style TargetType="TextBlock" BasedOn="{StaticResource DefaultDataGridTextElementStyle}">
+                        <Style TargetType="TextBlock" BasedOn="{StaticResource DensityTextCell}">
                             <Setter Property="TextTrimming" Value="CharacterEllipsis" />
                             <Setter Property="ToolTip" Value="{Binding Vendor}" />
                         </Style>

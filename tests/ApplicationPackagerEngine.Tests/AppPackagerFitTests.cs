@@ -25,7 +25,10 @@ public sealed class AppPackagerFitTests
     private const double FrameHeight = 48;
 
     /// <summary>The least number of complete data rows that the grid shows at every size in <see cref="Sizes"/>.</summary>
-    internal const int MinimumWholeRows = 6;
+    internal const int MinimumWholeRows = 10;
+
+    /// <summary>A row of a grid is 28 to 32 px high at 14 pt (decision D-20).</summary>
+    internal const double MinimumRowHeight = 28, MaximumRowHeight = 32;
 
     public static TheoryData<ApplicationTheme, int, int> Sizes => new()
     {
@@ -125,8 +128,11 @@ public sealed class AppPackagerFitTests
                 var grid = (DataGrid)page.FindName("PackagerGrid");
                 var whole = WholeRows(grid);
                 var lines = ToolbarLines(toolbar);
-                // The design basis is the maximized 1080p window (D-20): six whole rows there. The smaller windows keep at least four until the row height of Q-18 gives them more.
-                var needed = height >= 1000 ? MinimumWholeRows : 4;
+                // The design basis is the maximized 1080p window (D-20): ten whole rows there (rows of 28 to 32 px); the smaller windows keep five.
+                var needed = height >= 1000 ? MinimumWholeRows : 5;
+                var rowHeight = Descendants(grid).OfType<DataGridRow>().Where(r => r.ActualHeight > 0).Max(r => r.ActualHeight);
+                var firstRow = Descendants(grid).OfType<DataGridRow>().First(r => r.ActualHeight > 0);
+                Assert.True(rowHeight >= MinimumRowHeight - 0.5 && rowHeight <= MaximumRowHeight + 0.5, $"{where}: a row is {rowHeight:0.#} px high; a row is {MinimumRowHeight} to {MaximumRowHeight} px. Row margin {firstRow.Margin}, min {firstRow.MinHeight}, padding {firstRow.Padding}. Cells: " + string.Join("; ", Descendants(firstRow).OfType<System.Windows.Controls.DataGridCell>().Take(14).Select(c => $"{c.Column?.Header} h={c.ActualHeight:0} min={c.MinHeight} pad={c.Padding} content={string.Join("/", Descendants(c).OfType<FrameworkElement>().Skip(1).Take(4).Select(e => $"{e.GetType().Name}:{e.DesiredSize.Height:0}"))}")));
                 Assert.True(whole >= needed, $"{where}: the grid shows {whole} whole rows (needs {needed}); the toolbar uses {lines} lines and the grid is {grid.ActualHeight:0} px tall.");
 
                 var catalog = ById<ButtonBase>(page, "btnCatalog");
