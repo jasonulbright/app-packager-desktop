@@ -333,7 +333,7 @@
                     </DataGridTemplateColumn.Header>
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
-                            <CheckBox IsChecked="{Binding IsSelected, UpdateSourceTrigger=PropertyChanged}"
+                            <CheckBox IsChecked="{Binding IsSelected, UpdateSourceTrigger=PropertyChanged}" MinWidth="0" MinHeight="0"
                                       IsEnabled="{Binding IsRunnable}"
                                       HorizontalAlignment="Center" />
                         </DataTemplate>

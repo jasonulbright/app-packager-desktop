@@ -17,7 +17,7 @@ public sealed class DensityStyleTests
     [Fact]
     public void EveryGridCellStyleHasTheSameCompactPaddingAndMinimumHeight()
     {
-        var shared = Styles("Density.xaml").Descendants(Presentation + "Style").Single(s => (string?)s.Attribute("TargetType") == "DataGridCell" && s.Attribute(Xaml + "Key") is null);
+        var shared = Styles("Density.xaml").Descendants(Presentation + "Style").Single(s => (string?)s.Attribute(Xaml + "Key") == "DensityCell");
         var focusable = Styles("SelectableRows.xaml").Descendants(Presentation + "Style").Single(s => (string?)s.Attribute(Xaml + "Key") == "FocusableCell");
         var listItem = Styles("SelectableRows.xaml").Descendants(Presentation + "Style").Single(s => (string?)s.Attribute(Xaml + "Key") == "SelectableListItem");
 
@@ -34,5 +34,27 @@ public sealed class DensityStyleTests
         var merged = Styles("ButtonText.xaml").Descendants(Presentation + "ResourceDictionary").Select(d => (string?)d.Attribute("Source"));
 
         Assert.Contains(merged, s => s is not null && s.EndsWith("Styles/Density.xaml", StringComparison.Ordinal));
+    }
+
+    [Theory]
+    [InlineData("DataGrid")]
+    [InlineData("ui:DataGrid")]
+    public void EveryGridGetsTheDensityCellStyleFromItsImplicitStyle(string target)
+    {
+        var style = Styles("Density.xaml").Descendants(Presentation + "Style").Single(s => (string?)s.Attribute("TargetType") == target && s.Attribute(Xaml + "Key") is null);
+
+        Assert.Equal("{StaticResource DensityCell}", Setter(style, "CellStyle"));
+    }
+
+    [Fact]
+    public void NoGridStyleSetsItsCellStyleThroughAnImplicitCellStyle()
+    {
+        // An implicit DataGridCell style outranks the CellStyle that a grid style sets (priority of an implicit style over a style setter), so none may exist.
+        var root = Path.Combine(CatalogServiceTests.RepositoryRoot(), "src", "ApplicationPackagerUI");
+        var offenders = Directory.EnumerateFiles(root, "*.xaml", SearchOption.AllDirectories)
+            .Where(f => XDocument.Load(f).Descendants(Presentation + "Style").Any(s => (string?)s.Attribute("TargetType") == "DataGridCell" && s.Attribute(Xaml + "Key") is null && s.Parent?.Name.LocalName.EndsWith(".CellStyle", StringComparison.Ordinal) != true))
+            .Select(f => Path.GetRelativePath(root, f)).ToList();
+
+        Assert.True(offenders.Count == 0, "These files have an implicit DataGridCell style: " + string.Join(", ", offenders));
     }
 }
