@@ -195,7 +195,7 @@
             </StackPanel>
 
             <TextBlock Text="File Share Root (UNC)" Style="{StaticResource FieldLabel}" />
-            <ui:TextBox Width="560" HorizontalAlignment="Left" Text="{Binding FileShareRoot, UpdateSourceTrigger=PropertyChanged}"
+            <ui:TextBox ToolTip="{Binding FileShareRoot}" Width="560" HorizontalAlignment="Left" Text="{Binding FileShareRoot, UpdateSourceTrigger=PropertyChanged}"
                         PlaceholderText="\\fileserver\sccm$" Margin="0,0,0,12" />
 
             <TextBlock Text="Content Layout" Style="{StaticResource FieldLabel}" />
@@ -219,7 +219,7 @@
             <DockPanel Margin="0,0,0,8" Width="560" HorizontalAlignment="Left">
                 <ui:Button DockPanel.Dock="Right" Content="Browse"
                            Command="{Binding BrowsePackagersRootCommand}" Margin="8,0,0,0" />
-                <ui:TextBox Text="{Binding PackagersRoot, UpdateSourceTrigger=PropertyChanged}"
+                <ui:TextBox ToolTip="{Binding PackagersRoot}" Text="{Binding PackagersRoot, UpdateSourceTrigger=PropertyChanged}"
                             PlaceholderText="Auto-detect" />
             </DockPanel>
 

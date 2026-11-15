@@ -27,6 +27,14 @@ public sealed class ClippedEntryTooltipTests
     }
 
     [Fact]
+    public void ThePathBoxesOfOptionsShowTheirWholeValueAsATooltip()
+    {
+        var elements = Elements(Path.Combine("Views", "Pages", "SettingsPage.xaml")).Where(e => e.Name.LocalName == "TextBox").ToList();
+        foreach (var name in new[] { "FileShareRoot", "PackagersRoot" })
+            Assert.Contains(elements, e => Has(e, "Text", name) && Has(e, "ToolTip", name));
+    }
+
+    [Fact]
     public void TheWorkbenchApplicationAndProfileBoxesShowTheirWholeSelectionAsATooltip()
     {
         var elements = Elements(Path.Combine("Views", "Windows", "WorkbenchWindow.xaml")).ToList();
