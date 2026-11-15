@@ -26,6 +26,7 @@ A text editor. Read [Definition format](definition-format.md) first.
 | `Options` | string list or null | Choices of a `Dropdown` or a `LocaleList`. | `null` |
 | `CommandFragment` | string or null | Text that goes into the install command. A `Toggle` adds it when on. The other types replace `{value}` with the value. Example: `"PORT={value}"`. | `null` |
 | `UninstallFragment` | string or null | The same for the uninstall command. | `null` |
+| `RequiresAnyOf` | string list or null | Keys of `Toggle` settings of the same definition. `CommandFragment` (and `UninstallFragment`) is added only while at least one of them is on. Example: SSMS passes `--includeRecommended` only with a workload that is added. | `null` |
 | `Group` | string or null | Section name in the dialog. | `null` |
 | `Minimum`, `Maximum` | number or null | Limits of a `Number`. | `null` |
 | `ValueMap` | object or null | A table. The chosen value is looked up here before it replaces `{value}`. A value that is not in the table stands for itself. | `null` |
@@ -53,12 +54,12 @@ Example (`mariadb-server.json`):
 | `dbeaver.json` | DBeaver Community (x64) | Install scope, `Dropdown` (`System`, `User`), `System`, Install. Disable AI features, `Toggle`, `false`, Install. |
 | `mariadb-server.json` | MariaDB Server (x64) | Service name, `Text`, `MariaDB`, Server. TCP port, `Number`, `3306`, Server. |
 | `sqlserver2022express.json` | SQL Server 2022 Express (x64) | Instance name, `Text`, `SQLEXPRESS`, Instance. Sysadmin accounts, `Text`, `BUILTIN\Administrators`, Instance. |
-| `ssms.json` | SQL Server Management Studio 22 (x64) | UI mode, `Dropdown` (`Quiet`, `Passive`), `Quiet`, Install behavior. Install path, `Text`, empty, Install behavior. Download all packages before installing, `Toggle`, `true`, Install behavior. Do not update the Visual Studio Installer, `Toggle`, `false`, Install behavior. Close SSMS if it is running, `Toggle`, `false`, Install behavior. Include recommended components, `Toggle`, `false`, Components. Include optional components, `Toggle`, `false`, Components. Remove out-of-support components, `Toggle`, `true`, Components. |
+| `ssms.json` | SQL Server Management Studio 22 (x64) | UI mode, `Dropdown` (`Quiet`, `Passive`), `Quiet`, Install behavior. Install path, `Text`, empty, Install behavior. Download all packages before installing, `Toggle`, `true`, Install behavior. Do not update the Visual Studio Installer, `Toggle`, `false`, Install behavior. Close SSMS if it is running, `Toggle`, `false`, Install behavior. The five workloads (AI assistance, business intelligence, code tools, DevOps, hybrid and migration), `Toggle`, `false`, Components, each `--add <ID>`. Include recommended components and Include optional components, `Toggle`, `false`, Components, passed only while a workload is on. Remove out-of-support components, `Toggle`, `true`, Components. |
 | `teamviewerhost.json` | TeamViewer Host (x64) | Assign the device after install, `Toggle`, `false`, Assignment. Assignment ID, `Text`, empty, Assignment. Assignment options, `Text`, `--grant-easy-access`, Assignment. |
 | `windowsadmincenter.json` | Windows Admin Center (v2) | HTTPS port, `Number`, `443`, no group. |
-| `m365apps-x64.json`, `m365apps-x86.json`, `m365project-x64.json`, `m365project-x86.json`, `m365visio-x64.json`, `m365visio-x86.json` | Microsoft 365 Apps, Project and Visio | The same 14 parameters in each file. Deploy mode, `Dropdown` (`Managed`, `Online`), `Managed`, Deployment. Then 13 `Toggle` parameters in the group Excluded apps. |
+| `m365apps-x64.json`, `m365apps-x86.json`, `m365project-x64.json`, `m365project-x86.json`, `m365visio-x64.json`, `m365visio-x86.json` | Microsoft 365 Apps, Project and Visio | The same 15 parameters in each file. Deploy mode, `Dropdown` (`Managed`, `Online`), `Managed`, Deployment. Migrate architecture and Shared computer activation, `Toggle`, `false`, Deployment. Then 12 `Toggle` parameters in the group Excluded apps. |
 
-The 13 toggles of the group Excluded apps are: Access, Excel, OneNote, Outlook (classic), Outlook for Windows (new), PowerPoint, Publisher and Word (default `false`), and OneDrive for Business (Groove), Skype for Business (Lync), OneDrive (modern), Teams and Microsoft Search in Bing (default `true`).
+The 12 toggles of the group Excluded apps are: Access, Excel, OneNote, Outlook (classic), Outlook for Windows (new), PowerPoint, Publisher and Word (default `false`), and OneDrive for Business (Groove), Skype for Business (Lync), OneDrive (modern), and Teams (default `true`). The group Deployment also has the toggles **Migrate architecture** (`MigrateArch`) and **Shared computer activation** (`SharedComputerLicensing`), both default `false`. The ID `Bing` is not a documented ExcludeApp ID, so it is not offered.
 
 ## PostInstallScript
 
@@ -81,15 +82,16 @@ For Microsoft 365 definitions with `InstallerType` `ODT`. It sets the Office Dep
 | `ProductIds` | string list | Product IDs of the `Add` element, for example `O365ProPlusRetail`. | `[]` |
 | `UninstallProductId` | string or null | Product ID of the `Remove` element (first product only). | `null` |
 | `Channel` | string | Channel: `MonthlyEnterprise`, `Current` or `SemiAnnual`. | `"MonthlyEnterprise"` |
-| `ExcludeApps` | string list | Applications to exclude. | `["Groove","Lync","OneDrive","Teams","Bing"]` |
+| `ExcludeApps` | string list | Applications to exclude. | `["Groove","Lync","OneDrive","Teams"]` |
 | `DeploymentMode` | string | `Offline`: the full ODT download with an offline source. `Online`: only `install.xml`, and the client downloads at install time. | `"Offline"` |
 | `UpdateChannel` | string or null | Update channel after the install. `null` uses `Channel`. | `null` |
 | `EnableUpdates` | bool | Turns on Office updates. | `true` |
 | `AcceptEula` | bool | Accepts the license terms without a prompt. | `true` |
 | `PinToTaskbar` | bool | Pins the icons to the taskbar. | `false` |
-| `SharedComputerLicensing` | bool | Shared computer licensing for RDS and VDI. | `false` |
+| `SharedComputerLicensing` | bool | Shared computer licensing for RDS and VDI. Written to `install.xml` only when `true` (the Office default is 0). | `false` |
+| `MigrateArch` | bool | `MigrateArch="TRUE"` on the `Add` element: changes an installed Office to the architecture of this package. Written only when `true` (the Office default is FALSE). With it on, an x86 package changes an installed 64-bit Office to 32-bit. | `false` |
 
-Example (`m365apps-x64.json`): `{ "ProductIds": ["O365ProPlusRetail"], "UninstallProductId": "O365ProPlusRetail", "Channel": "MonthlyEnterprise", "ExcludeApps": ["Groove","Lync","OneDrive","Teams","Bing"] }`.
+Example (`m365apps-x64.json`): `{ "ProductIds": ["O365ProPlusRetail"], "UninstallProductId": "O365ProPlusRetail", "Channel": "MonthlyEnterprise", "ExcludeApps": ["Groove","Lync","OneDrive","Teams"] }`.
 
 ## BootstrapperLayout
 

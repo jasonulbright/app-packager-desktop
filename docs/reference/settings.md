@@ -237,7 +237,7 @@ The section lists, at run time, the applications whose definition carries `Insta
 The six Microsoft 365 definitions share these exclusion switches (group "Excluded apps"):
 
 - Default off: Access, Excel, OneNote, Outlook (classic), Outlook for Windows (new), PowerPoint, Publisher, Word.
-- Default on: OneDrive for Business (Groove), Skype for Business (Lync), OneDrive (modern), Teams, Microsoft Search in Bing.
+- Default on: OneDrive for Business (Groove), Skype for Business (Lync), OneDrive (modern), Teams.
 
 ## Local Installer Sources and Packager Files
 

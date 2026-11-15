@@ -570,8 +570,8 @@ public sealed class OdtConfig
     public string? UninstallProductId { get; set; }
     /// <summary>ODT channel name: MonthlyEnterprise, Current, SemiAnnual.</summary>
     public string Channel { get; set; } = "MonthlyEnterprise";
-    /// <summary>Apps to exclude (e.g., Groove, Lync, OneDrive, Teams, Bing).</summary>
-    public string[] ExcludeApps { get; set; } = ["Groove", "Lync", "OneDrive", "Teams", "Bing"];
+    /// <summary>Apps to exclude (e.g., Groove, Lync, OneDrive, Teams). "Bing" is not a documented ExcludeApp ID and has no effect.</summary>
+    public string[] ExcludeApps { get; set; } = ["Groove", "Lync", "OneDrive", "Teams"];
     /// <summary>
     /// Offline: full ODT /download with offline source (large, self-contained).
     /// Online: thin install.xml only, downloads at install time (small package, requires internet).
@@ -585,8 +585,13 @@ public sealed class OdtConfig
     public bool AcceptEula { get; set; } = true;
     /// <summary>Pin icons to taskbar.</summary>
     public bool PinToTaskbar { get; set; } = false;
-    /// <summary>Shared computer licensing (for RDS/VDI).</summary>
+    /// <summary>Shared computer licensing (for RDS/VDI). Off by default: the Office default is 0, and 1 is for shared computers only.</summary>
     public bool SharedComputerLicensing { get; set; } = false;
+    /// <summary>
+    /// MigrateArch on the Add element: changes an installed Office to the architecture of this package. Off by default (the Office default
+    /// is FALSE): with TRUE, an x86 package would change an installed 64-bit Office to 32-bit.
+    /// </summary>
+    public bool MigrateArch { get; set; } = false;
 }
 
 /// <summary>
@@ -691,6 +696,11 @@ public sealed class InstallerParameter
     /// as CommandFragment. Null when the parameter does not affect the uninstall.
     /// </summary>
     public string? UninstallFragment { get; set; }
+    /// <summary>
+    /// Keys of Toggle settings. When set, the fragment (install or uninstall) is added only while at least one of them is on (for example --includeRecommended
+    /// acts on the workloads that are added, so without a workload it does nothing). Null: no condition.
+    /// </summary>
+    public string[]? RequiresAnyOf { get; set; }
     /// <summary>Group name for organizing parameters into sections in the UI.</summary>
     public string? Group { get; set; }
     /// <summary>Minimum value for Number control type.</summary>

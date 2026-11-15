@@ -65,13 +65,58 @@
       "Tooltip": "Skips the installer self-update. Setup can fail when an installer update is required."
     },
     {
+      "Key": "Workload_AI",
+      "Label": "AI assistance workload",
+      "ControlType": "Toggle",
+      "DefaultValue": "false",
+      "CommandFragment": "--add Microsoft.SqlServer.Workload.SSMS.AI",
+      "Group": "Components",
+      "Tooltip": "Adds the AI assistance workload. Each workload is one --add switch. With none on, setup installs the core editor only."
+    },
+    {
+      "Key": "Workload_BI",
+      "Label": "Business intelligence workload",
+      "ControlType": "Toggle",
+      "DefaultValue": "false",
+      "CommandFragment": "--add Microsoft.SqlServer.Workload.SSMS.BI",
+      "Group": "Components",
+      "Tooltip": "Adds the business intelligence workload. Each workload is one --add switch. With none on, setup installs the core editor only."
+    },
+    {
+      "Key": "Workload_CodeTools",
+      "Label": "Code tools workload",
+      "ControlType": "Toggle",
+      "DefaultValue": "false",
+      "CommandFragment": "--add Microsoft.SqlServer.Workload.SSMS.CodeTools",
+      "Group": "Components",
+      "Tooltip": "Adds the code tools workload. Each workload is one --add switch. With none on, setup installs the core editor only."
+    },
+    {
+      "Key": "Workload_DevOps",
+      "Label": "DevOps workload",
+      "ControlType": "Toggle",
+      "DefaultValue": "false",
+      "CommandFragment": "--add Microsoft.SqlServer.Workload.SSMS.DevOps",
+      "Group": "Components",
+      "Tooltip": "Adds the DevOps workload. Each workload is one --add switch. With none on, setup installs the core editor only."
+    },
+    {
+      "Key": "Workload_HybridAndMigration",
+      "Label": "Hybrid and migration workload",
+      "ControlType": "Toggle",
+      "DefaultValue": "false",
+      "CommandFragment": "--add Microsoft.SqlServer.Workload.SSMS.HybridAndMigration",
+      "Group": "Components",
+      "Tooltip": "Adds the hybrid and migration workload. Each workload is one --add switch. With none on, setup installs the core editor only."
+    },    {
       "Key": "IncludeRecommended",
       "Label": "Include recommended components",
       "ControlType": "Toggle",
       "DefaultValue": "false",
       "CommandFragment": "--includeRecommended",
+      "RequiresAnyOf": ["Workload_AI", "Workload_BI", "Workload_CodeTools", "Workload_DevOps", "Workload_HybridAndMigration"],
       "Group": "Components",
-      "Tooltip": "Adds the recommended components of the selected workloads."
+      "Tooltip": "Adds the recommended components of the workloads that are switched on above. It does nothing, and is not passed, while no workload is on."
     },
     {
       "Key": "IncludeOptional",
@@ -79,8 +124,9 @@
       "ControlType": "Toggle",
       "DefaultValue": "false",
       "CommandFragment": "--includeOptional",
+      "RequiresAnyOf": ["Workload_AI", "Workload_BI", "Workload_CodeTools", "Workload_DevOps", "Workload_HybridAndMigration"],
       "Group": "Components",
-      "Tooltip": "Adds the optional components of the selected workloads; larger and slower install."
+      "Tooltip": "Adds the optional components of the workloads that are switched on above; larger and slower install. It does nothing, and is not passed, while no workload is on."
     },
     {
       "Key": "RemoveOos",
