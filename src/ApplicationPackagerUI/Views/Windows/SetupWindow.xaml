@@ -42,7 +42,7 @@
             <StackPanel Margin="28,8,28,8">
 
                 <StackPanel Visibility="{Binding CurrentStep, Converter={StaticResource StepVisibilityConverter}, ConverterParameter=1}">
-                    <TextBlock Text="Welcome to App Packager Desktop" FontSize="20" FontWeight="Bold"
+                    <TextBlock Text="Welcome to App Packager Desktop" FontSize="20"
                                Foreground="{DynamicResource TextFillColorPrimaryBrush}" Margin="0,0,0,4" />
                     <TextBlock Text="Select the systems you publish to, then fill in their settings. The App Packager page has a publish button for each system. Everything here can be changed later in Settings."
                                Style="{StaticResource HintText}" />
@@ -68,11 +68,11 @@
                 </StackPanel>
 
                 <StackPanel Visibility="{Binding CurrentStep, Converter={StaticResource StepVisibilityConverter}, ConverterParameter=2}">
-                    <TextBlock Text="Connection details" FontSize="20" FontWeight="Bold"
+                    <TextBlock Text="Connection details" FontSize="20"
                                Foreground="{DynamicResource TextFillColorPrimaryBrush}" Margin="0,0,0,12" />
 
                     <StackPanel Visibility="{Binding ShowMecmFields, Converter={StaticResource BooleanToVisibilityConverter}}">
-                        <TextBlock Text="ConfigMgr" FontSize="14" FontWeight="SemiBold" Margin="0,0,0,8"
+                        <TextBlock Text="ConfigMgr" FontSize="14" Margin="0,0,0,8"
                                    Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
                         <TextBlock Text="Site Code" Style="{StaticResource FieldLabel}" />
                         <ui:TextBox Text="{Binding SiteCode, UpdateSourceTrigger=PropertyChanged}"
@@ -92,7 +92,7 @@
                     </StackPanel>
 
                     <StackPanel Visibility="{Binding ShowIntuneFields, Converter={StaticResource BooleanToVisibilityConverter}}">
-                        <TextBlock Text="Intune" FontSize="14" FontWeight="SemiBold" Margin="0,0,0,8"
+                        <TextBlock Text="Intune" FontSize="14" Margin="0,0,0,8"
                                    Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
                         <TextBlock Text="Tenant ID" Style="{StaticResource FieldLabel}" />
                         <ui:TextBox Text="{Binding IntuneTenantId, UpdateSourceTrigger=PropertyChanged}"
@@ -110,7 +110,7 @@
                     </StackPanel>
 
                     <StackPanel Visibility="{Binding ShowWsusFields, Converter={StaticResource BooleanToVisibilityConverter}}">
-                        <TextBlock Text="WSUS" FontSize="14" FontWeight="SemiBold" Margin="0,0,0,8"
+                        <TextBlock Text="WSUS" FontSize="14" Margin="0,0,0,8"
                                    Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
                         <TextBlock Text="WSUS server" Style="{StaticResource FieldLabel}" />
                         <ui:TextBox Text="{Binding WsusServerName, UpdateSourceTrigger=PropertyChanged}"

@@ -32,10 +32,10 @@
                     <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
                 <TextBlock Grid.Row="0" Text="Installed version" />
-                <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding CurrentVersion}" FontWeight="SemiBold"
+                <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding CurrentVersion}"
                            AutomationProperties.AutomationId="txtUpdateCurrent" />
                 <TextBlock Grid.Row="1" Text="Latest version" />
-                <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding LatestVersion}" FontWeight="SemiBold"
+                <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding LatestVersion}"
                            AutomationProperties.AutomationId="txtUpdateLatest" />
                 <TextBlock Grid.Row="2" Text="Release notes" />
                 <TextBlock Grid.Row="2" Grid.Column="1">

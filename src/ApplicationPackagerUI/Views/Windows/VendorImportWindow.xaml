@@ -58,7 +58,7 @@
                            Foreground="{DynamicResource TextFillColorSecondaryBrush}" AutomationProperties.AutomationId="txtImportStatus" />
 
                 <StackPanel Visibility="{Binding HasPreview, Converter={StaticResource BooleanToVisibilityConverter}}">
-                    <TextBlock Text="Source" FontWeight="SemiBold" Margin="0,0,0,4" />
+                    <TextBlock Text="Source" Margin="0,0,0,4" />
                     <TextBox x:Name="txtImportSource" Text="{Binding SourceText, Mode=OneWay}" Style="{StaticResource DetailBox}" MaxHeight="120" Margin="0,0,0,8"
                              AutomationProperties.Name="Source of the document, read only" AutomationProperties.AutomationId="txtImportSource" />
 
@@ -80,7 +80,7 @@
                         </StackPanel>
                     </Grid>
 
-                    <TextBlock Text="Definitions" FontWeight="SemiBold" Margin="0,0,0,4" />
+                    <TextBlock Text="Definitions" Margin="0,0,0,4" />
                     <DataGrid x:Name="gridImportRows" ItemsSource="{Binding Rows}" SelectedItem="{Binding SelectedRow}" AutoGenerateColumns="False"
                               CanUserAddRows="False" CanUserDeleteRows="False" HeadersVisibility="Column" RowHeaderWidth="0"
                               SelectionMode="Single" GridLinesVisibility="Horizontal" MinHeight="120" MaxHeight="220" Margin="0,0,0,8"
@@ -104,12 +104,12 @@
                         </DataGrid.Columns>
                     </DataGrid>
 
-                    <TextBlock Text="The definition (read only)" FontWeight="SemiBold" Margin="0,0,0,4" />
+                    <TextBlock Text="The definition (read only)" Margin="0,0,0,4" />
                     <TextBox x:Name="txtImportDetails" Text="{Binding SelectedRow.Details, Mode=OneWay}" Style="{StaticResource DetailBox}" FontFamily="Consolas"
                              MinHeight="100" MaxHeight="200" Margin="0,0,0,8"
                              AutomationProperties.Name="The selected definition, read only" AutomationProperties.AutomationId="txtImportDetails" />
 
-                    <TextBlock Text="Findings" FontWeight="SemiBold" Margin="0,0,0,4" />
+                    <TextBlock Text="Findings" Margin="0,0,0,4" />
                     <TextBox x:Name="txtImportFindings" Text="{Binding FindingsText, Mode=OneWay}" Style="{StaticResource DetailBox}" MaxHeight="120" Margin="0,0,0,8"
                              AutomationProperties.Name="Findings of the validation, read only" AutomationProperties.AutomationId="txtImportFindings" />
 
@@ -119,7 +119,7 @@
                               AutomationProperties.AutomationId="chkConfirmNotVerified" />
                 </StackPanel>
 
-                <TextBlock Text="Imported feeds" FontWeight="SemiBold" Margin="0,8,0,4" />
+                <TextBlock Text="Imported feeds" Margin="0,8,0,4" />
                 <DataGrid x:Name="gridFeeds" ItemsSource="{Binding Feeds}" SelectedItem="{Binding SelectedFeed}" AutoGenerateColumns="False"
                           CanUserAddRows="False" CanUserDeleteRows="False" HeadersVisibility="Column" RowHeaderWidth="0" IsReadOnly="True"
                           SelectionMode="Single" GridLinesVisibility="Horizontal" MinHeight="80" MaxHeight="160" Margin="0,0,0,8"

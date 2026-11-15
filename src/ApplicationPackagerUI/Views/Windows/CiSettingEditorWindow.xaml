@@ -51,7 +51,7 @@
                       AutomationProperties.AutomationId="scrollSettingEditor">
             <StackPanel Margin="0,0,8,0">
                 <TextBlock Text="Configuration item" Style="{StaticResource SettingLabel}" Margin="0,0,0,4" />
-                <TextBlock Text="{Binding CiText}" FontWeight="SemiBold" TextWrapping="Wrap" Foreground="{DynamicResource TextFillColorPrimaryBrush}"
+                <TextBlock Text="{Binding CiText}" TextWrapping="Wrap" Foreground="{DynamicResource TextFillColorPrimaryBrush}"
                            AutomationProperties.AutomationId="txtSettingCi" />
                 <TextBlock Text="Kind" Style="{StaticResource SettingLabel}" />
                 <ComboBox x:Name="cboKind" ItemsSource="{x:Static vm:CiSettingEditorViewModel.Kinds}" SelectedItem="{Binding Kind}" IsEnabled="{Binding CanChooseKind}"

@@ -24,7 +24,7 @@
 
         <ui:TitleBar Grid.Row="0" Title="{Binding Title}" ShowMinimize="False" />
 
-        <TextBlock Grid.Row="1" Margin="16,4,16,8" Text="{Binding Summary}" TextWrapping="Wrap" FontWeight="SemiBold" Foreground="{DynamicResource TextFillColorPrimaryBrush}"
+        <TextBlock Grid.Row="1" Margin="16,4,16,8" Text="{Binding Summary}" TextWrapping="Wrap" Foreground="{DynamicResource TextFillColorPrimaryBrush}"
                    AutomationProperties.AutomationId="txtParametersSummary" AutomationProperties.LiveSetting="Polite" />
 
         <ScrollViewer Grid.Row="2" Margin="16,0,16,8" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Focusable="False"

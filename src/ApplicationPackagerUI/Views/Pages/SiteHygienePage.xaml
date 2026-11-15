@@ -20,7 +20,6 @@
 
             <Style x:Key="CardTitle" TargetType="TextBlock">
                 <Setter Property="FontSize" Value="14" />
-                <Setter Property="FontWeight" Value="SemiBold" />
                 <Setter Property="Margin" Value="0,0,0,8" />
                 <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
             </Style>
@@ -33,7 +32,6 @@
 
             <Style x:Key="Warning" TargetType="TextBlock" BasedOn="{StaticResource Note}">
                 <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
-                <Setter Property="FontWeight" Value="SemiBold" />
             </Style>
 
             <!-- A detail line shows at most three lines; the tooltip holds the whole text. -->
@@ -209,7 +207,7 @@
                                ToolTip="Marks every alert as seen. The alerts stay in the list and in the alerts log." AutomationProperties.AutomationId="btnAlertBannerSeen" />
                     <ui:Button DockPanel.Dock="Right" Content="Show alerts" Icon="{ui:SymbolIcon Alert24}" Command="{Binding ShowAlertsCommand}" Margin="8,0,0,0"
                                ToolTip="Opens the alert list on the Live tab." AutomationProperties.AutomationId="btnAlertBannerShow" />
-                    <TextBlock x:Name="txtAlertBanner" Text="{Binding AlertBannerText}" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" FontWeight="SemiBold"
+                    <TextBlock x:Name="txtAlertBanner" Text="{Binding AlertBannerText}" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"
                                Foreground="{DynamicResource TextFillColorPrimaryBrush}" ToolTip="{Binding AlertBannerText}" AutomationProperties.Name="{Binding AlertBannerText}"
                                AutomationProperties.AutomationId="txtAlertBanner" AutomationProperties.LiveSetting="Assertive" />
                 </DockPanel>
@@ -717,11 +715,11 @@
                   AutomationProperties.Name="Results of the last fix" AutomationProperties.AutomationId="pnlHygieneResults">
             <Expander.Header>
                 <Grid>
-                    <TextBlock x:Name="txtHygieneResultSummary" Text="{Binding ResultSummary}" FontWeight="SemiBold" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"
+                    <TextBlock x:Name="txtHygieneResultSummary" Text="{Binding ResultSummary}" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"
                                ToolTip="{Binding ResultSummary}" Foreground="{DynamicResource TextFillColorPrimaryBrush}" AutomationProperties.AutomationId="txtHygieneResultSummary" />
                     <Border x:Name="pnlHygieneAuditWarning" Style="{StaticResource Caution}" Margin="0" Padding="8,2" Visibility="{Binding HasAuditWarning, Converter={StaticResource BoolToVisibility}}"
                             AutomationProperties.AutomationId="pnlHygieneAuditWarning">
-                        <TextBlock x:Name="txtHygieneAuditWarning" Text="{Binding AuditWarning}" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" FontWeight="SemiBold"
+                        <TextBlock x:Name="txtHygieneAuditWarning" Text="{Binding AuditWarning}" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"
                                    Foreground="{DynamicResource TextFillColorPrimaryBrush}" ToolTip="{Binding AuditWarning}" AutomationProperties.Name="{Binding AuditWarning}"
                                    AutomationProperties.AutomationId="txtHygieneAuditWarning" AutomationProperties.LiveSetting="Assertive" />
                     </Border>

@@ -323,7 +323,7 @@
                         </Grid.RowDefinitions>
                         <StackPanel Grid.Row="0" Margin="0,0,0,8">
                             <TextBlock Text="Configuration item" Style="{StaticResource FieldLabel}" />
-                            <TextBlock Text="{Binding SelectedItemText}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" ToolTip="{Binding SelectedItemText}"
+                            <TextBlock Text="{Binding SelectedItemText}" TextTrimming="CharacterEllipsis" ToolTip="{Binding SelectedItemText}"
                                        Foreground="{DynamicResource TextFillColorPrimaryBrush}" AutomationProperties.AutomationId="txtEditorItem" />
                             <TextBlock Text="{Binding SettingsMessage}" Style="{StaticResource Note}" AutomationProperties.AutomationId="txtEditorMessage" AutomationProperties.LiveSetting="Polite" />
                             <TextBlock Text="{Binding SelectedSettingNote}" Style="{StaticResource Note}" Visibility="{Binding HasSelectedSettingNote, Converter={StaticResource BoolToVisibility}}"
@@ -434,7 +434,7 @@
                                Visibility="{Binding Shared.HasUndo, Converter={StaticResource BoolToVisibility}}" />
                     <CheckBox DockPanel.Dock="Right" Content="Rows" IsChecked="{Binding Shared.ShowResultRows}" Margin="12,0,12,0" VerticalAlignment="Center"
                               ToolTip="Show or hide the result of each change under the summary." AutomationProperties.AutomationId="chkComplianceResultRows" />
-                    <TextBlock Text="{Binding Shared.ResultSummary}" FontWeight="SemiBold" TextWrapping="Wrap" VerticalAlignment="Center"
+                    <TextBlock Text="{Binding Shared.ResultSummary}" TextWrapping="Wrap" VerticalAlignment="Center"
                                Foreground="{DynamicResource TextFillColorPrimaryBrush}" AutomationProperties.AutomationId="txtComplianceResultSummary" />
                 </DockPanel>
                 <DataGrid Grid.Row="1" Style="{StaticResource GridBase}" ItemsSource="{Binding Shared.LastResults}" MaxHeight="160" SelectionMode="Single"

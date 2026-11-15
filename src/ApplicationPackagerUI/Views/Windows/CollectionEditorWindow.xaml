@@ -46,7 +46,7 @@
             <StackPanel Grid.Row="0">
                 <StackPanel Visibility="{Binding IsCopy, Converter={StaticResource EditorVisibility}}">
                     <TextBlock Text="Source" Style="{StaticResource EditorLabel}" Margin="0,0,0,4" />
-                    <TextBlock Text="{Binding SourceText}" FontWeight="SemiBold" Foreground="{DynamicResource TextFillColorPrimaryBrush}"
+                    <TextBlock Text="{Binding SourceText}" Foreground="{DynamicResource TextFillColorPrimaryBrush}"
                                AutomationProperties.AutomationId="txtCopySource" />
                 </StackPanel>
                 <TextBlock Text="Name" Style="{StaticResource EditorLabel}" />

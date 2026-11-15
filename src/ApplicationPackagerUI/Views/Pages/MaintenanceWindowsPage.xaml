@@ -321,7 +321,7 @@
                                AutomationProperties.AutomationId="btnUndoLast"
                                ToolTip="Shows a plan that undoes the last change set."
                                Visibility="{Binding HasUndo, Converter={StaticResource BoolToVisibility}}" />
-                    <TextBlock Text="{Binding ResultSummary}" FontWeight="SemiBold" TextWrapping="Wrap" VerticalAlignment="Center"
+                    <TextBlock Text="{Binding ResultSummary}" TextWrapping="Wrap" VerticalAlignment="Center"
                                Foreground="{DynamicResource TextFillColorPrimaryBrush}" AutomationProperties.AutomationId="txtResultSummary" />
                 </DockPanel>
                 <DataGrid Grid.Row="1" ItemsSource="{Binding LastResults}" AutoGenerateColumns="False" IsReadOnly="True" MaxHeight="160"

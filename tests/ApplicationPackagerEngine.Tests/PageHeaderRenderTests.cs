@@ -145,6 +145,7 @@ public sealed class PageHeaderRenderTests : IDisposable
             {
                 application.Resources.MergedDictionaries.Add(new ThemesDictionary { Theme = theme });
                 application.Resources.MergedDictionaries.Add(new ControlsDictionary());
+                application.Resources.MergedDictionaries.Add(new ResourceDictionary { Source = new Uri(ButtonTextStyles, UriKind.Absolute) });
                 application.Resources.MergedDictionaries.Add(new ResourceDictionary { Source = new Uri(ToolTipStyles, UriKind.Absolute) });
                 SynchronizationContext.SetSynchronizationContext(new System.Windows.Threading.DispatcherSynchronizationContext());
                 test();

@@ -99,7 +99,7 @@
                                 AutomationProperties.AutomationId="pnlAddFileTrustWarning">
                             <StackPanel Orientation="Horizontal">
                                 <ui:SymbolIcon Symbol="ShieldError24" FontSize="20" Margin="0,0,8,0" VerticalAlignment="Top" Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
-                                <TextBlock Text="{Binding TrustWarning}" Style="{StaticResource AddWarningText}" FontWeight="SemiBold" MaxWidth="900"
+                                <TextBlock Text="{Binding TrustWarning}" Style="{StaticResource AddWarningText}" MaxWidth="900"
                                            AutomationProperties.AutomationId="txtAddFileTrustWarning" />
                             </StackPanel>
                         </Border>

@@ -61,7 +61,7 @@
                                                   Tag="{Binding}"
                                                   AutomationProperties.Name="{Binding Vendor, StringFormat=Show every application of {0}}"
                                                   VerticalAlignment="Center" Margin="0,0,8,0" />
-                                        <TextBlock Text="{Binding Vendor}" FontWeight="SemiBold" FontSize="14"
+                                        <TextBlock Text="{Binding Vendor}" FontSize="14"
                                                    VerticalAlignment="Center"
                                                    Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
                                     </StackPanel>

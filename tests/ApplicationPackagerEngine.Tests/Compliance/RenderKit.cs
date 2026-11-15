@@ -24,6 +24,7 @@ internal static class RenderKit
 
     /// <summary>The tooltip style App.xaml merges after the control library.</summary>
     public const string ToolTipStyles = "pack://application:,,,/ApplicationPackagerUI;component/Views/Styles/ToolTips.xaml";
+    public const string ButtonTextStyles = "pack://application:,,,/ApplicationPackagerUI;component/Views/Styles/ButtonText.xaml";
 
     private sealed class BindingErrors : TraceListener
     {
@@ -63,6 +64,7 @@ internal static class RenderKit
             {
                 application.Resources.MergedDictionaries.Add(new ThemesDictionary { Theme = theme });
                 application.Resources.MergedDictionaries.Add(new ControlsDictionary());
+                application.Resources.MergedDictionaries.Add(new ResourceDictionary { Source = new Uri(ButtonTextStyles, UriKind.Absolute) });
                 application.Resources.MergedDictionaries.Add(new ResourceDictionary { Source = new Uri(ToolTipStyles, UriKind.Absolute) });
                 SynchronizationContext.SetSynchronizationContext(new System.Windows.Threading.DispatcherSynchronizationContext());
                 test();

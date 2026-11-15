@@ -32,7 +32,6 @@ public sealed class SidebarGroupCaption : Decorator
         Text = new TextBlock
         {
             Text = group.Caption,
-            FontWeight = FontWeights.SemiBold,
             TextWrapping = TextWrapping.NoWrap,
             TextTrimming = TextTrimming.None,
             Margin = new Thickness(16, 12, 12, 4),

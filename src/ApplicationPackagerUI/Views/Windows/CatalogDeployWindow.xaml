@@ -41,7 +41,7 @@
         <ScrollViewer Grid.Row="1" Margin="16,0,8,8" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
                       AutomationProperties.AutomationId="scrollDeploy">
             <StackPanel Margin="0,0,8,0">
-                <TextBlock Text="{Binding Summary}" TextWrapping="Wrap" FontWeight="SemiBold" Foreground="{DynamicResource TextFillColorPrimaryBrush}"
+                <TextBlock Text="{Binding Summary}" TextWrapping="Wrap" Foreground="{DynamicResource TextFillColorPrimaryBrush}"
                            AutomationProperties.AutomationId="txtDeploySummary" />
                 <TextBlock Text="Fields with * are required." Style="{StaticResource DeployNote}" Margin="0,4,0,0" />
 

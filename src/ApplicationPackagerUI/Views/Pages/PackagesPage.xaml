@@ -22,6 +22,7 @@
             </Style>
             <!-- The text takes the cell's own foreground, so the count stays readable on a selected row. -->
             <Style x:Key="CveCellButton" TargetType="Button">
+                <Setter Property="FontWeight" Value="SemiBold" />
                 <Setter Property="Cursor" Value="Hand" />
                 <Setter Property="HorizontalAlignment" Value="Left" />
                 <Setter Property="VerticalAlignment" Value="Center" />

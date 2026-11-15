@@ -63,7 +63,7 @@
                             <DockPanel Grid.Column="1" Margin="8,0,0,0" KeyboardNavigation.TabIndex="1" KeyboardNavigation.TabNavigation="Local">
                                 <ui:Button DockPanel.Dock="Bottom" Content="Use query" Icon="{ui:SymbolIcon ArrowLeft24}" Command="{Binding UseQueryItemCommand}" Margin="0,4,0,0"
                                            ToolTip="Puts the selected query of the library into the editor." AutomationProperties.AutomationId="btnUseQuery" />
-                                <TextBlock DockPanel.Dock="Top" Text="Query library" FontSize="14" FontWeight="SemiBold" Margin="0,0,0,4"
+                                <TextBlock DockPanel.Dock="Top" Text="Query library" FontSize="14" Margin="0,0,0,4"
                                            Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
                                 <ListBox ItemsSource="{Binding QueryLibrary}" SelectedItem="{Binding SelectedQueryItem}" ItemTemplate="{StaticResource LibraryItem}" Height="100"
                                          ItemContainerStyle="{StaticResource LibraryListItem}" MouseDoubleClick="OnQueryLibraryDoubleClick"
@@ -195,7 +195,7 @@
                                 <DockPanel Grid.Row="1" Grid.RowSpan="2" Grid.Column="1" Margin="8,0,0,0" KeyboardNavigation.TabIndex="2" KeyboardNavigation.TabNavigation="Local">
                                     <ui:Button DockPanel.Dock="Bottom" Content="Use script" Icon="{ui:SymbolIcon ArrowLeft24}" Command="{Binding UseScriptItemCommand}" Margin="0,4,0,0"
                                                ToolTip="Puts the selected script of the library into the editor." AutomationProperties.AutomationId="btnUseScript" />
-                                    <TextBlock DockPanel.Dock="Top" Text="Script library" FontSize="14" FontWeight="SemiBold" Margin="0,0,0,4"
+                                    <TextBlock DockPanel.Dock="Top" Text="Script library" FontSize="14" Margin="0,0,0,4"
                                                Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
                                     <ListBox ItemsSource="{Binding ScriptLibrary}" SelectedItem="{Binding SelectedScriptItem}" ItemTemplate="{StaticResource LibraryItem}" Height="100"
                                              ItemContainerStyle="{StaticResource LibraryListItem}" MouseDoubleClick="OnScriptLibraryDoubleClick"
@@ -290,9 +290,9 @@
                                 <TextBlock Text="Connection" Style="{StaticResource CardTitle}" />
                                 <TextBlock Style="{StaticResource Note}" AutomationProperties.AutomationId="txtOptionsSite">
                                     <Run Text="Site code:" />
-                                    <Run Text="{Binding SiteCodeText, Mode=OneWay}" FontWeight="SemiBold" />
+                                    <Run Text="{Binding SiteCodeText, Mode=OneWay}" />
                                     <Run Text="  SMS Provider:" />
-                                    <Run Text="{Binding ProviderText, Mode=OneWay}" FontWeight="SemiBold" />
+                                    <Run Text="{Binding ProviderText, Mode=OneWay}" />
                                 </TextBlock>
                                 <TextBlock Text="Change the site code and the SMS Provider in Settings, ConfigMgr Site Settings. The page calls only the SMS Provider: its AdminService and the ConfigMgr session."
                                            Style="{StaticResource Note}" Margin="0,4,0,8" />

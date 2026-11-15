@@ -9,7 +9,7 @@
             <TextBlock x:Name="HeadingText" FontSize="14" TextWrapping="Wrap" Margin="0,0,0,8"
                        Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
 
-            <TextBlock Text="Identity differences" FontSize="14" FontWeight="SemiBold" Margin="0,0,0,4"
+            <TextBlock Text="Identity differences" FontSize="14" Margin="0,0,0,4"
                        Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
             <TextBlock x:Name="SummaryText" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,4"
                        AutomationProperties.AutomationId="ByoReplacementSummary"
@@ -58,7 +58,7 @@
                 </ItemsControl.ItemTemplate>
             </ItemsControl>
 
-            <TextBlock Text="New revision" FontSize="14" FontWeight="SemiBold" Margin="0,0,0,4"
+            <TextBlock Text="New revision" FontSize="14" Margin="0,0,0,4"
                        Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
             <local:DropReviewPanel x:Name="Review" MinWidth="0" />
         </StackPanel>
