@@ -71,4 +71,15 @@ public sealed class DensityStyleTests
 
         Assert.True(offenders.Count == 0, "A column cell style of the theme keeps the 40 px minimum height of the theme: " + string.Join(", ", offenders));
     }
+
+    [Fact]
+    public void ThePageTitleAndItsIconAreAsLargeAsTheButtonText()
+    {
+        var title = Styles("Typography.xaml").Descendants(Presentation + "Style").Single(s => (string?)s.Attribute(Xaml + "Key") == "PageTitle");
+        Assert.Equal("14", Setter(title, "FontSize"));
+
+        var header = XDocument.Load(Path.Combine(CatalogServiceTests.RepositoryRoot(), "src", "ApplicationPackagerUI", "Controls", "PageHeader.xaml"));
+        var icon = header.Descendants().Single(e => (string?)e.Attribute(Xaml + "Name") == "IconHost");
+        Assert.Equal("14", (string?)icon.Attribute("FontSize"));
+    }
 }
