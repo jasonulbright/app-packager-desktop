@@ -68,6 +68,7 @@ public partial class PackagesViewModel : ObservableObject
     public IAsyncRelayCommand PublishWsusCommand { get; }
     public IAsyncRelayCommand ApplySupersedenceCommand { get; }
     public IAsyncRelayCommand RewriteOldVersionsCommand { get; }
+    public IAsyncRelayCommand RestoreOldVersionsCommand { get; }
     public IRelayCommand WsusUpdatesCommand { get; }
     public IAsyncRelayCommand OneClickCommand { get; }
 
@@ -121,6 +122,7 @@ public partial class PackagesViewModel : ObservableObject
         WsusUpdatesCommand = new RelayCommand(OpenWsusUpdates, () => CanRunOperation() && IsWsusUpdatesAvailable);
         ApplySupersedenceCommand = new AsyncRelayCommand(ApplySupersedenceAsync, () => CanRunOperation() && IsPublishConfigMgrAvailable);
         RewriteOldVersionsCommand = new AsyncRelayCommand(RewriteOldVersionsAsync, () => CanRunOperation() && IsPublishConfigMgrAvailable);
+        RestoreOldVersionsCommand = new AsyncRelayCommand(RestoreOldVersionsAsync, () => CanRunOperation() && IsPublishConfigMgrAvailable);
         OneClickCommand = new AsyncRelayCommand(OneClickAsync, CanRunOperation);
         ImportFromUrlCommand = new RelayCommand(() => ImportFromUrlRequested?.Invoke(this, EventArgs.Empty), CanRunOperation);
         InitializeDiscovery(discovery, discoveryPrompt);
@@ -172,6 +174,7 @@ public partial class PackagesViewModel : ObservableObject
         PublishWsusCommand.NotifyCanExecuteChanged();
         ApplySupersedenceCommand.NotifyCanExecuteChanged();
         RewriteOldVersionsCommand.NotifyCanExecuteChanged();
+        RestoreOldVersionsCommand.NotifyCanExecuteChanged();
         WsusUpdatesCommand.NotifyCanExecuteChanged();
         OneClickCommand.NotifyCanExecuteChanged();
         ImportFromUrlCommand.NotifyCanExecuteChanged();

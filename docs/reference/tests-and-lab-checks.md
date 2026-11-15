@@ -616,6 +616,7 @@ The button **Rewrite old versions** on the Packages page opens the change plan w
 
 | Test class | What it proves |
 |---|---|
+| `RewriteLeftoversTests` | Restore for one line leaves the rewrites of another line (the log entries carry the line; an entry from before that has no line and stays open to every line, and an old log still reads); the plan is read again after the confirmation and, when the clauses to rewrite are not the ones that were shown, nothing is written and every row is skipped with the reason; an unchanged plan is written. |
 | `RewriteOldVersionsPlansTests` | No window when no clause can be rewritten; one row per rewritable clause with the destructive confirmation, the notes and Undo; the result rows (written, failed with the site text, not reached); the restore row names the operator that comes back. |
 
 **Lab check (not run here).** On CM01 with two published versions of a title and a recorded installed value of the old version: press the button, read the plan, confirm, check that the old application's clause reads IsEquals on the site and that `supersedence-rewrite.jsonl` holds the entry; press Undo and check that GreaterEquals is back. An old application with a required deployment shows as blocked and is not changed.

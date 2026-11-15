@@ -113,7 +113,7 @@ public partial class PackagesViewModel : IOneClickRunner, IPublishActionHost
             StatusText = $"Reading the line of {p.Application} from the site...";
             AddLogLine($"Rewrite old versions: reading the line of {p.Application}");
             var plan = await new ApplicationPackagerEngine.Services.Supersedence.OldVersionRewriteRunner().PlanAsync(scope, _operationCts.Token);
-            var restorable = RewriteOldVersionsPlans.Pending().Count;
+            var restorable = RewriteOldVersionsPlans.Pending(scope).Count;
             foreach (var item in plan.Items.Where(i => !i.Rewrites)) AddLogLine($"  left: {item.Application} / {item.DeploymentType}: {item.Skip}");
             foreach (var item in plan.Blocked) AddLogLine($"  blocked: {item}");
             ApplicationPackagerUI.Services.ChangePlanOutcome outcome;
@@ -151,6 +151,47 @@ public partial class PackagesViewModel : IOneClickRunner, IPublishActionHost
             _operationCts = null;
             IsOperationRunning = false;
         }
+    }
+
+    /// <summary>
+    /// Restores the version clause of the old applications of the checked application's line from the log, on its own: the button beside
+    /// Rewrite old versions, for a rewrite that is still pending when the plan of a new rewrite is not wanted. Only the entries of this line.
+    /// </summary>
+    private async Task RestoreOldVersionsAsync()
+    {
+        if (IsOperationRunning) { AddLogLine("Restore old versions skipped: another operation is running."); return; }
+        var selected = SelectedPackagers.ToList();
+        if (selected.Count != 1) { AddLogLine("Restore old versions works on one checked application at a time."); StatusText = "Check one application."; return; }
+        if (PublishRunService.RunGate(PublishRunTargets.ConfigMgr, _settingsService.Load()) is { } blocked)
+        {
+            AddLogLine($"Restore old versions blocked: {blocked}");
+            return;
+        }
+        var p = selected[0];
+        IsOperationRunning = true;
+        try
+        {
+            var (scope, error) = _executionService.RewriteScopeFor(p, null);
+            if (scope is null) { AddLogLine($"Restore old versions: {error}"); StatusText = "Restore old versions not possible."; return; }
+            if (RewriteOldVersionsPlans.ForRestore(scope) is not { } restore)
+            {
+                AddLogLine("Restore old versions: no earlier rewrite of this line is pending.");
+                StatusText = "Nothing to restore.";
+                _publishDialogs.ShowMessage("Restore old versions", "No earlier rewrite of this line is pending in the log.");
+                return;
+            }
+            var outcome = _publishDialogs.ShowChangePlan(restore.Plan, restore.Run);
+            if (outcome.Result is { } result) AddLogLine($"Restore: {result.Summary}");
+            if (!outcome.Confirmed) AddLogLine("Restore old versions: not confirmed; nothing was changed.");
+            StatusText = !outcome.Confirmed ? "Restore old versions not confirmed."
+                : outcome.Result?.Stop == ChangePlanStop.Completed ? "Restore old versions finished." : "Restore old versions stopped; see the log.";
+        }
+        catch (Exception ex)
+        {
+            AddLogLine($"Restore old versions failed: {ex.Message}");
+            StatusText = "Restore old versions failed.";
+        }
+        finally { IsOperationRunning = false; }
     }
 
     /// <summary>One publish run for the checked rows with the button's own destination; the saved deployment target plays no part.</summary>
