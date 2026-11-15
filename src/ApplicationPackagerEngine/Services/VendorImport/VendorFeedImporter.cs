@@ -11,7 +11,8 @@ public sealed record ImportCandidate(ValidatedDefinition Definition, ConflictKin
 
 /// <summary>Everything that the preview shows. Nothing is written until <see cref="VendorFeedImporter.Import"/> runs.</summary>
 public sealed record ImportPreview(
-    FeedDocument Document, ValidatedFeed Feed, string TrustState, IReadOnlyList<ImportCandidate> Candidates, string? Refusal)
+    FeedDocument Document, ValidatedFeed Feed, string TrustState, IReadOnlyList<ImportCandidate> Candidates, string? Refusal,
+    string? Signer = null, string? PinnedPublisher = null, string? PinnedDigest = null)
 {
     public string TrustLabel => FeedTrust.Label(TrustState);
     public bool Refused => Refusal is not null || Feed.Refused;
@@ -28,11 +29,12 @@ public sealed record ImportConfirmation(
 /// </summary>
 public sealed class VendorFeedImporter(
     FeedFetcher fetcher, ImportedDefinitionStore store, Func<ISet<string>> shippedIds, Func<ISet<string>> userIds, TimeProvider? clock = null,
-    Func<IReadOnlyDictionary<string, string>>? stageFolders = null)
+    Func<IReadOnlyDictionary<string, string>>? stageFolders = null, FeedSignatureVerifier? signatureVerifier = null)
 {
     private readonly TimeProvider _clock = clock ?? TimeProvider.System;
+    private readonly FeedSignatureVerifier _signatureVerifier = signatureVerifier ?? new FeedSignatureVerifier();
 
-    public async Task<ImportPreview> PreviewAsync(Uri address, string? pinnedSha256, CancellationToken ct)
+    public async Task<ImportPreview> PreviewAsync(Uri address, string? pinnedSha256, CancellationToken ct, string? pinnedPublisher = null)
     {
         var document = await fetcher.FetchAsync(address, ct).ConfigureAwait(false);
         var feed = FeedValidator.Validate(document.Bytes);
@@ -49,6 +51,33 @@ public sealed class VendorFeedImporter(
         else
         {
             trust = FeedTrust.NotVerified;
+        }
+
+        // A pinned publisher: the detached signature (.p7s at the address with .p7s added, on the same host) must be valid for the exact
+        // bytes and made by that publisher. A failure stops the import; it never falls back to a weaker state.
+        string? signer = null;
+        string? publisherPin = null;
+        if (!string.IsNullOrWhiteSpace(pinnedPublisher))
+        {
+            if (!PublisherPin.TryParse(pinnedPublisher, out var parsed, out var parseError))
+            {
+                refusal ??= parseError + $" The import is stopped; it does not fall back to \"{FeedTrust.NotVerified}\".";
+            }
+            else
+            {
+                publisherPin = parsed.Text;
+                try
+                {
+                    var signature = await fetcher.FetchSignatureAsync(document.FinalAddress, ct).ConfigureAwait(false);
+                    var result = _signatureVerifier.Verify(document.Bytes, signature.Bytes, parsed, _clock.GetUtcNow());
+                    if (result.Valid) { trust = FeedTrust.SignedByPinnedPublisher; signer = result.SignerText; }
+                    else refusal ??= $"The signature of the document is refused: {result.Error} The import is stopped; it does not fall back to \"{FeedTrust.NotVerified}\".";
+                }
+                catch (FeedFetchException ex)
+                {
+                    refusal ??= $"The signature file could not be fetched: {ex.Message} The import is stopped; it does not fall back to \"{FeedTrust.NotVerified}\".";
+                }
+            }
         }
 
         var shipped = new HashSet<string>(shippedIds(), StringComparer.OrdinalIgnoreCase);
@@ -83,7 +112,7 @@ public sealed class VendorFeedImporter(
             if (!d.Blocked && !folders.Add(StageFolder.Name(d.Definition))) return new ImportCandidate(d, ConflictKind.StageFolder, null);
             return new ImportCandidate(d, ConflictKind.None, null);
         }).ToList();
-        return new ImportPreview(document, feed, trust, candidates, refusal);
+        return new ImportPreview(document, feed, trust, candidates, refusal, signer, publisherPin, string.IsNullOrEmpty(pin) ? null : document.Sha256);
     }
 
     private static string? StageFolderOfFile(string file)
@@ -126,7 +155,7 @@ public sealed class VendorFeedImporter(
         var source = new FeedSource(
             preview.Document.SafeAddress, confirmation.Vendor.Trim(), confirmation.FeedId, _clock.GetUtcNow(), preview.Document.Sha256,
             preview.Document.Size, FeedTrust.Label(preview.TrustState),
-            preview.TrustState == FeedTrust.PinnedDigest ? preview.Document.Sha256 : null, null, null,
+            preview.PinnedDigest, preview.PinnedPublisher, preview.Signer,
             take.Select(c => c.Definition.Id).ToList(), replaced, []);
         store.Write(source, take.Select(c => c.Definition).ToList());
         return source;

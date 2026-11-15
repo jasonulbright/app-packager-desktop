@@ -96,6 +96,7 @@ public sealed partial class VendorImportViewModel : ObservableObject
 
     [ObservableProperty] private string _address = "";
     [ObservableProperty] private string _pinnedDigest = "";
+    [ObservableProperty] private string _pinnedPublisher = "";
     [ObservableProperty] private string _vendor = "";
     [ObservableProperty] private string _feedId = "";
     [ObservableProperty] private bool _confirmedNotVerified;
@@ -149,7 +150,7 @@ public sealed partial class VendorImportViewModel : ObservableObject
         StatusText = $"Fetching from {address.Host}...";
         try
         {
-            var preview = await _service.PreviewAsync(address, PinnedDigest, fetching.Token);
+            var preview = await _service.PreviewAsync(address, PinnedDigest, fetching.Token, PinnedPublisher);
             Show(preview);
         }
         catch (FeedFetchException ex) { StatusText = ex.Message + " Nothing was written."; }
@@ -179,7 +180,8 @@ public sealed partial class VendorImportViewModel : ObservableObject
         TrustLabel = preview.TrustLabel;
         var document = preview.Document;
         SourceText = $"Address: {document.SafeAddress}\nSize: {document.Size:N0} bytes\nSHA-256: {document.Sha256}\n"
-                     + $"Vendor in the document: {preview.Feed.Vendor ?? "none"}\nTrust state: {preview.TrustLabel}";
+                     + $"Vendor in the document: {preview.Feed.Vendor ?? "none"}\nTrust state: {preview.TrustLabel}"
+                     + (preview.Signer is null ? "" : $"\nSigned by: {preview.Signer}");
         var findings = preview.Feed.Findings.Select(f => $"[{f.Severity}] {f.Message}").ToList();
         if (preview.Refusal is not null) findings.Insert(0, "[Blocking] " + preview.Refusal);
         FindingsText = string.Join(Environment.NewLine, findings);

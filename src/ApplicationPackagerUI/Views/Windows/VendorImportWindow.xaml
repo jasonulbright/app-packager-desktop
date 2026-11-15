@@ -50,6 +50,10 @@
                 <TextBox x:Name="txtPinnedDigest" Text="{Binding PinnedDigest, UpdateSourceTrigger=PropertyChanged}" MinHeight="40" Margin="0,0,0,8"
                          VerticalContentAlignment="Center" FontFamily="Consolas" AutomationProperties.AutomationId="txtPinnedDigest" />
 
+                <TextBlock Text="Pinned publisher (optional): subject | issuer of the code-signing certificate, or key: and the SHA-256 of its public key" FontWeight="SemiBold" Margin="0,0,0,4" TextWrapping="Wrap" />
+                <TextBox x:Name="txtPinnedPublisher" Text="{Binding PinnedPublisher, UpdateSourceTrigger=PropertyChanged}" MinHeight="40" Margin="0,0,0,8"
+                         VerticalContentAlignment="Center" AutomationProperties.AutomationId="txtPinnedPublisher" />
+
                 <TextBlock x:Name="txtImportStatus" Text="{Binding StatusText}" TextWrapping="Wrap" Margin="0,0,0,8"
                            Foreground="{DynamicResource TextFillColorSecondaryBrush}" AutomationProperties.AutomationId="txtImportStatus" />
 
