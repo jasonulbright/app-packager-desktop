@@ -17,9 +17,12 @@ public partial class MainWindowViewModel : ObservableObject
     {
         var settings = settingsService.Load();
         FooterText = SiteFooter.Format(settings.SiteCode, settings.ProviderMachine);
-        settingsService.OperatorSaved += saved =>
+        // After a save the footer reads the settings back, as every tool of the suite does: a launcher-supplied site code or server still
+        // applies where the saved value is blank, and the footer must show the site that the app uses.
+        settingsService.OperatorSaved += _ =>
         {
-            var text = SiteFooter.Format(saved.SiteCode, saved.ProviderMachine);
+            var current = settingsService.Load();
+            var text = SiteFooter.Format(current.SiteCode, current.ProviderMachine);
             var dispatcher = System.Windows.Application.Current?.Dispatcher;
             if (dispatcher is null || dispatcher.CheckAccess()) FooterText = text;
             else dispatcher.BeginInvoke(() => FooterText = text);
@@ -32,12 +35,18 @@ public static class SiteFooter
 {
     public const string NotSet = "Site not set";
 
-    /// <summary>"Site MCM" then a middle dot then the server; with no site code "Site not set"; with no server the code alone.</summary>
+    /// <summary>
+    /// The footer text of the suite (Format-SuiteFooterSite): "Site MCM", a middle dot and the server; "Site not set" when both are empty;
+    /// "Site not set", a middle dot and the server without a site code; "Site MCM", a middle dot and "server not set" without a server.
+    /// </summary>
     public static string Format(string? siteCode, string? server)
     {
         var code = siteCode?.Trim() ?? "";
         var machine = server?.Trim() ?? "";
-        if (code.Length == 0) return NotSet;
-        return machine.Length == 0 ? "Site " + code : $"Site {code} Â· {machine}";
+        const string dot = "Â·";
+        if (code.Length == 0 && machine.Length == 0) return NotSet;
+        if (code.Length == 0) return $"{NotSet} {dot} {machine}";
+        if (machine.Length == 0) return $"Site {code} {dot} server not set";
+        return $"Site {code} {dot} {machine}";
     }
 }
