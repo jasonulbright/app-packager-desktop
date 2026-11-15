@@ -41,14 +41,14 @@ The application checks for a new version at start. To check at once, open **Sett
 The **Setup** window opens one time, after the main window appears. It opens when the first-run flag is not set in the settings file. An existing settings file without the flag counts as completed.
 
 1. Read the first page, **Welcome to App Packager Desktop**.
-2. Under **Systems in use**, select **ConfigMgr**, **Intune** and **WSUS** as needed. **ConfigMgr** is selected at first.
+2. Under **Systems in Use**, select **ConfigMgr**, **Intune** and **WSUS** as needed. **ConfigMgr** is selected at first.
 3. Select **Next**.
 4. On the **Connection details** page, enter the values for the systems that you selected. For ConfigMgr, enter **Site Code**, **Site Server / SMS Provider**, **File Share Root** and **Download Root**.
    - **File Share Root** is the share itself, for example `\\fileserver\sccm$`. The app adds `Applications\<Vendor>\<App>\<Version>` below it. A root that ends in `\Applications` gives `...\Applications\Applications\...`.
    - **Download Root** shows the `Staging` folder of the data folder at first.
 5. Select **Save**.
 
-![The first page of the Setup window with the Systems in use check boxes](images/start-setup-systems.png)
+![The first page of the Setup window with the Systems in Use check boxes](images/start-setup-systems.png)
 
 ![The Connection details page of the Setup window with ConfigMgr and WSUS values](images/start-setup-connection.png)
 
@@ -73,7 +73,7 @@ The first start shows the Dark theme. To change it, open **Settings** and select
 4. In **File Share Root (UNC)**, enter the UNC path of the content share.
 5. Select **Save Settings**.
 6. Open **App Packager**. Click the page, then press F5 to reload the application list. The reload tests the connection to the site.
-7. Read the `● ConfigMgr` indicator in the status line. The text of the indicator does not change. Its color shows the state. Green means the test passed. Red means the test did not pass. Amber means the test is running. Gray means that the site code is empty. The default color shows when **ConfigMgr** is not selected under **Systems in use**.
+7. Read the `● ConfigMgr` indicator in the status line. The text of the indicator does not change. Its color shows the state. Green means the test passed. Red means the test did not pass. Amber means the test is running. Gray means that the site code is empty. The default color shows when **ConfigMgr** is not selected under **Systems in Use**.
 8. Read the log pane for the text of the state. A passed test shows `ConfigMgr: Connected to site <code>`. A failed test shows `ConfigMgr: Connection failed` and the reason.
 
 The publish buttons are disabled, not hidden, when a system is not ready. The tooltip of a disabled button names the missing setting. See [Troubleshooting](troubleshooting.md).

@@ -34,7 +34,7 @@ A click on a column header sorts the grid. The first column stays in place when 
 | **CVEs Checked (UTC)** | Time of the CVE lookup, in UTC. | **Show debug columns** |
 | **CMName** | Name that **Check ConfigMgr** uses to find the application. | **Show debug columns** |
 | **Script** | File name of the definition, or of the PS1 packager. | **Show debug columns** |
-| **Intune** | Outcome of the Intune build and publish in the last publish run. | **Intune** is selected under Systems in use |
+| **Intune** | Outcome of the Intune build and publish in the last publish run. | **Intune** is selected under Systems in Use |
 
 The columns **CVEs**, **Max CVSS**, **In latest** and **Max EPSS** sort by number. The CVE columns are explained in [CVE lookup](cve-lookup.md).
 
@@ -110,7 +110,7 @@ The line under the log pane has three parts.
 - The middle text shows the progress, for example `Latest check: 2 of 10 — <application>`, or the result of the run.
 - The progress bar shows while an operation runs.
 
-After the list loads, the page tests the ConfigMgr connection once. When **ConfigMgr** is not in use, the test is skipped and the log shows `ConfigMgr: pre-flight version query skipped; ConfigMgr is not in use (Settings, Systems in use).`
+After the list loads, the page tests the ConfigMgr connection once. When **ConfigMgr** is not in use, the test is skipped and the log shows `ConfigMgr: pre-flight version query skipped; ConfigMgr is not in use (Settings, Systems in Use).`
 
 ## Operation history window
 

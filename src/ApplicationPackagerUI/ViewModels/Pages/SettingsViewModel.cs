@@ -58,7 +58,7 @@ public partial class SettingsViewModel : ObservableObject, ISettingsReload
     public ObservableCollection<PathSettingRow> LocalSourceRows { get; } = [];
     public ObservableCollection<PathSettingRow> SideFileRows { get; } = [];
 
-    // Systems in use: a publish button whose system is not in use stays disabled.
+    // Systems in Use: a publish button whose system is not in use stays disabled.
     [ObservableProperty] private bool _useConfigMgr = true;
     [ObservableProperty] private bool _useIntune;
     [ObservableProperty] private bool _useWsus;
@@ -92,6 +92,11 @@ public partial class SettingsViewModel : ObservableObject, ISettingsReload
     /// key, a typed value replaces it DPAPI-protected.
     /// </summary>
     [ObservableProperty] private string _nvdApiKey = "";
+    [ObservableProperty] private string _gitHubToken = "";
+    [ObservableProperty] private bool _hasStoredGitHubToken;
+    [ObservableProperty] private bool _removeGitHubToken;
+    public string GitHubTokenHint => HasStoredGitHubToken ? "Stored - leave empty to keep it" : "Not set";
+    partial void OnHasStoredGitHubTokenChanged(bool value) => OnPropertyChanged(nameof(GitHubTokenHint));
     [ObservableProperty] private bool _hasStoredNvdApiKey;
     [ObservableProperty] private bool _removeNvdApiKey;
     [ObservableProperty] private bool _lookupCvesAfterCheckMecm;
@@ -631,6 +636,9 @@ public partial class SettingsViewModel : ObservableObject, ISettingsReload
         NvdApiKey = "";
         RemoveNvdApiKey = false;
         HasStoredNvdApiKey = !string.IsNullOrWhiteSpace(s.Vulnerability.NvdApiKeyProtected);
+        GitHubToken = "";
+        RemoveGitHubToken = false;
+        HasStoredGitHubToken = !string.IsNullOrWhiteSpace(s.GitHubTokenProtected);
         LookupCvesAfterCheckMecm = s.Vulnerability.LookupAfterCheckCm;
 
         if (Enum.TryParse<ApplicationTheme>(s.Theme, out var theme))
@@ -721,6 +729,9 @@ public partial class SettingsViewModel : ObservableObject, ISettingsReload
         // The plaintext key never reaches settings.json.
         if (!string.IsNullOrWhiteSpace(NvdApiKey)) s.Vulnerability.NvdApiKeyProtected = NvdApiKeyStore.Protect(NvdApiKey);
         else if (RemoveNvdApiKey) s.Vulnerability.NvdApiKeyProtected = "";
+        // The GitHub token: an empty box keeps the saved one, a typed value replaces it (DPAPI, never the plaintext in settings.json).
+        if (!string.IsNullOrWhiteSpace(GitHubToken)) s.GitHubTokenProtected = GitHubTokenStore.Protect(GitHubToken);
+        else if (RemoveGitHubToken) s.GitHubTokenProtected = "";
 
         // Write first. The typed secret and key stay in their boxes, and the stored flags stay as they were,
         // until the file holds them; a failed write then loses nothing the operator typed.
@@ -739,6 +750,12 @@ public partial class SettingsViewModel : ObservableObject, ISettingsReload
         NvdApiKey = "";
         RemoveNvdApiKey = false;
         HasStoredNvdApiKey = !string.IsNullOrWhiteSpace(s.Vulnerability.NvdApiKeyProtected);
+        GitHubToken = "";
+        RemoveGitHubToken = false;
+        HasStoredGitHubToken = !string.IsNullOrWhiteSpace(s.GitHubTokenProtected);
+        // The next request resolves the token again, and the status row shows where it came from.
+        ApplicationPackagerEngine.Scrapers.GitHubAuth.Reset();
+        _ = RefreshGitHubApiStatusAsync();
 
         ThemeApplier.Apply(s.Theme);
         _packagesViewModel.RefreshPublishActionState();

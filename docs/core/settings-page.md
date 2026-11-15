@@ -21,7 +21,7 @@ Use the page after the Setup window, or when a site, share, certificate or key c
 3. Select **Save Settings** in the page header, at the top right. The snackbar shows "Settings saved."
 4. To discard unsaved edits, select **Discard changes** next to it. The button reloads every setting on the page from the saved settings.
 
-![Top of the Settings page with the Sidebar, Updates, Organization and Systems in use sections](../images/core-settings-top.png)
+![Top of the Settings page with the Sidebar, Updates, Organization and Systems in Use sections](../images/core-settings-top.png)
 
 The theme choice **Dark** or **Light** is at the top of the page. The window changes at once when you select a theme. **Save Settings** stores the choice. The default theme is **Dark**.
 
@@ -44,7 +44,7 @@ Each entry has a check box, a **Move up** button and a **Move down** button. **R
 |---|---|---|
 | **Company Name** | Empty | When a Packagers folder exists, App Packager Desktop writes the value to `packager-preferences.json` in that folder, for PS1 packagers. No other part of the application reads it. |
 
-### Systems in use
+### Systems in Use
 
 | Control | Default | Effect |
 |---|---|---|
@@ -68,9 +68,9 @@ A system that is not in use keeps its buttons disabled. A settings file that has
 | **Download Root (local staging)**, **Browse** | `Staging` in the data folder | The local staging folder. The application refuses a folder that other accounts can write to. |
 | **Packagers Folder (leave empty for auto-detect)**, **Browse** | Empty | The folder of PS1 packagers. Empty means the `Packagers` folder next to the executable. |
 
-![The ConfigMgr Site Settings and After Package sections](../images/core-settings-configmgr.png)
+![The ConfigMgr Site Settings and Post Packaging sections](../images/core-settings-configmgr.png)
 
-### After Package
+### Post Packaging
 
 Both steps are optional. They run after the ConfigMgr application exists. All controls are cleared at first.
 
@@ -100,11 +100,11 @@ See [One Click](one-click.md). The section has **Action on update** (**Report on
 ### Packager Icon Pack and GitHub API
 
 - **Install from file...** and **Download icon pack** install application icons. The download checks a SHA-256 value.
-- **Refresh** under **GitHub API** shows the request budget. A token from `APP_PACKAGER_GITHUB_TOKEN`, `GITHUB_TOKEN` or `gh auth login` raises the limit from 60 to 5,000 requests each hour.
+- **Refresh** under **GitHub API** shows the request budget. A token from `APP_PACKAGER_GITHUB_TOKEN`, `GITHUB_TOKEN`, the **GitHub token** box below it or `gh auth login` raises the limit from 60 to 5,000 requests each hour.
 
 ![The Detected Tools, Packager Icon Pack and GitHub API sections](../images/core-settings-tools.png)
 
-### Intune and CVE lookup
+### Intune and CVE Lookup
 
 | Control | Effect |
 |---|---|
@@ -115,7 +115,7 @@ See [One Click](one-click.md). The section has **Action on update** (**Report on
 | **Remove the saved key on Save** | Deletes the saved key when you select **Save Settings**. |
 | **Look up CVEs after Check ConfigMgr** | Cleared at first. Runs the CVE lookup after **Check ConfigMgr**. |
 
-![The Intune and CVE lookup sections](../images/core-settings-intune-cve.png)
+![The Intune and CVE Lookup sections](../images/core-settings-intune-cve.png)
 
 ### WSUS Publishing
 
@@ -152,7 +152,7 @@ A choice in the Workbench overrides the title choices. The two content options a
 
 ### M365 Apps, Install Parameters and sources
 
-- **M365 Apps — Channel**: **Monthly Enterprise Channel** (default), **Current Channel** or **Semi-Annual Enterprise Channel (kiosk)**.
+- **M365 Apps - Channel**: **Monthly Enterprise Channel** (default), **Current Channel** or **Semi-Annual Enterprise Channel (kiosk)**.
 - **Install Parameters**: **Skip the review dialog before staging and use the saved values** (cleared at first). Each application with install parameters has an expander. An application marked for review in its definition still shows the dialog.
 - **Local Installer Sources**: one **Browse...** folder for each application whose download needs a sign-in. Stage takes the highest file version in the folder. The installer must carry a valid signature.
 - **Packager Files**: one **Browse...** file for each file that an installer reads from its folder. The file is copied beside the installer and is never read.
@@ -163,7 +163,7 @@ A choice in the Workbench overrides the title choices. The two content options a
 
 ![Local Installer Sources and Packager Files](../images/core-settings-install-parameters-sources.png)
 
-### Citrix Workspace App — Install Parameters
+### Citrix Workspace App - Install Parameters
 
 The section sets the install switches of the Citrix Workspace App definitions: **Store**, **Installation**, **Plugins**, **Components**, and the groups for updates, telemetry and store policy. A shaded box or an empty choice passes no switch. **Preview** shows the arguments for Current Release and LTSR.
 

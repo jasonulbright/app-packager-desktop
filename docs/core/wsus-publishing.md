@@ -22,7 +22,7 @@ The page [WSUS Updates](wsus-updates.md) describes the window that approves, dec
 - An account that is a member of the WSUS Administrators group on the server.
 - Access to the file shares of the server (`UpdateServicesPackages` and `WSUSContent`).
 - Windows PowerShell 5.1.
-- WSUS selected under **Systems in use** in Settings, and a **WSUS server** name.
+- WSUS selected under **Systems in Use** in Settings, and a **WSUS server** name.
 - When the computer is not the WSUS server, the computer must trust the signing certificate of the server.
 - With **Use SSL**, the computer must trust the HTTPS certificate of the server and use TLS 1.2. See `SchUseStrongCrypto` in the troubleshooting table.
 
@@ -38,12 +38,12 @@ The rights of each page are in [Permissions](../reference/permissions.md).
 ### Connect to the server
 
 1. Select **Settings** in the sidebar.
-2. Under **Systems in use**, select **WSUS**.
+2. Under **Systems in Use**, select **WSUS**.
 3. In the section **WSUS Publishing**, enter the name of the server in **WSUS server**. Enter a host name. A name with a scheme or a path is refused.
 4. Check **Port** and **Use SSL**. The port changes to 8531 when you select **Use SSL**, and to 8530 when you clear it. A port that you type yourself stays.
 5. Select **Test connection**.
 6. Read the status line. A successful test shows `Connected`, the server name, the WSUS version, your role and `secure` or `unencrypted`.
-7. Read the line under **Signing certificate**. It shows the subject, the thumbprint, the end date, the key length and the flags `self-signed` and `EXPIRED`.
+7. Read the line under **Signing Certificate**. It shows the subject, the thumbprint, the end date, the key length and the flags `self-signed` and `EXPIRED`.
 8. Select **Save Settings**.
 
 If the buttons of the section are disabled, the WSUS administration API is not on this computer. The status line then shows the text that names the fix. See [Troubleshooting](#troubleshooting).

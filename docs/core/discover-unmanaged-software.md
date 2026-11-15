@@ -16,7 +16,7 @@ Discover reads application names and versions only. It reads no client name, no 
 
 ## Requirements
 
-- ConfigMgr selected under **Systems in use** in Settings.
+- ConfigMgr selected under **Systems in Use** in Settings.
 - A **Site Code** in **ConfigMgr Site Settings**, or both **Discovery SQL Server** and **Discovery Database**. The default Site Code is `MCM`. Save your own Site Code before you use Discover.
 - Windows PowerShell 5.1. Discover runs its query through `powershell.exe`.
 - A domain account on a domain-joined computer. A computer outside the domain cannot sign in to the database.

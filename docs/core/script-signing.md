@@ -31,7 +31,7 @@ The app never exports a private key. A private key never reaches profiles, manif
 ## Steps
 
 1. Open **Settings** and go to **Script Signing**.
-2. Under **Signing identity**, choose **Certificate store**. `CurrentUser\My` is the supported identity. `LocalMachine\My` needs an explicit choice and tested private-key access.
+2. Under **Signing Identity**, choose **Certificate store**. `CurrentUser\My` is the supported identity. `LocalMachine\My` needs an explicit choice and tested private-key access.
 3. Select **Refresh**. In the list **Certificate**, choose the certificate. Each entry shows the subject and the expiry date. An entry that is not usable ends with `[unusable]`.
 4. Read the line under the list. It shows the subject, the issuer, the dates, the thumbprint and `Usable: yes` or `Usable: no - <reason>`.
 5. Optional: enter a **Timestamp server**. A timestamped signature stays valid after the certificate expires. Select **Timestamp required** if a timestamp failure must fail the build.

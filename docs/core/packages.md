@@ -17,7 +17,7 @@ This page covers the page layout, the version checks and the buttons. The column
 | Action | Requirement |
 |---|---|
 | **Check Latest** | Network access from this computer to the vendor hosts. No ConfigMgr setting is necessary. |
-| **Check ConfigMgr** | **ConfigMgr** is selected under Settings, Systems in use. The ConfigMgr console is installed on this computer. **Site Code** is set under Settings, ConfigMgr Site Settings. The account can read applications in ConfigMgr. |
+| **Check ConfigMgr** | **ConfigMgr** is selected under Settings, Systems in Use. The ConfigMgr console is installed on this computer. **Site Code** is set under Settings, ConfigMgr Site Settings. The account can read applications in ConfigMgr. |
 | Publish buttons | See [Stage and publish](stage-and-publish.md) and [WSUS publishing](wsus-publishing.md). |
 
 - ConfigMgr work runs in Windows PowerShell 5.1.
@@ -111,12 +111,12 @@ A publish button is disabled, not hidden, while its system is not ready. The too
 
 | Tooltip text after the button name | Cause |
 |---|---|
-| `ConfigMgr is not in use. Select it under Systems in use in Settings.` | **ConfigMgr** is cleared under Systems in use. |
+| `ConfigMgr is not in use. Select it under Systems in Use in Settings.` | **ConfigMgr** is cleared under Systems in Use. |
 | `Needs the ConfigMgr console on this computer.` | The ConfigMgr console is not installed on this computer. |
 | `Set the site code in Settings, ConfigMgr Site Settings.` | **Site Code** is empty. |
-| `Intune is not in use. Select it under Systems in use in Settings.` | **Intune** is cleared under Systems in use. |
+| `Intune is not in use. Select it under Systems in Use in Settings.` | **Intune** is cleared under Systems in Use. |
 | `set Tenant ID, Client ID and Client Secret in Settings, Intune.` | An Intune credential is missing. |
-| `WSUS is not in use. Select it under Systems in use in Settings.` | **WSUS** is cleared under Systems in use. |
+| `WSUS is not in use. Select it under Systems in Use in Settings.` | **WSUS** is cleared under Systems in Use. |
 | `Set the WSUS server in Settings, WSUS Publishing.` | The **WSUS server** box is empty. |
 
 ![A disabled publish button with its tooltip](../images/core-packages-buttons-disabled.png)
@@ -138,7 +138,7 @@ All keys of the product are in [Keyboard](../reference/keyboard.md).
 
 | Setting | Where | Effect on this page |
 |---|---|---|
-| Systems in use | Settings | Enables or disables the check and publish buttons. Shows the **Intune** column when **Intune** is in use. |
+| Systems in Use | Settings | Enables or disables the check and publish buttons. Shows the **Intune** column when **Intune** is in use. |
 | Site Code, Site Server / SMS Provider Host | Settings, ConfigMgr Site Settings | Target of **Check ConfigMgr** and of the connection test. |
 | Download Root (local staging) | Settings, ConfigMgr Site Settings | Folder for staged content and for the logs of Stage and Publish runs. |
 | File Share Root (UNC) | Settings, ConfigMgr Site Settings | Content share of a ConfigMgr publish run. |

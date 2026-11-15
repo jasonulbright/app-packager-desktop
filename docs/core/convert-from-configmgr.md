@@ -28,7 +28,7 @@ BLUF: **Convert from ConfigMgr** reads one ConfigMgr application from the site a
 - The exact name of the application, as the console shows it. A wildcard is not accepted. A name that matches no application, or more than one, is an error.
 - For the content copy: read access to the content source of each deployment type, and write access to the output folder.
 - To build the `.intunewin` files: the Win32 Content Prep Tool. The first build downloads it. See [Publish to Intune](publish-to-intune.md).
-- To publish: **Intune** selected under **Systems in use** and **Tenant ID**, **Client ID** and **Client Secret** saved in Settings, Intune. See [Publish to Intune](publish-to-intune.md).
+- To publish: **Intune** selected under **Systems in Use** and **Tenant ID**, **Client ID** and **Client Secret** saved in Settings, Intune. See [Publish to Intune](publish-to-intune.md).
 
 ## Steps
 

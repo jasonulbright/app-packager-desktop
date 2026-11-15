@@ -88,7 +88,7 @@ See [App Packager page](../core/packages.md) and [Stage and publish](../core/sta
 | SiteCode is required. Open Settings to configure. | App Packager page, at the start of a run | The site code is empty. | Do as the message says. |
 | File Share Root is required. Open Settings to configure. | App Packager page, at the start of a run | The share root is empty. | Do as the message says. |
 | Needs the ConfigMgr console on this computer. | Tooltip of `Check ConfigMgr` and `Publish to ConfigMgr` | The console was not found. | Install the console. |
-| <System> is not in use. Select it under Systems in use in Settings. | Tooltip or message of a disabled button | The system is off in Systems in use. | Select the system in Settings. |
+| <System> is not in use. Select it under Systems in Use in Settings. | Tooltip or message of a disabled button | The system is off in Systems in Use. | Select the system in Settings. |
 | Intune credentials are required. Open Settings and set Tenant ID, Client ID, and Client Secret. | App Packager page | A target publishes to Intune without credentials. | Do as the message says. |
 | No packagers selected. | App Packager page log | A button was pressed with no checked row. | Check at least one row. |
 | SiteCode is required. Open Settings. | App Packager page log, `Check ConfigMgr` | The site code is empty. | Do as the message says. |

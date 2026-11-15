@@ -20,9 +20,9 @@ You set the tracked applications, the action and the default destinations once i
 
 | Destination | Ready when |
 |---|---|
-| ConfigMgr | ConfigMgr is under **Systems in use**, the ConfigMgr console is on this computer, and **Site Code** and **File Share Root** are set. |
-| WSUS | WSUS is under **Systems in use** and **WSUS server** is set. See [WSUS publishing](wsus-publishing.md). |
-| Intune | Intune is under **Systems in use** and **Tenant ID**, **Client ID** and **Client Secret** are set. |
+| ConfigMgr | ConfigMgr is under **Systems in Use**, the ConfigMgr console is on this computer, and **Site Code** and **File Share Root** are set. |
+| WSUS | WSUS is under **Systems in Use** and **WSUS server** is set. See [WSUS publishing](wsus-publishing.md). |
+| Intune | Intune is under **Systems in Use** and **Tenant ID**, **Client ID** and **Client Secret** are set. |
 
 The rights of each destination are in [Permissions](../reference/permissions.md).
 

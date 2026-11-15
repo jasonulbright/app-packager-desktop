@@ -27,7 +27,7 @@ A disabled publish button shows a tooltip that names the missing setting.
 
 | Message | Cause | Fix |
 |---|---|---|
-| ConfigMgr is not in use. Select it under Systems in use in Settings. (The tooltip begins with the name of the button, for example "Publish to ConfigMgr:".) | The system is cleared under **Systems in use**. The same text applies to Intune and WSUS with the system name. | Select the system under **Systems in use** in **Settings**. Select **Save Settings**. |
+| ConfigMgr is not in use. Select it under Systems in Use in Settings. (The tooltip begins with the name of the button, for example "Publish to ConfigMgr:".) | The system is cleared under **Systems in Use**. The same text applies to Intune and WSUS with the system name. | Select the system under **Systems in Use** in **Settings**. Select **Save Settings**. |
 | Needs the ConfigMgr console on this computer. | The application did not find the Configuration Manager console. | Install the console. **Settings**, **Detected Tools** shows if the application finds it. |
 | Set the site code in Settings, ConfigMgr Site Settings. | **Site Code** is empty. | Enter the site code. |
 | Publish to Intune: set Tenant ID, Client ID and Client Secret in Settings, Intune. | Intune is in use, and a credential is missing. | Enter the three values under **Intune**. |

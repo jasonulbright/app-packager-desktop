@@ -15,7 +15,13 @@ public static class PackagerServiceRegistration
 {
     public static IServiceCollection AddPackagerServices(this IServiceCollection services)
     {
-        services.AddSingleton<SettingsService>();
+        services.AddSingleton<SettingsService>(_ =>
+        {
+            var settings = new SettingsService();
+            // The GitHub token that the operator saved in Settings serves the version checks of the program and of the command-line build.
+            ApplicationPackagerEngine.Scrapers.GitHubAuth.StoredTokenProvider = () => GitHubTokenStore.Unprotect(settings.Load().GitHubTokenProtected);
+            return settings;
+        });
         services.AddSingleton<ISettingsReader<AppSettings>>(sp => sp.GetRequiredService<SettingsService>());
         services.AddSingleton<IRunSettingsReader<AppSettings>>(sp => sp.GetRequiredService<SettingsService>());
         services.AddSingleton<ApplicationPackagerEngine.Services.ApplicationInventoryService>();

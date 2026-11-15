@@ -46,7 +46,7 @@ The default order is, in the first group: App Packager, Add from web, Add from f
 |---|---|---|---|
 | `Company Name` | `CompanyName` | empty | The app writes it to `packager-preferences.json` in the Packagers folder. Only PS1 packagers use that file. The app reads no other use of this value. When no Packagers folder exists, the value has no effect. |
 
-## Systems in use
+## Systems in Use
 
 | UI label | Property | Default | Effect |
 |---|---|---|---|
@@ -79,7 +79,7 @@ Used by: [Stage and publish](../core/stage-and-publish.md), [Discover unmanaged 
 
 The environment variables `SUITE_CM_SITECODE` and `SUITE_CM_PROVIDER` fill the site code (when never saved) and an empty provider in memory. They do not write the file.
 
-## After Package
+## Post Packaging
 
 These settings apply to `Publish to ConfigMgr`. See [Stage and publish](../core/stage-and-publish.md).
 
@@ -127,6 +127,7 @@ These sections store no setting.
 | `Install from file...` | Installs an icon pack from a local file. |
 | `Download icon pack` | Downloads the icon pack release and checks its SHA-256 value. The app stores the icons in the user definitions folder. Bundled icons stay read-only. |
 | `Refresh` (GitHub API) | Shows the GitHub API rate limit. |
+| `GitHub token` (password box) | `GitHubTokenProtected` | Saves a GitHub token for the version checks that read `api.github.com`. It is stored encrypted (DPAPI) for the current Windows user and never as plain text in `settings.json`. An empty box keeps the saved token; **Remove the saved token on Save** deletes it. The environment variables `APP_PACKAGER_GITHUB_TOKEN` and `GITHUB_TOKEN` are used first, then this token, then `gh auth login`. The status row shows which source is used ("Settings" for this one). |
 
 ## Intune
 
@@ -148,7 +149,7 @@ See [Stage and publish](../core/stage-and-publish.md).
 
 The app registration needs the application permission `DeviceManagementApps.ReadWrite.All`, with admin consent.
 
-## CVE lookup
+## CVE Lookup
 
 See [CVE lookup](../core/cve-lookup.md).
 
@@ -258,8 +259,8 @@ The definitions Current Release and LTSR use these choices. A shaded box or an e
 | Installation | `Clean install`, `Include SSON`, `Enable SSON`, `startAppProtection`, `Session pre-launch`, `Self-service mode`, `forceinstall` (`/forceinstall`: cleans old Citrix data after a failed install or upgrade), `Client name (fixed)` (`ENABLE_DYNAMIC_CLIENT_NAME=No` and `CLIENT_NAME`; up to 20 letters, digits, dots, hyphens or underscores) |
 | Plugins | `Microsoft Teams`, `Zoom`, `Webex`, `uberAgent`, `Skip uberAgent upgrade`, `EPA client`, `Session recording`, `Skip session recording agent upgrade` (`/SkipSRAgentUpgrade`, Current Release, with `Session recording`) |
 | Components | `Customize (ADDLOCAL)`, `ReceiverInside`, `ICA_Client`, `AM`, `SelfService`, `DesktopViewer`, `WebHelper`, `BCR_Client`, `USB`, `SSON`, `CitrixEnterpriseBrowser` (LTSR only). The page shows the check boxes of `ICA_Client` and `BCR_Client` as `ICAClient` and `BCRClient`, because WPF reads the underscore as an access key. The component names are `ICA_Client` and `BCR_Client`. |
-| Updates, telemetry and store policy | `AutoUpdateCheck` (`(not set)`, `auto`, `manual`, `disabled`); `EnableCEIP`; `EnableTracing`; `ALLOWADDSTORE` (`(not set)`, `S`, `A`, `N`); `ALLOWSAVEPWD` (`(not set)`, `S`, `A`, `N`); `AutoUpdateStream` (`(not set)`, `LTSR`, `Current`) and `AURolloutPriority` (`(not set)`, `Auto`, `Fast`, `Medium`, `Slow`), both only with `AutoUpdateCheck` |
-| HDX features and display | `Bidirectional content redirection` (`ALLOW_BIDIRCONTENTREDIRECTION`), `Local App Access` (`FORCE_LAA`), `URL redirection` (`ALLOW_CLIENTHOSTEDAPPSURL`), each 1 when checked and 0 when cleared; `Hide file-type icons` (`LEGACYFTAICONS`, True or False); `DisableSetting` (`(not set)`, 0 show both, 1 Reconnect only, 2 Shortcuts only, 3 hide both) |
+| Updates, Telemetry and Store Policy | `AutoUpdateCheck` (`(not set)`, `auto`, `manual`, `disabled`); `EnableCEIP`; `EnableTracing`; `ALLOWADDSTORE` (`(not set)`, `S`, `A`, `N`); `ALLOWSAVEPWD` (`(not set)`, `S`, `A`, `N`); `AutoUpdateStream` (`(not set)`, `LTSR`, `Current`) and `AURolloutPriority` (`(not set)`, `Auto`, `Fast`, `Medium`, `Slow`), both only with `AutoUpdateCheck` |
+| HDX Features and Display | `Bidirectional content redirection` (`ALLOW_BIDIRCONTENTREDIRECTION`), `Local App Access` (`FORCE_LAA`), `URL redirection` (`ALLOW_CLIENTHOSTEDAPPSURL`), each 1 when checked and 0 when cleared; `Hide file-type icons` (`LEGACYFTAICONS`, True or False); `DisableSetting` (`(not set)`, 0 show both, 1 Reconnect only, 2 Shortcuts only, 3 hide both) |
 
 Each check box has three states: on, off and not set.
 
@@ -278,7 +279,7 @@ The Setup window opens one time after the main window shows, when `FirstRunCompl
 
 | UI label | Property | Effect |
 |---|---|---|
-| `Systems in use` (`ConfigMgr`, `Intune`, `WSUS`) | `Systems.*` | As in the Systems in use section above. |
+| `Systems in Use` (`ConfigMgr`, `Intune`, `WSUS`) | `Systems.*` | As in the Systems in Use section above. |
 | ConfigMgr: `Site Code`, `Site Server / SMS Provider`, `File Share Root`, `Download Root` | `SiteCode`, `ProviderMachine`, `FileShareRoot`, `DownloadRoot` | As in ConfigMgr Site Settings above. |
 | Intune: `Tenant ID`, `Client ID`, `Client Secret` | `Intune.*` | As in Intune above. |
 | WSUS: `WSUS server`, `Port`, `Use SSL` | `Wsus.*` | As in WSUS Publishing above. |
@@ -321,7 +322,7 @@ A page saves its tab and filter choices under its own key in `settings.json`. Yo
 | `APP_PACKAGER_DATA_ROOT` | Moves the data folders to `<value>\Users\<Windows SID>`. See [Data folders](data-folders.md). |
 | `APP_PACKAGER_WORKBENCH_ROOT` | Sets the Workbench data root. |
 | `NVD_API_KEY` | The NVD key, used when no key is saved. |
-| `APP_PACKAGER_GITHUB_TOKEN`, `GITHUB_TOKEN` | A GitHub token for version checks that read `api.github.com`. The app tries them in this order, then `gh auth token`. |
+| `APP_PACKAGER_GITHUB_TOKEN`, `GITHUB_TOKEN` | A GitHub token for version checks that read `api.github.com`. The app tries them in this order, then the token saved in Settings, then `gh auth token`. |
 | `SMS_ADMIN_UI_PATH` | Set by the ConfigMgr console. The app uses it to find the console. |
 | `SUITE_CM_SITECODE`, `SUITE_CM_PROVIDER` | Fill the site code (when never saved) and an empty provider, in memory only. |
 | `APP_PACKAGER_DT_CONTENT_FALLBACK`, `APP_PACKAGER_DT_SLOW_NETWORK_MODE` | Pass the two content options to PS1 packagers. |

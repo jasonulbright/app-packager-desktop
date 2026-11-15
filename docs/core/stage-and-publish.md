@@ -71,7 +71,7 @@ A definition from [Add from file](add-from-file.md) has no version source and no
 
 A definition with the installer type `MSIX` (a `.msix`, `.appx`, `.msixbundle` or `.appxbundle` file) is checked for its signature and its architecture. A package with no signature, a signature that is not valid, or an architecture that differs from the definition stops the stage. An MSIX is published to ConfigMgr as a script deployment type, as every other product is: the stage wraps the package and gives it a detection (the provisioning key of the package, or a script). App Packager does not create the native MSIX deployment type of ConfigMgr. A stage that asks for it (a manifest with the detection type `MSIX`, from an older release) is refused at publish with the message to stage the application again. A definition with the installer type `MSP` stages a Windows Installer patch.
 
-Office (ODT) definitions stage through the Office Deployment Tool. They use the channel from Settings, M365 Apps — Channel.
+Office (ODT) definitions stage through the Office Deployment Tool. They use the channel from Settings, M365 Apps - Channel.
 
 The shared download cache is `<Download Root>\_cache`. A profile other than the packager default stages under `<Download Root>\profiles\<ProfileId>`. See [Workbench](workbench.md).
 
@@ -86,7 +86,7 @@ A download that fails is tried a second time after 5 seconds. The log shows `Dow
 | Install Parameters | Values for each installer switch, saved per application. |
 | Local Installer Sources | Folder that holds the installer of an application whose download needs a sign-in. Stage takes the highest file version in the folder. |
 | Packager Files | Files that Stage copies beside the installer. The app never reads them. |
-| M365 Apps — Channel | Update channel for the Microsoft 365 Apps, Project and Visio definitions. |
+| M365 Apps - Channel | Update channel for the Microsoft 365 Apps, Project and Visio definitions. |
 | Script Signing | Signature policy for the generated scripts. |
 
 See [Settings reference](../reference/settings.md) for defaults.
