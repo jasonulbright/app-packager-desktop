@@ -5,6 +5,11 @@ on:
     branches:
       - main
   workflow_dispatch:
+    inputs:
+      filter:
+        description: "Optional dotnet test filter (a fast run of some tests); empty runs everything"
+        required: false
+        default: ""
 
 permissions:
   contents: read
@@ -60,4 +65,8 @@ jobs:
 
       - name: Test
         shell: pwsh
-        run: dotnet test tests/ApplicationPackagerEngine.Tests/ApplicationPackagerEngine.Tests.csproj --configuration Release
+        env:
+          TEST_FILTER: ${{ inputs.filter }}
+        run: |
+          if ($env:TEST_FILTER) { dotnet test tests/ApplicationPackagerEngine.Tests/ApplicationPackagerEngine.Tests.csproj --configuration Release --filter $env:TEST_FILTER }
+          else { dotnet test tests/ApplicationPackagerEngine.Tests/ApplicationPackagerEngine.Tests.csproj --configuration Release }

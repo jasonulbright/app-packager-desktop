@@ -68,6 +68,7 @@ public sealed class DiscoveryWindowTests
             "<Grid xmlns=\"http://schemas.microsoft.com/winfx/2006/xaml/presentation\" xmlns:ui=\"http://schemas.lepo.co/wpfui/2022/xaml\">"
             + "<Grid.Resources><ResourceDictionary><ResourceDictionary.MergedDictionaries>"
             + $"<ui:ThemesDictionary Theme=\"{theme}\" /><ui:ControlsDictionary />"
+            + "<ResourceDictionary Source=\"pack://application:,,,/ApplicationPackagerUI;component/Views/Styles/Density.xaml\" />"
             + "</ResourceDictionary.MergedDictionaries></ResourceDictionary></Grid.Resources>"
             + gridMarkup + "</Grid>";
         RunSta(() =>
@@ -97,6 +98,7 @@ public sealed class DiscoveryWindowTests
             "<Grid xmlns=\"http://schemas.microsoft.com/winfx/2006/xaml/presentation\" xmlns:ui=\"http://schemas.lepo.co/wpfui/2022/xaml\">"
             + "<Grid.Resources><ResourceDictionary><ResourceDictionary.MergedDictionaries>"
             + $"<ui:ThemesDictionary Theme=\"{theme}\" /><ui:ControlsDictionary />"
+            + "<ResourceDictionary Source=\"pack://application:,,,/ApplicationPackagerUI;component/Views/Styles/Density.xaml\" />"
             + "</ResourceDictionary.MergedDictionaries></ResourceDictionary></Grid.Resources>"
             + gridMarkup + "</Grid>";
         RunSta(() =>
