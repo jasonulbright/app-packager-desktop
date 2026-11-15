@@ -11,6 +11,7 @@
     <!-- The theme has no implicit DataGridRow style; a style based on {x:Type DataGridRow} gets the system row
          style, whose white background ignores the theme. -->
     <Style x:Key="SelectableRow" TargetType="DataGridRow" BasedOn="{StaticResource DefaultDataGridRowStyle}">
+        <Setter Property="Margin" Value="0,1" />
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="DataGridRow">

@@ -9,6 +9,11 @@
     <Style x:Key="DensityCell" TargetType="DataGridCell" BasedOn="{StaticResource DefaultDataGridCellStyle}">
         <Setter Property="MinHeight" Value="28" />
     </Style>
+    <!-- The text of a cell of the theme has 18 px of padding above and below; a cell of the app has 4 px. -->
+    <Style x:Key="DensityTextCell" TargetType="TextBlock" BasedOn="{StaticResource DefaultDataGridTextElementStyle}">
+        <Setter Property="Margin" Value="0" />
+        <Setter Property="Padding" Value="8,4,2,4" />
+    </Style>
     <Style TargetType="DataGrid" BasedOn="{StaticResource {x:Type DataGrid}}">
         <Setter Property="CellStyle" Value="{StaticResource DensityCell}" />
     </Style>
