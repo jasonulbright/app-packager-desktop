@@ -19,7 +19,8 @@
             BorderThickness="1" CornerRadius="8" Padding="12,8">
         <Grid>
             <Grid.RowDefinitions>
-                <RowDefinition Height="Auto" />
+                <!-- One line is as high as a button (32 px), so the title sits at the same place with or without actions. -->
+                <RowDefinition Height="Auto" MinHeight="32" />
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
