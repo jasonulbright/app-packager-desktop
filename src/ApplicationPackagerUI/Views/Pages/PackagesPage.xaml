@@ -443,6 +443,12 @@
                        Command="{Binding SelectUpdateAvailableCommand}"
                        Appearance="Transparent"
                        Margin="0,0,12,0" />
+            <ui:Button Content="Import From URL"
+                       Icon="{ui:SymbolIcon ArrowDownload24}"
+                       Command="{Binding ImportFromUrlCommand}"
+                       AutomationProperties.AutomationId="btnImportFromUrl"
+                       Appearance="Transparent"
+                       Margin="0,0,12,0" />
             <CheckBox Content="Show debug columns"
                       IsChecked="{Binding ShowDebugColumns}"
                       VerticalAlignment="Center" />

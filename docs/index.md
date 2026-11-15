@@ -18,6 +18,7 @@ The core is the packaging function of the application.
 - [Catalog](core/applications.md): the window that shows or hides applications in the App Packager grid.
 - [Add from web](core/add-app.md): the seven-step wizard that writes a new definition, with Test Scrape, an installer analysis and the result panel.
 - [Add from file](core/add-from-file.md): analyze an installer file, review the proposed values and their evidence, and save a definition.
+- [Import vendor definitions](core/import-vendor-definitions.md): fetch a feed of a vendor from an HTTPS address, read the preview, and import after the confirmation.
 - [Definitions](core/definitions.md): shipped and user definitions, scrapers and detection types.
 - [Workbench](core/workbench.md): sections, profiles, bundles and builds.
 - [Bring your own installer](core/bring-your-own-installer.md): existing bring-your-own applications, installer revisions and the Installer drop dialog.

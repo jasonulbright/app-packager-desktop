@@ -29,7 +29,7 @@ public class PackagerExecutionService(
     {
         if (packager.IsJsonDefined && packager.DefinitionPath is not null)
         {
-            var def = LoadDefinition(packager.DefinitionPath);
+            var def = LoadDefinition(packager.DefinitionPath, packager.DefinitionOrigin);
             return await stagingService.GetLatestVersionAsync(def, ct);
         }
 
@@ -69,7 +69,7 @@ public class PackagerExecutionService(
         {
             try
             {
-                var scraper = LoadDefinition(packager.DefinitionPath).VersionScraper;
+                var scraper = LoadDefinition(packager.DefinitionPath, packager.DefinitionOrigin).VersionScraper;
                 return string.IsNullOrWhiteSpace(scraper.Url)
                     ? $"{scraper.Type}:{packager.Uid}"
                     : $"{scraper.Type}:{scraper.Url}";
@@ -134,7 +134,7 @@ public class PackagerExecutionService(
     {
         if (packager.IsJsonDefined && packager.DefinitionPath is not null)
         {
-            var def = LoadDefinition(packager.DefinitionPath);
+            var def = LoadDefinition(packager.DefinitionPath, packager.DefinitionOrigin);
             var appSettings = settingsService.Load();
             // A grid run builds from the application's active profile; the default
             // profile runs without a snapshot.
@@ -298,7 +298,7 @@ public class PackagerExecutionService(
         try
         {
             var settings = settingsService.Load();
-            var def = LoadDefinition(packager.DefinitionPath);
+            var def = LoadDefinition(packager.DefinitionPath, packager.DefinitionOrigin);
             var source = ProfileSource.Resolve(WorkbenchStoreOrNull(null), def.Id, ApplicationIds.RunOrigin(def.SourceOrigin));
             if (source.Failure is not null) return null;
             var appRoot = StageFolder.Under(ProfileContentScope.LocalDownloadRoot(settings.DownloadRoot, source.ActiveProfileId), def);
@@ -386,7 +386,7 @@ public class PackagerExecutionService(
         {
             if (string.Equals(manifest.InstallerType, "EXE", StringComparison.OrdinalIgnoreCase) && manifest.RebootExitCodes is null && manifest.SuccessExitCodes is null)
             {
-                try { ApplicationPackagerEngine.Services.Wsus.WsusPublishService.CarryExitCodes(manifest, LoadDefinition(packager.DefinitionPath)); }
+                try { ApplicationPackagerEngine.Services.Wsus.WsusPublishService.CarryExitCodes(manifest, LoadDefinition(packager.DefinitionPath, packager.DefinitionOrigin)); }
                 catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException or InvalidOperationException)
                 {
                     return new WsusStepResult(WsusStepStatus.Failed,
@@ -700,7 +700,7 @@ public class PackagerExecutionService(
 
         if (packager.IsJsonDefined && packager.DefinitionPath is not null)
         {
-            var def = LoadDefinition(packager.DefinitionPath);
+            var def = LoadDefinition(packager.DefinitionPath, packager.DefinitionOrigin);
             var source = ProfileSource.Resolve(WorkbenchStoreOrNull(snapshot), def.Id, ApplicationIds.RunOrigin(def.SourceOrigin));
             if (snapshot is null && source.Failure is not null)
                 return new PackagerExecutionResult { ExitCode = 1, StdErr = source.RefusalMessage() };
@@ -735,6 +735,8 @@ public class PackagerExecutionService(
                 return new PackagerExecutionResult { ExitCode = 1, StdErr = contentRefusal };
             var manifestService = new ApplicationPackagerEngine.Services.ManifestService();
             var manifest = manifestService.Read(manifestPath);
+            if (StageFolder.IdentityRefusal(def, manifest.ApplicationId) is { } identityRefusal)
+                return new PackagerExecutionResult { ExitCode = 1, StdErr = identityRefusal };
 
             var conflicts = new ConflictWatch();
             void Report(string line)
@@ -1003,7 +1005,7 @@ public class PackagerExecutionService(
             ProfileSource? source = null;
             if (manifestPath is null && packager.IsJsonDefined && packager.DefinitionPath is not null)
             {
-                def = LoadDefinition(packager.DefinitionPath);
+                def = LoadDefinition(packager.DefinitionPath, packager.DefinitionOrigin);
                 var settings = settingsService.Load();
                 source = ProfileSource.Resolve(WorkbenchStoreOrNull(null), def.Id, ApplicationIds.RunOrigin(def.SourceOrigin));
                 var appRoot = StageFolder.Under(ProfileContentScope.LocalDownloadRoot(settings.DownloadRoot, source.ActiveProfileId), def);
@@ -1167,7 +1169,7 @@ public class PackagerExecutionService(
         {
             try
             {
-                var def = LoadDefinition(row.DefinitionPath);
+                var def = LoadDefinition(row.DefinitionPath, row.DefinitionOrigin);
                 var source = ProfileSource.Resolve(WorkbenchStoreOrNull(snapshot), def.Id, ApplicationIds.RunOrigin(def.SourceOrigin));
                 fallbackApplicationId = source.ApplicationId;
                 // The marker needs only the application, the profile and the architecture, so a row without a current stage still has one.
@@ -1230,7 +1232,7 @@ public class PackagerExecutionService(
         {
             try
             {
-                var def = LoadDefinition(row.DefinitionPath);
+                var def = LoadDefinition(row.DefinitionPath, row.DefinitionOrigin);
                 var source = ProfileSource.Resolve(WorkbenchStoreOrNull(snapshot), def.Id, ApplicationIds.RunOrigin(def.SourceOrigin));
                 fallbackApplicationId = source.ApplicationId;
                 if (ProfileSource.LegacyMapsApplyTo(manifest, source)) titleMode = deploymentConditionsService.GetConditions(def.Id)?.TitleMode;
@@ -1727,7 +1729,7 @@ public class PackagerExecutionService(
         );
     }
 
-    private static AppDefinition LoadDefinition(string path)
+    private static AppDefinition LoadDefinition(string path, ApplicationOrigin origin)
     {
         var json = File.ReadAllText(path);
         var def = JsonSerializer.Deserialize<AppDefinition>(json, JsonOptions)
@@ -1735,6 +1737,7 @@ public class PackagerExecutionService(
         // The icon pack names its files after the definition file, which the
         // stage finds through SourcePath.
         def.SourcePath = path;
+        def.SourceOrigin = origin;
         return def;
     }
 }

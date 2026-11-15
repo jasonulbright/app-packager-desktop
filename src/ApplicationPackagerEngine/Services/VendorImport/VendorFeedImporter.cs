@@ -1,6 +1,7 @@
 namespace ApplicationPackagerEngine.Services.VendorImport;
 
-public enum ConflictKind { None, Shipped, User, AnotherFeed }
+/// <summary>StageFolder: another Id, but the same stage folder (Application and Architecture) as a definition that exists or that comes earlier in the document.</summary>
+public enum ConflictKind { None, Shipped, User, AnotherFeed, StageFolder }
 
 /// <summary>A definition of the document and what the import would do with it. The default for a conflict is to skip.</summary>
 public sealed record ImportCandidate(ValidatedDefinition Definition, ConflictKind Conflict, string? ConflictFeedId)
@@ -26,7 +27,8 @@ public sealed record ImportConfirmation(
 /// definition that carries code is blocked in every state.
 /// </summary>
 public sealed class VendorFeedImporter(
-    FeedFetcher fetcher, ImportedDefinitionStore store, Func<ISet<string>> shippedIds, Func<ISet<string>> userIds, TimeProvider? clock = null)
+    FeedFetcher fetcher, ImportedDefinitionStore store, Func<ISet<string>> shippedIds, Func<ISet<string>> userIds, TimeProvider? clock = null,
+    Func<IReadOnlyDictionary<string, string>>? stageFolders = null)
 {
     private readonly TimeProvider _clock = clock ?? TimeProvider.System;
 
@@ -55,14 +57,44 @@ public sealed class VendorFeedImporter(
         foreach (var stored in store.Feeds())
             foreach (var id in stored.Source.Ids) otherFeeds.TryAdd(id, stored.Source.FeedId);
 
+        // Two definitions with one stage folder would share a stage: an imported definition with the Application and Architecture of
+        // a shipped one would stage into the folder of the shipped application. The folder names of the shipped and the user definitions
+        // come from the caller; those of the stored feeds are read here; and the earlier definition of the document keeps its folder.
+        var folderOfId = new Dictionary<string, string>(stageFolders?.Invoke() ?? new Dictionary<string, string>(), StringComparer.OrdinalIgnoreCase);
+        var folders = new HashSet<string>(folderOfId.Values, StringComparer.OrdinalIgnoreCase);
+        foreach (var stored in store.Feeds())
+            foreach (var file in stored.DefinitionFiles)
+                if (StageFolderOfFile(file) is { } name) folders.Add(name);
+
         var candidates = feed.Definitions.Select(d =>
         {
             if (user.Contains(d.Id)) return new ImportCandidate(d, ConflictKind.User, null);
             if (otherFeeds.TryGetValue(d.Id, out var other)) return new ImportCandidate(d, ConflictKind.AnotherFeed, other);
-            if (shipped.Contains(d.Id)) return new ImportCandidate(d, ConflictKind.Shipped, null);
+            if (shipped.Contains(d.Id))
+            {
+                // A replacement takes over the folder of the shipped definition; it must not take the folder of another one.
+                if (d.Blocked) return new ImportCandidate(d, ConflictKind.Shipped, null);
+                var own = StageFolder.Name(d.Definition);
+                var others = folderOfId.Where(p => !string.Equals(p.Key, d.Id, StringComparison.OrdinalIgnoreCase)).Select(p => p.Value);
+                if (others.Contains(own, StringComparer.OrdinalIgnoreCase)) return new ImportCandidate(d, ConflictKind.StageFolder, null);
+                folders.Add(own);
+                return new ImportCandidate(d, ConflictKind.Shipped, null);
+            }
+            if (!d.Blocked && !folders.Add(StageFolder.Name(d.Definition))) return new ImportCandidate(d, ConflictKind.StageFolder, null);
             return new ImportCandidate(d, ConflictKind.None, null);
         }).ToList();
         return new ImportPreview(document, feed, trust, candidates, refusal);
+    }
+
+    private static string? StageFolderOfFile(string file)
+    {
+        try
+        {
+            var d = System.Text.Json.JsonSerializer.Deserialize<Models.AppDefinition>(File.ReadAllText(file),
+                new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            return d is null ? null : StageFolder.Name(d);
+        }
+        catch (Exception ex) when (ex is System.Text.Json.JsonException or IOException or UnauthorizedAccessException) { return null; }
     }
 
     /// <summary>
