@@ -38,20 +38,20 @@
                         <ColumnDefinition Width="8" />
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
-                    <TextBox x:Name="txtFeedAddress" Grid.Column="0" Text="{Binding Address, UpdateSourceTrigger=PropertyChanged}" MinHeight="40"
+                    <TextBox x:Name="txtFeedAddress" Grid.Column="0" Text="{Binding Address, UpdateSourceTrigger=PropertyChanged}"
                              VerticalContentAlignment="Center" AutomationProperties.AutomationId="txtFeedAddress" />
-                    <ui:Button x:Name="btnFetchFeed" Grid.Column="2" Content="Fetch" MinWidth="100" MinHeight="40" Appearance="Primary"
+                    <ui:Button x:Name="btnFetchFeed" Grid.Column="2" Content="Fetch" MinWidth="100" Appearance="Primary"
                                FontWeight="SemiBold" Command="{Binding FetchCommand}" AutomationProperties.AutomationId="btnFetchFeed" />
-                    <ui:Button x:Name="btnCancelFetch" Grid.Column="4" Content="Cancel Fetch" MinWidth="110" MinHeight="40" FontWeight="SemiBold"
+                    <ui:Button x:Name="btnCancelFetch" Grid.Column="4" Content="Cancel Fetch" MinWidth="110" FontWeight="SemiBold"
                                Command="{Binding CancelFetchCommand}" AutomationProperties.AutomationId="btnCancelFetch" />
                 </Grid>
 
                 <TextBlock Text="Pinned SHA-256 of the document (optional, from the vendor's other channel)" FontWeight="SemiBold" Margin="0,0,0,4" />
-                <TextBox x:Name="txtPinnedDigest" Text="{Binding PinnedDigest, UpdateSourceTrigger=PropertyChanged}" MinHeight="40" Margin="0,0,0,8"
+                <TextBox x:Name="txtPinnedDigest" Text="{Binding PinnedDigest, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,8"
                          VerticalContentAlignment="Center" FontFamily="Consolas" AutomationProperties.AutomationId="txtPinnedDigest" />
 
                 <TextBlock Text="Pinned publisher (optional): subject | issuer of the code-signing certificate, or key: and the SHA-256 of its public key" FontWeight="SemiBold" Margin="0,0,0,4" TextWrapping="Wrap" />
-                <TextBox x:Name="txtPinnedPublisher" Text="{Binding PinnedPublisher, UpdateSourceTrigger=PropertyChanged}" MinHeight="40" Margin="0,0,0,8"
+                <TextBox x:Name="txtPinnedPublisher" Text="{Binding PinnedPublisher, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,8"
                          VerticalContentAlignment="Center" AutomationProperties.AutomationId="txtPinnedPublisher" />
 
                 <TextBlock x:Name="txtImportStatus" Text="{Binding StatusText}" TextWrapping="Wrap" Margin="0,0,0,8"
@@ -70,12 +70,12 @@
                         </Grid.ColumnDefinitions>
                         <StackPanel Grid.Column="0">
                             <TextBlock Text="Vendor" FontWeight="SemiBold" Margin="0,0,0,4" />
-                            <TextBox Text="{Binding Vendor, UpdateSourceTrigger=PropertyChanged}" MinHeight="40" VerticalContentAlignment="Center"
+                            <TextBox Text="{Binding Vendor, UpdateSourceTrigger=PropertyChanged}" VerticalContentAlignment="Center"
                                      AutomationProperties.AutomationId="txtImportVendor" />
                         </StackPanel>
                         <StackPanel Grid.Column="2">
                             <TextBlock Text="Feed Id (names the folder of the definitions)" FontWeight="SemiBold" Margin="0,0,0,4" />
-                            <TextBox Text="{Binding FeedId, UpdateSourceTrigger=PropertyChanged}" MinHeight="40" VerticalContentAlignment="Center"
+                            <TextBox Text="{Binding FeedId, UpdateSourceTrigger=PropertyChanged}" VerticalContentAlignment="Center"
                                      AutomationProperties.AutomationId="txtImportFeedId" />
                         </StackPanel>
                     </Grid>
@@ -133,7 +133,7 @@
                         <DataGridTextColumn Header="Address" Binding="{Binding Address}" Width="*" MinWidth="160" />
                     </DataGrid.Columns>
                 </DataGrid>
-                <ui:Button x:Name="btnRemoveFeed" Content="Remove Feed" MinWidth="130" MinHeight="40" FontWeight="SemiBold" HorizontalAlignment="Left" Appearance="Danger"
+                <ui:Button x:Name="btnRemoveFeed" Content="Remove Feed" MinWidth="130" FontWeight="SemiBold" HorizontalAlignment="Left" Appearance="Danger"
                            Command="{Binding RemoveFeedCommand}" AutomationProperties.AutomationId="btnRemoveFeed" />
             </StackPanel>
         </ScrollViewer>
@@ -141,9 +141,9 @@
         <Border Grid.Row="2" BorderThickness="0,1,0,0" BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}" Padding="16,8"
                 KeyboardNavigation.TabNavigation="Local">
             <WrapPanel HorizontalAlignment="Right">
-                <ui:Button x:Name="btnImportFeed" Content="Import" MinWidth="100" MinHeight="40" Margin="0,0,8,0" Appearance="Primary" FontWeight="SemiBold"
+                <ui:Button x:Name="btnImportFeed" Content="Import" MinWidth="100" Margin="0,0,8,0" Appearance="Primary" FontWeight="SemiBold"
                            Command="{Binding ImportCommand}" AutomationProperties.AutomationId="btnImportFeed" />
-                <ui:Button x:Name="btnCloseImport" Content="_Close" MinWidth="100" MinHeight="40" FontWeight="SemiBold" IsCancel="True"
+                <ui:Button x:Name="btnCloseImport" Content="_Close" MinWidth="100" FontWeight="SemiBold" IsCancel="True"
                            Command="{Binding CloseCommand}" AutomationProperties.AutomationId="btnCloseImport" />
             </WrapPanel>
         </Border>

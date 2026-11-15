@@ -84,11 +84,11 @@ public sealed class VendorImportWindowLayoutTests : IDisposable
                     var button = ById<Button>(window, id);
                     var box = Bounds(button, content);
                     Assert.True(inside.Contains(box), $"{name}: {id} lies outside the window ({box}).");
-                    Assert.True(box.Height >= 40 - 0.51, $"{name}: {id} is {box.Height} px high.");
+                    Assert.True(box.Height >= 32 - 0.51 && box.Height <= 36, $"{name}: {id} is {box.Height} px high; the compact size is 32 px.");
                     Assert.True(button.ActualWidth + button.Margin.Left + button.Margin.Right + 0.51 >= button.DesiredSize.Width, $"{name}: {id} is cut off.");
                 }
                 var address = ById<TextBox>(window, "txtFeedAddress");
-                Assert.True(address.ActualHeight >= 40 - 0.51 && address.ActualWidth >= 200, $"{name}: the address box is {address.ActualWidth} x {address.ActualHeight}.");
+                Assert.True(address.ActualHeight >= 32 - 0.51 && address.ActualWidth >= 200, $"{name}: the address box is {address.ActualWidth} x {address.ActualHeight}.");
                 Assert.True(Bounds(address, content).Right <= window.ActualWidth, $"{name}: the address box is wider than the window.");
                 Assert.False(ById<Button>(window, "btnImportFeed").IsEnabled, $"{name}: Import is enabled before the confirmation.");
             }

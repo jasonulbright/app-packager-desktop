@@ -78,8 +78,11 @@
                 <Style TargetType="ui:Button" BasedOn="{StaticResource {x:Type ui:Button}}">
                     <Setter Property="ToolTip" Value="{Binding Content, RelativeSource={RelativeSource Self}}" />
                     <Style.Triggers>
-                        <DataTrigger Binding="{Binding Tag, RelativeSource={RelativeSource AncestorType=WrapPanel}}" Value="Compact">
-                            <Setter Property="Padding" Value="8,4" />
+                        <DataTrigger Binding="{Binding Tag, ElementName=AppPackagerToolbar}" Value="Compact">
+                            <Setter Property="Padding" Value="8,0,0,0" />
+                            <Setter Property="Width" Value="32" />
+                            <Setter Property="Height" Value="32" />
+                            <Setter Property="HorizontalContentAlignment" Value="Center" />
                             <Setter Property="ContentTemplate">
                                 <Setter.Value>
                                     <DataTemplate>
@@ -91,36 +94,36 @@
                     </Style.Triggers>
                 </Style>
             </WrapPanel.Resources>
-            <StackPanel Orientation="Horizontal" Margin="0,0,16,8">
+            <WrapPanel Orientation="Horizontal" Margin="0,0,16,0">
             <ui:Button Content="Check Latest"
                        Icon="{ui:SymbolIcon ArrowDownload24}"
                        Command="{Binding CheckLatestCommand}"
-                       Margin="0,0,4,0" />
+                       Margin="0,0,4,8" />
             <ui:Button Content="Check ConfigMgr"
                        Icon="{ui:SymbolIcon Search24}"
                        Command="{Binding CheckMecmCommand}"
                        ToolTip="{Binding CheckMecmToolTip}"
                        ToolTipService.ShowOnDisabled="True"
-                       Margin="0,0,4,0" />
+                       Margin="0,0,4,8" />
             <ui:Button Content="Discover unmanaged software"
                        Icon="{ui:SymbolIcon BoxSearch24}"
                        Command="{Binding DiscoverCommand}"
                        ToolTip="{Binding DiscoverToolTip}"
                        ToolTipService.ShowOnDisabled="True"
                        AutomationProperties.AutomationId="btnDiscover"
-                       Margin="0,0,4,0" />
+                       Margin="0,0,4,8" />
             <ui:Button Content="Check CVEs"
                        Icon="{ui:SymbolIcon ShieldError24}"
                        Command="{Binding CheckCvesCommand}"
                        ToolTip="Look up the CVEs fixed by updating each checked application from its ConfigMgr version to the latest version. Needs both versions and a CPE."
                        AutomationProperties.AutomationId="btnCheckCves"
-                       Margin="0,0,4,0" />
-            </StackPanel>
-            <StackPanel Orientation="Horizontal" Margin="0,0,16,8">
+                       Margin="0,0,4,8" />
+            </WrapPanel>
+            <WrapPanel Orientation="Horizontal" Margin="0,0,16,0">
             <ui:Button Content="Stage"
                        Icon="{ui:SymbolIcon ArrowCircleDown24}"
                        Command="{Binding StageCommand}"
-                       Margin="0,0,4,0" />
+                       Margin="0,0,4,8" />
             <ui:Button x:Name="btnPublishConfigMgr"
                        Content="Publish to ConfigMgr"
                        Icon="{ui:SymbolIcon Server24}"
@@ -128,7 +131,7 @@
                        ToolTip="{Binding PublishConfigMgrToolTip}"
                        ToolTipService.ShowOnDisabled="True"
                        AutomationProperties.AutomationId="btnPublishConfigMgr"
-                       Margin="0,0,4,0" />
+                       Margin="0,0,4,8" />
             <ui:Button x:Name="btnApplySupersedence"
                        Content="Apply supersedence"
                        Icon="{ui:SymbolIcon ArrowSwap24}"
@@ -136,7 +139,7 @@
                        ToolTip="Sets the supersedence relation from the checked application to the older version of the same product line on the ConfigMgr site, without a new publish. Needs a published application and the supersedence mode in Options."
                        ToolTipService.ShowOnDisabled="True"
                        AutomationProperties.AutomationId="btnApplySupersedence"
-                       Margin="0,0,4,0" />
+                       Margin="0,0,4,8" />
             <ui:Button x:Name="btnRewriteOldVersions"
                        Content="Rewrite old versions"
                        Icon="{ui:SymbolIcon ArrowUndo24}"
@@ -144,7 +147,7 @@
                        ToolTip="Changes the version clause of the older applications of the checked application's product line from GreaterEquals to IsEquals, so the uninstall through supersedence is reported as successful. Shows the plan first and keeps a log; Undo restores the old operator. Check one application."
                        ToolTipService.ShowOnDisabled="True"
                        AutomationProperties.AutomationId="btnRewriteOldVersions"
-                       Margin="0,0,4,0" />
+                       Margin="0,0,4,8" />
             <ui:Button x:Name="btnPublishIntune"
                        Content="Publish to Intune"
                        Icon="{ui:SymbolIcon Cloud24}"
@@ -152,7 +155,7 @@
                        ToolTip="{Binding PublishIntuneToolTip}"
                        ToolTipService.ShowOnDisabled="True"
                        AutomationProperties.AutomationId="btnPublishIntune"
-                       Margin="0,0,4,0" />
+                       Margin="0,0,4,8" />
             <ui:Button x:Name="btnPublishWsus"
                        Content="Publish to WSUS"
                        Icon="{ui:SymbolIcon ArrowSyncCircle24}"
@@ -160,7 +163,7 @@
                        ToolTip="{Binding PublishWsusToolTip}"
                        ToolTipService.ShowOnDisabled="True"
                        AutomationProperties.AutomationId="btnPublishWsus"
-                       Margin="0,0,4,0" />
+                       Margin="0,0,4,8" />
             <ui:Button x:Name="btnWsusUpdates"
                        Content="WSUS Updates"
                        Icon="{ui:SymbolIcon TextBulletListSquare24}"
@@ -168,21 +171,21 @@
                        ToolTip="{Binding WsusUpdatesToolTip}"
                        ToolTipService.ShowOnDisabled="True"
                        AutomationProperties.AutomationId="btnWsusUpdates"
-                       Margin="0,0,4,0" />
-            </StackPanel>
-            <StackPanel Orientation="Horizontal" Margin="0,0,16,8">
+                       Margin="0,0,4,8" />
+            </WrapPanel>
+            <WrapPanel Orientation="Horizontal" Margin="0,0,16,0">
             <ui:Button Content="One Click"
                        Icon="{ui:SymbolIcon Play24}"
                        Command="{Binding OneClickCommand}"
                        AutomationProperties.AutomationId="btnOneClick"
                        ToolTip="One Click check (and optionally Stage / Publish) against your tracked apps. Configure tracked apps, action, and destinations in Settings, One Click Settings."
-                       Margin="0,0,4,0" />
+                       Margin="0,0,4,8" />
             <ui:Button Content="CVE Report"
                        Icon="{ui:SymbolIcon DocumentTable24}"
                        Command="{Binding CveReportCommand}"
                        ToolTip="Write the CVE report for the checked applications (all applications when none is checked) as HTML, CSV, XLSX, Markdown and JSON, then open the HTML page."
                        AutomationProperties.AutomationId="btnCveReport"
-                       Margin="0,0,4,0" />
+                       Margin="0,0,4,8" />
             <ui:Button x:Name="btnOperationHistory"
                        Content="Operation history"
                        Icon="{ui:SymbolIcon TextBulletListSquare24}"
@@ -190,13 +193,13 @@
                        IsEnabled="False"
                        ToolTip="View recorded operations for the selected application."
                        AutomationProperties.AutomationId="btnOperationHistory"
-                       Margin="0,0,4,0" />
+                       Margin="0,0,4,8" />
             <ui:Button Content="Cancel"
                        Icon="{ui:SymbolIcon Dismiss24}"
                        Appearance="Danger"
                        Command="{Binding CancelOperationCommand}"
                        Visibility="{Binding IsOperationRunning, Converter={StaticResource BooleanToVisibilityConverter}}" />
-            </StackPanel>
+            </WrapPanel>
         </WrapPanel>
 
         <Grid Grid.Row="2" Margin="0,0,0,8">

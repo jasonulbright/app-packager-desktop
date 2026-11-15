@@ -32,8 +32,22 @@ public sealed class AppPackagerFitTests
         { ApplicationTheme.Light, 1440, 900 },
         { ApplicationTheme.Dark, 1440, 900 },
         { ApplicationTheme.Light, 1024, 720 },
-        { ApplicationTheme.Dark, 1024, 720 }
+        { ApplicationTheme.Dark, 1024, 720 },
+        // The two widths of the owner screenshots (the toolbar was clipped at 1276 and icon-only at 1269) and the work area of a maximized
+        // window on a 1080p display with the Windows 11 taskbar (1920 x 1032 at 100 percent).
+        { ApplicationTheme.Light, 1276, 800 },
+        { ApplicationTheme.Dark, 1276, 800 },
+        { ApplicationTheme.Light, 1269, 800 },
+        { ApplicationTheme.Dark, 1269, 800 },
+        { ApplicationTheme.Light, 1920, 1032 },
+        { ApplicationTheme.Dark, 1920, 1032 },
+        // The smallest window of the main window (MinWidth 900): the labels do not fit in five lines, so the toolbar is icon-only.
+        { ApplicationTheme.Light, 900, 700 },
+        { ApplicationTheme.Dark, 900, 700 }
     };
+
+    /// <summary>The height of a button of the compact size: 32 px at 14 pt (4 px above and below the text).</summary>
+    internal const double CompactButtonHeight = 32;
 
     /// <summary>The rows of the grid that lie completely inside the area below the column headers.</summary>
     internal static int WholeRows(DataGrid grid)
@@ -57,6 +71,13 @@ public sealed class AppPackagerFitTests
         viewModel = (PackagesViewModel)RuntimeHelpers.GetUninitializedObject(typeof(PackagesViewModel));
         viewModel.FilteredPackagers = new(Enumerable.Range(0, rows).Select(i => new PackagerInfo { Uid = $"app{i}", Vendor = "Contoso", Application = $"Contoso Application {i}" }));
         viewModel.LogText = string.Join(Environment.NewLine, Enumerable.Range(0, 30).Select(i => $"[10:00:{i:00}] Checked application {i}."));
+        // The view model is built without its constructor here, so the texts that the buttons bind are set as the program sets them.
+        viewModel.CheckMecmToolTip = "Check ConfigMgr";
+        viewModel.DiscoverToolTip = "Discover unmanaged software";
+        viewModel.PublishConfigMgrToolTip = "Publish to ConfigMgr";
+        viewModel.PublishIntuneToolTip = "Publish to Intune";
+        viewModel.PublishWsusToolTip = "Publish to WSUS";
+        viewModel.WsusUpdatesToolTip = "WSUS Updates";
         return new PackagesPage(viewModel);
     }
 
@@ -81,11 +102,32 @@ public sealed class AppPackagerFitTests
                 }
                 PageChromeKit.AssertNothingClipped(toolbar, where);
 
+                // The buttons have the compact size, and the icon-only mode is a row of uniform squares.
+                var compact = (string?)toolbar.Tag == "Compact";
+                var buttons = Descendants(toolbar).OfType<ButtonBase>().Where(b => b.IsVisible).ToList();
+                Assert.NotEmpty(buttons);
+                if (compact)
+                {
+                    Assert.All(buttons, b => Assert.True(Math.Abs(b.ActualWidth - b.ActualHeight) < 0.5 && Math.Abs(b.ActualWidth - CompactButtonHeight) < 0.5,
+                        $"{where}: {AutomationProperties.GetAutomationId(b)} is {b.ActualWidth:0.#} x {b.ActualHeight:0.#}; an icon button is a {CompactButtonHeight} px square."));
+                    Assert.All(buttons, b => Assert.False(string.IsNullOrWhiteSpace(b.ToolTip?.ToString()), $"{where}: an icon button has no tooltip."));
+                }
+                else
+                {
+                    Assert.All(buttons, b => Assert.True(b.ActualHeight <= CompactButtonHeight + 0.5,
+                        $"{where}: {AutomationProperties.GetAutomationId(b)} is {b.ActualHeight:0.#} px high; the compact size is {CompactButtonHeight} px."));
+                }
+                // A normal window shows the labels: the icon-only mode is for a width that cannot hold them in five lines.
+                if (width <= 900) Assert.True(compact, $"{where}: the toolbar keeps its labels at {width} px.");
+                if (width >= 1200) Assert.False(compact, $"{where}: the toolbar is icon-only at {width} px.");
+
                 Pixels(window, toolbar, $"app-packager-{theme}-{width}");
                 var grid = (DataGrid)page.FindName("PackagerGrid");
                 var whole = WholeRows(grid);
                 var lines = ToolbarLines(toolbar);
-                Assert.True(whole >= MinimumWholeRows, $"{where}: the grid shows {whole} whole rows; the toolbar uses {lines} lines and the grid is {grid.ActualHeight:0} px tall.");
+                // The design basis is the maximized 1080p window (D-20): six whole rows there. The smaller windows keep at least four until the row height of Q-18 gives them more.
+                var needed = height >= 1000 ? MinimumWholeRows : 4;
+                Assert.True(whole >= needed, $"{where}: the grid shows {whole} whole rows (needs {needed}); the toolbar uses {lines} lines and the grid is {grid.ActualHeight:0} px tall.");
 
                 var catalog = ById<ButtonBase>(page, "btnCatalog");
                 Assert.True(catalog.IsVisible && catalog.IsEnabled && catalog.Focusable && catalog.IsTabStop, $"{where}: the Catalog button cannot take focus.");
