@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+## [2026.1115.43] - 2026-11-15
+
+### Notes
+
+- The Intune changes of the last releases are tested against a fake Graph service only. They are not verified against a tenant.
+- Import From URL is tested with a fake HTTP handler and rendered in both themes. Its lab check (a feed from the lab web server, pinned and not pinned, and one staged imported definition on CLIENT01) is listed in the test documentation and is not run yet. Only the anonymous import is built: signed documents, the unblock of a script or a command, the update of a feed and authenticated feeds are later steps.
+- The buttons Apply supersedence and Rewrite old versions and the command line recorder of the last release still have no lab check on the test site (CM01).
+
+
 ### Fixed
 
 - Microsoft 365 install.xml: `MigrateArch="TRUE"` is no longer written for every package (with it, an x86 package changed an installed 64-bit Office to 32-bit), and shared computer activation is no longer forced on (`SharedComputerLicensing` is 1 only for shared computers such as RDS and VDI). Both are now settings of the six Microsoft 365 definitions, **Migrate architecture** and **Shared computer activation**, off by default. A package that you staged before keeps its old install.xml until you stage it again.
@@ -12,6 +21,7 @@
 ### Added
 
 - Packages page: the button **Import From URL** opens a window that imports the definitions of a vendor feed: the HTTPS address, an optional pinned SHA-256, Fetch (and Cancel Fetch), a full preview (source, trust state, every definition with its hosts, payload hash source, status and full text, and the findings), the vendor name and the Feed Id, and the confirmation of the state "Definition document NOT verified". A definition that carries code is blocked. A shipped Id is skipped unless you choose to replace it. The list **Imported feeds** has **Remove Feed**. Fetch and Cancel write nothing. A definition with another Id but the stage folder of another definition (Application and Architecture) is skipped, so that it cannot share a stage with it. See [Import vendor definitions](docs/core/import-vendor-definitions.md).
+- Imported definitions load: the new origin **Imported** (`imported:<Id>`) is read by all three loaders (the catalog loader, the Workbench discovery and the command-line build). An imported definition sits between the shipped and the user ones: a user definition with the same Id wins, a shipped Id is replaced only when the import was confirmed for that Id, and of two feeds with the same Id the earlier import keeps it. The Packages grid shows a column **Source** (only while a row is imported) with "Imported: vendor (Definition document NOT verified)" from the feed folder and its record, never from the definition file. An imported definition runs under its own identity (`imported:<Id>`), so it never takes the profile, the legacy preferences or the WSUS and Intune identity of a shipped application that it replaced; a file whose Id inside differs from its name is dropped by every loader; Ids with dots stay separate applications. At start (and before a command-line build) the program repairs a feed swap that stopped between its two renames, and one folder that cannot be repaired does not stop the others.
 
 ### Changed
 
@@ -38,7 +48,6 @@
 - WQL Editor (Collection and Compliance): the rule box and the rule name box have one height (40 px); before, the combo box was 1 px higher than the text box. A layout test now measures the tab in both themes at two window sizes (label gap, block gaps, box alignment, button rows, query box size, no cut-off button).
 
 - Internal: the engine of the import of vendor definitions from a URL (fetch, strict validation, the block of code, the pinned digest, the preview rules and the storage of a third definition folder). The program does not import a feed yet; the window and the command come in the next changes.
-- Imported definitions load: the new origin **Imported** (`imported:<Id>`) is read by all three loaders (the catalog loader, the Workbench discovery and the command-line build). An imported definition sits between the shipped and the user ones: a user definition with the same Id wins, a shipped Id is replaced only when the import was confirmed for that Id, and of two feeds with the same Id the earlier import keeps it. The Packages grid shows a column **Source** (only while a row is imported) with "Imported: vendor (Definition document NOT verified)" from the feed folder and its record, never from the definition file. An imported definition runs under its own identity (`imported:<Id>`), so it never takes the profile, the legacy preferences or the WSUS and Intune identity of a shipped application that it replaced; a file whose Id inside differs from its name is dropped by every loader; Ids with dots stay separate applications. At start (and before a command-line build) the program repairs a feed swap that stopped between its two renames, and one folder that cannot be repaired does not stop the others.
 
 ## [2026.1111.41] - 2026-11-12
 
