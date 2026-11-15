@@ -177,7 +177,9 @@ public sealed class OldVersionRewriteRunner
                 var read = RewriteLog.FromScriptOutput(result.StdOut, DateTimeOffset.UtcNow);
                 if (result.ExitCode == 0 && read.Count > 0)
                 {
-                    var done = read[0] with { Restored = true, Line = entry.Line ?? scope.Marker };
+                    // The restore entry carries the line of the entry that it cancels (none for an entry from before the log carried the line), so that every
+                    // line that sees the rewrite also sees its restore.
+                    var done = read[0] with { Restored = true, Line = entry.Line };
                     persist(done);
                     written.Add(done);
                     report?.Invoke($"Restored: {entry.Application} / {entry.DeploymentType}: back to {entry.OldOperator}");

@@ -67,12 +67,18 @@ public static class RewriteOldVersionsPlans
         Func<RewritePlan, RewriteScope, Action<RewriteLogEntry>, Action<string>?, CancellationToken, Task<RewriteOutcome>> write,
         IProgress<ChangePlanItemResult> progress, CancellationToken ct)
     {
-        var fresh = await replan(scope, ct);
+        RewritePlan fresh;
+        try { fresh = await replan(scope, ct); }
+        catch (InvalidOperationException ex)
+        {
+            var failed = items.Select(i => ChangePlanItemResult.Skip(i, "The site could not be read again, so nothing was written: " + ex.Message)).ToList();
+            return new ChangePlanResult(failed, ChangePlanStop.Failed) { UndoAvailable = false };
+        }
         if (!SameRewrites(plan, fresh))
         {
             var rows = items.Select(i => ChangePlanItemResult.Skip(i,
                 "The site changed while the window was open: the clauses to rewrite are not the ones that were shown. Nothing was written. Open the window again.")).ToList();
-            return new ChangePlanResult(rows) { UndoAvailable = false };
+            return new ChangePlanResult(rows, ChangePlanStop.Failed) { UndoAvailable = false };
         }
         (string Application, string DeploymentType)? inFlight = null;
         void Persist(RewriteLogEntry entry)
@@ -156,7 +162,7 @@ public static class RewriteOldVersionsPlans
             var failure = outcome.Failures.FirstOrDefault(f => f.StartsWith($"{application} / {type}:", StringComparison.OrdinalIgnoreCase));
             rows.Add(done ? new ChangePlanItemResult(items[i], true, "Written to the site and the log.")
                 : failure is not null ? new ChangePlanItemResult(items[i], false, failure[(application.Length + type.Length + 4)..].Trim())
-                : ChangePlanItemResult.Skip(items[i], "Not reached: the run stopped before this clause."));
+                : ChangePlanItemResult.Skip(items[i], "Not reached: the run stopped before this clause, or the entry belongs to another line (it is from before the log carried the line) and was left."));
         }
         return new ChangePlanResult(rows) { UndoAvailable = rows.Any(r => r.Succeeded) };
     }

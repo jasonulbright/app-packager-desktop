@@ -154,8 +154,8 @@ public partial class PackagesViewModel : IOneClickRunner, IPublishActionHost
     }
 
     /// <summary>
-    /// Restores the version clause of the old applications of the checked application's line from the log, on its own: the button beside
-    /// Rewrite old versions, for a rewrite that is still pending when the plan of a new rewrite is not wanted. Only the entries of this line.
+    /// Restores the version clause of the old applications of the checked application's line from the log, on its own (the button under the
+    /// grid), for a rewrite that is still pending when the plan of a new rewrite is not wanted. Only the entries of this line.
     /// </summary>
     private async Task RestoreOldVersionsAsync()
     {

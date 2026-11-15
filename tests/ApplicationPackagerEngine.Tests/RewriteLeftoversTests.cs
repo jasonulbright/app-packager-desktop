@@ -49,6 +49,24 @@ public sealed class RewriteLeftoversTests
     }
 
     [Fact]
+    public void ARestoreOfAnOldEntryCancelsItInEveryLine()
+    {
+        // An old rewrite (no line) and the restore that cancels it (also no line): neither line sees it as pending.
+        var log = new[] { Entry(1, "Old 1.0", line: null!), Entry(2, "Old 1.0", line: null!, restored: true) };
+
+        Assert.Empty(RewriteLog.ToRestore(log, ["Old 1.0"], LineA));
+        Assert.Empty(RewriteLog.ToRestore(log, ["Old 1.0"], LineB));
+    }
+
+    [Fact]
+    public void ARewriteOfALineAndItsRestoreCancelEachOtherInThatLine()
+    {
+        var log = new[] { Entry(1, "A 1.0", LineA), Entry(2, "A 1.0", LineA, restored: true) };
+
+        Assert.Empty(RewriteLog.ToRestore(log, ["A 1.0"], LineA));
+    }
+
+    [Fact]
     public void TheLineIsPartOfTheLogAndAnOldLogWithoutItStillReads()
     {
         var text = RewriteLog.Serialize(Entry(1, "A 1.0", LineA)) + "\n"
@@ -108,8 +126,27 @@ public sealed class RewriteLeftoversTests
             new Progress(), CancellationToken.None);
 
         Assert.False(wrote);
+        Assert.Equal(ChangePlanStop.Failed, result.Stop);
         Assert.All(result.Items, row => Assert.True(row.Skipped));
         Assert.Contains("site changed", result.Items[0].Message);
+        Assert.False(result.UndoAvailable);
+    }
+
+    [Fact]
+    public async Task WhenTheSiteCannotBeReadAgainNothingIsWrittenAndTheReasonIsShown()
+    {
+        var shown = PlanOf();
+        var (items, keys) = RowsOf(shown);
+        var wrote = false;
+
+        var result = await RewriteOldVersionsPlans.RewriteRunAsync(shown, Scope, items, keys,
+            (_, _) => throw new InvalidOperationException("The deployments of 'App 1.0' could not be read."),
+            (_, _, _, _, _) => { wrote = true; return Task.FromResult(new RewriteOutcome([], [])); },
+            new Progress(), CancellationToken.None);
+
+        Assert.False(wrote);
+        Assert.Equal(ChangePlanStop.Failed, result.Stop);
+        Assert.Contains("could not be read", result.Items[0].Message);
         Assert.False(result.UndoAvailable);
     }
 
