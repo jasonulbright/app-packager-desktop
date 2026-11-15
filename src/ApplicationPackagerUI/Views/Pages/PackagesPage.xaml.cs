@@ -54,7 +54,7 @@ public partial class PackagesPage
 
     /// <summary>
     /// The number of lines the labeled toolbar needs at <paramref name="width"/>: the height of the measured toolbar over the height of
-    /// one line (the tallest button and the gap below a group).
+    /// one line (the tallest button with its margin).
     /// </summary>
     private int LabeledToolbarLines(double width)
     {
@@ -62,7 +62,8 @@ public partial class PackagesPage
         AppPackagerToolbar.Measure(new Size(width, double.PositiveInfinity));
         var buttons = Descendants<System.Windows.Controls.Primitives.ButtonBase>(AppPackagerToolbar).Where(b => b.Visibility == Visibility.Visible).ToList();
         if (buttons.Count == 0) return 1;
-        var line = buttons.Max(b => b.DesiredSize.Height + b.Margin.Top + b.Margin.Bottom) + 8;
+        // DesiredSize includes the margin, and every button has 8 px below it, so every line of the toolbar is one button high.
+        var line = buttons.Max(b => b.DesiredSize.Height);
         return (int)Math.Max(1, Math.Round(AppPackagerToolbar.DesiredSize.Height / line));
     }
 

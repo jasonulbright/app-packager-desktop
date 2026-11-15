@@ -40,7 +40,10 @@ public sealed class AppPackagerFitTests
         { ApplicationTheme.Light, 1269, 800 },
         { ApplicationTheme.Dark, 1269, 800 },
         { ApplicationTheme.Light, 1920, 1032 },
-        { ApplicationTheme.Dark, 1920, 1032 }
+        { ApplicationTheme.Dark, 1920, 1032 },
+        // The smallest window of the main window (MinWidth 900): the labels do not fit in three lines, so the toolbar is icon-only.
+        { ApplicationTheme.Light, 900, 700 },
+        { ApplicationTheme.Dark, 900, 700 }
     };
 
     /// <summary>The height of a button of the compact size: 32 px at 14 pt (4 px above and below the text).</summary>
@@ -68,6 +71,13 @@ public sealed class AppPackagerFitTests
         viewModel = (PackagesViewModel)RuntimeHelpers.GetUninitializedObject(typeof(PackagesViewModel));
         viewModel.FilteredPackagers = new(Enumerable.Range(0, rows).Select(i => new PackagerInfo { Uid = $"app{i}", Vendor = "Contoso", Application = $"Contoso Application {i}" }));
         viewModel.LogText = string.Join(Environment.NewLine, Enumerable.Range(0, 30).Select(i => $"[10:00:{i:00}] Checked application {i}."));
+        // The view model is built without its constructor here, so the texts that the buttons bind are set as the program sets them.
+        viewModel.CheckMecmToolTip = "Check ConfigMgr";
+        viewModel.DiscoverToolTip = "Discover unmanaged software";
+        viewModel.PublishConfigMgrToolTip = "Publish to ConfigMgr";
+        viewModel.PublishIntuneToolTip = "Publish to Intune";
+        viewModel.PublishWsusToolTip = "Publish to WSUS";
+        viewModel.WsusUpdatesToolTip = "WSUS Updates";
         return new PackagesPage(viewModel);
     }
 
@@ -108,13 +118,14 @@ public sealed class AppPackagerFitTests
                         $"{where}: {AutomationProperties.GetAutomationId(b)} is {b.ActualHeight:0.#} px high; the compact size is {CompactButtonHeight} px."));
                 }
                 // A normal window shows the labels: the icon-only mode is for a width that cannot hold them in three lines.
+                if (width <= 900) Assert.True(compact, $"{where}: the toolbar keeps its labels at {width} px.");
                 if (width >= 1200) Assert.False(compact, $"{where}: the toolbar is icon-only at {width} px.");
 
                 Pixels(window, toolbar, $"app-packager-{theme}-{width}");
                 var grid = (DataGrid)page.FindName("PackagerGrid");
                 var whole = WholeRows(grid);
                 var lines = ToolbarLines(toolbar);
-                Assert.True(whole >= MinimumWholeRows, $"{where}: the grid shows {whole} whole rows; the toolbar uses {lines} lines and the grid is {grid.ActualHeight:0} px tall.");
+                if (width >= 1024) Assert.True(whole >= MinimumWholeRows, $"{where}: the grid shows {whole} whole rows; the toolbar uses {lines} lines and the grid is {grid.ActualHeight:0} px tall.");
 
                 var catalog = ById<ButtonBase>(page, "btnCatalog");
                 Assert.True(catalog.IsVisible && catalog.IsEnabled && catalog.Focusable && catalog.IsTabStop, $"{where}: the Catalog button cannot take focus.");
