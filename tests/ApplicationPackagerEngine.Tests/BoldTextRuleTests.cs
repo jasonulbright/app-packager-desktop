@@ -55,7 +55,12 @@ public sealed class BoldTextRuleTests
     }
 
     // The windows whose own labels name a field: the title of a field is bold.
-    private static readonly string[] FieldTitleFiles = [Path.Combine("Views", "Windows", "VendorImportWindow.xaml")];
+    private static readonly string[] FieldTitleFiles =
+    [
+        Path.Combine("Views", "Windows", "VendorImportWindow.xaml"),
+        // The name of a parameter is the title of the box beside it.
+        Path.Combine("Views", "Windows", "PivotsParametersWindow.xaml")
+    ];
 
     [Fact]
     public void OnlyTheTitleOfAFieldIsBoldOutsideAButton()
