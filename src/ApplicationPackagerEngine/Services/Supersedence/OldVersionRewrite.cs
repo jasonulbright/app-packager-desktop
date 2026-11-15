@@ -212,7 +212,8 @@ public static class RewritePlanner
 
 /// <summary>One line of the rewrite log. The log is the only way back, because the publish script purges the revision history.</summary>
 public sealed record RewriteLogEntry(
-    DateTimeOffset At, string Application, string DeploymentType, string OldOperator, string NewOperator, string LogicalName, bool Restored = false);
+    DateTimeOffset At, string Application, string DeploymentType, string OldOperator, string NewOperator, string LogicalName, bool Restored = false,
+    string? Line = null);
 
 /// <summary>The log of the rewrite, one JSON object per line.</summary>
 public static class RewriteLog
@@ -252,12 +253,15 @@ public static class RewriteLog
 
     /// <summary>
     /// What Restore writes back: for each deployment type of the given applications whose last entry is a rewrite (not a restore), the
-    /// first entry, which holds the operator that the deployment type had before the first rewrite. Other applications are left.
+    /// first entry, which holds the operator that the deployment type had before the first rewrite. Other applications are left, and with a
+    /// line, so are the entries of another line.
     /// </summary>
-    public static IReadOnlyList<RewriteLogEntry> ToRestore(IReadOnlyList<RewriteLogEntry> log, IReadOnlyCollection<string> applications)
+    public static IReadOnlyList<RewriteLogEntry> ToRestore(IReadOnlyList<RewriteLogEntry> log, IReadOnlyCollection<string> applications, string? line = null)
     {
         var wanted = new HashSet<string>(applications, StringComparer.OrdinalIgnoreCase);
-        return log.Where(e => wanted.Contains(e.Application))
+        // With a line (its identity marker), only the entries of that line: the log holds the rewrites of every line, and Restore for one
+        // line must not touch another. An entry from before the log carried the line has none, and stays open to every line.
+        return log.Where(e => wanted.Contains(e.Application) && (line is null || e.Line is null || string.Equals(e.Line, line, StringComparison.OrdinalIgnoreCase)))
             .GroupBy(e => (e.Application.ToUpperInvariant(), e.DeploymentType.ToUpperInvariant()))
             .Select(g => g.OrderBy(e => e.At).ToList())
             .Where(entries => !entries[^1].Restored && entries.Any(e => !e.Restored))

@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- Rewrite old versions: **Undo**, the restore of the window and `--rewrite-old-versions restore` restore only the rewrites of the line of the checked application. Before, they took every entry of the log, so a restore for one line also tried the clauses of other lines and reported them as failures. The log entries now carry the line (the identity marker); an entry from before has none and stays open to every line (it is left, without a failure, when its application is not in this line).
+- Rewrite old versions: the plan is read again after the confirmation and before the first write. When the clauses to rewrite are not the ones that were shown (the site changed while the window was open), nothing is written and every row says so.
+
+### Added
+
+- Packages page: the button **Restore Old Versions** restores the earlier rewrites of the checked application's line from the log on its own, with its plan and confirmation, beside Rewrite old versions.
+
 ### Added
 
 - Import From URL: a document can be signed. Enter a **pinned publisher** (the subject and the issuer of the code-signing certificate separated by `|`, or `key:` and the SHA-256 of its public key; not the thumbprint, so a renewal of the certificate does not break the pin). The program fetches the detached signature (`.p7s` at the address of the document with `.p7s` added, on the same host) and checks it for the exact bytes, the code-signing usage of the certificate, its chain to a trusted root with the online revocation check of Windows, and the signer against the pin. The state is then **Signed by pinned publisher** and needs no confirmation of the state "not verified". An expired certificate is accepted only with a checked RFC 3161 time stamp (its token belongs to this signature, its authority is trusted and has the time-stamping usage); any other time stamp is ignored. A failure stops the import and never falls back to "not verified". A signature does not unblock code in a definition.

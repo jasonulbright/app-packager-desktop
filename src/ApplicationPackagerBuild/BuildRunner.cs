@@ -226,7 +226,7 @@ public sealed class BuildRunner(
             if (action == "restore")
             {
                 var log = File.Exists(logPath) ? RewriteLog.Read(await File.ReadAllTextAsync(logPath, ct)) : [];
-                var pending = RewriteLog.ToRestore(log, log.Select(e => e.Application).Distinct(StringComparer.OrdinalIgnoreCase).ToList());
+                var pending = RewriteLog.ToRestore(log, log.Select(e => e.Application).Distinct(StringComparer.OrdinalIgnoreCase).ToList(), scope.Marker);
                 output.Info($"Log: {logPath}. {pending.Count} deployment type(s) to restore.");
                 foreach (var entry in pending) output.Info($"  restore: {entry.Application} / {entry.DeploymentType}: back to {entry.OldOperator}");
                 if (!_options.Yes) throw new BuildRefusal("restore writes the old operator back on the site. Run it again with --yes.");

@@ -29,13 +29,18 @@ public static class RewriteOldVersionsPlans
         notes.AddRange(plan.Blocked.Select(b => "Blocked: " + b));
         notes.AddRange(plan.Items.Where(i => !i.Rewrites).Select(i => $"Left: {i.Application} / {i.DeploymentType}: {i.Skip}"));
         if (restorable > 0)
-            notes.Add($"{restorable} earlier rewrite(s) can still be restored. Open this window again when nothing is left to rewrite.");
+            notes.Add($"{restorable} earlier rewrite(s) of this line can still be restored with the button Restore old versions.");
         return notes;
     }
 
     /// <summary>The plan, the run and the undo of a rewrite, or null when the plan has no clause to rewrite.</summary>
-    public static (ChangePlan Plan, ChangePlanRun Run, ChangePlanRun Undo)? ForRewrite(RewritePlan plan, RewriteScope scope, int restorable)
+    public static (ChangePlan Plan, ChangePlanRun Run, ChangePlanRun Undo)? ForRewrite(
+        RewritePlan plan, RewriteScope scope, int restorable,
+        Func<RewriteScope, CancellationToken, Task<RewritePlan>>? replan = null,
+        Func<RewritePlan, RewriteScope, Action<RewriteLogEntry>, Action<string>?, CancellationToken, Task<RewriteOutcome>>? write = null)
     {
+        replan ??= (s, ct) => new OldVersionRewriteRunner().PlanAsync(s, ct);
+        write ??= (p, s, persist, log, ct) => new OldVersionRewriteRunner().WriteRewriteAsync(p, s, persist, log, ct);
         var rewrites = plan.Items.Where(i => i.Rewrites).ToList();
         if (rewrites.Count == 0) return null;
         var items = rewrites.Select(ItemOf).ToList();
@@ -46,42 +51,72 @@ public static class RewriteOldVersionsPlans
             LogName = "Rewrite old version clauses"
         };
         var keys = rewrites.Select(r => (r.Application, r.DeploymentType)).ToList();
-        ChangePlanRun run = async (confirmed, progress, ct) =>
-        {
-            // Each clause is reported as soon as it is written, so a cancel keeps the rows and Undo. The clause whose intent is in the log and
-            // whose end is not known when the run stops is reported as changed in part: Restore writes the old operator in either case.
-            (string Application, string DeploymentType)? inFlight = null;
-            void Persist(RewriteLogEntry entry)
-            {
-                Append(entry);
-                inFlight = entry.Restored ? null : (entry.Application, entry.DeploymentType);
-            }
-            void Written(string line)
-            {
-                if (inFlight is not { } key) return;
-                progress.Report(new ChangePlanItemResult(items[IndexOf(keys, key)], true, "Written to the site and the log."));
-                inFlight = null;
-            }
-            try
-            {
-                var outcome = await new OldVersionRewriteRunner().WriteRewriteAsync(plan, scope, Persist, Written, ct);
-                return Result(items, keys, outcome);
-            }
-            catch (OperationCanceledException)
-            {
-                if (inFlight is { } key)
-                    progress.Report(new ChangePlanItemResult(items[IndexOf(keys, key)], false,
-                        "The run was cancelled while this clause was written. It may be changed; Undo restores it.") { PartialChange = true });
-                throw;
-            }
-        };
+        ChangePlanRun run = (confirmed, progress, ct) => RewriteRunAsync(plan, scope, items, keys, replan, write, progress, ct);
         return (change, run, RestoreRun(scope));
     }
 
-    /// <summary>The plan of a restore of the rewrites that the log lists and no restore entry cancels, or null when none is pending.</summary>
+    /// <summary>
+    /// The run of the rewrite after the confirmation. The plan was read before the confirmation, and the site can change while the window is
+    /// open, so it is read again here, before anything is written; when the clauses to rewrite are not the ones that were shown, nothing is
+    /// written. Each clause is reported as soon as it is written, so a cancel keeps the rows and Undo. The clause whose intent is in the log
+    /// and whose end is not known when the run stops is reported as changed in part: Restore writes the old operator in either case.
+    /// </summary>
+    public static async Task<ChangePlanResult> RewriteRunAsync(
+        RewritePlan plan, RewriteScope scope, IReadOnlyList<ChangePlanItem> items, IReadOnlyList<(string Application, string DeploymentType)> keys,
+        Func<RewriteScope, CancellationToken, Task<RewritePlan>> replan,
+        Func<RewritePlan, RewriteScope, Action<RewriteLogEntry>, Action<string>?, CancellationToken, Task<RewriteOutcome>> write,
+        IProgress<ChangePlanItemResult> progress, CancellationToken ct)
+    {
+        RewritePlan fresh;
+        try { fresh = await replan(scope, ct); }
+        catch (InvalidOperationException ex)
+        {
+            var failed = items.Select(i => ChangePlanItemResult.Skip(i, "The site could not be read again, so nothing was written: " + ex.Message)).ToList();
+            return new ChangePlanResult(failed, ChangePlanStop.Failed) { UndoAvailable = false };
+        }
+        if (!SameRewrites(plan, fresh))
+        {
+            var rows = items.Select(i => ChangePlanItemResult.Skip(i,
+                "The site changed while the window was open: the clauses to rewrite are not the ones that were shown. Nothing was written. Open the window again.")).ToList();
+            return new ChangePlanResult(rows, ChangePlanStop.Failed) { UndoAvailable = false };
+        }
+        (string Application, string DeploymentType)? inFlight = null;
+        void Persist(RewriteLogEntry entry)
+        {
+            Append(entry);
+            inFlight = entry.Restored ? null : (entry.Application, entry.DeploymentType);
+        }
+        void Written(string line)
+        {
+            if (inFlight is not { } key) return;
+            progress.Report(new ChangePlanItemResult(items[IndexOf(keys, key)], true, "Written to the site and the log."));
+            inFlight = null;
+        }
+        try
+        {
+            var outcome = await write(plan, scope, Persist, Written, ct);
+            return Result(items, keys, outcome);
+        }
+        catch (OperationCanceledException)
+        {
+            if (inFlight is { } key)
+                progress.Report(new ChangePlanItemResult(items[IndexOf(keys, key)], false,
+                    "The run was cancelled while this clause was written. It may be changed; Undo restores it.") { PartialChange = true });
+            throw;
+        }
+    }
+    /// <summary>True when both plans rewrite the same clauses (application, deployment type, setting, operator and expected value).</summary>
+    public static bool SameRewrites(RewritePlan shown, RewritePlan fresh)
+    {
+        static HashSet<string> KeysOf(RewritePlan plan) => plan.Items.Where(i => i.Rewrites).Select(i =>
+            $"{i.Application}|{i.DeploymentType}|{i.Clause!.LogicalName}|{i.Clause.Operator}|{i.Clause.ExpectedValue}").ToHashSet(StringComparer.OrdinalIgnoreCase);
+        return KeysOf(shown).SetEquals(KeysOf(fresh));
+    }
+
+    /// <summary>The plan of a restore of the rewrites of this line that the log lists and no restore entry cancels, or null when none is pending.</summary>
     public static (ChangePlan Plan, ChangePlanRun Run)? ForRestore(RewriteScope scope)
     {
-        var pending = Pending();
+        var pending = Pending(scope);
         if (pending.Count == 0) return null;
         var change = new ChangePlan(RestoreTitle, $"Restore {pending.Count} clause(s)", pending.Select(RestoreItemOf), isDestructive: true)
         {
@@ -91,17 +126,18 @@ public static class RewriteOldVersionsPlans
         return (change, RestoreRun(scope));
     }
 
-    public static IReadOnlyList<RewriteLogEntry> Pending()
+    /// <summary>The rewrites of the line of the scope that can be restored; the log holds every line, and Restore for one line leaves the others.</summary>
+    public static IReadOnlyList<RewriteLogEntry> Pending(RewriteScope scope)
     {
         var log = ReadLog();
-        return RewriteLog.ToRestore(log, log.Select(e => e.Application).Distinct(StringComparer.OrdinalIgnoreCase).ToList());
+        return RewriteLog.ToRestore(log, log.Select(e => e.Application).Distinct(StringComparer.OrdinalIgnoreCase).ToList(), scope.Marker);
     }
 
     private static IReadOnlyList<RewriteLogEntry> ReadLog() => File.Exists(LogPath) ? RewriteLog.Read(File.ReadAllText(LogPath)) : [];
 
     private static ChangePlanRun RestoreRun(RewriteScope scope) => async (confirmed, progress, ct) =>
     {
-        var pending = Pending();
+        var pending = Pending(scope);
         var items = pending.Select(RestoreItemOf).ToList();
         var keys = pending.Select(p => (p.Application, p.DeploymentType)).ToList();
         // A restore entry is written after each restored clause, so each one is reported as it is persisted.
@@ -126,7 +162,7 @@ public static class RewriteOldVersionsPlans
             var failure = outcome.Failures.FirstOrDefault(f => f.StartsWith($"{application} / {type}:", StringComparison.OrdinalIgnoreCase));
             rows.Add(done ? new ChangePlanItemResult(items[i], true, "Written to the site and the log.")
                 : failure is not null ? new ChangePlanItemResult(items[i], false, failure[(application.Length + type.Length + 4)..].Trim())
-                : ChangePlanItemResult.Skip(items[i], "Not reached: the run stopped before this clause."));
+                : ChangePlanItemResult.Skip(items[i], "Not reached: the run stopped before this clause, or the entry belongs to another line (it is from before the log carried the line) and was left."));
         }
         return new ChangePlanResult(rows) { UndoAvailable = rows.Any(r => r.Succeeded) };
     }

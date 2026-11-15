@@ -105,7 +105,7 @@ public sealed class OldVersionRewriteRunner
             ct.ThrowIfCancellationRequested();
             var clause = item.Clause!;
             var intent = new RewriteLogEntry(DateTimeOffset.UtcNow, item.Application, item.DeploymentType,
-                OldVersionRewrite.CmdletOperator(clause.Operator), "IsEquals", clause.LogicalName);
+                OldVersionRewrite.CmdletOperator(clause.Operator), "IsEquals", clause.LogicalName, Line: scope.Marker);
             try
             {
                 var script = OldVersionRewrite.BuildRewriteScript(scope.SiteCode, scope.ProviderMachine, item.Application, item.DeploymentType, clause, "IsEquals");
@@ -152,9 +152,12 @@ public sealed class OldVersionRewriteRunner
         var titles = line.Select(a => a.Title).ToList();
         var written = new List<RewriteLogEntry>();
         var failures = new List<string>();
-        foreach (var entry in RewriteLog.ToRestore(log, log.Select(e => e.Application).Distinct(StringComparer.OrdinalIgnoreCase).ToList()))
+        foreach (var entry in RewriteLog.ToRestore(log, log.Select(e => e.Application).Distinct(StringComparer.OrdinalIgnoreCase).ToList(), scope.Marker))
         {
             ct.ThrowIfCancellationRequested();
+            // An entry from before the log carried the line, whose application is not in this line, belongs to another line: it is left, and not
+            // reported as a failure of this one.
+            if (entry.Line is null && !titles.Contains(entry.Application, StringComparer.OrdinalIgnoreCase)) continue;
             if (!titles.Contains(entry.Application, StringComparer.OrdinalIgnoreCase))
             {
                 failures.Add($"{entry.Application} / {entry.DeploymentType}: the application is not in this line on the site any more (renamed, removed or without the marker), so it was not restored.");
@@ -174,7 +177,9 @@ public sealed class OldVersionRewriteRunner
                 var read = RewriteLog.FromScriptOutput(result.StdOut, DateTimeOffset.UtcNow);
                 if (result.ExitCode == 0 && read.Count > 0)
                 {
-                    var done = read[0] with { Restored = true };
+                    // The restore entry carries the line of the entry that it cancels (none for an entry from before the log carried the line), so that every
+                    // line that sees the rewrite also sees its restore.
+                    var done = read[0] with { Restored = true, Line = entry.Line };
                     persist(done);
                     written.Add(done);
                     report?.Invoke($"Restored: {entry.Application} / {entry.DeploymentType}: back to {entry.OldOperator}");
