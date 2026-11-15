@@ -41,7 +41,7 @@ public sealed class AppPackagerFitTests
         { ApplicationTheme.Dark, 1269, 800 },
         { ApplicationTheme.Light, 1920, 1032 },
         { ApplicationTheme.Dark, 1920, 1032 },
-        // The smallest window of the main window (MinWidth 900): the labels do not fit in three lines, so the toolbar is icon-only.
+        // The smallest window of the main window (MinWidth 900): the labels do not fit in five lines, so the toolbar is icon-only.
         { ApplicationTheme.Light, 900, 700 },
         { ApplicationTheme.Dark, 900, 700 }
     };
@@ -117,7 +117,7 @@ public sealed class AppPackagerFitTests
                     Assert.All(buttons, b => Assert.True(b.ActualHeight <= CompactButtonHeight + 0.5,
                         $"{where}: {AutomationProperties.GetAutomationId(b)} is {b.ActualHeight:0.#} px high; the compact size is {CompactButtonHeight} px."));
                 }
-                // A normal window shows the labels: the icon-only mode is for a width that cannot hold them in three lines.
+                // A normal window shows the labels: the icon-only mode is for a width that cannot hold them in five lines.
                 if (width <= 900) Assert.True(compact, $"{where}: the toolbar keeps its labels at {width} px.");
                 if (width >= 1200) Assert.False(compact, $"{where}: the toolbar is icon-only at {width} px.");
 

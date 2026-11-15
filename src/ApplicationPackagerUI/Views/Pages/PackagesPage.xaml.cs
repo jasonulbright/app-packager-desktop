@@ -45,7 +45,7 @@ public partial class PackagesPage
     }
 
     /// <summary>The toolbar keeps its labels while they fit in this many lines; beyond that the buttons show their icons only.</summary>
-    public const int MaxLabeledToolbarLines = 3;
+    public const int MaxLabeledToolbarLines = 5;
 
     /// <summary>A toolbar that went icon-only shows its labels again only when they fit with this much width to spare, so a width at the edge does not flip it back and forth.</summary>
     public const double ToolbarReturnMargin = 48;
