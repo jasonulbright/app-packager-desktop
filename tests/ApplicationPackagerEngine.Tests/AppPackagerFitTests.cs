@@ -131,7 +131,7 @@ public sealed class AppPackagerFitTests
                 // The design basis is the maximized 1080p window (D-20): ten whole rows there (rows of 28 to 32 px); the smaller windows keep six.
                 var needed = height >= 1000 ? MinimumWholeRows : 6;
                 var rowHeight = Descendants(grid).OfType<DataGridRow>().Where(r => r.ActualHeight > 0).Max(r => r.ActualHeight);
-                Assert.True(rowHeight >= MinimumRowHeight - 0.5 && rowHeight <= MaximumRowHeight + 0.5, $"{where}: a row is {rowHeight:0.#} px high; a row is {MinimumRowHeight} to {MaximumRowHeight} px.");
+                Assert.True(rowHeight >= MinimumRowHeight - 0.5 && rowHeight <= MaximumRowHeight + 0.5, $"{where}: a row is {rowHeight:0.#} px high; a row is {MinimumRowHeight} to {MaximumRowHeight} px. Cells of the first row: " + string.Join(", ", Descendants(grid).OfType<DataGridCell>().Take(14).Select(c => $"{c.Column?.Header}={c.ActualHeight:0}")));
                 Assert.True(whole >= needed, $"{where}: the grid shows {whole} whole rows (needs {needed}); the toolbar uses {lines} lines and the grid is {grid.ActualHeight:0} px tall.");
 
                 var catalog = ById<ButtonBase>(page, "btnCatalog");

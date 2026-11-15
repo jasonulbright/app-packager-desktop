@@ -49,7 +49,7 @@
                     </DataGridTemplateColumn.HeaderStyle>
                     <!-- The default cell clips the check box in a 48 px column. The cell centers its content and clips nothing. -->
                     <DataGridTemplateColumn.CellStyle>
-                        <Style TargetType="DataGridCell" BasedOn="{StaticResource {x:Type DataGridCell}}">
+                        <Style TargetType="DataGridCell" BasedOn="{StaticResource DensityCell}">
                             <Setter Property="Template">
                                 <Setter.Value>
                                     <ControlTemplate TargetType="DataGridCell">

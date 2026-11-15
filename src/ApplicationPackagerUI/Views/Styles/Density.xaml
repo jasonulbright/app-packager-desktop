@@ -4,10 +4,9 @@
     xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml">
 
     <!-- The density of the app is measured on the work area of a maximized window on a 1080p display (1920 x 1032 at 100 percent):
-         a row of a grid or a list is 28 to 32 px high at 14 pt (4 px above and below the text), on the 4 px grid. One style for every grid.
+         a row of a grid or a list is 28 to 32 px high at 14 pt, on the 4 px grid (the minimum height; the padding of the theme stays). One style for every grid.
          The cell style is keyed and reaches a grid through its CellStyle: an implicit DataGridCell style would beat a CellStyle that a grid style sets. -->
     <Style x:Key="DensityCell" TargetType="DataGridCell" BasedOn="{StaticResource DefaultDataGridCellStyle}">
-        <Setter Property="Padding" Value="8,4" />
         <Setter Property="MinHeight" Value="28" />
     </Style>
     <Style TargetType="DataGrid" BasedOn="{StaticResource {x:Type DataGrid}}">

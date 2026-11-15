@@ -15,7 +15,7 @@ public sealed class DensityStyleTests
         (string?)style.Elements(Presentation + "Setter").SingleOrDefault(s => (string?)s.Attribute("Property") == property)?.Attribute("Value");
 
     [Fact]
-    public void EveryGridCellStyleHasTheSameCompactPaddingAndMinimumHeight()
+    public void EveryGridCellAndListItemStyleHasTheSameMinimumHeightAndKeepsTheThemePadding()
     {
         var shared = Styles("Density.xaml").Descendants(Presentation + "Style").Single(s => (string?)s.Attribute(Xaml + "Key") == "DensityCell");
         var focusable = Styles("SelectableRows.xaml").Descendants(Presentation + "Style").Single(s => (string?)s.Attribute(Xaml + "Key") == "FocusableCell");
@@ -23,7 +23,7 @@ public sealed class DensityStyleTests
 
         foreach (var style in new[] { shared, focusable, listItem })
         {
-            Assert.Equal("8,4", Setter(style, "Padding"));
+            Assert.Null(Setter(style, "Padding"));
             Assert.Equal("28", Setter(style, "MinHeight"));
         }
     }
@@ -56,5 +56,18 @@ public sealed class DensityStyleTests
             .Select(f => Path.GetRelativePath(root, f)).ToList();
 
         Assert.True(offenders.Count == 0, "These files have an implicit DataGridCell style: " + string.Join(", ", offenders));
+    }
+
+    [Fact]
+    public void ACellStyleOfAColumnIsBasedOnTheDensityCell()
+    {
+        var root = Path.Combine(CatalogServiceTests.RepositoryRoot(), "src", "ApplicationPackagerUI");
+        var offenders = Directory.EnumerateFiles(root, "*.xaml", SearchOption.AllDirectories)
+            .SelectMany(f => XDocument.Load(f).Descendants(Presentation + "Style")
+                .Where(s => (string?)s.Attribute("TargetType") == "DataGridCell" && s.Parent?.Name.LocalName.EndsWith(".CellStyle", StringComparison.Ordinal) == true
+                            && !((string?)s.Attribute("BasedOn") ?? "").Contains("DensityCell", StringComparison.Ordinal))
+                .Select(_ => Path.GetRelativePath(root, f))).ToList();
+
+        Assert.True(offenders.Count == 0, "A column cell style of the theme keeps the 40 px minimum height of the theme: " + string.Join(", ", offenders));
     }
 }

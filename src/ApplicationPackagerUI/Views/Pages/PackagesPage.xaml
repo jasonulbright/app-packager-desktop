@@ -309,7 +309,7 @@
                         </Style>
                     </DataGridTemplateColumn.HeaderStyle>
                     <DataGridTemplateColumn.CellStyle>
-                        <Style TargetType="DataGridCell" BasedOn="{StaticResource {x:Type DataGridCell}}">
+                        <Style TargetType="DataGridCell" BasedOn="{StaticResource DensityCell}">
                             <Setter Property="IsHitTestVisible" Value="True" />
                             <Setter Property="Template">
                                 <Setter.Value>
