@@ -105,7 +105,7 @@ Both end on a result panel with the buttons **Open in Workbench**, **Stage now**
 
 ### Use the sidebar
 
-The sidebar on the left lists the pages in two groups. The first group has **App Packager**, **Add from web**, **Add from file** and **Workbench**. The group **TOOLS** has the eight tools. **Settings** is always the last entry. The application starts on **App Packager**. **App Packager** cannot be hidden or moved. An entry moves only inside its group.
+The footer at the lower right of the window shows the site code and the site server ("Site P01 Â· primary.contoso.test", or "Site not set"). You change them in Settings (and in the Setup window at the first start), nowhere else. The sidebar on the left lists the pages in two groups. The first group has **App Packager**, **Add from web**, **Add from file** and **Workbench**. The group **TOOLS** has the eight tools. **Settings** is always the last entry. The application starts on **App Packager**. **App Packager** cannot be hidden or moved. An entry moves only inside its group.
 
 1. Right-click an entry to open its menu.
 2. Select **Hide** followed by the entry name, for example **Hide Detection Tester**, to remove the entry from the sidebar.

@@ -4,6 +4,10 @@
 
 ### Added
 
+- Main window: a footer, lower right, shows the site code and the site server as "Site MCM", a middle dot and the server (for example `Site P01 Â· primary.contoso.test`), or "Site not set" when there is no site code. It has one font, size and style in both themes (only the color follows the theme). It follows a save in Options or in the Setup window at once. The site code and the site server are edited in Options and in the Setup window only; a test fails on an editable site field in any other window. This is the footer of every ConfigMgr tool of the suite.
+
+### Added
+
 - Citrix Workspace (Settings, install parameters): `/forceinstall`, a fixed client name (`ENABLE_DYNAMIC_CLIENT_NAME=No` and `CLIENT_NAME`), `/SkipSRAgentUpgrade` with Session recording (Current Release), `AutoUpdateStream` and `AURolloutPriority` (only with `AutoUpdateCheck`), the HDX switches `ALLOW_BIDIRCONTENTREDIRECTION`, `FORCE_LAA` and `ALLOW_CLIENTHOSTEDAPPSURL`, `LEGACYFTAICONS`, `DisableSetting`, and the component `CitrixEnterpriseBrowser` for LTSR. Each is written only when set, so a package with none of them has the install command that it had; a value outside the documented set is skipped with a warning, as for the other switches. The Preview shows each result.
 
 ### Added
