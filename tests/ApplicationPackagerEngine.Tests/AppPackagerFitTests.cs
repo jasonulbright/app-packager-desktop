@@ -125,7 +125,9 @@ public sealed class AppPackagerFitTests
                 var grid = (DataGrid)page.FindName("PackagerGrid");
                 var whole = WholeRows(grid);
                 var lines = ToolbarLines(toolbar);
-                if (width >= 1024) Assert.True(whole >= MinimumWholeRows, $"{where}: the grid shows {whole} whole rows; the toolbar uses {lines} lines and the grid is {grid.ActualHeight:0} px tall.");
+                // The design basis is the maximized 1080p window (D-20): six whole rows there. The smaller windows keep at least four until the row height of Q-18 gives them more.
+                var needed = height >= 1000 ? MinimumWholeRows : 4;
+                Assert.True(whole >= needed, $"{where}: the grid shows {whole} whole rows (needs {needed}); the toolbar uses {lines} lines and the grid is {grid.ActualHeight:0} px tall.");
 
                 var catalog = ById<ButtonBase>(page, "btnCatalog");
                 Assert.True(catalog.IsVisible && catalog.IsEnabled && catalog.Focusable && catalog.IsTabStop, $"{where}: the Catalog button cannot take focus.");
