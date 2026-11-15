@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+### Added
+
+- Installer options that the audit of installer options listed as missing, all off or empty by default (the install command is unchanged until you choose one):
+  - Adobe Acrobat Reader: Accept the license agreement (`EULA_ACCEPT=YES`), No desktop shortcut (`DISABLEDESKTOPSHORTCUT=1`), Block the Chrome extension (`ENABLE_CHROMEEXT=0`) and No browser plug-in (`DISABLE_BROWSER_INTEGRATION=YES`). `UPDATE_MODE` is not offered: the meaning of its values is not verified.
+  - Beyond Compare 5: Turn off remote profiles (`/DisableRemoteProfiles`) and Do not save passwords (`/DisableSavedPasswords`), version 5.2 and later.
+  - SQL Server Management Studio: one additional product language (`--addProductLang`) and Delete the package cache after the install (`--nocache`).
+
 ### Fixed
 
 - Rewrite old versions: **Undo**, the restore of the window and `--rewrite-old-versions restore` restore only the rewrites of the line of the checked application. Before, they took every entry of the log, so a restore for one line also tried the clauses of other lines and reported them as failures. The log entries now carry the line (the identity marker); an entry from before has none and stays open to every line (it is left, without a failure, when its application is not in this line).
