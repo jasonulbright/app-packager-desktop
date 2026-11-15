@@ -35,4 +35,15 @@ public sealed class DensityStyleTests
 
         Assert.Contains(merged, s => s is not null && s.EndsWith("Styles/Density.xaml", StringComparison.Ordinal));
     }
+
+    [Fact]
+    public void ThePageTitleAndItsIconAreAsLargeAsTheButtonText()
+    {
+        var title = Styles("Typography.xaml").Descendants(Presentation + "Style").Single(s => (string?)s.Attribute(Xaml + "Key") == "PageTitle");
+        Assert.Equal("14", Setter(title, "FontSize"));
+
+        var header = XDocument.Load(Path.Combine(CatalogServiceTests.RepositoryRoot(), "src", "ApplicationPackagerUI", "Controls", "PageHeader.xaml"));
+        var icon = header.Descendants().Single(e => (string?)e.Attribute(Xaml + "Name") == "IconHost");
+        Assert.Equal("14", (string?)icon.Attribute("FontSize"));
+    }
 }

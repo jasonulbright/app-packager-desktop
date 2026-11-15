@@ -20,7 +20,7 @@ public sealed class SettingsInputStyleTests
         var style = Page().Descendants(Presentation + "Style").Single(s => (string?)s.Attribute("TargetType") == target && s.Attribute("{http://schemas.microsoft.com/winfx/2006/xaml}Key") is null);
 
         var minHeight = style.Elements(Presentation + "Setter").Single(x => (string?)x.Attribute("Property") == "MinHeight");
-        Assert.Equal("40", (string?)minHeight.Attribute("Value"));
+        Assert.Equal("32", (string?)minHeight.Attribute("Value"));
     }
 
     [Fact]
