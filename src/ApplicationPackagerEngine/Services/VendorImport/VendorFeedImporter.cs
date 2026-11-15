@@ -28,7 +28,7 @@ public sealed record ImportConfirmation(
 /// </summary>
 public sealed class VendorFeedImporter(
     FeedFetcher fetcher, ImportedDefinitionStore store, Func<ISet<string>> shippedIds, Func<ISet<string>> userIds, TimeProvider? clock = null,
-    Func<ISet<string>>? stageFolders = null)
+    Func<IReadOnlyDictionary<string, string>>? stageFolders = null)
 {
     private readonly TimeProvider _clock = clock ?? TimeProvider.System;
 
@@ -60,7 +60,8 @@ public sealed class VendorFeedImporter(
         // Two definitions with one stage folder would share a stage: an imported definition with the Application and Architecture of
         // a shipped one would stage into the folder of the shipped application. The folder names of the shipped and the user definitions
         // come from the caller; those of the stored feeds are read here; and the earlier definition of the document keeps its folder.
-        var folders = new HashSet<string>(stageFolders?.Invoke() ?? new HashSet<string>(), StringComparer.OrdinalIgnoreCase);
+        var folderOfId = new Dictionary<string, string>(stageFolders?.Invoke() ?? new Dictionary<string, string>(), StringComparer.OrdinalIgnoreCase);
+        var folders = new HashSet<string>(folderOfId.Values, StringComparer.OrdinalIgnoreCase);
         foreach (var stored in store.Feeds())
             foreach (var file in stored.DefinitionFiles)
                 if (StageFolderOfFile(file) is { } name) folders.Add(name);
@@ -69,7 +70,16 @@ public sealed class VendorFeedImporter(
         {
             if (user.Contains(d.Id)) return new ImportCandidate(d, ConflictKind.User, null);
             if (otherFeeds.TryGetValue(d.Id, out var other)) return new ImportCandidate(d, ConflictKind.AnotherFeed, other);
-            if (shipped.Contains(d.Id)) return new ImportCandidate(d, ConflictKind.Shipped, null);
+            if (shipped.Contains(d.Id))
+            {
+                // A replacement takes over the folder of the shipped definition; it must not take the folder of another one.
+                if (d.Blocked) return new ImportCandidate(d, ConflictKind.Shipped, null);
+                var own = StageFolder.Name(d.Definition);
+                var others = folderOfId.Where(p => !string.Equals(p.Key, d.Id, StringComparison.OrdinalIgnoreCase)).Select(p => p.Value);
+                if (others.Contains(own, StringComparer.OrdinalIgnoreCase)) return new ImportCandidate(d, ConflictKind.StageFolder, null);
+                folders.Add(own);
+                return new ImportCandidate(d, ConflictKind.Shipped, null);
+            }
             if (!d.Blocked && !folders.Add(StageFolder.Name(d.Definition))) return new ImportCandidate(d, ConflictKind.StageFolder, null);
             return new ImportCandidate(d, ConflictKind.None, null);
         }).ToList();

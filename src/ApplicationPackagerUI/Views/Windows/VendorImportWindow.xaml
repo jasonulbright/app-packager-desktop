@@ -27,7 +27,7 @@
 
         <ui:TitleBar Grid.Row="0" Title="{Binding Title}" ShowMinimize="False" />
 
-        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Padding="16,4,16,8">
+        <ScrollViewer x:Name="scrollImport" Grid.Row="1" VerticalScrollBarVisibility="Auto" Padding="16,4,16,8">
             <StackPanel>
                 <TextBlock Text="Address of the feed (HTTPS)" FontWeight="SemiBold" Margin="0,0,0,4" />
                 <Grid Margin="0,0,0,8">
@@ -80,7 +80,7 @@
                     <DataGrid x:Name="gridImportRows" ItemsSource="{Binding Rows}" SelectedItem="{Binding SelectedRow}" AutoGenerateColumns="False"
                               CanUserAddRows="False" CanUserDeleteRows="False" HeadersVisibility="Column" RowHeaderWidth="0"
                               SelectionMode="Single" GridLinesVisibility="Horizontal" MinHeight="120" MaxHeight="220" Margin="0,0,0,8"
-                              AutomationProperties.AutomationId="gridImportRows">
+                              PreviewMouseWheel="OnGridPreviewMouseWheel" AutomationProperties.AutomationId="gridImportRows">
                         <DataGrid.Columns>
                             <DataGridTemplateColumn Header="Replace shipped" Width="140" CanUserSort="False">
                                 <DataGridTemplateColumn.CellTemplate>
@@ -119,7 +119,7 @@
                 <DataGrid x:Name="gridFeeds" ItemsSource="{Binding Feeds}" SelectedItem="{Binding SelectedFeed}" AutoGenerateColumns="False"
                           CanUserAddRows="False" CanUserDeleteRows="False" HeadersVisibility="Column" RowHeaderWidth="0" IsReadOnly="True"
                           SelectionMode="Single" GridLinesVisibility="Horizontal" MinHeight="80" MaxHeight="160" Margin="0,0,0,8"
-                          AutomationProperties.AutomationId="gridFeeds">
+                          PreviewMouseWheel="OnGridPreviewMouseWheel" AutomationProperties.AutomationId="gridFeeds">
                     <DataGrid.Columns>
                         <DataGridTextColumn Header="Feed Id" Binding="{Binding FeedId}" Width="160" />
                         <DataGridTextColumn Header="Vendor" Binding="{Binding Vendor}" Width="180" />

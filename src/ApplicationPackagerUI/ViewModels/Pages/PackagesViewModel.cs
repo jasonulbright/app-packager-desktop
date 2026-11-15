@@ -174,6 +174,7 @@ public partial class PackagesViewModel : ObservableObject
         RewriteOldVersionsCommand.NotifyCanExecuteChanged();
         WsusUpdatesCommand.NotifyCanExecuteChanged();
         OneClickCommand.NotifyCanExecuteChanged();
+        ImportFromUrlCommand.NotifyCanExecuteChanged();
         DiscoverCommand.NotifyCanExecuteChanged();
         NotifyCveCommands();
     }

@@ -35,10 +35,12 @@ public partial class PackagesPage
     private void ShowImportFromUrl(PackagesViewModel viewModel)
     {
         var owner = Window.GetWindow(this);
+        Windows.VendorImportWindow? window = null;
         var import = new ViewModels.Windows.VendorImportViewModel(
             VendorImportService.CreateDefault(),
-            (title, message) => Task.FromResult(System.Windows.MessageBox.Show(owner, message, title, System.Windows.MessageBoxButton.YesNo, System.Windows.MessageBoxImage.Warning) == System.Windows.MessageBoxResult.Yes));
-        new Windows.VendorImportWindow(import) { Owner = owner }.ShowDialog();
+            (title, message) => Task.FromResult(System.Windows.MessageBox.Show(window ?? owner, message, title, System.Windows.MessageBoxButton.YesNo, System.Windows.MessageBoxImage.Warning) == System.Windows.MessageBoxResult.Yes));
+        window = new Windows.VendorImportWindow(import) { Owner = owner };
+        window.ShowDialog();
         if (import.ImportedAny) _ = viewModel.LoadPackagersCommand.ExecuteAsync(null);
     }
 

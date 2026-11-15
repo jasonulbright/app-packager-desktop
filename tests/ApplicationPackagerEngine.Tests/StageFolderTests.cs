@@ -65,16 +65,41 @@ public sealed class StageFolderTests
         Assert.Equal(expected.Replace("..", "_"), StageFolder.FileStem(application).Replace("..", "_"));
 
     [Theory]
-    [InlineData("catalog:x1", "catalog:x1", false)]
-    [InlineData("", "catalog:x1", false)]
-    [InlineData("CATALOG:X1", "catalog:x1", false)]
-    [InlineData("catalog:shipped-1", "imported:x1", true)]
-    public void AStageMustCarryTheIdentityOfTheDefinitionThatPackagesIt(string manifestId, string definitionId, bool refused)
+    [InlineData("catalog:x1", "Catalog", false)]
+    [InlineData("", "Catalog", false)]
+    [InlineData("CATALOG:X1", "Catalog", false)]
+    [InlineData("custom:x1", "Catalog", false)]
+    [InlineData("custom:x1", "Custom", false)]
+    [InlineData("catalog:x1", "Custom", false)]
+    [InlineData("imported:x1", "Imported", false)]
+    [InlineData("catalog:x1", "Imported", true)]
+    [InlineData("custom:x1", "Imported", true)]
+    [InlineData("imported:x1", "Catalog", true)]
+    [InlineData("catalog:shipped-1", "Imported", true)]
+    [InlineData("catalog:other", "Catalog", true)]
+    public void AStageMustCarryTheIdentityOfTheDefinitionThatPackagesIt(string manifestId, string origin, bool refused)
     {
-        var origin = definitionId.StartsWith("imported", StringComparison.Ordinal) ? ApplicationPackagerEngine.Models.Workbench.ApplicationOrigin.Imported
-            : ApplicationPackagerEngine.Models.Workbench.ApplicationOrigin.Catalog;
-        var def = new AppDefinition { Id = definitionId[(definitionId.IndexOf(':') + 1)..], Application = "A", SourceOrigin = origin };
+        var def = new AppDefinition
+        {
+            Id = "x1", Application = "A", SourceOrigin = Enum.Parse<ApplicationPackagerEngine.Models.Workbench.ApplicationOrigin>(origin)
+        };
 
         Assert.Equal(refused, StageFolder.IdentityRefusal(def, manifestId) is not null);
+    }
+
+    [Fact]
+    public void ARunWithASnapshotAndARunWithoutOneStageAndPublishUnderTheSameIdentity()
+    {
+        // The stage writes StagingService.CatalogApplicationId (no snapshot) or the id of the row (snapshot); publish accepts both.
+        foreach (var origin in new[] { ApplicationPackagerEngine.Models.Workbench.ApplicationOrigin.Catalog, ApplicationPackagerEngine.Models.Workbench.ApplicationOrigin.Custom,
+                     ApplicationPackagerEngine.Models.Workbench.ApplicationOrigin.Imported })
+        {
+            var def = new AppDefinition { Id = "Contoso.Agent", Application = "A", SourceOrigin = origin };
+            var withoutSnapshot = StagingService.CatalogApplicationId(def);
+            var withSnapshot = ApplicationPackagerEngine.Models.Workbench.ApplicationIds.New(origin, name: def.Id);
+
+            Assert.Null(StageFolder.IdentityRefusal(def, withoutSnapshot));
+            Assert.Null(StageFolder.IdentityRefusal(def, withSnapshot));
+        }
     }
 }

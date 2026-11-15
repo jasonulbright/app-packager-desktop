@@ -143,21 +143,26 @@ public sealed partial class VendorImportViewModel : ObservableObject
             StatusText = "The address must be an absolute https:// address. Other schemes are refused.";
             return;
         }
-        _fetching = new CancellationTokenSource();
+        var fetching = new CancellationTokenSource();
+        _fetching = fetching;
         Busy = true;
         StatusText = $"Fetching from {address.Host}...";
         try
         {
-            var preview = await _service.PreviewAsync(address, PinnedDigest, _fetching.Token);
+            var preview = await _service.PreviewAsync(address, PinnedDigest, fetching.Token);
             Show(preview);
         }
         catch (FeedFetchException ex) { StatusText = ex.Message + " Nothing was written."; }
         catch (OperationCanceledException) { StatusText = "Cancelled. Nothing was written."; }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            StatusText = "The stored definitions could not be read: " + ex.Message + " Nothing was written.";
+        }
         finally
         {
             Busy = false;
-            _fetching.Dispose();
-            _fetching = null;
+            fetching.Dispose();
+            if (ReferenceEquals(_fetching, fetching)) _fetching = null;
         }
     }
 
@@ -222,13 +227,14 @@ public sealed partial class VendorImportViewModel : ObservableObject
     {
         var preview = _preview!;
         var replace = Rows.Where(r => r.IsShippedConflict && r.Replace).Select(r => r.Id).ToList();
-        if (replace.Count > 0
-            && !await _confirm("Replace shipped definitions",
-                $"Replace the shipped definition(s) {string.Join(", ", replace)} with the imported one(s)? The imported definition has its own profiles; the Workbench profiles of the shipped application stay with the shipped one."))
-            return;
+        // Busy while the question is open, so that nothing else (a second fetch) changes the preview under it.
         Busy = true;
         try
         {
+            if (replace.Count > 0
+                && !await _confirm("Replace shipped definitions",
+                    $"Replace the shipped definition(s) {string.Join(", ", replace)} with the imported one(s)? The imported definition has its own profiles; the Workbench profiles of the shipped application stay with the shipped one."))
+                return;
             var source = _service.Import(preview, new ImportConfirmation(
                 Vendor.Trim(), FeedId.Trim(), ConfirmedNotVerified, new HashSet<string>(replace, StringComparer.OrdinalIgnoreCase)));
             ImportedAny = true;
@@ -249,10 +255,11 @@ public sealed partial class VendorImportViewModel : ObservableObject
     private async Task RemoveFeedAsync()
     {
         var feed = SelectedFeed!;
-        if (!await _confirm("Remove feed",
-                $"Remove the feed {feed.FeedId} ({feed.Vendor}) and its {feed.Count} definition(s)? Stages that already exist stay. This cannot be undone.")) return;
+        Busy = true;
         try
         {
+            if (!await _confirm("Remove feed",
+                    $"Remove the feed {feed.FeedId} ({feed.Vendor}) and its {feed.Count} definition(s)? Stages that already exist stay. This cannot be undone.")) return;
             _service.RemoveFeed(feed.FeedId);
             ImportedAny = true;
             StatusText = $"Removed the feed {feed.FeedId} and its {feed.Count} definition(s).";
@@ -261,6 +268,7 @@ public sealed partial class VendorImportViewModel : ObservableObject
         {
             StatusText = "Not removed: " + ex.Message;
         }
+        finally { Busy = false; }
         ReloadFeeds();
     }
 

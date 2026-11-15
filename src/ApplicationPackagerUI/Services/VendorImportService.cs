@@ -15,7 +15,7 @@ public interface IVendorImportService
 
 /// <summary>The anonymous import of a vendor feed over the engine: the shipped and the user Ids are read from their folders at each preview.</summary>
 public sealed class VendorImportService(ImportedDefinitionStore store, Func<ISet<string>> shippedIds, Func<ISet<string>> userIds, FeedFetcher? fetcher = null,
-    Func<ISet<string>>? stageFolders = null)
+    Func<IReadOnlyDictionary<string, string>>? stageFolders = null)
     : IVendorImportService
 {
     private readonly VendorFeedImporter _importer = new(fetcher ?? new FeedFetcher(), store, shippedIds, userIds, stageFolders: stageFolders);
@@ -35,9 +35,9 @@ public sealed class VendorImportService(ImportedDefinitionStore store, Func<ISet
 
     public void RemoveFeed(string feedId) => store.RemoveFeed(feedId);
 
-    private static ISet<string> FoldersIn(params string[] roots)
+    private static IReadOnlyDictionary<string, string> FoldersIn(params string[] roots)
     {
-        var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var names = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         var options = new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true };
         foreach (var root in roots.Where(Directory.Exists))
             foreach (var file in Directory.GetFiles(root, "*.json"))
@@ -45,7 +45,7 @@ public sealed class VendorImportService(ImportedDefinitionStore store, Func<ISet
                 try
                 {
                     var d = System.Text.Json.JsonSerializer.Deserialize<ApplicationPackagerEngine.Models.AppDefinition>(File.ReadAllText(file), options);
-                    if (d is not null && !string.IsNullOrWhiteSpace(d.Application)) names.Add(StageFolder.Name(d));
+                    if (d is not null && !string.IsNullOrWhiteSpace(d.Application)) names[d.Id] = StageFolder.Name(d);
                 }
                 catch (Exception ex) when (ex is System.Text.Json.JsonException or IOException or UnauthorizedAccessException) { }
             }

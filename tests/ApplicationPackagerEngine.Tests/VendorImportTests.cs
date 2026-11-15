@@ -911,7 +911,7 @@ public sealed class VendorImportTests : IDisposable
         new(Fetcher(new ScriptedHandler((_, _) => Json(Encoding.UTF8.GetString(document)))), Store(),
             () => new HashSet<string>(StringComparer.OrdinalIgnoreCase), () => new HashSet<string>(StringComparer.OrdinalIgnoreCase),
             new FixedClock(new DateTimeOffset(2026, 11, 12, 9, 0, 0, TimeSpan.Zero)),
-            () => new HashSet<string>(folders, StringComparer.OrdinalIgnoreCase));
+            () => folders.Select((f, i) => (Key: "shipped-" + i, Value: f)).ToDictionary(p => p.Key, p => p.Value));
 
     [Fact]
     public async Task ADefinitionWithTheStageFolderOfAnotherDefinitionIsAConflictAndIsNotImported()
@@ -934,5 +934,22 @@ public sealed class VendorImportTests : IDisposable
 
         Assert.Equal(ConflictKind.None, preview.Candidates[0].Conflict);
         Assert.Equal(ConflictKind.StageFolder, preview.Candidates[1].Conflict);
+    }
+
+    [Fact]
+    public async Task AReplacementOfAShippedIdMustNotTakeTheStageFolderOfAnotherShippedDefinition()
+    {
+        // shipped-1 holds the folder ContosoAgent-x64 itself (a replacement may take its own folder); shipped-2 holds OtherTool-x64.
+        var folders = new Dictionary<string, string> { ["shipped-1"] = "ContosoAgent-x64", ["shipped-2"] = "OtherTool-x64" };
+        VendorFeedImporter Make(byte[] doc) =>
+            new(Fetcher(new ScriptedHandler((_, _) => Json(Encoding.UTF8.GetString(doc)))), Store(),
+                () => new HashSet<string>(["shipped-1", "shipped-2"], StringComparer.OrdinalIgnoreCase), () => new HashSet<string>(StringComparer.OrdinalIgnoreCase),
+                new FixedClock(new DateTimeOffset(2026, 11, 12, 9, 0, 0, TimeSpan.Zero)), () => folders);
+
+        var own = await Make(Doc(Definition("shipped-1"))).PreviewAsync(Feed, null, CancellationToken.None);
+        var other = await Make(Doc(Definition("shipped-1", n => n["Application"] = "Other Tool"))).PreviewAsync(Feed, null, CancellationToken.None);
+
+        Assert.Equal(ConflictKind.Shipped, own.Candidates.Single().Conflict);
+        Assert.Equal(ConflictKind.StageFolder, other.Candidates.Single().Conflict);
     }
 }

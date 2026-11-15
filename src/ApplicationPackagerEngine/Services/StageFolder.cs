@@ -32,7 +32,17 @@ public static class StageFolder
     {
         if (string.IsNullOrWhiteSpace(manifestApplicationId)) return null;
         var expected = StagingService.CatalogApplicationId(def);
-        if (expected.Length == 0 || string.Equals(manifestApplicationId, expected, StringComparison.OrdinalIgnoreCase)) return null;
+        if (expected.Length == 0) return null;
+        // A stage carries catalog:Id, custom:Id or imported:Id (a run with a snapshot uses the origin of the row). The Id must be the
+        // Id of this definition, and an imported definition never takes over the stage of a catalog or custom one, or the other way round.
+        var colon = manifestApplicationId.IndexOf(':');
+        var prefix = colon < 0 ? "" : manifestApplicationId[..colon];
+        var name = colon < 0 ? manifestApplicationId : manifestApplicationId[(colon + 1)..];
+        var sameName = string.Equals(name, def.Id, StringComparison.OrdinalIgnoreCase)
+                       || string.Equals(name, Path.GetFileNameWithoutExtension(def.Id), StringComparison.OrdinalIgnoreCase);
+        var importedStage = string.Equals(prefix, Models.Workbench.ApplicationIds.ImportedPrefix, StringComparison.OrdinalIgnoreCase);
+        var importedDefinition = def.SourceOrigin == Models.Workbench.ApplicationOrigin.Imported;
+        if (sameName && importedStage == importedDefinition) return null;
         return $"The stage in this folder belongs to {manifestApplicationId}, not to {expected}. Run Stage again for {def.Application}.";
     }
 
