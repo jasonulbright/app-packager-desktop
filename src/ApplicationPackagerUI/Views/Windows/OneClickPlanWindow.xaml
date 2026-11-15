@@ -36,7 +36,7 @@
         <ui:TitleBar Grid.Row="0" Title="One Click" ShowMinimize="False" />
 
         <StackPanel Grid.Row="1" Margin="16,4,16,8">
-            <TextBlock x:Name="txtPlanSummary" Text="{Binding SummaryText}" FontSize="14" FontWeight="SemiBold" TextWrapping="Wrap"
+            <TextBlock x:Name="txtPlanSummary" Text="{Binding SummaryText}" FontSize="14" TextWrapping="Wrap"
                        AutomationProperties.AutomationId="txtPlanSummary"
                        Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
             <TextBlock x:Name="txtPlanAction" Text="{Binding ActionText}" Style="{StaticResource PlanLine}" AutomationProperties.AutomationId="txtPlanAction" />

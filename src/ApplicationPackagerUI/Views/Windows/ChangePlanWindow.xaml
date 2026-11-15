@@ -59,10 +59,10 @@
         <ui:TitleBar Grid.Row="0" Title="{Binding Title}" ShowMinimize="False" />
 
         <StackPanel Grid.Row="1" Margin="16,4,16,8" KeyboardNavigation.TabNavigation="Local" KeyboardNavigation.TabIndex="3">
-            <TextBlock x:Name="txtSummary" Text="{Binding SummaryText}" FontSize="14" FontWeight="SemiBold" TextWrapping="Wrap"
+            <TextBlock x:Name="txtSummary" Text="{Binding SummaryText}" FontSize="14" TextWrapping="Wrap"
                        AutomationProperties.AutomationId="txtChangePlanSummary" Foreground="{DynamicResource TextFillColorPrimaryBrush}"
                        Visibility="{Binding ShowPlan, Converter={StaticResource ChangePlanVisibility}}" />
-            <TextBlock x:Name="txtResult" Text="{Binding ResultText}" FontSize="14" FontWeight="SemiBold" TextWrapping="Wrap"
+            <TextBlock x:Name="txtResult" Text="{Binding ResultText}" FontSize="14" TextWrapping="Wrap"
                        AutomationProperties.AutomationId="txtChangePlanResult" AutomationProperties.LiveSetting="Polite"
                        Foreground="{DynamicResource TextFillColorPrimaryBrush}"
                        Visibility="{Binding ShowResult, Converter={StaticResource ChangePlanVisibility}}" />

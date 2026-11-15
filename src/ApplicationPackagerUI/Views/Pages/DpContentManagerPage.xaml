@@ -389,7 +389,7 @@
                                Visibility="{Binding HasUndo, Converter={StaticResource BoolToVisibility}}" />
                     <CheckBox DockPanel.Dock="Right" Content="Rows" IsChecked="{Binding ShowResultRows}" Margin="12,0,12,0" VerticalAlignment="Center"
                               ToolTip="Show or hide the result of each pair under the summary." AutomationProperties.AutomationId="chkDpContentResultRows" />
-                    <TextBlock Text="{Binding ResultSummary}" FontWeight="SemiBold" TextWrapping="Wrap" VerticalAlignment="Center"
+                    <TextBlock Text="{Binding ResultSummary}" TextWrapping="Wrap" VerticalAlignment="Center"
                                Foreground="{DynamicResource TextFillColorPrimaryBrush}" AutomationProperties.AutomationId="txtDpContentResultSummary" />
                 </DockPanel>
                 <DataGrid Grid.Row="1" x:Name="dgDpContentResults" Style="{StaticResource GridBase}" CanUserSortColumns="False" ItemsSource="{Binding LastResults}" MaxHeight="140"

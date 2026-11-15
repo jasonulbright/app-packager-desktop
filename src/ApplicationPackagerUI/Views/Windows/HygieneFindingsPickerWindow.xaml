@@ -44,7 +44,7 @@
         <ui:TitleBar Grid.Row="0" Title="{Binding Title}" ShowMinimize="False" />
 
         <StackPanel Grid.Row="1" Margin="16,4,16,8">
-            <TextBlock Text="{Binding Intro}" TextWrapping="Wrap" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource TextFillColorPrimaryBrush}"
+            <TextBlock Text="{Binding Intro}" TextWrapping="Wrap" FontSize="14" Foreground="{DynamicResource TextFillColorPrimaryBrush}"
                        AutomationProperties.AutomationId="txtHygienePickIntro" />
             <WrapPanel Margin="0,8,0,0">
                 <ui:TextBox x:Name="txtHygienePickFilter" KeyboardNavigation.TabIndex="4" Text="{Binding FilterText, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="Filter by check, object or evidence"

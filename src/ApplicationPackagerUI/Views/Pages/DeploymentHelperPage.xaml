@@ -625,7 +625,7 @@
                                Visibility="{Binding Shared.HasUndo, Converter={StaticResource BoolToVisibility}}" />
                     <CheckBox DockPanel.Dock="Right" Content="Rows" IsChecked="{Binding Shared.ShowResultRows}" Margin="12,0,12,0" VerticalAlignment="Center"
                               ToolTip="Show or hide the result of each change under the summary." AutomationProperties.AutomationId="chkDeploymentResultRows" />
-                    <TextBlock Text="{Binding Shared.ResultSummary}" FontWeight="SemiBold" TextWrapping="Wrap" VerticalAlignment="Center"
+                    <TextBlock Text="{Binding Shared.ResultSummary}" TextWrapping="Wrap" VerticalAlignment="Center"
                                Foreground="{DynamicResource TextFillColorPrimaryBrush}" AutomationProperties.AutomationId="txtDeploymentResultSummary" />
                 </DockPanel>
                 <DataGrid Grid.Row="1" x:Name="dgDeploymentResults" Style="{StaticResource GridBase}" ItemsSource="{Binding Shared.LastResults}" MaxHeight="140"

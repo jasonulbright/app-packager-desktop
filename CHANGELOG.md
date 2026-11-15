@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Changed
+
+- Text weight (the rule of the suite): the text of every button is bold in both themes (one style for the app, `ButtonText.xaml`, and every page style of a button is based on it). Bold elsewhere is for the title of a field only: the headings of the pages and of Settings, the summaries, the results, the status texts and the values are no longer bold, and the field labels of Settings are bold. The tab headers keep their bold selected state until the tabs get another cue. A test fails when a button turns its text normal and when a text other than a button or a field title is bold.
+
 ### Added
 
 - Settings, GitHub API: a **GitHub token** box. The token is stored encrypted for the current Windows user (never as plain text in `settings.json`) and is used by the version checks and the command-line build for `api.github.com` after the two environment variables (`APP_PACKAGER_GITHUB_TOKEN`, `GITHUB_TOKEN`) and before `gh auth login`. An empty box keeps the saved token; **Remove the saved token on Save** deletes it. The status row names the source ("Settings").

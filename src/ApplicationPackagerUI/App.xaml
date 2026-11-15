@@ -9,6 +9,7 @@
             <ResourceDictionary.MergedDictionaries>
                 <ui:ThemesDictionary Theme="Dark" />
                 <ui:ControlsDictionary />
+                <ResourceDictionary Source="/ApplicationPackagerUI;component/Views/Styles/ButtonText.xaml" />
                 <ResourceDictionary Source="/ApplicationPackagerUI;component/Views/Styles/ToolTips.xaml" />
                 <ResourceDictionary Source="/ApplicationPackagerUI;component/Views/Styles/Palette.Dark.xaml" />
             </ResourceDictionary.MergedDictionaries>

@@ -12,12 +12,12 @@
         <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
         <Style x:Key="SectionHeader" TargetType="TextBlock">
             <Setter Property="FontSize" Value="20" />
-            <Setter Property="FontWeight" Value="Bold" />
             <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
             <Setter Property="Margin" Value="0,0,0,12" />
         </Style>
         <Style x:Key="FieldLabel" TargetType="TextBlock">
             <Setter Property="FontSize" Value="14" />
+            <Setter Property="FontWeight" Value="SemiBold" />
             <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
             <Setter Property="Margin" Value="0,0,0,4" />
         </Style>
@@ -28,7 +28,6 @@
         </Style>
         <Style x:Key="SubHeader" TargetType="TextBlock">
             <Setter Property="FontSize" Value="14" />
-            <Setter Property="FontWeight" Value="SemiBold" />
             <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
             <Setter Property="Margin" Value="0,0,0,8" />
         </Style>
@@ -81,7 +80,7 @@
                             <TextBlock Text="{Binding GroupCaption}"
                                        Visibility="{Binding IsGroupStart, Converter={StaticResource BooleanToVisibilityConverter}}"
                                        AutomationProperties.Name="{Binding GroupAutomationName}"
-                                       FontSize="12" FontWeight="SemiBold" Margin="0,8,0,4"
+                                       FontSize="12" Margin="0,8,0,4"
                                        Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
                             <DockPanel Margin="0,0,0,4" MaxWidth="420" HorizontalAlignment="Left">
                                 <ui:Button DockPanel.Dock="Right" Icon="{ui:SymbolIcon ArrowDown24}"
@@ -722,7 +721,7 @@
                         <ui:CardExpander Margin="0,0,0,8" IsExpanded="False">
                             <ui:CardExpander.Header>
                                 <StackPanel>
-                                    <TextBlock Text="{Binding Header}" FontWeight="SemiBold" Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
+                                    <TextBlock Text="{Binding Header}" Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
                                     <TextBlock Text="{Binding SubHeader}" FontSize="12" Foreground="{DynamicResource TextFillColorTertiaryBrush}" />
                                 </StackPanel>
                             </ui:CardExpander.Header>

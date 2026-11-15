@@ -384,7 +384,7 @@
                         </Grid.RowDefinitions>
                         <StackPanel Grid.Row="0" Margin="0,0,0,8">
                             <TextBlock Text="Collection" Style="{StaticResource FieldLabel}" />
-                            <TextBlock Text="{Binding WqlCollectionText}" FontWeight="SemiBold" Foreground="{DynamicResource TextFillColorPrimaryBrush}"
+                            <TextBlock Text="{Binding WqlCollectionText}" Foreground="{DynamicResource TextFillColorPrimaryBrush}"
                                        TextTrimming="CharacterEllipsis" ToolTip="{Binding WqlCollectionText}" AutomationProperties.AutomationId="txtWqlCollection" />
                             <TextBlock Text="{Binding WqlCollectionNote}" Style="{StaticResource Note}" AutomationProperties.AutomationId="txtWqlCollectionNote" />
                         </StackPanel>
@@ -560,7 +560,7 @@
                     <ui:Button DockPanel.Dock="Right" Content="Undo last change" Icon="{ui:SymbolIcon ArrowUndo24}" Command="{Binding UndoLastCommand}"
                                AutomationProperties.AutomationId="btnUndoLast" ToolTip="Shows a plan that undoes the last change set."
                                Visibility="{Binding HasUndo, Converter={StaticResource BoolToVisibility}}" />
-                    <TextBlock Text="{Binding ResultSummary}" FontWeight="SemiBold" TextWrapping="Wrap" VerticalAlignment="Center"
+                    <TextBlock Text="{Binding ResultSummary}" TextWrapping="Wrap" VerticalAlignment="Center"
                                Foreground="{DynamicResource TextFillColorPrimaryBrush}" AutomationProperties.AutomationId="txtResultSummary" />
                 </DockPanel>
                 <DataGrid Grid.Row="1" Style="{StaticResource GridBase}" ItemsSource="{Binding LastResults}" MaxHeight="160" SelectionMode="Single"

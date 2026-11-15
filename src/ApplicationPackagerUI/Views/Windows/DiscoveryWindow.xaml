@@ -21,7 +21,7 @@
         <ui:TitleBar Grid.Row="0" Title="Discover unmanaged software" ShowMinimize="False" />
 
         <StackPanel Grid.Row="1" Margin="16,4,16,8">
-            <TextBlock x:Name="txtPrompt" Text="{Binding PromptText}" FontSize="14" FontWeight="SemiBold" TextWrapping="Wrap"
+            <TextBlock x:Name="txtPrompt" Text="{Binding PromptText}" FontSize="14" TextWrapping="Wrap"
                        AutomationProperties.AutomationId="txtDiscoverPrompt" Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
             <TextBlock x:Name="txtStatus" Text="{Binding StatusText}" FontSize="12" TextWrapping="Wrap" Margin="0,4,0,0"
                        AutomationProperties.AutomationId="txtDiscoverStatus" Foreground="{DynamicResource TextFillColorSecondaryBrush}"

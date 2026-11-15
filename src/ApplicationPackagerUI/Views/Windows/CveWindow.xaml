@@ -50,7 +50,7 @@
         <ui:TitleBar Grid.Row="0" Title="CVEs" ShowMinimize="False" />
 
         <StackPanel Grid.Row="1" Margin="0,8,0,8">
-            <TextBlock Text="{Binding Title}" FontSize="14" FontWeight="SemiBold" TextWrapping="Wrap"
+            <TextBlock Text="{Binding Title}" FontSize="14" TextWrapping="Wrap"
                        AutomationProperties.AutomationId="txtCveTitle" />
             <TextBlock Text="{Binding RangeText}" FontSize="12" TextWrapping="Wrap" Margin="0,4,0,0"
                        Foreground="{DynamicResource TextFillColorSecondaryBrush}"

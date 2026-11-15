@@ -240,7 +240,7 @@
                                         </TextBlock.Visibility>
                                     </TextBlock>
                                     <StackPanel Visibility="{Binding HasResult, Converter={StaticResource BoolToVisibility}}">
-                                        <TextBlock x:Name="txtResultHeadline" Text="{Binding ResultHeadline}" FontSize="32" FontWeight="Bold"
+                                        <TextBlock x:Name="txtResultHeadline" Text="{Binding ResultHeadline}" FontSize="32"
                                                    AutomationProperties.AutomationId="txtResultHeadline">
                                             <TextBlock.Style>
                                                 <Style TargetType="TextBlock">
@@ -271,7 +271,7 @@
                                             <ItemsControl.ItemTemplate>
                                                 <DataTemplate>
                                                     <StackPanel Margin="0,0,0,4">
-                                                        <TextBlock Text="{Binding Description}" TextWrapping="Wrap" FontWeight="SemiBold"
+                                                        <TextBlock Text="{Binding Description}" TextWrapping="Wrap"
                                                                    Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
                                                         <TextBlock TextWrapping="Wrap" FontSize="12" Foreground="{DynamicResource TextFillColorSecondaryBrush}">
                                                             <Run Text="{Binding Detected, Mode=OneWay, Converter={x:Static helpers:DetectionTesterConverters.DetectedText}}" />
@@ -318,7 +318,7 @@
                                        AutomationProperties.AutomationId="btnClearHistory" />
                         </WrapPanel>
                         <StackPanel VerticalAlignment="Center">
-                            <TextBlock Text="History" FontSize="16" FontWeight="SemiBold"
+                            <TextBlock Text="History" FontSize="16"
                                        Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
                             <TextBlock Text="{Binding HistoryStorageNote}" Style="{StaticResource Note}"
                                        AutomationProperties.AutomationId="txtHistoryNote" />

@@ -20,7 +20,7 @@
                 <RowDefinition Height="*" MinHeight="200" />
             </Grid.RowDefinitions>
             <StackPanel Grid.Row="0" Margin="0,0,0,8">
-                <TextBlock Text="{Binding ResultHeader}" FontWeight="SemiBold" TextWrapping="Wrap" Foreground="{DynamicResource TextFillColorPrimaryBrush}"
+                <TextBlock Text="{Binding ResultHeader}" TextWrapping="Wrap" Foreground="{DynamicResource TextFillColorPrimaryBrush}"
                            AutomationProperties.AutomationId="txtResultHeader" AutomationProperties.LiveSetting="Polite" />
                 <DockPanel Margin="0,4,0,0" Visibility="{Binding IsWaiting, Converter={StaticResource BoolToVisibility}}">
                     <ui:ProgressRing DockPanel.Dock="Left" IsIndeterminate="True" Width="16" Height="16" Margin="0,0,8,0" />
