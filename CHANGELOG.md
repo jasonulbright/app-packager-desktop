@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Changed
+
+- Tabs: the selected tab is no longer bold. It keeps the primary text color and the accent underline, which already marked it (the rule of the suite: bold is for the title of a field and the text of a button). A test checks every tab header template.
+
 ## [2026.1115.44] - 2026-11-15
 
 ### Notes
@@ -27,7 +31,7 @@
 ### Changed
 
 - Settings: every text box, password box and drop-down list has one minimum height (40 px) from one style of the page, and the two theme choices read "Dark Theme" and "Light Theme", as the theme toggle of the suite does. A test checks that no input of the page sets its own height.
-- Text weight (the rule of the suite): the text of every button is bold in both themes (one style for the app, `ButtonText.xaml`, and every page style of a button is based on it). Bold elsewhere is for the title of a field only: the headings of the pages, cards and Settings, the summaries, the results, the status texts and the values are no longer bold (also the sidebar group captions), and the field labels of Settings and the parameter names of the Pivots dialog are bold. The link buttons (the CVE counts and links) are bold too. The tab headers keep their bold selected state until the tabs get another cue. A test fails when a button turns its text normal, when a button style has no bold weight and no BasedOn, and when a text or a text style other than a field title is bold.
+- Text weight (the rule of the suite): the text of every button is bold in both themes (one style for the app, `ButtonText.xaml`, and every page style of a button is based on it). Bold elsewhere is for the title of a field only: the headings of the pages, cards and Settings, the summaries, the results, the status texts and the values are no longer bold (also the sidebar group captions), and the field labels of Settings and the parameter names of the Pivots dialog are bold. The link buttons (the CVE counts and links) are bold too. A test fails when a button turns its text normal, when a button style has no bold weight and no BasedOn, and when a text or a text style other than a field title is bold.
 - Settings: the section **After Package** is **Post Packaging**. The headings are in Title Case (the rule of the suite: each word starts with a capital letter, except and, or, in, of, to, the, a, for, on, at and with): Systems in Use, CVE Lookup, Signing Certificate, Require Valid Signatures, Signing Identity, Updates, Telemetry and Store Policy, HDX Features and Display; the dashes of "M365 Apps - Channel" and "Citrix Workspace App - Install Parameters" are hyphens. A test checks every heading of the page.
 
 ### Fixed

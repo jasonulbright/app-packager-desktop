@@ -73,7 +73,6 @@
         <DataTemplate.Triggers>
             <DataTrigger Binding="{Binding IsSelected, RelativeSource={RelativeSource AncestorType=TabItem}}" Value="True">
                 <Setter TargetName="TabHeaderText" Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
-                <Setter TargetName="TabHeaderText" Property="FontWeight" Value="SemiBold" />
                 <Setter TargetName="TabHeaderUnderline" Property="Background" Value="{DynamicResource AccentFillColorDefaultBrush}" />
             </DataTrigger>
         </DataTemplate.Triggers>
