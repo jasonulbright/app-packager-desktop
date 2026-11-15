@@ -56,7 +56,7 @@ public class AdobeReaderLanguageTests
     public void TheDefinitionKeepsItsUnifiedInstallerAndOffersTheMuiLocales()
     {
         var def = DefinitionFixture.Load("adobereader.json");
-        var languages = Assert.Single(def.InstallerSettings!);
+        var languages = Assert.Single(def.InstallerSettings!, s => s.Key == "Languages");
 
         Assert.Contains("_MUI.exe", def.DownloadUrl);
         Assert.Equal(StagingService.LocaleListControl, languages.ControlType);

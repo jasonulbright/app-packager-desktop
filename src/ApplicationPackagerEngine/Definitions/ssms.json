@@ -109,6 +109,25 @@
       "Group": "Components",
       "Tooltip": "Adds the hybrid and migration workload. Each workload is one --add switch. With none on, setup installs the core editor only."
     },    {
+      "Key": "ProductLanguage",
+      "Label": "Product language",
+      "ControlType": "Text",
+      "DefaultValue": "",
+      "ValuePattern": "^[a-z]{2}-[a-z]{2}$",
+      "CommandFragment": "--addProductLang {value}",
+      "Group": "Components",
+      "Tooltip": "One SSMS display language, as a language code such as de-de, fr-fr, ja-jp or zh-cn (--addProductLang). Empty keeps the setup default, the language of the operating system."
+    },
+    {
+      "Key": "NoCache",
+      "Label": "Delete the package cache after the install",
+      "ControlType": "Toggle",
+      "DefaultValue": "false",
+      "CommandFragment": "--nocache",
+      "Group": "Install behavior",
+      "Tooltip": "Deletes the setup package cache after the install. This saves disk space; a repair downloads the packages again."
+    },
+    {
       "Key": "IncludeRecommended",
       "Label": "Include recommended components",
       "ControlType": "Toggle",

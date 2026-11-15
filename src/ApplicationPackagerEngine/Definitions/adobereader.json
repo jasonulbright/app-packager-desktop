@@ -39,6 +39,42 @@
                                   "ValueMap":  { "All":  "ALL" },
                                   "CommandFragment":  "LANG_LIST=\"{value}\" SUPPRESSLANGSELECTION=1",
                                   "Group":  "Language"
+                              },
+                              {
+                                  "Key":  "AcceptEula",
+                                  "Label":  "Accept the license agreement",
+                                  "Tooltip":  "Accepts the Adobe license agreement for all users, so the EULA dialog does not show at the first start (EULA_ACCEPT=YES).",
+                                  "ControlType":  "Toggle",
+                                  "DefaultValue":  "false",
+                                  "CommandFragment":  "EULA_ACCEPT=YES",
+                                  "Group":  "First start"
+                              },
+                              {
+                                  "Key":  "NoDesktopShortcut",
+                                  "Label":  "No desktop shortcut",
+                                  "Tooltip":  "Does not create the Reader shortcut on the desktop, at the install and at every update (DISABLEDESKTOPSHORTCUT=1). Use it on shared and kiosk devices.",
+                                  "ControlType":  "Toggle",
+                                  "DefaultValue":  "false",
+                                  "CommandFragment":  "DISABLEDESKTOPSHORTCUT=1",
+                                  "Group":  "First start"
+                              },
+                              {
+                                  "Key":  "NoChromeExtension",
+                                  "Label":  "Block the Chrome extension",
+                                  "Tooltip":  "Blocks the Adobe Chrome extension at the install (ENABLE_CHROMEEXT=0). Use it when a policy controls browser extensions.",
+                                  "ControlType":  "Toggle",
+                                  "DefaultValue":  "false",
+                                  "CommandFragment":  "ENABLE_CHROMEEXT=0",
+                                  "Group":  "Browser"
+                              },
+                              {
+                                  "Key":  "NoBrowserIntegration",
+                                  "Label":  "No browser plug-in",
+                                  "Tooltip":  "Does not install the Reader browser plug-in (DISABLE_BROWSER_INTEGRATION=YES). Use it on RDS hosts.",
+                                  "ControlType":  "Toggle",
+                                  "DefaultValue":  "false",
+                                  "CommandFragment":  "DISABLE_BROWSER_INTEGRATION=YES",
+                                  "Group":  "Browser"
                               }
                           ],
     "Detection":  {

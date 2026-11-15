@@ -113,7 +113,7 @@ These counts come from the 323 files.
 | `Cpe` | 298 |
 | `WsusSupport` `Yes` / `No (...)` | 257 / 66 |
 | `IconSource` | `Installer` 240, `None` 35, `External` 34. 14 definitions declare no value, which counts as `None`. |
-| `InstallerSettings` | 13 |
+| `InstallerSettings` | 14 |
 
 ## Steps
 

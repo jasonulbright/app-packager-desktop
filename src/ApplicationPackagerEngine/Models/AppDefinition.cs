@@ -697,6 +697,11 @@ public sealed class InstallerParameter
     /// </summary>
     public string? UninstallFragment { get; set; }
     /// <summary>
+    /// A regular expression that a Dropdown, Text or Number value must match completely (after trimming); a value that does not match stops
+    /// the stage. An empty value is not passed and is not checked. Null: no check.
+    /// </summary>
+    public string? ValuePattern { get; set; }
+    /// <summary>
     /// Keys of Toggle settings. When set, the fragment (install or uninstall) is added only while at least one of them is on (for example --includeRecommended
     /// acts on the workloads that are added, so without a workload it does nothing). Null: no condition.
     /// </summary>
