@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+### Changed
+
+- Buttons: one compact size for every button of the app, 32 px high at 14 pt (12 px left and right, 4 px above and below; the buttons were about 40 px high).
+- Toolbars: the buttons of a group wrap inside the group, so a group wider than the window no longer clips at the right edge (App Packager, Installer Analysis and Collections toolbars). The App Packager toolbar keeps its labels in up to three lines and goes icon-only only when they need more, and then returns to the labels only with 48 px of width to spare, so a width at the edge does not flip it. The icon-only buttons are uniform 32 px squares with their tooltip and automation name (they were rectangles of about 38 x 24 px). Layout tests check 1024x720, 1269, 1276 and 1920x1032 in both themes.
+
 ## [2026.1115.44] - 2026-11-15
 
 ### Notes

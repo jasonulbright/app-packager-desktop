@@ -32,8 +32,19 @@ public sealed class AppPackagerFitTests
         { ApplicationTheme.Light, 1440, 900 },
         { ApplicationTheme.Dark, 1440, 900 },
         { ApplicationTheme.Light, 1024, 720 },
-        { ApplicationTheme.Dark, 1024, 720 }
+        { ApplicationTheme.Dark, 1024, 720 },
+        // The two widths of the owner screenshots (the toolbar was clipped at 1276 and icon-only at 1269) and the work area of a maximized
+        // window on a 1080p display with the Windows 11 taskbar (1920 x 1032 at 100 percent).
+        { ApplicationTheme.Light, 1276, 800 },
+        { ApplicationTheme.Dark, 1276, 800 },
+        { ApplicationTheme.Light, 1269, 800 },
+        { ApplicationTheme.Dark, 1269, 800 },
+        { ApplicationTheme.Light, 1920, 1032 },
+        { ApplicationTheme.Dark, 1920, 1032 }
     };
+
+    /// <summary>The height of a button of the compact size: 32 px at 14 pt (4 px above and below the text).</summary>
+    internal const double CompactButtonHeight = 32;
 
     /// <summary>The rows of the grid that lie completely inside the area below the column headers.</summary>
     internal static int WholeRows(DataGrid grid)
@@ -80,6 +91,24 @@ public sealed class AppPackagerFitTests
                     Assert.True(right <= window.ActualWidth + 0.5, $"{where}: {AutomationProperties.GetAutomationId(button)} ends at {right:0} px of {window.ActualWidth:0} px.");
                 }
                 PageChromeKit.AssertNothingClipped(toolbar, where);
+
+                // The buttons have the compact size, and the icon-only mode is a row of uniform squares.
+                var compact = (string?)toolbar.Tag == "Compact";
+                var buttons = Descendants(toolbar).OfType<ButtonBase>().Where(b => b.IsVisible).ToList();
+                Assert.NotEmpty(buttons);
+                if (compact)
+                {
+                    Assert.All(buttons, b => Assert.True(Math.Abs(b.ActualWidth - b.ActualHeight) < 0.5 && Math.Abs(b.ActualWidth - CompactButtonHeight) < 0.5,
+                        $"{where}: {AutomationProperties.GetAutomationId(b)} is {b.ActualWidth:0.#} x {b.ActualHeight:0.#}; an icon button is a {CompactButtonHeight} px square."));
+                    Assert.All(buttons, b => Assert.False(string.IsNullOrWhiteSpace(b.ToolTip?.ToString()), $"{where}: an icon button has no tooltip."));
+                }
+                else
+                {
+                    Assert.All(buttons, b => Assert.True(b.ActualHeight <= CompactButtonHeight + 0.5,
+                        $"{where}: {AutomationProperties.GetAutomationId(b)} is {b.ActualHeight:0.#} px high; the compact size is {CompactButtonHeight} px."));
+                }
+                // A normal window shows the labels: the icon-only mode is for a width that cannot hold them in three lines.
+                if (width >= 1200) Assert.False(compact, $"{where}: the toolbar is icon-only at {width} px.");
 
                 Pixels(window, toolbar, $"app-packager-{theme}-{width}");
                 var grid = (DataGrid)page.FindName("PackagerGrid");

@@ -145,7 +145,7 @@ public sealed class PageStructureTests
         var toolbar = doc.Descendants().Single(e => e.Name.LocalName == "WrapPanel" && Attr(e, "{http://schemas.microsoft.com/winfx/2006/xaml}Name") == "AppPackagerToolbar");
         var groups = toolbar.Elements().Where(e => e.Name.LocalName != "WrapPanel.Resources").ToList();
         Assert.Equal(3, groups.Count);
-        Assert.All(groups, g => Assert.Equal("StackPanel", g.Name.LocalName));
+        Assert.All(groups, g => Assert.Equal("WrapPanel", g.Name.LocalName));
         Assert.All(groups, g => Assert.Equal("Horizontal", Attr(g, "Orientation")));
         Assert.All(groups, g => Assert.True(g.Elements().Count() >= 3));
     }
@@ -162,7 +162,7 @@ public sealed class PageStructureTests
         foreach (var groups in new[] { analysis, collections })
         {
             Assert.Equal(3, groups.Count);
-            Assert.All(groups, g => Assert.Equal("StackPanel", g.Name.LocalName));
+            Assert.All(groups, g => Assert.Equal("WrapPanel", g.Name.LocalName));
             Assert.All(groups, g => Assert.Equal("Horizontal", Attr(g, "Orientation")));
         }
     }

@@ -45,17 +45,46 @@ public partial class PackagesPage
     }
 
     /// <summary>The toolbar keeps its labels while they fit in this many lines; beyond that the buttons show their icons only.</summary>
-    public const int MaxLabeledToolbarLines = 2;
+    public const int MaxLabeledToolbarLines = 3;
+
+    /// <summary>A toolbar that went icon-only shows its labels again only when they fit with this much width to spare, so a width at the edge does not flip it back and forth.</summary>
+    public const double ToolbarReturnMargin = 48;
+
+    private bool _toolbarCompact;
+
+    /// <summary>
+    /// The number of lines the labeled toolbar needs at <paramref name="width"/>: the height of the measured toolbar over the height of
+    /// one line (the tallest button and the gap below a group).
+    /// </summary>
+    private int LabeledToolbarLines(double width)
+    {
+        AppPackagerToolbar.Tag = null;
+        AppPackagerToolbar.Measure(new Size(width, double.PositiveInfinity));
+        var buttons = Descendants<System.Windows.Controls.Primitives.ButtonBase>(AppPackagerToolbar).Where(b => b.Visibility == Visibility.Visible).ToList();
+        if (buttons.Count == 0) return 1;
+        var line = buttons.Max(b => b.DesiredSize.Height + b.Margin.Top + b.Margin.Bottom) + 8;
+        return (int)Math.Max(1, Math.Round(AppPackagerToolbar.DesiredSize.Height / line));
+    }
+
+    private static IEnumerable<T> Descendants<T>(DependencyObject root) where T : DependencyObject
+    {
+        var count = System.Windows.Media.VisualTreeHelper.GetChildrenCount(root);
+        for (var i = 0; i < count; i++)
+        {
+            var child = System.Windows.Media.VisualTreeHelper.GetChild(root, i);
+            if (child is T match) yield return match;
+            foreach (var inner in Descendants<T>(child)) yield return inner;
+        }
+    }
 
     /// <summary>Measures the toolbar with its labels at the current width and drops the labels when they need more than <see cref="MaxLabeledToolbarLines"/> lines.</summary>
     private void UpdateToolbarMode()
     {
         if (!IsLoaded || ActualWidth <= 0) return;
-        AppPackagerToolbar.Tag = null;
-        AppPackagerToolbar.Measure(new Size(AppPackagerToolbar.ActualWidth > 0 ? AppPackagerToolbar.ActualWidth : ActualWidth - 48, double.PositiveInfinity));
-        var line = AppPackagerToolbar.Children.OfType<UIElement>().Where(c => c.Visibility == Visibility.Visible).Max(c => c.DesiredSize.Height);
-        var lines = line > 0 ? (int)Math.Round(AppPackagerToolbar.DesiredSize.Height / line) : 1;
-        AppPackagerToolbar.Tag = lines > MaxLabeledToolbarLines ? "Compact" : null;
+        var width = AppPackagerToolbar.ActualWidth > 0 ? AppPackagerToolbar.ActualWidth : ActualWidth - 48;
+        var lines = LabeledToolbarLines(_toolbarCompact ? width - ToolbarReturnMargin : width);
+        _toolbarCompact = lines > MaxLabeledToolbarLines;
+        AppPackagerToolbar.Tag = _toolbarCompact ? "Compact" : null;
     }
 
     private void OnPageKeyDown(object sender, KeyEventArgs e)

@@ -78,8 +78,11 @@
                 <Style TargetType="ui:Button" BasedOn="{StaticResource {x:Type ui:Button}}">
                     <Setter Property="ToolTip" Value="{Binding Content, RelativeSource={RelativeSource Self}}" />
                     <Style.Triggers>
-                        <DataTrigger Binding="{Binding Tag, RelativeSource={RelativeSource AncestorType=WrapPanel}}" Value="Compact">
-                            <Setter Property="Padding" Value="8,4" />
+                        <DataTrigger Binding="{Binding Tag, ElementName=AppPackagerToolbar}" Value="Compact">
+                            <Setter Property="Padding" Value="0" />
+                            <Setter Property="Width" Value="32" />
+                            <Setter Property="Height" Value="32" />
+                            <Setter Property="HorizontalContentAlignment" Value="Center" />
                             <Setter Property="ContentTemplate">
                                 <Setter.Value>
                                     <DataTemplate>
@@ -91,7 +94,7 @@
                     </Style.Triggers>
                 </Style>
             </WrapPanel.Resources>
-            <StackPanel Orientation="Horizontal" Margin="0,0,16,8">
+            <WrapPanel Orientation="Horizontal" Margin="0,0,16,8">
             <ui:Button Content="Check Latest"
                        Icon="{ui:SymbolIcon ArrowDownload24}"
                        Command="{Binding CheckLatestCommand}"
@@ -115,8 +118,8 @@
                        ToolTip="Look up the CVEs fixed by updating each checked application from its ConfigMgr version to the latest version. Needs both versions and a CPE."
                        AutomationProperties.AutomationId="btnCheckCves"
                        Margin="0,0,4,0" />
-            </StackPanel>
-            <StackPanel Orientation="Horizontal" Margin="0,0,16,8">
+            </WrapPanel>
+            <WrapPanel Orientation="Horizontal" Margin="0,0,16,8">
             <ui:Button Content="Stage"
                        Icon="{ui:SymbolIcon ArrowCircleDown24}"
                        Command="{Binding StageCommand}"
@@ -169,8 +172,8 @@
                        ToolTipService.ShowOnDisabled="True"
                        AutomationProperties.AutomationId="btnWsusUpdates"
                        Margin="0,0,4,0" />
-            </StackPanel>
-            <StackPanel Orientation="Horizontal" Margin="0,0,16,8">
+            </WrapPanel>
+            <WrapPanel Orientation="Horizontal" Margin="0,0,16,8">
             <ui:Button Content="One Click"
                        Icon="{ui:SymbolIcon Play24}"
                        Command="{Binding OneClickCommand}"
@@ -196,7 +199,7 @@
                        Appearance="Danger"
                        Command="{Binding CancelOperationCommand}"
                        Visibility="{Binding IsOperationRunning, Converter={StaticResource BooleanToVisibilityConverter}}" />
-            </StackPanel>
+            </WrapPanel>
         </WrapPanel>
 
         <Grid Grid.Row="2" Margin="0,0,0,8">
