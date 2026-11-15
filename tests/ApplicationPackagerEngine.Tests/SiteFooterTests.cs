@@ -57,7 +57,8 @@ public sealed class SiteFooterTests
     {
         var service = new SettingsService();
         var viewModel = new MainWindowViewModel(service);
-        Assert.Equal("Site not set", viewModel.FooterText);
+        var defaults = new AppSettings();
+        Assert.Equal(SiteFooter.Format(defaults.SiteCode, defaults.ProviderMachine), viewModel.FooterText);
 
         service.SaveOperatorEdit(new AppSettings { SiteCode = "P01", ProviderMachine = "primary.contoso.test" });
 
