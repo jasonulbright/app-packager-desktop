@@ -416,18 +416,27 @@ public partial class SettingsViewModel : ObservableObject, ISettingsReload
     [RelayCommand]
     private async Task RefreshGitHubApiStatusAsync()
     {
-        if (GitHubApiBusy) return;
+        // A refresh that is asked for while one runs (a token saved while the first query is out) runs once more after it.
+        if (GitHubApiBusy) { _gitHubRefreshQueued = true; return; }
         GitHubApiBusy = true;
         try
         {
-            var status = await GitHubApiStatusService.QueryAsync();
-            GitHubApiStatus = status.StatusText();
+            do
+            {
+                _gitHubRefreshQueued = false;
+                // The token is read before the first await of the query, and reading it can start the gh CLI: not on the UI thread.
+                var status = await Task.Run(() => GitHubApiStatusService.QueryAsync());
+                GitHubApiStatus = status.StatusText();
+            }
+            while (_gitHubRefreshQueued);
         }
         finally
         {
             GitHubApiBusy = false;
         }
     }
+
+    private bool _gitHubRefreshQueued;
 
     /// <summary>
     /// Downloads and installs the packager icon pack. The service reports every failure
@@ -730,6 +739,7 @@ public partial class SettingsViewModel : ObservableObject, ISettingsReload
         if (!string.IsNullOrWhiteSpace(NvdApiKey)) s.Vulnerability.NvdApiKeyProtected = NvdApiKeyStore.Protect(NvdApiKey);
         else if (RemoveNvdApiKey) s.Vulnerability.NvdApiKeyProtected = "";
         // The GitHub token: an empty box keeps the saved one, a typed value replaces it (DPAPI, never the plaintext in settings.json).
+        var gitHubTokenChanged = !string.IsNullOrWhiteSpace(GitHubToken) || (RemoveGitHubToken && !string.IsNullOrEmpty(s.GitHubTokenProtected));
         if (!string.IsNullOrWhiteSpace(GitHubToken)) s.GitHubTokenProtected = GitHubTokenStore.Protect(GitHubToken);
         else if (RemoveGitHubToken) s.GitHubTokenProtected = "";
 
@@ -753,9 +763,12 @@ public partial class SettingsViewModel : ObservableObject, ISettingsReload
         GitHubToken = "";
         RemoveGitHubToken = false;
         HasStoredGitHubToken = !string.IsNullOrWhiteSpace(s.GitHubTokenProtected);
-        // The next request resolves the token again, and the status row shows where it came from.
-        ApplicationPackagerEngine.Scrapers.GitHubAuth.Reset();
-        _ = RefreshGitHubApiStatusAsync();
+        // The next request resolves the token again, and the status row shows where it came from; only a changed token needs it.
+        if (gitHubTokenChanged)
+        {
+            ApplicationPackagerEngine.Scrapers.GitHubAuth.Reset();
+            _ = RefreshGitHubApiStatusAsync();
+        }
 
         ThemeApplier.Apply(s.Theme);
         _packagesViewModel.RefreshPublishActionState();

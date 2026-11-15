@@ -34,7 +34,7 @@
 10. Watch the log. A successful row shows `Published`. The log shows `Intune publish: published (app id <id>)`.
 11. Open the Intune admin center and assign the app.
 
-![The Intune and CVE lookup sections of Settings](../images/core-settings-intune-cve.png)
+![The Intune and CVE Lookup sections of Settings](../images/core-settings-intune-cve.png)
 
 If the button is disabled, point at it. The tooltip reads `Publish to Intune: Intune is not in use. Select it under Systems in Use in Settings.` or `Publish to Intune: set Tenant ID, Client ID and Client Secret in Settings, Intune.`
 

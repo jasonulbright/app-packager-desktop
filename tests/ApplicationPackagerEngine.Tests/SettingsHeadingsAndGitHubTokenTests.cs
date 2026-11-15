@@ -11,6 +11,7 @@ namespace ApplicationPackagerEngine.Tests;
 public sealed class SettingsHeadingsAndGitHubTokenTests
 {
     private static readonly XNamespace Presentation = "http://schemas.microsoft.com/winfx/2006/xaml/presentation";
+    private static readonly XNamespace WpfUi = "http://schemas.lepo.co/wpfui/2022/xaml";
 
     // Small words stay lowercase inside a name (D-12); product names keep their own spelling.
     private static readonly string[] SmallWords = ["and", "or", "in", "of", "to", "the", "a", "for", "on", "at", "with"];
@@ -76,9 +77,9 @@ public sealed class SettingsHeadingsAndGitHubTokenTests
     public void TheGitHubTokenHasAPasswordFieldInTheGitHubApiSection()
     {
         var page = Page();
-        var box = page.Descendants(Presentation + "PasswordBox").Single(e => ((string?)e.Attribute("Password"))?.Contains("GitHubToken") == true);
+        var box = page.Descendants(WpfUi + "PasswordBox").Single(e => ((string?)e.Attribute("Password"))?.Contains("GitHubToken") == true);
 
-        Assert.Equal("pwdGitHubToken", (string?)box.Attributes().Single(a => a.Name.LocalName == "AutomationId").Value);
+        Assert.Equal("pwdGitHubToken", (string?)box.Attribute("AutomationProperties.AutomationId"));
         Assert.Contains(page.Descendants(Presentation + "CheckBox"), c => ((string?)c.Attribute("IsChecked"))?.Contains("RemoveGitHubToken") == true);
     }
 

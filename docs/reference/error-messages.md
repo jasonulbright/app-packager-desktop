@@ -268,7 +268,7 @@ See [Installer Analysis](../tools/installer-analysis.md).
 | WARNING: Webhook URL is not https; not sent: <host> | The webhook in the configuration is not https. | Use https. |
 | The timestamp server URL must begin with http:// or https://. | The timestamp URL is not valid. | Correct it. |
 | Refused download URL '<url>': it is not an absolute http or https URL. | A definition has a bad URL. | Correct the definition. |
-| GitHub API rate limit reached for <url> (HTTP <status>, <anonymous requests or token source>); it resets at <time>. Set APP_PACKAGER_GITHUB_TOKEN or GITHUB_TOKEN, or run gh auth login, to raise the limit; Settings shows the current budget. | Anonymous requests are limited to 60 each hour. | Do as the message says. |
+| GitHub API rate limit reached for <url> (HTTP <status>, <anonymous requests or token source>); it resets at <time>. Set APP_PACKAGER_GITHUB_TOKEN or GITHUB_TOKEN, save a token in Settings, or run gh auth login, to raise the limit; Settings shows the current budget. | Anonymous requests are limited to 60 each hour. | Do as the message says. |
 
 ## Other message families
 

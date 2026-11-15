@@ -168,7 +168,7 @@ The full list is in [Settings reference](../reference/settings.md).
 | `ERROR:SITE_DRIVE_FAILED` | The ConfigMgr site drive could not be opened. | Check **Site Code** and **Site Server / SMS Provider Host** in Settings. |
 | `ERROR:QUERY_FAILED` | The ConfigMgr query for the application failed. | None stated in the code. |
 | `query timed out after 60s` | ConfigMgr did not answer in 60 seconds. | None stated in the code. |
-| `GitHub API rate limit reached for <url> ...` | The version source reads `api.github.com`. Without a token GitHub permits 60 requests each hour. | Set `APP_PACKAGER_GITHUB_TOKEN` or `GITHUB_TOKEN`, or run `gh auth login`. Settings, GitHub API shows the current budget. |
+| `GitHub API rate limit reached for <url> ...` | The version source reads `api.github.com`. Without a token GitHub permits 60 requests each hour. | Set `APP_PACKAGER_GITHUB_TOKEN` or `GITHUB_TOKEN`, save a token in Settings, or run `gh auth login`. Settings, GitHub API shows the current budget. |
 | `No applications found. Check the Definitions folder beside the executable or set a Packagers folder in Settings.` | No definition file loaded. | Do as the message says. |
 | `All applications are hidden. Select Catalog to show applications.` | Every application is hidden. | Select **Catalog**, select **Show all**, then **Save**. See [Catalog](applications.md). |
 | `<n> files were dropped. Drop one installer at a time.` (Add from file page) | You dropped more than one file on the grid. | Drop one file. See [Add from file](add-from-file.md). |
