@@ -799,6 +799,11 @@
                               ToolTip="Starts the App Protection component. Since version 2212 the installer already installs it. Needs an admin install." />
                     <CheckBox Content="Session pre-launch" IsThreeState="True" IsChecked="{Binding CwaSwitches.Installation.SessionPreLaunch}" Margin="0,0,0,4" />
                     <CheckBox Content="Self-service mode" IsThreeState="True" IsChecked="{Binding CwaSwitches.Installation.SelfServiceMode}" Margin="0,0,0,4" />
+                    <CheckBox Content="forceinstall" IsThreeState="True" IsChecked="{Binding CwaSwitches.Installation.ForceInstall}" Margin="0,0,0,4"
+                              ToolTip="Cleans old Citrix data when an install or an upgrade of an unsupported version fails. Use it as a retry package. It replaces rcu." />
+                    <TextBlock Text="Client name (fixed)" Style="{StaticResource FieldLabel}" />
+                    <ui:TextBox Text="{Binding CwaSwitches.Installation.ClientName, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="computer name"
+                                ToolTip="Sets a fixed client device name (ENABLE_DYNAMIC_CLIENT_NAME=No and CLIENT_NAME). Up to 20 letters, digits, dots, hyphens or underscores. Empty keeps the computer name." />
                 </StackPanel>
                 <StackPanel Grid.Column="2">
                     <TextBlock Text="Plugins" Style="{StaticResource SubHeader}" />
@@ -812,6 +817,8 @@
                     <CheckBox Content="EPA client" IsThreeState="True" IsChecked="{Binding CwaSwitches.Plugins.EPAClient}" Margin="0,0,0,4" />
                     <CheckBox Content="Session recording" IsThreeState="True" IsChecked="{Binding CwaSwitches.Plugins.SessionRecording}" Margin="0,0,0,4"
                               ToolTip="Current Release only: /InstallSRAgent. LTSR documents no switch and ignores it." />
+                    <CheckBox Content="Skip session recording agent upgrade" IsThreeState="True" IsChecked="{Binding CwaSwitches.Plugins.SessionRecordingSkipUpgrade}" Margin="16,0,0,4"
+                              ToolTip="Current Release only: /SkipSRAgentUpgrade, with Session recording. Keeps the agent that is already on the device. Use it when another package manages the agent." />
                 </StackPanel>
                 <StackPanel Grid.Column="4">
                     <TextBlock Text="Components" Style="{StaticResource SubHeader}" />
@@ -825,6 +832,8 @@
                     <CheckBox Content="BCR__Client" IsThreeState="True" IsChecked="{Binding CwaSwitches.Components.BCR_Client}" Margin="16,0,0,4" />
                     <CheckBox Content="USB" IsThreeState="True" IsChecked="{Binding CwaSwitches.Components.USB}" Margin="16,0,0,4" />
                     <CheckBox Content="SSON" IsThreeState="True" IsChecked="{Binding CwaSwitches.Components.SSON}" Margin="16,0,0,4" />
+                    <CheckBox Content="CitrixEnterpriseBrowser" IsThreeState="True" IsChecked="{Binding CwaSwitches.Components.CitrixEnterpriseBrowser}" Margin="16,0,0,4"
+                              ToolTip="LTSR only. Installs the Citrix Enterprise Browser. Current releases do not carry it." />
                 </StackPanel>
             </Grid>
 
@@ -847,6 +856,22 @@
                     </ComboBox>
                     <CheckBox Content="EnableCEIP" IsThreeState="True" IsChecked="{Binding CwaSwitches.UpdateAndTelemetry.EnableCEIP}" Margin="0,8,0,4" />
                     <CheckBox Content="EnableTracing" IsThreeState="True" IsChecked="{Binding CwaSwitches.UpdateAndTelemetry.EnableTracing}" Margin="0,0,0,4" />
+                    <TextBlock Text="AutoUpdateStream" Style="{StaticResource FieldLabel}" />
+                    <ComboBox SelectedValue="{Binding CwaSwitches.UpdateAndTelemetry.AutoUpdateStream}" SelectedValuePath="Tag" HorizontalAlignment="Stretch"
+                              ToolTip="Selects the update channel. Works only with AutoUpdateCheck. Use LTSR on devices that stay on a long-term build.">
+                        <ComboBoxItem Content="(not set)" Tag="" />
+                        <ComboBoxItem Content="LTSR" Tag="LTSR" />
+                        <ComboBoxItem Content="Current" Tag="Current" />
+                    </ComboBox>
+                    <TextBlock Text="AURolloutPriority" Style="{StaticResource FieldLabel}" Margin="0,8,0,0" />
+                    <ComboBox SelectedValue="{Binding CwaSwitches.UpdateAndTelemetry.AURolloutPriority}" SelectedValuePath="Tag" HorizontalAlignment="Stretch"
+                              ToolTip="Sets when in the Citrix delivery period a device gets an update. Works only with AutoUpdateCheck.">
+                        <ComboBoxItem Content="(not set)" Tag="" />
+                        <ComboBoxItem Content="Auto" Tag="Auto" />
+                        <ComboBoxItem Content="Fast" Tag="Fast" />
+                        <ComboBoxItem Content="Medium" Tag="Medium" />
+                        <ComboBoxItem Content="Slow" Tag="Slow" />
+                    </ComboBox>
                 </StackPanel>
                 <StackPanel Grid.Column="2">
                     <TextBlock Text="ALLOWADDSTORE" Style="{StaticResource FieldLabel}" />
@@ -864,6 +889,36 @@
                         <ComboBoxItem Content="S - secure stores only" Tag="S" />
                         <ComboBoxItem Content="A - all stores" Tag="A" />
                         <ComboBoxItem Content="N - never" Tag="N" />
+                    </ComboBox>
+                </StackPanel>
+            </Grid>
+
+            <TextBlock Text="HDX features and display" Style="{StaticResource SubHeader}" />
+            <Grid Margin="0,0,0,8">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="24" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <StackPanel Grid.Column="0">
+                    <CheckBox Content="Bidirectional content redirection" IsThreeState="True" IsChecked="{Binding CwaSwitches.Hdx.BidirectionalContentRedirection}" Margin="0,0,0,4"
+                              ToolTip="ALLOW_BIDIRCONTENTREDIRECTION: allows content redirection between the client and the host in both directions. Checked passes 1, cleared passes 0." />
+                    <CheckBox Content="Local App Access" IsThreeState="True" IsChecked="{Binding CwaSwitches.Hdx.LocalAppAccess}" Margin="0,0,0,4"
+                              ToolTip="FORCE_LAA: installs the Local App Access component. Needs an admin install." />
+                    <CheckBox Content="URL redirection" IsThreeState="True" IsChecked="{Binding CwaSwitches.Hdx.ClientHostedAppsUrl}" Margin="0,0,0,4"
+                              ToolTip="ALLOW_CLIENTHOSTEDAPPSURL: turns on URL redirection on the device." />
+                </StackPanel>
+                <StackPanel Grid.Column="2">
+                    <CheckBox Content="Hide file-type icons" IsThreeState="True" IsChecked="{Binding CwaSwitches.Hdx.LegacyFileTypeIcons}" Margin="0,0,0,4"
+                              ToolTip="LEGACYFTAICONS: True hides the file-type icons of subscribed apps." />
+                    <TextBlock Text="DisableSetting" Style="{StaticResource FieldLabel}" />
+                    <ComboBox SelectedValue="{Binding CwaSwitches.Hdx.DisableSetting}" SelectedValuePath="Tag" HorizontalAlignment="Stretch"
+                              ToolTip="Hides the Shortcuts and Reconnect options in Advanced Preferences.">
+                        <ComboBoxItem Content="(not set)" Tag="" />
+                        <ComboBoxItem Content="0 - show both" Tag="0" />
+                        <ComboBoxItem Content="1 - show Reconnect only" Tag="1" />
+                        <ComboBoxItem Content="2 - show Shortcuts only" Tag="2" />
+                        <ComboBoxItem Content="3 - hide both" Tag="3" />
                     </ComboBox>
                 </StackPanel>
             </Grid>

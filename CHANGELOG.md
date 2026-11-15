@@ -4,6 +4,10 @@
 
 ### Added
 
+- Citrix Workspace (Settings, install parameters): `/forceinstall`, a fixed client name (`ENABLE_DYNAMIC_CLIENT_NAME=No` and `CLIENT_NAME`), `/SkipSRAgentUpgrade` with Session recording (Current Release), `AutoUpdateStream` and `AURolloutPriority` (only with `AutoUpdateCheck`), the HDX switches `ALLOW_BIDIRCONTENTREDIRECTION`, `FORCE_LAA` and `ALLOW_CLIENTHOSTEDAPPSURL`, `LEGACYFTAICONS`, `DisableSetting`, and the component `CitrixEnterpriseBrowser` for LTSR. Each is written only when set, so a package with none of them has the install command that it had; a value outside the documented set is skipped with a warning, as for the other switches. The Preview shows each result.
+
+### Added
+
 - Microsoft 365: the install options that the code wrote as fixed lines are settings of the six definitions now. Languages (ODT language IDs separated by commas; the pattern is checked; before, only en-us), Let ConfigMgr manage Office updates (`OfficeMgmtCOM`), Office updates (off writes `Updates Enabled=FALSE`), Close running Office apps (`FORCEAPPSHUTDOWN`), Remove installed Office MSI versions (`RemoveMSI`) and Device-based licensing. The defaults are the values of the fixed lines, so a package that you stage without changing them has the same install.xml (with `DeviceBasedLicensing` 0). An imported configuration.xml is not offered yet.
 
 ### Added
