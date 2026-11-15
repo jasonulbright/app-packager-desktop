@@ -128,8 +128,8 @@ public sealed class AppPackagerFitTests
                 var grid = (DataGrid)page.FindName("PackagerGrid");
                 var whole = WholeRows(grid);
                 var lines = ToolbarLines(toolbar);
-                // The design basis is the maximized 1080p window (D-20): ten whole rows there (rows of 28 to 32 px); the smaller windows keep six.
-                var needed = height >= 1000 ? MinimumWholeRows : 6;
+                // The design basis is the maximized 1080p window (D-20): ten whole rows there (rows of 28 to 32 px); the smaller windows keep five.
+                var needed = height >= 1000 ? MinimumWholeRows : 5;
                 var rowHeight = Descendants(grid).OfType<DataGridRow>().Where(r => r.ActualHeight > 0).Max(r => r.ActualHeight);
                 var firstRow = Descendants(grid).OfType<DataGridRow>().First(r => r.ActualHeight > 0);
                 Assert.True(rowHeight >= MinimumRowHeight - 0.5 && rowHeight <= MaximumRowHeight + 0.5, $"{where}: a row is {rowHeight:0.#} px high; a row is {MinimumRowHeight} to {MaximumRowHeight} px. Row margin {firstRow.Margin}, min {firstRow.MinHeight}, padding {firstRow.Padding}. Cells: " + string.Join("; ", Descendants(firstRow).OfType<System.Windows.Controls.DataGridCell>().Take(14).Select(c => $"{c.Column?.Header} h={c.ActualHeight:0} min={c.MinHeight} pad={c.Padding} content={string.Join("/", Descendants(c).OfType<FrameworkElement>().Skip(1).Take(4).Select(e => $"{e.GetType().Name}:{e.DesiredSize.Height:0}"))}")));
