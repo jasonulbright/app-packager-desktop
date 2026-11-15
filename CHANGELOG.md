@@ -4,6 +4,10 @@
 
 ### Added
 
+- Microsoft 365: the install options that the code wrote as fixed lines are settings of the six definitions now. Languages (ODT language IDs separated by commas; the pattern is checked; before, only en-us), Let ConfigMgr manage Office updates (`OfficeMgmtCOM`), Office updates (off writes `Updates Enabled=FALSE`), Close running Office apps (`FORCEAPPSHUTDOWN`), Remove installed Office MSI versions (`RemoveMSI`) and Device-based licensing. The defaults are the values of the fixed lines, so a package that you stage without changing them has the same install.xml (with `DeviceBasedLicensing` 0). An imported configuration.xml is not offered yet.
+
+### Added
+
 - Installer options that the audit of installer options listed as missing, all off or empty by default (the install command is unchanged until you choose one):
   - Adobe Acrobat Reader: Accept the license agreement (`EULA_ACCEPT=YES`), No desktop shortcut (`DISABLEDESKTOPSHORTCUT=1`), Block the Chrome extension (`ENABLE_CHROMEEXT=0`) and No browser plug-in (`DISABLE_BROWSER_INTEGRATION=YES`). `UPDATE_MODE` is not offered: the meaning of its values is not verified.
   - Beyond Compare 5: Turn off remote profiles (`/DisableRemoteProfiles`) and Do not save passwords (`/DisableSavedPasswords`), version 5.2 and later.

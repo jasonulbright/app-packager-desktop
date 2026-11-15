@@ -47,7 +47,7 @@ Example (`mariadb-server.json`):
 
 ### Install parameters in shipped definitions
 
-14 shipped definitions have install parameters. They have 111 parameters: 93 `Toggle`, 8 `Dropdown`, 7 `Text`, 2 `Number` and 1 `LocaleList`.
+14 shipped definitions have install parameters. They have 147 parameters: 123 `Toggle`, 8 `Dropdown`, 13 `Text`, 2 `Number` and 1 `LocaleList`.
 
 | File | Application | Parameters (label, control, default, group) |
 |---|---|---|
@@ -59,7 +59,7 @@ Example (`mariadb-server.json`):
 | `ssms.json` | SQL Server Management Studio 22 (x64) | UI mode, `Dropdown` (`Quiet`, `Passive`), `Quiet`, Install behavior. Install path, `Text`, empty, Install behavior. Download all packages before installing, `Toggle`, `true`, Install behavior. Do not update the Visual Studio Installer, `Toggle`, `false`, Install behavior. Close SSMS if it is running, `Toggle`, `false`, Install behavior. The five workloads (AI assistance, business intelligence, code tools, DevOps, hybrid and migration), `Toggle`, `false`, Components, each `--add <ID>`. Product language, `Text`, empty, Components (`--addProductLang <code>`, one language, pattern `^[a-z]{2}-[a-z]{2}$`). Delete the package cache after the install, `Toggle`, `false`, Install behavior (`--nocache`). Include recommended components and Include optional components, `Toggle`, `false`, Components, passed only while a workload is on. Remove out-of-support components, `Toggle`, `true`, Components. |
 | `teamviewerhost.json` | TeamViewer Host (x64) | Assign the device after install, `Toggle`, `false`, Assignment. Assignment ID, `Text`, empty, Assignment. Assignment options, `Text`, `--grant-easy-access`, Assignment. |
 | `windowsadmincenter.json` | Windows Admin Center (v2) | HTTPS port, `Number`, `443`, no group. |
-| `m365apps-x64.json`, `m365apps-x86.json`, `m365project-x64.json`, `m365project-x86.json`, `m365visio-x64.json`, `m365visio-x86.json` | Microsoft 365 Apps, Project and Visio | The same 15 parameters in each file. Deploy mode, `Dropdown` (`Managed`, `Online`), `Managed`, Deployment. Migrate architecture and Shared computer activation, `Toggle`, `false`, Deployment. Then 12 `Toggle` parameters in the group Excluded apps. |
+| `m365apps-x64.json`, `m365apps-x86.json`, `m365project-x64.json`, `m365project-x86.json`, `m365visio-x64.json`, `m365visio-x86.json` | Microsoft 365 Apps, Project and Visio | The same 21 parameters in each file. Deploy mode, `Dropdown` (`Managed`, `Online`), `Managed`, Deployment. Migrate architecture and Shared computer activation, `Toggle`, `false`, Deployment. Languages, `Text`, `en-us`, Languages (ODT language IDs separated by commas; the pattern is checked). Let ConfigMgr manage Office updates (`OfficeMgmtCOM`), Office updates, Close running Office apps (`FORCEAPPSHUTDOWN`) and Remove installed Office MSI versions (`RemoveMSI`), `Toggle`, `true`, Office behavior; Device-based licensing, `Toggle`, `false`, Office behavior. Then 12 `Toggle` parameters in the group Excluded apps. |
 
 The 12 toggles of the group Excluded apps are: Access, Excel, OneNote, Outlook (classic), Outlook for Windows (new), PowerPoint, Publisher and Word (default `false`), and OneDrive for Business (Groove), Skype for Business (Lync), OneDrive (modern), and Teams (default `true`). The group Deployment also has the toggles **Migrate architecture** (`MigrateArch`) and **Shared computer activation** (`SharedComputerLicensing`), both default `false`. The ID `Bing` is not a documented ExcludeApp ID, so it is not offered.
 
@@ -91,6 +91,11 @@ For Microsoft 365 definitions with `InstallerType` `ODT`. It sets the Office Dep
 | `AcceptEula` | bool | Accepts the license terms without a prompt. | `true` |
 | `PinToTaskbar` | bool | Pins the icons to the taskbar. | `false` |
 | `SharedComputerLicensing` | bool | Shared computer licensing for RDS and VDI. Written to `install.xml` only when `true` (the Office default is 0). | `false` |
+| `Languages` | string list | The Office languages as ODT language IDs; the first is the main one. One `Language` line for each in every product. | `["en-us"]` |
+| `OfficeMgmtCom` | bool | `OfficeMgmtCOM="TRUE"` on the `Add` element. | `true` |
+| `ForceAppShutdown` | bool | The property `FORCEAPPSHUTDOWN`. | `true` |
+| `RemoveMsi` | bool | The element `RemoveMSI`. | `true` |
+| `DeviceBasedLicensing` | bool | The property `DeviceBasedLicensing` is 1 when `true`, 0 when `false`. | `false` |
 | `MigrateArch` | bool | `MigrateArch="TRUE"` on the `Add` element: changes an installed Office to the architecture of this package. Written only when `true` (the Office default is FALSE). With it on, an x86 package changes an installed 64-bit Office to 32-bit. | `false` |
 
 Example (`m365apps-x64.json`): `{ "ProductIds": ["O365ProPlusRetail"], "UninstallProductId": "O365ProPlusRetail", "Channel": "MonthlyEnterprise", "ExcludeApps": ["Groove","Lync","OneDrive","Teams"] }`.

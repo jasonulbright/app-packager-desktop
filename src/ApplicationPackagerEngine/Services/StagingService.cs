@@ -1806,6 +1806,12 @@ public sealed class StagingService
     public const string OdtExcludePrefix = "Exclude_";
     public const string OdtMigrateArchKey = "MigrateArch";
     public const string OdtSharedComputerKey = "SharedComputerLicensing";
+    public const string OdtLanguagesKey = "Languages";
+    public const string OdtOfficeMgmtComKey = "OfficeMgmtCOM";
+    public const string OdtForceAppShutdownKey = "ForceAppShutdown";
+    public const string OdtRemoveMsiKey = "RemoveMSI";
+    public const string OdtDeviceBasedKey = "DeviceBasedLicensing";
+    public const string OdtEnableUpdatesKey = "EnableUpdates";
 
     /// <summary>
     /// The definition's ODT configuration with the chosen values applied: the
@@ -1827,7 +1833,12 @@ public sealed class StagingService
             AcceptEula = odt.AcceptEula,
             PinToTaskbar = odt.PinToTaskbar,
             SharedComputerLicensing = odt.SharedComputerLicensing,
-            MigrateArch = odt.MigrateArch
+            MigrateArch = odt.MigrateArch,
+            Languages = odt.Languages,
+            OfficeMgmtCom = odt.OfficeMgmtCom,
+            ForceAppShutdown = odt.ForceAppShutdown,
+            RemoveMsi = odt.RemoveMsi,
+            DeviceBasedLicensing = odt.DeviceBasedLicensing
         };
         if (values is null) return resolved;
 
@@ -1841,6 +1852,22 @@ public sealed class StagingService
         }
         resolved.MigrateArch = Chosen(OdtMigrateArchKey, resolved.MigrateArch);
         resolved.SharedComputerLicensing = Chosen(OdtSharedComputerKey, resolved.SharedComputerLicensing);
+        resolved.OfficeMgmtCom = Chosen(OdtOfficeMgmtComKey, resolved.OfficeMgmtCom);
+        resolved.ForceAppShutdown = Chosen(OdtForceAppShutdownKey, resolved.ForceAppShutdown);
+        resolved.RemoveMsi = Chosen(OdtRemoveMsiKey, resolved.RemoveMsi);
+        resolved.DeviceBasedLicensing = Chosen(OdtDeviceBasedKey, resolved.DeviceBasedLicensing);
+        resolved.EnableUpdates = Chosen(OdtEnableUpdatesKey, resolved.EnableUpdates);
+        var languageSetting = def.InstallerSettings?.FirstOrDefault(p => p.Key.Equals(OdtLanguagesKey, StringComparison.OrdinalIgnoreCase));
+        if (languageSetting is not null)
+        {
+            var text = (values.TryGetValue(OdtLanguagesKey, out var chosen) ? chosen : languageSetting.DefaultValue)?.Trim() ?? "";
+            if (text.Length > 0)
+            {
+                CheckSettingValue(languageSetting, text);
+                resolved.Languages = text.Split(new[] { ',', ';', ' ' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                    .Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+            }
+        }
 
         if (values.TryGetValue(OdtChannelKey, out var channel) && !string.IsNullOrWhiteSpace(channel))
             resolved.Channel = channel.Trim();
@@ -2039,7 +2066,7 @@ public sealed class StagingService
             addAttrs.Add($"SourcePath=\"{sourcePath}\"");
         addAttrs.Add($"OfficeClientEdition=\"{edition}\"");
         addAttrs.Add($"Channel=\"{odt.Channel}\"");
-        addAttrs.Add("OfficeMgmtCOM=\"TRUE\"");
+        if (odt.OfficeMgmtCom) addAttrs.Add("OfficeMgmtCOM=\"TRUE\"");
         if (pinVersion)
             addAttrs.Add($"Version=\"{version}\"");
         if (odt.MigrateArch) addAttrs.Add("MigrateArch=\"TRUE\"");
@@ -2048,7 +2075,8 @@ public sealed class StagingService
         foreach (var prodId in odt.ProductIds)
         {
             lines.Add($"    <Product ID=\"{prodId}\">");
-            lines.Add("      <Language ID=\"en-us\" />");
+            foreach (var language in odt.Languages.Length == 0 ? new[] { "en-us" } : odt.Languages)
+                lines.Add($"      <Language ID=\"{language}\" />");
             foreach (var exclude in odt.ExcludeApps)
                 lines.Add($"      <ExcludeApp ID=\"{exclude}\" />");
             lines.Add("    </Product>");
@@ -2060,10 +2088,11 @@ public sealed class StagingService
             lines.Add("  <Property Name=\"SharedComputerLicensing\" Value=\"1\" />");
             lines.Add("  <Property Name=\"SCLCacheOverride\" Value=\"0\" />");
         }
-        lines.Add("  <Property Name=\"FORCEAPPSHUTDOWN\" Value=\"TRUE\" />");
-        lines.Add("  <Property Name=\"DeviceBasedLicensing\" Value=\"0\" />");
+        if (odt.ForceAppShutdown) lines.Add("  <Property Name=\"FORCEAPPSHUTDOWN\" Value=\"TRUE\" />");
+        lines.Add($"  <Property Name=\"DeviceBasedLicensing\" Value=\"{(odt.DeviceBasedLicensing ? 1 : 0)}\" />");
         lines.Add("  <Property Name=\"PinIconsToTaskbar\" Value=\"FALSE\" />");
-        lines.Add("  <RemoveMSI />");
+        if (odt.RemoveMsi) lines.Add("  <RemoveMSI />");
+        if (!odt.EnableUpdates) lines.Add("  <Updates Enabled=\"FALSE\" />");
         lines.Add("  <Display Level=\"None\" AcceptEULA=\"TRUE\" />");
         lines.Add("  <Logging Level=\"Standard\" Path=\"%programdata%\\Appdeploy\\Office2016\" />");
         lines.Add("</Configuration>");
@@ -2911,6 +2940,14 @@ public sealed class StagingService
     public static string ResolveUninstallArgs(string baseArgs, InstallerParameter[]? parameters, Dictionary<string, string>? values)
         => ResolveArgs(baseArgs, parameters, values, p => p.UninstallFragment);
 
+    /// <summary>Stops the stage when the value of a setting with a <c>ValuePattern</c> does not match it completely.</summary>
+    public static void CheckSettingValue(InstallerParameter param, string value)
+    {
+        if (string.IsNullOrEmpty(param.ValuePattern)) return;
+        if (!System.Text.RegularExpressions.Regex.IsMatch(value, "^(?:" + param.ValuePattern + ")$", System.Text.RegularExpressions.RegexOptions.CultureInvariant))
+            throw new InvalidOperationException($"The value of '{param.Label}' is not valid: '{value}'. {param.Tooltip}");
+    }
+
     private static bool IsToggleOn(InstallerParameter[] parameters, Dictionary<string, string>? values, string key)
     {
         var declared = parameters.FirstOrDefault(p => p.Key.Equals(key, StringComparison.OrdinalIgnoreCase));
@@ -2956,9 +2993,7 @@ public sealed class StagingService
                 if (!string.IsNullOrEmpty(param.ValuePattern)) value = value?.Trim() ?? "";
                 if (!string.IsNullOrEmpty(value))
                 {
-                    if (!string.IsNullOrEmpty(param.ValuePattern)
-                        && !System.Text.RegularExpressions.Regex.IsMatch(value, "^(?:" + param.ValuePattern + ")$", System.Text.RegularExpressions.RegexOptions.CultureInvariant))
-                        throw new InvalidOperationException($"The value of '{param.Label}' is not valid: '{value}'. {param.Tooltip}");
+                    CheckSettingValue(param, value);
                     parts.Add(fragment.Replace("{value}", MapValue(param, null, value), StringComparison.OrdinalIgnoreCase));
                 }
             }
