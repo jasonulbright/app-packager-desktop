@@ -4,6 +4,10 @@
 
 ### Changed
 
+- Settings: every text box, password box and drop-down list has one minimum height (40 px) from one style of the page, and the two theme choices read "Dark Theme" and "Light Theme", as the theme toggle of the suite does. A test checks that no input of the page sets its own height.
+
+### Changed
+
 - Text weight (the rule of the suite): the text of every button is bold in both themes (one style for the app, `ButtonText.xaml`, and every page style of a button is based on it). Bold elsewhere is for the title of a field only: the headings of the pages, cards and Settings, the summaries, the results, the status texts and the values are no longer bold (also the sidebar group captions), and the field labels of Settings and the parameter names of the Pivots dialog are bold. The link buttons (the CVE counts and links) are bold too. The tab headers keep their bold selected state until the tabs get another cue. A test fails when a button turns its text normal, when a button style has no bold weight and no BasedOn, and when a text or a text style other than a field title is bold.
 
 ### Added
