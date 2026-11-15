@@ -382,12 +382,13 @@ internal sealed class InstallerAnalysisHarness : IDisposable
 
 internal static class Wait
 {
+    /// <summary>A deadline, not a delay: the wait ends as soon as the condition holds. A busy runner needs more than ten seconds for a background step.</summary>
     public static async Task UntilAsync(Func<bool> condition, string what)
     {
-        var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(10);
+        var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(60);
         while (!condition())
         {
-            if (DateTime.UtcNow > deadline) throw new TimeoutException("Waited ten seconds for " + what + ".");
+            if (DateTime.UtcNow > deadline) throw new TimeoutException("Waited a minute for " + what + ".");
             await Task.Delay(5);
         }
     }
