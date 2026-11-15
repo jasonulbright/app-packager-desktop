@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Added
+
+- Import From URL: a document can be signed. Enter a **pinned publisher** (the subject and the issuer of the code-signing certificate separated by `|`, or `key:` and the SHA-256 of its public key; not the thumbprint, so a renewal of the certificate does not break the pin). The program fetches the detached signature (`.p7s` at the address of the document with `.p7s` added, on the same host) and checks it for the exact bytes, the code-signing usage of the certificate, its chain to a trusted root with the online revocation check of Windows, and the signer against the pin. The state is then **Signed by pinned publisher** and needs no confirmation of the state "not verified". An expired certificate is accepted only with a checked RFC 3161 time stamp (its token belongs to this signature, its authority is trusted and has the time-stamping usage); any other time stamp is ignored. A failure stops the import and never falls back to "not verified". A signature does not unblock code in a definition.
+
 ## [2026.1115.43] - 2026-11-15
 
 ### Notes

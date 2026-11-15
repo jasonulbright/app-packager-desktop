@@ -7,7 +7,7 @@ namespace ApplicationPackagerUI.Services;
 /// <summary>What the import window needs from the import: the preview, the import, and the stored feeds. A test supplies a fake.</summary>
 public interface IVendorImportService
 {
-    Task<ImportPreview> PreviewAsync(Uri address, string? pinnedSha256, CancellationToken ct);
+    Task<ImportPreview> PreviewAsync(Uri address, string? pinnedSha256, CancellationToken ct, string? pinnedPublisher = null);
     FeedSource Import(ImportPreview preview, ImportConfirmation confirmation);
     IReadOnlyList<StoredFeed> Feeds();
     void RemoveFeed(string feedId);
@@ -15,10 +15,10 @@ public interface IVendorImportService
 
 /// <summary>The anonymous import of a vendor feed over the engine: the shipped and the user Ids are read from their folders at each preview.</summary>
 public sealed class VendorImportService(ImportedDefinitionStore store, Func<ISet<string>> shippedIds, Func<ISet<string>> userIds, FeedFetcher? fetcher = null,
-    Func<IReadOnlyDictionary<string, string>>? stageFolders = null)
+    Func<IReadOnlyDictionary<string, string>>? stageFolders = null, FeedSignatureVerifier? signatureVerifier = null)
     : IVendorImportService
 {
-    private readonly VendorFeedImporter _importer = new(fetcher ?? new FeedFetcher(), store, shippedIds, userIds, stageFolders: stageFolders);
+    private readonly VendorFeedImporter _importer = new(fetcher ?? new FeedFetcher(), store, shippedIds, userIds, stageFolders: stageFolders, signatureVerifier: signatureVerifier);
 
     public static VendorImportService CreateDefault() => new(
         ImportedDefinitionStore.Default(),
@@ -26,8 +26,8 @@ public sealed class VendorImportService(ImportedDefinitionStore store, Func<ISet
         () => IdsIn(AppDataPaths.UserDefinitionsRoot),
         stageFolders: () => FoldersIn(IconPackService.BundledDefinitionsDirectory(), AppDataPaths.UserDefinitionsRoot));
 
-    public Task<ImportPreview> PreviewAsync(Uri address, string? pinnedSha256, CancellationToken ct) =>
-        _importer.PreviewAsync(address, pinnedSha256, ct);
+    public Task<ImportPreview> PreviewAsync(Uri address, string? pinnedSha256, CancellationToken ct, string? pinnedPublisher = null) =>
+        _importer.PreviewAsync(address, pinnedSha256, ct, pinnedPublisher);
 
     public FeedSource Import(ImportPreview preview, ImportConfirmation confirmation) => _importer.Import(preview, confirmation);
 

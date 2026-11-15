@@ -2,12 +2,13 @@
 
 A software vendor can publish a **feed**: a JSON document with application definitions in the definition format of this program. **Import From URL** (a button under the grid of the App Packager page) fetches such a document, shows everything that the import would do, and stores the definitions only after you confirm.
 
-Specification: [Import of vendor definitions from a URL](../specs/vendor-url-import.md). This page describes what is built: the anonymous import with a pinned digest. Signed documents, the unblock of a script or a command, the update of a feed and authenticated feeds are later steps.
+Specification: [Import of vendor definitions from a URL](../specs/vendor-url-import.md). This page describes what is built: the anonymous import with a pinned digest or a pinned publisher. The unblock of a script or a command, the update of a feed and authenticated feeds are later steps.
 
 ## Steps
 
 1. Select **Import From URL**. The window opens.
 2. Enter the HTTPS address of the feed. An address that is not HTTPS is refused. Optionally enter the SHA-256 of the document, which the vendor publishes on another channel (a pin).
+Or enter the **pinned publisher**: the subject and the issuer of the code-signing certificate of the vendor separated by `|` (for example `CN=Contoso Software, O=Contoso, C=US | CN=Contoso Code Signing CA`), or `key:` and the SHA-256 of its public key. The vendor publishes the detached signature next to the document: the same address with `.p7s` added. The program checks it for the exact bytes, the code-signing usage, the chain to a trusted root with the online revocation check, and that the signer is the pinned one. The state is then **Signed by pinned publisher**. An expired certificate counts only with a valid RFC 3161 time stamp. Any failure stops the import.
 3. Select **Fetch**. **Cancel Fetch** stops it. Nothing is written by a fetch.
 4. Read the preview: the source (address without its query, size, SHA-256, vendor, trust state), then for each definition its Id, name, installer type, the hosts of its addresses, whether the payload has a SHA-256 source, the status, and, below the grid, the whole definition and the findings.
 5. Check the vendor name and the **Feed Id** (3 to 64 characters of `a-z`, `0-9` and `-`). The Feed Id names the folder of the definitions. Two vendors can use the same one, so you can change it.
@@ -22,7 +23,7 @@ Specification: [Import of vendor definitions from a URL](../specs/vendor-url-imp
 | The Id is the Id of a shipped definition | Skipped. You can choose **Replace shipped** for one Id; you are asked to confirm, and the imported definition has its own profiles (`imported:<Id>`). |
 | The Id is the Id of one of your own definitions, or of another imported feed | Skipped. Your own definition always wins. |
 | Another Id, but the same stage folder (Application and Architecture) as another definition | Skipped, because the two would share one stage. |
-| The pin does not match | The import stops. It does not fall back to "not verified". |
+| The pin does not match, the signature file is missing, the signature is not valid for the bytes, or the signer is not the pinned publisher | The import stops. It does not fall back to "not verified". |
 | A property that the format does not know, a duplicate property name, an address that is not HTTPS | The document or the definition is refused, with the reason. |
 
 ## Where the definitions go

@@ -110,8 +110,35 @@ public sealed class FeedFetcher
         }
     }
 
-    private async Task<FeedDocument> FetchCoreAsync(Uri start, CancellationToken ct)
+    /// <summary>The limit of a signature file; a detached signature with its chain is a few kilobytes.</summary>
+    public const int MaxSignatureBytes = 256 * 1024;
+
+    /// <summary>
+    /// Fetches the detached signature of a document: the same address as the final address of the document, without its query, with
+    /// <c>.p7s</c> added, so that it is on the same host. The same rules apply (HTTPS, redirects, the time limit); the content is binary and has a
+    /// smaller limit, and a page of HTML is refused.
+    /// </summary>
+    public async Task<FeedDocument> FetchSignatureAsync(Uri documentAddress, CancellationToken ct)
     {
+        var builder = new UriBuilder(documentAddress) { Query = "", Fragment = "" };
+        builder.Path = builder.Path.TrimEnd('/') + ".p7s";
+        var address = builder.Uri;
+        CheckAddress(address, "The address of the signature");
+        using var total = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        total.CancelAfter(_limits.TotalTime);
+        try
+        {
+            return await FetchCoreAsync(address, total.Token, signature: true).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+        {
+            throw new FeedFetchException($"The fetch of the signature from {Host(address)} did not finish within {(int)_limits.TotalTime.TotalSeconds} seconds, which is the limit.");
+        }
+    }
+
+    private async Task<FeedDocument> FetchCoreAsync(Uri start, CancellationToken ct, bool signature = false)
+    {
+        var maxBytes = signature ? MaxSignatureBytes : _limits.MaxBytes;
         using var client = new HttpClient(_handlerFactory(), disposeHandler: true) { Timeout = Timeout.InfiniteTimeSpan };
         var current = start;
         var redirects = 0;
@@ -121,7 +148,7 @@ public sealed class FeedFetcher
             ct.ThrowIfCancellationRequested();
             using var request = new HttpRequestMessage(HttpMethod.Get, current);
             request.Headers.UserAgent.ParseAdd(_limits.UserAgent);
-            request.Headers.Accept.ParseAdd("application/json, text/plain");
+            request.Headers.Accept.ParseAdd(signature ? "application/pkcs7-signature, application/octet-stream" : "application/json, text/plain");
             HttpResponseMessage response;
             try
             {
@@ -165,26 +192,34 @@ public sealed class FeedFetcher
                     throw new FeedFetchException($"{Host(current)} answered {status} {response.ReasonPhrase}.");
 
                 var contentType = response.Content.Headers.ContentType?.MediaType ?? "";
-                if (!contentType.Equals("application/json", StringComparison.OrdinalIgnoreCase)
+                if (signature)
+                {
+                    if (contentType.StartsWith("text/html", StringComparison.OrdinalIgnoreCase) || contentType.Equals("application/json", StringComparison.OrdinalIgnoreCase))
+                        throw new FeedFetchException($"{Host(current)} sent the content type '{contentType}' for the signature file; it is a binary signature (.p7s).");
+                }
+                else if (!contentType.Equals("application/json", StringComparison.OrdinalIgnoreCase)
                     && !contentType.Equals("text/plain", StringComparison.OrdinalIgnoreCase))
                     throw new FeedFetchException($"{Host(current)} sent the content type '{(contentType.Length == 0 ? "none" : contentType)}'; a feed is application/json or text/plain.");
-                if (response.Content.Headers.ContentLength is { } declared && declared > _limits.MaxBytes)
-                    throw new FeedFetchException($"The document is {declared} bytes; the limit is {_limits.MaxBytes} bytes.");
+                if (response.Content.Headers.ContentLength is { } declared && declared > maxBytes)
+                    throw new FeedFetchException($"The {(signature ? "signature" : "document")} is {declared} bytes; the limit is {maxBytes} bytes.");
 
                 byte[] bytes;
-                try { bytes = await ReadLimitedAsync(response, ct).ConfigureAwait(false); }
+                try { bytes = await ReadLimitedAsync(response, ct, maxBytes).ConfigureAwait(false); }
                 catch (Exception ex) when (ex is IOException or HttpRequestException)
                 { throw new FeedFetchException($"The connection to {Host(current)} broke while the document was read.", ex); }
                 // UTF-8 text: a document that does not decode strictly is refused here, not later at the parse.
-                try { _ = new UTF8Encoding(false, true).GetString(bytes); }
-                catch (DecoderFallbackException) { throw new FeedFetchException($"The document of {Host(current)} is not UTF-8 text."); }
+                if (!signature)
+                {
+                    try { _ = new UTF8Encoding(false, true).GetString(bytes); }
+                    catch (DecoderFallbackException) { throw new FeedFetchException($"The document of {Host(current)} is not UTF-8 text."); }
+                }
                 var digest = Convert.ToHexString(SHA256.HashData(bytes));
                 return new FeedDocument(bytes, current, contentType, digest, bytes.Length);
             }
         }
     }
 
-    private async Task<byte[]> ReadLimitedAsync(HttpResponseMessage response, CancellationToken ct)
+    private static async Task<byte[]> ReadLimitedAsync(HttpResponseMessage response, CancellationToken ct, int maxBytes)
     {
         await using var stream = await response.Content.ReadAsStreamAsync(ct).ConfigureAwait(false);
         using var buffer = new MemoryStream();
@@ -193,8 +228,8 @@ public sealed class FeedFetcher
         {
             var read = await stream.ReadAsync(chunk, ct).ConfigureAwait(false);
             if (read == 0) break;
-            if (buffer.Length + read > _limits.MaxBytes)
-                throw new FeedFetchException($"The document is larger than {_limits.MaxBytes} bytes, which is the limit; the fetch stopped.");
+            if (buffer.Length + read > maxBytes)
+                throw new FeedFetchException($"The document is larger than {maxBytes} bytes, which is the limit; the fetch stopped.");
             buffer.Write(chunk, 0, read);
         }
         return buffer.ToArray();
