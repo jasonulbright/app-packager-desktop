@@ -71,6 +71,11 @@ public partial class PackagesViewModel : ObservableObject
     public IRelayCommand WsusUpdatesCommand { get; }
     public IAsyncRelayCommand OneClickCommand { get; }
 
+    /// <summary>Opens the window that imports vendor definitions from a URL; the page shows it and reloads the grid after an import.</summary>
+    public IRelayCommand ImportFromUrlCommand { get; }
+
+    public event EventHandler? ImportFromUrlRequested;
+
     private CancellationTokenSource? _operationCts;
 
     public PackagesViewModel(
@@ -117,6 +122,7 @@ public partial class PackagesViewModel : ObservableObject
         ApplySupersedenceCommand = new AsyncRelayCommand(ApplySupersedenceAsync, () => CanRunOperation() && IsPublishConfigMgrAvailable);
         RewriteOldVersionsCommand = new AsyncRelayCommand(RewriteOldVersionsAsync, () => CanRunOperation() && IsPublishConfigMgrAvailable);
         OneClickCommand = new AsyncRelayCommand(OneClickAsync, CanRunOperation);
+        ImportFromUrlCommand = new RelayCommand(() => ImportFromUrlRequested?.Invoke(this, EventArgs.Empty), CanRunOperation);
         InitializeDiscovery(discovery, discoveryPrompt);
 
         RefreshPublishActionState();

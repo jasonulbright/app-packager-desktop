@@ -2,8 +2,13 @@
 
 ## [Unreleased]
 
+### Added
+
+- Packages page: the button **Import From URL** opens a window that imports the definitions of a vendor feed: the HTTPS address, an optional pinned SHA-256, Fetch (and Cancel Fetch), a full preview (source, trust state, every definition with its hosts, payload hash source, status and full text, and the findings), the vendor name and the Feed Id, and the confirmation of the state "Definition document NOT verified". A definition that carries code is blocked. A shipped Id is skipped unless you choose to replace it. The list **Imported feeds** has **Remove Feed**. Fetch and Cancel write nothing. A definition with another Id but the stage folder of another definition (Application and Architecture) is skipped, so that it cannot share a stage with it. See [Import vendor definitions](docs/core/import-vendor-definitions.md).
+
 ### Changed
 
+- A stage whose manifest carries the identity of another application is refused at publish (an imported definition can have the Application of a shipped one); an older stage without an identity is accepted. The bootstrapper-layout and the ODT stage check the version folder as the main stage does.
 - The folder of a stage is built by one helper (`StageFolder`) at every call site (the stage, the publish, the build of a package, the Workbench picker). A name that comes from a definition and would leave the download root (a dot segment, a rooted path, a drive colon, a device name) becomes a plain name, and the result is checked to stay under the root. A name that is safe keeps the folder that it always had, so existing stages are found: a test checks every shipped definition. This closes the way for definitions from a vendor feed, which are not trusted. The installer file name made from the application name has no separator either.
 
 ## [2026.1114.42] - 2026-11-14

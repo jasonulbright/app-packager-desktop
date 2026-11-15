@@ -19,6 +19,7 @@ public partial class PackagesPage
         InitializeComponent();
 
         viewModel.PropertyChanged += OnViewModelPropertyChanged;
+        viewModel.ImportFromUrlRequested += (_, _) => ShowImportFromUrl(viewModel);
         ColIntune.Visibility = viewModel.ShowIntuneColumn ? Visibility.Visible : Visibility.Collapsed;
         ColSource.Visibility = viewModel.ShowSourceColumn ? Visibility.Visible : Visibility.Collapsed;
 
@@ -29,6 +30,16 @@ public partial class PackagesPage
             UpdateToolbarMode();
         };
         SizeChanged += (_, _) => UpdateToolbarMode();
+    }
+
+    private void ShowImportFromUrl(PackagesViewModel viewModel)
+    {
+        var owner = Window.GetWindow(this);
+        var import = new ViewModels.Windows.VendorImportViewModel(
+            VendorImportService.CreateDefault(),
+            (title, message) => Task.FromResult(System.Windows.MessageBox.Show(owner, message, title, System.Windows.MessageBoxButton.YesNo, System.Windows.MessageBoxImage.Warning) == System.Windows.MessageBoxResult.Yes));
+        new Windows.VendorImportWindow(import) { Owner = owner }.ShowDialog();
+        if (import.ImportedAny) _ = viewModel.LoadPackagersCommand.ExecuteAsync(null);
     }
 
     /// <summary>The toolbar keeps its labels while they fit in this many lines; beyond that the buttons show their icons only.</summary>

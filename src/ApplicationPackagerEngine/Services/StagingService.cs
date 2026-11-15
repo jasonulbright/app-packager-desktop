@@ -1582,7 +1582,7 @@ public sealed class StagingService
 
             var appFolder = StageFolder.Name(def);
             var baseRoot = Workbench.WorkbenchPaths.CombineUnder(downloadRoot, appFolder);
-            var contentPath = Path.Combine(baseRoot, version);
+            var contentPath = Workbench.WorkbenchPaths.CombineUnder(baseRoot, AssertVersionSegment(version));
 
             AssertLayoutPathLength(contentPath, layout.MaxLayoutPathLength);
             stageLock = await StageLock.AcquireAsync(contentPath, $"{def.Application} {version}", StageLockTimeout, onProgress, ct);
@@ -1886,7 +1886,7 @@ public sealed class StagingService
             var edition = def.Architecture.Equals("x86", StringComparison.OrdinalIgnoreCase) ? "32" : "64";
             var appFolder = StageFolder.Name(def);
             var baseRoot = Workbench.WorkbenchPaths.CombineUnder(downloadRoot, appFolder);
-            var contentPath = Path.Combine(baseRoot, version);
+            var contentPath = Workbench.WorkbenchPaths.CombineUnder(baseRoot, AssertVersionSegment(version));
             stageLock = await StageLock.AcquireAsync(contentPath, $"{def.Application} {version}", StageLockTimeout, onProgress, ct);
             partial.Track(downloadRoot, contentPath);
             Directory.CreateDirectory(contentPath);

@@ -23,6 +23,19 @@ public static class StageFolder
     /// <summary>The stage folder of the definition under <paramref name="root"/>; throws when the result is outside the root.</summary>
     public static string Under(string root, AppDefinition def) => WorkbenchPaths.CombineUnder(root, Name(def));
 
+    /// <summary>
+    /// The refusal for a stage whose manifest belongs to another application, or null. Two definitions can share one folder name (an
+    /// imported definition with the Application of a shipped one), so a stage found in the folder must carry the identity of the
+    /// definition that packages it. A manifest without an identity (an older stage) is accepted.
+    /// </summary>
+    public static string? IdentityRefusal(AppDefinition def, string? manifestApplicationId)
+    {
+        if (string.IsNullOrWhiteSpace(manifestApplicationId)) return null;
+        var expected = StagingService.CatalogApplicationId(def);
+        if (expected.Length == 0 || string.Equals(manifestApplicationId, expected, StringComparison.OrdinalIgnoreCase)) return null;
+        return $"The stage in this folder belongs to {manifestApplicationId}, not to {expected}. Run Stage again for {def.Application}.";
+    }
+
     /// <summary>The application part of an installer file name: no space, bracket or character that a file name cannot hold.</summary>
     public static string FileStem(string? application)
     {

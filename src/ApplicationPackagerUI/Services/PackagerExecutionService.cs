@@ -735,6 +735,8 @@ public class PackagerExecutionService(
                 return new PackagerExecutionResult { ExitCode = 1, StdErr = contentRefusal };
             var manifestService = new ApplicationPackagerEngine.Services.ManifestService();
             var manifest = manifestService.Read(manifestPath);
+            if (StageFolder.IdentityRefusal(def, manifest.ApplicationId) is { } identityRefusal)
+                return new PackagerExecutionResult { ExitCode = 1, StdErr = identityRefusal };
 
             var conflicts = new ConflictWatch();
             void Report(string line)

@@ -63,4 +63,18 @@ public sealed class StageFolderTests
     [InlineData(@"..\x", "_x")]
     public void TheInstallerFileStemHoldsNoSeparator(string application, string expected) =>
         Assert.Equal(expected.Replace("..", "_"), StageFolder.FileStem(application).Replace("..", "_"));
+
+    [Theory]
+    [InlineData("catalog:x1", "catalog:x1", false)]
+    [InlineData("", "catalog:x1", false)]
+    [InlineData("CATALOG:X1", "catalog:x1", false)]
+    [InlineData("catalog:shipped-1", "imported:x1", true)]
+    public void AStageMustCarryTheIdentityOfTheDefinitionThatPackagesIt(string manifestId, string definitionId, bool refused)
+    {
+        var origin = definitionId.StartsWith("imported", StringComparison.Ordinal) ? ApplicationPackagerEngine.Models.Workbench.ApplicationOrigin.Imported
+            : ApplicationPackagerEngine.Models.Workbench.ApplicationOrigin.Catalog;
+        var def = new AppDefinition { Id = definitionId[(definitionId.IndexOf(':') + 1)..], Application = "A", SourceOrigin = origin };
+
+        Assert.Equal(refused, StageFolder.IdentityRefusal(def, manifestId) is not null);
+    }
 }

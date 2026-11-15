@@ -904,4 +904,35 @@ public sealed class VendorImportTests : IDisposable
 
         Assert.Equal(["vendor-two"], store.Feeds().Select(f => f.Source.FeedId));
     }
+
+    // ---- the stage folder of an imported definition ----
+
+    private VendorFeedImporter ImporterWithFolders(byte[] document, string[] folders) =>
+        new(Fetcher(new ScriptedHandler((_, _) => Json(Encoding.UTF8.GetString(document)))), Store(),
+            () => new HashSet<string>(StringComparer.OrdinalIgnoreCase), () => new HashSet<string>(StringComparer.OrdinalIgnoreCase),
+            new FixedClock(new DateTimeOffset(2026, 11, 12, 9, 0, 0, TimeSpan.Zero)),
+            () => new HashSet<string>(folders, StringComparer.OrdinalIgnoreCase));
+
+    [Fact]
+    public async Task ADefinitionWithTheStageFolderOfAnotherDefinitionIsAConflictAndIsNotImported()
+    {
+        // The Application and the Architecture of "Contoso Agent"/x64 give the folder ContosoAgent-x64, which a shipped definition holds.
+        var importer = ImporterWithFolders(Doc(Definition("new-id"), Definition("other-id", n => n["Application"] = "Other Tool")), ["contosoagent-X64"]);
+        var preview = await importer.PreviewAsync(Feed, null, CancellationToken.None);
+
+        Assert.Equal(ConflictKind.StageFolder, preview.Candidates.Single(c => c.Definition.Id == "new-id").Conflict);
+        Assert.Equal(ConflictKind.None, preview.Candidates.Single(c => c.Definition.Id == "other-id").Conflict);
+
+        importer.Import(preview, Confirm());
+        Assert.Equal(["other-id"], Store().ReadSource("contoso-software")!.Ids);
+    }
+
+    [Fact]
+    public async Task OfTwoDefinitionsOfOneDocumentWithOneStageFolderTheFirstKeepsIt()
+    {
+        var preview = await ImporterWithFolders(Doc(Definition("first-1"), Definition("second-1")), []).PreviewAsync(Feed, null, CancellationToken.None);
+
+        Assert.Equal(ConflictKind.None, preview.Candidates[0].Conflict);
+        Assert.Equal(ConflictKind.StageFolder, preview.Candidates[1].Conflict);
+    }
 }
