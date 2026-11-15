@@ -304,7 +304,11 @@ public class SettingsService : IRunSettingsReader<AppSettings>
     {
         settings.SiteCodeSaved = true;
         Write(settings, operatorEdit: true);
+        OperatorSaved?.Invoke(settings);
     }
+
+    /// <summary>Raised after the operator saved the settings (Options, the Setup window), with what was saved. The footer of the main window follows it.</summary>
+    public event Action<AppSettings>? OperatorSaved;
 
     /// <summary>
     /// Replaces the file atomically. While the file on disk failed to load, an automatic
