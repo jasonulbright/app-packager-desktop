@@ -36,6 +36,21 @@
       "Tooltip": "Managed downloads the Office source into the content (about 2.3 GB) and pins the version. Online installs from the CDN at install time and takes the channel's current build."
     },
     {
+      "Key": "MigrateArch",
+      "Label": "Migrate architecture",
+      "ControlType": "Toggle",
+      "DefaultValue": "false",
+      "Group": "Deployment",
+      "Tooltip": "Changes an installed Office to the architecture of this package. Use it for 32-bit to 64-bit upgrades only: with this on, an x86 package changes an installed 64-bit Office to 32-bit."
+    },
+    {
+      "Key": "SharedComputerLicensing",
+      "Label": "Shared computer activation",
+      "ControlType": "Toggle",
+      "DefaultValue": "false",
+      "Group": "Deployment",
+      "Tooltip": "Turns on shared computer activation for RDS and VDI hosts. Leave it off for normal PCs."
+    },    {
       "Key": "Exclude_Access",
       "Label": "Access",
       "ControlType": "Toggle",
@@ -130,14 +145,6 @@
       "DefaultValue": "false",
       "Group": "Excluded apps",
       "Tooltip": "Leaves Word out of the install."
-    },
-    {
-      "Key": "Exclude_Bing",
-      "Label": "Microsoft Search in Bing",
-      "ControlType": "Toggle",
-      "DefaultValue": "true",
-      "Group": "Excluded apps",
-      "Tooltip": "Leaves the Microsoft Search in Bing browser extension out."
     }
   ],
   "Odt": {
@@ -150,8 +157,7 @@
       "Groove",
       "Lync",
       "OneDrive",
-      "Teams",
-      "Bing"
+      "Teams"
     ]
   },
   "Detection": {

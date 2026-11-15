@@ -1804,6 +1804,8 @@ public sealed class StagingService
     public const string OdtChannelKey = "Channel";
     public const string OdtDeployModeKey = "DeployMode";
     public const string OdtExcludePrefix = "Exclude_";
+    public const string OdtMigrateArchKey = "MigrateArch";
+    public const string OdtSharedComputerKey = "SharedComputerLicensing";
 
     /// <summary>
     /// The definition's ODT configuration with the chosen values applied: the
@@ -1824,9 +1826,21 @@ public sealed class StagingService
             EnableUpdates = odt.EnableUpdates,
             AcceptEula = odt.AcceptEula,
             PinToTaskbar = odt.PinToTaskbar,
-            SharedComputerLicensing = odt.SharedComputerLicensing
+            SharedComputerLicensing = odt.SharedComputerLicensing,
+            MigrateArch = odt.MigrateArch
         };
         if (values is null) return resolved;
+
+        // The two choices that are off unless the operator turns them on: a definition that declares the setting takes its value.
+        bool Chosen(string key, bool fallback)
+        {
+            var declared = def.InstallerSettings?.FirstOrDefault(p => p.Key.Equals(key, StringComparison.OrdinalIgnoreCase));
+            if (declared is null) return fallback;
+            var text = values.TryGetValue(key, out var v) ? v : declared.DefaultValue;
+            return text.Equals("true", StringComparison.OrdinalIgnoreCase);
+        }
+        resolved.MigrateArch = Chosen(OdtMigrateArchKey, resolved.MigrateArch);
+        resolved.SharedComputerLicensing = Chosen(OdtSharedComputerKey, resolved.SharedComputerLicensing);
 
         if (values.TryGetValue(OdtChannelKey, out var channel) && !string.IsNullOrWhiteSpace(channel))
             resolved.Channel = channel.Trim();
@@ -2028,7 +2042,7 @@ public sealed class StagingService
         addAttrs.Add("OfficeMgmtCOM=\"TRUE\"");
         if (pinVersion)
             addAttrs.Add($"Version=\"{version}\"");
-        addAttrs.Add("MigrateArch=\"TRUE\"");
+        if (odt.MigrateArch) addAttrs.Add("MigrateArch=\"TRUE\"");
         lines.Add($"  <Add {string.Join(" ", addAttrs)}>");
 
         foreach (var prodId in odt.ProductIds)
@@ -2041,11 +2055,14 @@ public sealed class StagingService
         }
 
         lines.Add("  </Add>");
-        lines.Add("  <Property Name=\"SharedComputerLicensing\" Value=\"1\" />");
+        if (odt.SharedComputerLicensing)
+        {
+            lines.Add("  <Property Name=\"SharedComputerLicensing\" Value=\"1\" />");
+            lines.Add("  <Property Name=\"SCLCacheOverride\" Value=\"0\" />");
+        }
         lines.Add("  <Property Name=\"FORCEAPPSHUTDOWN\" Value=\"TRUE\" />");
         lines.Add("  <Property Name=\"DeviceBasedLicensing\" Value=\"0\" />");
         lines.Add("  <Property Name=\"PinIconsToTaskbar\" Value=\"FALSE\" />");
-        lines.Add("  <Property Name=\"SCLCacheOverride\" Value=\"0\" />");
         lines.Add("  <RemoveMSI />");
         lines.Add("  <Display Level=\"None\" AcceptEULA=\"TRUE\" />");
         lines.Add("  <Logging Level=\"Standard\" Path=\"%programdata%\\Appdeploy\\Office2016\" />");
@@ -2894,6 +2911,14 @@ public sealed class StagingService
     public static string ResolveUninstallArgs(string baseArgs, InstallerParameter[]? parameters, Dictionary<string, string>? values)
         => ResolveArgs(baseArgs, parameters, values, p => p.UninstallFragment);
 
+    private static bool IsToggleOn(InstallerParameter[] parameters, Dictionary<string, string>? values, string key)
+    {
+        var declared = parameters.FirstOrDefault(p => p.Key.Equals(key, StringComparison.OrdinalIgnoreCase));
+        if (declared is null) return false;
+        var text = values is not null && values.TryGetValue(key, out var v) ? v : declared.DefaultValue;
+        return text.Equals("true", StringComparison.OrdinalIgnoreCase);
+    }
+
     private static string ResolveArgs(string baseArgs, InstallerParameter[]? parameters, Dictionary<string, string>? values,
         Func<InstallerParameter, string?> fragmentOf)
     {
@@ -2908,6 +2933,8 @@ public sealed class StagingService
         {
             var fragment = fragmentOf(param);
             if (string.IsNullOrEmpty(fragment))
+                continue;
+            if (param.RequiresAnyOf is { Length: > 0 } required && !required.Any(key => IsToggleOn(parameters, values, key)))
                 continue;
 
             if (values is null || !values.TryGetValue(param.Key, out var value))

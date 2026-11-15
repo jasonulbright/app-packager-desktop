@@ -795,7 +795,8 @@
                     <CheckBox Content="Include SSON" IsThreeState="True" IsChecked="{Binding CwaSwitches.Installation.IncludeSSON}" Margin="0,0,0,4" />
                     <CheckBox Content="Enable SSON" IsThreeState="True" IsChecked="{Binding CwaSwitches.Installation.EnableSSON}" Margin="16,0,0,4"
                               ToolTip="ENABLE_SSON is passed only together with Include SSON." />
-                    <CheckBox Content="startAppProtection" IsThreeState="True" IsChecked="{Binding CwaSwitches.Installation.AppProtection}" Margin="0,0,0,4" />
+                    <CheckBox Content="startAppProtection" IsThreeState="True" IsChecked="{Binding CwaSwitches.Installation.AppProtection}" Margin="0,0,0,4"
+                              ToolTip="Starts the App Protection component. Since version 2212 the installer already installs it. Needs an admin install." />
                     <CheckBox Content="Session pre-launch" IsThreeState="True" IsChecked="{Binding CwaSwitches.Installation.SessionPreLaunch}" Margin="0,0,0,4" />
                     <CheckBox Content="Self-service mode" IsThreeState="True" IsChecked="{Binding CwaSwitches.Installation.SelfServiceMode}" Margin="0,0,0,4" />
                 </StackPanel>
