@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Changed
+
+- The folder of a stage is built by one helper (`StageFolder`) at every call site (the stage, the publish, the build of a package, the Workbench picker). A name that comes from a definition and would leave the download root (a dot segment, a rooted path, a drive colon, a device name) becomes a plain name, and the result is checked to stay under the root. A name that is safe keeps the folder that it always had, so existing stages are found: a test checks every shipped definition. This closes the way for definitions from a vendor feed, which are not trusted. The installer file name made from the application name has no separator either.
+
 ## [2026.1114.42] - 2026-11-14
 
 ### Notes

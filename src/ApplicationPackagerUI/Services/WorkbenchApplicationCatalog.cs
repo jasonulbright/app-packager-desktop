@@ -105,7 +105,7 @@ public sealed class WorkbenchApplicationCatalog(SettingsService settingsService,
                     IconSource = definition.IconSource,
                     StageSearchRoot = string.IsNullOrWhiteSpace(settings.DownloadRoot)
                         ? null
-                        : Path.Combine(settings.DownloadRoot, $"{definition.Application.Replace(" ", "")}-{definition.Architecture}")
+                        : StageFolder.Under(settings.DownloadRoot, definition)
                 };
             }
             else if (scriptById.TryGetValue(application.ApplicationId, out var script))

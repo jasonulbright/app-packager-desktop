@@ -301,8 +301,7 @@ public class PackagerExecutionService(
             var def = LoadDefinition(packager.DefinitionPath);
             var source = ProfileSource.Resolve(WorkbenchStoreOrNull(null), def.Id, ApplicationIds.RunOrigin(def.SourceOrigin));
             if (source.Failure is not null) return null;
-            var appRoot = Path.Combine(ProfileContentScope.LocalDownloadRoot(settings.DownloadRoot, source.ActiveProfileId),
-                $"{def.Application.Replace(" ", "")}-{def.Architecture}");
+            var appRoot = StageFolder.Under(ProfileContentScope.LocalDownloadRoot(settings.DownloadRoot, source.ActiveProfileId), def);
             var version = PublishVersion(packager);
             if (version.Length == 0) return null;
             var path = Path.Combine(appRoot, version, "stage-manifest.json");
@@ -706,8 +705,7 @@ public class PackagerExecutionService(
             if (snapshot is null && source.Failure is not null)
                 return new PackagerExecutionResult { ExitCode = 1, StdErr = source.RefusalMessage() };
             // A grid publish packages the stage of the active profile, under that profile's root.
-            var appRoot = Path.Combine(ProfileContentScope.LocalDownloadRoot(settings.DownloadRoot, snapshot?.ProfileId ?? source.ActiveProfileId),
-                $"{def.Application.Replace(" ", "")}-{def.Architecture}");
+            var appRoot = StageFolder.Under(ProfileContentScope.LocalDownloadRoot(settings.DownloadRoot, snapshot?.ProfileId ?? source.ActiveProfileId), def);
             // With a latest version known, only its stage publishes, or the stage a local
             // installer made in this session: an older staged version published as the
             // latest would carry the wrong release to every endpoint.
@@ -1008,8 +1006,7 @@ public class PackagerExecutionService(
                 def = LoadDefinition(packager.DefinitionPath);
                 var settings = settingsService.Load();
                 source = ProfileSource.Resolve(WorkbenchStoreOrNull(null), def.Id, ApplicationIds.RunOrigin(def.SourceOrigin));
-                var appRoot = Path.Combine(ProfileContentScope.LocalDownloadRoot(settings.DownloadRoot, source.ActiveProfileId),
-                    $"{def.Application.Replace(" ", "")}-{def.Architecture}");
+                var appRoot = StageFolder.Under(ProfileContentScope.LocalDownloadRoot(settings.DownloadRoot, source.ActiveProfileId), def);
                 manifestPath = Path.Combine(appRoot, PublishVersion(packager), "stage-manifest.json");
                 if (!File.Exists(manifestPath) && !string.IsNullOrWhiteSpace(packager.StagedVersion))
                     manifestPath = Path.Combine(appRoot, packager.StagedVersion, "stage-manifest.json");
