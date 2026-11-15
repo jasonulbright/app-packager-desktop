@@ -15,15 +15,13 @@
     </Style>
     <Style x:Key="DensityCell" TargetType="DataGridCell" BasedOn="{StaticResource DefaultDataGridCellStyle}">
         <Setter Property="MinHeight" Value="28" />
-        <Style.Resources>
-            <!-- The text of a column that sets no element style of its own. -->
-            <Style TargetType="TextBlock" BasedOn="{StaticResource DensityTextCell}" />
-        </Style.Resources>
     </Style>
     <Style TargetType="DataGrid" BasedOn="{StaticResource {x:Type DataGrid}}">
         <Setter Property="CellStyle" Value="{StaticResource DensityCell}" />
     </Style>
     <Style TargetType="ui:DataGrid" BasedOn="{StaticResource {x:Type ui:DataGrid}}">
         <Setter Property="CellStyle" Value="{StaticResource DensityCell}" />
+        <!-- The grid of the theme gives the text of its columns 18 px of padding above and below; it takes this style instead. -->
+        <Setter Property="TextColumnElementStyle" Value="{StaticResource DensityTextCell}" />
     </Style>
 </ResourceDictionary>

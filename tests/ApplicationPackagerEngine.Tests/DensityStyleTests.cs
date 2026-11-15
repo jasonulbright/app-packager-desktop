@@ -44,6 +44,7 @@ public sealed class DensityStyleTests
         var style = Styles("Density.xaml").Descendants(Presentation + "Style").Single(s => (string?)s.Attribute("TargetType") == target && s.Attribute(Xaml + "Key") is null);
 
         Assert.Equal("{StaticResource DensityCell}", Setter(style, "CellStyle"));
+        if (target == "ui:DataGrid") Assert.Equal("{StaticResource DensityTextCell}", Setter(style, "TextColumnElementStyle"));
     }
 
     [Fact]
