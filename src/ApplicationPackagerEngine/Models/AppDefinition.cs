@@ -592,6 +592,16 @@ public sealed class OdtConfig
     /// is FALSE): with TRUE, an x86 package would change an installed 64-bit Office to 32-bit.
     /// </summary>
     public bool MigrateArch { get; set; } = false;
+    /// <summary>The Office languages of the install, as ODT language IDs (the first is the main one). Default en-us.</summary>
+    public string[] Languages { get; set; } = ["en-us"];
+    /// <summary>OfficeMgmtCOM on the Add element: lets ConfigMgr manage Office updates through COM. Default true.</summary>
+    public bool OfficeMgmtCom { get; set; } = true;
+    /// <summary>The FORCEAPPSHUTDOWN property: closes running Office apps at the install. Default true.</summary>
+    public bool ForceAppShutdown { get; set; } = true;
+    /// <summary>The RemoveMSI element: removes Office MSI versions that are installed. Default true.</summary>
+    public bool RemoveMsi { get; set; } = true;
+    /// <summary>The DeviceBasedLicensing property (1: the device is licensed, not the user). Default false (0).</summary>
+    public bool DeviceBasedLicensing { get; set; } = false;
 }
 
 /// <summary>
