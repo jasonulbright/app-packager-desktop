@@ -85,7 +85,7 @@ public sealed class VendorImportWindowLayoutTests : IDisposable
                     var box = Bounds(button, content);
                     Assert.True(inside.Contains(box), $"{name}: {id} lies outside the window ({box}).");
                     Assert.True(box.Height >= 40 - 0.51, $"{name}: {id} is {box.Height} px high.");
-                    Assert.True(button.ActualWidth + 0.51 >= button.DesiredSize.Width, $"{name}: {id} is cut off.");
+                    Assert.True(button.ActualWidth + button.Margin.Left + button.Margin.Right + 0.51 >= button.DesiredSize.Width, $"{name}: {id} is cut off.");
                 }
                 var address = ById<TextBox>(window, "txtFeedAddress");
                 Assert.True(address.ActualHeight >= 40 - 0.51 && address.ActualWidth >= 200, $"{name}: the address box is {address.ActualWidth} x {address.ActualHeight}.");

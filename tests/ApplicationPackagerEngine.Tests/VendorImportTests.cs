@@ -67,7 +67,7 @@ public sealed class VendorImportTests : IDisposable
     {
         var def = new AppDefinition
         {
-            Id = id, Vendor = "Contoso", Application = "Contoso Agent", CMName = "Contoso Agent", Architecture = "x64",
+            Id = id, Vendor = "Contoso", Application = id == "contoso-agent" ? "Contoso Agent" : "Contoso " + id, CMName = "Contoso Agent", Architecture = "x64",
             VendorUrl = "https://contoso.example/", InstallerType = "MSI", DownloadUrl = "https://contoso.example/agent-{version}.msi",
             InstallArgs = "/qn", Detection = new DetectionConfig { Type = "RegistryKey", RegistryKeyTemplate = @"SOFTWARE\Contoso" }
         };
@@ -917,7 +917,7 @@ public sealed class VendorImportTests : IDisposable
     public async Task ADefinitionWithTheStageFolderOfAnotherDefinitionIsAConflictAndIsNotImported()
     {
         // The Application and the Architecture of "Contoso Agent"/x64 give the folder ContosoAgent-x64, which a shipped definition holds.
-        var importer = ImporterWithFolders(Doc(Definition("new-id"), Definition("other-id", n => n["Application"] = "Other Tool")), ["contosoagent-X64"]);
+        var importer = ImporterWithFolders(Doc(Definition("new-id", n => n["Application"] = "Contoso Agent"), Definition("other-id", n => n["Application"] = "Other Tool")), ["contosoagent-X64"]);
         var preview = await importer.PreviewAsync(Feed, null, CancellationToken.None);
 
         Assert.Equal(ConflictKind.StageFolder, preview.Candidates.Single(c => c.Definition.Id == "new-id").Conflict);
@@ -930,7 +930,7 @@ public sealed class VendorImportTests : IDisposable
     [Fact]
     public async Task OfTwoDefinitionsOfOneDocumentWithOneStageFolderTheFirstKeepsIt()
     {
-        var preview = await ImporterWithFolders(Doc(Definition("first-1"), Definition("second-1")), []).PreviewAsync(Feed, null, CancellationToken.None);
+        var preview = await ImporterWithFolders(Doc(Definition("first-1", n => n["Application"] = "Contoso Agent"), Definition("second-1", n => n["Application"] = "Contoso Agent")), []).PreviewAsync(Feed, null, CancellationToken.None);
 
         Assert.Equal(ConflictKind.None, preview.Candidates[0].Conflict);
         Assert.Equal(ConflictKind.StageFolder, preview.Candidates[1].Conflict);
@@ -946,7 +946,7 @@ public sealed class VendorImportTests : IDisposable
                 () => new HashSet<string>(["shipped-1", "shipped-2"], StringComparer.OrdinalIgnoreCase), () => new HashSet<string>(StringComparer.OrdinalIgnoreCase),
                 new FixedClock(new DateTimeOffset(2026, 11, 12, 9, 0, 0, TimeSpan.Zero)), () => folders);
 
-        var own = await Make(Doc(Definition("shipped-1"))).PreviewAsync(Feed, null, CancellationToken.None);
+        var own = await Make(Doc(Definition("shipped-1", n => n["Application"] = "Contoso Agent"))).PreviewAsync(Feed, null, CancellationToken.None);
         var other = await Make(Doc(Definition("shipped-1", n => n["Application"] = "Other Tool"))).PreviewAsync(Feed, null, CancellationToken.None);
 
         Assert.Equal(ConflictKind.Shipped, own.Candidates.Single().Conflict);
