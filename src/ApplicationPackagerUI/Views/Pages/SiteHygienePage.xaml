@@ -20,7 +20,6 @@
 
             <Style x:Key="CardTitle" TargetType="TextBlock">
                 <Setter Property="FontSize" Value="14" />
-                <Setter Property="FontWeight" Value="SemiBold" />
                 <Setter Property="Margin" Value="0,0,0,8" />
                 <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
             </Style>
@@ -33,7 +32,6 @@
 
             <Style x:Key="Warning" TargetType="TextBlock" BasedOn="{StaticResource Note}">
                 <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
-                <Setter Property="FontWeight" Value="SemiBold" />
             </Style>
 
             <!-- A detail line shows at most three lines; the tooltip holds the whole text. -->

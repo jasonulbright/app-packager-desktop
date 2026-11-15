@@ -64,6 +64,7 @@ public sealed class DetectionTesterPageTests
             {
                 application.Resources.MergedDictionaries.Add(new ThemesDictionary { Theme = theme });
                 application.Resources.MergedDictionaries.Add(new ControlsDictionary());
+                application.Resources.MergedDictionaries.Add(new ResourceDictionary { Source = new Uri(ApplicationPackagerEngine.Tests.Compliance.RenderKit.ButtonTextStyles, UriKind.Absolute) });
                 application.Resources.MergedDictionaries.Add(new ResourceDictionary { Source = new Uri(ApplicationPackagerEngine.Tests.Compliance.RenderKit.ToolTipStyles, UriKind.Absolute) });
                 var harness = new DetectionTesterHarness();
                 harness.Applications.Applications.Add(new InstalledApplication("7-Zip", "Igor Pavlov", "24.09", "20261001", "HKLM 64-bit",

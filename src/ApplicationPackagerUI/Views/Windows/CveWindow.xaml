@@ -15,6 +15,7 @@
     <ui:FluentWindow.Resources>
         <!-- The accent text brush follows the theme, so a link stays readable on a dark background. -->
         <Style x:Key="LinkButton" TargetType="Button">
+            <Setter Property="FontWeight" Value="SemiBold" />
             <Setter Property="Cursor" Value="Hand" />
             <Setter Property="Margin" Value="0,0,8,2" />
             <Setter Property="FontSize" Value="12" />

@@ -73,19 +73,33 @@ public sealed class BoldTextRuleTests
         Assert.True(offenders.Count == 0, "These texts are bold and are not the title of a field (use the FieldLabel style for a field title): " + string.Join(", ", offenders));
     }
 
-    [Theory]
-    [InlineData("PageTitle")]
-    [InlineData("SectionTitle")]
-    [InlineData("CardTitleText")]
-    [InlineData("SectionHeader")]
-    [InlineData("SubHeader")]
-    public void AHeadingStyleIsNotBold(string key)
+    [Fact]
+    public void NoStyleOfATextIsBoldExceptTheFieldLabel()
     {
-        var style = AllXaml().SelectMany(f => XDocument.Load(f).Descendants(Presentation + "Style"))
-            .Where(s => (string?)s.Attribute(Xaml + "Key") == key).ToList();
+        var offenders = new List<string>();
+        foreach (var file in AllXaml())
+            foreach (var style in XDocument.Load(file, LoadOptions.SetLineInfo).Descendants(Presentation + "Style")
+                         .Where(s => (string?)s.Attribute("TargetType") is "TextBlock" or "Label" or "Run" && (string?)s.Attribute(Xaml + "Key") != "FieldLabel"))
+                foreach (var setter in style.Elements(Presentation + "Setter").Where(x => (string?)x.Attribute("Property") == "FontWeight" && IsBold((string?)x.Attribute("Value"))))
+                    offenders.Add($"{Path.GetRelativePath(Root(), file)}:{((System.Xml.IXmlLineInfo)setter).LineNumber} ({(string?)style.Attribute(Xaml + "Key")})");
 
-        Assert.NotEmpty(style);
-        Assert.All(style, s => Assert.DoesNotContain(s.Elements(Presentation + "Setter"), x => (string?)x.Attribute("Property") == "FontWeight" && IsBold((string?)x.Attribute("Value"))));
+        Assert.True(offenders.Count == 0, "These text styles are bold; only the title of a field is: " + string.Join(", ", offenders));
+    }
+
+    [Fact]
+    public void EveryStyleOfAButtonIsBoldOrBasedOnTheStyleThatIs()
+    {
+        var offenders = new List<string>();
+        foreach (var file in AllXaml().Where(f => !f.EndsWith("ButtonText.xaml")))
+            foreach (var style in XDocument.Load(file, LoadOptions.SetLineInfo).Descendants(Presentation + "Style")
+                         .Where(s => ((string?)s.Attribute("TargetType"))?.Replace("{x:Type ", "").TrimEnd('}') is "ui:Button" or "Button" && (string?)s.Attribute(Xaml + "Key") is not null))
+            {
+                var bold = style.Elements(Presentation + "Setter").Any(x => (string?)x.Attribute("Property") == "FontWeight" && IsBold((string?)x.Attribute("Value")));
+                if (!bold && style.Attribute("BasedOn") is null)
+                    offenders.Add($"{Path.GetRelativePath(Root(), file)}:{((System.Xml.IXmlLineInfo)style).LineNumber} ({(string?)style.Attribute(Xaml + "Key")})");
+            }
+
+        Assert.True(offenders.Count == 0, "A button style needs a bold weight or a BasedOn that has it: " + string.Join(", ", offenders));
     }
 
     [Fact]
