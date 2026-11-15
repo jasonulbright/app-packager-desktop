@@ -697,7 +697,7 @@ public sealed class InstallerParameter
     /// </summary>
     public string? UninstallFragment { get; set; }
     /// <summary>
-    /// Keys of Toggle settings. When set, CommandFragment is added only while at least one of them is on (for example --includeRecommended
+    /// Keys of Toggle settings. When set, the fragment (install or uninstall) is added only while at least one of them is on (for example --includeRecommended
     /// acts on the workloads that are added, so without a workload it does nothing). Null: no condition.
     /// </summary>
     public string[]? RequiresAnyOf { get; set; }

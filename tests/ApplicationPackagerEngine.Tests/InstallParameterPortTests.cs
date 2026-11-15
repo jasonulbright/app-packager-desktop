@@ -86,6 +86,7 @@ public class InstallParameterPortTests
             ["InstallPath"] = @"D:\Tools\SSMS",
             ["DownloadThenInstall"] = "false",
             ["IncludeRecommended"] = "true",
+            ["Workload_BI"] = "true",
             ["ForceClose"] = "true"
         };
 
@@ -93,7 +94,7 @@ public class InstallParameterPortTests
         var command = StagingService.ApplySettingTokens(def.UninstallCommand, def.InstallerSettings, values)!;
         var detection = StagingService.ApplySettingTokens(def.Detection, def.InstallerSettings, values);
 
-        Assert.Equal(Switches(@"--norestart --passive --installPath ""D:\Tools\SSMS"" --includeRecommended --removeOos true --force"), Switches(install));
+        Assert.Equal(Switches(@"--norestart --passive --installPath ""D:\Tools\SSMS"" --add Microsoft.SqlServer.Workload.SSMS.BI --includeRecommended --removeOos true --force"), Switches(install));
         Assert.Contains(@"uninstall --installPath ""D:\Tools\SSMS"" --passive --norestart --force", command);
         Assert.DoesNotContain("{setting:", command);
         Assert.Equal(@"D:\Tools\SSMS\Common7\IDE", detection.FilePath);

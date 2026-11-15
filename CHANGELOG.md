@@ -6,7 +6,7 @@
 
 - Microsoft 365 install.xml: `MigrateArch="TRUE"` is no longer written for every package (with it, an x86 package changed an installed 64-bit Office to 32-bit), and shared computer activation is no longer forced on (`SharedComputerLicensing` is 1 only for shared computers such as RDS and VDI). Both are now settings of the six Microsoft 365 definitions, **Migrate architecture** and **Shared computer activation**, off by default. A package that you staged before keeps its old install.xml until you stage it again.
 - Microsoft 365: the ExcludeApp ID `Bing` is gone (it is not a documented ID and had no effect), with its toggle.
-- SQL Server Management Studio: `--includeRecommended` and `--includeOptional` act on added workloads, and the definition passed none. The definition now has a toggle for each of the five workloads (`--add <ID>`), and the two include switches are passed only while a workload is on (the new `RequiresAnyOf` of a setting).
+- SQL Server Management Studio: `--includeRecommended` and `--includeOptional` act on added workloads, and the definition passed none. The definition now has a toggle for each of the five workloads (`--add <ID>`), and the two include switches are passed only while a workload is on (the new `RequiresAnyOf` of a setting). A saved IncludeRecommended or IncludeOptional with no workload no longer passes the switch; the audit notes that --includeRecommended also sets "add recommended components on update", so that side effect is gone for such a saved choice.
 - Citrix Workspace: the tooltip of startAppProtection said that it installs App Protection. Since version 2212 the installer always installs it, and the switch starts it.
 
 ### Added

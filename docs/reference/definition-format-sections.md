@@ -26,7 +26,7 @@ A text editor. Read [Definition format](definition-format.md) first.
 | `Options` | string list or null | Choices of a `Dropdown` or a `LocaleList`. | `null` |
 | `CommandFragment` | string or null | Text that goes into the install command. A `Toggle` adds it when on. The other types replace `{value}` with the value. Example: `"PORT={value}"`. | `null` |
 | `UninstallFragment` | string or null | The same for the uninstall command. | `null` |
-| `RequiresAnyOf` | string list or null | Keys of `Toggle` settings of the same definition. `CommandFragment` is added only while at least one of them is on. Example: SSMS passes `--includeRecommended` only with a workload that is added. | `null` |
+| `RequiresAnyOf` | string list or null | Keys of `Toggle` settings of the same definition. `CommandFragment` (and `UninstallFragment`) is added only while at least one of them is on. Example: SSMS passes `--includeRecommended` only with a workload that is added. | `null` |
 | `Group` | string or null | Section name in the dialog. | `null` |
 | `Minimum`, `Maximum` | number or null | Limits of a `Number`. | `null` |
 | `ValueMap` | object or null | A table. The chosen value is looked up here before it replaces `{value}`. A value that is not in the table stands for itself. | `null` |
