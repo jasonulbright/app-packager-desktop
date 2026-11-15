@@ -328,4 +328,129 @@ public sealed class CitrixInstallArgumentsTests
         Assert.True(root.GetProperty("Components").GetProperty("AM").GetBoolean());
         Assert.Equal(System.Text.Json.JsonValueKind.Null, root.GetProperty("Plugins").GetProperty("MSTeamsPlugin").ValueKind);
     }
+
+    // ---- options that the audit of installer options listed as missing ----
+
+    [Fact]
+    public void ForceInstallIsASwitchWithoutAValue() =>
+        Assert.Contains("/forceinstall", Args(new() { Installation = new() { ForceInstall = true } }));
+
+    [Fact]
+    public void AFixedClientNameTurnsOffTheDynamicName()
+    {
+        var args = Args(new() { Installation = new() { ClientName = "KIOSK-01" } });
+
+        Assert.Contains("ENABLE_DYNAMIC_CLIENT_NAME=No", args);
+        Assert.Contains("CLIENT_NAME=KIOSK-01", args);
+        Assert.True(args.ToList().IndexOf("ENABLE_DYNAMIC_CLIENT_NAME=No") < args.ToList().IndexOf("CLIENT_NAME=KIOSK-01"));
+    }
+
+    [Theory]
+    [InlineData("two words")]
+    [InlineData("a;b")]
+    [InlineData("a\"b")]
+    [InlineData("0123456789012345678901")]
+    public void AClientNameThatIsNotPlainIsSkippedWithAWarning(string name)
+    {
+        var r = CitrixInstallArguments.Build(new() { Installation = new() { ClientName = name } }, "Current");
+
+        Assert.DoesNotContain(r.Arguments, a => a.StartsWith("CLIENT_NAME", StringComparison.Ordinal));
+        Assert.DoesNotContain("ENABLE_DYNAMIC_CLIENT_NAME=No", r.Arguments);
+        Assert.Single(r.Warnings);
+    }
+
+    [Fact]
+    public void SkipSrAgentUpgradeFollowsTheAgentOnTheCurrentReleaseOnly()
+    {
+        var config = new CitrixWorkspaceSwitches { Plugins = new() { SessionRecording = true, SessionRecordingSkipUpgrade = true } };
+
+        Assert.Equal(["/silent", "/InstallSRAgent", "/SkipSRAgentUpgrade"], Args(config));
+        var ltsr = CitrixInstallArguments.Build(config, "LTSR");
+        Assert.DoesNotContain("/SkipSRAgentUpgrade", ltsr.Arguments);
+        var alone = CitrixInstallArguments.Build(new() { Plugins = new() { SessionRecordingSkipUpgrade = true } }, "Current");
+        Assert.DoesNotContain("/SkipSRAgentUpgrade", alone.Arguments);
+        Assert.Single(alone.Warnings);
+    }
+
+    [Fact]
+    public void TheUpdateStreamAndTheRolloutPriorityNeedAutoUpdateCheck()
+    {
+        var withCheck = Args(new() { UpdateAndTelemetry = new() { AutoUpdateCheck = "auto", AutoUpdateStream = "ltsr", AURolloutPriority = "slow" } });
+        var without = CitrixInstallArguments.Build(new() { UpdateAndTelemetry = new() { AutoUpdateStream = "LTSR", AURolloutPriority = "Slow" } }, "Current");
+
+        Assert.Contains("AutoUpdateStream=LTSR", withCheck);
+        Assert.Contains("AURolloutPriority=Slow", withCheck);
+        Assert.DoesNotContain(without.Arguments, a => a.StartsWith("AutoUpdate", StringComparison.Ordinal) || a.StartsWith("AURollout", StringComparison.Ordinal));
+        Assert.Equal(2, without.Warnings.Count);
+    }
+
+    [Theory]
+    [InlineData("Beta")]
+    [InlineData("LTSR;x")]
+    public void AnUpdateStreamOutsideTheSetIsSkippedWithAWarning(string stream)
+    {
+        var r = CitrixInstallArguments.Build(new() { UpdateAndTelemetry = new() { AutoUpdateCheck = "auto", AutoUpdateStream = stream } }, "Current");
+
+        Assert.DoesNotContain(r.Arguments, a => a.StartsWith("AutoUpdateStream", StringComparison.Ordinal));
+        Assert.Single(r.Warnings);
+    }
+
+    [Fact]
+    public void TheHdxSwitchesWriteOneOrZeroAndOnlyWhenSet()
+    {
+        var on = Args(new() { Hdx = new() { BidirectionalContentRedirection = true, LocalAppAccess = true, ClientHostedAppsUrl = true } });
+        var off = Args(new() { Hdx = new() { BidirectionalContentRedirection = false, LocalAppAccess = false, ClientHostedAppsUrl = false } });
+        var none = Args(new() { Hdx = new() });
+
+        Assert.Equal(["/silent", "ALLOW_BIDIRCONTENTREDIRECTION=1", "FORCE_LAA=1", "ALLOW_CLIENTHOSTEDAPPSURL=1"], on);
+        Assert.Equal(["/silent", "ALLOW_BIDIRCONTENTREDIRECTION=0", "FORCE_LAA=0", "ALLOW_CLIENTHOSTEDAPPSURL=0"], off);
+        Assert.Equal(["/silent"], none);
+    }
+
+    [Theory]
+    [InlineData(true, "LEGACYFTAICONS=True")]
+    [InlineData(false, "LEGACYFTAICONS=False")]
+    public void LegacyFileTypeIconsWritesTrueOrFalse(bool value, string expected) =>
+        Assert.Contains(expected, Args(new() { Hdx = new() { LegacyFileTypeIcons = value } }));
+
+    [Theory]
+    [InlineData("0")]
+    [InlineData("1")]
+    [InlineData("2")]
+    [InlineData("3")]
+    public void DisableSettingTakesZeroToThree(string value) =>
+        Assert.Contains("DisableSetting=" + value, Args(new() { Hdx = new() { DisableSetting = value } }));
+
+    [Fact]
+    public void ADisableSettingOutsideZeroToThreeIsSkippedWithAWarning()
+    {
+        var r = CitrixInstallArguments.Build(new() { Hdx = new() { DisableSetting = "4" } }, "Current");
+
+        Assert.Equal(["/silent"], r.Arguments);
+        Assert.Single(r.Warnings);
+    }
+
+    [Fact]
+    public void TheEnterpriseBrowserIsAnLtsrComponentOnly()
+    {
+        var config = new CitrixWorkspaceSwitches { Components = new() { Customize = true, ICA_Client = true, CitrixEnterpriseBrowser = true } };
+
+        var ltsr = CitrixInstallArguments.Build(config, "LTSR");
+        var current = CitrixInstallArguments.Build(config, "Current");
+
+        Assert.Contains("ADDLOCAL=ICA_Client,CitrixEnterpriseBrowser", ltsr.Arguments);
+        Assert.Contains("ADDLOCAL=ICA_Client", current.Arguments);
+        Assert.Single(current.Warnings);
+    }
+
+    [Fact]
+    public void NoNewSwitchIsWrittenWhenNoneIsSet()
+    {
+        var config = new CitrixWorkspaceSwitches
+        {
+            Installation = new() { ClientName = "" }, UpdateAndTelemetry = new() { AutoUpdateStream = "", AURolloutPriority = "" }, Hdx = new() { DisableSetting = "" }
+        };
+
+        Assert.Equal(["/silent"], Args(config));
+    }
 }

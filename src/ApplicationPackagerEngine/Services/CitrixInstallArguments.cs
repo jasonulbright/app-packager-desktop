@@ -49,6 +49,13 @@ public static class CitrixInstallArguments
             if (install.AppProtection == true) arguments.Add("startAppProtection");
             if (install.SessionPreLaunch is { } preLaunch) arguments.Add("ENABLEPRELAUNCH=" + (preLaunch ? "True" : "False"));
             if (install.SelfServiceMode is { } selfService) arguments.Add("SELFSERVICEMODE=" + (selfService ? "True" : "False"));
+            if (install.ForceInstall == true) arguments.Add("/forceinstall");
+            var clientName = (install.ClientName ?? "").Trim();
+            if (clientName.Length > 0)
+            {
+                if (ClientNamePattern.IsMatch(clientName)) { arguments.Add("ENABLE_DYNAMIC_CLIENT_NAME=No"); arguments.Add("CLIENT_NAME=" + clientName); }
+                else warnings.Add($"Installation.ClientName '{clientName}' is not 1 to 20 letters, digits, dots, hyphens or underscores; ignored.");
+            }
         }
 
         var plugins = config.Plugins;
@@ -82,8 +89,16 @@ public static class CitrixInstallArguments
 
             if (plugins.SessionRecording == true)
             {
-                if (stream == Current) arguments.Add("/InstallSRAgent");
+                if (stream == Current)
+                {
+                    arguments.Add("/InstallSRAgent");
+                    if (plugins.SessionRecordingSkipUpgrade == true) arguments.Add("/SkipSRAgentUpgrade");
+                }
                 else warnings.Add("Plugins.SessionRecording has no documented LTSR installer switch; ignored.");
+            }
+            else if (plugins.SessionRecordingSkipUpgrade == true)
+            {
+                warnings.Add("Plugins.SessionRecordingSkipUpgrade applies only with Plugins.SessionRecording; ignored.");
             }
         }
 
@@ -96,8 +111,27 @@ public static class CitrixInstallArguments
                 if (autoUpdate is "auto" or "manual" or "disabled") arguments.Add("AutoUpdateCheck=" + autoUpdate);
                 else warnings.Add($"UpdateAndTelemetry.AutoUpdateCheck '{update.AutoUpdateCheck}' is not auto, manual or disabled; ignored.");
             }
+            // AutoUpdateStream and AURolloutPriority work only when AutoUpdateCheck is set.
+            var autoUpdateSet = autoUpdate is "auto" or "manual" or "disabled";
+            AddChoice("UpdateAndTelemetry.AutoUpdateStream", "AutoUpdateStream", update.AutoUpdateStream, ["LTSR", "Current"], autoUpdateSet, arguments, warnings);
+            AddChoice("UpdateAndTelemetry.AURolloutPriority", "AURolloutPriority", update.AURolloutPriority, ["Auto", "Fast", "Medium", "Slow"], autoUpdateSet, arguments, warnings);
             if (update.EnableCEIP is { } ceip) arguments.Add("EnableCEIP=" + (ceip ? "True" : "False"));
             if (update.EnableTracing is { } tracing) arguments.Add("EnableTracing=" + (tracing ? "true" : "false"));
+        }
+
+        var hdx = config.Hdx;
+        if (hdx is not null)
+        {
+            if (hdx.BidirectionalContentRedirection is { } bidir) arguments.Add("ALLOW_BIDIRCONTENTREDIRECTION=" + (bidir ? "1" : "0"));
+            if (hdx.LocalAppAccess is { } laa) arguments.Add("FORCE_LAA=" + (laa ? "1" : "0"));
+            if (hdx.ClientHostedAppsUrl is { } urlRedirection) arguments.Add("ALLOW_CLIENTHOSTEDAPPSURL=" + (urlRedirection ? "1" : "0"));
+            if (hdx.LegacyFileTypeIcons is { } legacyIcons) arguments.Add("LEGACYFTAICONS=" + (legacyIcons ? "True" : "False"));
+            var disableSetting = (hdx.DisableSetting ?? "").Trim();
+            if (disableSetting.Length > 0)
+            {
+                if (disableSetting is "0" or "1" or "2" or "3") arguments.Add("DisableSetting=" + disableSetting);
+                else warnings.Add($"Hdx.DisableSetting '{hdx.DisableSetting}' is not 0, 1, 2 or 3; ignored.");
+            }
         }
 
         var policy = config.StorePolicy;
@@ -147,11 +181,30 @@ public static class CitrixInstallArguments
         if (components?.Customize == true)
         {
             var selected = ComponentNames.Where(n => ComponentEnabled(components, n)).ToList();
+            // The Citrix Enterprise Browser is a component of LTSR only; Current releases do not carry it.
+            if (components.CitrixEnterpriseBrowser == true)
+            {
+                if (stream == Ltsr) selected.Add("CitrixEnterpriseBrowser");
+                else warnings.Add("Components.CitrixEnterpriseBrowser is a component of LTSR only; ignored for the Current Release.");
+            }
             if (selected.Count > 0) arguments.Add("ADDLOCAL=" + string.Join(",", selected));
             else warnings.Add("Components.Customize is set but no component is enabled; ADDLOCAL omitted.");
         }
 
         return new Result(arguments, warnings);
+    }
+
+    private static readonly System.Text.RegularExpressions.Regex ClientNamePattern = new("^[A-Za-z0-9_.-]{1,20}$", System.Text.RegularExpressions.RegexOptions.CultureInvariant);
+
+    /// <summary>Adds Name=Value for a value from a fixed set (any letter case); another value, or a set that needs AutoUpdateCheck without it, is a warning.</summary>
+    private static void AddChoice(string path, string name, string? value, string[] allowed, bool allowedNow, List<string> arguments, List<string> warnings)
+    {
+        var text = (value ?? "").Trim();
+        if (text.Length == 0) return;
+        var match = allowed.FirstOrDefault(a => a.Equals(text, StringComparison.OrdinalIgnoreCase));
+        if (match is null) warnings.Add($"{path} '{value}' is not {string.Join(", ", allowed)}; ignored.");
+        else if (!allowedNow) warnings.Add($"{path} works only when UpdateAndTelemetry.AutoUpdateCheck is set; ignored.");
+        else arguments.Add($"{name}={match}");
     }
 
     private static bool ComponentEnabled(CwaComponents c, string name) => name switch

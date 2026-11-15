@@ -281,6 +281,11 @@ public partial class SettingsViewModel : ObservableObject, ISettingsReload
         copy.UpdateAndTelemetry ??= new CwaUpdateAndTelemetry();
         copy.StorePolicy ??= new CwaStorePolicy();
         copy.Components ??= new CwaComponents();
+        copy.Hdx ??= new CwaHdx();
+        copy.Installation.ClientName ??= "";
+        copy.UpdateAndTelemetry.AutoUpdateStream ??= "";
+        copy.UpdateAndTelemetry.AURolloutPriority ??= "";
+        copy.Hdx.DisableSetting ??= "";
         copy.Store.Name ??= "";
         copy.Store.Url ??= "";
         copy.UpdateAndTelemetry.AutoUpdateCheck ??= "";
@@ -299,6 +304,10 @@ public partial class SettingsViewModel : ObservableObject, ISettingsReload
         copy.UpdateAndTelemetry!.AutoUpdateCheck = Text(copy.UpdateAndTelemetry.AutoUpdateCheck);
         copy.StorePolicy!.AllowAddStore = Text(copy.StorePolicy.AllowAddStore);
         copy.StorePolicy.AllowSavePwd = Text(copy.StorePolicy.AllowSavePwd);
+        copy.Installation!.ClientName = Text(copy.Installation.ClientName);
+        copy.UpdateAndTelemetry.AutoUpdateStream = Text(copy.UpdateAndTelemetry.AutoUpdateStream);
+        copy.UpdateAndTelemetry.AURolloutPriority = Text(copy.UpdateAndTelemetry.AURolloutPriority);
+        copy.Hdx!.DisableSetting = Text(copy.Hdx.DisableSetting);
         return copy;
     }
 
