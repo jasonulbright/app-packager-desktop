@@ -2953,8 +2953,14 @@ public sealed class StagingService
             }
             else
             {
+                if (!string.IsNullOrEmpty(param.ValuePattern)) value = value?.Trim() ?? "";
                 if (!string.IsNullOrEmpty(value))
+                {
+                    if (!string.IsNullOrEmpty(param.ValuePattern)
+                        && !System.Text.RegularExpressions.Regex.IsMatch(value, "^(?:" + param.ValuePattern + ")$", System.Text.RegularExpressions.RegexOptions.CultureInvariant))
+                        throw new InvalidOperationException($"The value of '{param.Label}' is not valid: '{value}'. {param.Tooltip}");
                     parts.Add(fragment.Replace("{value}", MapValue(param, null, value), StringComparison.OrdinalIgnoreCase));
+                }
             }
         }
 

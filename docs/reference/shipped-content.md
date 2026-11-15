@@ -40,9 +40,9 @@ The folder `src\ApplicationPackagerEngine\Definitions` holds 323 definition file
 | `ArpName` set to `none` | 24 |
 | With a `Cpe` | 298 |
 | That read `api.github.com` | 101 |
-| With `InstallerSettings` | 13 |
+| With `InstallerSettings` | 14 |
 
-The 13 definitions with `InstallerSettings`: `adobereader`, `dbeaver`, `mariadb-server`, `sqlserver2022express`, `ssms`, `teamviewerhost`, `windowsadmincenter`, and the six Microsoft 365 definitions `m365apps-x64`, `m365apps-x86`, `m365project-x64`, `m365project-x86`, `m365visio-x64` and `m365visio-x86`. The Settings page lists these definitions at run time.
+The 14 definitions with `InstallerSettings`: `adobereader`, `beyondcompare5`, `dbeaver`, `mariadb-server`, `sqlserver2022express`, `ssms`, `teamviewerhost`, `windowsadmincenter`, and the six Microsoft 365 definitions `m365apps-x64`, `m365apps-x86`, `m365project-x64`, `m365project-x86`, `m365visio-x64` and `m365visio-x86`. The Settings page lists these definitions at run time.
 
 ## Collection query templates
 

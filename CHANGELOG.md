@@ -7,7 +7,8 @@
 - Installer options that the audit of installer options listed as missing, all off or empty by default (the install command is unchanged until you choose one):
   - Adobe Acrobat Reader: Accept the license agreement (`EULA_ACCEPT=YES`), No desktop shortcut (`DISABLEDESKTOPSHORTCUT=1`), Block the Chrome extension (`ENABLE_CHROMEEXT=0`) and No browser plug-in (`DISABLE_BROWSER_INTEGRATION=YES`). `UPDATE_MODE` is not offered: the meaning of its values is not verified.
   - Beyond Compare 5: Turn off remote profiles (`/DisableRemoteProfiles`) and Do not save passwords (`/DisableSavedPasswords`), version 5.2 and later.
-  - SQL Server Management Studio: one additional product language (`--addProductLang`) and Delete the package cache after the install (`--nocache`).
+  - SQL Server Management Studio: one product language (`--addProductLang`, a code such as `de-de`; another text stops the stage) and Delete the package cache after the install (`--nocache`).
+- A setting of a definition can have a **ValuePattern**, a regular expression that its value must match; a value that does not match stops the stage with a message. See the definition format.
 
 ### Fixed
 

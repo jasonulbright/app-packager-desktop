@@ -110,12 +110,13 @@
       "Tooltip": "Adds the hybrid and migration workload. Each workload is one --add switch. With none on, setup installs the core editor only."
     },    {
       "Key": "ProductLanguage",
-      "Label": "Additional product language",
+      "Label": "Product language",
       "ControlType": "Text",
       "DefaultValue": "",
+      "ValuePattern": "^[a-z]{2}-[a-z]{2}$",
       "CommandFragment": "--addProductLang {value}",
       "Group": "Components",
-      "Tooltip": "One SSMS display language to install, as a language code such as de-de, fr-fr, ja-jp or zh-cn (--addProductLang). Empty installs the language of the operating system."
+      "Tooltip": "One SSMS display language, as a language code such as de-de, fr-fr, ja-jp or zh-cn (--addProductLang). Empty keeps the setup default, the language of the operating system."
     },
     {
       "Key": "NoCache",

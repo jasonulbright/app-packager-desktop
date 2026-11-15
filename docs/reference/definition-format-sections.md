@@ -26,6 +26,7 @@ A text editor. Read [Definition format](definition-format.md) first.
 | `Options` | string list or null | Choices of a `Dropdown` or a `LocaleList`. | `null` |
 | `CommandFragment` | string or null | Text that goes into the install command. A `Toggle` adds it when on. The other types replace `{value}` with the value. Example: `"PORT={value}"`. | `null` |
 | `UninstallFragment` | string or null | The same for the uninstall command. | `null` |
+| `ValuePattern` | string or null | A regular expression that a `Dropdown`, `Text` or `Number` value must match completely (after trimming). A value that does not match stops the stage with a message, so a typo does not reach the client. An empty value is not passed, and is not checked. Example: `^[a-z]{2}-[a-z]{2}$` for an SSMS language. | `null` |
 | `RequiresAnyOf` | string list or null | Keys of `Toggle` settings of the same definition. `CommandFragment` (and `UninstallFragment`) is added only while at least one of them is on. Example: SSMS passes `--includeRecommended` only with a workload that is added. | `null` |
 | `Group` | string or null | Section name in the dialog. | `null` |
 | `Minimum`, `Maximum` | number or null | Limits of a `Number`. | `null` |
@@ -46,7 +47,7 @@ Example (`mariadb-server.json`):
 
 ### Install parameters in shipped definitions
 
-13 shipped definitions have install parameters. They have 103 parameters: 86 `Toggle`, 8 `Dropdown`, 6 `Text`, 2 `Number` and 1 `LocaleList`.
+14 shipped definitions have install parameters. They have 111 parameters: 93 `Toggle`, 8 `Dropdown`, 7 `Text`, 2 `Number` and 1 `LocaleList`.
 
 | File | Application | Parameters (label, control, default, group) |
 |---|---|---|
@@ -55,7 +56,7 @@ Example (`mariadb-server.json`):
 | `dbeaver.json` | DBeaver Community (x64) | Install scope, `Dropdown` (`System`, `User`), `System`, Install. Disable AI features, `Toggle`, `false`, Install. |
 | `mariadb-server.json` | MariaDB Server (x64) | Service name, `Text`, `MariaDB`, Server. TCP port, `Number`, `3306`, Server. |
 | `sqlserver2022express.json` | SQL Server 2022 Express (x64) | Instance name, `Text`, `SQLEXPRESS`, Instance. Sysadmin accounts, `Text`, `BUILTIN\Administrators`, Instance. |
-| `ssms.json` | SQL Server Management Studio 22 (x64) | UI mode, `Dropdown` (`Quiet`, `Passive`), `Quiet`, Install behavior. Install path, `Text`, empty, Install behavior. Download all packages before installing, `Toggle`, `true`, Install behavior. Do not update the Visual Studio Installer, `Toggle`, `false`, Install behavior. Close SSMS if it is running, `Toggle`, `false`, Install behavior. The five workloads (AI assistance, business intelligence, code tools, DevOps, hybrid and migration), `Toggle`, `false`, Components, each `--add <ID>`. Additional product language, `Text`, empty, Components (`--addProductLang <code>`, one language). Delete the package cache after the install, `Toggle`, `false`, Install behavior (`--nocache`). Include recommended components and Include optional components, `Toggle`, `false`, Components, passed only while a workload is on. Remove out-of-support components, `Toggle`, `true`, Components. |
+| `ssms.json` | SQL Server Management Studio 22 (x64) | UI mode, `Dropdown` (`Quiet`, `Passive`), `Quiet`, Install behavior. Install path, `Text`, empty, Install behavior. Download all packages before installing, `Toggle`, `true`, Install behavior. Do not update the Visual Studio Installer, `Toggle`, `false`, Install behavior. Close SSMS if it is running, `Toggle`, `false`, Install behavior. The five workloads (AI assistance, business intelligence, code tools, DevOps, hybrid and migration), `Toggle`, `false`, Components, each `--add <ID>`. Product language, `Text`, empty, Components (`--addProductLang <code>`, one language, pattern `^[a-z]{2}-[a-z]{2}$`). Delete the package cache after the install, `Toggle`, `false`, Install behavior (`--nocache`). Include recommended components and Include optional components, `Toggle`, `false`, Components, passed only while a workload is on. Remove out-of-support components, `Toggle`, `true`, Components. |
 | `teamviewerhost.json` | TeamViewer Host (x64) | Assign the device after install, `Toggle`, `false`, Assignment. Assignment ID, `Text`, empty, Assignment. Assignment options, `Text`, `--grant-easy-access`, Assignment. |
 | `windowsadmincenter.json` | Windows Admin Center (v2) | HTTPS port, `Number`, `443`, no group. |
 | `m365apps-x64.json`, `m365apps-x86.json`, `m365project-x64.json`, `m365project-x86.json`, `m365visio-x64.json`, `m365visio-x86.json` | Microsoft 365 Apps, Project and Visio | The same 15 parameters in each file. Deploy mode, `Dropdown` (`Managed`, `Online`), `Managed`, Deployment. Migrate architecture and Shared computer activation, `Toggle`, `false`, Deployment. Then 12 `Toggle` parameters in the group Excluded apps. |

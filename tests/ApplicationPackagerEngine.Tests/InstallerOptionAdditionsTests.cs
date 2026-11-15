@@ -75,6 +75,28 @@ public sealed class InstallerOptionAdditionsTests
         Assert.Contains("--nocache", args);
     }
 
+    [Theory]
+    [InlineData("de-de fr-fr")]
+    [InlineData("de_DE")]
+    [InlineData("german")]
+    [InlineData("de-de --installPath D:/x")]
+    public void SsmsRefusesALanguageThatIsNotACode(string value)
+    {
+        var error = Assert.Throws<InvalidOperationException>(() => Args("ssms.json", new Dictionary<string, string> { ["ProductLanguage"] = value }));
+
+        Assert.Contains("Product language", error.Message);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void SsmsPassesNoLanguageForABlankValue(string value) =>
+        Assert.DoesNotContain("--addProductLang", Args("ssms.json", new Dictionary<string, string> { ["ProductLanguage"] = value }));
+
+    [Fact]
+    public void SsmsTrimsTheLanguage() =>
+        Assert.Contains("--addProductLang ja-jp", Args("ssms.json", new Dictionary<string, string> { ["ProductLanguage"] = "  ja-jp " }));
+
     [Fact]
     public void EveryNewSettingHasAUniqueKeyAndATooltip()
     {

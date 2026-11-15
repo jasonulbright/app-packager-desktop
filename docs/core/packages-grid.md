@@ -156,7 +156,7 @@ The dialog draws **Overwrite** in the accent color, as a primary button. The Ent
 
 **Stage** shows the dialog `Configure: <application>` for a definition that has install parameters. The dialog shows the saved values. **Continue** stages with the values in the dialog. **Cancel** skips the application and sets the status **Skipped**.
 
-The dialog shows when the definition has install parameters and one of two conditions holds. Either the definition sets `ReviewBeforeStage`, or the check box **Skip the review dialog before staging and use the saved values** is cleared under Settings, Install Parameters. The 13 definitions with install parameters are listed in [Definition format: sections](../reference/definition-format-sections.md#install-parameters-in-shipped-definitions).
+The dialog shows when the definition has install parameters and one of two conditions holds. Either the definition sets `ReviewBeforeStage`, or the check box **Skip the review dialog before staging and use the saved values** is cleared under Settings, Install Parameters. The 14 definitions with install parameters are listed in [Definition format: sections](../reference/definition-format-sections.md#install-parameters-in-shipped-definitions).
 
 ![The Configure dialog before Stage](../images/core-packages-review-dialog.png)
 
