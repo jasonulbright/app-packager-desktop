@@ -356,6 +356,10 @@ public sealed class IconExtractionService
             .FirstOrDefault(File.Exists);
     }
 
+    /// <summary>The icon the staging step would take for the definition file (the same lookup), or null. The Packages grid shows it.</summary>
+    public static string? FindExternalIconPathForFile(string? definitionPath) =>
+        string.IsNullOrWhiteSpace(definitionPath) ? null : FindExternalIconPath(new Models.AppDefinition { SourcePath = definitionPath });
+
     private static bool IsUnder(string path, string root)
     {
         var fullPath = Path.TrimEndingDirectorySeparator(Path.GetFullPath(path));

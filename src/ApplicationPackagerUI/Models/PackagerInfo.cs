@@ -38,6 +38,25 @@ public partial class PackagerInfo : ObservableObject, IPackagerExecutionRequest
     public bool IsJsonDefined { get; init; }
     /// <summary>Path to the .json definition file (null for PS1 scripts).</summary>
     public string? DefinitionPath { get; init; }
+    private string? _iconPath;
+
+    /// <summary>The icon file of the packager from the installed icon pack (the lookup of the staging step); empty when the pack has none. A found path is kept; a missing one is looked up again, because the pack installs in the background at startup.</summary>
+    public string IconPath
+    {
+        get
+        {
+            if (_iconPath is not null) return _iconPath;
+            if (!IsJsonDefined || string.IsNullOrWhiteSpace(DefinitionPath)) return "";
+            _iconPath = ApplicationPackagerEngine.Services.IconExtractionService.FindExternalIconPathForFile(DefinitionPath);
+            return _iconPath ?? "";
+        }
+    }
+
+    /// <summary>The icon as an address for the grid image; null when there is none (an empty string cannot be an image source).</summary>
+    public Uri? IconUri => IconPath.Length > 0 ? new Uri(IconPath) : null;
+
+    public string IconTooltip => IconPath.Length > 0 ? "Icon from the icon pack: " + System.IO.Path.GetFileName(IconPath) : "No icon in the icon pack";
+
     /// <summary>Workbench namespace for a JSON definition: shipped/overridden catalog or user-authored custom.</summary>
     public ApplicationOrigin DefinitionOrigin { get; init; } = ApplicationOrigin.Catalog;
     /// <summary>The grid label of an imported definition ("Imported: vendor (trust state)"); empty for the other origins.</summary>
