@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Reflection;
 using ApplicationPackagerEngine.Services;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace ApplicationPackagerUI.Services;
 
@@ -25,6 +26,9 @@ public static class IconPackStartup
                 definitionSourceDirectories: [userFolder, IconPackService.BundledDefinitionsDirectory()],
                 onlyWhenNewer: true)).ConfigureAwait(false);
             Trace.WriteLine($"Icon pack at startup: {result.Message}");
+            // A pack that was just installed or updated: the grid that is already showing looks its icons up again.
+            if (result.Installed && result.Matched > 0 && System.Windows.Application.Current is { } app)
+                await app.Dispatcher.InvokeAsync(() => App.Services.GetService<ViewModels.Pages.PackagesViewModel>()?.RefreshIcons());
         }
         catch (Exception ex)
         {

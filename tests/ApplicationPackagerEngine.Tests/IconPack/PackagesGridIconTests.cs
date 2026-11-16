@@ -48,4 +48,16 @@ public sealed class PackagesGridIconTests
             Assert.Equal(IconExtractionService.FindExternalIconPath(new AppDefinition { SourcePath = file }),
                 IconExtractionService.FindExternalIconPathForFile(file));
     }
+
+    [Fact]
+    public void RefreshIconTellsTheGridThatTheIconChanged()
+    {
+        var row = new ApplicationPackagerUI.Models.PackagerInfo();
+        var changed = new List<string>();
+        row.PropertyChanged += (_, e) => changed.Add(e.PropertyName ?? "");
+        row.RefreshIcon();
+        Assert.Contains("IconPath", changed);
+        Assert.Contains("IconUri", changed);
+        Assert.Contains("IconTooltip", changed);
+    }
 }

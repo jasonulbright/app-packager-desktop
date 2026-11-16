@@ -55,6 +55,15 @@ public partial class PackagerInfo : ObservableObject, IPackagerExecutionRequest
     /// <summary>The icon as an address for the grid image; null when there is none (an empty string cannot be an image source).</summary>
     public Uri? IconUri => IconPath.Length > 0 ? new Uri(IconPath) : null;
 
+    /// <summary>Looks the icon up again and tells the grid. Called when the icon pack was installed or updated while the grid was showing.</summary>
+    public void RefreshIcon()
+    {
+        _iconPath = null;
+        OnPropertyChanged(nameof(IconPath));
+        OnPropertyChanged(nameof(IconUri));
+        OnPropertyChanged(nameof(IconTooltip));
+    }
+
     public string IconTooltip => IconPath.Length > 0 ? "Icon from the icon pack: " + System.IO.Path.GetFileName(IconPath) : "No icon in the icon pack";
 
     /// <summary>Workbench namespace for a JSON definition: shipped/overridden catalog or user-authored custom.</summary>
