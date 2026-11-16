@@ -67,6 +67,15 @@ jobs:
         shell: pwsh
         env:
           TEST_FILTER: ${{ inputs.filter }}
+          APD_GUIDE_CAPTURE_DIR: ${{ runner.temp }}guide-images
         run: |
           if ($env:TEST_FILTER) { dotnet test tests/ApplicationPackagerEngine.Tests/ApplicationPackagerEngine.Tests.csproj --configuration Release --filter $env:TEST_FILTER }
           else { dotnet test tests/ApplicationPackagerEngine.Tests/ApplicationPackagerEngine.Tests.csproj --configuration Release }
+
+      - name: Guide images of the capture run
+        if: always()
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
+        with:
+          name: guide-images
+          path: ${{ runner.temp }}\guide-images
+          if-no-files-found: ignore

@@ -84,7 +84,7 @@ public sealed class PageHeaderRenderTests : IDisposable
     private static string TitleOf(string name) => name;
 
     /// <summary>The page and anything that the test must dispose after it.</summary>
-    private (Page Page, IDisposable? Owner) Create(string name)
+    internal (Page Page, IDisposable? Owner) Create(string name)
     {
         switch (name)
         {
@@ -160,7 +160,7 @@ public sealed class PageHeaderRenderTests : IDisposable
         });
     }
 
-    private static void With(string name, ApplicationTheme theme, Action test)
+    internal static void With(string name, ApplicationTheme theme, Action test)
     {
         if (name == "Settings") WithThemeOnly(theme, test);
         else WithApplication(theme, test);

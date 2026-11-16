@@ -4,6 +4,7 @@
 
 ### Changed
 
+- Guide images: a capture run renders the pages in both themes at the work area of a maximized 1080p window (1920 x 1032) and saves the images by guide image id; a test fails when a document shows an image that no step produces and that the pending list does not name.
 - Settings: single-line inputs are 32 px high with widths by field type (site code 120, host and server 360, database 320, paths 560, secrets and identifiers 360); the page title and its icon are 14 pt, as the button text, on every page.
 - Density: the rows of every grid and list are 28 to 32 px high at 14 pt (they were about 43 px), from one shared style; the design basis is a maximized window on a 1080p display. Tests check the row height and ten whole rows at 1920 x 1032.
 - Buttons: one compact size for every button of the app, 32 px high at 14 pt (12 px left and right, 4 px above and below; the buttons were about 40 px high).
