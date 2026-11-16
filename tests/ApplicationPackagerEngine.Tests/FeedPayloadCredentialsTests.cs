@@ -75,6 +75,27 @@ public sealed class FeedPayloadCredentialsTests
         Assert.Contains("no address", FeedPayloadCredentials.Next(start, 302, "", credential, 0).Error);
         Assert.Contains("no answer", FeedPayloadCredentials.Next(start, 0, null, credential, 0, exitCode: 6).Error);
     }
+
+    [Fact]
+    public void ARequestOfAnImportedDefinitionToACredentialedHostRunsWithoutLocationAndWithTheSecretOnStandardInput()
+    {
+        var previous = FeedPayloadCredentials.Provider;
+        try
+        {
+            var entry = new FeedCredentialEntry("feed-a", "127.0.0.1", 1, FeedAuthMethod.HeaderKey, "X-License-Key", null);
+            FeedPayloadCredentials.Provider = _ => new FeedCredential(entry, Secret);
+            using var scope = ImportedRunScope.Enter();
+
+            using var process = CurlProcess.Start(["-L", "--silent", "--max-time", "5"], "https://127.0.0.1:1/page");
+
+            var arguments = process.StartInfo.ArgumentList.ToList();
+            Assert.DoesNotContain("-L", arguments);
+            Assert.Contains("-K", arguments);
+            Assert.DoesNotContain(arguments, a => a.Contains(Secret));
+            try { process.Kill(true); } catch (InvalidOperationException) { }
+        }
+        finally { FeedPayloadCredentials.Provider = previous; }
+    }
     [Fact]
     public void OnlyAKeyOrBasicEntryOnTheExactBoundHostIsUsedForAPayload()
     {
