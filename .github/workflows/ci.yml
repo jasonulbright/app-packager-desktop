@@ -4,6 +4,11 @@ on:
   push:
     branches:
       - main
+    # A push that changes only documentation or images skips the long build and test job.
+    # Code, tests, tools and workflow changes still run it. A release commit changes the version, so it always runs.
+    paths-ignore:
+      - 'docs/images/**'
+      - '**.md'
   workflow_dispatch:
     inputs:
       filter:
