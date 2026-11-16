@@ -19,7 +19,8 @@
             BorderThickness="1" CornerRadius="8" Padding="12,8">
         <Grid>
             <Grid.RowDefinitions>
-                <RowDefinition Height="Auto" />
+                <!-- One line is as high as a button (32 px), so the title sits at the same place with or without actions. -->
+                <RowDefinition Height="Auto" MinHeight="32" />
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
@@ -31,7 +32,7 @@
 
             <ui:SymbolIcon x:Name="IconHost" Grid.Row="0" Grid.Column="0"
                            Symbol="{Binding Icon, ElementName=Root}"
-                           FontSize="28" Margin="0,0,12,0" VerticalAlignment="Center"
+                           FontSize="14" Margin="0,0,8,0" VerticalAlignment="Center"
                            Foreground="{DynamicResource AccentFillColorDefaultBrush}" />
 
             <TextBlock x:Name="TitleText" Grid.Row="0" Grid.Column="1"

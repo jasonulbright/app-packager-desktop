@@ -23,13 +23,13 @@
         </Style>
         <!-- One size for every input of Options: the same minimum height for a text box, a password box and a drop-down list. -->
         <Style TargetType="ui:TextBox" BasedOn="{StaticResource {x:Type ui:TextBox}}">
-            <Setter Property="MinHeight" Value="40" />
+            <Setter Property="MinHeight" Value="32" />
         </Style>
         <Style TargetType="ui:PasswordBox" BasedOn="{StaticResource {x:Type ui:PasswordBox}}">
-            <Setter Property="MinHeight" Value="40" />
+            <Setter Property="MinHeight" Value="32" />
         </Style>
         <Style TargetType="ComboBox" BasedOn="{StaticResource {x:Type ComboBox}}">
-            <Setter Property="MinHeight" Value="40" />
+            <Setter Property="MinHeight" Value="32" />
         </Style>
         <Style x:Key="SectionDivider" TargetType="Border">
             <Setter Property="BorderThickness" Value="0,0,0,1" />
@@ -130,7 +130,7 @@
             <TextBlock Text="Organization" Style="{StaticResource SectionHeader}" />
 
             <TextBlock Text="Company Name" Style="{StaticResource FieldLabel}" />
-            <ui:TextBox Text="{Binding CompanyName, UpdateSourceTrigger=PropertyChanged}"
+            <ui:TextBox Width="360" HorizontalAlignment="Left" Text="{Binding CompanyName, UpdateSourceTrigger=PropertyChanged}"
                         PlaceholderText="Contoso, Ltd." Margin="0,0,0,8" />
 
             <Border Style="{StaticResource SectionDivider}" />
@@ -161,14 +161,14 @@
                         Margin="0,0,0,12" />
 
             <TextBlock Text="Site Server / SMS Provider Host" Style="{StaticResource FieldLabel}" />
-            <ui:TextBox Text="{Binding ProviderMachine, UpdateSourceTrigger=PropertyChanged}"
+            <ui:TextBox Width="360" HorizontalAlignment="Left" Text="{Binding ProviderMachine, UpdateSourceTrigger=PropertyChanged}"
                         PlaceholderText="cm01.contoso.com" Margin="0,0,0,4"
                         ToolTip="Host the generated CMSite drive connects to. Leave empty to use the local machine, which only reaches the site when this machine is itself the SMS provider." />
             <TextBlock Text="Leave empty only when this machine is the SMS provider."
                        Foreground="{DynamicResource TextFillColorTertiaryBrush}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,12" />
 
             <TextBlock Text="Discovery SQL Server" Style="{StaticResource FieldLabel}" />
-            <ui:TextBox Text="{Binding Discovery.SqlServer, UpdateSourceTrigger=PropertyChanged}"
+            <ui:TextBox Width="360" HorizontalAlignment="Left" Text="{Binding Discovery.SqlServer, UpdateSourceTrigger=PropertyChanged}"
                         PlaceholderText="Server of the site" MaxLength="200" Margin="0,0,0,4"
                         AutomationProperties.AutomationId="txtDiscoverySqlServer"
                         ToolTip="SQL Server instance of the ConfigMgr site database for Discover unmanaged software, for example cm01.contoso.com or server\instance. Windows authentication only." />
@@ -176,8 +176,8 @@
                        Foreground="{DynamicResource TextFillColorTertiaryBrush}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,12" />
 
             <TextBlock Text="Discovery Database" Style="{StaticResource FieldLabel}" />
-            <ui:TextBox Text="{Binding Discovery.SqlDatabase, UpdateSourceTrigger=PropertyChanged}"
-                        PlaceholderText="CM_ and the site code" MaxLength="128" Width="240" HorizontalAlignment="Left" Margin="0,0,0,4"
+            <ui:TextBox Width="320" HorizontalAlignment="Left" Text="{Binding Discovery.SqlDatabase, UpdateSourceTrigger=PropertyChanged}"
+                        PlaceholderText="CM_ and the site code" MaxLength="128" Margin="0,0,0,4"
                         AutomationProperties.AutomationId="txtDiscoverySqlDatabase"
                         ToolTip="Name of the ConfigMgr site database, for example CM_MCM. The account needs db_datareader on this database." />
             <TextBlock Text="Leave empty to use the database of the site."
@@ -195,7 +195,7 @@
             </StackPanel>
 
             <TextBlock Text="File Share Root (UNC)" Style="{StaticResource FieldLabel}" />
-            <ui:TextBox Text="{Binding FileShareRoot, UpdateSourceTrigger=PropertyChanged}"
+            <ui:TextBox ToolTip="{Binding FileShareRoot}" Width="560" HorizontalAlignment="Left" Text="{Binding FileShareRoot, UpdateSourceTrigger=PropertyChanged}"
                         PlaceholderText="\\fileserver\sccm$" Margin="0,0,0,12" />
 
             <TextBlock Text="Content Layout" Style="{StaticResource FieldLabel}" />
@@ -208,7 +208,7 @@
             </ComboBox>
 
             <TextBlock Text="Download Root (local staging)" Style="{StaticResource FieldLabel}" />
-            <DockPanel Margin="0,0,0,12">
+            <DockPanel Margin="0,0,0,12" Width="560" HorizontalAlignment="Left">
                 <ui:Button DockPanel.Dock="Right" Content="Browse"
                            Command="{Binding BrowseDownloadRootCommand}" Margin="8,0,0,0" />
                 <ui:TextBox Text="{Binding DownloadRoot, UpdateSourceTrigger=PropertyChanged}" ToolTip="{Binding DownloadRoot}"
@@ -216,10 +216,10 @@
             </DockPanel>
 
             <TextBlock Text="Packagers Folder (leave empty for auto-detect)" Style="{StaticResource FieldLabel}" />
-            <DockPanel Margin="0,0,0,8">
+            <DockPanel Margin="0,0,0,8" Width="560" HorizontalAlignment="Left">
                 <ui:Button DockPanel.Dock="Right" Content="Browse"
                            Command="{Binding BrowsePackagersRootCommand}" Margin="8,0,0,0" />
-                <ui:TextBox Text="{Binding PackagersRoot, UpdateSourceTrigger=PropertyChanged}"
+                <ui:TextBox ToolTip="{Binding PackagersRoot}" Text="{Binding PackagersRoot, UpdateSourceTrigger=PropertyChanged}"
                             PlaceholderText="Auto-detect" />
             </DockPanel>
 
@@ -431,7 +431,7 @@
             </DockPanel>
 
             <TextBlock Text="GitHub token" Style="{StaticResource FieldLabel}" />
-            <ui:PasswordBox Password="{Binding GitHubToken, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+            <ui:PasswordBox Width="360" HorizontalAlignment="Left" Password="{Binding GitHubToken, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                             PlaceholderText="{Binding GitHubTokenHint}" Margin="0,0,0,4"
                             AutomationProperties.AutomationId="pwdGitHubToken" />
             <TextBlock Text="Stored encrypted for the current Windows user. Leave empty to keep the saved token. The two environment variables are used first, then this token, then gh auth login."
@@ -450,11 +450,11 @@
                        Foreground="{DynamicResource TextFillColorTertiaryBrush}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,12" />
 
             <TextBlock Text="Tenant ID" Style="{StaticResource FieldLabel}" />
-            <ui:TextBox Text="{Binding IntuneTenantId, UpdateSourceTrigger=PropertyChanged}"
+            <ui:TextBox Width="360" HorizontalAlignment="Left" Text="{Binding IntuneTenantId, UpdateSourceTrigger=PropertyChanged}"
                         PlaceholderText="contoso.onmicrosoft.com or a GUID" Margin="0,0,0,12" />
 
             <TextBlock Text="Client ID" Style="{StaticResource FieldLabel}" />
-            <ui:TextBox Text="{Binding IntuneClientId, UpdateSourceTrigger=PropertyChanged}"
+            <ui:TextBox Width="360" HorizontalAlignment="Left" Text="{Binding IntuneClientId, UpdateSourceTrigger=PropertyChanged}"
                         PlaceholderText="App registration (client) ID" Margin="0,0,0,12" />
 
             <TextBlock Text="Minimum Windows release" Style="{StaticResource FieldLabel}" />
@@ -467,7 +467,7 @@
                        Foreground="{DynamicResource TextFillColorTertiaryBrush}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,12" />
 
             <TextBlock Text="Client Secret" Style="{StaticResource FieldLabel}" />
-            <ui:PasswordBox Password="{Binding IntuneClientSecret, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+            <ui:PasswordBox Width="360" HorizontalAlignment="Left" Password="{Binding IntuneClientSecret, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                             PlaceholderText="{Binding IntuneSecretHint}" Margin="0,0,0,4" />
             <TextBlock Text="Stored encrypted for the current Windows user. Leave empty to keep the saved secret."
                        Foreground="{DynamicResource TextFillColorTertiaryBrush}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,8" />
@@ -506,7 +506,7 @@
             <TextBlock Text="Check CVEs asks the NIST NVD API for the CVEs between the ConfigMgr version and the latest version of each application. Without a key NVD allows 5 requests in 30 seconds; with a key it allows 50."
                        Foreground="{DynamicResource TextFillColorTertiaryBrush}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,12" />
             <TextBlock Text="NVD API key" Style="{StaticResource FieldLabel}" />
-            <ui:PasswordBox Password="{Binding NvdApiKey, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+            <ui:PasswordBox Width="360" HorizontalAlignment="Left" Password="{Binding NvdApiKey, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                             PlaceholderText="{Binding NvdApiKeyHint}" Margin="0,0,0,4"
                             AutomationProperties.AutomationId="pwdNvdApiKey" />
             <TextBlock Text="Stored encrypted for the current Windows user. Leave empty to keep the saved key. Without a saved key the NVD_API_KEY environment variable is used."
@@ -529,7 +529,7 @@
 
             <TextBlock Text="Server" Style="{StaticResource SubHeader}" />
             <TextBlock Text="WSUS server" Style="{StaticResource FieldLabel}" />
-            <ui:TextBox Text="{Binding Wsus.ServerName, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="wsus01.contoso.com" Margin="0,0,0,12"
+            <ui:TextBox Width="360" HorizontalAlignment="Left" Text="{Binding Wsus.ServerName, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="wsus01.contoso.com" Margin="0,0,0,12"
                         AutomationProperties.Name="WSUS server" AutomationProperties.AutomationId="txtWsusServer"
                         ToolTip="Host name of the WSUS server. With ConfigMgr, the WSUS server of the top-level software update point." />
             <TextBlock Text="Port" Style="{StaticResource FieldLabel}" />
@@ -631,7 +631,7 @@
                        FontSize="12" TextWrapping="Wrap" Margin="0,0,0,12" />
 
             <TextBlock Text="Timestamp server" Style="{StaticResource FieldLabel}" />
-            <ui:TextBox Text="{Binding Signing.TimestampServer, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="none"
+            <ui:TextBox Width="360" HorizontalAlignment="Left" Text="{Binding Signing.TimestampServer, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="none"
                         AutomationProperties.Name="Timestamp server" AutomationProperties.AutomationId="SigningTimestamp" Margin="0,0,0,4"
                         ToolTip="A timestamped signature stays valid after the certificate expires. A signature that exists is not the same as a verified timestamp." />
             <CheckBox Content="Timestamp required" IsChecked="{Binding Signing.TimestampRequired}" Margin="0,0,0,12"
