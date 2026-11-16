@@ -1,3 +1,4 @@
+using ApplicationPackagerEngine.Services.VendorImport;
 using System.Diagnostics;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -163,6 +164,7 @@ public class HttpRegexScraper : IVersionScraper
             .Where(m => m.Groups.Count > 1)
             .Select(m => m.Groups[1].Value)
             .Distinct(StringComparer.Ordinal)
+            .Where(c => !ImportedRunScope.Active || Services.VendorImport.CapturedValueRules.IsShortVersion(c))
             .ToList();
         if (candidates.Count == 0) return null;
 
@@ -220,7 +222,7 @@ public class HttpRegexScraper : IVersionScraper
         var stdout = await stdoutTask;
         GitHubRateLimit.ThrowIfRefused(url, headerFile, stdout);
         if (process.ExitCode != 0 && nameFailure)
-            throw new InvalidOperationException($"Failed to fetch {url} (curl exit {process.ExitCode}).");
+            throw new InvalidOperationException($"Failed to fetch {SecretRedactor.WithoutQueries(url)} (curl exit {process.ExitCode}).");
         return process.ExitCode == 0 && !string.IsNullOrWhiteSpace(stdout) ? stdout : null;
     }
 

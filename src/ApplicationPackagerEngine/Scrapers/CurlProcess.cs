@@ -1,5 +1,7 @@
 using System.Diagnostics;
 
+using ApplicationPackagerEngine.Services.VendorImport;
+
 namespace ApplicationPackagerEngine.Scrapers;
 
 /// <summary>
@@ -49,6 +51,8 @@ public static class CurlProcess
             UseShellExecute = false,
             CreateNoWindow = true
         };
+        // The curl config files of the user (_curlrc) can carry a credential: an imported definition reads none (-q must be the first argument).
+        if (ImportedRunScope.Active) startInfo.ArgumentList.Add("-q");
         foreach (var option in options) startInfo.ArgumentList.Add(option);
         // A request that an imported definition causes cannot be downgraded to HTTP by a redirect after the static check of its address.
         if (ImportedRunScope.Active)
@@ -80,17 +84,17 @@ public static class CurlProcess
         if (string.IsNullOrEmpty(url))
             throw new InvalidOperationException("Refused download URL: the URL is empty.");
         if (url.EndsWith('\\'))
-            throw new InvalidOperationException($"Refused download URL '{Printable(url)}': it ends with a backslash.");
+            throw new InvalidOperationException($"Refused download URL '{SecretRedactor.WithoutQueries(Printable(url))}': it ends with a backslash.");
         foreach (var c in url)
         {
             if (c == '"' || char.IsWhiteSpace(c) || char.IsControl(c))
                 throw new InvalidOperationException(
-                    $"Refused download URL '{Printable(url)}': it contains a double quote, whitespace or a control character.");
+                    $"Refused download URL '{SecretRedactor.WithoutQueries(Printable(url))}': it contains a double quote, whitespace or a control character.");
         }
         if (!Uri.TryCreate(url, UriKind.Absolute, out var uri)
             || (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps)
             || !url.StartsWith(uri.Scheme + "://", StringComparison.OrdinalIgnoreCase))
-            throw new InvalidOperationException($"Refused download URL '{Printable(url)}': it is not an absolute http or https URL.");
+            throw new InvalidOperationException($"Refused download URL '{SecretRedactor.WithoutQueries(Printable(url))}': it is not an absolute http or https URL.");
     }
 
     private static string Printable(string value) =>

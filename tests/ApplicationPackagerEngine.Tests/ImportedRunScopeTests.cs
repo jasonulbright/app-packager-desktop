@@ -72,6 +72,30 @@ public sealed class ImportedRunScopeTests
         }
     }
 
+
+    [Fact]
+    public void CurlOfAnImportedDefinitionReadsNoConfigFile()
+    {
+        using (ImportedRunScope.EnterFor(Imported()))
+            Assert.Equal("-q", CurlProcess.BuildStartInfo(["--silent"], "https://contoso.example/a", false).ArgumentList[0]);
+        Assert.NotEqual("-q", CurlProcess.BuildStartInfo(["--silent"], "https://contoso.example/a", false).ArgumentList[0]);
+    }
+
+    [Fact]
+    public void AHopOfAnImportedDefinitionCannotLeaveItsHostWithAValueThatIsNotAShortVersion()
+    {
+        var guard = typeof(ChainedHttpRegexScraper).GetMethod("GuardCrossHost", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)!;
+        void Run(string template, string url, bool relative, string? current, string[] captures, string[] hosts, string? version = null, string? versionHost = null)
+        {
+            try { guard.Invoke(null, [template, url, relative, current, captures, hosts, version, versionHost]); }
+            catch (System.Reflection.TargetInvocationException ex) { throw ex.InnerException!; }
+        }
+
+        Assert.Throws<InvalidOperationException>(() => Run("{capture}/p", "https://evil.example/p", true, "https://vendor.example/a", ["//evil.example"], ["vendor.example"]));
+        Assert.Throws<InvalidOperationException>(() => Run("https://evil.example/?d={capture0}", "https://evil.example/?d=secret", false, "https://intranet.example/x", ["secret"], ["intranet.example"]));
+        Run("https://evil.example/?d={capture0}", "https://evil.example/?d=1.2.3", false, "https://intranet.example/x", ["1.2.3"], ["intranet.example"]);
+        Run("{capture}/page.html", "https://vendor.example/p/page.html", true, "https://vendor.example/a", ["/p"], ["vendor.example"]);
+    }
     [Fact]
     public void NoAddressInAMessageKeepsItsQuery()
     {

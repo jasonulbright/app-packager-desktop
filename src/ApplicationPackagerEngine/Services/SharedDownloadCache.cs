@@ -1,3 +1,4 @@
+using ApplicationPackagerEngine.Services.VendorImport;
 using System.Security.Cryptography;
 using System.Text;
 using ApplicationPackagerEngine.Scrapers;
@@ -52,7 +53,7 @@ public static class SharedDownloadCache
 
         if (!File.Exists(cached) || new FileInfo(cached).Length == 0)
         {
-            onProgress?.Invoke($"Downloading                  : {url}");
+            onProgress?.Invoke($"Downloading                  : {SecretRedactor.WithoutQueries(url)}");
             await downloads.DownloadAsync(url, cached, onProgress: onProgress, ct: ct, headers: headers, extraArguments: ["-R"], maxBytes: maxBytes);
         }
         else
@@ -115,7 +116,7 @@ public static class SharedDownloadCache
         var fresh = $"{cached}.{Guid.NewGuid():N}.refetch";
         try
         {
-            onProgress?.Invoke($"Downloading                  : {url}");
+            onProgress?.Invoke($"Downloading                  : {SecretRedactor.WithoutQueries(url)}");
             await downloads.DownloadAsync(url, fresh, onProgress: onProgress, ct: ct, headers: headers, extraArguments: ["-R"]);
             CopyWithTimestamp(fresh, outFile);
             verify(outFile);

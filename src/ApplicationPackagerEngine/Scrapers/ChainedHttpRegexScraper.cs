@@ -42,6 +42,8 @@ public sealed class ChainedHttpRegexScraper : HttpRegexScraper
         string? version = null;
         string? downloadUrl = null;
         string? currentUrl = null;
+        var captureHosts = new List<string>();
+        string? versionHost = null;
 
         for (var i = 0; i < config.Hops.Count; i++)
         {
@@ -52,8 +54,10 @@ public sealed class ChainedHttpRegexScraper : HttpRegexScraper
             if (string.IsNullOrWhiteSpace(template)) return (null, null);
 
             var url = Substitute(template, captures, version);
+            var relativeTemplate = !template.Contains("://", StringComparison.Ordinal);
             url = ResolveUrl(currentUrl, url);
             if (url is null) return (null, null);
+            if (ImportedRunScope.Active) GuardCrossHost(template, url, relativeTemplate, currentUrl, captures, captureHosts, version, versionHost);
 
             var content = await FetchViaIwrAsync(url, ct, ua, headers);
             if (content is null) return (null, null);
@@ -62,16 +66,40 @@ public sealed class ChainedHttpRegexScraper : HttpRegexScraper
             if (match is null) return (null, null);
 
             currentUrl = url;
+            captureHosts.Add(HostOf(url) ?? "");
             captures.Add(GroupValue(match, "capture") ?? (match.Groups.Count > 1 ? match.Groups[1].Value : ""));
 
             var hopVersion = GroupValue(match, "version");
-            if (hopVersion is not null) version = hopVersion;
+            if (hopVersion is not null) { version = hopVersion; versionHost = HostOf(url); }
 
             var hopUrl = GroupValue(match, "url");
             if (hopUrl is not null) downloadUrl = ResolveUrl(url, WebUtilityDecode(hopUrl));
         }
 
         return (version, downloadUrl);
+    }
+
+    private static string? HostOf(string url) => Uri.TryCreate(url, UriKind.Absolute, out var uri) ? uri.Host : null;
+
+    /// <summary>
+    /// A hop of an imported definition: a value that was read from one host goes into a request to another host only as a short version, and a
+    /// relative hop stays on the host of the hop before it ("Imported definitions run with no ambient credentials", rule 2; "Validation", rules 7 and 8).
+    /// </summary>
+    private static void GuardCrossHost(string template, string url, bool relativeTemplate, string? currentUrl, IReadOnlyList<string> captures,
+        IReadOnlyList<string> captureHosts, string? version, string? versionHost)
+    {
+        var host = HostOf(url) ?? "";
+        if (relativeTemplate && currentUrl is not null && !host.Equals(HostOf(currentUrl) ?? "", StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException("A relative hop of this definition leaves the host of the hop before it. The request is refused.");
+        void Check(string value, string? origin, string name)
+        {
+            if (origin is not null && !origin.Equals(host, StringComparison.OrdinalIgnoreCase) && !Services.VendorImport.CapturedValueRules.IsShortVersion(value))
+                throw new InvalidOperationException($"The value {name} was read from {origin} and goes into a request to {host}, and it is not a short version. The request is refused.");
+        }
+        for (var i = 0; i < captures.Count; i++)
+            if (template.Contains($"{{capture{i}}}", StringComparison.OrdinalIgnoreCase)) Check(captures[i], captureHosts[i], $"{{capture{i}}}");
+        if (captures.Count > 0 && template.Contains("{capture}", StringComparison.OrdinalIgnoreCase)) Check(captures[^1], captureHosts[^1], "{capture}");
+        if (version is not null && template.Contains("{version}", StringComparison.OrdinalIgnoreCase)) Check(version, versionHost, "{version}");
     }
 
     private static Match? SelectMatch(string content, ScraperHop hop)

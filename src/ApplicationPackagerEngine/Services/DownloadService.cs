@@ -92,7 +92,7 @@ public sealed class DownloadService
             }
         }
 
-        throw new InvalidOperationException($"Download failed after {maxAttempts} attempts: {SecretRedactor.WithoutQueries(url)}");
+        throw new InvalidOperationException($"Download failed after {maxAttempts} attempts: {SecretRedactor.Redact(SecretRedactor.WithoutQueries(url))}");
     }
 
     /// <summary>The curl exit code for a transfer above --max-filesize.</summary>

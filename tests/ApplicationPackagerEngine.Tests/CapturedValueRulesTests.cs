@@ -55,6 +55,38 @@ public sealed class CapturedValueRulesTests
         Assert.False(CapturedValueRules.VersionCrossesHosts(sameHost));
     }
 
+
+    [Fact]
+    public void AHostThatAnEarlierHopAlreadyUsedDoesNotMakeACaptureFromAnotherHostSafe()
+    {
+        var d = Def("https://evil.example/a", "https://evil.example/agent.msi");
+        d.VersionScraper.Hops =
+        [
+            new ScraperHop { Url = "https://evil.example/a", Pattern = "(.*)" },
+            new ScraperHop { Url = "https://intranet.example/x", Pattern = "(.*)" },
+            new ScraperHop { Url = "https://evil.example/?d={capture1}", Pattern = "(.*)" }
+        ];
+
+        Assert.Contains(CapturedValueRules.CrossHostCaptures(d), c => c.Field == "VersionScraper.Hops[2].Url" && c.Placeholder == "{capture1}");
+    }
+
+    [Fact]
+    public void TheVersionFamilyIsCheckedWhenTheDefinitionRunsAndNotBlockedAtImport()
+    {
+        var d = Def("https://api.github.com/repos/contoso/agent/releases/latest", "https://github.com/contoso/agent/releases/download/v{display_version_dashed}/agent.msi");
+
+        Assert.Empty(CapturedValueRules.CrossHostCaptures(d));
+        Assert.Null(CapturedValueRules.RuntimeRefusal(d, "v1.2.3", "1.2.3"));
+        Assert.NotNull(CapturedValueRules.RuntimeRefusal(d, "v1.2.3", "http://evil.example/x"));
+    }
+
+    [Fact]
+    public void AnUnknownVersionSourceCountsAsAnotherHost()
+    {
+        var d = Def("", "https://downloads.example/{capture1}/agent.msi");
+
+        Assert.NotEmpty(CapturedValueRules.CrossHostCaptures(d));
+    }
     [Fact]
     public void ADefinitionThatPutsACaptureOnAnotherHostIsBlockedAndTheOtherDefinitionsImport()
     {

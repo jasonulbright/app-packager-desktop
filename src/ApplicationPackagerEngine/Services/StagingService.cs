@@ -357,9 +357,9 @@ public sealed class StagingService
 
             // A version read from one host goes into an address on another host only as a short version: what a first request read must not steer the
             // second request of an imported definition to another place.
-            if (def.SourceOrigin == Models.Workbench.ApplicationOrigin.Imported && savedInstaller is null && CapturedValueRules.VersionCrossesHosts(def)
-                && (!CapturedValueRules.IsShortVersion(rawVersion) || !CapturedValueRules.IsShortVersion(version)))
-                return new StagingResult { Success = false, ErrorMessage = "The version that the vendor page returned is not a short version (digits, dots and a short suffix), and this definition puts it into an address on another host. The stage is refused." };
+            if (def.SourceOrigin == Models.Workbench.ApplicationOrigin.Imported && savedInstaller is null
+                && CapturedValueRules.RuntimeRefusal(def, rawVersion, version) is { } refused)
+                return new StagingResult { Success = false, ErrorMessage = $"The value {refused} that the vendor page returned is not a short version (digits, dots and a short suffix), and this definition puts it into an address on another host. The stage is refused." };
 
             // version stays the transformed value the download URL substitutes; displayVersion
             // names the folder and the detection and is the version the operator sees.
@@ -1029,7 +1029,7 @@ public sealed class StagingService
                 Requirements = [new StageRequirement { ConditionId = "cpu-arch", Value = definition.Architecture }]
             }
         };
-        onProgress?.Invoke($"Optional architecture payload  : {downloadUrl}");
+        onProgress?.Invoke($"Optional architecture payload  : {SecretRedactor.WithoutQueries(downloadUrl)}");
         return [.. result];
     }
 
@@ -1543,7 +1543,7 @@ public sealed class StagingService
         var url = def.PayloadSha256Url!
             .Replace("{download_url}", downloadUrl, StringComparison.OrdinalIgnoreCase)
             .Replace("{version}", rawVersion, StringComparison.OrdinalIgnoreCase);
-        onProgress?.Invoke($"Checksum file                : {url}");
+        onProgress?.Invoke($"Checksum file                : {SecretRedactor.WithoutQueries(url)}");
 
         using var process = Scrapers.CurlProcess.Start(
             ["-L", "--fail", "--silent", "--show-error", "--max-time", "60", .. Scrapers.CurlHeaders.Arguments(def.VersionScraper.RequestHeaders)], url);
@@ -1552,10 +1552,10 @@ public sealed class StagingService
         await process.WaitForExitAsync(ct);
         var content = await stdout;
         if (process.ExitCode != 0)
-            throw new InvalidOperationException($"Failed to download checksum file: {url} ({(await stderr).Trim()})");
+            throw new InvalidOperationException($"Failed to download checksum file: {SecretRedactor.WithoutQueries(url)} ({SecretRedactor.Redact(SecretRedactor.WithoutQueries((await stderr).Trim()))})");
 
         return ParseChecksumFile(content, installerFileName)
-            ?? throw new InvalidOperationException($"Checksum file names no hash for {installerFileName}: {url}");
+            ?? throw new InvalidOperationException($"Checksum file names no hash for {installerFileName}: {SecretRedactor.WithoutQueries(url)}");
     }
 
     /// <summary>
