@@ -1,3 +1,4 @@
+using ApplicationPackagerEngine.Services.VendorImport;
 using ApplicationPackagerEngine.Scrapers;
 
 namespace ApplicationPackagerEngine.Services;
@@ -79,7 +80,7 @@ public sealed class DownloadService
 
                 if (attempt < maxAttempts)
                 {
-                    onProgress?.Invoke($"Download failed (attempt {attempt}): {stderr.Trim()}. Retrying in {retryDelaySec}s...");
+                    onProgress?.Invoke($"Download failed (attempt {attempt}): {SecretRedactor.Redact(SecretRedactor.WithoutQueries(stderr.Trim()))}. Retrying in {retryDelaySec}s...");
                     await Task.Delay(TimeSpan.FromSeconds(retryDelaySec), ct);
                 }
             }
@@ -91,7 +92,7 @@ public sealed class DownloadService
             }
         }
 
-        throw new InvalidOperationException($"Download failed after {maxAttempts} attempts: {url}");
+        throw new InvalidOperationException($"Download failed after {maxAttempts} attempts: {SecretRedactor.Redact(SecretRedactor.WithoutQueries(url))}");
     }
 
     /// <summary>The curl exit code for a transfer above --max-filesize.</summary>
