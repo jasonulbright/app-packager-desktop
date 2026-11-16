@@ -3,18 +3,23 @@ using ApplicationPackagerEngine.Services;
 namespace ApplicationPackagerEngine.Tests.IconPack;
 
 /// <summary>
-/// The icon pack (jasonulbright/app-packager-icons, manifest of v2026.11.16.0010 kept in pack-manifest.json) against the
+/// The icon pack (jasonulbright/app-packager-icons, manifest of v2026.11.16.0011 kept in pack-manifest.json) against the
 /// shipped definitions. A definition with no icon in the pack fails the test unless it is on the named list below; the list
 /// shrinks when a new pack release adds the icons (copy its manifest.json over pack-manifest.json).
 /// </summary>
 public sealed class IconPackCoverageTests
 {
-    /// <summary>Shipped definitions that the pack v2026.11.16.0010 has no icon for. Part B of the icon work adds them to the pack.</summary>
-    private static readonly string[] WithoutIcon =
-    [
-        "anypointstudio", "filezilla", "foxitreader", "vmwaretools", "vs2026", "vs2026community", "wiztree"
-    ];
-
+    /// <summary>
+    /// Shipped definitions that the pack v2026.11.16.0011 has no icon for, with the reason for each. A generic installer icon is not shipped
+    /// instead of the product icon.
+    /// </summary>
+    private static readonly Dictionary<string, string> WithoutIcon = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["anypointstudio"] = "The vendor site refuses an automated download (HTTP 403 for the manifest), so the archive with the product icon cannot be fetched by a script.",
+        ["vs2026"] = "The bootstrapper carries only the installer icon (a download arrow), not the Visual Studio product icon.",
+        ["vs2026community"] = "The bootstrapper carries only the installer icon (a download arrow), not the Visual Studio product icon.",
+        ["vmwaretools"] = "The installer carries only the generic Windows installer icon, not a VMware icon."
+    };
     private static string[] ShippedBaseNames() =>
         Directory.GetFiles(Path.Combine(AppContext.BaseDirectory, "Definitions"), "*.json")
             .Select(Path.GetFileNameWithoutExtension).Order(StringComparer.OrdinalIgnoreCase).ToArray()!;
@@ -36,8 +41,8 @@ public sealed class IconPackCoverageTests
             .Select(m => m.DefinitionBaseName).ToHashSet(StringComparer.OrdinalIgnoreCase);
         var missing = names.Where(n => !covered.Contains(n)).ToArray();
 
-        var unexpected = missing.Except(WithoutIcon, StringComparer.OrdinalIgnoreCase).ToArray();
-        var fixedNow = WithoutIcon.Except(missing, StringComparer.OrdinalIgnoreCase).ToArray();
+        var unexpected = missing.Except(WithoutIcon.Keys, StringComparer.OrdinalIgnoreCase).ToArray();
+        var fixedNow = WithoutIcon.Keys.Except(missing, StringComparer.OrdinalIgnoreCase).ToArray();
         Assert.True(unexpected.Length == 0, "No icon in the pack, and not on the list: " + string.Join(", ", unexpected));
         Assert.True(fixedNow.Length == 0, "On the list but the pack has an icon now (remove from the list): " + string.Join(", ", fixedNow));
     }
