@@ -6,7 +6,7 @@ namespace ApplicationPackagerEngine.Tests.GuideImages;
 /// <summary>Every guide image that a document shows is produced by a capture step or listed as pending, and the pending list only shrinks (decision D-21).</summary>
 public sealed class GuideImageCoverageTests
 {
-    private static readonly Regex Reference = new(@"images/([A-Za-z0-9._-]+)\.png", RegexOptions.Compiled);
+    private static readonly Regex Reference = new(@"!\[[^\]]*\]\((?:[^)]*/)?images/([A-Za-z0-9._-]+)\.png\)", RegexOptions.Compiled);
 
     private static string Root => CatalogServiceTests.RepositoryRoot();
 
