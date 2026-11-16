@@ -32,5 +32,27 @@ public static class GuideCaptureSteps
         ["tools-site-hygiene-summary"] = "Site Hygiene",
     };
 
-    public static IEnumerable<string> Ids => PageOfImage.Keys;
+    /// <summary>
+    /// Guide image id to the page that the lab capture run saves (tools\guide-capture\Capture-ApdPages.ps1): the real app, maximized on the
+    /// work area of CLIENT01, in both themes. These are the images that docs\images holds, taken from the light theme.
+    /// </summary>
+    public static readonly IReadOnlyDictionary<string, string> LabPageOfImage = new Dictionary<string, string>(StringComparer.Ordinal)
+    {
+        ["core-packages-list"] = "app-packager",
+        ["packages"] = "app-packager",
+        ["start-sidebar-default"] = "app-packager",
+        ["core-add-app-step1"] = "add-from-web",
+        ["core-add-file-pick"] = "add-from-file",
+        ["core-settings-top"] = "settings",
+        ["core-workbench-application"] = "workbench",
+        ["tools-installer-analysis-overview"] = "installer-analysis",
+        ["tools-deployment-helper-deploy"] = "deployment-helper",
+        ["tools-pivots-pivot"] = "pivots-and-scripts",
+        ["tools-maintenance-windows-list"] = "maintenance-windows",
+        ["tools-dp-content-dps"] = "dp-content-manager",
+        ["tools-site-hygiene-summary"] = "site-hygiene",
+    };
+
+    /// <summary>Every image that a check run produces: the lab capture run, and the render of the pages in the tests.</summary>
+    public static IEnumerable<string> Ids => LabPageOfImage.Keys.Union(PageOfImage.Keys);
 }

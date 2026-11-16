@@ -39,7 +39,6 @@ core-settings-wsus
 core-stage-result-log
 core-update-available
 core-update-ready
-core-workbench-application
 core-workbench-bundle-menu
 core-workbench-detection
 core-workbench-install
@@ -53,7 +52,6 @@ start-first-package-end-to-end
 start-setup-connection
 start-setup-systems
 start-sidebar-context-menu
-start-sidebar-default
 tools-collections-editor
 tools-collections-list
 tools-collections-remove-plan
