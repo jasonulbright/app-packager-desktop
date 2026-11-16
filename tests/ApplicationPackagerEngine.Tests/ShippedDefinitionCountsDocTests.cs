@@ -68,7 +68,7 @@ public sealed class ShippedDefinitionCountsDocTests
         Assert.Contains($"These counts come from the {total} files.", Definitions_md);
         Assert.Contains($"holds {total} definition files", ShippedContent_md);
         Assert.Equal(total.ToString(), Row(ShippedContent_md, "Application definitions")[1]);
-        Assert.Contains($"The catalog has {total} application definitions.", File.ReadAllText(RepoFile("README.md")));
+        Assert.Contains($"The catalog has {total} application definitions", File.ReadAllText(RepoFile("README.md")));
     }
 
     [Fact]
