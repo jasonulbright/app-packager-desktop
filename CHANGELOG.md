@@ -23,6 +23,7 @@
 - Import From URL: an imported definition runs with no ambient credential, and curl accepts HTTPS only.
 - Import From URL: downloads from an authenticated host use curl. The credential goes only to the bound host.
 - Guide images: a capture run saves the pages of the app in both themes at 1920 x 1032. A test checks that every guide image has a capture step.
+- Guide images: the SettingsScroll scenario retakes the 11 Settings images one screen at a time. The LivePages scenario retakes 10 pages that read the lab site when they open.
 
 ## [2026.1115.44] - 2026-11-15
 
