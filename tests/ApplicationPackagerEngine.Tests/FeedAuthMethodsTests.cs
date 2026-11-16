@@ -187,6 +187,47 @@ public sealed class FeedAuthMethodsTests : IDisposable
         Assert.Equal(new string('A', 40), store.Entries().Single(e => e.Id == "cert-feed").Thumbprint);
     }
 
+
+    [Fact]
+    public async Task ASignedAddressCoversItsOwnPathOnlyAndAnotherAddressOnTheHostIsRefused()
+    {
+        var store = Store();
+        var signed = "https://vendor.example/feeds/a.json?Signature=SIGNATURE-VALUE-123";
+        store.Add("signed-feed", new Uri(signed), FeedAuthMethod.SignedAddress, null, null, signed);
+        var handler = new RecordingHandler(_ => Ok());
+        var other = new Uri("https://vendor.example/feeds/b.json");
+
+        var ex = await Assert.ThrowsAsync<FeedFetchException>(() => Fetcher(handler).FetchAsync(other, CancellationToken.None, store.For(other)));
+
+        Assert.Contains("signed address", ex.Message);
+        Assert.Empty(handler.Requests);
+        Assert.DoesNotContain("SIGNATURE-VALUE-123", ex.Message);
+    }
+
+    [Fact]
+    public void ARotatedSignedAddressIsCheckedLikeANewOne()
+    {
+        var store = Store();
+        var signed = "https://vendor.example/feed.json?Signature=SIGNATURE-VALUE-123";
+        store.Add("signed-feed", new Uri(signed), FeedAuthMethod.SignedAddress, null, null, signed);
+
+        Assert.Throws<InvalidOperationException>(() => store.Rotate("signed-feed", "https://other.example/feed.json?Signature=ANOTHER-VALUE-1"));
+        Assert.Throws<InvalidOperationException>(() => store.Rotate("signed-feed", "not-an-address-at-all"));
+        store.Rotate("signed-feed", "https://vendor.example/feed.json?Signature=NEW-SIGNATURE-456");
+        Assert.Contains("NEW-SIGNATURE-456", store.For(new Uri("https://vendor.example/feed.json"))!.Secret);
+    }
+
+    [Fact]
+    public void AThumbprintIsTheSha1OfTheCertificateAndACopiedOneIsCleaned()
+    {
+        var store = Store();
+        var copied = "\u200E" + string.Join(" ", Enumerable.Range(0, 10).Select(_ => "ABCD"));
+
+        var entry = store.Add("cert-feed", new Uri("https://secure.example/feed.json"), FeedAuthMethod.ClientCertificate, null, null, "", thumbprint: copied);
+
+        Assert.Equal(new string('A', 1) + "BCD" + string.Concat(Enumerable.Repeat("ABCD", 9)), entry.Thumbprint);
+        Assert.Throws<InvalidOperationException>(() => store.Add("cert-two", new Uri("https://two.example/"), FeedAuthMethod.ClientCertificate, null, null, "", thumbprint: new string('A', 64)));
+    }
     [Fact]
     public void TheTokenAddressMustBeHttpsWithoutUserInformationOrQuery()
     {

@@ -78,6 +78,11 @@ public sealed class VendorFeedImporter(
             else
             {
                 publisherPin = parsed.Text;
+                if (credentialFor?.Invoke(document.FinalAddress)?.Entry.Method == FeedAuthMethod.SignedAddress)
+                {
+                    refusal ??= "A publisher pin needs the detached signature file, which the signed address of this feed does not cover. Pin the digest of the document instead. The import is stopped; it does not fall back to \"" + FeedTrust.NotVerified + "\".";
+                }
+                else
                 try
                 {
                     var signature = await fetcher.FetchSignatureAsync(document.FinalAddress, ct, credentialFor?.Invoke(document.FinalAddress)).ConfigureAwait(false);

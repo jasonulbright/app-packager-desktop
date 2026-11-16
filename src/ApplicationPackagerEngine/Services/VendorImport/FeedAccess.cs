@@ -159,9 +159,17 @@ public sealed class FeedCredentialStore(string settingsPath, ISecretStore secret
     /// <summary>The entries for a fetch and for the list: an unreadable file gives none (fail closed, no credential is sent).</summary>
     public IReadOnlyList<FeedCredentialEntry> Entries()
     {
-        try { return EntriesStrict(); }
+        try { return EntriesStrict().Where(IsUsable).ToList(); }
         catch (InvalidOperationException) { return []; }
     }
+
+    /// <summary>An entry that a hand edit left unusable (no thumbprint, no token address) is not offered, so it cannot crash a fetch or the list.</summary>
+    private static bool IsUsable(FeedCredentialEntry e) => e.Method switch
+    {
+        FeedAuthMethod.ClientCertificate => !string.IsNullOrEmpty(e.Thumbprint),
+        FeedAuthMethod.OAuth => Uri.TryCreate(e.TokenAddress, UriKind.Absolute, out _) && !string.IsNullOrEmpty(e.ClientId),
+        _ => true
+    };
 
     /// <summary>The entries for a change: an unreadable file stops the change, so that it never overwrites the entries that it cannot read.</summary>
     private List<FeedCredentialEntry> EntriesStrict()
@@ -192,8 +200,10 @@ public sealed class FeedCredentialStore(string settingsPath, ISecretStore secret
         if (!IdGrammar.IsMatch(id)) throw new InvalidOperationException("The id of the entry is 3 to 64 characters of a-z, 0-9 and '-'.");
         var needsSecret = method is not (FeedAuthMethod.Integrated or FeedAuthMethod.ClientCertificate);
         if (needsSecret && secret.Length < MinSecretLength) throw new InvalidOperationException($"The secret is shorter than {MinSecretLength} characters; a short value cannot be kept out of the messages.");
-        if (method == FeedAuthMethod.ClientCertificate && !System.Text.RegularExpressions.Regex.IsMatch(thumbprint ?? "", "^[0-9A-Fa-f]{40}$|^[0-9A-Fa-f]{64}$"))
-            throw new InvalidOperationException("A client certificate needs the thumbprint of a certificate of the store CurrentUser\\My (40 or 64 hexadecimal characters).");
+        // The console of the certificates puts an invisible mark and spaces in a copied thumbprint.
+        thumbprint = thumbprint is null ? null : new string(thumbprint.Where(c => !char.IsWhiteSpace(c) && c != (char)0x200E && c != (char)0x200F).ToArray());
+        if (method == FeedAuthMethod.ClientCertificate && !System.Text.RegularExpressions.Regex.IsMatch(thumbprint ?? "", "^[0-9A-Fa-f]{40}$"))
+            throw new InvalidOperationException("A client certificate needs the SHA-1 thumbprint of a certificate of the store CurrentUser\\My (40 hexadecimal characters).");
         if (method == FeedAuthMethod.OAuth)
         {
             if (!Uri.TryCreate(tokenAddress, UriKind.Absolute, out var token) || !token.Scheme.Equals(Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase) || !string.IsNullOrEmpty(token.UserInfo) || token.Query.Length > 0)
@@ -221,6 +231,7 @@ public sealed class FeedCredentialStore(string settingsPath, ISecretStore secret
             method == FeedAuthMethod.OAuth ? (string.IsNullOrWhiteSpace(scope) ? null : scope.Trim()) : null,
             method == FeedAuthMethod.ClientCertificate ? thumbprint!.Trim().ToUpperInvariant() : null);
         // The secret first: a failure of the store leaves no entry that points to nothing. Integrated authentication and a certificate have none.
+        if (!needsSecret) secrets.Delete(id);
         if (needsSecret)
         {
             secrets.Write(id, secret);
@@ -235,10 +246,17 @@ public sealed class FeedCredentialStore(string settingsPath, ISecretStore secret
     {
         var existing = EntriesStrict().FirstOrDefault(e => e.Id == id) ?? throw new InvalidOperationException($"There is no entry '{id}'.");
         if (existing.Method is FeedAuthMethod.Integrated or FeedAuthMethod.ClientCertificate) throw new InvalidOperationException("This method has no secret to rotate.");
-        OAuthTokens.Forget(id);
         if (secret.Length < MinSecretLength) throw new InvalidOperationException($"The secret is shorter than {MinSecretLength} characters; a short value cannot be kept out of the messages.");
+        if (existing.Method == FeedAuthMethod.SignedAddress)
+        {
+            if (!Uri.TryCreate(secret, UriKind.Absolute, out var signed) || !existing.Matches(signed))
+                throw new InvalidOperationException("A signed address is one https address on the bound host of this entry.");
+            SecretRedactor.Register(signed.Query.TrimStart('?'));
+        }
         secrets.Write(id, secret);
         SecretRedactor.Register(secret);
+        // After the write: a fetch that was running with the old secret cannot leave its token in the cache for later fetches.
+        OAuthTokens.Forget(id);
     }
 
     public void Remove(string id)

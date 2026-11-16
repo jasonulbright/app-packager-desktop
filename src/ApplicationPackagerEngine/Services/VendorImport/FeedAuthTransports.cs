@@ -90,9 +90,10 @@ public static class FeedAuthTransports
         using var store = new X509Store(StoreName.My, StoreLocation.CurrentUser);
         store.Open(OpenFlags.ReadOnly | OpenFlags.OpenExistingOnly);
         var found = store.Certificates.Find(X509FindType.FindByThumbprint, thumbprint, validOnly: false);
-        var certificate = found.Cast<X509Certificate2>().FirstOrDefault(c => c.HasPrivateKey)
-            ?? throw new FeedFetchException("No certificate with this thumbprint and a private key is in the store CurrentUser\\My.");
-        return certificate;
+        var all = found.Cast<X509Certificate2>().ToList();
+        var certificate = all.FirstOrDefault(c => c.HasPrivateKey);
+        foreach (var other in all.Where(c => !ReferenceEquals(c, certificate))) other.Dispose();
+        return certificate ?? throw new FeedFetchException("No certificate with this thumbprint and a private key is in the store CurrentUser\\My.");
     }
 
     public static SocketsHttpHandler Handler(FeedCredential? credential)

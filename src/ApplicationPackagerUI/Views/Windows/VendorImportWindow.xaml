@@ -208,7 +208,7 @@
                         <TextBlock Text="Scope" FontWeight="SemiBold" Margin="0,0,0,4" />
                         <TextBox Width="240" Text="{Binding AccessScope, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.AutomationId="txtAccessScope" />
                     </StackPanel>
-                    <StackPanel Margin="0,0,8,8" Visibility="{Binding AccessNeedsSecret, Converter={StaticResource BooleanToVisibilityConverter}}">
+                    <StackPanel Margin="0,0,8,8" Visibility="{Binding AccessShowsSecret, Converter={StaticResource BooleanToVisibilityConverter}}">
                         <TextBlock Text="Key, password or client secret" FontWeight="SemiBold" Margin="0,0,0,4" />
                         <ui:PasswordBox Width="240" Password="{Binding AccessSecret, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.AutomationId="pwdAccessSecret" />
                     </StackPanel>

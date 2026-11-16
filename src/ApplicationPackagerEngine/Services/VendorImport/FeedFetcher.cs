@@ -104,6 +104,9 @@ public sealed class FeedFetcher
         {
             if (!Uri.TryCreate(credential.Secret, UriKind.Absolute, out var signed) || !credential.Entry.Matches(signed))
                 throw new FeedFetchException("The signed address of the entry is not an https address on its bound host.");
+            // The address is the secret and covers its own path only: another address on the host is another feed and gets no substitution.
+            if (!string.Equals(WithoutQuery(address), WithoutQuery(signed), StringComparison.OrdinalIgnoreCase))
+                throw new FeedFetchException($"The entry for {credential.Entry.HostText} is a signed address for {WithoutQuery(signed)} only. It is not used for another address.");
             address = signed;
         }
         CheckAddress(address, "The address of the feed");
@@ -153,6 +156,8 @@ public sealed class FeedFetcher
         // The methods with a transport of their own (a certificate, Windows authentication) get a handler for the bound host; a given handler serves all.
         using var client = new HttpClient(_customHandler ? _handlerFactory() : FeedAuthTransports.Handler(credential), disposeHandler: true) { Timeout = Timeout.InfiniteTimeSpan };
         var renewedToken = false;
+        // A client certificate is offered to the bound host and port only: a hop to another port of the same host is sent through a client without it.
+        HttpClient? withoutCertificate = null;
         if (credential?.Entry.Method == FeedAuthMethod.OAuth)
             credential = credential with { BearerToken = await OAuthTokens.GetAsync(credential, client, _limits.UserAgent, renew: false, ct).ConfigureAwait(false) };
         var current = start;
@@ -180,7 +185,10 @@ public sealed class FeedFetcher
             HttpResponseMessage response;
             try
             {
-                response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, ct).ConfigureAwait(false);
+                var sender = client;
+                if (!_customHandler && credential?.Entry.Method == FeedAuthMethod.ClientCertificate && !credential.Entry.Matches(current))
+                    sender = withoutCertificate ??= new HttpClient(FeedAuthTransports.Handler(null), disposeHandler: true) { Timeout = Timeout.InfiniteTimeSpan };
+                response = await sender.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, ct).ConfigureAwait(false);
             }
             catch (HttpRequestException ex)
             {
@@ -229,7 +237,12 @@ public sealed class FeedFetcher
                     continue;
                 }
                 if (status is 401 or 403 && sentCredential)
-                    throw new FeedFetchException($"{Host(current)} refused the credential ({status}). The key or the password may be wrong, expired or revoked; rotate it.");
+                    throw new FeedFetchException(credential!.Entry.Method switch
+                    {
+                        FeedAuthMethod.Integrated => $"{Host(current)} refused the Windows account ({status}). The host must be one that accepts your account (Negotiate).",
+                        FeedAuthMethod.ClientCertificate => $"{Host(current)} refused the client certificate ({status}). The certificate may be expired, revoked or not accepted by the host.",
+                        _ => $"{Host(current)} refused the credential ({status}). The key, the password or the signed address may be wrong, expired or revoked; rotate it."
+                    });
                 if (status is < 200 or >= 300)
                     throw new FeedFetchException($"{Host(current)} answered {status} {response.ReasonPhrase}.");
 

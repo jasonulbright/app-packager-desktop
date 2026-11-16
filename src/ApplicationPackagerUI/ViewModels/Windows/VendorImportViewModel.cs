@@ -512,6 +512,9 @@ public sealed partial class VendorImportViewModel : ObservableObject
     public bool AccessIsOAuth => AccessMethod == MethodOAuth;
     public bool AccessNeedsSecret => AccessMethod is MethodHeader or MethodBasic or MethodOAuth;
 
+    /// <summary>The box of the secret: for the methods that have one, and for Rotate of a selected signed address (its new address is the secret).</summary>
+    public bool AccessShowsSecret => AccessNeedsSecret || SelectedAccess is { Method: "Signed address" };
+
     partial void OnAccessMethodChanged(int value)
     {
         OnPropertyChanged(nameof(AccessIsBasic));
@@ -519,11 +522,13 @@ public sealed partial class VendorImportViewModel : ObservableObject
         OnPropertyChanged(nameof(AccessIsCertificate));
         OnPropertyChanged(nameof(AccessIsOAuth));
         OnPropertyChanged(nameof(AccessNeedsSecret));
+        OnPropertyChanged(nameof(AccessShowsSecret));
         AddAccessCommand.NotifyCanExecuteChanged();
     }
 
     partial void OnSelectedAccessChanged(AccessRow? value)
     {
+        OnPropertyChanged(nameof(AccessShowsSecret));
         RotateAccessCommand.NotifyCanExecuteChanged();
         RemoveAccessCommand.NotifyCanExecuteChanged();
     }
@@ -592,7 +597,7 @@ public sealed partial class VendorImportViewModel : ObservableObject
             ReloadAccess();
             AccessStatus = "Saved. Testing...";
             using var cts = new CancellationTokenSource();
-            try { AccessStatus = "Saved. Test: " + await _service.TestAsync(new Uri(FeedFetcher.WithoutQuery(address)), cts.Token); }
+            try { AccessStatus = "Saved. Test: " + await _service.TestAsync(method == FeedAuthMethod.SignedAddress ? new Uri(FeedFetcher.WithoutQuery(address)) : address, cts.Token); }
             catch (FeedFetchException ex) { AccessStatus = "Saved. Test failed: " + ex.Message; }
         }
         catch (Exception ex) when (ex is InvalidOperationException or IOException or UnauthorizedAccessException or ArgumentException or FeedFetchException)
@@ -601,8 +606,9 @@ public sealed partial class VendorImportViewModel : ObservableObject
         }
         finally
         {
-            // The secret never stays in the window, whatever happened.
+            // The secret never stays in the window, whatever happened; a signed address is shown without its signature.
             AccessSecret = "";
+            if (AccessMethod == MethodSigned && Uri.TryCreate(AccessAddress.Trim(), UriKind.Absolute, out var shown)) AccessAddress = FeedFetcher.WithoutQuery(shown);
             Busy = false;
         }
     }
