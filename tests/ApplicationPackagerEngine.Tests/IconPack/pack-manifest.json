@@ -1,5 +1,5 @@
 {
-  "PackVersion": "2026.11.16.0010",
+  "PackVersion": "2026.11.16.0011",
   "MinAppVersion": "1.5.0.0",
   "Icons": [
     {
@@ -1903,6 +1903,24 @@
       "Packager": "powershell7lts",
       "SourceKind": "MsiIconTable",
       "PixelSize": 256
+    },
+    {
+      "File": "filezilla.png",
+      "Packager": "filezilla",
+      "SourceKind": "InstalledApp",
+      "PixelSize": 256
+    },
+    {
+      "File": "foxitreader.png",
+      "Packager": "foxitreader",
+      "SourceKind": "InstalledApp",
+      "PixelSize": 256
+    },
+    {
+      "File": "wiztree.png",
+      "Packager": "wiztree",
+      "SourceKind": "VendorAsset",
+      "PixelSize": 445
     }
   ]
 }
