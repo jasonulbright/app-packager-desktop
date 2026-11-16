@@ -498,15 +498,28 @@ public sealed partial class VendorImportViewModel : ObservableObject
     [ObservableProperty] private string _accessHeader = "Authorization";
     [ObservableProperty] private string _accessUser = "";
     [ObservableProperty] private string _accessSecret = "";
+    [ObservableProperty] private string _accessTokenAddress = "";
+    [ObservableProperty] private string _accessClientId = "";
+    [ObservableProperty] private string _accessScope = "";
+    [ObservableProperty] private string _accessThumbprint = "";
     [ObservableProperty] private string _accessStatus = "A secret is stored in the Windows Credential Manager, bound to one host, and shown as dots. It is never shown again after it is saved.";
 
-    public bool AccessIsBasic => AccessMethod == 1;
-    public bool AccessIsHeader => AccessMethod != 1;
+    public const int MethodHeader = 0, MethodBasic = 1, MethodIntegrated = 2, MethodCertificate = 3, MethodOAuth = 4, MethodSigned = 5;
+
+    public bool AccessIsBasic => AccessMethod == MethodBasic;
+    public bool AccessIsHeader => AccessMethod == MethodHeader;
+    public bool AccessIsCertificate => AccessMethod == MethodCertificate;
+    public bool AccessIsOAuth => AccessMethod == MethodOAuth;
+    public bool AccessNeedsSecret => AccessMethod is MethodHeader or MethodBasic or MethodOAuth;
 
     partial void OnAccessMethodChanged(int value)
     {
         OnPropertyChanged(nameof(AccessIsBasic));
         OnPropertyChanged(nameof(AccessIsHeader));
+        OnPropertyChanged(nameof(AccessIsCertificate));
+        OnPropertyChanged(nameof(AccessIsOAuth));
+        OnPropertyChanged(nameof(AccessNeedsSecret));
+        AddAccessCommand.NotifyCanExecuteChanged();
     }
 
     partial void OnSelectedAccessChanged(AccessRow? value)
@@ -519,11 +532,25 @@ public sealed partial class VendorImportViewModel : ObservableObject
     {
         Access.Clear();
         foreach (var e in _service.Credentials())
-            Access.Add(new AccessRow(e.Id, e.HostText, e.Method == FeedAuthMethod.Basic ? "Basic" : "Key in a header",
-                e.Method == FeedAuthMethod.Basic ? "user " + e.UserName : "header " + e.HeaderName));
+            Access.Add(new AccessRow(e.Id, e.HostText, e.Method switch
+            {
+                FeedAuthMethod.Basic => "Basic",
+                FeedAuthMethod.Integrated => "Windows",
+                FeedAuthMethod.ClientCertificate => "Certificate",
+                FeedAuthMethod.OAuth => "OAuth 2 token",
+                FeedAuthMethod.SignedAddress => "Signed address",
+                _ => "Key in a header"
+            }, e.Method switch
+            {
+                FeedAuthMethod.Basic => "user " + e.UserName,
+                FeedAuthMethod.ClientCertificate => "thumbprint " + e.Thumbprint,
+                FeedAuthMethod.OAuth => $"client {e.ClientId}, token host {new Uri(e.TokenAddress!).Host}",
+                FeedAuthMethod.HeaderKey => "header " + e.HeaderName,
+                _ => ""
+            }));
     }
 
-    private bool CanAddAccess() => !Busy && AccessId.Trim().Length > 0 && AccessAddress.Trim().Length > 0 && AccessSecret.Length > 0;
+    private bool CanAddAccess() => !Busy && AccessId.Trim().Length > 0 && AccessAddress.Trim().Length > 0 && (!AccessNeedsSecret || AccessSecret.Length > 0);
 
     partial void OnAccessIdChanged(string value) => AddAccessCommand.NotifyCanExecuteChanged();
     partial void OnAccessAddressChanged(string value) => AddAccessCommand.NotifyCanExecuteChanged();
@@ -546,13 +573,26 @@ public sealed partial class VendorImportViewModel : ObservableObject
         Busy = true;
         try
         {
-            _service.AddCredential(AccessId.Trim(), address, AccessIsBasic ? FeedAuthMethod.Basic : FeedAuthMethod.HeaderKey,
-                AccessIsBasic ? null : AccessHeader.Trim(), AccessIsBasic ? AccessUser.Trim() : null, AccessSecret);
+            var method = AccessMethod switch
+            {
+                MethodBasic => FeedAuthMethod.Basic,
+                MethodIntegrated => FeedAuthMethod.Integrated,
+                MethodCertificate => FeedAuthMethod.ClientCertificate,
+                MethodOAuth => FeedAuthMethod.OAuth,
+                MethodSigned => FeedAuthMethod.SignedAddress,
+                _ => FeedAuthMethod.HeaderKey
+            };
+            // A signed address is its own secret: the whole address, with the signature in it.
+            var secret = method == FeedAuthMethod.SignedAddress ? AccessAddress.Trim() : AccessSecret;
+            _service.AddCredential(AccessId.Trim(), address, method, AccessIsHeader ? AccessHeader.Trim() : null, AccessIsBasic ? AccessUser.Trim() : null, secret,
+                AccessIsOAuth ? AccessTokenAddress.Trim() : null, AccessIsOAuth ? AccessClientId.Trim() : null, AccessIsOAuth ? AccessScope.Trim() : null,
+                AccessIsCertificate ? AccessThumbprint.Trim() : null);
+            AccessAddress = method == FeedAuthMethod.SignedAddress ? FeedFetcher.WithoutQuery(address) : AccessAddress;
             AccessSecret = "";
             ReloadAccess();
             AccessStatus = "Saved. Testing...";
             using var cts = new CancellationTokenSource();
-            try { AccessStatus = "Saved. Test: " + await _service.TestAsync(address, cts.Token); }
+            try { AccessStatus = "Saved. Test: " + await _service.TestAsync(new Uri(FeedFetcher.WithoutQuery(address)), cts.Token); }
             catch (FeedFetchException ex) { AccessStatus = "Saved. Test failed: " + ex.Message; }
         }
         catch (Exception ex) when (ex is InvalidOperationException or IOException or UnauthorizedAccessException or ArgumentException or FeedFetchException)

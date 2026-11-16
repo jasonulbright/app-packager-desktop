@@ -12,7 +12,8 @@ public interface IVendorImportService
     IReadOnlyList<StoredFeed> Feeds();
     void RemoveFeed(string feedId);
     IReadOnlyList<FeedCredentialEntry> Credentials();
-    FeedCredentialEntry AddCredential(string id, Uri address, FeedAuthMethod method, string? headerName, string? userName, string secret);
+    FeedCredentialEntry AddCredential(string id, Uri address, FeedAuthMethod method, string? headerName, string? userName, string secret,
+        string? tokenAddress = null, string? clientId = null, string? scope = null, string? thumbprint = null);
     void RotateCredential(string id, string secret);
     void RemoveCredential(string id);
     Task<string> TestAsync(Uri address, CancellationToken ct);
@@ -31,8 +32,9 @@ public sealed class VendorImportService(ImportedDefinitionStore store, Func<ISet
 
     public IReadOnlyList<FeedCredentialEntry> Credentials() => credentials?.Entries() ?? [];
 
-    public FeedCredentialEntry AddCredential(string id, Uri address, FeedAuthMethod method, string? headerName, string? userName, string secret) =>
-        (credentials ?? throw new InvalidOperationException("No credential store.")).Add(id, address, method, headerName, userName, secret);
+    public FeedCredentialEntry AddCredential(string id, Uri address, FeedAuthMethod method, string? headerName, string? userName, string secret,
+        string? tokenAddress = null, string? clientId = null, string? scope = null, string? thumbprint = null) =>
+        (credentials ?? throw new InvalidOperationException("No credential store.")).Add(id, address, method, headerName, userName, secret, tokenAddress, clientId, scope, thumbprint);
 
     public void RotateCredential(string id, string secret) => (credentials ?? throw new InvalidOperationException("No credential store.")).Rotate(id, secret);
 
