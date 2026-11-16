@@ -29,8 +29,13 @@ public static partial class TitleNaming
     /// <summary>The name that a stage uses when the installer gives none: the definition name, tagged with the architecture only when it has no tag yet.</summary>
     public static string BaseName(AppDefinition def) => IsVariantDefinition(def) ? def.CMName.Trim() : def.Application;
 
-    public static string FallbackAppName(AppDefinition def, string version) =>
-        $"{WithArchitecture(BaseName(def), def)} - {version}";
+    /// <summary>"{name} - {version} ({architecture})" as before; the tag is left out when the name has it already or the definition is a variant definition.</summary>
+    public static string FallbackAppName(AppDefinition def, string version)
+    {
+        var name = BaseName(def);
+        var tagged = WithArchitecture(name, def);
+        return tagged == name ? $"{name} - {version}" : $"{name} - {version} ({def.Architecture})";
+    }
 
     public static string FallbackDisplayName(AppDefinition def) => WithArchitecture(BaseName(def), def);
 
