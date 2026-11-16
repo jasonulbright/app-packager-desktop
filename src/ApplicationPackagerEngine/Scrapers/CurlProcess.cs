@@ -27,8 +27,51 @@ public static class CurlProcess
         return process;
     }
 
+    /// <summary>
+    /// A request of an imported definition to a host that has a key or Basic entry (version checks, page fetches, checksum files). curl would follow
+    /// a redirect by itself and send a custom header to every target, so the program follows the redirects of the bound host itself, with the
+    /// credential, in short probes; the real request then goes to the last address of the bound host with no <c>-L</c> (a redirect that appears now
+    /// is not followed), or, when the chain left the bound host, to the first address outside it with no credential.
+    /// </summary>
+    private static Process StartCredentialed(List<string> options, Uri start, FeedCredential credential)
+    {
+        var current = start;
+        for (var hop = 0; hop < 5 && credential.Entry.Matches(current); hop++)
+        {
+            var (status, redirect) = Probe(current, credential, options);
+            if (status is 301 or 302 or 303 or 307 or 308 && Uri.TryCreate(current, redirect ?? "", out var next)
+                && next.Scheme.Equals(Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase))
+            {
+                current = next;
+                continue;
+            }
+            break;
+        }
+        if (!credential.Entry.Matches(current)) return Start(options, current.AbsoluteUri);
+        var request = options.Where(o => o is not ("-L" or "--location")).ToList();
+        return StartWithConfig(request, current.AbsoluteUri, FeedPayloadCredentials.ConfigFor(credential));
+    }
+
+    /// <summary>One request with the credential and no redirect: the status and the address of the redirect. The body is not read.</summary>
+    private static (int Status, string? Redirect) Probe(Uri address, FeedCredential credential, IReadOnlyList<string> options)
+    {
+        // Only the user agent and the headers of the caller go along; the output options of the real request do not.
+        var kept = new List<string>();
+        for (var i = 0; i < options.Count; i++)
+            if (options[i] is "-A" or "--user-agent" or "-H" or "--header" && i + 1 < options.Count) { kept.Add(options[i]); kept.Add(options[++i]); }
+        List<string> probe = ["--silent", "--max-redirs", "0", "--max-time", "30", "--max-filesize", "1", "-o", OperatingSystem.IsWindows() ? "NUL" : "/dev/null",
+            "--write-out", "%{http_code}|%{redirect_url}", .. kept];
+        using var process = StartWithConfig(probe, address.AbsoluteUri, FeedPayloadCredentials.ConfigFor(credential));
+        var output = process.StandardOutput.ReadToEnd().Trim();
+        if (!process.WaitForExit(35000)) { try { process.Kill(true); } catch (InvalidOperationException) { } return (0, null); }
+        var parts = output.Split('|', 2);
+        return (int.TryParse(parts[0], out var code) ? code : 0, parts.Length > 1 ? parts[1] : null);
+    }
+
     public static Process Start(IEnumerable<string> options, string url)
     {
+        if (ImportedRunScope.Active && Uri.TryCreate(url, UriKind.Absolute, out var credentialed) && FeedPayloadCredentials.For(credentialed) is { } feedCredential)
+            return StartCredentialed(options.ToList(), credentialed, feedCredential);
         var authConfig = GitHubAuth.CurlConfigFor(url);
         var process = new Process { StartInfo = BuildStartInfo(options, url, authConfig is not null) };
 
