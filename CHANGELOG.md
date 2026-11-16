@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Changed
+
+- Icon pack: the app downloads the icon pack by itself when none is installed, and installs a newer pack release at startup. A test lists the definitions that the pack has no icon for.
+
 ### Fixed
 
 - Titles: a name that already has the architecture, for example 7-Zip (x64), no longer gets a second (x64).
