@@ -17,6 +17,16 @@ public static class CurlProcess
     /// closed otherwise so curl never waits on it. A URL that <see cref="ValidateUrl"/>
     /// refuses throws before any process starts.
     /// </summary>
+    /// <summary>Starts curl with a configuration for stdin that the caller built (the header of a feed credential). The secret never goes on the command line.</summary>
+    public static Process StartWithConfig(IEnumerable<string> options, string url, string stdinConfig)
+    {
+        var process = new Process { StartInfo = BuildStartInfo(options, url, readConfigFromStdin: true) };
+        process.Start();
+        process.StandardInput.Write(stdinConfig);
+        process.StandardInput.Close();
+        return process;
+    }
+
     public static Process Start(IEnumerable<string> options, string url)
     {
         var authConfig = GitHubAuth.CurlConfigFor(url);

@@ -20,6 +20,7 @@ public static class PackagerServiceRegistration
             var settings = new SettingsService();
             // The GitHub token that the operator saved in Settings serves the version checks of the program and of the command-line build.
             ApplicationPackagerEngine.Scrapers.GitHubAuth.StoredTokenProvider = () => GitHubTokenStore.Unprotect(settings.Load().GitHubTokenProtected);
+            ApplicationPackagerEngine.Services.VendorImport.FeedPayloadCredentials.Provider = ApplicationPackagerEngine.Services.VendorImport.FeedCredentialStore.Default().For;
             return settings;
         });
         services.AddSingleton<ISettingsReader<AppSettings>>(sp => sp.GetRequiredService<SettingsService>());
