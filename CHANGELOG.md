@@ -4,6 +4,7 @@
 
 ### Changed
 
+- Guide images: the SettingsScroll scenario captures the Settings page one screen at a time; 11 Settings images are retaken from it (ConfigMgr, One Click, Tools, Intune and CVE, WSUS, Script Signing, Defaults, Install Parameters, Citrix, About).
 - Guide images: the LivePages scenario captures the pages that read the lab site when they open (Maintenance Windows, Collections, Deployment Helper, DP Content); 10 more images are retaken.
 - Guide images: scenarios of the capture run (Capture-Scenarios.ps1) analyze a sample installer and scan the lab site, and a guard keeps a capture from replacing an image with an empty page; 10 more images are retaken (Installer Analysis tabs, Site Hygiene tabs).
 - Guide images: the lab capture run (tools\guide-capture\Capture-ApdPages.ps1) starts the app maximized on the 1920 x 1032 work area of the lab client in both themes and saves every page; 13 guide images are retaken from it in the compact density (the others are listed as pending).

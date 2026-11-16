@@ -16,7 +16,6 @@ core-cve-window
 core-discover-prompt
 core-discover-settings
 core-one-click-plan
-core-one-click-settings
 core-packages-buttons-disabled
 core-packages-conflict-dialog
 core-packages-context-menu
@@ -26,16 +25,6 @@ core-packages-review-dialog
 core-packages-select-update
 core-publish-configmgr-log
 core-publish-wsus-row
-core-script-signing-settings
-core-settings-about
-core-settings-citrix
-core-settings-configmgr
-core-settings-defaults
-core-settings-install-parameters
-core-settings-install-parameters-sources
-core-settings-intune-cve
-core-settings-tools
-core-settings-wsus
 core-stage-result-log
 core-update-available
 core-update-ready
