@@ -1,24 +1,28 @@
 # Changelog
 
-## [Unreleased]
+## [2026.1116.45] - 2026-11-16
 
 ### Changed
 
-- Guide images: the LivePages scenario captures the pages that read the lab site when they open (Maintenance Windows, Collections, Deployment Helper, DP Content); 10 more images are retaken.
-- Guide images: scenarios of the capture run (Capture-Scenarios.ps1) analyze a sample installer and scan the lab site, and a guard keeps a capture from replacing an image with an empty page; 10 more images are retaken (Installer Analysis tabs, Site Hygiene tabs).
-- Guide images: the lab capture run (tools\guide-capture\Capture-ApdPages.ps1) starts the app maximized on the 1920 x 1032 work area of the lab client in both themes and saves every page; 13 guide images are retaken from it in the compact density (the others are listed as pending).
-- Import From URL: a payload download of an imported definition from a host that has a key or Basic entry runs through curl without -L, with the header on standard input (never on the command line); the program follows the redirects and sends the credential only to a hop on the bound host. The command-line build reads no feed credential. Version checks, page fetches and checksum files on such a host use the same rule: the program follows the redirects of the bound host in short probes, and the real request goes to the last address of the bound host without -L, or to the first address outside it without the credential.
-- Import From URL: access methods 3 to 6 for an authenticated feed: Windows integrated authentication (the account of the administrator, only for the bound host), a client certificate of the store CurrentUser\My (offered to the bound host only; the key is never read), an OAuth 2 token (client credentials; the client secret goes to the token host only, the token is kept in memory, a token that the feed refuses is renewed once) and a signed expiring address (the address is the secret and is never stored in a file or shown). The certificate and Windows transports are proved in the lab.
-- Import From URL: an imported definition runs with no ambient credential (no GitHub token, no curl config file), curl is limited to HTTPS and its redirects, and a value that a scraper read from one host goes into a request to another host only as a short version (a hop, a served-version probe, a download address); any other captured value in such an address blocks the definition, and a relative hop stays on its host. No download or fetch message names a query.
-- Import From URL: access to an authenticated feed with a key in a header or with Basic. The secret is stored in the Windows Credential Manager (local, not roaming) and bound to one host and port; the settings file holds no secret. The credential is sent only to the bound host over HTTPS, kept on a redirect inside the host and dropped on a redirect to another host; a 401 or 403 gives its own message and no retry. A redactor removes registered secrets, secret headers and secret address parts from every message of the fetch. Add and Test, Rotate and Remove are in the import window.
-- Import From URL: Check for Update on a stored feed fetches the document again with the same limits and trust rules and shows a diff (added, removed and changed definitions, a changed address host, hash source or requirement, new or changed code, an unblock that is lost). Nothing is written until you confirm; an unverified document is confirmed each time, a removed definition stays until you confirm its removal, and an unblock survives only while the code and its settings are unchanged.
-- Import From URL: a definition that carries only scripts and commands can be unblocked one definition at a time: the window shows the full text of every script and command with its SHA-256, and the confirmation names the definition. A path to a local file or a bootstrapper is never unblocked. The record of the feed keeps the digest of the unblocked code and of every setting that it uses.
-- Guide images: a capture run renders the pages in both themes at the work area of a maximized 1080p window (1920 x 1032) and saves the images by guide image id; a test fails when a document shows an image that no step produces and that the pending list does not name.
-- Settings: single-line inputs are 32 px high with widths by field type (site code 120, host and server 360, database 320, paths 560, secrets and identifiers 360); the page title and its icon are 14 pt, as the button text, on every page.
-- Density: the rows of every grid and list are 28 to 32 px high at 14 pt (they were about 43 px), from one shared style; the design basis is a maximized window on a 1080p display. Tests check the row height and ten whole rows at 1920 x 1032.
-- Buttons: one compact size for every button of the app, 32 px high at 14 pt (12 px left and right, 4 px above and below; the buttons were about 40 px high).
-- Toolbars: the buttons of a group wrap inside the group, so a group wider than the window no longer clips at the right edge (App Packager, Installer Analysis and Collections toolbars). The App Packager toolbar keeps its labels in up to five lines and goes icon-only only when they need more, and then returns to the labels only with 48 px of width to spare, so a width at the edge does not flip it. The icon-only buttons are uniform 32 px squares with their tooltip and automation name (they were rectangles of about 38 x 24 px). Layout tests check 1024x720, 1269, 1276 and 1920x1032 in both themes.
-- Tabs: the selected tab is no longer bold. It keeps the primary text color and the accent underline, which already marked it (the rule of the suite: bold is for the title of a field and the text of a button). A test checks every tab header template.
+- Buttons: every button is one compact size, 32 px high.
+- Toolbars: the buttons of a group wrap, so nothing clips at the right edge.
+- App Packager toolbar: it shows the labels, and shows only icons when the labels do not fit.
+- Icon buttons: all icon-only buttons are 32 px squares with a tooltip.
+- Grids and lists: rows are 28 to 32 px high, so ten rows fit in a 1920 x 1032 window.
+- Settings: single-line inputs are 32 px high, with widths that fit the type of field.
+- Settings: the page title and its icon are 14 pt.
+- Tabs: the selected tab is not bold. The accent underline marks it.
+
+### Added
+
+- Import From URL: unblock one definition that has scripts or commands, after you read the full text and SHA-256.
+- Import From URL: Check for Update on a stored feed shows a diff. Nothing is written until you confirm.
+- Import From URL: authenticated feeds with a key in a header, or with Basic. The secret is in Windows Credential Manager.
+- Import From URL: more access methods for a feed: Windows integrated authentication, a client certificate, an OAuth 2 token and a signed expiring address.
+- Import From URL: a credential for version checks and checksum files on the bound host.
+- Import From URL: an imported definition runs with no ambient credential, and curl accepts HTTPS only.
+- Import From URL: downloads from an authenticated host use curl. The credential goes only to the bound host.
+- Guide images: a capture run saves the pages of the app in both themes at 1920 x 1032. Tests check the images.
 
 ## [2026.1115.44] - 2026-11-15
 
