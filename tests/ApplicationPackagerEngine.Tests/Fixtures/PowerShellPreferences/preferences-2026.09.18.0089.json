@@ -1,0 +1,86 @@
+{
+  "SiteCode": "P01",
+  "ProviderMachineName": "cm02.contoso.com",
+  "FileShareRoot": "\\cm02.contoso.com\\Content$",
+  "ContentLayout": "Flat",
+  "DownloadRoot": "D:\\staging",
+  "EstimatedRuntimeMins": 25,
+  "MaximumRuntimeMins": 90,
+  "CompanyName": "Contoso",
+  "M365Channel": "Current",
+  "M365DeployMode": "Online",
+  "M365ExcludeApps": [
+    "Teams"
+  ],
+  "SSMSInstallOptions": {
+    "UIMode": "Passive"
+  },
+  "DBeaverInstallOptions": {
+    "InstallScope": "User"
+  },
+  "BeyondCompareKeyFile": "D:/keys/bc5.txt",
+  "LocalSourceFolders": {
+    "package-x": "D:\\src"
+  },
+  "HiddenApplications": [
+    "package-a"
+  ],
+  "FirstRunCompleted": true,
+  "IncludeVersionInTitle": true,
+  "AppFlow": {
+    "Tracked": [
+      "package-7zip"
+    ],
+    "Action": "Stage",
+    "CadenceOverrides": {
+      "package-7zip": 3
+    },
+    "ForceOnLaunch": true,
+    "Destinations": {},
+    "DefaultDestinations": {
+      "ConfigMgr": true,
+      "WSUS": true,
+      "Intune": false
+    }
+  },
+  "DetectedTools": {
+    "SevenZipCli": {
+      "Found": true,
+      "ExePath": "C:\\Program Files\u0007-Zip\u0007z.exe"
+    }
+  },
+  "ContentDistribution": {
+    "AutoDistribute": true,
+    "DPGroupName": "All DPs",
+    "DeployToTestCollection": true,
+    "TestCollectionName": "Pilot",
+    "CreateTestCollectionIfMissing": true
+  },
+  "Intune": {
+    "DeploymentTarget": "MECMAndIntune",
+    "PublishToIntune": true,
+    "TenantId": "contoso.onmicrosoft.com",
+    "ClientId": "11111111-2222-3333-4444-555555555555",
+    "ClientSecretProtected": "SECRET-MARKER"
+  },
+  "DeploymentConditions": {
+    "Apps": {}
+  },
+  "CommandOverrides": {
+    "Apps": {}
+  },
+  "WorkbenchDataRoot": "D:\\wb",
+  "ScriptSigning": {
+    "SignDetection": true,
+    "SignRequirements": false,
+    "SignDeployment": true,
+    "RequireDetection": false,
+    "RequireRequirements": false,
+    "RequireDeployment": false,
+    "CertificateThumbprint": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+    "StoreLocation": "CurrentUser",
+    "TimestampServer": "http://timestamp.example.test",
+    "TimestampRequired": true,
+    "HashAlgorithm": "SHA256"
+  }
+}

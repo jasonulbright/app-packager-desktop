@@ -135,6 +135,14 @@
                                 <TextBlock Text="Company Name" Style="{StaticResource FieldLabel}" />
                                 <ui:TextBox Width="360" HorizontalAlignment="Left" Text="{Binding CompanyName, UpdateSourceTrigger=PropertyChanged}"
                                             PlaceholderText="Contoso, Ltd." Margin="0,0,0,8" />
+
+                    <TextBlock Text="Import" Style="{StaticResource SubHeader}" Margin="0,8,0,8" />
+                    <ui:Button Content="Import from App Packager (PowerShell)" Icon="{ui:SymbolIcon ArrowDownload24}"
+                               Command="{Binding ImportFromPowerShellCommand}" HorizontalAlignment="Left" Margin="0,0,0,4"
+                               AutomationProperties.AutomationId="btnImportFromPowerShell"
+                               ToolTip="Reads AppPackager.preferences.json of the PowerShell app, next to its script or from a file you choose, and shows what would change before it writes anything. Credentials are never imported and the PowerShell file is not changed." />
+                    <TextBlock Text="Shows a preview first. Credentials are never imported."
+                               Foreground="{DynamicResource TextFillColorTertiaryBrush}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,8" />
                 </StackPanel>
             </ScrollViewer>
             <ScrollViewer x:Name="page_sidebar" Visibility="Collapsed" VerticalScrollBarVisibility="Auto">

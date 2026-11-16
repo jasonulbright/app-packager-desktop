@@ -514,6 +514,35 @@ public partial class SettingsViewModel : ObservableObject, ISettingsReload
     [RelayCommand]
     private void DiscardChanges() => LoadSettings();
 
+    /// <summary>The file picker and the preview window of the import from the PowerShell app. A test replaces it.</summary>
+    public IPowerShellImportPrompts ImportPrompts { get; set; } = new ApplicationPackagerUI.Views.Windows.PowerShellImportPrompts();
+
+    /// <summary>
+    /// Settings, General: reads AppPackager.preferences.json of the PowerShell app, shows what it would change and, after the operator accepts, writes the
+    /// differing settings to the saved settings and reloads the page. Credentials are never imported and the PowerShell file is not changed.
+    /// </summary>
+    [RelayCommand]
+    private void ImportFromPowerShell()
+    {
+        var flow = new PowerShellImportFlow(_settingsService, ImportPrompts,
+            () => [_settingsService.Load().PackagersRoot, PackagersRoot, _discoveryService.ResolvePackagersRoot(), System.IO.Path.Combine(AppContext.BaseDirectory, "Packagers")]);
+        PowerShellImportResult result;
+        try
+        {
+            result = flow.Run();
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException or ArgumentException)
+        {
+            _snackbarService.Show("Import", "The settings were not imported. " + ex.Message, Wpf.Ui.Controls.ControlAppearance.Danger,
+                new SymbolIcon(SymbolRegular.ErrorCircle24), TimeSpan.FromSeconds(6));
+            return;
+        }
+
+        if (result.Written) LoadSettings();
+        _snackbarService.Show("Import", result.Message, result.Written ? Wpf.Ui.Controls.ControlAppearance.Success : Wpf.Ui.Controls.ControlAppearance.Secondary,
+            new SymbolIcon(result.Written ? SymbolRegular.Checkmark24 : SymbolRegular.Info24), TimeSpan.FromSeconds(6));
+    }
+
     /// <summary>Re-reads the store after another surface (the setup window) has written to it.</summary>
     public void ReloadFromStore() => LoadSettings();
 

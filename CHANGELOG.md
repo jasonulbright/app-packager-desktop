@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Added
+
+- Settings, General: Import from App Packager (PowerShell). It reads AppPackager.preferences.json, shows a preview (differs, same, skipped, unknown) and writes only after you accept. Credentials are never imported and the PowerShell file is not changed.
+
 ### Changed
 
 - Settings: the page is a tree of Title Case pages (General, Connections, Packaging, Applications, Updates and CVEs, Security, Tools, About), one compact page for each group, in the order of the PowerShell Options window. Each page fits one screen at 1920 x 1032. Field titles are bold, the headings are smaller, and every setting keeps its place.
