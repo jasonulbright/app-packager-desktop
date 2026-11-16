@@ -22,7 +22,7 @@
 - Import From URL: a credential for version checks and checksum files on the bound host.
 - Import From URL: an imported definition runs with no ambient credential, and curl accepts HTTPS only.
 - Import From URL: downloads from an authenticated host use curl. The credential goes only to the bound host.
-- Guide images: a capture run saves the pages of the app in both themes at 1920 x 1032. Tests check the images.
+- Guide images: a capture run saves the pages of the app in both themes at 1920 x 1032. A test checks that every guide image has a capture step.
 
 ## [2026.1115.44] - 2026-11-15
 
