@@ -38,16 +38,18 @@ public static class FeedPayloadCredentials
     /// What to do with the answer of one hop: <paramref name="status"/> and <paramref name="redirect"/> come from curl (<c>%{http_code}</c> and
     /// <c>%{redirect_url}</c>). A redirect goes on with the credential only when the next address is on the bound endpoint; HTTPS only.
     /// </summary>
-    public static Hop Next(Uri current, int status, string? redirect, FeedCredential credential, int redirectsSoFar, int maxRedirects = 5)
+    public static Hop Next(Uri current, int status, string? redirect, FeedCredential credential, int redirectsSoFar, int exitCode = 0, int maxRedirects = 5)
     {
-        if (status is >= 200 and < 300) return new Hop(true, null, false, null);
+        // curl prints the status even when the transfer broke after the headers: only a transfer that ended well is done.
+        if (status is >= 200 and < 300) return exitCode == 0 ? new Hop(true, null, false, null) : new Hop(false, null, false, $"The transfer from {current.Host} ended with the curl error {exitCode} after the answer {status}; the file is not complete.");
         if (status is 301 or 302 or 303 or 307 or 308)
         {
             if (redirectsSoFar >= maxRedirects) return new Hop(false, null, false, $"More than {maxRedirects} redirects from {current.Host}.");
-            if (!Uri.TryCreate(current, redirect ?? "", out var next)) return new Hop(false, null, false, $"{current.Host} answered {status} with no address to go to.");
+            if (string.IsNullOrWhiteSpace(redirect) || !Uri.TryCreate(current, redirect, out var next)) return new Hop(false, null, false, $"{current.Host} answered {status} with no address to go to.");
             if (!next.Scheme.Equals(Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase)) return new Hop(false, null, false, $"{current.Host} redirects to a '{next.Scheme}' address, which is refused (HTTPS only).");
             return new Hop(false, next, credential.Entry.Matches(next), null);
         }
+        if (status == 0) return new Hop(false, null, false, $"{current.Host} gave no answer.");
         return new Hop(false, null, false, status is 401 or 403
             ? $"{current.Host} refused the credential ({status}). The key or the password may be wrong, expired or revoked; rotate it."
             : $"{current.Host} answered {status}.");

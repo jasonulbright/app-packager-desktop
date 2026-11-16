@@ -34,8 +34,20 @@ public sealed class DownloadService
         // A payload of an authenticated feed: the credential goes through the manual redirect loop below, never through curl -L.
         if (ImportedRunScope.Active && Uri.TryCreate(url, UriKind.Absolute, out var feedUri) && FeedPayloadCredentials.For(feedUri) is { } feedCredential)
         {
-            await DownloadWithCredentialAsync(feedUri, feedCredential, outFile, headerArguments, onProgress, ct, maxBytes).ConfigureAwait(false);
-            return;
+            for (var attempt = 1; ; attempt++)
+            {
+                try
+                {
+                    await DownloadWithCredentialAsync(feedUri, feedCredential, outFile, headerArguments, onProgress, ct, maxBytes).ConfigureAwait(false);
+                    return;
+                }
+                catch (InvalidOperationException ex) when (attempt < maxAttempts && !ex.Message.Contains("refused the credential", StringComparison.Ordinal))
+                {
+                    // The same attempts as the path without a credential, and no retry for a refused key (401 or 403).
+                    onProgress?.Invoke($"Download failed (attempt {attempt}): {SecretRedactor.Redact(SecretRedactor.WithoutQueries(ex.Message))}. Retrying in {retryDelaySec}s...");
+                    await Task.Delay(TimeSpan.FromSeconds(retryDelaySec), ct).ConfigureAwait(false);
+                }
+            }
         }
 
         for (var attempt = 1; attempt <= maxAttempts; attempt++)
@@ -137,7 +149,7 @@ public sealed class DownloadService
                     throw new DownloadTooLargeException(cap);
                 var parts = output.Split('|', 2);
                 var status = int.TryParse(parts[0], out var code) ? code : 0;
-                var hop = FeedPayloadCredentials.Next(current, status, parts.Length > 1 ? parts[1] : null, credential, redirects);
+                var hop = FeedPayloadCredentials.Next(current, status, parts.Length > 1 ? parts[1] : null, credential, redirects, process.ExitCode);
                 if (hop.Done)
                 {
                     if (!File.Exists(partFile) || new FileInfo(partFile).Length == 0) throw new InvalidOperationException($"The download from {current.Host} was empty.");

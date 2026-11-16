@@ -51,7 +51,9 @@ public static class SharedDownloadCache
 
         await using var entryLock = await AcquireEntryLockAsync(cached, ct);
 
-        if (!File.Exists(cached) || new FileInfo(cached).Length == 0)
+        // A refresh runs curl with -L and no credential; a payload that needs a credential is downloaded again through the credential path instead.
+        var needsCredential = ImportedRunScope.Active && Uri.TryCreate(url, UriKind.Absolute, out var credentialUri) && FeedPayloadCredentials.For(credentialUri) is not null;
+        if (needsCredential || !File.Exists(cached) || new FileInfo(cached).Length == 0)
         {
             onProgress?.Invoke($"Downloading                  : {SecretRedactor.WithoutQueries(url)}");
             await downloads.DownloadAsync(url, cached, onProgress: onProgress, ct: ct, headers: headers, extraArguments: ["-R"], maxBytes: maxBytes);

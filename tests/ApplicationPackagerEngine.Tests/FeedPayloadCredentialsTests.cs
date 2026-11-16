@@ -63,6 +63,18 @@ public sealed class FeedPayloadCredentialsTests
         Assert.True(FeedPayloadCredentials.Next(start, 200, null, credential, 0).Done);
     }
 
+
+    [Fact]
+    public void ATransferThatBrokeAfterTheAnswerIsNotDoneAnEmptyRedirectIsAnErrorAndStatusZeroGivesNoAnswer()
+    {
+        var start = new Uri("https://cdn.vendor.example/a");
+        var credential = Key();
+
+        Assert.False(FeedPayloadCredentials.Next(start, 200, null, credential, 0, exitCode: 18).Done);
+        Assert.Contains("not complete", FeedPayloadCredentials.Next(start, 200, null, credential, 0, exitCode: 18).Error);
+        Assert.Contains("no address", FeedPayloadCredentials.Next(start, 302, "", credential, 0).Error);
+        Assert.Contains("no answer", FeedPayloadCredentials.Next(start, 0, null, credential, 0, exitCode: 6).Error);
+    }
     [Fact]
     public void OnlyAKeyOrBasicEntryOnTheExactBoundHostIsUsedForAPayload()
     {
