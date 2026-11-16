@@ -4,6 +4,7 @@
 
 ### Changed
 
+- Packages grid: each row shows the icon of the icon pack, or a gray box when the pack has none. The tooltip names the icon.
 - Icon pack: the app downloads the icon pack by itself when none is installed, and installs a newer pack release at startup. A test lists the definitions that the pack has no icon for.
 
 ### Fixed

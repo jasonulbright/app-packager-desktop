@@ -341,6 +341,18 @@
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
 
+                <DataGridTemplateColumn Width="36" MinWidth="36" MaxWidth="36" CanUserResize="False" CanUserReorder="False" CanUserSort="False" IsReadOnly="True">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <Grid Width="24" Height="24" HorizontalAlignment="Center" VerticalAlignment="Center" ToolTip="{Binding IconTooltip}"
+                                  AutomationProperties.AutomationId="PackagerIcon">
+                                <ui:SymbolIcon Symbol="Box24" FontSize="16" Opacity="0.35" />
+                                <Image Source="{Binding IconUri, Mode=OneWay, TargetNullValue={x:Null}, FallbackValue={x:Null}}" Width="24" Height="24" Stretch="Uniform"
+                                       RenderOptions.BitmapScalingMode="HighQuality" />
+                            </Grid>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
                 <!-- A grid narrower than its columns takes width from every column down to its MinWidth,
                      and only then scrolls. Each MinWidth holds the header text and the sort arrow. -->
                 <DataGridTextColumn Header="Application" Binding="{Binding Application}" Width="2*" MinWidth="160" IsReadOnly="True" ElementStyle="{StaticResource TrimCell}" />
