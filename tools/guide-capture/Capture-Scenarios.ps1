@@ -11,7 +11,7 @@
     The clicks use the positions of the page at 100 percent on the work area of 1920 x 1032.
 #>
 param(
-    [Parameter(Mandatory)][ValidateSet('InstallerAnalysis', 'SiteHygiene', 'LivePages')][string]$Scenario,
+    [Parameter(Mandatory)][ValidateSet('InstallerAnalysis', 'SiteHygiene', 'LivePages', 'SettingsScroll')][string]$Scenario,
     [string[]]$Themes = @('Light', 'Dark')
 )
 Add-Type -AssemblyName System.Drawing, System.Windows.Forms
@@ -118,7 +118,17 @@ foreach ($theme in $Themes) {
                 Shot (Join-Path $dir ($tab[0] + '.png'))
             }
         }
-    }    Stop-Process -Id $p.Id -Force
+    }    if ($Scenario -eq 'SettingsScroll') {
+        # The Settings page from the top, one screen at a time (the wheel scrolls three lines of 40 px for each notch at 100 percent).
+        Click 110 984; Start-Sleep -Seconds 5
+        [System.Windows.Forms.Cursor]::Position = New-Object System.Drawing.Point 1000, 600
+        for ($i = 0; $i -lt 30; $i++) {
+            Shot (Join-Path $dir ('settings-scroll-{0:00}.png' -f $i))
+            for ($n = 0; $n -lt 18; $n++) { [W]::mouse_event(0x0800, 0, 0, [uint32]4294966576, [UIntPtr]::Zero); Start-Sleep -Milliseconds 120 }
+            Start-Sleep -Milliseconds 500
+        }
+    }
+    Stop-Process -Id $p.Id -Force
     Start-Sleep -Seconds 2
 }
 Remove-Item 'C:\guide\apdcap-sample' -Recurse -Force -ErrorAction SilentlyContinue
