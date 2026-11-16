@@ -31,12 +31,13 @@ public sealed class TitleNamingTests
     }
 
     [Fact]
-    public void SevenZipTakesTheDefinitionNameNotTheMsiProductName()
+    public void ASingleRunOfSevenZipKeepsTheMsiProductNameAsThePowerShellAppDoesAndASplitRunUsesTheDefinitionName()
     {
         var metadata = new InstallerMetadata { ProductName = "7-Zip 26.03 (x64 edition)", ProductVersion = "26.03.00.0", MetadataSource = "msi-property-table" };
         var identity = StagingService.ResolveStageIdentity(SevenZip(), "26.03", "Igor Pavlov", metadata);
-        Assert.Equal("7-Zip", ApplicationTitle.Resolve(identity.AppName, "26.03", TitleMode.NoVersion));
-        Assert.DoesNotContain("edition", identity.AppName);
+        // One deployment type: the installer name, so an existing site application keeps upgrading in place.
+        Assert.Equal("7-Zip (x64 edition)", ApplicationTitle.Resolve(identity.AppName, "26.03", TitleMode.NoVersion));
+        Assert.Equal("7-Zip", TitleNaming.BaseName(SevenZip()));
     }
 
     [Theory]
