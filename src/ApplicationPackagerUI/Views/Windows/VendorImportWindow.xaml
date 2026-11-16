@@ -178,6 +178,10 @@
                         <ComboBox Width="160" SelectedIndex="{Binding AccessMethod}" AutomationProperties.AutomationId="cboAccessMethod">
                             <ComboBoxItem Content="Key in a header" />
                             <ComboBoxItem Content="Basic" />
+                            <ComboBoxItem Content="Windows (integrated)" />
+                            <ComboBoxItem Content="Client certificate" />
+                            <ComboBoxItem Content="OAuth 2 token" />
+                            <ComboBoxItem Content="Signed address" />
                         </ComboBox>
                     </StackPanel>
                     <StackPanel Margin="0,0,8,8" Visibility="{Binding AccessIsHeader, Converter={StaticResource BooleanToVisibilityConverter}}">
@@ -188,8 +192,24 @@
                         <TextBlock Text="User name" FontWeight="SemiBold" Margin="0,0,0,4" />
                         <TextBox Width="160" Text="{Binding AccessUser, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.AutomationId="txtAccessUser" />
                     </StackPanel>
-                    <StackPanel Margin="0,0,8,8">
-                        <TextBlock Text="Key or password" FontWeight="SemiBold" Margin="0,0,0,4" />
+                    <StackPanel Margin="0,0,8,8" Visibility="{Binding AccessIsCertificate, Converter={StaticResource BooleanToVisibilityConverter}}">
+                        <TextBlock Text="Certificate thumbprint (CurrentUser\My)" FontWeight="SemiBold" Margin="0,0,0,4" />
+                        <TextBox Width="320" Text="{Binding AccessThumbprint, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.AutomationId="txtAccessThumbprint" />
+                    </StackPanel>
+                    <StackPanel Margin="0,0,8,8" Visibility="{Binding AccessIsOAuth, Converter={StaticResource BooleanToVisibilityConverter}}">
+                        <TextBlock Text="Token address (second bound host)" FontWeight="SemiBold" Margin="0,0,0,4" />
+                        <TextBox Width="320" Text="{Binding AccessTokenAddress, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.AutomationId="txtAccessTokenAddress" />
+                    </StackPanel>
+                    <StackPanel Margin="0,0,8,8" Visibility="{Binding AccessIsOAuth, Converter={StaticResource BooleanToVisibilityConverter}}">
+                        <TextBlock Text="Client id" FontWeight="SemiBold" Margin="0,0,0,4" />
+                        <TextBox Width="240" Text="{Binding AccessClientId, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.AutomationId="txtAccessClientId" />
+                    </StackPanel>
+                    <StackPanel Margin="0,0,8,8" Visibility="{Binding AccessIsOAuth, Converter={StaticResource BooleanToVisibilityConverter}}">
+                        <TextBlock Text="Scope" FontWeight="SemiBold" Margin="0,0,0,4" />
+                        <TextBox Width="240" Text="{Binding AccessScope, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.AutomationId="txtAccessScope" />
+                    </StackPanel>
+                    <StackPanel Margin="0,0,8,8" Visibility="{Binding AccessShowsSecret, Converter={StaticResource BooleanToVisibilityConverter}}">
+                        <TextBlock Text="Key, password or client secret" FontWeight="SemiBold" Margin="0,0,0,4" />
                         <ui:PasswordBox Width="240" Password="{Binding AccessSecret, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.AutomationId="pwdAccessSecret" />
                     </StackPanel>
                 </WrapPanel>

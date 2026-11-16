@@ -5,15 +5,26 @@ using System.Text.RegularExpressions;
 
 namespace ApplicationPackagerEngine.Services.VendorImport;
 
-/// <summary>How the program authenticates to a feed (methods 1 and 2 of "Authenticated feeds"; the others come later).</summary>
-public enum FeedAuthMethod { HeaderKey, Basic }
+/// <summary>
+/// How the program authenticates to a feed (the six methods of "Authenticated feeds"): a key in a header, Basic, Windows integrated authentication, a
+/// client certificate, an OAuth 2 token (client credentials) and a signed expiring address.
+/// </summary>
+public enum FeedAuthMethod { HeaderKey, Basic, Integrated, ClientCertificate, OAuth, SignedAddress }
 
 /// <summary>
 /// A credential entry: the id of the secret in the store, the bound host and port (HTTPS only), the method and the non-secret values. It holds
 /// no secret. The settings file holds these entries and nothing else.
 /// </summary>
-public sealed record FeedCredentialEntry(string Id, string Host, int Port, FeedAuthMethod Method, string? HeaderName, string? UserName)
+public sealed record FeedCredentialEntry(
+    string Id, string Host, int Port, FeedAuthMethod Method, string? HeaderName, string? UserName,
+    string? TokenAddress = null, string? ClientId = null, string? Scope = null, string? Thumbprint = null)
 {
+    /// <summary>The token host of method 5: the second bound host. The client secret goes there and nowhere else.</summary>
+    public bool MatchesToken(Uri address) =>
+        TokenAddress is not null && Uri.TryCreate(TokenAddress, UriKind.Absolute, out var token)
+        && address.Scheme.Equals(Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase)
+        && address.Host.Equals(token.Host, StringComparison.OrdinalIgnoreCase) && address.Port == token.Port;
+
     /// <summary>The bound scheme, host and port: the credential goes to a request with exactly these.</summary>
     public bool Matches(Uri address) =>
         address.Scheme.Equals(Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase)
@@ -25,9 +36,16 @@ public sealed record FeedCredentialEntry(string Id, string Host, int Port, FeedA
 /// <summary>An entry with its secret, as the fetch needs it. It lives in memory for one fetch.</summary>
 public sealed record FeedCredential(FeedCredentialEntry Entry, string Secret)
 {
+    /// <summary>The access token of method 5, once it is obtained. It lives in memory only.</summary>
+    public string? BearerToken { get; init; }
+
     /// <summary>The header that carries the credential to the bound host: its name and its value.</summary>
+    /// <summary>True when the method sends a header to the bound host (a key, Basic, or the token of OAuth).</summary>
+    public bool SendsHeader => Entry.Method is FeedAuthMethod.HeaderKey or FeedAuthMethod.Basic || (Entry.Method == FeedAuthMethod.OAuth && BearerToken is not null);
+
     public (string Name, string Value) Header()
     {
+        if (Entry.Method == FeedAuthMethod.OAuth) return ("Authorization", "Bearer " + BearerToken);
         if (Entry.Method == FeedAuthMethod.Basic)
             return ("Authorization", "Basic " + Convert.ToBase64String(Encoding.UTF8.GetBytes((Entry.UserName ?? "") + ":" + Secret)));
         var name = string.IsNullOrWhiteSpace(Entry.HeaderName) ? "Authorization" : Entry.HeaderName!;
@@ -141,9 +159,17 @@ public sealed class FeedCredentialStore(string settingsPath, ISecretStore secret
     /// <summary>The entries for a fetch and for the list: an unreadable file gives none (fail closed, no credential is sent).</summary>
     public IReadOnlyList<FeedCredentialEntry> Entries()
     {
-        try { return EntriesStrict(); }
+        try { return EntriesStrict().Where(IsUsable).ToList(); }
         catch (InvalidOperationException) { return []; }
     }
+
+    /// <summary>An entry that a hand edit left unusable (no thumbprint, no token address) is not offered, so it cannot crash a fetch or the list.</summary>
+    private static bool IsUsable(FeedCredentialEntry e) => e.Method switch
+    {
+        FeedAuthMethod.ClientCertificate => !string.IsNullOrEmpty(e.Thumbprint),
+        FeedAuthMethod.OAuth => Uri.TryCreate(e.TokenAddress, UriKind.Absolute, out _) && !string.IsNullOrEmpty(e.ClientId),
+        _ => true
+    };
 
     /// <summary>The entries for a change: an unreadable file stops the change, so that it never overwrites the entries that it cannot read.</summary>
     private List<FeedCredentialEntry> EntriesStrict()
@@ -167,11 +193,29 @@ public sealed class FeedCredentialStore(string settingsPath, ISecretStore secret
     private static readonly Regex IdGrammar = new(@"^[a-z0-9-]{3,64}\z", RegexOptions.Compiled);
 
     /// <summary>Adds an entry bound to the host of <paramref name="address"/>. The secret goes to the store; the file holds no secret.</summary>
-    public FeedCredentialEntry Add(string id, Uri address, FeedAuthMethod method, string? headerName, string? userName, string secret)
+    public FeedCredentialEntry Add(string id, Uri address, FeedAuthMethod method, string? headerName, string? userName, string secret,
+        string? tokenAddress = null, string? clientId = null, string? scope = null, string? thumbprint = null)
     {
         FeedFetcher.CheckAddress(address, "The address of the feed");
         if (!IdGrammar.IsMatch(id)) throw new InvalidOperationException("The id of the entry is 3 to 64 characters of a-z, 0-9 and '-'.");
-        if (secret.Length < MinSecretLength) throw new InvalidOperationException($"The secret is shorter than {MinSecretLength} characters; a short value cannot be kept out of the messages.");
+        var needsSecret = method is not (FeedAuthMethod.Integrated or FeedAuthMethod.ClientCertificate);
+        if (needsSecret && secret.Length < MinSecretLength) throw new InvalidOperationException($"The secret is shorter than {MinSecretLength} characters; a short value cannot be kept out of the messages.");
+        // The console of the certificates puts an invisible mark and spaces in a copied thumbprint.
+        thumbprint = thumbprint is null ? null : new string(thumbprint.Where(c => !char.IsWhiteSpace(c) && c != (char)0x200E && c != (char)0x200F).ToArray());
+        if (method == FeedAuthMethod.ClientCertificate && !System.Text.RegularExpressions.Regex.IsMatch(thumbprint ?? "", "^[0-9A-Fa-f]{40}$"))
+            throw new InvalidOperationException("A client certificate needs the SHA-1 thumbprint of a certificate of the store CurrentUser\\My (40 hexadecimal characters).");
+        if (method == FeedAuthMethod.OAuth)
+        {
+            if (!Uri.TryCreate(tokenAddress, UriKind.Absolute, out var token) || !token.Scheme.Equals(Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase) || !string.IsNullOrEmpty(token.UserInfo) || token.Query.Length > 0)
+                throw new InvalidOperationException("The token address must be an https address with no user information and no query.");
+            if (string.IsNullOrWhiteSpace(clientId)) throw new InvalidOperationException("OAuth 2 needs a client id.");
+        }
+        if (method == FeedAuthMethod.SignedAddress)
+        {
+            if (!Uri.TryCreate(secret, UriKind.Absolute, out var signed) || !signed.Scheme.Equals(Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase)
+                || !signed.Host.Equals(address.Host, StringComparison.OrdinalIgnoreCase) || signed.Port != address.Port)
+                throw new InvalidOperationException("A signed address is one https address; it binds its own host, and it is the secret.");
+        }
         if (method == FeedAuthMethod.HeaderKey && !string.IsNullOrWhiteSpace(headerName) && !HeaderName.IsMatch(headerName))
             throw new InvalidOperationException("The header name has a character that a header name cannot have.");
         if (method == FeedAuthMethod.Basic && string.IsNullOrWhiteSpace(userName)) throw new InvalidOperationException("Basic needs a user name.");
@@ -182,26 +226,44 @@ public sealed class FeedCredentialStore(string settingsPath, ISecretStore secret
             throw new InvalidOperationException($"The host {same.HostText} has the entry '{same.Id}' already. Rotate its secret, or remove it first.");
         var entry = new FeedCredentialEntry(id, address.Host.ToLowerInvariant(), address.Port, method,
             method == FeedAuthMethod.HeaderKey ? (string.IsNullOrWhiteSpace(headerName) ? "Authorization" : headerName!.Trim()) : null,
-            method == FeedAuthMethod.Basic ? userName!.Trim() : null);
-        // The secret first: a failure of the store leaves no entry that points to nothing.
-        secrets.Write(id, secret);
-        SecretRedactor.Register(secret);
+            method == FeedAuthMethod.Basic ? userName!.Trim() : null,
+            method == FeedAuthMethod.OAuth ? tokenAddress!.Trim() : null, method == FeedAuthMethod.OAuth ? clientId!.Trim() : null,
+            method == FeedAuthMethod.OAuth ? (string.IsNullOrWhiteSpace(scope) ? null : scope.Trim()) : null,
+            method == FeedAuthMethod.ClientCertificate ? thumbprint!.Trim().ToUpperInvariant() : null);
+        // The secret first: a failure of the store leaves no entry that points to nothing. Integrated authentication and a certificate have none.
+        if (!needsSecret) secrets.Delete(id);
+        if (needsSecret)
+        {
+            secrets.Write(id, secret);
+            SecretRedactor.Register(secret);
+            if (method == FeedAuthMethod.SignedAddress && Uri.TryCreate(secret, UriKind.Absolute, out var signedUri)) SecretRedactor.Register(signedUri.Query.TrimStart('?'));
+        }
         Save([.. entries, entry]);
         return entry;
     }
 
     public void Rotate(string id, string secret)
     {
-        if (EntriesStrict().All(e => e.Id != id)) throw new InvalidOperationException($"There is no entry '{id}'.");
+        var existing = EntriesStrict().FirstOrDefault(e => e.Id == id) ?? throw new InvalidOperationException($"There is no entry '{id}'.");
+        if (existing.Method is FeedAuthMethod.Integrated or FeedAuthMethod.ClientCertificate) throw new InvalidOperationException("This method has no secret to rotate.");
         if (secret.Length < MinSecretLength) throw new InvalidOperationException($"The secret is shorter than {MinSecretLength} characters; a short value cannot be kept out of the messages.");
+        if (existing.Method == FeedAuthMethod.SignedAddress)
+        {
+            if (!Uri.TryCreate(secret, UriKind.Absolute, out var signed) || !existing.Matches(signed))
+                throw new InvalidOperationException("A signed address is one https address on the bound host of this entry.");
+            SecretRedactor.Register(signed.Query.TrimStart('?'));
+        }
         secrets.Write(id, secret);
         SecretRedactor.Register(secret);
+        // After the write: a fetch that was running with the old secret cannot leave its token in the cache for later fetches.
+        OAuthTokens.Forget(id);
     }
 
     public void Remove(string id)
     {
         Save(EntriesStrict().Where(e => e.Id != id));
         secrets.Delete(id);
+        OAuthTokens.Forget(id);
     }
 
     /// <summary>The credential for a request to <paramref name="address"/>: the entry that is bound to exactly its scheme, host and port, with its secret; null when none.</summary>
@@ -209,9 +271,11 @@ public sealed class FeedCredentialStore(string settingsPath, ISecretStore secret
     {
         var entry = Entries().FirstOrDefault(e => e.Matches(address));
         if (entry is null) return null;
+        if (entry.Method is FeedAuthMethod.Integrated or FeedAuthMethod.ClientCertificate) return new FeedCredential(entry, "");
         var secret = secrets.Read(entry.Id);
         if (secret is null) throw new FeedFetchException($"The entry '{entry.Id}' for {entry.HostText} has no secret in the Windows Credential Manager. Rotate it to enter the secret again.");
         SecretRedactor.Register(secret);
+        if (entry.Method == FeedAuthMethod.SignedAddress && Uri.TryCreate(secret, UriKind.Absolute, out var signed)) SecretRedactor.Register(signed.Query.TrimStart('?'));
         return new FeedCredential(entry, secret);
     }
 }
