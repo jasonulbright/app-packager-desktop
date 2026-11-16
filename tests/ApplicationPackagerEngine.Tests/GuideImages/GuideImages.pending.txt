@@ -81,12 +81,7 @@ tools-dp-content-history
 tools-dp-content-issues
 tools-dp-content-plan-remove
 tools-dp-content-results
-tools-installer-analysis-file-browser
 tools-installer-analysis-inner
-tools-installer-analysis-msi-properties
-tools-installer-analysis-payload
-tools-installer-analysis-registry
-tools-installer-analysis-strings
 tools-maintenance-windows-apply-template
 tools-maintenance-windows-coverage
 tools-maintenance-windows-editor
@@ -99,7 +94,6 @@ tools-pivots-results
 tools-pivots-script
 tools-pivots-site-scripts
 tools-site-hygiene-alerts
-tools-site-hygiene-findings
 tools-site-hygiene-history
 tools-site-hygiene-import
 tools-site-hygiene-live-clients
@@ -109,16 +103,12 @@ tools-site-hygiene-live-dps
 tools-site-hygiene-live-inactive
 tools-site-hygiene-live-options
 tools-site-hygiene-live-site-health
-tools-site-hygiene-options
 tools-site-hygiene-picker
 tools-site-hygiene-plan-fix
-tools-site-hygiene-relationships
 tools-site-hygiene-trends
 packages
 core-packages-list
-tools-installer-analysis-overview
 tools-deployment-helper-deploy
 tools-pivots-pivot
 tools-maintenance-windows-list
 tools-dp-content-dps
-tools-site-hygiene-summary
