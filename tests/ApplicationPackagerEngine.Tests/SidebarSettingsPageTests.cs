@@ -39,6 +39,7 @@ public sealed class SidebarSettingsPageTests
         typeof(Page).GetConstructor(Type.EmptyTypes)!.Invoke(page, null);
         page.DataContext = dataContext;
         page.InitializeComponent();
+        page.SelectPage("sidebar");
         return page;
     }
 
