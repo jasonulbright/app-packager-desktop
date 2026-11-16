@@ -35,6 +35,16 @@ public static class GuideCaptureSteps
         ["core-add-file-pick"] = "add-from-file",
         ["core-settings-top"] = "settings",
         ["core-workbench-application"] = "workbench",
+        ["tools-site-hygiene-options"] = "tools-site-hygiene-options",
+        ["tools-site-hygiene-summary"] = "tools-site-hygiene-summary",
+        ["tools-site-hygiene-relationships"] = "tools-site-hygiene-relationships",
+        ["tools-site-hygiene-findings"] = "tools-site-hygiene-findings",
+        ["tools-installer-analysis-strings"] = "tools-installer-analysis-strings",
+        ["tools-installer-analysis-registry"] = "tools-installer-analysis-registry",
+        ["tools-installer-analysis-file-browser"] = "tools-installer-analysis-file-browser",
+        ["tools-installer-analysis-payload"] = "tools-installer-analysis-payload",
+        ["tools-installer-analysis-msi-properties"] = "tools-installer-analysis-msi-properties",
+        ["tools-installer-analysis-overview"] = "tools-installer-analysis-overview",
     };
 
     /// <summary>Every image that a check run produces: the lab capture run, and the render of the pages in the tests.</summary>
