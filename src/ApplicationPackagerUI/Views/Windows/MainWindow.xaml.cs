@@ -100,6 +100,7 @@ public partial class MainWindow : IDialogHostWindow
             {
                 ContentRendered -= StartUpdateCheck;
                 if (_serviceProvider.GetService<UpdateCoordinator>() is { } updates) _ = updates.RunStartupCheckAsync(this);
+                _ = Services.IconPackStartup.RunAsync();
             }
             ContentRendered += StartUpdateCheck;
         }

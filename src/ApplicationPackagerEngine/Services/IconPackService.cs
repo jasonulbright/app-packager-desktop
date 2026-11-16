@@ -236,6 +236,11 @@ public sealed class IconPackService
     }
 
     /// <summary>Installed pack status read from the manifest kept beside the icons.</summary>
+    /// <summary>True when an installed pack has the version of the release tag (a leading v is ignored).</summary>
+    public static bool IsCurrent(IconPackStatus status, string? releaseTag) =>
+        status.Installed && !string.IsNullOrWhiteSpace(status.PackVersion) && !string.IsNullOrWhiteSpace(releaseTag)
+        && string.Equals(status.PackVersion.Trim().TrimStart('v', 'V'), releaseTag.Trim().TrimStart('v', 'V'), StringComparison.OrdinalIgnoreCase);
+
     public static IconPackStatus ReadStatus(string definitionsDirectory)
     {
         var iconsDirectory = IconsDirectory(definitionsDirectory);
@@ -267,7 +272,8 @@ public sealed class IconPackService
         string? appVersion = null,
         Action<string>? onLog = null,
         CancellationToken ct = default,
-        IReadOnlyCollection<string>? definitionSourceDirectories = null)
+        IReadOnlyCollection<string>? definitionSourceDirectories = null,
+        bool onlyWhenNewer = false)
     {
         var definitions = string.IsNullOrWhiteSpace(definitionsDirectory)
             ? UserDefinitionsDirectory()
@@ -290,6 +296,9 @@ public sealed class IconPackService
             var (tag, packUrl, sumsUrl) = SelectAssets(releaseJson);
             if (packUrl is null || sumsUrl is null)
                 return new IconPackInstallResult(false, "The latest icon pack release carries no pack assets.");
+
+            if (onlyWhenNewer && IsCurrent(ReadStatus(definitions), tag))
+                return new IconPackInstallResult(true, $"Icon pack {tag} is already installed.", tag);
 
             Directory.CreateDirectory(scratch);
             var zipPath = Path.Combine(scratch, PackAssetName);
@@ -328,7 +337,8 @@ public sealed class IconPackService
         string? appVersion = null,
         Action<string>? onLog = null,
         CancellationToken ct = default,
-        IReadOnlyCollection<string>? definitionSourceDirectories = null)
+        IReadOnlyCollection<string>? definitionSourceDirectories = null,
+        bool onlyWhenNewer = false)
     {
         var definitions = string.IsNullOrWhiteSpace(definitionsDirectory)
             ? UserDefinitionsDirectory()
