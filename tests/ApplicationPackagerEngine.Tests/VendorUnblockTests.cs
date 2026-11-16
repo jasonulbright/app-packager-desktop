@@ -156,6 +156,61 @@ public sealed class VendorUnblockTests : IDisposable
         Assert.False(Directory.Exists(_root));
     }
 
+
+    [Fact]
+    public async Task AnExtractSetupAndAControlCharacterInACommandAreNeverUnblocked()
+    {
+        var extract = WithCommand("contoso-extract");
+        extract.ExtractSetup = new ExtractSetupConfig { ExtractDirName = "Contoso" };
+        var control = Base("contoso-control");
+        control.UninstallCommand = "msiexec /x {GUID}\u0000 && calc";
+        var preview = await PreviewAsync(Importer(extract, control));
+
+        Assert.False(preview.Candidates.Single(c => c.Definition.Id == "contoso-extract").CanUnblock);
+        Assert.False(preview.Candidates.Single(c => c.Definition.Id == "contoso-control").CanUnblock);
+    }
+
+    [Fact]
+    public void TheDigestCoversTheLanguageAndTheBitnessOfADetectionScript()
+    {
+        AppDefinition Make(string language, bool is64)
+        {
+            var d = Base();
+            d.Detection = new DetectionConfig { Type = "Script", ScriptText = "exit 0", ScriptLanguage = language, Is64Bit = is64 };
+            return d;
+        }
+
+        var baseline = DefinitionUnblock.Digest(Make("PowerShell", true));
+
+        Assert.NotEqual(baseline, DefinitionUnblock.Digest(Make("VBScript", true)));
+        Assert.NotEqual(baseline, DefinitionUnblock.Digest(Make("PowerShell", false)));
+    }
+
+    [Fact]
+    public async Task AClearDefinitionKeepsItsStageFolderWhenAnUnblockableOneWithTheSameFolderIsNotUnblocked()
+    {
+        var blocked = WithCommand("contoso-blocked");
+        var clear = Base("contoso-clear");
+        clear.Application = blocked.Application;
+        var importer = Importer(blocked, clear);
+        var preview = await PreviewAsync(importer);
+
+        Assert.Equal(ConflictKind.None, preview.Candidates.Single(c => c.Definition.Id == "contoso-clear").Conflict);
+        Assert.Equal(["contoso-clear"], importer.Import(preview, Confirm()).Ids);
+    }
+
+    [Fact]
+    public async Task UnblockingADefinitionWithTheStageFolderOfAnotherTakenDefinitionIsRefused()
+    {
+        var blocked = WithCommand("contoso-blocked");
+        var clear = Base("contoso-clear");
+        clear.Application = blocked.Application;
+        var importer = Importer(blocked, clear);
+        var preview = await PreviewAsync(importer);
+
+        Assert.Throws<InvalidOperationException>(() => importer.Import(preview, Confirm("contoso-blocked")));
+        Assert.False(Directory.Exists(_root));
+    }
     [Fact]
     public void TheUnblockWindowShowsTheFullTextOfEveryCommandWithItsSha256AndTheDigest()
     {

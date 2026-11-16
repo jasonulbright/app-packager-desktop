@@ -26,7 +26,8 @@ public static class DefinitionUnblock
         if (d.PostInstallScript is not null) items.Add(new("PostInstallScript", CodeKind.Script, d.PostInstallScript.Script));
         if (!string.IsNullOrWhiteSpace(d.UninstallCommand)) items.Add(new("UninstallCommand", CodeKind.Command, d.UninstallCommand));
         if (d.ExpandInstallArgs && !string.IsNullOrWhiteSpace(d.InstallArgs)) items.Add(new("InstallArgs with ExpandInstallArgs", CodeKind.Command, d.InstallArgs));
-        if (d.ExtractSetup is not null) items.Add(new("ExtractSetup (ExtractArgs)", CodeKind.Command, d.ExtractSetup.ExtractArgs));
+        // The wrapper deletes the folder that ExtractDirName names and runs the program that InnerSetupPath names, as the system account: not a command to unblock.
+        if (d.ExtractSetup is not null) items.Add(new("ExtractSetup (ExtractArgs)", CodeKind.Permanent, ""));
         if (d.BootstrapperLayout is not null) items.Add(new("BootstrapperLayout", CodeKind.Permanent, ""));
         foreach (var setting in d.InstallerSettings ?? [])
         {
@@ -50,7 +51,7 @@ public static class DefinitionUnblock
     {
         if (detection is null) return;
         if (!string.IsNullOrWhiteSpace(detection.ScriptText) || detection.Type.Equals("Script", StringComparison.OrdinalIgnoreCase))
-            items.Add(new($"{where}.ScriptText", CodeKind.Script, detection.ScriptText ?? ""));
+            items.Add(new($"{where}.ScriptText", CodeKind.Script, $"[language {detection.ScriptLanguage}, 64-bit {detection.Is64Bit}]{Environment.NewLine}{detection.ScriptText ?? ""}"));
         foreach (var (clause, index) in (detection.Clauses ?? []).Select((c, i) => (c, i)))
             AddDetection(clause, $"{where}.Clauses[{index}]", items);
     }
@@ -85,6 +86,16 @@ public static class DefinitionUnblock
         text.Append("PostInstallScript.When=").Append(d.PostInstallScript?.WhenSetting).Append('=').Append(d.PostInstallScript?.WhenValue).Append('\0');
         text.Append(JsonSerializer.Serialize(d.InstallerSettings ?? []));
         return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(text.ToString())));
+    }
+
+    /// <summary>The name and the SHA-256 of every script and command, and the digest of the definition; no text.</summary>
+    public static string Summary(AppDefinition d)
+    {
+        var text = new StringBuilder();
+        foreach (var item in Analyze(d).Where(i => i.Kind != CodeKind.Permanent))
+            text.AppendLine($"{item.Kind}: {item.Name}, {item.Text.Length} characters, SHA-256 {Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(item.Text)))}");
+        text.AppendLine("Digest of the definition: " + Digest(d));
+        return text.ToString();
     }
 
     /// <summary>The full text that the unblock window shows: each script and command with its name, its SHA-256 and the digest of the definition.</summary>

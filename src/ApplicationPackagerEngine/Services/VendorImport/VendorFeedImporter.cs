@@ -116,7 +116,7 @@ public sealed class VendorFeedImporter(
                 folders.Add(own);
                 return new ImportCandidate(d, ConflictKind.Shipped, null);
             }
-            if ((!d.Blocked || new ImportCandidate(d, ConflictKind.None, null).CanUnblock) && !folders.Add(StageFolder.Name(d.Definition))) return new ImportCandidate(d, ConflictKind.StageFolder, null);
+            if (!d.Blocked && !folders.Add(StageFolder.Name(d.Definition))) return new ImportCandidate(d, ConflictKind.StageFolder, null);
             return new ImportCandidate(d, ConflictKind.None, null);
         }).ToList();
         return new ImportPreview(document, feed, trust, candidates, refusal, signer, publisherPin, string.IsNullOrEmpty(pin) ? null : document.Sha256);
@@ -164,6 +164,22 @@ public sealed class VendorFeedImporter(
                 || (c.Conflict == ConflictKind.Shipped && confirmation.ReplaceShippedIds.Contains(c.Definition.Id, StringComparer.OrdinalIgnoreCase))))
             .ToList();
         if (take.Count == 0) throw new InvalidOperationException("No definition can be imported: every one is blocked or in conflict.");
+
+        // A definition that was unblocked takes its stage folder now: it must not share one with another definition that is taken or that exists.
+        var takenFolders = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var c in take)
+            if (!takenFolders.Add(StageFolder.Name(c.Definition.Definition)))
+                throw new InvalidOperationException($"The definition '{c.Definition.Id}' has the same stage folder (Application and Architecture) as another definition of this import.");
+        var replacedIds = take.Where(c => c.Conflict == ConflictKind.Shipped).Select(c => c.Definition.Id).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var existing = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var pair in stageFolders?.Invoke() ?? new Dictionary<string, string>())
+            if (!replacedIds.Contains(pair.Key)) existing.Add(pair.Value);
+        foreach (var stored in store.Feeds())
+            foreach (var file in stored.DefinitionFiles)
+                if (StageFolderOfFile(file) is { } folderName) existing.Add(folderName);
+        foreach (var c in take.Where(c => c.Definition.Blocked))
+            if (existing.Contains(StageFolder.Name(c.Definition.Definition)))
+                throw new InvalidOperationException($"The unblocked definition '{c.Definition.Id}' has the same stage folder (Application and Architecture) as a definition that exists.");
 
         var replaced = take.Where(c => c.Conflict == ConflictKind.Shipped).Select(c => c.Definition.Id).ToList();
         var source = new FeedSource(

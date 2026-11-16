@@ -174,8 +174,12 @@ public sealed partial class VendorImportViewModel : ObservableObject
         Busy = true;
         try
         {
+            // The dialog is a message box: it has no scroll bar and it clips a long text. It shows the SHA-256 of every piece and the digest; the
+            // full text is in the details of the definition above (the box that scrolls), and it is shown here only when it is short.
             var text = DefinitionUnblock.Describe(row.Candidate.Definition.Definition);
-            if (text.Length > 6000) text = text[..6000] + Environment.NewLine + "(The rest is in the details of the definition.)";
+            if (text.Length > 3000)
+                text = "The text of the scripts and commands is long. Read it in the details of the definition before you confirm."
+                       + Environment.NewLine + DefinitionUnblock.Summary(row.Candidate.Definition.Definition);
             if (!await _confirm($"Unblock {row.Id}",
                     $"Unblock the definition {row.Id} ({row.Application})? Its scripts and commands run as the system account on the computers that install it. The import does not sign or trust them. This unblock is for this definition and for exactly this text and these settings.{Environment.NewLine}{Environment.NewLine}{text}"))
                 return;
