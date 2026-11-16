@@ -402,6 +402,24 @@
                                     <ui:TextBox Text="{Binding DownloadRoot, UpdateSourceTrigger=PropertyChanged}" ToolTip="{Binding DownloadRoot}"
                                                 PlaceholderText="C:\temp\ap" />
                                 </DockPanel>
+                    <TextBlock Text="{Binding StagingWarning}" TextWrapping="Wrap" Margin="0,0,0,8"
+                               Visibility="{Binding ShowStagingWarning, Converter={StaticResource BooleanToVisibilityConverter}}"
+                               Foreground="{DynamicResource SystemFillColorCautionBrush}"
+                               AutomationProperties.AutomationId="txtStagingWarning" />
+                    <WrapPanel Margin="0,0,0,8" Visibility="{Binding ShowStagingWarning, Converter={StaticResource BooleanToVisibilityConverter}}">
+                        <ui:Button Content="Create a safe folder" Command="{Binding CreateSafeStagingFolderCommand}" Margin="0,0,8,4"
+                                   AutomationProperties.AutomationId="btnStagingSafeFolder"
+                                   ToolTip="Makes the staging folder in your data folder, which only your account and administrators can write, and puts it in the box." />
+                        <ui:Button Content="Allow this folder anyway..." Command="{Binding AllowStagingFolderCommand}" Margin="0,0,8,4"
+                                   AutomationProperties.AutomationId="btnStagingAllow"
+                                   ToolTip="Asks you to accept the risk for this folder. The allowance ends when the folder or its access list changes." />
+                    </WrapPanel>
+                    <DockPanel Margin="0,0,0,8" Visibility="{Binding ShowStagingAllowed, Converter={StaticResource BooleanToVisibilityConverter}}">
+                        <ui:Button DockPanel.Dock="Right" Content="End the allowance" Command="{Binding RemoveStagingAllowanceCommand}" Margin="8,0,0,0"
+                                   AutomationProperties.AutomationId="btnStagingRevoke" />
+                        <TextBlock Text="{Binding StagingAllowedText}" TextWrapping="Wrap" VerticalAlignment="Center"
+                                   Foreground="{DynamicResource TextFillColorSecondaryBrush}" AutomationProperties.AutomationId="txtStagingAllowed" />
+                    </DockPanel>
 
                                 <TextBlock Text="Packagers Folder (leave empty for auto-detect)" Style="{StaticResource FieldLabel}" />
                                 <DockPanel Margin="0,0,0,8" Width="480" HorizontalAlignment="Left">

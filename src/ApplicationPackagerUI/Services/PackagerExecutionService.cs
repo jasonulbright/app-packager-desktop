@@ -196,6 +196,7 @@ public class PackagerExecutionService(
             {
                 ExitCode = result.Success ? 0 : 1,
                 StdOut = result.Success ? $"Staged to: {result.ContentPath}" : "",
+                StagingNote = result.StagingNote ?? "",
                 StdErr = result.ErrorMessage ?? "",
                 OutLogPath = result.ManifestPath
             };
@@ -208,6 +209,8 @@ public class PackagerExecutionService(
         {
             return new PackagerExecutionResult { ExitCode = 1, StdErr = ex.Message };
         }
+        var allowedNote = StagingRootGuard.AllowanceNote(settings.DownloadRoot);
+        if (allowedNote is not null) onOutputLine?.Invoke(allowedNote);
         var bridge = PrepareChildBridge(packager, settings, onOutputLine, out var refusal, snapshot, runTarget);
         if (refusal is not null) return refusal;
         var (args, logPaths) = StageArguments(packager, settings, bridge?.DownloadRoot, bridge?.Snapshot?.BuildId);
@@ -227,6 +230,7 @@ public class PackagerExecutionService(
             };
         if (bridge is not null)
             SealPackagerStage(bridge, staged.StdOut, settings.DownloadRoot, onOutputLine);
+        staged.StagingNote = allowedNote ?? "";
         return staged;
     }
 

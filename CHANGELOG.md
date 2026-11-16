@@ -4,6 +4,7 @@
 
 ### Added
 
+- Settings, Folders: a staging folder that other accounts can write to gets a warning when you set it. The warning names the folder and the accounts and says staging is blocked for security. The stage result and the run status show the same text. Create a safe folder makes the folder in your data folder. Allow this folder anyway asks you to accept the risk for that folder; the allowance is stored with the date and your Windows user and ends when the folder or its access list changes.
 - Settings, General: Import from App Packager (PowerShell). It reads AppPackager.preferences.json, shows a preview (differs, same, skipped, unknown) and writes only after you accept. Credentials are never imported and the PowerShell file is not changed.
 
 ### Changed

@@ -294,6 +294,21 @@ public sealed class StagingService
         string? installMode = null,
         StageInputs? inputs = null)
     {
+        var note = StagingRootGuard.AllowanceNote(downloadRoot);
+        if (note is not null) onProgress?.Invoke(note);
+        var result = await StageCoreAsync(def, downloadRoot, onProgress, ct, knownVersion, settingsValues, installMode, inputs);
+        return note is null ? result : result.WithStagingNote(note);
+    }
+
+    private async Task<StagingResult> StageCoreAsync(
+        AppDefinition def, string downloadRoot,
+        Action<string>? onProgress,
+        CancellationToken ct,
+        string? knownVersion,
+        Dictionary<string, string>? settingsValues,
+        string? installMode,
+        StageInputs? inputs)
+    {
         using var importedScope = ImportedRunScope.EnterFor(def);
         // A run already cancelled does no work and reports cancellation, rather than
         // starting a download whose result nobody wants.
@@ -2826,6 +2841,19 @@ public sealed class StagingService
         CancellationToken ct = default,
         StageInputs? inputs = null,
         ExpectedInstaller? expected = null)
+    {
+        var note = StagingRootGuard.AllowanceNote(downloadRoot);
+        if (note is not null) onProgress?.Invoke(note);
+        var result = await StageDroppedInstallerCoreAsync(manifest, sourceInstallerPath, downloadRoot, onProgress, ct, inputs, expected);
+        return note is null ? result : result.WithStagingNote(note);
+    }
+
+    private async Task<StagingResult> StageDroppedInstallerCoreAsync(
+        StageManifest manifest, string sourceInstallerPath, string downloadRoot,
+        Action<string>? onProgress,
+        CancellationToken ct,
+        StageInputs? inputs,
+        ExpectedInstaller? expected)
     {
         var partial = new PartialStage();
         IDisposable? stageLock = null;

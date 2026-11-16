@@ -611,6 +611,7 @@ public partial class SettingsViewModel : ObservableObject, ISettingsReload
         Discovery.Load(s);
         FileShareRoot = s.FileShareRoot;
         DownloadRoot = s.DownloadRoot;
+        RefreshStagingStatus();
         PackagersRoot = s.PackagersRoot;
         EstimatedRuntimeMins = s.EstimatedRuntimeMins;
         MaximumRuntimeMins = s.MaximumRuntimeMins;
@@ -785,6 +786,9 @@ public partial class SettingsViewModel : ObservableObject, ISettingsReload
                 new SymbolIcon(SymbolRegular.ErrorCircle24), TimeSpan.FromSeconds(6));
             return;
         }
+        // The allowance of a staging folder ends when the folder changes.
+        StagingAllowanceStore.RemoveAllExcept(s.DownloadRoot);
+        RefreshStagingStatus();
         IntuneClientSecret = "";
         HasStoredIntuneSecret = !string.IsNullOrWhiteSpace(s.Intune.ClientSecretProtected);
         NvdApiKey = "";
