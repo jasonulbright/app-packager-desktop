@@ -118,6 +118,7 @@ public sealed class WindowsCredentialStore : ISecretStore
         finally
         {
             Array.Clear(bytes);
+            Marshal.Copy(new byte[bytes.Length], 0, blob, bytes.Length);
             Marshal.FreeHGlobal(blob);
         }
     }
@@ -137,12 +138,22 @@ public sealed class FeedCredentialStore(string settingsPath, ISecretStore secret
 
     public static FeedCredentialStore Default() => new(DefaultPath, new WindowsCredentialStore());
 
+    /// <summary>The entries for a fetch and for the list: an unreadable file gives none (fail closed, no credential is sent).</summary>
     public IReadOnlyList<FeedCredentialEntry> Entries()
+    {
+        try { return EntriesStrict(); }
+        catch (InvalidOperationException) { return []; }
+    }
+
+    /// <summary>The entries for a change: an unreadable file stops the change, so that it never overwrites the entries that it cannot read.</summary>
+    private List<FeedCredentialEntry> EntriesStrict()
     {
         if (!File.Exists(settingsPath)) return [];
         try { return JsonSerializer.Deserialize<List<FeedCredentialEntry>>(File.ReadAllText(settingsPath)) ?? []; }
-        catch (JsonException) { return []; }
+        catch (JsonException ex) { throw new InvalidOperationException($"The file of the feed credentials ({Path.GetFileName(settingsPath)}) cannot be read ({ex.Message}). Nothing was changed; repair or delete the file.", ex); }
     }
+
+    public const int MinSecretLength = 8;
 
     private void Save(IEnumerable<FeedCredentialEntry> entries)
     {
@@ -160,12 +171,15 @@ public sealed class FeedCredentialStore(string settingsPath, ISecretStore secret
     {
         FeedFetcher.CheckAddress(address, "The address of the feed");
         if (!IdGrammar.IsMatch(id)) throw new InvalidOperationException("The id of the entry is 3 to 64 characters of a-z, 0-9 and '-'.");
-        if (secret.Length == 0) throw new InvalidOperationException("The secret is empty.");
+        if (secret.Length < MinSecretLength) throw new InvalidOperationException($"The secret is shorter than {MinSecretLength} characters; a short value cannot be kept out of the messages.");
         if (method == FeedAuthMethod.HeaderKey && !string.IsNullOrWhiteSpace(headerName) && !HeaderName.IsMatch(headerName))
             throw new InvalidOperationException("The header name has a character that a header name cannot have.");
         if (method == FeedAuthMethod.Basic && string.IsNullOrWhiteSpace(userName)) throw new InvalidOperationException("Basic needs a user name.");
-        var entries = Entries().ToList();
+        if (method == FeedAuthMethod.Basic && (userName!.Contains(':') || userName.Any(char.IsControl))) throw new InvalidOperationException("A Basic user name has no ':' and no control character (RFC 7617).");
+        var entries = EntriesStrict();
         if (entries.Any(e => e.Id == id)) throw new InvalidOperationException($"An entry with the id '{id}' exists. Rotate its secret, or remove it first.");
+        if (entries.FirstOrDefault(e => e.Host.Equals(address.Host, StringComparison.OrdinalIgnoreCase) && e.Port == address.Port) is { } same)
+            throw new InvalidOperationException($"The host {same.HostText} has the entry '{same.Id}' already. Rotate its secret, or remove it first.");
         var entry = new FeedCredentialEntry(id, address.Host.ToLowerInvariant(), address.Port, method,
             method == FeedAuthMethod.HeaderKey ? (string.IsNullOrWhiteSpace(headerName) ? "Authorization" : headerName!.Trim()) : null,
             method == FeedAuthMethod.Basic ? userName!.Trim() : null);
@@ -178,15 +192,15 @@ public sealed class FeedCredentialStore(string settingsPath, ISecretStore secret
 
     public void Rotate(string id, string secret)
     {
-        if (Entries().All(e => e.Id != id)) throw new InvalidOperationException($"There is no entry '{id}'.");
-        if (secret.Length == 0) throw new InvalidOperationException("The secret is empty.");
+        if (EntriesStrict().All(e => e.Id != id)) throw new InvalidOperationException($"There is no entry '{id}'.");
+        if (secret.Length < MinSecretLength) throw new InvalidOperationException($"The secret is shorter than {MinSecretLength} characters; a short value cannot be kept out of the messages.");
         secrets.Write(id, secret);
         SecretRedactor.Register(secret);
     }
 
     public void Remove(string id)
     {
-        Save(Entries().Where(e => e.Id != id));
+        Save(EntriesStrict().Where(e => e.Id != id));
         secrets.Delete(id);
     }
 

@@ -540,6 +540,7 @@ public sealed partial class VendorImportViewModel : ObservableObject
         if (!Uri.TryCreate(AccessAddress.Trim(), UriKind.Absolute, out var address) || address.Scheme != Uri.UriSchemeHttps)
         {
             AccessStatus = "The address must be an absolute https:// address. HTTP is refused for every method.";
+            AccessSecret = "";
             return;
         }
         Busy = true;
@@ -554,11 +555,16 @@ public sealed partial class VendorImportViewModel : ObservableObject
             try { AccessStatus = "Saved. Test: " + await _service.TestAsync(address, cts.Token); }
             catch (FeedFetchException ex) { AccessStatus = "Saved. Test failed: " + ex.Message; }
         }
-        catch (Exception ex) when (ex is InvalidOperationException or IOException or UnauthorizedAccessException or ArgumentException)
+        catch (Exception ex) when (ex is InvalidOperationException or IOException or UnauthorizedAccessException or ArgumentException or FeedFetchException)
         {
             AccessStatus = "Not saved: " + ex.Message;
         }
-        finally { Busy = false; }
+        finally
+        {
+            // The secret never stays in the window, whatever happened.
+            AccessSecret = "";
+            Busy = false;
+        }
     }
 
     private bool CanRotateAccess() => !Busy && SelectedAccess is not null && AccessSecret.Length > 0;
@@ -576,6 +582,7 @@ public sealed partial class VendorImportViewModel : ObservableObject
         {
             AccessStatus = "Not rotated: " + ex.Message;
         }
+        finally { AccessSecret = ""; }
     }
 
     private bool CanRemoveAccess() => !Busy && SelectedAccess is not null;

@@ -197,6 +197,50 @@ public sealed class FeedAccessTests : IDisposable
         Assert.DoesNotContain("ZZZZ9999", ex.Message);
     }
 
+
+    [Fact]
+    public void ASecondEntryForTheSameHostAShortSecretAndABasicUserWithAColonAreRefused()
+    {
+        var store = Store();
+        store.Add("feed-a", Feed, FeedAuthMethod.HeaderKey, null, null, Canary);
+
+        Assert.Throws<InvalidOperationException>(() => store.Add("feed-b", Feed, FeedAuthMethod.HeaderKey, null, null, "another-secret-1"));
+        Assert.Throws<InvalidOperationException>(() => store.Add("feed-c", new Uri("https://third.example/"), FeedAuthMethod.HeaderKey, null, null, "short"));
+        Assert.Throws<InvalidOperationException>(() => store.Add("feed-d", new Uri("https://fourth.example/"), FeedAuthMethod.Basic, null, "corp:svc", "long-enough-secret"));
+        Assert.Single(store.Entries());
+    }
+
+    [Fact]
+    public void AnUnreadableSettingsFileStopsAChangeAndGivesNoCredential()
+    {
+        var store = Store();
+        store.Add("feed-a", Feed, FeedAuthMethod.HeaderKey, null, null, Canary);
+        File.WriteAllText(Path.Combine(_root, "FeedCredentials.json"), "{ not json");
+
+        Assert.Null(store.For(Feed));
+        Assert.Throws<InvalidOperationException>(() => store.Add("feed-b", new Uri("https://other.example/"), FeedAuthMethod.HeaderKey, null, null, "another-secret-1"));
+        Assert.Throws<InvalidOperationException>(() => store.Remove("feed-a"));
+        Assert.Equal("{ not json", File.ReadAllText(Path.Combine(_root, "FeedCredentials.json")));
+    }
+
+    [Fact]
+    public async Task ARedirectBackToTheBoundHostCarriesTheCredentialAgain()
+    {
+        var store = Store();
+        store.Add("feed-a", Feed, FeedAuthMethod.HeaderKey, null, null, Canary);
+        var handler = new RecordingHandler(uri => uri.AbsolutePath switch
+        {
+            "/feed.json" => Redirect("https://cdn.example/y.json"),
+            "/y.json" => Redirect("https://vendor.example/z.json"),
+            _ => Ok()
+        });
+
+        await Fetcher(handler).FetchAsync(Feed, CancellationToken.None, store.For(Feed));
+
+        Assert.True(handler.Requests[0].Headers.ContainsKey("Authorization"));
+        Assert.False(handler.Requests[1].Headers.ContainsKey("Authorization"));
+        Assert.True(handler.Requests[2].Headers.ContainsKey("Authorization"));
+    }
     [Fact]
     public async Task APreviewUsesTheCredentialOfTheBoundHostAndAnAnonymousFeedOfAnotherHostGetsNone()
     {

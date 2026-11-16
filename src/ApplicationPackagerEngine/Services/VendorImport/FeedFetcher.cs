@@ -145,16 +145,18 @@ public sealed class FeedFetcher
         var current = start;
         var redirects = 0;
         var retries = 0;
-        // The credential goes to the bound host only. A redirect to another host (or port) is followed without it, for the rest of the fetch.
-        var credentialKept = credential is not null;
+        // The credential goes to a request to the bound scheme, host and port, and to no other: a redirect to another host is followed without it,
+        // and a later hop back to the bound host carries it again.
         var leftBoundHost = false;
         while (true)
         {
             ct.ThrowIfCancellationRequested();
             using var request = new HttpRequestMessage(HttpMethod.Get, current);
             request.Headers.UserAgent.ParseAdd(_limits.UserAgent);
-            if (credentialKept && credential!.Entry.Matches(current))
+            var sentCredential = false;
+            if (credential is not null && credential.Entry.Matches(current))
             {
+                sentCredential = true;
                 var (headerName, headerValue) = credential.Header();
                 request.Headers.TryAddWithoutValidation(headerName, headerValue);
             }
@@ -188,7 +190,7 @@ public sealed class FeedFetcher
                     CheckAddress(next, "The target of a redirect");
                     if (signature && (!string.Equals(next.Host, start.Host, StringComparison.OrdinalIgnoreCase) || next.Port != start.Port))
                         throw new FeedFetchException($"The signature file redirects from {Host(start)} to {Host(next)}; the signature must come from the host of the document.");
-                    if (credentialKept && !credential!.Entry.Matches(next)) { credentialKept = false; leftBoundHost = true; }
+                    if (credential is not null && !credential.Entry.Matches(next)) leftBoundHost = true;
                     current = next;
                     continue;
                 }
@@ -201,9 +203,9 @@ public sealed class FeedFetcher
                     await _delay(wait, ct).ConfigureAwait(false);
                     continue;
                 }
-                if (status is 401 or 403 && leftBoundHost)
+                if (status is 401 or 403 && leftBoundHost && !sentCredential)
                     throw new FeedFetchException($"The feed redirected to {Host(current)}, which answered {status} and has no credential entry. The credential is never sent to another host.");
-                if (status is 401 or 403 && credential is not null)
+                if (status is 401 or 403 && sentCredential)
                     throw new FeedFetchException($"{Host(current)} refused the credential ({status}). The key or the password may be wrong, expired or revoked; rotate it.");
                 if (status is < 200 or >= 300)
                     throw new FeedFetchException($"{Host(current)} answered {status} {response.ReasonPhrase}.");
