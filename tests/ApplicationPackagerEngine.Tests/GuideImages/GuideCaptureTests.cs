@@ -48,10 +48,10 @@ public sealed class GuideCaptureTests
                     var content = (FrameworkElement)window.Content;
                     var bitmap = new RenderTargetBitmap((int)Math.Ceiling(content.ActualWidth), (int)Math.Ceiling(content.ActualHeight), 96, 96, PixelFormats.Pbgra32);
                     bitmap.Render(content);
-                    var encoder = new PngBitmapEncoder();
-                    encoder.Frames.Add(BitmapFrame.Create(bitmap));
                     foreach (var id in group)
                     {
+                        var encoder = new PngBitmapEncoder();
+                        encoder.Frames.Add(BitmapFrame.Create(bitmap));
                         using var stream = File.Create(Path.Combine(target, id + ".png"));
                         encoder.Save(stream);
                     }
