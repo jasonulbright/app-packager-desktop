@@ -243,6 +243,12 @@ public static partial class SecretRedactor
     [GeneratedRegex(@"(?i)\bhttps?://[^\s/@:]+:[^\s/@]+@")]
     private static partial Regex UserInfo();
 
+    [GeneratedRegex(@"(?i)(https?://[^\s?#""'']+)\?[^\s""'']*")]
+    private static partial Regex AddressQuery();
+
+    /// <summary>The text with the query removed from every address in it: a log line names the scheme, the host and the path, never a query.</summary>
+    public static string WithoutQueries(string? text) => string.IsNullOrEmpty(text) ? text ?? "" : AddressQuery().Replace(text, "$1");
+
     public static string Redact(string? text)
     {
         if (string.IsNullOrEmpty(text)) return text ?? "";

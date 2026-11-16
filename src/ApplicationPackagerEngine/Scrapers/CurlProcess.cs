@@ -50,6 +50,14 @@ public static class CurlProcess
             CreateNoWindow = true
         };
         foreach (var option in options) startInfo.ArgumentList.Add(option);
+        // A request that an imported definition causes cannot be downgraded to HTTP by a redirect after the static check of its address.
+        if (ImportedRunScope.Active)
+        {
+            startInfo.ArgumentList.Add("--proto");
+            startInfo.ArgumentList.Add("=https");
+            startInfo.ArgumentList.Add("--proto-redir");
+            startInfo.ArgumentList.Add("=https");
+        }
         startInfo.ArgumentList.Add("--globoff");
         if (readConfigFromStdin)
         {

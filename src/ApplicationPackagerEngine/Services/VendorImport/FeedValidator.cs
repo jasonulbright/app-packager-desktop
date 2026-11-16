@@ -295,6 +295,9 @@ public static partial class FeedValidator
             hosts.Add(uri.Host);
         }
 
+        foreach (var (field, placeholder) in CapturedValueRules.CrossHostCaptures(d))
+            add("CapturedValueCrossHost", $"{field} puts the captured value {placeholder} into an address on another host than the one that it is read from. Only {{version}} may cross to another host, and only when it is a short version.");
+
         Check("VendorUrl", d.VendorUrl);
         Check("SecurityAdvisoryUrl", d.SecurityAdvisoryUrl);
         Check("DownloadUrl", d.DownloadUrl);

@@ -4,6 +4,7 @@ using ApplicationPackagerEngine.Models;
 using ApplicationPackagerEngine.Services.InstallerScripts;
 using ApplicationPackagerEngine.Services.Workbench;
 using ApplicationPackagerEngine.Scrapers;
+using ApplicationPackagerEngine.Services.VendorImport;
 
 namespace ApplicationPackagerEngine.Services;
 
@@ -230,6 +231,7 @@ public sealed class StagingService
     /// <summary>Gets the latest version for a JSON-defined app without downloading.</summary>
     public async Task<string?> GetLatestVersionAsync(AppDefinition def, CancellationToken ct = default)
     {
+        using var importedScope = ImportedRunScope.EnterFor(def);
         if (StagesFromSavedInstaller(def))
             return string.IsNullOrWhiteSpace(def.LocalInstaller?.Version) ? null : def.LocalInstaller.Version.Trim();
 
@@ -292,6 +294,7 @@ public sealed class StagingService
         string? installMode = null,
         StageInputs? inputs = null)
     {
+        using var importedScope = ImportedRunScope.EnterFor(def);
         // A run already cancelled does no work and reports cancellation, rather than
         // starting a download whose result nobody wants.
         ct.ThrowIfCancellationRequested();
@@ -351,6 +354,12 @@ public sealed class StagingService
             }
             if (string.IsNullOrEmpty(version) || string.IsNullOrEmpty(rawVersion))
                 return new StagingResult { Success = false, ErrorMessage = "Could not determine latest version" };
+
+            // A version read from one host goes into an address on another host only as a short version: what a first request read must not steer the
+            // second request of an imported definition to another place.
+            if (def.SourceOrigin == Models.Workbench.ApplicationOrigin.Imported && savedInstaller is null && CapturedValueRules.VersionCrossesHosts(def)
+                && (!CapturedValueRules.IsShortVersion(rawVersion) || !CapturedValueRules.IsShortVersion(version)))
+                return new StagingResult { Success = false, ErrorMessage = "The version that the vendor page returned is not a short version (digits, dots and a short suffix), and this definition puts it into an address on another host. The stage is refused." };
 
             // version stays the transformed value the download URL substitutes; displayVersion
             // names the folder and the detection and is the version the operator sees.

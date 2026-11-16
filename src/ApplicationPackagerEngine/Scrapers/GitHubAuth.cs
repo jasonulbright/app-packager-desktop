@@ -62,6 +62,8 @@ public static class GitHubAuth
     public static string? CurlConfigFor(string? url)
     {
         if (!AppliesTo(url)) return null;
+        // A definition of a vendor feed gets no ambient credential.
+        if (ImportedRunScope.Active) return null;
         var token = Token;
         return string.IsNullOrEmpty(token)
             ? null
