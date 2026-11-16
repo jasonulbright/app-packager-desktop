@@ -150,6 +150,56 @@
                     <ui:Button x:Name="btnRemoveFeed" Content="Remove Feed" MinWidth="130" Margin="0,0,8,8" Appearance="Danger"
                                Command="{Binding RemoveFeedCommand}" AutomationProperties.AutomationId="btnRemoveFeed" />
                 </WrapPanel>
+                <TextBlock Text="Access to an authenticated feed" Margin="0,8,0,4" />
+                <TextBlock Text="{Binding AccessStatus}" TextWrapping="Wrap" Margin="0,0,0,8" Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                           AutomationProperties.AutomationId="txtAccessStatus" />
+                <DataGrid x:Name="gridAccess" ItemsSource="{Binding Access}" SelectedItem="{Binding SelectedAccess}" AutoGenerateColumns="False"
+                          CanUserAddRows="False" CanUserDeleteRows="False" HeadersVisibility="Column" RowHeaderWidth="0" IsReadOnly="True"
+                          SelectionMode="Single" GridLinesVisibility="Horizontal" MinHeight="60" MaxHeight="140" Margin="0,0,0,8"
+                          PreviewMouseWheel="OnGridPreviewMouseWheel" AutomationProperties.AutomationId="gridAccess">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="Entry" Binding="{Binding Id}" Width="160" />
+                        <DataGridTextColumn Header="Bound host" Binding="{Binding Host}" Width="220" />
+                        <DataGridTextColumn Header="Method" Binding="{Binding Method}" Width="140" />
+                        <DataGridTextColumn Header="Detail" Binding="{Binding Detail}" Width="*" MinWidth="120" />
+                    </DataGrid.Columns>
+                </DataGrid>
+                <WrapPanel Margin="0,0,0,4">
+                    <StackPanel Margin="0,0,8,8">
+                        <TextBlock Text="Entry id" FontWeight="SemiBold" Margin="0,0,0,4" />
+                        <TextBox Width="160" Text="{Binding AccessId, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.AutomationId="txtAccessId" />
+                    </StackPanel>
+                    <StackPanel Margin="0,0,8,8">
+                        <TextBlock Text="Address of the feed (binds the host)" FontWeight="SemiBold" Margin="0,0,0,4" />
+                        <TextBox Width="320" Text="{Binding AccessAddress, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.AutomationId="txtAccessAddress" />
+                    </StackPanel>
+                    <StackPanel Margin="0,0,8,8">
+                        <TextBlock Text="Method" FontWeight="SemiBold" Margin="0,0,0,4" />
+                        <ComboBox Width="160" SelectedIndex="{Binding AccessMethod}" AutomationProperties.AutomationId="cboAccessMethod">
+                            <ComboBoxItem Content="Key in a header" />
+                            <ComboBoxItem Content="Basic" />
+                        </ComboBox>
+                    </StackPanel>
+                    <StackPanel Margin="0,0,8,8" Visibility="{Binding AccessIsHeader, Converter={StaticResource BooleanToVisibilityConverter}}">
+                        <TextBlock Text="Header name" FontWeight="SemiBold" Margin="0,0,0,4" />
+                        <TextBox Width="160" Text="{Binding AccessHeader, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.AutomationId="txtAccessHeader" />
+                    </StackPanel>
+                    <StackPanel Margin="0,0,8,8" Visibility="{Binding AccessIsBasic, Converter={StaticResource BooleanToVisibilityConverter}}">
+                        <TextBlock Text="User name" FontWeight="SemiBold" Margin="0,0,0,4" />
+                        <TextBox Width="160" Text="{Binding AccessUser, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.AutomationId="txtAccessUser" />
+                    </StackPanel>
+                    <StackPanel Margin="0,0,8,8">
+                        <TextBlock Text="Key or password" FontWeight="SemiBold" Margin="0,0,0,4" />
+                        <ui:PasswordBox Width="240" Password="{Binding AccessSecret, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.AutomationId="pwdAccessSecret" />
+                    </StackPanel>
+                </WrapPanel>
+                <WrapPanel Margin="0,0,0,8">
+                    <ui:Button x:Name="btnAddAccess" Content="Add and Test" Margin="0,0,8,8" Command="{Binding AddAccessCommand}" AutomationProperties.AutomationId="btnAddAccess" />
+                    <ui:Button x:Name="btnRotateAccess" Content="Rotate Secret" Margin="0,0,8,8" Command="{Binding RotateAccessCommand}"
+                               ToolTip="Replaces the secret of the selected entry with the one in the box." AutomationProperties.AutomationId="btnRotateAccess" />
+                    <ui:Button x:Name="btnRemoveAccess" Content="Remove Access" Margin="0,0,8,8" Appearance="Danger" Command="{Binding RemoveAccessCommand}"
+                               AutomationProperties.AutomationId="btnRemoveAccess" />
+                </WrapPanel>
                 <StackPanel Visibility="{Binding HasUpdate, Converter={StaticResource BooleanToVisibilityConverter}}">
                     <TextBlock Text="Update of the selected feed (read only)" Margin="0,0,0,4" />
                     <TextBox x:Name="txtUpdateDiff" Text="{Binding UpdateText, Mode=OneWay}" Style="{StaticResource DetailBox}" FontFamily="Consolas" MinHeight="100" MaxHeight="240"

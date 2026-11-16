@@ -313,7 +313,7 @@ One pull request for this specification. Then the implementation, one pull reque
 2. The trust by signed document (the pinned publisher).
 3. The unblock of a script and of a command, with its confirmation and its settings digest. (Done: ExtractSetup (it deletes a folder and runs a program that the document names) is never unblocked, like ZipPayload; a control character in a script or command blocks without an unblock; the digest covers the language and bitness of a detection script and the text of every script and command and the whole InstallerSettings list, a superset of the settings that a piece uses; the record lists it as Id:Digest.)
 4. The update with the diff. (Done: Check for Update and Apply Update in the import window; the record keeps the Updated time of the document, and an older document needs a confirmation.)
-5. Authenticated feeds, the Credential Manager store, the full redactor and the Feeds page, with method 1 and method 2, and the managed or no-redirect curl path for authenticated payloads.
+5. Authenticated feeds, the Credential Manager store, the full redactor and the Feeds page, with method 1 and method 2, and the managed or no-redirect curl path for authenticated payloads. (Done in two parts: the store, the redactor for the fetch, the binding and the access section of the import window, methods 1 and 2; the curl path for payloads and the run-time rules follow.)
 6. Methods 3 (integrated), 4 (client certificate), 5 (token) and 6 (signed address), each in its own change with its lab test.
 
 ## Open and unverified

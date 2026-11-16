@@ -36,7 +36,8 @@ public sealed record ImportConfirmation(
 /// </summary>
 public sealed class VendorFeedImporter(
     FeedFetcher fetcher, ImportedDefinitionStore store, Func<ISet<string>> shippedIds, Func<ISet<string>> userIds, TimeProvider? clock = null,
-    Func<IReadOnlyDictionary<string, string>>? stageFolders = null, FeedSignatureVerifier? signatureVerifier = null)
+    Func<IReadOnlyDictionary<string, string>>? stageFolders = null, FeedSignatureVerifier? signatureVerifier = null,
+    Func<Uri, FeedCredential?>? credentialFor = null)
 {
     private readonly TimeProvider _clock = clock ?? TimeProvider.System;
     private readonly FeedSignatureVerifier _signatureVerifier = signatureVerifier ?? new FeedSignatureVerifier();
@@ -47,7 +48,7 @@ public sealed class VendorFeedImporter(
     /// <param name="updatingFeedId">The feed that an update replaces: its own definitions are no conflict for the new document.</param>
     internal async Task<ImportPreview> PreviewCoreAsync(Uri address, string? pinnedSha256, CancellationToken ct, string? pinnedPublisher, string? updatingFeedId)
     {
-        var document = await fetcher.FetchAsync(address, ct).ConfigureAwait(false);
+        var document = await fetcher.FetchAsync(address, ct, credentialFor?.Invoke(address)).ConfigureAwait(false);
         var feed = FeedValidator.Validate(document.Bytes);
 
         var pin = pinnedSha256?.Trim();
@@ -79,7 +80,7 @@ public sealed class VendorFeedImporter(
                 publisherPin = parsed.Text;
                 try
                 {
-                    var signature = await fetcher.FetchSignatureAsync(document.FinalAddress, ct).ConfigureAwait(false);
+                    var signature = await fetcher.FetchSignatureAsync(document.FinalAddress, ct, credentialFor?.Invoke(document.FinalAddress)).ConfigureAwait(false);
                     var result = _signatureVerifier.Verify(document.Bytes, signature.Bytes, parsed, _clock.GetUtcNow());
                     if (result.Valid) { trust = FeedTrust.SignedByPinnedPublisher; signer = result.SignerText; }
                     else refusal ??= $"The signature of the document is refused: {result.Error} The import is stopped; it does not fall back to \"{FeedTrust.NotVerified}\".";
