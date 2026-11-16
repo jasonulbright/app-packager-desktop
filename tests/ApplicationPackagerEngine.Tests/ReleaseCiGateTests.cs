@@ -134,7 +134,7 @@ public sealed class ReleaseCiGateTests
     }
 
     [Fact]
-    public void ThePushTriggerSkipsDocumentationAndImageOnlyChangesAndNothingElse()
+    public void ThePushTriggerSkipsGuideImageOnlyChangesAndNothingElse()
     {
         var yaml = File.ReadAllText(RepoFile(".github", "workflows", "ci.yml"));
         var push = yaml.IndexOf("  push:", StringComparison.Ordinal);
@@ -144,9 +144,9 @@ public sealed class ReleaseCiGateTests
 
         Assert.Contains("paths-ignore:", block);
         Assert.Contains("- 'docs/images/**'", block);
-        Assert.Contains("- '**.md'", block);
-        // Only these two patterns skip the job: code, tests, tools, the capture tool and workflows still run it.
-        Assert.Equal(2, block.Split('\n').Count(l => l.TrimStart().StartsWith("- '", StringComparison.Ordinal)));
+        Assert.DoesNotContain(".md", block.Replace("README.md and docs/*.md", ""));
+        // Only this pattern skips the job: code, tests, tools, the capture tool and workflows still run it.
+        Assert.Equal(1, block.Split('\n').Count(l => l.TrimStart().StartsWith("- '", StringComparison.Ordinal)));
         Assert.DoesNotContain("paths:", block.Replace("paths-ignore:", ""));
     }
 }
