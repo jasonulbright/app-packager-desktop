@@ -31,6 +31,13 @@ public sealed class DownloadService
 
         var maxAttempts = retryCount + 1;
 
+        // A payload of an authenticated feed: the credential goes through the manual redirect loop below, never through curl -L.
+        if (ImportedRunScope.Active && Uri.TryCreate(url, UriKind.Absolute, out var feedUri) && FeedPayloadCredentials.For(feedUri) is { } feedCredential)
+        {
+            await DownloadWithCredentialAsync(feedUri, feedCredential, outFile, headerArguments, onProgress, ct, maxBytes).ConfigureAwait(false);
+            return;
+        }
+
         for (var attempt = 1; attempt <= maxAttempts; attempt++)
         {
             ct.ThrowIfCancellationRequested();
@@ -93,6 +100,62 @@ public sealed class DownloadService
         }
 
         throw new InvalidOperationException($"Download failed after {maxAttempts} attempts: {SecretRedactor.Redact(SecretRedactor.WithoutQueries(url))}");
+    }
+
+    private async Task DownloadWithCredentialAsync(
+        Uri start, FeedCredential credential, string outFile, IReadOnlyList<string> headerArguments, Action<string>? onProgress,
+        CancellationToken ct, long? maxBytes)
+    {
+        var partFile = $"{outFile}.{Guid.NewGuid():N}.part";
+        var completed = false;
+        try
+        {
+            var current = start;
+            var sendCredential = true;
+            for (var redirects = 0; ; redirects++)
+            {
+                ct.ThrowIfCancellationRequested();
+                onProgress?.Invoke($"Downloading: {Path.GetFileName(outFile)} from {current.Host}");
+                // No -L: the program follows the redirect. The status and the redirect address come back on standard output.
+                List<string> options = ["--fail-with-body", "--silent", "--show-error", "--max-redirs", "0", "--write-out", "%{http_code}|%{redirect_url}", .. headerArguments, "-o", partFile];
+                using var process = sendCredential && credential.Entry.Matches(current)
+                    ? CurlProcess.StartWithConfig(options, current.AbsoluteUri, FeedPayloadCredentials.ConfigFor(credential))
+                    : CurlProcess.Start(options, current.AbsoluteUri);
+                var stdoutTask = process.StandardOutput.ReadToEndAsync(CancellationToken.None);
+                var stderrTask = process.StandardError.ReadToEndAsync(CancellationToken.None);
+                try { await WaitForExitAsync(process, partFile, maxBytes, ct).ConfigureAwait(false); }
+                catch (Exception ex) when (ex is OperationCanceledException or DownloadTooLargeException)
+                {
+                    BoundedProcessRunner.Terminate(process);
+                    _ = await SafeRead(stdoutTask).ConfigureAwait(false);
+                    _ = await SafeRead(stderrTask).ConfigureAwait(false);
+                    throw;
+                }
+                var output = (await SafeRead(stdoutTask).ConfigureAwait(false)).Trim();
+                var stderr = await SafeRead(stderrTask).ConfigureAwait(false);
+                if (maxBytes is { } cap && (process.ExitCode == CurlMaxFileSizeExceeded || (File.Exists(partFile) && new FileInfo(partFile).Length > cap)))
+                    throw new DownloadTooLargeException(cap);
+                var parts = output.Split('|', 2);
+                var status = int.TryParse(parts[0], out var code) ? code : 0;
+                var hop = FeedPayloadCredentials.Next(current, status, parts.Length > 1 ? parts[1] : null, credential, redirects);
+                if (hop.Done)
+                {
+                    if (!File.Exists(partFile) || new FileInfo(partFile).Length == 0) throw new InvalidOperationException($"The download from {current.Host} was empty.");
+                    Promote(partFile, outFile);
+                    completed = true;
+                    onProgress?.Invoke($"Downloaded: {Path.GetFileName(outFile)}");
+                    return;
+                }
+                if (hop.Error is not null) throw new InvalidOperationException(SecretRedactor.Redact(hop.Error + (stderr.Length > 0 ? " " + SecretRedactor.WithoutQueries(stderr.Trim()) : "")));
+                current = hop.Next!;
+                sendCredential = hop.SendCredential;
+                if (File.Exists(partFile)) DeleteQuietly(partFile);
+            }
+        }
+        finally
+        {
+            if (!completed) DeleteQuietly(partFile);
+        }
     }
 
     /// <summary>The curl exit code for a transfer above --max-filesize.</summary>
