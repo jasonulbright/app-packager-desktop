@@ -141,8 +141,28 @@
                         <DataGridTextColumn Header="Address" Binding="{Binding Address}" Width="*" MinWidth="160" />
                     </DataGrid.Columns>
                 </DataGrid>
-                <ui:Button x:Name="btnRemoveFeed" Content="Remove Feed" MinWidth="130" FontWeight="SemiBold" HorizontalAlignment="Left" Appearance="Danger"
-                           Command="{Binding RemoveFeedCommand}" AutomationProperties.AutomationId="btnRemoveFeed" />
+                <WrapPanel Margin="0,0,0,8">
+                    <ui:Button x:Name="btnCheckForUpdate" Content="Check for Update" Margin="0,0,8,8" Command="{Binding CheckForUpdateCommand}"
+                               ToolTip="Fetches the selected feed again (at its stored address, or at the address above) and shows what changed. Nothing is stored until you select Apply Update."
+                               AutomationProperties.AutomationId="btnCheckForUpdate" />
+                    <ui:Button x:Name="btnApplyUpdate" Content="Apply Update" Margin="0,0,8,8" Appearance="Primary" Command="{Binding ApplyUpdateCommand}"
+                               AutomationProperties.AutomationId="btnApplyUpdate" />
+                    <ui:Button x:Name="btnRemoveFeed" Content="Remove Feed" MinWidth="130" Margin="0,0,8,8" Appearance="Danger"
+                               Command="{Binding RemoveFeedCommand}" AutomationProperties.AutomationId="btnRemoveFeed" />
+                </WrapPanel>
+                <StackPanel Visibility="{Binding HasUpdate, Converter={StaticResource BooleanToVisibilityConverter}}">
+                    <TextBlock Text="Update of the selected feed (read only)" Margin="0,0,0,4" />
+                    <TextBox x:Name="txtUpdateDiff" Text="{Binding UpdateText, Mode=OneWay}" Style="{StaticResource DetailBox}" FontFamily="Consolas" MinHeight="100" MaxHeight="240"
+                             Margin="0,0,0,8" AutomationProperties.Name="Changes of the update, read only" AutomationProperties.AutomationId="txtUpdateDiff" />
+                    <CheckBox x:Name="chkConfirmUpdateNotVerified" IsChecked="{Binding ConfirmedNotVerified}" Margin="0,0,0,8"
+                              Visibility="{Binding NeedsUpdateNotVerifiedConfirmation, Converter={StaticResource BooleanToVisibilityConverter}}"
+                              Content="I confirm the state of this document: Definition document NOT verified. Nothing proves where it came from."
+                              AutomationProperties.AutomationId="chkConfirmUpdateNotVerified" />
+                    <CheckBox x:Name="chkConfirmOlder" IsChecked="{Binding ConfirmedOlder}" Margin="0,0,0,8"
+                              Visibility="{Binding NeedsOlderConfirmation, Converter={StaticResource BooleanToVisibilityConverter}}"
+                              Content="I want the older document: its Updated is earlier than the stored one."
+                              AutomationProperties.AutomationId="chkConfirmOlder" />
+                </StackPanel>
             </StackPanel>
         </ScrollViewer>
 

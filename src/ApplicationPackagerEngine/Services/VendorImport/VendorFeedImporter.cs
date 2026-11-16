@@ -41,7 +41,11 @@ public sealed class VendorFeedImporter(
     private readonly TimeProvider _clock = clock ?? TimeProvider.System;
     private readonly FeedSignatureVerifier _signatureVerifier = signatureVerifier ?? new FeedSignatureVerifier();
 
-    public async Task<ImportPreview> PreviewAsync(Uri address, string? pinnedSha256, CancellationToken ct, string? pinnedPublisher = null)
+    public Task<ImportPreview> PreviewAsync(Uri address, string? pinnedSha256, CancellationToken ct, string? pinnedPublisher = null) =>
+        PreviewCoreAsync(address, pinnedSha256, ct, pinnedPublisher, updatingFeedId: null);
+
+    /// <param name="updatingFeedId">The feed that an update replaces: its own definitions are no conflict for the new document.</param>
+    internal async Task<ImportPreview> PreviewCoreAsync(Uri address, string? pinnedSha256, CancellationToken ct, string? pinnedPublisher, string? updatingFeedId)
     {
         var document = await fetcher.FetchAsync(address, ct).ConfigureAwait(false);
         var feed = FeedValidator.Validate(document.Bytes);
@@ -90,7 +94,7 @@ public sealed class VendorFeedImporter(
         var shipped = new HashSet<string>(shippedIds(), StringComparer.OrdinalIgnoreCase);
         var user = new HashSet<string>(userIds(), StringComparer.OrdinalIgnoreCase);
         var otherFeeds = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var stored in store.Feeds())
+        foreach (var stored in store.Feeds().Where(s => s.Source.FeedId != updatingFeedId))
             foreach (var id in stored.Source.Ids) otherFeeds.TryAdd(id, stored.Source.FeedId);
 
         // Two definitions with one stage folder would share a stage: an imported definition with the Application and Architecture of
@@ -98,7 +102,7 @@ public sealed class VendorFeedImporter(
         // come from the caller; those of the stored feeds are read here; and the earlier definition of the document keeps its folder.
         var folderOfId = new Dictionary<string, string>(stageFolders?.Invoke() ?? new Dictionary<string, string>(), StringComparer.OrdinalIgnoreCase);
         var folders = new HashSet<string>(folderOfId.Values, StringComparer.OrdinalIgnoreCase);
-        foreach (var stored in store.Feeds())
+        foreach (var stored in store.Feeds().Where(s => s.Source.FeedId != updatingFeedId))
             foreach (var file in stored.DefinitionFiles)
                 if (StageFolderOfFile(file) is { } name) folders.Add(name);
 
@@ -187,7 +191,7 @@ public sealed class VendorFeedImporter(
             preview.Document.Size, FeedTrust.Label(preview.TrustState),
             preview.PinnedDigest, preview.PinnedPublisher, preview.Signer,
             take.Select(c => c.Definition.Id).ToList(), replaced,
-            take.Where(c => c.Definition.Blocked).Select(c => c.Definition.Id + ":" + DefinitionUnblock.Digest(c.Definition.Definition)).ToList());
+            take.Where(c => c.Definition.Blocked).Select(c => c.Definition.Id + ":" + DefinitionUnblock.Digest(c.Definition.Definition)).ToList(), preview.Feed.Updated);
         store.Write(source, take.Select(c => c.Definition).ToList());
         return source;
     }

@@ -11,6 +11,8 @@ public interface IVendorImportService
     FeedSource Import(ImportPreview preview, ImportConfirmation confirmation);
     IReadOnlyList<StoredFeed> Feeds();
     void RemoveFeed(string feedId);
+    Task<UpdatePreview> PreviewUpdateAsync(string feedId, Uri? address, string? pinnedSha256, CancellationToken ct, string? pinnedPublisher = null);
+    FeedSource ApplyUpdate(UpdatePreview update, UpdateConfirmation confirmation);
 }
 
 /// <summary>The anonymous import of a vendor feed over the engine: the shipped and the user Ids are read from their folders at each preview.</summary>
@@ -19,6 +21,14 @@ public sealed class VendorImportService(ImportedDefinitionStore store, Func<ISet
     : IVendorImportService
 {
     private readonly VendorFeedImporter _importer = new(fetcher ?? new FeedFetcher(), store, shippedIds, userIds, stageFolders: stageFolders, signatureVerifier: signatureVerifier);
+    private VendorFeedUpdater? _updater;
+
+    private VendorFeedUpdater Updater => _updater ??= new VendorFeedUpdater(_importer, store);
+
+    public Task<UpdatePreview> PreviewUpdateAsync(string feedId, Uri? address, string? pinnedSha256, CancellationToken ct, string? pinnedPublisher = null) =>
+        Updater.PreviewAsync(feedId, address, pinnedSha256, ct, pinnedPublisher);
+
+    public FeedSource ApplyUpdate(UpdatePreview update, UpdateConfirmation confirmation) => Updater.Apply(update, confirmation);
 
     public static VendorImportService CreateDefault() => new(
         ImportedDefinitionStore.Default(),
