@@ -154,7 +154,7 @@
                     <TextBlock Text="Update of the selected feed (read only)" Margin="0,0,0,4" />
                     <TextBox x:Name="txtUpdateDiff" Text="{Binding UpdateText, Mode=OneWay}" Style="{StaticResource DetailBox}" FontFamily="Consolas" MinHeight="100" MaxHeight="240"
                              Margin="0,0,0,8" AutomationProperties.Name="Changes of the update, read only" AutomationProperties.AutomationId="txtUpdateDiff" />
-                    <CheckBox x:Name="chkConfirmUpdateNotVerified" IsChecked="{Binding ConfirmedNotVerified}" Margin="0,0,0,8"
+                    <CheckBox x:Name="chkConfirmUpdateNotVerified" IsChecked="{Binding ConfirmedUpdateNotVerified}" Margin="0,0,0,8"
                               Visibility="{Binding NeedsUpdateNotVerifiedConfirmation, Converter={StaticResource BooleanToVisibilityConverter}}"
                               Content="I confirm the state of this document: Definition document NOT verified. Nothing proves where it came from."
                               AutomationProperties.AutomationId="chkConfirmUpdateNotVerified" />

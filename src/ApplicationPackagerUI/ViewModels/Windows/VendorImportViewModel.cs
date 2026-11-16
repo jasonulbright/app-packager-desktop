@@ -323,6 +323,8 @@ public sealed partial class VendorImportViewModel : ObservableObject
                 new HashSet<string>(unblock, StringComparer.OrdinalIgnoreCase)));
             ImportedAny = true;
             StatusText = $"Imported {source.Ids.Count} definition(s) from {source.Vendor} as the feed {source.FeedId} ({source.TrustState}).";
+            Address = "";
+            ClearUpdate();
             ClearPreview();
             ReloadFeeds();
         }
@@ -340,12 +342,14 @@ public sealed partial class VendorImportViewModel : ObservableObject
     [ObservableProperty] private string _updateText = "";
     [ObservableProperty] private string _updateTrust = "";
     [ObservableProperty] private bool _confirmedOlder;
+    [ObservableProperty] private bool _confirmedUpdateNotVerified;
 
     public bool HasUpdate => _update is not null;
     public bool NeedsUpdateNotVerifiedConfirmation => _update?.Preview.TrustState == FeedTrust.NotVerified;
     public bool NeedsOlderConfirmation => _update?.OlderThanStored == true;
 
     partial void OnConfirmedOlderChanged(bool value) => ApplyUpdateCommand.NotifyCanExecuteChanged();
+    partial void OnConfirmedUpdateNotVerifiedChanged(bool value) => ApplyUpdateCommand.NotifyCanExecuteChanged();
 
     private bool CanCheckForUpdate() => SelectedFeed is not null && !Busy;
 
@@ -402,7 +406,9 @@ public sealed partial class VendorImportViewModel : ObservableObject
         var text = new StringBuilder();
         var preview = update.Preview;
         text.AppendLine($"Feed {update.Old.FeedId} ({update.Old.Vendor}); trust state of the new document: {preview.TrustLabel}");
+        text.AppendLine($"Fetched from: {preview.Document.SafeAddress} (stored address: {update.Old.FinalAddress})");
         text.AppendLine($"SHA-256 of the new document: {preview.Document.Sha256}");
+        if (update.PinNote is not null) text.AppendLine("[Pin] " + update.PinNote);
         if (preview.Signer is not null) text.AppendLine("Signed by: " + preview.Signer);
         if (preview.Refusal is not null) text.AppendLine("[Blocking] " + preview.Refusal);
         foreach (var finding in preview.Feed.Findings) text.AppendLine($"[{finding.Severity}] {finding.Message}");
@@ -421,12 +427,13 @@ public sealed partial class VendorImportViewModel : ObservableObject
             text.AppendLine($"{diff.Change}: {diff.Id}" + (parts.Count == 0 ? "" : " (" + string.Join("; ", parts) + ")"));
         }
         if (update.Diffs.All(d => d.Change == DefinitionChange.Unchanged)) text.AppendLine("No definition changed.");
+        foreach (var reason in VendorFeedUpdater.NotApplied(update)) text.AppendLine("Not applied: " + reason);
         return text.ToString();
     }
 
     private bool CanApplyUpdate() =>
         !Busy && _update is { Preview.Refused: false }
-        && (!NeedsUpdateNotVerifiedConfirmation || ConfirmedNotVerified) && (!NeedsOlderConfirmation || ConfirmedOlder);
+        && (!NeedsUpdateNotVerifiedConfirmation || ConfirmedUpdateNotVerified) && (!NeedsOlderConfirmation || ConfirmedOlder);
 
     [RelayCommand(CanExecute = nameof(CanApplyUpdate))]
     private async Task ApplyUpdateAsync()
@@ -444,10 +451,12 @@ public sealed partial class VendorImportViewModel : ObservableObject
                     $"Apply the update to the feed {update.Old.FeedId} in the state: {update.Preview.TrustLabel}? {update.Diffs.Count(d => d.Change != DefinitionChange.Unchanged)} definition(s) change."))
                 return;
             var source = _service.ApplyUpdate(update, new UpdateConfirmation(
-                ConfirmedNotVerified, ConfirmedOlder, new HashSet<string>(confirmRemoval ? removed : [], StringComparer.OrdinalIgnoreCase),
-                new HashSet<string>(StringComparer.OrdinalIgnoreCase), new HashSet<string>(StringComparer.OrdinalIgnoreCase)));
+                ConfirmedUpdateNotVerified, ConfirmedOlder, new HashSet<string>(confirmRemoval ? removed : [], StringComparer.OrdinalIgnoreCase),
+                new HashSet<string>(update.Old.ReplacedShippedIds ?? [], StringComparer.OrdinalIgnoreCase), new HashSet<string>(StringComparer.OrdinalIgnoreCase)));
             ImportedAny = true;
-            StatusText = $"Updated the feed {source.FeedId}: {source.Ids.Count} definition(s) ({source.TrustState}).";
+            var skipped = VendorFeedUpdater.NotApplied(update).Count;
+            StatusText = $"Updated the feed {source.FeedId}: {source.Ids.Count} definition(s) ({source.TrustState})." + (skipped > 0 ? $" {skipped} definition(s) of the new document were not applied (see the list)." : "");
+            Address = "";
             ClearUpdate();
             ReloadFeeds();
         }
@@ -464,6 +473,7 @@ public sealed partial class VendorImportViewModel : ObservableObject
         UpdateText = "";
         UpdateTrust = "";
         ConfirmedOlder = false;
+        ConfirmedUpdateNotVerified = false;
         OnPropertyChanged(nameof(HasUpdate));
         OnPropertyChanged(nameof(NeedsUpdateNotVerifiedConfirmation));
         OnPropertyChanged(nameof(NeedsOlderConfirmation));

@@ -15,7 +15,7 @@ public sealed record DefinitionDiff(
 }
 
 /// <summary>The new document against the stored feed. Nothing is written until <see cref="VendorFeedUpdater.Apply"/> runs.</summary>
-public sealed record UpdatePreview(ImportPreview Preview, FeedSource Old, IReadOnlyList<DefinitionDiff> Diffs, bool OlderThanStored)
+public sealed record UpdatePreview(ImportPreview Preview, FeedSource Old, IReadOnlyList<DefinitionDiff> Diffs, bool OlderThanStored, string? PinNote = null, string? FetchedHost = null)
 {
     public IEnumerable<DefinitionDiff> Removed => Diffs.Where(d => d.Change == DefinitionChange.Removed);
 }
@@ -38,14 +38,26 @@ public sealed class VendorFeedUpdater(VendorFeedImporter importer, ImportedDefin
     {
         var stored = store.Feeds().FirstOrDefault(f => f.Source.FeedId == feedId) ?? throw new InvalidOperationException($"The feed '{feedId}' is not stored.");
         var target = address ?? new Uri(stored.Source.FinalAddress);
-        var preview = await importer.PreviewCoreAsync(target, pinnedSha256, ct, pinnedPublisher, feedId).ConfigureAwait(false);
+        // A pin of the record stays in force: an update never falls back to a weaker state. The administrator pins a new digest or publisher by entering it.
+        var digestPin = string.IsNullOrWhiteSpace(pinnedSha256) ? stored.Source.PinnedDigest : pinnedSha256;
+        var publisherPin = string.IsNullOrWhiteSpace(pinnedPublisher) ? stored.Source.PinnedPublisher : pinnedPublisher;
+        var preview = await importer.PreviewCoreAsync(target, digestPin, ct, publisherPin, feedId).ConfigureAwait(false);
+        var pinNote = PinNote(stored.Source, preview);
 
         var oldById = new Dictionary<string, (string Json, ValidatedDefinition Valid)>(StringComparer.OrdinalIgnoreCase);
         foreach (var file in stored.DefinitionFiles)
         {
             var json = File.ReadAllText(file);
-            var valid = FeedValidator.ValidateStored(json);
-            oldById[Path.GetFileNameWithoutExtension(file)] = (json, valid);
+            try
+            {
+                var valid = FeedValidator.ValidateStored(json);
+                if (JsonNode.Parse(json) is not JsonObject) throw new JsonException("The file is not an object.");
+                oldById[Path.GetFileNameWithoutExtension(file)] = (json, valid);
+            }
+            catch (JsonException ex)
+            {
+                throw new InvalidOperationException($"The stored definition {Path.GetFileName(file)} cannot be read ({ex.Message}). Remove the feed and import it again.");
+            }
         }
 
         var diffs = new List<DefinitionDiff>();
@@ -75,7 +87,17 @@ public sealed class VendorFeedUpdater(VendorFeedImporter importer, ImportedDefin
             diffs.Add(new DefinitionDiff(id, DefinitionChange.Removed, [], false, false, false, old.Valid.CarriesCode, false, false));
 
         var older = stored.Source.Updated is { } was && preview.Feed.Updated is { } now && now < was;
-        return new UpdatePreview(preview, stored.Source, diffs, older);
+        return new UpdatePreview(preview, stored.Source, diffs, older, pinNote, target.Host);
+    }
+
+    private static string? PinNote(FeedSource old, ImportPreview preview)
+    {
+        var notes = new List<string>();
+        if (!string.IsNullOrEmpty(old.PinnedDigest) && !string.Equals(old.PinnedDigest, preview.PinnedDigest, StringComparison.OrdinalIgnoreCase))
+            notes.Add($"The pinned digest changes from {old.PinnedDigest} to {preview.PinnedDigest ?? "none"}.");
+        if (!string.IsNullOrEmpty(old.PinnedPublisher) && !string.Equals(old.PinnedPublisher, preview.PinnedPublisher, StringComparison.OrdinalIgnoreCase))
+            notes.Add($"The pinned publisher changes from {old.PinnedPublisher} to {preview.PinnedPublisher ?? "none"}.");
+        return notes.Count == 0 ? null : string.Join(" ", notes);
     }
 
     private static string HashSource(Models.AppDefinition d) =>
@@ -90,6 +112,26 @@ public sealed class VendorFeedUpdater(VendorFeedImporter importer, ImportedDefin
         var b = JsonNode.Parse(newJson)!.AsObject();
         var names = a.Select(p => p.Key).Union(b.Select(p => p.Key), StringComparer.OrdinalIgnoreCase);
         return names.Where(n => a[n]?.ToJsonString() != b[n]?.ToJsonString()).Order(StringComparer.Ordinal).ToList();
+    }
+
+    /// <summary>
+    /// The definitions of the new document that an update does not apply, with the reason: blocked code (the update view has no unblock; remove the
+    /// feed and import it again to unblock new code), or a conflict. A shipped Id that the feed replaced is replaced again, as the administrator confirmed at import.
+    /// </summary>
+    public static IReadOnlyList<string> NotApplied(UpdatePreview update)
+    {
+        var replaced = new HashSet<string>(update.Old.ReplacedShippedIds ?? [], StringComparer.OrdinalIgnoreCase);
+        var digests = update.Old.UnblockedDigests ?? [];
+        var reasons = new List<string>();
+        foreach (var c in update.Preview.Candidates)
+        {
+            var id = c.Definition.Id;
+            var stillUnblocked = c.CanUnblock && digests.Contains(id + ":" + DefinitionUnblock.Digest(c.Definition.Definition), StringComparer.OrdinalIgnoreCase);
+            if (c.Definition.Blocked && !stillUnblocked) reasons.Add($"{id}: blocked (it carries code that is not unblocked); the stored copy stays");
+            else if (c.Conflict == ConflictKind.Shipped && !replaced.Contains(id)) reasons.Add($"{id}: the Id of a shipped definition");
+            else if (c.Conflict is ConflictKind.User or ConflictKind.AnotherFeed or ConflictKind.StageFolder) reasons.Add($"{id}: {c.Conflict} conflict");
+        }
+        return reasons;
     }
 
     /// <summary>Writes the update. The earlier state stays when anything is missing or fails (the store swaps the folder).</summary>
@@ -127,6 +169,16 @@ public sealed class VendorFeedUpdater(VendorFeedImporter importer, ImportedDefin
             if (!folders.Add(StageFolder.Name(c.Definition.Definition)))
                 throw new InvalidOperationException($"The definition '{c.Definition.Id}' has the same stage folder (Application and Architecture) as another definition of this update.");
 
+        // The checks run again at Apply: the store can have changed since the preview (another import, another update).
+        var replacedNow = take.Where(c => c.Conflict == ConflictKind.Shipped).Select(c => c.Definition.Id).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var elsewhere = importer.TakenElsewhere(feedId);
+        foreach (var c in take.Where(c => elsewhere.Contains(c.Definition.Id)))
+            throw new InvalidOperationException($"The Id '{c.Definition.Id}' is now used by a user definition or by another feed. Check for the update again.");
+        var existingFolders = importer.StageFoldersElsewhere(feedId, replacedNow);
+        foreach (var c in take)
+            if (existingFolders.Contains(StageFolder.Name(c.Definition.Definition)))
+                throw new InvalidOperationException($"The definition '{c.Definition.Id}' has the same stage folder (Application and Architecture) as a definition that exists.");
+
         // An old definition that the update does not replace stays as it is stored, unless the administrator confirmed its removal.
         var takenIds = new HashSet<string>(take.Select(c => c.Definition.Id), StringComparer.OrdinalIgnoreCase);
         var keep = new List<(string Id, string Json)>();
@@ -137,6 +189,15 @@ public sealed class VendorFeedUpdater(VendorFeedImporter importer, ImportedDefin
             keep.Add((id, File.ReadAllText(file)));
         }
         var keptIds = new HashSet<string>(keep.Select(k => k.Id), StringComparer.OrdinalIgnoreCase);
+        // A kept definition comes from the earlier document and keeps the record of the earlier state: the update does not relabel it with a new trust state.
+        if (keep.Count > 0 && !string.Equals(update.Old.TrustState, FeedTrust.Label(preview.TrustState), StringComparison.Ordinal))
+            throw new InvalidOperationException($"{keep.Count} stored definition(s) would stay from the earlier document ({update.Old.TrustState}), and the new document is in another state ({FeedTrust.Label(preview.TrustState)}). Confirm their removal, or update in the same trust state.");
+        foreach (var (keptId, keptJson) in keep)
+        {
+            var keptFolder = StageFolder.Name(FeedValidator.ValidateStored(keptJson).Definition);
+            if (take.Any(c => StageFolder.Name(c.Definition.Definition).Equals(keptFolder, StringComparison.OrdinalIgnoreCase)))
+                throw new InvalidOperationException($"A definition of the update has the same stage folder (Application and Architecture) as the stored definition '{keptId}', which stays. Confirm the removal of '{keptId}'.");
+        }
 
         var digests = take.Where(c => c.Definition.Blocked).Select(c => c.Definition.Id + ":" + DefinitionUnblock.Digest(c.Definition.Definition))
             .Concat(oldDigests.Where(d => keptIds.Contains(d[..Math.Max(0, d.IndexOf(':'))]))).ToList();

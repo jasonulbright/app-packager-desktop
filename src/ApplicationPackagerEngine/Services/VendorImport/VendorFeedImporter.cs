@@ -126,6 +126,27 @@ public sealed class VendorFeedImporter(
         return new ImportPreview(document, feed, trust, candidates, refusal, signer, publisherPin, string.IsNullOrEmpty(pin) ? null : document.Sha256);
     }
 
+    /// <summary>The Ids of the definitions of the stored feeds other than <paramref name="exceptFeedId"/>, and of the user definitions: what a definition of an update may not take.</summary>
+    internal HashSet<string> TakenElsewhere(string exceptFeedId)
+    {
+        var ids = new HashSet<string>(userIds(), StringComparer.OrdinalIgnoreCase);
+        foreach (var stored in store.Feeds().Where(s => s.Source.FeedId != exceptFeedId))
+            foreach (var id in stored.Source.Ids) ids.Add(id);
+        return ids;
+    }
+
+    /// <summary>The stage folders that exist outside the feed that is updated: the shipped and the user definitions (not the replaced ones) and the other feeds.</summary>
+    internal HashSet<string> StageFoldersElsewhere(string exceptFeedId, IReadOnlySet<string> replacedIds)
+    {
+        var existing = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var pair in stageFolders?.Invoke() ?? new Dictionary<string, string>())
+            if (!replacedIds.Contains(pair.Key)) existing.Add(pair.Value);
+        foreach (var stored in store.Feeds().Where(s => s.Source.FeedId != exceptFeedId))
+            foreach (var file in stored.DefinitionFiles)
+                if (StageFolderOfFile(file) is { } name) existing.Add(name);
+        return existing;
+    }
+
     private static string? StageFolderOfFile(string file)
     {
         try

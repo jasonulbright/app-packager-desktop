@@ -234,7 +234,7 @@ public sealed class VendorImportViewModelTests : IDisposable
         Assert.False(File.Exists(Path.Combine(_root, "contoso-software", "new-1.json")));
         Assert.False(vm.ApplyUpdateCommand.CanExecute(null));
 
-        vm.ConfirmedNotVerified = true;
+        vm.ConfirmedUpdateNotVerified = true;
         Assert.True(vm.ApplyUpdateCommand.CanExecute(null));
         await vm.ApplyUpdateCommand.ExecuteAsync(null);
 

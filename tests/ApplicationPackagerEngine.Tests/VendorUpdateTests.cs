@@ -176,6 +176,77 @@ public sealed class VendorUpdateTests : IDisposable
     }
 
     [Fact]
+    public async Task APinnedFeedKeepsItsPinAndAChangedDocumentIsRefusedWithItsNewDigest()
+    {
+        var (importer, updater, store) = Create();
+        _body = Doc("2026-11-12T08:00:00Z", Def("app-a"));
+        var first = await importer.PreviewAsync(Address, null, CancellationToken.None);
+        var digest = first.Document.Sha256;
+        var pinned = await importer.PreviewAsync(Address, digest, CancellationToken.None);
+        importer.Import(pinned, new ImportConfirmation("Contoso Software", "contoso-software", false, new HashSet<string>()));
+        Assert.Equal(digest, store.ReadSource("contoso-software")!.PinnedDigest);
+
+        _body = Doc("2026-11-13T08:00:00Z", Def("app-a"), Def("app-b"));
+        var update = await updater.PreviewAsync("contoso-software", null, null, CancellationToken.None);
+
+        Assert.True(update.Preview.Refused);
+        Assert.Contains(update.Preview.Document.Sha256, update.Preview.Refusal);
+        Assert.Throws<InvalidOperationException>(() => updater.Apply(update, Confirm()));
+
+        // The administrator pins the new digest after checking it elsewhere.
+        var repinned = await updater.PreviewAsync("contoso-software", null, update.Preview.Document.Sha256, CancellationToken.None);
+        Assert.False(repinned.Preview.Refused);
+        Assert.Contains("pinned digest changes", repinned.PinNote);
+        Assert.Equal(update.Preview.Document.Sha256, updater.Apply(repinned, new UpdateConfirmation(false, false, new HashSet<string>(), new HashSet<string>(), new HashSet<string>())).PinnedDigest);
+    }
+
+    [Fact]
+    public async Task AStoredDefinitionIsNotKeptUnderAnotherTrustState()
+    {
+        var (updater, _) = await ImportedAsync("2026-11-12T08:00:00Z", Def("app-a"), Def("app-c"));
+        _body = Doc("2026-11-13T08:00:00Z", Def("app-a"));
+        var (importer, _, _) = (default(VendorFeedImporter), default(VendorFeedUpdater), default(ImportedDefinitionStore));
+        var update = await updater.PreviewAsync("contoso-software", null, null, CancellationToken.None);
+        // The new document is pinned, so its state differs from the stored "not verified" one.
+        var pinned = await updater.PreviewAsync("contoso-software", null, update.Preview.Document.Sha256, CancellationToken.None);
+
+        Assert.Throws<InvalidOperationException>(() => updater.Apply(pinned, new UpdateConfirmation(false, false, new HashSet<string>(), new HashSet<string>(), new HashSet<string>())));
+        _ = importer;
+    }
+
+    [Fact]
+    public async Task AnIdThatAnotherFeedTookAfterThePreviewIsRefusedAtApply()
+    {
+        var (updater, store) = await ImportedAsync("2026-11-12T08:00:00Z", Def("app-a"));
+        _body = Doc("2026-11-13T08:00:00Z", Def("app-a"), Def("app-z"));
+        var update = await updater.PreviewAsync("contoso-software", null, null, CancellationToken.None);
+        // Another feed stores app-z in the meantime.
+        var other = new FeedSource("https://other.example/feed.json", "Other", "other-feed", DateTimeOffset.UtcNow, new string('b', 64), 10, FeedTrust.NotVerifiedWording, null, null, null, [], [], []);
+        var otherDefinition = FeedValidator.Validate(System.Text.Encoding.UTF8.GetBytes(Doc("2026-11-12T08:00:00Z", Def("app-z")))).Definitions.Single();
+        store.Write(other, [otherDefinition]);
+
+        Assert.Throws<InvalidOperationException>(() => updater.Apply(update, Confirm()));
+        Assert.False(File.Exists(FileOf(store, "app-z")));
+    }
+
+    [Fact]
+    public async Task ARenamedIdWithTheSameStageFolderIsRefusedWhileTheOldOneStays()
+    {
+        var (updater, store) = await ImportedAsync("2026-11-12T08:00:00Z", Def("app-a"));
+        var renamed = Def("app-a2");
+        renamed.Application = Def("app-a").Application;
+        _body = Doc("2026-11-13T08:00:00Z", renamed);
+        var update = await updater.PreviewAsync("contoso-software", null, null, CancellationToken.None);
+
+        Assert.Throws<InvalidOperationException>(() => updater.Apply(update, Confirm()));
+        Assert.True(File.Exists(FileOf(store, "app-a")));
+        Assert.False(File.Exists(FileOf(store, "app-a2")));
+
+        // With the removal of the old Id confirmed, the new Id takes the folder.
+        Assert.Equal(["app-a2"], updater.Apply(update, Confirm(remove: ["app-a"])).Ids);
+    }
+
+    [Fact]
     public async Task APinThatDoesNotMatchRefusesTheUpdateAndKeepsTheStoredState()
     {
         var (updater, store) = await ImportedAsync("2026-11-12T08:00:00Z", Def("app-a"));
