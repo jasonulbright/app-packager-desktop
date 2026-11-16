@@ -1,5 +1,5 @@
 {
-  "PackVersion": "2026.11.16.0009",
+  "PackVersion": "2026.11.16.0010",
   "MinAppVersion": "1.5.0.0",
   "Icons": [
     {
@@ -1871,6 +1871,36 @@
     {
       "File": "zulu-jre8.png",
       "Packager": "zulu-jre8",
+      "SourceKind": "MsiIconTable",
+      "PixelSize": 256
+    },
+    {
+      "File": "dotnet9x86.png",
+      "Packager": "dotnet9x86",
+      "SourceKind": "VendorAsset",
+      "PixelSize": 512
+    },
+    {
+      "File": "dotnet11x64.png",
+      "Packager": "dotnet11x64",
+      "SourceKind": "VendorAsset",
+      "PixelSize": 512
+    },
+    {
+      "File": "aspnethostingbundle9.png",
+      "Packager": "aspnethostingbundle9",
+      "SourceKind": "VendorAsset",
+      "PixelSize": 320
+    },
+    {
+      "File": "aspnethostingbundle11.png",
+      "Packager": "aspnethostingbundle11",
+      "SourceKind": "VendorAsset",
+      "PixelSize": 320
+    },
+    {
+      "File": "powershell7lts.png",
+      "Packager": "powershell7lts",
       "SourceKind": "MsiIconTable",
       "PixelSize": 256
     }
