@@ -53,11 +53,7 @@ start-setup-connection
 start-setup-systems
 start-sidebar-context-menu
 tools-collections-editor
-tools-collections-list
 tools-collections-remove-plan
-tools-collections-site-queries
-tools-collections-templates
-tools-collections-wql
 tools-compliance-catalog
 tools-compliance-compliance
 tools-compliance-deploy
@@ -67,7 +63,6 @@ tools-compliance-live
 tools-compliance-plan
 tools-deployment-helper-distribute-create
 tools-deployment-helper-history
-tools-deployment-helper-options
 tools-deployment-helper-plan-required
 tools-deployment-rings-new-run
 tools-deployment-rings-open-runs
@@ -76,17 +71,14 @@ tools-deployment-rings-plan-required
 tools-detection-tester-installed
 tools-detection-tester-registry
 tools-detection-tester-script
-tools-dp-content-content
 tools-dp-content-history
 tools-dp-content-issues
 tools-dp-content-plan-remove
 tools-dp-content-results
 tools-installer-analysis-inner
 tools-maintenance-windows-apply-template
-tools-maintenance-windows-coverage
 tools-maintenance-windows-editor
 tools-maintenance-windows-plan
-tools-maintenance-windows-templates
 tools-pivots-history
 tools-pivots-options
 tools-pivots-plan-script
@@ -108,7 +100,5 @@ tools-site-hygiene-plan-fix
 tools-site-hygiene-trends
 packages
 core-packages-list
-tools-deployment-helper-deploy
 tools-pivots-pivot
-tools-maintenance-windows-list
 tools-dp-content-dps
