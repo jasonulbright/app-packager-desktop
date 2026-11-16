@@ -3,17 +3,16 @@ using ApplicationPackagerEngine.Services;
 namespace ApplicationPackagerEngine.Tests.IconPack;
 
 /// <summary>
-/// The icon pack (jasonulbright/app-packager-icons, manifest of v2026.11.16.0009 kept in pack-manifest.json) against the
+/// The icon pack (jasonulbright/app-packager-icons, manifest of v2026.11.16.0010 kept in pack-manifest.json) against the
 /// shipped definitions. A definition with no icon in the pack fails the test unless it is on the named list below; the list
 /// shrinks when a new pack release adds the icons (copy its manifest.json over pack-manifest.json).
 /// </summary>
 public sealed class IconPackCoverageTests
 {
-    /// <summary>Shipped definitions that the pack of 2026-11-16 has no icon for. Part B of the icon work adds them to the pack.</summary>
+    /// <summary>Shipped definitions that the pack v2026.11.16.0010 has no icon for. Part B of the icon work adds them to the pack.</summary>
     private static readonly string[] WithoutIcon =
     [
-        "anypointstudio", "aspnethostingbundle11", "aspnethostingbundle9", "Dotnet11x64", "Dotnet9x86", "filezilla",
-        "foxitreader", "powershell7lts", "vmwaretools", "vs2026", "vs2026community", "wiztree"
+        "anypointstudio", "filezilla", "foxitreader", "vmwaretools", "vs2026", "vs2026community", "wiztree"
     ];
 
     private static string[] ShippedBaseNames() =>
