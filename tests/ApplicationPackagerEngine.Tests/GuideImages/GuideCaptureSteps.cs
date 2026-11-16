@@ -19,17 +19,9 @@ public static class GuideCaptureSteps
     /// <summary>Guide image id to page name (the names of <c>PageHeaderRenderTests.PageNames</c>).</summary>
     public static readonly IReadOnlyDictionary<string, string> PageOfImage = new Dictionary<string, string>(StringComparer.Ordinal)
     {
-        ["core-packages-list"] = "App Packager",
-        ["packages"] = "App Packager",
         ["core-add-app-step1"] = "Add from web",
         ["core-add-file-pick"] = "Add from file",
         ["core-settings-top"] = "Settings",
-        ["tools-installer-analysis-overview"] = "Installer Analysis",
-        ["tools-deployment-helper-deploy"] = "Deployment Helper",
-        ["tools-pivots-pivot"] = "Pivots and Scripts",
-        ["tools-maintenance-windows-list"] = "Maintenance Windows",
-        ["tools-dp-content-dps"] = "DP Content Manager",
-        ["tools-site-hygiene-summary"] = "Site Hygiene",
     };
 
     /// <summary>
@@ -38,19 +30,11 @@ public static class GuideCaptureSteps
     /// </summary>
     public static readonly IReadOnlyDictionary<string, string> LabPageOfImage = new Dictionary<string, string>(StringComparer.Ordinal)
     {
-        ["core-packages-list"] = "app-packager",
-        ["packages"] = "app-packager",
         ["start-sidebar-default"] = "app-packager",
         ["core-add-app-step1"] = "add-from-web",
         ["core-add-file-pick"] = "add-from-file",
         ["core-settings-top"] = "settings",
         ["core-workbench-application"] = "workbench",
-        ["tools-installer-analysis-overview"] = "installer-analysis",
-        ["tools-deployment-helper-deploy"] = "deployment-helper",
-        ["tools-pivots-pivot"] = "pivots-and-scripts",
-        ["tools-maintenance-windows-list"] = "maintenance-windows",
-        ["tools-dp-content-dps"] = "dp-content-manager",
-        ["tools-site-hygiene-summary"] = "site-hygiene",
     };
 
     /// <summary>Every image that a check run produces: the lab capture run, and the render of the pages in the tests.</summary>

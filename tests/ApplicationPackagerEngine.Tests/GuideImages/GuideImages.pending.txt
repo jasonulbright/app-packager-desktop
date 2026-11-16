@@ -114,3 +114,11 @@ tools-site-hygiene-picker
 tools-site-hygiene-plan-fix
 tools-site-hygiene-relationships
 tools-site-hygiene-trends
+packages
+core-packages-list
+tools-installer-analysis-overview
+tools-deployment-helper-deploy
+tools-pivots-pivot
+tools-maintenance-windows-list
+tools-dp-content-dps
+tools-site-hygiene-summary
