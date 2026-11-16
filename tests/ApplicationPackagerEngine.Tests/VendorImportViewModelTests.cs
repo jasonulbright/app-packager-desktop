@@ -161,6 +161,53 @@ public sealed class VendorImportViewModelTests : IDisposable
     }
 
     [Fact]
+    public async Task UnblockingACommandNeedsAConfirmationThatNamesTheDefinitionAndShowsItsText()
+    {
+        var asked = new List<(string Title, string Message)>();
+        var vm = Create(Serves(Doc(Definition("contoso-agent"), Definition("code-1", "Code App", n => n["UninstallCommand"] = "msiexec /x {GUID}"))),
+            (title, message) => { asked.Add((title, message)); return Task.FromResult(true); });
+        vm.Address = "https://vendor.example/feed.json";
+        await vm.FetchCommand.ExecuteAsync(null);
+        vm.ConfirmedNotVerified = true;
+        vm.SelectedRow = vm.Rows.Single(r => r.Id == "code-1");
+
+        Assert.True(vm.UnblockSelectedCommand.CanExecute(null));
+        await vm.UnblockSelectedCommand.ExecuteAsync(null);
+
+        var (title, message) = Assert.Single(asked);
+        Assert.Contains("code-1", title);
+        Assert.Contains("Code App", message);
+        Assert.Contains("msiexec /x {GUID}", message);
+        Assert.Contains("SHA-256", message);
+        Assert.StartsWith("Unblocked", vm.Rows.Single(r => r.Id == "code-1").Status);
+        await vm.ImportCommand.ExecuteAsync(null);
+        Assert.True(File.Exists(Path.Combine(_root, "contoso-software", "code-1.json")));
+    }
+
+    [Fact]
+    public async Task ADeclinedUnblockKeepsTheDefinitionBlockedAndAPathToALocalFileOffersNoUnblock()
+    {
+        var vm = Create(Serves(Doc(Definition("contoso-agent"),
+                Definition("code-1", "Code App", n => n["UninstallCommand"] = "msiexec /x {GUID}"),
+                Definition("local-1", "Local App", n => n["LocalInstaller"] = new JsonObject()))),
+            (_, _) => Task.FromResult(false));
+        vm.Address = "https://vendor.example/feed.json";
+        await vm.FetchCommand.ExecuteAsync(null);
+        vm.ConfirmedNotVerified = true;
+
+        vm.SelectedRow = vm.Rows.Single(r => r.Id == "code-1");
+        await vm.UnblockSelectedCommand.ExecuteAsync(null);
+        Assert.StartsWith("Blocked", vm.Rows.Single(r => r.Id == "code-1").Status);
+
+        vm.SelectedRow = vm.Rows.Single(r => r.Id == "local-1");
+        Assert.False(vm.UnblockSelectedCommand.CanExecute(null));
+        Assert.Contains("never unblocked", vm.Rows.Single(r => r.Id == "local-1").Status);
+        await vm.ImportCommand.ExecuteAsync(null);
+        Assert.False(File.Exists(Path.Combine(_root, "contoso-software", "code-1.json")));
+        Assert.False(File.Exists(Path.Combine(_root, "contoso-software", "local-1.json")));
+    }
+
+    [Fact]
     public async Task AShippedIdIsSkippedUnlessTheAdministratorChoosesToReplaceIt()
     {
         var asked = new List<string>();

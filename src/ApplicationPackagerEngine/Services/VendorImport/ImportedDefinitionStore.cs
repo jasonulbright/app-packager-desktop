@@ -90,7 +90,7 @@ public sealed class ImportedDefinitionStore(string root)
         {
             foreach (var definition in definitions)
             {
-                if (definition.Blocked) throw new InvalidOperationException($"The definition '{definition.Id}' is blocked and is not written.");
+                if (definition.Blocked && !DefinitionUnblock.IsUnblocked(definition, source.UnblockedDigests)) throw new InvalidOperationException($"The definition '{definition.Id}' is blocked and is not written.");
                 var file = Path.GetFullPath(Path.Combine(staging, definition.Id + ".json"));
                 // The file name is built from the validated Id only; it must stay inside the staging folder.
                 if (!file.StartsWith(Path.GetFullPath(staging) + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
