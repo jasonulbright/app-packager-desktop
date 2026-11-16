@@ -23,7 +23,7 @@ public static class FeedTrust
 public sealed record FeedSource(
     string FinalAddress, string Vendor, string FeedId, DateTimeOffset FetchedAt, string Sha256, int Size, string TrustState,
     string? PinnedDigest, string? PinnedPublisher, string? Signer, IReadOnlyList<string> Ids, IReadOnlyList<string> ReplacedShippedIds,
-    IReadOnlyList<string> UnblockedDigests);
+    IReadOnlyList<string> UnblockedDigests, DateTimeOffset? Updated = null);
 
 /// <summary>A feed on disk: its record and the files of its definitions.</summary>
 public sealed record StoredFeed(string Folder, FeedSource Source, IReadOnlyList<string> DefinitionFiles);
@@ -79,7 +79,7 @@ public sealed class ImportedDefinitionStore(string root)
     }
 
     /// <summary>Writes the definitions of a feed and its source record. A failure keeps the earlier state of the feed.</summary>
-    public void Write(FeedSource source, IReadOnlyList<ValidatedDefinition> definitions)
+    public void Write(FeedSource source, IReadOnlyList<ValidatedDefinition> definitions, IReadOnlyList<(string Id, string Json)>? keep = null)
     {
         var folder = FolderOf(source.FeedId);
         Directory.CreateDirectory(Root);
@@ -99,7 +99,16 @@ public sealed class ImportedDefinitionStore(string root)
                 File.WriteAllText(temp, definition.Json);
                 File.Move(temp, file);
             }
-            var record = source with { Ids = definitions.Select(d => d.Id).ToList() };
+            // Definitions that an update does not replace and that the administrator did not confirm to remove are kept as they are stored.
+            foreach (var (keptId, keptJson) in keep ?? [])
+            {
+                if (!FeedValidator.IsValidDefinitionId(keptId)) throw new InvalidOperationException($"The Id '{keptId}' is not allowed.");
+                var keptFile = Path.Combine(staging, keptId + ".json");
+                var keptTemp = keptFile + ".tmp";
+                File.WriteAllText(keptTemp, keptJson);
+                File.Move(keptTemp, keptFile);
+            }
+            var record = source with { Ids = definitions.Select(d => d.Id).Concat((keep ?? []).Select(k => k.Id)).ToList() };
             var sourceTemp = Path.Combine(staging, SourceFileName + ".tmp");
             File.WriteAllText(sourceTemp, JsonSerializer.Serialize(record, SourceJson));
             File.Move(sourceTemp, Path.Combine(staging, SourceFileName));

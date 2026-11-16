@@ -138,6 +138,13 @@ public static partial class FeedValidator
         }
     }
 
+    /// <summary>Checks one definition that is stored (the text of a file), as the update compares it with the new document.</summary>
+    public static ValidatedDefinition ValidateStored(string json)
+    {
+        using var parsed = JsonDocument.Parse(json, new JsonDocumentOptions { MaxDepth = MaxDepth });
+        return ValidateDefinition(parsed.RootElement);
+    }
+
     private static ValidatedFeed Refuse(string message) =>
         new(null, null, null, false, [], [Block("DocumentRefused", message)]);
 

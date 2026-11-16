@@ -208,6 +208,44 @@ public sealed class VendorImportViewModelTests : IDisposable
     }
 
     [Fact]
+    public async Task CheckForUpdateShowsTheDiffAndApplyNeedsTheConfirmationOfAnUnverifiedDocument()
+    {
+        var body = Doc(Definition("contoso-agent"), Definition("old-1", "Old App"));
+        var handler = new Handler((_, _) => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(body, Encoding.UTF8, "application/json") }));
+        var asked = new List<string>();
+        var vm = Create(handler, (title, _) => { asked.Add(title); return Task.FromResult(true); });
+        vm.Address = "https://vendor.example/feed.json";
+        await vm.FetchCommand.ExecuteAsync(null);
+        vm.ConfirmedNotVerified = true;
+        await vm.ImportCommand.ExecuteAsync(null);
+        Assert.True(File.Exists(Path.Combine(_root, "contoso-software", "old-1.json")));
+
+        body = Doc(Definition("contoso-agent", change: n => n["InstallArgs"] = "/qn /norestart"), Definition("new-1", "New App"));
+        vm.SelectedFeed = vm.Feeds.Single();
+        vm.Address = "";
+        vm.ConfirmedNotVerified = false;
+        await vm.CheckForUpdateCommand.ExecuteAsync(null);
+
+        Assert.True(vm.HasUpdate);
+        Assert.Contains("Changed: contoso-agent", vm.UpdateText);
+        Assert.Contains("InstallArgs", vm.UpdateText);
+        Assert.Contains("Added: new-1", vm.UpdateText);
+        Assert.Contains("Removed: old-1", vm.UpdateText);
+        Assert.False(File.Exists(Path.Combine(_root, "contoso-software", "new-1.json")));
+        Assert.False(vm.ApplyUpdateCommand.CanExecute(null));
+
+        vm.ConfirmedUpdateNotVerified = true;
+        Assert.True(vm.ApplyUpdateCommand.CanExecute(null));
+        await vm.ApplyUpdateCommand.ExecuteAsync(null);
+
+        Assert.True(File.Exists(Path.Combine(_root, "contoso-software", "new-1.json")));
+        Assert.False(File.Exists(Path.Combine(_root, "contoso-software", "old-1.json")));
+        Assert.Contains("Remove definitions", asked);
+        Assert.Contains("Apply update", asked);
+        Assert.False(vm.HasUpdate);
+    }
+
+    [Fact]
     public async Task AShippedIdIsSkippedUnlessTheAdministratorChoosesToReplaceIt()
     {
         var asked = new List<string>();

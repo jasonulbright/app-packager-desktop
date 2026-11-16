@@ -148,13 +148,23 @@ public sealed partial class VendorImportViewModel : ObservableObject
         BlockAgainCommand.NotifyCanExecuteChanged();
         CancelFetchCommand.NotifyCanExecuteChanged();
         RemoveFeedCommand.NotifyCanExecuteChanged();
+        CheckForUpdateCommand.NotifyCanExecuteChanged();
+        ApplyUpdateCommand.NotifyCanExecuteChanged();
     }
 
     partial void OnAddressChanged(string value) => FetchCommand.NotifyCanExecuteChanged();
     partial void OnVendorChanged(string value) => ImportCommand.NotifyCanExecuteChanged();
     partial void OnFeedIdChanged(string value) => ImportCommand.NotifyCanExecuteChanged();
-    partial void OnConfirmedNotVerifiedChanged(bool value) => ImportCommand.NotifyCanExecuteChanged();
-    partial void OnSelectedFeedChanged(VendorFeedRow? value) => RemoveFeedCommand.NotifyCanExecuteChanged();
+    partial void OnConfirmedNotVerifiedChanged(bool value)
+    {
+        ImportCommand.NotifyCanExecuteChanged();
+        ApplyUpdateCommand.NotifyCanExecuteChanged();
+    }
+    partial void OnSelectedFeedChanged(VendorFeedRow? value)
+    {
+        RemoveFeedCommand.NotifyCanExecuteChanged();
+        CheckForUpdateCommand.NotifyCanExecuteChanged();
+    }
     partial void OnSelectedRowChanged(VendorImportRow? value)
     {
         UnblockSelectedCommand.NotifyCanExecuteChanged();
@@ -313,6 +323,8 @@ public sealed partial class VendorImportViewModel : ObservableObject
                 new HashSet<string>(unblock, StringComparer.OrdinalIgnoreCase)));
             ImportedAny = true;
             StatusText = $"Imported {source.Ids.Count} definition(s) from {source.Vendor} as the feed {source.FeedId} ({source.TrustState}).";
+            Address = "";
+            ClearUpdate();
             ClearPreview();
             ReloadFeeds();
         }
@@ -321,6 +333,151 @@ public sealed partial class VendorImportViewModel : ObservableObject
             StatusText = "Not imported: " + ex.Message;
         }
         finally { Busy = false; }
+    }
+
+    // ---- update of a stored feed (step 4) ----
+
+    private UpdatePreview? _update;
+
+    [ObservableProperty] private string _updateText = "";
+    [ObservableProperty] private string _updateTrust = "";
+    [ObservableProperty] private bool _confirmedOlder;
+    [ObservableProperty] private bool _confirmedUpdateNotVerified;
+
+    public bool HasUpdate => _update is not null;
+    public bool NeedsUpdateNotVerifiedConfirmation => _update?.Preview.TrustState == FeedTrust.NotVerified;
+    public bool NeedsOlderConfirmation => _update?.OlderThanStored == true;
+
+    partial void OnConfirmedOlderChanged(bool value) => ApplyUpdateCommand.NotifyCanExecuteChanged();
+    partial void OnConfirmedUpdateNotVerifiedChanged(bool value) => ApplyUpdateCommand.NotifyCanExecuteChanged();
+
+    private bool CanCheckForUpdate() => SelectedFeed is not null && !Busy;
+
+    /// <summary>Fetches the feed again at its stored address (or at the address in the box), with the same limits and trust rules, and shows the diff. Nothing is written.</summary>
+    [RelayCommand(CanExecute = nameof(CanCheckForUpdate))]
+    private async Task CheckForUpdateAsync()
+    {
+        var feed = SelectedFeed!;
+        ClearUpdate();
+        Uri? address = null;
+        if (Address.Trim().Length > 0)
+        {
+            if (!Uri.TryCreate(Address.Trim(), UriKind.Absolute, out address) || address.Scheme != Uri.UriSchemeHttps)
+            {
+                StatusText = "The address must be an absolute https:// address. Other schemes are refused.";
+                return;
+            }
+        }
+        var fetching = new CancellationTokenSource();
+        _fetching = fetching;
+        Busy = true;
+        StatusText = $"Checking {feed.FeedId} for an update...";
+        try
+        {
+            var update = await _service.PreviewUpdateAsync(feed.FeedId, address, PinnedDigest, fetching.Token, PinnedPublisher);
+            _update = update;
+            UpdateTrust = update.Preview.TrustLabel;
+            UpdateText = DescribeUpdate(update);
+            OnPropertyChanged(nameof(HasUpdate));
+            OnPropertyChanged(nameof(NeedsUpdateNotVerifiedConfirmation));
+            OnPropertyChanged(nameof(NeedsOlderConfirmation));
+            StatusText = update.Preview.Refused
+                ? "The update is refused. Nothing was written."
+                : $"{update.Diffs.Count(d => d.Change != DefinitionChange.Unchanged)} change(s) found. Nothing is stored until you select Apply Update.";
+        }
+        catch (FeedFetchException ex) { StatusText = ex.Message + " Nothing was written."; }
+        catch (OperationCanceledException) { StatusText = "Cancelled. Nothing was written."; }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException)
+        {
+            StatusText = "The update could not be checked: " + ex.Message + " Nothing was written.";
+        }
+        finally
+        {
+            Busy = false;
+            fetching.Dispose();
+            if (ReferenceEquals(_fetching, fetching)) _fetching = null;
+        }
+        ApplyUpdateCommand.NotifyCanExecuteChanged();
+    }
+
+    /// <summary>The diff against the stored definitions: added and removed definitions, the changed properties, and what needs a look.</summary>
+    public static string DescribeUpdate(UpdatePreview update)
+    {
+        var text = new StringBuilder();
+        var preview = update.Preview;
+        text.AppendLine($"Feed {update.Old.FeedId} ({update.Old.Vendor}); trust state of the new document: {preview.TrustLabel}");
+        text.AppendLine($"Fetched from: {preview.Document.SafeAddress} (stored address: {update.Old.FinalAddress})");
+        text.AppendLine($"SHA-256 of the new document: {preview.Document.Sha256}");
+        if (update.PinNote is not null) text.AppendLine("[Pin] " + update.PinNote);
+        if (preview.Signer is not null) text.AppendLine("Signed by: " + preview.Signer);
+        if (preview.Refusal is not null) text.AppendLine("[Blocking] " + preview.Refusal);
+        foreach (var finding in preview.Feed.Findings) text.AppendLine($"[{finding.Severity}] {finding.Message}");
+        if (update.OlderThanStored) text.AppendLine("The document is OLDER than the stored one (its Updated is earlier).");
+        foreach (var diff in update.Diffs.Where(d => d.Change != DefinitionChange.Unchanged))
+        {
+            var parts = new List<string>();
+            if (diff.ChangedProperties.Count > 0) parts.Add("changed: " + string.Join(", ", diff.ChangedProperties));
+            if (diff.HostChanged) parts.Add("ADDRESS HOST CHANGED");
+            if (diff.HashSourceChanged) parts.Add("HASH SOURCE CHANGED");
+            if (diff.RequirementChanged) parts.Add("HASH OR SIGNATURE REQUIREMENT CHANGED");
+            if (diff.CodeChanged) parts.Add("CODE NEW OR CHANGED");
+            if (diff.UnblockLost) parts.Add("UNBLOCK LOST: blocked again until you unblock the new text");
+            if (diff.UnblockKept) parts.Add("unblock kept: the code and its settings are unchanged");
+            if (diff.Change == DefinitionChange.Removed) parts.Add("not in the new document; it stays unless you confirm its removal");
+            text.AppendLine($"{diff.Change}: {diff.Id}" + (parts.Count == 0 ? "" : " (" + string.Join("; ", parts) + ")"));
+        }
+        if (update.Diffs.All(d => d.Change == DefinitionChange.Unchanged)) text.AppendLine("No definition changed.");
+        foreach (var reason in VendorFeedUpdater.NotApplied(update)) text.AppendLine("Not applied: " + reason);
+        return text.ToString();
+    }
+
+    private bool CanApplyUpdate() =>
+        !Busy && _update is { Preview.Refused: false }
+        && (!NeedsUpdateNotVerifiedConfirmation || ConfirmedUpdateNotVerified) && (!NeedsOlderConfirmation || ConfirmedOlder);
+
+    [RelayCommand(CanExecute = nameof(CanApplyUpdate))]
+    private async Task ApplyUpdateAsync()
+    {
+        var update = _update!;
+        Busy = true;
+        try
+        {
+            var removed = update.Removed.Select(d => d.Id).ToList();
+            var confirmRemoval = false;
+            if (removed.Count > 0)
+                confirmRemoval = await _confirm("Remove definitions",
+                    $"The new document no longer has {string.Join(", ", removed)}. Remove {(removed.Count == 1 ? "it" : "them")} from the feed? Choose No to keep {(removed.Count == 1 ? "it" : "them")} as stored.");
+            if (!await _confirm("Apply update",
+                    $"Apply the update to the feed {update.Old.FeedId} in the state: {update.Preview.TrustLabel}? {update.Diffs.Count(d => d.Change != DefinitionChange.Unchanged)} definition(s) change."))
+                return;
+            var source = _service.ApplyUpdate(update, new UpdateConfirmation(
+                ConfirmedUpdateNotVerified, ConfirmedOlder, new HashSet<string>(confirmRemoval ? removed : [], StringComparer.OrdinalIgnoreCase),
+                new HashSet<string>(update.Old.ReplacedShippedIds ?? [], StringComparer.OrdinalIgnoreCase), new HashSet<string>(StringComparer.OrdinalIgnoreCase)));
+            ImportedAny = true;
+            var skipped = VendorFeedUpdater.NotApplied(update).Count;
+            StatusText = $"Updated the feed {source.FeedId}: {source.Ids.Count} definition(s) ({source.TrustState})." + (skipped > 0 ? $" {skipped} definition(s) of the new document were not applied (see the list)." : "");
+            Address = "";
+            ClearUpdate();
+            ReloadFeeds();
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or IOException or UnauthorizedAccessException or ArgumentException)
+        {
+            StatusText = "Not updated: " + ex.Message;
+        }
+        finally { Busy = false; }
+    }
+
+    private void ClearUpdate()
+    {
+        _update = null;
+        UpdateText = "";
+        UpdateTrust = "";
+        ConfirmedOlder = false;
+        ConfirmedUpdateNotVerified = false;
+        OnPropertyChanged(nameof(HasUpdate));
+        OnPropertyChanged(nameof(NeedsUpdateNotVerifiedConfirmation));
+        OnPropertyChanged(nameof(NeedsOlderConfirmation));
+        ApplyUpdateCommand.NotifyCanExecuteChanged();
     }
 
     private bool CanRemoveFeed() => SelectedFeed is not null && !Busy;

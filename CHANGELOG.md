@@ -4,6 +4,7 @@
 
 ### Changed
 
+- Import From URL: Check for Update on a stored feed fetches the document again with the same limits and trust rules and shows a diff (added, removed and changed definitions, a changed address host, hash source or requirement, new or changed code, an unblock that is lost). Nothing is written until you confirm; an unverified document is confirmed each time, a removed definition stays until you confirm its removal, and an unblock survives only while the code and its settings are unchanged.
 - Import From URL: a definition that carries only scripts and commands can be unblocked one definition at a time: the window shows the full text of every script and command with its SHA-256, and the confirmation names the definition. A path to a local file or a bootstrapper is never unblocked. The record of the feed keeps the digest of the unblocked code and of every setting that it uses.
 - Guide images: a capture run renders the pages in both themes at the work area of a maximized 1080p window (1920 x 1032) and saves the images by guide image id; a test fails when a document shows an image that no step produces and that the pending list does not name.
 - Settings: single-line inputs are 32 px high with widths by field type (site code 120, host and server 360, database 320, paths 560, secrets and identifiers 360); the page title and its icon are 14 pt, as the button text, on every page.
