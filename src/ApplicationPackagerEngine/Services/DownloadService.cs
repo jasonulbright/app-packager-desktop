@@ -129,7 +129,7 @@ public sealed class DownloadService
                 ct.ThrowIfCancellationRequested();
                 onProgress?.Invoke($"Downloading: {Path.GetFileName(outFile)} from {current.Host}");
                 // No -L: the program follows the redirect. The status and the redirect address come back on standard output.
-                List<string> options = ["--fail-with-body", "--silent", "--show-error", "--max-redirs", "0", "--write-out", "%{http_code}|%{redirect_url}", .. headerArguments, "-o", partFile];
+                List<string> options = ["--fail-with-body", "--silent", "--show-error", "--max-redirs", "0", "--write-out", "%{http_code}|%header{location}", .. headerArguments, "-o", partFile];
                 using var process = sendCredential && credential.Entry.Matches(current)
                     ? CurlProcess.StartWithConfig(options, current.AbsoluteUri, FeedPayloadCredentials.ConfigFor(credential))
                     : CurlProcess.Start(options, current.AbsoluteUri);
