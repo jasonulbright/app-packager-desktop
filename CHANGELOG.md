@@ -4,6 +4,7 @@
 
 ### Changed
 
+- Guide images: the LivePages scenario captures the pages that read the lab site when they open (Maintenance Windows, Collections, Deployment Helper, DP Content); 10 more images are retaken.
 - Guide images: scenarios of the capture run (Capture-Scenarios.ps1) analyze a sample installer and scan the lab site, and a guard keeps a capture from replacing an image with an empty page; 10 more images are retaken (Installer Analysis tabs, Site Hygiene tabs).
 - Guide images: the lab capture run (tools\guide-capture\Capture-ApdPages.ps1) starts the app maximized on the 1920 x 1032 work area of the lab client in both themes and saves every page; 13 guide images are retaken from it in the compact density (the others are listed as pending).
 - Import From URL: a payload download of an imported definition from a host that has a key or Basic entry runs through curl without -L, with the header on standard input (never on the command line); the program follows the redirects and sends the credential only to a hop on the bound host. The command-line build reads no feed credential. Version checks, page fetches and checksum files on such a host use the same rule: the program follows the redirects of the bound host in short probes, and the real request goes to the last address of the bound host without -L, or to the first address outside it without the credential.

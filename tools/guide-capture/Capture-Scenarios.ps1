@@ -11,7 +11,7 @@
     The clicks use the positions of the page at 100 percent on the work area of 1920 x 1032.
 #>
 param(
-    [Parameter(Mandatory)][ValidateSet('InstallerAnalysis', 'SiteHygiene')][string]$Scenario,
+    [Parameter(Mandatory)][ValidateSet('InstallerAnalysis', 'SiteHygiene', 'LivePages')][string]$Scenario,
     [string[]]$Themes = @('Light', 'Dark')
 )
 Add-Type -AssemblyName System.Drawing, System.Windows.Forms
@@ -101,7 +101,24 @@ foreach ($theme in $Themes) {
             Shot (Join-Path $dir ($id + '.png'))
         }
     }
-    Stop-Process -Id $p.Id -Force
+    if ($Scenario -eq 'LivePages') {
+        # Pages that read the lab site when they open: (sidebar y, wait, then the tabs: id, x, y; a null x is the page as it opens).
+        $pages = @(
+            @{ Nav = 521; Wait = 12; Tabs = @(@('tools-maintenance-windows-list', $null, 0), @('tools-maintenance-windows-coverage', 360, 155), @('tools-maintenance-windows-templates', 434, 155)) }
+            @{ Nav = 481; Wait = 15; Tabs = @(@('tools-collections-list', $null, 0), @('tools-collections-wql', 377, 155), @('tools-collections-templates', 457, 155), @('tools-collections-site-queries', 539, 155)) }
+            @{ Nav = 401; Wait = 15; Tabs = @(@('tools-deployment-helper-deploy', $null, 0), @('tools-deployment-helper-history', 388, 155), @('tools-deployment-helper-options', 447, 155)) }
+            @{ Nav = 561; Wait = 15; Tabs = @(@('tools-dp-content-dps', $null, 0), @('tools-dp-content-content', 322, 219), @('tools-dp-content-issues', 399, 219), @('tools-dp-content-history', 475, 219)) }
+        )
+        foreach ($page in $pages) {
+            Click 110 $page.Nav; Start-Sleep -Seconds $page.Wait
+            foreach ($tab in $page.Tabs) {
+                if ($null -ne $tab[1]) { Click $tab[1] $tab[2]; Start-Sleep -Seconds 6 }
+                [System.Windows.Forms.Cursor]::Position = New-Object System.Drawing.Point 1000, 1060
+                Start-Sleep -Milliseconds 400
+                Shot (Join-Path $dir ($tab[0] + '.png'))
+            }
+        }
+    }    Stop-Process -Id $p.Id -Force
     Start-Sleep -Seconds 2
 }
 Remove-Item 'C:\guide\apdcap-sample' -Recurse -Force -ErrorAction SilentlyContinue
