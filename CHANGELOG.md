@@ -9,7 +9,7 @@
 ### Fixed
 
 - Titles: a name that already has the architecture, for example 7-Zip (x64), no longer gets a second (x64).
-- Titles: 7-Zip is one application for x64 and ARM64, and is named 7-Zip, as the PowerShell app names it.
+- Titles: a split run of 7-Zip (x64 and ARM64) is named 7-Zip. A single run keeps the installer name, as the PowerShell app does.
 
 ### Added
 

@@ -2470,7 +2470,7 @@ public sealed class StagingService
         var fixedName = string.IsNullOrWhiteSpace(def.AppName)
             ? null
             : def.AppName.Replace("{version}", displayVersion, StringComparison.OrdinalIgnoreCase).Trim();
-        var trustMetadataName = fixedName is null && !TitleNaming.IsVariantDefinition(def) && installerMetadata is not null
+        var trustMetadataName = fixedName is null && installerMetadata is not null
             && IsProductNamePlausible(installerMetadata, def);
         var name = fixedName ?? (trustMetadataName ? installerMetadata!.ProductName : null);
         if (fixedName is not null) publisher = string.IsNullOrWhiteSpace(def.Publisher) ? def.Vendor : def.Publisher.Trim();
