@@ -7,6 +7,13 @@ public enum ConflictKind { None, Shipped, User, AnotherFeed, StageFolder }
 public sealed record ImportCandidate(ValidatedDefinition Definition, ConflictKind Conflict, string? ConflictFeedId)
 {
     public bool Importable => !Definition.Blocked && Conflict == ConflictKind.None;
+
+    /// <summary>
+    /// True when the only reason for the block is code that can be unblocked: scripts and commands (see <see cref="DefinitionUnblock"/>). A path to a
+    /// local file or a bootstrapper stays blocked, and so does any other blocking finding.
+    /// </summary>
+    public bool CanUnblock => Definition.Blocked && Definition.Findings.Where(f => f.Severity == FindingSeverity.Blocking).All(f => f.Code == "CarriesCode")
+        && DefinitionUnblock.CanUnblock(Definition.Definition);
 }
 
 /// <summary>Everything that the preview shows. Nothing is written until <see cref="VendorFeedImporter.Import"/> runs.</summary>
@@ -20,7 +27,7 @@ public sealed record ImportPreview(
 
 /// <summary>What the administrator confirmed in the preview.</summary>
 public sealed record ImportConfirmation(
-    string Vendor, string FeedId, bool ConfirmedNotVerified, IReadOnlySet<string> ReplaceShippedIds);
+    string Vendor, string FeedId, bool ConfirmedNotVerified, IReadOnlySet<string> ReplaceShippedIds, IReadOnlySet<string>? UnblockIds = null);
 
 /// <summary>
 /// The anonymous import of a feed (step 1): fetch, validate, check the pin, list the conflicts; and, after the confirmation, store. A pin
@@ -102,7 +109,7 @@ public sealed class VendorFeedImporter(
             if (shipped.Contains(d.Id))
             {
                 // A replacement takes over the folder of the shipped definition; it must not take the folder of another one.
-                if (d.Blocked) return new ImportCandidate(d, ConflictKind.Shipped, null);
+                if (d.Blocked && !new ImportCandidate(d, ConflictKind.Shipped, null).CanUnblock) return new ImportCandidate(d, ConflictKind.Shipped, null);
                 var own = StageFolder.Name(d.Definition);
                 var others = folderOfId.Where(p => !string.Equals(p.Key, d.Id, StringComparison.OrdinalIgnoreCase)).Select(p => p.Value);
                 if (others.Contains(own, StringComparer.OrdinalIgnoreCase)) return new ImportCandidate(d, ConflictKind.StageFolder, null);
@@ -145,18 +152,42 @@ public sealed class VendorFeedImporter(
         if (store.ReadSource(confirmation.FeedId) is not null)
             throw new InvalidOperationException($"The FeedId '{confirmation.FeedId}' holds a feed already. Choose another FeedId, or update that feed (a later release).");
 
+        var unblock = confirmation.UnblockIds ?? new HashSet<string>();
+        foreach (var id in unblock)
+        {
+            var candidate = preview.Candidates.FirstOrDefault(c => string.Equals(c.Definition.Id, id, StringComparison.OrdinalIgnoreCase));
+            if (candidate is null || !candidate.CanUnblock)
+                throw new InvalidOperationException($"The definition '{id}' cannot be unblocked: only scripts and commands can be unblocked, never a path to a local file or a bootstrapper.");
+        }
         var take = preview.Candidates
-            .Where(c => !c.Definition.Blocked && (c.Conflict == ConflictKind.None
+            .Where(c => (!c.Definition.Blocked || (c.CanUnblock && unblock.Contains(c.Definition.Id, StringComparer.OrdinalIgnoreCase))) && (c.Conflict == ConflictKind.None
                 || (c.Conflict == ConflictKind.Shipped && confirmation.ReplaceShippedIds.Contains(c.Definition.Id, StringComparer.OrdinalIgnoreCase))))
             .ToList();
         if (take.Count == 0) throw new InvalidOperationException("No definition can be imported: every one is blocked or in conflict.");
+
+        // A definition that was unblocked takes its stage folder now: it must not share one with another definition that is taken or that exists.
+        var takenFolders = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var c in take)
+            if (!takenFolders.Add(StageFolder.Name(c.Definition.Definition)))
+                throw new InvalidOperationException($"The definition '{c.Definition.Id}' has the same stage folder (Application and Architecture) as another definition of this import.");
+        var replacedIds = take.Where(c => c.Conflict == ConflictKind.Shipped).Select(c => c.Definition.Id).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var existing = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var pair in stageFolders?.Invoke() ?? new Dictionary<string, string>())
+            if (!replacedIds.Contains(pair.Key)) existing.Add(pair.Value);
+        foreach (var stored in store.Feeds())
+            foreach (var file in stored.DefinitionFiles)
+                if (StageFolderOfFile(file) is { } folderName) existing.Add(folderName);
+        foreach (var c in take.Where(c => c.Definition.Blocked))
+            if (existing.Contains(StageFolder.Name(c.Definition.Definition)))
+                throw new InvalidOperationException($"The unblocked definition '{c.Definition.Id}' has the same stage folder (Application and Architecture) as a definition that exists.");
 
         var replaced = take.Where(c => c.Conflict == ConflictKind.Shipped).Select(c => c.Definition.Id).ToList();
         var source = new FeedSource(
             preview.Document.SafeAddress, confirmation.Vendor.Trim(), confirmation.FeedId, _clock.GetUtcNow(), preview.Document.Sha256,
             preview.Document.Size, FeedTrust.Label(preview.TrustState),
             preview.PinnedDigest, preview.PinnedPublisher, preview.Signer,
-            take.Select(c => c.Definition.Id).ToList(), replaced, []);
+            take.Select(c => c.Definition.Id).ToList(), replaced,
+            take.Where(c => c.Definition.Blocked).Select(c => c.Definition.Id + ":" + DefinitionUnblock.Digest(c.Definition.Definition)).ToList());
         store.Write(source, take.Select(c => c.Definition).ToList());
         return source;
     }

@@ -29,15 +29,30 @@ public sealed partial class VendorImportRow(ImportCandidate candidate) : Observa
         }
     }
 
-    public bool IsShippedConflict => Candidate.Conflict == ConflictKind.Shipped && !Candidate.Definition.Blocked;
+    public bool IsShippedConflict => Candidate.Conflict == ConflictKind.Shipped && (!Candidate.Definition.Blocked || Unblocked);
+
+    /// <summary>The only block is code that can be unblocked (scripts and commands), and the administrator has not unblocked it yet.</summary>
+    public bool CanUnblock => Candidate.CanUnblock && !Unblocked;
+
+    /// <summary>The administrator saw the full text of every script and command, with its SHA-256, and unblocked this definition (step 3).</summary>
+    [ObservableProperty] private bool _unblocked;
+
+    partial void OnUnblockedChanged(bool value)
+    {
+        OnPropertyChanged(nameof(Status));
+        OnPropertyChanged(nameof(IsShippedConflict));
+        OnPropertyChanged(nameof(CanUnblock));
+        OnPropertyChanged(nameof(Details));
+        if (!value) Replace = false;
+    }
 
     /// <summary>The administrator chose to replace the shipped definition with this Id (the default is to skip it).</summary>
     [ObservableProperty] private bool _replace;
 
     public string Status =>
-        Candidate.Definition.Blocked
+        Candidate.Definition.Blocked && !Unblocked
             ? "Blocked: " + (Candidate.Definition.CarriesCode
-                ? "carries code (" + string.Join(", ", Candidate.Definition.CodeProperties) + ")"
+                ? "carries code (" + string.Join(", ", Candidate.Definition.CodeProperties) + ")" + (Candidate.CanUnblock ? "; select Unblock Selected to review it" : "; this kind of code is never unblocked")
                 : Candidate.Definition.Findings.First(f => f.Severity == FindingSeverity.Blocking).Message)
             : Candidate.Conflict switch
             {
@@ -45,7 +60,7 @@ public sealed partial class VendorImportRow(ImportCandidate candidate) : Observa
                 ConflictKind.User => "Same Id as your own definition: skipped",
                 ConflictKind.AnotherFeed => $"Same Id as the feed {Candidate.ConflictFeedId}: skipped",
                 ConflictKind.StageFolder => "Same stage folder as another definition (Application and Architecture): skipped",
-                _ => "Ready"
+                _ => Unblocked ? "Unblocked: imports with its scripts and commands" : "Ready"
             };
 
     /// <summary>The preview text of the whole definition: the commands, the detection, the hosts, the findings, then the stored JSON.</summary>
@@ -62,6 +77,12 @@ public sealed partial class VendorImportRow(ImportCandidate candidate) : Observa
             if (!string.IsNullOrWhiteSpace(d.InstallArgs)) text.AppendLine("Install arguments: " + d.InstallArgs);
             if (!string.IsNullOrWhiteSpace(d.UninstallCommand)) text.AppendLine("Uninstall command: " + d.UninstallCommand);
             foreach (var finding in Candidate.Definition.Findings) text.AppendLine($"[{finding.Severity}] {finding.Message}");
+            if (Candidate.CanUnblock || Unblocked)
+            {
+                text.AppendLine();
+                text.AppendLine("Scripts and commands of this definition (they run as the system account on computers):");
+                text.Append(DefinitionUnblock.Describe(d));
+            }
             text.AppendLine();
             text.Append(Candidate.Definition.Json);
             return text.ToString();
@@ -123,6 +144,8 @@ public sealed partial class VendorImportViewModel : ObservableObject
     {
         FetchCommand.NotifyCanExecuteChanged();
         ImportCommand.NotifyCanExecuteChanged();
+        UnblockSelectedCommand.NotifyCanExecuteChanged();
+        BlockAgainCommand.NotifyCanExecuteChanged();
         CancelFetchCommand.NotifyCanExecuteChanged();
         RemoveFeedCommand.NotifyCanExecuteChanged();
     }
@@ -132,6 +155,53 @@ public sealed partial class VendorImportViewModel : ObservableObject
     partial void OnFeedIdChanged(string value) => ImportCommand.NotifyCanExecuteChanged();
     partial void OnConfirmedNotVerifiedChanged(bool value) => ImportCommand.NotifyCanExecuteChanged();
     partial void OnSelectedFeedChanged(VendorFeedRow? value) => RemoveFeedCommand.NotifyCanExecuteChanged();
+    partial void OnSelectedRowChanged(VendorImportRow? value)
+    {
+        UnblockSelectedCommand.NotifyCanExecuteChanged();
+        BlockAgainCommand.NotifyCanExecuteChanged();
+    }
+
+    private bool CanUnblockSelected() => !Busy && SelectedRow is { CanUnblock: true };
+
+    /// <summary>
+    /// Unblocks the selected definition after a confirmation that names it and shows the full text of every script and command with its SHA-256. The
+    /// unblock is for this definition only and for exactly this text and these settings: an update that changes one blocks it again.
+    /// </summary>
+    [RelayCommand(CanExecute = nameof(CanUnblockSelected))]
+    private async Task UnblockSelectedAsync()
+    {
+        var row = SelectedRow!;
+        Busy = true;
+        try
+        {
+            // The dialog is a message box: it has no scroll bar and it clips a long text. It shows the SHA-256 of every piece and the digest; the
+            // full text is in the details of the definition above (the box that scrolls), and it is shown here only when it is short.
+            var text = DefinitionUnblock.Describe(row.Candidate.Definition.Definition);
+            if (text.Length > 3000)
+                text = "The text of the scripts and commands is long. Read it in the details of the definition before you confirm."
+                       + Environment.NewLine + DefinitionUnblock.Summary(row.Candidate.Definition.Definition);
+            if (!await _confirm($"Unblock {row.Id}",
+                    $"Unblock the definition {row.Id} ({row.Application})? Its scripts and commands run as the system account on the computers that install it. The import does not sign or trust them. This unblock is for this definition and for exactly this text and these settings.{Environment.NewLine}{Environment.NewLine}{text}"))
+                return;
+            row.Unblocked = true;
+            StatusText = $"{row.Id} is unblocked for this import. Nothing is stored until you select Import.";
+        }
+        finally { Busy = false; }
+        ImportCommand.NotifyCanExecuteChanged();
+        UnblockSelectedCommand.NotifyCanExecuteChanged();
+        BlockAgainCommand.NotifyCanExecuteChanged();
+    }
+
+    private bool CanBlockAgain() => !Busy && SelectedRow is { Unblocked: true };
+
+    [RelayCommand(CanExecute = nameof(CanBlockAgain))]
+    private void BlockAgain()
+    {
+        SelectedRow!.Unblocked = false;
+        ImportCommand.NotifyCanExecuteChanged();
+        UnblockSelectedCommand.NotifyCanExecuteChanged();
+        BlockAgainCommand.NotifyCanExecuteChanged();
+    }
 
     private bool CanFetch() => !Busy && Address.Trim().Length > 0;
 
@@ -222,13 +292,14 @@ public sealed partial class VendorImportViewModel : ObservableObject
         !Busy && _preview is { Refused: false } preview
         && Vendor.Trim().Length > 0 && FeedId.Trim().Length > 0
         && (preview.TrustState != FeedTrust.NotVerified || ConfirmedNotVerified)
-        && Rows.Any(r => r.Candidate.Importable || (r.IsShippedConflict && r.Replace));
+        && Rows.Any(r => r.Candidate.Importable || (r.IsShippedConflict && r.Replace) || (r.Unblocked && r.Candidate.Conflict == ConflictKind.None));
 
     [RelayCommand(CanExecute = nameof(CanImport))]
     private async Task ImportAsync()
     {
         var preview = _preview!;
         var replace = Rows.Where(r => r.IsShippedConflict && r.Replace).Select(r => r.Id).ToList();
+        var unblock = Rows.Where(r => r.Unblocked).Select(r => r.Id).ToList();
         // Busy while the question is open, so that nothing else (a second fetch) changes the preview under it.
         Busy = true;
         try
@@ -238,7 +309,8 @@ public sealed partial class VendorImportViewModel : ObservableObject
                     $"Replace the shipped definition(s) {string.Join(", ", replace)} with the imported one(s)? The imported definition has its own profiles; the Workbench profiles of the shipped application stay with the shipped one."))
                 return;
             var source = _service.Import(preview, new ImportConfirmation(
-                Vendor.Trim(), FeedId.Trim(), ConfirmedNotVerified, new HashSet<string>(replace, StringComparer.OrdinalIgnoreCase)));
+                Vendor.Trim(), FeedId.Trim(), ConfirmedNotVerified, new HashSet<string>(replace, StringComparer.OrdinalIgnoreCase),
+                new HashSet<string>(unblock, StringComparer.OrdinalIgnoreCase)));
             ImportedAny = true;
             StatusText = $"Imported {source.Ids.Count} definition(s) from {source.Vendor} as the feed {source.FeedId} ({source.TrustState}).";
             ClearPreview();

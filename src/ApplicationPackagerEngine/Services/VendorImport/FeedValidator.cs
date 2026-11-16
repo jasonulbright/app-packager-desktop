@@ -216,7 +216,12 @@ public static partial class FeedValidator
         CheckAddresses(definition, Add, hosts);
         var code = DefinitionCode.Find(definition);
         foreach (var name in code)
-            findings.Add(Block("CarriesCode", $"The definition carries code ({name}). A definition that carries code is not imported in this release, whatever the trust state.", id));
+            findings.Add(Block("CarriesCode", $"The definition carries code ({name}). A definition that carries code is blocked whatever the trust state; a script or a command can be unblocked in the preview, a path to a local file or a bootstrapper cannot.", id));
+
+        // A control character (a NUL, an escape) hides the rest of a text in a dialog or a log. It is a block that no unblock lifts.
+        foreach (var item in DefinitionUnblock.Analyze(definition).Where(i => i.Kind != CodeKind.Permanent))
+            if (item.Text.Any(c => char.IsControl(c) && c is not ('\r' or '\n' or '\t')))
+                findings.Add(Block("CodeControlCharacter", $"The text of {item.Name} holds a control character other than a line break or a tab.", id));
 
         var json = definition is null ? "" : JsonSerializer.Serialize(definition, WriteOptions);
         return new ValidatedDefinition(definition.Id.Length > 0 ? definition.Id : id, definition, json, findings, hosts.Distinct(StringComparer.OrdinalIgnoreCase).ToList(), code);

@@ -109,6 +109,14 @@
                              MinHeight="100" MaxHeight="200" Margin="0,0,0,8"
                              AutomationProperties.Name="The selected definition, read only" AutomationProperties.AutomationId="txtImportDetails" />
 
+                    <WrapPanel Margin="0,0,0,8">
+                        <ui:Button x:Name="btnUnblockSelected" Content="Unblock Selected" Margin="0,0,8,8" Command="{Binding UnblockSelectedCommand}"
+                                   ToolTip="Shows the full text of every script and command of the selected definition with its SHA-256, and unblocks the definition after a confirmation. A path to a local file or a bootstrapper is never unblocked."
+                                   AutomationProperties.AutomationId="btnUnblockSelected" />
+                        <ui:Button x:Name="btnBlockAgain" Content="Block Again" Margin="0,0,8,8" Command="{Binding BlockAgainCommand}"
+                                   AutomationProperties.AutomationId="btnBlockAgain" />
+                    </WrapPanel>
+
                     <TextBlock Text="Findings" Margin="0,0,0,4" />
                     <TextBox x:Name="txtImportFindings" Text="{Binding FindingsText, Mode=OneWay}" Style="{StaticResource DetailBox}" MaxHeight="120" Margin="0,0,0,8"
                              AutomationProperties.Name="Findings of the validation, read only" AutomationProperties.AutomationId="txtImportFindings" />
