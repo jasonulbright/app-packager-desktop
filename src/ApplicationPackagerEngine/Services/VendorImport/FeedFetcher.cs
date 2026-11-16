@@ -24,7 +24,8 @@ public sealed record FeedDocument(byte[] Bytes, Uri FinalAddress, string Content
 }
 
 /// <summary>A fetch that the rules of the specification refused or that failed. The message names the rule and never a query.</summary>
-public sealed class FeedFetchException(string message, Exception? inner = null) : Exception(message, inner);
+/// <remarks>The message goes through the redactor of the program: a secret that a runtime message carries never reaches an output.</remarks>
+public sealed class FeedFetchException(string message, Exception? inner = null) : Exception(SecretRedactor.Redact(message), inner);
 
 /// <summary>
 /// Fetches a feed document over HTTPS with the manual redirect loop, the size and time limits, the content type rule and the retry for
@@ -93,16 +94,17 @@ public sealed class FeedFetcher
             throw new FeedFetchException($"{what} has no host.");
     }
 
-    public async Task<FeedDocument> FetchAsync(Uri address, CancellationToken ct)
+    /// <param name="credential">The credential of an authenticated feed; it is sent only to a request to its bound scheme, host and port.</param>
+    public async Task<FeedDocument> FetchAsync(Uri address, CancellationToken ct, FeedCredential? credential = null)
     {
         CheckAddress(address, "The address of the feed");
-        if (SecretQueryName(address) is { } secretName)
+        if (credential is null && SecretQueryName(address) is { } secretName)
             throw new FeedFetchException($"The address of the feed has a query value that looks like a secret ({secretName}). An anonymous import does not send a secret in an address; use a feed with its own access method, or ask the vendor for an address without it.");
         using var total = CancellationTokenSource.CreateLinkedTokenSource(ct);
         total.CancelAfter(_limits.TotalTime);
         try
         {
-            return await FetchCoreAsync(address, total.Token).ConfigureAwait(false);
+            return await FetchCoreAsync(address, total.Token, credential: credential).ConfigureAwait(false);
         }
         catch (OperationCanceledException) when (!ct.IsCancellationRequested)
         {
@@ -118,7 +120,7 @@ public sealed class FeedFetcher
     /// <c>.p7s</c> added, so that it is on the same host. The same rules apply (HTTPS, redirects, the time limit); the content is binary and has a
     /// smaller limit, and a page of HTML is refused.
     /// </summary>
-    public async Task<FeedDocument> FetchSignatureAsync(Uri documentAddress, CancellationToken ct)
+    public async Task<FeedDocument> FetchSignatureAsync(Uri documentAddress, CancellationToken ct, FeedCredential? credential = null)
     {
         var builder = new UriBuilder(documentAddress) { Query = "", Fragment = "" };
         builder.Path = builder.Path.TrimEnd('/') + ".p7s";
@@ -128,7 +130,7 @@ public sealed class FeedFetcher
         total.CancelAfter(_limits.TotalTime);
         try
         {
-            return await FetchCoreAsync(address, total.Token, signature: true).ConfigureAwait(false);
+            return await FetchCoreAsync(address, total.Token, signature: true, credential: credential).ConfigureAwait(false);
         }
         catch (OperationCanceledException) when (!ct.IsCancellationRequested)
         {
@@ -136,18 +138,26 @@ public sealed class FeedFetcher
         }
     }
 
-    private async Task<FeedDocument> FetchCoreAsync(Uri start, CancellationToken ct, bool signature = false)
+    private async Task<FeedDocument> FetchCoreAsync(Uri start, CancellationToken ct, bool signature = false, FeedCredential? credential = null)
     {
         var maxBytes = signature ? MaxSignatureBytes : _limits.MaxBytes;
         using var client = new HttpClient(_handlerFactory(), disposeHandler: true) { Timeout = Timeout.InfiniteTimeSpan };
         var current = start;
         var redirects = 0;
         var retries = 0;
+        // The credential goes to the bound host only. A redirect to another host (or port) is followed without it, for the rest of the fetch.
+        var credentialKept = credential is not null;
+        var leftBoundHost = false;
         while (true)
         {
             ct.ThrowIfCancellationRequested();
             using var request = new HttpRequestMessage(HttpMethod.Get, current);
             request.Headers.UserAgent.ParseAdd(_limits.UserAgent);
+            if (credentialKept && credential!.Entry.Matches(current))
+            {
+                var (headerName, headerValue) = credential.Header();
+                request.Headers.TryAddWithoutValidation(headerName, headerValue);
+            }
             request.Headers.Accept.ParseAdd(signature ? "application/pkcs7-signature, application/octet-stream" : "application/json, text/plain");
             HttpResponseMessage response;
             try
@@ -178,6 +188,7 @@ public sealed class FeedFetcher
                     CheckAddress(next, "The target of a redirect");
                     if (signature && (!string.Equals(next.Host, start.Host, StringComparison.OrdinalIgnoreCase) || next.Port != start.Port))
                         throw new FeedFetchException($"The signature file redirects from {Host(start)} to {Host(next)}; the signature must come from the host of the document.");
+                    if (credentialKept && !credential!.Entry.Matches(next)) { credentialKept = false; leftBoundHost = true; }
                     current = next;
                     continue;
                 }
@@ -190,6 +201,10 @@ public sealed class FeedFetcher
                     await _delay(wait, ct).ConfigureAwait(false);
                     continue;
                 }
+                if (status is 401 or 403 && leftBoundHost)
+                    throw new FeedFetchException($"The feed redirected to {Host(current)}, which answered {status} and has no credential entry. The credential is never sent to another host.");
+                if (status is 401 or 403 && credential is not null)
+                    throw new FeedFetchException($"{Host(current)} refused the credential ({status}). The key or the password may be wrong, expired or revoked; rotate it.");
                 if (status is < 200 or >= 300)
                     throw new FeedFetchException($"{Host(current)} answered {status} {response.ReasonPhrase}.");
 

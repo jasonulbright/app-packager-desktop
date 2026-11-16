@@ -111,6 +111,7 @@ public sealed partial class VendorImportViewModel : ObservableObject
         _service = service;
         _confirm = confirm;
         ReloadFeeds();
+        ReloadAccess();
     }
 
     public string Title => WindowTitle;
@@ -150,6 +151,9 @@ public sealed partial class VendorImportViewModel : ObservableObject
         RemoveFeedCommand.NotifyCanExecuteChanged();
         CheckForUpdateCommand.NotifyCanExecuteChanged();
         ApplyUpdateCommand.NotifyCanExecuteChanged();
+        AddAccessCommand.NotifyCanExecuteChanged();
+        RotateAccessCommand.NotifyCanExecuteChanged();
+        RemoveAccessCommand.NotifyCanExecuteChanged();
     }
 
     partial void OnAddressChanged(string value) => FetchCommand.NotifyCanExecuteChanged();
@@ -478,6 +482,121 @@ public sealed partial class VendorImportViewModel : ObservableObject
         OnPropertyChanged(nameof(NeedsUpdateNotVerifiedConfirmation));
         OnPropertyChanged(nameof(NeedsOlderConfirmation));
         ApplyUpdateCommand.NotifyCanExecuteChanged();
+    }
+
+    // ---- access to an authenticated feed (step 5): a key in a header, or Basic ----
+
+    /// <summary>One credential entry on the list: the bound host and the method. The secret is never shown.</summary>
+    public sealed record AccessRow(string Id, string Host, string Method, string Detail);
+
+    public ObservableCollection<AccessRow> Access { get; } = [];
+
+    [ObservableProperty] private AccessRow? _selectedAccess;
+    [ObservableProperty] private string _accessId = "";
+    [ObservableProperty] private string _accessAddress = "";
+    [ObservableProperty] private int _accessMethod;
+    [ObservableProperty] private string _accessHeader = "Authorization";
+    [ObservableProperty] private string _accessUser = "";
+    [ObservableProperty] private string _accessSecret = "";
+    [ObservableProperty] private string _accessStatus = "A secret is stored in the Windows Credential Manager, bound to one host, and shown as dots. It is never shown again after it is saved.";
+
+    public bool AccessIsBasic => AccessMethod == 1;
+    public bool AccessIsHeader => AccessMethod != 1;
+
+    partial void OnAccessMethodChanged(int value)
+    {
+        OnPropertyChanged(nameof(AccessIsBasic));
+        OnPropertyChanged(nameof(AccessIsHeader));
+    }
+
+    partial void OnSelectedAccessChanged(AccessRow? value)
+    {
+        RotateAccessCommand.NotifyCanExecuteChanged();
+        RemoveAccessCommand.NotifyCanExecuteChanged();
+    }
+
+    private void ReloadAccess()
+    {
+        Access.Clear();
+        foreach (var e in _service.Credentials())
+            Access.Add(new AccessRow(e.Id, e.HostText, e.Method == FeedAuthMethod.Basic ? "Basic" : "Key in a header",
+                e.Method == FeedAuthMethod.Basic ? "user " + e.UserName : "header " + e.HeaderName));
+    }
+
+    private bool CanAddAccess() => !Busy && AccessId.Trim().Length > 0 && AccessAddress.Trim().Length > 0 && AccessSecret.Length > 0;
+
+    partial void OnAccessIdChanged(string value) => AddAccessCommand.NotifyCanExecuteChanged();
+    partial void OnAccessAddressChanged(string value) => AddAccessCommand.NotifyCanExecuteChanged();
+    partial void OnAccessSecretChanged(string value)
+    {
+        AddAccessCommand.NotifyCanExecuteChanged();
+        RotateAccessCommand.NotifyCanExecuteChanged();
+    }
+
+    /// <summary>Saves the entry and its secret, then runs Test (one request to the address). The secret is cleared from the window.</summary>
+    [RelayCommand(CanExecute = nameof(CanAddAccess))]
+    private async Task AddAccessAsync()
+    {
+        if (!Uri.TryCreate(AccessAddress.Trim(), UriKind.Absolute, out var address) || address.Scheme != Uri.UriSchemeHttps)
+        {
+            AccessStatus = "The address must be an absolute https:// address. HTTP is refused for every method.";
+            return;
+        }
+        Busy = true;
+        try
+        {
+            _service.AddCredential(AccessId.Trim(), address, AccessIsBasic ? FeedAuthMethod.Basic : FeedAuthMethod.HeaderKey,
+                AccessIsBasic ? null : AccessHeader.Trim(), AccessIsBasic ? AccessUser.Trim() : null, AccessSecret);
+            AccessSecret = "";
+            ReloadAccess();
+            AccessStatus = "Saved. Testing...";
+            using var cts = new CancellationTokenSource();
+            try { AccessStatus = "Saved. Test: " + await _service.TestAsync(address, cts.Token); }
+            catch (FeedFetchException ex) { AccessStatus = "Saved. Test failed: " + ex.Message; }
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or IOException or UnauthorizedAccessException or ArgumentException)
+        {
+            AccessStatus = "Not saved: " + ex.Message;
+        }
+        finally { Busy = false; }
+    }
+
+    private bool CanRotateAccess() => !Busy && SelectedAccess is not null && AccessSecret.Length > 0;
+
+    [RelayCommand(CanExecute = nameof(CanRotateAccess))]
+    private void RotateAccess()
+    {
+        try
+        {
+            _service.RotateCredential(SelectedAccess!.Id, AccessSecret);
+            AccessSecret = "";
+            AccessStatus = $"The secret of {SelectedAccess!.Id} is replaced. The next fetch uses the new one.";
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or IOException or UnauthorizedAccessException)
+        {
+            AccessStatus = "Not rotated: " + ex.Message;
+        }
+    }
+
+    private bool CanRemoveAccess() => !Busy && SelectedAccess is not null;
+
+    [RelayCommand(CanExecute = nameof(CanRemoveAccess))]
+    private async Task RemoveAccessAsync()
+    {
+        var row = SelectedAccess!;
+        Busy = true;
+        try
+        {
+            if (!await _confirm("Remove access", $"Remove the entry {row.Id} for {row.Host} and its secret from the Windows Credential Manager? The imported definitions stay.")) return;
+            _service.RemoveCredential(row.Id);
+            AccessStatus = $"Removed the entry {row.Id}.";
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            AccessStatus = "Not removed: " + ex.Message;
+        }
+        finally { Busy = false; }
+        ReloadAccess();
     }
 
     private bool CanRemoveFeed() => SelectedFeed is not null && !Busy;
