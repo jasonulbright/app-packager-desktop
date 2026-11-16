@@ -3,24 +3,18 @@ using ApplicationPackagerEngine.Services;
 namespace ApplicationPackagerEngine.Tests.IconPack;
 
 /// <summary>
-/// The icon pack (jasonulbright/app-packager-icons, manifest of v2026.11.16.0011 kept in pack-manifest.json) against the
+/// The icon pack (jasonulbright/app-packager-icons, manifest of v2026.11.16.0012 kept in pack-manifest.json) against the
 /// shipped definitions. A definition with no icon in the pack fails the test unless it is on the named list below; the list
 /// shrinks when a new pack release adds the icons (copy its manifest.json over pack-manifest.json).
 /// </summary>
 public sealed class IconPackCoverageTests
 {
     /// <summary>
-    /// Shipped definitions that the pack v2026.11.16.0011 has no icon for, with the reason for each. A generic installer icon is not shipped
-    /// instead of the product icon.
+    /// Shipped definitions that the pack v2026.11.16.0012 has no icon for, with the reason for each. The list is empty: every shipped
+    /// definition has an icon. A new definition without an icon fails the test until the pack has it or it is named here with a reason
+    /// (a generic installer icon is not shipped instead of the product icon).
     /// </summary>
-    private static readonly Dictionary<string, string> WithoutIcon = new(StringComparer.OrdinalIgnoreCase)
-    {
-        ["anypointstudio"] = "The vendor site refuses an automated download (HTTP 403 for the manifest), so the archive with the product icon cannot be fetched by a script.",
-        ["vs2026"] = "The bootstrapper carries only the installer icon (a download arrow), not the Visual Studio product icon.",
-        ["vs2026community"] = "The bootstrapper carries only the installer icon (a download arrow), not the Visual Studio product icon.",
-        ["vmwaretools"] = "The installer carries only the generic Windows installer icon, not a VMware icon."
-    };
-    private static string[] ShippedBaseNames() =>
+    private static readonly Dictionary<string, string> WithoutIcon = new(StringComparer.OrdinalIgnoreCase);    private static string[] ShippedBaseNames() =>
         Directory.GetFiles(Path.Combine(AppContext.BaseDirectory, "Definitions"), "*.json")
             .Select(Path.GetFileNameWithoutExtension).Order(StringComparer.OrdinalIgnoreCase).ToArray()!;
 
@@ -59,4 +53,7 @@ public sealed class IconPackCoverageTests
     [Fact]
     public void NoInstalledPackIsNeverCurrent() =>
         Assert.False(IconPackService.IsCurrent(new IconPackStatus(false, "2026.11.16.0009", 0), "v2026.11.16.0009"));
+
+    [Fact]
+    public void TheExceptionListIsEmptyBecauseEveryShippedDefinitionHasAnIcon() => Assert.Empty(WithoutIcon);
 }

@@ -1,5 +1,5 @@
 {
-  "PackVersion": "2026.11.16.0011",
+  "PackVersion": "2026.11.16.0012",
   "MinAppVersion": "1.5.0.0",
   "Icons": [
     {
@@ -1921,6 +1921,30 @@
       "Packager": "wiztree",
       "SourceKind": "VendorAsset",
       "PixelSize": 445
+    },
+    {
+      "File": "anypointstudio.png",
+      "Packager": "anypointstudio",
+      "SourceKind": "Supplied",
+      "PixelSize": 256
+    },
+    {
+      "File": "vmwaretools.png",
+      "Packager": "vmwaretools",
+      "SourceKind": "Supplied",
+      "PixelSize": 256
+    },
+    {
+      "File": "vs2026.png",
+      "Packager": "vs2026",
+      "SourceKind": "Supplied",
+      "PixelSize": 256
+    },
+    {
+      "File": "vs2026community.png",
+      "Packager": "vs2026community",
+      "SourceKind": "Supplied",
+      "PixelSize": 256
     }
   ]
 }
