@@ -67,6 +67,9 @@ public sealed class AppSettings
     /// <summary>The default title mode NoVersion; applies only while IncludeVersionInTitle is off.</summary>
     public bool RemoveVersionFromTitle { get; set; }
 
+    /// <summary>Whether a name that the program builds carries the architecture tag, for example "(x64)". On by default; a tag that the name already has is never repeated.</summary>
+    public bool AppendArchitectureToTitle { get; set; } = true;
+
     public ContentDistributionSettings ContentDistribution { get; set; } = new();
 
     /// <summary>The version rule and the supersedence mode: site defaults and per-title overrides.</summary>

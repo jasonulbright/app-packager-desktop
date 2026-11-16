@@ -1680,8 +1680,8 @@ public sealed class StagingService
             var manifest = new StageManifest
             {
                 ApplicationId = CatalogApplicationId(def),
-                AppName = $"{def.Application} - {version} ({def.Architecture})",
-                DisplayName = $"{def.Application} ({def.Architecture})",
+                AppName = TitleNaming.FallbackAppName(def, version),
+                DisplayName = TitleNaming.FallbackDisplayName(def),
                 Publisher = publisher,
                 SoftwareVersion = version,
                 InstallerFile = bootstrapperFileName,
@@ -2023,8 +2023,8 @@ public sealed class StagingService
             var manifest = new StageManifest
             {
                 ApplicationId = CatalogApplicationId(def),
-                AppName = $"{def.Application} - {version} ({def.Architecture})",
-                DisplayName = $"{def.Application} ({def.Architecture})",
+                AppName = TitleNaming.FallbackAppName(def, version),
+                DisplayName = TitleNaming.FallbackDisplayName(def),
                 Publisher = publisher,
                 SoftwareVersion = version,
                 InstallerFile = "setup.exe",
@@ -2470,7 +2470,7 @@ public sealed class StagingService
         var fixedName = string.IsNullOrWhiteSpace(def.AppName)
             ? null
             : def.AppName.Replace("{version}", displayVersion, StringComparison.OrdinalIgnoreCase).Trim();
-        var trustMetadataName = fixedName is null && installerMetadata is not null
+        var trustMetadataName = fixedName is null && !TitleNaming.IsVariantDefinition(def) && installerMetadata is not null
             && IsProductNamePlausible(installerMetadata, def);
         var name = fixedName ?? (trustMetadataName ? installerMetadata!.ProductName : null);
         if (fixedName is not null) publisher = string.IsNullOrWhiteSpace(def.Publisher) ? def.Vendor : def.Publisher.Trim();
@@ -2480,8 +2480,8 @@ public sealed class StagingService
             && !string.Equals(metadataVersion, displayVersion, StringComparison.OrdinalIgnoreCase))
             onProgress?.Invoke($"Installer metadata version {metadataVersion} ({installerMetadata.MetadataSource}); staging the scraped {displayVersion}.");
         return new StageIdentity(
-            !string.IsNullOrEmpty(name) ? name : $"{def.Application} - {displayVersion} ({def.Architecture})",
-            !string.IsNullOrEmpty(name) ? name : $"{def.Application} ({def.Architecture})",
+            !string.IsNullOrEmpty(name) ? name : TitleNaming.FallbackAppName(def, displayVersion),
+            !string.IsNullOrEmpty(name) ? name : TitleNaming.FallbackDisplayName(def),
             publisher,
             displayVersion);
     }
