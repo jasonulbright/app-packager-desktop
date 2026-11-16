@@ -699,8 +699,12 @@
             <CheckBox Content="Include version in application name" IsChecked="{Binding TitleOptions.IncludeVersionInTitle}" Margin="0,0,0,4"
                       ToolTip="Adds the version to every application name, creating one ConfigMgr application per release. A per-application choice in the Workbench overrides this. Existing applications are not renamed." />
             <CheckBox Content="Remove version from application name" IsChecked="{Binding TitleOptions.RemoveVersionFromTitle}"
-                      IsEnabled="{Binding TitleOptions.RemoveVersionFromTitleAvailable}" Margin="0,0,0,8"
+                      IsEnabled="{Binding TitleOptions.RemoveVersionFromTitleAvailable}" Margin="0,0,0,4"
                       ToolTip="Strips the release version from a vendor product name that carries it (7-Zip 26.03, Slido 2.3.1, Tableau 2026.2). Available while the version is not added to the name. A per-application choice in the Workbench overrides this." />
+
+            <CheckBox Content="Add the architecture to application names" IsChecked="{Binding TitleOptions.AppendArchitectureToTitle}" Margin="0,0,0,8"
+                      AutomationProperties.AutomationId="AppendArchitectureToTitle"
+                      ToolTip="When a name that the program builds has no architecture yet, it adds (x64), (x86) or (ARM64). Clear this box to keep the name without it. A name that already has the architecture never gets a second one, and an application with a deployment type for each architecture (7-Zip) has none. Existing applications are not renamed." />
 
             <Border Style="{StaticResource SectionDivider}" />
 

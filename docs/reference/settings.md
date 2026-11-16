@@ -206,6 +206,7 @@ These values go to the ConfigMgr deployment type at `Publish to ConfigMgr`. See 
 | `Neighbor/default DP` | `SlowNetworkDeploymentMode` | `Download` | `Download content and install` (`Download`) or `Do not download content` (`DoNothing`). |
 | `Include version in application name` | `IncludeVersionInTitle` | off | Creates one ConfigMgr application for each release. A per-application Workbench choice overrides it. It applies to a definition and also to a dropped installer or a bring-your-own installer that is published from its stage. The app does not rename existing applications. |
 | `Remove version from application name` | `RemoveVersionFromTitle` | off | Strips the release version from a vendor product name. It applies only while `Include version in application name` is off. It applies to a definition and also to a dropped installer or a bring-your-own installer that is published from its stage. |
+| `Add the architecture to application names` | `AppendArchitectureToTitle` | on | When a name that the program builds has no architecture yet, it adds (x64), (x86) or (ARM64). Clear the box to keep the name without it. A name that already has the architecture never gets a second one, and an application with a deployment type for each architecture (7-Zip) has none. Existing applications are not renamed. |
 
 The environment variables `APP_PACKAGER_DT_CONTENT_FALLBACK` and `APP_PACKAGER_DT_SLOW_NETWORK_MODE` pass the two content options to PS1 packagers.
 

@@ -1,5 +1,16 @@
 # Changelog
 
+## [Unreleased]
+
+### Fixed
+
+- Titles: a name that already has the architecture, for example 7-Zip (x64), no longer gets a second (x64).
+- Titles: 7-Zip is one application for x64 and ARM64, and is named 7-Zip, as the PowerShell app names it.
+
+### Added
+
+- Settings: Add the architecture to application names. Clear it to keep names without (x64), (x86) or (ARM64).
+
 ## [2026.1116.45] - 2026-11-16
 
 ### Changed

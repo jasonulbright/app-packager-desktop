@@ -588,7 +588,7 @@ public partial class SettingsViewModel : ObservableObject, ISettingsReload
         var content = DeploymentTypeContentOptions.Resolve(s.ContentFallback, s.SlowNetworkDeploymentMode);
         ContentFallback = content.ContentFallback ? DeploymentTypeContentOptions.Allow : DeploymentTypeContentOptions.Deny;
         SlowNetworkDeploymentMode = content.SlowNetworkDeploymentMode;
-        TitleOptions.Load(s.IncludeVersionInTitle, s.RemoveVersionFromTitle);
+        TitleOptions.Load(s.IncludeVersionInTitle, s.RemoveVersionFromTitle, s.AppendArchitectureToTitle);
         Signing.Load(s.ScriptSigning);
         M365Channel = s.M365Channel;
 
@@ -673,6 +673,7 @@ public partial class SettingsViewModel : ObservableObject, ISettingsReload
         s.ContentFallback = ContentFallback == DeploymentTypeContentOptions.Deny ? DeploymentTypeContentOptions.Deny : DeploymentTypeContentOptions.Allow;
         s.SlowNetworkDeploymentMode = SlowNetworkDeploymentMode == DeploymentTypeContentOptions.DoNothing ? DeploymentTypeContentOptions.DoNothing : DeploymentTypeContentOptions.Download;
         (s.IncludeVersionInTitle, s.RemoveVersionFromTitle) = TitleOptions.ToSettings();
+        s.AppendArchitectureToTitle = TitleOptions.AppendArchitectureToTitle;
         s.ScriptSigning = Signing.ToPolicy();
         s.M365Channel = M365Channel;
         s.Theme = CurrentTheme.ToString();

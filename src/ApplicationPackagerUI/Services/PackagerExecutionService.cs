@@ -1273,9 +1273,10 @@ public class PackagerExecutionService(
     /// the same title settings as a definition.
     /// </summary>
     public static string RunApplicationTitle(StageManifest manifest, string? perApplicationMode, AppSettings settings) =>
-        ApplicationTitle.Resolve(
+        TitleNaming.Finish(ApplicationTitle.Resolve(
             manifest.AppName, manifest.SoftwareVersion,
-            ApplicationTitle.ResolveMode(manifest.TitleMode, perApplicationMode, settings.IncludeVersionInTitle, settings.RemoveVersionFromTitle));
+            ApplicationTitle.ResolveMode(manifest.TitleMode, perApplicationMode, settings.IncludeVersionInTitle, settings.RemoveVersionFromTitle)),
+            settings.AppendArchitectureToTitle);
 
     /// <summary>
     /// Packages an already-staged content folder from its stage manifest. A dropped installer
