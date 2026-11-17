@@ -9,6 +9,9 @@ public sealed class PackagerExecutionResult
     public string ErrLogPath { get; init; } = "";
     public string StructuredLogPath { get; init; } = "";
 
+    /// <summary>"staging allowed by user acknowledgement" when the stage ran in a folder that other accounts can write to because the user allowed it; empty otherwise.</summary>
+    public string StagingNote { get; set; } = "";
+
     /// <summary>Intune build and publish notes for this run, when those steps were selected.</summary>
     public string IntuneWinNote { get; init; } = "";
     public string IntunePublishNote { get; init; } = "";

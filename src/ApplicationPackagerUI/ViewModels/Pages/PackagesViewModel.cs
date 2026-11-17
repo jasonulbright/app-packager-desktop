@@ -2,6 +2,7 @@ using System.IO;
 using ApplicationPackagerEngine.Models;
 using ApplicationPackagerEngine.Models.Inventory;
 using ApplicationPackagerEngine.Models.Workbench;
+using ApplicationPackagerEngine.Services;
 using ApplicationPackagerUI.Controls;
 using ApplicationPackagerUI.Models;
 using ApplicationPackagerUI.Services;
@@ -712,6 +713,7 @@ public partial class PackagesViewModel : ObservableObject
         _operationCts = new CancellationTokenSource();
         StatusText = "Staging selected packages...";
         var tally = new PackagingRunTally();
+        string? stagingBlock = null;
 
         try
         {
@@ -791,6 +793,7 @@ public partial class PackagesViewModel : ObservableObject
                         p.Status = "Stage error";
                         p.IsSelected = false;
                         _stageFailures[p] = result.StdErr;
+                        if (StagingRootGuard.IsBlockedText(result.StdErr)) stagingBlock = result.StdErr;
                         AddLogLine($"Stage FAILED (exit {result.ExitCode})");
                         LogStdErr(result.StdErr);
                     }
@@ -810,6 +813,7 @@ public partial class PackagesViewModel : ObservableObject
                 {
                     p.Status = "Stage error";
                     _stageFailures[p] = ex.Message;
+                    if (StagingRootGuard.IsBlockedText(ex.Message)) stagingBlock = ex.Message;
                     tally.RecordFailure();
                     AddLogLine($"ERROR: {ex.Message}");
                 }
@@ -817,6 +821,8 @@ public partial class PackagesViewModel : ObservableObject
 
             tally.Finish(_operationCts.Token);
             StatusText = tally.Summarize("Stage", ProgressTotal, "staged");
+            // A staging folder that other accounts can write to blocks the stage; the run status says why, in the words of Settings.
+            if (stagingBlock is not null) StatusText += " " + stagingBlock;
             return tally;
         }
         finally
@@ -1119,7 +1125,7 @@ public partial class PackagesViewModel : ObservableObject
     public static string StageNowStatus(string status, string? failure)
     {
         var reason = (failure ?? "").Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).FirstOrDefault();
-        return string.IsNullOrEmpty(reason) ? status : $"{status} Reason: {reason}";
+        return string.IsNullOrEmpty(reason) || status.Contains(reason, StringComparison.Ordinal) ? status : $"{status} Reason: {reason}";
     }
 
     /// <summary>
