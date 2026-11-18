@@ -159,6 +159,20 @@ public sealed class SupersedenceStepTests
         Assert.Contains("$candidate.LocalizedDisplayName -ne $newApplicationName -and", script);
         Assert.DoesNotContain("CI_ID -ne", script);
         Assert.Contains("Get-CMDeploymentType -ApplicationName $candidate.LocalizedDisplayName -DisableWildcardHandling", script);
+        // The cmdlet warns for each name that it gets with wildcard handling off; the warning ended up in the log of every Apply supersedence.
+        Assert.Contains("-DisableWildcardHandling -WarningAction SilentlyContinue", script);
+    }
+
+    [Fact]
+    public void TheStepScriptDoesNotLetTheCmdletWarningAboutWildcardHandlingReachTheLog()
+    {
+        var pairs = new[] { new DeploymentTypePair(Dt("91", "New - x64"), Dt("11", "Old - x64")) };
+
+        var script = SupersedenceScripts.BuildStepScript("MCM", null, "New", "Old", pairs, uninstall: false);
+
+        var lines = script.Split('\n').Where(l => l.Contains("Get-CMDeploymentType ") && l.Contains("-DisableWildcardHandling")).ToList();
+        Assert.NotEmpty(lines);
+        Assert.All(lines, l => Assert.Contains("-WarningAction SilentlyContinue", l));
     }
 
     [Fact]

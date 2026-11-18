@@ -66,6 +66,7 @@ public sealed class SupersedenceChainCheckTests
         var script = ChainCheck.BuildDetectionScript("MCM", null, "O'Neil \"x\"");
 
         Assert.Contains("Get-CMDeploymentType -ApplicationName 'O''Neil \"x\"' -DisableWildcardHandling", script);
+        Assert.Contains("-DisableWildcardHandling -WarningAction SilentlyContinue", script);
         Assert.Contains("APDXML|{0}|{1}", script);
     }
 

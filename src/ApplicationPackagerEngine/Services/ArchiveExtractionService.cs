@@ -8,18 +8,30 @@ namespace ApplicationPackagerEngine.Services;
 /// </summary>
 public sealed class ArchiveExtractionService
 {
-    private readonly string _sevenZipPath;
+    private readonly string? _configuredSevenZipPath;
     private readonly IAnalysisSandbox _sandbox;
     private readonly AnalysisLimits _limits;
 
+    /// <summary>
+    /// The path of 7z.exe is looked up when an archive is read, not when the service is made. The service is a dependency of the App Packager
+    /// page, so a PC without 7-Zip must still open the page; an archive then fails with the message that names the missing tool.
+    /// </summary>
     public ArchiveExtractionService(string? sevenZipPath = null, IAnalysisSandbox? sandbox = null, AnalysisLimits? limits = null)
     {
-        _sevenZipPath = sevenZipPath
-            ?? FindSevenZip()
-            ?? throw new FileNotFoundException("7z.exe not found. Install 7-Zip or set the path in Settings.");
+        _configuredSevenZipPath = sevenZipPath;
         _sandbox = sandbox ?? new AnalysisSandbox();
         _limits = limits ?? AnalysisLimits.Default;
     }
+
+    /// <summary>The tool that reads archives: the path that the caller gave, else the installed 7-Zip; null when there is none.</summary>
+    private string? SevenZipPathOrNull => _configuredSevenZipPath ?? FindTool();
+
+    /// <summary>Where an installed 7-Zip is looked up; a seam for a test of a PC without 7-Zip.</summary>
+    internal Func<string?> FindTool { get; init; } = FindSevenZip;
+
+    private string _sevenZipPath => SevenZipPathOrNull ?? throw new FileNotFoundException(MissingSevenZipMessage);
+
+    public const string MissingSevenZipMessage = "7z.exe not found. Install 7-Zip or set the path in Settings.";
 
     /// <summary>
     /// Extracts the whole payload into a new analysis sandbox session with the Installer Analysis limits
@@ -31,7 +43,9 @@ public sealed class ArchiveExtractionService
     {
         if (!File.Exists(archivePath))
             return new BoundedExtractionResult(Success: false, Extraction: null, ErrorMessage: "The installer file does not exist.");
-        var analysis = new InstallerAnalysisService(_sandbox, () => _sevenZipPath);
+        if (SevenZipPathOrNull is not { } sevenZip)
+            return new BoundedExtractionResult(Success: false, Extraction: null, ErrorMessage: MissingSevenZipMessage);
+        var analysis = new InstallerAnalysisService(_sandbox, () => sevenZip);
         try
         {
             var extraction = await analysis.ExtractToSandboxAsync(archivePath, _limits, ct).ConfigureAwait(false);
@@ -53,6 +67,8 @@ public sealed class ArchiveExtractionService
     {
         if (!File.Exists(archivePath))
             return new ArchiveListResult { Success = false, ErrorMessage = $"Archive not found: {archivePath}" };
+        if (SevenZipPathOrNull is null)
+            return new ArchiveListResult { Success = false, ErrorMessage = MissingSevenZipMessage };
 
         var (exitCode, stdout, _) = await RunAsync($"l \"{archivePath}\"", ct);
 

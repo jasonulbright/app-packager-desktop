@@ -9,6 +9,9 @@
 
 ### Fixed
 
+- Fix the App Packager page failing to open on a PC without 7-Zip.
+- Remove the ConfigMgr cmdlet wildcard warning from the Apply supersedence log.
+- Show Same title, not Not older, as the state of a duplicate title in Old Application.
 - Old Application window: applications with the same title are listed with the reason and cannot be linked.
 - Settings, Import from App Packager (PowerShell): the Intune keys now have a row each with a reason. Publish to Intune is derived from the deployment target (an older file with only the toggle writes MECMAndIntune), the protected client secret is skipped as a DPAPI secret, and the IntuneWinAppUtil path of the other computer is skipped because APD downloads its own copy.
 - Settings, Import from App Packager (PowerShell): the SQL server, SQL instance and SQL port of the PowerShell file become one SQL server name in APD (server\instance,port).
