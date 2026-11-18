@@ -1,0 +1,39 @@
+{
+  "Schema": 1,
+  "Id": "b7d3e41a9c5f2086",
+  "WsusSupport": "Yes",
+  "IconSource": "Installer",
+  "Vendor": "Bruno Software",
+  "Application": "Bruno (x64)",
+  "CMName": "Bruno",
+  "Architecture": "x64",
+  "VendorUrl": "https://www.usebruno.com/",
+  "Cpe": "cpe:2.3:a:usebruno:bruno:*:*:*:*:*:*:*:*",
+  "ArpName": "Bruno",
+  "SecurityAdvisoryUrl": "https://github.com/usebruno/bruno/security/advisories",
+  "InstallerType": "MSI",
+  "InstallerFramework": "NativeMSI",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "HttpRegex",
+    "Url": "https://api.github.com/repos/usebruno/bruno/releases/latest",
+    "Pattern": "\"name\":\\s*\"bruno_(\\d+(?:\\.\\d+)+)_x64_win\\.msi\"",
+    "PayloadHashQuery": "\"name\":\\s*\"bruno_{version}_x64_win\\.msi\"(?:[^{}]|\\{(?:[^{}]|\\{[^{}]*\\})*\\})*?\"digest\":\\s*\"sha256:(?<hash>[0-9a-fA-F]{64})\""
+  },
+  "DownloadUrl": "https://github.com/usebruno/bruno/releases/download/v{version}/bruno_{version}_x64_win.msi",
+  "RequirePayloadHash": true,
+  "InstallArgs": "/qn /norestart",
+  "UninstallArgs": "/x {ProductCode} /qn /norestart",
+  "Detection": {
+    "Type": "RegistryKeyValue",
+    "RegistryHive": "HKLM",
+    "RegistryKeyTemplate": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{ProductCode}",
+    "ValueName": "DisplayVersion",
+    "PropertyType": "Version",
+    "Operator": "GreaterEquals",
+    "Is64Bit": true
+  },
+  "RunningProcess": [
+    "Bruno"
+  ]
+}

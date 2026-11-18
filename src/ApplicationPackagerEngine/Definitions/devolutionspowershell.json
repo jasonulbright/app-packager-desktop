@@ -1,0 +1,42 @@
+{
+  "Schema": 1,
+  "Id": "4e8a0c6d17b293f5",
+  "WsusSupport": "Yes",
+  "IconSource": "Installer",
+  "Vendor": "Devolutions",
+  "Application": "PowerShell 7 (Devolutions)",
+  "CMName": "PowerShell 7 (Devolutions)",
+  "Architecture": "x64",
+  "VendorUrl": "https://github.com/Devolutions/pwsh-distro",
+  "Cpe": "cpe:2.3:a:microsoft:powershell:*:*:*:*:*:*:*:*",
+  "ArpName": "PowerShell 7-x64 (repackaged by Devolutions)",
+  "SecurityAdvisoryUrl": "https://github.com/PowerShell/PowerShell/security/advisories",
+  "InstallerType": "MSI",
+  "InstallerFramework": "NativeMSI",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "HttpRegex",
+    "Url": "https://api.github.com/repos/Devolutions/pwsh-distro/releases?per_page=30",
+    "Pattern": "\"name\":\\s*\"Microsoft\\.PowerShell-(\\d+(?:\\.\\d+){2,3})-win-x64\\.msi\"",
+    "SelectHighestVersion": true,
+    "DownloadUrlQuery": "\"browser_download_url\":\\s*\"(https://github\\.com/Devolutions/pwsh-distro/releases/download/[^\"]+/Microsoft\\.PowerShell-\\d+(?:\\.\\d+){2,3}-win-x64\\.msi)\"",
+    "PayloadHashQuery": "\"name\":\\s*\"Microsoft\\.PowerShell-{version}-win-x64\\.msi\"(?:[^{}]|\\{(?:[^{}]|\\{[^{}]*\\})*\\})*?\"digest\":\\s*\"sha256:(?<hash>[0-9a-fA-F]{64})\""
+  },
+  "DownloadUrl": "",
+  "RequirePayloadHash": true,
+  "RequireValidSignature": true,
+  "InstallArgs": "/qn /norestart ADD_PATH=1",
+  "UninstallArgs": "/x {ProductCode} /qn /norestart",
+  "Detection": {
+    "Type": "File",
+    "FilePath": "C:\\Program Files\\PowerShell\\7",
+    "FileName": "pwsh.exe",
+    "PropertyType": "Version",
+    "Operator": "GreaterEquals",
+    "ExpectedValue": "{version}",
+    "Is64Bit": true
+  },
+  "RunningProcess": [
+    "pwsh"
+  ]
+}

@@ -14,13 +14,13 @@ This page is generated from the shipped definitions. A test fails when it differ
 
 | Item | Definitions |
 |---|---|
-| Shipped definitions | 323 |
+| Shipped definitions | 325 |
 | With a pinned SHA-256 (`PayloadSha256`) | 0 |
-| With a SHA-256 from the version feed (`PayloadHashQuery`) | 6 |
+| With a SHA-256 from the version feed (`PayloadHashQuery`) | 8 |
 | With a SHA-256 from a checksum file (`PayloadSha256Url`) | 12 |
-| With any SHA-256 source | 18 |
-| That require a SHA-256 (`RequirePayloadHash`) | 3 |
-| That require a valid signature (`RequireValidSignature`) | 4 |
+| With any SHA-256 source | 20 |
+| That require a SHA-256 (`RequirePayloadHash`) | 5 |
+| That require a valid signature (`RequireValidSignature`) | 5 |
 | With no SHA-256 source and `RequireValidSignature` not set | 301 |
 
 The counts describe the settings of the definitions. An installer from a local source folder is always checked for a valid signature; the last count does not include that check.
@@ -31,7 +31,9 @@ The counts describe the settings of the definitions. An installer from a local s
 |---|---|---|---|---|
 | `7zip.json` |  | Yes |  | Yes |
 | `anypointstudio.json` |  | Yes |  | Yes |
+| `bruno.json` |  | Yes |  | Yes |
 | `citrixworkspace-ltsr-x86.json` |  | Yes |  | Yes |
+| `devolutionspowershell.json` |  | Yes |  | Yes |
 | `go.json` |  | Yes |  |  |
 | `ms-openjdk17-exe-user.json` |  |  | Yes |  |
 | `ms-openjdk17-exe.json` |  |  | Yes |  |
@@ -51,6 +53,7 @@ The counts describe the settings of the definitions. An installer from a local s
 ## Definitions that require a valid signature
 
 - `cutepdfwriter.json`
+- `devolutionspowershell.json`
 - `tableaudesktop.json`
 - `tableauprep.json`
 - `tableaureader.json`

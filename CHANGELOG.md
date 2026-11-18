@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Added
+
+- Add the Bruno and PowerShell 7 (Devolutions) definitions. Bruno installs the x64 MSI and checks the file against the SHA-256 digest that GitHub lists. PowerShell 7 (Devolutions) installs the Microsoft-payload MSI that Devolutions publishes, requires a valid signature and a digest, and detects on the file version of `pwsh.exe`.
+
 ### Changed
 
 - The guide now uses Configuration Manager terms and Microsoft Learn style. For example, it says View and Review instead of Read, and select instead of click.
