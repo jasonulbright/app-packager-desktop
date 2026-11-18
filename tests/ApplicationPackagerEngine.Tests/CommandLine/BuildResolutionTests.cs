@@ -158,6 +158,9 @@ public sealed class BuildRunnerRulesTests
 {
     [Theory]
     [InlineData("ContentOnly", "")]
+    [InlineData("ConfigMgr", "ConfigMgr")]
+    [InlineData("ConfigMgrAndIntune", "ConfigMgr,Intune")]
+    [InlineData("ConfigMgrAndWSUS", "ConfigMgr,WSUS")]
     [InlineData("MECM", "ConfigMgr")]
     [InlineData("MECMAndIntune", "ConfigMgr,Intune")]
     [InlineData("IntuneOnly", "Intune")]

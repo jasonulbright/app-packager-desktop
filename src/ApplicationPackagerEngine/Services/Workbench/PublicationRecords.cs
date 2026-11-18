@@ -13,7 +13,7 @@ namespace ApplicationPackagerEngine.Services.Workbench;
 public static class PublicationRecords
 {
     public const string ContentOnly = "ContentOnly";
-    public const string Mecm = "MECM";
+    public const string Mecm = "ConfigMgr";
     public const string Intune = "Intune";
 
     public const string Succeeded = "Succeeded";
@@ -31,7 +31,7 @@ public static class PublicationRecords
     {
         if (string.IsNullOrWhiteSpace(applicationId)) throw new ArgumentException("A publication record requires an ApplicationId.", nameof(applicationId));
         if (string.IsNullOrWhiteSpace(buildId)) throw new ArgumentException("A publication record requires a BuildId.", nameof(buildId));
-        var canonicalTarget = Targets.FirstOrDefault(t => string.Equals(t, target, StringComparison.OrdinalIgnoreCase))
+        var canonicalTarget = Targets.FirstOrDefault(t => string.Equals(t, Models.DeploymentTargets.Canonical(target), StringComparison.OrdinalIgnoreCase))
             ?? throw new ArgumentException($"Unknown publication target '{target}'; expected {string.Join(", ", Targets)}.", nameof(target));
         var canonicalResult = Results.FirstOrDefault(r => string.Equals(r, result, StringComparison.OrdinalIgnoreCase))
             ?? throw new ArgumentException($"Unknown publication result '{result}'; expected {string.Join(", ", Results)}.", nameof(result));

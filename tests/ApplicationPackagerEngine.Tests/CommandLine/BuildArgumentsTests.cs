@@ -128,7 +128,7 @@ public sealed class BuildArgumentsTests
     [Fact]
     public void AMecmAndWsusPackageNeedsTheStageOfTheSameRun()
     {
-        Assert.Equal("A MECMAndWSUS package publishes the build staged in the same run; pass --stage together with --package.",
+        Assert.Equal("A ConfigMgrAndWSUS package publishes the build staged in the same run; pass --stage together with --package.",
             Refused("--application", "putty", "--target", "MECMAndWSUS", "--package"));
         Assert.True(Parsed("--application", "putty", "--target", "MECMAndWSUS", "--package", "--stage").Package);
     }
@@ -147,7 +147,7 @@ public sealed class BuildArgumentsTests
 
     [Fact]
     public void AnUnknownTargetListsTheKnownOnes() =>
-        Assert.Equal("Unknown target 'Sccm'; expected ContentOnly, MECM, MECMAndIntune, IntuneOnly, MECMAndWSUS, WSUSOnly.",
+        Assert.Equal("Unknown target 'Sccm'; expected ContentOnly, ConfigMgr, ConfigMgrAndIntune, IntuneOnly, ConfigMgrAndWSUS, WSUSOnly.",
             Refused("--application", "a", "--stage", "--target", "Sccm"));
 
     [Fact]

@@ -102,7 +102,7 @@ See [One Click](../core/one-click.md).
 | `Force on launch (ignore cadence)` | `OneClick.ForceOnLaunch` | off | The plan opens with Force set. |
 | `Default cadence (days)` | `OneClick.DefaultCadenceDays` | 7 | The number of days that a version check stays fresh. A Report run skips an application checked within its cadence unless Force is set. |
 | `Default destinations` (`ConfigMgr`, `WSUS`, `Intune`) | `OneClick.DefaultDestinations` | null | The destinations of a tracked application that has no choice of its own. When null, the planner reads the saved deployment target (see the next row). |
-| (none) | `Intune.DeploymentTarget` | `MECM` | Not an editable setting. The app derives the nearest single target from the default destinations on save. Grid Stage for PS1 packagers reads it. |
+| (none) | `Intune.DeploymentTarget` | `ConfigMgr` | Not an editable setting. The app derives the nearest single target from the default destinations on save. Grid Stage for PS1 packagers reads it. |
 | `Existing ConfigMgr app` | `OneClick.OnExisting` | `Skip` | Choices: `Skip the application` (`Skip`), `Overwrite it` (`Overwrite`). A run does not ask. |
 | `Track` (grid) | `OneClick.TrackedApplications` | empty list | The tracked definition or packager IDs. `Track all`, `Track none` and `Refresh list` change the grid. |
 | `Cadence (days)` (grid) | `OneClick.CadenceOverrides` | empty | The cadence per application. |

@@ -52,11 +52,11 @@ public sealed class OneClickPlannerTests
         Assert.Equal(new DestinationSet(cm, wsus, intune), DestinationSet.FromTarget(target));
 
     [Theory]
-    [InlineData(true, true, true, "MECMAndWSUS")]
-    [InlineData(true, false, true, "MECMAndIntune")]
+    [InlineData(true, true, true, "ConfigMgrAndWSUS")]
+    [InlineData(true, false, true, "ConfigMgrAndIntune")]
     [InlineData(false, true, true, "WSUSOnly")]
     [InlineData(false, false, true, "IntuneOnly")]
-    [InlineData(false, false, false, "MECM")]
+    [InlineData(false, false, false, "ConfigMgr")]
     public void TheNearestSingleTargetKeepsTheConfigMgrOrWsusPart(bool cm, bool wsus, bool intune, string expected) =>
         Assert.Equal(expected, new DestinationSet(cm, wsus, intune).ToTargetName());
 

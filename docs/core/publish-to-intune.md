@@ -8,7 +8,7 @@
 
 - Use it after [Stage](stage-and-publish.md) to create or update a Win32 app in an Intune tenant.
 - Use it on a computer that has no Configuration Manager console. An Intune-only run does not connect to a site and does not copy to the file share.
-- Use `--target IntuneOnly` or `--target MECMAndIntune` in the [command-line build](command-line-build.md) to publish from a script.
+- Use `--target IntuneOnly` or `--target ConfigMgrAndIntune` in the [command-line build](command-line-build.md) to publish from a script.
 
 ## Requirements
 

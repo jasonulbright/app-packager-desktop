@@ -73,7 +73,7 @@ public sealed class PublishSettingsContractTests : IDisposable
         File.WriteAllText(SettingsService.SettingsPath, """{ "Intune": { "DeploymentTarget": "MECM", "CreateIntuneWin": true }, "SiteCode": "MCM" }""");
         var service = new SettingsService();
         var s = service.Load();
-        Assert.Equal("MECM", s.Intune.DeploymentTarget);
+        Assert.Equal("ConfigMgr", s.Intune.DeploymentTarget);
         service.Save(s);
         Assert.False(Stored()["Intune"]!.AsObject().ContainsKey("CreateIntuneWin"));
     }

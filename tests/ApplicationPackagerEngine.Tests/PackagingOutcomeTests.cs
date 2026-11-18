@@ -162,6 +162,7 @@ public class PackagingOutcomeTests
     /// </summary>
     [Theory]
     [InlineData("IntuneOnly")]
+    [InlineData("ConfigMgrAndIntune")]
     [InlineData("MECMAndIntune")]
     public void ARequestedIntuneStepThatNeverRanFailsTheRun(string target)
     {

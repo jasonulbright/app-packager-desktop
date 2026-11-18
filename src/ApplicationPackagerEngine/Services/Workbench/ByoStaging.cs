@@ -103,8 +103,7 @@ public static class ByoStaging
     public static string? FindPriorStageManifest(ByoStagePlan plan, string downloadRoot, string? profileId, string? target,
         ByoStageCurrency current)
     {
-        if (target is not null && (string.Equals(target, RunTargets.WsusOnly, StringComparison.OrdinalIgnoreCase)
-                                   || string.Equals(target, RunTargets.MecmAndWsus, StringComparison.OrdinalIgnoreCase)))
+        if (RunTargets.Normalize(target) is RunTargets.WsusOnly or RunTargets.MecmAndWsus)
             return null;
         var path = Path.Combine(StageFolder(plan.Manifest, downloadRoot, profileId), "stage-manifest.json");
         if (!File.Exists(path)) return null;

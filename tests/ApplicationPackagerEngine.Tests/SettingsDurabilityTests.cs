@@ -269,10 +269,11 @@ public sealed class SettingsDurabilityTests : IDisposable
     }
 
     [Theory]
-    [InlineData("MECMAndWSUS")]
+    [InlineData("ConfigMgr")]
+    [InlineData("ConfigMgrAndWSUS")]
     [InlineData("WSUSOnly")]
     [InlineData("IntuneOnly")]
-    [InlineData("MECMAndIntune")]
+    [InlineData("ConfigMgrAndIntune")]
     public void TheStoredTargetKeepsEveryTargetNameOnLoadAndSave(string target)
     {
         File.WriteAllText(SettingsService.SettingsPath, $$"""{ "Intune": { "DeploymentTarget": "{{target}}" } }""");
@@ -284,13 +285,42 @@ public sealed class SettingsDurabilityTests : IDisposable
         Assert.Equal(target, (string?)JsonNode.Parse(File.ReadAllText(SettingsService.SettingsPath))!["Intune"]!["DeploymentTarget"]);
     }
 
+    /// <summary>Settings from before the rename still hold MECM, MECMAndIntune or MECMAndWSUS. They load as the ConfigMgr names and save that way.</summary>
+    [Theory]
+    [InlineData("MECM", "ConfigMgr")]
+    [InlineData("mecm", "ConfigMgr")]
+    [InlineData("MECMAndIntune", "ConfigMgrAndIntune")]
+    [InlineData("MECMAndWSUS", "ConfigMgrAndWSUS")]
+    public void AnOldMecmTargetNameStillLoadsAndIsSavedWithTheConfigMgrName(string stored, string expected)
+    {
+        File.WriteAllText(SettingsService.SettingsPath, $$"""{ "Intune": { "DeploymentTarget": "{{stored}}" } }""");
+        var service = new SettingsService();
+        var s = service.Load();
+        Assert.Equal(expected, s.Intune.DeploymentTarget);
+
+        service.Save(s);
+        Assert.Equal(expected, (string?)JsonNode.Parse(File.ReadAllText(SettingsService.SettingsPath))!["Intune"]!["DeploymentTarget"]);
+    }
+
+    [Theory]
+    [InlineData("MECM", true, false, false)]
+    [InlineData("MECMAndIntune", true, false, true)]
+    [InlineData("MECMAndWSUS", true, true, false)]
+    [InlineData("ConfigMgrAndWSUS", true, true, false)]
+    public void AnOldMecmTargetNameStillMapsToItsDestinations(string target, bool configMgr, bool wsus, bool intune)
+    {
+        Assert.Equal(new DestinationSet(configMgr, wsus, intune), DestinationSet.FromTarget(target));
+        Assert.Equal(wsus, ApplicationPackagerEngine.Models.PublishRunTargets.PublishesToWsus(target));
+        Assert.Equal(intune, DeploymentTargets.PublishesToIntune(target));
+    }
+
     [Fact]
     public void TheTargetNamesMeanWhatUpstreamMeans()
     {
         Assert.Equal(DeploymentTargets.WsusOnly, DeploymentTargets.Normalize("WSUSOnly"));
         Assert.True(DeploymentTargets.SkipsMecm("WSUSOnly"));
-        Assert.False(DeploymentTargets.PublishesToIntune("MECMAndWSUS"));
-        Assert.True(DeploymentTargets.PublishesToWsus("MECMAndWSUS"));
+        Assert.False(DeploymentTargets.PublishesToIntune("ConfigMgrAndWSUS"));
+        Assert.True(DeploymentTargets.PublishesToWsus("ConfigMgrAndWSUS"));
         Assert.Equal(DeploymentTargets.Mecm, DeploymentTargets.Normalize("nonsense"));
     }
 }

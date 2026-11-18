@@ -40,18 +40,21 @@ public sealed class RunSnapshot
 public static class RunTargets
 {
     public const string ContentOnly = "ContentOnly";
-    public const string Mecm = "MECM";
-    public const string MecmAndIntune = "MECMAndIntune";
+    public const string Mecm = DeploymentTargets.Mecm;
+    public const string MecmAndIntune = DeploymentTargets.MecmAndIntune;
     public const string IntuneOnly = "IntuneOnly";
-    public const string MecmAndWsus = "MECMAndWSUS";
+    public const string MecmAndWsus = DeploymentTargets.MecmAndWsus;
     public const string WsusOnly = "WSUSOnly";
 
     public static readonly IReadOnlyList<string> All =
         [ContentOnly, Mecm, MecmAndIntune, IntuneOnly, MecmAndWsus, WsusOnly];
 
-    /// <summary>The canonical spelling of a known target, or null for an unknown one.</summary>
-    public static string? Normalize(string? target) =>
-        All.FirstOrDefault(t => string.Equals(t, target, StringComparison.OrdinalIgnoreCase));
+    /// <summary>The canonical spelling of a known target, or null for an unknown one. The earlier MECM spellings map to ConfigMgr.</summary>
+    public static string? Normalize(string? target)
+    {
+        var canonical = DeploymentTargets.Canonical(target);
+        return All.FirstOrDefault(t => string.Equals(t, canonical, StringComparison.OrdinalIgnoreCase));
+    }
 }
 
 /// <summary>Inputs for one run snapshot.</summary>

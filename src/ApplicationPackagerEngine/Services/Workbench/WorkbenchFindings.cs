@@ -127,7 +127,7 @@ public static class WorkbenchFindings
     /// </summary>
     public static IReadOnlyList<WorkbenchFinding> BlockingFor(IEnumerable<WorkbenchFinding> findings, string target) =>
         findings.Where(f => f.Severity == WorkbenchFinding.Blocking
-                            && (string.Equals(target, RunTargets.IntuneOnly, StringComparison.OrdinalIgnoreCase)
+                            && (RunTargets.Normalize(target) == RunTargets.IntuneOnly
                                 || !f.Code.Contains("INTUNE", StringComparison.OrdinalIgnoreCase)))
                 .ToList();
 

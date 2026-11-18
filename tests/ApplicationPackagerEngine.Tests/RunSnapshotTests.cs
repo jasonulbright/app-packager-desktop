@@ -124,7 +124,9 @@ public sealed class RunSnapshotTests : IDisposable
 
     [Theory]
     [InlineData("WSUSOnly", "WSUSOnly")]
-    [InlineData("mecmandwsus", "MECMAndWSUS")]
+    [InlineData("mecmandwsus", "ConfigMgrAndWSUS")]
+    [InlineData("MECM", "ConfigMgr")]
+    [InlineData("configmgrandintune", "ConfigMgrAndIntune")]
     [InlineData("ContentOnly", "ContentOnly")]
     public void Create_AcceptsEveryTargetIncludingWsus(string target, string stored)
     {

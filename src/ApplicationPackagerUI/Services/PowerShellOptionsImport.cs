@@ -220,7 +220,7 @@ public static class PowerShellOptionsImport
 
     /// <summary>
     /// APD has no separate publish switch: it publishes to Intune when the deployment target includes Intune. The row is derived from the
-    /// deployment target; a file from before the target existed (PublishToIntune true and no valid target) writes the target MECMAndIntune, as the PowerShell app does.
+    /// deployment target; a file from before the target existed (PublishToIntune true and no valid target) writes the target ConfigMgrAndIntune, as the PowerShell app does.
     /// </summary>
     private static PowerShellImportRow PublishToIntuneRow(string key, JsonElement value, JsonElement node, AppSettings current, Dictionary<string, Action<AppSettings>> writers)
     {
@@ -233,14 +233,14 @@ public static class PowerShellOptionsImport
         var text = publish ? "True" : "False";
         var hasTarget = node.EnumerateObject().FirstOrDefault(p => string.Equals(p.Name, "DeploymentTarget", StringComparison.OrdinalIgnoreCase)) is { Value.ValueKind: JsonValueKind.String } t
             && new[] { DeploymentTargets.Mecm, DeploymentTargets.MecmAndIntune, DeploymentTargets.IntuneOnly, DeploymentTargets.MecmAndWsus, DeploymentTargets.WsusOnly }
-                .Any(n => string.Equals(n, t.Value.GetString(), StringComparison.OrdinalIgnoreCase));
+                .Any(n => string.Equals(n, DeploymentTargets.Canonical(t.Value.GetString()), StringComparison.OrdinalIgnoreCase));
 
         if (!hasTarget && publish)
         {
-            if (apdTarget is DeploymentTargets.MecmAndIntune or DeploymentTargets.IntuneOnly)
+            if (DeploymentTargets.Normalize(apdTarget) is DeploymentTargets.MecmAndIntune or DeploymentTargets.IntuneOnly)
                 return new PowerShellImportRow(key, PowerShellImportOutcome.Same, text, apd, "Same. APD publishes to Intune when the deployment target includes Intune.");
             writers[key] = s => s.Intune.DeploymentTarget = DeploymentTargets.MecmAndIntune;
-            return new PowerShellImportRow(key, PowerShellImportOutcome.Import, text, apd, "Will be written as the deployment target MECMAndIntune (an older file has no target).");
+            return new PowerShellImportRow(key, PowerShellImportOutcome.Import, text, apd, "Will be written as the deployment target ConfigMgrAndIntune (an older file has no target).");
         }
 
         return new PowerShellImportRow(key, PowerShellImportOutcome.Skipped, text, apd,
@@ -346,7 +346,8 @@ public static class PowerShellOptionsImport
         Add(Rule.Bool("ContentDistribution.CreateTestCollectionIfMissing", s => s.ContentDistribution.CreateTestCollectionIfMissing, (s, v) => s.ContentDistribution.CreateTestCollectionIfMissing = v));
 
         Add(Rule.Choice("Intune.DeploymentTarget", [DeploymentTargets.Mecm, DeploymentTargets.MecmAndIntune, DeploymentTargets.IntuneOnly, DeploymentTargets.MecmAndWsus, DeploymentTargets.WsusOnly],
-            s => s.Intune.DeploymentTarget, (s, v) => s.Intune.DeploymentTarget = v));
+            s => s.Intune.DeploymentTarget, (s, v) => s.Intune.DeploymentTarget = v,
+            legacy: new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) { ["MECM"] = DeploymentTargets.Mecm, ["MECMAndIntune"] = DeploymentTargets.MecmAndIntune, ["MECMAndWSUS"] = DeploymentTargets.MecmAndWsus }));
         Add(Rule.Text("Intune.MinimumWindowsRelease", s => ApplicationPackagerEngine.Services.IntuneWindowsReleases.Resolve(s.Intune.MinimumWindowsRelease),
             (s, v) => s.Intune.MinimumWindowsRelease = ApplicationPackagerEngine.Services.IntuneWindowsReleases.Resolve(v),
             v => ApplicationPackagerEngine.Services.IntuneWindowsReleases.IsWellFormed(v.Trim()) ? null : "A release looks like Windows10_21H2 or Windows11_23H2."));
