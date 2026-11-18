@@ -88,7 +88,7 @@ These values are fixed in the code. They are limits, not predictions.
 | Site Hygiene Live SQL command | 120 seconds |
 | AdminService connect (CMPivot) | 15 seconds. The app refuses an answer larger than 64 MB. |
 | CVE HTTP client | 5 minutes. Response cap 64 MiB. At most 3 redirects. |
-| NVD rate limit used by the app | 5 requests in 30 seconds without a key, 50 with a key |
+| NVD rate limit used by the app | 5 requests in 30 seconds without a key, 50 with a key. The app sends a request every 6 seconds without a key and every 0.6 seconds with a key, shared by every process of the user. A retry waits the `Retry-After` time (at most 120 seconds), else 6 and 12 seconds. |
 | GitHub API status check | 20 seconds |
 
 ## Related pages

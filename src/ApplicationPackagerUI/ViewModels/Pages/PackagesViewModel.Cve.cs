@@ -76,6 +76,20 @@ public partial class PackagesViewModel
             Force = force
         };
         var tally = new PackagingRunTally();
+        // While the pacer waits for the NVD request limit the status line says so and counts
+        // the lookups left. The wait runs on a pool thread; the text goes through the dispatcher.
+        var stepText = StatusText;
+        var lookupsLeft = rows.Count;
+        var waiting = true;
+        var pacer = NvdRequestPacer.Shared;
+        pacer.WaitCallback = seconds =>
+        {
+            var text = seconds > 0 ? NvdLimits.WaitStatusText(Volatile.Read(ref lookupsLeft), seconds) : Volatile.Read(ref stepText);
+            var dispatcher = System.Windows.Application.Current?.Dispatcher;
+            if (dispatcher is null || dispatcher.CheckAccess()) StatusText = text;
+            // A text queued before the run ended must not replace the final status.
+            else dispatcher.BeginInvoke(() => { if (Volatile.Read(ref waiting)) StatusText = text; });
+        };
 
         try
         {
@@ -84,7 +98,9 @@ public partial class PackagesViewModel
                 if (_operationCts.IsCancellationRequested) { tally.MarkCancelled(); break; }
                 var row = rows[i];
                 ProgressCurrent = i + 1;
+                Volatile.Write(ref lookupsLeft, rows.Count - i);
                 StatusText = $"CVEs: {ProgressCurrent} of {ProgressTotal} — {row.Application}";
+                Volatile.Write(ref stepText, StatusText);
                 AddLogLine($"CVEs: {row.Application} ({row.Script})");
                 try
                 {
@@ -102,12 +118,22 @@ public partial class PackagesViewModel
                 }
             }
 
+            Volatile.Write(ref waiting, false);
             tally.Finish(_operationCts.Token);
             StatusText = tally.Summarize("CVE check", ProgressTotal, "checked");
+            // Some rows may be left unchecked (NVD limit or timeout): one line says so.
+            var notice = NvdLimits.BatchNotice(tally.Succeeded + tally.Failed, tally.Failed);
+            if (notice.Length > 0)
+            {
+                AddLogLine(notice);
+                if (!tally.Cancelled) StatusText = notice;
+            }
             return context;
         }
         finally
         {
+            Volatile.Write(ref waiting, false);
+            pacer.WaitCallback = null;
             ShowProgress = false;
             IsOperationRunning = false;
             _operationCts?.Dispose();
