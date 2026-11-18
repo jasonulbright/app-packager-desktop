@@ -2,31 +2,33 @@
 
 ## What it does
 
-Stage downloads the installer of each checked application. It checks the file, writes the install and uninstall scripts, and records the result in a staged folder on this computer. A publish button then takes the staged content to a target system: ConfigMgr, Intune or WSUS.
+Stage downloads the installer of each checked application. It checks the file, writes the install and uninstall scripts, and records the result in a staged folder on this computer. A publish button then takes the staged content to a destination: ConfigMgr, Intune or WSUS. The three destinations are independent, and each is optional. You can publish to any one of them or to any combination. Publishing to ConfigMgr is not a requirement for Intune or WSUS.
 
-Each target has its own page:
+Each destination has its own page:
 
-| Target | Button | Result | Page |
+| Destination | Button | Result | Page |
 |---|---|---|---|
 | ConfigMgr | `Publish to ConfigMgr` | An application with a deployment type, and the content on the file share | [Publish to ConfigMgr](publish-to-configmgr.md) |
 | Intune | `Publish to Intune` | A Win32 app in the Intune tenant | [Publish to Intune](publish-to-intune.md) |
 | WSUS | `Publish to WSUS` | A locally published update | [WSUS publishing](wsus-publishing.md) |
+
+The names of the destination combinations (for example `IntuneAndWSUS`) are in the [Targets](command-line-build.md#targets) table of the command-line build. That table lists the destinations of each name.
 
 The three buttons never create assignments or approvals on their own. Deployments to a test collection are an optional step of `Publish to ConfigMgr`.
 
 ## When to use it
 
 - Use **Stage** to prepare content, and to read the staged scripts before you publish.
-- Use a publish button to send the staged content to one target.
+- Use a publish button to send the staged content to one destination.
 - Use [One Click](one-click.md) to check, stage and publish many tracked applications in one run.
 - Use the [command-line build](command-line-build.md) to stage and publish without the window.
 
 ## Requirements
 
-- A folder in **Download Root (local staging)** (Settings, ConfigMgr Site Settings). Only your account and administrators can write to it.
+- A folder in **Download Root (local staging)** (Settings, ConfigMgr Site Settings; every destination uses it). Only your account and administrators can write to it.
 - Windows PowerShell 5.1.
 - Internet access to the vendor download hosts of the checked applications.
-- Settings that each target needs. The target pages list them.
+- The settings that each destination you use needs, and no others. The destination pages list them. A publish to Intune or WSUS needs no ConfigMgr site.
 
 The app does not need elevation. Do not run the app as administrator if you use drag and drop from Explorer.
 

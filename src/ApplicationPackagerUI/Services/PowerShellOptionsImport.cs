@@ -232,12 +232,12 @@ public static class PowerShellOptionsImport
         var publish = value.ValueKind == JsonValueKind.True;
         var text = publish ? "True" : "False";
         var hasTarget = node.EnumerateObject().FirstOrDefault(p => string.Equals(p.Name, "DeploymentTarget", StringComparison.OrdinalIgnoreCase)) is { Value.ValueKind: JsonValueKind.String } t
-            && new[] { DeploymentTargets.Mecm, DeploymentTargets.MecmAndIntune, DeploymentTargets.IntuneOnly, DeploymentTargets.MecmAndWsus, DeploymentTargets.WsusOnly }
+            && DeploymentTargets.Names
                 .Any(n => string.Equals(n, DeploymentTargets.Canonical(t.Value.GetString()), StringComparison.OrdinalIgnoreCase));
 
         if (!hasTarget && publish)
         {
-            if (DeploymentTargets.Normalize(apdTarget) is DeploymentTargets.MecmAndIntune or DeploymentTargets.IntuneOnly)
+            if (DeploymentTargets.PublishesToIntune(apdTarget))
                 return new PowerShellImportRow(key, PowerShellImportOutcome.Same, text, apd, "Same. APD publishes to Intune when the deployment target includes Intune.");
             writers[key] = s => s.Intune.DeploymentTarget = DeploymentTargets.MecmAndIntune;
             return new PowerShellImportRow(key, PowerShellImportOutcome.Import, text, apd, "Will be written as the deployment target ConfigMgrAndIntune (an older file has no target).");
@@ -345,7 +345,7 @@ public static class PowerShellOptionsImport
         Add(Rule.Bool("ContentDistribution.TestCollectionIsUser", s => s.ContentDistribution.TestCollectionIsUser, (s, v) => s.ContentDistribution.TestCollectionIsUser = v));
         Add(Rule.Bool("ContentDistribution.CreateTestCollectionIfMissing", s => s.ContentDistribution.CreateTestCollectionIfMissing, (s, v) => s.ContentDistribution.CreateTestCollectionIfMissing = v));
 
-        Add(Rule.Choice("Intune.DeploymentTarget", [DeploymentTargets.Mecm, DeploymentTargets.MecmAndIntune, DeploymentTargets.IntuneOnly, DeploymentTargets.MecmAndWsus, DeploymentTargets.WsusOnly],
+        Add(Rule.Choice("Intune.DeploymentTarget", [.. DeploymentTargets.Names],
             s => s.Intune.DeploymentTarget, (s, v) => s.Intune.DeploymentTarget = v,
             legacy: new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) { ["MECM"] = DeploymentTargets.Mecm, ["MECMAndIntune"] = DeploymentTargets.MecmAndIntune, ["MECMAndWSUS"] = DeploymentTargets.MecmAndWsus }));
         Add(Rule.Text("Intune.MinimumWindowsRelease", s => ApplicationPackagerEngine.Services.IntuneWindowsReleases.Resolve(s.Intune.MinimumWindowsRelease),

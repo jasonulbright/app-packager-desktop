@@ -637,8 +637,9 @@ public class PackagerExecutionService(
     }
 
     /// <summary>
-    /// Runs the Package phase for the run's target: the MECM application, an Intune Win32
-    /// publish, or both. Without a target the run publishes to ConfigMgr; the stored
+    /// Runs the Package phase for the run's target: the ConfigMgr application, an Intune Win32
+    /// publish, or both; each is optional. A call that names no target uses ConfigMgr, the default of
+    /// this parameter. A name that is not a publish target is refused, never read as ConfigMgr. The stored
     /// deployment target never decides a publish.
     /// </summary>
     public async Task<PackagerExecutionResult> PackageAsync(
@@ -646,6 +647,7 @@ public class PackagerExecutionService(
         CancellationToken ct = default, OnExistingBehavior onExisting = OnExistingBehavior.Skip,
         RunSnapshot? snapshot = null, string? targetOverride = null, string? operationId = null, bool recordInventory = true)
     {
+        if (NotAPublishTargetRefusal(targetOverride) is { } notATarget) return notATarget;
         if (!recordInventory)
             return await PackageCoreAsync(packager, comment, onOutputLine, ct, onExisting, snapshot,
                 DeploymentTargets.Normalize(targetOverride ?? DeploymentTargets.Mecm));
@@ -825,7 +827,7 @@ public class PackagerExecutionService(
             }
             else
             {
-                Report("Intune only: skipping ConfigMgr application, site connection, and share copy.");
+                Report("The target has no ConfigMgr destination: skipping the ConfigMgr application, site connection, and share copy.");
                 stdOut = $"Staged content ready: {stagedContentPath}";
             }
 
@@ -870,14 +872,14 @@ public class PackagerExecutionService(
         }
 
         // A PS1 packager owns its own MECM flow and writes no manifest this layer can read, so
-        // there is nothing to build a .intunewin from. Under Intune only, running it anyway
+        // there is nothing to build a .intunewin from. Under a target without ConfigMgr, running it anyway
         // would create the MECM application the target asked to skip.
         if (DeploymentTargets.SkipsMecm(target))
         {
             return new PackagerExecutionResult
             {
                 ExitCode = 1,
-                StdErr = "Deployment target is Intune only, and Intune publishing applies to JSON-defined apps. This PS1 packager was not run.",
+                StdErr = "The target has no ConfigMgr destination, and a PS1 packager publishes to ConfigMgr only. This PS1 packager was not run.",
                 IntunePublishNote = "skipped; PS1 packagers publish to ConfigMgr only.",
                 IntuneOutcome = InventoryOutcome.Refused,
                 IntuneDetail = "PS1 packagers publish to ConfigMgr only."
@@ -934,6 +936,19 @@ public class PackagerExecutionService(
             PublishedBuildId = bridge?.Snapshot?.BuildId ?? snapshot?.BuildId
         };
     }
+
+    /// <summary>
+    /// A target name that is not one of the seven publish names is refused with the valid names. Null means the caller named
+    /// no target, which uses ConfigMgr, the default of the parameter. An empty or unknown name never becomes ConfigMgr.
+    /// </summary>
+    private static PackagerExecutionResult? NotAPublishTargetRefusal(string? target) =>
+        target is null || DestinationSet.TryFromTarget(target) is { Any: true }
+            ? null
+            : new PackagerExecutionResult
+            {
+                ExitCode = 1,
+                StdErr = $"'{target}' is not a publish target; nothing was packaged. Valid names: {DeploymentTargets.NamesText}."
+            };
 
     /// <summary>
     /// A target that publishes to WSUS is refused here: this path builds the ConfigMgr
@@ -1072,7 +1087,7 @@ public class PackagerExecutionService(
             {
                 ApplicationId = plan.ApplicationId,
                 ProfileId = plan.ProfileId,
-                Target = RunTargets.Normalize(target) ?? RunTargets.Mecm,
+                Target = RunTargets.Normalize(target) ?? RunTargets.ContentOnly,
                 SigningPolicy = JsonSerializer.SerializeToNode(settings.ScriptSigning),
                 PackagerScriptPath = packager.IsJsonDefined ? packager.DefinitionPath : packager.FullPath,
                 DownloadRoot = WorkbenchPaths.GetProfileDownloadRoot(settings.DownloadRoot, plan.ProfileId)
@@ -1370,6 +1385,7 @@ public class PackagerExecutionService(
         CancellationToken ct = default, OnExistingBehavior onExisting = OnExistingBehavior.Skip,
         RunSnapshot? snapshot = null, string? target = null)
     {
+        if (NotAPublishTargetRefusal(target) is { } notATarget) return notATarget;
         target = DeploymentTargets.Normalize(target ?? DeploymentTargets.Mecm);
         if (WsusTargetRefusal(target) is { } wsusRefusal) return wsusRefusal;
         if (!File.Exists(manifestPath))
@@ -1436,7 +1452,7 @@ public class PackagerExecutionService(
         }
         else
         {
-            Report("Intune only: skipping ConfigMgr application, site connection, and share copy.");
+            Report("The target has no ConfigMgr destination: skipping the ConfigMgr application, site connection, and share copy.");
             stdOut = $"Staged content ready: {stagedContentPath}";
         }
 

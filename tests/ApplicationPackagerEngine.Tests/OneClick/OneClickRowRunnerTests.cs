@@ -193,8 +193,44 @@ public sealed class OneClickRowRunnerTests : IDisposable
 
         Assert.Equal(["Stage", "WSUS", "Package"], execution.Calls.Select(c => c.Step));
         Assert.Equal(PublishRunTargets.IntuneOnly, execution.Calls[2].Target);
-        Assert.Equal(RunTargets.WsusOnly, execution.SnapshotTarget);
+        Assert.Equal(RunTargets.IntuneAndWsus, execution.SnapshotTarget);
         Assert.Equal("published intune-1", item.ResultIntune);
+    }
+
+    /// <summary>
+    /// Every combination of the three destinations publishes to exactly the destinations it names and to no other, with no ConfigMgr
+    /// site configured: a call for ConfigMgr, WSUS or Intune happens only for a destination in the set.
+    /// </summary>
+    [Theory]
+    [InlineData(true, false, false)]
+    [InlineData(false, false, true)]
+    [InlineData(false, true, false)]
+    [InlineData(true, false, true)]
+    [InlineData(true, true, false)]
+    [InlineData(false, true, true)]
+    [InlineData(true, true, true)]
+    public async Task EveryCombinationPublishesToExactlyItsDestinations(bool configMgr, bool wsus, bool intune)
+    {
+        var execution = new FakeExecution(Path.Combine(_root, "workbench"));
+        var item = Item(configMgr, wsus, intune);
+        Directory.CreateDirectory(Path.GetDirectoryName(SettingsService.SettingsPath)!);
+        File.WriteAllText(SettingsService.SettingsPath, """{"SiteCode":"","SiteCodeSaved":true,"FileShareRoot":""}""");
+        Assert.True(string.IsNullOrWhiteSpace(new SettingsService().Load().SiteCode));
+
+        await Runner(execution).RunAsync(item, Publish, CancellationToken.None);
+
+        var expected = new List<(string Step, string Target)> { ("Stage", "") };
+        if (configMgr) expected.Add(("Package", PublishRunTargets.ConfigMgr));
+        if (wsus) expected.Add(("WSUS", PublishRunTargets.WsusOnly));
+        if (intune) expected.Add(("Package", PublishRunTargets.IntuneOnly));
+        Assert.Equal(expected, execution.Calls.Select(c => (c.Step, c.Target)));
+        Assert.Equal(new DestinationSet(configMgr, wsus, intune), DestinationSet.FromTarget(execution.SnapshotTarget));
+        Assert.Equal(OneClickOutcomes.Published, item.Outcome);
+        var published = new List<string>();
+        if (configMgr) published.Add("ConfigMgr");
+        if (intune) published.Add("Intune");
+        if (wsus) published.Add("WSUS");
+        Assert.Equal(published.Order(), Stored().Published.Keys.Order());
     }
 
     [Fact]

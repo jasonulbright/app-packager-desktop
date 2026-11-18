@@ -20,7 +20,7 @@ For each application, App Packager Desktop does these steps:
 2. It downloads the installer of that version, or uses an installer file that you added.
 3. It stages the installer and writes the install and uninstall scripts.
 4. It builds a detection rule from the installer.
-5. It publishes to the destination you select: an application in ConfigMgr, a Win32 app in Intune, or a locally published update in WSUS.
+5. It publishes to the destinations you select: an application in ConfigMgr, a Win32 app in Intune, or a locally published update in WSUS. The three destinations are independent and each is optional. ConfigMgr is not required for Intune or WSUS.
 
 The catalog has 325 application definitions ([supported applications](docs/supported-applications.md)). A definition is one JSON file. You can add your own definitions from the web (**Add from web**) or from an installer file on this computer (**Add from file**).
 

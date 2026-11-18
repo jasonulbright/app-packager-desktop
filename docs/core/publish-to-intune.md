@@ -7,8 +7,8 @@
 ## When to use it
 
 - Use it after [Stage](stage-and-publish.md) to create or update a Win32 app in an Intune tenant.
-- Use it on a computer that has no Configuration Manager console. An Intune-only run does not connect to a site and does not copy to the file share.
-- Use `--target IntuneOnly` or `--target ConfigMgrAndIntune` in the [command-line build](command-line-build.md) to publish from a script.
+- Use it with no ConfigMgr. Intune is an independent destination: publishing to ConfigMgr is not a requirement for it. A run that does not name ConfigMgr needs no ConfigMgr console, no site code and no file share, does not connect to a site and does not copy to the file share.
+- Use `--target IntuneOnly`, `--target ConfigMgrAndIntune`, `--target IntuneAndWSUS` or `--target ConfigMgrAndIntuneAndWSUS` in the [command-line build](command-line-build.md#targets) to publish from a script.
 
 ## Requirements
 
@@ -19,6 +19,7 @@
 - Access to `login.microsoftonline.com` and `graph.microsoft.com`. Graph returns the address of the Azure storage upload. The app uses that address at run time.
 - The Win32 Content Prep Tool (`IntuneWinAppUtil.exe`). The first Intune build downloads it. You can also select **Download** in Settings, Detected Tools. The app checks the SHA-256 of the pinned release (1.8.7) and the publisher signature of a file that it downloads, before it installs that file. A copy of the tool that is already in the Tools folder or on the PATH is used as it is and is not checked again.
 - Staged content for the application. See [Stage and publish](stage-and-publish.md).
+- No ConfigMgr setting. **ConfigMgr** may stay cleared under **Systems in Use**.
 
 ## Steps
 
@@ -139,7 +140,7 @@ A requirement that has no such form blocks the Intune publish before the first G
 | Client Secret | empty | Stored with DPAPI for the current Windows user. |
 | Win32 Content Prep Tool, **Download** | not downloaded | Downloads `IntuneWinAppUtil.exe` to the Tools folder. |
 
-The deployment target is not a setting that you edit. It follows the default destinations in Settings, One Click Settings. See [One Click](one-click.md).
+The deployment target is not a setting that you edit. It stores the name of the combination of the default destinations in Settings, One Click Settings, for example `IntuneAndWSUS`. See [One Click](one-click.md).
 
 See [Settings reference](../reference/settings.md).
 
@@ -157,7 +158,7 @@ See [Settings reference](../reference/settings.md).
 |---|---|---|
 | `Publish requires Intune credentials. Open Settings, Intune, to configure Tenant ID, Client ID, and Client Secret.` | One of the three values is empty. | Enter the values and save. |
 | `Stage manifest not found: <path>. Run Stage for <application> <version> first.` | The application has no staged content. | Select **Stage**. |
-| `This application cannot be published to Intune: <code>: <message>` | A Blocking finding. | Find the code in the table above. Change the profile in the [Workbench](workbench.md) or publish to ConfigMgr only. |
+| `This application cannot be published to Intune: <code>: <message>` | A Blocking finding. | Find the code in the table above. Change the profile in the [Workbench](workbench.md) or publish to another destination. |
 | `build failed: <reason>` | The Content Prep Tool failed or could not be downloaded. | Review the reason. Select **Download** in Settings, Detected Tools. |
 | `Multiple Intune apps carry the identity tag '<tag>' (ids: ...); resolve the duplicates before publishing.` | More than one app has the current tag. | Remove the duplicates in Intune. |
 | `Multiple Intune apps are named '<name>' and none carries this application's identity tag (ids: ...); rename or tag the intended app before publishing.` | More than one untagged app has the name. | Rename or tag the intended app in Intune. |

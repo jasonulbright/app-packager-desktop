@@ -52,7 +52,7 @@ public sealed class BuildResult
 /// and profile resolve from the arguments, Stage writes a run
 /// snapshot through the workbench store and stages through the execution service (a BYO
 /// application through the ad-hoc stage), and Package publishes to each destination of
-/// the target through the publish-run service, ConfigMgr first. Nothing prompts: every
+/// the target through the publish-run service, in the order ConfigMgr, WSUS, Intune. Nothing prompts: every
 /// decision comes from an argument or a saved setting, or the run stops with a message
 /// naming the argument.
 /// </summary>
@@ -74,15 +74,17 @@ public sealed class BuildRunner(
     private string? _localSourceDefinitionId;
 
     /// <summary>The publish destinations of a target, in run order.</summary>
-    public static IReadOnlyList<string> Destinations(string target) => RunTargets.Normalize(target) switch
+    public static IReadOnlyList<string> Destinations(string target)
     {
-        RunTargets.Mecm => [ConfigMgr],
-        RunTargets.MecmAndIntune => [ConfigMgr, Intune],
-        RunTargets.IntuneOnly => [Intune],
-        RunTargets.MecmAndWsus => [ConfigMgr, Wsus],
-        RunTargets.WsusOnly => [Wsus],
-        _ => []
-    };
+        var set = DestinationSet.TryFromTarget(RunTargets.Normalize(target));
+        if (set is null) return [];
+        // The order of One Click: ConfigMgr, then WSUS, then Intune. Each destination is in the list only when the target names it.
+        var order = new List<string>();
+        if (set.ConfigMgr) order.Add(ConfigMgr);
+        if (set.Wsus) order.Add(Wsus);
+        if (set.Intune) order.Add(Intune);
+        return order;
+    }
 
     /// <summary>The run overrides of the arguments, applied over every settings load of this process and never saved.</summary>
     public static void ApplyOverrides(AppSettings settings, BuildOptions options, string? localSourceDefinitionId = null)

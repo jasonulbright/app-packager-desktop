@@ -147,8 +147,22 @@ public sealed class BuildArgumentsTests
 
     [Fact]
     public void AnUnknownTargetListsTheKnownOnes() =>
-        Assert.Equal("Unknown target 'Sccm'; expected ContentOnly, ConfigMgr, ConfigMgrAndIntune, IntuneOnly, ConfigMgrAndWSUS, WSUSOnly.",
+        Assert.Equal("Unknown target 'Sccm'; expected ContentOnly, ConfigMgr, ConfigMgrAndIntune, IntuneOnly, ConfigMgrAndWSUS, WSUSOnly, IntuneAndWSUS, ConfigMgrAndIntuneAndWSUS.",
             Refused("--application", "a", "--stage", "--target", "Sccm"));
+
+    [Fact]
+    public void AnEmptyTargetIsRefusedWithTheValidNamesAndNeverReadAsConfigMgr() =>
+        Assert.StartsWith("Unknown target ''; expected ContentOnly, ConfigMgr,", Refused("--application", "a", "--stage", "--target", ""));
+
+    [Theory]
+    [InlineData("IntuneAndWSUS")]
+    [InlineData("ConfigMgrAndIntuneAndWSUS")]
+    public void ATargetWithWsusAndAnotherDestinationNeedsTheStageOfTheSameRun(string target)
+    {
+        Assert.Equal($"A {target} package publishes the build staged in the same run; pass --stage together with --package.",
+            Refused("--application", "putty", "--target", target, "--package"));
+        Assert.Equal(target, Parsed("--application", "putty", "--target", target, "--package", "--stage").Target);
+    }
 
     [Fact]
     public void MalformedCommandLinesAreRefusedWithTheReason()

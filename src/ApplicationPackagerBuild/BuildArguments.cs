@@ -1,4 +1,5 @@
 using System.Globalization;
+using ApplicationPackagerEngine.Models;
 using ApplicationPackagerEngine.Models.Workbench;
 using ApplicationPackagerEngine.Services;
 
@@ -246,8 +247,8 @@ public static class BuildArguments
         };
 
         if (!options.Stage && !options.Package && options.RewriteOldVersions is null && !options.IsSupersedenceRecord) return Fail("Specify --stage, --package, or both.");
-        if (options.Target == RunTargets.MecmAndWsus && options.Package && !options.Stage)
-            return Fail("A ConfigMgrAndWSUS package publishes the build staged in the same run; pass --stage together with --package.");
+        if (options.Package && !options.Stage && DeploymentTargets.PublishesToWsus(options.Target) && DestinationSet.TryFromTarget(options.Target) is { Names.Count: > 1 })
+            return Fail($"A {options.Target} package publishes the build staged in the same run; pass --stage together with --package.");
         return new ParsedArguments(options, null);
     }
 
@@ -291,7 +292,10 @@ public static class BuildArguments
           --stage                     Stage under a new run snapshot
           --package                   Publish to the target. Without --stage, publishes the newest sealed build
                                       of the profile; a WSUS target stages in the same run
-          --target <target>           ContentOnly, ConfigMgr (default), ConfigMgrAndIntune, IntuneOnly, ConfigMgrAndWSUS, WSUSOnly (the earlier MECM names still work)
+          --target <target>           The destinations of the run. Each of ConfigMgr, Intune and WSUS is optional.
+                                      ContentOnly (none), ConfigMgr, IntuneOnly, WSUSOnly, ConfigMgrAndIntune,
+                                      ConfigMgrAndWSUS, IntuneAndWSUS, ConfigMgrAndIntuneAndWSUS.
+                                      Without --target the default is ConfigMgr. The earlier MECM names still work.
           --on-existing <behavior>    Existing ConfigMgr application: Skip (default), Overwrite, Fail
           --version-rule <rule>       Version clause of the detection: minimum (this version or newer) or exact (this version only).
                                       Outranks the title override and the site default.

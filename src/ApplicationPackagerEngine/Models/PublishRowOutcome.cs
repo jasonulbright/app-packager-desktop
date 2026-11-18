@@ -3,22 +3,25 @@ using ApplicationPackagerEngine.Services.Wsus;
 namespace ApplicationPackagerEngine.Models;
 
 /// <summary>
-/// The destination set of one publish run. The site-free targets stop at
+/// The destination set of one publish run: the seven combinations of ConfigMgr, Intune and
+/// WSUS, each destination independent and optional. A target without ConfigMgr stops at
 /// Stage: no site connection, no share copy, no ConfigMgr application.
 /// </summary>
 public static class PublishRunTargets
 {
     public const string ConfigMgr = DeploymentTargets.Mecm;
     public const string ConfigMgrAndIntune = DeploymentTargets.MecmAndIntune;
-    public const string IntuneOnly = "IntuneOnly";
+    public const string IntuneOnly = DeploymentTargets.IntuneOnly;
     public const string ConfigMgrAndWsus = DeploymentTargets.MecmAndWsus;
-    public const string WsusOnly = "WSUSOnly";
+    public const string WsusOnly = DeploymentTargets.WsusOnly;
+    public const string IntuneAndWsus = DeploymentTargets.IntuneAndWsus;
+    public const string ConfigMgrAndIntuneAndWsus = DeploymentTargets.MecmAndIntuneAndWsus;
 
-    public static readonly IReadOnlyList<string> Names = [ConfigMgr, ConfigMgrAndIntune, IntuneOnly, ConfigMgrAndWsus, WsusOnly];
+    public static readonly IReadOnlyList<string> Names = DeploymentTargets.Names;
 
-    public static bool SkipsSite(string? target) => DeploymentTargets.Canonical(target) is IntuneOnly or WsusOnly;
+    public static bool SkipsSite(string? target) => DeploymentTargets.SkipsMecm(target);
 
-    public static bool PublishesToWsus(string? target) => DeploymentTargets.Canonical(target) is ConfigMgrAndWsus or WsusOnly;
+    public static bool PublishesToWsus(string? target) => DeploymentTargets.PublishesToWsus(target);
 }
 
 /// <summary>What became of the WSUS half of a run.</summary>

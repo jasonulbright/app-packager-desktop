@@ -47,17 +47,25 @@ public sealed class OneClickPlannerTests
     [InlineData("WSUSOnly", false, true, false)]
     [InlineData("IntuneOnly", false, false, true)]
     [InlineData("MECMAndIntune", true, false, true)]
-    [InlineData("nonsense", true, false, false)]
+    [InlineData("IntuneAndWSUS", false, true, true)]
+    [InlineData("ConfigMgrAndIntuneAndWSUS", true, true, true)]
+    [InlineData("ContentOnly", false, false, false)]
+    [InlineData("nonsense", false, false, false)]
+    [InlineData("", false, false, false)]
+    [InlineData(null, false, false, false)]
     public void EveryDeploymentTargetMapsToItsDestinations(string target, bool cm, bool wsus, bool intune) =>
         Assert.Equal(new DestinationSet(cm, wsus, intune), DestinationSet.FromTarget(target));
 
     [Theory]
-    [InlineData(true, true, true, "ConfigMgrAndWSUS")]
+    [InlineData(true, true, true, "ConfigMgrAndIntuneAndWSUS")]
+    [InlineData(true, true, false, "ConfigMgrAndWSUS")]
     [InlineData(true, false, true, "ConfigMgrAndIntune")]
-    [InlineData(false, true, true, "WSUSOnly")]
+    [InlineData(false, true, true, "IntuneAndWSUS")]
+    [InlineData(false, true, false, "WSUSOnly")]
     [InlineData(false, false, true, "IntuneOnly")]
+    [InlineData(true, false, false, "ConfigMgr")]
     [InlineData(false, false, false, "ConfigMgr")]
-    public void TheNearestSingleTargetKeepsTheConfigMgrOrWsusPart(bool cm, bool wsus, bool intune, string expected) =>
+    public void EveryCombinationHasItsOwnTargetName(bool cm, bool wsus, bool intune, string expected) =>
         Assert.Equal(expected, new DestinationSet(cm, wsus, intune).ToTargetName());
 
     [Fact]
@@ -68,6 +76,37 @@ public sealed class OneClickPlannerTests
         Assert.True(JsonSerializer.Deserialize<DestinationSet>(json)!.Wsus);
         Assert.Equal("ConfigMgr and WSUS", new DestinationSet(true, true, false).Describe());
         Assert.Equal("no destination", new DestinationSet().Describe());
+        Assert.Equal("Intune and WSUS", new DestinationSet(false, true, true).Describe());
+        Assert.Equal("ConfigMgr, Intune and WSUS", new DestinationSet(true, true, true).Describe());
+    }
+
+    [Fact]
+    public void AnEmptyOrUnknownStoredTargetWithNoSavedDefaultPlansNoDestinationNeverConfigMgr()
+    {
+        foreach (var stored in new[] { "", "nonsense" })
+        {
+            var (set, source) = OneClickPlanner.DestinationsFor(Settings(stored), "package-a");
+            Assert.False(set.Any);
+            Assert.Equal("Default", source);
+        }
+        var saved = new DestinationSet(false, true, true);
+        Assert.Equal(saved, OneClickPlanner.DestinationsFor(Settings("", defaults: saved), "package-a").Set);
+    }
+
+    [Fact]
+    public void WsusAndIntuneAreReadyAndPlannedWithoutAConfigMgrSiteConsoleOrSystem()
+    {
+        var readiness = Ready(["Intune", "Wsus"], siteCode: "", console: false);
+        var ready = OneClickPlanner.Readiness(readiness);
+        Assert.True(ready["WSUS"].Ready && ready["Intune"].Ready);
+        Assert.False(ready["ConfigMgr"].Ready);
+
+        var row = Plan(Settings(defaults: new DestinationSet(false, true, true), readiness: readiness), [App("package-a", "2.0")])[0];
+
+        Assert.True(row.Include);
+        Assert.Equal(["WSUS", "Intune"], row.PublishTo);
+        Assert.Empty(row.NotReady);
+        Assert.DoesNotContain("ConfigMgr", row.Reason);
     }
 
     [Fact]

@@ -231,6 +231,56 @@ public sealed class PublishTargetTests : IDisposable
     }
 
     [Fact]
+    public async Task AnUnknownOrEmptyPackageTargetIsRefusedWithTheValidNamesAndIsNeverPackagedToConfigMgr()
+    {
+        using var server = ProfileStageFixture.Server();
+        var stage = await Service().StageAsync(Row(server));
+        var manifestPath = stage.OutLogPath!;
+        var dropped = new PackagerInfo { Uid = "drop", Application = "Widget", StagedManifestPath = manifestPath };
+
+        foreach (var bad in new[] { "", "  ", "Everything", DeploymentTargets.ContentOnly })
+        {
+            var result = await Service().PackageAsync(dropped, "", targetOverride: bad);
+            var direct = await Service().PackageStagedManifestAsync(manifestPath, "", target: bad);
+
+            foreach (var refused in new[] { result, direct })
+            {
+                Assert.Equal(1, refused.ExitCode);
+                Assert.Contains("is not a publish target; nothing was packaged", refused.StdErr);
+                Assert.Contains(DeploymentTargets.NamesText, refused.StdErr);
+                Assert.Null(refused.ConfigMgrOutcome);
+            }
+        }
+
+        // A WSUS-bearing combination is refused here as WSUS always is; no ConfigMgr step runs and no site is read.
+        foreach (var combination in new[] { PublishRunTargets.IntuneAndWsus, PublishRunTargets.ConfigMgrAndIntuneAndWsus })
+        {
+            var wsus = await Service().PackageAsync(dropped, "", targetOverride: combination);
+            Assert.Equal(1, wsus.ExitCode);
+            Assert.Contains("Publish to WSUS", wsus.StdErr);
+            Assert.Null(wsus.ConfigMgrOutcome);
+        }
+    }
+
+    [Fact]
+    public async Task AGridStageRecordsTheStoredIntuneAndWsusTargetWithoutASite()
+    {
+        StoreTarget(DeploymentTargets.IntuneAndWsus);
+        var settings = new SettingsService();
+        var s = settings.Load();
+        s.SiteCode = "";
+        s.FileShareRoot = "";
+        settings.SaveOperatorEdit(s);
+        Assert.True(string.IsNullOrWhiteSpace(settings.Load().SiteCode));
+        using var server = ProfileStageFixture.Server();
+        _t.NewProfile(ProfileStageFixture.ApplicationId, "Pilot Ring");
+
+        var grid = SnapshotOf(await Service().StageAsync(Row(server)));
+
+        Assert.Equal(DeploymentTargets.IntuneAndWsus, grid.Target);
+    }
+
+    [Fact]
     public async Task AGridStageRecordsTheStoredWsusTargetAndARunTargetOverridesIt()
     {
         StoreTarget(DeploymentTargets.WsusOnly);

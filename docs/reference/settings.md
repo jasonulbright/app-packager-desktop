@@ -54,6 +54,8 @@ The default order is, in the first group: App Packager, Add from web, Add from f
 | `Intune` | `Systems.Intune` | off | Same. |
 | `WSUS` | `Systems.Wsus` | off | Same. |
 
+The three systems are independent, and each is optional. ConfigMgr is on by default; it is not required for Intune or WSUS.
+
 A `settings.json` file without `Systems` gets these values on load: ConfigMgr on; Intune on when a tenant ID is stored; WSUS on when a server name is stored.
 
 With ConfigMgr off, the launch skips the ConfigMgr version query, and the CVE run uses an empty site code.
@@ -101,8 +103,8 @@ See [One Click](../core/one-click.md).
 | `Action on update` | `OneClick.Action` | `Report` | Choices: `Report only` (`Report`), `Stage` (`Stage`), `Stage and Publish` (`StageAndPackage`). |
 | `Force on launch (ignore cadence)` | `OneClick.ForceOnLaunch` | off | The plan opens with Force set. |
 | `Default cadence (days)` | `OneClick.DefaultCadenceDays` | 7 | The number of days that a version check stays fresh. A Report run skips an application checked within its cadence unless Force is set. |
-| `Default destinations` (`ConfigMgr`, `WSUS`, `Intune`) | `OneClick.DefaultDestinations` | null | The destinations of a tracked application that has no choice of its own. When null, the planner reads the saved deployment target (see the next row). |
-| (none) | `Intune.DeploymentTarget` | `ConfigMgr` | Not an editable setting. The app derives the nearest single target from the default destinations on save. Grid Stage for PS1 packagers reads it. |
+| `Default destinations` (`ConfigMgr`, `WSUS`, `Intune`) | `OneClick.DefaultDestinations` | null | The destinations of a tracked application that has no choice of its own. The three destinations are independent, and each is optional. When null, the planner reads the saved deployment target (see the next row). |
+| (none) | `Intune.DeploymentTarget` | `ConfigMgr`, the default of this setting only | Not an editable setting. The app writes the name of the combination of the default destinations on save: `ConfigMgr`, `IntuneOnly`, `WSUSOnly`, `ConfigMgrAndIntune`, `ConfigMgrAndWSUS`, `IntuneAndWSUS` or `ConfigMgrAndIntuneAndWSUS` (the [Targets](../core/command-line-build.md#targets) table). Grid Stage for PS1 packagers reads it. An empty value takes the saved default destinations. A value that is not a valid name publishes to no destination, and the log lists the valid names. The earlier names `MECM`, `MECMAndIntune` and `MECMAndWSUS` still load. |
 | `Existing ConfigMgr app` | `OneClick.OnExisting` | `Skip` | Choices: `Skip the application` (`Skip`), `Overwrite it` (`Overwrite`). A run does not ask. |
 | `Track` (grid) | `OneClick.TrackedApplications` | empty list | The tracked definition or packager IDs. `Track all`, `Track none` and `Refresh list` change the grid. |
 | `Cadence (days)` (grid) | `OneClick.CadenceOverrides` | empty | The cadence per application. |
