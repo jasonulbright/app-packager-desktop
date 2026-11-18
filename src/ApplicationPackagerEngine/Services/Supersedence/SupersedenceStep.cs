@@ -47,7 +47,7 @@ public static class SupersedenceScripts
         sb.AppendLine("    $titleB64 = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes([string]$candidate.LocalizedDisplayName))");
         sb.AppendLine("    $expired = if ($candidate.IsExpired) { 1 } else { 0 }");
         sb.AppendLine($"    Write-Host (\"{SupersedenceLookup.ApplicationLine}|{{0}}|{{1}}|{{2}}|{{3}}\" -f $candidate.CI_ID, $expired, $candidate.SoftwareVersion, $titleB64)");
-        sb.AppendLine("    foreach ($candidateDt in @(Get-CMDeploymentType -ApplicationName $candidate.LocalizedDisplayName -DisableWildcardHandling)) {");
+        sb.AppendLine("    foreach ($candidateDt in @(Get-CMDeploymentType -ApplicationName $candidate.LocalizedDisplayName -DisableWildcardHandling -WarningAction SilentlyContinue)) {");
         sb.AppendLine("        $dtB64 = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes([string]$candidateDt.LocalizedDisplayName))");
         sb.AppendLine($"        Write-Host (\"{SupersedenceLookup.DeploymentTypeLine}|{{0}}|{{1}}|{{2}}\" -f $candidate.CI_ID, $candidateDt.CI_ID, $dtB64)");
         sb.AppendLine("    }");
@@ -70,7 +70,7 @@ public static class SupersedenceScripts
         MecmTarget.AppendCmPreamble(sb, siteCode, providerMachine);
         sb.AppendLine("function Test-Supersedes([string]$appName, [string]$dtName, [string]$oldDtName) {");
         sb.AppendLine("    try {");
-        sb.AppendLine("        $dt = Get-CMDeploymentType -ApplicationName $appName -DeploymentTypeName $dtName -DisableWildcardHandling -ErrorAction Stop");
+        sb.AppendLine("        $dt = Get-CMDeploymentType -ApplicationName $appName -DeploymentTypeName $dtName -DisableWildcardHandling -WarningAction SilentlyContinue -ErrorAction Stop");
         sb.AppendLine("        foreach ($relation in @(Get-CMDeploymentTypeSupersedence -InputObject $dt -ErrorAction Stop)) {");
         sb.AppendLine("            if ((($relation | Out-String)).Contains($oldDtName)) { return $true }");
         sb.AppendLine("        }");

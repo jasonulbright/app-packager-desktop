@@ -136,7 +136,7 @@ public static class ChainCheck
     {
         var sb = new StringBuilder();
         MecmTarget.AppendCmPreamble(sb, siteCode, providerMachine);
-        sb.AppendLine($"foreach ($chainDt in @(Get-CMDeploymentType -ApplicationName '{PowerShellLiteral.EscapeSingleQuoted(applicationName)}' -DisableWildcardHandling)) {{");
+        sb.AppendLine($"foreach ($chainDt in @(Get-CMDeploymentType -ApplicationName '{PowerShellLiteral.EscapeSingleQuoted(applicationName)}' -DisableWildcardHandling -WarningAction SilentlyContinue)) {{");
         sb.AppendLine("    $chainName = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes([string]$chainDt.LocalizedDisplayName))");
         sb.AppendLine("    $chainXml = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes([string]$chainDt.SDMPackageXML))");
         sb.AppendLine($"    Write-Host ('{DetectionLine}|{{0}}|{{1}}' -f $chainName, $chainXml)");

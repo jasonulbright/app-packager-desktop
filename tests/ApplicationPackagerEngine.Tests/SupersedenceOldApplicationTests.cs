@@ -361,6 +361,19 @@ public sealed class SupersedenceOldApplicationTests
     }
 
     [Fact]
+    public void EveryStateOfTheListHasATextOfItsOwnAndOnlyNotOlderReadsNotOlder()
+    {
+        // The state column of the Old Application window: the real window showed "Not older" for a title that two applications hold, because the
+        // text had no case for that state (found in the Q-53 check of the real page).
+        var texts = Enum.GetValues<OldApplicationState>()
+            .ToDictionary(s => s, s => new OldApplicationRow(new OldApplicationCandidate("A", "1.0", s, "reason", false, false)).StateText);
+
+        Assert.Equal("Same title", texts[OldApplicationState.SameTitle]);
+        Assert.Equal(texts.Count, texts.Values.Distinct(StringComparer.Ordinal).Count());
+        Assert.Equal(OldApplicationState.NotOlder, Assert.Single(texts.Where(t => t.Value == "Not older")).Key);
+    }
+
+    [Fact]
     public async Task RefusesATitleThatTwoApplicationsHold()
     {
         var site = new FakeSite(_ => (0, OldApplicationScripts.AmbiguousLine + "\n", ""));

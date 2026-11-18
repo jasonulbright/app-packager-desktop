@@ -18,6 +18,7 @@ public sealed class OldApplicationRow(OldApplicationCandidate candidate)
         OldApplicationState.KeywordsUnreadable => "Keywords unreadable",
         OldApplicationState.Retired => "Retired",
         OldApplicationState.VersionUnreadable => "Version unreadable",
+        OldApplicationState.SameTitle => "Same title",
         _ => "Not older"
     };
 
