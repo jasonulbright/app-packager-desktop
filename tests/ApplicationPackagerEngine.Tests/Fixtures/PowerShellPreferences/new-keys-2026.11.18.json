@@ -1,0 +1,4 @@
+{
+  "Intune": { "DeploymentTarget": "MECM", "MinimumWindowsRelease": "Windows11_23H2" },
+  "AppFlow": { "Action": "Report", "DefaultCadenceDays": 30 }
+}
