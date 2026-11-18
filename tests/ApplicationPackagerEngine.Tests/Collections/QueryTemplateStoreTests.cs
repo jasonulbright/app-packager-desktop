@@ -102,6 +102,15 @@ public sealed class QueryTemplateStoreTests : IDisposable
     }
 
     [Fact]
+    public void TheShippedInfrastructureTemplatesUseTheConfigMgrCategoryLabel()
+    {
+        var shipped = new QueryTemplateStore(Folder).All();
+        Assert.Equal(4, shipped.Count(t => t.Category == "ConfigMgr Infrastructure"));
+        Assert.DoesNotContain(shipped, t => t.Category == "SCCM Infrastructure");
+        Assert.All(shipped.Where(t => t.Category == "ConfigMgr Infrastructure"), t => Assert.StartsWith("SCCM | ", t.Name));
+    }
+
+    [Fact]
     public void AUserTemplateNeverReplacesAShippedOne()
     {
         var shipped = new QueryTemplateStore(Folder).All()[0];

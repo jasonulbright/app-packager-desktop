@@ -18,6 +18,7 @@
 - The guide now uses Configuration Manager terms and Microsoft Learn style. For example, it says View and Review instead of Read.
 - Window text and messages use Configuration Manager terms: for example device, software update group and SMS Provider.
 - The deployment target is now named ConfigMgr, ConfigMgrAndIntune or ConfigMgrAndWSUS in Settings, the command line and the guide. The earlier names still work.
+- The collection query templates show the category ConfigMgr Infrastructure instead of SCCM Infrastructure.
 
 ## [2026.1118.48] - 2026-11-18
 

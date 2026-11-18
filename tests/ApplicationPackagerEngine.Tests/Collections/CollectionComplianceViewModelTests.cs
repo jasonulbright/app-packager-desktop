@@ -1053,6 +1053,9 @@ public sealed class CollectionComplianceViewModelTests
         Assert.Equal("Software", next.CategoryFilter);
         Assert.Equal(["Servers"], next.Rows.Select(r => r.Name));
 
+        harness.Saved = new CollectionComplianceSettings { TemplateCategory = "SCCM Infrastructure" };
+        Assert.Equal("ConfigMgr Infrastructure", (await harness.OpenAsync()).CategoryFilter);
+
         harness.Saved = new CollectionComplianceSettings { SelectedTab = 99, DetailTab = -1, TypeFilter = "Bogus", TextFilter = null!, FolderFilter = null!, TemplateCategory = null! };
         var odd = await harness.OpenAsync();
         Assert.Equal((0, 0, "", "", ""), (odd.SelectedTabIndex, odd.DetailTabIndex, odd.TypeFilter, odd.TextFilter, odd.FolderFilter));
