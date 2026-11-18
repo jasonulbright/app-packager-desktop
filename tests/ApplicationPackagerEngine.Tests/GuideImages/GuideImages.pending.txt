@@ -18,7 +18,6 @@ core-discover-settings
 core-one-click-plan
 core-packages-buttons-disabled
 core-packages-conflict-dialog
-core-packages-context-menu
 core-packages-cve-columns
 core-packages-operation-history
 core-packages-review-dialog
