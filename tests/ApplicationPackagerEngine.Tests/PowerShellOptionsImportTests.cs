@@ -356,6 +356,55 @@ public sealed class PowerShellOptionsImportTests
         Assert.Equal(PowerShellImportOutcome.Skipped, Row(preview, "AppendArchitectureToTitle").Outcome);
     }
 
+    // ---- supersedence and the review before staging
+
+    [Fact]
+    public void TheSupersedenceSettingsAndTheReviewSwitchAreImported()
+    {
+        var json = """{ "SkipConfigReview": true, "Supersedence": { "Mode": "Replace and uninstall", "ConfigMgrVersionRule": "Exact", "IntuneVersionRule": "Minimum", "TitleOverrides": { "catalog:x": { "Mode": "Replace" } }, "InstalledValues": { "a|1": "1.0" }, "AcceptedExactBlocks": [ "a|1" ] }, "Intune": { "AcceptedRequirementDrops": [ "x|y" ] } }""";
+        var target = new AppSettings();
+        var preview = PowerShellOptionsImport.Preview(json, target);
+
+        PowerShellOptionsImport.Apply(preview, target);
+
+        Assert.True(target.SkipConfigReview);
+        Assert.Equal("Replace and uninstall", target.Supersedence.Mode);
+        Assert.Equal("Exact", target.Supersedence.ConfigMgrVersionRule);
+        Assert.Equal("Minimum", target.Supersedence.IntuneVersionRule);
+        Assert.Empty(target.Supersedence.TitleOverrides);
+        Assert.Empty(target.Supersedence.InstalledValues);
+        Assert.Empty(target.Supersedence.AcceptedExactBlocks);
+        Assert.Empty(target.Intune.AcceptedRequirementDrops);
+        foreach (var key in new[] { "Supersedence.TitleOverrides", "Supersedence.InstalledValues", "Supersedence.AcceptedExactBlocks", "Intune.AcceptedRequirementDrops" })
+        {
+            Assert.Equal(PowerShellImportOutcome.Skipped, Row(preview, key).Outcome);
+            Assert.NotEmpty(Row(preview, key).Note);
+        }
+
+        Assert.Equal(0, PowerShellOptionsImport.Preview(json, target).Differs);
+    }
+
+    [Theory]
+    [InlineData("""{ "Supersedence": { "Mode": "ReplaceAndUninstall" } }""", "Replace and uninstall")]
+    [InlineData("""{ "Supersedence": { "Mode": "replace" } }""", "Replace")]
+    public void TheSupersedenceModeSpellingsOfTheOldWordsAreAccepted(string json, string expected)
+    {
+        var target = new AppSettings();
+        PowerShellOptionsImport.Apply(PowerShellOptionsImport.Preview(json, target), target);
+
+        Assert.Equal(expected, target.Supersedence.Mode);
+    }
+
+    [Theory]
+    [InlineData("""{ "Supersedence": { "ConfigMgrVersionRule": "Maybe" } }""", "Supersedence.ConfigMgrVersionRule")]
+    [InlineData("""{ "Supersedence": { "Mode": "Sometimes" } }""", "Supersedence.Mode")]
+    public void ASupersedenceWordThatApdDoesNotKnowIsSkipped(string json, string key)
+    {
+        var preview = PowerShellOptionsImport.Preview(json, new AppSettings());
+
+        Assert.Equal(PowerShellImportOutcome.Skipped, Row(preview, key).Outcome);
+    }
+
     // ---- skipped, unknown, differs
 
     [Fact]

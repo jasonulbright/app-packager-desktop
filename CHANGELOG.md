@@ -8,6 +8,7 @@
 - Settings, Import from App Packager (PowerShell): the SQL server, SQL instance and SQL port of the PowerShell file become one SQL server name in APD (server\instance,port).
 - Settings, Import from App Packager (PowerShell): the minimum Windows release and the default cadence days of the PowerShell file are imported.
 - Settings, Import from App Packager (PowerShell): the architecture tag, the update check at startup and the user test collection of the PowerShell file are imported.
+- Settings, Import from App Packager (PowerShell): the supersedence mode, the two version rules and the review switch are imported.
 
 ## [2026.1116.47] - 2026-11-16
 

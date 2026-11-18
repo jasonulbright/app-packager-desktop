@@ -287,6 +287,10 @@ public static class PowerShellOptionsImport
         ["DBeaverInstallOptions"] = "Install parameters. APD saves them for each application under Install Parameters.",
         ["AdobeReaderInstallOptions"] = "Install parameters. APD saves them for each application under Install Parameters.",
         ["BeyondCompareOptions"] = "Install parameters. APD saves them for each application under Install Parameters.",
+        ["Supersedence.TitleOverrides"] = "Saved for each application, and the application identifiers of the two apps differ. Set it in APD.",
+        ["Supersedence.AcceptedExactBlocks"] = "Accepted for one application and version, and the application identifiers of the two apps differ. Accept it again in APD.",
+        ["Supersedence.InstalledValues"] = "Values read from an installed product on the other computer. APD records its own.",
+        ["Intune.AcceptedRequirementDrops"] = "Accepted for one application, and the application identifiers of the two apps differ. Accept it again in APD.",
         ["WorkbenchDataRoot"] = "The folder of the PowerShell Workbench. APD keeps its own data folder.",
     };
 
@@ -358,6 +362,13 @@ public static class PowerShellOptionsImport
 
         Add(Rule.Number("Vulnerability.CacheTtlMinutes", 0, 100000, s => s.Vulnerability.CacheTtlMinutes, (s, v) => s.Vulnerability.CacheTtlMinutes = v));
         Add(Rule.Bool("Vulnerability.LookupAfterCheckCm", s => s.Vulnerability.LookupAfterCheckCm, (s, v) => s.Vulnerability.LookupAfterCheckCm = v));
+
+        Add(Rule.Choice("Supersedence.Mode", ["Off", "Replace", "Replace and uninstall"], s => ApplicationPackagerEngine.Services.Supersedence.SupersedenceNames.TryParseMode(s.Supersedence.Mode, out var m) ? ApplicationPackagerEngine.Services.Supersedence.SupersedenceNames.Text(m) : "Off",
+            (s, v) => s.Supersedence.Mode = v,
+            legacy: new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) { ["ReplaceAndUninstall"] = "Replace and uninstall", ["replace-uninstall"] = "Replace and uninstall", ["replace-and-uninstall"] = "Replace and uninstall" }));
+        Add(Rule.Choice("Supersedence.ConfigMgrVersionRule", ["Minimum", "Exact"], s => ApplicationPackagerEngine.Services.Supersedence.SupersedenceNames.TryParseRule(s.Supersedence.ConfigMgrVersionRule, out var r) ? ApplicationPackagerEngine.Services.Supersedence.SupersedenceNames.Text(r) : "Minimum", (s, v) => s.Supersedence.ConfigMgrVersionRule = v));
+        Add(Rule.Choice("Supersedence.IntuneVersionRule", ["Minimum", "Exact"], s => ApplicationPackagerEngine.Services.Supersedence.SupersedenceNames.TryParseRule(s.Supersedence.IntuneVersionRule, out var r) ? ApplicationPackagerEngine.Services.Supersedence.SupersedenceNames.Text(r) : "Minimum", (s, v) => s.Supersedence.IntuneVersionRule = v));
+        Add(Rule.Bool("SkipConfigReview", s => s.SkipConfigReview, (s, v) => s.SkipConfigReview = v));
 
         Add(Rule.Bool("ScriptSigning.SignDetection", s => s.ScriptSigning.SignDetection, (s, v) => s.ScriptSigning.SignDetection = v));
         Add(Rule.Bool("ScriptSigning.SignRequirements", s => s.ScriptSigning.SignRequirements, (s, v) => s.ScriptSigning.SignRequirements = v));
