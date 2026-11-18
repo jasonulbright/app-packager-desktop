@@ -74,7 +74,7 @@ public static class InstallerSettingsGenerator
         },
         new()
         {
-            Key = "Language", Label = "Language", Tooltip = "Force installer language (e.g., en for English). Prevents language selection dialog.",
+            Key = "Language", Label = "Language", Tooltip = "Force installer language (for example, en for English). Prevents the language selection dialog.",
             ControlType = "Dropdown", DefaultValue = "en", Options = ["en", "de", "fr", "es", "it", "pt", "ja", "zh", "ko"],
             CommandFragment = "/LANG={value}", Group = "Localization"
         }

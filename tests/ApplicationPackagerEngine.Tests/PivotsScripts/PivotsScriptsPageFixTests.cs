@@ -55,7 +55,7 @@ public sealed class PivotsScriptsPageFixTests
         var (plan, problem) = PivotsScriptsText.BuildPlan(change);
         Assert.Null(problem);
         Assert.Equal("This runs on every device of the site: Collection Workstations (LAB00012).", plan!.Plan.SecondConfirmation);
-        Assert.Contains(plan.Plan.Notes, n => n.StartsWith("The target holds every client of the site (6 clients)", StringComparison.Ordinal));
+        Assert.Contains(plan.Plan.Notes, n => n.StartsWith("The target holds every device of the site that has the Configuration Manager client (6 devices", StringComparison.Ordinal));
         Assert.Contains(VM.EveryClientWarning, VM.ResolvedText(every));
     }
 

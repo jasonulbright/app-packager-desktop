@@ -51,7 +51,7 @@ public static class PivotsScriptsText
         yield return $"Targets: {targets.Description}. {PivotsLabels.Count(targets.Devices.Count, "device")}.";
         if (targets.IsBuiltInCollection) yield return $"The target is a built-in collection ({targets.CollectionId}). The run reaches every device of the collection.";
         else if (targets.CoversEverySiteDevice)
-            yield return $"The target holds every client of the site ({PivotsLabels.Count(targets.SiteClientCount, "client")}). The run reaches every device of the site.";
+            yield return $"The target holds every device of the site that has the Configuration Manager client ({PivotsLabels.Count(targets.SiteClientCount, "device")}). The run reaches every device of the site.";
         if (targets.Truncated)
             yield return targets.TotalMatched > targets.Devices.Count ? $"{TruncatedNote} {PivotsLabels.Count(targets.TotalMatched, "device")} match." : TruncatedNote;
         if (targets.NonClientCount > 0) yield return $"{PivotsLabels.Count(targets.NonClientCount, "device")} without a ConfigMgr client: the run skips {(targets.NonClientCount == 1 ? "it" : "them")}.";

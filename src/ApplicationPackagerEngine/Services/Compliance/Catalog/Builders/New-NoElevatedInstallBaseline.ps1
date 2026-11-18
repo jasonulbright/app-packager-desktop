@@ -4,7 +4,7 @@
     AlwaysInstallElevated.
 
 .DESCRIPTION
-    Single native registry-value compliance setting (machine side):
+    Single native registry-value compliance setting (computer side):
 
         HKLM\SOFTWARE\Policies\Microsoft\Windows\Installer
             AlwaysInstallElevated = 0 (DWORD)
@@ -15,7 +15,7 @@
     When enabled it is a textbook local privilege-escalation primitive (a standard user
     crafts a malicious MSI and gets SYSTEM). Elevation requires BOTH the HKLM and HKCU
     copies to be 1, so enforcing the HKLM machine policy to 0 is sufficient to neutralize
-    it -- and the machine side is the one a CI can reliably manage. Easy to miss because
+    it -- and the computer side is the one a CI can reliably manage. Easy to miss because
     it is buried in a rarely visited Installer policy node.
 
     NOTE: the matching per-user value lives at
@@ -29,7 +29,7 @@
     Configuration Manager site code.
 
 .PARAMETER SiteServer
-    Configuration Manager site server FQDN.
+    FQDN of the Configuration Manager SMS Provider computer.
 
 .PARAMETER CollectionName
     If specified, deploys the baseline to this collection daily with remediation enabled.
@@ -65,7 +65,7 @@ if (-not (Get-Module ConfigurationManager -ErrorAction SilentlyContinue)) {
         Import-Module $modulePath
     }
     else {
-        throw "ConfigurationManager module not found. Run this from a machine with the Configuration Manager admin console installed."
+        throw "ConfigurationManager module not found. Run this from a computer with the Configuration Manager console installed."
     }
 }
 
@@ -86,7 +86,7 @@ try {
            KeyName = 'SOFTWARE\Policies\Microsoft\Windows\Installer'
            ValueName = 'AlwaysInstallElevated'
            Expected = '0'
-           Description = 'Machine-side AlwaysInstallElevated. 0 = MSI packages do not install with elevated privileges.' }
+           Description = 'Computer-side AlwaysInstallElevated. 0 = MSI packages do not install with elevated privileges.' }
     )
 
     Write-Host "Creating Configuration Item: $CIName"

@@ -13,7 +13,7 @@ public sealed partial class PivotsScriptsViewModel
     public const string ImportFailed = "The file could not be read. Check that it is a TXT or CSV file that the account can open.";
     public const string NotResolvedText = "Not resolved. Select Resolve to read the devices of the target.";
     public const string BuiltInWarning = "This is a built-in collection. A run reaches every device of the collection, and the plan asks an extra box for it.";
-    public const string EveryClientWarning = "The target holds every client of the site. A run reaches every device of the site, and the plan asks an extra box for it.";
+    public const string EveryClientWarning = "The target holds every device of the site that has the Configuration Manager client. A run reaches all of them, and the plan asks an extra box for it.";
 
     private int _resolveGeneration;
     private string? _resolvedKey;

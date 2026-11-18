@@ -76,7 +76,7 @@ public sealed class WrapperGeneratorService
             exit $proc.ExitCode
             """;
         var uninstallPs1 = string.IsNullOrWhiteSpace(uninstallCommand)
-            ? "Write-Output 'The patch has no uninstall command; nothing was uninstalled.'\r\nexit 1"
+            ? "Write-Output 'The patch file has no uninstall command; nothing was uninstalled.'\r\nexit 1"
             : $$"""
                 {{uninstallCommand}}
                 $proc.ExitCode | Out-File (Join-Path $PSScriptRoot 'exitcode.txt') -NoNewline

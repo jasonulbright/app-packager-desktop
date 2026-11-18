@@ -133,7 +133,7 @@
                                AutomationProperties.AutomationId="btnRingApplyAll" />
                     <CheckBox Content="Purpose" IsChecked="{Binding ApplyPurpose}" Style="{StaticResource Option}" VerticalAlignment="Center" AutomationProperties.AutomationId="chkApplyPurpose" />
                     <CheckBox Content="User notification" IsChecked="{Binding ApplyNotification}" Style="{StaticResource Option}" VerticalAlignment="Center" AutomationProperties.AutomationId="chkApplyNotification" />
-                    <CheckBox Content="Maintenance window, metered, package, task sequence and update group options" IsChecked="{Binding ApplyOptions}" Style="{StaticResource Option}"
+                    <CheckBox Content="Maintenance window, metered, package, task sequence and software update group options" IsChecked="{Binding ApplyOptions}" Style="{StaticResource Option}"
                               VerticalAlignment="Center" AutomationProperties.AutomationId="chkApplyOptions" />
                 </WrapPanel>
                 <StackPanel DataContext="{Binding SelectedRing}">

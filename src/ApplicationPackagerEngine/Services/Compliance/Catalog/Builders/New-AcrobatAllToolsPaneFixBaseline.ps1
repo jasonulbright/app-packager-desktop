@@ -12,10 +12,10 @@
     No embedded scripts. Configuration Manager handles discovery, comparison, and remediation natively.
 
     TEMPORARY WORKAROUND for a confirmed Adobe Acrobat defect: the All Tools pane goes
-    blank / disappears when the user clicks Edit PDF. Creating this FeatureLockDown DWORD
+    blank / disappears when the user selects Edit PDF. Creating this FeatureLockDown DWORD
     restores the pane. Retire this baseline once a fixed Acrobat build is deployed.
 
-    REBOOT / RESTART REQUIRED: restart Acrobat and the machine after
+    REBOOT / RESTART REQUIRED: restart Acrobat and the device after
     the value is set. Configuration Manager remediates the value; the user does not see the fix until
     Acrobat (and ideally the host) restarts.
 
@@ -23,11 +23,11 @@
     Configuration Manager site code.
 
 .PARAMETER SiteServer
-    Configuration Manager site server FQDN.
+    FQDN of the Configuration Manager SMS Provider computer.
 
 .PARAMETER CollectionName
     If specified, deploys the baseline to this collection daily with remediation enabled.
-    Target a collection of machines that have Acrobat installed.
+    Target a collection of devices that have Acrobat installed.
 
 .PARAMETER DetectOnly
     Create / deploy without remediation (audit mode).
@@ -60,7 +60,7 @@ if (-not (Get-Module ConfigurationManager -ErrorAction SilentlyContinue)) {
         Import-Module $modulePath
     }
     else {
-        throw "ConfigurationManager module not found. Run this from a machine with the Configuration Manager admin console installed."
+        throw "ConfigurationManager module not found. Run this from a computer with the Configuration Manager console installed."
     }
 }
 
@@ -87,7 +87,7 @@ try {
     Write-Host "Creating Configuration Item: $CIName"
     $ci = New-CMConfigurationItem `
         -Name $CIName `
-        -Description "Temporary Adobe-supplied workaround for the Acrobat All Tools pane disappearing on Edit PDF (bGenCoverPagesLabelStrings = 1). Retire once Adobe ships the permanent patch. Requires Acrobat/host restart to take effect." `
+        -Description "Temporary Adobe-supplied workaround for the Acrobat All Tools pane disappearing on Edit PDF (bGenCoverPagesLabelStrings = 1). Retire once Adobe ships the permanent fix. Requires Acrobat/host restart to take effect." `
         -CreationType WindowsOS
 
     foreach ($s in $settings) {
@@ -107,7 +107,7 @@ try {
     $ci = Get-CMConfigurationItem -Name $CIName -Fast
 
     Write-Host "Creating Configuration Baseline: $CBName"
-    New-CMBaseline -Name $CBName -Description "Applies the Adobe Acrobat All Tools pane workaround on targeted Windows hosts. Temporary; retire after Adobe's patch."
+    New-CMBaseline -Name $CBName -Description "Applies the Adobe Acrobat All Tools pane workaround on targeted Windows hosts. Temporary; retire after Adobe ships a fix."
     Set-CMBaseline -Name $CBName -AddOSConfigurationItem $ci.CI_ID
     Write-Host "  Baseline created." -ForegroundColor Green
 
@@ -131,7 +131,7 @@ try {
     Write-Host "Baseline: $CBName"
     Write-Host "Severity: $Severity"
     Write-Host "Reboot:   Restart Acrobat + host to apply"
-    Write-Host "Note:     TEMPORARY -- retire after Adobe ships the permanent patch"
+    Write-Host "Note:     TEMPORARY -- retire after Adobe ships the permanent fix"
     Write-Host "Mode:     $(if ($DetectOnly) { 'Detect only' } else { 'Detect + remediate' })"
     $settings | ForEach-Object { Write-Host ("Setting:  HKLM\{0}\{1} = {2}" -f $_.KeyName, $_.ValueName, $_.Expected) }
 }

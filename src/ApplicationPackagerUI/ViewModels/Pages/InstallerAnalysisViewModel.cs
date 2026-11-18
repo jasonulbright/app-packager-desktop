@@ -889,7 +889,7 @@ public partial class InstallerAnalysisViewModel : ObservableObject
             frame.Registry = result.Writes;
             frame.RegistryNotes = result.Notes;
             frame.RegistryMessage = "";
-            _services.Log.Info(LogArea, $"Read the registry settings: writes={result.Writes.Count} notes={result.Notes.Count}.");
+            _services.Log.Info(LogArea, $"Loaded the registry settings: writes={result.Writes.Count} notes={result.Notes.Count}.");
         }
         catch (Exception ex) when (ex is OperationCanceledException || operation.Cancel.IsCancellationRequested)
         {
@@ -930,7 +930,7 @@ public partial class InstallerAnalysisViewModel : ObservableObject
             frame.StringsMessage = strings.Count >= _services.Limits.MaxStrings
                 ? $"The list stops at {_services.Limits.MaxStrings.ToString("N0", CultureInfo.InvariantCulture)} strings."
                 : "";
-            _services.Log.Info(LogArea, $"Read the strings: count={strings.Count}.");
+            _services.Log.Info(LogArea, $"Loaded the strings: count={strings.Count}.");
         }
         catch (Exception ex) when (ex is OperationCanceledException || operation.Cancel.IsCancellationRequested)
         {

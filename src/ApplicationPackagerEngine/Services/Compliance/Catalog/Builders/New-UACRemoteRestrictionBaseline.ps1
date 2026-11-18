@@ -24,7 +24,7 @@
     Configuration Manager site code.
 
 .PARAMETER SiteServer
-    Configuration Manager site server FQDN.
+    FQDN of the Configuration Manager SMS Provider computer.
 
 .PARAMETER CollectionName
     If specified, deploys the baseline to this collection daily with remediation enabled.
@@ -60,7 +60,7 @@ if (-not (Get-Module ConfigurationManager -ErrorAction SilentlyContinue)) {
         Import-Module $modulePath
     }
     else {
-        throw "ConfigurationManager module not found. Run this from a machine with the Configuration Manager admin console installed."
+        throw "ConfigurationManager module not found. Run this from a computer with the Configuration Manager console installed."
     }
 }
 
@@ -87,7 +87,7 @@ try {
     Write-Host "Creating Configuration Item: $CIName"
     $ci = New-CMConfigurationItem `
         -Name $CIName `
-        -Description "Keeps UAC remote token filtering enabled (LocalAccountTokenFilterPolicy = 0). Blocks Pass-the-Hash / lateral movement via local administrator accounts over the network." `
+        -Description "Keeps UAC remote token filtering enabled (LocalAccountTokenFilterPolicy = 0). Blocks Pass-the-Hash and lateral movement that use local administrator accounts over the network." `
         -CreationType WindowsOS
 
     foreach ($s in $settings) {

@@ -29,7 +29,7 @@ Every change shows a plan first. Nothing changes until you read the plan, select
 2. Select `Add`.
 3. In the dialog `Add setting`, select the `Kind`: `Registry` or `Script`.
 4. Enter the `Name` and, if you want, the `Description (optional)`.
-5. For a registry setting, set `Hive`, `Key path` and `Value name (empty for the default value)`. Select `Read the 64-bit registry view` for the 64-bit view.
+5. For a registry setting, set `Hive`, `Key path` and `Value name (empty for the default value)`. Select `Use the 64-bit registry view` for the 64-bit view.
 6. For a script setting, set `Discovery script language` and `Discovery script`. Optionally set `Remediation script language` and `Remediation script (optional)`. Select `Run the scripts as a 64-bit process` for a 64-bit process. The languages are PowerShell, VBScript and JScript.
 7. Set the rule: `Data type`, `Rule name (empty: the setting name and rule)`, `Operator`, `Expected value` and `Noncompliance severity`. For a list operator or a string array, enter one value on each line.
 8. Select the boxes you need: `Remediate noncompliant values`, `Remediate the value as a DWORD` (registry settings), `Report noncompliance when the value is not found`.

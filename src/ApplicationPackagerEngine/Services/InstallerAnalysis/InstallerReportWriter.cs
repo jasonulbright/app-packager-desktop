@@ -67,7 +67,7 @@ public sealed class InstallerReportWriter(string? folder = null, Func<DateTimeOf
         if (r.PostPatch is { } p)
         {
             Line("");
-            Line("Effective post-patch detection target:");
+            Line("Effective detection target after the patch file:");
             Field("Patched product", p.DisplayName);
             Field("ProductCode", p.ProductCode);
             Field("DisplayVersion", p.DisplayVersion);

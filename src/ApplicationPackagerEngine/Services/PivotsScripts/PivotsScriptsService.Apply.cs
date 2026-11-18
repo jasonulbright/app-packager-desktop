@@ -136,7 +136,7 @@ public sealed partial class PivotsScriptsService
             if (prepared.Change.Targets?.IsBuiltInCollection == true && !change.EveryDeviceAcknowledged)
                 return "a run on a collection the site creates needs the box \"This runs on every device of the site\". Nothing was sent.";
             if (prepared.Change.Targets?.CoversEverySiteDevice == true && !change.EveryDeviceAcknowledged)
-                return "the target holds every client of the site, so the run needs the box \"This runs on every device of the site\". Nothing was sent.";
+                return "the target holds every device of the site that has the Configuration Manager client, so the run needs the box \"This runs on every device of the site\". Nothing was sent.";
             if (change.Kind == PivotsChangeKind.RunScript && !change.RunConfirmed)
                 return $"a script run needs the second confirmation for {Count(change.DeviceCount, "device")}. Nothing was sent.";
         }

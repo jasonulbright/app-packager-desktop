@@ -162,7 +162,7 @@ public sealed partial class CollectionService : ICollectionService
         var members = Rows<MemberRow>(output, "Member").Select(m => new CollectionMember(
             m.ResourceId ?? "", m.Name ?? "", ClientState(m.IsClient, m.IsActive), m.IsDirect)).ToList();
         var total = Rows<CountRow>(output, "MemberTotal").FirstOrDefault()?.Count ?? members.Count;
-        _log?.Info(LogArea, $"Read the detail of one collection: {rules.Count} rules, {members.Count} of {total} members.");
+        _log?.Info(LogArea, $"Retrieved the detail of one collection: {rules.Count} rules, {members.Count} of {total} members.");
         return new CollectionDetail(ToRow(row), rules, members, total);
     }
 

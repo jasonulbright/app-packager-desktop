@@ -224,7 +224,7 @@
 
                             <TextBlock Text="Source" Style="{StaticResource SectionLabel}" Margin="0,4,0,4" />
                             <DataGrid x:Name="dgSource" Style="{StaticResource SectionGrid}" ItemsSource="{Binding SourceRows}"
-                                      AutomationProperties.AutomationId="dgSource" AutomationProperties.Name="Source facts">
+                                      AutomationProperties.AutomationId="dgSource" AutomationProperties.Name="Source properties">
                                 <DataGrid.Columns>
                                     <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="180" MinWidth="120" ElementStyle="{StaticResource TrimmedCell}" />
                                     <DataGridTextColumn Header="Value" Binding="{Binding Value}" Width="*" MinWidth="240" ElementStyle="{StaticResource TrimmedCell}" />
@@ -261,9 +261,9 @@
                             <TextBlock Text="{Binding MsiSummary}" Style="{StaticResource Note}" Margin="0,8,0,0" AutomationProperties.AutomationId="txtMsiSummary" />
 
                             <StackPanel Visibility="{Binding HasPostPatch, Converter={StaticResource BoolToVisibility}}" AutomationProperties.AutomationId="pnlPostPatch">
-                                <TextBlock Text="Detection after patches" Style="{StaticResource SectionLabel}" />
+                                <TextBlock Text="Detection after the patch file" Style="{StaticResource SectionLabel}" />
                                 <DataGrid x:Name="dgPostPatch" Style="{StaticResource SectionGrid}" ItemsSource="{Binding PostPatchRows}"
-                                          AutomationProperties.AutomationId="dgPostPatch" AutomationProperties.Name="Detection after patches">
+                                          AutomationProperties.AutomationId="dgPostPatch" AutomationProperties.Name="Detection after the patch file">
                                     <DataGrid.Columns>
                                         <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="180" MinWidth="120" ElementStyle="{StaticResource TrimmedCell}" />
                                         <DataGridTextColumn Header="Value" Binding="{Binding Value}" Width="*" MinWidth="240" ElementStyle="{StaticResource TrimmedCell}" />

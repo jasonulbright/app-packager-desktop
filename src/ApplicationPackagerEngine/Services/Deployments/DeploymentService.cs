@@ -219,7 +219,7 @@ public sealed partial class DeploymentService : IDeploymentService
         var groups = Rows<DpGroupRow>(output, "DpGroup")
             .Select(g => new DpGroupInfo(g.Name ?? "", g.GroupId ?? "", g.Status ?? "Unknown", g.Targeted, g.Success, g.InProgress, g.Error))
             .OrderBy(g => g.Name, StringComparer.CurrentCultureIgnoreCase).ToList();
-        _log?.Info(LogArea, $"Read the status of {groups.Count} DP groups.");
+        _log?.Info(LogArea, $"Retrieved the status of {groups.Count} distribution point groups.");
         return groups;
     }
 

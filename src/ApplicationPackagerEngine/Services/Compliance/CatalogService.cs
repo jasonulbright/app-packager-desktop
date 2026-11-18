@@ -186,7 +186,7 @@ public static partial class CatalogValidation
         if (m.TryGetProperty("Id", out var id) && id.ValueKind == JsonValueKind.String && !KebabRegex().IsMatch(id.GetString()!))
             errors.Add($"Id must be kebab-case (lowercase letters, digits, hyphens): '{id.GetString()}'");
         if (m.TryGetProperty("Version", out var version) && version.ValueKind == JsonValueKind.String && !VersionRegex().IsMatch(version.GetString()!))
-            errors.Add($"Version must be semver (e.g. 1.0.0): '{version.GetString()}'");
+            errors.Add($"Version must be semver (for example 1.0.0): '{version.GetString()}'");
         if (m.TryGetProperty("RebootRequired", out var reboot) && reboot.ValueKind is not (JsonValueKind.True or JsonValueKind.False))
             errors.Add("RebootRequired must be a boolean");
         if (m.TryGetProperty("RemediationSupported", out var remediation) && remediation.ValueKind is not (JsonValueKind.True or JsonValueKind.False))

@@ -91,7 +91,7 @@ internal static partial class HygieneChecks
             if (heartbeats.TryGetValue(id, out var heartbeat) && heartbeat >= cutoff) continue;
             yield return F("DEV-01", "Device", id, d.S("Name"),
                 $"The client was last active {Day(last)}, more than {Count(days, "day")} ago; {note}.",
-                "Verify the machines are really gone, then let cleanup tasks purge them or delete the records.",
+                "Verify the devices are really gone, then let cleanup tasks purge them or delete the records.",
                 HygieneFixKind.RemoveDevice, Params((HygieneFixParameters.Id, id), (HygieneFixParameters.Days, N(days))), severity: severity);
         }
     }
@@ -325,7 +325,7 @@ internal static partial class HygieneChecks
             if (a.I("LastErrorCode") != 0)
                 yield return F("UPD-03", "ADR", id, name,
                     $"Automatic deployment rule's last run ended with error code {a.S("LastErrorCode")}; new updates are not being deployed by it.",
-                    "Open the ADR run history (ruleengine.log on the site server) and fix the failure.",
+                    "Open the ADR run history (the ruleengine.log file on the site server) and fix the failure.",
                     guidance: $"Run it again after the fix: Invoke-CMSoftwareUpdateAutoDeploymentRule -Id {id}", severity: HygieneSeverity.Error);
             else if (!enabled)
                 yield return F("UPD-03", "ADR", id, name,

@@ -97,7 +97,7 @@
                                    Visibility="{Binding IsRunning, Converter={StaticResource BoolToVisibility}}" />
                         <ui:Button Content="Import stage-manifest.json" Icon="{ui:SymbolIcon DocumentArrowLeft24}" Command="{Binding ImportManifestCommand}"
                                    VerticalAlignment="Bottom" AutomationProperties.AutomationId="btnImportManifest"
-                                   ToolTip="Read the detection of a staged build. Nothing runs until you press Run." />
+                                   ToolTip="Load the detection of a staged build. Nothing runs until you select Run." />
                     </WrapPanel>
 
                     <Grid Grid.Row="1">

@@ -35,7 +35,7 @@ public sealed partial class DiscoveryCandidateRow : ObservableObject
 public sealed partial class DiscoveryDialogViewModel : ObservableObject
 {
     public const string NothingCheckedToDismiss = "Check the apps to leave out of later discoveries. Nothing changed.";
-    public const string NothingCheckedToEnable = "Check at least one app, or click Enable all.";
+    public const string NothingCheckedToEnable = "Check at least one app, or select Enable all.";
 
     public ObservableCollection<DiscoveryCandidateRow> Rows { get; }
     public string PromptText { get; }

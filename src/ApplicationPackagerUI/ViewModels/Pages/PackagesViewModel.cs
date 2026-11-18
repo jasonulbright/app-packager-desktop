@@ -439,7 +439,7 @@ public partial class PackagesViewModel : ObservableObject
             MecmConnectionStatus = "Failed";
             AddLogLine($"ConfigMgr: Connection failed — {ex.Message}");
             _snackbarService.Show("ConfigMgr Connection",
-                $"Could not connect to site {settings.SiteCode}. Check Settings and ensure the CM console is available.",
+                $"Could not connect to site {settings.SiteCode}. Check Settings and ensure the Configuration Manager console is available.",
                 Wpf.Ui.Controls.ControlAppearance.Danger,
                 new SymbolIcon(SymbolRegular.Warning24), TimeSpan.FromSeconds(5));
         }

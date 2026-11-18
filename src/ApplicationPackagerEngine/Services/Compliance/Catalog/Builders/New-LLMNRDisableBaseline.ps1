@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    Creates a Configuration Manager CI + Baseline that disables LLMNR via the DNSClient policy.
+    Creates a Configuration Manager CI + Baseline that disables LLMNR by using the DNSClient policy.
 
 .DESCRIPTION
     Single native registry-value compliance setting:
@@ -20,7 +20,7 @@
     Configuration Manager site code.
 
 .PARAMETER SiteServer
-    Configuration Manager site server FQDN.
+    FQDN of the Configuration Manager SMS Provider computer.
 
 .PARAMETER CollectionName
     If specified, deploys the baseline to this collection daily with remediation enabled.
@@ -56,7 +56,7 @@ if (-not (Get-Module ConfigurationManager -ErrorAction SilentlyContinue)) {
         Import-Module $modulePath
     }
     else {
-        throw "ConfigurationManager module not found. Run this from a machine with the Configuration Manager admin console installed."
+        throw "ConfigurationManager module not found. Run this from a computer with the Configuration Manager console installed."
     }
 }
 

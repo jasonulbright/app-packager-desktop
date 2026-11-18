@@ -14,7 +14,7 @@ public sealed partial class ConvertFromCmViewModel : ObservableObject
 {
     public const string IntroText =
         "Enter the exact name of a ConfigMgr application. Each deployment type becomes one Intune Win32 app. " +
-        "Preview reads the application from the site and shows the plan. Nothing is written until you click Convert.";
+        "Preview reads the application from the site and shows the plan. Nothing is written until you select Convert.";
 
     private readonly ICmImportRunner _runner;
     private readonly Func<IntunePublishOptions?> _publishOptions;

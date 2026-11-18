@@ -71,7 +71,7 @@ public static class RequirementRuleBuilder
                         .ToArray();
                     if (cultures.Length == 0)
                         throw new InvalidOperationException(
-                            $"Condition '{conditionId}' requires at least one culture code (e.g. de-DE).");
+                            $"Condition '{conditionId}' requires at least one culture code (for example de-DE).");
                     resolved.Add(new ResolvedRequirement { Template = template, Cultures = cultures });
                     break;
                 }

@@ -81,7 +81,7 @@ public sealed partial class PivotsScriptsService
         var what = change.Kind == PivotsChangeKind.RunPivot ? "the CMPivot query" : "the script";
         impact.Add($"Run {what} on {Count(clients.Count, "device")}: {targets.Description}.");
         if (targets.CollectionId is { } cid)
-            impact.Add($"The site receives one operation for the fixed list of devices in the plan, not for collection {cid}. The page reads the members again just before it sends: it refuses the run when a device is a member that the plan does not hold, and it does not send to a device that left the collection.");
+            impact.Add($"The site receives one operation for the fixed list of devices in the plan, not for collection {cid}. The page reads the members again immediately before it sends: it refuses the run when a device is a member that the plan does not hold, and it does not send to a device that left the collection.");
         else impact.Add("The site receives one operation for the fixed list of devices in the plan.");
         if (change.Kind == PivotsChangeKind.RunPivot && !AdminServiceClient.IsHostName(_admin.Provider))
             checks.Add(new PreflightCheck(CheckNames.Provider, DeploymentCheckResults.Fail, AdminServiceClient.NotAHostMessage));
@@ -127,7 +127,7 @@ public sealed partial class PivotsScriptsService
                 $"{targets.CollectionId} is a collection the site creates. The run needs the box \"This runs on every device of the site\".");
         else if (targets.CoversEverySiteDevice)
             yield return new PreflightCheck(CheckNames.EveryDevice, DeploymentCheckResults.Warn,
-                $"The target holds every client of the site ({Count(clients.Count, "device")}; the site has {Count(targets.SiteClientCount, "client")}). The run needs the box \"This runs on every device of the site\".");
+                $"The target holds every device of the site that has the Configuration Manager client ({Count(clients.Count, "device")}; the site has {Count(targets.SiteClientCount, "device")} with the client). The run needs the box \"This runs on every device of the site\".");
         var offline = clients.Count(d => d.IsOnline == false);
         if (offline > 0)
             yield return new PreflightCheck(CheckNames.Offline, DeploymentCheckResults.Warn,
@@ -148,7 +148,7 @@ public sealed partial class PivotsScriptsService
         checks.Add(problems.Count == 0
             ? new PreflightCheck(CheckNames.Parameters, DeploymentCheckResults.Pass, (change.Parameters?.Count ?? 0) == 0 ? "No value is sent; the script defaults apply." : $"{Count(change.Parameters!.Count, "value")} match the site's parameter definitions.")
             : new PreflightCheck(CheckNames.Parameters, DeploymentCheckResults.Fail, string.Join(" ", problems)));
-        impact.Add($"Script {script.Name} ({script.Guid}), version {script.Version.ToString(CultureInfo.InvariantCulture)}. {TextHashLabel} {script.Hash}. {SiteHashLabel} {script.SiteHash}. The page reads the script again just before it sends and refuses the run when the text changed.");
+        impact.Add($"Script {script.Name} ({script.Guid}), version {script.Version.ToString(CultureInfo.InvariantCulture)}. {TextHashLabel} {script.Hash}. {SiteHashLabel} {script.SiteHash}. The page reads the script again immediately before it sends and refuses the run when the text changed.");
         impact.Add(ParametersLine(script, change.Parameters));
         impact.Add("The script runs as the local system account on each client. Its exit code is not reported by the site: a script reads as Failed only when it stops with an error.");
         impact.Add("The run needs a second confirmation that states the device count.");

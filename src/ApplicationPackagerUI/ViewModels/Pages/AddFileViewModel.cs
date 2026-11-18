@@ -252,7 +252,7 @@ public sealed partial class AddFileViewModel : ObservableObject
         if (!string.IsNullOrWhiteSpace(patch.TargetProductName))
             PatchFacts.Add(new AddFactRow(Label: "Target product", Value: patch.TargetProductName!, AutomationId: "txtAddFilePatchProduct"));
         if (!string.IsNullOrWhiteSpace(patch.PostPatchVersion))
-            PatchFacts.Add(new AddFactRow(Label: "Version after the patch", Value: patch.PostPatchVersion!, AutomationId: "txtAddFilePatchVersion"));
+            PatchFacts.Add(new AddFactRow(Label: "Version after the patch file", Value: patch.PostPatchVersion!, AutomationId: "txtAddFilePatchVersion"));
         if (!string.IsNullOrWhiteSpace(patch.Classification))
             PatchFacts.Add(new AddFactRow(Label: "Classification", Value: patch.Classification!, AutomationId: "txtAddFilePatchClassification"));
     }
