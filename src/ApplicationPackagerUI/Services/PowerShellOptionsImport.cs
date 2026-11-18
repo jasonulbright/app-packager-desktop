@@ -78,6 +78,9 @@ public static class PowerShellOptionsImport
     public const string FileName = "AppPackager.preferences.json";
 
     private const string CredentialNote = "A credential. It is never imported; enter it under Settings.";
+    private const string ProtectedSecretNote = "Protected with DPAPI for the Windows user of the PowerShell app. APD cannot read it and never imports it; enter the secret under Settings.";
+    private const string DetectedToolNote = "A tool found on the other computer. APD detects its own tools.";
+    private const string IntuneWinToolNote = "The path of IntuneWinAppUtil.exe on the other computer. APD downloads its own checked copy of the tool.";
     private const string PerApplicationNote = "Saved for each application, and the application ids of the two apps differ. Set it in APD.";
 
     /// <summary>
@@ -174,13 +177,27 @@ public static class PowerShellOptionsImport
 
             if (IsCredentialName(property.Name))
             {
-                rows.Add(new PowerShellImportRow(key, PowerShellImportOutcome.Skipped, "", "", CredentialNote));
+                var protectedNote = property.Name.EndsWith("Protected", StringComparison.OrdinalIgnoreCase) ? ProtectedSecretNote : CredentialNote;
+                rows.Add(new PowerShellImportRow(key, PowerShellImportOutcome.Skipped, "", "", protectedNote));
                 continue;
             }
 
             if (Containers.TryGetValue(key, out var container))
             {
                 rows.Add(new PowerShellImportRow(key, PowerShellImportOutcome.Skipped, "", "", container));
+                continue;
+            }
+
+            if (key.Equals("Intune.PublishToIntune", StringComparison.OrdinalIgnoreCase))
+            {
+                rows.Add(PublishToIntuneRow(key, value, node, current, writers));
+                continue;
+            }
+
+            if (key.StartsWith("DetectedTools.", StringComparison.OrdinalIgnoreCase) && key.IndexOf('.', 14) < 0)
+            {
+                var tool = key.Equals("DetectedTools.IntuneWinAppUtil", StringComparison.OrdinalIgnoreCase) ? IntuneWinToolNote : DetectedToolNote;
+                rows.Add(new PowerShellImportRow(key, PowerShellImportOutcome.Skipped, "", "", tool));
                 continue;
             }
 
@@ -199,6 +216,35 @@ public static class PowerShellOptionsImport
 
             rows.Add(new PowerShellImportRow(key, PowerShellImportOutcome.Unknown, Display(value), "", "APD has no setting for this key."));
         }
+    }
+
+    /// <summary>
+    /// APD has no separate publish switch: it publishes to Intune when the deployment target includes Intune. The row is derived from the
+    /// deployment target; a file from before the target existed (PublishToIntune true and no valid target) writes the target MECMAndIntune, as the PowerShell app does.
+    /// </summary>
+    private static PowerShellImportRow PublishToIntuneRow(string key, JsonElement value, JsonElement node, AppSettings current, Dictionary<string, Action<AppSettings>> writers)
+    {
+        var apdTarget = current.Intune.DeploymentTarget;
+        var apd = DeploymentTargets.PublishesToIntune(apdTarget) ? "True" : "False";
+        if (value.ValueKind is not (JsonValueKind.True or JsonValueKind.False))
+            return new PowerShellImportRow(key, PowerShellImportOutcome.Skipped, Display(value), apd, "A true or false value is expected.");
+
+        var publish = value.ValueKind == JsonValueKind.True;
+        var text = publish ? "True" : "False";
+        var hasTarget = node.EnumerateObject().FirstOrDefault(p => string.Equals(p.Name, "DeploymentTarget", StringComparison.OrdinalIgnoreCase)) is { Value.ValueKind: JsonValueKind.String } t
+            && new[] { DeploymentTargets.Mecm, DeploymentTargets.MecmAndIntune, DeploymentTargets.IntuneOnly, DeploymentTargets.MecmAndWsus, DeploymentTargets.WsusOnly }
+                .Any(n => string.Equals(n, t.Value.GetString(), StringComparison.OrdinalIgnoreCase));
+
+        if (!hasTarget && publish)
+        {
+            if (apdTarget is DeploymentTargets.MecmAndIntune or DeploymentTargets.IntuneOnly)
+                return new PowerShellImportRow(key, PowerShellImportOutcome.Same, text, apd, "Same. APD publishes to Intune when the deployment target includes Intune.");
+            writers[key] = s => s.Intune.DeploymentTarget = DeploymentTargets.MecmAndIntune;
+            return new PowerShellImportRow(key, PowerShellImportOutcome.Import, text, apd, "Will be written as the deployment target MECMAndIntune (an older file has no target).");
+        }
+
+        return new PowerShellImportRow(key, PowerShellImportOutcome.Skipped, text, apd,
+            "APD has no separate switch. It publishes to Intune when the deployment target (Intune.DeploymentTarget) includes Intune.");
     }
 
     /// <summary>A name that holds a credential. The value is never read.</summary>
@@ -223,7 +269,6 @@ public static class PowerShellOptionsImport
     /// <summary>A key whose whole block is left alone, with the reason.</summary>
     private static readonly Dictionary<string, string> Containers = new(StringComparer.OrdinalIgnoreCase)
     {
-        ["DetectedTools"] = "Tools found on the other computer. APD detects its own tools.",
         ["FirstRunCompleted"] = "APD keeps its own first-run flag.",
         ["AppFlow.Tracked"] = PerApplicationNote,
         ["AppFlow.CadenceOverrides"] = PerApplicationNote,

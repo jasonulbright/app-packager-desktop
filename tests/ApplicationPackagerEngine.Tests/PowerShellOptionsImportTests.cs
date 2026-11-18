@@ -175,6 +175,75 @@ public sealed class PowerShellOptionsImportTests
         Assert.DoesNotContain("plain", string.Concat(preview.Rows.Select(r => r.PowerShellValue + r.Note)));
     }
 
+    // ---- Q-42: every Intune key of the PowerShell file has a row with a reason or a value
+
+    private static string IntuneFixture(string name) =>
+        File.ReadAllText(Path.Combine(CatalogServiceTests.RepositoryRoot(), "tests", "ApplicationPackagerEngine.Tests", "Fixtures", "PowerShellPreferences", name));
+
+    [Fact]
+    public void EveryIntuneKeyHasARowAndNoneIsUnknown()
+    {
+        var preview = PowerShellOptionsImport.Preview(IntuneFixture("intune-all-keys.json"), new AppSettings());
+
+        foreach (var key in new[] { "Systems.Intune", "Intune.DeploymentTarget", "Intune.PublishToIntune", "Intune.TenantId", "Intune.ClientId", "Intune.ClientSecretProtected", "DetectedTools.IntuneWinAppUtil" })
+            Assert.NotEqual(PowerShellImportOutcome.Unknown, Row(preview, key).Outcome);
+        Assert.Equal(PowerShellImportOutcome.Import, Row(preview, "Intune.DeploymentTarget").Outcome);
+        Assert.Equal(PowerShellImportOutcome.Skipped, Row(preview, "Intune.PublishToIntune").Outcome);
+        Assert.Contains("deployment target", Row(preview, "Intune.PublishToIntune").Note);
+        Assert.Contains("DPAPI", Row(preview, "Intune.ClientSecretProtected").Note);
+        Assert.Contains("downloads its own", Row(preview, "DetectedTools.IntuneWinAppUtil").Note);
+    }
+
+    [Fact]
+    public void ImportWritesTheIntuneValuesAndPublishFollowsTheTarget()
+    {
+        var target = new AppSettings();
+        target.Intune.ClientSecretProtected = "keep-intune";
+        var preview = PowerShellOptionsImport.Preview(IntuneFixture("intune-all-keys.json"), target);
+
+        PowerShellOptionsImport.Apply(preview, target);
+
+        Assert.Equal(DeploymentTargets.IntuneOnly, target.Intune.DeploymentTarget);
+        Assert.True(DeploymentTargets.PublishesToIntune(target.Intune.DeploymentTarget));
+        Assert.Equal("contoso.onmicrosoft.com", target.Intune.TenantId);
+        Assert.Equal("11111111-2222-3333-4444-555555555555", target.Intune.ClientId);
+        Assert.Equal("keep-intune", target.Intune.ClientSecretProtected);
+        Assert.DoesNotContain("SECRET-MARKER", string.Concat(preview.Rows.Select(r => r.PowerShellValue + r.Note)));
+    }
+
+    [Fact]
+    public void AFileWithoutATargetAndPublishTrueWritesMecmAndIntune()
+    {
+        var target = new AppSettings();
+        var preview = PowerShellOptionsImport.Preview(IntuneFixture("intune-legacy-toggle.json"), target);
+
+        Assert.Equal(PowerShellImportOutcome.Import, Row(preview, "Intune.PublishToIntune").Outcome);
+        PowerShellOptionsImport.Apply(preview, target);
+        Assert.Equal(DeploymentTargets.MecmAndIntune, target.Intune.DeploymentTarget);
+
+        var again = PowerShellOptionsImport.Preview(IntuneFixture("intune-legacy-toggle.json"), target);
+        Assert.Equal(PowerShellImportOutcome.Same, Row(again, "Intune.PublishToIntune").Outcome);
+    }
+
+    [Fact]
+    public void ImportingTwiceChangesNothingTheSecondTime()
+    {
+        var target = new AppSettings();
+        PowerShellOptionsImport.Apply(PowerShellOptionsImport.Preview(IntuneFixture("intune-all-keys.json"), target), target);
+        var second = PowerShellOptionsImport.Preview(IntuneFixture("intune-all-keys.json"), target);
+
+        Assert.Equal(0, second.Rows.Count(r => r.Key.StartsWith("Intune.", StringComparison.Ordinal) && r.Differs));
+        Assert.False(DeploymentTargets.PublishesToIntune(new AppSettings().Intune.DeploymentTarget));
+    }
+
+    [Fact]
+    public void APublishValueThatIsNotABooleanIsSkipped()
+    {
+        var preview = PowerShellOptionsImport.Preview("""{ "Intune": { "DeploymentTarget": "MECM", "PublishToIntune": "yes" } }""", new AppSettings());
+
+        Assert.Equal(PowerShellImportOutcome.Skipped, Row(preview, "Intune.PublishToIntune").Outcome);
+    }
+
     // ---- skipped, unknown, differs
 
     [Fact]
@@ -182,7 +251,7 @@ public sealed class PowerShellOptionsImportTests
     {
         var preview = PowerShellOptionsImport.Preview(Fixture("2026.11.14.0141"), new AppSettings());
 
-        foreach (var key in new[] { "AppFlow.Tracked", "AppFlow.CadenceOverrides", "LocalSourceFolders", "HiddenApplications", "DiscoveryDismissed", "DetectedTools", "SSMSInstallOptions", "M365Options" })
+        foreach (var key in new[] { "AppFlow.Tracked", "AppFlow.CadenceOverrides", "LocalSourceFolders", "HiddenApplications", "DiscoveryDismissed", "DetectedTools.SevenZipCli", "SSMSInstallOptions", "M365Options" })
         {
             var row = Row(preview, key);
             Assert.Equal(PowerShellImportOutcome.Skipped, row.Outcome);
@@ -438,6 +507,39 @@ public sealed class PowerShellOptionsImportTests
                 var encoder = new System.Windows.Media.Imaging.PngBitmapEncoder();
                 encoder.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(bitmap));
                 using var stream = File.Create(Path.Combine(folder, $"import-preview-{theme.ToString().ToLowerInvariant()}.png"));
+                encoder.Save(stream);
+            }
+        }
+        finally { window.Close(); }
+    });
+
+    [Theory]
+    [MemberData(nameof(Themes))]
+    public void ThePreviewWindowShowsTheIntuneRowsWithTheirReasons(ApplicationTheme theme) => WithApplication(theme, () =>
+    {
+        var preview = PowerShellOptionsImport.Preview(IntuneFixture("intune-all-keys.json"), new AppSettings());
+        var window = new PowerShellImportWindow(preview) { Width = 1920, Height = 1032, Left = -32000, Top = -32000, ShowInTaskbar = false };
+        Show(window);
+        try
+        {
+            Settle(window);
+            var grid = ById<System.Windows.Controls.DataGrid>(window, "dgImportRows");
+            var rows = grid.ItemsSource.Cast<PowerShellImportRowView>().ToList();
+
+            Assert.Equal(preview.Rows.Count, rows.Count);
+            Assert.Contains(rows, r => r.Key == "Intune.PublishToIntune");
+            Assert.Contains(rows, r => r.Key == "Intune.ClientSecretProtected");
+            Assert.Contains(rows, r => r.Key == "DetectedTools.IntuneWinAppUtil");
+
+            var folder = Environment.GetEnvironmentVariable("APD_SETTINGS_SHOTS");
+            if (!string.IsNullOrWhiteSpace(folder))
+            {
+                Directory.CreateDirectory(folder);
+                var bitmap = new System.Windows.Media.Imaging.RenderTargetBitmap((int)window.ActualWidth, (int)window.ActualHeight, 96, 96, PixelFormats.Pbgra32);
+                bitmap.Render(window);
+                var encoder = new System.Windows.Media.Imaging.PngBitmapEncoder();
+                encoder.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(bitmap));
+                using var stream = File.Create(Path.Combine(folder, $"import-preview-intune-{theme.ToString().ToLowerInvariant()}.png"));
                 encoder.Save(stream);
             }
         }

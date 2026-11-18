@@ -1,0 +1,13 @@
+{
+  "Systems": { "ConfigMgr": true, "Intune": true, "Wsus": false },
+  "DetectedTools": {
+    "IntuneWinAppUtil": { "Found": true, "DisplayVersion": "1.8.6", "ExePath": "C:/Tools/IntuneWinAppUtil.exe", "DetectedAt": "2026-11-01T00:00:00Z" }
+  },
+  "Intune": {
+    "DeploymentTarget": "IntuneOnly",
+    "PublishToIntune": true,
+    "TenantId": "contoso.onmicrosoft.com",
+    "ClientId": "11111111-2222-3333-4444-555555555555",
+    "ClientSecretProtected": "SECRET-MARKER"
+  }
+}

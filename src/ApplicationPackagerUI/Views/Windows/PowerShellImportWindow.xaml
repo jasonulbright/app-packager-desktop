@@ -44,10 +44,17 @@
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
                 <DataGridTextColumn Header="Result" Width="88" Binding="{Binding OutcomeText}" IsReadOnly="True" />
-                <DataGridTextColumn Header="Key" Width="320" Binding="{Binding Key}" IsReadOnly="True" />
-                <DataGridTextColumn Header="PowerShell value" Width="220" Binding="{Binding PowerShellValue}" IsReadOnly="True" />
-                <DataGridTextColumn Header="APD value" Width="220" Binding="{Binding ApdValue}" IsReadOnly="True" />
-                <DataGridTextColumn Header="Note" Width="*" MinWidth="160" Binding="{Binding Note}" IsReadOnly="True" />
+                <DataGridTextColumn Header="Key" Width="260" Binding="{Binding Key}" IsReadOnly="True" />
+                <DataGridTextColumn Header="PowerShell value" Width="180" Binding="{Binding PowerShellValue}" IsReadOnly="True" />
+                <DataGridTextColumn Header="APD value" Width="120" Binding="{Binding ApdValue}" IsReadOnly="True" />
+                <DataGridTextColumn Header="Note" Width="*" MinWidth="160" Binding="{Binding Note}" IsReadOnly="True">
+                    <DataGridTextColumn.ElementStyle>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="TextWrapping" Value="Wrap" />
+                            <Setter Property="ToolTip" Value="{Binding Note}" />
+                        </Style>
+                    </DataGridTextColumn.ElementStyle>
+                </DataGridTextColumn>
             </DataGrid.Columns>
         </DataGrid>
 
