@@ -34,6 +34,15 @@ jobs:
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
 
+      # DetectionTesterParityTests compares this app with the standalone Detection Tester module. The module comes from a
+      # released tag, so the test runs in CI. Move the tag when the parity test is checked against a newer release.
+      - name: Check out the standalone Detection Tester
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          repository: jasonulbright/detection-tester
+          ref: v2026.11.18.0025
+          path: detection-tester-ref
+
       - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
         with:
           dotnet-version: 10.0.x
@@ -71,6 +80,7 @@ jobs:
         shell: pwsh
         env:
           TEST_FILTER: ${{ inputs.filter }}
+          APD_DETECTION_TESTER_DIR: ${{ github.workspace }}\detection-tester-ref
           APD_GUIDE_CAPTURE_DIR: ${{ runner.temp }}/guide-images
         run: |
           if ($env:TEST_FILTER) { dotnet test tests/ApplicationPackagerEngine.Tests/ApplicationPackagerEngine.Tests.csproj --configuration Release --filter $env:TEST_FILTER }

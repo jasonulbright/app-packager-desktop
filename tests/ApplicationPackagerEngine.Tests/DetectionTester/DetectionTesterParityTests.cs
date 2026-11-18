@@ -7,14 +7,34 @@ using Xunit.Abstractions;
 
 namespace ApplicationPackagerEngine.Tests.DetectionTester;
 
-/// <summary>Runs only on a computer that has the standalone Detection Tester module.</summary>
+/// <summary>
+/// Runs on a computer that has the standalone Detection Tester module. The module is read from the folder in the
+/// environment variable APD_DETECTION_TESTER_DIR (the CI job checks out a released tag there), else from the
+/// development folder. The test is skipped only when neither holds the module; the CI job fails when it is missing.
+/// </summary>
 public sealed class ParityFactAttribute : FactAttribute
 {
-    public const string ModulePath = @"C:\projects\detection-tester\Module\DetectionTesterCommon.psm1";
+    public const string FolderVariable = "APD_DETECTION_TESTER_DIR";
+
+    public static string ModulePath
+    {
+        get
+        {
+            var folder = Environment.GetEnvironmentVariable(FolderVariable);
+            if (string.IsNullOrWhiteSpace(folder)) folder = @"C:\projects\detection-tester";
+            return Path.Combine(folder, "Module", "DetectionTesterCommon.psm1");
+        }
+    }
 
     public ParityFactAttribute()
     {
-        if (!File.Exists(ModulePath)) Skip = "The standalone Detection Tester module is not on this computer.";
+        if (!File.Exists(ModulePath))
+        {
+            // CI sets the variable. A set variable with no module there is a broken checkout, not a missing optional tool.
+            if (!string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable(FolderVariable)))
+                throw new InvalidOperationException($"{FolderVariable} is set but {ModulePath} does not exist.");
+            Skip = "The standalone Detection Tester module is not on this computer.";
+        }
     }
 }
 

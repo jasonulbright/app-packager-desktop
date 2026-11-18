@@ -121,8 +121,10 @@ public sealed class SiteHygieneLiveTests
         await WaitUntil(() => service.RefreshCalls == 2);
         vm.CancelRefreshCommand.Execute(null);
         await run;
+        // The cancelled read still runs. The view model reports its end, so the test waits for that event and not for a fixed time.
+        Assert.True(vm.IsPreviousRefreshEnding, "The cancelled read must still run when the result is released.");
         gate.SetResult();
-        await Task.Delay(100);
+        await WaitUntil(() => !vm.IsPreviousRefreshEnding, "The cancelled read did not end.");
         Assert.Same(earlier, vm.LastSnapshot);
         Assert.Equal(3, vm.LiveViewRows.Count);
         Assert.Single(Live(h).History.Appended);
