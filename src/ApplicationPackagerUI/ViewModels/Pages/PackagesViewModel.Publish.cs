@@ -86,6 +86,22 @@ public partial class PackagesViewModel : IOneClickRunner, IPublishActionHost
     }
 
     /// <summary>
+    /// "Use as old application": the line of the row (the title, the version and the identity marker of its staged build) and the site, or
+    /// null with the reason shown to the operator. Nothing is read from the site here.
+    /// </summary>
+    public PackagerExecutionService.OldApplicationTarget? OldApplicationTargetFor(PackagerInfo p)
+    {
+        var error = PublishRunService.RunGate(PublishRunTargets.ConfigMgr, _settingsService.Load());
+        PackagerExecutionService.OldApplicationTarget? target = null;
+        if (error is null) (target, error) = _executionService.OldApplicationTargetFor(p, null);
+        if (target is not null) return target;
+        AddLogLine($"Use as old application: {error}");
+        StatusText = "Use as old application not possible.";
+        _publishDialogs.ShowMessage("Use as old application", error!);
+        return null;
+    }
+
+    /// <summary>
     /// "Rewrite old versions": the plan of the clauses that the rewrite would change for the checked application, in the change plan
     /// window with its confirmation and Undo (Restore). When nothing is left to rewrite and an earlier rewrite is pending in the log,
     /// the window offers that Restore. Works on one application at a time.

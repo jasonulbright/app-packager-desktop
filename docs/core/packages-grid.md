@@ -79,6 +79,7 @@ A right click selects the row and opens the menu.
 |---|---|
 | **View operation history...** | Opens the **Operation history** window for the row. |
 | **Edit application...** | Opens the [Workbench](workbench.md) for the row. A double click on a row does the same. The sidebar entry **Workbench** opens it for the highlighted row. |
+| **Use as old application...** | Opens the **Old Application** window for the row, to link an application of the ConfigMgr site as the older version of this application. The row needs a staged build, because the title, the version and the architecture come from it. See [Publish to ConfigMgr](publish-to-configmgr.md). |
 | **Open Log Folder** | Opens the `Logs` folder in the **Download Root**. The folder holds the log files of the Stage and Publish runs. Nothing happens when the folder does not exist. |
 | **Open Staged Folder** | Opens the first folder in the **Download Root** whose name contains the file name of the definition without its extension. Opens the **Download Root** when no folder matches. |
 | **Open Network Share** | Opens the **File Share Root** in Explorer. |

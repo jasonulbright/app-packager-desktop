@@ -610,6 +610,16 @@ The button on the Packages page runs `PackagerExecutionService.ApplySupersedence
 
 **Lab check (not run here).** On CM01: publish version 1 and version 2 of a title with the mode `Replace`, remove the relation by hand, check the row, press **Apply supersedence**: the relation exists again and the inventory row reads Succeeded. Press it again: no relation is added twice.
 
+## Supersedence: the older-application override ("Use as old application")
+
+Q-50, ported from the PowerShell app (its `Tests/SupersedenceOldApplication.Tests.ps1`, the same cases). The context menu of the Packages grid opens the Old Application window for a row with a staged build: the title, the version and the identity marker come from the stage manifest as the publish resolves them (`PackagerExecutionService.OldApplicationTargetFor`). The window searches the site by a part of the name, lists the applications with their state, asks first (title and version, Cancel is the default) and then writes the marker into the keywords of the chosen application (`OldApplicationService` in the engine). The lookup, the planner and the step are unchanged: the marker is the link.
+
+| Test | What it proves |
+|---|---|
+| `SupersedenceOldApplicationTests` | The list: only an application without keywords and without a marker is offered, linkable first and newest first; retired, unreadable version, version not older, keywords of its own, the marker of another line (also another profile or architecture) and unreadable keywords are not offered. The lookup finds the linked application. The search escapes wildcard characters and refuses an empty text. The confirmation text. Nothing is written without the confirmation. Link: refused for own keywords or another line, no second write, a failed read or write is reported. Remove Link only when the marker is the one keyword. The grid menu item, the source of the marker, and the window (both themes, buttons by row state, confirm flow, declined confirmation). |
+
+**Lab check.** Run on CM01 with throw-away applications: the search, the link, each refusal, the removal and the lookup (see the report of Q-50).
+
 ## Supersedence: the rewrite window (old-version clause, with Restore)
 
 The button **Rewrite old versions** on the Packages page opens the change plan window for the checked application (one at a time). The plan reads the line from the site with `OldVersionRewriteRunner.PlanAsync` (the same plan as `--rewrite-old-versions plan`). The window lists each clause that would change, shows the blocked and left clauses with their reasons in the notes, and asks for the confirmation text of the specification before Confirm. Confirm writes the log ahead and rewrites (the same runner as `--rewrite-old-versions apply`). Undo is Restore (the same runner as `restore`). When nothing is left to rewrite and the log holds a pending rewrite, the window offers that Restore.

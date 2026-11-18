@@ -254,6 +254,13 @@
                             <ui:SymbolIcon Symbol="Wrench24" />
                         </MenuItem.Icon>
                     </MenuItem>
+                    <MenuItem x:Name="MenuUseAsOldApplication" Header="Use as old application..." Click="ContextMenu_UseAsOldApplication"
+                              ToolTip="Links an application of the site as the older version of this application, so the next publish supersedes it. Needs a staged build."
+                              AutomationProperties.AutomationId="menuUseAsOldApplication">
+                        <MenuItem.Icon>
+                            <ui:SymbolIcon Symbol="LinkMultiple24" />
+                        </MenuItem.Icon>
+                    </MenuItem>
                     <Separator />
                     <MenuItem Header="Open Log Folder" Click="ContextMenu_OpenLogFolder">
                         <MenuItem.Icon>
