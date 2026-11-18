@@ -315,7 +315,11 @@ public static class PowerShellOptionsImport
         Add(Rule.Bool("IncludeVersionInTitle", s => s.IncludeVersionInTitle, (s, v) => s.IncludeVersionInTitle = v));
         Add(Rule.Bool("RemoveVersionFromTitle", s => s.RemoveVersionFromTitle, (s, v) => s.RemoveVersionFromTitle = v));
 
-        Add(Rule.Text("DiscoverySqlServer", s => s.DiscoverySqlServer, (s, v) => s.DiscoverySqlServer = v.Trim()));
+        // APD keeps one SQL Server name, as server\instance,port. The PowerShell app keeps the three parts in separate keys.
+        Add(Rule.Text("DiscoverySqlServer", s => SqlName.Parse(s.DiscoverySqlServer).Server, (s, v) => s.DiscoverySqlServer = SqlName.WithServer(s.DiscoverySqlServer, v)));
+        Add(Rule.Text("DiscoverySqlInstance", s => SqlName.Parse(s.DiscoverySqlServer).Instance, (s, v) => s.DiscoverySqlServer = SqlName.WithInstance(s.DiscoverySqlServer, v),
+            v => v.Contains('\\') || v.Contains(',') ? "An instance name has no backslash or comma." : null));
+        Add(Rule.Number("DiscoverySqlPort", 0, 65535, s => SqlName.Parse(s.DiscoverySqlServer).Port, (s, v) => s.DiscoverySqlServer = SqlName.WithPort(s.DiscoverySqlServer, v)));
         Add(Rule.Text("DiscoverySqlDatabase", s => s.DiscoverySqlDatabase, (s, v) => s.DiscoverySqlDatabase = v.Trim()));
 
         Add(Rule.Bool("Systems.ConfigMgr", s => s.Systems?.ConfigMgr ?? true, (s, v) => (s.Systems ??= new SystemsInUse()).ConfigMgr = v));
@@ -361,6 +365,43 @@ public static class PowerShellOptionsImport
         Add(Rule.Bool("ScriptSigning.TimestampRequired", s => s.ScriptSigning.TimestampRequired, (s, v) => s.ScriptSigning.TimestampRequired = v));
         Add(Rule.Choice("ScriptSigning.HashAlgorithm", ["SHA256", "SHA384", "SHA512", "SHA1"], s => s.ScriptSigning.HashAlgorithm, (s, v) => s.ScriptSigning.HashAlgorithm = v));
         return rules;
+    }
+
+    /// <summary>The SQL Server name of APD (server\instance,port) and its three parts.</summary>
+    internal static class SqlName
+    {
+        public static (string Server, string Instance, int Port) Parse(string? name)
+        {
+            var text = (name ?? "").Trim();
+            var port = 0;
+            var comma = text.LastIndexOf(',');
+            if (comma >= 0 && int.TryParse(text[(comma + 1)..].Trim(), out var parsed)) { port = parsed; text = text[..comma].Trim(); }
+            var slash = text.IndexOf('\\');
+            return slash >= 0 ? (text[..slash].Trim(), text[(slash + 1)..].Trim(), port) : (text, "", port);
+        }
+
+        public static string Join(string server, string instance, int port) =>
+            server.Length == 0 ? "" : server + (instance.Length > 0 ? "\\" + instance : "") + (port > 0 ? "," + port : "");
+
+        /// <summary>A server value of an older PowerShell file may hold the whole name (server\instance,port); it then sets all three parts.</summary>
+        public static string WithServer(string? current, string value)
+        {
+            var given = Parse(value);
+            var (_, instance, port) = Parse(current);
+            return value.Contains('\\') || value.Contains(',') ? Join(given.Server, given.Instance, given.Port) : Join(given.Server, instance, port);
+        }
+
+        public static string WithInstance(string? current, string value)
+        {
+            var (server, _, port) = Parse(current);
+            return Join(server, value.Trim(), port);
+        }
+
+        public static string WithPort(string? current, int value)
+        {
+            var (server, instance, _) = Parse(current);
+            return Join(server, instance, value);
+        }
     }
 
     private static class SigningPolicyStores
