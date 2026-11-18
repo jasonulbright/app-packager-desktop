@@ -22,13 +22,13 @@ Every change shows a plan first. Nothing changes until you read the plan and sel
 
 1. Select the `WQL Editor` tab.
 2. In the tree on the left, select a collection. Use the filter box ("Filter by name or ID") to find it. Folders group the collections as in the console. A built-in collection is not accepted for a change. The page shows "A built-in collection cannot be changed or removed here."
-3. Read the line `Collection` above the editor. The list `Query rule of the collection` holds the query rules that the collection has now.
+3. View the line `Collection` above the editor. The list `Query rule of the collection` holds the query rules that the collection has now.
 4. Enter the query in the editor. The query must be one `select` statement.
 5. Enter a `Rule name`.
 6. Select `Validate`. The page shows "The query is valid. It matches <n> resources." or the reason the query is not valid.
 7. Select `Preview`. The page shows the match count and the first rows in the order of the select list. The message reads "<n> matches." or "<n> matches. The first <m> are shown." Select `Cancel preview` to stop a preview.
 8. Select `Add Rule`.
-9. Read the plan. The plan shows the rule name, the query and the line about the last preview. If you did not run `Preview` for this query, the plan states "Preview was not run for this query."
+9. Review the plan. The plan shows the rule name, the query and the line about the last preview. If you did not run `Preview` for this query, the plan states "Preview was not run for this query."
 10. Select the action button `Add rule`.
 
 ![The WQL Editor tab with a query rule and the preview](../images/tools-collections-wql.png)
@@ -38,7 +38,7 @@ Every change shows a plan first. Nothing changes until you read the plan and sel
 1. Select the collection in the tree.
 2. Select the rule in the list `Query rule of the collection`. The editor shows its name and its query.
 3. Change the query or the `Rule name`.
-4. Select `Update Rule`. Read the plan. Select the action button `Update rule`.
+4. Select `Update Rule`. Review the plan. Select the action button `Update rule`.
 5. To remove the rule, select `Remove Rule`, read the plan and select the action button `Remove rule`.
 
 You can also select the rule on the `Query Rules` detail tab of the Collections tab and select `Edit in WQL Editor`.
@@ -66,7 +66,7 @@ The page checks the query before it reaches the SMS Provider (`WqlGuard.cs`):
 5. To edit the query first, select `Copy to WQL Editor`. The page opens the WQL Editor tab with the final query and the template name as rule name.
 6. To add the query to collections, select `Apply to Collections`.
 7. In the picker, check the collections. The picker does not offer built-in collections. Select `Show plan`.
-8. Read the plan. A collection that already has a rule with the template name shows as Skip. Select the action button.
+8. Review the plan. A collection that already has a rule with the template name shows as Skip. Select the action button.
 
 ![The Templates tab with a parameterized template and the final query](../images/tools-collections-templates.png)
 
@@ -146,8 +146,8 @@ The page saves the selected tab and the template category in `settings.json`. Se
 | Enter a whole number for <label>, for example 14. | The value is not a whole number. | Enter a whole number. |
 | The value for <label> cannot contain <character>. The query compares it with like, where <character> is a wildcard. | The value holds `%`, `_` or `[`. | Remove the character. |
 | A saved query named <name> already exists. | The name is in use. | Use another name. |
-| The saved queries could not be read. The log has the details. | The read failed. | Read the log. Select `Refresh`. |
-| The templates could not be read. The log has the details. | A template read failed. | Read the log. |
+| The saved queries could not be read. The log has the details. | The read failed. | Review the log. Select `Refresh`. |
+| The templates could not be read. The log has the details. | A template read failed. | Review the log. |
 
 See also [error messages](../reference/error-messages.md).
 

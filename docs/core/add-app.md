@@ -70,7 +70,7 @@ A scraper reads the current version from the vendor.
 To test the settings:
 
 1. Select **Test Scrape**.
-2. Read the result box. A good result is `Version: <version>`. When the transform changed the version, the box also shows `(raw: <version>)`.
+2. Review the result box. A good result is `Version: <version>`. When the transform changed the version, the box also shows `(raw: <version>)`.
 
 **Test Scrape** needs a **Scraper URL** and a **Pattern**. The page keeps the raw version and the transformed version of the last good test. Step 3 and step 4 use them to fill `{version}` and `{display_version}`.
 
@@ -94,9 +94,9 @@ The scrapers are explained in [Definitions](definitions.md#version-sources-scrap
 This step is optional. The text on the page reads: "Downloads the installer one time to the download root and reads it. Nothing in the installer is started."
 
 1. Select **Download and analyze**. **Cancel** shows while the step runs and stops the download or the analysis.
-2. Read the proposed values. Each row has a check box, the value and an evidence marker. A row with a value and an evidence level other than **No value** is checked at first.
+2. View the proposed values. Each row has a check box, the value and an evidence marker. A row with a value and an evidence level other than **No value** is checked at first.
 3. Clear the check box of a value that you do not want. Edit a value if it is wrong. An edited value shows **Manual**.
-4. Read the check box **Use the proposed detection** and the notes below the list.
+4. Review the **Use the proposed detection** check box and the notes below the list.
 5. Select **Use selected values**. The values go into step 3 (installer type and framework), step 5 (install arguments, uninstall arguments, install context) and step 6 (detection). The status line reads: "The selected values are in steps 5 and 6. Review them there."
 
 The rows are **Installer type**, **Framework**, **Install arguments**, **Uninstall arguments** and **Install context**. If the analysis needs review, a caution box reads `This installer needs review.` and gives the reason.
@@ -205,12 +205,12 @@ The panel also reads: "The new row is selected in the App Packager. Nothing is s
 | A definition file named `<file>` already exists. Change the application name and save again. | The same cause, when you saved with the values of step 4. | Use another **Application name**. |
 | Type the scraper URL and the pattern. | **Test Scrape** with an empty **Scraper URL** or **Pattern**. | Fill both fields. |
 | No version was found. Check the URL and the pattern. | The scraper returned no version. | Check the **Scraper URL** and the **Pattern**. |
-| Error: `<message>` | The scrape failed. | Read the message. |
+| Error: `<message>` | The scrape failed. | Review the message. |
 | The application name contains no letters or numbers for a definition filename. | The **Application name** has no letter and no digit. | Use a name with letters or digits. |
 | Enter the version. | You used **Use selected values**, the analysis found no version, and no test scrape ran. | Select **Test Scrape** on step 2, then save again. |
 | Enter the silent install arguments. No silent switch could be derived. | The installer is not an MSI, and the install arguments are empty. | Type the arguments on step 5. |
-| The analysis failed: `<message>` | The download or the analysis failed. | Read the message. |
-| The new application is not in the App Packager grid. | The grid reads the definitions at start and on reload. | Select **Done** or **Open in Workbench**, or click the grid and press F5 on the App Packager page. |
+| The analysis failed: `<message>` | The download or the analysis failed. | Review the message. |
+| The new application is not in the App Packager grid. | The grid reads the definitions at start and on reload. | Select **Done** or **Open in Workbench**, or select the grid and press F5 on the App Packager page. |
 
 ## Links
 

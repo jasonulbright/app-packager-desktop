@@ -176,7 +176,7 @@ A read is cut at 200,000 rows. A read that costs one provider call for each obje
 
 | Message | Cause | Fix |
 |---|---|---|
-| The check did not run: ... Running it over incomplete data would report findings that are not true. | A read that the check needs failed or was cut. | Read the reason in the **Summary** tab. Scan fewer areas, or fix the read. |
+| The check did not run: ... Running it over incomplete data would report findings that are not true. | A read that the check needs failed or was cut. | Review the reason in the **Summary** tab. Scan fewer areas, or fix the read. |
 | The content source probe is off. Switch it on in Options to probe each path over the network. | APP-04 needs the probe. | Check the probe box on the **Options** tab. |
 | The scan did not cover the area ... | The area is not selected. | Select the area on the **Options** tab. |
 

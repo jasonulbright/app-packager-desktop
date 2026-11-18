@@ -3,7 +3,7 @@
 This page lists the messages that App Packager Desktop shows, grouped by area. Each row gives the message, where it appears, the cause, and the fix.
 
 - `<x>` marks a value that the app inserts.
-- Where the table says "The code names no fix", the app gives no fix. Read the message text for the cause.
+- Where the table says "The code names no fix", the app gives no fix. Review the message text for the cause.
 - For the most common messages, see also [Troubleshooting](../troubleshooting.md).
 
 Areas:
@@ -44,7 +44,7 @@ These messages come from `AppPackagerBuild.exe`. See [Command-line build](../cor
 | Option '--yes' applies to --rewrite-old-versions only. | `--yes` was given without --rewrite-old-versions. | Remove `--yes`, or add the option. |
 | --rewrite-old-versions applies to a catalog application with a definition. | The application is not a catalog application. | Use a catalog application. |
 | --rewrite-old-versions needs a ConfigMgr site: pass --site-code or set it in Settings. | No site code. | Set the site code. |
-| restore writes the old operator back on the site. Run it again with --yes. | restore without the confirmation. | Read the list that it printed, then run it again with --yes. |
+| restore writes the old operator back on the site. Run it again with --yes. | restore without the confirmation. | View the list that it printed, then run it again with --yes. |
 | The deployments of 'x' were not read to the end, so the plan does not know whether it has a required deployment. | The deployment query printed no end marker. | Run the plan again; check the connection to the site. |
 | --record-installed-value and --accept-exact-block need --version: the value belongs to one version. | No `--version`. | Add `--version`. |
 | --record-installed-value and --accept-exact-block run alone: they do not stage, package or rewrite. | Given with `--stage`, `--package` or `--rewrite-old-versions`. | Run it alone. |
@@ -53,7 +53,7 @@ These messages come from `AppPackagerBuild.exe`. See [Command-line build](../cor
 | --profile does not apply to --record-installed-value and --accept-exact-block … | `--profile` was given. | Remove it. |
 | --record-installed-value '…' is not a version (…) | The value or the version does not start with a digit, is longer than 64 characters or holds another character. | Give the text that the installed product shows. |
 | --rewrite-old-versions runs alone: it does not stage or package. | The option was given with --stage or --package. | Run the rewrite alone. |
-| apply changes the detection of the old applications. ConfigMgr evaluates the detection again on the devices. ... Run it again with --yes. | apply or restore without the confirmation. | Read the plan, then run it again with --yes. |
+| apply changes the detection of the old applications. ConfigMgr evaluates the detection again on the devices. ... Run it again with --yes. | apply or restore without the confirmation. | Review the plan, then run it again with --yes. |
 | Unknown --supersedence value 'x'; expected off, replace or replace-uninstall. | The value is not in the list. | Use a listed value. |
 | Replace and uninstall needs the version rule Exact. With Minimum, the detection of the old application still finds the new version after the uninstall, and the uninstall is reported as failed. Set the version rule to Exact, or set the supersedence mode to Replace or Off. | The supersedence mode is Replace and uninstall and the ConfigMgr version rule is Minimum, after the command line, the title override and the site default are resolved. | Set the version rule to Exact, or set the mode to Replace or Off. Nothing was created. |
 | The version rule Exact cannot be applied for ConfigMgr: No installed value exists for ... | The Exact guard has no installed value for the clause and version (an MSI has its ProductVersion; any other title needs a recorded value), or the value differs from the expected value. | Set the version rule of the title to Minimum, record the installed value with a test install, or accept the block for this version. Nothing was created. |
@@ -74,7 +74,7 @@ These messages come from `AppPackagerBuild.exe`. See [Command-line build](../cor
 | No WSUS server: pass --wsus-server or set the server in Settings, WSUS Publishing. | A WSUS target has no server. | Do as the message says. |
 | WSUS publishing is unavailable: <reason> | The WSUS administration API was not found. | The code names no fix. The reason text comes from the probe. |
 | --estimated-minutes and --maximum-minutes do not apply to build <id>: its sealed manifest records ... Stage with them, or leave them out. | Run overrides were given for a package of a sealed build. | Do as the message says. |
-| Package refused: <reason> | A package run was refused. | The code names no fix. Read the reason. |
+| Package refused: <reason> | A package run was refused. | The code names no fix. Review the reason. |
 
 ## Publish gates and App Packager page
 
@@ -98,7 +98,7 @@ See [App Packager page](../core/packages.md) and [Stage and publish](../core/sta
 | Application name is required. | Installer drop dialog | The field is empty. | Fill the field. |
 | Version is required. | Installer drop dialog | The field is empty. | Fill the field. |
 | Install args are required for a non-MSI installer. | Installer drop dialog | A non-MSI drop has no install arguments. | Fill the field. |
-| Package refused: <reason> | App Packager page, bring-your-own run | The run was refused. | The code names no fix. Read the reason. |
+| Package refused: <reason> | App Packager page, bring-your-own run | The run was refused. | The code names no fix. Review the reason. |
 | Skipped <app>: no installer source folder chosen. | App Packager page log | You cancelled the folder prompt. The prompt says: "Choose the folder that holds the <app> installer. Its download requires a sign-in, so it stages from a local copy." | Choose a folder. |
 
 ## Settings and data folders
@@ -243,7 +243,7 @@ See [Installer Analysis](../tools/installer-analysis.md).
 | Select Test Scrape on step 2 first. The download URL needs the version. | Add from web, step 4 | The address or the file name has a version token and no test ran. | Select **Test Scrape**. |
 | The download is larger than the limit of <n> bytes. | Add from web, step 4 | The file is over 8 GiB. | The code names no fix. |
 | The download is not an installer: <reason> | Add from web, step 4 | The file content does not match its extension. | Check the download URL. |
-| The analysis was cancelled. / The analysis failed: <reason> | Add from web, step 4, and Add from file | You cancelled, or the reader failed. | Read the reason. |
+| The analysis was cancelled. / The analysis failed: <reason> | Add from web, step 4, and Add from file | You cancelled, or the reader failed. | Review the reason. |
 | <n> files were dropped. Drop one installer at a time. | Add from file | You dropped several files. | Drop one file. |
 | The path is a folder. Add from file takes one installer file. | Add from file | You dropped a folder. | Drop a file. |
 | Add from file does not take <ext> files. Use an .msi, .exe, .msp, .msix, .appx, .msixbundle or .appxbundle file. | Add from file | The extension is not supported. | Use a supported file. |
@@ -251,8 +251,8 @@ See [Installer Analysis](../tools/installer-analysis.md).
 | Type the application name. / Enter the application name. / Enter the version. | Add from file, `Save` | A required row is empty. | Fill the row. |
 | Enter the silent install arguments. No silent switch could be derived. | Add from file, `Save`, and Add from web, save | A non-MSI installer has no install arguments. | Type the arguments. |
 | The installer file changed after the analysis: <path>. Open the installer file again. | Add from file, `Save` | The file changed after the analysis. | Open the file again. |
-| The definition was not saved: <reason> | Add from file, `Save` | The write failed. | Read the reason. |
-| The new row is not in the App Packager. Press F5 on the App Packager to load it. | Result panel, `Stage now` | The grid does not list the new definition. | Click the grid, then press F5. |
+| The definition was not saved: <reason> | Add from file, `Save` | The write failed. | Review the reason. |
+| The new row is not in the App Packager. Press F5 on the App Packager to load it. | Result panel, `Stage now` | The grid does not list the new definition. | Select the grid, then press F5. |
 | Another operation is running. Select Stage now again when it ends. | Result panel, `Stage now` | An operation runs on the App Packager page. | Wait, then select **Stage now** again. |
 | <name> has no download source and no saved installer. Add the installer again with Add from file, or set a version source and a download URL in the Workbench. | Stage | The definition has no saved installer record. | Do as the message says. |
 | The installer that Add from file saved for <name> is not found: <path>. Put the file back in that folder, or add the installer again with Add from file. | Stage | The saved file moved or was deleted. | Do as the message says. |

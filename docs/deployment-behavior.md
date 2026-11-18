@@ -33,7 +33,7 @@ Microsoft references: [Graph paging](https://learn.microsoft.com/en-us/graph/pag
 
 When WSUS has accepted a package and the lookup that follows fails, the publication is successful with a warning. Approval results and decline results are reported separately. In a batch action, each update keeps its own result when the lookup of another update fails. App Packager Desktop continues with the remaining updates.
 
-`AppPackagerBuild.exe` returns exit code 1 when a successful WSUS publication has a warning. Read the WSUS result and the package ID in its output before you try again. A published update is not proof of approval or of installation on a client. The client must trust the signing certificate of the update, and the WSUS client policy must allow locally published updates. See [Microsoft's certificate guidance](https://learn.microsoft.com/en-us/intune/configmgr/sum/tools/updates-publisher-security).
+`AppPackagerBuild.exe` returns exit code 1 when a successful WSUS publication has a warning. View the WSUS result and the package ID in its output before you try again. A published update is not proof of approval or of installation on a client. The client must trust the signing certificate of the update, and the WSUS client policy must allow locally published updates. See [Microsoft's certificate guidance](https://learn.microsoft.com/en-us/intune/configmgr/sum/tools/updates-publisher-security).
 
 ## Test coverage
 

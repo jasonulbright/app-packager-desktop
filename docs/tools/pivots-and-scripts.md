@@ -35,10 +35,10 @@ The rights are the texts that the page shows when the site refuses a call. The l
 3. Type the target in the box next to the list. For a collection, type the collection ID, for example `LAB00012`, or the exact collection name. For a device, type the exact device name. For a pattern, type a name with `*`, for example `WKS-*`. For a list, type one device name on each line.
 4. To load a list from a file, select **Import TXT or CSV**. Select the file. The page sets the kind to **List of names**.
 5. Select **Resolve**. The page reads the devices of the target with one bulk read.
-6. Read the result line under the box. It shows the number of devices, how many are online, the names that match no device, and the number of devices without a ConfigMgr client.
+6. Review the result line under the box. It shows the number of devices, how many are online, the names that match no device, and the number of devices without a ConfigMgr client.
 7. Type the query in the query editor. To start from a sample, select a query in the **Query library** list and select **Use query**.
 8. Select **Run query**. The page reads the targets again and opens the plan window.
-9. Read the plan. The plan lists each device, the query text, and the checks.
+9. Review the plan. The plan lists each device, the query text, and the checks.
 10. Select the confirm button. Its text is **Run on** and the device count, for example **Run on 2 devices**. A query run has no confirmation box, unless the target reaches every device of the site (see [Confirmation boxes](#confirmation-boxes)).
 11. Wait for the results. The page shows how many devices answered. Select **Stop waiting** to end the wait on the page.
 
@@ -51,7 +51,7 @@ The rights are the texts that the page shows when the site refuses a call. The l
 3. Select a script in the list. The page reads the script text and its parameter definitions. The detail line shows the name, the version, the GUID, the two hashes and the number of parameters.
 4. If the script has parameters, select **Parameters**. Type a value for each parameter. Select **OK**.
 5. Select **Run script**. The page reads the script and the targets again and opens the plan window.
-6. Read the script text, the hashes and the parameter values in the plan.
+6. Review the script text, the hashes and the parameter values in the plan.
 7. Select both confirmation boxes. Select the confirm button. Its text is **Run on** and the device count.
 8. Wait for the results, as for a query.
 
@@ -65,7 +65,7 @@ The rights are the texts that the page shows when the site refuses a call. The l
 | Script | Two boxes. The first box reads: "I read the script text, its hash and the parameters. A script run cannot be undone." The second box names the script, its version, the device count, the start of the text hash and the parameter values. |
 | Query or script, target reaches every device of the site | One more box: "This runs on every device of the site", followed by the target. |
 
-A target reaches every device of the site when it is a built-in collection (an ID that starts with `SMS`) or when it holds every client of the site, for example the pattern `*`. The page shows a warning under **Resolve** for such a target. The service enforces the boxes. A run without them is refused.
+A target reaches every device of the site when it is a built-in collection (an ID that starts with `SMS`) or when it holds every device of the site, for example the pattern `*`. The page shows a warning under **Resolve** for such a target. The service enforces the boxes. A run without them is refused.
 
 The confirm button stays disabled until every box is selected.
 

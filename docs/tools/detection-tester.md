@@ -59,7 +59,7 @@ The result panel shows a headline (**Passed** or **Failed**), a summary and one 
 1. In **Clause type**, select **Script**.
 2. Enter the PowerShell script in the editor. The script is detected when it writes text to the output stream.
 3. Select **Run**. Select **Cancel** to stop a running script.
-4. Read the **Output** box, the **Errors** box and the **Exit code**.
+4. View the **Output** box, the **Errors** box and the **Exit code**.
 5. To leave the editor with the keyboard, press Ctrl+Tab.
 
 ![The Detection tab with a script clause, the output and the exit code](../images/tools-detection-tester-script.png)
@@ -73,7 +73,7 @@ The result panel shows a headline (**Passed** or **Failed**), a summary and one 
 
 1. Select **Import stage-manifest.json**.
 2. Select the `stage-manifest.json` file of a staged build.
-3. Read the status line. The page fills the inputs from the detection of the first deployment type of the manifest.
+3. View the status line. The page fills the inputs from the detection of the first deployment type of the manifest.
 4. Select **Run**. Nothing runs before you select **Run**.
 
 ### Find and reuse an installed application

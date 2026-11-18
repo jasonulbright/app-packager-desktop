@@ -31,7 +31,7 @@ This page covers the page layout, the version checks and the buttons. The column
 1. Select **App Packager** in the sidebar.
 2. Select the check box of each application you want to check. To select all rows, press Ctrl+A.
 3. Select **Check Latest**.
-4. Read the **Latest** column. The status of a row that succeeded is **Latest retrieved**.
+4. View the **Latest** column. The status of a row that succeeded is **Latest retrieved**.
 5. If a row shows **Error**, read the log pane. The log line starts with `ERROR:`.
 
 Check Latest does not download the installer. It runs the version source that the definition names. See [Definitions](definitions.md).
@@ -42,7 +42,7 @@ Check Latest does not download the installer. It runs the version source that th
 
 1. Check the rows you want.
 2. Select **Check ConfigMgr**.
-3. Read the **Current (ConfigMgr)** column and the **Status** column.
+3. View the **Current (ConfigMgr)** column and the **Status** column.
 4. To check only the rows that have an update, select **Select Update Available**. This button checks every row whose status starts with **Update available** and clears all other rows.
 
 Check ConfigMgr uses the **CMName** of the definition to find the application. An application counts as found when a current ConfigMgr application title starts with the CMName and the rest of the title is a version or a detail in parentheses. A title with another installer method (EXE or MSI) or another architecture does not count.
@@ -60,7 +60,7 @@ A row that the box hides stays checked. An operation still includes it.
 
 ### Reload the list
 
-1. Click the page, for example an empty part of the log pane or a cell of the grid. Press F5. The key works only while the keyboard focus is on the page. After you select **App Packager** in the sidebar, the focus can stay in the sidebar.
+1. Select the page, for example an empty part of the log pane or a cell of the grid. Press F5. The key works only while the keyboard focus is on the page. After you select **App Packager** in the sidebar, the focus can stay in the sidebar.
 2. The grid reads the definitions again. The reload clears the search box, the check boxes and the statuses.
 3. The columns **Current (ConfigMgr)** and **Latest** fill again with the last stored values. A row with a stored vendor version shows the status **Cached**.
 

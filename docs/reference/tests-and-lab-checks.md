@@ -1,6 +1,6 @@
 # Tests and lab checks
 
-This page lists the tests that guard the release, trust and update paths, and the checks that were done on lab machines. It says what each test proves and how to run it.
+This page lists the tests that guard the release, trust and update paths, and the checks that were done on lab VMs. It says what each test proves and how to run it.
 
 ## How to run the tests
 
@@ -10,7 +10,7 @@ The unit tests are in `tests\ApplicationPackagerEngine.Tests`. Run one class:
 dotnet test tests\ApplicationPackagerEngine.Tests\ApplicationPackagerEngine.Tests.csproj --filter "FullyQualifiedName~IntuneWinToolPinTests"
 ```
 
-The full suite runs in the CI workflow (`ci.yml`). Tests that open windows take the focus of the computer. Run the full suite in CI or on a lab machine, not on a workstation that someone is using.
+The full suite runs in the CI workflow (`ci.yml`). Tests that open windows take the focus of the computer. Run the full suite in CI or on a lab VM, not on a workstation that someone is using.
 
 ## Intune content prep tool download
 
@@ -29,7 +29,7 @@ The checks apply to a file that the app downloads. A copy of the tool that is al
 3. Change one byte of a copy. Expected: the hash no longer matches the pin, and the signature status is `HashMismatch`.
 4. Delete the download.
 
-Result (2026-11-09): all expected values were seen. The lab machines were started for the check and stopped afterwards. No snapshot was used.
+Result (2026-11-09): all expected values were seen. The lab VMs were started for the check and stopped afterwards. No snapshot was used.
 
 The download URL is built from `PinnedVersion`. To take a new release of the tool, change `PinnedVersion` and `PinnedSha256` together, repeat this check with the URL, size and SHA-256 of the new release (not the 1.8.7 values above), and update the URL in [Network](network.md).
 
@@ -51,11 +51,11 @@ The installer is built with NSIS. The license text of NSIS is in `licenses\nsis-
 |---|---|
 | `ThirdPartyNoticesTests` | Each file that the notices name is in the `licenses` folder, and each file in the folder is named in the notices. The NSIS license file is there, and the notices name its three licenses. The release stage copies the `licenses` folder, and the installer uses LZMA compression. |
 
-**Lab check.** None. The tests read files in the repository, and no lab machine is needed.
+**Lab check.** None. The tests read files in the repository, and no lab VM is needed.
 
-## Update install: signature check just before the start
+## Update install: signature check immediately before the start
 
-`UpdateService.ConfirmBeforeLaunchAsync` runs when the user chooses Install, after the download and the first checks and just before the installer starts. It confirms that the file has not changed (hash and size), reads the Authenticode signature again, applies the update signature policy, and requires the same signer subject as the first check. If any step fails, the installer does not start and the message ends with "The installer will not start."
+`UpdateService.ConfirmBeforeLaunchAsync` runs when the user chooses Install, after the download and the first checks and immediately before the installer starts. It confirms that the file has not changed (hash and size), reads the Authenticode signature again, applies the update signature policy, and requires the same signer subject as the first check. If any step fails, the installer does not start and the message ends with "The installer will not start."
 
 | Test class | What it proves |
 |---|---|
@@ -67,7 +67,7 @@ The installer is built with NSIS. The license text of NSIS is in `licenses\nsis-
 2. A copy with one changed byte: status `HashMismatch`. Expected: the check refuses.
 3. A file signed by another publisher: status `Valid` with another signer. Expected: the signer check refuses.
 
-Result (2026-11-09): all three results matched. The lab machines were started for the check and stopped afterwards. No snapshot was used.
+Result (2026-11-09): all three results matched. The lab VMs were started for the check and stopped afterwards. No snapshot was used.
 
 ## ConfigMgr content distribution after a replace
 
@@ -86,7 +86,7 @@ The review finding A1 said that the replaced content never reaches the distribut
 3. After the fix: the script printed "Content already targeted" for the existing group, and refused a group named `No Such Group` with "Distribution point group 'No Such Group' was not found."
 4. The probe application and its source folder were deleted.
 
-Result (2026-11-09): as described. The lab machines were started for the check and stopped afterwards. No snapshot was used.
+Result (2026-11-09): as described. The lab VMs were started for the check and stopped afterwards. No snapshot was used.
 
 ## ConfigMgr publish: a refused step leaves no half-built application
 
@@ -110,7 +110,7 @@ The original error is thrown again after the cleanup.
 3. After the change, an Overwrite with the refused value: the application stayed with its 1 deployment type, and no other type was left. In this case the site refused the new type before it existed, so the lab did not show the removal of a created type. The stand-in tests cover that case.
 4. The probe application and its source folder were deleted.
 
-Result (2026-11-09): as described. The lab machines were started for the check and stopped afterwards. No snapshot was used.
+Result (2026-11-09): as described. The lab VMs were started for the check and stopped afterwards. No snapshot was used.
 
 ## ConfigMgr publish: a skipped version is named
 
@@ -124,22 +124,22 @@ The log now has one line from `MecmTarget.ExistingApplicationSkipMessage`. For a
 
 **Lab check.** The message is built from the version that the site returns, so the probe script was run on the ConfigMgr lab server against a real application at version 1.2.3 with an incoming version of 1.2.4. Expected and seen: the conflict line `existing app='...' version='1.2.3' incoming='1.2.4'`, which is the input of the message. The probe application was deleted afterwards.
 
-Result (2026-11-09): as described. The lab machines were started for the check and stopped afterwards. No snapshot was used.
+Result (2026-11-09): as described. The lab VMs were started for the check and stopped afterwards. No snapshot was used.
 
 ## ConfigMgr publish: a failed content step fails the run
 
 After a ConfigMgr application is created, a run can distribute its content to a DP group and deploy it to a test collection. If one of these steps fails, the application exists, but clients cannot install it. Until now the failure went to the log and the run still ended with success (review finding D-6).
 
-Now `MecmTarget.RunContentStepsAsync` (one PowerShell start for both steps) returns the sentence of the failed step, `RunPostPackageStepsAsync` passes it on, and `PackagingOutcomeComposer.Compose` fails the run (exit code 1). The inventory record of the ConfigMgr destination is Partial and carries the sentence as its detail. The message is one sentence: "ConfigMgr application created, but a step after it failed: Content distribution to 'All DPs' failed: <first line of the provider text>". If the Intune publish also failed, the message names both. A distribution that fails skips the test deployment, as before. An Intune-only run has no ConfigMgr step and is not changed. The full provider text stays in the log.
+Now `MecmTarget.RunContentStepsAsync` (one PowerShell start for both steps) returns the sentence of the failed step, `RunPostPackageStepsAsync` passes it on, and `PackagingOutcomeComposer.Compose` fails the run (exit code 1). The inventory entry of the ConfigMgr destination is Partial and carries the sentence as its detail. The message is one sentence: "ConfigMgr application created, but a step after it failed: Content distribution to 'All DPs' failed: <first line of the provider text>". If the Intune publish also failed, the message names both. A distribution that fails skips the test deployment, as before. An Intune-only run has no ConfigMgr step and is not changed. The full provider text stays in the log.
 
 | Test class | What it proves |
 |---|---|
-| `ConfigMgrContentStepOutcomeTests` | The two steps run in one script (see "ConfigMgr publish: fewer PowerShell starts"): a failed distribution ends the script before the test deployment; the exit code names the step that failed; without a test collection only the distribution is in the script. The inventory records the ConfigMgr destination as Partial when the application exists and a content step failed, and the summary of the destinations treats Partial like a failure (its earlier rules are kept). A failed content step fails a ConfigMgr-only run and keeps the reason; no failure (or a blank one) keeps the success; a run that published to Intune is still failed by the content step; a failed Intune publish and a failed content step are both reported; an Intune-only run is not changed; the sentence names the step, the target and the first line of the provider text, cuts a very long text, and gives a message for an empty reason. |
+| `ConfigMgrContentStepOutcomeTests` | The two steps run in one script (see "ConfigMgr publish: fewer PowerShell starts"): a failed distribution ends the script before the test deployment; the exit code names the step that failed; without a test collection only the distribution is in the script. The inventory shows the ConfigMgr destination as Partial when the application exists and a content step failed, and the summary of the destinations treats Partial like a failure (its earlier rules are kept). A failed content step fails a ConfigMgr-only run and keeps the reason; no failure (or a blank one) keeps the success; a run that published to Intune is still failed by the content step; a failed Intune publish and a failed content step are both reported; an Intune-only run is not changed; the sentence names the step, the target and the first line of the provider text, cuts a very long text, and gives a message for an empty reason. |
 | `ApplicationInventoryServiceTests` and `OneClickRowRunnerTests` | A Partial ConfigMgr outcome keeps the version, the object id and the CI_ID of the application as the last success, and the attempt outcome says Partial with the reason. A One Click run whose content step failed records Partial with the CI_ID and shows the row as failed. |
 
 **Lab check.** The provider text is the input of the sentence, so the distribution script was run on the ConfigMgr lab server with an application that has no content. The site refused it with "There is no object that can distribute content." The earlier check of the distribution script (page section on content distribution after a replace) showed the text for a DP group that does not exist: "Distribution point group 'No Such Group' was not found." Both are single lines that the sentence takes as the reason. The probe application was deleted afterwards.
 
-Result (2026-11-09): as described. The lab machines were started for the check and stopped afterwards. No snapshot was used.
+Result (2026-11-09): as described. The lab VMs were started for the check and stopped afterwards. No snapshot was used.
 
 ## ConfigMgr publish: values that the site refuses are refused first
 
@@ -157,7 +157,7 @@ Three checks of the ConfigMgr publish accepted values that the site then refused
 
 **Lab check.** The generated script for a `RegistryKeyValue` definition with `PropertyType: Existence` was run on the ConfigMgr lab server. Before the change the builder refused this definition. After the change the site accepted the clause: the application and its deployment type were created, and the detection of the deployment type names the value `InstallDir` and the 64-bit setting. The rule type in the stored detection was not decoded; the site accepted the form and reported no error. The probe application and its source folder were deleted afterwards.
 
-Result (2026-11-09): as described. The lab machines were started for the check and stopped afterwards. No snapshot was used.
+Result (2026-11-09): as described. The lab VMs were started for the check and stopped afterwards. No snapshot was used.
 
 ## ConfigMgr publish: a replace writes the Software Center name of the manifest
 
@@ -179,7 +179,7 @@ An empty comment does not clear an existing description. The review finding aske
 3. The lab run of the change used an intermediate script that wrote the empty comment, so the description was empty in that run. The final code leaves out `-Description` for an empty comment, as the script before the change did (item 1). The tests check the script text. The final script was not run on the lab server.
 4. The probe application and its source folder were deleted.
 
-Result (2026-11-10): as described. The lab machines were started for the check and stopped afterwards. No snapshot was used.
+Result (2026-11-10): as described. The lab VMs were started for the check and stopped afterwards. No snapshot was used.
 
 ## WSUS publish: installer exit codes of the definition
 
@@ -248,7 +248,7 @@ The wrapper now starts the installer with `[System.Diagnostics.Process]::Start`,
 3. Old wrapper with a pause of 1.5 seconds right after the start line (a host that looks at the process late), 16 runs: exit code 0 in all 16. The installer's code was lost.
 4. New wrapper with the same pause, 16 runs: exit code 5 in all 16.
 
-So the loss needs a host that looks at the process after the installer has ended. It was seen once in CI (`PostInstallKillProcessesTests`, expected 5, actual 0), and the pause reproduces it every time. The lab machines were started for the check and stopped afterwards. No snapshot was used. The probe folder was deleted.
+So the loss needs a host that looks at the process after the installer has ended. It was seen once in CI (`PostInstallKillProcessesTests`, expected 5, actual 0), and the pause reproduces it every time. The lab VMs were started for the check and stopped afterwards. No snapshot was used. The probe folder was deleted.
 
 Result (2026-11-10): as described.
 
@@ -521,7 +521,7 @@ Not built in this step (recorded for the later steps): the "Apply supersedence" 
 
 **The defect.** The definition `PowerShell 7 (x64)` read the latest release of the GitHub API (`tag_name`) and built `PowerShell-<version>-win-x64.msi` from it. PowerShell 7.7.0, the latest release since 2026-11-10, ships no MSI for Windows: its Windows assets are three zip files (`win-x64`, `win-x86`, `win-arm64`, plus two fxdependent zip files) and one universal `PowerShell-7.7.0.msixbundle`. The address answered 404 and the stage failed after two download attempts (reproduced with `AppPackagerBuild --application catalog:0000089d8d25e2a0 --stage`).
 
-**The fix.** The definition keeps the MSI (its detection by product code, its ARP entry and its uninstall do not change). The version scraper is now `HttpRegex` over the releases list with the pattern `"name":\s*"PowerShell-(\d+\.\d+\.\d+)-win-x64\.msi"` (the name of an asset, so that a release body that lists a file or a `.msix` file cannot give a version) and `SelectHighestVersion`: it takes the highest release that carries the x64 MSI. A release without an MSI (7.7.0 today), a prerelease (`7.7.0-rc.1` does not match) and a back-published patch of an older line that is listed above a newer one cannot give a version. The staged version is 7.6.10. No 7.7 release (preview 1 to 5, the release candidate and 7.7.0) carries an MSI, so this packager follows the 7.6 line, which is the LTS line, until a release of a newer line carries an MSI again; `PowerShell 7 LTS (x64)` still follows 7.4. The msixbundle is a different packaging and is not used by this definition. Whether to add an MSIX packager for 7.7 is a decision for the owner.
+**The fix.** The definition keeps the MSI (its detection by product code, its ARP entry and its uninstall do not change). The version scraper is now `HttpRegex` over the releases list with the pattern `"name":\s*"PowerShell-(\d+\.\d+\.\d+)-win-x64\.msi"` (the name of an asset, so that a release body that lists a file or a `.msix` file cannot give a version) and `SelectHighestVersion`: it takes the highest release that carries the x64 MSI. A release without an MSI (7.7.0 today), a prerelease (`7.7.0-rc.1` does not match) and a back-published patch version of an older line that is listed above a newer one cannot give a version. The staged version is 7.6.10. No 7.7 release (preview 1 to 5, the release candidate and 7.7.0) carries an MSI, so this packager follows the 7.6 line, which is the LTS line, until a release of a newer line carries an MSI again; `PowerShell 7 LTS (x64)` still follows 7.4. The msixbundle is a different packaging and is not used by this definition. Whether to add an MSIX packager for 7.7 is a decision for the owner.
 
 **Four new definitions**, written from the existing ones: `.NET 9 Desktop Runtime (x86)`, `.NET 11 Desktop Runtime (x64)`, `ASP.NET 9 Server Hosting Bundle (x64)` and `ASP.NET 11 Server Hosting Bundle (x64)`. `.NET 9 Desktop Runtime (x64)` and `.NET 10 Desktop Runtime (x64)` already existed; there is no x86 definition of .NET 10, by decision. .NET 11.0.0 is a stable release (`releases-index.json` lists `11.0` with `latest-runtime` 11.0.0, released 2026-11-10, support phase active), so the definitions use the stable channel and no preview channel.
 
@@ -612,9 +612,9 @@ The button on the Packages page runs `PackagerExecutionService.ApplySupersedence
 
 ## Supersedence: the One Click pass (a failed step is retried)
 
-Q-53, ported from the PowerShell app (its `Tests/OneClickSupersedence.Tests.ps1` and the supersedence-only cases of `Packagers/AppPackagerOneClick.Tests.ps1`, the same case list). A ConfigMgr publish whose supersedence step failed stays `Published` and its inventory record is "Published, supersedence not applied" for that version, which is the pending state (`OneClickHistory.IsSupersedencePending`; the projection reads it for the site that is set). The next One Click run plans the step `Supersedence` for that application (`OneClickPlanner.Plan` and `Decide`), does not publish the version again, and runs `OneClickSupersedencePass` before any other work of the row: the manifest of the last stage gives the identity marker, the plan resolves the mode, and the step runs with the published-only requirement (`PackagerExecutionService.RunSupersedencePassAsync`). Applied or no older version ends the pending state and the row outcome is `Superseded`; not applied or mode `Off` keeps it.
+Q-53, ported from the PowerShell app (its `Tests/OneClickSupersedence.Tests.ps1` and the supersedence-only cases of `Packagers/AppPackagerOneClick.Tests.ps1`, the same case list). A ConfigMgr publish whose supersedence step failed stays `Published` and its inventory entry is "Published, supersedence not applied" for that version, which is the pending state (`OneClickHistory.IsSupersedencePending`; the projection reads it for the site that is set). The next One Click run plans the step `Supersedence` for that application (`OneClickPlanner.Plan` and `Decide`), does not publish the version again, and runs `OneClickSupersedencePass` before any other work of the row: the manifest of the last stage gives the identity marker, the plan resolves the mode, and the step runs with the published-only requirement (`PackagerExecutionService.RunSupersedencePassAsync`). Applied or no older version ends the pending state and the row outcome is `Superseded`; not applied or mode `Off` keeps it.
 
-How the PowerShell structures map: the history record fields `SupersedencePending` and `SupersedenceReason` become fields of `OneClickPublishRecord` that the projection fills from the last attempt of the inventory record; `Set-OneClickPublishedVersion -SupersedenceNotApplied` is the existing recording of the outcome `PublishedSupersedenceNotApplied` (`OneClickHistory.SetPublished` has the same switch for the in-memory record); `Clear-OneClickSupersedencePending` is a destination record written again as a success of the same version, object and build; `Get-OneClickSupersedenceFailure` (a regular expression over the output) is the existing outcome and detail (`OneClickHistory.SupersedenceReasonOf` reads the reason); `Invoke-OneClickSupersedencePass` is `OneClickSupersedencePass` with the manifest, the plan and the step as seams. The PowerShell cases that read the source of the run loop are behavior tests of the row runner here. Two PowerShell cases have no counterpart: the pass restores the location of the session (each APD script runs in its own PowerShell process, so there is no location to restore), and the connection to the site is a separate call in PowerShell, while in APD the script of the step connects, so a site that cannot be reached comes back as a step that is not applied.
+How the PowerShell structures map: the history record fields `SupersedencePending` and `SupersedenceReason` become fields of `OneClickPublishRecord` that the projection fills from the last attempt of the inventory entry; `Set-OneClickPublishedVersion -SupersedenceNotApplied` is the existing recording of the outcome `PublishedSupersedenceNotApplied` (`OneClickHistory.SetPublished` has the same switch for the in-memory record); `Clear-OneClickSupersedencePending` is a destination record written again as a success of the same version, object and build; `Get-OneClickSupersedenceFailure` (a regular expression over the output) is the existing outcome and detail (`OneClickHistory.SupersedenceReasonOf` reads the reason); `Invoke-OneClickSupersedencePass` is `OneClickSupersedencePass` with the manifest, the plan and the step as seams. The PowerShell cases that read the source of the run loop are behavior tests of the row runner here. Two PowerShell cases have no counterpart: the pass restores the location of the session (each APD script runs in its own PowerShell process, so there is no location to restore), and the connection to the site is a separate call in PowerShell, while in APD the script of the step connects, so a site that cannot be reached comes back as a step that is not applied.
 
 | Test class | What it proves |
 |---|---|

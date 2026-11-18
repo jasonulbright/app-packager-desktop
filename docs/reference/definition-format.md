@@ -150,7 +150,7 @@ Example (`rtools.json`, two hops):
 | Field | Type | Applies to | Meaning | Default |
 |---|---|---|---|---|
 | `Type` | string | All | `RegistryKeyValue`, `RegistryKey`, `File`, `Script`, `Compound` or `ArpEntry`. | `"RegistryKeyValue"` |
-| `RegistryHive` | string or null | Registry | `HKLM`, or `HKCU` (also `HKEY_CURRENT_USER`, `CurrentUser`). Any other value counts as the machine hive. | `"HKLM"` |
+| `RegistryHive` | string or null | Registry | `HKLM`, or `HKCU` (also `HKEY_CURRENT_USER`, `CurrentUser`). Any other value counts as `HKLM`. | `"HKLM"` |
 | `RegistryKeyTemplate` | string or null | Registry | Key path below the hive. `{ProductCode}` and `{version}` are replaced at stage. | `null` |
 | `ValueName` | string or null | `RegistryKeyValue` | Name of the value. | `"DisplayVersion"` |
 | `Operator` | string or null | `RegistryKeyValue`, `File` | `IsEquals`, `NotEquals`, `GreaterThan`, `GreaterEquals`, `LessThan`, `LessEquals`, `BeginsWith`, `EndsWith` or `Contains`. | `"IsEquals"` |

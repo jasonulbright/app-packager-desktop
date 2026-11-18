@@ -123,7 +123,7 @@ These counts come from the 323 files.
 2. Copy the file to the user definitions folder.
 3. Do not change the `Id`.
 4. Change the copy in a text editor.
-5. On the App Packager page, click the grid, then press F5.
+5. On the App Packager page, select the grid, then press F5.
 6. Check the row and select **Check Latest** to test the version source.
 
 ### Add a definition by hand
@@ -133,7 +133,7 @@ These counts come from the 323 files.
 3. Change `Id` to a new value of your own. Add from web and Add from file use 16 characters.
 4. Change `Vendor`, `Application`, `CMName`, `VendorUrl`, the version source, `DownloadUrl`, the install fields and `Detection`.
 5. Delete the `Cpe`, `ArpName` and `SecurityAdvisoryUrl` fields, or replace them with values for your application. The copied values describe the other application.
-6. On the App Packager page, click the grid, then press F5.
+6. On the App Packager page, select the grid, then press F5.
 
 ## Limits
 

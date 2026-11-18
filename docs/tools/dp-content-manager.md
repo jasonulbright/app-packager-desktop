@@ -21,7 +21,7 @@ The DP Content Manager page shows which content is on which distribution point (
 
 ## Steps
 
-### Read the distribution points
+### View the distribution points
 
 1. Select **DP Content Manager** in the sidebar. The page reads the DPs, the content and every status row by itself.
 2. To read again, select **Refresh**. To stop a read, select **Cancel**.
@@ -30,7 +30,7 @@ The DP Content Manager page shows which content is on which distribution point (
 
 ![The DPs tab with the content of one distribution point](../images/tools-dp-content-dps.png)
 
-### Read the status of a content object
+### View the status of a content object
 
 1. Open the **Content** tab.
 2. Enter text to filter by name or PackageID. Select a content type in the type list.
@@ -61,10 +61,10 @@ The DP Content Manager page shows which content is on which distribution point (
 3. Use **Check shown** and **Clear** to set many check boxes. Press Space to check or clear the selected row.
 4. Select **Continue to the plan**.
 5. The page reads the current state of the checked pairs. A pair that changed on the site since you looked is left out, and the plan says why.
-6. Read the plan. It lists every pair, the state now, the DPs that hold the content after the plan, and the deployments that use the content.
+6. Review the plan. It lists every pair, the state now, the DPs that hold the content after the plan, and the deployments that use the content.
 7. For a removal, select the check boxes of the plan (see [Confirmation boxes of a removal](#confirmation-boxes-of-a-removal)).
 8. Select the action button, for example **Redistribute 3 pairs**. Select **Cancel** to change nothing.
-9. Read the result panel under the tabs (see [Results](#results)).
+9. Review the result panel under the tabs (see [Results](#results)).
 
 ![The plan of a removal with its confirmation boxes](../images/tools-dp-content-plan-remove.png)
 
@@ -73,7 +73,7 @@ The DP Content Manager page shows which content is on which distribution point (
 ### Undo the last removal
 
 1. Select **Undo last change** in the result panel.
-2. Read the plan. It distributes the removed content again to the DPs where it was **Installed**.
+2. Review the plan. It distributes the removed content again to the DPs where it was **Installed**.
 3. Select the action button.
 
 ### Review what the page changed

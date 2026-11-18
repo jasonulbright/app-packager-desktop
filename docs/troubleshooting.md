@@ -16,10 +16,10 @@ None. Some fixes need rights on the ConfigMgr site or on the SQL Server of the s
 
 ## Steps
 
-1. Read the message. A message in `<angle brackets>` shows a value that the application inserts.
+1. Review the message. A message in `<angle brackets>` shows a value that the application inserts.
 2. Find the message in the tables below.
 3. Do the fix.
-4. Click the grid on the **App Packager** page, then press F5 to reload the list and test the ConfigMgr connection again.
+4. Select the grid on the **App Packager** page, then press F5 to reload the list and test the ConfigMgr connection again.
 
 ## Publish buttons and settings
 
@@ -87,7 +87,7 @@ A disabled publish button shows a tooltip that names the missing setting.
 
 | Message | Cause | Fix |
 |---|---|---|
-| The **Status** column shows **Error**. The log pane shows "ERROR: Could not determine latest version for `<application>`". | The vendor lookup returned no version. | Read the log pane for the reason. The grid shows only **Error**. |
+| The **Status** column shows **Error**. The log pane shows "ERROR: Could not determine latest version for `<application>`". | The vendor lookup returned no version. | Review the log pane for the reason. The grid shows only **Error**. |
 
 ## Limits
 

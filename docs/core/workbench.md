@@ -46,7 +46,7 @@ If a finding of severity Blocking applies to the target, the dialog **Blocked** 
 | Control | Function |
 |---|---|
 | **Application** | Application to edit. You can type to search. |
-| **Open definition...** | Opens the dialog **Open definition**. The list shows **Name**, **Publisher** and **Source** of each definition. The box **Filter by name or publisher** and the list of sources narrow the rows. The sources are `All sources`, `Local file` (made by [Add from file](add-from-file.md)), `Shipped` (included with the app) and `From web` (made by [Add from web](add-app.md)). **Open** (or a double click) opens the definition. |
+| **Open definition...** | Opens the dialog **Open definition**. The list shows **Name**, **Publisher** and **Source** of each definition. The box **Filter by name or publisher** and the list of sources narrow the rows. The sources are `All sources`, `Local file` (made by [Add from file](add-from-file.md)), `Shipped` (included with the app) and `From web` (made by [Add from web](add-app.md)). **Open** (or a double-click) opens the definition. |
 | **Profile** | Profile to edit. One profile is active for each application. |
 | **Rename** | Renames the selected custom profile. The packager default cannot be renamed. |
 | **Bundle** | Menu with **Export bundle...** and **Import bundle...**. |
@@ -190,7 +190,7 @@ The Workbench data folder is `%LOCALAPPDATA%\AppPackager\Workbench`. It holds `a
 | `This application is not in the App Packager grid, so it cannot run through the grid pipeline.` | The application is not listed on the App Packager page. | Show it in the [Catalog](applications.md). |
 | `This application has no packager script. Bring-your-own applications run through the installer intake flow.` | The application has no source for a grid run. | Use a bring-your-own application or a definition. |
 | `Unknown build token '{{<name>}}'; supported tokens are InstallerFile, Version, ProductCode, ContentRoot.` | A script uses another token. | Use a supported token. |
-| `Run snapshot not available: <reason>` | The app could not write the run snapshot. | Read the reason. |
+| `Run snapshot not available: <reason>` | The app could not write the run snapshot. | Review the reason. |
 
 See [Error messages](../reference/error-messages.md).
 

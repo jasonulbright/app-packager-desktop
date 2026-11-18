@@ -14,7 +14,7 @@ None. Some entries need the settings that [App Packager page](packages.md) names
 
 ## Grid columns
 
-A click on a column header sorts the grid. The first column stays in place when the grid scrolls sideways.
+Select a column header to sort the grid. The first column stays in place when the grid scrolls sideways.
 
 | Column | Content | Shown |
 |---|---|---|
@@ -24,7 +24,7 @@ A click on a column header sorts the grid. The first column stays in place when 
 | **Current (ConfigMgr)** | Version in ConfigMgr from the last **Check ConfigMgr**. After a reload, the last stored version. | Always |
 | **Latest** | Vendor version from the last **Check Latest**. After a reload, the last stored version. | Always |
 | **Status** | Result of the last operation on the row. A tooltip can hold more text. | Always |
-| **CVEs** | Number of CVEs, or `CPE missing`, `Error` or `No update`. A click opens the CVE list with links. | Always |
+| **CVEs** | Number of CVEs, or `CPE missing`, `Error` or `No update`. Select the cell to open the CVE list with links. | Always |
 | **Max CVSS** | Highest CVSS score of the CVEs. | Always |
 | **KEV** | `Yes` when at least one CVE is in the CISA KEV catalog. | Always |
 | **In latest** | `N of M`: the number of CVEs that NVD places at the latest version, out of all CVEs. | Always |
@@ -40,7 +40,7 @@ The columns **CVEs**, **Max CVSS**, **In latest** and **Max EPSS** sort by numbe
 
 ![The grid scrolled to the CVE columns](../images/core-packages-cve-columns.png)
 
-The check box in the first column and the highlighted row are two states. The check box marks a row for an operation. The highlighted row is the row you clicked. **Operation history**, **Edit application...** and the other context menu entries act on the highlighted row.
+The check box in the first column and the highlighted row are two states. The check box marks a row for an operation. The highlighted row is the row you selected. **Operation history**, **Edit application...** and the other context menu entries act on the highlighted row.
 
 ## Status values
 
@@ -74,12 +74,12 @@ A WSUS run that follows a ConfigMgr publish adds a suffix such as `, WSUS not su
 
 ## Row context menu
 
-A right click selects the row and opens the menu.
+A right-click selects the row and opens the menu.
 
 | Entry | Effect |
 |---|---|
 | **View operation history...** | Opens the **Operation history** window for the row. |
-| **Edit application...** | Opens the [Workbench](workbench.md) for the row. A double click on a row does the same. The sidebar entry **Workbench** opens it for the highlighted row. |
+| **Edit application...** | Opens the [Workbench](workbench.md) for the row. A double-click on a row does the same. The sidebar entry **Workbench** opens it for the highlighted row. |
 | **Use as old application...** | Opens the **Old Application** window for the row, to link an application of the ConfigMgr site as the older version of this application. The row needs a staged build, because the title, the version and the architecture come from it. See [Publish to ConfigMgr](publish-to-configmgr.md). |
 | **Open Log Folder** | Opens the `Logs` folder in the **Download Root**. The folder holds the log files of the Stage and Publish runs. Nothing happens when the folder does not exist. |
 | **Open Staged Folder** | Opens the first folder in the **Download Root** whose name contains the file name of the definition without its extension. Opens the **Download Root** when no folder matches. |
@@ -92,7 +92,7 @@ A right click selects the row and opens the menu.
 
 ![The row context menu](../images/core-packages-context-menu.png)
 
-A double click on the check box or on a column header does not open the Workbench.
+A double-click on the check box or on a column header does not open the Workbench.
 
 ## Old Application window
 
@@ -168,7 +168,7 @@ A ConfigMgr publish run shows this dialog when ConfigMgr holds an application wi
 | **Cancel remaining** | Stops the rest of the run. |
 | **Do this for all remaining conflicts in this run** | Applies your choice to the other applications of the run. |
 
-The dialog draws **Overwrite** in the accent color, as a primary button. The Enter key still selects **Skip**. Read the button before you select it.
+The dialog draws **Overwrite** in the accent color, as a primary button. The Enter key still selects **Skip**. Check the button text before you select it.
 
 ![The Application Already Exists dialog](../images/core-packages-conflict-dialog.png)
 

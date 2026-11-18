@@ -6,7 +6,7 @@
 
 An application that you accept appears in the App Packager grid. You can then use **Check Latest**, **Check ConfigMgr**, **Stage** and the publish buttons on it.
 
-Discover reads application names and versions only. It reads no client name, no client key, no client count and no publisher. It shows no count of clients.
+Discover reads application names and versions only. It reads no device name, no device identifier, no device count and no publisher. It shows no count of devices.
 
 ## When to use
 
@@ -26,7 +26,7 @@ Discover reads application names and versions only. It reads no client name, no 
 
 The rights of each page are in [Permissions](../reference/permissions.md).
 
-The database views bypass the role-based access of ConfigMgr. The scan reads the inventory of all clients that are not marked obsolete or decommissioned, whatever scope your console role has.
+The database views bypass the role-based access of ConfigMgr. The scan reads the inventory of all devices that are not marked obsolete or decommissioned, whatever scope your console role has.
 
 ## Steps
 
@@ -49,7 +49,7 @@ With both optional boxes empty, Discover reads the SQL Server name and the datab
 2. Close the Catalog.
 3. Select **Discover unmanaged software**.
 4. Wait for the scan. The status line shows `Reading Add/Remove Programs inventory from the ConfigMgr site database...`. Select **Cancel** to stop the scan.
-5. Read the status line and the log. They show the number of applications that Discover found, for example `Discovered 3 apps.`
+5. View the status line and the log. They show the number of applications that Discover found, for example `Discovered 3 apps.`
 6. If Discover found applications, read the prompt. The prompt title is **Discover unmanaged software**. The text is `Discovered <N> apps. Enable console view?`.
 7. Check the applications in the list. The columns are **Application** and **Vendor**, with a check box in front. The list is sorted by the ConfigMgr name of the application. Press Space to check or clear the selected row.
 
@@ -102,7 +102,7 @@ The SMS Provider for the site lookup comes from these places, in this order: **S
 - Discover sends no request to the internet. It connects to the SMS Provider (CIM over DCOM, then WinRM) and to the site database (SQL Server, Windows authentication, read-only).
 - Discover reads inventory that clients have reported. When the inventory has no rows, it reports `No inventory data`.
 - Discover offers one application of each sibling group. See above.
-- Discover reads the inventory of all clients that are not marked obsolete or decommissioned, not only the clients in your security scope. The result holds no client identity.
+- Discover reads the inventory of all devices that are not marked obsolete or decommissioned, not only the devices in your security scope. The result holds no device identity.
 
 ## Troubleshooting
 
@@ -115,7 +115,7 @@ All messages in the log and in the status line start with `Discover unmanaged so
 | `The site code <x> is not three letters or digits...` | The site code is not three characters. | Correct the **Site Code**. |
 | `The SQL Server for site <x> is not known (<reason>). Enter the SQL Server name in Settings, ConfigMgr Site Settings.` | The provider did not return the site definition, or no provider is set. | Enter **Discovery SQL Server** and **Discovery Database**. |
 | `Windows PowerShell could not start. Discover needs Windows PowerShell 5.1 (powershell.exe).` | `powershell.exe` is not available. | Install or repair Windows PowerShell 5.1. |
-| `SQL Server on <s> denied the Windows login. The account needs the db_datareader role on <db>.` | SQL Server refused the login. | Give the account `db_datareader` on the database. |
+| `SQL Server on <s> denied the Windows login. The account needs the db_datareader role on <db>.` | SQL Server denied access to the account. | Give the account `db_datareader` on the database. |
 | `Windows authentication to SQL Server <s> failed. Run the app as a domain account on a domain-joined computer...` | Windows authentication failed. | Run the app as a domain account on a domain-joined computer. Check the service principal name of the SQL Server. |
 | `SQL Server on <s> received an anonymous login...` | The credentials did not pass a second remoting hop. | Run the scan from a session that holds your own logon. |
 | `Cannot reach SQL Server <s>. Check the server name, the network path and the SQL Server firewall port.` | No connection. | Check the name, the network path and the firewall. |

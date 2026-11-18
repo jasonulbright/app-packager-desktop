@@ -38,9 +38,9 @@ BLUF: **Convert from ConfigMgr** reads one ConfigMgr application from the site a
 4. Check the **Output folder**. The default is the folder `CmImport` in your download folder. Each application gets its own folder inside it.
 5. Set the options (table below).
 6. Select **Preview**. The report shows the plan. The status line shows how many deployment types convert, for example `Preview: 1 of 1 deployment type converts. Nothing was written.`
-7. Read the report. Fix what blocks a deployment type, or accept what is marked for review.
+7. Review the report. Fix what blocks a deployment type, or accept what is marked for review.
 8. Select **Convert**. The log shows each step. Select **Cancel** to stop. Closing the window also stops the run. The content copy does not stop at once: the copy of the deployment type that is running can finish before the run stops.
-9. Read the status line. It shows `Done: <N> app(s) staged in <folder>`, with the number of packages built and published when you asked for them.
+9. View the status line. It shows `Done: <N> app(s) staged in <folder>`, with the number of packages built and published when you asked for them.
 
 ![The Convert from ConfigMgr window after a preview](../images/core-convert-window.png)
 
@@ -76,7 +76,7 @@ Each finding has a severity and a code.
 |---|---|
 | Blocking | The deployment type is not converted. |
 | Review | The deployment type converts. Check the point before you use the app. |
-| Info | A fact about the conversion. |
+| Info | A note about the conversion. |
 
 Examples: `DetectionMissing`, `InstallCommandMissing`, `SetupFileNotFound` and `ArchitectureConflict` block. `NoUninstallCommand`, `UserInteractionPossible`, `LogonRequirementNotMapped` and `RelationshipsNotCreated` ask for a review. `TimingNotApplied` is information: Graph v1.0 has no property for the maximum run time, so only the manifest records it.
 

@@ -29,7 +29,7 @@ Every change shows a plan first. Nothing changes until you read the plan, select
 
 1. Open the `Catalog` tab.
 2. Use the filters. The text filter ("Filter by name, ID, description or registry value") searches the display name, the ID, the description and the registry key paths and value names. The box `CVE or plugin ID` finds entries that name a CVE or a scanner plugin ID. The lists `Subcategory`, `Severity`, `Status` and `Operating system` hold the values of the shipped entries, and `All`.
-3. Read the count, for example "16 entries" or "3 of 16 entries".
+3. View the count, for example "16 entries" or "3 of 16 entries".
 4. Select a row. Select `Details` to show or hide the details beside the list.
 
 ![The Catalog tab with 16 entries and the details of one entry](../images/tools-compliance-catalog.png)
@@ -47,11 +47,11 @@ The grid has the columns `Name`, `Subcategory`, `Severity`, `Status` and `Versio
    - The switch `DetectOnly` is on by default. With `DetectOnly` on, clients report compliance and change nothing. The mode text in the dialog reads "Detect only: clients report compliance and change nothing." With `DetectOnly` off, it reads "Remediation is on: clients change the registry values of this entry on every device of the target collections."
    - An entry with a `Needs` list shows each needed collection. If a needed collection does not exist, the dialog shows `Create` for a collection that a shipped builder can create. Otherwise it shows "A required collection is missing. Create it or pick another collection, then deploy."
 5. Select `Show plan`.
-6. Read the plan. See "The plan of a deploy" below.
+6. Review the plan. See "The plan of a deploy" below.
 7. Select the confirmation box if the plan shows one.
 8. Select the action button `Deploy detect only` or `Deploy with remediation`.
 9. Watch the steps in the plan window while the builder runs. Select `_Cancel` to end the builder and every process that it started.
-10. Read the result. Select `C_lose`, or `_Undo` to reverse the run.
+10. Review the result. Select `C_lose`, or `_Undo` to reverse the run.
 
 ![The Deploy dialog for the entry SMB Signing Required](../images/tools-compliance-deploy.png)
 
@@ -125,7 +125,7 @@ The result area under the tabs shows the summary of the last change set. `Rows` 
 
 | Message | Cause | Fix |
 |---|---|---|
-| The catalog could not be read. The log has the details. | The catalog read failed. | Read the log. |
+| The catalog could not be read. The log has the details. | The catalog read failed. | Review the log. |
 | On a second run a builder creates a second configuration item and baseline with the same names ... so the page does not run it while objects with these names exist. Remove or rename them first. | The site already holds the objects of the entry. | Remove or rename the objects, then deploy again. |
 | Remediation changes client settings and needs its own confirmation, so nothing was changed. | The second confirmation box was not selected. | Select the box in the plan. |
 | The extracted builder does not match the shipped catalog, so it was not started. | The SHA-256 check failed. | The code states no fix. The builder did not start and nothing changed. |
@@ -138,7 +138,7 @@ The result area under the tabs shows the summary of the last change set. `Rows` 
 | Check one collection. | The picker has no checked row, or more than one. | Check exactly one collection. |
 | The deployment already targets this collection. | `Reassign` to the same collection. | Pick another collection. |
 | The result of the catalog deploy is not known: ConfigMgr could not be read after the builder. Check in ConfigMgr ... Undo is not available. | The read after the builder failed. | Check the objects in the console. |
-| The configuration items and baselines could not be read. The log has the details. | The `Live CI/CB` read failed. | Read the log. Select `Refresh`. |
+| The configuration items and baselines could not be read. The log has the details. | The `Live CI/CB` read failed. | Review the log. Select `Refresh`. |
 | The ConfigMgr console role needs Compliance Settings Manager rights. | The provider denied access. | Add the rights to the role. |
 
 See also [error messages](../reference/error-messages.md).

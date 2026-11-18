@@ -26,11 +26,11 @@ The Installer Analysis page reads a Windows installer file on this computer and 
 1. Select **Installer Analysis** in the sidebar.
 2. Drop one file on the page, or enter a path in the path box and press Enter, or select **Open** and choose a file. **Analyze** analyzes the file in the path box.
 3. Wait for the status line to show **Analyzed** and the file name. **Cancel** stops the analysis.
-4. Read the **Overview** tab.
+4. View the **Overview** tab.
 
 ![The Overview tab for an installer](../images/tools-installer-analysis-overview.png)
 
-### Read the Overview tab
+### View the Overview tab
 
 The **Overview** tab has these sections.
 
@@ -38,10 +38,10 @@ The **Overview** tab has these sections.
 - **Deployment**: the fields with the columns **Name**, **Value**, **Confidence** and **Source**. **Confirmed** means the page read the value from the installer. **Predicted** means the page worked it out, for example when the install folder is chosen at run time. Check a **Predicted** value before you use it in a detection method. This page shows only these two levels. [Add from file](../core/add-from-file.md#evidence-levels) adds **Manual** (you changed the value) and **No value**.
 - **Install modes**: one row for each mode with the columns **Mode**, **Default**, **Switch**, **Install command**, **Install folder**, **Uninstall command**, **ARP key**, **Hive**, **View** and **Context**.
 - **Detection after patches**: for a file that holds a base MSI and an MSP, the product code, version and registry key that the patched product writes. The page reads the version from the `UpdatedVersion` of the patch applicability XML (**Confirmed**). If the patch has no `UpdatedVersion`, the page reads a version in parentheses from the patch name, description, subject or title (**Predicted**). A patch with no `UpdatedVersion` can be a small update that keeps the `ProductVersion`. If no version is found, the note says so.
-- **Package metadata**: facts that depend on the installer type.
+- **Package metadata**: properties that depend on the installer type.
 - Notes: plain sentences that say what the page could not read, for example an encrypted Inno Setup header.
 
-### Read the MSI properties
+### View the MSI properties
 
 1. Open the **MSI Properties** tab.
 2. Enter text in the filter box to find a property by name or value.
@@ -63,7 +63,7 @@ The **Overview** tab has these sections.
 
 1. Open the **Inner Installers** tab.
 2. Select a row and select **Analyze selected**.
-3. Read the breadcrumb above the tabs. It shows the levels.
+3. View the breadcrumb above the tabs. It shows the levels.
 4. Select **Back** to return to the installer that holds this one.
 5. To copy an inner installer to a folder of your choice, select **Extract** and choose a folder.
 
@@ -77,7 +77,7 @@ The **Overview** tab has these sections.
 
 ![The File Browser tab](../images/tools-installer-analysis-file-browser.png)
 
-### Read the registry settings
+### View the registry settings
 
 1. Open the **Registry Settings** tab.
 2. Enter text in the filter box to filter by key, name, value, origin or condition.
@@ -85,7 +85,7 @@ The **Overview** tab has these sections.
 
 ![The Registry Settings tab for an NSIS installer](../images/tools-installer-analysis-registry.png)
 
-### Read the strings
+### View the strings
 
 1. Open the **Strings** tab.
 2. Select a **Category** and enter filter text.

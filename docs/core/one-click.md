@@ -47,12 +47,12 @@ The rights of each destination are in [Permissions](../reference/permissions.md)
 1. Select **App Packager** in the sidebar.
 2. Optional: enter text in **Administrative Comments**. A publish to ConfigMgr uses this comment.
 3. Select **One Click**. The **One Click** window opens.
-4. Read the summary line, the action line, the scope line and the grid. A line that starts with `Not ready:` names a destination that cannot take a publish.
+4. View the summary line, the action line, the scope line and the grid. A line that starts with `Not ready:` names a destination that cannot take a publish.
 5. Optional: clear **Include** for a row, or change the destination boxes of a row. These changes apply to this run only.
 6. Optional: select **Plan only** to write the plan as a report without a run.
 7. Select **Run**.
 8. Wait for the run. The summary line shows `Running: <N> application(s)`. Select **Cancel** to stop the run.
-9. Read the result columns. The summary line ends with `Complete: <N> published, <N> failed. Report: <file>`. When a row only applied supersedence, the line adds `, <N> superseded` before the report.
+9. Review the result columns. The summary line ends with `Complete: <N> published, <N> failed. Report: <file>`. When a row only applied supersedence, the line adds `, <N> superseded` before the report.
 10. Select **Open report** to open the report. Select **Run history** to open the folder of all reports.
 11. Select **Close**.
 
@@ -94,7 +94,7 @@ When the plan has rows of that kind, the summary line ends with `, <N> supersede
 - **Stage** and **Stage and Publish** stage the application with the saved install parameters. They show no review dialog.
 - A publish goes to ConfigMgr first, then to WSUS, then to Intune.
 - When a destination refuses an application, One Click remembers the refusal until the version changes.
-- When the ConfigMgr application was created but the content distribution or the test deployment failed, the row is Failed and the inventory records the ConfigMgr destination as Partial. The application exists, so the version counts as published and the next run skips it. To run the steps again, select **Force** together with **Existing ConfigMgr app** set to Overwrite, or distribute the content in the ConfigMgr console.
+- When the ConfigMgr application was created but the content distribution or the test deployment failed, the row is Failed and the inventory shows the ConfigMgr destination as Partial. The application exists, so the version counts as published and the next run skips it. To run the steps again, select **Force** together with **Existing ConfigMgr app** set to Overwrite, or distribute the content in the ConfigMgr console.
 - One Click publishes again when the Workbench profile or the signing policy changed after the last publish.
 - **Force: ignore the cadence and publish again** ignores the cadence, the refusal memory and the already-published guard. It does not override **Existing ConfigMgr app**. It does not override a destination that is not ready.
 - When an application needs a local installer folder and none is set, a prompt asks for the folder before the run starts. The prompt text is `Choose the folder that holds the <application> installer. Its download requires a sign-in, so it stages from a local copy.` A cancelled prompt removes the row from the run with the reason `no local source folder`.
@@ -185,7 +185,7 @@ When the supersedence mode of **Settings**, **Supersedence** is not `Off`, the C
 | `skipped: application <name> already exists` with `ConfigMgr: application exists, policy Skip` | The ConfigMgr application exists and **Existing ConfigMgr app** is **Skip the application**. | Select **Overwrite it** to replace the deployment types. |
 | `One Click skipped: another operation is running.` | Another operation of the App Packager page is running. | Wait for it. Run One Click again. |
 | `failed: WSUS rejected the package: Execution Timeout Expired...` | The WSUS database did not answer in time. | Run the database maintenance of the server. See [WSUS publishing](wsus-publishing.md). |
-| `run snapshot not created` or `run snapshot refused: <reason>` | The Workbench cannot resolve the application or the profile. | Open the application in the [Workbench](workbench.md). Read the findings. |
+| `run snapshot not created` or `run snapshot refused: <reason>` | The Workbench cannot resolve the application or the profile. | Open the application in the [Workbench](workbench.md). Review the findings. |
 
 ## Links
 

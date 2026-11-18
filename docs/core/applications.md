@@ -35,7 +35,7 @@ The window is not modal. You can use the App Packager page while it is open. A s
 2. Find the vendor group of the application. Select the arrow of the group to expand it when it is collapsed.
 3. Clear the check box of the application.
 4. Select **Save**.
-5. Read the message `Saved. N of M visible.` in the notification titled **Catalog**.
+5. Review the message `Saved. N of M visible.` in the notification titled **Catalog**.
 
 The App Packager grid reloads when you select **Save**. The reload clears the check boxes and the statuses of the grid. The grid no longer lists the hidden application.
 
