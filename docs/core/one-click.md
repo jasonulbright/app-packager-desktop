@@ -153,6 +153,8 @@ In the plan window, **Include** and the destination boxes apply to this run only
 
 When the supersedence mode of **Settings**, **Supersedence** is not `Off`, the ConfigMgr publish of a run also links the new application to the older one. If that step fails, the application stays on the site and the row shows `Published` with the warning `supersedence not applied`. One Click keeps the version as pending in the inventory of the ConfigMgr site that is set. The next run does not publish the version again. It does the lookup of the older application and the supersedence step for that application, and nothing else: it stages nothing and publishes nothing. The plan shows the step `Supersedence` for such a row. The step reads the relations that exist and adds only the missing ones, so a second run is safe. The plan does not check the supersedence mode. A mode of `Off` keeps the pending state (`supersedence not run`).
 
+![The One Click plan window with the step Supersedence for an application whose supersedence step is pending](../images/core-one-click-plan-supersedence.png)
+
 | Result of the step | Pending state | Row outcome |
 |---|---|---|
 | Applied | Ends. | `Superseded` |

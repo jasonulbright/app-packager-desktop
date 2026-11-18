@@ -66,6 +66,13 @@ public static class GuideCaptureSteps
         ["tools-installer-analysis-payload"] = "tools-installer-analysis-payload",
         ["tools-installer-analysis-msi-properties"] = "tools-installer-analysis-msi-properties",
         ["tools-installer-analysis-overview"] = "tools-installer-analysis-overview",
+        // The supersedence views of the App Packager page (tools/guide-capture/Capture-PackagesSupersedence.ps1: the real app driven with UI Automation, one theme after the other).
+        ["core-packages-context-menu"] = "core-packages-context-menu",
+        ["core-packages-old-application"] = "core-packages-old-application",
+        ["core-packages-old-application-confirm"] = "core-packages-old-application-confirm",
+        ["core-packages-old-application-linked"] = "core-packages-old-application-linked",
+        ["core-packages-apply-supersedence"] = "core-packages-apply-supersedence",
+        ["core-one-click-plan-supersedence"] = "core-one-click-plan-supersedence",
     };
 
     /// <summary>Every image that a check run produces: the lab capture run, and the render of the pages in the tests.</summary>
