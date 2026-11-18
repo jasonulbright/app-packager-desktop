@@ -318,6 +318,44 @@ public sealed class PowerShellOptionsImportTests
         Assert.Equal(IntuneWindowsReleases.Default, target.Intune.MinimumWindowsRelease);
     }
 
+    // ---- more keys that the PowerShell app added: architecture tag, update check, user test collection
+
+    [Fact]
+    public void TheArchitectureTagTheUpdateCheckAndTheUserCollectionAreImported()
+    {
+        var json = """{ "AppendArchitectureToTitle": false, "CheckForUpdatesAtStartup": false, "ContentDistribution": { "TestCollectionIsUser": true } }""";
+        var target = new AppSettings();
+        var preview = PowerShellOptionsImport.Preview(json, target);
+
+        foreach (var key in new[] { "AppendArchitectureToTitle", "CheckForUpdatesAtStartup", "ContentDistribution.TestCollectionIsUser" })
+            Assert.Equal(PowerShellImportOutcome.Import, Row(preview, key).Outcome);
+        PowerShellOptionsImport.Apply(preview, target);
+        Assert.False(target.AppendArchitectureToTitle);
+        Assert.False(target.CheckForUpdatesAtStartup);
+        Assert.True(target.ContentDistribution.TestCollectionIsUser);
+
+        var again = PowerShellOptionsImport.Preview(json, target);
+        Assert.Equal(0, again.Differs);
+    }
+
+    [Fact]
+    public void ADefaultValueOfTheNewKeysIsTheSameAsTheApdDefault()
+    {
+        var json = """{ "AppendArchitectureToTitle": true, "CheckForUpdatesAtStartup": true, "ContentDistribution": { "TestCollectionIsUser": false } }""";
+        var preview = PowerShellOptionsImport.Preview(json, new AppSettings());
+
+        Assert.Equal(0, preview.Differs);
+        Assert.Equal(3, preview.Rows.Count(r => r.Outcome == PowerShellImportOutcome.Same));
+    }
+
+    [Fact]
+    public void ANewKeyThatIsNotABooleanIsSkipped()
+    {
+        var preview = PowerShellOptionsImport.Preview("""{ "AppendArchitectureToTitle": "no" }""", new AppSettings());
+
+        Assert.Equal(PowerShellImportOutcome.Skipped, Row(preview, "AppendArchitectureToTitle").Outcome);
+    }
+
     // ---- skipped, unknown, differs
 
     [Fact]

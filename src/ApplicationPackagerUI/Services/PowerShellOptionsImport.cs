@@ -314,6 +314,8 @@ public static class PowerShellOptionsImport
         Add(Rule.Text("BeyondCompareKeyFile", s => s.SideFiles.TryGetValue("BeyondCompareKeyFile", out var p) ? p : "", (s, v) => s.SideFiles["BeyondCompareKeyFile"] = v));
         Add(Rule.Bool("IncludeVersionInTitle", s => s.IncludeVersionInTitle, (s, v) => s.IncludeVersionInTitle = v));
         Add(Rule.Bool("RemoveVersionFromTitle", s => s.RemoveVersionFromTitle, (s, v) => s.RemoveVersionFromTitle = v));
+        Add(Rule.Bool("AppendArchitectureToTitle", s => s.AppendArchitectureToTitle, (s, v) => s.AppendArchitectureToTitle = v));
+        Add(Rule.Bool("CheckForUpdatesAtStartup", s => s.CheckForUpdatesAtStartup, (s, v) => s.CheckForUpdatesAtStartup = v));
 
         // APD keeps one SQL Server name, as server\instance,port. The PowerShell app keeps the three parts in separate keys.
         Add(Rule.Text("DiscoverySqlServer", s => SqlName.Parse(s.DiscoverySqlServer).Server, (s, v) => s.DiscoverySqlServer = SqlName.WithServer(s.DiscoverySqlServer, v)));
@@ -336,6 +338,7 @@ public static class PowerShellOptionsImport
         Add(Rule.Text("ContentDistribution.DPGroupName", s => s.ContentDistribution.DpGroupName, (s, v) => s.ContentDistribution.DpGroupName = v.Trim()));
         Add(Rule.Bool("ContentDistribution.DeployToTestCollection", s => s.ContentDistribution.DeployToTestCollection, (s, v) => s.ContentDistribution.DeployToTestCollection = v));
         Add(Rule.Text("ContentDistribution.TestCollectionName", s => s.ContentDistribution.TestCollectionName, (s, v) => s.ContentDistribution.TestCollectionName = v.Trim()));
+        Add(Rule.Bool("ContentDistribution.TestCollectionIsUser", s => s.ContentDistribution.TestCollectionIsUser, (s, v) => s.ContentDistribution.TestCollectionIsUser = v));
         Add(Rule.Bool("ContentDistribution.CreateTestCollectionIfMissing", s => s.ContentDistribution.CreateTestCollectionIfMissing, (s, v) => s.ContentDistribution.CreateTestCollectionIfMissing = v));
 
         Add(Rule.Choice("Intune.DeploymentTarget", [DeploymentTargets.Mecm, DeploymentTargets.MecmAndIntune, DeploymentTargets.IntuneOnly, DeploymentTargets.MecmAndWsus, DeploymentTargets.WsusOnly],
