@@ -1,5 +1,11 @@
 # Changelog
 
+## [Unreleased]
+
+### Changed
+
+- The guide now uses Configuration Manager terms and Microsoft Learn style. For example, it says View and Review instead of Read, and select instead of click.
+
 ## [2026.1118.48] - 2026-11-18
 
 ### Added

@@ -26,7 +26,7 @@ This page is the second part of [WSUS publishing](wsus-publishing.md). That page
 
 1. Select **App Packager** in the sidebar.
 2. Select **WSUS Updates**.
-3. Read the summary line. It shows `<N> update(s) on <server>.`
+3. View the summary line. It shows `<N> update(s) on <server>.`
 
 The button is disabled when **Systems in Use** does not include WSUS or when no server is set. The tooltip names the missing setting.
 
@@ -38,7 +38,7 @@ The button is disabled when **Systems in Use** does not include WSUS or when no 
 2. For **Approve for group**: enter or select a computer group in the box at the left of the buttons. The list loads from the server. The box starts with the group from Settings.
 3. Select **Approve for group**, **Decline**, **Expire** or **Remove**.
 4. For **Expire** and **Remove**: read the question and confirm it. The dialogs are **Expire Updates** and **Remove Updates**.
-5. Read the summary line. It shows `<Action>: <done> of <selected> update(s) done.` A failed update adds its title and the message of the server.
+5. View the summary line. It shows `<Action>: <done> of <selected> update(s) done.` A failed update adds its title and the message of the server.
 
 **Approve for group** and **Decline** ask for no confirmation.
 
@@ -66,8 +66,8 @@ The list then shows every locally published update on the server, not only the o
 4. Paste the update IDs or the catalog links into the large box. Use one or more per line.
 5. Optional: select **Load IDs from file...** to read the IDs from a text file.
 6. Select **Import**.
-7. Read the result box. Each ID has one line: `<id>  imported` or `<id>  FAILED  <message>`.
-8. Read the status line. It ends with the location of the server log.
+7. Review the result box. Each ID has one line: `<id>  imported` or `<id>  FAILED  <message>`.
+8. View the status line. It ends with the location of the server log.
 9. Select **Close**.
 
 The window finds the IDs in the text. It imports each distinct ID once, in the order of the text. **Cancel** shows while an import runs. It stops before the next ID.
@@ -98,7 +98,7 @@ The windows have no saved settings of their own. The group box starts with **App
 |---|---|---|
 | `Select one or more updates first.` | No row is selected. | Select a row. |
 | `Enter or choose a computer group to approve for.` | The group box is empty. | Enter a group or use the list. |
-| `Listing failed: <message>` | The server did not answer, or the API is missing. | Read the message. See [WSUS publishing](wsus-publishing.md). |
+| `Listing failed: <message>` | The server did not answer, or the API is missing. | Review the message. See [WSUS publishing](wsus-publishing.md). |
 | `Computer groups could not be listed: <message>` | The call for the groups failed. The update list loaded. | Type the group name. |
 | `... Another update on the server still references this update. Expire this update instead, or remove the update that references it first.` | **Remove** failed because of a reference. | Follow the message. |
 | `... Only a locally published update that is not already expired can be expired on this server.` | The server refused **Expire**. | Check that the update was published locally and is not already expired. |

@@ -30,7 +30,7 @@ The lab runs used a Full Administrator account. The page was not tested with a c
 1. Select **Site Hygiene** in the sidebar. The first visit shows the stored last scan, marked as stored, without a call to the site. If no scan is stored, the page shows "No scan result yet. Select Scan to read the site."
 2. To limit the scan, select the **Options** tab. Clear the scan areas that you do not need. See [Scan areas](#options-of-the-scan).
 3. Select **Scan**. The progress line shows the step. Select **Cancel** to stop after the current step. The earlier result stays.
-4. Read the summary line above the tabs. It shows the number of errors, warnings and info findings, the number of suppressed findings, the time of the scan, and the number of checks that did not run.
+4. View the summary line above the tabs. It shows the number of errors, warnings and info findings, the number of suppressed findings, the time of the scan, and the number of checks that did not run.
 5. Select the **Findings** tab. Select a row to see the details under the grid: the object, the evidence, the recommendation, the fix note and the PowerShell text of the fix.
 
 A scan of every area, with every check run, becomes the stored last scan. The **New** column of the next scan compares with it. A scan of some areas, a cut read or a check that did not run is not stored. The summary line says so.
@@ -56,10 +56,10 @@ Filters: a text box (**Filter by check, object, evidence or action**), a **Categ
 1. On the **Findings** tab, select one or more findings. All selected findings must have the same fix.
 2. Select **Run fix**. The page checks each finding again on the site.
 3. If you selected more than one finding, a list opens. Clear each object that must stay. For a delete the text reads: "Clear each object that must stay. Only the checked objects are checked again on the site and planned. A delete cannot be undone." Use **Check shown** and **Clear** to change many rows. Select **Continue to the plan**.
-4. The plan window opens. Read the object list, the notes and the **Equivalent PowerShell** text. The notes show the impact and the checks of the prepared change.
+4. The plan window opens. Review the object list, the notes and the **Equivalent PowerShell** text. The notes show the impact and the checks of the prepared change.
 5. For a delete, select both confirmation boxes. The first reads: "I checked the list of objects above and the impact lines." The second reads: "Delete N objects from the site. A delete cannot be undone." A change plan has no box.
 6. Select the confirm button. Its text is the fix name and the object count, for example **Delete package: 2 objects**.
-7. Read the result. The result card **Results of the last fix** lists each object with **Result**, **Fix**, **Object** and **Message**. Open the card to see the rows.
+7. Review the result. The result card **Results of the last fix** lists each object with **Result**, **Fix**, **Object** and **Message**. Open the card to see the rows.
 
 The result of an object is **Done**, **Unchanged**, **Failed** or **Skipped**. **Done** means that the read-back showed the change. If the write ran but the read-back failed, the result is **Failed** and says so. **Cancel** in the plan window finishes the object in progress and skips the rest.
 
@@ -149,19 +149,19 @@ The page saves its choices in `settings.json` under the key `SiteHygiene`. It wr
 |---|---|---|
 | Select at least one scan area on the Options tab. | All areas are cleared. | Check at least one area. |
 | Nothing was scanned yet. Select Scan first. | No result is shown. | Select **Scan**. |
-| The scan could not read the site. The earlier result stays. The log has the details. | A read failed. | Check the site code and the provider in Settings. Read the application log. |
+| The scan could not read the site. The earlier result stays. The log has the details. | A read failed. | Check the site code and the provider in Settings. Review the application log. |
 | The site settings changed during the scan, so its result was discarded. Scan again. | You changed the site or the provider during a scan. | Select **Scan**. |
 | Select one or more findings first. | **Run fix** with no selection. | Select findings. |
 | The selected findings have no typed fix. They are for report only. | The page does not fix these findings. | Use the recommended action in the ConfigMgr console. |
 | The selected findings need different fixes: (names). | The selection mixes fix kinds. | Filter to one fix, select the findings, then select **Run fix**. |
 | The selected findings are suppressed. Select Unsuppress before a fix. | All selected findings are suppressed. | Select **Unsuppress**. |
-| The findings could not be checked again on the site. Nothing was changed. | The check before the plan failed. | Read the application log. Start the fix again. |
+| The findings could not be checked again on the site. Nothing was changed. | The check before the plan failed. | Review the application log. Start the fix again. |
 | No finding of the plan still holds: the objects changed since the scan. | The objects changed. | Select **Scan**. |
-| The plan cannot run. Nothing was changed. | A check of the plan failed. The message names the check. | Read the message. Prepare the plan again. |
+| The plan cannot run. Nothing was changed. | A check of the plan failed. The message names the check. | Review the message. Prepare the plan again. |
 | the plan is older than 15 minutes. Prepare it again on fresh data. | The plan is too old. | Select **Run fix** again. |
 | the connection changed since the plan | The settings name another site or provider now. | Prepare the plan again. |
 | The audit log is not complete: the Finished record of the last fix is missing. | The page could not write the Finished record. | Check the permissions of the audit log folder. |
-| Skipped: (reason) | The service left out an object, for example because a reference exists. | Read the reason. |
+| Skipped: (reason) | The service left out an object, for example because a reference exists. | Review the reason. |
 | The relationships were not read. Select Read relationships. | You exported or opened relationships before the read. | Select **Read relationships**. |
 
 ## Links

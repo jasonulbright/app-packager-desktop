@@ -19,7 +19,7 @@ The Maintenance Windows page shows, creates, edits, enables, disables and remove
 
 ## Steps
 
-### Read the windows
+### View the windows
 
 1. Select **Maintenance Windows** in the sidebar. The page reads the collections and the windows by itself.
 2. To read again, select **Refresh**. To stop a read, select **Cancel**.
@@ -39,9 +39,9 @@ The Maintenance Windows page shows, creates, edits, enables, disables and remove
 7. Set **Start date**, **Hour** and **Minute**.
 8. Set **Duration hours** and **Minutes**.
 9. Select **UTC** if the window must start at the same moment on every client. Leave **UTC** off if the window follows the local time of each client.
-10. Read the **Schedule** text and **Next 5 occurrences** in the editor.
+10. View the **Schedule** text and **Next 5 occurrences** in the editor.
 11. Select **Save**. The plan window opens.
-12. Read the plan. Select **Create window**.
+12. Review the plan. Select **Create window**.
 
 The page creates the window enabled.
 
@@ -53,7 +53,7 @@ The page creates the window enabled.
 2. Select **Edit**.
 3. Change the values. To rename the window, change **Name**.
 4. Select **Save**.
-5. Read the plan. Select **Save changes** for an edit, or **Rename window** for a rename.
+5. Review the plan. Select **Save changes** for an edit, or **Rename window** for a rename.
 
 A rename creates the window with the new name first. The page removes the old window only after the new window exists. A renamed window has a new ID.
 
@@ -61,13 +61,13 @@ A rename creates the window with the new name first. The page removes the old wi
 
 1. Select one or more windows. Use Shift or Ctrl to select several rows.
 2. Select **Toggle Enabled**.
-3. Read the plan. Select the action button, for example **Disable 2 windows**.
+3. Review the plan. Select the action button, for example **Disable 2 windows**.
 
 ### Remove windows
 
 1. Select one or more windows.
 2. Select **Remove**.
-3. Read the plan. The plan lists the exact windows.
+3. Review the plan. The plan lists the exact windows.
 4. Select the check box **I understand that this change removes or replaces data in ConfigMgr.**
 5. Select the action button, for example **Remove 2 windows**.
 
@@ -76,7 +76,7 @@ A rename creates the window with the new name first. The page removes the old wi
 ### Undo the last change
 
 1. Select **Undo last change** under the results.
-2. Read the plan. An undo that removes or renames a window shows the same check box as a removal.
+2. Review the plan. An undo that removes or renames a window shows the same check box as a removal.
 3. Select the action button, for example **Undo 1 change**.
 
 Undo of a removal creates the window again with the same values and a new ID.
@@ -98,7 +98,7 @@ Undo of a removal creates the window again with the same values and a new ID.
 4. Select what happens when a collection already has a window with the template name: **Skip a collection that already has a window with the template's name**, or **Create the window there with a new name, for example Name (2)**.
 5. Select the collections. **Check shown** selects every collection that the filter shows. **Clear** clears every selection.
 6. Select **Show plan**.
-7. Read the plan. A skipped collection shows the action **Skip**.
+7. Review the plan. A skipped collection shows the action **Skip**.
 8. Select the action button, for example **Create 2 windows**.
 
 The page gives the new windows the effective date of today and enables them.
@@ -116,7 +116,7 @@ The page gives the new windows the effective date of today and enables them.
 ### Export a report
 
 1. Select **Export CSV** or **Export HTML** on the **Windows** tab.
-2. Read the path in the status line.
+2. View the path in the status line.
 
 ## Options and settings of this page
 

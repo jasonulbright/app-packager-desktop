@@ -34,15 +34,15 @@ Every change shows a plan first. Nothing changes until you read the plan, select
 7. Set the rule: `Data type`, `Rule name (empty: the setting name and rule)`, `Operator`, `Expected value` and `Noncompliance severity`. For a list operator or a string array, enter one value on each line.
 8. Select the boxes you need: `Remediate noncompliant values`, `Remediate the value as a DWORD` (registry settings), `Report noncompliance when the value is not found`.
 9. Select `Show plan`.
-10. Read the plan. It shows the new values, the revision note and the Undo note. Select the confirmation box if the plan shows one. Select the action button `Add setting`.
+10. Review the plan. It shows the new values, the revision note and the Undo note. Select the confirmation box if the plan shows one. Select the action button `Add setting`.
 
 ![The Edit setting dialog for a registry setting](../images/tools-compliance-editor.png)
 
 ## Steps: edit or remove a setting
 
 1. Select the configuration item and the setting in the grid.
-2. Select `Edit`. Change the values. Select `Show plan`. Read the plan, which shows the old and the new values. Select the action button `Edit setting`.
-3. Or select `Remove`. Read the plan. Select the confirmation box. Select the action button `Remove setting`.
+2. Select `Edit`. Change the values. Select `Show plan`. Review the plan, which shows the old and the new values. Select the action button `Edit setting`.
+3. Or select `Remove`. Review the plan. Select the confirmation box. Select the action button `Remove setting`.
 
 What the plan tells you:
 
@@ -70,8 +70,8 @@ Rules of the dialog (messages from the code):
 1. Open the `Auditing` tab. The page reads the drift rows and the compliance rows in one pass.
 2. Use the filter ("Filter by baseline, collection or catalog ID"). On the `Drift` sub-tab, use the list of drift states. On the `Compliance` sub-tab, select `Only stale`.
 3. Select `Refresh` to read again.
-4. Read the sub-tab `Drift`. Its columns are `Baseline`, `ID`, `Catalog ID`, `Deployed version`, `Catalog version` and `State`.
-5. Read the sub-tab `Compliance`. Its columns are `Baseline`, `Collection`, `Compliant`, `Non-compliant`, `Error`, `Unknown`, `Last evaluated` and `Freshness`.
+4. View the sub-tab `Drift`. Its columns are `Baseline`, `ID`, `Catalog ID`, `Deployed version`, `Catalog version` and `State`.
+5. View the sub-tab `Compliance`. Its columns are `Baseline`, `Collection`, `Compliant`, `Non-compliant`, `Error`, `Unknown`, `Last evaluated` and `Freshness`.
 6. Select `Export CSV` or `Export HTML` to write a report. Select `Open folder` to open the folder of the last report.
 
 ![The Drift list with the states Current, Behind and Untagged](../images/tools-compliance-drift.png)
@@ -126,10 +126,10 @@ The result area under the tabs has `Undo last change` and the check box `Rows`. 
 | Enter the discovery script. | A script setting has no discovery script. | Enter the script. |
 | A script is longer than 256 KB. | A script is too long. | Shorten the script. |
 | Nothing was changed in the setting. | The dialog values equal the stored values. | Change a value. |
-| The configuration items could not be read. The log has the details. | The read for the `Editor` tab failed. | Read the log. Select `Refresh`. |
-| The settings of the configuration item could not be read. The log has the details. | The settings read failed. | Read the log. |
-| The drift and compliance data could not be read. The log has the details. | The `Auditing` read failed. | Read the log. Select `Refresh`. |
-| The list has no rows to export. | Both lists are empty. | Read the data first. |
+| The configuration items could not be read. The log has the details. | The read for the `Editor` tab failed. | Review the log. Select `Refresh`. |
+| The settings of the configuration item could not be read. The log has the details. | The settings read failed. | Review the log. |
+| The drift and compliance data could not be read. The log has the details. | The `Auditing` read failed. | Review the log. Select `Refresh`. |
+| The list has no rows to export. | Both lists are empty. | Select `Refresh` to load the data first. |
 | The run that continued in the background has ended. Refresh the lists to see the result. | A plan window was closed during a run. | Select `Refresh`. |
 
 See also [error messages](../reference/error-messages.md).

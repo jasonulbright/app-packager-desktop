@@ -28,7 +28,7 @@ The **Deploy** tab is in [Deployment Helper: Deploy tab](deployment-helper.md). 
 
 1. Select a record of the event Create that has a deployment ID.
 2. Select **Remove deployment**. The page reads the deployment from the site and opens a plan.
-3. Read the plan. The plan shows the deployment ID, the object, the collection, the purpose, the times and the checks.
+3. Review the plan. The plan shows the deployment ID, the object, the collection, the purpose, the times and the checks.
 4. Select the confirmation box of the plan. Select the action button **Remove deployment**.
 5. A question window titled **Remove deployment** opens. Select **Remove deployment** to remove the deployment. Select **Cancel** to keep it. **Cancel** is the default button.
 
@@ -99,7 +99,7 @@ The page saves the audit log path, the ring folders and the template choice in `
 ## Limits
 
 - Undo from History works only for a verified record. The page also checks the record against the site: the creator account, the creation time within 5 minutes, the stored values and, for an application, the object revision. If a check fails, the page refuses and says why.
-- Applications and update groups carry the creation time and the account. Packages and task sequences have neither. For these the page reads status message 30006 of the site. If the site no longer holds that message, Undo from History is refused.
+- Applications and software update groups carry the creation time and the account. Packages and task sequences have neither. For these the page reads status message 30006 of the site. If the site no longer holds that message, Undo from History is refused.
 - Undo from History checks the audit record against the site. It cannot stop a process of the same account that forges both.
 - A record without every value that the removal compares (type, IDs, purpose, times and time basis) cannot be removed from History. Remove the deployment in the console.
 - The ring records of the audit log were checked in the lab on one site with one client. No separate lab record covers the **History** tab for single deployments.
@@ -114,7 +114,7 @@ The page saves the audit log path, the ring folders and the template choice in `
 | Select a create record that names its deployment ID. | The selected record is not a Create record with an ID. | Select another record. |
 | This record cannot be checked (the log was edited or its chain is broken): Undo from History is refused. Remove the deployment in the console. | The record is **Not verified**. | Remove the deployment in the console. |
 | The record does not hold every value the removal compares ... | The record lacks values. | Remove the deployment in the console. |
-| Undo from History is refused: ... | A check against the site failed. The message after the colon names it. | Read the message. Remove the deployment in the console if needed. |
+| Undo from History is refused: ... | A check against the site failed. The message after the colon names it. | Review the message. Remove the deployment in the console if needed. |
 | The Deployments templates folder is a junction or symbolic link. The templates were not read or changed. | The template folder is a link. | Use a normal folder. |
 
 See also [Error messages](../reference/error-messages.md) and [Troubleshooting](../troubleshooting.md).

@@ -33,11 +33,11 @@ The app never exports a private key. A private key never reaches profiles, manif
 1. Open **Settings** and go to **Script Signing**.
 2. Under **Signing Identity**, choose **Certificate store**. `CurrentUser\My` is the supported identity. `LocalMachine\My` needs an explicit choice and tested private-key access.
 3. Select **Refresh**. In the list **Certificate**, choose the certificate. Each entry shows the subject and the expiry date. An entry that is not usable ends with `[unusable]`.
-4. Read the line under the list. It shows the subject, the issuer, the dates, the thumbprint and `Usable: yes` or `Usable: no - <reason>`.
+4. View the line under the list. It shows the subject, the issuer, the dates, the thumbprint and `Usable: yes` or `Usable: no - <reason>`.
 5. Optional: enter a **Timestamp server**. A timestamped signature stays valid after the certificate expires. Select **Timestamp required** if a timestamp failure must fail the build.
 6. Select the **Sign** switches for the categories to sign.
 7. Optional: select the **Require** switches.
-8. Select **Test signing configuration**. The app signs and verifies a temporary file with the selected certificate. It publishes nothing and saves nothing. Read the result under the button.
+8. Select **Test signing configuration**. The app signs and verifies a temporary file with the selected certificate. It publishes nothing and saves nothing. Review the result under the button.
 9. Select **Save Settings**.
 10. Stage the applications again. Staged content from before the change keeps its old signature state.
 
@@ -45,7 +45,7 @@ The app never exports a private key. A private key never reaches profiles, manif
 
 The result of the test reads like this: `Status: <status>. Signature intact: yes. Trusted on this host: yes. Timestamp verified: <value>.` followed by a reason when one applies. *Signature intact* and *Trusted on this host* are two separate results. A signature can be intact and still not trusted on this computer. A local check does not prove that the certificate is trusted on your clients.
 
-With a self-signed code-signing certificate that this computer does not trust, the result starts with `Status: UnknownError.` The text that follows names the cause: the signer chain is not trusted. The status word is not the cause. Read the text after it.
+With a self-signed code-signing certificate that this computer does not trust, the result starts with `Status: UnknownError.` The text that follows names the cause: the signer chain is not trusted. The status word is not the cause. View the text after it.
 
 ## How a build uses the switches
 

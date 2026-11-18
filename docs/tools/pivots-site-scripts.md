@@ -30,7 +30,7 @@ The lab runs used a Full Administrator account. The page was not tested with a c
 3. Type the script text in the editor. To start from a sample, select a script in the **Script library** list and select **Use script**. If the name box is empty, the page fills it with the name of the sample.
 4. Select **Check**. The page checks the syntax of the text. It does not run the script. The result line shows the syntax errors, or the parameters that the site will store.
 5. Select **Submit**. The page opens the plan window.
-6. Read the plan. It shows the script text and the parameter definitions that the site will store.
+6. Review the plan. It shows the script text and the parameter definitions that the site will store.
 7. Select the confirm button. The site stores the script with the state **Waiting for approval**. The script cannot run until an administrator approves it.
 
 If the site creates the script and a later step fails, a message shows the GUID of the script and a banner appears. Select **Remove created script** to remove only that script.
@@ -43,7 +43,7 @@ If the site creates the script and a later step fails, a message shows the GUID 
 2. Select a script in the grid. The line under the grid shows its name, state, version, author, approver and GUID.
 3. Select **Approve**, **Deny** or **Remove**.
 4. For **Deny**, type the reason in the comment window and select **OK**. The site stores the comment with the script. Select **Cancel** to stop.
-5. Read the plan. The plan shows the script text, the text hash and the site hash.
+5. Review the plan. The plan shows the script text, the text hash and the site hash.
 6. For **Remove**, select both confirmation boxes. The second box reads "Remove (name). Its run history goes with it."
 7. Select the confirm button.
 

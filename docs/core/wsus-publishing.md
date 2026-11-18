@@ -42,8 +42,8 @@ The rights of each page are in [Permissions](../reference/permissions.md).
 3. In the section **WSUS Publishing**, enter the name of the server in **WSUS server**. Enter a host name. A name with a scheme or a path is refused.
 4. Check **Port** and **Use SSL**. The port changes to 8531 when you select **Use SSL**, and to 8530 when you clear it. A port that you type yourself stays.
 5. Select **Test connection**.
-6. Read the status line. A successful test shows `Connected`, the server name, the WSUS version, your role and `secure` or `unencrypted`.
-7. Read the line under **Signing Certificate**. It shows the subject, the thumbprint, the end date, the key length and the flags `self-signed` and `EXPIRED`.
+6. View the status line. A successful test shows `Connected`, the server name, the WSUS version, your role and `secure` or `unencrypted`.
+7. View the line under **Signing Certificate**. It shows the subject, the thumbprint, the end date, the key length and the flags `self-signed` and `EXPIRED`.
 8. Select **Save Settings**.
 
 If the buttons of the section are disabled, the WSUS administration API is not on this computer. The status line then shows the text that names the fix. See [Troubleshooting](#troubleshooting).
@@ -54,7 +54,7 @@ If the buttons of the section are disabled, the WSUS administration API is not o
 
 The server signs each update with its signing certificate. Use one of these buttons when the server has none, or when you want another certificate.
 
-1. To let the server create a self-signed certificate, select **Create self-signed...**. Read the question in the **Create Signing Certificate** dialog. Confirm it.
+1. To let the server create a self-signed certificate, select **Create self-signed...**. Review the question in the **Create Signing Certificate** dialog. Confirm it.
 2. To use a certificate from your PKI, select **Import PFX...**. Select the PFX file. Enter its password in the **Certificate Password** window. Confirm the question in the **Import Signing Certificate** dialog.
 3. To give the public certificate to clients, select **Export certificate...**. Save the `.cer` file. The suggested file name is `WSUS-signing-<server>.cer`.
 4. Distribute the `.cer` file to the clients. Put it in the Trusted Publishers store, and in the Trusted Root Certification Authorities store when it is self-signed.
@@ -73,7 +73,7 @@ The server signs each update with its signing certificate. Use one of these butt
 1. Select **App Packager** in the sidebar.
 2. Check the applications to publish.
 3. Select **Publish to WSUS**.
-4. Read the **Status** column of each row and the log pane.
+4. View the **Status** column of each row and the log pane.
 
 The run stages an application first when it has no stage of its latest version. The run then checks the staged build against the rules of WSUS and publishes it.
 
@@ -151,7 +151,7 @@ All settings are in **Settings**, **WSUS Publishing**. The settings are stored i
 | **Approve for group** | empty | Group for the approval right after a publish. |
 | **Decline earlier versions of the same application after publishing** | off | Declines the AppPackager updates of the same application with a lower version. Approving one again reverses it. |
 
-The command line publishes to WSUS with `--target WSUSOnly` or `--target MECMAndWSUS`. See [Command-line build](command-line-build.md). The exit code is 1 when a publish succeeded and a follow-up step, such as the approval, failed. Read the WSUS result and the package ID in the output before you try again.
+The command line publishes to WSUS with `--target WSUSOnly` or `--target MECMAndWSUS`. See [Command-line build](command-line-build.md). The exit code is 1 when a publish succeeded and a follow-up step, such as the approval, failed. View the WSUS result and the package ID in the output before you try again.
 
 ## Limits
 
@@ -173,7 +173,7 @@ The command line publishes to WSUS with `--target WSUSOnly` or `--target MECMAnd
 | `This computer must trust the WSUS signing certificate...` | The server text says `Verification of file signature failed`. | Export the certificate with **Export certificate...**. Import it into Trusted Publishers on this computer. Import it into Trusted Root Certification Authorities when it is self-signed. |
 | `The UpdateServicesPackages or WSUSContent share on the server is missing, not shared, or not writable.` | The server text says `CreateDirectory failed`. | Check the shares and their permissions. |
 | `The WSUS database did not answer in time...` | The server text says `timeout expired`. | Run WSUS database maintenance on the server: update statistics and rebuild the SUSDB indexes. Publish again. The lab saw this error after the indexes had become fragmented. |
-| `WSUS rejected the package: <server text>` | The server refused the package. The text can end with a hint. | Read the hint. A payload larger than the cab limit of the server needs a higher `LocalPublishingMaxCabSize` (at most 2047). |
+| `WSUS rejected the package: <server text>` | The server refused the package. The text can end with a hint. | Review the hint. A payload larger than the cab limit of the server needs a higher `LocalPublishingMaxCabSize` (at most 2047). |
 | `WSUS server <x> has no signing certificate. Create or import one...` | The server has no signing certificate. | Use **Create self-signed...** or **Import PFX...**. The message names the section "Options, WSUS Publishing". The section is **WSUS Publishing** in **Settings**. |
 | `The WSUS signing certificate <thumbprint> expired on <date>.` | The certificate expired. | Import a new certificate. Clients must then trust it. |
 | `WSUS did not create a self-signed certificate: ...` | The server does not create one without the registry value `EnableSelfSignedCertificates` = 1. | Import a code-signing certificate from your PKI with **Import PFX...**. |

@@ -111,7 +111,7 @@ See [Settings reference](../reference/settings.md) for defaults.
 | `Installer signature is <status>, not Valid: <file>` | A local installer has no valid Authenticode signature. | Use a signed installer. |
 | `Staging folder '<folder>' can be changed by other accounts (<list>). Use a folder that only your account and administrators can write, such as '<default>'.` | Other accounts can write to Download Root. `<default>` is the `Staging` folder of the per-user data folder. With an `APP_PACKAGER_DATA_ROOT` override, its path includes your Windows SID, for example `C:\...\Users\S-1-5-21-...\Staging`. | Choose a folder that only your account and administrators can write. |
 | `Skipped <application>: no installer source folder chosen.` | You cancelled the folder prompt. | Stage again and choose the folder. |
-| `Stage FAILED (exit 1)` followed by `STDERR:` lines | Stage stopped. The `STDERR` lines name the reason. | Read the lines. |
+| `Stage FAILED (exit 1)` followed by `STDERR:` lines | Stage stopped. The `STDERR` lines name the reason. | Review the lines. |
 
 See [Error messages](../reference/error-messages.md) and [Troubleshooting](../troubleshooting.md).
 

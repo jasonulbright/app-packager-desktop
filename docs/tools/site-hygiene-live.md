@@ -30,7 +30,7 @@ The lab runs used a Full Administrator account. The page was not tested with a c
 
 1. Select **Site Hygiene** in the sidebar. Select the **Live** tab.
 2. Select **Refresh all**. The page reads every view in bulk. The status line shows the progress. Select **Cancel refresh** to stop. The earlier result stays.
-3. Read the summary line above the tabs: "Last refresh (time): ..." with the counts of each view.
+3. View the summary line above the tabs: "Last refresh (time): ..." with the counts of each view.
 4. Select a view in the **Live view** list.
 5. To filter the rows, select a status in the status list (**All**, **OK**, **Warning**, **Failed**, **Not known**), or type text in the box **Filter the rows by any text**.
 6. To keep the counts as text, select **Copy summary**.
@@ -83,7 +83,7 @@ Every grid also has a **Status** column.
 1. In the **Live view** list, select **Trends**.
 2. In the **Metric** list, select a metric. The default is **Deployment compliance (%)**.
 3. In the **Period** list, select **Last 7 days**, **Last 30 days**, **Last 90 days** or **Last 180 days**. The default is 30 days.
-4. Read the chart. To read one value, select a point with the pointer, or use the arrow keys, Home and End on the focused chart. The line under the chart shows the value and the time.
+4. View the chart. To read one value, select a point with the pointer, or use the arrow keys, Home and End on the focused chart. The line under the chart shows the value and the time.
 5. The table below the chart lists the same points with the columns **Time**, **Value** and **Note**.
 
 The metrics are: **Deployments**, **Deployments with errors**, **Deployment compliance (%)**, **Content with issues**, **Failed DP-content pairs**, **Distribution points**, **Distribution points critical**, **Distribution points warning**, **Healthy clients**, **Unhealthy clients**, **Inactive clients**, **Devices past the inactivity threshold**, **Site items OK**, **Site items warning** and **Site items critical**.
@@ -150,7 +150,7 @@ The page saves these settings in `settings.json` under the keys `SiteHygieneLive
 On the first visit with no metrics history, the page looks for a retired Health Dashboard folder. If it finds files to import, a banner offers the import. The banner has the buttons **Not now** and **Import**. **Not now** hides the offer. The import stays on the **Options** tab as **Import from the Health Dashboard**.
 
 1. Select **Import** (or **Import from the Health Dashboard** on the **Options** tab).
-2. Read the window. It lists the folder, the files, the number of metrics history rows and each setting that the import fills.
+2. View the window. It lists the folder, the files, the number of metrics history rows and each setting that the import fills.
 3. Select **Import** to copy. Select **Cancel** to copy nothing.
 
 The import reads the files `SiteHygiene.prefs.json` and `MECMHealthDash.prefs.json` and the metrics history of the old folder. It fills only settings that were never set on this page. It never moves, changes or deletes the old files. A second import changes nothing. The importer refuses corrupt files, files without known columns, and files or folders that are links. The size limit of a settings file is 1 MiB. The size limit of a history file is 32 MiB.
@@ -176,7 +176,7 @@ The import reads the files `SiteHygiene.prefs.json` and `MECMHealthDash.prefs.js
 | No Live refresh yet. Select Refresh all to read the site. | No refresh ran in this session. | Select **Refresh all**. |
 | This view was not read yet. Select Refresh all. | You selected a view that the last refresh did not read. | Select **Refresh all**. |
 | A refresh is running. Wait until it ends, or select Cancel refresh. | A refresh runs. | Wait, or select **Cancel refresh**. |
-| The refresh could not read the site. The earlier result stays. | A read failed. | Read the application log. |
+| The refresh could not read the site. The earlier result stays. | A read failed. | Review the application log. |
 | The settings changed during the refresh, so its result was discarded. | You changed the site or the provider during a refresh. | Select **Refresh all**. |
 | SQL is not set up. Enter the SQL Server of the site database in Options, or set the site code and SMS Provider so the SQL Server can be found. | No SQL server is known. | Enter the SQL server on the **Options** tab. |
 | The ConfigMgr session is connected to another site or SMS Provider than the settings name. Refresh again. | The settings changed after the connection. | Select **Refresh all**. |

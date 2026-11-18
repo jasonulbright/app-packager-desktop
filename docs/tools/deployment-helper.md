@@ -31,10 +31,10 @@ The page has four tabs: **Deploy**, **Rings**, **History** and **Options**. This
 9. Select the **User notification**. The list is shown for the types that have this setting.
 10. Set the options of the object type. See the table in [Options and settings](#options-and-settings).
 11. For an application, a package or a task sequence, check the distribution point groups in the **Content** card. Select **Refresh status** to read the content status again. For a software update group the page shows no **Content** card, because the console distributes update content.
-12. Select **Validate**. Read the **Checks** grid. A check with the result Fail or Unknown blocks the deployment.
-13. Select **Deploy**. The plan window opens. Read the plan.
+12. Select **Validate**. View the **Checks** grid. A check with the result Fail or Unknown blocks the deployment.
+13. Select **Deploy**. The plan window opens. Review the plan.
 14. Select the extra confirmation box if the plan shows one. Select the action button of the plan.
-15. Read the result under the tabs. The result lists each change with **Result**, **Action**, **Object** and **Message**.
+15. Review the result under the tabs. The result lists each change with **Result**, **Action**, **Object** and **Message**.
 16. Check the new deployment in the ConfigMgr console. The result panel names deployments that the page could not identify.
 
 ![The Deploy tab after Validate, with the checks and the result of an Undo](../images/tools-deployment-helper-deploy.png)
@@ -106,7 +106,7 @@ The page saves the selected tab, object type and template for the current Window
 | **Audit log** | The audit log can be written. |
 | **Script signing** | The script-signing rule of the product. |
 
-ConfigMgr refuses a second application deployment to the same collection. It allows a second package, task sequence or update group deployment. The page blocks it in the **No duplicate deployment** check.
+ConfigMgr refuses a second application deployment to the same collection. It allows a second package, task sequence or software update group deployment. The page blocks it in the **No duplicate deployment** check.
 
 The schedule rules are:
 

@@ -43,7 +43,7 @@ The run creates the rings in order. If a ring is not fully created, the run stop
 1. Select the **Rings** tab. In **Open runs**, select **Refresh and reconcile** to read the live counts.
 2. Select the run. The grid **Rings of the selected run** shows each ring with **Status** and the live counts.
 3. Select **Promote**. If **Promote** is off, the page shows the reason.
-4. Read the plan. A Required ring needs its own extra box.
+4. Review the plan. A Required ring needs its own extra box.
 5. Select the action button. It is named **Promote ring** or **Promote Required ring**.
 
 The page checks these conditions for Promote:
@@ -68,7 +68,7 @@ If the deadline of the ring has passed, the plan offers to move that ring and ev
 
 | Control | Effect |
 |---|---|
-| **Refresh**, **Cancel** (new run) | Read the objects, collections, plans and runs again, or stop the read. |
+| **Refresh**, **Cancel** (new run) | Load the objects, collections, plans and runs again, or stop the load. |
 | **Expand**, **Set collection**, **Validate**, **Create run** | The steps of a new run. |
 | **Refresh and reconcile** | Reads the counts of every open run, resolves rings left in Creating, marks a ring Removed only when its deployment is gone, and closes finished runs. |
 | **Promote**, **Undo run**, **Close run**, **Abandon ring** | Change an open run. Each shows a plan first. |
@@ -100,14 +100,14 @@ The **History** tab lists every ring create, **Promote**, undo, close, cancelled
 
 | Message | Cause | Fix |
 |---|---|---|
-| The run cannot be created: ... | A check of the run or of a ring that is created now failed. | Read the checks. Fix the cause. Select **Expand** and **Validate** again. |
+| The run cannot be created: ... | A check of the run or of a ring that is created now failed. | Review the checks. Fix the cause. Select **Expand** and **Validate** again. |
 | The deadline of ring ... is in the past. Choose a later plan start and select Expand again. | A Required ring has a deadline before now. | Choose a later **Plan start**. |
 | The run could not be prepared. Select Expand and Validate again. | The page lost the prepared state. | Select **Expand**, then **Validate**. |
 | Ring ... is ..., not created, so ring ... cannot be promoted. Select Refresh and reconcile. | The previous ring is not Created. | Select **Refresh and reconcile**. |
 | Ring ... has ... % success ...; ring ... needs ... % | The success threshold is not met. | Wait for more clients to report. Select **Refresh and reconcile**. |
 | Promote and Undo run are not available until the run file is corrected | The run file has a problem. | Correct the run file, or close the run. |
 | Skipped: Another session holds the run: the lock file ... | Another session holds the lock. | Wait. If the lock is stale, check and remove the lock file. |
-| Nothing of this run can be undone: ... | Every ring failed a check, or none is left to remove. | Read the reasons. Remove the deployments in the console. |
+| Nothing of this run can be undone: ... | Every ring failed a check, or none is left to remove. | Review the reasons. Remove the deployments in the console. |
 | The ring runs folder is a junction or symbolic link. The runs were not read or changed. | The runs folder is a link. | Use a normal folder or a share. |
 
 See also [Error messages](../reference/error-messages.md) and [Troubleshooting](../troubleshooting.md).

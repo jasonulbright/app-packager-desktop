@@ -52,7 +52,7 @@ The app keeps the earlier revisions. The list **Installer source** shows **Revis
 
 The start argument `--analyze-drop <path>` opens the dialog **Installer drop** for one file after the list loads. The log shows `Startup: analysing installer from --analyze-drop: <path>`. A drop in the window does not open this dialog.
 
-1. Read the line under the file name: `Detected: <engine> (<type>)   Architecture: <architecture>   Confidence: <confidence>`.
+1. View the line under the file name: `Detected: <engine> (<type>)   Architecture: <architecture>   Confidence: <confidence>`.
 2. If the box **Install for** is visible, choose `System` or `User`. The arguments, the uninstall command and the detection rule change together with this choice.
 3. Check each value. Each row has a badge, `Confirmed` or `Predicted`, and a line that names the source of the value. The rows **Application**, **Publisher**, **Version**, **Install args**, **Uninstall args** and **Uninstall command** are editable. The row **Detection** is read-only.
 4. If a row has the badge `Predicted`, select **I confirmed the predicted values**. Until you select it, the buttons **Stage**, **Save as definition** and **Save as Application** are disabled.
@@ -86,15 +86,15 @@ The identifier of a bring-your-own application starts with `byo:`. Use it as `--
 
 | Message | Cause | Fix |
 |---|---|---|
-| `Drop analysis failed: <reason>` | The analysis of the **Installer drop** dialog could not read the file. | Read the reason. Check that the file is an installer. |
-| `Drop refused: <reason>` | The analysis refused the file. | Read the reason. |
+| `Drop analysis failed: <reason>` | The analysis of the **Installer drop** dialog could not read the file. | Review the reason. Check that the file is an installer. |
+| `Drop refused: <reason>` | The analysis refused the file. | Review the reason. |
 | `Application name is required.` | The row **Application** is empty. | Enter a name. |
 | `Version is required.` | The row **Version** is empty. | Enter a version. |
 | `Install args are required for a non-MSI installer.` | The row **Install args** is empty for an EXE. | Enter the silent switches. |
 | `Stage: DownloadRoot is not configured. Open Settings.` | **Download Root (local staging)** is empty. | Set the folder in Settings. |
 | `Save as definition refused: <file> already exists. Existing definitions are never overwritten.` | A definition with that file name exists. | Change the application name. |
-| `Save as Application failed: <reason>` | The app could not write the application. | Read the reason. |
-| `Stage refused: <reason>` | The stage plan of the application failed. The reason follows the message. | Read the reason. If the installer revision is missing, select **Replace installer...** and add a revision. |
+| `Save as Application failed: <reason>` | The app could not write the application. | Review the reason. |
+| `Stage refused: <reason>` | The stage plan of the application failed. The reason follows the message. | Review the reason. If the installer revision is missing, select **Replace installer...** and add a revision. |
 
 See [Error messages](../reference/error-messages.md).
 

@@ -1,6 +1,6 @@
 # Updates
 
-BLUF: App Packager Desktop checks GitHub for a newer release. It downloads the signed installer and checks it. It starts the installer only after you click **Install and close**.
+BLUF: App Packager Desktop checks GitHub for a newer release. It downloads the signed installer and checks it. It starts the installer only after you select **Install and close**.
 
 ## What it does
 
@@ -16,7 +16,7 @@ BLUF: App Packager Desktop checks GitHub for a newer release. It downloads the s
 ## Steps
 
 1. Open **Settings**. In the **Updates** section, select **Check for updates**. The update window opens and checks at once.
-2. Read the latest version and the release notes. Select **Open the release page** to see the full notes.
+2. View the latest version and the release notes. Select **Open the release page** to see the full notes.
 
    ![The update window with a newer version available](../images/core-update-available.png)
 3. Select **Download**. The app downloads `AppPackagerDesktop-Setup-<version>.exe` and `checksums.txt` into a new empty folder in the temporary folder of your account.
@@ -43,7 +43,7 @@ The app refuses the update and deletes the download folder when any check fails:
 | The SHA-256 value | The value does not match the entry in `checksums.txt`, or `checksums.txt` has no entry or two different entries |
 | The Authenticode signature | The status is not **Valid**, the signature has no timestamp, or the signer is not `CN=Jason Ulbright` |
 
-Just before the installer starts, the app calculates the SHA-256 value again. A file that changed after the check does not start.
+Immediately before the installer starts, the app calculates the SHA-256 value again. A file that changed after the check does not start.
 
 ## Errors and limits
 

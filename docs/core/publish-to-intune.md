@@ -157,8 +157,8 @@ See [Settings reference](../reference/settings.md).
 |---|---|---|
 | `Publish requires Intune credentials. Open Settings, Intune, to configure Tenant ID, Client ID, and Client Secret.` | One of the three values is empty. | Enter the values and save. |
 | `Stage manifest not found: <path>. Run Stage for <application> <version> first.` | The application has no staged content. | Select **Stage**. |
-| `This application cannot be published to Intune: <code>: <message>` | A Blocking finding. | Read the code in the table above. Change the profile in the [Workbench](workbench.md) or publish to ConfigMgr only. |
-| `build failed: <reason>` | The Content Prep Tool failed or could not be downloaded. | Read the reason. Select **Download** in Settings, Detected Tools. |
+| `This application cannot be published to Intune: <code>: <message>` | A Blocking finding. | Find the code in the table above. Change the profile in the [Workbench](workbench.md) or publish to ConfigMgr only. |
+| `build failed: <reason>` | The Content Prep Tool failed or could not be downloaded. | Review the reason. Select **Download** in Settings, Detected Tools. |
 | `Multiple Intune apps carry the identity tag '<tag>' (ids: ...); resolve the duplicates before publishing.` | More than one app has the current tag. | Remove the duplicates in Intune. |
 | `Multiple Intune apps are named '<name>' and none carries this application's identity tag (ids: ...); rename or tag the intended app before publishing.` | More than one untagged app has the name. | Rename or tag the intended app in Intune. |
 | `Timed out waiting for the Azure storage upload URI.` | Graph did not return the storage address in time. | Publish again. |

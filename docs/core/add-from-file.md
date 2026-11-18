@@ -14,7 +14,7 @@ After the save, the page shows the [result panel](#the-result-panel) with the bu
 
 - To package an application from an installer file that you already have.
 - To package an application that has no download address, for example an internal build.
-- To package a patch (`.msp`) or a Windows app package (`.msix`, `.appx`, `.msixbundle`, `.appxbundle`).
+- To package a Windows Installer patch (`.msp`) or a Windows app package (`.msix`, `.appx`, `.msixbundle`, `.appxbundle`).
 
 To package an application from a download address and a version source, use [Add from web](add-app.md). To only read an installer, use [Installer Analysis](../tools/installer-analysis.md).
 
@@ -52,8 +52,8 @@ The review shows these parts from the top.
 | File path and **Framework** | The path of the file. The installer technology, for example `NSIS`, with an evidence chip. |
 | Caution box | `This definition needs review.` and the reasons. |
 | Silent switch box | Shows when a non-MSI installer has no install arguments: `No silent switch could be derived. Type the silent install arguments of this installer. Test them on a test device before you deploy.` |
-| **Package** | For `.msix`, `.appx`, `.msixbundle` and `.appxbundle` files. The facts of the package and its signature. |
-| **Patch** | For `.msp` files. The facts of the patch. |
+| **Package** | For `.msix`, `.appx`, `.msixbundle` and `.appxbundle` files. The properties of the package and its signature. |
+| **Patch** | For `.msp` files. The properties of the Windows Installer patch. |
 | **Proposed values** | The rows in the next table. |
 | **Detection** | The detection rule. See [Detection](#detection). |
 | **Notes** | Plain sentences that say what the analysis could not read, and what to test. |
@@ -71,12 +71,12 @@ The **Proposed values** rows:
 | **Install context** | `Machine` or `User`. |
 | **Install for** | The install mode, when the installer has more than one. |
 | **Architecture** | Read-only. Shows when the analysis read an architecture. |
-| **Product code** | Read-only. The MSI product code, the patch target or the package identity name. |
+| **Product code** | Read-only. The MSI product code, the target of a Windows Installer patch or the package identity name. |
 | **Uninstall registry key** | Read-only. The Add/Remove Programs key that the installer writes. |
 
 Edit a value and its marker changes to **Manual**. A read-only row shows the evidence of the value and cannot be edited.
 
-The **Package** facts are **Identity name**, **Publisher**, **Publisher name**, **Version**, **Architecture**, **Dependencies**, **Kind** (`Bundle` or `Package`), **Signature** and **Signer**. The **Signature** row reads one of these texts:
+The **Package** properties are **Identity name**, **Publisher**, **Publisher name**, **Version**, **Architecture**, **Dependencies**, **Kind** (`Bundle` or `Package`), **Signature** and **Signer**. The **Signature** row reads one of these texts:
 
 | Text | Meaning |
 |---|---|
@@ -87,9 +87,9 @@ The **Package** facts are **Identity name**, **Publisher**, **Publisher name**, 
 | Signed, the certificate expired and has no valid timestamp | Windows does not install the package. Sign it again. |
 | Not known | The signature could not be checked. |
 
-A package with a signature that is not trusted shows a warning box above the facts.
+A package with a signature that is not trusted shows a warning box above the properties.
 
-The **Patch** facts are **Patch code**, **Title**, **Target product codes**, **Target product**, **Version after the patch** and **Classification**. A warning box reads that the patch applies only to an installed base product. Deploy it only to devices that have the base product.
+The **Patch** properties are **Patch code**, **Title**, **Target product codes**, **Target product**, **Version after the patch** and **Classification**. A warning box reads that the patch applies only to an installed base product. Deploy it only to devices that have the base product.
 
 ![The review of an installer with the proposed values and their evidence markers](../images/core-add-file-review.png)
 
@@ -165,14 +165,14 @@ The page selects the new row of the App Packager grid and clears the search box.
 | `<n>` files were dropped. Drop one installer at a time. | You dropped several files. | Drop one file. |
 | The path is a folder. Add from file takes one installer file. | You dropped a folder. | Drop a file. |
 | Add from file does not take `<ext>` files. Use an .msi, .exe, .msp, .msix, .appx, .msixbundle or .appxbundle file. | The extension is not supported. | Use a supported file. For other types, use [Installer Analysis](../tools/installer-analysis.md). |
-| The analysis failed: `<message>` | The reader could not read the file. | Read the message. Check that the file is an installer. |
+| The analysis failed: `<message>` | The reader could not read the file. | Review the message. Check that the file is an installer. |
 | The analysis was cancelled. | You selected **Cancel**. | Open the file again. |
 | Type the application name. | The **Name** row is empty. | Fill the row. |
 | Enter the version. | The **Version** row is empty. | Fill the row. |
 | Enter the silent install arguments. No silent switch could be derived. | A non-MSI installer has no install arguments. | Type the arguments. |
 | A definition file named `<file>` already exists. Change the application name and save again. | Another definition has this file name. | Change the **Name**. |
 | The installer file changed after the analysis: `<path>`. Open the installer file again. | The file changed between the analysis and the save. | Open the file again. |
-| The definition was not saved: `<message>` | The write failed. | Read the message. |
+| The definition was not saved: `<message>` | The write failed. | Review the message. |
 | The installer that Add from file saved for `<name>` is not found: `<path>`. Put the file back in that folder, or add the installer again with Add from file. | The file moved or was deleted. | Do as the message says. |
 | The installer `<path>` changed after Add from file saved it: its SHA-256 is `<a>`, the saved SHA-256 is `<b>`. Nothing was staged. Add the installer again with Add from file. | The file changed. | Do as the message says. |
 | `<name>` has no download source and no saved installer. Add the installer again with Add from file, or set a version source and a download URL in the Workbench. | The definition has no saved installer record. | Do as the message says. |

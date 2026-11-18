@@ -25,7 +25,7 @@ Use the Collections tab to create, copy, edit, evaluate or remove device collect
 1. Select `Collection and Compliance` in the sidebar.
 2. Select the `Collections` switch at the top right of the page.
 3. Wait for the status text "Reading the collections." to end. The page reads the collections on the first visit and each time you return to the page.
-4. Read the count of shown rows next to the filters.
+4. View the count of shown rows next to the filters.
 5. Select `Cancel` to stop a read that takes too long. The `Cancel` button shows only while the page reads.
 
 ![The Collections tab with the folder column and the detail panel](../images/tools-collections-list.png)
@@ -42,7 +42,7 @@ To open one collection without reading the list, enter the ID in the `Collection
 4. For `Periodic` and `Both`, set `Refresh every` with a count and a unit (Minutes, Hours or Days). Leave the count empty to use the default.
 5. Select the `Limiting collection` in the list. Use the filter box above the list to find it. A new collection starts with the collection with the ID `SMS00001` selected, when the list holds it.
 6. Select `Show plan`.
-7. Read the plan. Select the action button (`Create collection`, `Copy collection` or `Save changes`).
+7. Review the plan. Select the action button (`Create collection`, `Copy collection` or `Save changes`).
 
 ![The Edit dialog with the refresh interval and the limiting collection](../images/tools-collections-editor.png)
 
@@ -58,7 +58,7 @@ Rules for the dialog:
 
 1. Select one or more rows.
 2. Select `Evaluate`.
-3. Read the plan. The plan states "The update starts membership evaluation work on the site server." and "Undo: not applicable."
+3. Review the plan. The plan states "The update starts membership evaluation work on the site server." and "Undo: not applicable."
 4. Select the action button `Update membership of <n> collection(s)`.
 
 ## Steps: add direct members
@@ -67,7 +67,7 @@ Rules for the dialog:
 2. Select `Add`.
 3. Enter one device name or resource ID on each line. The dialog accepts at most 200 lines.
 4. Select `Look up and show plan`.
-5. Read the plan. A line that matches no device, or more than one device, shows as Skip with the reason.
+5. Review the plan. A line that matches no device, or more than one device, shows as Skip with the reason.
 6. Select the action button.
 
 To remove direct members, select one or more rows in the `Direct Members` tab and select `Remove`. The plan has a confirmation box. The tab shows 200 members on each page. Use the arrow buttons (`Previous page`, `Next page`) to change the page.
@@ -77,7 +77,7 @@ To remove direct members, select one or more rows in the `Direct Members` tab an
 1. Select a custom collection. Open the `Include Rules` tab or the `Exclude Rules` tab.
 2. Select `Add`.
 3. In the picker, check the collections. Use `Check shown` and `Clear` to change all shown rows. Select `Show plan`.
-4. Read the plan. The plan states that an include or exclude rule changes the membership evaluation of the collection.
+4. Review the plan. The plan states that an include or exclude rule changes the membership evaluation of the collection.
 5. Select the action button.
 
 To remove a rule, select it in the list and select `Remove`. The `Query Rules` tab lists the query rules. `Edit in WQL Editor` opens a rule in the WQL Editor tab (see [Collections: queries and templates](collections-queries.md)).
@@ -86,7 +86,7 @@ To remove a rule, select it in the list and select `Remove`. The `Query Rules` t
 
 1. Select one custom collection.
 2. Select `Remove`.
-3. Read the plan. The plan shows the member count, the deployments, the maintenance windows and the references. The page reads them from the site when the plan opens.
+3. Review the plan. The plan shows the member count, the deployments, the maintenance windows and the references. The page reads them from the site when the plan opens.
 4. Select the confirmation box "I understand that this change removes or replaces data in ConfigMgr."
 5. Select `Remove collection`.
 
@@ -158,7 +158,7 @@ Each completed run adds one line to the operation history. The line holds counts
 | The ConfigurationManager PowerShell module was not found. Install the Configuration Manager console on this computer. | The console module is missing. | Install the Configuration Manager console. |
 | The SMS Provider <name> denied access. The account needs a ConfigMgr security role for site <code>. | The account has no role on the site. | Give the account a role with rights on collections and queries. The page adds: "The ConfigMgr console role needs collection and query rights." |
 | The CMSite drive for site <code> on <provider> could not connect. Check the site code and the SMS Provider in Settings, ConfigMgr Site Settings. | Wrong site code or provider name. | Correct the two settings. |
-| The collections could not be read. The log has the details. | The read failed for a reason that the page does not name. | Read the log. Select `Refresh`. |
+| The collections could not be read. The log has the details. | The read failed for a reason that the page does not name. | Review the log. Select `Refresh`. |
 | Enter a collection ID of eight characters, for example LAB00012. | The ID in the `Collection ID` box has the wrong form. | Enter an ID of eight characters. |
 | No collection with the ID <id> exists. | `Open by ID` found no collection. | Check the ID. |
 | A built-in collection cannot be changed or removed here. | The selected collection is built in. | Select a custom collection. |
