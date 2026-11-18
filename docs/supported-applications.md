@@ -1,6 +1,6 @@
 # Supported applications
 
-The catalog holds 323 application definitions. The list comes from the definition files in `src/ApplicationPackagerEngine/Definitions`. The **Application** column is the name that shows in the grid.
+The catalog holds 325 application definitions. The list comes from the definition files in `src/ApplicationPackagerEngine/Definitions`. The **Application** column is the name that shows in the grid.
 
 | Vendor | Application | Architecture | Installer type |
 |---|---|---|---|
@@ -51,6 +51,7 @@ The catalog holds 323 application definitions. The list comes from the definitio
 | BornToBeRoot | NETworkManager (x64) | x64 | MSI |
 | Box | Box Drive (x64) | x64 | MSI |
 | Brave Software | Brave Browser (x64) | x64 | EXE |
+| Bruno Software | Bruno (x64) | x64 | MSI |
 | Broadcom | VMware Tools (x64) | x64 | EXE |
 | CAKE.com | Clockify (x64) | x64 | MSI |
 | Calibrite | Calibrite PROFILER (x64) | x64 | EXE |
@@ -76,6 +77,7 @@ The catalog holds 323 application definitions. The list comes from the definitio
 | DbVis Software AB | DbVisualizer (x64) | x64 | EXE |
 | Dell | RVTools (x64) | x64 | MSI |
 | Dell Inc. | Dell Command Update (x64) | x64 | EXE |
+| Devolutions | PowerShell 7 (Devolutions) | x64 | MSI |
 | Devolutions | Remote Desktop Manager (x64) | x64 | MSI |
 | DisplayLink | DisplayLink Graphics (x64) | x64 | EXE |
 | dnGREP | dnGREP (x64) | x64 | MSI |

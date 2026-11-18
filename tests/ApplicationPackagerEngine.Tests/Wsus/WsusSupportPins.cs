@@ -14,7 +14,7 @@ internal static class WsusSupportPins
     [
         "7zip.json", "agentransack.json", "amazondcv.json", "amazonworkspaces.json", "arduinoide.json", "asperaconnect.json",
         "awscli.json", "awssamcli.json", "awstools.json", "awsvpnclient.json", "axcrypt.json", "azurecli.json",
-        "azurefunctionscore.json", "azurepowershell.json", "blender.json", "boxdrive.json", "calibre.json",
+        "azurefunctionscore.json", "azurepowershell.json", "blender.json", "boxdrive.json", "bruno.json", "calibre.json",
         "chefworkstation.json", "chrome-x64.json", "chromeremotedesktophost.json", "clockify.json", "cloudflarewarp.json",
         "cmake.json", "colourcontrastanalyser.json", "corretto-jdk11-x64.json", "corretto-jdk11-x86.json",
         "corretto-jdk17-x64.json", "corretto-jdk21-x64.json", "corretto-jdk25-x64.json", "corretto-jdk8-x64.json",

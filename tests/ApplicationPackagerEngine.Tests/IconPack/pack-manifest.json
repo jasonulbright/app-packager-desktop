@@ -1,5 +1,5 @@
 {
-  "PackVersion": "2026.11.16.0012",
+  "PackVersion": "2026.11.18.0015",
   "MinAppVersion": "1.5.0.0",
   "Icons": [
     {
@@ -60,6 +60,12 @@
       "File": "anydesk.png",
       "Packager": "anydesk",
       "SourceKind": "PeResource",
+      "PixelSize": 256
+    },
+    {
+      "File": "appinstaller.png",
+      "Packager": "appinstaller",
+      "SourceKind": "VendorAsset",
       "PixelSize": 256
     },
     {
@@ -204,6 +210,12 @@
       "File": "brave.png",
       "Packager": "brave",
       "SourceKind": "InnerExe",
+      "PixelSize": 256
+    },
+    {
+      "File": "bruno.png",
+      "Packager": "bruno",
+      "SourceKind": "MsiIconTable",
       "PixelSize": 256
     },
     {
@@ -426,6 +438,12 @@
       "File": "dellcommandupdate.png",
       "Packager": "dellcommandupdate",
       "SourceKind": "InstalledApp",
+      "PixelSize": 256
+    },
+    {
+      "File": "devolutionspowershell.png",
+      "Packager": "devolutionspowershell",
+      "SourceKind": "MsiIconTable",
       "PixelSize": 256
     },
     {
