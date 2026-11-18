@@ -20,7 +20,9 @@ public enum OldApplicationState
     /// <summary>Its version cannot be read.</summary>
     VersionUnreadable,
     /// <summary>It is not older than the new application, so the lookup would not choose it.</summary>
-    NotOlder
+    NotOlder,
+    /// <summary>More than one application of the site has its title; the link addresses an application by its title, so nothing is written.</summary>
+    SameTitle
 }
 
 /// <summary>An application as the site search read it. <see cref="Keywords"/> is null when the keywords could not be read.</summary>
@@ -54,11 +56,21 @@ public static class OldApplicationRules
     {
         var rows = new List<OldApplicationCandidate>();
         var newVersionReadable = Version.TryParse(VersionCompare.Normalize(newVersion), out _);
+        var titleCounts = applications
+            .Where(a => !string.Equals(a.Title, newTitle, StringComparison.OrdinalIgnoreCase))
+            .GroupBy(a => a.Title, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.Count(), StringComparer.OrdinalIgnoreCase);
         foreach (var app in applications)
         {
             if (string.Equals(app.Title, newTitle, StringComparison.OrdinalIgnoreCase)) continue;
             OldApplicationCandidate Row(OldApplicationState state, string reason, bool canLink = false, bool canClear = false) =>
                 new(app.Title, app.SoftwareVersion, state, reason, canLink, canClear);
+
+            if (titleCounts.TryGetValue(app.Title, out var sameTitle) && sameTitle > 1)
+            {
+                rows.Add(Row(OldApplicationState.SameTitle, "More than one application on the site has this title. The link addresses an application by its title, so nothing is written. Rename one of them in the console first."));
+                continue;
+            }
 
             if (app.Keywords is null)
             {

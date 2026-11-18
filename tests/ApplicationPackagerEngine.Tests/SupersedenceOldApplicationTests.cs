@@ -344,6 +344,23 @@ public sealed class SupersedenceOldApplicationTests
     }
 
     [Fact]
+    public void TwoApplicationsWithTheSameTitleAreListedWithTheReasonAndNeitherCanBeLinked()
+    {
+        var apps = new List<SiteApplicationRecord>
+        {
+            new("Twin", "1.0", false, []),
+            new("twin", "1.1", false, []),
+            new("Single", "1.0", false, [])
+        };
+
+        var rows = OldApplicationRules.Classify(apps, "marker", "Product", "2.0");
+
+        Assert.Equal(2, rows.Count(r => r.State == OldApplicationState.SameTitle));
+        Assert.All(rows.Where(r => r.State == OldApplicationState.SameTitle), r => { Assert.False(r.CanLink); Assert.Contains("More than one application", r.Reason); });
+        Assert.True(rows.Single(r => r.Title == "Single").CanLink);
+    }
+
+    [Fact]
     public async Task RefusesATitleThatTwoApplicationsHold()
     {
         var site = new FakeSite(_ => (0, OldApplicationScripts.AmbiguousLine + "\n", ""));
