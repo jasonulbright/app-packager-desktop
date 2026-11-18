@@ -37,7 +37,7 @@ These messages come from `AppPackagerBuild.exe`. See [Command-line build](../cor
 | Option '--x' needs a value. | A valued option is last, or another option follows it. | Add a value. |
 | Option '--x' was given an empty value; pass a value or leave the option out. | A path, root, server or site option is empty. An unset variable in a scheduled task can cause this. | Pass a value, or leave the option out. |
 | --application is required. Run AppPackagerBuild --help for usage. | A build has no `--application`. | Add `--application`. |
-| Unknown target 'x'; expected ContentOnly, MECM, MECMAndIntune, IntuneOnly, MECMAndWSUS, WSUSOnly. | The `--target` value is not in the list. | Use a listed target. |
+| Unknown target 'x'; expected ContentOnly, ConfigMgr, ConfigMgrAndIntune, IntuneOnly, ConfigMgrAndWSUS, WSUSOnly. | The `--target` value is not in the list. | Use a listed target. |
 | Unknown --on-existing value 'x'; expected Skip, Overwrite or Fail. | The value is not in the list. | Use a listed value. |
 | Unknown --version-rule value 'x'; expected exact or minimum. | The value is not in the list. | Use a listed value. |
 | Unknown --rewrite-old-versions value 'x'; expected plan, apply or restore. | The value is not in the list. | Use a listed value. |
@@ -59,7 +59,7 @@ These messages come from `AppPackagerBuild.exe`. See [Command-line build](../cor
 | The version rule Exact cannot be applied for ConfigMgr: No installed value exists for ... | The Exact guard has no installed value for the clause and version (an MSI has its ProductVersion; any other title needs a recorded value), or the value differs from the expected value. | Set the version rule of the title to Minimum, record the installed value with a test install, or accept the block for this version. Nothing was created. |
 | Option '--wsus-port' takes a port number from 1 to 65535. | The value is not a number from 1 to 65535. | Give a valid port. |
 | Specify --stage, --package, or both. | The command has neither phase switch. | Add a switch. |
-| A MECMAndWSUS package publishes the build staged in the same run; pass --stage together with --package. | `--package` without `--stage` for the target MECMAndWSUS. | Pass both. |
+| A ConfigMgrAndWSUS package publishes the build staged in the same run; pass --stage together with --package. | `--package` without `--stage` for the target ConfigMgrAndWSUS. | Pass both. |
 | Option '--x' takes a whole number of minutes. | `--estimated-minutes` or `--maximum-minutes` is not an integer. | Give a whole number. |
 | Option '--x' does not apply to --cve-report. | A build-only option is used with `--cve-report`. | Remove the option. |
 | Option '--x' applies to --cve-report only. | A CVE-only option is used in a build. | Remove the option. |

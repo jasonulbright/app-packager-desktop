@@ -7,14 +7,26 @@ namespace ApplicationPackagerEngine.Models;
 /// </summary>
 public static class DeploymentTargets
 {
-    public const string Mecm = "MECM";
-    public const string MecmAndIntune = "MECMAndIntune";
+    public const string Mecm = "ConfigMgr";
+    public const string MecmAndIntune = "ConfigMgrAndIntune";
     public const string IntuneOnly = "IntuneOnly";
-    public const string MecmAndWsus = "MECMAndWSUS";
+    public const string MecmAndWsus = "ConfigMgrAndWSUS";
     public const string WsusOnly = "WSUSOnly";
 
-    /// <summary>Keeps every known target name; an unknown or absent stored value is MECM only.</summary>
-    public static string Normalize(string? value) => value switch
+    /// <summary>
+    /// The earlier spellings of the three ConfigMgr targets. Old settings, definitions, command lines
+    /// and saved plans still carry them, so every place that reads a stored target maps them first.
+    /// </summary>
+    public static string? Canonical(string? value) => value?.Trim().ToUpperInvariant() switch
+    {
+        "MECM" => Mecm,
+        "MECMANDINTUNE" => MecmAndIntune,
+        "MECMANDWSUS" => MecmAndWsus,
+        _ => value
+    };
+
+    /// <summary>Keeps every known target name; an unknown or absent stored value is ConfigMgr only. The earlier MECM spellings still load.</summary>
+    public static string Normalize(string? value) => Canonical(value) switch
     {
         MecmAndIntune => MecmAndIntune,
         IntuneOnly => IntuneOnly,

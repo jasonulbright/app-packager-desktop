@@ -61,7 +61,7 @@ public sealed class DestinationSet : IEquatable<DestinationSet>
     /// The set a deployment target name stands for. An unknown or empty
     /// name is ConfigMgr only.
     /// </summary>
-    public static DestinationSet FromTarget(string? target) => target switch
+    public static DestinationSet FromTarget(string? target) => DeploymentTargets.Canonical(target) switch
     {
         PublishRunTargets.ConfigMgrAndIntune => new(true, false, true),
         PublishRunTargets.IntuneOnly => new(false, false, true),

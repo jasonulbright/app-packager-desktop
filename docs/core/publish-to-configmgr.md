@@ -8,7 +8,7 @@
 
 - Use it after [Stage](stage-and-publish.md) to create or update an application in ConfigMgr.
 - Use [One Click](one-click.md) to do the same for tracked applications without prompts.
-- Use `--target MECM` in the [command-line build](command-line-build.md) to do the same from a script.
+- Use `--target ConfigMgr` in the [command-line build](command-line-build.md) to do the same from a script.
 
 ## Requirements
 

@@ -8,17 +8,17 @@ namespace ApplicationPackagerEngine.Models;
 /// </summary>
 public static class PublishRunTargets
 {
-    public const string ConfigMgr = "MECM";
-    public const string ConfigMgrAndIntune = "MECMAndIntune";
+    public const string ConfigMgr = DeploymentTargets.Mecm;
+    public const string ConfigMgrAndIntune = DeploymentTargets.MecmAndIntune;
     public const string IntuneOnly = "IntuneOnly";
-    public const string ConfigMgrAndWsus = "MECMAndWSUS";
+    public const string ConfigMgrAndWsus = DeploymentTargets.MecmAndWsus;
     public const string WsusOnly = "WSUSOnly";
 
     public static readonly IReadOnlyList<string> Names = [ConfigMgr, ConfigMgrAndIntune, IntuneOnly, ConfigMgrAndWsus, WsusOnly];
 
-    public static bool SkipsSite(string? target) => target is IntuneOnly or WsusOnly;
+    public static bool SkipsSite(string? target) => DeploymentTargets.Canonical(target) is IntuneOnly or WsusOnly;
 
-    public static bool PublishesToWsus(string? target) => target is ConfigMgrAndWsus or WsusOnly;
+    public static bool PublishesToWsus(string? target) => DeploymentTargets.Canonical(target) is ConfigMgrAndWsus or WsusOnly;
 }
 
 /// <summary>What became of the WSUS half of a run.</summary>

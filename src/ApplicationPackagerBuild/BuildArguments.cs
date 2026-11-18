@@ -247,7 +247,7 @@ public static class BuildArguments
 
         if (!options.Stage && !options.Package && options.RewriteOldVersions is null && !options.IsSupersedenceRecord) return Fail("Specify --stage, --package, or both.");
         if (options.Target == RunTargets.MecmAndWsus && options.Package && !options.Stage)
-            return Fail("A MECMAndWSUS package publishes the build staged in the same run; pass --stage together with --package.");
+            return Fail("A ConfigMgrAndWSUS package publishes the build staged in the same run; pass --stage together with --package.");
         return new ParsedArguments(options, null);
     }
 
@@ -291,7 +291,7 @@ public static class BuildArguments
           --stage                     Stage under a new run snapshot
           --package                   Publish to the target. Without --stage, publishes the newest sealed build
                                       of the profile; a WSUS target stages in the same run
-          --target <target>           ContentOnly, MECM (default), MECMAndIntune, IntuneOnly, MECMAndWSUS, WSUSOnly
+          --target <target>           ContentOnly, ConfigMgr (default), ConfigMgrAndIntune, IntuneOnly, ConfigMgrAndWSUS, WSUSOnly (the earlier MECM names still work)
           --on-existing <behavior>    Existing ConfigMgr application: Skip (default), Overwrite, Fail
           --version-rule <rule>       Version clause of the detection: minimum (this version or newer) or exact (this version only).
                                       Outranks the title override and the site default.

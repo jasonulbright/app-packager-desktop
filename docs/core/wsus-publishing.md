@@ -151,7 +151,7 @@ All settings are in **Settings**, **WSUS Publishing**. The settings are stored i
 | **Approve for group** | empty | Group for the approval right after a publish. |
 | **Decline earlier versions of the same application after publishing** | off | Declines the AppPackager updates of the same application with a lower version. Approving one again reverses it. |
 
-The command line publishes to WSUS with `--target WSUSOnly` or `--target MECMAndWSUS`. See [Command-line build](command-line-build.md). The exit code is 1 when a publish succeeded and a follow-up step, such as the approval, failed. View the WSUS result and the package ID in the output before you try again.
+The command line publishes to WSUS with `--target WSUSOnly` or `--target ConfigMgrAndWSUS`. See [Command-line build](command-line-build.md). The exit code is 1 when a publish succeeded and a follow-up step, such as the approval, failed. View the WSUS result and the package ID in the output before you try again.
 
 ## Limits
 

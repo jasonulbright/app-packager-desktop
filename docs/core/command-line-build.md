@@ -40,7 +40,7 @@ AppPackagerBuild --help
 3. Run the command. For example:
 
 ```
-AppPackagerBuild --application catalog:<id> --profile Pilot --stage --package --target MECM --on-existing Overwrite --comment "work order 1234"
+AppPackagerBuild --application catalog:<id> --profile Pilot --stage --package --target ConfigMgr --on-existing Overwrite --comment "work order 1234"
 ```
 
 4. View the summary at the end of the output.
@@ -57,7 +57,7 @@ Press Ctrl+C to cancel. The run writes `Cancelled.` and returns exit code 1.
 | `--version <version>` | Bring-your-own: stage this source revision. PS1 packager: pinned version. With `--package` alone: the newest sealed build of this version. Refused with `--stage` for a definition. | none |
 | `--stage` | Stages under a new run snapshot. | off |
 | `--package` | Publishes to the target. Without `--stage`, it publishes the newest sealed build of the profile. | off |
-| `--target <target>` | `ContentOnly`, `MECM`, `MECMAndIntune`, `IntuneOnly`, `MECMAndWSUS` or `WSUSOnly`. | `MECM` |
+| `--target <target>` | `ContentOnly`, `ConfigMgr`, `ConfigMgrAndIntune`, `IntuneOnly`, `ConfigMgrAndWSUS` or `WSUSOnly`. The earlier names `MECM`, `MECMAndIntune` and `MECMAndWSUS` still work. | `ConfigMgr` |
 | `--on-existing <behavior>` | `Skip`, `Overwrite` or `Fail` for an existing ConfigMgr application. | `Skip` |
 | `--version-rule <rule>` | `minimum` or `exact`: the operator of the version clause in the detection. It outranks the title override and the site default. | The setting |
 | `--rewrite-old-versions <word>` | `plan`, `apply` or `restore`. Changes the version clause of the **old** applications of the line (every application with the identity marker whose version is lower than the newest one; an application that holds the newest version, a retired application and an application whose version cannot be read are left) from `GreaterEquals` to `IsEquals`, and back. It runs alone. `plan` only reads the site and prints what would change and why each other clause is left. `apply` and `restore` need `--yes` after the plan was read. The log `supersedence-rewrite.jsonl` is the only way back; it is written ahead, one entry before each change, and a restore entry cancels an entry of a change that failed. `restore` prints what it would restore before it asks for `--yes`. | |
@@ -78,10 +78,10 @@ Press Ctrl+C to cancel. The run writes `Cancelled.` and returns exit code 1.
 Rules:
 
 - Specify `--stage`, `--package`, or both.
-- `--target MECMAndWSUS` with `--package` needs `--stage` in the same run.
+- `--target ConfigMgrAndWSUS` with `--package` needs `--stage` in the same run.
 - A WSUS target stages in the same run.
 - `--target ContentOnly` publishes to no destination. The output shows `Package skipped: target ContentOnly publishes to no destination.`
-- The destinations run in this order: `MECM` publishes to ConfigMgr. `MECMAndIntune` publishes to ConfigMgr, then Intune. `IntuneOnly` publishes to Intune. `MECMAndWSUS` publishes to ConfigMgr, then WSUS. `WSUSOnly` publishes to WSUS. The run stops at the first destination that fails.
+- The destinations run in this order: `ConfigMgr` publishes to ConfigMgr. `ConfigMgrAndIntune` publishes to ConfigMgr, then Intune. `IntuneOnly` publishes to Intune. `ConfigMgrAndWSUS` publishes to ConfigMgr, then WSUS. `WSUSOnly` publishes to WSUS. The run stops at the first destination that fails.
 - The Intune destination always uses `Skip`.
 - Every destination is checked before anything stages. The checks are the same as the checks of the publish buttons. The WSUS check also needs the WSUS administration API on this computer.
 
@@ -164,8 +164,8 @@ The run ends with the lines `Applications`, `Updates`, `LookedUp`, `FromCache`, 
 |---|---|---|
 | `--application is required. Run AppPackagerBuild --help for usage.` | The build has no `--application`. | Add `--application`. |
 | `Specify --stage, --package, or both.` | The build has no phase switch. | Add a switch. |
-| `A MECMAndWSUS package publishes the build staged in the same run; pass --stage together with --package.` | `--package` without `--stage` for `MECMAndWSUS`. | Pass both. |
-| `Unknown target '<x>'; expected ContentOnly, MECM, MECMAndIntune, IntuneOnly, MECMAndWSUS, WSUSOnly.` | The target name is wrong. | Use a listed target. |
+| `A ConfigMgrAndWSUS package publishes the build staged in the same run; pass --stage together with --package.` | `--package` without `--stage` for `ConfigMgrAndWSUS`. | Pass both. |
+| `Unknown target '<x>'; expected ContentOnly, ConfigMgr, ConfigMgrAndIntune, IntuneOnly, ConfigMgrAndWSUS, WSUSOnly.` | The target name is wrong. | Use a listed target. |
 | `Option '--<x>' was given an empty value; pass a value or leave the option out.` | A path, server or site option is empty. | Pass a value or remove the option. |
 | `Option '--<x>' needs a value.` | A valued option has no value. | Add the value. |
 | `Unknown option '--<x>'. Run AppPackagerBuild --help for usage.` | The option name is wrong. | See `--help`. |
