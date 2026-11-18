@@ -134,7 +134,7 @@ public sealed class PowerShellOptionsImportTests
         Assert.Equal("SecurityUpdates", target.Wsus.Classification);
         Assert.Equal(120, target.Vulnerability.CacheTtlMinutes);
         Assert.True(target.Vulnerability.LookupAfterCheckCm);
-        Assert.Equal("sql02.contoso.com", target.DiscoverySqlServer);
+        Assert.Equal(@"sql02.contoso.com\INST1,1444", target.DiscoverySqlServer);
         Assert.Equal("CM_P01", target.DiscoverySqlDatabase);
         Assert.True(target.Systems!.Wsus);
     }
@@ -242,6 +242,46 @@ public sealed class PowerShellOptionsImportTests
         var preview = PowerShellOptionsImport.Preview("""{ "Intune": { "DeploymentTarget": "MECM", "PublishToIntune": "yes" } }""", new AppSettings());
 
         Assert.Equal(PowerShellImportOutcome.Skipped, Row(preview, "Intune.PublishToIntune").Outcome);
+    }
+
+    // ---- the SQL Server name: three keys of the PowerShell file, one name in APD
+
+    [Theory]
+    [InlineData("""{ "DiscoverySqlServer": "sql02", "DiscoverySqlInstance": "INST1", "DiscoverySqlPort": 1444 }""", @"sql02\INST1,1444")]
+    [InlineData("""{ "DiscoverySqlServer": "sql02", "DiscoverySqlInstance": "", "DiscoverySqlPort": 0 }""", "sql02")]
+    [InlineData("""{ "DiscoverySqlServer": "sql02", "DiscoverySqlInstance": "", "DiscoverySqlPort": 1433 }""", "sql02,1433")]
+    [InlineData("""{ "DiscoverySqlServer": "sql02\\INST1,1444", "DiscoverySqlInstance": "", "DiscoverySqlPort": 0 }""", @"sql02\INST1,1444")]
+    public void TheThreeSqlKeysBecomeOneSqlServerName(string json, string expected)
+    {
+        var target = new AppSettings();
+        var preview = PowerShellOptionsImport.Preview(json, target);
+
+        PowerShellOptionsImport.Apply(preview, target);
+
+        Assert.Equal(expected, target.DiscoverySqlServer);
+        foreach (var key in new[] { "DiscoverySqlServer", "DiscoverySqlInstance", "DiscoverySqlPort" })
+            Assert.NotEqual(PowerShellImportOutcome.Unknown, Row(preview, key).Outcome);
+    }
+
+    [Fact]
+    public void TheSqlRowsShowTheirPartOfTheCurrentApdName()
+    {
+        var target = new AppSettings { DiscoverySqlServer = @"cm01\SITE,2000" };
+        var preview = PowerShellOptionsImport.Preview("""{ "DiscoverySqlServer": "cm01", "DiscoverySqlInstance": "SITE", "DiscoverySqlPort": 2000 }""", target);
+
+        Assert.Equal("cm01", Row(preview, "DiscoverySqlServer").ApdValue);
+        Assert.Equal("SITE", Row(preview, "DiscoverySqlInstance").ApdValue);
+        Assert.Equal("2000", Row(preview, "DiscoverySqlPort").ApdValue);
+        Assert.Equal(0, preview.Differs);
+    }
+
+    [Fact]
+    public void ASqlPortAboveTheRangeIsSkippedAndAnInstanceWithABackslashIsSkipped()
+    {
+        var preview = PowerShellOptionsImport.Preview("""{ "DiscoverySqlServer": "sql02", "DiscoverySqlInstance": "a\\b", "DiscoverySqlPort": 70000 }""", new AppSettings());
+
+        Assert.Equal(PowerShellImportOutcome.Skipped, Row(preview, "DiscoverySqlInstance").Outcome);
+        Assert.Equal(PowerShellImportOutcome.Skipped, Row(preview, "DiscoverySqlPort").Outcome);
     }
 
     // ---- skipped, unknown, differs
