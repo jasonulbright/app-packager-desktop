@@ -16,7 +16,7 @@
 - End a Check CVEs run with one line that counts the products that were not checked.
 - Show the wait for the NVD request limit and the lookups left in the status line.
 - The guide now uses Configuration Manager terms and Microsoft Learn style. For example, it says View and Review instead of Read.
-- Window text and messages use Configuration Manager terms: for example device instead of machine or client, software update group, and the SMS Provider.
+- Window text and messages use Configuration Manager terms: for example device, software update group and SMS Provider.
 
 ## [2026.1118.48] - 2026-11-18
 
