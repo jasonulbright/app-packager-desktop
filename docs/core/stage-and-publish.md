@@ -25,7 +25,7 @@ The three buttons never create assignments or approvals on their own. Deployment
 
 ## Requirements
 
-- A folder in **Download Root (local staging)** (Settings, ConfigMgr Site Settings; every destination uses it). Only your account and administrators can write to it.
+- A folder in **Download Root (local staging)** (Settings, ConfigMgr Site Settings). The window shows this control in that section, but it is not a ConfigMgr setting: every destination uses it. Only your account and administrators can write to it.
 - Windows PowerShell 5.1.
 - Internet access to the vendor download hosts of the checked applications.
 - The settings that each destination you use needs, and no others. The destination pages list them. A publish to Intune or WSUS needs no ConfigMgr site.

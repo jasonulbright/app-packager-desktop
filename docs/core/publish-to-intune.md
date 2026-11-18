@@ -7,7 +7,7 @@
 ## When to use it
 
 - Use it after [Stage](stage-and-publish.md) to create or update a Win32 app in an Intune tenant.
-- Use it with no ConfigMgr. Intune is an independent destination: publishing to ConfigMgr is not a requirement for it. A run that does not name ConfigMgr needs no ConfigMgr console, no site code and no file share, does not connect to a site and does not copy to the file share.
+- Use it without ConfigMgr. Intune is an independent destination, and publishing to ConfigMgr is not a requirement for it. A run that does not name ConfigMgr needs no ConfigMgr console, site code or file share. It does not connect to a site.
 - Use `--target IntuneOnly`, `--target ConfigMgrAndIntune`, `--target IntuneAndWSUS` or `--target ConfigMgrAndIntuneAndWSUS` in the [command-line build](command-line-build.md#targets) to publish from a script.
 
 ## Requirements
@@ -19,7 +19,7 @@
 - Access to `login.microsoftonline.com` and `graph.microsoft.com`. Graph returns the address of the Azure storage upload. The app uses that address at run time.
 - The Win32 Content Prep Tool (`IntuneWinAppUtil.exe`). The first Intune build downloads it. You can also select **Download** in Settings, Detected Tools. The app checks the SHA-256 of the pinned release (1.8.7) and the publisher signature of a file that it downloads, before it installs that file. A copy of the tool that is already in the Tools folder or on the PATH is used as it is and is not checked again.
 - Staged content for the application. See [Stage and publish](stage-and-publish.md).
-- No ConfigMgr setting. **ConfigMgr** may stay cleared under **Systems in Use**.
+- No ConfigMgr settings. You can leave **ConfigMgr** cleared under **Systems in Use**.
 
 ## Steps
 
@@ -140,7 +140,7 @@ A requirement that has no such form blocks the Intune publish before the first G
 | Client Secret | empty | Stored with DPAPI for the current Windows user. |
 | Win32 Content Prep Tool, **Download** | not downloaded | Downloads `IntuneWinAppUtil.exe` to the Tools folder. |
 
-The deployment target is not a setting that you edit. It stores the name of the combination of the default destinations in Settings, One Click Settings, for example `IntuneAndWSUS`. See [One Click](one-click.md).
+The deployment target is not a setting that you edit. It stores the name of the target that matches the default destinations in Settings, One Click Settings, for example `IntuneAndWSUS`. See [One Click](one-click.md).
 
 See [Settings reference](../reference/settings.md).
 

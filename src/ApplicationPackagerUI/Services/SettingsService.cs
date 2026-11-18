@@ -280,11 +280,11 @@ public class SettingsService : IRunSettingsReader<AppSettings>
                 return;
             }
             settings.Intune.DeploymentTarget = DeploymentTargets.Mecm;
-            notice = $"The Deployment Target in the settings file is empty. The default of that setting, {DeploymentTargets.Mecm}, is used until you select destinations in Settings, One Click Settings.";
+            notice = $"The Deployment Target in the settings file is empty. The app uses the default of that setting, {DeploymentTargets.Mecm}, until you select destinations in Settings, One Click Settings.";
         }
         else
         {
-            notice = $"The Deployment Target '{stored}' in the settings file is not valid, so it publishes to no destination. Valid names: {DeploymentTargets.NamesText}. Select destinations in Settings, One Click Settings.";
+            notice = $"The Deployment Target '{stored}' in the settings file is not valid, so the app publishes to no destination. Valid names: {DeploymentTargets.NamesText}. Select destinations in Settings, One Click Settings.";
         }
         lock (_gate)
         {

@@ -28,13 +28,13 @@ public sealed class DeploymentTargetStateTests
         Assert.False(state.CheckMecmEnabled);
         Assert.True(state.SkipMecmPreflight);
         Assert.Equal("Publish", state.PackageLabel);
-        Assert.Contains("ConfigMgr as a destination", state.CheckMecmToolTip);
+        Assert.Contains("select ConfigMgr under Default destinations", state.CheckMecmToolTip);
         Assert.Contains("Intune", state.PackageToolTip);
     }
 
     [Theory]
-    [InlineData(DeploymentTargets.WsusOnly, "WSUS")]
-    [InlineData(DeploymentTargets.IntuneAndWsus, "Intune and WSUS")]
+    [InlineData(DeploymentTargets.WsusOnly, "Use Publish to WSUS")]
+    [InlineData(DeploymentTargets.IntuneAndWsus, "publish it to Intune. Use Publish to WSUS")]
     public void ATargetWithoutConfigMgrNamesItsOwnDestinationsAndNeverAConfigMgrSite(string target, string destinations)
     {
         var state = DeploymentTargetActionState.For(target);
@@ -55,7 +55,7 @@ public sealed class DeploymentTargetStateTests
 
         Assert.False(state.CheckMecmEnabled);
         Assert.True(state.SkipMecmPreflight);
-        Assert.Contains("nowhere", state.PackageToolTip);
+        Assert.Contains("nothing is published", state.PackageToolTip);
     }
 
     [Fact]

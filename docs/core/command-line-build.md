@@ -14,7 +14,7 @@
 
 ## Requirements
 
-- The settings of the destinations that the target names, and only those. A run for Intune, for WSUS, or for both needs no ConfigMgr site, no ConfigMgr console and no content share. The run applies the same checks as the publish buttons. See [Stage and publish](stage-and-publish.md).
+- The settings of the destinations that the target names, and only those. A run for Intune, for WSUS, or for both needs no ConfigMgr site, no ConfigMgr console and no file share. The run applies the same checks as the publish buttons. See [Stage and publish](stage-and-publish.md).
 - **Download Root (local staging)** in Settings, or `--download-root`.
 - The application and the profile exist. Create a profile in the [Workbench](workbench.md).
 
@@ -57,7 +57,7 @@ Press Ctrl+C to cancel. The run writes `Cancelled.` and returns exit code 1.
 | `--version <version>` | Bring-your-own: stage this source revision. PS1 packager: pinned version. With `--package` alone: the newest sealed build of this version. Refused with `--stage` for a definition. | none |
 | `--stage` | Stages under a new run snapshot. | off |
 | `--package` | Publishes to the target. Without `--stage`, it publishes the newest sealed build of the profile. | off |
-| `--target <target>` | The destinations of the run: one of the names in [Targets](#targets). Each of ConfigMgr, Intune and WSUS is optional. The earlier names `MECM`, `MECMAndIntune` and `MECMAndWSUS` still work. | `ConfigMgr`, the default of this option only. A different target does not need ConfigMgr. |
+| `--target <target>` | The destinations of the run: one of the names in [Targets](#targets). Each of ConfigMgr, Intune and WSUS is optional. The earlier names `MECM`, `MECMAndIntune` and `MECMAndWSUS` still work. | `ConfigMgr` |
 | `--on-existing <behavior>` | `Skip`, `Overwrite` or `Fail` for an existing ConfigMgr application. | `Skip` |
 | `--version-rule <rule>` | `minimum` or `exact`: the operator of the version clause in the detection. It outranks the title override and the site default. | The setting |
 | `--rewrite-old-versions <word>` | `plan`, `apply` or `restore`. Changes the version clause of the **old** applications of the line (every application with the identity marker whose version is lower than the newest one; an application that holds the newest version, a retired application and an application whose version cannot be read are left) from `GreaterEquals` to `IsEquals`, and back. It runs alone. `plan` only reads the site and prints what would change and why each other clause is left. `apply` and `restore` need `--yes` after the plan was read. The log `supersedence-rewrite.jsonl` is the only way back; it is written ahead, one entry before each change, and a restore entry cancels an entry of a change that failed. `restore` prints what it would restore before it asks for `--yes`. | |
@@ -78,6 +78,7 @@ Press Ctrl+C to cancel. The run writes `Cancelled.` and returns exit code 1.
 Rules:
 
 - Specify `--stage`, `--package`, or both.
+- If you leave out `--target`, the run publishes to ConfigMgr. Any other target needs no ConfigMgr.
 - A target that names WSUS and one more destination (`ConfigMgrAndWSUS`, `IntuneAndWSUS` or `ConfigMgrAndIntuneAndWSUS`) with `--package` needs `--stage` in the same run.
 - A target that names WSUS stages in the same run.
 - `--target ContentOnly` publishes to no destination. The output shows `Package skipped: target ContentOnly publishes to no destination.`

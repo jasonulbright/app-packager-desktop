@@ -9,7 +9,7 @@
 
 ### Changed
 
-- The guide, the window text and the command line help now say that ConfigMgr, Intune and WSUS are independent and each is optional. Publishing to Intune or WSUS needs no ConfigMgr site, console or content share.
+- The guide, the window text and the command line help now say that ConfigMgr, Intune and WSUS are independent and each is optional. Publishing to Intune or WSUS needs no ConfigMgr site, console or file share.
 - Space NVD requests 6 seconds apart without an API key, so the lookup stays within the NVD limit.
 - Share the NVD request limit between the app, the command line and the PowerShell App Packager.
 - Wait for the time in the NVD Retry-After header, up to 120 seconds, before a retry.
@@ -24,7 +24,7 @@
 
 ### Fixed
 
-- A deployment target that is empty or not valid no longer means ConfigMgr. An empty value takes your saved default destinations. A value that is not valid publishes to no destination, and the log lists the valid names.
+- A deployment target that is empty or not valid no longer means ConfigMgr. An empty value takes your saved default destinations, or ConfigMgr with a notice if you saved none. A value that is not valid publishes to no destination, and the log lists the valid names.
 
 ## [2026.1118.48] - 2026-11-18
 

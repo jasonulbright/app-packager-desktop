@@ -142,7 +142,7 @@ All settings are in **Settings**, **One Click Settings**. See [Settings](../refe
 | **Action on update** | **Report only** | **Report only** lists newer versions. **Stage** downloads and prepares them. **Stage and Publish** also publishes to the destinations. |
 | **Default cadence (days)** | 7 | The days a version check stays fresh. The control accepts 1 to 365. A **Report only** run skips a tracked application that was checked more recently. |
 | **Force on launch (ignore cadence)** | off | The plan opens with Force set. |
-| **Default destinations** | **ConfigMgr** (the default of this setting only) | The destinations of every tracked application that has no choice of its own. Rows that keep the default follow it when the default changes. |
+| **Default destinations** | **ConfigMgr** | The destinations of every tracked application that has no choice of its own. Rows that keep the default follow it when the default changes. ConfigMgr is selected at first. Each destination is optional. |
 | **Existing ConfigMgr app** | **Skip the application** | What a run does when the ConfigMgr application exists with another version. |
 | **Track** grid | no application | The tracked applications. |
 | **Cadence (days)** (row) | empty | Days for this application only. Empty uses the default cadence. |

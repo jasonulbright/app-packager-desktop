@@ -89,15 +89,21 @@ public sealed record DeploymentTargetActionState
     {
         if (DeploymentTargets.SkipsMecm(deploymentTarget))
         {
-            var published = DestinationSet.TryFromTarget(deploymentTarget) is { Any: true } set
-                ? "publish it to " + set.Describe()
-                : "publish it nowhere (the Deployment Target has no destination)";
+            // The grid Package action publishes to ConfigMgr or Intune; WSUS has its own button, Publish to WSUS.
+            var set = DestinationSet.TryFromTarget(deploymentTarget) ?? new DestinationSet();
+            var published = (set.Intune, set.Wsus) switch
+            {
+                (true, true) => "Stage each selected app and publish it to Intune. Use Publish to WSUS to publish it to WSUS.",
+                (true, false) => "Stage each selected app and publish it to Intune.",
+                (false, true) => "Stage each selected app. Use Publish to WSUS to publish it to WSUS.",
+                _ => "Stage each selected app. The Deployment Target has no destination, so nothing is published."
+            };
             return new DeploymentTargetActionState
             {
                 CheckMecmEnabled = false,
-                CheckMecmToolTip = "Check ConfigMgr needs ConfigMgr as a destination. The Deployment Target has none — select ConfigMgr under Default destinations in Settings, One Click Settings, to use this.",
+                CheckMecmToolTip = "To use Check ConfigMgr, select ConfigMgr under Default destinations in Settings, One Click Settings.",
                 PackageLabel = "Publish",
-                PackageToolTip = "Stage each selected app and " + published,
+                PackageToolTip = published,
                 SkipMecmPreflight = true
             };
         }
