@@ -1,5 +1,11 @@
 # Changelog
 
+## [Unreleased]
+
+### Fixed
+
+- Settings, Import from App Packager (PowerShell): the Intune keys now have a row each with a reason. Publish to Intune is derived from the deployment target (an older file with only the toggle writes MECMAndIntune), the protected client secret is skipped as a DPAPI secret, and the IntuneWinAppUtil path of the other computer is skipped because APD downloads its own copy.
+
 ## [2026.1116.47] - 2026-11-16
 
 ### Added
