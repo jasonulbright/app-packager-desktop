@@ -28,6 +28,7 @@ Rules for the roots:
 | `Data\condition-templates.json` | Condition templates that the Workbench writes (CPU architecture, language and VPN conditions). | The app writes it only when a value changed. |
 | `Data\monitor-config.json` | The configuration of the CVE report run. See [Command-line build](../core/command-line-build.md). | The app writes a missing file with defaults. |
 | `Data\Vulnerability\vuln-cache.json` | The CVE cache. | The app deletes entries older than 14 days. A cache entry answers for 360 minutes (60 minutes for a Shodan result). |
+| `Data\nvd-limit.json` | The request times of the shared NVD limit, guarded by the lock `Global\AppPackagerNvdLimit`. The PowerShell App Packager uses the same file and lock. | The app drops times older than 31 seconds and times of a process that no longer runs. |
 | `Data\Vulnerability\kev-catalog.json` | A copy of the CISA KEV catalog. | The app loads the catalog again after 24 hours. |
 | `Data\Reports\cve-report-*` (`.html`, `.csv`, `.json`, `.xlsx`, `.md`) | CVE reports. | `--keep-report-days` deletes the reports of that command that are older than n days. The default is 90. 0 keeps all. |
 

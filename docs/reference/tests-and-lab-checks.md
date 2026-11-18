@@ -668,3 +668,16 @@ The check drove the published app on the lab client (CLIENT01) against the Confi
 | `TheStepScriptDoesNotLetTheCmdletWarningAboutWildcardHandlingReachTheLog` (in `SupersedenceStepTests`) | The lookup and the step read the deployment types with the warning of the cmdlet about wildcard handling turned off, so the log of Apply supersedence has no `WARNING` line. |
 
 ConfigMgr does not allow two applications with the same name, so the lab site cannot show the state `Same title` in the real window; `TwoApplicationsWithTheSameTitleAreListedWithTheReasonAndNeitherCanBeLinked` proves the rule on the data that the window reads. The pending supersedence step of the plan check was written into the inventory of the isolated data folder with `tools/guide-capture/SeedPendingSupersedence`, because a real publish with a failing step was not part of the check.
+
+## NVD request limit without an API key
+
+NVD allows 5 requests in 30 seconds without a key. Above its limit NVD stops answering instead of answering 429. The app sent 5 requests at once, did not read `Retry-After`, did not try a timeout again, and reported `no record` when the Shodan fallback was empty. Two processes together broke the limit. The lookup now spaces requests 6 seconds apart (0.6 with a key), shares the limit through `nvd-limit.json`, tries a timeout again, and reports a product that NVD did not answer for as not checked.
+
+| Test class | What it proves |
+|---|---|
+| `NvdPacerTests` | Even spacing with and without a key, no wait for the first request after idle, two simulated processes on one state file keep 6 seconds apart, a state file in the layout of the PowerShell app is honored, a dead holder, a time far ahead, an old time, a corrupt file, an unwritable file, a held lock and an abandoned lock never block (one warning), the waiting status text and callback, the notice text. |
+| `NvdRetryAfterTests` | `Retry-After` as seconds, as an HTTP date, absent and garbage; the cap of 120 seconds; the sort of a failure. |
+| `NvdLookupThrottleTests` | A timeout and a network error are tried again; the retry waits follow `Retry-After`, 6 and 12 seconds; an unanswered NVD without a fallback record is not checked, not clean and not cached; a good cache entry stays; the key is in no log line. |
+| `NvdTransportHeaderTests` | The transport reads only `Retry-After` and marks a timeout; no other header or key reaches a log. |
+
+**Lab check.** Two processes at once, one APD harness and one PowerShell process, 12 lookups each, against the real NVD without a key: see the pull request for the status codes and the gaps between requests.

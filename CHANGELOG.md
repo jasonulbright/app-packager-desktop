@@ -8,6 +8,13 @@
 
 ### Changed
 
+- Space NVD requests 6 seconds apart without an API key, so the lookup stays within the NVD limit.
+- Share the NVD request limit between the app, the command line and the PowerShell App Packager.
+- Wait for the time in the NVD Retry-After header, up to 120 seconds, before a retry.
+- Try an NVD timeout or network error again, like a 429 or 503 answer.
+- Show a product as not checked, never clean, when NVD does not answer.
+- End a Check CVEs run with one line that counts the products that were not checked.
+- Show the wait for the NVD request limit and the lookups left in the status line.
 - The guide now uses Configuration Manager terms and Microsoft Learn style. For example, it says View and Review instead of Read, and select instead of click.
 
 ## [2026.1118.48] - 2026-11-18
