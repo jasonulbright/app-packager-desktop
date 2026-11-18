@@ -200,6 +200,16 @@ public partial class PackagesPage
 
     private void ContextMenu_EditApplication(object sender, RoutedEventArgs e) => OpenWorkbenchForSelection();
 
+    private void ContextMenu_UseAsOldApplication(object sender, RoutedEventArgs e)
+    {
+        if (GetSelectedPackager() is not { } row || Packages.OldApplicationTargetFor(row) is not { } target) return;
+        Views.Windows.OldApplicationWindow? window = null;
+        var service = new ApplicationPackagerEngine.Services.Supersedence.OldApplicationService(target.SiteCode, target.ProviderMachine, target.Marker);
+        var viewModel = new ViewModels.Windows.OldApplicationViewModel(service, target.NewTitle, target.NewVersion, (title, message) => window!.ConfirmAsync(title, message));
+        window = new Views.Windows.OldApplicationWindow(viewModel) { Owner = Window.GetWindow(this) };
+        window.ShowDialog();
+    }
+
     private void PackagerGrid_SelectionChanged(object sender, SelectionChangedEventArgs e) =>
         btnOperationHistory.IsEnabled = GetSelectedPackager() is not null;
 

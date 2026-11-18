@@ -1204,6 +1204,47 @@ public class PackagerExecutionService(
             settings.Supersedence ?? new ApplicationPackagerEngine.Services.Supersedence.SupersedenceSettings()), null);
     }
 
+    /// <summary>The line that an old application is linked to: the new title and version, and the site service that writes the marker.</summary>
+    public sealed record OldApplicationTarget(string NewTitle, string NewVersion, string Marker, string SiteCode, string? ProviderMachine);
+
+    /// <summary>
+    /// What "Use as old application" needs for one row: the title, the version and the identity marker of the staged build, as the publish
+    /// resolves them. The row needs a staged build, because the title, the version and the architecture of the new application come from it.
+    /// </summary>
+    public (OldApplicationTarget? Target, string? Error) OldApplicationTargetFor(IPackagerExecutionRequest row, RunSnapshot? snapshot)
+    {
+        if (!row.IsJsonDefined && row.StagedManifestPath is null) return (null, "Use as old application does not apply to a PS1 packager.");
+        var manifestPath = StagedManifestPath(row, new PackagerExecutionResult { ExitCode = 0 }, snapshot) ?? ExistingStageManifest(row);
+        if (manifestPath is null) return (null, "No stage manifest was found for this application. Stage it first: the title, the version and the architecture come from the staged build.");
+        StageManifest manifest;
+        try { manifest = new ManifestService().Read(manifestPath); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException or InvalidOperationException)
+        {
+            return (null, $"The stage manifest {manifestPath} could not be read: {ex.Message}");
+        }
+        var settings = settingsService.Load();
+        if (string.IsNullOrWhiteSpace(settings.SiteCode)) return (null, "Use as old application needs a ConfigMgr site. Set the site code in Options.");
+        string? titleMode = null;
+        string? fallbackApplicationId = null;
+        if (row.IsJsonDefined && row.DefinitionPath is not null)
+        {
+            try
+            {
+                var def = LoadDefinition(row.DefinitionPath, row.DefinitionOrigin);
+                var source = ProfileSource.Resolve(WorkbenchStoreOrNull(snapshot), def.Id, ApplicationIds.RunOrigin(def.SourceOrigin));
+                fallbackApplicationId = source.ApplicationId;
+                if (ProfileSource.LegacyMapsApplyTo(manifest, source)) titleMode = deploymentConditionsService.GetConditions(def.Id)?.TitleMode;
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException or InvalidOperationException)
+            {
+                return (null, $"The definition {row.DefinitionPath} could not be read: {ex.Message}");
+            }
+        }
+        var marker = ApplicationPackagerEngine.Services.Supersedence.IdentityMarker.For(manifest, fallbackApplicationId);
+        if (marker is null) return (null, "This application has no identity marker (it has no line name yet), so an old application cannot be linked to it.");
+        return (new OldApplicationTarget(RunApplicationTitle(manifest, titleMode, settings), manifest.SoftwareVersion, marker, settings.SiteCode, settings.ProviderMachine), null);
+    }
+
     /// <summary>What the "Apply supersedence" action did for one application.</summary>
     public sealed record SupersedenceApplyResult(bool Ok, string Message, ApplicationPackagerEngine.Services.Supersedence.SupersedenceStepStatus? Status = null);
 
