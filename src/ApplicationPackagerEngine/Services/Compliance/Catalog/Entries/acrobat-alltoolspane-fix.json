@@ -5,7 +5,7 @@
   "Subcategory": "Configuration",
   "Mechanism": "NativeRegistry",
   "Status": "Draft",
-  "Description": "Temporary Adobe-supplied workaround for the Acrobat bug where the All Tools pane disappears / goes empty on Edit PDF (bGenCoverPagesLabelStrings = 1 under FeatureLockDown). Restart Acrobat + host to apply. RETIRE once Adobe ships the permanent patch.",
+  "Description": "Temporary Adobe-supplied workaround for the Acrobat bug where the All Tools pane disappears / goes empty on Edit PDF (bGenCoverPagesLabelStrings = 1 under FeatureLockDown). Restart Acrobat + host to apply. RETIRE once Adobe ships the permanent fix.",
   "Severity": "Warning",
   "Cves": [],
   "TenablePlugins": [],
@@ -47,14 +47,14 @@
         "Type": "String",
         "Required": true,
         "Default": null,
-        "Description": "Configuration Manager site server FQDN."
+        "Description": "FQDN of the Configuration Manager SMS Provider computer."
       },
       {
         "Name": "CollectionName",
         "Type": "String",
         "Required": false,
         "Default": null,
-        "Description": "If specified, deploys the baseline to this collection daily. Target machines with Acrobat installed."
+        "Description": "If specified, deploys the baseline to this collection daily. Target devices with Acrobat installed."
       },
       {
         "Name": "DetectOnly",

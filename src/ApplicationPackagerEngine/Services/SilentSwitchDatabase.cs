@@ -136,7 +136,7 @@ public static class SilentSwitchDatabase
             Uninstall = "msiexec.exe /package \"<ProductCode>\" /uninstall \"<PatchCode>\" /qn /norestart",
             InstallArgs = "/qn /norestart REINSTALLMODE=ecmus REINSTALL=ALL",
             UninstallArgs = "/qn /norestart",
-            Notes = "A patch applies to an installed base product; the base product must exist on the device.",
+            Notes = "A patch file applies to an installed base product; the base product must exist on the device.",
             Source = MspSource
         },
         ["Unknown"] = new()

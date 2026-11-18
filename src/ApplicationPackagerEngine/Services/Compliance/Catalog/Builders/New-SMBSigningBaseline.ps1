@@ -15,7 +15,7 @@
     Configuration Manager handles discovery, comparison, and remediation natively.
 
     Required SMB signing defeats SMB relay / man-in-the-middle attacks (a primary
-    lateral-movement and privilege-escalation path, e.g. via Responder + ntlmrelayx).
+    lateral-movement and privilege-escalation path, for example by using Responder + ntlmrelayx).
     It is commonly missed because the default is "enabled but not required," which still
     permits unsigned sessions to be downgraded. Requiring it on both sides closes the gap.
 
@@ -29,7 +29,7 @@
     Configuration Manager site code.
 
 .PARAMETER SiteServer
-    Configuration Manager site server FQDN.
+    FQDN of the Configuration Manager SMS Provider computer.
 
 .PARAMETER CollectionName
     If specified, deploys the baseline to this collection daily with remediation enabled.
@@ -65,7 +65,7 @@ if (-not (Get-Module ConfigurationManager -ErrorAction SilentlyContinue)) {
         Import-Module $modulePath
     }
     else {
-        throw "ConfigurationManager module not found. Run this from a machine with the Configuration Manager admin console installed."
+        throw "ConfigurationManager module not found. Run this from a computer with the Configuration Manager console installed."
     }
 }
 

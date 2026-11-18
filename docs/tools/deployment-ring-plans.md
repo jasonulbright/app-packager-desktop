@@ -42,7 +42,7 @@ Two plans ship with the page. They are examples. They name no collection, so the
 7. Set the offsets. Enter **First available, days**, **Days between rings** and **Days to the deadline**. Select **Fill offsets**. The page sets the offsets of every ring. You can still change each ring.
 8. Set the fields of each ring. See the table below.
 9. Select **Move up**, **Move down**, **Duplicate ring** or **Remove ring** to change the order or the count.
-10. To copy settings from the selected ring to all rings, check the boxes **Purpose**, **User notification** or **Maintenance window, metered, package, task sequence and update group options**, then select **Apply to all rings**.
+10. To copy settings from the selected ring to all rings, check the boxes **Purpose**, **User notification** or **Maintenance window, metered, package, task sequence and software update group options**, then select **Apply to all rings**.
 11. Select **Save plan**. Select **Cancel** to close the editor without saving.
 
 To delete a plan, select it and select **Delete**. A dialog asks for confirmation.

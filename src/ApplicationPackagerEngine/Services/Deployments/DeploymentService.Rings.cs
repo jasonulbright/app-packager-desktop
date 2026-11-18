@@ -63,7 +63,7 @@ public sealed partial class DeploymentService : IDeploymentSiteReader
         var summaryRead = Rows<ReadFlag>(output, "SummaryRead").FirstOrDefault()?.Read == true;
         var exists = Rows<LiveExistsRow>(output, "Exists");
         var summaries = Rows<LiveSummaryRow>(output, "Summary");
-        _log?.Info(LogArea, $"Read the live state of {valid.Length} deployments: {exists.Count} exist, {summaries.Count} summaries.");
+        _log?.Info(LogArea, $"Retrieved the live state of {valid.Length} deployments: {exists.Count} exist, {summaries.Count} summaries.");
         return deploymentIds.Select(id =>
         {
             if (!read || !IsDeploymentId(type, id)) return new DeploymentLiveRow(id, null, false, null, 0, 0, 0, 0, 0, null);

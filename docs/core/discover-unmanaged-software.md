@@ -64,7 +64,7 @@ With both optional boxes empty, Discover reads the SQL Server name and the datab
 | **Not now** | Closes the prompt and changes nothing. The next scan offers the applications again. |
 | **Don't ask again for selected** | Keeps the checked applications hidden. Later scans leave them out. |
 
-When you select **Enable selected** or **Don't ask again for selected** and no row is checked, the prompt stays open and changes nothing. The note line shows `Check at least one app, or click Enable all.` or `Check the apps to leave out of later discoveries. Nothing changed.`
+When you select **Enable selected** or **Don't ask again for selected** and no row is checked, the prompt stays open and changes nothing. The note line shows `Check at least one app, or select Enable all.` or `Check the apps to leave out of later discoveries. Nothing changed.`
 
 After **Enable selected** or **Enable all**, the log shows `<N> app(s) added to the grid. Show or hide them with Catalog on the App Packager page.` Enabling an application only shows its row. Select **Check ConfigMgr** to see its real state.
 

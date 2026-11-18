@@ -92,7 +92,7 @@ See [App Packager page](../core/packages.md) and [Stage and publish](../core/sta
 | Intune credentials are required. Open Settings and set Tenant ID, Client ID, and Client Secret. | App Packager page | A target publishes to Intune without credentials. | Do as the message says. |
 | No packagers selected. | App Packager page log | A button was pressed with no checked row. | Check at least one row. |
 | SiteCode is required. Open Settings. | App Packager page log, `Check ConfigMgr` | The site code is empty. | Do as the message says. |
-| Could not connect to site <code>. Check Settings and ensure the CM console is available. | App Packager page log | The connection test at launch failed. A log line `ConfigMgr: Connection failed - <reason>` gives the reason. | Do as the message says. |
+| Could not connect to site <code>. Check Settings and ensure the Configuration Manager console is available. | App Packager page log | The connection test at launch failed. A log line `ConfigMgr: Connection failed - <reason>` gives the reason. | Do as the message says. |
 | Stage: DownloadRoot is not configured. Open Settings. | App Packager page log | A stage of an installer drop or of a bring-your-own application ran with no download root. | Do as the message says. |
 | Not found in ConfigMgr | Status column | The site has no application with that title. | None. This is a status, not a failure. |
 | Application name is required. | Installer drop dialog | The field is empty. | Fill the field. |
@@ -268,7 +268,7 @@ See [Installer Analysis](../tools/installer-analysis.md).
 | WARNING: Webhook URL is not https; not sent: <host> | The webhook in the configuration is not https. | Use https. |
 | The timestamp server URL must begin with http:// or https://. | The timestamp URL is not valid. | Correct it. |
 | Refused download URL '<url>': it is not an absolute http or https URL. | A definition has a bad URL. | Correct the definition. |
-| GitHub API rate limit reached for <url> (HTTP <status>, <anonymous requests or token source>); it resets at <time>. Set APP_PACKAGER_GITHUB_TOKEN or GITHUB_TOKEN, save a token in Settings, or run gh auth login, to raise the limit; Settings shows the current budget. | Anonymous requests are limited to 60 each hour. | Do as the message says. |
+| GitHub API rate limit reached for <url> (HTTP <status>, <anonymous requests or token source>); it resets at <time>. Set APP_PACKAGER_GITHUB_TOKEN or GITHUB_TOKEN, save a token in Settings, or sign in with the GitHub CLI, to raise the limit; Settings shows the current budget. | Anonymous requests are limited to 60 each hour. | Do as the message says. |
 
 ## Other message families
 

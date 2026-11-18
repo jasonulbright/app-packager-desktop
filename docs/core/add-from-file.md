@@ -53,7 +53,7 @@ The review shows these parts from the top.
 | Caution box | `This definition needs review.` and the reasons. |
 | Silent switch box | Shows when a non-MSI installer has no install arguments: `No silent switch could be derived. Type the silent install arguments of this installer. Test them on a test device before you deploy.` |
 | **Package** | For `.msix`, `.appx`, `.msixbundle` and `.appxbundle` files. The properties of the package and its signature. |
-| **Patch** | For `.msp` files. The properties of the Windows Installer patch. |
+| **Windows Installer patch** | For `.msp` files. The properties of the Windows Installer patch. |
 | **Proposed values** | The rows in the next table. |
 | **Detection** | The detection rule. See [Detection](#detection). |
 | **Notes** | Plain sentences that say what the analysis could not read, and what to test. |
@@ -89,7 +89,7 @@ The **Package** properties are **Identity name**, **Publisher**, **Publisher nam
 
 A package with a signature that is not trusted shows a warning box above the properties.
 
-The **Patch** properties are **Patch code**, **Title**, **Target product codes**, **Target product**, **Version after the patch** and **Classification**. A warning box reads that the patch applies only to an installed base product. Deploy it only to devices that have the base product.
+The **Windows Installer patch** properties are **Patch code**, **Title**, **Target product codes**, **Target product**, **Version after the patch file** and **Classification**. A warning box reads that the patch file applies only to an installed base product. Deploy it only to devices that have the base product.
 
 ![The review of an installer with the proposed values and their evidence markers](../images/core-add-file-review.png)
 

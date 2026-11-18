@@ -265,8 +265,8 @@ public sealed class InstallerAnalysisViewModelRaceTests : IDisposable
         {
             var messages = _h.Log.Tail().Select(entry => entry.Message).ToList();
             return messages.Count(message => message.StartsWith("Listed the payload:", StringComparison.Ordinal)) == 2
-                && messages.Any(message => message.StartsWith("Read the registry settings:", StringComparison.Ordinal))
-                && messages.Any(message => message.StartsWith("Read the strings:", StringComparison.Ordinal));
+                && messages.Any(message => message.StartsWith("Loaded the registry settings:", StringComparison.Ordinal))
+                && messages.Any(message => message.StartsWith("Loaded the strings:", StringComparison.Ordinal));
         }, "the late installer results");
 
         Assert.Equal("second-only.dll", Assert.Single(viewModel.PayloadRows).Name);

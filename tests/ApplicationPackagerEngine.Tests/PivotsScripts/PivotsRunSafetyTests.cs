@@ -146,7 +146,7 @@ public sealed class PivotsRunSafetyTests
         Assert.Contains("changed after the plan was made", o.Message);
     }
 
-    // ---- A target that holds every client of the site -----------------------------------------------
+    // ---- A target that holds every device of the site -----------------------------------------------
 
     public static TheoryData<RunTargetKind, string> EveryClient() => new()
     {
@@ -183,7 +183,7 @@ public sealed class PivotsRunSafetyTests
         Assert.Contains(plan.Checks, c => c.Name == PivotsScriptsService.CheckNames.EveryDevice && c.Result == DeploymentCheckResults.Warn);
         var refused = await h.ApplyAsync(plan);
         Assert.StartsWith(PivotsScriptsService.SkippedPrefix, refused.Message);
-        Assert.Contains("every client of the site", refused.Message);
+        Assert.Contains("every device of the site", refused.Message);
         Assert.Equal(0, h.Admin.Sends);
         Assert.Empty(h.AuditLines());
         Assert.True((await h.ApplyAsync(plan with { EveryDeviceAcknowledged = true })).Sent);

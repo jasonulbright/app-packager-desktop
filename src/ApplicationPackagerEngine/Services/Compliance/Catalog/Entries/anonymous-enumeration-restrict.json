@@ -56,7 +56,7 @@
         "Type": "String",
         "Required": true,
         "Default": null,
-        "Description": "Configuration Manager site server FQDN."
+        "Description": "FQDN of the Configuration Manager SMS Provider computer."
       },
       {
         "Name": "CollectionName",

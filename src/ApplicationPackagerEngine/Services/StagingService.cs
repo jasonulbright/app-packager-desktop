@@ -512,7 +512,7 @@ public sealed class StagingService
                 if (signature.CertificateExpired)
                     onProgress?.Invoke("MSIX signing certificate expired and the signature has no valid timestamp from before that date; Windows refuses the package.");
                 else if (!signature.ChainTrusted)
-                    onProgress?.Invoke("MSIX signer does not chain to a trusted root on this machine; the target device must trust it.");
+                    onProgress?.Invoke("MSIX signer does not chain to a trusted root on this computer; the target device must trust it.");
                 else if (signature.Timestamp is { } stamped)
                     onProgress?.Invoke($"MSIX signing certificate expired after the timestamp of {stamped:yyyy-MM-dd}; the signature stays valid.");
 
@@ -587,7 +587,7 @@ public sealed class StagingService
             if (productCode is null && !isMsix && ReferencesProductCode(def))
                 throw new InvalidOperationException(
                     $"{def.Application} resolves {{ProductCode}} from the installer, and no ProductCode could be read from {installerFileName}. " +
-                    "Reading it from an EXE needs 7-Zip on this machine.");
+                    "Reading it from an EXE needs 7-Zip on this computer.");
 
             if (_iconService is not null && def.ZipPayload is null)
             {

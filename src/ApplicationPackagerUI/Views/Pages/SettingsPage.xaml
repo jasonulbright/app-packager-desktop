@@ -125,7 +125,7 @@
                     <TextBlock Text="Updates" Style="{StaticResource SubHeader}" />
                                 <CheckBox Content="Check for a new version when the app starts" IsChecked="{Binding CheckForUpdatesAtStartup}"
                                           AutomationProperties.AutomationId="chkCheckForUpdatesAtStartup"
-                                          ToolTip="Asks GitHub for the latest release. No sign-in and no data from this computer are sent. A newer version opens the update window; nothing installs without your click. Save Settings stores this choice." />
+                                          ToolTip="Asks GitHub for the latest release. No sign-in and no data from this computer are sent. A newer version opens the update window; nothing installs until you confirm. Save Settings stores this choice." />
                                 <ui:Button Content="Check for updates" Icon="{ui:SymbolIcon ArrowSync24}" Margin="0,8,0,8"
                                            Click="CheckForUpdates_Click"
                                            AutomationProperties.AutomationId="btnCheckForUpdates"
@@ -214,8 +214,8 @@
                                 <TextBlock Text="Site Server / SMS Provider Host" Style="{StaticResource FieldLabel}" />
                                 <ui:TextBox Width="360" HorizontalAlignment="Left" Text="{Binding ProviderMachine, UpdateSourceTrigger=PropertyChanged}"
                                             PlaceholderText="cm01.contoso.com" Margin="0,0,0,4"
-                                            ToolTip="Host the generated CMSite drive connects to. Leave empty to use the local machine, which only reaches the site when this machine is itself the SMS provider." />
-                                <TextBlock Text="Leave empty only when this machine is the SMS provider."
+                                            ToolTip="Host the generated CMSite drive connects to. Leave empty to use the local computer, which only reaches the site when this computer is itself the SMS Provider." />
+                                <TextBlock Text="Leave empty only when this computer is the SMS Provider."
                                            Foreground="{DynamicResource TextFillColorTertiaryBrush}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,8" />
 
                                 <TextBlock Text="Discovery SQL Server" Style="{StaticResource FieldLabel}" />
@@ -356,7 +356,7 @@
             <ScrollViewer x:Name="page_github" Visibility="Collapsed" VerticalScrollBarVisibility="Auto">
                 <StackPanel Margin="0,0,0,8" MaxWidth="960" HorizontalAlignment="Left">
                                 <TextBlock Text="GitHub API" Style="{StaticResource SectionHeader}" />
-                                <TextBlock Text="About a third of the catalog reads api.github.com. Anonymous requests share 60 per hour per address; a token from APP_PACKAGER_GITHUB_TOKEN, GITHUB_TOKEN, the token saved below or gh auth login raises that to 5,000."
+                                <TextBlock Text="About a third of the catalog reads api.github.com. Anonymous requests share 60 per hour per address; a token from APP_PACKAGER_GITHUB_TOKEN, GITHUB_TOKEN, the token saved below or a sign-in with the GitHub CLI raises that to 5,000."
                                            Foreground="{DynamicResource TextFillColorSecondaryBrush}" Margin="0,0,0,8" TextWrapping="Wrap" />
 
                                 <DockPanel Margin="0,0,0,8">
@@ -374,7 +374,7 @@
                                 <ui:PasswordBox Width="360" HorizontalAlignment="Left" Password="{Binding GitHubToken, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                                 PlaceholderText="{Binding GitHubTokenHint}" Margin="0,0,0,4"
                                                 AutomationProperties.AutomationId="pwdGitHubToken" />
-                                <TextBlock Text="Stored encrypted for the current Windows user. Leave empty to keep the saved token. The two environment variables are used first, then this token, then gh auth login."
+                                <TextBlock Text="Stored encrypted for the current Windows user. Leave empty to keep the saved token. The two environment variables are used first, then this token, then the sign-in of the GitHub CLI."
                                            Foreground="{DynamicResource TextFillColorTertiaryBrush}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,8" />
                                 <CheckBox Content="Remove the saved token on Save"
                                           IsChecked="{Binding RemoveGitHubToken}"
@@ -608,7 +608,7 @@
                                         <CheckBox Content="Self-service mode" IsThreeState="True" IsChecked="{Binding CwaSwitches.Installation.SelfServiceMode}" Margin="0,0,0,4" />
                                         <CheckBox Content="forceinstall" IsThreeState="True" IsChecked="{Binding CwaSwitches.Installation.ForceInstall}" Margin="0,0,0,4"
                                                   ToolTip="Cleans old Citrix data when an install or an upgrade of an unsupported version fails. Use it as a retry package. It replaces rcu." />
-                                        <TextBlock Text="Client name (fixed)" Style="{StaticResource FieldLabel}" />
+                                        <TextBlock Text="Device name (fixed)" Style="{StaticResource FieldLabel}" />
                                         <ui:TextBox Text="{Binding CwaSwitches.Installation.ClientName, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="computer name"
                                                     ToolTip="Sets a fixed client device name (ENABLE_DYNAMIC_CLIENT_NAME=No and CLIENT_NAME). Up to 20 letters, digits, dots, hyphens or underscores. Empty keeps the computer name." />
                                     </StackPanel>

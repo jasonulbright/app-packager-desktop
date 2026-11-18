@@ -42,7 +42,7 @@ public sealed class SandboxAndCancelTests : IDisposable
         var report = await service.AnalyzeAsync(path, Limits, new Progress<string>(), CancellationToken.None);
 
         Assert.Equal("ZIP", report.Type);
-        Assert.Contains("The analysis sandbox could not be created; the post-patch target was not read.", report.Notes);
+        Assert.Contains("The analysis sandbox could not be created; the target after the patch file was not read.", report.Notes);
     }
 
     [Fact]
@@ -53,7 +53,7 @@ public sealed class SandboxAndCancelTests : IDisposable
 
         var report = await _service.AnalyzeAsync(path, Limits, new SyncProgress(steps.Add), CancellationToken.None);
 
-        Assert.Contains("Listing the payload to find an inner patch", steps);
+        Assert.Contains("Listing the payload to find an inner patch file", steps);
         Assert.NotNull(report.Payload);
         Assert.Contains(report.Payload!, e => e.Path == "setup/inner.msi" && e.InnerType == "MSI");
     }

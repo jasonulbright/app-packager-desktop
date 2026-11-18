@@ -1,7 +1,7 @@
 <#
 .SYNOPSIS
     Creates Configuration Manager CIs + Baselines that enforce the Delivery Optimization download
-    mode, with a different expected value for clients vs. servers.
+    mode, with a different expected value for workstations and for servers.
 
 .DESCRIPTION
     Single native registry-value compliance setting per OS class:
@@ -37,17 +37,17 @@
     Configuration Manager site code.
 
 .PARAMETER SiteServer
-    Configuration Manager site server FQDN.
+    FQDN of the Configuration Manager SMS Provider computer.
 
 .PARAMETER ClientCollectionName
     If specified, deploys the client baseline (DODownloadMode = ClientDownloadMode)
     to this collection daily with remediation enabled. Target a client-only
-    collection (e.g. "All Workstations").
+    collection (for example "All Workstations").
 
 .PARAMETER ServerCollectionName
     If specified, deploys the server baseline (DODownloadMode = ServerDownloadMode)
     to this collection daily with remediation enabled. Target a server-only
-    collection (e.g. "All Windows Servers").
+    collection (for example "All Windows Servers").
 
 .PARAMETER ClientDownloadMode
     Expected DODownloadMode value for clients. Default: 0.
@@ -99,7 +99,7 @@ if (-not (Get-Module ConfigurationManager -ErrorAction SilentlyContinue)) {
         Import-Module $modulePath
     }
     else {
-        throw "ConfigurationManager module not found. Run this from a machine with the Configuration Manager admin console installed."
+        throw "ConfigurationManager module not found. Run this from a computer with the Configuration Manager console installed."
     }
 }
 

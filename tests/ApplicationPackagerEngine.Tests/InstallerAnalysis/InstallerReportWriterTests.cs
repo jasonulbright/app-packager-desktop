@@ -51,7 +51,7 @@ public sealed class InstallerReportWriterTests : IDisposable
         Assert.Contains("Signed:       Valid (CN=Contoso), timestamped", text);
         Assert.Contains("  DisplayVersion:         1.2.3", text);
         Assert.Contains("  PerMachine (default):", text);
-        Assert.Contains("Effective post-patch detection target:", text);
+        Assert.Contains("Effective detection target after the patch file:", text);
         Assert.Contains("  DisplayVersion:         2.0", text);
         Assert.Contains("Notes:", text);
     }

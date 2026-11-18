@@ -65,7 +65,7 @@ The rights are the texts that the page shows when the site refuses a call. The l
 | Script | Two boxes. The first box reads: "I read the script text, its hash and the parameters. A script run cannot be undone." The second box names the script, its version, the device count, the start of the text hash and the parameter values. |
 | Query or script, target reaches every device of the site | One more box: "This runs on every device of the site", followed by the target. |
 
-A target reaches every device of the site when it is a built-in collection (an ID that starts with `SMS`) or when it holds every device of the site, for example the pattern `*`. The page shows a warning under **Resolve** for such a target. The service enforces the boxes. A run without them is refused.
+A target reaches every device of the site when it is a built-in collection (an ID that starts with `SMS`) or when it holds every device of the site that has the Configuration Manager client, for example the pattern `*`. The page shows a warning under **Resolve** for such a target. The service enforces the boxes. A run without them is refused.
 
 The confirm button stays disabled until every box is selected.
 

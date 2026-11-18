@@ -354,8 +354,8 @@ public sealed class AddFromInstallerService : IAddFromInstallerService
         var targetName = Fact("TargetProductName");
         var postVersion = postPatch?.DisplayVersion is { Length: > 0 } v ? v : Fact("Post-patch version");
         var warning = productCode.Length > 0
-            ? $"The patch applies only to an installed base product. Deploy it only to devices that have the product with ProductCode {productCode}."
-            : "The patch applies only to an installed base product. The patch names no target product; deploy it only to devices that have the base product.";
+            ? $"The patch file applies only to an installed base product. Deploy it only to devices that have the product with ProductCode {productCode}."
+            : "The patch file applies only to an installed base product. The patch file names no target product; deploy it only to devices that have the base product.";
         notes.Add(warning);
 
         var detection = PatchDetection(patchCode, productCode, postPatch, postVersion);
@@ -378,7 +378,7 @@ public sealed class AddFromInstallerService : IAddFromInstallerService
             ? new ProposedValue<string>(Value: $"msiexec.exe /package {productCode} /uninstall {patchCode} /qn /norestart", Evidence: Evidence.Predicted, Source: SilentSwitchDatabase.MspUninstallSource)
             : null;
         if (uninstallCommand is null) notes.Add("No uninstall command is proposed: the patch code or the target ProductCode was not read.");
-        if (Fact("AllowRemoval") == "0") notes.Add("The patch is not uninstallable (AllowRemoval 0). Only an uninstall of the base product removes it.");
+        if (Fact("AllowRemoval") == "0") notes.Add("The patch file is not uninstallable (AllowRemoval 0). Only an uninstall of the base product removes it.");
 
         var reasons = new List<string>();
         AddCriticalReasons(reasons, name, version, null, detection);
@@ -438,7 +438,7 @@ public sealed class AddFromInstallerService : IAddFromInstallerService
                 },
                 Evidence: Evidence.Predicted, Source: UninstallKeySource);
         }
-        return DetectionProposal.NoneDerived("No detection rule could be derived from the patch. Enter a rule before you deploy.");
+        return DetectionProposal.NoneDerived("No detection rule could be derived from the patch file. Enter a rule before you deploy.");
     }
 
     // ---- MSIX and APPX ---------------------------------------------------------------------

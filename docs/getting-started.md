@@ -132,7 +132,7 @@ The first-run flag and the system choices are stored in `settings.json` in the d
 
 | Message | Cause | Fix |
 |---|---|---|
-| Could not connect to site `<code>`. Check Settings and ensure the CM console is available. | The connection test failed. | Check the settings. Install the Configuration Manager console on this computer. |
+| Could not connect to site `<code>`. Check Settings and ensure the Configuration Manager console is available. | The connection test failed. | Check the settings. Install the Configuration Manager console on this computer. |
 | SiteCode is required. Open Settings to configure. | The site code is empty. | Enter the site code in **Settings**. |
 | File Share Root is required. Open Settings to configure. | The share root is empty. | Enter the UNC path in **Settings**. |
 

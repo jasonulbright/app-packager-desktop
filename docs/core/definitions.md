@@ -148,7 +148,7 @@ These counts come from the 325 files.
 | `ERROR: No scraper registered for type '<type>'` | `VersionScraper.Type` is not one of the seven types. | Use a type from the table. |
 | `Refused download URL '<url>': it is not an absolute http or https URL.` | A definition holds a download address that is not an absolute http or https address. | Correct the definition. |
 | `ERROR: Could not determine latest version for <application>` | The scraper found no version. | Check `Url` and `Pattern`. Use **Test Scrape** on [Add from web](add-app.md) to test the same values. |
-| `GitHub API rate limit reached for <url> ...` | The scraper reads `api.github.com` without a token. | Set `APP_PACKAGER_GITHUB_TOKEN` or `GITHUB_TOKEN`, save a token in Settings, or run `gh auth login`. |
+| `GitHub API rate limit reached for <url> ...` | The scraper reads `api.github.com` without a token. | Set `APP_PACKAGER_GITHUB_TOKEN` or `GITHUB_TOKEN`, save a token in Settings, or sign in with the GitHub CLI. |
 | A definition is missing from the grid. | The file is not valid JSON, has an empty `Id`, or is hidden. | Check the file. Check the [Catalog](applications.md). |
 
 ## Links

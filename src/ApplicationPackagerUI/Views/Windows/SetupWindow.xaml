@@ -80,7 +80,7 @@
 
                         <TextBlock Text="Site Server / SMS Provider" Style="{StaticResource FieldLabel}" />
                         <ui:TextBox Text="{Binding ProviderMachine, UpdateSourceTrigger=PropertyChanged}"
-                                    PlaceholderText="Empty uses the local machine" Margin="0,0,0,12" />
+                                    PlaceholderText="Empty uses the local computer" Margin="0,0,0,12" />
 
                         <TextBlock Text="File Share Root" Style="{StaticResource FieldLabel}" />
                         <ui:TextBox Text="{Binding FileShareRoot, UpdateSourceTrigger=PropertyChanged}"

@@ -36,7 +36,7 @@ public sealed class GitHubRateLimitTests
 
         Assert.StartsWith("GitHub API rate limit reached for " + server.Url("repos/o/r/releases/latest") + $" (HTTP {status}", ex.Message);
         Assert.Contains("GITHUB_TOKEN", ex.Message);
-        Assert.Contains("gh auth login", ex.Message);
+        Assert.Contains("sign in with the GitHub CLI", ex.Message);
     }
 
     [Fact]

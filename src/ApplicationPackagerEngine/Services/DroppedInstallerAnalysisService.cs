@@ -843,8 +843,8 @@ public sealed class DroppedInstallerAnalysisService
         "Squirrel" => @"Registry uninstall key in HKCU\...\Uninstall\<AppName> (per-user), or file-version on the installed EXE.",
         "Velopack" => @"Registry uninstall key in HKCU\...\Uninstall\<PackageId> (per-user); DisplayVersion is major.minor.patch without prerelease or build labels.",
         "MSIX" or "MsixBundle" => string.IsNullOrEmpty(appName)
-            ? "MSIX family-name detection via Get-AppxPackage."
-            : $"MSIX family-name detection via Get-AppxPackage -Name {appName}",
+            ? "MSIX family-name detection by using Get-AppxPackage."
+            : $"MSIX family-name detection by using Get-AppxPackage -Name {appName}",
         "PsadtV3" or "PsadtV4" => "Registry uninstall key detection keyed on AppName/AppVersion (configured in the deployment script).",
         "SevenZipSfx" or "WinRarSfx" or "ZIP" => "Not a true installer; detection depends on the extracted payload.",
         _ => "Pick a file-version or registry-uninstall detection per the extracted payload."

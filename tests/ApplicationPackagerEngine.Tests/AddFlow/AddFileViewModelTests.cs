@@ -189,7 +189,7 @@ public sealed class AddFileViewModelTests
         Assert.Equal("{AAAAAAAA-0000-0000-0000-000000000001}", facts["Patch code"]);
         Assert.Equal("Contoso fix 1", facts["Title"]);
         Assert.Equal("{BBBBBBBB-0000-0000-0000-000000000002}", facts["Target product codes"]);
-        Assert.Equal("1.2.4", facts["Version after the patch"]);
+        Assert.Equal("1.2.4", facts["Version after the patch file"]);
     });
 
     [Theory]

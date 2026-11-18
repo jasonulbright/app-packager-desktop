@@ -11,7 +11,7 @@
     No embedded scripts. Configuration Manager handles discovery, comparison, and remediation natively.
 
     NoDriveTypeAutoRun = 255 disables Autorun/Autoplay on every drive class (removable,
-    fixed, network, etc.), defeating the classic "malicious USB / mapped share autorun"
+    fixed, network, and so on), defeating the classic "malicious USB / mapped share autorun"
     infection vector. It is a long-standing CIS / STIG item that is easy to drop because
     Autoplay feels like a UX nicety rather than an attack surface.
 
@@ -21,7 +21,7 @@
     Configuration Manager site code.
 
 .PARAMETER SiteServer
-    Configuration Manager site server FQDN.
+    FQDN of the Configuration Manager SMS Provider computer.
 
 .PARAMETER CollectionName
     If specified, deploys the baseline to this collection daily with remediation enabled.
@@ -57,7 +57,7 @@ if (-not (Get-Module ConfigurationManager -ErrorAction SilentlyContinue)) {
         Import-Module $modulePath
     }
     else {
-        throw "ConfigurationManager module not found. Run this from a machine with the Configuration Manager admin console installed."
+        throw "ConfigurationManager module not found. Run this from a computer with the Configuration Manager console installed."
     }
 }
 

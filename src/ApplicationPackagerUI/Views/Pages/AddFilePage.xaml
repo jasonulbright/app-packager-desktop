@@ -104,16 +104,16 @@
                             </StackPanel>
                         </Border>
                         <ItemsControl ItemsSource="{Binding PackageFacts}" ItemTemplate="{StaticResource FactRowTemplate}" Grid.IsSharedSizeScope="True" Focusable="False"
-                                      AutomationProperties.Name="Package facts" AutomationProperties.AutomationId="lstAddFilePackage" />
+                                      AutomationProperties.Name="Package properties" AutomationProperties.AutomationId="lstAddFilePackage" />
                     </StackPanel>
 
                     <StackPanel Visibility="{Binding HasPatch, Converter={StaticResource AddBoolToVisibility}}" AutomationProperties.AutomationId="pnlAddFilePatch">
-                        <TextBlock Text="Patch" Style="{StaticResource AddHeading}" Margin="0,4,0,4" />
+                        <TextBlock Text="Windows Installer patch" Style="{StaticResource AddHeading}" Margin="0,4,0,4" />
                         <Border Style="{StaticResource AddCaution}" AutomationProperties.AutomationId="pnlAddFilePatchWarning">
                             <TextBlock Text="{Binding PatchWarning}" Style="{StaticResource AddWarningText}" AutomationProperties.AutomationId="txtAddFilePatchWarning" />
                         </Border>
                         <ItemsControl ItemsSource="{Binding PatchFacts}" ItemTemplate="{StaticResource FactRowTemplate}" Grid.IsSharedSizeScope="True" Focusable="False"
-                                      AutomationProperties.Name="Patch facts" AutomationProperties.AutomationId="lstAddFilePatch" />
+                                      AutomationProperties.Name="Patch file properties" AutomationProperties.AutomationId="lstAddFilePatch" />
                     </StackPanel>
 
                     <TextBlock Text="Proposed values" Style="{StaticResource AddHeading}" Margin="0,4,0,4" />

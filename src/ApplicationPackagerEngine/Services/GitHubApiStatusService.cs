@@ -26,7 +26,7 @@ public sealed record GitHubApiStatus(
         }
 
         var perAddress = Limit is null ? "" : $" ({Limit:N0} requests/hour per address, {Remaining:N0} remaining)";
-        return $"Anonymous{perAddress}; set GITHUB_TOKEN, save a token in Settings or run gh auth login";
+        return $"Anonymous{perAddress}; set GITHUB_TOKEN, save a token in Settings or sign in with the GitHub CLI";
     }
 }
 

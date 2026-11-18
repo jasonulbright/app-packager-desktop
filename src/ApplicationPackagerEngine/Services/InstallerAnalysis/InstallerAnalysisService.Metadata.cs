@@ -60,7 +60,7 @@ public sealed partial class InstallerAnalysisService
         catch (OperationCanceledException) { throw; }
         catch (Exception)
         {
-            notes.Add("The patch could not be read; it may be damaged.");
+            notes.Add("The patch file could not be read; it may be damaged.");
             return null;
         }
         var summary = Safe(() => MsiDatabase.ReadSummary(path), new Dictionary<int, string>());
@@ -80,7 +80,7 @@ public sealed partial class InstallerAnalysisService
             try { chosen = SelectBaseMsi(targets, baseMsis, _msi); }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
-                notes.Add("The base MSI next to the patch could not be read.");
+                notes.Add("The base MSI next to the patch file could not be read.");
             }
             if (chosen is { } found)
             {
@@ -122,7 +122,7 @@ public sealed partial class InstallerAnalysisService
             Fact("Patch codes", patchCodes.Count.ToString(CultureInfo.InvariantCulture), "msi-summary-information"),
             Fact("Target ProductCodes", string.Join(", ", targets), "msi-summary-information")
         };
-        metadata.Add(new MetadataBlock("MSI patch (" + Path.GetFileName(path) + ")", facts.Where(f => f.Value.Length > 0).ToList()));
+        metadata.Add(new MetadataBlock("MSI patch file (" + Path.GetFileName(path) + ")", facts.Where(f => f.Value.Length > 0).ToList()));
 
         var versionSource = versionFromXml
             ? "the version is the UpdatedVersion of this target in the patch applicability XML"
@@ -136,7 +136,7 @@ public sealed partial class InstallerAnalysisService
 
         var (key, keyExplanation) = PostPatchKey(productCode, baseProps, architecture);
         explanation += keyExplanation;
-        if (version is null) explanation += " The patch applicability XML has no UpdatedVersion for this target, and no patch name or title carries a version in parentheses.";
+        if (version is null) explanation += " The applicability XML of the patch file has no UpdatedVersion for this target, and no patch file name or title carries a version in parentheses.";
         return new EffectiveDetection(productCode, meta.GetValueOrDefault("TargetProductName", ""), version ?? "", key, explanation)
         {
             BaseVersion = baseVersion,
@@ -191,14 +191,14 @@ public sealed partial class InstallerAnalysisService
         IReadOnlyList<PayloadEntry> payload;
         try
         {
-            progress.Report("Listing the payload to find an inner patch");
+            progress.Report("Listing the payload to find an inner patch file");
             payload = await ListPayloadCoreAsync(path, engine, limits, ct).ConfigureAwait(false);
             listed(payload);
         }
         catch (OperationCanceledException) { throw; }
         catch (SevenZipNotFoundException) when (engine is "SevenZipSfx" or "WinRarSfx")
         {
-            notes.Add("7-Zip was not found, so the payload was not listed; an inner patch and its post-patch target were not read.");
+            notes.Add("7-Zip was not found, so the payload was not listed; an inner patch file and the target after the patch file were not read.");
             return null;
         }
         catch (Exception)
@@ -209,14 +209,14 @@ public sealed partial class InstallerAnalysisService
         if (msp is null) return null;
         if (msp.Size > limits.MaxExtractBytes)
         {
-            notes.Add("The inner patch is larger than the extraction limit; the post-patch target was not read.");
+            notes.Add("The inner patch file is larger than the extraction limit; the target after the patch file was not read.");
             return null;
         }
         string? session = null;
         try
         {
             session = _sandbox.NewSession();
-            progress.Report("Extracting " + Path.GetFileName(msp.Path) + " to read the post-patch target");
+            progress.Report("Extracting " + Path.GetFileName(msp.Path) + " to read the target after the patch file");
             var mspPath = await ExtractEntryCoreAsync(path, engine, msp, session, limits, ct).ConfigureAwait(false);
             var budget = limits.MaxExtractBytes - msp.Size;
             var msiPaths = new List<string>();
@@ -233,8 +233,8 @@ public sealed partial class InstallerAnalysisService
         catch (Exception)
         {
             notes.Add(session is null
-                ? "The analysis sandbox could not be created; the post-patch target was not read."
-                : "The inner patch could not be extracted; the post-patch target was not read.");
+                ? "The analysis sandbox could not be created; the target after the patch file was not read."
+                : "The inner patch file could not be extracted; the target after the patch file was not read.");
             return null;
         }
         finally

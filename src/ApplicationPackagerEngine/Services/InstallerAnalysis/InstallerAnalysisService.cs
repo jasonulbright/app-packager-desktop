@@ -131,7 +131,7 @@ public sealed partial class InstallerAnalysisService : IInstallerAnalysisService
                 ReadMsi(path, limits, msiProperties, metadata, notes, ct);
                 break;
             case "MSP":
-                progress.Report("Reading the patch metadata");
+                progress.Report("Reading the patch file metadata");
                 postPatch = ReadMsp(path, [], metadata, notes, ct);
                 break;
             case "NSIS":

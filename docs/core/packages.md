@@ -162,13 +162,13 @@ The full list is in [Settings reference](../reference/settings.md).
 |---|---|---|
 | `No packagers selected.` | You selected a button and no row is checked. | Check at least one row. |
 | `SiteCode is required. Open Settings.` | **Site Code** is empty. | Enter the site code under Settings, ConfigMgr Site Settings. |
-| `Could not connect to site <code>. Check Settings and ensure the CM console is available.` | The connection test after the list load failed. The log line `ConfigMgr: Connection failed` names the reason. | Do as the message says. |
+| `Could not connect to site <code>. Check Settings and ensure the Configuration Manager console is available.` | The connection test after the list load failed. The log line `ConfigMgr: Connection failed` names the reason. | Do as the message says. |
 | `ERROR: Could not determine latest version for <application>` | The version source returned no version. The row shows **Error** and is unchecked. | Check the version source of the definition. See [Definitions](definitions.md). |
 | `ERROR:CM_CMDLETS_NOT_AVAILABLE` | The ConfigMgr cmdlets were not available in Windows PowerShell. | Install the Configuration Manager console on this computer. |
 | `ERROR:SITE_DRIVE_FAILED` | The ConfigMgr site drive could not be opened. | Check **Site Code** and **Site Server / SMS Provider Host** in Settings. |
 | `ERROR:QUERY_FAILED` | The ConfigMgr query for the application failed. | None stated in the code. |
 | `query timed out after 60s` | ConfigMgr did not answer in 60 seconds. | None stated in the code. |
-| `GitHub API rate limit reached for <url> ...` | The version source reads `api.github.com`. Without a token GitHub permits 60 requests each hour. | Set `APP_PACKAGER_GITHUB_TOKEN` or `GITHUB_TOKEN`, save a token in Settings, or run `gh auth login`. Settings, GitHub API shows the current budget. |
+| `GitHub API rate limit reached for <url> ...` | The version source reads `api.github.com`. Without a token GitHub permits 60 requests each hour. | Set `APP_PACKAGER_GITHUB_TOKEN` or `GITHUB_TOKEN`, save a token in Settings, or sign in with the GitHub CLI. Settings, GitHub API shows the current budget. |
 | `No applications found. Check the Definitions folder beside the executable or set a Packagers folder in Settings.` | No definition file loaded. | Do as the message says. |
 | `All applications are hidden. Select Catalog to show applications.` | Every application is hidden. | Select **Catalog**, select **Show all**, then **Save**. See [Catalog](applications.md). |
 | `<n> files were dropped. Drop one installer at a time.` (Add from file page) | You dropped more than one file on the grid. | Drop one file. See [Add from file](add-from-file.md). |

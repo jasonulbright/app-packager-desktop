@@ -404,7 +404,7 @@
                         <TextBlock Grid.Row="1" Grid.Column="0" Text="Return codes" Style="{StaticResource WbLabel}" />
                         <ui:TextBox Grid.Row="1" Grid.Column="1" x:Name="txtReturnCodes" Style="{StaticResource WbField}"
                                     Text="{Binding ReturnCodes, UpdateSourceTrigger=PropertyChanged}"
-                                    PlaceholderText="inherit (e.g. 0,3010=SoftReboot,1641=HardReboot)" />
+                                    PlaceholderText="inherit (for example 0,3010=SoftReboot,1641=HardReboot)" />
                         <TextBlock Grid.Row="1" Grid.Column="2" Text="Reboot" Style="{StaticResource WbLabel}" Margin="12,0,12,8" />
                         <ComboBox Grid.Row="1" Grid.Column="3" x:Name="cboRebootPolicy" Style="{StaticResource WbCombo}"
                                   ItemsSource="{Binding RebootPolicyOptions}" SelectedItem="{Binding RebootPolicy}" />

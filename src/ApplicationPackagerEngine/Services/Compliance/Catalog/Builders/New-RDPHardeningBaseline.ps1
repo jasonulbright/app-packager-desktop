@@ -18,7 +18,7 @@
     items that are easy to miss because RDP "works" without them.
 
     The RDP-Tcp WinStation key exists on all Windows hosts even when RDP is disabled, so
-    enforcing these values is harmless on non-RDP machines and pre-hardens them if RDP is
+    enforcing these values is harmless on non-RDP devices and pre-hardens them if RDP is
     ever enabled -- which is why this targets all Windows devices rather than a scoped
     RDP-enabled collection.
 
@@ -29,7 +29,7 @@
     Configuration Manager site code.
 
 .PARAMETER SiteServer
-    Configuration Manager site server FQDN.
+    FQDN of the Configuration Manager SMS Provider computer.
 
 .PARAMETER CollectionName
     If specified, deploys the baseline to this collection daily with remediation enabled.
@@ -65,7 +65,7 @@ if (-not (Get-Module ConfigurationManager -ErrorAction SilentlyContinue)) {
         Import-Module $modulePath
     }
     else {
-        throw "ConfigurationManager module not found. Run this from a machine with the Configuration Manager admin console installed."
+        throw "ConfigurationManager module not found. Run this from a computer with the Configuration Manager console installed."
     }
 }
 

@@ -277,7 +277,7 @@ public sealed partial class DiscoveryService : IDiscoveryService
         // A wrong database over the Shared Memory provider (Data Source=localhost) reports
         // 233 instead of 4060: the server drops the pipe during the login.
         if (Has(LoginDroppedErrors))
-            return $"SQL Server on {server} closed the connection during the login. Check the database name {database}, and that the account has the db_datareader role on it.";
+            return $"SQL Server on {server} closed the connection during the SQL Server login. Check the database name {database}, and that the account has the db_datareader role on it.";
         if (sspi)
             return $"Windows authentication to SQL Server {server} failed. Run the app as a domain account on a domain-joined computer, and check the SQL Server service principal name.";
         if (Has(PermissionErrors))

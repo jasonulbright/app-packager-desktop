@@ -1,7 +1,7 @@
 <#
 .SYNOPSIS
     Creates Configuration Manager CIs and Baselines that enforce the full CPU speculative-execution mitigation
-    family (Intel AND AMD) via a bitmask check on FeatureSettingsOverride.
+    family (Intel AND AMD) by using a bitmask check on FeatureSettingsOverride.
 
 .DESCRIPTION
     Windows controls every CPU speculative-execution mitigation through two DWORDs:
@@ -22,7 +22,7 @@
            HT Enabled   base = 0x0048
            HT Disabled  base = 0x2048   (adds bit 0x2000 = "disable HT for L1TF/MDS")
 
-      2. CPU vendor (auto-detected at evaluation time via Win32_Processor.Manufacturer):
+      2. CPU vendor (auto-detected at evaluation time by using Win32_Processor.Manufacturer):
            Intel  +0x00800000  (BHI, CVE-2022-0001) on top of the shared base
            AMD    +0x01000040  (Branch Type Confusion, CVE-2022-23825)
                   +0x04000040  (Inception, CVE-2023-20569)
@@ -46,7 +46,7 @@
     Configuration Manager site code.
 
 .PARAMETER SiteServer
-    Configuration Manager site server FQDN (the SMS Provider host).
+    FQDN of the Configuration Manager SMS Provider computer.
 
 .PARAMETER HtEnabledCollectionName
     Collection that receives the HT-Enabled CB. Must already exist.
@@ -120,7 +120,7 @@ New-ItemProperty -Path $P -Name FeatureSettingsOverrideMask -Value (([int]$mk) -
 $modulePath = Join-Path (Split-Path $ENV:SMS_ADMIN_UI_PATH -Parent) 'ConfigurationManager.psd1'
 if (-not (Get-Module ConfigurationManager -ErrorAction SilentlyContinue)) {
     if (Test-Path $modulePath) { Import-Module $modulePath }
-    else { throw 'ConfigurationManager module not found. Run this from a machine with the Configuration Manager admin console installed.' }
+    else { throw 'ConfigurationManager module not found. Run this from a computer with the Configuration Manager console installed.' }
 }
 
 $OriginalLocation = Get-Location

@@ -36,7 +36,7 @@ public class GitHubApiStatusTests
 
         Assert.False(status.Authenticated);
         Assert.Null(status.Account);
-        Assert.Equal("Anonymous (60 requests/hour per address, 57 remaining); set GITHUB_TOKEN, save a token in Settings or run gh auth login", status.StatusText());
+        Assert.Equal("Anonymous (60 requests/hour per address, 57 remaining); set GITHUB_TOKEN, save a token in Settings or sign in with the GitHub CLI", status.StatusText());
     }
 
     [Fact]

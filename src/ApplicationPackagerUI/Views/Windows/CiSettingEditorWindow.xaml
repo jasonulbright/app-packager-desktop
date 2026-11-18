@@ -76,7 +76,7 @@
                     <TextBlock Text="Value name (empty for the default value)" Style="{StaticResource SettingLabel}" />
                     <ui:TextBox Text="{Binding ValueName, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="Value name"
                                 AutomationProperties.AutomationId="txtSettingValueName" />
-                    <CheckBox Content="Read the 64-bit registry view" IsChecked="{Binding Is64Bit}" Margin="0,8,0,0"
+                    <CheckBox Content="Use the 64-bit registry view" IsChecked="{Binding Is64Bit}" Margin="0,8,0,0"
                               AutomationProperties.AutomationId="chkSettingRegistry64" />
                 </StackPanel>
 

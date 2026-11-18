@@ -88,7 +88,7 @@ public sealed class PayloadExtractionTests : IDisposable
         var report = await _noSevenZip.AnalyzeAsync(path, Limits, new Progress<string>(), CancellationToken.None);
 
         Assert.Equal("SevenZipSfx", report.Type);
-        Assert.Contains(report.Notes, n => n.StartsWith("7-Zip was not found", StringComparison.Ordinal) && n.Contains("post-patch target"));
+        Assert.Contains(report.Notes, n => n.StartsWith("7-Zip was not found", StringComparison.Ordinal) && n.Contains("target after the patch file"));
     }
 
     [Fact]
