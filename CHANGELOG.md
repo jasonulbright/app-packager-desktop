@@ -6,6 +6,7 @@
 
 - Settings, Import from App Packager (PowerShell): the Intune keys now have a row each with a reason. Publish to Intune is derived from the deployment target (an older file with only the toggle writes MECMAndIntune), the protected client secret is skipped as a DPAPI secret, and the IntuneWinAppUtil path of the other computer is skipped because APD downloads its own copy.
 - Settings, Import from App Packager (PowerShell): the SQL server, SQL instance and SQL port of the PowerShell file become one SQL server name in APD (server\instance,port).
+- Settings, Import from App Packager (PowerShell): the minimum Windows release and the default cadence days of the PowerShell file are imported.
 
 ## [2026.1116.47] - 2026-11-16
 

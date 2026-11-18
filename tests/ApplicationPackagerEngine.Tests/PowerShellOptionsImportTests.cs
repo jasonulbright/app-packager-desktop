@@ -284,6 +284,40 @@ public sealed class PowerShellOptionsImportTests
         Assert.Equal(PowerShellImportOutcome.Skipped, Row(preview, "DiscoverySqlPort").Outcome);
     }
 
+    // ---- keys that the PowerShell app added: minimum Windows release, default cadence
+
+    [Fact]
+    public void TheMinimumWindowsReleaseAndTheDefaultCadenceAreImported()
+    {
+        var target = new AppSettings();
+        var preview = PowerShellOptionsImport.Preview(IntuneFixture("new-keys-2026.11.18.json"), target);
+
+        Assert.Equal(PowerShellImportOutcome.Import, Row(preview, "Intune.MinimumWindowsRelease").Outcome);
+        Assert.Equal(PowerShellImportOutcome.Import, Row(preview, "AppFlow.DefaultCadenceDays").Outcome);
+        PowerShellOptionsImport.Apply(preview, target);
+        Assert.Equal("Windows11_23H2", target.Intune.MinimumWindowsRelease);
+        Assert.Equal(30, target.OneClick.DefaultCadenceDays);
+
+        var again = PowerShellOptionsImport.Preview(IntuneFixture("new-keys-2026.11.18.json"), target);
+        Assert.Equal(PowerShellImportOutcome.Same, Row(again, "Intune.MinimumWindowsRelease").Outcome);
+        Assert.Equal(PowerShellImportOutcome.Same, Row(again, "AppFlow.DefaultCadenceDays").Outcome);
+    }
+
+    [Theory]
+    [InlineData("""{ "Intune": { "MinimumWindowsRelease": "latest" } }""", "Intune.MinimumWindowsRelease")]
+    [InlineData("""{ "AppFlow": { "DefaultCadenceDays": 0 } }""", "AppFlow.DefaultCadenceDays")]
+    [InlineData("""{ "AppFlow": { "DefaultCadenceDays": 366 } }""", "AppFlow.DefaultCadenceDays")]
+    public void AValueThatApdRefusesForTheNewKeysIsSkipped(string json, string key)
+    {
+        var target = new AppSettings();
+        var preview = PowerShellOptionsImport.Preview(json, target);
+
+        Assert.Equal(PowerShellImportOutcome.Skipped, Row(preview, key).Outcome);
+        PowerShellOptionsImport.Apply(preview, target);
+        Assert.Equal(7, target.OneClick.DefaultCadenceDays);
+        Assert.Equal(IntuneWindowsReleases.Default, target.Intune.MinimumWindowsRelease);
+    }
+
     // ---- skipped, unknown, differs
 
     [Fact]

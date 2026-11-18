@@ -327,6 +327,7 @@ public static class PowerShellOptionsImport
         Add(Rule.Bool("Systems.Wsus", s => s.Systems?.Wsus ?? false, (s, v) => (s.Systems ??= new SystemsInUse()).Wsus = v));
 
         Add(Rule.Choice("AppFlow.Action", [OneClickActions.Report, OneClickActions.Stage, OneClickActions.StageAndPackage], s => s.OneClick.Action, (s, v) => s.OneClick.Action = v));
+        Add(Rule.Number("AppFlow.DefaultCadenceDays", 1, 365, s => s.OneClick.DefaultCadenceDays, (s, v) => s.OneClick.DefaultCadenceDays = v));
         Add(Rule.Bool("AppFlow.ForceOnLaunch", s => s.OneClick.ForceOnLaunch, (s, v) => s.OneClick.ForceOnLaunch = v));
         Add(Rule.Choice("AppFlow.OnExisting", ["Skip", "Overwrite"], s => s.OneClick.OnExisting, (s, v) => s.OneClick.OnExisting = v));
         Add(Rule.Destinations("AppFlow.DefaultDestinations"));
@@ -339,6 +340,9 @@ public static class PowerShellOptionsImport
 
         Add(Rule.Choice("Intune.DeploymentTarget", [DeploymentTargets.Mecm, DeploymentTargets.MecmAndIntune, DeploymentTargets.IntuneOnly, DeploymentTargets.MecmAndWsus, DeploymentTargets.WsusOnly],
             s => s.Intune.DeploymentTarget, (s, v) => s.Intune.DeploymentTarget = v));
+        Add(Rule.Text("Intune.MinimumWindowsRelease", s => ApplicationPackagerEngine.Services.IntuneWindowsReleases.Resolve(s.Intune.MinimumWindowsRelease),
+            (s, v) => s.Intune.MinimumWindowsRelease = ApplicationPackagerEngine.Services.IntuneWindowsReleases.Resolve(v),
+            v => ApplicationPackagerEngine.Services.IntuneWindowsReleases.IsWellFormed(v.Trim()) ? null : "A release looks like Windows10_21H2 or Windows11_23H2."));
         Add(Rule.Text("Intune.TenantId", s => s.Intune.TenantId, (s, v) => s.Intune.TenantId = v.Trim()));
         Add(Rule.Text("Intune.ClientId", s => s.Intune.ClientId, (s, v) => s.Intune.ClientId = v.Trim()));
 
