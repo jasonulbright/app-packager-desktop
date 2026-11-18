@@ -161,7 +161,7 @@ public sealed class RunBoundaryTests : IDisposable
         Assert.Equal(3, tally.Succeeded);
         Assert.True(tally.Cancelled);
         Assert.False(tally.AllSucceeded(3));
-        Assert.Equal("Latest check cancelled. 3 of 3 checked.",
+        Assert.Equal("Cancelled: 3 of 3 products done.",
             tally.Summarize("Latest check", 3, "checked"));
     }
 
@@ -203,7 +203,7 @@ public sealed class RunBoundaryTests : IDisposable
 
         Assert.True(tally.Finish(cts.Token).Cancelled);
         Assert.False(tally.AllSucceeded(3));
-        Assert.Equal("Stage cancelled. 2 of 3 staged, 1 interrupted.", tally.Summarize("Stage", 3, "staged"));
+        Assert.Equal("Cancelled: 2 of 3 products done.", tally.Summarize("Stage", 3, "staged"));
     }
 
     /// <summary>

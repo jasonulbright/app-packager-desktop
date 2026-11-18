@@ -45,12 +45,14 @@ public partial class PackagesViewModel : IOneClickRunner, IPublishActionHost
         ShowProgress = true;
         ProgressCurrent = 0;
         ProgressTotal = selected.Count;
+        var supersedenceDone = 0;
+        var supersedenceCancelled = false;
         _operationCts = new CancellationTokenSource();
         try
         {
             foreach (var p in selected)
             {
-                if (_operationCts.IsCancellationRequested) break;
+                if (_operationCts.IsCancellationRequested) { supersedenceCancelled = true; break; }
                 ProgressCurrent++;
                 StatusText = $"Apply supersedence: {ProgressCurrent} of {ProgressTotal} — {p.Application}";
                 AddLogLine($"Apply supersedence: {p.Application}");
@@ -64,7 +66,7 @@ public partial class PackagesViewModel : IOneClickRunner, IPublishActionHost
                 }
                 catch (OperationCanceledException) when (_operationCts.IsCancellationRequested)
                 {
-                    AddLogLine("  Cancelled.");
+                    supersedenceCancelled = true;
                     break;
                 }
                 catch (Exception ex)
@@ -73,12 +75,15 @@ public partial class PackagesViewModel : IOneClickRunner, IPublishActionHost
                     p.Status = "Supersedence not applied";
                     p.StatusDetail = ex.Message;
                 }
+                supersedenceDone++;
             }
         }
         finally
         {
             ShowProgress = false;
-            StatusText = "Apply supersedence finished.";
+            supersedenceCancelled |= _operationCts?.IsCancellationRequested == true;
+            StatusText = supersedenceCancelled ? PackagingRunTally.CancelledText(supersedenceDone, ProgressTotal) : "Apply supersedence finished.";
+            if (supersedenceCancelled) AddLogLine(StatusText);
             _operationCts?.Dispose();
             _operationCts = null;
             IsOperationRunning = false;
@@ -152,8 +157,8 @@ public partial class PackagesViewModel : IOneClickRunner, IPublishActionHost
         }
         catch (OperationCanceledException)
         {
-            AddLogLine("Rewrite old versions: cancelled while reading the site. Nothing was changed.");
-            StatusText = "Rewrite old versions cancelled.";
+            StatusText = PackagingRunTally.CancelledText(0, 1);
+            AddLogLine(StatusText + " Nothing was changed.");
         }
         catch (Exception ex)
         {
@@ -329,7 +334,7 @@ public partial class PackagesViewModel : IOneClickRunner, IPublishActionHost
             }
 
             tally.Finish(_operationCts.Token);
-            StatusText = tally.Summarize("Publish to WSUS", ProgressTotal, "published");
+            StatusText = RunEndLine(tally, "Publish to WSUS", ProgressTotal, "published");
         }
         finally
         {
@@ -413,10 +418,12 @@ public partial class PackagesViewModel : IOneClickRunner, IPublishActionHost
         _operationCts = linked;
         var token = linked.Token;
         var canceled = false;
+        var done = 0;
         try
         {
             for (var i = 0; i < items.Count; i++)
             {
+                done = i;
                 if (token.IsCancellationRequested) { canceled = true; break; }
                 ProgressCurrent = i + 1;
                 var item = items[i];
@@ -441,7 +448,9 @@ public partial class PackagesViewModel : IOneClickRunner, IPublishActionHost
                     FinishOneClickRow(item, OneClickOutcomes.Failed, "failed: " + ex.Message);
                 }
             }
-            StatusText = canceled ? "One Click: canceled." : "One Click: run complete.";
+            if (!canceled && token.IsCancellationRequested) { canceled = true; done = items.Count; }
+            StatusText = canceled ? PackagingRunTally.CancelledText(done, items.Count) : "One Click: run complete.";
+            if (canceled) AddLogLine(StatusText);
             return canceled;
         }
         finally

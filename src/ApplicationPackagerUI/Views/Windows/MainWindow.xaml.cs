@@ -107,7 +107,7 @@ public partial class MainWindow : IDialogHostWindow
 
         Closing += (_, _) =>
         {
-            _serviceProvider.GetRequiredService<ViewModels.Pages.PackagesViewModel>().StopDiscovery();
+            _serviceProvider.GetRequiredService<ViewModels.Pages.PackagesViewModel>().StopRun();
             _serviceProvider.GetService<ViewModels.Pages.PivotsScriptsViewModel>()?.OnAppClosing();
             _serviceProvider.GetService<ViewModels.Pages.SiteHygieneViewModel>()?.OnAppClosing();
             var s = settingsService.Load();

@@ -173,6 +173,7 @@ public partial class PackagesViewModel : ObservableObject
 
     private void NotifyActionCommands()
     {
+        CancelOperationCommand.NotifyCanExecuteChanged();
         CheckLatestCommand.NotifyCanExecuteChanged();
         CheckMecmCommand.NotifyCanExecuteChanged();
         StageCommand.NotifyCanExecuteChanged();
@@ -205,7 +206,11 @@ public partial class PackagesViewModel : ObservableObject
     /// <summary>Disabled rather than hidden when ConfigMgr is not ready: the tooltip states why.</summary>
     private bool CanRunCheckMecm() => CanRunOperation() && IsCheckMecmAvailable;
 
-    partial void OnIsOperationRunningChanged(bool value) => NotifyActionCommands();
+    partial void OnIsOperationRunningChanged(bool value)
+    {
+        if (value) _cancelRequested = false;
+        NotifyActionCommands();
+    }
 
     private IEnumerable<PackagerInfo> SelectedPackagers =>
         Packagers.Where(p => p.IsSelected && p.IsRunnable);
@@ -281,11 +286,43 @@ public partial class PackagesViewModel : ObservableObject
         }
     }
 
-    [RelayCommand]
+    private bool _cancelRequested;
+
+    private bool CanCancelOperation() => IsOperationRunning && !_cancelRequested;
+
+    /// <summary>
+    /// Asks the run to stop: after the product in flight, whose download or child process the
+    /// token ends. A second click finds the token already cancelled and does nothing.
+    /// </summary>
+    [RelayCommand(CanExecute = nameof(CanCancelOperation))]
     private void CancelOperation()
     {
-        _operationCts?.Cancel();
-        AddLogLine("Operation cancelled by user.");
+        var cts = _operationCts;
+        if (_cancelRequested || cts is null || cts.IsCancellationRequested) return;
+        _cancelRequested = true;
+        try { cts.Cancel(); }
+        catch (ObjectDisposedException) { return; }
+        AddLogLine("Cancel requested: stopping the product in flight.");
+        CancelOperationCommand.NotifyCanExecuteChanged();
+    }
+
+    /// <summary>
+    /// The window is closing: stops the run and ends the child processes it started, by process id,
+    /// so none is left writing after the app is gone.
+    /// </summary>
+    public void StopRun()
+    {
+        try { _operationCts?.Cancel(); }
+        catch (ObjectDisposedException) { }
+        ApplicationPackagerEngine.Services.RunChildProcesses.KillAll();
+    }
+
+    /// <summary>The end-of-run status line; a cancelled run also writes it to the log.</summary>
+    private string RunEndLine(PackagingRunTally tally, string label, int total, string successVerb)
+    {
+        var line = tally.Summarize(label, total, successVerb);
+        if (tally.Cancelled) AddLogLine(line);
+        return line;
     }
 
     private static readonly string LogDir = Path.Combine(ApplicationPackagerEngine.Services.AppDataPaths.LegacyRoot, "Logs");
@@ -542,7 +579,7 @@ public partial class PackagesViewModel : ObservableObject
             // A lookup can finish successfully after the operator cancelled, so the run's
             // state is settled here rather than only when an item was interrupted.
             tally.Finish(_operationCts.Token);
-            StatusText = tally.Summarize(logPrefix, ProgressTotal, "checked");
+            StatusText = RunEndLine(tally, logPrefix, ProgressTotal, "checked");
             return tally;
         }
         finally
@@ -664,7 +701,7 @@ public partial class PackagesViewModel : ObservableObject
             }
 
             tally.Finish(_operationCts.Token);
-            StatusText = tally.Summarize("ConfigMgr query", selected.Count, "checked");
+            StatusText = RunEndLine(tally, "ConfigMgr query", selected.Count, "checked");
         }
         finally
         {
@@ -820,7 +857,7 @@ public partial class PackagesViewModel : ObservableObject
             }
 
             tally.Finish(_operationCts.Token);
-            StatusText = tally.Summarize("Stage", ProgressTotal, "staged");
+            StatusText = RunEndLine(tally, "Stage", ProgressTotal, "staged");
             // A staging folder that other accounts can write to blocks the stage; the run status says why, in the words of Settings.
             if (stagingBlock is not null) StatusText += " " + stagingBlock;
             return tally;
@@ -1013,8 +1050,8 @@ public partial class PackagesViewModel : ObservableObject
             // leaves the loop normally, so completion is not what happened.
             tally.Finish(_operationCts.Token);
             StatusText = PublishRunTargets.SkipsSite(target)
-                ? tally.Summarize("Publish", ProgressTotal, "published")
-                : tally.Summarize("Package", ProgressTotal, "packaged");
+                ? RunEndLine(tally, "Publish", ProgressTotal, "published")
+                : RunEndLine(tally, "Package", ProgressTotal, "packaged");
         }
         finally
         {

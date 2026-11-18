@@ -1,3 +1,4 @@
+using ApplicationPackagerEngine.Services;
 using System.Diagnostics;
 using System.Xml.Linq;
 using ApplicationPackagerEngine.Models;
@@ -83,13 +84,7 @@ public sealed class CdnCabScraper : IVersionScraper
         using var process = CurlProcess.Start(
             ["-L", "--fail", "--silent", "--show-error", "--max-time", "30", "-o", outFile], url);
 
-        var exitTask = process.WaitForExitAsync(ct);
-        var completed = await Task.WhenAny(exitTask, Task.Delay(TimeSpan.FromSeconds(35), ct));
-
-        if (completed != exitTask)
-        {
-            try { process.Kill(true); } catch { }
-        }
+        await RunChildProcesses.WaitOrKillAsync(process, TimeSpan.FromSeconds(35), ct);
     }
 
     private static async Task<bool> RunProcessAsync(string fileName, string arguments, CancellationToken ct)
@@ -106,12 +101,10 @@ public sealed class CdnCabScraper : IVersionScraper
         };
 
         process.Start();
-        var exitTask = process.WaitForExitAsync(ct);
-        var completed = await Task.WhenAny(exitTask, Task.Delay(TimeSpan.FromSeconds(15), ct));
 
-        if (completed != exitTask)
+        RunChildProcesses.Track(process);
+        if (!await RunChildProcesses.WaitOrKillAsync(process, TimeSpan.FromSeconds(15), ct))
         {
-            try { process.Kill(true); } catch { }
             return false;
         }
 

@@ -195,14 +195,13 @@ public sealed class DefinitionTestRunner
         WindowsPowerShellHost.ApplyLogonModulePath(process.StartInfo);
 
         process.Start();
+        RunChildProcesses.Track(process);
         // Hard 5-minute per-phase timeout. Kill process tree if exceeded.
-        var exitTask = process.WaitForExitAsync(CancellationToken.None);
-        if (await Task.WhenAny(exitTask, Task.Delay(300_000)) != exitTask)
+        if (!await RunChildProcesses.WaitOrKillAsync(process, TimeSpan.FromMilliseconds(300_000), ct))
         {
-            try { process.Kill(entireProcessTree: true); } catch { }
             return (-999, "", "TIMEOUT - process killed");
         }
-        await exitTask;
+
         return (process.ExitCode, "", "");
     }
 

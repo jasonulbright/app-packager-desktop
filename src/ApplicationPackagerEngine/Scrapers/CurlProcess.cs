@@ -1,5 +1,6 @@
 using System.Diagnostics;
 
+using ApplicationPackagerEngine.Services;
 using ApplicationPackagerEngine.Services.VendorImport;
 
 namespace ApplicationPackagerEngine.Scrapers;
@@ -22,6 +23,7 @@ public static class CurlProcess
     {
         var process = new Process { StartInfo = BuildStartInfo(options, url, readConfigFromStdin: true) };
         process.Start();
+        RunChildProcesses.Track(process);
         process.StandardInput.Write(stdinConfig);
         process.StandardInput.Close();
         return process;
@@ -93,6 +95,7 @@ public static class CurlProcess
         var process = new Process { StartInfo = BuildStartInfo(options, url, authConfig is not null) };
 
         process.Start();
+        RunChildProcesses.Track(process);
 
         if (authConfig is not null)
         {

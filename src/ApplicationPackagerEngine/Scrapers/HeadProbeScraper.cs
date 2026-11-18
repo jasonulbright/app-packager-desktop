@@ -1,3 +1,4 @@
+using ApplicationPackagerEngine.Services;
 using ApplicationPackagerEngine.Models;
 
 namespace ApplicationPackagerEngine.Scrapers;
@@ -133,12 +134,8 @@ public sealed class HeadProbeScraper : IVersionScraper
             ["-L", "--silent", "--show-error", "--head", "--max-time", "20", "-o", "NUL", "-w", "%{http_code}"], url);
 
         var stdoutTask = process.StandardOutput.ReadToEndAsync(ct);
-        var exitTask = process.WaitForExitAsync(ct);
-        var completed = await Task.WhenAny(exitTask, Task.Delay(TimeSpan.FromSeconds(25), ct));
-
-        if (completed != exitTask)
+        if (!await RunChildProcesses.WaitOrKillAsync(process, TimeSpan.FromSeconds(25), ct))
         {
-            try { process.Kill(true); } catch { }
             return false;
         }
 
