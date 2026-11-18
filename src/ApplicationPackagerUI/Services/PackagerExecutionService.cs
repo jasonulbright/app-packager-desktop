@@ -1245,6 +1245,42 @@ public class PackagerExecutionService(
         return (new OldApplicationTarget(RunApplicationTitle(manifest, titleMode, settings), manifest.SoftwareVersion, marker, settings.SiteCode, settings.ProviderMachine), null);
     }
 
+    /// <summary>
+    /// The supersedence-only pass of One Click for one application whose version is on the site and whose supersedence step failed at
+    /// the publish: the lookup and the step, with no stage and no publish. <paramref name="applicationName"/> is the application the
+    /// publish recorded. The identity marker comes from the manifest of the last stage. Never throws, except for a cancellation.
+    /// </summary>
+    public async Task<ApplicationPackagerEngine.Services.OneClick.OneClickSupersedencePassResult> RunSupersedencePassAsync(
+        IPackagerExecutionRequest row, string applicationName, string version, Action<string>? onOutputLine, CancellationToken ct)
+    {
+        void Report(string line) { if (onOutputLine is not null) OutputLineDispatch.Post(onOutputLine, line); }
+        var manifestPath = StagedManifestPath(row, new PackagerExecutionResult { ExitCode = 0 }, null) ?? ExistingStageManifest(row);
+        var settings = settingsService.Load();
+        string? fallbackApplicationId = null;
+        if (row.IsJsonDefined && row.DefinitionPath is not null)
+        {
+            try
+            {
+                var def = LoadDefinition(row.DefinitionPath, row.DefinitionOrigin);
+                fallbackApplicationId = ProfileSource.Resolve(WorkbenchStoreOrNull(null), def.Id, ApplicationIds.RunOrigin(def.SourceOrigin)).ApplicationId;
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException or InvalidOperationException)
+            {
+                return ApplicationPackagerEngine.Services.OneClick.OneClickSupersedencePassResult.Of(
+                    ApplicationPackagerEngine.Services.Supersedence.SupersedenceStepStatus.NotApplied,
+                    $"The definition {row.DefinitionPath} could not be read: {ex.Message}");
+            }
+        }
+        return await ApplicationPackagerEngine.Services.OneClick.OneClickSupersedencePass.RunAsync(
+            manifestPath, applicationName, version, settings.SiteCode,
+            new ApplicationPackagerEngine.Services.OneClick.OneClickSupersedencePassSteps(
+                path => new ManifestService().Read(path),
+                (manifest, contentPath) => PlanSupersedence(manifest, contentPath, settings, DeploymentTargets.Mecm, _ => { }, fallbackApplicationId),
+                (name, ver, marker, mode, progress, token) => new MecmTarget().RunSupersedenceAsync(
+                    name, ver, marker, mode, settings.SiteCode, settings.ProviderMachine, progress, token, requirePublished: true)),
+            Report, ct);
+    }
+
     /// <summary>What the "Apply supersedence" action did for one application.</summary>
     public sealed record SupersedenceApplyResult(bool Ok, string Message, ApplicationPackagerEngine.Services.Supersedence.SupersedenceStepStatus? Status = null);
 

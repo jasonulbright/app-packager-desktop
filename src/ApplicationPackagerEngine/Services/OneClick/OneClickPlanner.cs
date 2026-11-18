@@ -45,6 +45,8 @@ public static class OneClickOutcomes
     public const string NotSupported = "Not supported";
     public const string Failed = "Failed";
     public const string Planned = "Planned";
+    /// <summary>The row only ran the supersedence-only pass, and it applied or found no older version.</summary>
+    public const string Superseded = "Superseded";
 }
 
 /// <summary>One tracked application as the planner reads it. CurrentVersion is the version the ConfigMgr site carries.</summary>
@@ -96,6 +98,11 @@ public sealed record OneClickPlanRow
     public string Source { get; init; } = "Default";
     public IReadOnlyDictionary<string, string> LastPublished { get; init; } = new Dictionary<string, string>();
     public IReadOnlyList<string> PublishTo { get; init; } = [];
+    /// <summary>
+    /// ConfigMgr holds this version and only its supersedence step is open (the record is pending): the run does not publish the
+    /// version again. It runs the lookup of the older application and the supersedence step, and nothing else.
+    /// </summary>
+    public bool SupersedenceOnly { get; init; }
     /// <summary>The selected destinations the plan leaves out as not ready, with the reason; the run skips them too.</summary>
     public IReadOnlyDictionary<string, string> NotReady { get; init; } = new Dictionary<string, string>();
     public string Planned { get; init; } = "";
@@ -114,6 +121,11 @@ public sealed record OneClickPlanSummary(string Line, IReadOnlyDictionary<string
 public sealed record OneClickRunDecision
 {
     public IReadOnlyList<string> PublishTo { get; init; } = [];
+    /// <summary>
+    /// True when ConfigMgr holds this version with its supersedence step pending and no Force: the row runs the supersedence-only
+    /// pass before anything else, and ConfigMgr is not published again.
+    /// </summary>
+    public bool SupersedencePass { get; init; }
     public IReadOnlyList<string> SkipReasons { get; init; } = [];
     /// <summary>The result cell of a destination the guard skipped.</summary>
     public IReadOnlyDictionary<string, string> GuardResults { get; init; } = new Dictionary<string, string>();
@@ -231,6 +243,7 @@ public static class OneClickPlanner
             var reasons = new List<string>();
             var publishTo = new List<string>();
             var notReady = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            var supersedenceOnly = false;
             var selected = destinations.Names;
             string planned;
             var include = true;
@@ -277,11 +290,30 @@ public static class OneClickPlanner
                             }
                             if (!force && latest.Length > 0 && entry?.RefusedVersion(d) == latest) { reasons.Add($"{d}: not supported"); continue; }
                             if (!force && NewerThanVendor(entry, d, app.CurrentVersion, latest) is { } newer) { reasons.Add($"{d}: {newer}"); continue; }
-                            if (!force && latest.Length > 0 && lastPublished[d] == latest) { reasons.Add($"{d}: {latest} already published"); continue; }
+                            if (!force && latest.Length > 0 && lastPublished[d] == latest)
+                            {
+                                // The version is on the site and only its supersedence step failed: the run does not publish it again.
+                                // It runs the lookup and the supersedence step for the application, and nothing else. The plan does
+                                // not read the supersedence mode, so a mode of Off keeps the pending state.
+                                if (d == OneClickDestinations.ConfigMgr && entry?.SupersedencePending(d) == true)
+                                {
+                                    supersedenceOnly = true;
+                                    reasons.Add($"{d}: {latest} already published, supersedence pending");
+                                    continue;
+                                }
+                                reasons.Add($"{d}: {latest} already published");
+                                continue;
+                            }
                             publishTo.Add(d);
                         }
                         if (publishTo.Count > 0) steps.Add("Publish to " + string.Join("+", publishTo));
                         else if (reasons.Count > 0 && latest.Length == 0) steps.Add("Publish after check");
+                        if (supersedenceOnly)
+                        {
+                            // Nothing is staged for a row that only applies supersedence.
+                            if (publishTo.Count == 0) steps.Remove("Stage");
+                            steps.Add("Supersedence");
+                        }
                     }
                     planned = string.Join(", ", steps);
                 }
@@ -298,6 +330,7 @@ public static class OneClickPlanner
                 Source = source,
                 LastPublished = lastPublished,
                 PublishTo = publishTo,
+                SupersedenceOnly = supersedenceOnly,
                 NotReady = notReady,
                 Planned = planned,
                 Reason = string.Join("; ", reasons),
@@ -327,6 +360,11 @@ public static class OneClickPlanner
             OneClickActionNames.Stage => ": check and stage, no publish",
             _ => ": check only, no publish"
         };
+        if (action == OneClickActionNames.StageAndPackage)
+        {
+            var passes = rows.Count(r => r.SupersedenceOnly);
+            if (passes > 0) line += $", {passes} supersedence only";
+        }
 
         var blocking = new List<string>();
         if (action == OneClickActionNames.StageAndPackage)
@@ -401,6 +439,7 @@ public static class OneClickPlanner
         var publishTo = new List<string>();
         var reasons = new List<string>();
         var guard = new Dictionary<string, string>();
+        var supersedencePass = false;
 
         if (action == OneClickActionNames.StageAndPackage)
         {
@@ -425,6 +464,14 @@ public static class OneClickPlanner
                 var carried = published.Length > 0 ? published == latest && sameBuild : CarriedVersion(entry, d, siteVersion) == latest;
                 if (!force && carried && latest.Length > 0)
                 {
+                    // The record holds this version of this build with its supersedence step pending: the pass runs, and the
+                    // version is not published again. The pass writes the result cell of the destination.
+                    if (d == OneClickDestinations.ConfigMgr && published.Length > 0 && entry?.SupersedencePending(d) == true)
+                    {
+                        supersedencePass = true;
+                        reasons.Add($"{d}: {latest} already published, supersedence pending");
+                        continue;
+                    }
                     reasons.Add($"{d}: {latest} already published");
                     guard[d] = "already published " + latest;
                     continue;
@@ -442,10 +489,10 @@ public static class OneClickPlanner
 
         var needStage = force || buildStale || versionChanged || !staged || publishTo.Count > 0;
         if (!needStage)
-            return new OneClickRunDecision { SkipReasons = reasons, GuardResults = guard, SkipReason = "up to date" };
+            return new OneClickRunDecision { SupersedencePass = supersedencePass, SkipReasons = reasons, GuardResults = guard, SkipReason = "up to date" };
         if (action == OneClickActionNames.StageAndPackage && publishTo.Count == 0 && !versionChanged && !buildStale && !force)
-            return new OneClickRunDecision { SkipReasons = reasons, GuardResults = guard, SkipReason = string.Join("; ", reasons) };
-        return new OneClickRunDecision { PublishTo = publishTo, SkipReasons = reasons, GuardResults = guard, Stage = true };
+            return new OneClickRunDecision { SupersedencePass = supersedencePass, SkipReasons = reasons, GuardResults = guard, SkipReason = string.Join("; ", reasons) };
+        return new OneClickRunDecision { PublishTo = publishTo, SupersedencePass = supersedencePass, SkipReasons = reasons, GuardResults = guard, Stage = true };
     }
 
     /// <summary>The outcome and grid status of a row after its publish steps.</summary>

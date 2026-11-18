@@ -45,6 +45,13 @@ public sealed class ApplicationInventoryProjection(ApplicationInventoryService i
                     Id = state.LastSuccessObjectId ?? "",
                     At = OneClickHistory.Stamp(state.LastSuccessAt ?? DateTimeOffset.MinValue)
                 };
+                // A publish whose supersedence step failed stays pending for the pass of a later run. Only ConfigMgr has the step.
+                if (destination == OneClickDestinations.ConfigMgr
+                    && OneClickHistory.IsSupersedencePending(state.LastAttemptOutcome, state.LastAttemptVersion, state.LastSuccessVersion))
+                {
+                    published[destination].SupersedencePending = true;
+                    published[destination].SupersedenceReason = OneClickHistory.SupersedenceReasonOf(state.LastAttemptDetail);
+                }
                 if (plan is not null && PublishedBuildKey(plan, state.LastSuccessBuildId) is { } buildKey)
                     publishedBuild[destination] = buildKey;
             }
