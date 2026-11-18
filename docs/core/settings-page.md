@@ -52,9 +52,11 @@ Each entry has a check box, a **Move up** button and a **Move down** button. **R
 | **Intune** | Cleared | Enables **Publish to Intune**. |
 | **WSUS** | Cleared | Enables **Publish to WSUS** and **WSUS Updates**. |
 
-A system that is not in use keeps its buttons disabled. A settings file that has no systems value infers Intune from a stored tenant ID and WSUS from a stored server name.
+ConfigMgr is selected at first. The three systems are independent, and each one is optional. Clear **ConfigMgr** and select **Intune**, **WSUS** or both to publish with no ConfigMgr site, console or file share. A system that is not in use keeps its buttons disabled. A settings file that has no systems value infers Intune from a stored tenant ID and WSUS from a stored server name.
 
 ### ConfigMgr Site Settings
+
+The site fields (**Site Code**, **Site Server / SMS Provider Host**, **File Share Root (UNC)**) apply to ConfigMgr only. A run that does not publish to ConfigMgr does not read them. **Download Root (local staging)** and **Packagers Folder** are in this section, but they are not ConfigMgr settings: every destination uses them.
 
 | Control | Default | Effect |
 |---|---|---|
@@ -179,7 +181,7 @@ The section shows the application name, the version, and the text "MIT License. 
 
 - A settings file that cannot be read gives the defaults. Nothing is written to that file until you select **Save Settings**. The save first keeps the unreadable file as `settings.json.unreadable-<timestamp>`.
 - A staging root that is still the old default `C:\temp\ap` moves one time to the per-user folder. A notice states this.
-- The setting **Deployment Target** for Intune has no control. It follows **Default destinations** in **One Click Settings**.
+- The setting **Deployment Target** for Intune has no control. It stores the name of the target that matches **Default destinations** in **One Click Settings**, for example `IntuneAndWSUS`. The names are in the [command-line build](command-line-build.md#targets) table. If no default destination is selected, the setting keeps `ConfigMgr`, and the saved **Default destinations** decide what a run publishes to. A stored value that is empty takes the saved **Default destinations**. If none are saved, the app uses `ConfigMgr`, the default of this setting, and shows a notice. A value that is not a valid name publishes to no destination, and the log lists the valid names.
 
 ## Troubleshooting
 

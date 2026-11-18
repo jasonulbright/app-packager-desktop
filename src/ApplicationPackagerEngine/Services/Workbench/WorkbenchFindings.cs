@@ -122,12 +122,12 @@ public static class WorkbenchFindings
     }
 
     /// <summary>
-    /// The findings that stop a run: every Blocking finding for an Intune-only publish,
+    /// The findings that stop a run: every Blocking finding for a publish to Intune without ConfigMgr,
     /// and the Blocking findings outside the Intune codes for any other target.
     /// </summary>
     public static IReadOnlyList<WorkbenchFinding> BlockingFor(IEnumerable<WorkbenchFinding> findings, string target) =>
         findings.Where(f => f.Severity == WorkbenchFinding.Blocking
-                            && (RunTargets.Normalize(target) == RunTargets.IntuneOnly
+                            && (Models.DeploymentTargets.PublishesToIntune(target) && Models.DeploymentTargets.SkipsMecm(target)
                                 || !f.Code.Contains("INTUNE", StringComparison.OrdinalIgnoreCase)))
                 .ToList();
 

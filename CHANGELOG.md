@@ -4,10 +4,12 @@
 
 ### Added
 
+- Add the targets IntuneAndWSUS and ConfigMgrAndIntuneAndWSUS. Now every combination of ConfigMgr, Intune and WSUS has a name in Settings and in the command line (`--target`). A run publishes only to the destinations of its target.
 - Add the Bruno and PowerShell 7 (Devolutions) definitions. Bruno installs the x64 MSI and checks the file against the SHA-256 digest that GitHub lists. PowerShell 7 (Devolutions) installs the Microsoft-payload MSI that Devolutions publishes, requires a valid signature and a digest, and detects on the file version of `pwsh.exe`.
 
 ### Changed
 
+- The guide, the window text and the command line help now say that ConfigMgr, Intune and WSUS are independent and each is optional. Publishing to Intune or WSUS needs no ConfigMgr site, console or file share.
 - Space NVD requests 6 seconds apart without an API key, so the lookup stays within the NVD limit.
 - Share the NVD request limit between the app, the command line and the PowerShell App Packager.
 - Wait for the time in the NVD Retry-After header, up to 120 seconds, before a retry.
@@ -19,6 +21,10 @@
 - Window text and messages use Configuration Manager terms: for example device, software update group and SMS Provider.
 - The deployment target is now named ConfigMgr, ConfigMgrAndIntune or ConfigMgrAndWSUS in Settings, the command line and the guide. The earlier names still work.
 - The collection query templates show the category ConfigMgr Infrastructure instead of SCCM Infrastructure.
+
+### Fixed
+
+- A deployment target that is empty or not valid no longer means ConfigMgr. An empty value takes your saved default destinations, or ConfigMgr with a notice if you saved none. A value that is not valid publishes to no destination, and the log lists the valid names.
 
 ## [2026.1118.48] - 2026-11-18
 

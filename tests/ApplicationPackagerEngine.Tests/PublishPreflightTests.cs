@@ -11,7 +11,10 @@ public sealed class PublishPreflightTests
     [InlineData(DeploymentTargets.IntuneOnly, "Intune")]
     [InlineData(DeploymentTargets.MecmAndWsus, "ConfigMgr|WSUS")]
     [InlineData(DeploymentTargets.WsusOnly, "WSUS")]
-    [InlineData(null, "ConfigMgr")]
+    [InlineData(DeploymentTargets.IntuneAndWsus, "Intune|WSUS")]
+    [InlineData(DeploymentTargets.MecmAndIntuneAndWsus, "ConfigMgr|Intune|WSUS")]
+    [InlineData(null, "")]
+    [InlineData("nonsense", "")]
     public void EachTargetThatTheRunPublishesToHasItsSentence(string? target, string expected) =>
         Assert.Equal(expected, string.Join("|", PublishPreflight.Lines(target).Select(l => l[..l.IndexOf(':')])));
 

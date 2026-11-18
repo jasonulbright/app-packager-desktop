@@ -444,9 +444,8 @@ public sealed class OneClickRowRunner(IOneClickExecution execution, ISettingsRea
     }
 
     /// <summary>
-    /// The run target the snapshot records for the destinations a row publishes to: the
-    /// nearest single name, as for the stored target. WSUS with Intune has no name and
-    /// records WSUSOnly; the Intune publish still runs, with its own IntuneOnly target.
+    /// The run target the snapshot records for the destinations a row publishes to: the name of
+    /// that combination, as for the stored target. Each publish still runs with its own destination target.
     /// </summary>
     public static string Target(IReadOnlyList<string> publishTo) =>
         new DestinationSet(publishTo.Contains(OneClickDestinations.ConfigMgr), publishTo.Contains(OneClickDestinations.Wsus),

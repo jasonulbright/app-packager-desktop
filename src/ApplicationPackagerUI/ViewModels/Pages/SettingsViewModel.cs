@@ -743,7 +743,7 @@ public partial class SettingsViewModel : ObservableObject, ISettingsReload
             DefaultDestinations = defaults,
             OnExisting = ApplicationPackagerEngine.Services.OneClick.OneClickOnExisting.Normalize(OneClickOnExisting)
         };
-        // The nearest single target, for the code paths that read one target.
+        // The name of the destination combination, for the code paths that read one target name.
         s.Intune.DeploymentTarget = DeploymentTargets.Normalize(defaults.ToTargetName());
 
         s.CitrixSwitches = TrimSwitches(CwaSwitches);

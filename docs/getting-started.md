@@ -41,7 +41,7 @@ The application checks for a new version at start. To check at once, open **Sett
 The **Setup** window opens one time, after the main window appears. It opens when the first-run flag is not set in the settings file. An existing settings file without the flag counts as completed.
 
 1. View the first page, **Welcome to App Packager Desktop**.
-2. Under **Systems in Use**, select **ConfigMgr**, **Intune** and **WSUS** as needed. **ConfigMgr** is selected at first.
+2. Under **Systems in Use**, select **ConfigMgr**, **Intune** and **WSUS** as needed. **ConfigMgr** is selected at first. Each system is optional: you can use Intune, WSUS or both without ConfigMgr.
 3. Select **Next**.
 4. On the **Connection details** page, enter the values for the systems that you selected. For ConfigMgr, enter **Site Code**, **Site Server / SMS Provider**, **File Share Root** and **Download Root**.
    - **File Share Root** is the share itself, for example `\\fileserver\sccm$`. The app adds `Applications\<Vendor>\<App>\<Version>` below it. A root that ends in `\Applications` gives `...\Applications\Applications\...`.

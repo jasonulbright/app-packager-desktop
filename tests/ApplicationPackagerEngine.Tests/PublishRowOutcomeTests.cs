@@ -83,8 +83,8 @@ public class PublishRowOutcomeTests
     [Fact]
     public void OnlyTheSiteFreeTargetsSkipTheSite()
     {
-        Assert.Equal([PublishRunTargets.IntuneOnly, PublishRunTargets.WsusOnly], PublishRunTargets.Names.Where(PublishRunTargets.SkipsSite));
-        Assert.Equal([PublishRunTargets.ConfigMgrAndWsus, PublishRunTargets.WsusOnly], PublishRunTargets.Names.Where(PublishRunTargets.PublishesToWsus));
+        Assert.Equal([PublishRunTargets.IntuneOnly, PublishRunTargets.WsusOnly, PublishRunTargets.IntuneAndWsus], PublishRunTargets.Names.Where(PublishRunTargets.SkipsSite));
+        Assert.Equal([PublishRunTargets.ConfigMgrAndWsus, PublishRunTargets.WsusOnly, PublishRunTargets.IntuneAndWsus, PublishRunTargets.ConfigMgrAndIntuneAndWsus], PublishRunTargets.Names.Where(PublishRunTargets.PublishesToWsus));
     }
 
     private static WsusStepResult? Pick(string name) => name switch

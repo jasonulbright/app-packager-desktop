@@ -39,15 +39,17 @@ public sealed class RunSnapshot
 /// <summary>The targets a run snapshot records.</summary>
 public static class RunTargets
 {
-    public const string ContentOnly = "ContentOnly";
+    public const string ContentOnly = DeploymentTargets.ContentOnly;
     public const string Mecm = DeploymentTargets.Mecm;
     public const string MecmAndIntune = DeploymentTargets.MecmAndIntune;
-    public const string IntuneOnly = "IntuneOnly";
+    public const string IntuneOnly = DeploymentTargets.IntuneOnly;
     public const string MecmAndWsus = DeploymentTargets.MecmAndWsus;
-    public const string WsusOnly = "WSUSOnly";
+    public const string WsusOnly = DeploymentTargets.WsusOnly;
+    public const string IntuneAndWsus = DeploymentTargets.IntuneAndWsus;
+    public const string MecmAndIntuneAndWsus = DeploymentTargets.MecmAndIntuneAndWsus;
 
     public static readonly IReadOnlyList<string> All =
-        [ContentOnly, Mecm, MecmAndIntune, IntuneOnly, MecmAndWsus, WsusOnly];
+        [ContentOnly, Mecm, MecmAndIntune, IntuneOnly, MecmAndWsus, WsusOnly, IntuneAndWsus, MecmAndIntuneAndWsus];
 
     /// <summary>The canonical spelling of a known target, or null for an unknown one. The earlier MECM spellings map to ConfigMgr.</summary>
     public static string? Normalize(string? target)

@@ -102,6 +102,63 @@ public sealed class BuildRunnerTests : IDisposable
         Assert.True(NothingStaged);
     }
 
+    [Theory]
+    [InlineData("ConfigMgr", new[] { "ConfigMgr" })]
+    [InlineData("IntuneOnly", new[] { "Intune" })]
+    [InlineData("WSUSOnly", new[] { "WSUS" })]
+    [InlineData("ConfigMgrAndIntune", new[] { "ConfigMgr", "Intune" })]
+    [InlineData("ConfigMgrAndWSUS", new[] { "ConfigMgr", "WSUS" })]
+    [InlineData("IntuneAndWSUS", new[] { "WSUS", "Intune" })]
+    [InlineData("ConfigMgrAndIntuneAndWSUS", new[] { "ConfigMgr", "WSUS", "Intune" })]
+    [InlineData("MECMAndIntune", new[] { "ConfigMgr", "Intune" })]
+    [InlineData("ContentOnly", new string[0])]
+    [InlineData("nonsense", new string[0])]
+    public void EveryTargetPublishesToExactlyItsDestinations(string target, string[] expected) =>
+        Assert.Equal(expected, BuildRunner.Destinations(target));
+
+    [Theory]
+    [InlineData("Intune")]
+    [InlineData("WSUS")]
+    [InlineData("WSUS,Intune")]
+    public void WithoutConfigMgrTheGatesNeverAskForASiteACodeOrAConsole(string destinationList)
+    {
+        var destinations = destinationList.Split(',');
+        // The settings file holds no site code and no share; Intune and WSUS are configured, ConfigMgr is not in use.
+        var settings = new SettingsService().Load();
+        settings.Systems = new SystemsInUse { ConfigMgr = false, Intune = true, Wsus = true };
+        settings.Intune.TenantId = "tenant";
+        settings.Intune.ClientId = "client";
+        settings.Intune.ClientSecretProtected = "secret";
+        settings.Wsus.ServerName = "wsus01.contoso.com";
+        Assert.True(string.IsNullOrWhiteSpace(settings.SiteCode) && string.IsNullOrWhiteSpace(settings.FileShareRoot));
+
+        Assert.Null(BuildRunner.GateRefusal(destinations, settings, () => ApiPresent));
+    }
+
+    [Fact]
+    public void AMissingIntuneSettingStopsAnIntuneAndWsusRunWithoutMentioningConfigMgr()
+    {
+        var settings = new SettingsService().Load();
+        settings.Wsus.ServerName = "wsus01.contoso.com";
+
+        var refusal = BuildRunner.GateRefusal(["WSUS", "Intune"], settings, () => ApiPresent);
+
+        Assert.Contains("Intune credentials", refusal);
+        Assert.DoesNotContain("ConfigMgr", refusal);
+        Assert.DoesNotContain("Site", refusal);
+    }
+
+    [Fact]
+    public async Task AnIntuneAndWsusPackageWithoutAnySettingStopsAtItsOwnGateBeforeAnythingStages()
+    {
+        var result = await RunAsync("--application", "putty", "--stage", "--package", "--target", "IntuneAndWSUS");
+
+        Assert.Equal(1, result.ExitCode);
+        Assert.Equal("No WSUS server: pass --wsus-server or set the server in Settings, WSUS Publishing.", Assert.Single(_output.Errors));
+        Assert.Empty(result.Phases);
+        Assert.True(NothingStaged);
+    }
+
     [Fact]
     public async Task AnIntunePackageWithoutCredentialsStopsAtItsGate()
     {

@@ -1,9 +1,12 @@
 namespace ApplicationPackagerEngine.Models;
 
 /// <summary>
-/// The stored deployment target: the nearest single target name for the One Click
+/// The stored deployment target: the name of a destination combination for the One Click
 /// default destinations, which a grid Stage records in its run snapshot and hands to a
 /// PS1 packager. The publish buttons name their own destination and never read it.
+/// The three destinations, ConfigMgr, Intune and WSUS, are independent and each optional:
+/// every combination has a name, and a name never implies a destination it does not list.
+/// ConfigMgr is the default of the stored setting only; it is not the base of the others.
 /// </summary>
 public static class DeploymentTargets
 {
@@ -12,35 +15,57 @@ public static class DeploymentTargets
     public const string IntuneOnly = "IntuneOnly";
     public const string MecmAndWsus = "ConfigMgrAndWSUS";
     public const string WsusOnly = "WSUSOnly";
+    public const string IntuneAndWsus = "IntuneAndWSUS";
+    public const string MecmAndIntuneAndWsus = "ConfigMgrAndIntuneAndWSUS";
+
+    /// <summary>A run that stages and publishes nowhere. It is also what an unknown or empty stored value reads as.</summary>
+    public const string ContentOnly = "ContentOnly";
+
+    /// <summary>The seven publish names: every non-empty combination of the three destinations.</summary>
+    public static readonly IReadOnlyList<string> Names =
+        [Mecm, MecmAndIntune, IntuneOnly, MecmAndWsus, WsusOnly, IntuneAndWsus, MecmAndIntuneAndWsus];
+
+    /// <summary>The valid names as one text, for a message that rejects another name.</summary>
+    public static string NamesText => string.Join(", ", Names);
 
     /// <summary>
-    /// The earlier spellings of the three ConfigMgr targets. Old settings, definitions, command lines
+    /// The earlier spellings of the ConfigMgr targets. Old settings, definitions, command lines
     /// and saved plans still carry them, so every place that reads a stored target maps them first.
+    /// A known name in another letter case maps to its own spelling.
     /// </summary>
-    public static string? Canonical(string? value) => value?.Trim().ToUpperInvariant() switch
+    public static string? Canonical(string? value)
     {
-        "MECM" => Mecm,
-        "MECMANDINTUNE" => MecmAndIntune,
-        "MECMANDWSUS" => MecmAndWsus,
-        _ => value
-    };
+        var trimmed = value?.Trim();
+        switch (trimmed?.ToUpperInvariant())
+        {
+            case "MECM": return Mecm;
+            case "MECMANDINTUNE": return MecmAndIntune;
+            case "MECMANDWSUS": return MecmAndWsus;
+        }
+        if (trimmed is null) return value;
+        foreach (var name in Names.Append(ContentOnly))
+            if (string.Equals(name, trimmed, StringComparison.OrdinalIgnoreCase)) return name;
+        return value;
+    }
 
-    /// <summary>Keeps every known target name; an unknown or absent stored value is ConfigMgr only. The earlier MECM spellings still load.</summary>
-    public static string Normalize(string? value) => Canonical(value) switch
-    {
-        MecmAndIntune => MecmAndIntune,
-        IntuneOnly => IntuneOnly,
-        MecmAndWsus => MecmAndWsus,
-        WsusOnly => WsusOnly,
-        _ => Mecm
-    };
+    /// <summary>The label of a target as a destination list, for example "Intune and WSUS". An unknown name has no label.</summary>
+    public static string? Label(string? value) => DestinationSet.TryFromTarget(value)?.Describe();
 
-    public static bool PublishesToIntune(string? value) => Normalize(value) is MecmAndIntune or IntuneOnly;
+    /// <summary>True when the value is a publish name or ContentOnly (an earlier MECM spelling counts).</summary>
+    public static bool IsKnown(string? value) => DestinationSet.TryFromTarget(value) is not null;
 
-    public static bool PublishesToWsus(string? value) => Normalize(value) is MecmAndWsus or WsusOnly;
+    /// <summary>
+    /// Keeps every known target name. An unknown or empty value is never ConfigMgr: it reads as
+    /// ContentOnly, which publishes nowhere. The earlier MECM spellings still load.
+    /// </summary>
+    public static string Normalize(string? value) => IsKnown(value) ? Canonical(value)! : ContentOnly;
 
-    /// <summary>True for the site-free targets: no site connection, no share copy, no ConfigMgr application.</summary>
-    public static bool SkipsMecm(string? value) => Normalize(value) is IntuneOnly or WsusOnly;
+    public static bool PublishesToIntune(string? value) => DestinationSet.TryFromTarget(value)?.Intune ?? false;
+
+    public static bool PublishesToWsus(string? value) => DestinationSet.TryFromTarget(value)?.Wsus ?? false;
+
+    /// <summary>True when the target has no ConfigMgr destination: no site connection, no share copy, no ConfigMgr application.</summary>
+    public static bool SkipsMecm(string? value) => !(DestinationSet.TryFromTarget(value)?.ConfigMgr ?? false);
 }
 
 /// <summary>
@@ -64,12 +89,21 @@ public sealed record DeploymentTargetActionState
     {
         if (DeploymentTargets.SkipsMecm(deploymentTarget))
         {
+            // The grid Package action publishes to ConfigMgr or Intune; WSUS has its own button, Publish to WSUS.
+            var set = DestinationSet.TryFromTarget(deploymentTarget) ?? new DestinationSet();
+            var published = (set.Intune, set.Wsus) switch
+            {
+                (true, true) => "Stage each selected app and publish it to Intune. Use Publish to WSUS to publish it to WSUS.",
+                (true, false) => "Stage each selected app and publish it to Intune.",
+                (false, true) => "Stage each selected app. Use Publish to WSUS to publish it to WSUS.",
+                _ => "Stage each selected app. The Deployment Target has no destination, so nothing is published."
+            };
             return new DeploymentTargetActionState
             {
                 CheckMecmEnabled = false,
-                CheckMecmToolTip = "Check ConfigMgr needs a ConfigMgr site. The Deployment Target is Intune only — change it in Settings, Intune, to use this.",
+                CheckMecmToolTip = "To use Check ConfigMgr, select ConfigMgr under Default destinations in Settings, One Click Settings.",
                 PackageLabel = "Publish",
-                PackageToolTip = "Stage each selected app, build the .intunewin, and publish it to Intune",
+                PackageToolTip = published,
                 SkipMecmPreflight = true
             };
         }
@@ -86,8 +120,8 @@ public sealed record DeploymentTargetActionState
 }
 
 /// <summary>
-/// Pre-run configuration gate. MECM targets need the site fields; an Intune-only run needs
-/// Intune credentials instead, so a console-less workstation can still publish.
+/// Pre-run configuration gate. Each destination asks for its own settings and no other: ConfigMgr the site
+/// fields, Intune its credentials. A target without ConfigMgr never asks for a site, so a console-less workstation can still publish.
 /// </summary>
 public static class DeploymentTargetGate
 {

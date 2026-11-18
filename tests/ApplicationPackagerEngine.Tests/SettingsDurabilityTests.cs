@@ -274,6 +274,8 @@ public sealed class SettingsDurabilityTests : IDisposable
     [InlineData("WSUSOnly")]
     [InlineData("IntuneOnly")]
     [InlineData("ConfigMgrAndIntune")]
+    [InlineData("IntuneAndWSUS")]
+    [InlineData("ConfigMgrAndIntuneAndWSUS")]
     public void TheStoredTargetKeepsEveryTargetNameOnLoadAndSave(string target)
     {
         File.WriteAllText(SettingsService.SettingsPath, $$"""{ "Intune": { "DeploymentTarget": "{{target}}" } }""");
@@ -321,6 +323,47 @@ public sealed class SettingsDurabilityTests : IDisposable
         Assert.True(DeploymentTargets.SkipsMecm("WSUSOnly"));
         Assert.False(DeploymentTargets.PublishesToIntune("ConfigMgrAndWSUS"));
         Assert.True(DeploymentTargets.PublishesToWsus("ConfigMgrAndWSUS"));
-        Assert.Equal(DeploymentTargets.Mecm, DeploymentTargets.Normalize("nonsense"));
+        Assert.True(DeploymentTargets.PublishesToWsus("IntuneAndWSUS"));
+        Assert.True(DeploymentTargets.PublishesToIntune("IntuneAndWSUS"));
+        Assert.True(DeploymentTargets.SkipsMecm("IntuneAndWSUS"));
+        Assert.Equal(DeploymentTargets.ContentOnly, DeploymentTargets.Normalize("nonsense"));
+    }
+
+    [Fact]
+    public void AnEmptyStoredTargetTakesTheSavedDefaultDestinations()
+    {
+        File.WriteAllText(SettingsService.SettingsPath,
+            """{ "Intune": { "DeploymentTarget": "" }, "OneClick": { "DefaultDestinations": { "ConfigMgr": false, "WSUS": true, "Intune": true } } }""");
+        var service = new SettingsService();
+        var s = service.Load();
+
+        Assert.Equal(DeploymentTargets.IntuneAndWsus, s.Intune.DeploymentTarget);
+        Assert.Null(service.TakeLoadWarning());
+    }
+
+    [Fact]
+    public void AnEmptyStoredTargetWithNoSavedDefaultUsesTheSettingDefaultAndSaysSo()
+    {
+        File.WriteAllText(SettingsService.SettingsPath, """{ "Intune": { "DeploymentTarget": "" } }""");
+        var service = new SettingsService();
+        var s = service.Load();
+
+        Assert.Equal(DeploymentTargets.Mecm, s.Intune.DeploymentTarget);
+        Assert.Contains("default of that setting", service.TakeLoadWarning());
+    }
+
+    [Fact]
+    public void AnUnknownStoredTargetIsNotConfigMgrAndTheNoticeNamesTheValidNames()
+    {
+        File.WriteAllText(SettingsService.SettingsPath, """{ "Intune": { "DeploymentTarget": "Everything" } }""");
+        var service = new SettingsService();
+        var s = service.Load();
+
+        Assert.Equal("Everything", s.Intune.DeploymentTarget);
+        Assert.False(DestinationSet.FromTarget(s.Intune.DeploymentTarget).Any);
+        Assert.True(DeploymentTargets.SkipsMecm(s.Intune.DeploymentTarget));
+        var notice = service.TakeLoadWarning();
+        Assert.Contains("'Everything'", notice);
+        Assert.Contains(DeploymentTargets.NamesText, notice);
     }
 }

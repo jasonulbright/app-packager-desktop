@@ -93,9 +93,8 @@ public class SettingsService : IRunSettingsReader<AppSettings>
                 if (readError is not null) throw new IOException(readError);
                 settings = JsonSerializer.Deserialize<AppSettings>(json!, JsonOptions) ?? new AppSettings();
                 // Settings written before the Intune target existed carry no section, or a section
-                // with no target; both resolve to MECM only.
+                // with no target; the property default, ConfigMgr, applies to a missing value.
                 settings.Intune ??= new IntuneSettings();
-                settings.Intune.DeploymentTarget = DeploymentTargets.Normalize(settings.Intune.DeploymentTarget);
                 settings.FirstRunCompleted = FirstRunDecision.ResolveCompleted(settings.FirstRunCompleted, settingsFileExisted: true);
                 if (settings.CitrixSwitches is null && settings.Cwa is not null)
                     settings.CitrixSwitches = settings.Cwa.ToSwitches();
@@ -110,6 +109,7 @@ public class SettingsService : IRunSettingsReader<AppSettings>
                     .Where(kv => kv.Value is not null)
                     .ToDictionary(kv => kv.Key, kv => kv.Value, StringComparer.OrdinalIgnoreCase);
                 settings.OneClick.OnExisting = ApplicationPackagerEngine.Services.OneClick.OneClickOnExisting.Normalize(settings.OneClick.OnExisting);
+                ResolveStoredTarget(settings);
                 DiscoveryPreferences.Normalize(settings);
                 settings.AppStates ??= [];
                 foreach (var state in settings.AppStates.Values.Where(s => s is not null))
@@ -254,6 +254,42 @@ public class SettingsService : IRunSettingsReader<AppSettings>
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
         {
+        }
+    }
+
+    /// <summary>
+    /// Reads the stored deployment target. A known name stays (an earlier MECM spelling maps to its ConfigMgr name). An empty value
+    /// takes the name of the saved One Click default destinations when they exist, else the default of the setting, ConfigMgr, with a
+    /// notice. An unknown value is kept as it is, so it reads as no destination and never as ConfigMgr, and the notice names the valid names.
+    /// </summary>
+    private void ResolveStoredTarget(AppSettings settings)
+    {
+        var stored = settings.Intune.DeploymentTarget;
+        if (DeploymentTargets.IsKnown(stored))
+        {
+            settings.Intune.DeploymentTarget = DeploymentTargets.Normalize(stored);
+            return;
+        }
+
+        string notice;
+        if (string.IsNullOrWhiteSpace(stored))
+        {
+            if (settings.OneClick.DefaultDestinations is { } saved)
+            {
+                settings.Intune.DeploymentTarget = saved.ToTargetName();
+                return;
+            }
+            settings.Intune.DeploymentTarget = DeploymentTargets.Mecm;
+            notice = $"The Deployment Target in the settings file is empty. The app uses the default of that setting, {DeploymentTargets.Mecm}, until you select destinations in Settings, One Click Settings.";
+        }
+        else
+        {
+            notice = $"The Deployment Target '{stored}' in the settings file is not valid, so the app publishes to no destination. Valid names: {DeploymentTargets.NamesText}. Select destinations in Settings, One Click Settings.";
+        }
+        lock (_gate)
+        {
+            if (_pendingWarning is null) _pendingWarning = notice;
+            else if (!_pendingWarning.Contains(notice, StringComparison.Ordinal)) _pendingWarning += " " + notice;
         }
     }
 

@@ -37,7 +37,7 @@ These messages come from `AppPackagerBuild.exe`. See [Command-line build](../cor
 | Option '--x' needs a value. | A valued option is last, or another option follows it. | Add a value. |
 | Option '--x' was given an empty value; pass a value or leave the option out. | A path, root, server or site option is empty. An unset variable in a scheduled task can cause this. | Pass a value, or leave the option out. |
 | --application is required. Run AppPackagerBuild --help for usage. | A build has no `--application`. | Add `--application`. |
-| Unknown target 'x'; expected ContentOnly, ConfigMgr, ConfigMgrAndIntune, IntuneOnly, ConfigMgrAndWSUS, WSUSOnly. | The `--target` value is not in the list. | Use a listed target. |
+| Unknown target 'x'; expected ContentOnly, ConfigMgr, ConfigMgrAndIntune, IntuneOnly, ConfigMgrAndWSUS, WSUSOnly, IntuneAndWSUS, ConfigMgrAndIntuneAndWSUS. | The `--target` value is empty or not in the list. | Use a target from the Targets table of the [command-line build](../core/command-line-build.md#targets). |
 | Unknown --on-existing value 'x'; expected Skip, Overwrite or Fail. | The value is not in the list. | Use a listed value. |
 | Unknown --version-rule value 'x'; expected exact or minimum. | The value is not in the list. | Use a listed value. |
 | Unknown --rewrite-old-versions value 'x'; expected plan, apply or restore. | The value is not in the list. | Use a listed value. |
@@ -59,7 +59,7 @@ These messages come from `AppPackagerBuild.exe`. See [Command-line build](../cor
 | The version rule Exact cannot be applied for ConfigMgr: No installed value exists for ... | The Exact guard has no installed value for the clause and version (an MSI has its ProductVersion; any other title needs a recorded value), or the value differs from the expected value. | Set the version rule of the title to Minimum, record the installed value with a test install, or accept the block for this version. Nothing was created. |
 | Option '--wsus-port' takes a port number from 1 to 65535. | The value is not a number from 1 to 65535. | Give a valid port. |
 | Specify --stage, --package, or both. | The command has neither phase switch. | Add a switch. |
-| A ConfigMgrAndWSUS package publishes the build staged in the same run; pass --stage together with --package. | `--package` without `--stage` for the target ConfigMgrAndWSUS. | Pass both. |
+| A `<target>` package publishes the build staged in the same run; pass --stage together with --package. | `--package` without `--stage` for a target that names WSUS and one more destination. | Pass both. |
 | Option '--x' takes a whole number of minutes. | `--estimated-minutes` or `--maximum-minutes` is not an integer. | Give a whole number. |
 | Option '--x' does not apply to --cve-report. | A build-only option is used with `--cve-report`. | Remove the option. |
 | Option '--x' applies to --cve-report only. | A CVE-only option is used in a build. | Remove the option. |
@@ -84,7 +84,8 @@ See [App Packager page](../core/packages.md) and [Stage and publish](../core/sta
 |---|---|---|---|
 | Publish requires Intune credentials. Open Settings, Intune, to configure Tenant ID, Client ID, and Client Secret. | App Packager page, at the start of a run | An Intune publish runs without credentials. | Do as the message says. |
 | Publish requires a WSUS server. Open Settings, WSUS Publishing, to configure it. | App Packager page, at the start of a run | A WSUS publish runs without a server. | Do as the message says. |
-| Publish to ConfigMgr requires the ConfigMgr Console. Not detected on this workstation. | App Packager page, at the start of a run | The variable `SMS_ADMIN_UI_PATH` or the module file is missing. | Install the console. See Detected Tools in Settings. |
+| 'x' is not a publish target; nothing was packaged. Valid names: ConfigMgr, ConfigMgrAndIntune, IntuneOnly, ConfigMgrAndWSUS, WSUSOnly, IntuneAndWSUS, ConfigMgrAndIntuneAndWSUS. | Package step | The target name is empty or not one of the seven publish names. It is never read as ConfigMgr. | Use a valid name. |
+| Publish to ConfigMgr requires the ConfigMgr Console. Not detected on this workstation. | App Packager page, at the start of a run, for a ConfigMgr publish only | The variable `SMS_ADMIN_UI_PATH` or the module file is missing. | Install the console. See Detected Tools in Settings. |
 | SiteCode is required. Open Settings to configure. | App Packager page, at the start of a run | The site code is empty. | Do as the message says. |
 | File Share Root is required. Open Settings to configure. | App Packager page, at the start of a run | The share root is empty. | Do as the message says. |
 | Needs the ConfigMgr console on this computer. | Tooltip of `Check ConfigMgr` and `Publish to ConfigMgr` | The console was not found. | Install the console. |
@@ -106,6 +107,8 @@ See [App Packager page](../core/packages.md) and [Stage and publish](../core/sta
 | Message | Where it appears | Cause | Fix |
 |---|---|---|---|
 | Settings file could not be read: <path> (<reason>). Defaults are in use and nothing is written to that file until Settings is saved; that save first keeps the unreadable file as settings.json.unreadable-<timestamp>. | At start | `settings.json` is not valid or not readable. | Save the Settings page. The old file is kept. |
+| The Deployment Target 'x' in the settings file is not valid, so the app publishes to no destination. Valid names: ConfigMgr, ConfigMgrAndIntune, IntuneOnly, ConfigMgrAndWSUS, WSUSOnly, IntuneAndWSUS, ConfigMgrAndIntuneAndWSUS. Select destinations in Settings, One Click Settings. | At start | The stored value `Intune.DeploymentTarget` is not a valid name. | Select the default destinations in Settings, One Click Settings, and save. |
+| The Deployment Target in the settings file is empty. The app uses the default of that setting, ConfigMgr, until you select destinations in Settings, One Click Settings. | At start | The stored value is empty and no default destinations are saved. | Select the default destinations in Settings, One Click Settings, and save. |
 | The staging folder changed from C:\temp\ap to <path>: other accounts can write under the old folder. Content staged earlier stays in the old folder; stage again before the next publish. | At start | The app moved the old default staging root. | Stage again. |
 | These settings carry run overrides for this process and are not written. | Command line | A save was tried in a run that has overrides. | None. This is by design. |
 | Staging folder '<f>' can be changed by other accounts (<list>). Use a folder that only your account and administrators can write, such as '<default>'. | Stage | The access list of the staging root is too wide. | Do as the message says. |

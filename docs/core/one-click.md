@@ -2,7 +2,7 @@
 
 ## What it does
 
-One Click checks the applications that you track. For each application with a new version, it does the action that you set: **Report only** lists the new version, **Stage** stages the application, and **Stage and Publish** stages the application and publishes it to the destinations of that application (ConfigMgr, WSUS and Intune). The plan window shows the work before it starts. After a run, One Click writes a report with a rollback section.
+One Click checks the applications that you track. For each application with a new version, it does the action that you set: **Report only** lists the new version, **Stage** stages the application, and **Stage and Publish** stages the application and publishes it to the destinations of that application. The destinations are ConfigMgr, WSUS and Intune. They are independent, and each is optional: an application can go to any one of them or to any combination, with no ConfigMgr site. The plan window shows the work before it starts. After a run, One Click writes a report with a rollback section.
 
 You set the tracked applications, the action and the default destinations once in Settings. Each later run needs one window.
 
@@ -16,7 +16,7 @@ You set the tracked applications, the action and the default destinations once i
 
 - At least one tracked application. See the first steps below. A tracked application must be visible in the App Packager grid.
 - For **Stage** and **Stage and Publish**: a **Download Root** in Settings.
-- For each publish destination: the destination must be in use and set up. The plan names a destination that is not ready.
+- For each publish destination that an application selects: the destination must be in use and set up. A destination that no application selects needs no setup. The plan names a destination that is not ready.
 
 | Destination | Ready when |
 |---|---|
@@ -92,7 +92,7 @@ When the plan has rows of that kind, the summary line ends with `, <N> supersede
 - When the vendor reports an older version than the one seen before, the row gets the status `Vendor older than last seen` and the outcome `Skipped`.
 - **Report only** ends with the outcome `Checked`. The reason is `update available` or `up to date`.
 - **Stage** and **Stage and Publish** stage the application with the saved install parameters. They show no review dialog.
-- A publish goes to ConfigMgr first, then to WSUS, then to Intune.
+- A row publishes only to the destinations it has selected. When it has more than one, the order is ConfigMgr, then WSUS, then Intune.
 - When a destination refuses an application, One Click remembers the refusal until the version changes.
 - When the ConfigMgr application was created but the content distribution or the test deployment failed, the row is Failed and the inventory shows the ConfigMgr destination as Partial. The application exists, so the version counts as published and the next run skips it. To run the steps again, select **Force** together with **Existing ConfigMgr app** set to Overwrite, or distribute the content in the ConfigMgr console.
 - One Click publishes again when the Workbench profile or the signing policy changed after the last publish.
@@ -142,7 +142,7 @@ All settings are in **Settings**, **One Click Settings**. See [Settings](../refe
 | **Action on update** | **Report only** | **Report only** lists newer versions. **Stage** downloads and prepares them. **Stage and Publish** also publishes to the destinations. |
 | **Default cadence (days)** | 7 | The days a version check stays fresh. The control accepts 1 to 365. A **Report only** run skips a tracked application that was checked more recently. |
 | **Force on launch (ignore cadence)** | off | The plan opens with Force set. |
-| **Default destinations** | **ConfigMgr** | The destinations of every tracked application that has no choice of its own. Rows that keep the default follow it when the default changes. |
+| **Default destinations** | **ConfigMgr** | The destinations of every tracked application that has no choice of its own. Rows that keep the default follow it when the default changes. ConfigMgr is selected at first. Each destination is optional. |
 | **Existing ConfigMgr app** | **Skip the application** | What a run does when the ConfigMgr application exists with another version. |
 | **Track** grid | no application | The tracked applications. |
 | **Cadence (days)** (row) | empty | Days for this application only. Empty uses the default cadence. |
