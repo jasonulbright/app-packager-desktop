@@ -158,8 +158,14 @@ jobs:
         run: |
           $makensis = "${env:ProgramFiles(x86)}\NSIS\makensis.exe"
           if (-not (Test-Path -LiteralPath $makensis) -and -not (Get-Command makensis.exe -ErrorAction SilentlyContinue)) {
-            choco install nsis --no-progress -y
-            if ($LASTEXITCODE -ne 0) { throw "choco install nsis failed with exit code $LASTEXITCODE" }
+            $zip = Join-Path $env:RUNNER_TEMP 'nsis-3.11.zip'
+            $url = 'https://downloads.sourceforge.net/project/nsis/NSIS%203/3.11/nsis-3.11.zip'
+            curl.exe --fail --silent --show-error --location --retry 5 --retry-delay 15 --retry-all-errors --output $zip $url
+            if ($LASTEXITCODE -ne 0) { throw "NSIS download failed with exit code $LASTEXITCODE" }
+            $actual = (Get-FileHash -LiteralPath $zip -Algorithm SHA256).Hash
+            if ($actual -ne 'C7D27F780DDB6CFFB4730138CD1591E841F4B7EDB155856901CDF5F214394FA1') { throw "NSIS 3.11 archive hash mismatch: $actual" }
+            Expand-Archive -LiteralPath $zip -DestinationPath $env:RUNNER_TEMP -Force
+            Move-Item -LiteralPath (Join-Path $env:RUNNER_TEMP 'nsis-3.11') -Destination (Split-Path -Parent $makensis)
           }
           if (-not (Test-Path -LiteralPath $makensis)) { $makensis = (Get-Command makensis.exe).Source }
           & $makensis /VERSION
