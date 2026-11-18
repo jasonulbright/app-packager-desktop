@@ -136,6 +136,10 @@ public static class OneClickReportWriter
         lines.Add("| Published | " + Count(OneClickOutcomes.Published) + " |");
         lines.Add("| Not supported | " + Count(OneClickOutcomes.NotSupported) + " |");
         lines.Add("| Skipped | " + Count(OneClickOutcomes.Skipped) + " |");
+        // A row that published with a failed supersedence step stays Published; its ConfigMgr result says so.
+        var notApplied = rows.Count(r => Get(r.Results, OneClickDestinations.ConfigMgr).Contains("supersedence not applied", StringComparison.OrdinalIgnoreCase));
+        if (Count(OneClickOutcomes.Superseded) > 0) lines.Add("| Supersedence applied | " + Count(OneClickOutcomes.Superseded) + " |");
+        if (notApplied > 0) lines.Add("| Supersedence not applied | " + notApplied + " |");
         lines.Add("| Failed | " + Count(OneClickOutcomes.Failed) + " |");
         lines.Add("");
 

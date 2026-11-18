@@ -1,5 +1,6 @@
 using System.Globalization;
 using ApplicationPackagerEngine.Models;
+using ApplicationPackagerEngine.Models.Inventory;
 
 namespace ApplicationPackagerEngine.Services.OneClick;
 
@@ -9,6 +10,13 @@ public sealed class OneClickPublishRecord
     public string Version { get; set; } = "";
     public string At { get; set; } = "";
     public string Id { get; set; } = "";
+    /// <summary>
+    /// The application is on the site but its supersedence step failed: the version stays pending for the supersedence-only
+    /// pass of a later run. Only the ConfigMgr destination has supersedence.
+    /// </summary>
+    public bool SupersedencePending { get; set; }
+    /// <summary>The reason the step gave; empty when the record is not pending.</summary>
+    public string SupersedenceReason { get; set; } = "";
 }
 
 /// <summary>
@@ -44,6 +52,10 @@ public sealed record OneClickHistoryEntry
     public string PublishedBuildKey(string destination) =>
         PublishedBuild.TryGetValue(destination, out var key) ? key ?? "" : "";
 
+    /// <summary>True when the ConfigMgr record names a version whose supersedence step failed and is still to do.</summary>
+    public bool SupersedencePending(string destination) =>
+        destination == OneClickDestinations.ConfigMgr && Published.TryGetValue(destination, out var record) && record.SupersedencePending;
+
     public string RefusedVersion(string destination) =>
         NotSupported.TryGetValue(destination, out var record) ? record.Version ?? "" : "";
 
@@ -64,12 +76,56 @@ public static class OneClickHistory
     public static string BuildKey(string? profileId, int profileRevision, string? policyDigest) =>
         $"{profileId}|{profileRevision.ToString(CultureInfo.InvariantCulture)}|{policyDigest}";
 
-    /// <summary>Records a publish. A publish clears that destination's refusal record.</summary>
+    /// <summary>
+    /// Records a publish. A publish clears that destination's refusal record. A new publish replaces the record, so it clears an
+    /// earlier pending state. <paramref name="supersedenceNotApplied"/> marks the ConfigMgr record pending; WSUS and Intune have no
+    /// supersedence step and are never marked.
+    /// </summary>
     public static void SetPublished(IDictionary<string, OneClickPublishRecord> published, IDictionary<string, OneClickRefusalRecord> notSupported,
-        string destination, string version, string id, DateTimeOffset at)
+        string destination, string version, string id, DateTimeOffset at, bool supersedenceNotApplied = false, string supersedenceReason = "")
     {
-        published[destination] = new OneClickPublishRecord { Version = version, Id = id, At = Stamp(at) };
+        var pending = supersedenceNotApplied && destination == OneClickDestinations.ConfigMgr;
+        published[destination] = new OneClickPublishRecord
+        {
+            Version = version, Id = id, At = Stamp(at),
+            SupersedencePending = pending, SupersedenceReason = pending ? supersedenceReason ?? "" : ""
+        };
         notSupported.Remove(destination);
+    }
+
+    /// <summary>
+    /// Ends the pending state of the supersedence step. The record keeps its version, time and identifier. Does nothing when the
+    /// destination has no record or the record is not pending.
+    /// </summary>
+    public static void ClearSupersedencePending(IDictionary<string, OneClickPublishRecord> published, string destination)
+    {
+        if (!published.TryGetValue(destination, out var record) || record is null) return;
+        record.SupersedencePending = false;
+        record.SupersedenceReason = "";
+    }
+
+    /// <summary>
+    /// Whether the inventory record of a ConfigMgr publish is pending: its last attempt is "Published, supersedence not applied"
+    /// for the version that last succeeded. A later attempt that applied the step, or any other attempt, ends it.
+    /// </summary>
+    public static bool IsSupersedencePending(InventoryOutcome lastAttemptOutcome, string? lastAttemptVersion, string? lastSuccessVersion) =>
+        lastAttemptOutcome == InventoryOutcome.PublishedSupersedenceNotApplied
+        && !string.IsNullOrWhiteSpace(lastSuccessVersion)
+        && string.Equals(lastAttemptVersion, lastSuccessVersion, StringComparison.Ordinal);
+
+    /// <summary>
+    /// The reason a publish gave for a supersedence step that did not apply, from the detail the publish recorded
+    /// ("Published, supersedence not applied: &lt;reason&gt;"). Empty when the detail names no failed step; a failed step
+    /// that gave no reason reads "the site gave no reason."
+    /// </summary>
+    public static string SupersedenceReasonOf(string? detail)
+    {
+        const string prefix = "Published, supersedence not applied:";
+        if (detail is null) return "";
+        var at = detail.IndexOf(prefix, StringComparison.Ordinal);
+        if (at < 0) return "";
+        var reason = detail[(at + prefix.Length)..].Trim();
+        return reason.Length > 0 ? reason : "the site gave no reason.";
     }
 
     /// <summary>

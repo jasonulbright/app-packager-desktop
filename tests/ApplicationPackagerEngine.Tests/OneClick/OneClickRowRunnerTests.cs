@@ -92,6 +92,12 @@ public sealed class OneClickRowRunnerTests : IDisposable
             OnPublish?.Invoke(PublishRunTargets.WsusOnly);
             return Task.FromResult(Wsus);
         }
+
+        public Task<OneClickSupersedencePassResult> SupersedencePassAsync(PackagerInfo row, string applicationName, string version, Action<string> log, CancellationToken ct)
+        {
+            Calls.Add(("Pass", null, ""));
+            return Task.FromResult(OneClickSupersedencePassResult.Of(ApplicationPackagerEngine.Services.Supersedence.SupersedenceStepStatus.Applied, "applied"));
+        }
     }
 
     private OneClickRowRunner Runner(FakeExecution execution)

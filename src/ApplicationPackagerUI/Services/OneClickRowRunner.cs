@@ -3,6 +3,7 @@ using ApplicationPackagerEngine.Models.Inventory;
 using ApplicationPackagerEngine.Models.Workbench;
 using ApplicationPackagerEngine.Services;
 using ApplicationPackagerEngine.Services.OneClick;
+using Supersedence = ApplicationPackagerEngine.Services.Supersedence;
 using ApplicationPackagerEngine.Services.Workbench;
 using ApplicationPackagerEngine.Services.Wsus;
 using ApplicationPackagerUI.Models;
@@ -24,6 +25,9 @@ public interface IOneClickExecution
     Task<PackagerExecutionResult> PackageAsync(PackagerInfo row, string comment, Action<string> log, OnExistingBehavior onExisting,
         RunSnapshot snapshot, string target, CancellationToken ct);
     Task<WsusStepResult> PublishWsusAsync(PackagerInfo row, PackagerExecutionResult stage, RunSnapshot snapshot, Action<string> log, CancellationToken ct);
+
+    /// <summary>The supersedence-only pass for a version the site holds: the lookup and the step, with no stage and no publish.</summary>
+    Task<OneClickSupersedencePassResult> SupersedencePassAsync(PackagerInfo row, string applicationName, string version, Action<string> log, CancellationToken ct);
 }
 
 /// <summary>The execution service and the WSUS publisher as one One Click row uses them.</summary>
@@ -50,6 +54,9 @@ public sealed class OneClickExecution(PackagerExecutionService execution, IWsusP
 
     public Task<WsusStepResult> PublishWsusAsync(PackagerInfo row, PackagerExecutionResult stage, RunSnapshot snapshot, Action<string> log, CancellationToken ct) =>
         execution.PublishWsusAsync(row, stage, snapshot, wsusPublisher, log, ct, recordInventory: false);
+
+    public Task<OneClickSupersedencePassResult> SupersedencePassAsync(PackagerInfo row, string applicationName, string version, Action<string> log, CancellationToken ct) =>
+        execution.RunSupersedencePassAsync(row, applicationName, version, log, ct);
 }
 
 /// <summary>
@@ -155,8 +162,23 @@ public sealed class OneClickRowRunner(IOneClickExecution execution, ISettingsRea
         var decision = OneClickPlanner.Decide(action, item.Destinations.Names, entry, latest, p.CurrentVersion, options.Force, versionChanged, buildStale,
             staged: entry?.LastStaged is not null, item.NotReady, buildKey);
         foreach (var (destination, cell) in decision.GuardResults) item.SetResult(destination, cell);
+
+        // The supersedence-only pass: the lookup and the supersedence step for the application that is on the site. It stages nothing
+        // and publishes nothing, and it runs before any other work of the row.
+        var reasons = decision.SkipReasons.ToList();
+        var passOutcome = "";
+        if (decision.SupersedencePass && entry?.Published.GetValueOrDefault(OneClickDestinations.ConfigMgr) is { } pending)
+        {
+            passOutcome = await RunSupersedencePassAsync(item, p, pending, latest, identity, settings, operationId, reasons, ct);
+        }
+
         if (!decision.Stage)
         {
+            if (passOutcome.Length > 0)
+            {
+                Finish(item, passOutcome, string.Join("; ", reasons));
+                return;
+            }
             p.Status = "Up to date";
             log($"No change - skipping: {p.Application}");
             Finish(item, OneClickOutcomes.Skipped, decision.SkipReason);
@@ -207,7 +229,6 @@ public sealed class OneClickRowRunner(IOneClickExecution execution, ISettingsRea
         }
 
         // ConfigMgr publishes first: it is the only destination that reads the network copy.
-        var reasons = decision.SkipReasons.ToList();
         var publishedTo = new List<string>();
         int published = 0, failed = 0, notSupported = 0;
         foreach (var destination in decision.PublishTo)
@@ -252,6 +273,13 @@ public sealed class OneClickRowRunner(IOneClickExecution execution, ISettingsRea
                                 ? InventoryOutcome.PublishedSupersedenceNotApplied : InventoryOutcome.Succeeded;
                             ok = true;
                             cell = "published " + id;
+                            if (destinationOutcome == InventoryOutcome.PublishedSupersedenceNotApplied)
+                            {
+                                // The application is complete and the run did not fail: the row is published with a warning, and the
+                                // version stays pending for the supersedence-only pass of the next run.
+                                cell = $"published {id}, supersedence not applied";
+                                reasons.Add("ConfigMgr: supersedence not applied, the next run applies it");
+                            }
                             (ciId, modelName) = (result.ConfigMgrCiId, result.ConfigMgrModelName);
                             // A warning of a run that succeeded (an icon that was not applied) goes to the history and the report.
                             detail = result.ConfigMgrDetail ?? "";
@@ -328,6 +356,57 @@ public sealed class OneClickRowRunner(IOneClickExecution execution, ISettingsRea
         }
     }
 
+    /// <summary>
+    /// Runs the supersedence-only pass for a version the site holds with its step pending. Applied or NoOlderVersion ends the pending
+    /// state (the destination record is written again as a success of the same version, object and build); NotApplied and NotRun keep it.
+    /// The row shows the result in its ConfigMgr cell, and the pass adds its text to the reasons. Returns the outcome of a row that only
+    /// ran the pass: Superseded, or Skipped.
+    /// </summary>
+    private async Task<string> RunSupersedencePassAsync(OneClickPlanItem item, PackagerInfo p, OneClickPublishRecord pending, string latest,
+        InventoryApplicationIdentity identity, AppSettings settings, string operationId, List<string> reasons, CancellationToken ct)
+    {
+        item.Step = "applying supersedence for " + p.Application;
+        p.Status = "Applying supersedence...";
+        log($"Supersedence only: {p.Application} {latest}");
+        OneClickSupersedencePassResult pass;
+        if (string.IsNullOrWhiteSpace(pending.Id))
+            pass = OneClickSupersedencePassResult.Of(Supersedence.SupersedenceStepStatus.NotApplied, "the publish record has no application name.");
+        else
+            pass = await execution.SupersedencePassAsync(p, pending.Id, latest, line => log($"  {line}"), ct);
+        foreach (var line in pass.Lines) log($"  {line}");
+        foreach (var warning in pass.Warnings) log($"  Supersedence warning: {warning}");
+        log($"Supersedence: {pass.Status}: {pass.Message}");
+
+        string text, outcome, detail = "";
+        switch (pass.Status)
+        {
+            case Supersedence.SupersedenceStepStatus.Applied or Supersedence.SupersedenceStepStatus.NoOlderVersion:
+                // Nothing is left to do for this version: the pending state ends.
+                text = pass.Status == Supersedence.SupersedenceStepStatus.Applied ? "supersedence applied: " + pass.Message : "supersedence: " + pass.Message;
+                outcome = OneClickOutcomes.Superseded;
+                p.Status = pass.Status == Supersedence.SupersedenceStepStatus.Applied ? "Supersedence applied" : "No older version";
+                var environment = ApplicationInventoryProjection.Environments(settings).First(e => e.Destination == OneClickDestinations.ConfigMgr).Environment;
+                var buildId = inventory.GetDestinationState(p.Uid, environment, "Publish")?.LastSuccessBuildId;
+                RecordDestination(p, identity, settings, OneClickDestinations.ConfigMgr, latest, pending.Id, InventoryOutcome.Succeeded, text, buildId, operationId);
+                break;
+            case Supersedence.SupersedenceStepStatus.NotApplied:
+                // The version stays pending for the next run.
+                text = "supersedence not applied: " + pass.Message;
+                detail = "Published, supersedence not applied: " + pass.Message;
+                outcome = OneClickOutcomes.Skipped;
+                p.Status = "Supersedence not applied";
+                break;
+            default:
+                text = "supersedence not run: " + pass.Message;
+                outcome = OneClickOutcomes.Skipped;
+                p.Status = "Supersedence not run";
+                break;
+        }
+        item.SetResult(OneClickDestinations.ConfigMgr, text, pending.Id, detail);
+        reasons.Add("ConfigMgr: " + text);
+        return outcome;
+    }
+
     /// <summary>Ends a canceled row with what it published; throws the cancellation.</summary>
     private static void StopCanceled(OneClickPlanItem item, PackagerInfo row, IReadOnlyList<string> publishedTo)
     {
@@ -357,7 +436,7 @@ public sealed class OneClickRowRunner(IOneClickExecution execution, ISettingsRea
         if (cancelled) return InventoryOutcome.Cancelled;
         return item.Outcome switch
         {
-            OneClickOutcomes.Published or OneClickOutcomes.Staged or OneClickOutcomes.Checked => InventoryOutcome.Succeeded,
+            OneClickOutcomes.Published or OneClickOutcomes.Staged or OneClickOutcomes.Checked or OneClickOutcomes.Superseded => InventoryOutcome.Succeeded,
             OneClickOutcomes.NotSupported => InventoryOutcome.Refused,
             OneClickOutcomes.Skipped => InventoryOutcome.Skipped,
             _ => InventoryOutcome.Failed
@@ -438,7 +517,7 @@ public sealed class OneClickRowRunner(IOneClickExecution execution, ISettingsRea
 
     private void RecordDestination(PackagerInfo row, InventoryApplicationIdentity identity, AppSettings settings,
         string destination, string version, string? objectId, InventoryOutcome outcome, string? detail,
-        string buildId, string operationId, string? configMgrCiId = null, string? configMgrModelName = null)
+        string? buildId, string operationId, string? configMgrCiId = null, string? configMgrModelName = null)
     {
         var environment = ApplicationInventoryProjection.Environments(settings)
             .First(item => string.Equals(item.Destination, destination, StringComparison.OrdinalIgnoreCase)).Environment;

@@ -5,6 +5,7 @@
 ### Added
 
 - Add Use as old application to the grid menu. It links an older version.
+- Add a supersedence pass to One Click that retries a failed supersedence step.
 
 ### Fixed
 

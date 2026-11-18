@@ -324,7 +324,9 @@ public partial class OneClickPlanViewModel : ObservableObject
         var paths = WriteReport(_context.Clock(), canceled);
         var published = Rows.Count(r => r.Outcome == OneClickOutcomes.Published);
         var failed = Rows.Count(r => r.Outcome == OneClickOutcomes.Failed);
-        var label = stopped is not null ? $"Failed: {stopped}." : $"{(canceled ? "Canceled" : "Complete")}: {published} published, {failed} failed.";
+        var superseded = Rows.Count(r => r.Outcome == OneClickOutcomes.Superseded);
+        var label = stopped is not null ? $"Failed: {stopped}."
+            : $"{(canceled ? "Canceled" : "Complete")}: {published} published, {failed} failed{(superseded > 0 ? $", {superseded} superseded" : "")}.";
         SummaryText = $"{label} Report: {Path.GetFileName(paths.MarkdownPath)}";
     }
 
