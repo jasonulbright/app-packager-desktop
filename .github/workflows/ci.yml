@@ -43,6 +43,13 @@ jobs:
           ref: v2026.11.18.0025
           path: detection-tester-ref
 
+      # The lexicon check reads the user-facing text (docs, XAML, message strings) against the ConfigMgr lexicon in tools/lexicon.
+      # The files there are copies of the vault lexicon; do not edit them here. A hit with severity error or warning fails the job.
+      - name: Check the text against the ConfigMgr lexicon
+        shell: pwsh
+        run: pwsh -NoProfile -File tools/lexicon/Invoke-LexiconCheck.ps1 -Root . -RepoType Apd -FailOn Warning
+
+
       - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
         with:
           dotnet-version: 10.0.x
