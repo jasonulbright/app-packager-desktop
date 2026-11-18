@@ -59,6 +59,7 @@ The test `QueryTemplateStoreTests` asserts 245, 225, 20 and 18. The `Source` col
 | Client Health | 2 |
 | Clients | 3 |
 | Clients Version | 38 |
+| ConfigMgr Infrastructure | 4 |
 | Hardware | 7 |
 | Hardware Inventory | 1 |
 | Laptops | 4 |
@@ -71,7 +72,6 @@ The test `QueryTemplateStoreTests` asserts 245, 225, 20 and 18. The `Source` col
 | Operating System | 1 |
 | Others | 2 |
 | Project | 5 |
-| SCCM Infrastructure | 4 |
 | Security | 1 |
 | Servers | 11 |
 | Software | 3 |

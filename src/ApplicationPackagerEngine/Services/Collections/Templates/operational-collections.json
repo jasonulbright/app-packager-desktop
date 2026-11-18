@@ -379,28 +379,28 @@
   },
   {
     "Name": "SCCM | Console",
-    "Category": "SCCM Infrastructure",
+    "Category": "ConfigMgr Infrastructure",
     "LimitingCollection": "All Systems",
     "Query": "select SMS_R_SYSTEM.ResourceID,SMS_R_SYSTEM.ResourceType,SMS_R_SYSTEM.Name,SMS_R_SYSTEM.SMSUniqueIdentifier,SMS_R_SYSTEM.ResourceDomainORWorkgroup,SMS_R_SYSTEM.Client from SMS_R_System inner join SMS_G_System_ADD_REMOVE_PROGRAMS on SMS_G_System_ADD_REMOVE_PROGRAMS.ResourceID = SMS_R_System.ResourceId where SMS_G_System_ADD_REMOVE_PROGRAMS.DisplayName like '%Configuration Manager Console%'",
     "RefreshType": "Both"
   },
   {
     "Name": "SCCM | Site Servers",
-    "Category": "SCCM Infrastructure",
+    "Category": "ConfigMgr Infrastructure",
     "LimitingCollection": "Servers | All",
     "Query": "select SMS_R_System.ResourceId, SMS_R_System.ResourceType, SMS_R_System.Name, SMS_R_System.SMSUniqueIdentifier, SMS_R_System.ResourceDomainORWorkgroup, SMS_R_System.Client from SMS_R_System where SMS_R_System.SystemRoles = 'SMS Site Server'",
     "RefreshType": "Both"
   },
   {
     "Name": "SCCM | Site Systems",
-    "Category": "SCCM Infrastructure",
+    "Category": "ConfigMgr Infrastructure",
     "LimitingCollection": "All Systems",
     "Query": "select SMS_R_System.ResourceId, SMS_R_System.ResourceType, SMS_R_System.Name, SMS_R_System.SMSUniqueIdentifier, SMS_R_System.ResourceDomainORWorkgroup, SMS_R_System.Client from SMS_R_System where SMS_R_System.SystemRoles = 'SMS Site System' or SMS_R_System.ResourceNames in (Select ServerName FROM SMS_DistributionPointInfo)",
     "RefreshType": "Both"
   },
   {
     "Name": "SCCM | Distribution Points",
-    "Category": "SCCM Infrastructure",
+    "Category": "ConfigMgr Infrastructure",
     "LimitingCollection": "All Systems",
     "Query": "select SMS_R_System.ResourceId, SMS_R_System.ResourceType, SMS_R_System.Name, SMS_R_System.SMSUniqueIdentifier, SMS_R_System.ResourceDomainORWorkgroup, SMS_R_System.Client from SMS_R_System where SMS_R_System.ResourceNames in (Select ServerName FROM SMS_DistributionPointInfo)",
     "RefreshType": "Both"

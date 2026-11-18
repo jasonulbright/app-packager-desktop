@@ -327,7 +327,7 @@ public sealed partial class CollectionComplianceViewModel : ObservableObject
             OnlyWithDirectMembers = saved.OnlyWithDirectMembers;
             OnlyWithQueryRules = saved.OnlyWithQueryRules;
             FolderFilter = saved.FolderFilter ?? "";
-            CategoryFilter = string.IsNullOrEmpty(saved.TemplateCategory) ? AllCategories : saved.TemplateCategory;
+            CategoryFilter = string.IsNullOrEmpty(saved.TemplateCategory) ? AllCategories : saved.TemplateCategory == "SCCM Infrastructure" ? "ConfigMgr Infrastructure" : saved.TemplateCategory;
             _editorWidth = saved.EditorWidth;
             _editorHeight = saved.EditorHeight;
         }
