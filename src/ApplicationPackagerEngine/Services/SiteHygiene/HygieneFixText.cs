@@ -13,6 +13,9 @@ public static class HygieneFixParameters
     public const string WindowId = "WindowId";
     public const string RefreshType = "RefreshType";
 
+    /// <summary>The ModelName of the application that a supersedence rule points at (a deleted application).</summary>
+    public const string ReferencedModel = "ReferencedModel";
+
     /// <summary>Old revision numbers, comma separated.</summary>
     public const string Revisions = "Revisions";
 
@@ -33,12 +36,22 @@ public sealed record HygieneCommand(string Cmdlet, IReadOnlyList<KeyValuePair<st
 {
     /// <summary>The window removal has no exact cmdlet; its text is the settings write the script makes.</summary>
     public bool IsWindowRemoval => Cmdlet == HygieneFixText.WindowRemoval;
+
+    /// <summary>The supersedence removal has no cmdlet that can do it for a deleted application; its text is the document edit the script makes.</summary>
+    public bool IsSupersedenceRemoval => Cmdlet == HygieneFixText.SupersedenceRemoval;
 }
 
 /// <summary>Builds the commands and the read-only PowerShell text of a typed fix.</summary>
 public static class HygieneFixText
 {
     internal const string WindowRemoval = "SMS_CollectionSettings.ServiceWindows";
+
+    /// <summary>
+    /// Set-CMApplicationSupersedence -RemoveSupersedence (the replacement of the deprecated Remove-CMDeploymentTypeSupersedence) needs the
+    /// superseded application and its deployment type as parameters. A deleted application has neither, so the fix edits the application
+    /// document of the superseding application.
+    /// </summary>
+    internal const string SupersedenceRemoval = "SMS_Application.SDMPackageXML.Supersedes";
 
     private static KeyValuePair<string, string> P(string name, string value) => new(name, value);
 
@@ -67,6 +80,7 @@ public static class HygieneFixText
             HygieneFixKind.SetApplication => [new("Set-CMApplication", [P("ModelName", Get(p, HygieneFixParameters.ModelName)), P("AutoInstall", "$true")])],
             HygieneFixKind.SetSiteMaintenanceTask => [new("Set-CMSiteMaintenanceTask", [P("SiteCode", Get(p, HygieneFixParameters.SiteCode)), P("Name", id), P("Enabled", "$true")])],
             HygieneFixKind.RunAutoDeploymentRule => [new("Invoke-CMSoftwareUpdateAutoDeploymentRule", [P("Id", id)])],
+            HygieneFixKind.RemoveBrokenSupersedence => [new(SupersedenceRemoval, [P("ModelName", Get(p, HygieneFixParameters.ModelName)), P("ReferencedModel", Get(p, HygieneFixParameters.ReferencedModel))])],
             _ => []
         };
     }
@@ -93,6 +107,21 @@ public static class HygieneFixText
                 + "if ($keep.Count -eq @($s.GetArrayItems('ServiceWindows')).Count) { throw 'No object corresponds to the specified parameters.' }\r\n"
                 + "$s.SetArrayItems('ServiceWindows', $keep)\r\n"
                 + "$s.Put()";
+        }
+        if (c.IsSupersedenceRemoval)
+        {
+            var model = Quote(c.Parameters[0].Value);
+            var reference = c.Parameters[1].Value;
+            var slash = reference.IndexOf('/', StringComparison.Ordinal);
+            var scope = Quote(slash > 0 ? reference[..slash] : reference);
+            var logical = Quote(slash > 0 ? reference[(slash + 1)..] : "");
+            return "$app = Get-CMApplication -ModelName " + model + " -ErrorAction Stop\r\n"
+                + "$serializer = [Microsoft.ConfigurationManagement.ApplicationManagement.Serialization.SccmSerializer]\r\n"
+                + "$object = $serializer::DeserializeFromString($app.SDMPackageXML, $true)\r\n"
+                + "foreach ($dt in $object.DeploymentTypes) { $rules = New-Object System.Collections.ArrayList; foreach ($r in $dt.Supersedes) { [void]$rules.Add($r) }\r\n"
+                + "  foreach ($r in $rules) { if ($r.Expression.ApplicationAuthoringScopeId -eq " + scope + " -and $r.Expression.ApplicationLogicalName -eq " + logical + ") { [void]$dt.Supersedes.Remove($r) } } }\r\n"
+                + "$app.SDMPackageXML = $serializer::SerializeToString($object, $true)\r\n"
+                + "$app.Put()";
         }
         var text = new StringBuilder(c.Cmdlet);
         foreach (var (name, value) in c.Parameters)

@@ -125,17 +125,22 @@ public sealed class SiteHygieneRelationshipTests
                 ["1", "11", "999", "991", "15"],
                 ["1", "11", "3", "31", "10"],
                 ["5", "51", "4", "41", "10"],
-                ["4", "41", "1", "11", "15"]);
+                ["4", "41", "1", "11", "15"])
+            .Put("SupersedenceRules", ["ApplicationModelName", "DeploymentTypeLogicalName", "DeploymentTypeName", "RuleId", "ReferencedModelName"],
+                ["ScopeId_X/Application_A", "ScopeId_X/DeploymentType_A", "A DT", "DTRule_1", "ScopeId_X/Application_Gone"],
+                ["ScopeId_X/Application_A", "ScopeId_X/DeploymentType_A", "A DT", "DTRule_2", "ScopeId_X/Application_B"]);
         var (findings, _) = SiteHygieneParity.Native(read, "AppRelationships");
         Assert.Equal(2, findings.Count(f => f.CheckId == "SUP-02"));
+        // The relation row to a CI that no application has (999) is left to the definition read: SUP-01 comes from the rules.
         var orphan = Assert.Single(findings, f => f.CheckId == "SUP-01");
-        Assert.Equal("ScopeId_X/Application_A|CI_ID 999", orphan.ObjectKey);
+        Assert.Equal("ScopeId_X/Application_A|ScopeId_X/Application_Gone", orphan.ObjectKey);
         Assert.Contains("'A DT'", orphan.Evidence);
+        Assert.Equal(HygieneFixKind.RemoveBrokenSupersedence, orphan.FixKind);
         Assert.Single(findings, f => f.CheckId == "DEP-04");
         Assert.Single(findings, f => f.CheckId == "DEP-03");
         Assert.Single(findings, f => f.CheckId == "SUP-03");
         Assert.Equal("ScopeId_X/Application_NoMaker", Assert.Single(findings, f => f.CheckId == "REL-01").ObjectKey);
-        Assert.All(findings, f => Assert.Equal(HygieneFixKind.None, f.FixKind));
+        Assert.All(findings.Where(f => f.CheckId != "SUP-01"), f => Assert.Equal(HygieneFixKind.None, f.FixKind));
     }
 
     [Fact]

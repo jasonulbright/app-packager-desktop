@@ -147,6 +147,15 @@ internal static class SiteHygieneFixtures
             }).ToArray());
         var auto = new JsonObject();
         foreach (var r in read.Table("TsAppDefinitions").Records) auto[r.S("ModelName")] = r.B("AutoInstall");
+        var supersedence = new JsonObject();
+        foreach (var g in read.Table("SupersedenceRules").Records.GroupBy(r => r.S("ApplicationModelName")))
+            supersedence[g.Key] = new JsonArray(g.Select(r => (JsonNode)new JsonObject
+            {
+                ["Dt"] = r.S("DeploymentTypeLogicalName"),
+                ["Title"] = r.S("DeploymentTypeName"),
+                ["RuleId"] = r.S("RuleId"),
+                ["Ref"] = r.S("ReferencedModelName")
+            }).ToArray());
         return new JsonObject
         {
             ["Options"] = new JsonObject(),
@@ -154,7 +163,8 @@ internal static class SiteHygieneFixtures
             ["Classes"] = classes,
             ["Details"] = details,
             ["Windows"] = windows,
-            ["AutoInstall"] = auto
+            ["AutoInstall"] = auto,
+            ["Supersedence"] = supersedence
         };
     }
 }

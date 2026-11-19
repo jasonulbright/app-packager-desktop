@@ -29,6 +29,60 @@ internal sealed class StubHygieneSite : IConfigMgrSession
         function global:V([object]$Object, [string]$Name, [object]$Default) { if ($null -eq $Object) { return $Default }; $p = $Object.PSObject.Properties[$Name]; if ($null -eq $p -or $null -eq $p.Value) { return $Default }; return $p.Value }
         function global:L([object]$List) { $r = [System.Collections.Generic.List[object]]::new(); foreach ($x in @($List)) { if ($null -ne $x) { $r.Add($x) } }; return ,$r }
         Add-Type -TypeDefinition 'namespace Microsoft.ConfigurationManagement.ManagementProvider { public interface IResultObject { } public sealed class StubValue { public string StringValue; } public sealed class StubItem : IResultObject { public System.Collections.Hashtable Values = new System.Collections.Hashtable(System.StringComparer.OrdinalIgnoreCase); public StubValue this[string name] { get { return new StubValue { StringValue = System.Convert.ToString(Values[name]) }; } } } }'
+        # The console serializer for application documents, reduced to the supersedence rules: the script of the fix reads a document into
+        # deployment types with a list of rules and writes it back. The types sit in the namespaces of the console assemblies.
+        Add-Type -ReferencedAssemblies System.Xml, System.Xml.Linq -TypeDefinition @'
+        using System; using System.Collections.Generic; using System.Xml.Linq;
+        namespace Microsoft.ConfigurationManagement.ApplicationManagement {
+          public class StubExpression { public string ApplicationAuthoringScopeId; public string ApplicationLogicalName; }
+          public class StubRule { public string RuleId; public StubExpression Expression = new StubExpression(); }
+          public class StubRuleSet : List<StubRule> { }
+          public class StubDeploymentType { public string Name; public string Title; public StubRuleSet Supersedes = new StubRuleSet(); }
+          public class StubApplication { public List<StubDeploymentType> DeploymentTypes = new List<StubDeploymentType>(); }
+        }
+        namespace Microsoft.ConfigurationManagement.ApplicationManagement.Serialization {
+          public static class SccmSerializer {
+            static readonly XNamespace D = "http://schemas.microsoft.com/SystemCenterConfigurationManager/2009/AppMgmtDigest";
+            static readonly XNamespace R = "http://schemas.microsoft.com/SystemsCenterConfigurationManager/2009/06/14/Rules";
+            public static Microsoft.ConfigurationManagement.ApplicationManagement.StubApplication DeserializeFromString(string xml, bool validate) {
+              var app = new Microsoft.ConfigurationManagement.ApplicationManagement.StubApplication();
+              var doc = XDocument.Parse(xml);
+              foreach (var dt in doc.Root.Elements(D + "DeploymentType")) {
+                var d = new Microsoft.ConfigurationManagement.ApplicationManagement.StubDeploymentType();
+                d.Name = (string)dt.Attribute("LogicalName");
+                var title = dt.Element(D + "Title"); d.Title = title == null ? "" : title.Value;
+                var sup = dt.Element(D + "Supersedes");
+                if (sup != null) foreach (var rule in sup.Elements(R + "DeploymentTypeRule")) {
+                  var r = new Microsoft.ConfigurationManagement.ApplicationManagement.StubRule();
+                  r.RuleId = (string)rule.Attribute("id");
+                  foreach (var intent in rule.Descendants(R + "DeploymentTypeApplicationReference")) {
+                    r.Expression.ApplicationAuthoringScopeId = (string)intent.Attribute("AuthoringScopeId");
+                    r.Expression.ApplicationLogicalName = (string)intent.Attribute("LogicalName");
+                  }
+                  d.Supersedes.Add(r);
+                }
+                app.DeploymentTypes.Add(d);
+              }
+              return app;
+            }
+            public static string SerializeToString(Microsoft.ConfigurationManagement.ApplicationManagement.StubApplication app, bool validate) {
+              var root = new XElement(D + "AppMgmtDigest");
+              foreach (var d in app.DeploymentTypes) {
+                var dt = new XElement(D + "DeploymentType", new XAttribute("LogicalName", d.Name), new XElement(D + "Title", d.Title));
+                var sup = new XElement(D + "Supersedes");
+                foreach (var r in d.Supersedes) {
+                  sup.Add(new XElement(R + "DeploymentTypeRule", new XAttribute("id", r.RuleId),
+                    new XElement(R + "DeploymentTypeIntentExpression",
+                      new XElement(R + "DeploymentTypeApplicationReference", new XAttribute("AuthoringScopeId", r.Expression.ApplicationAuthoringScopeId), new XAttribute("LogicalName", r.Expression.ApplicationLogicalName)))));
+                }
+                dt.Add(sup);
+                root.Add(dt);
+              }
+              return new XDocument(root).ToString(SaveOptions.DisableFormatting);
+            }
+          }
+        }
+        '@
         $global:Log = [System.Collections.Generic.List[string]]::new()
         $global:FailLeft = [System.Collections.Generic.List[string]]::new()
         foreach ($f in @(V $state.Options 'Fail' @())) { if ($f) { $global:FailLeft.Add([string]$f) } }
@@ -38,6 +92,7 @@ internal sealed class StubHygieneSite : IConfigMgrSession
         $global:Details = @{}; foreach ($p in (V $state 'Details' ([pscustomobject]@{})).PSObject.Properties) { $global:Details[$p.Name] = $p.Value }
         $global:Windows = @{}; foreach ($p in (V $state 'Windows' ([pscustomobject]@{})).PSObject.Properties) { $global:Windows[$p.Name] = L $p.Value }
         $global:Auto = @{}; foreach ($p in (V $state 'AutoInstall' ([pscustomobject]@{})).PSObject.Properties) { $global:Auto[$p.Name] = [bool]$p.Value }
+        $global:Sup = @{}; foreach ($p in (V $state 'Supersedence' ([pscustomobject]@{})).PSObject.Properties) { $global:Sup[$p.Name] = L $p.Value }
         $global:Now = [string](V $state 'Now' '2026-10-24T18:00:00')
         $global:Fmt = 'yyyy-MM-ddTHH:mm:ss'
         $global:DateColumns = @('DateCreated', 'LastActiveTime', 'LastRunTime', 'EnforcementDeadline', 'CreationTime', 'LastUpdateDate', 'ExpirationTime', 'StartTime', 'AgentTime')
@@ -151,7 +206,36 @@ internal sealed class StubHygieneSite : IConfigMgrSession
             $row = Rows 'SMS_Application' | Where-Object { $_.ModelName -eq $ModelName -and $_.IsLatest } | Select-Object -First 1
             if ($null -eq $row) { return $null }
             $auto = if ($global:Auto.ContainsKey($ModelName) -and $global:Auto[$ModelName]) { 'true' } else { 'false' }
-            [pscustomobject]@{ ModelName = $ModelName; SDMPackageXML = "<AppMgmtDigest xmlns=`"http://schemas.microsoft.com/SystemCenterConfigurationManager/2009/AppMgmtDigest`"><Application><AutoInstall>$auto</AutoInstall></Application></AppMgmtDigest>" }
+            $digest = 'http://schemas.microsoft.com/SystemCenterConfigurationManager/2009/AppMgmtDigest'
+            $rulesNs = 'http://schemas.microsoft.com/SystemsCenterConfigurationManager/2009/06/14/Rules'
+            $types = ''
+            $held = @(if ($global:Sup.ContainsKey($ModelName)) { $global:Sup[$ModelName] })
+            foreach ($g in @($held | Group-Object { [string]$_.Dt })) {
+                $body = foreach ($r in $g.Group) { $scope, $logical = ([string]$r.Ref) -split '/', 2; "<DeploymentTypeRule xmlns=`"$rulesNs`" id=`"$($r.RuleId)`"><DeploymentTypeIntentExpression DesiredState=`"Prohibited`"><DeploymentTypeApplicationReference AuthoringScopeId=`"$scope`" LogicalName=`"$logical`"/></DeploymentTypeIntentExpression></DeploymentTypeRule>" }
+                $types += "<DeploymentType AuthoringScopeId=`"ScopeId_X`" LogicalName=`"$($g.Name)`"><Title>$($g.Group[0].Title)</Title><Supersedes>$($body -join '')</Supersedes></DeploymentType>"
+            }
+            $app = [pscustomobject]@{ ModelName = $ModelName; CI_ID = [int]$row.CI_ID; CIVersion = [int]$row.CIVersion; LocalizedDisplayName = [string]$row.LocalizedDisplayName; SDMPackageXML = "<AppMgmtDigest xmlns=`"$digest`"><Application><AutoInstall>$auto</AutoInstall></Application>$types</AppMgmtDigest>" }
+            $app | Add-Member -MemberType ScriptMethod -Name Put -Value {
+                Test-Fail 'cmd:Put'
+                [xml]$x = $this.SDMPackageXML
+                $ns = New-Object System.Xml.XmlNamespaceManager($x.NameTable)
+                $ns.AddNamespace('d', 'http://schemas.microsoft.com/SystemCenterConfigurationManager/2009/AppMgmtDigest'); $ns.AddNamespace('r', 'http://schemas.microsoft.com/SystemsCenterConfigurationManager/2009/06/14/Rules')
+                $kept = New-Object System.Collections.Generic.List[object]
+                foreach ($dt in $x.SelectNodes('/d:AppMgmtDigest/d:DeploymentType', $ns)) {
+                    foreach ($rule in $dt.SelectNodes('d:Supersedes/r:DeploymentTypeRule', $ns)) {
+                        $ref = $rule.SelectSingleNode('.//r:DeploymentTypeApplicationReference', $ns)
+                        $kept.Add([pscustomobject]@{ Dt = [string]$dt.GetAttribute('LogicalName'); Title = [string]$dt.SelectSingleNode('d:Title', $ns).InnerText; RuleId = [string]$rule.GetAttribute('id'); Ref = ([string]$ref.GetAttribute('AuthoringScopeId') + '/' + [string]$ref.GetAttribute('LogicalName')) })
+                    }
+                }
+                $before = @(if ($global:Sup.ContainsKey($this.ModelName)) { $global:Sup[$this.ModelName] })
+                $removed = @($before | Where-Object { $id = $_.RuleId; @($kept | Where-Object { $_.RuleId -eq $id }).Count -eq 0 } | ForEach-Object { [string]$_.RuleId })
+                $global:Log.Add('Cmd:SupersedenceRemoval|' + $this.ModelName + '|' + ($removed -join ','))
+                $global:Sup[$this.ModelName] = L @($kept)
+                $latest = Rows 'SMS_Application' | Where-Object { $_.ModelName -eq $this.ModelName -and $_.IsLatest } | Select-Object -First 1
+                $old = $latest.PSObject.Copy(); $old.IsLatest = $false; (RowList 'SMS_Application').Add($old)
+                $latest.CI_ID = [int]$latest.CI_ID + 1; $latest.CIVersion = [int]$latest.CIVersion + 1
+            }
+            $app
         }
         function global:Remove-CMApplication { [CmdletBinding()] param([int]$Id, [switch]$Force)
             Cmd 'Remove-CMApplication' @(@('Id', $Id), @('Force', ''))
@@ -244,7 +328,9 @@ internal sealed class StubHygieneSite : IConfigMgrSession
         foreach ($k in $global:Windows.Keys) { $windowsOut[$k] = @($global:Windows[$k]) }
         $autoOut = [ordered]@{}
         foreach ($k in $global:Auto.Keys) { $autoOut[$k] = $global:Auto[$k] }
-        $next = if ($null -ne $gen) { $state } else { [pscustomobject]@{ Options = $state.Options; Now = $global:Now; Provider = $global:DriveRoot; Classes = [pscustomobject]$classes; Details = (V $state 'Details' ([pscustomobject]@{})); Windows = [pscustomobject]$windowsOut; AutoInstall = [pscustomobject]$autoOut } }
+        $supOut = [ordered]@{}
+        foreach ($k in $global:Sup.Keys) { $supOut[$k] = @($global:Sup[$k]) }
+        $next = if ($null -ne $gen) { $state } else { [pscustomobject]@{ Options = $state.Options; Now = $global:Now; Provider = $global:DriveRoot; Classes = [pscustomobject]$classes; Details = (V $state 'Details' ([pscustomobject]@{})); Windows = [pscustomobject]$windowsOut; AutoInstall = [pscustomobject]$autoOut; Supersedence = [pscustomobject]$supOut } }
         $lines = foreach ($o in $out) { ConvertTo-Json -InputObject $o -Depth 3 -Compress }
         $document = [pscustomobject]@{ Output = @($lines); Thrown = $thrown; Log = @($global:Log); State = $next }
         [IO.File]::WriteAllText($OutPath, (ConvertTo-Json -InputObject $document -Depth 8 -Compress), (New-Object System.Text.UTF8Encoding $false))

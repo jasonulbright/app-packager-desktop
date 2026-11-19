@@ -136,6 +136,7 @@ public sealed partial class SiteHygieneService : ISiteHygieneService
             if (!SameConnection(connection, Connection())) throw ScanConnectionChanged();
             var parameters = Bound(new ConfigMgrParameters { { "Operation", "Read" }, { "Sets", new[] { set } }, { "MaxRows", MaxRows }, { "PacingMs", pacing }, { "MaxObjects", MaxObjects } }, connection);
             if (string.Equals(set, HygieneSets.TsAppDefinitions, StringComparison.OrdinalIgnoreCase)) parameters["Keys"] = StepApplications(data);
+            if (string.Equals(set, HygieneSets.SupersedenceRules, StringComparison.OrdinalIgnoreCase)) parameters["Keys"] = AllApplications(data);
             try
             {
                 var part = Parse(await _session.InvokeAsync(Script, parameters, ct, ReadTimeout).ConfigureAwait(false));
@@ -192,6 +193,11 @@ public sealed partial class SiteHygieneService : ISiteHygieneService
         data.Table(HygieneSets.TsSteps).Records.Where(r => r.S("Type") == "1").Select(r => r.S("ObjectID")).Where(m => m.Length > 0)
             .Distinct(StringComparer.OrdinalIgnoreCase).Order(StringComparer.Ordinal).ToArray();
 
+    /// <summary>The ModelNames of every application, for the read of the supersedence rules: the reference to a deleted application is only in the definition of the superseding application.</summary>
+    internal static string[] AllApplications(HygieneSiteRead data) =>
+        data.Table(HygieneSets.Applications).Records.Select(r => r.S("ModelName")).Where(m => m.Length > 0)
+            .Distinct(StringComparer.OrdinalIgnoreCase).Order(StringComparer.Ordinal).ToArray();
+
     private HygieneServiceException ScanConnectionChanged()
     {
         _log?.Warning(LogArea, "The scan stopped: the site or SMS Provider of the settings changed during the scan.");
@@ -204,6 +210,7 @@ public sealed partial class SiteHygieneService : ISiteHygieneService
         HygieneSets.AppRevisions => "old application revisions",
         HygieneSets.TsReferences => "task sequence references",
         HygieneSets.TsAppDefinitions => "task sequence application definitions",
+        HygieneSets.SupersedenceRules => "supersedence rules of the application definitions",
         HygieneSets.TsSteps => "task sequence steps",
         HygieneSets.AutoApplySequences => "Auto Apply Drivers steps",
         HygieneSets.CiAssignments => "deployments by target collection",

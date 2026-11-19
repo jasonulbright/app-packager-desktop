@@ -26,7 +26,8 @@ public enum HygieneFixKind
     ResumeApplication,
     SetBoundaryGroup,
     SetSiteMaintenanceTask,
-    RunAutoDeploymentRule
+    RunAutoDeploymentRule,
+    RemoveBrokenSupersedence
 }
 
 public static class HygieneFixKinds

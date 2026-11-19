@@ -298,6 +298,7 @@ public sealed partial class SiteHygieneService
         try
         {
             var parameters = new ConfigMgrParameters { { "Operation", "Apply" }, { "Kind", kind.ToString() }, { "MaxObjects", MaxObjects } };
+            if (kind == HygieneFixKind.RemoveBrokenSupersedence) parameters["BackupFolder"] = BackupFolderOf(prepared);
             parameters.AddSecret("Target", JsonSerializer.Serialize(w.Target));
             applied = Parse(await _session.InvokeAsync(Script, Bound(parameters, prepared.Connection), CancellationToken.None).ConfigureAwait(false));
         }
@@ -312,6 +313,11 @@ public sealed partial class SiteHygieneService
             return (new HygieneTargetOutcome(t, HygieneResults.Skipped, SkippedPrefix + ConnectionChanged), ConnectionChanged);
         }
         var (status, failure) = applied.Applied.FirstOrDefault();
+        if (status == "in-use" && kind == HygieneFixKind.RemoveBrokenSupersedence)
+        {
+            _log?.Info(LogArea, $"{kind}: the referenced application exists again, so nothing was changed.");
+            return (new HygieneTargetOutcome(t, HygieneResults.Skipped, SkippedPrefix + "the referenced application exists again, so the reference is no longer broken. Nothing was changed."), "");
+        }
         if (status == "in-use")
         {
             _log?.Info(LogArea, $"{kind}: a delete was refused in the delete command: the object is in use ({failure}).");
@@ -324,7 +330,7 @@ public sealed partial class SiteHygieneService
         }
         return await ReadBackAsync(kind, f, w, prepared, ruleBefore).ConfigureAwait(false) switch
         {
-            ReadBack.Done => (new HygieneTargetOutcome(t, HygieneResults.Done, DoneText(kind, 1)), ""),
+            ReadBack.Done => (new HygieneTargetOutcome(t, HygieneResults.Done, DoneText(kind, 1) + BackupNote(kind, prepared)), ""),
             ReadBack.AsBefore => (new HygieneTargetOutcome(t, HygieneResults.Unchanged, AsBeforeText(kind, 1, 1)), ""),
             _ => (new HygieneTargetOutcome(t, HygieneResults.Failed, ReadBackFailed), "")
         };
@@ -351,7 +357,7 @@ public sealed partial class SiteHygieneService
         var counts = string.Join(", ", new[] { HygieneResults.Done, HygieneResults.Unchanged, HygieneResults.Failed, HygieneResults.Skipped }
             .Select(r => (Name: r, Count: targets.Count(t => t.Result == r))).Where(p => p.Count > 0).Select(p => $"{N(p.Count)} {p.Name.ToLowerInvariant()}"));
         return new HygieneObjectOutcome(f, HygieneResults.Partial,
-            $"{N(done)} of {N(n)} objects {(kind is HygieneFixKind.SetCollectionRefreshType or HygieneFixKind.SetApplication or HygieneFixKind.SetSiteMaintenanceTask or HygieneFixKind.RunAutoDeploymentRule ? "changed" : "deleted")} ({counts}). "
+            $"{N(done)} of {N(n)} objects {(kind is HygieneFixKind.SetCollectionRefreshType or HygieneFixKind.SetApplication or HygieneFixKind.SetSiteMaintenanceTask or HygieneFixKind.RunAutoDeploymentRule or HygieneFixKind.RemoveBrokenSupersedence ? "changed" : "deleted")} ({counts}). "
             + $"First object not done: {first.Target.ObjectName} ({first.Target.ObjectKey}): {first.Message} The result of each object shows which objects remain.{note}")
         { Targets = targets };
     }
@@ -399,12 +405,35 @@ public sealed partial class SiteHygieneService
         }
     }
 
+    /// <summary>
+    /// The folder where the script saves the original application documents and the removed rules of one run. It sits beside the audit
+    /// log, in a folder for each plan.
+    /// </summary>
+    private string BackupFolderOf(PreparedChange prepared)
+    {
+        var root = BackupRoot;
+        if (root.Length == 0)
+        {
+            var audit = _audit.Path;
+            var folder = string.IsNullOrEmpty(audit) ? "" : System.IO.Path.GetDirectoryName(audit) ?? "";
+            root = folder.Length > 0 ? System.IO.Path.Combine(folder, "supersedence-backups") : System.IO.Path.Combine(System.IO.Path.GetTempPath(), "ApplicationPackager", "supersedence-backups");
+        }
+        return System.IO.Path.Combine(root, prepared.PreparedUtc.ToString("yyyyMMdd-HHmmss", System.Globalization.CultureInfo.InvariantCulture));
+    }
+
+    private string BackupNote(HygieneFixKind kind, PreparedChange prepared) =>
+        kind == HygieneFixKind.RemoveBrokenSupersedence ? " The original data is in " + BackupFolderOf(prepared) + "." : "";
+
+    /// <summary>The folder that holds the supersedence backups; empty means the folder beside the audit log.</summary>
+    public string BackupRoot { get; init; } = "";
+
     private static string DoneText(HygieneFixKind kind, int writes) => kind switch
     {
         HygieneFixKind.SetCollectionRefreshType => "The collection shows the new refresh type.",
         HygieneFixKind.SetApplication => "The application has the task sequence install setting in a new revision.",
         HygieneFixKind.SetSiteMaintenanceTask => "The task is enabled.",
         HygieneFixKind.RunAutoDeploymentRule => "The rule ran: it shows a new last run time.",
+        HygieneFixKind.RemoveBrokenSupersedence => "The application no longer has a supersedence rule that points at the deleted application. The change made a new revision.",
         _ => writes == 1 ? "Deleted. The site no longer lists the object." : $"Deleted {N(writes)} objects. The site no longer lists them."
     };
 

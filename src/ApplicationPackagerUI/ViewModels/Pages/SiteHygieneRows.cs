@@ -119,6 +119,7 @@ public static class SiteHygieneLabels
         HygieneFixKind.SetBoundaryGroup => "Change boundary group",
         HygieneFixKind.SetSiteMaintenanceTask => "Change maintenance task",
         HygieneFixKind.RunAutoDeploymentRule => "Run deployment rule",
+        HygieneFixKind.RemoveBrokenSupersedence => "Remove supersedence reference",
         _ => kind.ToString()
     };
 

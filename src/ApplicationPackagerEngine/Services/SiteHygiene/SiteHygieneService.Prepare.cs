@@ -27,7 +27,8 @@ public sealed partial class SiteHygieneService
     {
         HygieneFixKind.RemoveApplication, HygieneFixKind.RemoveApplicationDeployment, HygieneFixKind.RemoveApplicationRevisionHistory, HygieneFixKind.RemovePackage,
         HygieneFixKind.RemoveCollection, HygieneFixKind.RemoveDevice, HygieneFixKind.RemoveBootImage, HygieneFixKind.RemoveDriverPackage, HygieneFixKind.RemoveAutoDeploymentRule,
-        HygieneFixKind.RemoveMaintenanceWindow, HygieneFixKind.SetCollectionRefreshType, HygieneFixKind.SetApplication, HygieneFixKind.SetSiteMaintenanceTask, HygieneFixKind.RunAutoDeploymentRule
+        HygieneFixKind.RemoveMaintenanceWindow, HygieneFixKind.SetCollectionRefreshType, HygieneFixKind.SetApplication, HygieneFixKind.SetSiteMaintenanceTask, HygieneFixKind.RunAutoDeploymentRule,
+        HygieneFixKind.RemoveBrokenSupersedence
     };
 
     private const int MaxPrepared = 32;
@@ -192,6 +193,12 @@ public sealed partial class SiteHygieneService
             lines.Add("Before each change the page reads the object again and skips it when the finding no longer holds.");
         }
         if (kind == HygieneFixKind.SetApplication) lines.Add("Each change makes a new revision of the application.");
+        if (kind == HygieneFixKind.RemoveBrokenSupersedence)
+        {
+            lines.Add("Each change removes only the supersedence rules of one application that point at the deleted application, and makes one new revision of the application.");
+            lines.Add("Before the first change the page saves the original data to a folder: the full application document and the removed rules, in a file that Restore-HygSupersedence of Site Hygiene (PowerShell) reads. When the save fails, nothing is changed.");
+            lines.Add("Set-CMApplicationSupersedence -RemoveSupersedence is not used: it needs the superseded application and its deployment type, which a deleted application no longer has.");
+        }
         if (kind == HygieneFixKind.RunAutoDeploymentRule) lines.Add("The rule runs now: it can create or change a software update group and its deployment, and download update content.");
         if (kind == HygieneFixKind.RemoveBootImage)
             lines.Add("Boot media, prestaged media and PXE images that were made from the boot image are not recorded on the site. Check that no media in use needs the boot image before you delete it.");
@@ -219,6 +226,7 @@ public sealed partial class SiteHygieneService
         HygieneFixKind.SetApplication => "set the task sequence install setting of the applications",
         HygieneFixKind.SetSiteMaintenanceTask => "enable the site maintenance tasks",
         HygieneFixKind.RunAutoDeploymentRule => "run the automatic deployment rules",
+        HygieneFixKind.RemoveBrokenSupersedence => "remove the supersedence references to deleted applications",
         _ => "nothing"
     };
 

@@ -4,12 +4,14 @@
 
 ### Added
 
+- Site Hygiene can fix SUP-01: the fix Remove supersedence reference removes the rules that point at a deleted application, after the plan and the confirmation. It saves the original application definition and the removed rules to a folder first, changes nothing when that save fails, and reads the result back. The deprecated `Remove-CMDeploymentTypeSupersedence` and its replacement `Set-CMApplicationSupersedence -RemoveSupersedence` need the deleted application, so the fix edits the definition of the superseding application.
 - Settings, Systems in Use: the check boxes for ConfigMgr, Intune and WSUS now set the stored deployment target. Every combination has a name, for example IntuneAndWSUS. No box checked means nothing is published.
 - The command line follows the saved Systems in Use when you give no --target. A target that is empty or not valid never means ConfigMgr.
 - After Check Latest and Check ConfigMgr the log gets one line with the count of the products that need an update, for example "Check ConfigMgr finished: 2 of 315 products need an update; 2 selected." A product whose check failed is named in the line. A cancelled check writes no such line.
 
 ### Fixed
 
+- Fix the Site Hygiene check SUP-01 (a supersedence that points at a deleted application). The site removes the relation row of a supersedence when the superseded application is deleted, so the page found nothing. The page now reads the supersedence rules from the application definitions.
 - Fix the icon pack update that failed with a file in use error while the Packages page showed the icons. The page no longer keeps an icon file open, and it shows the new icons after the update without a restart.
 - A cancelled run names itself and says nothing about finishing. Check ConfigMgr, Check Latest and Check CVEs log "Check ConfigMgr cancelled: N of M products checked." (and the same for the other two), and One Click logs "One Click cancelled: N of M products done." The wording is the wording of the PowerShell app.
 
