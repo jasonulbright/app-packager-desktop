@@ -82,7 +82,7 @@ How `Pattern` works for each type:
 
 The scraper first returns the raw version. The `VersionTransform` field then produces the display version. A transform is a chain of steps that you separate with `|`: `strip_prefix:X`, `insert_dot:N`, `replace:X:Y` and `regex_replace:pattern:replacement`. An empty replacement deletes the match. `DisplayVersionOverride` replaces the display version. Its value `{version}` gives the raw version back.
 
-In `DownloadUrl`, `{version}` is the raw version and `{display_version}` is the display version. A `DownloadUrlQuery` finds the address in the same answer. A found address replaces the `DownloadUrl` template. 77 shipped definitions have an empty `DownloadUrl` because the scraper finds the address.
+In `DownloadUrl`, `{version}` is the raw version and `{display_version}` is the display version. A `DownloadUrlQuery` finds the address in the same answer. A found address replaces the `DownloadUrl` template. 78 shipped definitions have an empty `DownloadUrl`: the scraper finds the address, or the installer comes from the installer source folder.
 
 104 of the 327 definitions read `api.github.com`. Without a token, GitHub permits 60 requests each hour. App Packager Desktop takes a token from `APP_PACKAGER_GITHUB_TOKEN`, then `GITHUB_TOKEN`, then the token saved in Settings, then `gh auth token`.
 
