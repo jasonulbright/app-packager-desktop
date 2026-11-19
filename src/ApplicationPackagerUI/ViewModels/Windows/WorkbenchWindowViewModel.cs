@@ -89,6 +89,8 @@ public partial class WorkbenchWindowViewModel : ObservableObject
     [ObservableProperty] private string _descriptionSource = "";
     [ObservableProperty] private string _titleMode = "Packager default";
     [ObservableProperty] private string _titleModeSource = "";
+    [ObservableProperty] private bool _titleModeEditable = true;
+    [ObservableProperty] private string _titleModeLockNote = "";
     [ObservableProperty] private string _profileName = "";
     [ObservableProperty] private string _identityText = "";
     [ObservableProperty] private string _provenanceText = "";
@@ -475,6 +477,11 @@ public partial class WorkbenchWindowViewModel : ObservableObject
         PublisherSource = s.SourceText("Application.Publisher");
         DescriptionSource = s.SourceText("Application.Description");
         TitleModeSource = s.SourceText("Application.TitleMode");
+        // Supersedence needs n and n-1 as separate applications: while it is on for this application the version is in the title and the choice is locked.
+        var locked = ApplicationPackagerEngine.Services.Supersedence.SupersedenceSettingsEditor.LocksVersionInTitle(
+            _settings.Supersedence ?? new(), s.ApplicationId);
+        TitleModeEditable = !locked;
+        TitleModeLockNote = locked ? ApplicationPackagerEngine.Services.Supersedence.SupersedenceSettingsEditor.TitleLockNote : "";
         InstallModeSource = s.SourceText(ScriptTarget + ".Mode");
         CommandSource = s.SourceText(ScriptTarget + ".Command");
         DetectionSource = s.SourceText("Detection.Mode");

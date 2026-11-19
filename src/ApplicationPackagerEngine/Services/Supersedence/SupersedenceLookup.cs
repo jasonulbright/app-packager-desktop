@@ -5,7 +5,7 @@ namespace ApplicationPackagerEngine.Services.Supersedence;
 /// <summary>A deployment type of an application on the site.</summary>
 public sealed record LineDeploymentType(string CiId, string Name);
 
-/// <summary>An application on the site that carries the identity marker of the line.</summary>
+/// <summary>An application on the site that is an older or the new version of the application.</summary>
 public sealed record LineApplication(
     string CiId, string Title, string SoftwareVersion, bool IsExpired, IReadOnlyList<LineDeploymentType> DeploymentTypes);
 
@@ -30,7 +30,7 @@ public sealed record PairingResult(IReadOnlyList<DeploymentTypePair> Pairs, IRea
 public static class SupersedenceLookup
 {
     /// <summary>
-    /// The newest application with the marker whose title is not the title of the new application, that is not retired, and whose
+    /// The newest older version found by title and publisher whose title is not the title of the new application, that is not retired, and whose
     /// version is lower than the packaged version. A version that cannot be parsed is skipped and named.
     /// </summary>
     public static LookupResult Choose(IReadOnlyList<LineApplication> applications, string newTitle, string newVersion)
@@ -57,14 +57,14 @@ public static class SupersedenceLookup
 
         var ordered = candidates.OrderByDescending(a => Version.Parse(VersionCompare.Normalize(a.SoftwareVersion))).ToList();
         foreach (var other in ordered.Skip(1))
-            notes.Add($"'{other.Title}' {other.SoftwareVersion} also carries the marker and is not superseded by this publish.");
+            notes.Add($"'{other.Title}' {other.SoftwareVersion} is also an older version and is not superseded by this publish.");
         return new LookupResult(ordered[0], notes);
     }
 
     /// <summary>
     /// Pairs the deployment types of the new application with those of the old one. One and one are paired directly. With more than
     /// one, the pair is made by the suffix of the name that staging writes (<c>&lt;Title&gt; - &lt;Suffix&gt;</c>). A type with no partner
-    /// gets a warning and no relation. The program never links one architecture to another: the marker holds the architecture.
+    /// gets a warning and no relation. The title rule keeps one architecture apart from another.
     /// </summary>
     public static PairingResult Pair(LineApplication newApplication, LineApplication oldApplication)
     {
