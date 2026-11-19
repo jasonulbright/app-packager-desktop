@@ -18,6 +18,7 @@
 
 ### Fixed
 
+- Settings: the list of pages no longer needs a horizontal scroll bar. The list is 250 px wide at the start, and a handle between the list and the page changes its width.
 - Fix the icon pack update that failed with a file in use error while the Packages page showed the icons. The page no longer keeps an icon file open, and it shows the new icons after the update without a restart.
 - A cancelled run names itself and says nothing about finishing. Check ConfigMgr, Check Latest and Check CVEs log "Check ConfigMgr cancelled: N of M products checked." (and the same for the other two), and One Click logs "One Click cancelled: N of M products done." The wording is the wording of the PowerShell app.
 
