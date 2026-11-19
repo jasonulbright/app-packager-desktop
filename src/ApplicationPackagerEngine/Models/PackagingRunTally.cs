@@ -96,6 +96,13 @@ public sealed class PackagingRunTally
     /// </summary>
     public string CancelledLine(int total) => CancelledText(Finished, total);
 
+    /// <summary>
+    /// The line a cancelled check shows in the status bar and the log, named for the check:
+    /// "Check ConfigMgr cancelled: N of M products checked." It never says the check finished.
+    /// </summary>
+    public string CheckCancelledLine(string checkName, int total) =>
+        $"{checkName} cancelled: {Finished} of {total} {(total == 1 ? "product" : "products")} checked.";
+
     /// <summary>The same line for a run that counts its own products, such as One Click.</summary>
     public static string CancelledText(int finished, int total) =>
         $"Cancelled: {finished} of {total} {(total == 1 ? "product" : "products")} done.";

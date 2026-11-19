@@ -207,4 +207,34 @@ public class PackagingRunTallyTests
         Assert.Equal("Cancelled: 1 of 1 product done.", Tally(succeeded: 1, cancelled: true).CancelledLine(1));
         Assert.Equal("Cancelled: 3 of 7 products done.", Tally(succeeded: 2, failed: 1, interrupted: 1, cancelled: true).CancelledLine(7));
     }
+
+    [Fact]
+    public void ACancelledCheckNamesItselfAndCountsCheckedProducts()
+    {
+        Assert.Equal("Check ConfigMgr cancelled: 8 of 315 products checked.", Tally(succeeded: 8, cancelled: true).CheckCancelledLine("Check ConfigMgr", 315));
+        Assert.Equal("Check Latest cancelled: 3 of 10 products checked.", Tally(succeeded: 2, failed: 1, interrupted: 1, cancelled: true).CheckCancelledLine("Check Latest", 10));
+        Assert.Equal("Check CVEs cancelled: 0 of 1 product checked.", Tally(cancelled: true).CheckCancelledLine("Check CVEs", 1));
+    }
+
+    [Theory]
+    [InlineData("Check ConfigMgr")]
+    [InlineData("Check Latest")]
+    [InlineData("Check CVEs")]
+    public void ACancelledCheckNeverSaysItFinished(string check)
+    {
+        var line = Tally(succeeded: 1, cancelled: true).CheckCancelledLine(check, 4);
+        Assert.DoesNotContain("finish", line, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("complete", line, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void TheThreeChecksAndOneClickReportTheirCancelWithTheirOwnName()
+    {
+        var dir = Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "src", "ApplicationPackagerUI", "ViewModels", "Pages");
+        var all = string.Concat(Directory.GetFiles(dir, "PackagesViewModel*.cs").Select(File.ReadAllText));
+        Assert.Contains("\"checked\", \"Check Latest\")", all);
+        Assert.Contains("\"checked\", \"Check ConfigMgr\")", all);
+        Assert.Contains("\"checked\", \"Check CVEs\")", all);
+        Assert.Contains("One Click cancelled: {done} of {items.Count}", all);
+    }
 }

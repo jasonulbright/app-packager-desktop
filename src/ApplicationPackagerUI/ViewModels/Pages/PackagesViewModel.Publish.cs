@@ -449,7 +449,7 @@ public partial class PackagesViewModel : IOneClickRunner, IPublishActionHost
                 }
             }
             if (!canceled && token.IsCancellationRequested) { canceled = true; done = items.Count; }
-            StatusText = canceled ? PackagingRunTally.CancelledText(done, items.Count) : "One Click: run complete.";
+            StatusText = canceled ? $"One Click cancelled: {done} of {items.Count} {(items.Count == 1 ? "product" : "products")} done." : "One Click: run complete.";
             if (canceled) AddLogLine(StatusText);
             return canceled;
         }
