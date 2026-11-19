@@ -1,5 +1,11 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+
+- After Check Latest and Check ConfigMgr the log gets one line with the count of the products that need an update, for example "Check ConfigMgr finished: 2 of 315 products need an update; 2 selected." A product whose check failed is named in the line. A cancelled check writes no such line.
+
 ## [2026.1118.49] - 2026-11-18
 
 ### Added
