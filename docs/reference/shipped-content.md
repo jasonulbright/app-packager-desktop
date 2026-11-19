@@ -36,6 +36,7 @@ The folder `src\ApplicationPackagerEngine\Definitions` holds 327 definition file
 | Version scraper `CdnCab` | 6 |
 | Version scraper `DellCatalog` | 1 |
 | Version scraper `HeadProbe` | 1 |
+| Version scraper `LocalFile` | 2 |
 | `ArpName` with a pattern | 301 |
 | `ArpName` set to `none` | 26 |
 | With a `Cpe` | 302 |

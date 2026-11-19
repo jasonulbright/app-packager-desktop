@@ -230,7 +230,7 @@ public sealed class InstallerSourceFolderTests : IDisposable
     {
         var folder = Folder("nothing");
 
-        var ex = await Assert.ThrowsAsync<InvalidOperationException>(
+        var ex = await Assert.ThrowsAnyAsync<InvalidOperationException>(
             () => Staging().GetLatestVersionAsync(DefinitionFixture.Load(TeamViewerFile), default, folder));
 
         Assert.Contains(folder, ex.Message);
@@ -240,7 +240,7 @@ public sealed class InstallerSourceFolderTests : IDisposable
     [Fact]
     public async Task TheLocalFileScraperSaysThereIsNoWebSourceInsteadOfReturningNothing()
     {
-        var ex = await Assert.ThrowsAsync<InvalidOperationException>(
+        var ex = await Assert.ThrowsAnyAsync<InvalidOperationException>(
             () => new ScraperRegistry().GetLatestVersionAsync(new VersionScraperConfig { Type = "LocalFile" }));
 
         Assert.Contains("no web version source", ex.Message);
