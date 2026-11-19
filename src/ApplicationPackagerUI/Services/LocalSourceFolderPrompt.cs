@@ -11,8 +11,9 @@ namespace ApplicationPackagerUI.Services;
 /// </summary>
 public static class LocalSourceFolderPrompt
 {
-    public static string Description(string application) =>
-        $"Choose the folder that holds the {application} installer. Its download requires a sign-in, so it stages from a local copy.";
+    public static string Description(string application, string? note = null) =>
+        $"Choose the folder that holds the {application} installer. A script cannot download it, so it stages from the copy that you put in this folder."
+        + (string.IsNullOrWhiteSpace(note) ? "" : " " + note.Trim());
 
     /// <param name="rows">The selected rows in run order.</param>
     /// <param name="definitionOf">The row's definition, or null for a row with none.</param>
@@ -40,7 +41,7 @@ public static class LocalSourceFolderPrompt
                 continue;
             }
 
-            var chosen = pickFolder(Description(row.Application));
+            var chosen = pickFolder(Description(row.Application, def.LocalSource.Note));
             if (string.IsNullOrWhiteSpace(chosen))
             {
                 log($"Skipped {row.Application}: no installer source folder chosen.");

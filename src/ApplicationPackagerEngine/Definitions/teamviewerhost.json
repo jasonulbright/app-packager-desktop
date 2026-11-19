@@ -11,56 +11,82 @@
   "Cpe": "cpe:2.3:a:teamviewer:teamviewer:*:*:*:*:*:*:*:*",
   "ArpName": "TeamViewer Host",
   "SecurityAdvisoryUrl": "https://www.teamviewer.com/en/trust-center/security-bulletins/",
-  "InstallerType": "EXE",
-  "InstallerFramework": "NSIS",
+  "InstallerType": "MSI",
+  "InstallerFramework": "NativeMSI",
   "Acquisition": {},
   "VersionScraper": {
-    "Type": "FileVersion",
-    "Url": "https://download.teamviewer.com/download/version_15x/TeamViewer_Host_Setup_x64.exe",
-    "Pattern": "ProductVersion"
+    "Type": "LocalFile"
   },
-  "DownloadUrl": "https://download.teamviewer.com/download/version_15x/TeamViewer_Host_Setup_x64.exe",
-  "InstallerFileName": "TeamViewer_Host_Setup_x64.exe",
-  "InstallArgs": "/S",
-  "UninstallArgs": "/S",
+  "DownloadUrl": "",
+  "InstallerFileName": "TeamViewer_Host.msi",
+  "LocalSource": {
+    "Mode": "Required",
+    "Filter": "TeamViewer_Host*.msi",
+    "Exclude": [],
+    "Note": "Put the TeamViewer Host MSI (TeamViewer_Host.msi) in that folder. TeamViewer gives it only in the Management Console, under Design and Deploy; unzip the download first when it is a .zip.",
+    "VersionFromFile": true
+  },
+  "InstallArgs": "/qn /norestart",
+  "UninstallArgs": "/x {ProductCode} /qn /norestart",
   "InstallerSettings": [
     {
-      "Key": "AssignDevice",
-      "Label": "Assign the device after install",
-      "ControlType": "Toggle",
-      "DefaultValue": "false",
+      "Key": "ApiToken",
+      "Label": "API token",
+      "ControlType": "Text",
+      "DefaultValue": "",
+      "CommandFragment": "APITOKEN={value}",
+      "ValuePattern": "^[^\"\\r\\n]+$",
       "Group": "Assignment",
-      "Tooltip": "Runs TeamViewer.exe assignment after a successful install so the device lands in your company account. Needs the Assignment ID below."
+      "Tooltip": "The script token for APITOKEN, from the Management Console. It is written to the install script of the package in clear text. Leave empty to skip."
+    },
+    {
+      "Key": "CustomConfigId",
+      "Label": "Custom config ID",
+      "ControlType": "Text",
+      "DefaultValue": "",
+      "CommandFragment": "CUSTOMCONFIGID={value}",
+      "ValuePattern": "^[^\"\\r\\n]+$",
+      "Group": "Assignment",
+      "Tooltip": "CUSTOMCONFIGID of a custom Host module from the Management Console. Leave empty to skip."
     },
     {
       "Key": "AssignmentId",
       "Label": "Assignment ID",
       "ControlType": "Text",
       "DefaultValue": "",
+      "CommandFragment": "ASSIGNMENTID={value}",
+      "ValuePattern": "^[^\"\\r\\n]+$",
       "Group": "Assignment",
-      "Tooltip": "From Management Console, Design and Deploy: the assignment ID of your Host module. Leave empty to skip assignment."
+      "Tooltip": "ASSIGNMENTID from Management Console, Design and Deploy: the assignment ID of your Host module. Leave empty to skip assignment."
     },
     {
       "Key": "AssignmentOptions",
       "Label": "Assignment options",
       "ControlType": "Text",
-      "DefaultValue": "--grant-easy-access",
+      "DefaultValue": "",
+      "CommandFragment": "ASSIGNMENTOPTIONS=\"{value}\"",
+      "ValuePattern": "^[^\"\\r\\n]+$",
       "Group": "Assignment",
-      "Tooltip": "Extra switches for TeamViewer.exe assignment, for example --grant-easy-access, --device-alias %COMPUTERNAME%, --reassign."
+      "Tooltip": "The flags of ASSIGNMENTOPTIONS, for example --grant-easy-access or --reassign. Leave empty to skip."
+    },
+    {
+      "Key": "RemoveDesktopShortcut",
+      "Label": "Remove the desktop shortcut",
+      "ControlType": "Toggle",
+      "DefaultValue": "false",
+      "CommandFragment": "DESKTOPSHORTCUTS=0 ADDLOCAL=ALL REMOVE=f.DesktopShortcut",
+      "Group": "Options",
+      "Tooltip": "Adds DESKTOPSHORTCUTS=0 and ADDLOCAL=ALL REMOVE=f.DesktopShortcut to the msiexec command line."
     }
   ],
-  "PostInstallScript": {
-    "WhenSetting": "AssignDevice",
-    "WhenValue": "true",
-    "Script": "$tv = Join-Path $env:ProgramFiles 'TeamViewer\\TeamViewer.exe'\nif (-not (Test-Path -LiteralPath $tv)) { Write-Host 'TeamViewer.exe not found; assignment skipped'; exit 0 }\n$assignment = Start-Process -FilePath $tv -ArgumentList 'assignment --id {setting:AssignmentId} {setting:AssignmentOptions}' -Wait -PassThru -NoNewWindow\nWrite-Host \"Assignment exit $($assignment.ExitCode)\""
-  },
   "Detection": {
-    "Type": "File",
-    "FilePath": "C:\\Program Files\\TeamViewer",
-    "FileName": "TeamViewer.exe",
-    "PropertyType": "Version",
-    "Operator": "GreaterEquals",
-    "Is64Bit": true
+    "Type": "ArpEntry",
+    "ArpEntry": {
+      "View": "Both",
+      "DisplayNamePrefix": "TeamViewer Host",
+      "WindowsInstaller": true,
+      "Version": "{version}"
+    }
   },
   "RunningProcess": [
     "TeamViewer",

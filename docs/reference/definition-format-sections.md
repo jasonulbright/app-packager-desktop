@@ -128,7 +128,7 @@ For a self-extracting payload that wraps an inner setup program (the SQL Server 
 
 ## LocalSource
 
-For a product whose download needs a sign-in or whose catalog serves one build only. The installer comes from a folder that you set under Settings, Local Installer Sources. A valid signature is required. Shipped in the three `citrixworkspace-ltsr-*.json` files.
+For a product whose installer a script cannot download (a vendor sign-in or a bot protection) or whose catalog serves one build only. The installer comes from a folder that you set under Settings, Local Installer Sources. A valid signature is required unless `RequireSignature` is `false`. Shipped in the three `citrixworkspace-ltsr-*.json` files, `teamviewerhost.json` and `tortoisesvn.json`.
 
 | Field | Type | Meaning | Default |
 |---|---|---|---|
@@ -136,6 +136,11 @@ For a product whose download needs a sign-in or whose catalog serves one build o
 | `Filter` | string | File name wildcard that the installer must match. | `"*.exe"` |
 | `Exclude` | string list | Wildcards that disqualify a file that the filter matched. | `[]` |
 | `StagedNames` | list | Staged file name for each source name. The first match wins. Each item has `Match` (a wildcard) and `FileName`. `{version}` is the file version of the installer. When nothing matches, the file stages as `InstallerFileName`. | `[]` |
+| `Note` | string or null | What the folder must hold, in plain words. The folder prompt and the Settings row show it, and it ends every refusal about the folder. | `null` |
+| `VersionFromFile` | bool | `true`: the vendor has no web version source. The version is the version of the file in the folder (the ProductVersion of an MSI file), and Check Latest reports it. Use `"Type": "LocalFile"` in `VersionScraper`. | `false` |
+| `RequireSignature` | bool | `false`: an installer without a valid signature is staged and the log says so. | `true` |
+
+Example (`teamviewerhost.json`): `{ "Mode": "Required", "Filter": "TeamViewer_Host*.msi", "Exclude": [], "Note": "Put the TeamViewer Host MSI (TeamViewer_Host.msi) in that folder. ...", "VersionFromFile": true }`.
 
 Example (`citrixworkspace-ltsr-x64.json`): `{ "Mode": "Required", "Filter": "CitrixWorkspace*_x64*.exe", "Exclude": [], "StagedNames": [ { "Match": "*FullInstaller*", "FileName": "CitrixWorkspaceFullInstaller-LTSR-x64-{version}.exe" } ] }`.
 

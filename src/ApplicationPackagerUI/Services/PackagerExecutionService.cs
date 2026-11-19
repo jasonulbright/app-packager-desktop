@@ -30,7 +30,8 @@ public class PackagerExecutionService(
         if (packager.IsJsonDefined && packager.DefinitionPath is not null)
         {
             var def = LoadDefinition(packager.DefinitionPath, packager.DefinitionOrigin);
-            return await stagingService.GetLatestVersionAsync(def, ct);
+            var folder = settingsService.Load().LocalSourceFolders.TryGetValue(def.Id, out var saved) ? saved : null;
+            return await stagingService.GetLatestVersionAsync(def, ct, folder);
         }
 
         var settings = settingsService.Load();

@@ -156,7 +156,7 @@ A choice in the Workbench overrides the title choices. The two content options a
 
 - **M365 Apps - Channel**: **Monthly Enterprise Channel** (default), **Current Channel** or **Semi-Annual Enterprise Channel (kiosk)**.
 - **Install Parameters**: **Skip the review dialog before staging and use the saved values** (cleared at first). Each application with install parameters has an expander. An application marked for review in its definition still shows the dialog.
-- **Local Installer Sources**: one **Browse...** folder for each application whose download needs a sign-in. Stage takes the highest file version in the folder. The installer must carry a valid signature.
+- **Local Installer Sources**: one **Browse...** folder for each application whose installer a script cannot download (a vendor sign-in or a bot protection). You put the file in the folder by hand. Stage takes the highest file version in the folder. The installer must carry a valid signature, except where the row says otherwise. See [Installer source folders](#installer-source-folders).
 - **Packager Files**: one **Browse...** file for each file that an installer reads from its folder. The file is copied beside the installer and is never read.
 
 ![Deployment Type Defaults and the M365 Apps channel](../images/core-settings-defaults.png)
@@ -164,6 +164,23 @@ A choice in the Workbench overrides the title choices. The two content options a
 ![Install Parameters with one application expanded](../images/core-settings-install-parameters.png)
 
 ![Local Installer Sources and Packager Files](../images/core-settings-install-parameters-sources.png)
+
+### Installer source folders
+
+Some installers cannot be downloaded by a script. TeamViewer gives the Host MSI only to signed-in Management Console users. The TortoiseSVN site protects its download page against scripts, and App Packager Desktop does not try to get around that protection. For these applications you fill a folder, and Stage takes the installer from it.
+
+| Application | Put in the folder | File name rule |
+|---|---|---|
+| TeamViewer Host (x64) | The MSI from the Management Console, under Design and Deploy. Unzip the download first when it is a .zip; a .zip is not read. | `TeamViewer_Host*.msi` |
+| TortoiseSVN (x64) | The x64 MSI from tortoisesvn.net, downloaded by hand. | `TortoiseSVN-*-x64-*.msi` |
+| Citrix Workspace LTSR (x64, ARM64; x86 when you set a folder) | The installer from the Citrix download page. | `CitrixWorkspace*_<architecture>*.exe` |
+
+- **Where the folder is set.** Settings, Local Installer Sources: one folder for each application (the same folder is allowed). Stage and One Click ask for it when it is empty.
+- **Which file.** When the folder holds more than one match, the file with the highest version is staged: the ProductVersion of an MSI file, the file version of an EXE. A tie goes to the newest write time.
+- **Which version.** For TeamViewer Host and TortoiseSVN the version is the ProductVersion of the MSI file. It names the staged folder, the application and the detection. No web page is read. The TortoiseSVN MSI has three parts (for example `1.14.29743`); its file name has four.
+- **No matching file.** The run stops with a message that names the folder and the file to put there.
+- **Check Latest.** These two applications have no web version source. Check Latest shows the version of the newest matching MSI in the folder. With no folder or no matching file it fails, and the message says where the version comes from and what to put in the folder. Check ConfigMgr does not depend on it.
+- **Signature.** TeamViewer Host stages only an MSI with a valid signature. TortoiseSVN stages the file either way and the log shows the signature status.
 
 ### Citrix Workspace App - Install Parameters
 
