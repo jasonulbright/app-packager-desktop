@@ -1,6 +1,6 @@
 # Settings page
 
-The Settings page holds the settings of App Packager Desktop. This page describes each section in the order that the page shows it.
+The Settings page holds the settings of App Packager Desktop. This page describes each section in the order that the page shows it. The list of sections is on the left. To change the width of the list, drag the handle between the list and the section.
 
 ## What it does
 
