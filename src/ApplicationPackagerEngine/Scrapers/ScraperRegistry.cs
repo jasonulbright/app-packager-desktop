@@ -63,7 +63,7 @@ public sealed class ScraperRegistry
         return (raw, display);
     }
 
-    private static string ApplyTransform(string version, string transform)
+    public static string ApplyTransform(string version, string transform)
     {
         foreach (var step in transform.Split('|'))
         {

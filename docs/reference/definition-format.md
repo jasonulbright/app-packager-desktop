@@ -133,7 +133,7 @@ With a pause of 5 seconds between retries, one `HttpRegex` fetch ends after at m
 | Field | Type | Meaning | Default |
 |---|---|---|---|
 | `Url` | string or null | Address template. `{capture}` is the capture of the previous hop. `{capture0}` to `{captureN}` are earlier captures. `{version}` is the version captured so far. Omit it in the first hop to use `VersionScraper.Url`. A relative value resolves against the previous address. | `null` |
-| `Pattern` | string | Expression for the content. The capture that moves on is the named group `capture`, or group 1. The named groups `version` and `url` hold the version and the download address. A later hop replaces an earlier value. | `""` |
+| `Pattern` | string | Expression for the content. The capture that moves on is the named group `capture`, or group 1. The named groups `version` and `url` hold the version and the download address. A later hop replaces an earlier value. `{capture}` and `{capture0}` to `{captureN}` in the expression are replaced by the escaped capture (a quantifier such as `{2}` stays); `tableauprep.json` reads the point release of the train that the first page named. | `""` |
 | `SelectHighestVersion` | bool | Collects all matches and takes the highest capture. | `false` |
 
 Example (`rtools.json`, two hops):
