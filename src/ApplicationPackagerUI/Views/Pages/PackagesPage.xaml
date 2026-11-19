@@ -354,7 +354,7 @@
                             <Grid Width="24" Height="24" HorizontalAlignment="Center" VerticalAlignment="Center" ToolTip="{Binding IconTooltip}"
                                   AutomationProperties.AutomationId="PackagerIcon">
                                 <ui:SymbolIcon Symbol="Box24" FontSize="16" Opacity="0.35" />
-                                <Image Source="{Binding IconUri, Mode=OneWay, TargetNullValue={x:Null}, FallbackValue={x:Null}}" Width="24" Height="24" Stretch="Uniform"
+                                <Image Source="{Binding IconImage, Mode=OneWay, TargetNullValue={x:Null}, FallbackValue={x:Null}}" Width="24" Height="24" Stretch="Uniform"
                                        RenderOptions.BitmapScalingMode="HighQuality" />
                             </Grid>
                         </DataTemplate>
