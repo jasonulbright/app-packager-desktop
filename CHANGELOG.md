@@ -4,6 +4,8 @@
 
 ### Added
 
+- Settings, Systems in Use: the check boxes for ConfigMgr, Intune and WSUS now set the stored deployment target. Every combination has a name, for example IntuneAndWSUS. No box checked means nothing is published.
+- The command line follows the saved Systems in Use when you give no --target. A target that is empty or not valid never means ConfigMgr.
 - After Check Latest and Check ConfigMgr the log gets one line with the count of the products that need an update, for example "Check ConfigMgr finished: 2 of 315 products need an update; 2 selected." A product whose check failed is named in the line. A cancelled check writes no such line.
 
 ### Fixed

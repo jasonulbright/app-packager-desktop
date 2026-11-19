@@ -11,6 +11,14 @@ public sealed class SystemsInUse
     public bool Wsus { get; set; }
 
     /// <summary>
+    /// The name of the destination combination that these check boxes stand for. Every combination of the three has its own name;
+    /// no box checked is ContentOnly (nothing is published), never ConfigMgr.
+    /// </summary>
+    public string ToTargetName() => ConfigMgr || Intune || Wsus
+        ? new DestinationSet(ConfigMgr, Wsus, Intune).ToTargetName()
+        : DeploymentTargets.ContentOnly;
+
+    /// <summary>
     /// The systems for a loaded settings file. A file written before the
     /// setting existed carries none: ConfigMgr stays in use, Intune is in use
     /// when a tenant id is stored, and WSUS when a server name is stored.

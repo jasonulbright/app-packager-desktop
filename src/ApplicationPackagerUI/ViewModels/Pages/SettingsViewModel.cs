@@ -437,6 +437,7 @@ public partial class SettingsViewModel : ObservableObject, ISettingsReload
     }
 
     private bool _gitHubRefreshQueued;
+    private SystemsInUse? _loadedSystems;
 
     /// <summary>
     /// Downloads and installs the packager icon pack. The service reports every failure
@@ -634,6 +635,7 @@ public partial class SettingsViewModel : ObservableObject, ISettingsReload
         UseConfigMgr = systems.ConfigMgr;
         UseIntune = systems.Intune;
         UseWsus = systems.Wsus;
+        _loadedSystems = new SystemsInUse { ConfigMgr = systems.ConfigMgr, Intune = systems.Intune, Wsus = systems.Wsus };
         Wsus.Load(s.Wsus);
 
         OneClickAction = OneClickActions.Normalize(s.OneClick.Action);
@@ -745,6 +747,11 @@ public partial class SettingsViewModel : ObservableObject, ISettingsReload
         };
         // The name of the destination combination, for the code paths that read one target name.
         s.Intune.DeploymentTarget = DeploymentTargets.Normalize(defaults.ToTargetName());
+        // The Systems in Use check boxes derive the stored target. When they changed in this edit, their combination is also the One Click defaults.
+        var fromSystems = new SystemsInUse { ConfigMgr = UseConfigMgr, Intune = UseIntune, Wsus = UseWsus };
+        s.Intune.DeploymentTarget = fromSystems.ToTargetName();
+        if (_loadedSystems is not null && (_loadedSystems.ConfigMgr != UseConfigMgr || _loadedSystems.Intune != UseIntune || _loadedSystems.Wsus != UseWsus))
+            s.OneClick.DefaultDestinations = DestinationSet.FromTarget(s.Intune.DeploymentTarget);
 
         s.CitrixSwitches = TrimSwitches(CwaSwitches);
         s.Cwa = null;

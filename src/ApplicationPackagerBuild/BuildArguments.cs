@@ -12,6 +12,8 @@ public sealed record BuildOptions
     public string Profile { get; init; } = ApplicationIds.DefaultProfileId;
     public string? Version { get; init; }
     public string Target { get; init; } = RunTargets.Mecm;
+    /// <summary>True when --target was given. Without it the run follows the saved Systems in Use of the settings.</summary>
+    public bool TargetExplicit { get; init; }
     public bool Stage { get; init; }
     public bool Package { get; init; }
     public string? DownloadRoot { get; init; }
@@ -144,8 +146,10 @@ public static class BuildArguments
             return Fail($"--application is required. {HelpHint}");
 
         var target = RunTargets.Mecm;
+        var targetExplicit = false;
         if (values.TryGetValue("target", out var targetText))
         {
+            targetExplicit = true;
             if (RunTargets.Normalize(targetText.Trim()) is not { } known)
                 return Fail($"Unknown target '{targetText}'; expected {string.Join(", ", RunTargets.All)}.");
             target = known;
@@ -218,6 +222,7 @@ public static class BuildArguments
             Profile = Text(values, "profile") ?? ApplicationIds.DefaultProfileId,
             Version = Text(values, "version"),
             Target = target,
+            TargetExplicit = targetExplicit,
             Stage = Flag(values, "stage") == true,
             Package = Flag(values, "package") == true,
             DownloadRoot = Text(values, "download-root"),

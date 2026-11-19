@@ -119,8 +119,14 @@ public sealed class BuildRunner(
         settingsService.ReadFileOncePerRun();
         try
         {
-            settingsService.Load();
+            var loaded = settingsService.Load();
             if (settingsService.TakeLoadWarning() is { } warning) output.Error(warning);
+            if (!options.TargetExplicit)
+            {
+                // No --target: the run publishes to the destinations of the saved Systems in Use. An unknown or empty stored value is never ConfigMgr.
+                _options = options with { Target = DeploymentTargets.Normalize(loaded.Intune.DeploymentTarget) };
+                result.Target = _options.Target;
+            }
             await RunCoreAsync(result, ct);
         }
         catch (BuildRefusal ex)
