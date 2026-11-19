@@ -218,7 +218,7 @@ public sealed class InstallerSourceFolderTests : IDisposable
     {
         var def = DefinitionFixture.Load(file);
 
-        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => Staging().GetLatestVersionAsync(def));
+        var ex = await Assert.ThrowsAnyAsync<InvalidOperationException>(() => Staging().GetLatestVersionAsync(def));
 
         Assert.Contains("has no web version source", ex.Message);
         Assert.Contains("installer source folder", ex.Message);

@@ -337,7 +337,7 @@ public sealed class SettingsContractTests : IDisposable
         Assert.Equal(["a", "b", "d"], kept.Select(r => r.Uid));
         Assert.True(changed);
         Assert.Equal(chosen, settings.LocalSourceFolders["b"]);
-        Assert.Equal("Choose the folder that holds the App B installer. Its download requires a sign-in, so it stages from a local copy.", prompts[0]);
+        Assert.Equal("Choose the folder that holds the App B installer. A script cannot download it, so it stages from the copy that you put in this folder.", prompts[0]);
         Assert.Equal([$"Installer source for App B: {chosen}", "Skipped App C: no installer source folder chosen."], log);
     }
 }
