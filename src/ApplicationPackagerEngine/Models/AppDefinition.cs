@@ -67,9 +67,9 @@ public sealed class AppDefinition
     public VersionScraperConfig VersionScraper { get; set; } = new();
     public string DownloadUrl { get; set; } = "";
     /// <summary>
-    /// A second address for the same file, with the same tokens as <see cref="DownloadUrl"/>. The stage uses it only when the host
-    /// answers 404 for the first address; a 403 is no answer and never switches the address. For a vendor that serves one file under
-    /// two paths (Tableau: esdalt and tssoftware).
+    /// A second address for the same file, with the same tokens as <see cref="DownloadUrl"/>. The stage tries it when the first address
+    /// fails for any reason (403, 404, another HTTP error, a connection failure, a body that is no installer); the stage fails only when
+    /// both fail. For a vendor that serves one file under two paths (Tableau: esdalt and tssoftware).
     /// </summary>
     public string? FallbackDownloadUrl { get; set; }
     /// <summary>

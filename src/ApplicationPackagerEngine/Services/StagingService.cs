@@ -1271,14 +1271,6 @@ public sealed class StagingService
         }
         downloadUrl = ApplyDashedVersion(downloadUrl, version);
         var installerFileName = AssertPlainFileName(ResolveInstallerFileName(def, downloadUrl, version));
-        if (!string.IsNullOrWhiteSpace(def.FallbackDownloadUrl) && !File.Exists(Workbench.WorkbenchPaths.CombineUnder(contentPath, installerFileName)))
-        {
-            var fallbackUrl = ApplyDashedVersion(def.FallbackDownloadUrl
-                .Replace("{display_version}", version, StringComparison.OrdinalIgnoreCase)
-                .Replace("{version}", rawVersion, StringComparison.OrdinalIgnoreCase), version);
-            downloadUrl = await UrlAvailability.SelectAsync([downloadUrl, fallbackUrl],
-                url => UrlAvailability.ProbeAsync(url, def.VersionScraper.RequestHeaders, ct), onProgress);
-        }
         var installerPath = Workbench.WorkbenchPaths.CombineUnder(contentPath, installerFileName);
         var headers = def.VersionScraper.RequestHeaders;
         var magicType = MagicTypeFor(installerPath, def.InstallerType);
@@ -1307,17 +1299,33 @@ public sealed class StagingService
                     throw;
                 }
             }
-            else if (sharedCacheRoot is not null)
-            {
-                await SharedDownloadCache.FetchAsync(_downloadService, downloadUrl, installerPath, sharedCacheRoot, headers, onProgress, ct,
-                    keepCachedOnFailedRefresh: def.VersionScraper.Type.Equals("FileVersion", StringComparison.OrdinalIgnoreCase));
-                ValidateInstallerMagic(installerPath, magicType);
-            }
             else
             {
-                await _downloadService.DownloadAsync(downloadUrl, installerPath,
-                    onProgress: onProgress, ct: ct, headers: headers);
-                ValidateInstallerMagic(installerPath, magicType);
+                // A definition with a FallbackDownloadUrl (Tableau: esdalt and tssoftware) tries the second address when the first
+                // fails for any reason; a definition without one downloads from its one address exactly as before.
+                var addresses = new List<string> { downloadUrl };
+                if (!string.IsNullOrWhiteSpace(def.FallbackDownloadUrl))
+                    addresses.Add(ApplyDashedVersion(def.FallbackDownloadUrl
+                        .Replace("{display_version}", version, StringComparison.OrdinalIgnoreCase)
+                        .Replace("{version}", rawVersion, StringComparison.OrdinalIgnoreCase), version));
+                downloadUrl = await DownloadAddresses.TryInOrderAsync(addresses, async address =>
+                {
+                    try
+                    {
+                        if (sharedCacheRoot is not null)
+                            await SharedDownloadCache.FetchAsync(_downloadService, address, installerPath, sharedCacheRoot, headers, onProgress, ct,
+                                keepCachedOnFailedRefresh: def.VersionScraper.Type.Equals("FileVersion", StringComparison.OrdinalIgnoreCase));
+                        else
+                            await _downloadService.DownloadAsync(address, installerPath, onProgress: onProgress, ct: ct, headers: headers);
+                        ValidateInstallerMagic(installerPath, magicType);
+                    }
+                    catch when (addresses.Count > 1)
+                    {
+                        // A page or a partial file of the first address must not be taken for the installer of the second.
+                        try { File.Delete(installerPath); } catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
+                        throw;
+                    }
+                }, onProgress);
             }
         }
         else
