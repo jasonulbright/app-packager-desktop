@@ -80,7 +80,6 @@ A right-click selects the row and opens the menu.
 |---|---|
 | **View operation history...** | Opens the **Operation history** window for the row. |
 | **Edit application...** | Opens the [Workbench](workbench.md) for the row. A double-click on a row does the same. The sidebar entry **Workbench** opens it for the highlighted row. |
-| **Use as old application...** | Opens the **Old Application** window for the row, to link an application of the ConfigMgr site as the older version of this application. The row needs a staged build, because the title, the version and the architecture come from it. See [Publish to ConfigMgr](publish-to-configmgr.md). |
 | **Open Log Folder** | Opens the `Logs` folder in the **Download Root**. The folder holds the log files of the Stage and Publish runs. Nothing happens when the folder does not exist. |
 | **Open Staged Folder** | Opens the first folder in the **Download Root** whose name contains the file name of the definition without its extension. Opens the **Download Root** when no folder matches. |
 | **Open Network Share** | Opens the **File Share Root** in Explorer. |
@@ -93,24 +92,6 @@ A right-click selects the row and opens the menu.
 ![The row context menu](../images/core-packages-context-menu.png)
 
 A double-click on the check box or on a column header does not open the Workbench.
-
-## Old Application window
-
-**Use as old application...** opens the **Old Application** window. It needs a staged build and the settings that **Publish to ConfigMgr** needs. The first line of the window names the title and the version of the new application. Type part of the name of the older application and select **Search**. The window reads the applications of the site whose name contains the text, and lists their **Title**, **Version** and **State**. **Reason** says why an application cannot be linked.
-
-![The Old Application window with the applications of the site and their states](../images/core-packages-old-application.png)
-
-| State | Meaning |
-|---|---|
-| `Can be linked` | The application is older than the new one and has no keywords. |
-| `Linked` | The application already holds the identity marker of this line. |
-| `Not older` | The version is not lower than the new version, so the lookup would not choose it. |
-| `Has keywords` | The application has keywords of its own, which a write would replace. |
-| `Retired` | The application is retired. |
-| `Same title` | More than one application of the site has this title. The link addresses an application by its title, so nothing is written. Rename one of them in the console first. |
-| `Other line`, `Keywords unreadable`, `Version unreadable` | The application holds the marker of another line, its keywords could not be read, or its version cannot be read. |
-
-**Use as Old Application** asks first. **Remove Link** takes the link off the selected application that is `Linked`. See [Publish to ConfigMgr](publish-to-configmgr.md) for the rules.
 
 ## Log pane
 

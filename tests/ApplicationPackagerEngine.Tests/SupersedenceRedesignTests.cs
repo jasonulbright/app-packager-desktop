@@ -28,6 +28,19 @@ public sealed class SupersedenceRedesignTests
         Assert.Equal(new SupersedenceKey("Vendor App (x64)", "Vendor"), key);
     }
 
+    [Theory]
+    [InlineData("Everything (x64) - 1.4.1.1032", "Everything (x64)", "Everything (x64) - 1.4.0.1000", true)]
+    [InlineData("WizTree (x64) - 4.34", "WizTree (x64)", "WizTree (x64) - 4.30", true)]
+    [InlineData("7-Zip - 26.06", "7-Zip", "7-Zip - 25.01 (x64)", true)]
+    [InlineData("7-Zip - 26.06", "7-Zip", "7-Zip Extensions - 1.0", false)]
+    public void TheKeyFindsTheOlderTitleByTheRuleOfCheckConfigMgr(string newName, string expectedBase, string olderTitle, bool found)
+    {
+        var key = SupersedenceKey.For(Manifest(newName, newName[(newName.LastIndexOf(' ') + 1)..]));
+
+        Assert.Equal(expectedBase, key!.BaseTitle);
+        Assert.Equal(found, MecmApplicationTitleRule.Matches(key.BaseTitle, olderTitle));
+    }
+
     [Fact]
     public void ATitleThatIsOnlyItsVersionHasNoKey() =>
         Assert.Null(SupersedenceKey.For(Manifest("2.0.1", "2.0.1")));

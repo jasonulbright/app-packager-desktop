@@ -94,9 +94,7 @@ The **Cancel** button shows only while an operation runs. Esc works only while a
 | **Check CVEs** | Looks up the CVEs that an update fixes. | [CVE lookup](cve-lookup.md) |
 | **Stage** | Downloads and prepares the content. | [Stage and publish](stage-and-publish.md) |
 | **Publish to ConfigMgr** | Creates the ConfigMgr application. | [Stage and publish](stage-and-publish.md) |
-| **Apply supersedence** | Sets the supersedence relation from each checked application to the older version of its product line on the ConfigMgr site, without a new publish. It repeats the step that "Published, supersedence not applied" names, and it adds only the relations that are missing. | [Publish to ConfigMgr](publish-to-configmgr.md) |
-| **Rewrite old versions** | Shows the plan of the version clauses of the older applications of the line that would change from GreaterEquals to IsEquals, asks for the confirmation, reads the plan again and writes only when the site is unchanged, and restores through Undo (the rewrites of this line only). One application at a time. | [Publish to ConfigMgr](publish-to-configmgr.md) |
-| **Restore Old Versions** (under the grid) | Shows the plan of a restore of the earlier rewrites of the checked application's line from the log, and writes the old operator back after the confirmation. It does not plan a new rewrite. One application at a time. | [Publish to ConfigMgr](publish-to-configmgr.md) |
+| **Supersedence** | Opens a menu that turns supersedence on or off: for the checked applications (Replace, Replace and uninstall, Off, or follow the default), for all applications, or for none. Nothing is applied until a package run, and each run asks first. | [Publish to ConfigMgr](publish-to-configmgr.md) |
 | **Publish to Intune** | Publishes a Win32 app through Microsoft Graph. | [Stage and publish](stage-and-publish.md) |
 | **Publish to WSUS** | Publishes the installer as a WSUS update. | [WSUS publishing](wsus-publishing.md) |
 | **WSUS Updates** | Lists the updates that App Packager Desktop published to WSUS. | [WSUS publishing](wsus-publishing.md) |

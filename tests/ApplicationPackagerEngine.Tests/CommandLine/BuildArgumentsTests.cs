@@ -71,7 +71,7 @@ public sealed class BuildArgumentsTests
     {
         Assert.Equal("--record-installed-value and --accept-exact-block need --version: the value belongs to one version.",
             Refused("--application", "a", "--accept-exact-block"));
-        Assert.Equal("--record-installed-value and --accept-exact-block run alone: they do not stage, package or rewrite.",
+        Assert.Equal("--record-installed-value and --accept-exact-block run alone: they do not stage or package.",
             Refused("--application", "a", "--version", "1.0", "--accept-exact-block", "--package"));
         Assert.Equal("--record-installed-value and --accept-exact-block are separate runs; give one.",
             Refused("--application", "a", "--version", "1.0", "--accept-exact-block", "--record-installed-value", "1.0"));
@@ -89,7 +89,7 @@ public sealed class BuildArgumentsTests
                      "--estimated-minutes", "--maximum-minutes", "--packagers-root", "--log-folder", "--site-code",
                      "--provider-machine-name", "--file-server-path", "--comment", "--wsus-server", "--wsus-port",
                      "--wsus-use-ssl", "--wsus-classification", "--wsus-approval-group", "--wsus-decline-superseded",
-                     "--on-existing", "--local-source-folder", "--data-root", "--version-rule", "--supersedence", "--rewrite-old-versions", "--yes",
+                     "--on-existing", "--local-source-folder", "--data-root", "--version-rule", "--supersedence", "--yes",
                      "--record-installed-value", "--accept-exact-block", "--help"
                  })
             Assert.Contains(option, BuildArguments.Usage);
