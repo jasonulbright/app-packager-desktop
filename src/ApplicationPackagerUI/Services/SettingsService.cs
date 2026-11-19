@@ -113,6 +113,13 @@ public class SettingsService : IRunSettingsReader<AppSettings>
                 ResolveStoredTarget(settings, systemsStored);
                 DiscoveryPreferences.Normalize(settings);
                 settings.AppStates ??= [];
+                settings.CommandOverrides ??= [];
+                if (RemovedDefinitionSettings.Apply(settings) is { } removedNotice)
+                    lock (_gate)
+                    {
+                        if (_pendingWarning is null) _pendingWarning = removedNotice;
+                        else if (!_pendingWarning.Contains(removedNotice, StringComparison.Ordinal)) _pendingWarning += " " + removedNotice;
+                    }
                 foreach (var state in settings.AppStates.Values.Where(s => s is not null))
                 {
                     state.Published ??= [];

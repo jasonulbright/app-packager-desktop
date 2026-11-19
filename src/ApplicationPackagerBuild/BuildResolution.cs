@@ -1,6 +1,7 @@
 using System.Text.RegularExpressions;
 using ApplicationPackagerEngine.Models;
 using ApplicationPackagerEngine.Models.Workbench;
+using ApplicationPackagerEngine.Services;
 using ApplicationPackagerEngine.Services.Workbench;
 
 namespace ApplicationPackagerBuild;
@@ -23,6 +24,10 @@ public static partial class ApplicationResolver
     public static string Resolve(string value, IReadOnlyList<WorkbenchApplication> discovered)
     {
         var text = value.Trim();
+        // A removed definition names no application any more; the refusal says why and what to use.
+        if (RemovedDefinitions.ForName(text) is { } removed
+            && !discovered.Any(a => NameOf(a.ApplicationId).Equals(removed.Name, StringComparison.OrdinalIgnoreCase)))
+            throw new BuildRefusal($"{text}: {removed.Message}");
         if (PrefixPattern().IsMatch(text))
         {
             var colon = text.IndexOf(':');

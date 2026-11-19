@@ -4,8 +4,8 @@
   "WsusSupport": "Yes",
   "IconSource": "Installer",
   "Vendor": "Devolutions",
-  "Application": "PowerShell 7 (Devolutions)",
-  "CMName": "PowerShell 7 (Devolutions)",
+  "Application": "PowerShell 7 (Devolutions, third party)",
+  "CMName": "PowerShell 7 (Devolutions, third party)",
   "Architecture": "x64",
   "VendorUrl": "https://github.com/Devolutions/pwsh-distro",
   "Cpe": "cpe:2.3:a:microsoft:powershell:*:*:*:*:*:*:*:*",
@@ -25,6 +25,10 @@
   "DownloadUrl": "",
   "RequirePayloadHash": true,
   "RequireValidSignature": true,
+  "StageNotes": [
+    "Third party. Devolutions is not Microsoft: Microsoft supports PowerShell only in its own packages, and this MSI is a repackaging of the Microsoft payload by Devolutions. From PowerShell 7.7.0 Microsoft publishes no MSI, and this package keeps an MSI-based installation for all users on the 7.7 line.",
+    "The other PowerShell 7 definitions: PowerShell 7 (x64), the Microsoft MSI of the LTS line; and PowerShell 7 Stable (MSIX, per user), the Microsoft MSIX package."
+  ],
   "InstallArgs": "/qn /norestart ADD_PATH=1",
   "UninstallArgs": "/x {ProductCode} /qn /norestart",
   "Detection": {

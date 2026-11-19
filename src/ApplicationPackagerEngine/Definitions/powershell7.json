@@ -10,7 +10,6 @@
     "VendorUrl":  "https://github.com/PowerShell/PowerShell",
     "Cpe":  "cpe:2.3:a:microsoft:powershell:*:*:*:*:*:*:*:*",
     "ArpName":  "PowerShell 7-x64",
-    "ArpVersion":  "7.[0-35-9].* | 7.[0-9][0-9]*",
     "SecurityAdvisoryUrl":  "https://github.com/PowerShell/PowerShell/security/advisories",
     "InstallerType":  "MSI",
     "InstallerFramework":  "NativeMSI",
@@ -19,13 +18,19 @@
                     },
     "VersionScraper":  {
                            "Type":  "HttpRegex",
-                           "Url":  "https://api.github.com/repos/PowerShell/PowerShell/releases?per_page=30",
-                           "Pattern":  "\"name\":\\s*\"PowerShell-(\\d+\\.\\d+\\.\\d+)-win-x64\\.msi\"",
+                           "Url":  "https://api.github.com/repos/PowerShell/PowerShell/releases?per_page=100",
+                           "Pattern":  "\"name\":\\s*\"PowerShell-(7\\.6\\.\\d+)-win-x64\\.msi\"",
                            "SelectHighestVersion":  true
                        },
     "DownloadUrl":  "https://github.com/PowerShell/PowerShell/releases/download/v{display_version}/PowerShell-{display_version}-win-x64.msi",
-    "InstallArgs":  "/quiet /norestart ADD_EXPLORER_CONTEXT_MENU_OPENPOWERSHELL=1 ENABLE_PSREMOTING=1 REGISTER_MANIFEST=1 ADD_PATH=1 USE_MU=0 ENABLE_MU=0",
+    "RequireValidSignature":  true,
+    "InstallArgs":  "/quiet /norestart ADD_EXPLORER_CONTEXT_MENU_OPENPOWERSHELL=1 ENABLE_PSREMOTING=1 REGISTER_MANIFEST=1 ADD_PATH=1 USE_MU=1 ENABLE_MU=1",
     "UninstallArgs":  "/x {ProductCode} /qn /norestart",
+    "StageNotes":  [
+                       "Release channel: Long Term Servicing (LTS). This definition, PowerShell 7 (x64), follows the 7.6 line, which Microsoft Learn (PowerShell Support Lifecycle) names as the LTS release, supported until 14-Nov-2028. It never takes a release of another line. Change the line in VersionScraper.Pattern when the lifecycle page names a new LTS line.",
+                       "PowerShell 7.7.0 and later Stable releases publish no MSI. The Microsoft MSI installs for all users and supports remoting and the all-users scope; the choice for servers and managed devices. The PowerShell 7 Stable (MSIX) definition is single-user and has no remoting. The PowerShell 7 (Devolutions, third party) definition is a third-party MSI.",
+                       "The MSI opts the device into updates through Microsoft Update, WSUS and Configuration Manager (USE_MU=1). The detection accepts the packaged version or a newer one, so a device that was updated stays compliant."
+                   ],
     "Detection":  {
                       "Type":  "RegistryKeyValue",
                       "RegistryHive":  "HKLM",

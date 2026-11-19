@@ -1,6 +1,8 @@
 # Supported applications
 
-The catalog holds 327 application definitions. The list comes from the definition files in `src/ApplicationPackagerEngine/Definitions`. The **Application** column is the name that shows in the grid.
+The catalog holds 326 application definitions. The list comes from the definition files in `src/ApplicationPackagerEngine/Definitions`. The **Application** column is the name that shows in the grid.
+
+PowerShell 7 comes in three definitions, one for each release channel of Microsoft Learn ([PowerShell Support Lifecycle](https://learn.microsoft.com/en-us/powershell/scripting/install/powershell-support-lifecycle)): **PowerShell 7 (x64)** is the Long Term Servicing (LTS) line, today 7.6 (supported until 14-Nov-2028), as the Microsoft MSI for all users, with remoting and the all-users scope. **PowerShell 7 Stable (MSIX, per user)** is the Stable release (7.7), as the Microsoft MSIX package: a single-user installation without PowerShell remoting. The Learn page still lists 7.7 as a preview, although 7.7.0 is published. **PowerShell 7 (Devolutions, third party)** is a third-party MSI that Devolutions builds from the Microsoft payload; Microsoft does not support it. The definition `powershell7lts` (PowerShell 7.4) was removed because 7.4 is out of support since 10 Nov 2026; its settings move to PowerShell 7 (x64).
 
 | Vendor | Application | Architecture | Installer type |
 |---|---|---|---|
@@ -77,7 +79,7 @@ The catalog holds 327 application definitions. The list comes from the definitio
 | DbVis Software AB | DbVisualizer (x64) | x64 | EXE |
 | Dell | RVTools (x64) | x64 | MSI |
 | Dell Inc. | Dell Command Update (x64) | x64 | EXE |
-| Devolutions | PowerShell 7 (Devolutions) | x64 | MSI |
+| Devolutions | PowerShell 7 (Devolutions, third party) | x64 | MSI |
 | Devolutions | Remote Desktop Manager (x64) | x64 | MSI |
 | DisplayLink | DisplayLink Graphics (x64) | x64 | EXE |
 | dnGREP | dnGREP (x64) | x64 | MSI |
@@ -199,9 +201,8 @@ The catalog holds 327 application definitions. The list comes from the definitio
 | Microsoft | Microsoft OpenJDK 25 (MSI) | x64 | MSI |
 | Microsoft | Microsoft Teams (x64) | x64 | EXE |
 | Microsoft | Power BI Desktop (x64) | x64 | EXE |
-| Microsoft | PowerShell 7 (MSIX) | x64 | MSIX |
 | Microsoft | PowerShell 7 (x64) | x64 | MSI |
-| Microsoft | PowerShell 7 LTS (x64) | x64 | MSI |
+| Microsoft | PowerShell 7 Stable (MSIX, per user) | x64 | MSIX |
 | Microsoft | PowerToys (x64) | x64 | EXE |
 | Microsoft | SharePoint Online Management Shell (x64) | x64 | MSI |
 | Microsoft | SQL Server 2022 Express (x64) | x64 | EXE |
