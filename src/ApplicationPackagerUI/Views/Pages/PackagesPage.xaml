@@ -204,6 +204,9 @@
                        Icon="{ui:SymbolIcon Dismiss24}"
                        Appearance="Danger"
                        Command="{Binding CancelOperationCommand}"
+                       AutomationProperties.AutomationId="btnCancelOperation"
+                       VerticalAlignment="Top"
+                       Margin="0,0,4,8"
                        Visibility="{Binding IsOperationRunning, Converter={StaticResource BooleanToVisibilityConverter}}" />
             </WrapPanel>
         </WrapPanel>

@@ -150,6 +150,18 @@ public sealed class PageStructureTests
         Assert.All(groups, g => Assert.True(g.Elements().Count() >= 3));
     }
 
+    // Every toolbar button, Cancel included, has the same margin and does not stretch, so Cancel has the height and the baseline of its neighbours when the row wraps.
+    [Fact]
+    public void EveryAppPackagerToolbarButtonHasTheSameMarginAndDoesNotStretch()
+    {
+        var doc = Xaml("Views", "Pages", "PackagesPage.xaml");
+        var toolbar = doc.Descendants().Single(e => e.Name.LocalName == "WrapPanel" && Attr(e, "{http://schemas.microsoft.com/winfx/2006/xaml}Name") == "AppPackagerToolbar");
+        var buttons = toolbar.Descendants().Where(e => e.Name.LocalName == "Button").ToList();
+        Assert.Contains(buttons, b => Attr(b, "Content") == "Cancel");
+        Assert.All(buttons, b => Assert.Equal("0,0,4,8", Attr(b, "Margin")));
+        Assert.Equal("Top", Attr(buttons.Single(b => Attr(b, "Content") == "Cancel"), "VerticalAlignment"));
+    }
+
     private static IReadOnlyList<XElement> ToolbarGroups(XDocument doc, string key, string value) =>
         doc.Descendants().Single(e => e.Name.LocalName == "WrapPanel" && (Attr(e, key) == value))
             .Elements().Where(e => e.Name.LocalName != "WrapPanel.Resources").ToList();
