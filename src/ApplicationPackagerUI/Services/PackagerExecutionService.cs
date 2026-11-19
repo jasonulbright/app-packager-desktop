@@ -1655,6 +1655,7 @@ public class PackagerExecutionService(
     {
         using var process = new Process { StartInfo = ChildStartInfo(arguments, environment) };
         process.Start();
+        RunChildProcesses.Track(process);
         process.StandardInput.Close();
 
         // Read stderr without the caller's token: abandoning it leaves the child blocked

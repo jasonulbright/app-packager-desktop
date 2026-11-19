@@ -1,3 +1,4 @@
+using ApplicationPackagerEngine.Services;
 using ApplicationPackagerEngine.Services.VendorImport;
 using System.Diagnostics;
 using System.Text;
@@ -115,12 +116,8 @@ public class HttpRegexScraper : IVersionScraper
             ["-L", "--silent", "--max-time", "60", "--max-redirs", "10", "--max-filesize", "1", "-w", "%{url_effective}", .. UserAgentArguments(userAgent), .. headers ?? []], url);
 
         var stdoutTask = process.StandardOutput.ReadToEndAsync(ct);
-        var exitTask = process.WaitForExitAsync(ct);
-        var completed = await Task.WhenAny(exitTask, Task.Delay(TimeSpan.FromSeconds(65), ct));
-
-        if (completed != exitTask)
+        if (!await RunChildProcesses.WaitOrKillAsync(process, TimeSpan.FromSeconds(65), ct))
         {
-            try { process.Kill(true); } catch { }
             return null;
         }
 
@@ -188,11 +185,8 @@ public class HttpRegexScraper : IVersionScraper
              .. UserAgentArguments(userAgent), .. headers], url);
 
         var stdoutTask = process.StandardOutput.ReadToEndAsync(ct);
-        var exitTask = process.WaitForExitAsync(ct);
-        var completed = await Task.WhenAny(exitTask, Task.Delay(TimeSpan.FromSeconds(65), ct));
-        if (completed != exitTask)
+        if (!await RunChildProcesses.WaitOrKillAsync(process, TimeSpan.FromSeconds(65), ct))
         {
-            try { process.Kill(true); } catch { }
             ct.ThrowIfCancellationRequested();
             return "";
         }
@@ -209,12 +203,8 @@ public class HttpRegexScraper : IVersionScraper
             ["-L", "--silent", "--show-error", .. FetchLimitArguments(retries, maxTimeSeconds), .. GitHubRateLimit.HeaderArguments(headerFile), .. UserAgentArguments(userAgent), .. headers ?? []], url);
 
         var stdoutTask = process.StandardOutput.ReadToEndAsync(ct);
-        var exitTask = process.WaitForExitAsync(ct);
-        var completed = await Task.WhenAny(exitTask, Task.Delay(FetchBound(retries, maxTimeSeconds), ct));
-
-        if (completed != exitTask)
+        if (!await RunChildProcesses.WaitOrKillAsync(process, FetchBound(retries, maxTimeSeconds), ct))
         {
-            try { process.Kill(true); } catch { }
             try { File.Delete(headerFile); } catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
             return null;
         }
@@ -234,12 +224,8 @@ public class HttpRegexScraper : IVersionScraper
         using var process = CurlProcess.Start(["--head", "-L", "--silent", "--max-time", "15"], url);
 
         var stdoutTask = process.StandardOutput.ReadToEndAsync(ct);
-        var exitTask = process.WaitForExitAsync(ct);
-        var completed = await Task.WhenAny(exitTask, Task.Delay(TimeSpan.FromSeconds(20), ct));
-
-        if (completed != exitTask)
+        if (!await RunChildProcesses.WaitOrKillAsync(process, TimeSpan.FromSeconds(20), ct))
         {
-            try { process.Kill(true); } catch { }
             return null;
         }
 

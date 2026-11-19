@@ -100,11 +100,8 @@ public static class GitHubApiStatusService
         using var process = CurlProcess.Start(
             ["-L", "--silent", "--show-error", "--max-time", "20", "-A", "app-packager-desktop"], url);
         var stdoutTask = process.StandardOutput.ReadToEndAsync(ct);
-        var exitTask = process.WaitForExitAsync(ct);
-        var completed = await Task.WhenAny(exitTask, Task.Delay(TimeSpan.FromSeconds(25), ct));
-        if (completed != exitTask)
+        if (!await RunChildProcesses.WaitOrKillAsync(process, TimeSpan.FromSeconds(25), ct))
         {
-            try { process.Kill(true); } catch { }
             return null;
         }
         var stdout = await stdoutTask;

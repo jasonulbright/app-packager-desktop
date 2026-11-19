@@ -76,7 +76,7 @@ public class PackagingRunTallyTests
 
         Assert.Equal(0, tally.Attempted);
         Assert.Equal(0, tally.Interrupted);
-        Assert.Equal("Stage cancelled. 0 of 4 staged, 4 not attempted.",
+        Assert.Equal("Cancelled: 0 of 4 products done.",
             tally.Summarize("Stage", 4, "staged"));
     }
 
@@ -90,7 +90,7 @@ public class PackagingRunTallyTests
         var tally = Tally(succeeded: 2, cancelled: true);
 
         Assert.Equal(0, tally.Interrupted);
-        Assert.Equal("Stage cancelled. 2 of 5 staged, 3 not attempted.",
+        Assert.Equal("Cancelled: 2 of 5 products done.",
             tally.Summarize("Stage", 5, "staged"));
     }
 
@@ -104,7 +104,7 @@ public class PackagingRunTallyTests
         var tally = Tally(succeeded: 2, interrupted: 1, cancelled: true);
 
         Assert.Equal(3, tally.Attempted);
-        Assert.Equal("Stage cancelled. 2 of 5 staged, 1 interrupted, 2 not attempted.",
+        Assert.Equal("Cancelled: 2 of 5 products done.",
             tally.Summarize("Stage", 5, "staged"));
     }
 
@@ -124,7 +124,7 @@ public class PackagingRunTallyTests
     {
         var cancelled = Tally(succeeded: 1, cancelled: true).Summarize("Latest check", 3, "checked");
 
-        Assert.StartsWith("Latest check cancelled.", cancelled);
+        Assert.Equal("Cancelled: 1 of 3 products done.", cancelled);
         Assert.DoesNotContain("complete", cancelled);
     }
 
@@ -197,7 +197,14 @@ public class PackagingRunTallyTests
     {
         var tally = Tally(succeeded: 1, failed: 1, interrupted: 1, cancelled: true);
 
-        Assert.Equal($"{label} cancelled. 1 of 4 {verb}, 1 failed, 1 interrupted, 1 not attempted.",
-            tally.Summarize(label, 4, verb));
+        Assert.Equal("Cancelled: 2 of 4 products done.", tally.Summarize(label, 4, verb));
+    }
+
+    [Fact]
+    public void TheCancelLineNamesFinishedAndTotalProducts()
+    {
+        Assert.Equal("Cancelled: 0 of 1 product done.", Tally(cancelled: true).CancelledLine(1));
+        Assert.Equal("Cancelled: 1 of 1 product done.", Tally(succeeded: 1, cancelled: true).CancelledLine(1));
+        Assert.Equal("Cancelled: 3 of 7 products done.", Tally(succeeded: 2, failed: 1, interrupted: 1, cancelled: true).CancelledLine(7));
     }
 }

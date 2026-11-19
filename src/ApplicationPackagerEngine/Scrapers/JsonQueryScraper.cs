@@ -1,3 +1,4 @@
+using ApplicationPackagerEngine.Services;
 using System.Diagnostics;
 using System.Text.Json;
 using System.Text.RegularExpressions;
@@ -284,12 +285,8 @@ public sealed class JsonQueryScraper : IVersionScraper
             ["-L", "--silent", "--show-error", "--max-time", "25", .. GitHubRateLimit.HeaderArguments(headerFile), .. ua, .. headers ?? []], url);
 
         var stdoutTask = process.StandardOutput.ReadToEndAsync(ct);
-        var exitTask = process.WaitForExitAsync(ct);
-        var completed = await Task.WhenAny(exitTask, Task.Delay(TimeSpan.FromSeconds(30), ct));
-
-        if (completed != exitTask)
+        if (!await RunChildProcesses.WaitOrKillAsync(process, TimeSpan.FromSeconds(30), ct))
         {
-            try { process.Kill(true); } catch { }
             try { File.Delete(headerFile); } catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
             return null;
         }

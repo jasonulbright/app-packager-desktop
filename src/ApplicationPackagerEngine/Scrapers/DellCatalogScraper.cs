@@ -1,3 +1,4 @@
+using ApplicationPackagerEngine.Services;
 using System.Diagnostics;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -194,12 +195,8 @@ public sealed class DellCatalogScraper : HttpRegexScraper
     private static async Task<int> WaitAsync(Process process, TimeSpan timeout, CancellationToken ct)
     {
         var stdoutTask = process.StandardOutput.ReadToEndAsync(ct);
-        var exitTask = process.WaitForExitAsync(ct);
-        var completed = await Task.WhenAny(exitTask, Task.Delay(timeout, ct));
-
-        if (completed != exitTask)
+        if (!await RunChildProcesses.WaitOrKillAsync(process, timeout, ct))
         {
-            try { process.Kill(true); } catch { }
             return -1;
         }
 

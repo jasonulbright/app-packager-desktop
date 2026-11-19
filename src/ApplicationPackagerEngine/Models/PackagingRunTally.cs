@@ -87,12 +87,25 @@ public sealed class PackagingRunTally
         return string.Join(", ", parts);
     }
 
+    /// <summary>Products the run finished with a verdict: everything attempted except the one a cancel interrupted.</summary>
+    public int Finished => Attempted - Interrupted;
+
+    /// <summary>
+    /// The line a cancelled run shows in the status bar and the log: "Cancelled: N of M products done."
+    /// M is the whole run; the word is singular when M is 1.
+    /// </summary>
+    public string CancelledLine(int total) => CancelledText(Finished, total);
+
+    /// <summary>The same line for a run that counts its own products, such as One Click.</summary>
+    public static string CancelledText(int finished, int total) =>
+        $"Cancelled: {finished} of {total} {(total == 1 ? "product" : "products")} done.";
+
     /// <summary>
     /// The whole status line. A cancelled run says so rather than claiming completion,
     /// which is what a loop that breaks on cancellation and then falls through does.
     /// </summary>
     public string Summarize(string operationLabel, int total, string successVerb) =>
         Cancelled
-            ? $"{operationLabel} cancelled. {Describe(total, successVerb)}."
+            ? CancelledLine(total)
             : $"{operationLabel} complete. {Describe(total, successVerb)}.";
 }

@@ -2166,12 +2166,10 @@ public sealed class StagingService
         };
 
         process.Start();
-        var exitTask = process.WaitForExitAsync(ct);
-        var completed = await Task.WhenAny(exitTask, Task.Delay(timeout, ct));
 
-        if (completed != exitTask)
+        RunChildProcesses.Track(process);
+        if (!await RunChildProcesses.WaitOrKillAsync(process, timeout, ct))
         {
-            try { process.Kill(true); } catch { }
             return null;
         }
 

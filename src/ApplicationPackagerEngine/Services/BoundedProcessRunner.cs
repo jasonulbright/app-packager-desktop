@@ -27,6 +27,7 @@ public static class BoundedProcessRunner
 
         using var process = new Process { StartInfo = startInfo };
         process.Start();
+        RunChildProcesses.Track(process);
         // A redirected standard input is closed at once, so a child that reads it gets end of input instead of waiting.
         if (startInfo.RedirectStandardInput) process.StandardInput.Close();
 
