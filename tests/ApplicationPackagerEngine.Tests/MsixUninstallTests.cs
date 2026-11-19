@@ -111,4 +111,35 @@ public sealed class MsixUninstallTests : IDisposable
 
         Assert.Equal(Removed(bundle), calls);
     }
+
+    /// <summary>
+    /// A package that a user updated from the Store refuses the deprovision, and the removal for all users then takes the
+    /// provisioning entry away and reports a destage error. The wrapper succeeds when no provisioning entry is left.
+    /// </summary>
+    private static string FailingStubs(bool provisioningRemainsAfterRemoval) => $$"""
+        $global:provisioned = $true
+        function Get-AppxProvisionedPackage { [CmdletBinding()] param([switch]$Online)
+            if ($global:provisioned) { [pscustomobject]@{ DisplayName = 'Contoso.Tool'; PackageName = 'Contoso.Tool_1.0.0.0_neutral_~_{{PublisherId}}' } } }
+        function Remove-AppxProvisionedPackage { [CmdletBinding()] param([switch]$Online, [string]$PackageName) throw 'Removal failed. 0x80073CFA' }
+        function Get-AppxPackage { [CmdletBinding()] param([switch]$AllUsers, [string]$Name, [string[]]$PackageTypeFilter)
+            [pscustomobject]@{ PackageFullName = 'Contoso.Tool_2.0.0.0_x64__{{PublisherId}}'; PublisherId = '{{PublisherId}}' } }
+        function Remove-AppxPackage { [CmdletBinding()] param([Parameter(ValueFromPipeline)]$InputObject, [string]$Package, [switch]$AllUsers)
+            $global:provisioned = {{(provisioningRemainsAfterRemoval ? "$true" : "$false")}}
+            throw 'Deployment DeStage operation failed with error 0x80070032' }
+        """;
+
+    [Theory]
+    [InlineData(false, 0)]
+    [InlineData(true, 1)]
+    public async Task TheStagedUninstallWrapper_JudgesAFailedRemovalByTheProvisioningEntryThatIsLeft(bool remains, int expectedExit)
+    {
+        var package = Package(bundle: false);
+        new WrapperGeneratorService().GenerateMsixWrappers(_dir, Path.GetFileName(package), "AABB", provisioned: true, publisherId: PublisherId);
+
+        var (exitCode, stdOut, stdErr) = await WindowsPowerShellHost.RunAsync(
+            FailingStubs(remains) + $"\r\n& '{Path.Combine(_dir, "uninstall.ps1")}'\r\nexit $LASTEXITCODE", null, CancellationToken.None, "apd-msixuninstall-fail");
+
+        Assert.True(exitCode == expectedExit, $"exit {exitCode}, expected {expectedExit}. out: {stdOut} err: {stdErr}");
+        if (remains) Assert.Contains("0x80073CFA", stdErr);
+    }
 }

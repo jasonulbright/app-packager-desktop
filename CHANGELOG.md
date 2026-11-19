@@ -4,9 +4,15 @@
 
 ### Added
 
+- A definition can carry extra files for an MSIX (`ExtraFiles`): a ZIP of dependency packages and a license file. Stage downloads each file, checks its SHA-256, extracts the dependency packages of the named architecture folders, and the install wrapper provisions the package with the dependencies of the device processor and the license. A definition can also carry `StageNotes`, lines that the stage log shows. An imported feed cannot carry extra files.
+- Add the App Installer (WinGet) definition (bundle, dependency packages and license of the winget-cli release, all checked against the GitHub digests) and the PowerShell 7 (MSIX) definition (the Microsoft msixbundle; its stage notes name the limits of the MSIX package: single user, no remoting, no all-users scope). Both are in parity with the PowerShell app.
 - Settings, Systems in Use: the check boxes for ConfigMgr, Intune and WSUS now set the stored deployment target. Every combination has a name, for example IntuneAndWSUS. No box checked means nothing is published.
 - The command line follows the saved Systems in Use when you give no --target. A target that is empty or not valid never means ConfigMgr.
 - After Check Latest and Check ConfigMgr the log gets one line with the count of the products that need an update, for example "Check ConfigMgr finished: 2 of 315 products need an update; 2 selected." A product whose check failed is named in the line. A cancelled check writes no such line.
+
+### Changed
+
+- The MSIX uninstall wrapper no longer fails when the deprovision is refused or a user copy cannot be removed. It tries both steps and judges the result by the provisioning entry that is left. A package that a user updated from the Store (App Installer on a server) refuses the deprovision with 0x80073CFA, which made the uninstall fail although the removal for all users took the entry away.
 
 ### Fixed
 

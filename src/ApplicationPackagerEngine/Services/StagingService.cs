@@ -343,6 +343,7 @@ public sealed class StagingService
             // Operator inputs the stage cannot do without refuse it before any download.
             var postExecutionBehavior = NormalizePostExecutionBehavior(def.PostExecutionBehavior);
             var sideFiles = ResolveSideFiles(def, inputs?.SideFiles);
+            ExtraFileService.Validate(def);
             string? localInstaller = null;
             if (def.LocalSource is not null
                 && (def.LocalSource.IsRequired || !string.IsNullOrWhiteSpace(inputs?.LocalSourceFolder)))
@@ -658,7 +659,7 @@ public sealed class StagingService
                 wrappers.GenerateMsixWrappers(contentPath, installerFileName,
                     msixPackage!.SignerThumbprint, msixPackage.Provisioned,
                     string.IsNullOrWhiteSpace(msixPackage.Publisher) ? null : MsixPackageReader.PublisherHash(msixPackage.Publisher),
-                    uninstallCommand);
+                    uninstallCommand, ExtraFileService.Describe(def));
             }
             else if (def.ZipPayload is not null)
             {
@@ -760,6 +761,17 @@ public sealed class StagingService
                     ? inputs?.IncludeArchitectureVariants == true
                     : null
             };
+            if (def.ExtraFiles is { Length: > 0 })
+            {
+                var feed = def.ExtraFiles.Any(f => !string.IsNullOrWhiteSpace(f.DownloadUrlQuery) || !string.IsNullOrWhiteSpace(f.HashQuery))
+                    ? await FetchFeedAsync(def.VersionScraper, ct)
+                    : null;
+                await ExtraFileService.StageAsync(def, contentPath, feed, rawVersion,
+                    (url, path, token) => _downloadService.DownloadAsync(url, path, onProgress: onProgress, ct: token, headers: def.VersionScraper.RequestHeaders),
+                    onProgress, (path, hash) => finalizer.RecordVerifiedPayload(path, hash), ct);
+            }
+            foreach (var note in def.StageNotes ?? [])
+                onProgress?.Invoke($"Note: {note}");
             var sideFileNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             foreach (var (sideFile, source) in sideFiles)
             {

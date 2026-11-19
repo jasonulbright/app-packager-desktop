@@ -322,7 +322,7 @@ public static class DefinitionCode
     public static readonly IReadOnlyCollection<string> CodeProperties =
     [
         "PostInstallScript", "UninstallCommand", "ExtractSetup", "BootstrapperLayout", "InstallerSettings",
-        "LocalSource", "LocalInstaller", "SideFiles", "TargetSecret", "Odt", "ZipPayload"
+        "LocalSource", "LocalInstaller", "SideFiles", "ExtraFiles", "TargetSecret", "Odt", "ZipPayload"
     ];
 
     /// <summary>The top-level properties that hold no code (the nested values are checked by <see cref="Find"/>).</summary>
@@ -332,7 +332,7 @@ public static class DefinitionCode
         "ArpName", "ArpVersion", "ArpArch", "SecurityAdvisoryUrl", "InstallerType", "InstallerFramework", "InstallContext", "VersionScraper",
         "DownloadUrl", "InstallerFileName", "InstallArgs", "UninstallArgs", "ReviewBeforeStage", "CanUninstall", "Detection", "RunningProcess",
         "PostInstallKillProcesses", "RebootExitCodes", "SuccessExitCodes", "Icon", "IconFormat", "IconSource", "DisplayVersionOverride",
-        "SupportsVariants", "PayloadVariants", "SupportsInstallModes", "CitrixSwitchStream", "PostExecutionBehavior", "ExpectedPayloadVersion",
+        "StageNotes", "SupportsVariants", "PayloadVariants", "SupportsInstallModes", "CitrixSwitchStream", "PostExecutionBehavior", "ExpectedPayloadVersion",
         "PayloadSha256Url", "PayloadSha256", "OffersInstallModes", "RequirePayloadHash", "ExpandInstallArgs", "RequireValidSignature", "SourcePath", "SourceOrigin", "SourceLabel"
     ];
 
@@ -362,6 +362,8 @@ public static class DefinitionCode
         if (d.LocalSource is not null) found.Add("LocalSource");
         if (d.LocalInstaller is not null) found.Add("LocalInstaller");
         if (d.SideFiles is { Length: > 0 }) found.Add("SideFiles");
+        // The extra files download from addresses of the document and feed the provisioning call.
+        if (d.ExtraFiles is { Length: > 0 }) found.Add("ExtraFiles");
         if (d.TargetSecret is not null) found.Add("TargetSecret");
         // The Office Deployment Tool configuration is built from these values without escaping and runs as SYSTEM; the zip payload
         // deletes a folder and a registry key that the document names.
