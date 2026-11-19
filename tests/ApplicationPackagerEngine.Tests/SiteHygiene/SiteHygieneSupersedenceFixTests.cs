@@ -61,7 +61,7 @@ public sealed class SiteHygieneSupersedenceFixTests
         var sup = result.Findings.Where(f => f.CheckId == "SUP-01" && f.ObjectKey.StartsWith(NewModel + "|", StringComparison.Ordinal)).ToList();
         Assert.Equal(2, sup.Count);
         var one = Sup01(sup, GoneOne);
-        Assert.Equal(HygieneFixKind.RemoveBrokenSupersedence, one.FixKind);
+        Assert.Equal(HygieneFixKind.ClearBrokenSupersedence, one.FixKind);
         Assert.Equal(NewModel + "|" + GoneOne, one.ObjectKey);
         Assert.Contains("'DT A', 'DT B'", one.Evidence);
         Assert.Contains(GoneOne, one.Evidence);
@@ -88,7 +88,7 @@ public sealed class SiteHygieneSupersedenceFixTests
     {
         using var h = new SiteHygieneHarness(BrokenState());
         var finding = Sup01((await h.ScanAsync("AppRelationships")).Findings, GoneOne);
-        var change = await SiteHygieneFixTests.PrepareAsync(h, HygieneFixKind.RemoveBrokenSupersedence, finding);
+        var change = await SiteHygieneFixTests.PrepareAsync(h, HygieneFixKind.ClearBrokenSupersedence, finding);
         Assert.False(change.Blocked, string.Join(" ", change.Checks.Select(c => c.Message)));
         var target = Assert.Single(change.Targets);
         Assert.Equal("ZZ-Superseding", target.ObjectName);
@@ -117,7 +117,7 @@ public sealed class SiteHygieneSupersedenceFixTests
     {
         using var h = new SiteHygieneHarness(BrokenState());
         var finding = Sup01((await h.ScanAsync("AppRelationships")).Findings, GoneOne);
-        var change = await SiteHygieneFixTests.PrepareAsync(h, HygieneFixKind.RemoveBrokenSupersedence, finding);
+        var change = await SiteHygieneFixTests.PrepareAsync(h, HygieneFixKind.ClearBrokenSupersedence, finding);
         var outcome = await SiteHygieneFixTests.ApplyAsync(h, change);
         var result = Assert.Single(outcome.Objects);
         Assert.True(result.Result == HygieneResults.Done, result.Message + " | " + string.Join(" ; ", SiteCommands(h)));
@@ -145,7 +145,7 @@ public sealed class SiteHygieneSupersedenceFixTests
         apps.Add(old);
         using var h = new SiteHygieneHarness(state);
         var finding = Sup01((await h.ScanAsync("AppRelationships")).Findings, GoneOne);
-        var change = await SiteHygieneFixTests.PrepareAsync(h, HygieneFixKind.RemoveBrokenSupersedence, finding);
+        var change = await SiteHygieneFixTests.PrepareAsync(h, HygieneFixKind.ClearBrokenSupersedence, finding);
         var outcome = await SiteHygieneFixTests.ApplyAsync(h, change with { DeleteOldRevisions = true });
         var result = Assert.Single(outcome.Objects);
         Assert.Equal(HygieneResults.Done, result.Result);
@@ -167,7 +167,7 @@ public sealed class SiteHygieneSupersedenceFixTests
         state["Options"]!["RevisionInUse"] = new JsonArray(1);
         using var h = new SiteHygieneHarness(state);
         var finding = Sup01((await h.ScanAsync("AppRelationships")).Findings, GoneOne);
-        var change = await SiteHygieneFixTests.PrepareAsync(h, HygieneFixKind.RemoveBrokenSupersedence, finding);
+        var change = await SiteHygieneFixTests.PrepareAsync(h, HygieneFixKind.ClearBrokenSupersedence, finding);
         var outcome = await SiteHygieneFixTests.ApplyAsync(h, change with { DeleteOldRevisions = true });
         var result = Assert.Single(outcome.Objects);
         Assert.Equal(HygieneResults.Done, result.Result);
@@ -184,7 +184,7 @@ public sealed class SiteHygieneSupersedenceFixTests
         state["Options"]!["WrongSerializer"] = "1";
         using var h = new SiteHygieneHarness(state);
         var finding = Sup01((await h.ScanAsync("AppRelationships")).Findings, GoneOne);
-        var change = await SiteHygieneFixTests.PrepareAsync(h, HygieneFixKind.RemoveBrokenSupersedence, finding);
+        var change = await SiteHygieneFixTests.PrepareAsync(h, HygieneFixKind.ClearBrokenSupersedence, finding);
         var outcome = await SiteHygieneFixTests.ApplyAsync(h, change with { DeleteOldRevisions = true });
         var result = Assert.Single(outcome.Objects);
         Assert.Equal(HygieneResults.Failed, result.Result);
@@ -198,7 +198,7 @@ public sealed class SiteHygieneSupersedenceFixTests
     {
         using var h = new SiteHygieneHarness(BrokenState());
         var findings = (await h.ScanAsync("AppRelationships")).Findings;
-        var change = await SiteHygieneFixTests.PrepareAsync(h, HygieneFixKind.RemoveBrokenSupersedence, Sup01(findings, GoneOne), Sup01(findings, GoneTwo));
+        var change = await SiteHygieneFixTests.PrepareAsync(h, HygieneFixKind.ClearBrokenSupersedence, Sup01(findings, GoneOne), Sup01(findings, GoneTwo));
         Assert.Equal(2, change.Targets.Count);
         var outcome = await SiteHygieneFixTests.ApplyAsync(h, change);
         Assert.All(outcome.Objects, o => Assert.Equal(HygieneResults.Done, o.Result));
@@ -214,7 +214,7 @@ public sealed class SiteHygieneSupersedenceFixTests
         using var h = new SiteHygieneHarness(BrokenState());
         var finding = Sup01((await h.ScanAsync("AppRelationships")).Findings, GoneOne);
         h.Site.Class("SMS_Application").Add(AppRow(GoneOne, 16790021, "ZZ-Back"));
-        var change = await SiteHygieneFixTests.PrepareAsync(h, HygieneFixKind.RemoveBrokenSupersedence, finding);
+        var change = await SiteHygieneFixTests.PrepareAsync(h, HygieneFixKind.ClearBrokenSupersedence, finding);
         Assert.True(change.Blocked);
         Assert.Contains("exists again", Assert.Single(change.Dropped).Message);
         Assert.Empty(change.Targets);
@@ -225,7 +225,7 @@ public sealed class SiteHygieneSupersedenceFixTests
     {
         using var h = new SiteHygieneHarness(BrokenState());
         var finding = Sup01((await h.ScanAsync("AppRelationships")).Findings, GoneOne);
-        var change = await SiteHygieneFixTests.PrepareAsync(h, HygieneFixKind.RemoveBrokenSupersedence, finding);
+        var change = await SiteHygieneFixTests.PrepareAsync(h, HygieneFixKind.ClearBrokenSupersedence, finding);
         h.Site.Class("SMS_Application").Add(AppRow(GoneOne, 16790021, "ZZ-Back"));
         var outcome = await SiteHygieneFixTests.ApplyAsync(h, change);
         var result = Assert.Single(outcome.Objects);
@@ -240,7 +240,7 @@ public sealed class SiteHygieneSupersedenceFixTests
     {
         using var h = new SiteHygieneHarness(BrokenState());
         var finding = Sup01((await h.ScanAsync("AppRelationships")).Findings, GoneOne);
-        var change = await SiteHygieneFixTests.PrepareAsync(h, HygieneFixKind.RemoveBrokenSupersedence, finding);
+        var change = await SiteHygieneFixTests.PrepareAsync(h, HygieneFixKind.ClearBrokenSupersedence, finding);
         h.Site.Fail("cmd:Put");
         var outcome = await SiteHygieneFixTests.ApplyAsync(h, change);
         var result = Assert.Single(outcome.Objects);
@@ -253,20 +253,20 @@ public sealed class SiteHygieneSupersedenceFixTests
     public void OnlyASup01FindingWithAnApplicationAndAReferenceHasThisFix()
     {
         var parameters = HygieneChecks.Params((HygieneFixParameters.ModelName, NewModel), (HygieneFixParameters.ReferencedModel, GoneOne));
-        var good = HygieneChecks.F("SUP-01", "Supersedence", "k", "n", "e", "r", HygieneFixKind.RemoveBrokenSupersedence, parameters);
-        var other = HygieneChecks.F("APP-01", "Application", "k", "n", "e", "r", HygieneFixKind.RemoveBrokenSupersedence, parameters);
-        var noReference = HygieneChecks.F("SUP-01", "Supersedence", "k", "n", "e", "r", HygieneFixKind.RemoveBrokenSupersedence, HygieneChecks.Params((HygieneFixParameters.ModelName, NewModel)));
-        Assert.Null(HygieneFixRules.Gate(HygieneFixKind.RemoveBrokenSupersedence, good));
-        Assert.NotNull(HygieneFixRules.Gate(HygieneFixKind.RemoveBrokenSupersedence, other));
-        Assert.NotNull(HygieneFixRules.Gate(HygieneFixKind.RemoveBrokenSupersedence, noReference));
-        Assert.False(HygieneFixKinds.IsDelete(HygieneFixKind.RemoveBrokenSupersedence));
-        Assert.Contains(HygieneFixKind.RemoveBrokenSupersedence, SiteHygieneService.SupportedKinds);
+        var good = HygieneChecks.F("SUP-01", "Supersedence", "k", "n", "e", "r", HygieneFixKind.ClearBrokenSupersedence, parameters);
+        var other = HygieneChecks.F("APP-01", "Application", "k", "n", "e", "r", HygieneFixKind.ClearBrokenSupersedence, parameters);
+        var noReference = HygieneChecks.F("SUP-01", "Supersedence", "k", "n", "e", "r", HygieneFixKind.ClearBrokenSupersedence, HygieneChecks.Params((HygieneFixParameters.ModelName, NewModel)));
+        Assert.Null(HygieneFixRules.Gate(HygieneFixKind.ClearBrokenSupersedence, good));
+        Assert.NotNull(HygieneFixRules.Gate(HygieneFixKind.ClearBrokenSupersedence, other));
+        Assert.NotNull(HygieneFixRules.Gate(HygieneFixKind.ClearBrokenSupersedence, noReference));
+        Assert.False(HygieneFixKinds.IsDelete(HygieneFixKind.ClearBrokenSupersedence));
+        Assert.Contains(HygieneFixKind.ClearBrokenSupersedence, SiteHygieneService.SupportedKinds);
     }
 
     [Fact]
     public void ThePlanTextEditsTheDefinitionByTheScopeAndTheLogicalNameOfTheDeletedApplication()
     {
-        var text = HygieneFixText.Text(HygieneFixKind.RemoveBrokenSupersedence, HygieneChecks.Params((HygieneFixParameters.ModelName, NewModel), (HygieneFixParameters.ReferencedModel, GoneOne)))!;
+        var text = HygieneFixText.Text(HygieneFixKind.ClearBrokenSupersedence, HygieneChecks.Params((HygieneFixParameters.ModelName, NewModel), (HygieneFixParameters.ReferencedModel, GoneOne)))!;
         Assert.Contains($"Get-CMApplication -ModelName '{NewModel}'", text);
         Assert.Contains("ApplicationAuthoringScopeId -eq '" + Scope + "'", text);
         Assert.Contains("ApplicationLogicalName -eq 'Application_dead0001-0000-4000-8000-000000000001'", text);

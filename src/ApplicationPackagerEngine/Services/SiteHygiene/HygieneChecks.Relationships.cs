@@ -58,7 +58,7 @@ internal static partial class HygieneChecks
             yield return F("SUP-01", "Supersedence", g.Key.From + "|" + g.Key.To, $"'{fromName}' -> 'Unknown ({g.Key.To})'",
                 $"Supersedence on deployment type {types} references {g.Key.To}, which no longer exists in the site.",
                 "Remove the broken supersedence reference. A broken reference can make the evaluation of other deployments fail on clients.",
-                HygieneFixKind.RemoveBrokenSupersedence, Params((HygieneFixParameters.ModelName, g.Key.From), (HygieneFixParameters.ReferencedModel, g.Key.To)),
+                HygieneFixKind.ClearBrokenSupersedence, Params((HygieneFixParameters.ModelName, g.Key.From), (HygieneFixParameters.ReferencedModel, g.Key.To)),
                 guidance: $"Console: '{fromName}' Properties > Supersedence tab - remove the reference to the deleted application");
         }
     }

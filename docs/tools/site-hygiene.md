@@ -83,7 +83,7 @@ The result of an object is **Done**, **Unchanged**, **Failed** or **Skipped**. *
 | Change application | Sets the `AutoInstall` option of an application to true. This creates a new revision of the application. |
 | Change maintenance task | Turns on a site maintenance task. |
 | Run deployment rule | Runs an auto deployment rule. |
-| Remove supersedence reference | Removes the supersedence rules of an application that point at an application that was deleted. It edits the application definition with the serializer of the console and refuses to write when anything but those rules would change. The change makes one new revision of the application. The plan has the check box **Also delete the old revisions this fix creates**, on at the start. The plan lists each application with its deployment types and the reference that goes. No file of the removed data is written. |
+| Remove supersedence | Removes the supersedence rules of an application that point at an application that was deleted. It edits the application definition with the serializer of the console and refuses to write when anything but those rules would change. The change makes one new revision of the application. The plan has the check box **Also delete the old revisions this fix creates**, on at the start. The plan lists each application with its deployment types and the reference that goes. No file of the removed data is written. |
 
 The checks that assign each fix are in [Site Hygiene checks](../reference/site-hygiene-checks.md).
 

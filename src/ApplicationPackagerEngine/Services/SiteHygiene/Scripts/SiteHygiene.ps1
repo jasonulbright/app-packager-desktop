@@ -524,7 +524,7 @@ function Invoke-State {
                     }
                 }
             }
-            'RemoveBrokenSupersedence' {
+            'ClearBrokenSupersedence' {
                 if ($models.Count -gt 0) {
                     Write-Facts 'Applications' 'SMS_Application' $Simple.Applications[1] "IsLatest = 1 AND ($(Get-OrList 'ModelName' $models))"
                     Read-SupersedenceRules -Complete
@@ -738,7 +738,7 @@ function Invoke-Apply {
             if ($id -notmatch $pattern -or ($Kind -eq 'RemoveCollection' -and $id -like 'SMS*')) { throw 'invalid' }
             $use = Get-InUse $id
         }
-        if ($Kind -eq 'RemoveBrokenSupersedence') {
+        if ($Kind -eq 'ClearBrokenSupersedence') {
             $reference = [string]$t.ReferencedModel
             if ($id -notmatch $ModelPattern -or $reference -notmatch $ModelPattern -or $reference -notlike '*/Application_*') { throw 'invalid' }
             # The reference counts as broken only while the referenced application is gone.
@@ -784,7 +784,7 @@ function Invoke-Apply {
                     Set-CMSiteMaintenanceTask -SiteCode $site -Name $id -Enabled $true
                 }
                 'RunAutoDeploymentRule' { if ($id -notmatch $NumberPattern) { throw 'invalid' }; Invoke-CMSoftwareUpdateAutoDeploymentRule -Id ([int]$id) | Out-Null }
-                'RemoveBrokenSupersedence' { $out.Note = Remove-BrokenSupersedence -Model $id -Reference ([string]$t.ReferencedModel) }
+                'ClearBrokenSupersedence' { $out.Note = Remove-BrokenSupersedence -Model $id -Reference ([string]$t.ReferencedModel) }
                 default { throw 'unsupported' }
             }
             $out.Status = 'done'

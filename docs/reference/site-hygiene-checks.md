@@ -45,7 +45,7 @@ The Site Hygiene page runs 57 checks in 18 scan areas. This page lists every che
 | CNT-01 | Content | Warning | Content failed on one or more distribution points | Content with an error on at least one targeted distribution point. | No | Report only |
 | CNT-02 | Content | Info | Content distribution in progress beyond threshold | Content with distribution in progress and no error, last updated more than 2 days ago. | No | Report only |
 | CNT-03 | Content | Error | Deployed content on no distribution point | Content with source files, an active deployment, and no targeted distribution point. | No | Report only |
-| SUP-01 | Relationships | Error | Supersedence referencing a deleted application | A supersedence rule in the definition of an application that points to an application that no longer exists. The page reads the rules from the application definitions, because the site removes the relation row of a supersedence when the superseded application is deleted. | Yes | Remove supersedence reference |
+| SUP-01 | Relationships | Error | Supersedence referencing a deleted application | A supersedence rule in the definition of an application that points to an application that no longer exists. The page reads the rules from the application definitions, because the site removes the relation row of a supersedence when the superseded application is deleted. | Yes | Remove supersedence |
 | SUP-02 | Relationships | Error | Circular supersedence chain | A supersedence edge that is part of a loop. | No | Report only |
 | SUP-03 | Relationships | Warning | Superseding application disabled | A supersedence whose superseding application is disabled. | No | Report only |
 | SUP-04 | Relationships | Warning | Supersedence target retired or expired | A supersedence whose superseded application is retired. | No | Report only |
@@ -122,7 +122,7 @@ Each fix kind is a typed operation with exact object identifiers. The page reads
 | Change application | `Set-CMApplication` | TSQ-03 | The application has the setting now; no task sequence installs it. The change makes a new revision. |
 | Change maintenance task | `Set-CMSiteMaintenanceTask` | MNT-01, MNT-02 | The task is enabled now. MNT-01 enables only the recommended cleanup tasks. MNT-02 enables only the site backup task. |
 | Run deployment rule | `Invoke-CMSoftwareUpdateAutoDeploymentRule` | UPD-03 | The rule is disabled; its last run ended with an error; it ran recently. |
-| Remove supersedence reference | an edit of the application definition (`SccmSerializer`, then `Put`) | SUP-01 | The referenced application is gone and the application still has a rule that points at it. One change removes every such rule of the application and makes one new revision; the old revisions of the application are deleted too when the plan check box is on. |
+| Remove supersedence | an edit of the application definition (`SccmSerializer`, then `Put`) | SUP-01 | The referenced application is gone and the application still has a rule that points at it. One change removes every such rule of the application and makes one new revision; the old revisions of the application are deleted too when the plan check box is on. |
 
 The first ten fix kinds delete objects. A delete needs the second confirmation box. The service enforces the box.
 

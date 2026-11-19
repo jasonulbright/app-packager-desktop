@@ -38,7 +38,7 @@ internal static class HygieneFixRules
             case HygieneFixKind.RemoveMaintenanceWindow:
                 yield return Get(HygieneFixParameters.CollectionId);
                 break;
-            case HygieneFixKind.RemoveBrokenSupersedence:
+            case HygieneFixKind.ClearBrokenSupersedence:
                 yield return Get(HygieneFixParameters.ModelName);
                 yield return Get(HygieneFixParameters.ReferencedModel);
                 break;
@@ -67,7 +67,7 @@ internal static class HygieneFixRules
         [HygieneFixKind.SetApplication] = ["TSQ-03"],
         [HygieneFixKind.SetSiteMaintenanceTask] = ["MNT-01", "MNT-02"],
         [HygieneFixKind.RunAutoDeploymentRule] = ["UPD-03"],
-        [HygieneFixKind.RemoveBrokenSupersedence] = ["SUP-01"]
+        [HygieneFixKind.ClearBrokenSupersedence] = ["SUP-01"]
     };
 
     /// <summary>
@@ -88,7 +88,7 @@ internal static class HygieneFixRules
                 => "an expired-deployment finding names exactly one deployment.",
             (HygieneFixKind.SetCollectionRefreshType, "COL-05") when P(f, HygieneFixParameters.RefreshType) != "Continuous" => "COL-05 sets the refresh type Continuous only.",
             (HygieneFixKind.SetCollectionRefreshType, "COL-06") when P(f, HygieneFixParameters.RefreshType) != "Manual" => "COL-06 sets the refresh type Manual only.",
-            (HygieneFixKind.RemoveBrokenSupersedence, "SUP-01") when !hasModel || P(f, HygieneFixParameters.ReferencedModel).Length == 0 => "the finding names no application or no referenced application.",
+            (HygieneFixKind.ClearBrokenSupersedence, "SUP-01") when !hasModel || P(f, HygieneFixParameters.ReferencedModel).Length == 0 => "the finding names no application or no referenced application.",
             (HygieneFixKind.SetSiteMaintenanceTask, "MNT-01") when !HygieneChecks.RecommendedTasks.Contains(P(f, HygieneFixParameters.Id), StringComparer.OrdinalIgnoreCase)
                 => "MNT-01 enables only the recommended cleanup tasks.",
             (HygieneFixKind.SetSiteMaintenanceTask, "MNT-02") when !HygieneChecks.BackupTasks.Contains(P(f, HygieneFixParameters.Id), StringComparer.OrdinalIgnoreCase)
@@ -125,7 +125,7 @@ internal static class HygieneFixRules
         HygieneFixKind.SetApplication => SetAutoInstall(f, s),
         HygieneFixKind.SetSiteMaintenanceTask => EnableTask(f, s),
         HygieneFixKind.RunAutoDeploymentRule => RunRule(f, s, now, t),
-        HygieneFixKind.RemoveBrokenSupersedence => RemoveBrokenSupersedence(f, s),
+        HygieneFixKind.ClearBrokenSupersedence => ClearBrokenSupersedence(f, s),
         _ => HygieneEvaluation.No("this fix kind is report-only on this page.")
     };
 
@@ -379,7 +379,7 @@ internal static class HygieneFixRules
     /// The supersedence rules of one application that point at a deleted application. The write removes them from the application
     /// document in one change, which makes one new revision of the application.
     /// </summary>
-    private static HygieneEvaluation RemoveBrokenSupersedence(HygieneFinding f, HygieneSiteRead s)
+    private static HygieneEvaluation ClearBrokenSupersedence(HygieneFinding f, HygieneSiteRead s)
     {
         var model = P(f, HygieneFixParameters.ModelName);
         var reference = P(f, HygieneFixParameters.ReferencedModel);
@@ -391,7 +391,7 @@ internal static class HygieneFixRules
         if (rules.Count == 0) return HygieneEvaluation.No("the application has no supersedence rule for that application now.");
         var types = string.Join(", ", rules.Select(r => $"'{r.S("DeploymentTypeName")}'").Distinct(StringComparer.Ordinal).Order(StringComparer.OrdinalIgnoreCase));
         var detail = $"Deployment type {types}: {Count(rules.Count, "rule")} that point{(rules.Count == 1 ? "s" : "")} at the deleted application {reference}. The change makes a new revision";
-        return new(true, "", [Write(f, "Supersedence", model + "|" + reference, app.S("LocalizedDisplayName"), detail, HygieneFixKind.RemoveBrokenSupersedence,
+        return new(true, "", [Write(f, "Supersedence", model + "|" + reference, app.S("LocalizedDisplayName"), detail, HygieneFixKind.ClearBrokenSupersedence,
             T((HygieneFixParameters.ModelName, model), (HygieneFixParameters.ReferencedModel, reference)), T(("Id", model), ("ReferencedModel", reference)))]);
     }
 
@@ -425,7 +425,7 @@ internal static class HygieneFixRules
             HygieneFixKind.SetCollectionRefreshType => s.Table(Collections).Records.Any(r => Eq(r.S("CollectionID"), id) && r.I("RefreshType") == (w.Target["RefreshType"] == "Continuous" ? 4 : 1)),
             HygieneFixKind.SetApplication => s.Table(TsAppDefinitions).Records.Any(r => Eq(r.S("ModelName"), id) && r.B("AutoInstall")),
             HygieneFixKind.SetSiteMaintenanceTask => s.Table(MaintenanceTasks).Records.Any(r => Eq(r.S("ItemName"), id) && r.B("Enabled")),
-            HygieneFixKind.RemoveBrokenSupersedence => !s.Table(SupersedenceRules).Records.Any(r => Eq(r.S("ApplicationModelName"), id) && Eq(r.S("ReferencedModelName"), w.Target["ReferencedModel"])),
+            HygieneFixKind.ClearBrokenSupersedence => !s.Table(SupersedenceRules).Records.Any(r => Eq(r.S("ApplicationModelName"), id) && Eq(r.S("ReferencedModelName"), w.Target["ReferencedModel"])),
             HygieneFixKind.RunAutoDeploymentRule => s.Table(AutoDeploymentRules).Records.Any(r => r.S("AutoDeploymentID") == id && r.S("LastRunTime").Length > 0 && r.S("LastRunTime") != ruleRunBefore),
             _ => false
         };

@@ -298,7 +298,7 @@ public sealed partial class SiteHygieneService
         try
         {
             var parameters = new ConfigMgrParameters { { "Operation", "Apply" }, { "Kind", kind.ToString() }, { "MaxObjects", MaxObjects } };
-            if (kind == HygieneFixKind.RemoveBrokenSupersedence) parameters["DeleteRevisions"] = deleteRevisions ? "1" : "0";
+            if (kind == HygieneFixKind.ClearBrokenSupersedence) parameters["DeleteRevisions"] = deleteRevisions ? "1" : "0";
             parameters.AddSecret("Target", JsonSerializer.Serialize(w.Target));
             applied = Parse(await _session.InvokeAsync(Script, Bound(parameters, prepared.Connection), CancellationToken.None).ConfigureAwait(false));
         }
@@ -313,7 +313,7 @@ public sealed partial class SiteHygieneService
             return (new HygieneTargetOutcome(t, HygieneResults.Skipped, SkippedPrefix + ConnectionChanged), ConnectionChanged);
         }
         var (status, failure) = applied.Applied.FirstOrDefault();
-        if (status == "in-use" && kind == HygieneFixKind.RemoveBrokenSupersedence)
+        if (status == "in-use" && kind == HygieneFixKind.ClearBrokenSupersedence)
         {
             _log?.Info(LogArea, $"{kind}: the referenced application exists again, so nothing was changed.");
             return (new HygieneTargetOutcome(t, HygieneResults.Skipped, SkippedPrefix + "the referenced application exists again, so the reference is no longer broken. Nothing was changed."), "");
@@ -357,7 +357,7 @@ public sealed partial class SiteHygieneService
         var counts = string.Join(", ", new[] { HygieneResults.Done, HygieneResults.Unchanged, HygieneResults.Failed, HygieneResults.Skipped }
             .Select(r => (Name: r, Count: targets.Count(t => t.Result == r))).Where(p => p.Count > 0).Select(p => $"{N(p.Count)} {p.Name.ToLowerInvariant()}"));
         return new HygieneObjectOutcome(f, HygieneResults.Partial,
-            $"{N(done)} of {N(n)} objects {(kind is HygieneFixKind.SetCollectionRefreshType or HygieneFixKind.SetApplication or HygieneFixKind.SetSiteMaintenanceTask or HygieneFixKind.RunAutoDeploymentRule or HygieneFixKind.RemoveBrokenSupersedence ? "changed" : "deleted")} ({counts}). "
+            $"{N(done)} of {N(n)} objects {(kind is HygieneFixKind.SetCollectionRefreshType or HygieneFixKind.SetApplication or HygieneFixKind.SetSiteMaintenanceTask or HygieneFixKind.RunAutoDeploymentRule or HygieneFixKind.ClearBrokenSupersedence ? "changed" : "deleted")} ({counts}). "
             + $"First object not done: {first.Target.ObjectName} ({first.Target.ObjectKey}): {first.Message} The result of each object shows which objects remain.{note}")
         { Targets = targets };
     }
@@ -411,7 +411,7 @@ public sealed partial class SiteHygieneService
         HygieneFixKind.SetApplication => "The application has the task sequence install setting in a new revision.",
         HygieneFixKind.SetSiteMaintenanceTask => "The task is enabled.",
         HygieneFixKind.RunAutoDeploymentRule => "The rule ran: it shows a new last run time.",
-        HygieneFixKind.RemoveBrokenSupersedence => "The application no longer has a supersedence rule that points at the deleted application. The change made a new revision.",
+        HygieneFixKind.ClearBrokenSupersedence => "The application no longer has a supersedence rule that points at the deleted application. The change made a new revision.",
         _ => writes == 1 ? "Deleted. The site no longer lists the object." : $"Deleted {N(writes)} objects. The site no longer lists them."
     };
 

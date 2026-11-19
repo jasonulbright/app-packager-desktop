@@ -80,7 +80,7 @@ public static class HygieneFixText
             HygieneFixKind.SetApplication => [new("Set-CMApplication", [P("ModelName", Get(p, HygieneFixParameters.ModelName)), P("AutoInstall", "$true")])],
             HygieneFixKind.SetSiteMaintenanceTask => [new("Set-CMSiteMaintenanceTask", [P("SiteCode", Get(p, HygieneFixParameters.SiteCode)), P("Name", id), P("Enabled", "$true")])],
             HygieneFixKind.RunAutoDeploymentRule => [new("Invoke-CMSoftwareUpdateAutoDeploymentRule", [P("Id", id)])],
-            HygieneFixKind.RemoveBrokenSupersedence => [new(SupersedenceRemoval, [P("ModelName", Get(p, HygieneFixParameters.ModelName)), P("ReferencedModel", Get(p, HygieneFixParameters.ReferencedModel))])],
+            HygieneFixKind.ClearBrokenSupersedence => [new(SupersedenceRemoval, [P("ModelName", Get(p, HygieneFixParameters.ModelName)), P("ReferencedModel", Get(p, HygieneFixParameters.ReferencedModel))])],
             _ => []
         };
     }

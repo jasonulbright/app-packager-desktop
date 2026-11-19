@@ -135,7 +135,7 @@ public sealed class SiteHygieneRelationshipTests
         var orphan = Assert.Single(findings, f => f.CheckId == "SUP-01");
         Assert.Equal("ScopeId_X/Application_A|ScopeId_X/Application_Gone", orphan.ObjectKey);
         Assert.Contains("'A DT'", orphan.Evidence);
-        Assert.Equal(HygieneFixKind.RemoveBrokenSupersedence, orphan.FixKind);
+        Assert.Equal(HygieneFixKind.ClearBrokenSupersedence, orphan.FixKind);
         Assert.Single(findings, f => f.CheckId == "DEP-04");
         Assert.Single(findings, f => f.CheckId == "DEP-03");
         Assert.Single(findings, f => f.CheckId == "SUP-03");

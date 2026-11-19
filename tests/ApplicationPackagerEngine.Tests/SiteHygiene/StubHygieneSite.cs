@@ -42,7 +42,7 @@ internal sealed class StubHygieneSite : IConfigMgrSession
           public class StubRule { public string RuleId; public StubExpression Expression = new StubExpression(); }
           public class StubRuleSet : List<StubRule> { }
           public class StubDeploymentType { public string Name; public string Title; public StubRuleSet Supersedes = new StubRuleSet(); }
-          public class StubApplication { public List<StubDeploymentType> DeploymentTypes = new List<StubDeploymentType>(); }
+          public class StubApplication { public List<StubDeploymentType> DeploymentTypes = new List<StubDeploymentType>(); public string Original; }
         }
         namespace Microsoft.ConfigurationManagement.ApplicationManagement.Serialization {
           public static class SccmSerializer {
@@ -50,6 +50,7 @@ internal sealed class StubHygieneSite : IConfigMgrSession
             static readonly XNamespace R = "http://schemas.microsoft.com/SystemsCenterConfigurationManager/2009/06/14/Rules";
             public static Microsoft.ConfigurationManagement.ApplicationManagement.StubApplication DeserializeFromString(string xml, bool validate) {
               var app = new Microsoft.ConfigurationManagement.ApplicationManagement.StubApplication();
+              app.Original = xml;
               var doc = XDocument.Parse(xml);
               foreach (var dt in doc.Root.Elements(D + "DeploymentType")) {
                 var d = new Microsoft.ConfigurationManagement.ApplicationManagement.StubDeploymentType();
@@ -70,19 +71,14 @@ internal sealed class StubHygieneSite : IConfigMgrSession
               return app;
             }
             public static string SerializeToString(Microsoft.ConfigurationManagement.ApplicationManagement.StubApplication app, bool validate) {
-              var root = new XElement(D + "AppMgmtDigest");
-              foreach (var d in app.DeploymentTypes) {
-                var dt = new XElement(D + "DeploymentType", new XAttribute("LogicalName", d.Name), new XElement(D + "Title", d.Title));
-                var sup = new XElement(D + "Supersedes");
-                foreach (var r in d.Supersedes) {
-                  sup.Add(new XElement(R + "DeploymentTypeRule", new XAttribute("id", r.RuleId),
-                    new XElement(R + "DeploymentTypeIntentExpression",
-                      new XElement(R + "DeploymentTypeApplicationReference", new XAttribute("AuthoringScopeId", r.Expression.ApplicationAuthoringScopeId), new XAttribute("LogicalName", r.Expression.ApplicationLogicalName)))));
-                }
-                dt.Add(sup);
-                root.Add(dt);
-              }
-              return new XDocument(root).ToString(SaveOptions.DisableFormatting);
+              // The document that was read, without the rules that the object no longer holds: the rest of the document is kept as it was.
+              var doc = XDocument.Parse(app.Original);
+              var keep = new HashSet<string>();
+              foreach (var d in app.DeploymentTypes) foreach (var r in d.Supersedes) keep.Add(r.RuleId);
+              var drop = new List<XElement>();
+              foreach (var rule in doc.Descendants(R + "DeploymentTypeRule")) if (!keep.Contains((string)rule.Attribute("id"))) drop.Add(rule);
+              foreach (var rule in drop) rule.Remove();
+              return doc.ToString(SaveOptions.DisableFormatting);
             }
           }
         }
@@ -100,6 +96,7 @@ internal sealed class StubHygieneSite : IConfigMgrSession
         $global:Details = @{}; foreach ($p in (V $state 'Details' ([pscustomobject]@{})).PSObject.Properties) { $global:Details[$p.Name] = $p.Value }
         $global:Windows = @{}; foreach ($p in (V $state 'Windows' ([pscustomobject]@{})).PSObject.Properties) { $global:Windows[$p.Name] = L $p.Value }
         $global:Auto = @{}; foreach ($p in (V $state 'AutoInstall' ([pscustomobject]@{})).PSObject.Properties) { $global:Auto[$p.Name] = [bool]$p.Value }
+        $global:Dts = @{}; foreach ($p in (V $state 'Dts' ([pscustomobject]@{})).PSObject.Properties) { $global:Dts[$p.Name] = L $p.Value }
         $global:Sup = @{}; foreach ($p in (V $state 'Supersedence' ([pscustomobject]@{})).PSObject.Properties) { $global:Sup[$p.Name] = L $p.Value }
         $global:Now = [string](V $state 'Now' '2026-10-24T18:00:00')
         $global:Fmt = 'yyyy-MM-ddTHH:mm:ss'
@@ -218,7 +215,10 @@ internal sealed class StubHygieneSite : IConfigMgrSession
             $rulesNs = 'http://schemas.microsoft.com/SystemsCenterConfigurationManager/2009/06/14/Rules'
             $types = ''
             $held = @(if ($global:Sup.ContainsKey($ModelName)) { $global:Sup[$ModelName] })
-            foreach ($g in @($held | Group-Object { [string]$_.Dt })) {
+            if (-not $global:Dts.ContainsKey($ModelName)) { $global:Dts[$ModelName] = L @($held | ForEach-Object { [pscustomobject]@{ Dt = [string]$_.Dt; Title = [string]$_.Title } } | Sort-Object Dt -Unique) }
+            foreach ($known in @($global:Dts[$ModelName])) {
+                $g = [pscustomobject]@{ Name = [string]$known.Dt; Group = @($held | Where-Object { [string]$_.Dt -eq [string]$known.Dt } | ForEach-Object { $_ }) }
+                if ($g.Group.Count -eq 0) { $types += "<DeploymentType AuthoringScopeId=`"ScopeId_X`" LogicalName=`"$($known.Dt)`"><Title>$($known.Title)</Title></DeploymentType>"; continue }
                 $body = foreach ($r in $g.Group) { $scope, $logical = ([string]$r.Ref) -split '/', 2; "<DeploymentTypeRule xmlns=`"$rulesNs`" id=`"$($r.RuleId)`"><DeploymentTypeIntentExpression DesiredState=`"Prohibited`"><DeploymentTypeApplicationReference AuthoringScopeId=`"$scope`" LogicalName=`"$logical`"/></DeploymentTypeIntentExpression></DeploymentTypeRule>" }
                 $types += "<DeploymentType AuthoringScopeId=`"ScopeId_X`" LogicalName=`"$($g.Name)`"><Title>$($g.Group[0].Title)</Title><Supersedes>$($body -join '')</Supersedes></DeploymentType>"
             }
@@ -235,6 +235,7 @@ internal sealed class StubHygieneSite : IConfigMgrSession
                         $kept.Add([pscustomobject]@{ Dt = [string]$dt.GetAttribute('LogicalName'); Title = [string]$dt.SelectSingleNode('d:Title', $ns).InnerText; RuleId = [string]$rule.GetAttribute('id'); Ref = ([string]$ref.GetAttribute('AuthoringScopeId') + '/' + [string]$ref.GetAttribute('LogicalName')) })
                     }
                 }
+                $global:Dts[$this.ModelName] = L @($x.SelectNodes('/d:AppMgmtDigest/d:DeploymentType', $ns) | ForEach-Object { [pscustomobject]@{ Dt = [string]$_.GetAttribute('LogicalName'); Title = [string]$_.SelectSingleNode('d:Title', $ns).InnerText } })
                 $before = @(if ($global:Sup.ContainsKey($this.ModelName)) { $global:Sup[$this.ModelName] })
                 $removed = @($before | Where-Object { $id = $_.RuleId; @($kept | Where-Object { $_.RuleId -eq $id }).Count -eq 0 } | ForEach-Object { [string]$_.RuleId })
                 $global:Log.Add('Cmd:SupersedenceRemoval|' + $this.ModelName + '|' + ($removed -join ','))
@@ -342,9 +343,11 @@ internal sealed class StubHygieneSite : IConfigMgrSession
         foreach ($k in $global:Windows.Keys) { $windowsOut[$k] = @($global:Windows[$k]) }
         $autoOut = [ordered]@{}
         foreach ($k in $global:Auto.Keys) { $autoOut[$k] = $global:Auto[$k] }
+        $dtsOut = [ordered]@{}
+        foreach ($k in $global:Dts.Keys) { $dtsOut[$k] = @($global:Dts[$k]) }
         $supOut = [ordered]@{}
         foreach ($k in $global:Sup.Keys) { $supOut[$k] = @($global:Sup[$k]) }
-        $next = if ($null -ne $gen) { $state } else { [pscustomobject]@{ Options = $state.Options; Now = $global:Now; Provider = $global:DriveRoot; Classes = [pscustomobject]$classes; Details = (V $state 'Details' ([pscustomobject]@{})); Windows = [pscustomobject]$windowsOut; AutoInstall = [pscustomobject]$autoOut; Supersedence = [pscustomobject]$supOut } }
+        $next = if ($null -ne $gen) { $state } else { [pscustomobject]@{ Options = $state.Options; Now = $global:Now; Provider = $global:DriveRoot; Classes = [pscustomobject]$classes; Details = (V $state 'Details' ([pscustomobject]@{})); Windows = [pscustomobject]$windowsOut; AutoInstall = [pscustomobject]$autoOut; Supersedence = [pscustomobject]$supOut; Dts = [pscustomobject]$dtsOut } }
         $lines = foreach ($o in $out) { ConvertTo-Json -InputObject $o -Depth 3 -Compress }
         $document = [pscustomobject]@{ Output = @($lines); Thrown = $thrown; Log = @($global:Log); State = $next }
         [IO.File]::WriteAllText($OutPath, (ConvertTo-Json -InputObject $document -Depth 8 -Compress), (New-Object System.Text.UTF8Encoding $false))

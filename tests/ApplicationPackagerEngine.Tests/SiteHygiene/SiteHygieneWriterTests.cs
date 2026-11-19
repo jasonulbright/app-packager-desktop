@@ -61,8 +61,8 @@ public sealed class SiteHygieneWriterTests
     [Fact]
     public void TheSupersedenceFixAsksToDeleteTheOldRevisionsAndTheOperatorCanClearTheBox()
     {
-        var item = new ChangePlanItem("Remove supersedence reference", "Supersedence X", "SUP-01: d");
-        var plan = new ChangePlan("Remove supersedence references", "Remove supersedence reference: 1 object", [item])
+        var item = new ChangePlanItem("Remove supersedence", "Supersedence X", "SUP-01: d");
+        var plan = new ChangePlan("Remove supersedence references", "Remove supersedence: 1 object", [item])
         {
             OptionalChoice = SiteHygieneText.SupersedenceRevisionChoice,
             OptionalChoiceOn = true
@@ -78,7 +78,7 @@ public sealed class SiteHygieneWriterTests
             Assert.True(dialog.OptionChosen);
             if (cleared) dialog.OptionChosen = false;
             ScriptedPlanDialogs.Wait(dialog.ConfirmCommand.ExecuteAsync(null));
-            var change = SiteHygieneWriter.ConfirmedChange(new HygieneChange(HygieneFixKind.RemoveBrokenSupersedence, [], false, [], [], null), captured!);
+            var change = SiteHygieneWriter.ConfirmedChange(new HygieneChange(HygieneFixKind.ClearBrokenSupersedence, [], false, [], [], null), captured!);
             Assert.Equal(!cleared, change.DeleteOldRevisions);
             var other = SiteHygieneWriter.ConfirmedChange(new HygieneChange(HygieneFixKind.SetApplication, [], false, [], [], null), captured!);
             Assert.False(other.DeleteOldRevisions);

@@ -28,7 +28,7 @@ public sealed partial class SiteHygieneService
         HygieneFixKind.RemoveApplication, HygieneFixKind.RemoveApplicationDeployment, HygieneFixKind.RemoveApplicationRevisionHistory, HygieneFixKind.RemovePackage,
         HygieneFixKind.RemoveCollection, HygieneFixKind.RemoveDevice, HygieneFixKind.RemoveBootImage, HygieneFixKind.RemoveDriverPackage, HygieneFixKind.RemoveAutoDeploymentRule,
         HygieneFixKind.RemoveMaintenanceWindow, HygieneFixKind.SetCollectionRefreshType, HygieneFixKind.SetApplication, HygieneFixKind.SetSiteMaintenanceTask, HygieneFixKind.RunAutoDeploymentRule,
-        HygieneFixKind.RemoveBrokenSupersedence
+        HygieneFixKind.ClearBrokenSupersedence
     };
 
     private const int MaxPrepared = 32;
@@ -193,7 +193,7 @@ public sealed partial class SiteHygieneService
             lines.Add("Before each change the page reads the object again and skips it when the finding no longer holds.");
         }
         if (kind == HygieneFixKind.SetApplication) lines.Add("Each change makes a new revision of the application.");
-        if (kind == HygieneFixKind.RemoveBrokenSupersedence)
+        if (kind == HygieneFixKind.ClearBrokenSupersedence)
         {
             lines.Add("Each change removes only the supersedence rules of one application that point at the deleted application, and makes one new revision of the application.");
             lines.Add("Set-CMApplicationSupersedence -RemoveSupersedence is not used: it needs the superseded application and its deployment type, which a deleted application no longer has. The fix edits the application document with the serializer of the console. It refuses to write when the serializer is not the one of the console or when the edited document differs from the original in anything but those rules, and it reads the application again afterwards. It writes no file of the removed data.");
@@ -226,7 +226,7 @@ public sealed partial class SiteHygieneService
         HygieneFixKind.SetApplication => "set the task sequence install setting of the applications",
         HygieneFixKind.SetSiteMaintenanceTask => "enable the site maintenance tasks",
         HygieneFixKind.RunAutoDeploymentRule => "run the automatic deployment rules",
-        HygieneFixKind.RemoveBrokenSupersedence => "remove the supersedence references to deleted applications",
+        HygieneFixKind.ClearBrokenSupersedence => "remove the supersedence references to deleted applications",
         _ => "nothing"
     };
 
