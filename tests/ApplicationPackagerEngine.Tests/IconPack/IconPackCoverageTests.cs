@@ -3,14 +3,14 @@ using ApplicationPackagerEngine.Services;
 namespace ApplicationPackagerEngine.Tests.IconPack;
 
 /// <summary>
-/// The icon pack (jasonulbright/app-packager-icons, manifest of v2026.11.18.0015 kept in pack-manifest.json) against the
+/// The icon pack (jasonulbright/app-packager-icons, manifest of v2026.11.19.0016 kept in pack-manifest.json) against the
 /// shipped definitions. A definition with no icon in the pack fails the test unless it is on the named list below; the list
 /// shrinks when a new pack release adds the icons (copy its manifest.json over pack-manifest.json).
 /// </summary>
 public sealed class IconPackCoverageTests
 {
     /// <summary>
-    /// Shipped definitions that the pack v2026.11.18.0015 has no icon for, with the reason for each. The list is empty: every shipped
+    /// Shipped definitions that the pack v2026.11.19.0016 has no icon for, with the reason for each. The list is empty: every shipped
     /// definition has an icon. A new definition without an icon fails the test until the pack has it or it is named here with a reason
     /// (a generic installer icon is not shipped instead of the product icon).
     /// </summary>

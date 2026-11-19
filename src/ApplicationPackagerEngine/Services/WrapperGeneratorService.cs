@@ -394,7 +394,7 @@ public sealed class WrapperGeneratorService
     /// </summary>
     public void GenerateMsixWrappers(string outputPath, string msixFileName,
         string? signerThumbprint = null, bool provisioned = true, string? publisherId = null,
-        string? uninstallCommand = null)
+        string? uninstallCommand = null, MsixExtras? extras = null)
     {
         var file = EscapePsLiteral(msixFileName);
 
@@ -416,9 +416,12 @@ public sealed class WrapperGeneratorService
 
         // The AppX cmdlets report most failures as non-terminating errors; without
         // -ErrorAction Stop the wrapper would reach Exit-Wrapper 0 after a failed install.
-        install.Add(provisioned
-            ? "try { Add-AppxProvisionedPackage -Online -PackagePath $msixPath -SkipLicense -ErrorAction Stop | Out-Null } catch { [Console]::Error.WriteLine($_.Exception.Message); Exit-Wrapper 1 }"
-            : "try { Add-AppxPackage -Path $msixPath -ErrorAction Stop } catch { [Console]::Error.WriteLine($_.Exception.Message); Exit-Wrapper 1 }");
+        if (provisioned && extras is { IsEmpty: false })
+            AddProvisionWithExtras(install, extras);
+        else
+            install.Add(provisioned
+                ? "try { Add-AppxProvisionedPackage -Online -PackagePath $msixPath -SkipLicense -ErrorAction Stop | Out-Null } catch { [Console]::Error.WriteLine($_.Exception.Message); Exit-Wrapper 1 }"
+                : "try { Add-AppxPackage -Path $msixPath -ErrorAction Stop } catch { [Console]::Error.WriteLine($_.Exception.Message); Exit-Wrapper 1 }");
         install.Add("Exit-Wrapper 0");
 
         if (!string.IsNullOrWhiteSpace(uninstallCommand))
@@ -466,11 +469,22 @@ public sealed class WrapperGeneratorService
         var installedMatch = publisher is null ? "" : $" | Where-Object {{ $_.PublisherId -eq '{publisher}' }}";
         if (provisioned)
         {
+            // Both steps run even when the first one fails: a package that a user updated from the Store (a newer version than the
+            // provisioned one) refuses the deprovision (0x80073CFA), while the removal for all users then takes the provisioning
+            // entry away and only reports that it cannot destage the newer copy. The wrapper judges the result by the provisioning
+            // entry that is left, and only after a failure.
+            uninstall.Add("$failure = $null");
             uninstall.Add("try {");
             uninstall.Add($"    $prov = Get-AppxProvisionedPackage -Online -ErrorAction Stop | Where-Object {{ $_.DisplayName -eq $identity.Name{provisionedMatch} }}");
             uninstall.Add("    foreach ($p in $prov) { Remove-AppxProvisionedPackage -Online -PackageName $p.PackageName -ErrorAction Stop | Out-Null }");
+            uninstall.Add("} catch { $failure = $_.Exception.Message }");
+            uninstall.Add("try {");
             uninstall.Add($"    Get-AppxPackage -AllUsers -Name $identity.Name -PackageTypeFilter $packageType -ErrorAction Stop{installedMatch} | ForEach-Object {{ Remove-AppxPackage -Package $_.PackageFullName -AllUsers -ErrorAction Stop }}");
-            uninstall.Add("} catch { [Console]::Error.WriteLine($_.Exception.Message); Exit-Wrapper 1 }");
+            uninstall.Add("} catch { if (-not $failure) { $failure = $_.Exception.Message } }");
+            uninstall.Add("if ($failure) {");
+            uninstall.Add($"    $left = @(Get-AppxProvisionedPackage -Online -ErrorAction SilentlyContinue | Where-Object {{ $_.DisplayName -eq $identity.Name{provisionedMatch} }})");
+            uninstall.Add("    if ($left.Count -gt 0) { [Console]::Error.WriteLine($failure); Exit-Wrapper 1 }");
+            uninstall.Add("}");
         }
         else
         {
@@ -481,6 +495,42 @@ public sealed class WrapperGeneratorService
         WriteWrappers(outputPath,
             string.Join("\r\n", install),
             string.Join("\r\n", uninstall));
+    }
+
+    /// <summary>
+    /// The provisioning lines for a package with a license and/or dependency packages. The dependency packages of the
+    /// processor architecture and the license go to the one Add-AppxProvisionedPackage call, which installs the
+    /// dependencies before the package. A missing license or dependency folder stops the install with exit code 1.
+    /// </summary>
+    private static void AddProvisionWithExtras(List<string> install, MsixExtras extras)
+    {
+        var args = new List<string> { "-Online", "-PackagePath $msixPath" };
+        if (extras.DependencyFolders.Count > 0)
+        {
+            var map = new List<string>();
+            foreach (var folder in extras.DependencyFolders)
+            {
+                var processor = folder.ToLowerInvariant() switch { "x64" => "AMD64", "arm64" => "ARM64", "x86" => "x86", _ => null };
+                if (processor is not null) map.Add($"'{processor}' {{ '{EscapePsLiteral(folder)}' }}");
+            }
+            install.Add("$processor = if ($env:PROCESSOR_ARCHITEW6432) { $env:PROCESSOR_ARCHITEW6432 } else { $env:PROCESSOR_ARCHITECTURE }");
+            install.Add($"$dependencyFolder = switch ($processor) {{ {string.Join(" ", map)} default {{ $null }} }}");
+            install.Add("if (-not $dependencyFolder) { [Console]::Error.WriteLine(\"No dependency packages for the $processor processor architecture.\"); Exit-Wrapper 1 }");
+            install.Add($"$dependencies = @(Get-ChildItem -LiteralPath (Join-Path $PSScriptRoot (Join-Path '{MsixExtras.DependenciesFolder}' $dependencyFolder)) -File -ErrorAction SilentlyContinue | Where-Object {{ $_.Extension -in '.appx', '.msix' }} | ForEach-Object {{ $_.FullName }})");
+            install.Add("if ($dependencies.Count -eq 0) { [Console]::Error.WriteLine(\"No dependency packages for $dependencyFolder in the content folder.\"); Exit-Wrapper 1 }");
+            args.Add("-DependencyPackagePath $dependencies");
+        }
+        if (!string.IsNullOrEmpty(extras.LicenseFileName))
+        {
+            install.Add($"$license = Join-Path $PSScriptRoot '{EscapePsLiteral(extras.LicenseFileName)}'");
+            install.Add("if (-not (Test-Path -LiteralPath $license)) { [Console]::Error.WriteLine(\"License file not found: $license\"); Exit-Wrapper 1 }");
+            args.Add("-LicensePath $license");
+        }
+        else
+        {
+            args.Add("-SkipLicense");
+        }
+        install.Add($"try {{ Add-AppxProvisionedPackage {string.Join(" ", args)} -ErrorAction Stop | Out-Null }} catch {{ [Console]::Error.WriteLine($_.Exception.Message); Exit-Wrapper 1 }}");
     }
 
     /// <summary>

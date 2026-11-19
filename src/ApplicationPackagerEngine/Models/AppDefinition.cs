@@ -217,6 +217,19 @@ public sealed class AppDefinition
     public SideFileConfig[]? SideFiles { get; set; }
 
     /// <summary>
+    /// Files the stage downloads beside an MSIX or MSIX bundle and hands to
+    /// Add-AppxProvisionedPackage: a dependency package set and a license
+    /// file. Each file is checked against a SHA-256 before it is used.
+    /// </summary>
+    public ExtraFileConfig[]? ExtraFiles { get; set; }
+
+    /// <summary>
+    /// Lines the stage log shows for the operator, for limits of the package
+    /// that no setting changes (for example a single-user MSIX).
+    /// </summary>
+    public string[]? StageNotes { get; set; }
+
+    /// <summary>
     /// Current or LTSR: the install arguments are built from the Citrix
     /// Workspace switch settings for that stream instead of InstallArgs.
     /// </summary>
@@ -479,6 +492,41 @@ public sealed class SideFileConfig
 
     /// <summary>What the file is, in lower case, for the settings row and the refusal message.</summary>
     public string Label { get; set; } = "";
+}
+
+/// <summary>
+/// One file downloaded beside an MSIX package: its license, or a ZIP of its dependency packages.
+/// A dependency ZIP holds one folder per processor architecture; the stage extracts the packages
+/// of the folders in <see cref="ArchiveFolders"/> to Dependencies\&lt;folder&gt; and drops the ZIP.
+/// </summary>
+public sealed class ExtraFileConfig
+{
+    /// <summary>License or DependencyArchive.</summary>
+    public string Kind { get; set; } = "";
+
+    /// <summary>Download address; {version} is the scraped version. Used when <see cref="DownloadUrlQuery"/> is empty.</summary>
+    public string DownloadUrl { get; set; } = "";
+
+    /// <summary>
+    /// Regex over the version feed whose named group "url", or group 1, is the download address. {version} is the
+    /// escaped version. For a file whose name the release does not repeat (a license file named with a GUID).
+    /// </summary>
+    public string? DownloadUrlQuery { get; set; }
+
+    /// <summary>File name the license takes in the content folder, and the name the download is stored under.</summary>
+    public string FileName { get; set; } = "";
+
+    /// <summary>Fixed SHA-256 pin. A pin wins over <see cref="HashQuery"/>.</summary>
+    public string? Sha256 { get; set; }
+
+    /// <summary>Regex over the version feed whose named group "hash", or group 1, is the SHA-256. {version} is replaced.</summary>
+    public string? HashQuery { get; set; }
+
+    /// <summary>The stage refuses the file when no SHA-256 is known for it.</summary>
+    public bool RequireHash { get; set; }
+
+    /// <summary>DependencyArchive only: the architecture folders of the ZIP to extract, for example x64 and arm64.</summary>
+    public string[]? ArchiveFolders { get; set; }
 }
 
 /// <summary>Where a target keeps the secret it generated.</summary>

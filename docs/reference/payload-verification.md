@@ -14,13 +14,13 @@ This page is generated from the shipped definitions. A test fails when it differ
 
 | Item | Definitions |
 |---|---|
-| Shipped definitions | 325 |
+| Shipped definitions | 327 |
 | With a pinned SHA-256 (`PayloadSha256`) | 0 |
-| With a SHA-256 from the version feed (`PayloadHashQuery`) | 8 |
+| With a SHA-256 from the version feed (`PayloadHashQuery`) | 10 |
 | With a SHA-256 from a checksum file (`PayloadSha256Url`) | 12 |
-| With any SHA-256 source | 20 |
-| That require a SHA-256 (`RequirePayloadHash`) | 5 |
-| That require a valid signature (`RequireValidSignature`) | 5 |
+| With any SHA-256 source | 22 |
+| That require a SHA-256 (`RequirePayloadHash`) | 7 |
+| That require a valid signature (`RequireValidSignature`) | 7 |
 | With no SHA-256 source and `RequireValidSignature` not set | 301 |
 
 The counts describe the settings of the definitions. An installer from a local source folder is always checked for a valid signature; the last count does not include that check.
@@ -31,6 +31,7 @@ The counts describe the settings of the definitions. An installer from a local s
 |---|---|---|---|---|
 | `7zip.json` |  | Yes |  | Yes |
 | `anypointstudio.json` |  | Yes |  | Yes |
+| `appinstaller.json` |  | Yes |  | Yes |
 | `bruno.json` |  | Yes |  | Yes |
 | `citrixworkspace-ltsr-x86.json` |  | Yes |  | Yes |
 | `devolutionspowershell.json` |  | Yes |  | Yes |
@@ -47,13 +48,16 @@ The counts describe the settings of the definitions. An installer from a local s
 | `ms-openjdk25-exe.json` |  |  | Yes |  |
 | `ms-openjdk25-msi-user.json` |  |  | Yes |  |
 | `ms-openjdk25-msi.json` |  |  | Yes |  |
+| `powershell7msix.json` |  | Yes |  | Yes |
 | `remotedesktopmanager.json` |  | Yes |  |  |
 | `teracopy.json` |  | Yes |  |  |
 
 ## Definitions that require a valid signature
 
+- `appinstaller.json`
 - `cutepdfwriter.json`
 - `devolutionspowershell.json`
+- `powershell7msix.json`
 - `tableaudesktop.json`
 - `tableauprep.json`
 - `tableaureader.json`

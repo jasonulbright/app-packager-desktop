@@ -2,7 +2,7 @@
 
 ## What it does
 
-This page lists the nested sections of an application definition: `InstallerSettings`, `PostInstallScript`, `Odt`, `BootstrapperLayout`, `ExtractSetup`, `LocalSource`, `LocalInstaller`, `SideFiles`, `ZipPayload` and `PayloadVariants`. The top-level fields, `VersionScraper` and `Detection` are on [Definition format](definition-format.md).
+This page lists the nested sections of an application definition: `InstallerSettings`, `PostInstallScript`, `Odt`, `BootstrapperLayout`, `ExtractSetup`, `LocalSource`, `LocalInstaller`, `SideFiles`, `ExtraFiles`, `ZipPayload` and `PayloadVariants`. The top-level fields, `VersionScraper` and `Detection` are on [Definition format](definition-format.md).
 
 ## When to use it
 
@@ -162,6 +162,25 @@ A list of files that you choose and that Stage copies beside the installer, for 
 | `Label` | string | Name of the file in lower case, for the settings row and for the refusal message. | `""` |
 
 Example: `{ "Key": "BeyondCompareKeyFile", "FileName": "BC5Key.txt", "Label": "license key file" }`.
+
+## ExtraFiles
+
+A list of files that Stage downloads beside an MSIX or MSIX bundle and hands to `Add-AppxProvisionedPackage`: a ZIP of dependency packages and a license file. Only an MSIX definition takes them, an imported feed cannot carry them, and each file needs a verified SHA-256 when `RequireHash` is `true`. A definition has at most one file of each kind. Shipped in `appinstaller.json`.
+
+The install wrapper picks the dependency packages of the processor of the device from `Dependencies\<folder>` and gives them and the license to one call, which installs the dependencies before the package. A device with no folder for its processor stops with exit code 1. Without `ExtraFiles` the wrapper provisions the package with `-SkipLicense`.
+
+| Field | Type | Meaning | Default |
+|---|---|---|---|
+| `Kind` | string | `License` or `DependencyArchive`. | `""` |
+| `DownloadUrl` | string | Address template. `{version}` is the raw version. | `""` |
+| `DownloadUrlQuery` | string or null | A regular expression over the version answer. The named group `url`, or group 1, is the address. For a file whose name the release does not repeat, such as a license file named with a GUID. | `null` |
+| `FileName` | string | Plain ASCII file name. The license keeps this name in the content folder. The archive is removed after the extraction. | `""` |
+| `Sha256` | string or null | Fixed SHA-256. It wins over `HashQuery`. | `null` |
+| `HashQuery` | string or null | A regular expression over the version answer. The named group `hash`, or group 1, is the SHA-256. | `null` |
+| `RequireHash` | bool | Stage refuses the file when no SHA-256 is known. | `false` |
+| `ArchiveFolders` | string list or null | `DependencyArchive` only: the architecture folders of the ZIP to extract, for example `x64` and `arm64`. Each folder must hold at least one `.appx` or `.msix`. | `null` |
+
+Example: `{ "Kind": "License", "FileName": "License1.xml", "DownloadUrlQuery": "...", "HashQuery": "...", "RequireHash": true }`.
 
 ## ZipPayload
 

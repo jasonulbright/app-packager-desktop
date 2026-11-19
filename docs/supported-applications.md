@@ -1,6 +1,6 @@
 # Supported applications
 
-The catalog holds 325 application definitions. The list comes from the definition files in `src/ApplicationPackagerEngine/Definitions`. The **Application** column is the name that shows in the grid.
+The catalog holds 327 application definitions. The list comes from the definition files in `src/ApplicationPackagerEngine/Definitions`. The **Application** column is the name that shows in the grid.
 
 | Vendor | Application | Architecture | Installer type |
 |---|---|---|---|
@@ -166,6 +166,7 @@ The catalog holds 325 application definitions. The list comes from the definitio
 | Microsoft | .NET 8 Desktop Runtime (x86) | x86 | EXE |
 | Microsoft | .NET 9 Desktop Runtime (x64) | x64 | EXE |
 | Microsoft | .NET 9 Desktop Runtime (x86) | x86 | EXE |
+| Microsoft | App Installer (WinGet) | x64 | MSIX |
 | Microsoft | ASP.NET 10 Server Hosting Bundle (x64) | x64 | EXE |
 | Microsoft | ASP.NET 11 Server Hosting Bundle (x64) | x64 | EXE |
 | Microsoft | ASP.NET 8 Server Hosting Bundle (x64) | x64 | EXE |
@@ -198,6 +199,7 @@ The catalog holds 325 application definitions. The list comes from the definitio
 | Microsoft | Microsoft OpenJDK 25 (MSI) | x64 | MSI |
 | Microsoft | Microsoft Teams (x64) | x64 | EXE |
 | Microsoft | Power BI Desktop (x64) | x64 | EXE |
+| Microsoft | PowerShell 7 (MSIX) | x64 | MSIX |
 | Microsoft | PowerShell 7 (x64) | x64 | MSI |
 | Microsoft | PowerShell 7 LTS (x64) | x64 | MSI |
 | Microsoft | PowerToys (x64) | x64 | EXE |
