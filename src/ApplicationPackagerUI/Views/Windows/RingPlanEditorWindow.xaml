@@ -29,7 +29,7 @@
                 <Setter Property="ContentTemplate">
                     <Setter.Value>
                         <DataTemplate>
-                            <TextBlock Text="{Binding}" TextWrapping="Wrap" MaxWidth="520" />
+                            <TextBlock Text="{Binding}" TextWrapping="Wrap" MaxWidth="600" />
                         </DataTemplate>
                     </Setter.Value>
                 </Setter>

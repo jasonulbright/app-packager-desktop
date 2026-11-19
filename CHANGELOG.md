@@ -9,6 +9,7 @@
 
 ### Changed
 
+- The ring plan editor shows the full label of the check box for the deployment option settings on one line. The guide images of the ConfigMgr, Intune and Citrix Workspace App pages of Settings and of the ring plan editor show the current window text.
 - The guide, the window text and the command line help now say that ConfigMgr, Intune and WSUS are independent and each is optional. Publishing to Intune or WSUS needs no ConfigMgr site, console or file share.
 - Every run can be cancelled. The Cancel button shows while a check, stage, package, publish, CVE or One Click run is active. It stops the download or child process that is running within seconds, keeps the products that finished and your selection, and shows "Cancelled: N of M products done." in the status line and the log. A second click does nothing, and closing the window also stops the running child processes.
 - Space NVD requests 6 seconds apart without an API key, so the lookup stays within the NVD limit.
