@@ -14,13 +14,13 @@ This page is generated from the shipped definitions. A test fails when it differ
 
 | Item | Definitions |
 |---|---|
-| Shipped definitions | 326 |
+| Shipped definitions | 327 |
 | With a pinned SHA-256 (`PayloadSha256`) | 0 |
 | With a SHA-256 from the version feed (`PayloadHashQuery`) | 10 |
 | With a SHA-256 from a checksum file (`PayloadSha256Url`) | 12 |
 | With any SHA-256 source | 22 |
 | That require a SHA-256 (`RequirePayloadHash`) | 7 |
-| That require a valid signature (`RequireValidSignature`) | 8 |
+| That require a valid signature (`RequireValidSignature`) | 9 |
 | With no SHA-256 source and `RequireValidSignature` not set | 299 |
 
 The counts describe the settings of the definitions. An installer from a local source folder is always checked for a valid signature; the last count does not include that check.
@@ -57,6 +57,7 @@ The counts describe the settings of the definitions. An installer from a local s
 - `appinstaller.json`
 - `cutepdfwriter.json`
 - `devolutionspowershell.json`
+- `powerbidesktopreportserver.json`
 - `powershell7.json`
 - `powershell7msix.json`
 - `tableaudesktop.json`
