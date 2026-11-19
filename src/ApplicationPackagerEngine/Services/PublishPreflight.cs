@@ -10,7 +10,7 @@ public static class PublishPreflight
 {
     public const string ConfigMgrSentence =
         "ConfigMgr: creates or updates the application and its deployment types and copies the content to the share. " +
-        "It does not supersede an older application. It distributes the content, and deploys (Available, not Required) to the " +
+        "It supersedes an older version only when supersedence is on for the application and you confirm it. It distributes the content, and deploys (Available, not Required) to the " +
         "test collection that Settings name, only when Settings turn those steps on.";
 
     public const string IntuneSentence =
