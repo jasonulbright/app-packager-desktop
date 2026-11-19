@@ -55,12 +55,16 @@ public partial class PackagerInfo : ObservableObject, IPackagerExecutionRequest
     /// <summary>The icon as an address for the grid image; null when there is none (an empty string cannot be an image source).</summary>
     public Uri? IconUri => IconPath.Length > 0 ? new Uri(IconPath) : null;
 
+    /// <summary>The icon as an image read fully into memory (the file is not held open, so an icon pack update can replace it while the grid shows it); null when there is none.</summary>
+    public System.Windows.Media.ImageSource? IconImage => ApplicationPackagerUI.Helpers.IconImageLoader.Load(IconPath);
+
     /// <summary>Looks the icon up again and tells the grid. Called when the icon pack was installed or updated while the grid was showing.</summary>
     public void RefreshIcon()
     {
         _iconPath = null;
         OnPropertyChanged(nameof(IconPath));
         OnPropertyChanged(nameof(IconUri));
+        OnPropertyChanged(nameof(IconImage));
         OnPropertyChanged(nameof(IconTooltip));
     }
 

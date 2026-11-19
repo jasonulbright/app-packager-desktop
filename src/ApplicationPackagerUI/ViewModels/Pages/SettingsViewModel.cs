@@ -458,6 +458,8 @@ public partial class SettingsViewModel : ObservableObject, ISettingsReload
                 ]);
 
             RefreshIconPackStatus();
+            // The Packages grid shows the icons of the pack: it reads them again after an update, without a restart.
+            if (result.Installed) Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetService<PackagesViewModel>(App.Services)?.RefreshIcons();
 
             _snackbarService.Show(
                 "Icon pack", result.Message,
@@ -498,6 +500,8 @@ public partial class SettingsViewModel : ObservableObject, ISettingsReload
                 ]);
 
             RefreshIconPackStatus();
+            // The Packages grid shows the icons of the pack: it reads them again after an update, without a restart.
+            if (result.Installed) Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetService<PackagesViewModel>(App.Services)?.RefreshIcons();
 
             _snackbarService.Show(
                 "Icon pack", result.Message,
