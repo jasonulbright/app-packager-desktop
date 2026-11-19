@@ -126,8 +126,7 @@ try {
     $prompts = 0
     $deadline = (Get-Date).AddSeconds(420)
     $finished = $false
-    $lastStatus = ''
-    $busySeen = $false
+    $logFile = Join-Path (Split-Path (Get-ChildItem $data -Recurse -Filter settings.json | Select-Object -First 1).FullName) 'SRLPackr\packr.log'
     while ((Get-Date) -lt $deadline -and -not $finished) {
         $yes = Find-El $null 'btnSupersedeYes' -Timeout 2
         if ($yes) {
@@ -154,19 +153,21 @@ try {
             'a dialog with a primary button is open: ' + ((Get-ElList (Main-Window) 400 | Where-Object { $_ -match 'Text' } | Select-Object -First 8) -join ' // ')
             Real-Click $primary; Start-Sleep 2; continue
         }
-        $w = Main-Window
-        $publish = Find-El $w 'btnPublishConfigMgr' -Timeout 2
-        $status = Status-Text $w
-        if ($status -ne $lastStatus) { "status: $status"; $lastStatus = $status }
-        if ($status -match 'Packag') { $busySeen = $true }
-        elseif ($busySeen -and $publish -and $publish.Current.IsEnabled) { $finished = $true }
+        # The run ends when the session log says so (the status bar of the page keeps its own text).
+        $text = Get-Content $logFile -Raw -ErrorAction SilentlyContinue
+        $packaged = ([regex]::Matches($text, '(?m)^\S+ \S+  Packaged\.')).Count
+        $failed = ([regex]::Matches($text, '(?m)Package FAILED')).Count
+        $stopped = $text -match 'declined at the confirmation|Cancelled|cancelled'
+        if ($packaged + $failed -ge $Applications.Count -or $stopped) { $finished = $true }
         Start-Sleep 3
     }
     if (-not $finished) { Shot 'timeout'; Get-ElList (Main-Window) 80; throw 'The publish did not finish in time.' }
     Start-Sleep 3
     Move-MouseAway
     "confirmation windows shown: $prompts"
-    "status at the end: $(Status-Text (Main-Window))"
+    '--- the log lines of the run ---'
+    Get-Content $logFile | Where-Object { $_ -match 'Supersedence|Packaged|Package FAILED|Chain check|Application title|Version rule|declined|skipped|Before publish' } | ForEach-Object { if ($_.Length -gt 250) { $_.Substring(0, 250) } else { $_ } }
+    '--- end ---'
     Shot 'core-packages-supersedence-log'
 
     # The locked title in the Workbench and the Options page (once, with the Yes scenario).

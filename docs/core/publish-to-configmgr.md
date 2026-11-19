@@ -75,6 +75,10 @@ Supersedence is a setting of each application. It is **Off** for every applicati
 
 ![The Supersedence menu of the Packages page](../images/core-packages-supersedence-menu.png)
 
+Settings, Supersedence holds the default for all applications:
+
+![Settings, Supersedence: the default mode and the version rule](../images/tools-settings-supersedence.png)
+
 With supersedence on, a package run finds the older version before it creates anything. It asks the site the question that **Check ConfigMgr** asks (the title rule: the words of the title without the version, with release details around them) and keeps the applications of the same publisher. The older version is the highest version below the packaged one that is not retired and has another title. When none is found, the log says so in one line and nothing is superseded. The program writes nothing into the older application and into its keywords; a hidden identity marker of an earlier release stays where it is and is never read or changed.
 
 When an older version is found, a window asks:
@@ -89,11 +93,17 @@ When an older version is found, a window asks:
 
 The check box **Remember this answer** applies the answer to the other applications of the same run and asks no more in that run. The next run asks again. On the command line `--yes` is the answer Yes and a run without it takes Skip.
 
+![The same window with Remember this answer ticked](../images/core-packages-supersedence-confirm-remember.png)
+
+The log of a run with the answer Yes names the older version, the confirmation and the relation that was added:
+
+![The log of a run: confirmed, packaged, supersedence added](../images/core-packages-supersedence-log.png)
+
 A failure of the step never undoes the application: the result says "Published, supersedence not applied" and why. A line that already holds a higher or an equal version under another title is named in the log and is not superseded. Before the publish the program reads the detection of the older application and writes warnings to the log (`Chain check`), and never blocks: Replace and uninstall with Exact while the older application still has a GreaterEquals version clause (its uninstall will be reported as failed); an older application and a new one that disagree (Exact against Minimum, or the reverse); a new application that keeps a GreaterEquals version clause under Replace and uninstall.
 
 The version rule (Settings, Supersedence) changes the operator of the version clause of the detection that is published: `Exact` writes `IsEquals` instead of `GreaterEquals`, only for a File or Registry value version clause whose operator is `GreaterEquals` and whose expected value is the packaged version, and only when a value read from the installed product equals the expected value (the MSI ProductVersion, or a value that a test install recorded). The definition does not change. The supersedence mode `Replace and uninstall` needs `Exact`; the combination `Minimum` with `Replace and uninstall` is refused before anything is created. The version rule applies to the detection of the application that is packaged (the new version) only; the older applications are never changed. Intune supersedence is not available: the setting applies to ConfigMgr.
 
-Before a publish with the supersedence mode on, the program reads the detection of the older application of the line and writes warnings to the log (`Chain check`), and never blocks: Replace and uninstall with Exact while the older application still has a GreaterEquals version clause (its uninstall will be reported as failed); an older application and a new one that disagree (Exact against Minimum, or the reverse); a new application that keeps a GreaterEquals version clause under Replace and uninstall. The check reads the site once more, so a publish with the mode on takes a little longer.
+The check reads the site once more, so a publish with the mode on takes a little longer.
 
 The two steps run in one Windows PowerShell start, so the ConfigMgr module loads once for both. A distribution that fails ends the script, and the test deployment does not run.
 
