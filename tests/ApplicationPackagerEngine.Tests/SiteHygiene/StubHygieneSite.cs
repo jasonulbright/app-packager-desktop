@@ -239,7 +239,7 @@ internal sealed class StubHygieneSite : IConfigMgrSession
                 $before = @(if ($global:Sup.ContainsKey($this.ModelName)) { $global:Sup[$this.ModelName] })
                 $removed = @($before | Where-Object { $id = $_.RuleId; @($kept | Where-Object { $_.RuleId -eq $id }).Count -eq 0 } | ForEach-Object { [string]$_.RuleId })
                 $global:Log.Add('Cmd:SupersedenceRemoval|' + $this.ModelName + '|' + ($removed -join ','))
-                $global:Sup[$this.ModelName] = L @($kept)
+                $global:Sup[$this.ModelName] = L $kept.ToArray()
                 $latest = Rows 'SMS_Application' | Where-Object { $_.ModelName -eq $this.ModelName -and $_.IsLatest } | Select-Object -First 1
                 $old = $latest.PSObject.Copy(); $old.IsLatest = $false; (RowList 'SMS_Application').Add($old)
                 $latest.CI_ID = [int]$latest.CI_ID + 1; $latest.CIVersion = [int]$latest.CIVersion + 1
