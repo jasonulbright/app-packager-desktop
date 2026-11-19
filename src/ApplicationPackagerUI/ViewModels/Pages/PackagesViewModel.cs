@@ -703,9 +703,9 @@ public partial class PackagesViewModel : ObservableObject
                 }
             }
 
-            if (!tally.Cancelled) AddLogLine(CheckResultSummary.Line("Check ConfigMgr", selected.Select(p => p.Status).ToList(), Packagers.Count(p => p.IsSelected)));
             tally.Finish(_operationCts.Token);
             StatusText = RunEndLine(tally, "ConfigMgr query", selected.Count, "checked", "Check ConfigMgr");
+            if (!tally.Cancelled) AddLogLine(CheckResultSummary.Line("Check ConfigMgr", selected.Select(p => p.Status).ToList(), Packagers.Count(p => p.IsSelected)));
         }
         finally
         {
