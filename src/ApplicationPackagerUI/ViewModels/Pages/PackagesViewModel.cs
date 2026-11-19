@@ -487,7 +487,9 @@ public partial class PackagesViewModel : ObservableObject
         var selected = SelectedPackagers.ToList();
         if (selected.Count == 0) { ShowNoneSelected("Check Latest"); return; }
 
-        await RunCheckLatestOnList(selected, "Checking latest versions...", "Latest check");
+        var tally = await RunCheckLatestOnList(selected, "Checking latest versions...", "Latest check");
+        // One line with the count of the products that need an update. Check Latest selects nothing, so the line has no selection count.
+        if (!tally.Cancelled) AddLogLine(CheckResultSummary.Line("Check Latest", selected.Select(p => p.Status).ToList(), null));
     }
 
     private async Task<PackagingRunTally> RunCheckLatestOnList(
@@ -702,6 +704,7 @@ public partial class PackagesViewModel : ObservableObject
 
             tally.Finish(_operationCts.Token);
             StatusText = RunEndLine(tally, "ConfigMgr query", selected.Count, "checked");
+            if (!tally.Cancelled) AddLogLine(CheckResultSummary.Line("Check ConfigMgr", selected.Select(p => p.Status).ToList(), Packagers.Count(p => p.IsSelected)));
         }
         finally
         {
