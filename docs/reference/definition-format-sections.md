@@ -57,7 +57,7 @@ Example (`mariadb-server.json`):
 | `mariadb-server.json` | MariaDB Server (x64) | Service name, `Text`, `MariaDB`, Server. TCP port, `Number`, `3306`, Server. |
 | `sqlserver2022express.json` | SQL Server 2022 Express (x64) | Instance name, `Text`, `SQLEXPRESS`, Instance. Sysadmin accounts, `Text`, `BUILTIN\Administrators`, Instance. |
 | `ssms.json` | SQL Server Management Studio 22 (x64) | UI mode, `Dropdown` (`Quiet`, `Passive`), `Quiet`, Install behavior. Install path, `Text`, empty, Install behavior. Download all packages before installing, `Toggle`, `true`, Install behavior. Do not update the Visual Studio Installer, `Toggle`, `false`, Install behavior. Close SSMS if it is running, `Toggle`, `false`, Install behavior. The five workloads (AI assistance, business intelligence, code tools, DevOps, hybrid and migration), `Toggle`, `false`, Components, each `--add <ID>`. Product language, `Text`, empty, Components (`--addProductLang <code>`, one language, pattern `^[a-z]{2}-[a-z]{2}$`). Delete the package cache after the install, `Toggle`, `false`, Install behavior (`--nocache`). Include recommended components and Include optional components, `Toggle`, `false`, Components, passed only while a workload is on. Remove out-of-support components, `Toggle`, `true`, Components. |
-| `teamviewerhost.json` | TeamViewer Host (x64) | Assign the device after install, `Toggle`, `false`, Assignment. Assignment ID, `Text`, empty, Assignment. Assignment options, `Text`, `--grant-easy-access`, Assignment. |
+| `teamviewerhost.json` | TeamViewer Host (x64) | API token, Custom config ID, Assignment ID and Assignment options, `Text`, empty, Assignment (MSI properties APITOKEN, CUSTOMCONFIGID, ASSIGNMENTID, ASSIGNMENTOPTIONS). Remove the desktop shortcut, `Toggle`, `false`, Options (DESKTOPSHORTCUTS=0). |
 | `windowsadmincenter.json` | Windows Admin Center (v2) | HTTPS port, `Number`, `443`, no group. |
 | `m365apps-x64.json`, `m365apps-x86.json`, `m365project-x64.json`, `m365project-x86.json`, `m365visio-x64.json`, `m365visio-x86.json` | Microsoft 365 Apps, Project and Visio | The same 21 parameters in each file. Deploy mode, `Dropdown` (`Managed`, `Online`), `Managed`, Deployment. Migrate architecture and Shared computer activation, `Toggle`, `false`, Deployment. Languages, `Text`, `en-us`, Languages (ODT language IDs separated by commas; the pattern is checked). Let ConfigMgr manage Office updates (`OfficeMgmtCOM`), Office updates, Close running Office apps (`FORCEAPPSHUTDOWN`) and Remove installed Office MSI versions (`RemoveMSI`), `Toggle`, `true`, Office behavior; Device-based licensing, `Toggle`, `false`, Office behavior. Then 12 `Toggle` parameters in the group Excluded apps. |
 
@@ -73,7 +73,7 @@ PowerShell that App Packager Desktop appends to `install.ps1`. It runs only afte
 | `WhenValue` | string | The value of `WhenSetting` that enables the script. | `"true"` |
 | `Script` | string | The script body. `{setting:Key}` and `{setting:Key:MapName}` are replaced at stage. | `""` |
 
-Shipped in 6 files. Example: `teamviewerhost.json` runs `TeamViewer.exe assignment` when the parameter `AssignDevice` is `true`.
+Shipped in 6 files. The script runs only when its gating parameter has the value in `WhenValue`.
 
 ## Odt
 

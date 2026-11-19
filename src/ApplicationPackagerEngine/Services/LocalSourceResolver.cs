@@ -9,6 +9,13 @@ namespace ApplicationPackagerEngine.Services;
 /// file name across releases, so the file version decides (the ProductVersion
 /// for an MSI file), then the newest write time.
 /// </summary>
+/// <summary>
+/// The application has no web version source: its version is the version of the installer in the installer source folder,
+/// and the folder holds none (or none is set). A batch that reports failures (the CVE report) treats it as "no vendor
+/// version", not as a failed check.
+/// </summary>
+public sealed class NoWebVersionSourceException(string message, Exception inner) : InvalidOperationException(message, inner);
+
 public static class LocalSourceResolver
 {
     public const string SettingsLocation = "Settings > Local Installer Sources";

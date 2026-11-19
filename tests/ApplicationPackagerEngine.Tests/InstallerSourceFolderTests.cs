@@ -128,7 +128,20 @@ public sealed class InstallerSourceFolderTests : IDisposable
         Assert.Contains("ASSIGNMENTID=0001-aaaa", args);
         Assert.Contains("ASSIGNMENTOPTIONS=\"--grant-easy-access --reassign\"", args);
         Assert.Contains("DESKTOPSHORTCUTS=0", args);
-        Assert.Contains("REMOVE=f.DesktopShortcut", args);
+    }
+
+    [Fact]
+    public void ASpaceInATokenIsRefused()
+    {
+        var def = DefinitionFixture.Load(TeamViewerFile);
+        Assert.Throws<InvalidOperationException>(() => StagingService.ResolveInstallerArgs(def.InstallArgs, def.InstallerSettings, new() { ["ApiToken"] = "a b" }));
+    }
+
+    [Fact]
+    public async Task NoWebSourceIsATypedRefusalSoACveRunCanTreatItAsNoVendorVersion()
+    {
+        var ex = await Assert.ThrowsAsync<NoWebVersionSourceException>(() => Staging().GetLatestVersionAsync(DefinitionFixture.Load(TortoiseFile)));
+        Assert.IsAssignableFrom<InvalidOperationException>(ex);
     }
 
     [Fact]

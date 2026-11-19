@@ -247,7 +247,7 @@ public sealed class StagingService
             catch (InvalidOperationException ex)
             {
                 // The vendor publishes no version a script can read; say where the version comes from.
-                throw new InvalidOperationException(
+                throw new NoWebVersionSourceException(
                     $"{def.Application} has no web version source: its version is read from the installer in the installer source folder. {ex.Message}", ex);
             }
         }
@@ -781,7 +781,9 @@ public sealed class StagingService
                 Architecture = def.Architecture,
                 InstallContext = installContext,
                 InstallMode = string.IsNullOrWhiteSpace(installMode) ? null : installMode,
-                InstallArgs = installArgs.Replace(TargetSecretScript.Token, TargetSecretScript.ManifestText, StringComparison.Ordinal),
+                InstallArgs = System.Text.RegularExpressions.Regex.Replace(
+                    installArgs.Replace(TargetSecretScript.Token, TargetSecretScript.ManifestText, StringComparison.Ordinal),
+                    @"\bAPITOKEN=\S+", "APITOKEN=<in install.ps1>"),
                 UninstallArgs = uninstallArgs,
                 UninstallCommand = modeUninstallCommandLine,
                 ProductCode = productCode,

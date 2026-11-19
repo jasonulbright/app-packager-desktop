@@ -28,7 +28,8 @@ public class WsusAbsentTests
         var entry = StagingService.BuildWsusDetection(def, "1.2.3");
         if (def.Detection.Type == ArpEntryDetection.TypeName)
         {
-            Assert.StartsWith("aspnethostingbundle", file);
+            // The .NET hosting bundles and TeamViewer Host detect by their Add/Remove Programs entry.
+            Assert.True(file.StartsWith("aspnethostingbundle", StringComparison.Ordinal) || file == "teamviewerhost.json", file);
             Assert.NotNull(entry);
         }
         else

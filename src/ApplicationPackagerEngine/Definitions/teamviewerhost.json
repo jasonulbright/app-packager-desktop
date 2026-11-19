@@ -35,9 +35,9 @@
       "ControlType": "Text",
       "DefaultValue": "",
       "CommandFragment": "APITOKEN={value}",
-      "ValuePattern": "^[^\"\\r\\n]+$",
+      "ValuePattern": "^[^\"\\s]+$",
       "Group": "Assignment",
-      "Tooltip": "The script token for APITOKEN, from the Management Console. It is written to the install script of the package in clear text. Leave empty to skip."
+      "Tooltip": "The script token for APITOKEN, from the Management Console. It is written to the install script of the package in clear text (not to the stage manifest). Leave empty to skip."
     },
     {
       "Key": "CustomConfigId",
@@ -45,7 +45,7 @@
       "ControlType": "Text",
       "DefaultValue": "",
       "CommandFragment": "CUSTOMCONFIGID={value}",
-      "ValuePattern": "^[^\"\\r\\n]+$",
+      "ValuePattern": "^[^\"\\s]+$",
       "Group": "Assignment",
       "Tooltip": "CUSTOMCONFIGID of a custom Host module from the Management Console. Leave empty to skip."
     },
@@ -55,7 +55,7 @@
       "ControlType": "Text",
       "DefaultValue": "",
       "CommandFragment": "ASSIGNMENTID={value}",
-      "ValuePattern": "^[^\"\\r\\n]+$",
+      "ValuePattern": "^[^\"\\s]+$",
       "Group": "Assignment",
       "Tooltip": "ASSIGNMENTID from Management Console, Design and Deploy: the assignment ID of your Host module. Leave empty to skip assignment."
     },
@@ -74,9 +74,9 @@
       "Label": "Remove the desktop shortcut",
       "ControlType": "Toggle",
       "DefaultValue": "false",
-      "CommandFragment": "DESKTOPSHORTCUTS=0 ADDLOCAL=ALL REMOVE=f.DesktopShortcut",
+      "CommandFragment": "DESKTOPSHORTCUTS=0",
       "Group": "Options",
-      "Tooltip": "Adds DESKTOPSHORTCUTS=0 and ADDLOCAL=ALL REMOVE=f.DesktopShortcut to the msiexec command line."
+      "Tooltip": "Adds DESKTOPSHORTCUTS=0 to the msiexec command line."
     }
   ],
   "Detection": {
