@@ -482,7 +482,8 @@ public sealed class WrapperGeneratorService
             uninstall.Add($"    Get-AppxPackage -AllUsers -Name $identity.Name -PackageTypeFilter $packageType -ErrorAction Stop{installedMatch} | ForEach-Object {{ Remove-AppxPackage -Package $_.PackageFullName -AllUsers -ErrorAction Stop }}");
             uninstall.Add("} catch { if (-not $failure) { $failure = $_.Exception.Message } }");
             uninstall.Add("if ($failure) {");
-            uninstall.Add($"    $left = @(Get-AppxProvisionedPackage -Online -ErrorAction SilentlyContinue | Where-Object {{ $_.DisplayName -eq $identity.Name{provisionedMatch} }})");
+            // A lookup that fails is a failure too: the wrapper then cannot show that the entry is gone.
+            uninstall.Add($"    try {{ $left = @(Get-AppxProvisionedPackage -Online -ErrorAction Stop | Where-Object {{ $_.DisplayName -eq $identity.Name{provisionedMatch} }}) }} catch {{ [Console]::Error.WriteLine($failure); Exit-Wrapper 1 }}");
             uninstall.Add("    if ($left.Count -gt 0) { [Console]::Error.WriteLine($failure); Exit-Wrapper 1 }");
             uninstall.Add("}");
         }
