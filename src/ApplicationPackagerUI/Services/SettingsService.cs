@@ -265,16 +265,16 @@ public class SettingsService : IRunSettingsReader<AppSettings>
     /// </summary>
     private void ResolveStoredTarget(AppSettings settings, bool systemsStored)
     {
-        // Systems in Use that the file stores are the authority: their check boxes name the target.
-        if (systemsStored && settings.Systems is { } checkBoxes)
-        {
-            settings.Intune.DeploymentTarget = checkBoxes.ToTargetName();
-            return;
-        }
         var stored = settings.Intune.DeploymentTarget;
         if (DeploymentTargets.IsKnown(stored))
         {
             settings.Intune.DeploymentTarget = DeploymentTargets.Normalize(stored);
+            return;
+        }
+        // An empty target takes the combination of the Systems in Use check boxes that the file stores.
+        if (string.IsNullOrWhiteSpace(stored) && systemsStored && settings.Systems is { } checkBoxes)
+        {
+            settings.Intune.DeploymentTarget = checkBoxes.ToTargetName();
             return;
         }
 
