@@ -67,6 +67,12 @@ public sealed class AppDefinition
     public VersionScraperConfig VersionScraper { get; set; } = new();
     public string DownloadUrl { get; set; } = "";
     /// <summary>
+    /// A second address for the same file, with the same tokens as <see cref="DownloadUrl"/>. The stage uses it only when the host
+    /// answers 404 for the first address; a 403 is no answer and never switches the address. For a vendor that serves one file under
+    /// two paths (Tableau: esdalt and tssoftware).
+    /// </summary>
+    public string? FallbackDownloadUrl { get; set; }
+    /// <summary>
     /// Override filename for the downloaded installer. Required when the DownloadUrl
     /// doesn't contain a usable filename (fwlinks, query-string URLs, version-agnostic paths).
     /// </summary>

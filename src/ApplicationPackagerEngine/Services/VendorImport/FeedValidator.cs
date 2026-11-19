@@ -322,7 +322,7 @@ public static class DefinitionCode
     public static readonly IReadOnlyCollection<string> CodeProperties =
     [
         "PostInstallScript", "UninstallCommand", "ExtractSetup", "BootstrapperLayout", "InstallerSettings",
-        "LocalSource", "LocalInstaller", "SideFiles", "ExtraFiles", "TargetSecret", "Odt", "ZipPayload"
+        "LocalSource", "LocalInstaller", "SideFiles", "ExtraFiles", "FallbackDownloadUrl", "TargetSecret", "Odt", "ZipPayload"
     ];
 
     /// <summary>The top-level properties that hold no code (the nested values are checked by <see cref="Find"/>).</summary>
@@ -364,6 +364,8 @@ public static class DefinitionCode
         if (d.SideFiles is { Length: > 0 }) found.Add("SideFiles");
         // The extra files download from addresses of the document and feed the provisioning call.
         if (d.ExtraFiles is { Length: > 0 }) found.Add("ExtraFiles");
+        // A second download address is a second place that the document sends the stage to.
+        if (!string.IsNullOrWhiteSpace(d.FallbackDownloadUrl)) found.Add("FallbackDownloadUrl");
         if (d.TargetSecret is not null) found.Add("TargetSecret");
         // The Office Deployment Tool configuration is built from these values without escaping and runs as SYSTEM; the zip payload
         // deletes a folder and a registry key that the document names.

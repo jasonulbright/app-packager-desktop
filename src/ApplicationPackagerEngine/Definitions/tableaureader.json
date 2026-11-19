@@ -33,7 +33,8 @@
       "Upgrade-Insecure-Requests: 1"
     ]
   },
-  "DownloadUrl": "https://downloads.tableau.com/tssoftware/TableauReader-64bit-{display_version_dashed}.exe",
+  "DownloadUrl": "https://downloads.tableau.com/esdalt/{display_version}/TableauReader-64bit-{display_version_dashed}.exe",
+  "FallbackDownloadUrl": "https://downloads.tableau.com/tssoftware/TableauReader-64bit-{display_version_dashed}.exe",
   "RequireValidSignature": true,
   "InstallArgs": "/install /quiet /norestart ACCEPTEULA=1 SENDTELEMETRY=0",
   "UninstallArgs": "",
