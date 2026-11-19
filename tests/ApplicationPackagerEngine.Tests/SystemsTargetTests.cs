@@ -46,10 +46,10 @@ public sealed class SystemsTargetTests : IDisposable
 
     [Theory]
     [MemberData(nameof(Combinations))]
-    public void AFileWithSystemsAndNoTargetReadsAsTheTargetOfTheCheckBoxes(bool configMgr, bool intune, bool wsus, string expected)
+    public void AFileWithSystemsAndAnEmptyTargetReadsAsTheTargetOfTheCheckBoxes(bool configMgr, bool intune, bool wsus, string expected)
     {
         File.WriteAllText(SettingsService.SettingsPath,
-            $$"""{ "Systems": { "ConfigMgr": {{configMgr.ToString().ToLowerInvariant()}}, "Intune": {{intune.ToString().ToLowerInvariant()}}, "Wsus": {{wsus.ToString().ToLowerInvariant()}} } }""");
+            $$"""{ "Intune": { "DeploymentTarget": "" }, "Systems": { "ConfigMgr": {{configMgr.ToString().ToLowerInvariant()}}, "Intune": {{intune.ToString().ToLowerInvariant()}}, "Wsus": {{wsus.ToString().ToLowerInvariant()}} } }""");
 
         var settings = new SettingsService().Load();
 
