@@ -1271,6 +1271,14 @@ public sealed class StagingService
         }
         downloadUrl = ApplyDashedVersion(downloadUrl, version);
         var installerFileName = AssertPlainFileName(ResolveInstallerFileName(def, downloadUrl, version));
+        if (!string.IsNullOrWhiteSpace(def.FallbackDownloadUrl) && !File.Exists(Workbench.WorkbenchPaths.CombineUnder(contentPath, installerFileName)))
+        {
+            var fallbackUrl = ApplyDashedVersion(def.FallbackDownloadUrl
+                .Replace("{display_version}", version, StringComparison.OrdinalIgnoreCase)
+                .Replace("{version}", rawVersion, StringComparison.OrdinalIgnoreCase), version);
+            downloadUrl = await UrlAvailability.SelectAsync([downloadUrl, fallbackUrl],
+                url => UrlAvailability.ProbeAsync(url, def.VersionScraper.RequestHeaders, ct), onProgress);
+        }
         var installerPath = Workbench.WorkbenchPaths.CombineUnder(contentPath, installerFileName);
         var headers = def.VersionScraper.RequestHeaders;
         var magicType = MagicTypeFor(installerPath, def.InstallerType);

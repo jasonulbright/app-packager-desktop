@@ -57,6 +57,7 @@ A text editor. The file is JSON with the extension `.json`.
 | `InstallContext` | string | `Machine` (Program Files, HKLM, device collections, runs as SYSTEM) or `User` (`%LOCALAPPDATA%`, HKCU, user collections, runs as the logged-on user). For MSIX the manifest decides, and the field only guides the deployment target. | `"Machine"` | 12 (`"User"`); `apppackagersuite.json` |
 | `DownloadUrl` | string | Template of the installer address. `{version}` is the raw version. `{display_version}` is the display version. Can be empty when a scraper finds the address. | `""` | 326 (76 empty) |
 | `InstallerFileName` | string or null | File name for the downloaded installer. Use it when the address has no usable name. Takes `{version}` and `{display_version}`. Both give the display version. | `null` | 86; `"AcroRdrDCx64-{display_version}.exe"` in `adobereader.json` |
+| `FallbackDownloadUrl` | string or null | A second address for the same file, with the tokens of `DownloadUrl`. Stage uses it only when the host answers 404 for the first address; a 403 is no answer and never switches the address. A definition from an imported feed cannot carry it. | `null` | 3; `tableauprep.json` |
 | `InstallArgs` | string | Install arguments. | `""` | 326; `"/qn /norestart"` |
 | `UninstallArgs` | string | Uninstall arguments. `{ProductCode}` is the MSI product code. | `""` | 326; `"/x {ProductCode} /qn /norestart"` |
 | `UninstallCommand` | string or null | A command for the uninstall wrapper. The wrapper calls it directly and does not search Add/Remove Programs. | `null` | 104; `bitwarden.json` |
@@ -133,7 +134,7 @@ With a pause of 5 seconds between retries, one `HttpRegex` fetch ends after at m
 | Field | Type | Meaning | Default |
 |---|---|---|---|
 | `Url` | string or null | Address template. `{capture}` is the capture of the previous hop. `{capture0}` to `{captureN}` are earlier captures. `{version}` is the version captured so far. Omit it in the first hop to use `VersionScraper.Url`. A relative value resolves against the previous address. | `null` |
-| `Pattern` | string | Expression for the content. The capture that moves on is the named group `capture`, or group 1. The named groups `version` and `url` hold the version and the download address. A later hop replaces an earlier value. `{capture}` and `{capture0}` to `{captureN}` in the expression are replaced by the escaped capture (a quantifier such as `{2}` stays); `tableauprep.json` reads the point release of the train that the first page named. | `""` |
+| `Pattern` | string | Expression for the content. The capture that moves on is the named group `capture`, or group 1. The named groups `version` and `url` hold the version and the download address. A later hop replaces an earlier value. | `""` |
 | `SelectHighestVersion` | bool | Collects all matches and takes the highest capture. | `false` |
 
 Example (`rtools.json`, two hops):

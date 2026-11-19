@@ -62,7 +62,7 @@ public sealed class ChainedHttpRegexScraper : HttpRegexScraper
             var content = await FetchViaIwrAsync(url, ct, ua, headers);
             if (content is null) return (null, null);
 
-            var match = SelectMatch(content, hop, captures);
+            var match = SelectMatch(content, hop);
             if (match is null) return (null, null);
 
             currentUrl = url;
@@ -102,27 +102,11 @@ public sealed class ChainedHttpRegexScraper : HttpRegexScraper
         if (version is not null && template.Contains("{version}", StringComparison.OrdinalIgnoreCase)) Check(version, versionHost, "{version}");
     }
 
-    /// <summary>
-    /// The pattern of a hop with {capture} (the capture of the previous hop) and {capture0}..{captureN} (the capture of an earlier hop)
-    /// replaced by the escaped capture. A regex quantifier such as {2} is not a placeholder and stays. A page that lists the point
-    /// releases of every train is read for the train that an earlier page named, for example: <c>(?&lt;version&gt;{capture}\.\d+)</c>.
-    /// </summary>
-    public static string SubstitutePattern(string pattern, IReadOnlyList<string> captures)
-    {
-        var result = pattern;
-        for (var i = 0; i < captures.Count; i++)
-            result = result.Replace($"{{capture{i}}}", Regex.Escape(captures[i]), StringComparison.OrdinalIgnoreCase);
-        if (captures.Count > 0)
-            result = result.Replace("{capture}", Regex.Escape(captures[^1]), StringComparison.OrdinalIgnoreCase);
-        return result;
-    }
-
-    /// <summary>The match that a hop selects in the content; null when none. Exposed for tests so a hop can be checked without network access.</summary>
-    public static Match? SelectMatch(string content, ScraperHop hop, IReadOnlyList<string> captures)
+    private static Match? SelectMatch(string content, ScraperHop hop)
     {
         if (string.IsNullOrWhiteSpace(hop.Pattern)) return null;
 
-        var matches = Regex.Matches(content, SubstitutePattern(hop.Pattern, captures), RegexOptions.Multiline);
+        var matches = Regex.Matches(content, hop.Pattern, RegexOptions.Multiline);
         if (matches.Count == 0) return null;
         if (!hop.SelectHighestVersion) return matches[0];
 

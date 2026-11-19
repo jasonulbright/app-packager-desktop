@@ -62,10 +62,10 @@ The `VersionScraper.Type` field names the scraper. The comparison ignores case. 
 
 | Type | Definitions | Method | Example |
 |---|---|---|---|
-| `HttpRegex` | 211 | Gets a page or an API answer and matches the version with a regular expression. | `putty.json` |
+| `HttpRegex` | 212 | Gets a page or an API answer and matches the version with a regular expression. | `putty.json` |
 | `JsonQuery` | 68 | Reads the version from a JSON API with a path expression. | `notepadplusplus.json` |
 | `FileVersion` | 31 | Downloads the installer and reads the version from its properties. | `amazondcv.json` |
-| `ChainedHttpRegex` | 8 | Follows a sequence of pages. Each page is matched with a regular expression. | `agentransack.json` |
+| `ChainedHttpRegex` | 7 | Follows a sequence of pages. Each page is matched with a regular expression. | `agentransack.json` |
 | `CdnCab` | 6 | Reads the Office CDN version descriptor. | `m365apps-x64.json` |
 | `DellCatalog` | 1 | Reads the Dell update catalog. | `dellcommandupdate.json` |
 | `HeadProbe` | 1 | Probes the download host for the newest build number. | `rvtools.json` |
@@ -75,7 +75,7 @@ How `Pattern` works for each type:
 - `HttpRegex`: a regular expression. Group 1 holds the version. The special value `LAST_MODIFIED` reads the Last-Modified header of the page as a date version (`sysinternals.json`). The prefix `REDIR:` matches the expression against the final address after the redirects, not against the page (`azurecli.json`).
 - `JsonQuery`: a path. `name` reads a property. `[N]` reads an array item. `[?key=value]` reads the first item where the key equals the value. `[?key!=value]` reads the first item where it does not. `[?k1=v1,k2=v2]` needs all conditions. `[max:field]` reads the item with the highest version in the field. Example: `[?name=studio,version=latest,os=windows].source` in `anypointstudio.json`.
 - `FileVersion`: `FileVersion`, `ProductVersion`, `MsiProductVersion` or `MsixManifest`. Any other value reads `ProductVersion`.
-- `ChainedHttpRegex`: the value `CHAINED`. The hops hold the expressions. Each hop fetches a page and applies its expression. The capture goes into the address of the next hop and into its expression as `{capture}`; in an expression the capture is escaped, so a train such as `2026.3` matches its own point releases (`2026.3.1`) and no other train. The named groups `version` and `url` hold the result.
+- `ChainedHttpRegex`: the value `CHAINED`. The hops hold the expressions. Each hop fetches a page and applies its expression. The capture goes into the address of the next hop as `{capture}`. The named groups `version` and `url` hold the result.
 - `CdnCab`: `I640Version` for the 64-bit version or `I320Version` for the 32-bit version. `Url` is the channel `.cab` file of the Office CDN.
 - `HeadProbe`: the oldest version that the walk may start from. `Url` holds `{version}`. The walk goes up from this version while the host serves the file.
 

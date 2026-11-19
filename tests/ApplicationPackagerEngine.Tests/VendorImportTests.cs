@@ -536,6 +536,7 @@ public sealed class VendorImportTests : IDisposable
     [InlineData("LocalInstaller", null)]
     [InlineData("SideFiles", null)]
     [InlineData("ExtraFiles", null)]
+    [InlineData("FallbackDownloadUrl", "https://example.test/f.exe")]
     public void ADefinitionThatCarriesCodeIsBlockedInEveryTrustState(string property, string? text)
     {
         JsonNode value = text is not null ? text
@@ -560,6 +561,7 @@ public sealed class VendorImportTests : IDisposable
         { "LocalInstaller", "LocalInstaller" },
         { "SideFiles", "SideFiles" },
         { "ExtraFiles", "ExtraFiles" },
+        { "FallbackDownloadUrl", "FallbackDownloadUrl" },
         { "TargetSecret", "TargetSecret" },
         { "Odt", "Odt" },
         { "ZipPayload", "ZipPayload" }
@@ -579,6 +581,7 @@ public sealed class VendorImportTests : IDisposable
             case "LocalInstaller": d.LocalInstaller = new LocalInstallerConfig(); break;
             case "SideFiles": d.SideFiles = [new SideFileConfig { Key = "k" }]; break;
             case "ExtraFiles": d.ExtraFiles = [new ExtraFileConfig { Kind = "License" }]; break;
+            case "FallbackDownloadUrl": d.FallbackDownloadUrl = "https://example.test/f.exe"; break;
             case "TargetSecret": d.TargetSecret = new TargetSecretConfig(); break;
             case "Odt": d.Odt = new OdtConfig(); break;
             case "ZipPayload": d.ZipPayload = new ZipPayloadConfig { InstallDir = @"C:\Windows\System32" }; break;
