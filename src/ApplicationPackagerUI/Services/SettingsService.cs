@@ -102,6 +102,7 @@ public class SettingsService : IRunSettingsReader<AppSettings>
                 settings.LocalSourceFolders ??= [];
                 settings.SideFiles ??= [];
                 settings.ScriptSigning = ApplicationPackagerEngine.Models.Signing.SigningPolicy.FromSettings(settings.ScriptSigning);
+                var systemsStored = settings.Systems is not null;
                 settings.Systems = SystemsInUse.Resolve(settings.Systems, settings.Intune.TenantId, settings.Wsus?.ServerName);
                 settings.Wsus = WsusSettings.FromStored(settings.Wsus);
                 settings.OneClick ??= new OneClickSettings();
@@ -109,7 +110,7 @@ public class SettingsService : IRunSettingsReader<AppSettings>
                     .Where(kv => kv.Value is not null)
                     .ToDictionary(kv => kv.Key, kv => kv.Value, StringComparer.OrdinalIgnoreCase);
                 settings.OneClick.OnExisting = ApplicationPackagerEngine.Services.OneClick.OneClickOnExisting.Normalize(settings.OneClick.OnExisting);
-                ResolveStoredTarget(settings);
+                ResolveStoredTarget(settings, systemsStored);
                 DiscoveryPreferences.Normalize(settings);
                 settings.AppStates ??= [];
                 foreach (var state in settings.AppStates.Values.Where(s => s is not null))
@@ -262,8 +263,14 @@ public class SettingsService : IRunSettingsReader<AppSettings>
     /// takes the name of the saved One Click default destinations when they exist, else the default of the setting, ConfigMgr, with a
     /// notice. An unknown value is kept as it is, so it reads as no destination and never as ConfigMgr, and the notice names the valid names.
     /// </summary>
-    private void ResolveStoredTarget(AppSettings settings)
+    private void ResolveStoredTarget(AppSettings settings, bool systemsStored)
     {
+        // Systems in Use that the file stores are the authority: their check boxes name the target.
+        if (systemsStored && settings.Systems is { } checkBoxes)
+        {
+            settings.Intune.DeploymentTarget = checkBoxes.ToTargetName();
+            return;
+        }
         var stored = settings.Intune.DeploymentTarget;
         if (DeploymentTargets.IsKnown(stored))
         {
