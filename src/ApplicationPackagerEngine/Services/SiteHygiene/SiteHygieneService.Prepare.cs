@@ -83,7 +83,7 @@ public sealed partial class SiteHygieneService
             if (supported && HygieneFixRules.Gate(request.Kind, f) is { } refusal) { dropped.Add(Skip(f, refusal)); continue; }
             if (seen.Add(f.Key)) wanted.Add(f);
         }
-        var cleared = request with { ChangeConfirmed = false, DeleteConfirmed = false, Targets = [], FixText = "", Fingerprint = null, PreparedUtc = null };
+        var cleared = request with { ChangeConfirmed = false, DeleteConfirmed = false, DeleteOldRevisions = false, Targets = [], FixText = "", Fingerprint = null, PreparedUtc = null };
         if (!supported)
             return cleared with
             {
@@ -196,8 +196,8 @@ public sealed partial class SiteHygieneService
         if (kind == HygieneFixKind.RemoveBrokenSupersedence)
         {
             lines.Add("Each change removes only the supersedence rules of one application that point at the deleted application, and makes one new revision of the application.");
-            lines.Add("Before the first change the page saves the original data to a folder: the full application document and the removed rules, in a file that Restore-HygSupersedence of Site Hygiene (PowerShell) reads. When the save fails, nothing is changed.");
-            lines.Add("Set-CMApplicationSupersedence -RemoveSupersedence is not used: it needs the superseded application and its deployment type, which a deleted application no longer has.");
+            lines.Add("Set-CMApplicationSupersedence -RemoveSupersedence is not used: it needs the superseded application and its deployment type, which a deleted application no longer has. The fix edits the application document with the serializer of the console. It refuses to write when the serializer is not the one of the console or when the edited document differs from the original in anything but those rules, and it reads the application again afterwards. It writes no file of the removed data.");
+            lines.Add("With the check box on, the fix then deletes the older revisions of exactly the applications that it changed, so that check APP-05 does not report them. A revision that another object still uses stays, and the result says so.");
         }
         if (kind == HygieneFixKind.RunAutoDeploymentRule) lines.Add("The rule runs now: it can create or change a software update group and its deployment, and download update content.");
         if (kind == HygieneFixKind.RemoveBootImage)

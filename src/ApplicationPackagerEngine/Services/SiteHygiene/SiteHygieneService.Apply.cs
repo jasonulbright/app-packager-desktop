@@ -120,7 +120,7 @@ public sealed partial class SiteHygieneService
             state.Current.Clear();
             try
             {
-                (result, stopped) = await ApplyFindingAsync(change.Kind, f, planned, prepared, state.Current, ct).ConfigureAwait(false);
+                (result, stopped) = await ApplyFindingAsync(change.Kind, f, planned, prepared, state.Current, change.DeleteOldRevisions, ct).ConfigureAwait(false);
             }
             catch (Exception ex) when (ex is not OutOfMemoryException)
             {
@@ -225,7 +225,7 @@ public sealed partial class SiteHygieneService
     /// finding; empty when it goes on.
     /// </summary>
     private async Task<(HygieneObjectOutcome Result, string Stop)> ApplyFindingAsync(HygieneFixKind kind, HygieneFinding f, IReadOnlyList<HygieneTarget> planned, PreparedChange prepared,
-        List<HygieneTargetOutcome> outcomes, CancellationToken ct)
+        List<HygieneTargetOutcome> outcomes, bool deleteRevisions, CancellationToken ct)
     {
         HygieneSiteRead fresh;
         try
@@ -278,7 +278,7 @@ public sealed partial class SiteHygieneService
                 outcomes.Add(new HygieneTargetOutcome(t, HygieneResults.Skipped, SkippedPrefix + stop));
                 continue;
             }
-            var (target, after) = await WriteAsync(kind, f, w, prepared, ruleBefore).ConfigureAwait(false);
+            var (target, after) = await WriteAsync(kind, f, w, prepared, ruleBefore, deleteRevisions).ConfigureAwait(false);
             outcomes.Add(target);
             stop = after;
         }
@@ -291,14 +291,14 @@ public sealed partial class SiteHygieneService
     /// process, and a write cut in the middle leaves its result unknown. Returns the reason the run stops
     /// after this object; empty when it goes on.
     /// </summary>
-    private async Task<(HygieneTargetOutcome Result, string Stop)> WriteAsync(HygieneFixKind kind, HygieneFinding f, HygieneWrite w, PreparedChange prepared, string ruleBefore)
+    private async Task<(HygieneTargetOutcome Result, string Stop)> WriteAsync(HygieneFixKind kind, HygieneFinding f, HygieneWrite w, PreparedChange prepared, string ruleBefore, bool deleteRevisions)
     {
         var t = w.Line;
         HygieneSiteRead applied;
         try
         {
             var parameters = new ConfigMgrParameters { { "Operation", "Apply" }, { "Kind", kind.ToString() }, { "MaxObjects", MaxObjects } };
-            if (kind == HygieneFixKind.RemoveBrokenSupersedence) parameters["BackupFolder"] = BackupFolderOf(prepared);
+            if (kind == HygieneFixKind.RemoveBrokenSupersedence) parameters["DeleteRevisions"] = deleteRevisions ? "1" : "0";
             parameters.AddSecret("Target", JsonSerializer.Serialize(w.Target));
             applied = Parse(await _session.InvokeAsync(Script, Bound(parameters, prepared.Connection), CancellationToken.None).ConfigureAwait(false));
         }
@@ -330,7 +330,7 @@ public sealed partial class SiteHygieneService
         }
         return await ReadBackAsync(kind, f, w, prepared, ruleBefore).ConfigureAwait(false) switch
         {
-            ReadBack.Done => (new HygieneTargetOutcome(t, HygieneResults.Done, DoneText(kind, 1) + BackupNote(kind, prepared)), ""),
+            ReadBack.Done => (new HygieneTargetOutcome(t, HygieneResults.Done, DoneText(kind, 1) + (applied.AppliedNotes.FirstOrDefault() is { Length: > 0 } note ? " " + note : "")), ""),
             ReadBack.AsBefore => (new HygieneTargetOutcome(t, HygieneResults.Unchanged, AsBeforeText(kind, 1, 1)), ""),
             _ => (new HygieneTargetOutcome(t, HygieneResults.Failed, ReadBackFailed), "")
         };
@@ -405,28 +405,6 @@ public sealed partial class SiteHygieneService
         }
     }
 
-    /// <summary>
-    /// The folder where the script saves the original application documents and the removed rules of one run. It sits beside the audit
-    /// log, in a folder for each plan.
-    /// </summary>
-    private string BackupFolderOf(PreparedChange prepared)
-    {
-        var root = BackupRoot;
-        if (root.Length == 0)
-        {
-            var audit = _audit.Path;
-            var folder = string.IsNullOrEmpty(audit) ? "" : System.IO.Path.GetDirectoryName(audit) ?? "";
-            root = folder.Length > 0 ? System.IO.Path.Combine(folder, "supersedence-backups") : System.IO.Path.Combine(System.IO.Path.GetTempPath(), "ApplicationPackager", "supersedence-backups");
-        }
-        return System.IO.Path.Combine(root, prepared.PreparedUtc.ToString("yyyyMMdd-HHmmss", System.Globalization.CultureInfo.InvariantCulture));
-    }
-
-    private string BackupNote(HygieneFixKind kind, PreparedChange prepared) =>
-        kind == HygieneFixKind.RemoveBrokenSupersedence ? " The original data is in " + BackupFolderOf(prepared) + "." : "";
-
-    /// <summary>The folder that holds the supersedence backups; empty means the folder beside the audit log.</summary>
-    public string BackupRoot { get; init; } = "";
-
     private static string DoneText(HygieneFixKind kind, int writes) => kind switch
     {
         HygieneFixKind.SetCollectionRefreshType => "The collection shows the new refresh type.",
@@ -444,6 +422,9 @@ public sealed partial class SiteHygieneService
         "referenced" => "ConfigMgr refused the delete: another object references this object.",
         "invalid" => "The object identifier is not valid.",
         "unsupported" => "This kind of fix is not supported.",
+        "serializer" => "The serializer for application documents is not the one of the console, so nothing was changed.",
+        "document" => "The edited application document differs from the original in more than the broken rules, so nothing was changed.",
+        "readback" => "The application did not read back as the original without the broken rules. Check it in the ConfigMgr console.",
         _ => "ConfigMgr reported an error. The log has the kind of failure."
     };
 }

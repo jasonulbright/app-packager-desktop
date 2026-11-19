@@ -97,6 +97,8 @@ public static class SiteHygieneText
         var plan = new ChangePlan(Title(kind), $"{action}: {SiteHygieneLabels.Count(count, "object")}", entries.Select(e => e.Item), isDestructive: delete, hasUndo: false)
         {
             ExtraConfirmation = delete ? DeleteConfirmation(count) : null,
+            OptionalChoice = kind == HygieneFixKind.RemoveBrokenSupersedence ? SupersedenceRevisionChoice : null,
+            OptionalChoiceOn = kind == HygieneFixKind.RemoveBrokenSupersedence,
             DestructiveConfirmation = delete ? DestructiveText : null,
             Notes = notes,
             LogName = kind.ToString(),
@@ -105,4 +107,7 @@ public static class SiteHygieneText
         };
         return (new SiteHygienePlan(action, prepared, plan, entries), null);
     }
+
+    /// <summary>The check box of the supersedence fix: on at the start; the operator can clear it.</summary>
+    public const string SupersedenceRevisionChoice = "Also delete the old revisions this fix creates";
 }

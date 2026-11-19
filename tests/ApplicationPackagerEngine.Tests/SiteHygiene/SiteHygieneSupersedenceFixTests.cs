@@ -99,41 +99,98 @@ public sealed class SiteHygieneSupersedenceFixTests
         Assert.Contains("new revision", target.Detail);
         Assert.Contains("SccmSerializer", change.FixText);
         Assert.Contains("Application_aaaa0000-0000-4000-8000-000000000001", change.FixText);
-        Assert.Contains(change.Impact, l => l.Contains("saves the original data", StringComparison.Ordinal));
+        Assert.Contains(change.Impact, l => l.Contains("writes no file of the removed data", StringComparison.Ordinal));
         Assert.Contains(change.Impact, l => l.Contains("Set-CMApplicationSupersedence -RemoveSupersedence is not used", StringComparison.Ordinal));
+        Assert.Contains(change.Impact, l => l.Contains("older revisions", StringComparison.Ordinal));
+        Assert.Contains(change.Impact, l => l.Contains("serializer of the console", StringComparison.Ordinal));
         Assert.Empty(h.Site.Commands);
         Assert.Equal(["DTRule_1", "DTRule_2", "DTRule_3", "DTRule_4"], RuleIds(h.Site));
     }
 
+    private static string[] SiteCommands(SiteHygieneHarness h) => h.Site.Log.Where(l => l.StartsWith("Cmd:", StringComparison.Ordinal)).ToArray();
+
+    private static int OldRevisions(StubHygieneSite site) =>
+        site.Class("SMS_Application").Count(r => (string?)r!["ModelName"] == NewModel && r["IsLatest"]!.GetValue<bool>() == false);
+
     [Fact]
-    public async Task TheFixSavesTheOriginalDataThenRemovesOnlyTheRulesThatPointAtTheDeletedApplicationAndReadsTheResultBack()
+    public async Task TheFixRemovesOnlyTheRulesThatPointAtTheDeletedApplicationReadsTheResultBackAndWritesNoFile()
     {
         using var h = new SiteHygieneHarness(BrokenState());
         var finding = Sup01((await h.ScanAsync("AppRelationships")).Findings, GoneOne);
         var change = await SiteHygieneFixTests.PrepareAsync(h, HygieneFixKind.RemoveBrokenSupersedence, finding);
         var outcome = await SiteHygieneFixTests.ApplyAsync(h, change);
         var result = Assert.Single(outcome.Objects);
-        Assert.True(result.Result == HygieneResults.Done, result.Message + " | " + string.Join(" ; ", h.Site.Log.Where(l => l.StartsWith("Cmd:", StringComparison.Ordinal))));
+        Assert.True(result.Result == HygieneResults.Done, result.Message + " | " + string.Join(" ; ", SiteCommands(h)));
         Assert.True(outcome.Succeeded, outcome.Message);
-        Assert.Equal(["Cmd:SupersedenceRemoval|" + NewModel + "|DTRule_1,DTRule_2"], h.Site.Log.Where(l => l.StartsWith("Cmd:", StringComparison.Ordinal)).ToArray());
+        Assert.Equal(["Cmd:SupersedenceRemoval|" + NewModel + "|DTRule_1,DTRule_2"], SiteCommands(h));
         Assert.Equal(["DTRule_3", "DTRule_4"], RuleIds(h.Site));
-
-        var folder = Directory.GetDirectories(Path.Combine(h.Folder, "supersedence-backups")).Single();
-        Assert.Contains(folder, result.Message);
-        using var doc = JsonDocument.Parse(File.ReadAllText(Path.Combine(folder, "supersedence-backup.json")));
-        var entries = doc.RootElement.GetProperty("Entries").EnumerateArray().ToList();
-        Assert.Equal(["DTRule_1", "DTRule_2"], entries.Select(e => e.GetProperty("RuleId").GetString()).ToArray());
-        Assert.All(entries, e => Assert.Equal(GoneOne, e.GetProperty("ReferencedApplicationModel").GetString()));
-        Assert.Equal(NewModel, entries[0].GetProperty("ApplicationModelName").GetString());
-        Assert.Equal("ZZ-Superseding", entries[0].GetProperty("ApplicationName").GetString());
-        Assert.Equal(["DeploymentType_A", "DeploymentType_B"], entries.Select(e => e.GetProperty("DeploymentTypeLogicalName").GetString()).ToArray());
-        var original = File.ReadAllText(Path.Combine(folder, entries[0].GetProperty("ApplicationDocumentFile").GetString()!));
-        Assert.Contains("DTRule_1", original);
-        Assert.Contains("DTRule_4", original);
+        // The option is off in the service unless the change carries it: the old revision stays.
+        Assert.Equal(1, OldRevisions(h.Site));
+        Assert.DoesNotContain("old revision", result.Message);
+        Assert.False(Directory.Exists(Path.Combine(h.Folder, "supersedence-backups")));
+        Assert.Equal(["site-hygiene-audit.jsonl"], Directory.GetFiles(h.Folder, "*", SearchOption.AllDirectories).Select(Path.GetFileName).ToArray());
 
         var lines = h.Audit.Read(10);
         Assert.Equal(["Started", "Finished"], lines.Select(l => l.Phase));
         Assert.Equal("Succeeded", lines[1].Result);
+    }
+
+    [Fact]
+    public async Task WithTheOptionTheFixDeletesTheOldRevisionsOfTheChangedApplicationAndNoOther()
+    {
+        var state = BrokenState();
+        // An application that the fix does not change has an old revision too.
+        var apps = state["Classes"]!["SMS_Application"]!.AsArray();
+        var old = AppRow(KeptModel, 16790012, "ZZ-Kept"); old["IsLatest"] = false; old["CIVersion"] = "0";
+        apps.Add(old);
+        using var h = new SiteHygieneHarness(state);
+        var finding = Sup01((await h.ScanAsync("AppRelationships")).Findings, GoneOne);
+        var change = await SiteHygieneFixTests.PrepareAsync(h, HygieneFixKind.RemoveBrokenSupersedence, finding);
+        var outcome = await SiteHygieneFixTests.ApplyAsync(h, change with { DeleteOldRevisions = true });
+        var result = Assert.Single(outcome.Objects);
+        Assert.Equal(HygieneResults.Done, result.Result);
+        Assert.Contains("1 old revision(s) deleted.", result.Message);
+        Assert.Equal(0, OldRevisions(h.Site));
+        Assert.Contains(SiteCommands(h), l => l.StartsWith("Cmd:Remove-CMApplicationRevisionHistory", StringComparison.Ordinal) && l.Contains("-Revision 1", StringComparison.Ordinal));
+        Assert.Single(SiteCommands(h), l => l.StartsWith("Cmd:Remove-CMApplicationRevisionHistory", StringComparison.Ordinal));
+        Assert.Equal(1, h.Site.Class("SMS_Application").Count(r => (string?)r!["ModelName"] == KeptModel && r["IsLatest"]!.GetValue<bool>() == false));
+        // After the fix a new scan has neither SUP-01 nor an old revision of the changed application (the APP-05 input).
+        var rescan = await h.ScanAsync("AppRelationships", "Applications");
+        Assert.DoesNotContain(rescan.Findings, f => f.CheckId == "SUP-01" && f.ObjectKey == NewModel + "|" + GoneOne);
+        Assert.DoesNotContain(rescan.Findings, f => f.CheckId == "APP-05" && f.ObjectKey == NewModel);
+    }
+
+    [Fact]
+    public async Task ARevisionThatAnotherObjectUsesStaysAndTheRunDoesNotFail()
+    {
+        var state = BrokenState();
+        state["Options"]!["RevisionInUse"] = new JsonArray(1);
+        using var h = new SiteHygieneHarness(state);
+        var finding = Sup01((await h.ScanAsync("AppRelationships")).Findings, GoneOne);
+        var change = await SiteHygieneFixTests.PrepareAsync(h, HygieneFixKind.RemoveBrokenSupersedence, finding);
+        var outcome = await SiteHygieneFixTests.ApplyAsync(h, change with { DeleteOldRevisions = true });
+        var result = Assert.Single(outcome.Objects);
+        Assert.Equal(HygieneResults.Done, result.Result);
+        Assert.True(outcome.Succeeded, outcome.Message);
+        Assert.Contains("0 old revision(s) deleted. Kept because another object uses them: 1.", result.Message);
+        Assert.Equal(1, OldRevisions(h.Site));
+        Assert.Equal(["DTRule_3", "DTRule_4"], RuleIds(h.Site));
+    }
+
+    [Fact]
+    public async Task ASerializerThatIsNotTheOneOfTheConsoleChangesNothing()
+    {
+        var state = BrokenState();
+        state["Options"]!["WrongSerializer"] = "1";
+        using var h = new SiteHygieneHarness(state);
+        var finding = Sup01((await h.ScanAsync("AppRelationships")).Findings, GoneOne);
+        var change = await SiteHygieneFixTests.PrepareAsync(h, HygieneFixKind.RemoveBrokenSupersedence, finding);
+        var outcome = await SiteHygieneFixTests.ApplyAsync(h, change with { DeleteOldRevisions = true });
+        var result = Assert.Single(outcome.Objects);
+        Assert.Equal(HygieneResults.Failed, result.Result);
+        Assert.Contains("not the one of the console", result.Message);
+        Assert.Empty(SiteCommands(h));
+        Assert.Equal(["DTRule_1", "DTRule_2", "DTRule_3", "DTRule_4"], RuleIds(h.Site));
     }
 
     [Fact]
@@ -176,22 +233,6 @@ public sealed class SiteHygieneSupersedenceFixTests
         Assert.Contains("exists again", result.Message);
         Assert.Equal(["DTRule_1", "DTRule_2", "DTRule_3", "DTRule_4"], RuleIds(h.Site));
         Assert.Empty(h.Site.Commands);
-    }
-
-    [Fact]
-    public async Task AFailedSaveOfTheOriginalDataChangesNothing()
-    {
-        using var h = new SiteHygieneHarness(BrokenState());
-        var finding = Sup01((await h.ScanAsync("AppRelationships")).Findings, GoneOne);
-        var change = await SiteHygieneFixTests.PrepareAsync(h, HygieneFixKind.RemoveBrokenSupersedence, finding);
-        // A file where the backup folder has to be: the folder cannot be made.
-        File.WriteAllText(Path.Combine(h.Folder, "supersedence-backups"), "in the way");
-        var outcome = await SiteHygieneFixTests.ApplyAsync(h, change);
-        var result = Assert.Single(outcome.Objects);
-        Assert.Equal(HygieneResults.Failed, result.Result);
-        Assert.False(outcome.Succeeded);
-        Assert.DoesNotContain(h.Site.Log, l => l.StartsWith("Cmd:", StringComparison.Ordinal));
-        Assert.Equal(["DTRule_1", "DTRule_2", "DTRule_3", "DTRule_4"], RuleIds(h.Site));
     }
 
     [Fact]

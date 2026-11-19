@@ -70,6 +70,7 @@ public sealed partial class ChangePlanViewModel : ObservableObject
         if (plan.HasUndo && undo is null) throw new ArgumentException("The plan declares an undo; pass the undo operation.", nameof(undo));
         if (!plan.HasUndo && undo is not null) throw new ArgumentException("The plan declares no undo.", nameof(undo));
         _plan = plan;
+        _optionChosen = plan.OptionalChoice is not null && plan.OptionalChoiceOn;
         _run = run;
         _undo = undo;
         _forceCloseDelay = forceCloseDelay ?? DefaultForceCloseDelay;

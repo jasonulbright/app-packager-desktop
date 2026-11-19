@@ -7,7 +7,7 @@ param(
     [ValidateRange(1, 100000)][int]$MaxObjects = 2000,
     [string]$Kind = '',
     [string]$Target = '',
-    [string]$BackupFolder = '',
+    [string]$DeleteRevisions = '',
     [string]$ExpectSite = '',
     [string]$ExpectProvider = ''
 )
@@ -613,47 +613,79 @@ function Get-InUse {
     return ''
 }
 
-# Saves the original data of a supersedence repair: the full application document, and one entry for each
-# removed rule in supersedence-backup.json (the file that Restore-HygSupersedence of Site Hygiene reads).
-function Save-SupersedenceBackup {
-    param([string]$Folder, $App, [string]$Model, [string]$Reference, [string]$Original, $Removed)
-    New-Item -ItemType Directory -Path $Folder -Force | Out-Null
-    $safe = (($Model -replace '^.*/', '') -replace '[^A-Za-z0-9._-]', '_')
-    if ($safe.Length -gt 80) { $safe = $safe.Substring(0, 80) }
-    # One document for each change: a second change of the same application keeps the first original.
-    $docName = $safe + '.xml'
-    $copy = 1
-    while (Test-Path -LiteralPath (Join-Path $Folder $docName)) { $copy++; $docName = '{0}-{1}.xml' -f $safe, $copy }
-    [System.IO.File]::WriteAllText((Join-Path $Folder $docName), $Original, (New-Object System.Text.UTF8Encoding($false)))
-    $path = Join-Path $Folder 'supersedence-backup.json'
-    $entries = New-Object System.Collections.Generic.List[object]
-    if (Test-Path -LiteralPath $path) { foreach ($e in @((Get-Content -LiteralPath $path -Raw -Encoding UTF8 | ConvertFrom-Json).Entries)) { if ($null -ne $e) { $entries.Add($e) } } }
-    foreach ($r in $Removed) {
-        $entries.Add([pscustomobject]@{
-            ApplicationName = [string]$App.LocalizedDisplayName; ApplicationModelName = $Model; ApplicationCIId = [int]$App.CI_ID
-            DeploymentTypeName = $r.DeploymentTypeName; DeploymentTypeLogicalName = $r.DeploymentTypeLogicalName; RuleId = $r.RuleId
-            ReferencedApplicationModel = $Reference; ReferencedDeploymentTypeLogicalName = ''; RuleXml = ''; ApplicationDocumentFile = $docName
-        })
+# Where the serializer of application documents was loaded from. It must be the one of the console: the
+# folder of the ConfigurationManager module, and the same major and minor version. A serializer from
+# anywhere else is not used to edit a document.
+function Test-Serializer {
+    param($Serializer)
+    if ($null -eq $Serializer) { return 'serializer' }
+    $path = [string]$Serializer.Assembly.Location
+    $module = Get-Module -Name ConfigurationManager | Select-Object -First 1
+    if (-not $path -or $null -eq $module) { return 'serializer' }
+    if ((Split-Path -Path $path -Parent) -ne [string]$module.ModuleBase) { return 'serializer' }
+    $a = ([string](Get-Item -LiteralPath $path).VersionInfo.FileVersion) -split '\.'
+    $m = ([string]$module.Version) -split '\.'
+    if ($a.Count -lt 2 -or $m.Count -lt 2 -or $a[0] -ne $m[0] -or $a[1] -ne $m[1]) { return 'serializer' }
+    return ''
+}
+
+# An application document as a sorted list of one line for each element: path, attributes (the Version
+# attribute left out, because each write raises it) and the text of a leaf. Formatting, namespace
+# declarations, the order of siblings and an empty Supersedes container do not count.
+function ConvertTo-DocumentLine {
+    param([string]$Xml, [string[]]$WithoutRuleId = @())
+    $doc = New-Object System.Xml.XmlDocument
+    $doc.LoadXml($Xml)
+    foreach ($id in $WithoutRuleId) {
+        foreach ($rule in @($doc.SelectNodes("//*[local-name()='DeploymentTypeRule'][@id='$($id -replace "'", '')']"))) { [void]$rule.ParentNode.RemoveChild($rule) }
     }
-    $doc = [pscustomobject]@{ SchemaVersion = 1; Tool = 'Application Packager, Site Hygiene check SUP-01'; CreatedUtc = (Get-Date).ToUniversalTime().ToString('o'); SiteCode = [string](Get-Location).Drive.Name; Entries = $entries.ToArray() }
-    [System.IO.File]::WriteAllText($path, ($doc | ConvertTo-Json -Depth 6), (New-Object System.Text.UTF8Encoding($false)))
+    $lines = New-Object System.Collections.Generic.List[string]
+    $walk = $null
+    $walk = {
+        param($node, [string]$path)
+        foreach ($child in $node.ChildNodes) {
+            if ($child.NodeType -ne 'Element') { continue }
+            $attrs = (@($child.Attributes | Where-Object { $_.Name -ne 'Version' -and $_.Name -notlike 'xmlns*' } | ForEach-Object { '{0}={1}' -f $_.Name, $_.Value } | Sort-Object) -join ',')
+            $hasChild = $false
+            foreach ($g in $child.ChildNodes) { if ($g.NodeType -eq 'Element') { $hasChild = $true } }
+            if ($child.LocalName -eq 'Supersedes' -and -not $hasChild) { continue }
+            $lines.Add(('{0}/{1}[{2}]={3}' -f $path, $child.LocalName, $attrs, $(if ($hasChild) { '' } else { $child.InnerText.Trim() })))
+            & $walk $child ('{0}/{1}' -f $path, $child.LocalName)
+        }
+    }
+    & $walk $doc.DocumentElement ''
+    return @($lines | Sort-Object)
+}
+
+# The number of differences between two documents once the named supersedence rules are taken out of the
+# first one. Zero means the second document is the first one without those rules and nothing else.
+function Get-DocumentDifferenceCount {
+    param([string]$Before, [string]$After, [string[]]$RemovedRuleId)
+    $left = New-Object 'System.Collections.Generic.Dictionary[string,int]'
+    foreach ($l in @(ConvertTo-DocumentLine -Xml $Before -WithoutRuleId $RemovedRuleId)) { if ($left.ContainsKey($l)) { $left[$l]++ } else { $left[$l] = 1 } }
+    $count = 0
+    foreach ($l in @(ConvertTo-DocumentLine -Xml $After)) { if ($left.ContainsKey($l) -and $left[$l] -gt 0) { $left[$l]-- } else { $count++ } }
+    foreach ($k in $left.Keys) { $count += $left[$k] }
+    return $count
 }
 
 # Removes the supersedence rules of one application that point at a deleted application. The cmdlet
 # Set-CMApplicationSupersedence -RemoveSupersedence needs the superseded application and its deployment
 # type, which a deleted application no longer has, so the application document is edited with the
-# serializer of the console assemblies and written back. The original is saved first. A failed save
-# changes nothing. The application is read again afterwards.
+# serializer of the console and written back. The serializer must be the one of the console, and the
+# edited document may differ from the original only by the removed rules: otherwise nothing is written.
+# The application is read again afterwards and must read back the same way. No file of the removed data
+# is written. Returns the note about the old revisions; empty when they were not asked for.
 function Remove-BrokenSupersedence {
     param([string]$Model, [string]$Reference)
     $app = @(Get-CMApplication -ModelName $Model -ErrorAction Stop) | Select-Object -First 1
     if ($null -eq $app) { throw 'not-found' }
     $scope, $logical = $Reference -split '/', 2
     $serializer = 'Microsoft.ConfigurationManagement.ApplicationManagement.Serialization.SccmSerializer' -as [type]
-    if ($null -eq $serializer) { throw 'unsupported' }
+    if ((Test-Serializer $serializer) -ne '') { throw 'serializer' }
     $original = [string]$app.SDMPackageXML
     $object = $serializer::DeserializeFromString($original, $true)
-    $removed = New-Object System.Collections.Generic.List[object]
+    $removed = New-Object System.Collections.Generic.List[string]
     foreach ($dt in $object.DeploymentTypes) {
         # A copy first: the collection changes while a rule is removed. foreach, not @(): an array subexpression over
         # a generic collection of objects can throw "Argument types do not match".
@@ -662,23 +694,37 @@ function Remove-BrokenSupersedence {
         foreach ($rule in $copy) {
             $e = $rule.Expression
             if ($null -ne $e -and $null -ne $e.PSObject.Properties['ApplicationLogicalName'] -and [string]$e.ApplicationAuthoringScopeId -eq $scope -and [string]$e.ApplicationLogicalName -eq $logical) {
-                $removed.Add([pscustomobject]@{ DeploymentTypeName = [string]$dt.Title; DeploymentTypeLogicalName = [string]$dt.Name; RuleId = [string]$rule.RuleId })
+                $removed.Add([string]$rule.RuleId)
                 [void]$dt.Supersedes.Remove($rule)
             }
         }
     }
     if ($removed.Count -eq 0) { throw 'not-found' }
-    Save-SupersedenceBackup -Folder $BackupFolder -App $app -Model $Model -Reference $Reference -Original $original -Removed $removed.ToArray()
-    $app.SDMPackageXML = [string]$serializer::SerializeToString($object, $true)
+    $edited = [string]$serializer::SerializeToString($object, $true)
+    if ((Get-DocumentDifferenceCount -Before $original -After $edited -RemovedRuleId $removed.ToArray()) -gt 0) { throw 'document' }
+    $app.SDMPackageXML = $edited
     [void]$app.Put()
     $after = @(Get-CMApplication -ModelName $Model -ErrorAction Stop) | Select-Object -First 1
-    if ($null -eq $after) { throw 'not-found' }
-    foreach ($r in $removed) { if (([string]$after.SDMPackageXML).Contains($r.RuleId)) { throw 'failed' } }
+    if ($null -eq $after) { throw 'readback' }
+    try { if ((Get-DocumentDifferenceCount -Before $original -After ([string]$after.SDMPackageXML) -RemovedRuleId $removed.ToArray()) -gt 0) { throw 'readback' } }
+    catch { throw 'readback' }
+    if ($DeleteRevisions -ne '1') { return '' }
+    # The old revisions of this application only, older than the new one. The site refuses a revision that
+    # another object still uses: that revision stays, and the run does not fail.
+    $deleted = 0; $kept = New-Object System.Collections.Generic.List[string]
+    $newest = [int]$after.CIVersion
+    foreach ($rev in @(Get-CMApplicationRevisionHistory -Id ([int]$after.CI_ID) -ErrorAction SilentlyContinue | ForEach-Object { [int]$_.CIVersion } | Sort-Object -Unique)) {
+        if ($rev -ge $newest) { continue }
+        try { Remove-CMApplicationRevisionHistory -Id ([int]$after.CI_ID) -Revision $rev -Force -ErrorAction Stop; $deleted++ }
+        catch { $kept.Add([string]$rev) }
+    }
+    if ($kept.Count -eq 0) { return ('{0} old revision(s) deleted.' -f $deleted) }
+    return ('{0} old revision(s) deleted. Kept because another object uses them: {1}.' -f $deleted, ($kept -join ', '))
 }
 
 function Invoke-Apply {
     $t = ConvertFrom-Json -InputObject $Target
-    $out = [ordered]@{ Kind = 'Applied'; Status = 'failed'; Failure = '' }
+    $out = [ordered]@{ Kind = 'Applied'; Status = 'failed'; Failure = ''; Note = '' }
     $use = ''
     try {
         $ErrorActionPreference = 'Stop'
@@ -694,7 +740,7 @@ function Invoke-Apply {
         }
         if ($Kind -eq 'RemoveBrokenSupersedence') {
             $reference = [string]$t.ReferencedModel
-            if ($id -notmatch $ModelPattern -or $reference -notmatch $ModelPattern -or $reference -notlike '*/Application_*' -or $BackupFolder -notmatch '^[A-Za-z]:\\[^<>|"?*]+$' -or $BackupFolder -match '\.\.') { throw 'invalid' }
+            if ($id -notmatch $ModelPattern -or $reference -notmatch $ModelPattern -or $reference -notlike '*/Application_*') { throw 'invalid' }
             # The reference counts as broken only while the referenced application is gone.
             if ($null -ne (@(Get-CMApplication -ModelName $reference -ErrorAction Stop) | Select-Object -First 1)) { $use = 'supersedence-target' }
         }
@@ -738,7 +784,7 @@ function Invoke-Apply {
                     Set-CMSiteMaintenanceTask -SiteCode $site -Name $id -Enabled $true
                 }
                 'RunAutoDeploymentRule' { if ($id -notmatch $NumberPattern) { throw 'invalid' }; Invoke-CMSoftwareUpdateAutoDeploymentRule -Id ([int]$id) | Out-Null }
-                'RemoveBrokenSupersedence' { Remove-BrokenSupersedence -Model $id -Reference ([string]$t.ReferencedModel) }
+                'RemoveBrokenSupersedence' { $out.Note = Remove-BrokenSupersedence -Model $id -Reference ([string]$t.ReferencedModel) }
                 default { throw 'unsupported' }
             }
             $out.Status = 'done'
@@ -746,7 +792,7 @@ function Invoke-Apply {
     }
     catch {
         $message = [string]$_.Exception.Message
-        $out.Failure = if ($message -in 'invalid', 'unsupported', 'not-found') { $message } else { Get-FailureKind $_ }
+        $out.Failure = if ($message -in 'invalid', 'unsupported', 'not-found', 'serializer', 'document', 'readback') { $message } else { Get-FailureKind $_ }
     }
     finally { $ErrorActionPreference = 'Continue' }
     [pscustomobject]$out

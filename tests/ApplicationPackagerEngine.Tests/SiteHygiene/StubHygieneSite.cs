@@ -31,8 +31,12 @@ internal sealed class StubHygieneSite : IConfigMgrSession
         Add-Type -TypeDefinition 'namespace Microsoft.ConfigurationManagement.ManagementProvider { public interface IResultObject { } public sealed class StubValue { public string StringValue; } public sealed class StubItem : IResultObject { public System.Collections.Hashtable Values = new System.Collections.Hashtable(System.StringComparer.OrdinalIgnoreCase); public StubValue this[string name] { get { return new StubValue { StringValue = System.Convert.ToString(Values[name]) }; } } } }'
         # The console serializer for application documents, reduced to the supersedence rules: the script of the fix reads a document into
         # deployment types with a list of rules and writes it back. The types sit in the namespaces of the console assemblies.
-        Add-Type -ReferencedAssemblies System.Xml, System.Xml.Linq -TypeDefinition @'
+        $serializerFolder = Join-Path ([IO.Path]::GetTempPath()) ('apkg-serializer-' + [guid]::NewGuid().ToString('N'))
+        New-Item -ItemType Directory -Path $serializerFolder | Out-Null
+        $serializerPath = Join-Path $serializerFolder 'Microsoft.ConfigurationManagement.ApplicationManagement.dll'
+        Add-Type -ReferencedAssemblies System.Xml, System.Xml.Linq -OutputAssembly $serializerPath -OutputType Library -TypeDefinition @'
         using System; using System.Collections.Generic; using System.Xml.Linq;
+        [assembly: System.Reflection.AssemblyFileVersion("5.2603.1044.1000")]
         namespace Microsoft.ConfigurationManagement.ApplicationManagement {
           public class StubExpression { public string ApplicationAuthoringScopeId; public string ApplicationLogicalName; }
           public class StubRule { public string RuleId; public StubExpression Expression = new StubExpression(); }
@@ -83,6 +87,10 @@ internal sealed class StubHygieneSite : IConfigMgrSession
           }
         }
         '@
+        Add-Type -Path $serializerPath
+        # The console module: its folder is the one of the serializer, unless a test asks for another serializer.
+        $global:ModuleBase = $(if ([string](V $state.Options 'WrongSerializer' '') -eq '1') { 'C:\\Elsewhere' } else { $serializerFolder })
+        function global:Get-Module { [CmdletBinding()] param([string]$Name) [pscustomobject]@{ Name = 'ConfigurationManager'; ModuleBase = $global:ModuleBase; Version = [version]'5.2603.1035.1000' } }
         $global:Log = [System.Collections.Generic.List[string]]::new()
         $global:FailLeft = [System.Collections.Generic.List[string]]::new()
         foreach ($f in @(V $state.Options 'Fail' @())) { if ($f) { $global:FailLeft.Add([string]$f) } }
@@ -257,6 +265,11 @@ internal sealed class StubHygieneSite : IConfigMgrSession
             $removedModel = [string](V $d 'AppModelID' '')
             if ($removedModel -and @(Rows 'SMS_ApplicationAssignment' | Where-Object { [string](V $_ 'AppModelID' '') -eq $removedModel }).Count -eq 0) { foreach ($a in @(Rows 'SMS_Application' | Where-Object { [string](V $_ 'ModelID' '') -eq $removedModel -and $null -ne $_.PSObject.Properties['IsDeployed'] })) { $a.IsDeployed = $false } }
         }
+        function global:Get-CMApplicationRevisionHistory { [CmdletBinding()] param([int]$Id)
+            $app = Rows 'SMS_Application' | Where-Object { [int]$_.CI_ID -eq $Id } | Select-Object -First 1
+            if ($null -eq $app) { return }
+            foreach ($r in @(Rows 'SMS_Application' | Where-Object { $_.ModelName -eq $app.ModelName })) { [pscustomobject]@{ CI_ID = [int]$r.CI_ID; CIVersion = [int]$r.CIVersion } }
+        }
         function global:Remove-CMApplicationRevisionHistory { [CmdletBinding()] param([int]$Id, [int]$Revision, [switch]$Force)
             Cmd 'Remove-CMApplicationRevisionHistory' @(@('Id', $Id), @('Revision', $Revision), @('Force', ''))
             $app = Rows 'SMS_Application' | Where-Object { [int]$_.CI_ID -eq $Id } | Select-Object -First 1
@@ -264,6 +277,7 @@ internal sealed class StubHygieneSite : IConfigMgrSession
             $rev = Rows 'SMS_Application' | Where-Object { $_.ModelName -eq $app.ModelName -and [int]$_.CIVersion -eq $Revision } | Select-Object -First 1
             if ($null -eq $rev) { throw 'No object corresponds to the specified parameters.' }
             if ($rev.IsLatest) { throw "The application revision history $Revision can not be deleted." }
+            if (@(V $state.Options 'RevisionInUse' @()) -contains $Revision) { throw "The application revision history $Revision is used by another object and can not be deleted." }
             [void](RowList 'SMS_Application').Remove($rev)
         }
         function global:Remove-ById([string]$Name, [string]$Class, [string]$Key, [string]$Param, [string]$Value) {
