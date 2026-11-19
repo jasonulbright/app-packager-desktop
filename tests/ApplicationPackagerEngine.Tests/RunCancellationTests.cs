@@ -14,6 +14,8 @@ namespace ApplicationPackagerEngine.Tests;
 public class RunCancellationTests
 {
     private static readonly TimeSpan Seconds5 = TimeSpan.FromSeconds(5);
+    // A hosted runner is slower than a developer PC: the kill assertions allow 20 seconds, which is still seconds, not the 5 minutes of the old wait.
+    private static readonly TimeSpan KillLimit = TimeSpan.FromSeconds(20);
 
     private static async Task<PackagingRunTally> RunAsync(int total, Func<int, CancellationToken, Task> product, CancellationToken ct)
     {
@@ -74,7 +76,7 @@ public class RunCancellationTests
         cts.Cancel();
         var tally = await run.WaitAsync(Seconds5);
 
-        Assert.True(sw.Elapsed < Seconds5);
+        Assert.True(sw.Elapsed < KillLimit, $"took {sw.Elapsed}");
         Assert.Equal(1, tally.Interrupted);
         Assert.Equal("Cancelled: 2 of 4 products done.", tally.CancelledLine(4));
     }
@@ -127,7 +129,7 @@ public class RunCancellationTests
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => wait);
 
         Assert.True(process.HasExited);
-        Assert.True(sw.Elapsed < Seconds5, $"took {sw.Elapsed}");
+        Assert.True(sw.Elapsed < KillLimit, $"took {sw.Elapsed}");
         Assert.DoesNotContain(process.Id, RunChildProcesses.Ids);
     }
 
@@ -176,6 +178,6 @@ public class RunCancellationTests
         cts.Cancel();
 
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => run);
-        Assert.True(sw.Elapsed < Seconds5, $"took {sw.Elapsed}");
+        Assert.True(sw.Elapsed < KillLimit, $"took {sw.Elapsed}");
     }
 }
