@@ -73,9 +73,6 @@ public partial class PackagesViewModel : ObservableObject
     public IAsyncRelayCommand PublishConfigMgrCommand { get; }
     public IAsyncRelayCommand PublishIntuneCommand { get; }
     public IAsyncRelayCommand PublishWsusCommand { get; }
-    public IAsyncRelayCommand ApplySupersedenceCommand { get; }
-    public IAsyncRelayCommand RewriteOldVersionsCommand { get; }
-    public IAsyncRelayCommand RestoreOldVersionsCommand { get; }
     public IRelayCommand WsusUpdatesCommand { get; }
     public IAsyncRelayCommand OneClickCommand { get; }
 
@@ -127,9 +124,6 @@ public partial class PackagesViewModel : ObservableObject
         PublishIntuneCommand = new AsyncRelayCommand(() => StartPublishRunAsync(PublishRunTargets.IntuneOnly), () => CanRunOperation() && IsPublishIntuneAvailable);
         PublishWsusCommand = new AsyncRelayCommand(() => StartPublishRunAsync(PublishRunTargets.WsusOnly), () => CanRunOperation() && IsPublishWsusAvailable);
         WsusUpdatesCommand = new RelayCommand(OpenWsusUpdates, () => CanRunOperation() && IsWsusUpdatesAvailable);
-        ApplySupersedenceCommand = new AsyncRelayCommand(ApplySupersedenceAsync, () => CanRunOperation() && IsPublishConfigMgrAvailable);
-        RewriteOldVersionsCommand = new AsyncRelayCommand(RewriteOldVersionsAsync, () => CanRunOperation() && IsPublishConfigMgrAvailable);
-        RestoreOldVersionsCommand = new AsyncRelayCommand(RestoreOldVersionsAsync, () => CanRunOperation() && IsPublishConfigMgrAvailable);
         OneClickCommand = new AsyncRelayCommand(OneClickAsync, CanRunOperation);
         ImportFromUrlCommand = new RelayCommand(() => ImportFromUrlRequested?.Invoke(this, EventArgs.Empty), CanRunOperation);
         InitializeDiscovery(discovery, discoveryPrompt);
@@ -180,9 +174,6 @@ public partial class PackagesViewModel : ObservableObject
         PublishConfigMgrCommand.NotifyCanExecuteChanged();
         PublishIntuneCommand.NotifyCanExecuteChanged();
         PublishWsusCommand.NotifyCanExecuteChanged();
-        ApplySupersedenceCommand.NotifyCanExecuteChanged();
-        RewriteOldVersionsCommand.NotifyCanExecuteChanged();
-        RestoreOldVersionsCommand.NotifyCanExecuteChanged();
         WsusUpdatesCommand.NotifyCanExecuteChanged();
         OneClickCommand.NotifyCanExecuteChanged();
         ImportFromUrlCommand.NotifyCanExecuteChanged();
@@ -943,6 +934,9 @@ public partial class PackagesViewModel : ObservableObject
         ProgressCurrent = 0;
         ProgressTotal = selected.Count;
         _operationCts = new CancellationTokenSource();
+        // One confirmation for the run: "Remember" lasts until this run ends.
+        _executionService.SupersedenceConfirmation = new ApplicationPackagerEngine.Services.Supersedence.SupersedenceConfirmer(
+            Views.Windows.SupersedenceConfirmDialog.AskAsync, () => _operationCts?.Cancel());
         StatusText = "Packaging selected applications...";
 
         // Per-run only: an apply-to-all answer dies with the loop and is never persisted.

@@ -160,7 +160,7 @@ When the supersedence mode of **Settings**, **Supersedence** is not `Off`, the C
 | Applied | Ends. | `Superseded` |
 | No older version found | Ends. | `Superseded` |
 | Not applied (the site refused, the site is not reachable, the application is not on the site, no stage manifest) | Stays. | `Skipped`, with `supersedence not applied: <reason>` in the ConfigMgr result |
-| Not run (the mode is `Off`, or the application has no identity marker) | Stays. | `Skipped`, with `supersedence not run: <reason>` |
+| Not run (the mode is `Off`) | Stays. | `Skipped`, with `supersedence not run: <reason>` |
 
 **Force** publishes the version again instead. A publish of a changed build also publishes again and clears the pending state. A row that has another destination to publish stages and publishes it as usual, and the pass runs first. Only a run with the action **Stage and Publish** runs the pass. The pass is for ConfigMgr only.
 

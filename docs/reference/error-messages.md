@@ -40,19 +40,14 @@ These messages come from `AppPackagerBuild.exe`. See [Command-line build](../cor
 | Unknown target 'x'; expected ContentOnly, ConfigMgr, ConfigMgrAndIntune, IntuneOnly, ConfigMgrAndWSUS, WSUSOnly, IntuneAndWSUS, ConfigMgrAndIntuneAndWSUS. | The `--target` value is empty or not in the list. | Use a target from the Targets table of the [command-line build](../core/command-line-build.md#targets). |
 | Unknown --on-existing value 'x'; expected Skip, Overwrite or Fail. | The value is not in the list. | Use a listed value. |
 | Unknown --version-rule value 'x'; expected exact or minimum. | The value is not in the list. | Use a listed value. |
-| Unknown --rewrite-old-versions value 'x'; expected plan, apply or restore. | The value is not in the list. | Use a listed value. |
-| Option '--yes' applies to --rewrite-old-versions only. | `--yes` was given without --rewrite-old-versions. | Remove `--yes`, or add the option. |
-| --rewrite-old-versions applies to a catalog application with a definition. | The application is not a catalog application. | Use a catalog application. |
-| --rewrite-old-versions needs a ConfigMgr site: pass --site-code or set it in Settings. | No site code. | Set the site code. |
 | restore writes the old operator back on the site. Run it again with --yes. | restore without the confirmation. | View the list that it printed, then run it again with --yes. |
 | The deployments of 'x' were not read to the end, so the plan does not know whether it has a required deployment. | The deployment query printed no end marker. | Run the plan again; check the connection to the site. |
 | --record-installed-value and --accept-exact-block need --version: the value belongs to one version. | No `--version`. | Add `--version`. |
-| --record-installed-value and --accept-exact-block run alone: they do not stage, package or rewrite. | Given with `--stage`, `--package` or `--rewrite-old-versions`. | Run it alone. |
+| --record-installed-value and --accept-exact-block run alone: they do not stage or package. | Given with `--stage` or `--package`. | Run it alone. |
 | --record-installed-value and --accept-exact-block are separate runs; give one. | Both options were given. | Run them one after the other. |
 | --version '…' is empty, longer than 64 characters, or holds a control character, a space at an end, or '\|'. | The version is not usable as a key. | Give the version of the title. |
 | --profile does not apply to --record-installed-value and --accept-exact-block … | `--profile` was given. | Remove it. |
 | --record-installed-value '…' is not a version (…) | The value or the version does not start with a digit, is longer than 64 characters or holds another character. | Give the text that the installed product shows. |
-| --rewrite-old-versions runs alone: it does not stage or package. | The option was given with --stage or --package. | Run the rewrite alone. |
 | apply changes the detection of the old applications. ConfigMgr evaluates the detection again on the devices. ... Run it again with --yes. | apply or restore without the confirmation. | Review the plan, then run it again with --yes. |
 | Unknown --supersedence value 'x'; expected off, replace or replace-uninstall. | The value is not in the list. | Use a listed value. |
 | Replace and uninstall needs the version rule Exact. With Minimum, the detection of the old application still finds the new version after the uninstall, and the uninstall is reported as failed. Set the version rule to Exact, or set the supersedence mode to Replace or Off. | The supersedence mode is Replace and uninstall and the ConfigMgr version rule is Minimum, after the command line, the title override and the site default are resolved. | Set the version rule to Exact, or set the mode to Replace or Off. Nothing was created. |
