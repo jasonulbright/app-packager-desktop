@@ -318,9 +318,10 @@ public partial class PackagesViewModel : ObservableObject
     }
 
     /// <summary>The end-of-run status line; a cancelled run also writes it to the log.</summary>
-    private string RunEndLine(PackagingRunTally tally, string label, int total, string successVerb)
+    private string RunEndLine(PackagingRunTally tally, string label, int total, string successVerb, string? checkName = null)
     {
-        var line = tally.Summarize(label, total, successVerb);
+        // A cancelled check names itself ("Check ConfigMgr cancelled: N of M products checked."); any other run says "Cancelled: N of M products done."
+        var line = tally.Cancelled && checkName is not null ? tally.CheckCancelledLine(checkName, total) : tally.Summarize(label, total, successVerb);
         if (tally.Cancelled) AddLogLine(line);
         return line;
     }
@@ -581,7 +582,7 @@ public partial class PackagesViewModel : ObservableObject
             // A lookup can finish successfully after the operator cancelled, so the run's
             // state is settled here rather than only when an item was interrupted.
             tally.Finish(_operationCts.Token);
-            StatusText = RunEndLine(tally, logPrefix, ProgressTotal, "checked");
+            StatusText = RunEndLine(tally, logPrefix, ProgressTotal, "checked", "Check Latest");
             return tally;
         }
         finally
@@ -703,7 +704,7 @@ public partial class PackagesViewModel : ObservableObject
             }
 
             tally.Finish(_operationCts.Token);
-            StatusText = RunEndLine(tally, "ConfigMgr query", selected.Count, "checked");
+            StatusText = RunEndLine(tally, "ConfigMgr query", selected.Count, "checked", "Check ConfigMgr");
             if (!tally.Cancelled) AddLogLine(CheckResultSummary.Line("Check ConfigMgr", selected.Select(p => p.Status).ToList(), Packagers.Count(p => p.IsSelected)));
         }
         finally

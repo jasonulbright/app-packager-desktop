@@ -120,7 +120,7 @@ public partial class PackagesViewModel
 
             Volatile.Write(ref waiting, false);
             tally.Finish(_operationCts.Token);
-            StatusText = RunEndLine(tally, "CVE check", ProgressTotal, "checked");
+            StatusText = RunEndLine(tally, "CVE check", ProgressTotal, "checked", "Check CVEs");
             // Some rows may be left unchecked (NVD limit or timeout): one line says so.
             var notice = NvdLimits.BatchNotice(tally.Succeeded + tally.Failed, tally.Failed);
             if (notice.Length > 0)
