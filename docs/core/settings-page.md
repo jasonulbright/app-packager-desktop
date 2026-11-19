@@ -70,7 +70,7 @@ The site fields (**Site Code**, **Site Server / SMS Provider Host**, **File Shar
 | **Download Root (local staging)**, **Browse** | `Staging` in the data folder | The local staging folder. The application refuses a folder that other accounts can write to. |
 | **Packagers Folder (leave empty for auto-detect)**, **Browse** | Empty | The folder of PS1 packagers. Empty means the `Packagers` folder next to the executable. |
 
-![The ConfigMgr Site Settings and Post Packaging sections](../images/core-settings-configmgr.png)
+![The ConfigMgr page of Settings](../images/core-settings-configmgr.png)
 
 ### Post Packaging
 
@@ -117,7 +117,7 @@ See [One Click](one-click.md). The section has **Action on update** (**Report on
 | **Remove the saved key on Save** | Deletes the saved key when you select **Save Settings**. |
 | **Look up CVEs after Check ConfigMgr** | Cleared at first. Runs the CVE lookup after **Check ConfigMgr**. |
 
-![The Intune and CVE Lookup sections](../images/core-settings-intune-cve.png)
+![The Intune page of Settings](../images/core-settings-intune-cve.png)
 
 ### WSUS Publishing
 
