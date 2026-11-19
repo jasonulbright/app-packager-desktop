@@ -9,7 +9,7 @@
     "Architecture":  "x64",
     "VendorUrl":  "https://powerbi.microsoft.com/",
     "Cpe":  "cpe:2.3:a:microsoft:power_bi:*:*:*:*:*:*:*:*",
-    "ArpName":  "Microsoft PowerBI Desktop*",
+    "ArpName":  "Microsoft PowerBI Desktop (x64)",
     "SecurityAdvisoryUrl":  "https://msrc.microsoft.com/update-guide",
     "InstallerType":  "EXE",
     "InstallerFramework":  "NativeEXE",
@@ -37,5 +37,5 @@
     "RunningProcess":  [
                            "PBIDesktop"
                        ],
-    "UninstallCommand":  "$arpKey = Get-ItemProperty \"HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\*\" -ErrorAction SilentlyContinue | Where-Object { $_.DisplayName -like \"Microsoft Power BI Desktop*\" -and $_.WindowsInstaller -eq 1 }; $proc = Start-Process -FilePath \"msiexec.exe\" -ArgumentList @(\"/x\", $arpKey.PSChildName, \"/qn\", \"/norestart\") -Wait -PassThru -NoNewWindow"
+    "UninstallCommand":  "$arpKey = Get-ItemProperty \"HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\*\" -ErrorAction SilentlyContinue | Where-Object { $_.DisplayName -like \"Microsoft Power BI Desktop*\" -and $_.DisplayName -notmatch \"\\(\\w+ 20\\d\\d\\)\" -and $_.WindowsInstaller -eq 1 }; $proc = Start-Process -FilePath \"msiexec.exe\" -ArgumentList @(\"/x\", $arpKey.PSChildName, \"/qn\", \"/norestart\") -Wait -PassThru -NoNewWindow"
 }
