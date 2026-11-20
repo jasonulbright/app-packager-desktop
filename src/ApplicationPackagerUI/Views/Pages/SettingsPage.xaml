@@ -250,7 +250,7 @@
                                                ToolTip="Offer these apps again in later discoveries. Takes effect on Save." />
                                 </StackPanel>
                                 <TextBlock Text="Discover unmanaged software" Style="{StaticResource FieldLabel}" />
-                                <TextBlock Text="Reads the hardware inventory of the site and lists the products that are installed on clients and have no ConfigMgr application. It helps you pick the products that apply to your site. A scan only offers products; nothing changes until you choose."
+                                <TextBlock Text="Reads the hardware inventory of the site and lists the products that are installed on devices and have no ConfigMgr application. It helps you pick the products that apply to your site. A scan only offers products; nothing changes until you choose."
                                            Foreground="{DynamicResource TextFillColorTertiaryBrush}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,4" />
                                 <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
                                     <ui:Button Content="Discover not selected" Command="{Binding DiscoverNotSelectedCommand}" Margin="0,0,8,0"

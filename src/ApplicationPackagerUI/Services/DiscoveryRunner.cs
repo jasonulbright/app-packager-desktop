@@ -76,7 +76,7 @@ public sealed class DiscoveryRunner
                 ? "Set the site code, or the SQL server and database, in Settings, ConfigMgr Site Settings."
                 : "";
         return reason.Length == 0
-            ? (true, "Find hidden apps that hardware inventory shows installed on clients and that have no ConfigMgr application")
+            ? (true, "Find hidden apps that hardware inventory shows installed on devices and that have no ConfigMgr application")
             : (false, LogPrefix + reason);
     }
 
