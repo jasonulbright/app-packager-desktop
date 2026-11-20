@@ -518,7 +518,7 @@ public partial class DetectionTesterViewModel : ObservableObject
         var source = deploymentTypeCount > 1
             ? $"{name}, deployment type {deploymentType} (the first of {deploymentTypeCount} deployment types)"
             : name;
-        StatusMessage = WithFallbackNotes($"Imported the detection of {source}. Press Run to test it.");
+        StatusMessage = WithFallbackNotes($"Imported the detection of {source}. Select Run to test it.");
         ShowOutcome(DetectionTesterResultState.None, "", "");
         _services.Log.Info(LogArea,
             $"Imported a stage manifest: kind={detection.Type} clauses={DetectionClauseText.ClauseCount(detection)} deploymentTypes={deploymentTypeCount}.");

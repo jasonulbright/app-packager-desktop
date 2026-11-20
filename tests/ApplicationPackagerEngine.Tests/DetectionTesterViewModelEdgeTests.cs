@@ -229,7 +229,7 @@ public sealed class DetectionTesterViewModelEdgeTests
         var viewModel = await _h.OpenAsync();
         await viewModel.ImportManifestCommand.ExecuteAsync(null);
         Assert.Equal("GreaterEquals", viewModel.RegistryOperator);
-        Assert.Equal("Imported the detection of App. Press Run to test it.", viewModel.StatusMessage);
+        Assert.Equal("Imported the detection of App. Select Run to test it.", viewModel.StatusMessage);
     }
 
     [Fact]

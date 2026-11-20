@@ -17,6 +17,7 @@
 
 ### Changed
 
+- The Detection Tester and the Discover texts say Select Run and devices, as the ConfigMgr lexicon asks.
 - Guide images: the images of the App Packager page, its dialogs and windows, the sidebar context menu and the Settings pages show the current toolbar and the current Settings tree (lab run on CLIENT01, 1920 x 1032, light theme; the dark theme was captured too). The lab capture scripts `Capture-PackagesPage.ps1`, `Capture-PackagesDialogs.ps1` and `Capture-WindowChecks.ps1` are new. The captions of the Settings images name the page that they show.
 - The version rule (Minimum or Exact) applies to the detection of the application that is packaged only. The older applications are never changed.
 - Publishing into an existing application is unchanged.
