@@ -13,7 +13,9 @@ internal static partial class HygieneChecks
 
     private static void AddRelationships(List<HygieneCheckFamily> list)
     {
-        list.Add(new(["SUP-01", "SUP-02", "SUP-03", "SUP-04", "DEP-01", "DEP-02", "DEP-03", "DEP-04", "DEP-05", "REL-01"], ["AppRelationships"], RelationSets, RelationshipChecks));
+        list.Add(new(["SUP-02", "SUP-03", "SUP-04", "DEP-01", "DEP-02", "DEP-03", "DEP-04", "DEP-05", "REL-01"], ["AppRelationships"], RelationSets, RelationshipChecks));
+        // SUP-01 reads the application definitions: the site removes the relation row of a supersedence when the superseded application is deleted.
+        list.Add(new(["SUP-01"], ["AppRelationships"], [Applications, SupersedenceRules], BrokenSupersedence));
         list.Add(new(["APP-04"], ["AppRelationships"], [DeploymentTypes, AppContent, Applications], ContentPathChecks)
         {
             OptionGate = c => c.ProbeResults is null ? "The content source probe is off. Switch it on in Options to probe each path over the network." : null,
@@ -37,6 +39,29 @@ internal static partial class HygieneChecks
                 var a = g.First();
                 return new AppInfo(a.S("ModelName"), a.S("LocalizedDisplayName"), a.S("SoftwareVersion"), a.S("IsEnabled").Length == 0 || a.B("IsEnabled"), a.B("IsExpired"), a.B("HasContent"), a.S("Manufacturer"));
             }, StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// SUP-01: a supersedence rule that points at an application that is not in the site. One finding for each application and deleted
+    /// application, with the deployment types that hold a rule. The fix removes the rules from the application definition.
+    /// </summary>
+    private static IEnumerable<HygieneFinding> BrokenSupersedence(HygieneContext c)
+    {
+        var apps = AppsByModel(c.Data);
+        var broken = c.Rows(SupersedenceRules)
+            .Where(r => r.S("ApplicationModelName").Length > 0 && r.S("ReferencedModelName").Length > 0 && !apps.ContainsKey(r.S("ReferencedModelName")))
+            .GroupBy(r => (From: r.S("ApplicationModelName"), To: r.S("ReferencedModelName")))
+            .OrderBy(g => g.Key.From, StringComparer.OrdinalIgnoreCase).ThenBy(g => g.Key.To, StringComparer.OrdinalIgnoreCase);
+        foreach (var g in broken)
+        {
+            var fromName = apps.TryGetValue(g.Key.From, out var fa) ? fa.Name : g.Key.From;
+            var types = string.Join(", ", g.Select(r => r.S("DeploymentTypeName")).Distinct(StringComparer.OrdinalIgnoreCase).Order(StringComparer.OrdinalIgnoreCase).Take(15).Select(t => $"'{t}'"));
+            yield return F("SUP-01", "Supersedence", g.Key.From + "|" + g.Key.To, $"'{fromName}' -> 'Unknown ({g.Key.To})'",
+                $"Supersedence on deployment type {types} references {g.Key.To}, which no longer exists in the site.",
+                "Remove the broken supersedence reference. A broken reference can make the evaluation of other deployments fail on clients.",
+                HygieneFixKind.ClearBrokenSupersedence, Params((HygieneFixParameters.ModelName, g.Key.From), (HygieneFixParameters.ReferencedModel, g.Key.To)),
+                guidance: $"Console: '{fromName}' Properties > Supersedence tab - remove the reference to the deleted application");
+        }
+    }
 
     /// <summary>The direct edges of SMS_AppRelation_Flat, one per (kind, source application, deployment type, target application).</summary>
     internal static List<AppEdge> AppEdges(HygieneSiteRead data)
@@ -97,14 +122,8 @@ internal static partial class HygieneChecks
         var dep = edges.Where(e => e.Kind == RelationKinds.DependsOn).ToList();
         foreach (var e in sup)
         {
-            if (!e.ToExists)
-            {
-                Add(F("SUP-01", "Supersedence", Key(e), Pair(e),
-                    $"Supersedence on deployment type '{e.FromDt}' references {e.ToKey}, which no longer exists in the site.",
-                    "Remove the broken supersedence reference.",
-                    guidance: $"Console: '{e.FromName}' Properties > Supersedence tab - remove the reference to the deleted application"));
-                continue;
-            }
+            // A reference to a deleted application is SUP-01, found over the application definitions (BrokenSupersedence).
+            if (!e.ToExists) continue;
             apps.TryGetValue(e.FromModel, out var from);
             var to = apps[e.ToKey];
             if (to.IsExpired)

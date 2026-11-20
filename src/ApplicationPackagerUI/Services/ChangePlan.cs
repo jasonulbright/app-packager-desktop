@@ -47,6 +47,9 @@ public sealed class ChangePlan
     /// </summary>
     public string? OptionalChoice { get; init; }
 
+    /// <summary>True when the optional choice starts selected; the operator can clear it.</summary>
+    public bool OptionalChoiceOn { get; init; }
+
     /// <summary>
     /// The text of a third check box the operator checks before Confirm, for a second effect that
     /// the second check box does not name; null for none.
@@ -70,7 +73,7 @@ public sealed class ChangePlan
 
     internal ChangePlan Copy() => new(Title, ActionName, Items, IsDestructive, HasUndo)
     {
-        ExtraConfirmation = ExtraConfirmation, OptionalChoice = OptionalChoice, SecondConfirmation = SecondConfirmation, Notes = Notes.ToArray(), LogName = LogName,
+        ExtraConfirmation = ExtraConfirmation, OptionalChoice = OptionalChoice, OptionalChoiceOn = OptionalChoiceOn, SecondConfirmation = SecondConfirmation, Notes = Notes.ToArray(), LogName = LogName,
         DestructiveConfirmation = DestructiveConfirmation, Body = Body, BodyName = BodyName
     };
 }

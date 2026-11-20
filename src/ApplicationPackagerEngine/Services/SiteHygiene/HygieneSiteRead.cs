@@ -77,6 +77,9 @@ internal sealed class HygieneSiteRead
     public string StateFailure { get; set; } = "";
     public List<(string Status, string Failure)> Applied { get; } = [];
 
+    /// <summary>The note of each applied write, in the order of <see cref="Applied"/> (the old revisions of a supersedence fix); empty for none.</summary>
+    public List<string> AppliedNotes { get; } = [];
+
     /// <summary>True when the script found the session on another site or provider than the caller named, and did nothing.</summary>
     public bool OtherConnection { get; set; }
 
@@ -99,6 +102,7 @@ internal sealed class HygieneSiteRead
         Queries += other.Queries;
         if (other.StateRead is not null) { StateRead = other.StateRead; StateFailure = other.StateFailure; }
         Applied.AddRange(other.Applied);
+        AppliedNotes.AddRange(other.AppliedNotes);
         OtherConnection |= other.OtherConnection;
     }
 
@@ -158,6 +162,7 @@ internal sealed class HygieneSiteRead
                     break;
                 case "Applied":
                     read.Applied.Add((S(e, "Status"), S(e, "Failure")));
+                    read.AppliedNotes.Add(S(e, "Note"));
                     break;
                 case "Connection":
                     if (!B(e, "Same")) read.OtherConnection = true;

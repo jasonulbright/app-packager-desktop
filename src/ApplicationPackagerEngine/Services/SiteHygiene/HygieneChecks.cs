@@ -51,6 +51,13 @@ internal static class HygieneSets
     public const string MaintenanceWindows = "MaintenanceWindows";
     public const string AppDeployments = "AppDeployments";
 
+    /// <summary>
+    /// Each supersedence rule of each application: ApplicationModelName, DeploymentTypeLogicalName, DeploymentTypeName, RuleId,
+    /// ReferencedModelName. It is read from the application definition, because the site removes the relation row of a
+    /// supersedence when the superseded application is deleted, so a reference to a deleted application is only in the definition.
+    /// </summary>
+    public const string SupersedenceRules = "SupersedenceRules";
+
     /// <summary>State sets of a collection delete: deployments by target collection (SMS_CIAssignmentBaseClass), automatic deployment rules, client settings deployments and administrative users' collections.</summary>
     public const string CollectionAssignments = "CollectionAssignments";
     public const string CollectionRules = "CollectionRules";
@@ -76,7 +83,7 @@ internal static class HygieneSets
     public const string CiAssignments = "CiAssignments";
 
     /// <summary>The sets that cost one provider read per object; their caps are <see cref="SiteHygieneService.MaxPerObjectReads"/>.</summary>
-    public static readonly IReadOnlySet<string> PerObject = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { CollectionDetails, MaintenanceWindows, TsAppDefinitions, TsSteps, AutoApplySequences };
+    public static readonly IReadOnlySet<string> PerObject = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { CollectionDetails, MaintenanceWindows, TsAppDefinitions, TsSteps, AutoApplySequences, SupersedenceRules };
 }
 
 /// <summary>What a check family reads and judges: the fresh data of one scan.</summary>

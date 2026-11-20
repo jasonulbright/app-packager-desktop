@@ -7,6 +7,7 @@ param(
     [ValidateRange(1, 100000)][int]$MaxObjects = 2000,
     [string]$Kind = '',
     [string]$Target = '',
+    [string]$DeleteRevisions = '',
     [string]$ExpectSite = '',
     [string]$ExpectProvider = ''
 )
@@ -276,6 +277,51 @@ function Read-TsAppDefinitions {
     Write-Set 'TsAppDefinitions' @('ModelName', 'AutoInstall') $rows.ToArray() $rows.Count
 }
 
+# The supersedence rules of an application definition: the deployment type, the rule and the application
+# that the rule points at. The relation table of the site loses the row of a supersedence when the
+# superseded application is deleted, so the reference to a deleted application is only in the definition
+# of the superseding application.
+function Get-SupersedenceRule {
+    param([string]$Model)
+    Wait-Pace
+    $script:Queries++
+    $app = @(Get-CMApplication -ModelName $Model -ErrorAction Stop) | Select-Object -First 1
+    if ($null -eq $app) { return }
+    [xml]$xml = [string]$app.SDMPackageXML
+    $nsm = New-Object System.Xml.XmlNamespaceManager($xml.NameTable)
+    $nsm.AddNamespace('d', 'http://schemas.microsoft.com/SystemCenterConfigurationManager/2009/AppMgmtDigest')
+    $nsm.AddNamespace('r', 'http://schemas.microsoft.com/SystemsCenterConfigurationManager/2009/06/14/Rules')
+    foreach ($dt in $xml.SelectNodes('/d:AppMgmtDigest/d:DeploymentType', $nsm)) {
+        $title = $dt.SelectSingleNode('d:Title', $nsm)
+        foreach ($rule in $dt.SelectNodes('d:Supersedes/r:DeploymentTypeRule', $nsm)) {
+            foreach ($intent in $rule.SelectNodes('.//r:DeploymentTypeIntentExpression', $nsm)) {
+                $ref = $intent.SelectSingleNode('r:DeploymentTypeApplicationReference', $nsm)
+                if ($null -eq $ref) { continue }
+                , [string[]]@($Model, [string]$dt.GetAttribute('LogicalName'), $(if ($title) { [string]$title.InnerText } else { '' }), [string]$rule.GetAttribute('id'), ('{0}/{1}' -f $ref.GetAttribute('AuthoringScopeId'), $ref.GetAttribute('LogicalName')))
+            }
+        }
+    }
+}
+
+$SupersedenceColumns = 'ApplicationModelName', 'DeploymentTypeLogicalName', 'DeploymentTypeName', 'RuleId', 'ReferencedModelName'
+
+# One provider read per application, under MaxObjects. The caller names every application in Keys. A scan
+# read marks the set cut at the cap; a State read throws, so a fix never decides on part of the data.
+function Read-SupersedenceRules {
+    param([switch]$Complete)
+    $models = @($Keys | Where-Object { $_ -match $ModelPattern -and $_ -like '*/Application_*' } | Sort-Object -Unique)
+    if ($Complete -and $models.Count -gt $MaxObjects) { throw 'The site has more applications than one read takes.' }
+    $rows = New-Object System.Collections.Generic.List[object]
+    $done = 0
+    foreach ($m in $models) {
+        if ($done -ge $MaxObjects) { break }
+        $done++
+        foreach ($r in @(Get-SupersedenceRule $m)) { if ($null -ne $r) { $rows.Add($r) } }
+    }
+    if (-not $Complete) { [pscustomobject]@{ Kind = 'Coverage'; Set = 'SupersedenceRules'; Done = $done; Total = $models.Count } }
+    Write-Set 'SupersedenceRules' $SupersedenceColumns $rows.ToArray() $rows.Count
+}
+
 # ---- Set table ------------------------------------------------------------------------------
 
 $Simple = [ordered]@{
@@ -334,6 +380,7 @@ function Invoke-Read {
                 'CollectionDetails' { Read-CollectionDetails }
                 'MaintenanceWindows' { Read-MaintenanceWindows }
                 'TsAppDefinitions' { Read-TsAppDefinitions }
+                'SupersedenceRules' { Read-SupersedenceRules }
                 'TsSteps' { Read-TsSteps }
                 default {
                     if (-not $Simple.Contains($name)) { [pscustomobject]@{ Kind = 'Set'; Set = $name; State = 'Unknown' }; continue }
@@ -477,6 +524,12 @@ function Invoke-State {
                     }
                 }
             }
+            'ClearBrokenSupersedence' {
+                if ($models.Count -gt 0) {
+                    Write-Facts 'Applications' 'SMS_Application' $Simple.Applications[1] "IsLatest = 1 AND ($(Get-OrList 'ModelName' $models))"
+                    Read-SupersedenceRules -Complete
+                }
+            }
             'RemoveMaintenanceWindow' {
                 $rows = New-Object System.Collections.Generic.List[object]
                 foreach ($id in $ids) { foreach ($w in Get-Windows $id) { $rows.Add((ConvertTo-WindowRow $id $w)) } }
@@ -560,9 +613,118 @@ function Get-InUse {
     return ''
 }
 
+# Where the serializer of application documents was loaded from. It must be the one of the console: the
+# folder of the ConfigurationManager module, and the same major and minor version. A serializer from
+# anywhere else is not used to edit a document.
+function Test-Serializer {
+    param($Serializer)
+    if ($null -eq $Serializer) { return 'serializer' }
+    $path = [string]$Serializer.Assembly.Location
+    $module = Get-Module -Name ConfigurationManager | Select-Object -First 1
+    if (-not $path -or $null -eq $module) { return 'serializer' }
+    if ((Split-Path -Path $path -Parent) -ne [string]$module.ModuleBase) { return 'serializer' }
+    $a = ([string](Get-Item -LiteralPath $path).VersionInfo.FileVersion) -split '\.'
+    $m = ([string]$module.Version) -split '\.'
+    if ($a.Count -lt 2 -or $m.Count -lt 2 -or $a[0] -ne $m[0] -or $a[1] -ne $m[1]) { return 'serializer' }
+    return ''
+}
+
+# An application document as a sorted list of one line for each element: path, attributes (the Version
+# attribute left out, because each write raises it) and the text of a leaf. Formatting, namespace
+# declarations, the order of siblings and an empty Supersedes container do not count.
+function ConvertTo-DocumentLine {
+    param([string]$Xml, [string[]]$WithoutRuleId = @())
+    $doc = New-Object System.Xml.XmlDocument
+    $doc.LoadXml($Xml)
+    foreach ($id in $WithoutRuleId) {
+        foreach ($rule in @($doc.SelectNodes("//*[local-name()='DeploymentTypeRule'][@id='$($id -replace "'", '')']"))) { [void]$rule.ParentNode.RemoveChild($rule) }
+    }
+    $lines = New-Object System.Collections.Generic.List[string]
+    $walk = $null
+    $walk = {
+        param($node, [string]$path)
+        foreach ($child in $node.ChildNodes) {
+            if ($child.NodeType -ne 'Element') { continue }
+            $attrs = (@($child.Attributes | Where-Object { $_.Name -ne 'Version' -and $_.Name -notlike 'xmlns*' } | ForEach-Object { '{0}={1}' -f $_.Name, $_.Value } | Sort-Object) -join ',')
+            $hasChild = $false
+            foreach ($g in $child.ChildNodes) { if ($g.NodeType -eq 'Element') { $hasChild = $true } }
+            if ($child.LocalName -eq 'Supersedes' -and -not $hasChild) { continue }
+            $lines.Add(('{0}/{1}[{2}]={3}' -f $path, $child.LocalName, $attrs, $(if ($hasChild) { '' } else { $child.InnerText.Trim() })))
+            & $walk $child ('{0}/{1}' -f $path, $child.LocalName)
+        }
+    }
+    & $walk $doc.DocumentElement ''
+    return @($lines | Sort-Object)
+}
+
+# The number of differences between two documents once the named supersedence rules are taken out of the
+# first one. Zero means the second document is the first one without those rules and nothing else.
+function Get-DocumentDifferenceCount {
+    param([string]$Before, [string]$After, [string[]]$RemovedRuleId)
+    $left = New-Object 'System.Collections.Generic.Dictionary[string,int]'
+    foreach ($l in @(ConvertTo-DocumentLine -Xml $Before -WithoutRuleId $RemovedRuleId)) { if ($left.ContainsKey($l)) { $left[$l]++ } else { $left[$l] = 1 } }
+    $count = 0
+    foreach ($l in @(ConvertTo-DocumentLine -Xml $After)) { if ($left.ContainsKey($l) -and $left[$l] -gt 0) { $left[$l]-- } else { $count++ } }
+    foreach ($k in $left.Keys) { $count += $left[$k] }
+    return $count
+}
+
+# Removes the supersedence rules of one application that point at a deleted application. The cmdlet
+# Set-CMApplicationSupersedence -RemoveSupersedence needs the superseded application and its deployment
+# type, which a deleted application no longer has, so the application document is edited with the
+# serializer of the console and written back. The serializer must be the one of the console, and the
+# edited document may differ from the original only by the removed rules: otherwise nothing is written.
+# The application is read again afterwards and must read back the same way. No file of the removed data
+# is written. Returns the note about the old revisions; empty when they were not asked for.
+function Remove-BrokenSupersedence {
+    param([string]$Model, [string]$Reference)
+    $app = @(Get-CMApplication -ModelName $Model -ErrorAction Stop) | Select-Object -First 1
+    if ($null -eq $app) { throw 'not-found' }
+    $scope, $logical = $Reference -split '/', 2
+    $serializer = 'Microsoft.ConfigurationManagement.ApplicationManagement.Serialization.SccmSerializer' -as [type]
+    if ((Test-Serializer $serializer) -ne '') { throw 'serializer' }
+    $original = [string]$app.SDMPackageXML
+    $object = $serializer::DeserializeFromString($original, $true)
+    $removed = New-Object System.Collections.Generic.List[string]
+    foreach ($dt in $object.DeploymentTypes) {
+        # A copy first: the collection changes while a rule is removed. foreach, not @(): an array subexpression over
+        # a generic collection of objects can throw "Argument types do not match".
+        $copy = New-Object System.Collections.ArrayList
+        foreach ($rule in $dt.Supersedes) { [void]$copy.Add($rule) }
+        foreach ($rule in $copy) {
+            $e = $rule.Expression
+            if ($null -ne $e -and $null -ne $e.PSObject.Properties['ApplicationLogicalName'] -and [string]$e.ApplicationAuthoringScopeId -eq $scope -and [string]$e.ApplicationLogicalName -eq $logical) {
+                $removed.Add([string]$rule.RuleId)
+                [void]$dt.Supersedes.Remove($rule)
+            }
+        }
+    }
+    if ($removed.Count -eq 0) { throw 'not-found' }
+    $edited = [string]$serializer::SerializeToString($object, $true)
+    if ((Get-DocumentDifferenceCount -Before $original -After $edited -RemovedRuleId $removed.ToArray()) -gt 0) { throw 'document' }
+    $app.SDMPackageXML = $edited
+    [void]$app.Put()
+    $after = @(Get-CMApplication -ModelName $Model -ErrorAction Stop) | Select-Object -First 1
+    if ($null -eq $after) { throw 'readback' }
+    try { if ((Get-DocumentDifferenceCount -Before $original -After ([string]$after.SDMPackageXML) -RemovedRuleId $removed.ToArray()) -gt 0) { throw 'readback' } }
+    catch { throw 'readback' }
+    if ($DeleteRevisions -ne '1') { return '' }
+    # The old revisions of this application only, older than the new one. The site refuses a revision that
+    # another object still uses: that revision stays, and the run does not fail.
+    $deleted = 0; $kept = New-Object System.Collections.Generic.List[string]
+    $newest = [int]$after.CIVersion
+    foreach ($rev in @(Get-CMApplicationRevisionHistory -Id ([int]$after.CI_ID) -ErrorAction SilentlyContinue | ForEach-Object { [int]$_.CIVersion } | Sort-Object -Unique)) {
+        if ($rev -ge $newest) { continue }
+        try { Remove-CMApplicationRevisionHistory -Id ([int]$after.CI_ID) -Revision $rev -Force -ErrorAction Stop; $deleted++ }
+        catch { $kept.Add([string]$rev) }
+    }
+    if ($kept.Count -eq 0) { return ('{0} old revision(s) deleted.' -f $deleted) }
+    return ('{0} old revision(s) deleted. Kept because another object uses them: {1}.' -f $deleted, ($kept -join ', '))
+}
+
 function Invoke-Apply {
     $t = ConvertFrom-Json -InputObject $Target
-    $out = [ordered]@{ Kind = 'Applied'; Status = 'failed'; Failure = '' }
+    $out = [ordered]@{ Kind = 'Applied'; Status = 'failed'; Failure = ''; Note = '' }
     $use = ''
     try {
         $ErrorActionPreference = 'Stop'
@@ -575,6 +737,12 @@ function Invoke-Apply {
         if ($pattern) {
             if ($id -notmatch $pattern -or ($Kind -eq 'RemoveCollection' -and $id -like 'SMS*')) { throw 'invalid' }
             $use = Get-InUse $id
+        }
+        if ($Kind -eq 'ClearBrokenSupersedence') {
+            $reference = [string]$t.ReferencedModel
+            if ($id -notmatch $ModelPattern -or $reference -notmatch $ModelPattern -or $reference -notlike '*/Application_*') { throw 'invalid' }
+            # The reference counts as broken only while the referenced application is gone.
+            if ($null -ne (@(Get-CMApplication -ModelName $reference -ErrorAction Stop) | Select-Object -First 1)) { $use = 'supersedence-target' }
         }
         if ($use) { $out.Status = 'in-use'; $out.Failure = $use }
         else {
@@ -616,6 +784,7 @@ function Invoke-Apply {
                     Set-CMSiteMaintenanceTask -SiteCode $site -Name $id -Enabled $true
                 }
                 'RunAutoDeploymentRule' { if ($id -notmatch $NumberPattern) { throw 'invalid' }; Invoke-CMSoftwareUpdateAutoDeploymentRule -Id ([int]$id) | Out-Null }
+                'ClearBrokenSupersedence' { $out.Note = Remove-BrokenSupersedence -Model $id -Reference ([string]$t.ReferencedModel) }
                 default { throw 'unsupported' }
             }
             $out.Status = 'done'
@@ -623,7 +792,7 @@ function Invoke-Apply {
     }
     catch {
         $message = [string]$_.Exception.Message
-        $out.Failure = if ($message -in 'invalid', 'unsupported') { $message } else { Get-FailureKind $_ }
+        $out.Failure = if ($message -in 'invalid', 'unsupported', 'not-found', 'serializer', 'document', 'readback') { $message } else { Get-FailureKind $_ }
     }
     finally { $ErrorActionPreference = 'Continue' }
     [pscustomobject]$out

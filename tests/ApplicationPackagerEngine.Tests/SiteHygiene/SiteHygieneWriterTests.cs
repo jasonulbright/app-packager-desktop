@@ -59,6 +59,33 @@ public sealed class SiteHygieneWriterTests
     }
 
     [Fact]
+    public void TheSupersedenceFixAsksToDeleteTheOldRevisionsAndTheOperatorCanClearTheBox()
+    {
+        var item = new ChangePlanItem("Remove supersedence", "Supersedence X", "SUP-01: d");
+        var plan = new ChangePlan("Remove supersedence references", "Remove supersedence: 1 object", [item])
+        {
+            OptionalChoice = SiteHygieneText.SupersedenceRevisionChoice,
+            OptionalChoiceOn = true
+        };
+        foreach (var cleared in new[] { false, true })
+        {
+            ConfirmedChangePlan? captured = null;
+            var dialog = new ChangePlanViewModel(plan, (confirmed, progress, ct) =>
+            {
+                captured = confirmed;
+                return Task.FromResult(new ChangePlanResult([new ChangePlanItemResult(item, true, "ok")], ChangePlanStop.Completed));
+            });
+            Assert.True(dialog.OptionChosen);
+            if (cleared) dialog.OptionChosen = false;
+            ScriptedPlanDialogs.Wait(dialog.ConfirmCommand.ExecuteAsync(null));
+            var change = SiteHygieneWriter.ConfirmedChange(new HygieneChange(HygieneFixKind.ClearBrokenSupersedence, [], false, [], [], null), captured!);
+            Assert.Equal(!cleared, change.DeleteOldRevisions);
+            var other = SiteHygieneWriter.ConfirmedChange(new HygieneChange(HygieneFixKind.SetApplication, [], false, [], [], null), captured!);
+            Assert.False(other.DeleteOldRevisions);
+        }
+    }
+
+    [Fact]
     public void AChangeKindNeverCarriesDeleteConfirmedEvenWhenTheChangeHadIt()
     {
         var (plan, h) = Plan(HygieneFixKind.SetCollectionRefreshType, x => x.RefreshType);

@@ -26,7 +26,8 @@ public enum HygieneFixKind
     ResumeApplication,
     SetBoundaryGroup,
     SetSiteMaintenanceTask,
-    RunAutoDeploymentRule
+    RunAutoDeploymentRule,
+    ClearBrokenSupersedence
 }
 
 public static class HygieneFixKinds
@@ -203,6 +204,12 @@ public sealed record HygieneChange(
 
     /// <summary>The operator confirmed the plan. ApplyAsync refuses every change without it; PrepareAsync clears it.</summary>
     public bool ChangeConfirmed { get; init; }
+
+    /// <summary>
+    /// For ClearBrokenSupersedence: after a change, delete the old revisions of the changed application, which the change made. The plan
+    /// window asks the operator; PrepareAsync clears it. It touches no application that the fix did not change.
+    /// </summary>
+    public bool DeleteOldRevisions { get; init; }
 
     /// <summary>The findings PrepareAsync left out, each with a message that starts with "Skipped".</summary>
     public IReadOnlyList<HygieneObjectOutcome> Dropped { get; init; } = [];

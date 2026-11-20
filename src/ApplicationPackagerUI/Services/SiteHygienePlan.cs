@@ -127,6 +127,7 @@ public sealed class SiteHygieneWriter(ISiteHygieneService service, ISiteOperatio
     public static HygieneChange ConfirmedChange(HygieneChange change, ConfirmedChangePlan confirmed) => change with
     {
         ChangeConfirmed = true,
+        DeleteOldRevisions = change.Kind == HygieneFixKind.ClearBrokenSupersedence && confirmed.OptionChosen,
         DeleteConfirmed = SiteHygieneLabels.IsDelete(change.Kind) && confirmed.Plan.IsDestructive && confirmed.Plan.ExtraConfirmation is not null
     };
 
