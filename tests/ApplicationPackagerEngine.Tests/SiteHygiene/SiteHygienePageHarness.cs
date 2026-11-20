@@ -71,7 +71,10 @@ internal sealed class FakeSiteHygieneService : ISiteHygieneService
     /// <summary>The SMS Provider the scan records, as the real service takes it from the connection.</summary>
     public string? Provider = "cm01.contoso.com";
 
-    public HygieneScanResult Result() => new(Findings.ToList(), Checks.ToList(), ScannedUtc, Truncated, null) { SiteCode = SiteCode, Provider = Provider };
+    /// <summary>The blockers of the scan by application ModelName; null is a scan that did not read the data.</summary>
+    public Dictionary<string, IReadOnlyList<HygieneBlocker>>? Blockers;
+
+    public HygieneScanResult Result() => new(Findings.ToList(), Checks.ToList(), ScannedUtc, Truncated, null) { SiteCode = SiteCode, Provider = Provider, Blockers = Blockers };
 
     public async Task<HygieneScanResult> ScanAsync(HygieneScanOptions options, IProgress<string> progress, CancellationToken ct)
     {
@@ -315,6 +318,10 @@ internal sealed class FakeHygieneDialogs : ISiteHygieneDialogs
     public List<(string Title, string Prompt)> Asked { get; } = [];
     public List<string> Clipboard { get; } = [];
     public List<string> OpenedFolders { get; } = [];
+
+    public List<HygieneBlockersViewModel> BlockersShown { get; } = [];
+
+    public void ShowBlockers(HygieneBlockersViewModel blockers) => BlockersShown.Add(blockers);
 
     public void ShowFindings(HygieneFindingsPickerViewModel findings)
     {

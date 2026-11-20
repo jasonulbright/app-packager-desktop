@@ -488,7 +488,7 @@ function Invoke-State {
     $guids = @($Keys | Where-Object { $_ -match $GuidPattern } | ForEach-Object { '{' + $_.Trim('{', '}').ToUpperInvariant() + '}' } | Sort-Object -Unique)
     try {
         switch ($Kind) {
-            { $_ -in 'RemoveApplication', 'RemoveApplicationDeployment', 'RemoveApplicationRevisionHistory', 'SetApplication', 'ResumeApplication' } {
+            { $_ -in 'RemoveApplication', 'RemoveApplicationDeployment', 'RemoveApplicationRevisionHistory', 'SetApplication', 'ResumeApplication', 'RemoveSupersededApplication' } {
                 if ($models.Count -gt 0) {
                     $where = Get-OrList 'ModelName' $models
                     Write-Facts 'Applications' 'SMS_Application' $Simple.Applications[1] "IsLatest = 1 AND ($where)"
@@ -499,7 +499,7 @@ function Invoke-State {
                     if ($modelIds.Count -gt 0) { Write-Facts 'AppDeployments' 'SMS_ApplicationAssignment' $Simple.AppDeployments[1] (Get-OrList 'AppModelID' $modelIds -Number) }
                     else { Write-Set 'AppDeployments' $Simple.AppDeployments[1] @() 0 }
                     Write-Facts 'TsReferences' 'SMS_TaskSequencePackageReference_All' $Simple.TsReferences[1] (Get-OrList 'ObjectID' $models)
-                    if ($Kind -in 'RemoveApplication', 'SetApplication') { Read-TsSteps -Complete }
+                    if ($Kind -in 'RemoveApplication', 'SetApplication', 'RemoveSupersededApplication') { Read-TsSteps -Complete }
                     if ($ci.Count -gt 0) {
                         Write-Facts 'AppDependencies' 'SMS_AppDependenceRelation' $Simple.AppDependencies[1] ((Get-OrList 'ToApplicationCIID' $ci -Number) + ' OR ' + (Get-OrList 'FromApplicationCIID' $ci -Number))
                         Write-Facts 'AppRelations' 'SMS_AppRelation_Flat' $Simple.AppRelations[1] ('Level = 1 AND (' + (Get-OrList 'ToApplicationCIID' $ci -Number) + ' OR ' + (Get-OrList 'FromApplicationCIID' $ci -Number) + ')')
@@ -558,7 +558,7 @@ function Invoke-State {
                     Read-SupersedenceRules -Complete
                 }
             }
-            'ClearRetiredRelation' {
+            { $_ -in 'ClearRetiredRelation', 'ClearRetiredApplicationRules' } {
                 if ($models.Count -gt 0) {
                     Write-Facts 'Applications' 'SMS_Application' $Simple.Applications[1] "IsLatest = 1 AND ($(Get-OrList 'ModelName' $models))"
                     Read-SupersedenceRules -Complete
@@ -629,6 +629,35 @@ function Get-InUse {
             if ($ci.Count -gt 0) {
                 if (Test-Any 'SMS_AppDependenceRelation' 'FromApplicationCIID' (Get-OrList 'ToApplicationCIID' $ci -Number)) { return 'dependents' }
                 if (Test-Any 'SMS_AppRelation_Flat' 'FromApplicationCIID' ('Level = 1 AND (' + (Get-OrList 'ToApplicationCIID' $ci -Number) + ')')) { return 'dependents' }
+            }
+            if (Test-Any 'SMS_TaskSequencePackageReference_All' 'PackageID' "ObjectID = '$model'") { return 'task-sequences' }
+            if (Test-TsStepReference $model) { return 'task-sequences' }
+        }
+        'RemoveSupersededApplication' {
+            # A superseded application is deleted after the supersedence rules of its replacements are removed, so those rules are not a use. Every
+            # other use stops the delete: the nothing-else-refers-to-it rule of APP-08, read again in the same command as the delete.
+            $app = @(Invoke-Query "SELECT CI_ID, ModelID, ModelName, IsExpired, NumberOfDependentTS FROM SMS_Application WHERE CI_ID = $Id") | Select-Object -First 1
+            if ($null -eq $app) { return '' }
+            $model = [string](Get-Prop $app 'ModelName')
+            $modelId = [string](Get-Prop $app 'ModelID')
+            if ($model -notmatch $ModelPattern -or $modelId -notmatch $NumberPattern) { throw 'invalid' }
+            if ((Get-Prop $app 'IsExpired') -eq $true) { return 'retired-state' }
+            if ([int](Get-Prop $app 'NumberOfDependentTS') -gt 0) { return 'task-sequences' }
+            if (Test-Any 'SMS_ApplicationAssignment' 'AssignmentID' "AppModelID = $modelId") { return 'deployments' }
+            $ci = @(Invoke-Query "SELECT CI_ID FROM SMS_Application WHERE ModelName = '$model'" | ForEach-Object { [string](Get-Prop $_ 'CI_ID') } | Where-Object { $_ -match $NumberPattern } | Sort-Object -Unique)
+            if ($ci.Count -gt 0) {
+                $toCi = Get-OrList 'ToApplicationCIID' $ci -Number
+                if (Test-Any 'SMS_AppDependenceRelation' 'FromApplicationCIID' $toCi) { return 'dependents' }
+                foreach ($rel in @(Invoke-Query ('SELECT FromApplicationCIID, RelationType FROM SMS_AppRelation_Flat WHERE Level = 1 AND (' + $toCi + ')'))) {
+                    # Any relation but a supersedence (a dependency) is a use. A supersedence counts only when its replacement is in the plan.
+                    if ([string](Get-Prop $rel 'RelationType') -ne '15') { return 'dependents' }
+                    $fromCi = [string](Get-Prop $rel 'FromApplicationCIID')
+                    if ($fromCi -notmatch $NumberPattern) { throw 'invalid' }
+                    # The relation table holds a row for each revision of the replacement; an older revision is flagged retired by the site.
+                    $from = @(Invoke-Query "SELECT ModelName, IsExpired, IsLatest FROM SMS_Application WHERE CI_ID = $fromCi") | Select-Object -First 1
+                    if ($null -eq $from -or $script:Replacements -notcontains [string](Get-Prop $from 'ModelName')) { return 'supersedence-other' }
+                    if ((Get-Prop $from 'IsLatest') -eq $true -and (Get-Prop $from 'IsExpired') -eq $true) { return 'replacement-retired' }
+                }
             }
             if (Test-Any 'SMS_TaskSequencePackageReference_All' 'PackageID' "ObjectID = '$model'") { return 'task-sequences' }
             if (Test-TsStepReference $model) { return 'task-sequences' }
@@ -771,32 +800,106 @@ function Remove-RetiredRelation {
     $app = @(Get-CMApplication -ModelName $Model -ErrorAction Stop) | Select-Object -First 1
     $target = @(Get-CMApplication -ModelName $Reference -ErrorAction Stop) | Select-Object -First 1
     if ($null -eq $app -or $null -eq $target) { throw 'not-found' }
-    if (-not [bool]$target.IsExpired) { throw 'invalid' }
+    # SUP-04 and DEP-04: the target is retired. APP-07: the application is retired and the target is not.
+    if ($Kind -eq 'ClearRetiredApplicationRules') { if (-not [bool]$app.IsExpired -or [bool]$target.IsExpired) { throw 'invalid' } }
+    elseif (-not [bool]$target.IsExpired) { throw 'invalid' }
     $removed = 0
-    if ($RelationKind -eq 'Supersedes') {
-        $pairs = @(Invoke-CMWmiQuery -Query ('SELECT FromDeploymentTypeCIID, ToDeploymentTypeCIID FROM SMS_AppRelation_Flat WHERE Level = 1 AND RelationType = 15 AND FromApplicationCIID = {0} AND ToApplicationCIID = {1}' -f [int]$app.CI_ID, [int]$target.CI_ID) -ErrorAction Stop)
-        foreach ($p in $pairs) {
-            Set-CMApplicationSupersedence -Id ([int]$app.CI_ID) -CurrentDeploymentTypeId ([int](Get-Prop $p 'FromDeploymentTypeCIID')) -SupersededApplicationId ([int]$target.CI_ID) -OldDeploymentTypeId ([int](Get-Prop $p 'ToDeploymentTypeCIID')) -RemoveSupersedence -Force -ErrorAction Stop
-            $removed++
-        }
+    # A retired application cannot be changed: Set-CMApplicationSupersedence and Remove-CMDeploymentTypeDependency run without an error
+    # and change nothing. APP-07 reinstates the application, makes the change and retires it again. Invoke-Apply refused an
+    # application that has a deployment, so nothing deploys while it is active. The retire runs also when the change fails.
+    $reinstated = $false
+    if ($Kind -eq 'ClearRetiredApplicationRules') {
+        Resume-CMApplication -InputObject $app -ErrorAction Stop
+        $reinstated = $true
     }
-    else {
-        foreach ($dt in @(Get-CMDeploymentType -InputObject $app -ErrorAction Stop)) {
-            foreach ($g in @(Get-CMDeploymentTypeDependencyGroup -InputObject $dt -ErrorAction Stop)) {
-                foreach ($d in @(Get-CMDeploymentTypeDependency -InputObject $g -ErrorAction Stop)) {
-                    if ([string]$d.AppModelName -ne $Reference) { continue }
-                    Remove-CMDeploymentTypeDependency -InputObject $g -DeploymentTypeDependency $d -Force -ErrorAction Stop
-                    $removed++
+    $failure = $null
+    try {
+        if ($RelationKind -eq 'Supersedes') {
+            # Each change makes a new revision with new identifiers, so the pair is read again for each removal.
+            for ($i = 0; $i -lt 20; $i++) {
+                $current = @(Get-CMApplication -ModelName $Model -ErrorAction Stop) | Select-Object -First 1
+                $to = @(Get-CMApplication -ModelName $Reference -ErrorAction Stop) | Select-Object -First 1
+                if ($null -eq $current -or $null -eq $to) { throw 'not-found' }
+                $p = @(Invoke-CMWmiQuery -Query ('SELECT FromDeploymentTypeCIID, ToDeploymentTypeCIID FROM SMS_AppRelation_Flat WHERE Level = 1 AND RelationType = 15 AND FromApplicationCIID = {0} AND ToApplicationCIID = {1}' -f [int]$current.CI_ID, [int]$to.CI_ID) -ErrorAction Stop) | Select-Object -First 1
+                if ($null -eq $p) { break }
+                Set-CMApplicationSupersedence -Id ([int]$current.CI_ID) -CurrentDeploymentTypeId ([int](Get-Prop $p 'FromDeploymentTypeCIID')) -SupersededApplicationId ([int]$to.CI_ID) -OldDeploymentTypeId ([int](Get-Prop $p 'ToDeploymentTypeCIID')) -RemoveSupersedence -Force -ErrorAction Stop
+                $removed++
+            }
+        }
+        else {
+            $current = @(Get-CMApplication -ModelName $Model -ErrorAction Stop) | Select-Object -First 1
+            foreach ($dt in @(Get-CMDeploymentType -InputObject $current -ErrorAction Stop)) {
+                foreach ($g in @(Get-CMDeploymentTypeDependencyGroup -InputObject $dt -ErrorAction Stop)) {
+                    foreach ($d in @(Get-CMDeploymentTypeDependency -InputObject $g -ErrorAction Stop)) {
+                        if ([string]$d.AppModelName -ne $Reference) { continue }
+                        Remove-CMDeploymentTypeDependency -InputObject $g -DeploymentTypeDependency $d -Force -ErrorAction Stop
+                        $removed++
+                    }
                 }
             }
         }
     }
+    catch { $failure = $_ }
+    if ($reinstated) {
+        try {
+            Suspend-CMApplication -InputObject (@(Get-CMApplication -ModelName $Model -ErrorAction Stop) | Select-Object -First 1) -ErrorAction Stop
+            $again = @(Get-CMApplication -ModelName $Model -ErrorAction Stop) | Select-Object -First 1
+            if ($null -eq $again -or -not [bool]$again.IsExpired) { throw 'retire' }
+        }
+        catch { throw 'retire' }
+    }
+    if ($null -ne $failure) { throw $failure }
     if ($removed -eq 0) { throw 'not-found' }
     $left = if ($RelationKind -eq 'Supersedes') { @(Get-SupersedenceRule $Model | Where-Object { $_[4] -eq $Reference }).Count } else { @(Get-DependencyRule $Model | Where-Object { $_[3] -eq $Reference }).Count }
     if ($left -gt 0) { throw 'readback' }
     $after = @(Get-CMApplication -ModelName $Model -ErrorAction Stop) | Select-Object -First 1
     if ($null -eq $after) { throw 'readback' }
     return Remove-OldRevision $after
+}
+
+# APP-08: removes the supersedence rule of each replacement with the supported cmdlet, deletes the old revisions of each
+# replacement when the plan asked for it, and deletes the superseded application. Get-InUse found nothing that refers to the
+# application before this runs. A delete that the site refuses after the rules are gone is reported, after the revision cleanup.
+function Remove-SupersededApplication {
+    param([string]$Id, [string]$Model)
+    if ($Model -notmatch $ModelPattern -or $Model -notlike '*/Application_*') { throw 'invalid' }
+    $app = @(Get-CMApplication -ModelName $Model -ErrorAction Stop) | Select-Object -First 1
+    if ($null -eq $app -or [string]$app.CI_ID -ne $Id) { throw 'not-found' }
+    $changed = New-Object System.Collections.Generic.List[string]
+    $removed = 0
+    # Each change makes a new revision of the replacement with new identifiers, so the pair is read again for each removal.
+    for ($i = 0; $i -lt 20; $i++) {
+        # The relation table holds a row for each revision of the replacement: only the row of the current revision is changed.
+        $p = $null; $from = $null
+        foreach ($row in @(Invoke-CMWmiQuery -Query ('SELECT FromApplicationCIID, FromDeploymentTypeCIID, ToDeploymentTypeCIID FROM SMS_AppRelation_Flat WHERE Level = 1 AND RelationType = 15 AND ToApplicationCIID = {0}' -f [int]$app.CI_ID) -ErrorAction Stop)) {
+            $candidate = @(Invoke-Query ('SELECT ModelName, IsExpired, IsLatest FROM SMS_Application WHERE CI_ID = {0}' -f [int](Get-Prop $row 'FromApplicationCIID'))) | Select-Object -First 1
+            if ($null -ne $candidate -and (Get-Prop $candidate 'IsLatest') -eq $true) { $p = $row; $from = $candidate; break }
+        }
+        if ($null -eq $p) { break }
+        $fromCi = [int](Get-Prop $p 'FromApplicationCIID')
+        if ((Get-Prop $from 'IsExpired') -eq $true) { throw 'invalid' }
+        Set-CMApplicationSupersedence -Id $fromCi -CurrentDeploymentTypeId ([int](Get-Prop $p 'FromDeploymentTypeCIID')) -SupersededApplicationId ([int]$app.CI_ID) -OldDeploymentTypeId ([int](Get-Prop $p 'ToDeploymentTypeCIID')) -RemoveSupersedence -Force -ErrorAction Stop
+        $removed++
+        $fromModel = [string](Get-Prop $from 'ModelName')
+        if ($fromModel -and -not $changed.Contains($fromModel)) { $changed.Add($fromModel) }
+    }
+    if ($removed -eq 0) { throw 'not-found' }
+    foreach ($row in @(Invoke-CMWmiQuery -Query ('SELECT FromApplicationCIID FROM SMS_AppRelation_Flat WHERE Level = 1 AND RelationType = 15 AND ToApplicationCIID = {0}' -f [int]$app.CI_ID) -ErrorAction Stop)) {
+        $left = @(Invoke-Query ('SELECT CI_ID FROM SMS_Application WHERE IsLatest = 1 AND CI_ID = {0}' -f [int](Get-Prop $row 'FromApplicationCIID'))).Count
+        if ($left -gt 0) { throw 'readback' }
+    }
+    $deleteError = $null
+    try { Remove-CMApplication -Id ([int]$app.CI_ID) -Force -ErrorAction Stop }
+    catch { $deleteError = $_ }
+    $notes = New-Object System.Collections.Generic.List[string]
+    foreach ($m in $changed) {
+        $after = @(Get-CMApplication -ModelName $m -ErrorAction Stop) | Select-Object -First 1
+        if ($null -eq $after) { continue }
+        $note = Remove-OldRevision $after
+        if ($note) { $notes.Add(('{0}: {1}' -f [string]$after.LocalizedDisplayName, $note)) }
+    }
+    $script:Note = ($notes -join ' ')
+    if ($null -ne $deleteError) { throw $deleteError }
 }
 
 function Invoke-Apply {
@@ -807,10 +910,11 @@ function Invoke-Apply {
         $ErrorActionPreference = 'Stop'
         $id = [string]$t.Id
         $pattern = switch ($Kind) {
-            { $_ -in 'RemoveApplication', 'RemoveAutoDeploymentRule' } { $NumberPattern }
+            { $_ -in 'RemoveApplication', 'RemoveAutoDeploymentRule', 'RemoveSupersededApplication' } { $NumberPattern }
             { $_ -in 'RemovePackage', 'RemoveCollection', 'RemoveBootImage', 'RemoveDriverPackage' } { $IdPattern }
             default { '' }
         }
+        if ($Kind -eq 'RemoveSupersededApplication') { $script:Replacements = @(([string]$t.Replacements) -split ',' | Where-Object { $_ -match $ModelPattern }) }
         if ($pattern) {
             if ($id -notmatch $pattern -or ($Kind -eq 'RemoveCollection' -and $id -like 'SMS*')) { throw 'invalid' }
             $use = Get-InUse $id
@@ -820,6 +924,17 @@ function Invoke-Apply {
             if ($id -notmatch $ModelPattern -or $reference -notmatch $ModelPattern -or $reference -notlike '*/Application_*') { throw 'invalid' }
             # The reference counts as broken only while the referenced application is gone.
             if ($null -ne (@(Get-CMApplication -ModelName $reference -ErrorAction Stop) | Select-Object -First 1)) { $use = 'supersedence-target' }
+        }
+        if ($Kind -eq 'ClearRetiredApplicationRules') {
+            $reference = [string]$t.ReferencedModel
+            if ($id -notmatch $ModelPattern -or $reference -notmatch $ModelPattern -or $reference -notlike '*/Application_*' -or [string]$t.RelationKind -notin 'Supersedes', 'DependsOn') { throw 'invalid' }
+            # The rules count as those of a retired application only while it is retired and the target is not.
+            $self = @(Get-CMApplication -ModelName $id -ErrorAction Stop) | Select-Object -First 1
+            $now = @(Get-CMApplication -ModelName $reference -ErrorAction Stop) | Select-Object -First 1
+            if ($null -eq $self -or $null -eq $now) { throw 'not-found' }
+            if (-not [bool]$self.IsExpired -or [bool]$now.IsExpired) { $use = 'retired-state' }
+            elseif ([string]$self.ModelID -notmatch $NumberPattern) { throw 'invalid' }
+            elseif (Test-Any 'SMS_ApplicationAssignment' 'AssignmentID' ('AppModelID = ' + [string]$self.ModelID)) { $use = 'deployed' }
         }
         if ($Kind -eq 'ClearRetiredRelation') {
             $reference = [string]$t.ReferencedModel
@@ -869,7 +984,8 @@ function Invoke-Apply {
                 }
                 'RunAutoDeploymentRule' { if ($id -notmatch $NumberPattern) { throw 'invalid' }; Invoke-CMSoftwareUpdateAutoDeploymentRule -Id ([int]$id) | Out-Null }
                 'ClearBrokenSupersedence' { $out.Note = Remove-BrokenSupersedence -Model $id -Reference ([string]$t.ReferencedModel) }
-                'ClearRetiredRelation' { $out.Note = Remove-RetiredRelation -Model $id -Reference ([string]$t.ReferencedModel) -RelationKind ([string]$t.RelationKind) }
+                { $_ -in 'ClearRetiredRelation', 'ClearRetiredApplicationRules' } { $out.Note = Remove-RetiredRelation -Model $id -Reference ([string]$t.ReferencedModel) -RelationKind ([string]$t.RelationKind) }
+                'RemoveSupersededApplication' { Remove-SupersededApplication -Id $id -Model ([string]$t.ModelName); $out.Note = [string]$script:Note }
                 default { throw 'unsupported' }
             }
             $out.Status = 'done'
@@ -877,7 +993,8 @@ function Invoke-Apply {
     }
     catch {
         $message = [string]$_.Exception.Message
-        $out.Failure = if ($message -in 'invalid', 'unsupported', 'not-found', 'serializer', 'document', 'readback') { $message } else { Get-FailureKind $_ }
+        $out.Failure = if ($message -in 'invalid', 'unsupported', 'not-found', 'serializer', 'document', 'readback', 'retire') { $message } else { Get-FailureKind $_ }
+        if ($Kind -eq 'RemoveSupersededApplication') { $out.Note = [string]$script:Note }
     }
     finally { $ErrorActionPreference = 'Continue' }
     [pscustomobject]$out

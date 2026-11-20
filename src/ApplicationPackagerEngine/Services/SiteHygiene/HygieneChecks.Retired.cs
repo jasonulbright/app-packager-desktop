@@ -41,6 +41,86 @@ internal static partial class HygieneChecks
         return map;
     }
 
+    /// <summary>
+    /// Every object that refers to an application and so blocks its delete, for each application that has one, from the data the scan holds already
+    /// (no query): deployments, task sequences (and the task sequences that hold them), stale reference rows, dependencies on it and supersedence rules
+    /// that name it. A task sequence or a collection that the account may not see is not in that data. Null when the applications were not read.
+    /// </summary>
+    internal static (IReadOnlyDictionary<string, IReadOnlyList<HygieneBlocker>>? Blockers, string Note) BlockersOf(HygieneContext c)
+    {
+        var d = c.Data;
+        if (!d.IsRead(Applications)) return (null, "");
+        var missing = new List<string>();
+        bool Has(string set, string what)
+        {
+            if (d.IsRead(set)) return true;
+            missing.Add(what);
+            return false;
+        }
+        var haveDeployments = Has(Deployments, "deployments");
+        var haveEdges = Has(AppRelations, "relations") & Has(AppDependencies, "dependencies") & Has(DeploymentTypes, "deployment types") & Has(AppRevisions, "old revisions");
+        var haveSequences = Has(TaskSequences, "task sequences") & Has(TsReferences, "task sequence references") & Has(TsSteps, "task sequence steps");
+
+        var map = new Dictionary<string, List<HygieneBlocker>>(StringComparer.OrdinalIgnoreCase);
+        void Add(string model, HygieneBlocker blocker)
+        {
+            if (!map.TryGetValue(model, out var list)) map[model] = list = [];
+            list.Add(blocker);
+        }
+        var facts = Facts(c);
+        if (haveDeployments)
+        {
+            var byName = facts.Values.GroupBy(a => a.Name, StringComparer.OrdinalIgnoreCase).ToDictionary(g => g.Key, g => g.Select(a => a.Model).ToList(), StringComparer.OrdinalIgnoreCase);
+            foreach (var r in c.Rows(Deployments).Where(r => r.I("FeatureType") == 1))
+            {
+                List<string> models = facts.ContainsKey(r.S("ModelName")) ? new() { r.S("ModelName") } : byName.TryGetValue(r.S("SoftwareName"), out var named) ? named : new();
+                foreach (var m in models) Add(m, new(HygieneBlockerKinds.Deployment, r.S("CollectionName"), $"Collection {r.S("CollectionName")} ({r.S("CollectionID")})"));
+            }
+        }
+        if (haveSequences)
+        {
+            var references = c.Rows(TsReferences).Concat(c.Rows(TsSteps)).ToList();
+            var holders = references.Where(r => !r.S("ObjectID").Contains("/Application_", StringComparison.Ordinal) && r.S("ObjectID").Length > 0)
+                .GroupBy(r => r.S("ObjectID"), StringComparer.OrdinalIgnoreCase).ToDictionary(g => g.Key, g => g.Select(r => r.S("PackageID")).Distinct(StringComparer.OrdinalIgnoreCase).ToList(), StringComparer.OrdinalIgnoreCase);
+            var names = c.Rows(TaskSequences).GroupBy(t => t.S("PackageID"), StringComparer.OrdinalIgnoreCase).ToDictionary(g => g.Key, g => g.First().S("Name"), StringComparer.OrdinalIgnoreCase);
+            foreach (var (model, list) in TaskSequencesOf(c))
+                foreach (var (id, name) in list)
+                {
+                    Add(model, new(HygieneBlockerKinds.TaskSequence, name, $"Package {id}"));
+                    if (holders.TryGetValue(id, out var outer))
+                        foreach (var o in outer.Where(o => names.ContainsKey(o)))
+                            Add(model, new(HygieneBlockerKinds.NestedTaskSequence, names[o], $"Package {o}; it holds the task sequence {name}, which installs the application"));
+                }
+            foreach (var r in references.Where(r => r.S("PackageID").Length > 0 && !names.ContainsKey(r.S("PackageID")) && r.S("ObjectID").Contains("/Application_", StringComparison.Ordinal))
+                .GroupBy(r => (Model: r.S("ObjectID"), Package: r.S("PackageID")), new ModelPackageComparer()).Select(g => g.Key))
+                Add(r.Model, new(HygieneBlockerKinds.StaleReference, r.Package, "A reference row of a task sequence that the site does not return. It still blocks the delete."));
+        }
+        if (haveEdges)
+            foreach (var e in AppEdges(d).Where(e => e.ToExists))
+                Add(e.ToKey, e.Kind == RelationKinds.DependsOn
+                    ? new(HygieneBlockerKinds.Dependency, e.FromName, $"Deployment type '{e.FromDt}' depends on it")
+                    : new(HygieneBlockerKinds.Supersedence, e.FromName, $"Deployment type '{e.FromDt}' supersedes it"));
+
+        var order = new[] { HygieneBlockerKinds.Deployment, HygieneBlockerKinds.TaskSequence, HygieneBlockerKinds.NestedTaskSequence, HygieneBlockerKinds.StaleReference, HygieneBlockerKinds.Dependency, HygieneBlockerKinds.Supersedence };
+        var result = map.ToDictionary(p => p.Key,
+            p => (IReadOnlyList<HygieneBlocker>)p.Value.Distinct().OrderBy(b => Array.IndexOf(order, b.Kind)).ThenBy(b => b.Name, StringComparer.OrdinalIgnoreCase).ThenBy(b => b.Detail, StringComparer.OrdinalIgnoreCase).ToList(),
+            StringComparer.OrdinalIgnoreCase);
+        var note = missing.Count == 0 ? "" : "These were not read, so the list can miss them: " + string.Join(", ", missing) + ".";
+        return (result, note);
+    }
+
+    private sealed class ModelPackageComparer : IEqualityComparer<(string Model, string Package)>
+    {
+        public bool Equals((string Model, string Package) x, (string Model, string Package) y) =>
+            string.Equals(x.Model, y.Model, StringComparison.OrdinalIgnoreCase) && string.Equals(x.Package, y.Package, StringComparison.OrdinalIgnoreCase);
+
+        public int GetHashCode((string Model, string Package) v) => HashCode.Combine(v.Model.ToUpperInvariant(), v.Package.ToUpperInvariant());
+    }
+
+    /// <summary>The ModelNames at the target end of the edges (or at the source end), each once, in ordinal order, comma separated.</summary>
+    private static string ModelList(IEnumerable<AppEdge> edges, bool fromSide = false) =>
+        string.Join(",", edges.Select(e => fromSide ? e.FromModel : e.ToKey).Distinct(StringComparer.OrdinalIgnoreCase).Order(StringComparer.Ordinal));
+
     private static IEnumerable<HygieneFinding> RetiredSuperseded(HygieneContext c)
     {
         var facts = Facts(c);
@@ -58,7 +138,11 @@ internal static partial class HygieneChecks
             var incoming = edges.Count(e => string.Equals(e.ToKey, app.Model, StringComparison.OrdinalIgnoreCase));
             yield return F("APP-07", "Application", app.Model, app.Name,
                 $"The application is retired and still {string.Join("; and ", parts)}.{(incoming > 0 ? $" {Count(incoming, "other rule")} point{(incoming == 1 ? "s" : "")} at it: see SUP-04 and DEP-04." : "")}",
-                "A retired application must not supersede or depend on an active one. Remove the rules.",
+                "A retired application must not supersede or depend on an active one. Remove the rules. Each removal makes a new revision of the retired application; the fix can delete the old revisions it creates.",
+                HygieneFixKind.ClearRetiredApplicationRules,
+                Params((HygieneFixParameters.ModelName, app.Model),
+                    (HygieneFixParameters.SupersedesModels, ModelList(own.Where(e => e.Kind == RelationKinds.Supersedes))),
+                    (HygieneFixParameters.DependsOnModels, ModelList(own.Where(e => e.Kind == RelationKinds.DependsOn)))),
                 guidance: $"Console: '{app.Name}' Properties > Supersedence tab and each deployment type > Dependencies - remove the rules.");
         }
 
@@ -71,7 +155,10 @@ internal static partial class HygieneChecks
             if (by.Count == 0) continue;
             yield return F("APP-08", "Application", app.Model, app.Name,
                 $"The application is superseded by {string.Join(", ", by)}. It has no deployment, no dependency on it and no task sequence that refers to it (also no stale reference row). Blocked by: nothing.",
-                "The application qualifies for deletion. Remove the supersedence rule of the replacement, then delete the application. The site refuses a delete that something still blocks.",
+                "The application qualifies for deletion. The fix removes the supersedence rule of the replacement, then deletes the application. The site refuses a delete that something still blocks.",
+                HygieneFixKind.RemoveSupersededApplication,
+                Params((HygieneFixParameters.ModelName, app.Model),
+                    (HygieneFixParameters.ReplacementModels, ModelList(edges.Where(e => e.Kind == RelationKinds.Supersedes && e.ToExists && string.Equals(e.ToKey, app.Model, StringComparison.OrdinalIgnoreCase)), fromSide: true))),
                 guidance: $"Console: remove the supersedence rule of {string.Join(", ", by)}, then delete '{app.Name}'.");
         }
 

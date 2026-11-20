@@ -253,7 +253,7 @@ public sealed partial class SiteHygieneService
         var extra = e.Writes.Count - writes.Count;
         if (writes.Count == 0) return (SkipAll(f, planned, "the objects of the plan no longer exist or changed since the plan."), "");
         var changedId = writes.Where(w => planned.First(t => string.Equals(t.ObjectKey, w.Line.ObjectKey, StringComparison.OrdinalIgnoreCase)).Detail != w.Line.Detail).ToList();
-        if (kind is HygieneFixKind.RemoveApplication && changedId.Count > 0)
+        if (kind is HygieneFixKind.RemoveApplication or HygieneFixKind.RemoveSupersededApplication && changedId.Count > 0)
             return (SkipAll(f, planned, "the application has a new revision since the plan. Prepare the plan again."), "");
 
         var ruleBefore = kind == HygieneFixKind.RunAutoDeploymentRule ? fresh.Table(HygieneSets.AutoDeploymentRules).Records.FirstOrDefault().S("LastRunTime") : "";
@@ -318,6 +318,13 @@ public sealed partial class SiteHygieneService
             _log?.Info(LogArea, $"{kind}: the referenced application exists again, so nothing was changed.");
             return (new HygieneTargetOutcome(t, HygieneResults.Skipped, SkippedPrefix + "the referenced application exists again, so the reference is no longer broken. Nothing was changed."), "");
         }
+        if (status == "in-use" && kind == HygieneFixKind.ClearRetiredApplicationRules)
+        {
+            _log?.Info(LogArea, $"{kind}: the retired state changed, so nothing was changed.");
+            return (new HygieneTargetOutcome(t, HygieneResults.Skipped, SkippedPrefix + (failure == "deployed"
+                ? "the retired application has a deployment. The fix reinstates the application for a moment, so it does not run while a deployment exists: delete the deployment first (check APP-02). Nothing was changed."
+                : "the application is not retired now or the target application is retired now. Nothing was changed.")), "");
+        }
         if (status == "in-use" && kind == HygieneFixKind.ClearRetiredRelation)
         {
             _log?.Info(LogArea, $"{kind}: the target application is not retired now, so nothing was changed.");
@@ -362,7 +369,7 @@ public sealed partial class SiteHygieneService
         var counts = string.Join(", ", new[] { HygieneResults.Done, HygieneResults.Unchanged, HygieneResults.Failed, HygieneResults.Skipped }
             .Select(r => (Name: r, Count: targets.Count(t => t.Result == r))).Where(p => p.Count > 0).Select(p => $"{N(p.Count)} {p.Name.ToLowerInvariant()}"));
         return new HygieneObjectOutcome(f, HygieneResults.Partial,
-            $"{N(done)} of {N(n)} objects {(kind is HygieneFixKind.SetCollectionRefreshType or HygieneFixKind.SetApplication or HygieneFixKind.SetSiteMaintenanceTask or HygieneFixKind.RunAutoDeploymentRule or HygieneFixKind.ClearBrokenSupersedence or HygieneFixKind.ClearRetiredRelation ? "changed" : "deleted")} ({counts}). "
+            $"{N(done)} of {N(n)} objects {(kind is HygieneFixKind.SetCollectionRefreshType or HygieneFixKind.SetApplication or HygieneFixKind.SetSiteMaintenanceTask or HygieneFixKind.RunAutoDeploymentRule or HygieneFixKind.ClearBrokenSupersedence or HygieneFixKind.ClearRetiredRelation or HygieneFixKind.ClearRetiredApplicationRules ? "changed" : "deleted")} ({counts}). "
             + $"First object not done: {first.Target.ObjectName} ({first.Target.ObjectKey}): {first.Message} The result of each object shows which objects remain.{note}")
         { Targets = targets };
     }
@@ -381,6 +388,9 @@ public sealed partial class SiteHygieneService
         "admins" => ": an administrative user has it in the assigned collections",
         "dependents" => ": another application depends on it or supersedes it",
         "supersedence" => ": it is part of a supersedence relationship",
+        "supersedence-other" => ": an application that the plan does not name supersedes it",
+        "retired-state" => ": it is retired now",
+        "replacement-retired" => ": a replacement is retired, and a retired application is not changed here. Remove its rule with the fix of check APP-07 first",
         "task-sequences" => ": a task sequence references it",
         "auto-apply-drivers" => ": a task sequence has an Auto Apply Drivers step",
         "enabled" => ": the rule is enabled",
@@ -418,6 +428,8 @@ public sealed partial class SiteHygieneService
         HygieneFixKind.RunAutoDeploymentRule => "The rule ran: it shows a new last run time.",
         HygieneFixKind.ClearBrokenSupersedence => "The application no longer has a supersedence rule that points at the deleted application. The change made a new revision.",
         HygieneFixKind.ClearRetiredRelation => "The application no longer has the supersedence rule or the dependency on the retired application. The change made a new revision.",
+        HygieneFixKind.ClearRetiredApplicationRules => "The retired application no longer has the supersedence rule or the dependency on the active application. The change made a new revision.",
+        HygieneFixKind.RemoveSupersededApplication => "The supersedence rule of the replacement is removed and the application is deleted. The site no longer lists it.",
         _ => writes == 1 ? "Deleted. The site no longer lists the object." : $"Deleted {N(writes)} objects. The site no longer lists them."
     };
 
@@ -430,6 +442,7 @@ public sealed partial class SiteHygieneService
         "unsupported" => "This kind of fix is not supported.",
         "serializer" => "The serializer for application documents is not the one of the console, so nothing was changed.",
         "document" => "The edited application document differs from the original in more than the broken rules, so nothing was changed.",
+        "retire" => "The fix reinstated the retired application to change it and could not retire it again. Retire the application again in the ConfigMgr console.",
         "readback" => "The application did not read back as the original without the broken rules. Check it in the ConfigMgr console.",
         _ => "ConfigMgr reported an error. The log has the kind of failure."
     };

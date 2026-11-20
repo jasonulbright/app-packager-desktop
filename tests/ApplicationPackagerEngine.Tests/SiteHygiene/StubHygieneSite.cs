@@ -223,7 +223,7 @@ internal sealed class StubHygieneSite : IConfigMgrSession
                 $body = foreach ($r in $g.Group) { $scope, $logical = ([string]$r.Ref) -split '/', 2; "<DeploymentTypeRule xmlns=`"$rulesNs`" id=`"$($r.RuleId)`"><DeploymentTypeIntentExpression DesiredState=`"Prohibited`"><DeploymentTypeApplicationReference AuthoringScopeId=`"$scope`" LogicalName=`"$logical`"/></DeploymentTypeIntentExpression></DeploymentTypeRule>" }
                 $types += "<DeploymentType AuthoringScopeId=`"ScopeId_X`" LogicalName=`"$($g.Name)`"><Title>$($g.Group[0].Title)</Title><Supersedes>$($body -join '')</Supersedes></DeploymentType>"
             }
-            $app = [pscustomobject]@{ ModelName = $ModelName; IsExpired = (Eq $row.IsExpired "True"); CI_ID = [int]$row.CI_ID; CIVersion = [int]$row.CIVersion; LocalizedDisplayName = [string]$row.LocalizedDisplayName; SDMPackageXML = "<AppMgmtDigest xmlns=`"$digest`"><Application><AutoInstall>$auto</AutoInstall></Application>$types</AppMgmtDigest>" }
+            $app = [pscustomobject]@{ ModelName = $ModelName; IsExpired = (Eq $row.IsExpired "True"); ModelID = [int](V $row 'ModelID' 0); CI_ID = [int]$row.CI_ID; CIVersion = [int]$row.CIVersion; LocalizedDisplayName = [string]$row.LocalizedDisplayName; SDMPackageXML = "<AppMgmtDigest xmlns=`"$digest`"><Application><AutoInstall>$auto</AutoInstall></Application>$types</AppMgmtDigest>" }
             $app | Add-Member -MemberType ScriptMethod -Name Put -Value {
                 Test-Fail 'cmd:Put'
                 [xml]$x = $this.SDMPackageXML
@@ -353,16 +353,31 @@ internal sealed class StubHygieneSite : IConfigMgrSession
         function global:Remove-CMDeploymentTypeDependency { [CmdletBinding()] param([object]$InputObject, [object]$DeploymentTypeDependency, [switch]$Force)
             Test-Fail 'cmd:RemoveDependency'
             $model = [string]$InputObject.AppModel; $to = [string]$DeploymentTypeDependency.AppModelName
+            # The site changes nothing in a retired application and returns no error.
+            if (@(Rows 'SMS_Application' | Where-Object { $_.ModelName -eq $model -and $_.IsLatest -and (Eq $_.IsExpired 'True') }).Count -gt 0) { return }
             $kept = @($global:Deps[$model] | Where-Object { -not ($_.Dt -eq $InputObject.Dt -and $_.To -eq $to) })
             $global:Deps[$model] = L $kept
             $global:Log.Add('Cmd:DependencyRemoval|' + $model + '|' + $InputObject.Dt + '|' + $to)
             New-StubRevision $model
+        }
+        function global:Resume-CMApplication { [CmdletBinding()] param([object]$InputObject)
+            $row = Rows 'SMS_Application' | Where-Object { $_.ModelName -eq $InputObject.ModelName -and $_.IsLatest } | Select-Object -First 1
+            $row.IsExpired = 'False'
+            $global:Log.Add('Cmd:Resume-CMApplication|' + $InputObject.ModelName)
+        }
+        function global:Suspend-CMApplication { [CmdletBinding()] param([object]$InputObject)
+            Test-Fail 'cmd:Suspend'
+            $row = Rows 'SMS_Application' | Where-Object { $_.ModelName -eq $InputObject.ModelName -and $_.IsLatest } | Select-Object -First 1
+            $row.IsExpired = 'True'
+            $global:Log.Add('Cmd:Suspend-CMApplication|' + $InputObject.ModelName)
         }
         function global:Set-CMApplicationSupersedence { [CmdletBinding()] param([int]$Id, [int]$CurrentDeploymentTypeId, [int]$SupersededApplicationId, [int]$OldDeploymentTypeId, [switch]$RemoveSupersedence, [switch]$Force)
             Test-Fail 'cmd:RemoveSupersedence'
             $from = Rows 'SMS_Application' | Where-Object { [int]$_.CI_ID -eq $Id -and $_.IsLatest } | Select-Object -First 1
             $target = Rows 'SMS_Application' | Where-Object { [int]$_.CI_ID -eq $SupersededApplicationId } | Select-Object -First 1
             if ($null -eq $from -or $null -eq $target) { throw 'No object corresponds to the specified parameters.' }
+            # The site changes nothing in a retired application and returns no error.
+            if (Eq $from.IsExpired 'True') { return }
             $kept = @($global:Sup[$from.ModelName] | Where-Object { $_.Ref -ne $target.ModelName })
             $global:Sup[$from.ModelName] = L $kept
             Remove-Rows 'SMS_AppRelation_Flat' { [int]$_.FromApplicationCIID -eq $Id -and [int]$_.ToApplicationCIID -eq $SupersededApplicationId }
