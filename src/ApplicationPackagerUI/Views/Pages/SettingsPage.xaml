@@ -382,7 +382,7 @@
             <ScrollViewer x:Name="page_github" Visibility="Collapsed" VerticalScrollBarVisibility="Auto">
                 <StackPanel Margin="0,0,0,8" MaxWidth="960" HorizontalAlignment="Left">
                                 <TextBlock Text="GitHub API" Style="{StaticResource SectionHeader}" />
-                                <TextBlock Text="About a third of the catalog reads api.github.com. Anonymous requests share 60 per hour per address; a token from APP_PACKAGER_GITHUB_TOKEN, GITHUB_TOKEN, the token saved below or a sign-in with the GitHub CLI raises that to 5,000."
+                                <TextBlock Text="About a third of the catalog reads api.github.com. Without a token, requests share 60 per hour per address; a token saved below, an environment variable or a sign-in with the GitHub CLI raises that to 5,000. The line below says which one is in use."
                                            Foreground="{DynamicResource TextFillColorSecondaryBrush}" Margin="0,0,0,8" TextWrapping="Wrap" />
 
                                 <DockPanel Margin="0,0,0,8">
@@ -401,8 +401,8 @@
                                 <ui:PasswordBox Width="360" HorizontalAlignment="Left" Password="{Binding GitHubToken, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                                 PlaceholderText="{Binding GitHubTokenHint}" Margin="0,0,0,4"
                                                 AutomationProperties.AutomationId="pwdGitHubToken"
-                                                ToolTip="Enter a GitHub personal access token to raise the API request limit. Save Settings stores it encrypted for the current Windows user. Leave it empty to keep the saved token." />
-                                <TextBlock Text="Stored encrypted for the current Windows user. Leave empty to keep the saved token. The two environment variables are used first, then this token, then the sign-in of the GitHub CLI."
+                                                ToolTip="Enter a GitHub personal access token to override the token of the environment or the GitHub CLI. Save Settings stores it encrypted for the current Windows user. Leave it empty to keep the saved token." />
+                                <TextBlock Text="{Binding GitHubTokenNote}"
                                            Foreground="{DynamicResource TextFillColorTertiaryBrush}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,8" />
                                 <CheckBox Content="Remove the saved token on Save"
                                           IsChecked="{Binding RemoveGitHubToken}"

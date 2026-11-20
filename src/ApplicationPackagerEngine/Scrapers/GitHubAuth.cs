@@ -9,7 +9,8 @@ namespace ApplicationPackagerEngine.Scrapers;
 /// Anonymous api.github.com requests share a 60/hour budget per source address,
 /// which a full-catalog sweep exhausts. A token raises the budget to 5000/hour.
 ///
-/// Resolution order: APP_PACKAGER_GITHUB_TOKEN, GITHUB_TOKEN, the token saved in Settings, then `gh auth token`.
+/// Resolution order: the token saved in Settings (an explicit choice of the operator, so it wins), APP_PACKAGER_GITHUB_TOKEN, GITHUB_TOKEN,
+/// GH_TOKEN, then `gh auth token`.
 /// No token resolves to null and every request stays anonymous.
 /// </summary>
 public static class GitHubAuth
@@ -24,7 +25,7 @@ public static class GitHubAuth
 
     /// <summary>
     /// The token that the operator saved in Settings (decrypted for the current Windows user), or null. The application sets it at start.
-    /// It comes after the two environment variables and before the gh CLI.
+    /// It comes before the environment variables and the gh CLI: a token that the operator typed overrides what the machine provides.
     /// </summary>
     public static Func<string?>? StoredTokenProvider { get; set; }
 
@@ -85,18 +86,30 @@ public static class GitHubAuth
     public static (string? Token, string? Source) ResolveTokenWithSource(
         Func<string, string?> readEnv, Func<string?> readGhCli, Func<string?>? readStored = null)
     {
-        foreach (var name in new[] { "APP_PACKAGER_GITHUB_TOKEN", "GITHUB_TOKEN" })
+        var stored = readStored?.Invoke()?.Trim();
+        if (!string.IsNullOrEmpty(stored)) return (Sanitize(stored), "Settings");
+
+        foreach (var name in new[] { "APP_PACKAGER_GITHUB_TOKEN", "GITHUB_TOKEN", "GH_TOKEN" })
         {
             var value = readEnv(name)?.Trim();
             if (!string.IsNullOrEmpty(value)) return (Sanitize(value), name);
         }
 
-        var stored = readStored?.Invoke()?.Trim();
-        if (!string.IsNullOrEmpty(stored)) return (Sanitize(stored), "Settings");
-
         var cli = readGhCli()?.Trim();
         return string.IsNullOrEmpty(cli) ? (null, null) : (Sanitize(cli), "gh auth login");
     }
+
+    /// <summary>
+    /// The words that name a token source in every place that shows the GitHub status (the same text as the PowerShell app):
+    /// "Token saved in settings", "Environment variable GITHUB_TOKEN", "GitHub CLI sign-in".
+    /// </summary>
+    public static string SourcePhrase(string? source) => source switch
+    {
+        null or "" => "No token",
+        "Settings" => "Token saved in settings",
+        "gh auth login" => "GitHub CLI sign-in",
+        _ => "Environment variable " + source
+    };
 
     /// <summary>
     /// A token containing a quote or newline would break out of the curl config

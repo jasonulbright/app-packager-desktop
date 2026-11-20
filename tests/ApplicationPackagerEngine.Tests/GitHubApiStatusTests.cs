@@ -26,17 +26,17 @@ public class GitHubApiStatusTests
         Assert.Equal("octocat", status.Account);
         Assert.Equal(5000, status.Limit);
         Assert.Equal(4991, status.Remaining);
-        Assert.Equal("Authenticated - gh auth login, account octocat (5,000 requests/hour, 4,991 remaining)", status.StatusText());
+        Assert.Equal("Signed in via GitHub CLI as octocat (5,000 requests per hour, 4,991 remaining)", status.StatusText());
     }
 
     [Fact]
-    public void Anonymous_NamesTheTwoWaysToRaiseTheBudget()
+    public void Anonymous_SaysNotAuthenticatedWithTheBudget()
     {
         var status = GitHubApiStatusService.Parse(AnonymousRateLimit, null, false, null);
 
         Assert.False(status.Authenticated);
         Assert.Null(status.Account);
-        Assert.Equal("Anonymous (60 requests/hour per address, 57 remaining); set GITHUB_TOKEN, save a token in Settings or sign in with the GitHub CLI", status.StatusText());
+        Assert.Equal("Not authenticated: 60 requests per hour (57 remaining)", status.StatusText());
     }
 
     [Fact]
@@ -45,7 +45,33 @@ public class GitHubApiStatusTests
         var status = GitHubApiStatusService.Parse("""{"message":"Bad credentials","status":"401"}""", null, true, "GITHUB_TOKEN");
 
         Assert.Equal("Bad credentials", status.Error);
-        Assert.Equal("Unavailable - Bad credentials", status.StatusText());
+        Assert.Equal(401, status.HttpStatus);
+        Assert.StartsWith("Token rejected (401): GitHub refused the credential (Environment variable GITHUB_TOKEN) (Bad credentials)", status.StatusText());
+    }
+
+    [Fact]
+    public void Blocked_IsReportedAs403()
+    {
+        var status = GitHubApiStatusService.Parse("""{"message":"Resource not accessible","status":"403"}""", null, true, "Settings");
+        Assert.Equal(403, status.HttpStatus);
+        Assert.StartsWith("GitHub refused the request (403) (Resource not accessible). Token saved in settings is in use.", status.StatusText());
+    }
+
+    [Theory]
+    [InlineData(true, "Settings", "Token saved in settings as octocat (5,000 requests per hour, 4,991 remaining)")]
+    [InlineData(true, "GITHUB_TOKEN", "Environment variable GITHUB_TOKEN as octocat (5,000 requests per hour, 4,991 remaining)")]
+    [InlineData(true, "gh auth login", "Signed in via GitHub CLI as octocat (5,000 requests per hour, 4,991 remaining)")]
+    public void EverySourceIsNamed(bool auth, string source, string expected)
+        => Assert.Equal(expected, GitHubApiStatusService.Parse(AuthenticatedRateLimit, User, auth, source).StatusText());
+
+    [Fact]
+    public void TheTokenBoxAgreesWithTheStatus()
+    {
+        Assert.Equal("GitHub CLI sign-in in use - type a token to override it", GitHubApiStatusService.TokenBoxHint(false, "gh auth login"));
+        Assert.Equal("Saved in settings - leave empty to keep it", GitHubApiStatusService.TokenBoxHint(true, "Settings"));
+        Assert.Equal("Not set - no token in use", GitHubApiStatusService.TokenBoxHint(false, null));
+        Assert.Contains("GitHub CLI sign-in provides the token now. A token you save here wins over it.", GitHubApiStatusService.TokenBoxNote(false, "gh auth login"));
+        Assert.Contains("wins over the environment variables and the GitHub CLI", GitHubApiStatusService.TokenBoxNote(true, "Settings"));
     }
 
     [Fact]
@@ -61,7 +87,7 @@ public class GitHubApiStatusTests
     public void MissingUserBody_LeavesTheAccountBlank()
     {
         var status = GitHubApiStatusService.Parse(AuthenticatedRateLimit, null, true, "APP_PACKAGER_GITHUB_TOKEN");
-        Assert.Equal("Authenticated - APP_PACKAGER_GITHUB_TOKEN (5,000 requests/hour, 4,991 remaining)", status.StatusText());
+        Assert.Equal("Environment variable APP_PACKAGER_GITHUB_TOKEN (5,000 requests per hour, 4,991 remaining)", status.StatusText());
     }
 
     [Fact]

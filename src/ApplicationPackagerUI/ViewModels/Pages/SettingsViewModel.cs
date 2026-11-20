@@ -104,8 +104,11 @@ public partial class SettingsViewModel : ObservableObject, ISettingsReload
     [ObservableProperty] private string _gitHubToken = "";
     [ObservableProperty] private bool _hasStoredGitHubToken;
     [ObservableProperty] private bool _removeGitHubToken;
-    public string GitHubTokenHint => HasStoredGitHubToken ? "Stored - leave empty to keep it" : "Not set";
-    partial void OnHasStoredGitHubTokenChanged(bool value) => OnPropertyChanged(nameof(GitHubTokenHint));
+    [ObservableProperty] private string? _gitHubEffectiveSource;
+    public string GitHubTokenHint => GitHubApiStatusService.TokenBoxHint(HasStoredGitHubToken, GitHubEffectiveSource);
+    public string GitHubTokenNote => GitHubApiStatusService.TokenBoxNote(HasStoredGitHubToken, GitHubEffectiveSource);
+    partial void OnHasStoredGitHubTokenChanged(bool value) { OnPropertyChanged(nameof(GitHubTokenHint)); OnPropertyChanged(nameof(GitHubTokenNote)); }
+    partial void OnGitHubEffectiveSourceChanged(string? value) { OnPropertyChanged(nameof(GitHubTokenHint)); OnPropertyChanged(nameof(GitHubTokenNote)); }
     [ObservableProperty] private bool _hasStoredNvdApiKey;
     [ObservableProperty] private bool _removeNvdApiKey;
     [ObservableProperty] private bool _lookupCvesAfterCheckMecm;
@@ -457,6 +460,7 @@ public partial class SettingsViewModel : ObservableObject, ISettingsReload
                 // The token is read before the first await of the query, and reading it can start the gh CLI: not on the UI thread.
                 var status = await Task.Run(() => GitHubApiStatusService.QueryAsync());
                 GitHubApiStatus = status.StatusText();
+                GitHubEffectiveSource = status.Source;
             }
             while (_gitHubRefreshQueued);
         }

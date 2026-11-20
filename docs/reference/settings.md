@@ -128,8 +128,8 @@ These sections store no setting.
 |---|---|
 | `Install from file...` | Installs an icon pack from a local file. |
 | `Download icon pack` | Downloads the icon pack release and checks its SHA-256 value. The app stores the icons in the user definitions folder. Bundled icons stay read-only. |
-| `Refresh` (GitHub API) | Shows the GitHub API rate limit. |
-| `GitHub token` (password box) | `GitHubTokenProtected` | Saves a GitHub token for the version checks that read `api.github.com`. It is stored encrypted (DPAPI) for the current Windows user and never as plain text in `settings.json`. An empty box keeps the saved token; **Remove the saved token on Save** deletes it. The environment variables `APP_PACKAGER_GITHUB_TOKEN` and `GITHUB_TOKEN` are used first, then this token, then `gh auth login`. The status row shows which source is used ("Settings" for this one). |
+| `Refresh` (GitHub API) | Shows the GitHub status: the source of the token and the account, or `Not authenticated: 60 requests per hour`, and the requests left. |
+| `GitHub token` (password box) | `GitHubTokenProtected` | Saves a GitHub token for the version checks that read `api.github.com`. It is stored encrypted (DPAPI) for the current Windows user and never as plain text in `settings.json`. An empty box keeps the saved token; **Remove the saved token on Save** deletes it. This token is used first and wins over the environment variables `APP_PACKAGER_GITHUB_TOKEN`, `GITHUB_TOKEN` and `GH_TOKEN` and over `gh auth login`. The note under the box and the status row name the source in use ("Token saved in settings", "Environment variable <name>" or "GitHub CLI sign-in"). |
 
 ## Intune
 
@@ -325,7 +325,7 @@ A page saves its tab and filter choices under its own key in `settings.json`. Yo
 | `APP_PACKAGER_DATA_ROOT` | Moves the data folders to `<value>\Users\<Windows SID>`. See [Data folders](data-folders.md). |
 | `APP_PACKAGER_WORKBENCH_ROOT` | Sets the Workbench data root. |
 | `NVD_API_KEY` | The NVD key, used when no key is saved. |
-| `APP_PACKAGER_GITHUB_TOKEN`, `GITHUB_TOKEN` | A GitHub token for version checks that read `api.github.com`. The app tries them in this order, then the token saved in Settings, then `gh auth token`. |
+| `APP_PACKAGER_GITHUB_TOKEN`, `GITHUB_TOKEN`, `GH_TOKEN` | A GitHub token for version checks that read `api.github.com`. The app uses the token saved in Settings first, then these variables in this order, then `gh auth token`. |
 | `SMS_ADMIN_UI_PATH` | Set by the ConfigMgr console. The app uses it to find the console. |
 | `SUITE_CM_SITECODE`, `SUITE_CM_PROVIDER` | Fill the site code (when never saved) and an empty provider, in memory only. |
 | `APP_PACKAGER_DT_CONTENT_FALLBACK`, `APP_PACKAGER_DT_SLOW_NETWORK_MODE` | Pass the two content options to PS1 packagers. |

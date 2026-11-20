@@ -120,14 +120,19 @@ public sealed class SettingsHeadingsAndGitHubTokenTests
     // ---- the order of the sources ----
 
     [Fact]
-    public void TheVariablesComeBeforeTheSavedTokenAndTheSavedTokenBeforeTheCli()
+    public void TheSavedTokenComesFirstThenTheVariablesThenTheCli()
     {
         Func<string, string?> NoEnv = _ => null;
         Func<string, string?> AppVariable = name => name == "APP_PACKAGER_GITHUB_TOKEN" ? "from-app" : null;
         Func<string, string?> GithubVariable = name => name == "GITHUB_TOKEN" ? "from-github" : null;
 
-        Assert.Equal(("from-app", "APP_PACKAGER_GITHUB_TOKEN"), GitHubAuth.ResolveTokenWithSource(AppVariable, () => "from-cli", () => "from-settings"));
-        Assert.Equal(("from-github", "GITHUB_TOKEN"), GitHubAuth.ResolveTokenWithSource(GithubVariable, () => "from-cli", () => "from-settings"));
+        Func<string, string?> GhVariable = name => name == "GH_TOKEN" ? "from-gh-var" : null;
+        // A token the operator saved wins over the variables and the CLI.
+        Assert.Equal(("from-settings", "Settings"), GitHubAuth.ResolveTokenWithSource(AppVariable, () => "from-cli", () => "from-settings"));
+        Assert.Equal(("from-settings", "Settings"), GitHubAuth.ResolveTokenWithSource(GithubVariable, () => "from-cli", () => "from-settings"));
+        Assert.Equal(("from-app", "APP_PACKAGER_GITHUB_TOKEN"), GitHubAuth.ResolveTokenWithSource(AppVariable, () => "from-cli", () => ""));
+        Assert.Equal(("from-github", "GITHUB_TOKEN"), GitHubAuth.ResolveTokenWithSource(GithubVariable, () => "from-cli", null));
+        Assert.Equal(("from-gh-var", "GH_TOKEN"), GitHubAuth.ResolveTokenWithSource(GhVariable, () => "from-cli", null));
         Assert.Equal(("from-settings", "Settings"), GitHubAuth.ResolveTokenWithSource(NoEnv, () => "from-cli", () => "from-settings"));
         Assert.Equal(("from-cli", "gh auth login"), GitHubAuth.ResolveTokenWithSource(NoEnv, () => "from-cli", () => ""));
         Assert.Equal(("from-cli", "gh auth login"), GitHubAuth.ResolveTokenWithSource(NoEnv, () => "from-cli", null));
