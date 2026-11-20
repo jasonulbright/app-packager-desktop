@@ -2,7 +2,7 @@ using ApplicationPackagerEngine.Services.Logging;
 
 namespace ApplicationPackagerEngine.Services;
 
-/// <summary>Runs the check families over read data and gives each of the 57 check IDs a status.</summary>
+/// <summary>Runs the check families over read data and gives each of the 62 check IDs a status.</summary>
 internal static class HygieneEngine
 {
     private static readonly Dictionary<HygieneSeverity, int> Rank = new() { [HygieneSeverity.Error] = 0, [HygieneSeverity.Warning] = 1, [HygieneSeverity.Info] = 2 };

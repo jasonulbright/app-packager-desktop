@@ -120,6 +120,7 @@ public static class SiteHygieneLabels
         HygieneFixKind.SetSiteMaintenanceTask => "Change maintenance task",
         HygieneFixKind.RunAutoDeploymentRule => "Run deployment rule",
         HygieneFixKind.ClearBrokenSupersedence => "Remove supersedence",
+        HygieneFixKind.ClearRetiredRelation => "Remove retired relation",
         _ => kind.ToString()
     };
 

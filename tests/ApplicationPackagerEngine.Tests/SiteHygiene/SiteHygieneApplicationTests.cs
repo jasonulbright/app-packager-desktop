@@ -79,7 +79,7 @@ public sealed class SiteHygieneApplicationTests
         Assert.Equal(9, h.Site.Runs.Count);
         // One query per set, and one read of the References of the one task sequence.
         Assert.Equal(10, result.QueryCount);
-        Assert.Equal(57, result.Checks.Count);
+        Assert.Equal(62, result.Checks.Count);
         Assert.Contains(h.Progress, p => p.StartsWith("Reading applications (1 of 9)", StringComparison.Ordinal));
     }
 

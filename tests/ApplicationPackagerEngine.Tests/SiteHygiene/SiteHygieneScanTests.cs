@@ -40,7 +40,7 @@ public sealed class SiteHygieneScanTests
         using var h = new SiteHygieneHarness();
         var result = await h.ScanAsync();
 
-        Assert.Equal(57, result.Checks.Count);
+        Assert.Equal(62, result.Checks.Count);
         Assert.DoesNotContain(result.Checks, c => c.Reason == "The check is not built.");
         Assert.Equal(["APP-04"], result.Checks.Where(c => c.State != HygieneCheckStates.Ran).Select(c => c.CheckId));
         Assert.Equal(HygieneAreas.All.Count, result.Areas.Count);

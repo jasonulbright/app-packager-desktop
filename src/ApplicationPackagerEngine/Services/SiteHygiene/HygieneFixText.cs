@@ -16,6 +16,9 @@ public static class HygieneFixParameters
     /// <summary>The ModelName of the application that a supersedence rule points at (a deleted application).</summary>
     public const string ReferencedModel = "ReferencedModel";
 
+    /// <summary>Supersedes or DependsOn: the kind of relation that ClearRetiredRelation removes.</summary>
+    public const string RelationKind = "RelationKind";
+
     /// <summary>Old revision numbers, comma separated.</summary>
     public const string Revisions = "Revisions";
 
@@ -39,6 +42,9 @@ public sealed record HygieneCommand(string Cmdlet, IReadOnlyList<KeyValuePair<st
 
     /// <summary>The supersedence removal has no cmdlet that can do it for a deleted application; its text is the document edit the script makes.</summary>
     public bool IsSupersedenceRemoval => Cmdlet == HygieneFixText.SupersedenceRemoval;
+
+    /// <summary>The removal of a rule or a dependency toward a retired application, with the supported cmdlets.</summary>
+    public bool IsRetiredRelationRemoval => Cmdlet == HygieneFixText.RetiredRelationRemoval;
 }
 
 /// <summary>Builds the commands and the read-only PowerShell text of a typed fix.</summary>
@@ -52,6 +58,8 @@ public static class HygieneFixText
     /// document of the superseding application.
     /// </summary>
     internal const string SupersedenceRemoval = "SMS_Application.SDMPackageXML.Supersedes";
+
+    internal const string RetiredRelationRemoval = "Set-CMApplicationSupersedence or Remove-CMDeploymentTypeDependency";
 
     private static KeyValuePair<string, string> P(string name, string value) => new(name, value);
 
@@ -80,6 +88,7 @@ public static class HygieneFixText
             HygieneFixKind.SetApplication => [new("Set-CMApplication", [P("ModelName", Get(p, HygieneFixParameters.ModelName)), P("AutoInstall", "$true")])],
             HygieneFixKind.SetSiteMaintenanceTask => [new("Set-CMSiteMaintenanceTask", [P("SiteCode", Get(p, HygieneFixParameters.SiteCode)), P("Name", id), P("Enabled", "$true")])],
             HygieneFixKind.RunAutoDeploymentRule => [new("Invoke-CMSoftwareUpdateAutoDeploymentRule", [P("Id", id)])],
+            HygieneFixKind.ClearRetiredRelation => [new(RetiredRelationRemoval, [P("ModelName", Get(p, HygieneFixParameters.ModelName)), P("ReferencedModel", Get(p, HygieneFixParameters.ReferencedModel)), P("RelationKind", Get(p, HygieneFixParameters.RelationKind))])],
             HygieneFixKind.ClearBrokenSupersedence => [new(SupersedenceRemoval, [P("ModelName", Get(p, HygieneFixParameters.ModelName)), P("ReferencedModel", Get(p, HygieneFixParameters.ReferencedModel))])],
             _ => []
         };
@@ -107,6 +116,18 @@ public static class HygieneFixText
                 + "if ($keep.Count -eq @($s.GetArrayItems('ServiceWindows')).Count) { throw 'No object corresponds to the specified parameters.' }\r\n"
                 + "$s.SetArrayItems('ServiceWindows', $keep)\r\n"
                 + "$s.Put()";
+        }
+        if (c.IsRetiredRelationRemoval)
+        {
+            var from = Quote(c.Parameters[0].Value);
+            var to = Quote(c.Parameters[1].Value);
+            return c.Parameters[2].Value == "Supersedes"
+                ? "$f = Get-CMApplication -ModelName " + from + "\r\n$t = Get-CMApplication -ModelName " + to + "\r\n"
+                    + "# For each supersedence rule of $f that names $t (the deployment types are read from the application definition):\r\n"
+                    + "Set-CMApplicationSupersedence -Id $f.CI_ID -CurrentDeploymentTypeId $fd.CI_ID -SupersededApplicationId $t.CI_ID -OldDeploymentTypeId $td.CI_ID -RemoveSupersedence -Force"
+                : "$f = Get-CMApplication -ModelName " + from + "\r\n"
+                    + "# For each deployment type $dt of $f, each dependency group $g and each dependency $d whose AppModelName is " + to + ":\r\n"
+                    + "Remove-CMDeploymentTypeDependency -InputObject $g -DeploymentTypeDependency $d -Force";
         }
         if (c.IsSupersedenceRemoval)
         {

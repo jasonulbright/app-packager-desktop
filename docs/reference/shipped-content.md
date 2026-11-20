@@ -174,6 +174,6 @@ The built-in library holds 7 queries and 4 scripts. The test `PivotsFilesTests` 
 
 ## Site Hygiene
 
-- 57 checks, listed with ID, category, severity and title in [Site Hygiene checks](site-hygiene-checks.md) (`HygieneCatalog.Checks`).
+- 62 checks, listed with ID, category, severity and title in [Site Hygiene checks](site-hygiene-checks.md) (`HygieneCatalog.Checks`).
 - 18 scan areas: Applications; Application relationships and content paths; Content distribution; Packages; Collections; Collection evaluation schedules; Deployments; Devices; Boundaries; Task sequences; Software updates; Software update package content; Distribution points; Compliance and client settings; Drivers; Administrative users; Maintenance windows; Site maintenance (`HygieneAreas.All`).
 - 6 refreshed Live views: Deployments, Content, Distribution Points, Client Health, Inactive Devices and Site Health. The Trends view reads the metrics history and is not refreshed (`LiveView`).

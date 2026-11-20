@@ -98,6 +98,7 @@ internal sealed class StubHygieneSite : IConfigMgrSession
         $global:Auto = @{}; foreach ($p in (V $state 'AutoInstall' ([pscustomobject]@{})).PSObject.Properties) { $global:Auto[$p.Name] = [bool]$p.Value }
         $global:Dts = @{}; foreach ($p in (V $state 'Dts' ([pscustomobject]@{})).PSObject.Properties) { $global:Dts[$p.Name] = L $p.Value }
         $global:Sup = @{}; foreach ($p in (V $state 'Supersedence' ([pscustomobject]@{})).PSObject.Properties) { $global:Sup[$p.Name] = L $p.Value }
+        $global:Deps = @{}; foreach ($p in (V $state 'Dependencies' ([pscustomobject]@{})).PSObject.Properties) { $global:Deps[$p.Name] = L $p.Value }
         $global:Now = [string](V $state 'Now' '2026-10-24T18:00:00')
         $global:Fmt = 'yyyy-MM-ddTHH:mm:ss'
         $global:DateColumns = @('DateCreated', 'LastActiveTime', 'LastRunTime', 'EnforcementDeadline', 'CreationTime', 'LastUpdateDate', 'ExpirationTime', 'StartTime', 'AgentTime')
@@ -222,7 +223,7 @@ internal sealed class StubHygieneSite : IConfigMgrSession
                 $body = foreach ($r in $g.Group) { $scope, $logical = ([string]$r.Ref) -split '/', 2; "<DeploymentTypeRule xmlns=`"$rulesNs`" id=`"$($r.RuleId)`"><DeploymentTypeIntentExpression DesiredState=`"Prohibited`"><DeploymentTypeApplicationReference AuthoringScopeId=`"$scope`" LogicalName=`"$logical`"/></DeploymentTypeIntentExpression></DeploymentTypeRule>" }
                 $types += "<DeploymentType AuthoringScopeId=`"ScopeId_X`" LogicalName=`"$($g.Name)`"><Title>$($g.Group[0].Title)</Title><Supersedes>$($body -join '')</Supersedes></DeploymentType>"
             }
-            $app = [pscustomobject]@{ ModelName = $ModelName; CI_ID = [int]$row.CI_ID; CIVersion = [int]$row.CIVersion; LocalizedDisplayName = [string]$row.LocalizedDisplayName; SDMPackageXML = "<AppMgmtDigest xmlns=`"$digest`"><Application><AutoInstall>$auto</AutoInstall></Application>$types</AppMgmtDigest>" }
+            $app = [pscustomobject]@{ ModelName = $ModelName; IsExpired = (Eq $row.IsExpired "True"); CI_ID = [int]$row.CI_ID; CIVersion = [int]$row.CIVersion; LocalizedDisplayName = [string]$row.LocalizedDisplayName; SDMPackageXML = "<AppMgmtDigest xmlns=`"$digest`"><Application><AutoInstall>$auto</AutoInstall></Application>$types</AppMgmtDigest>" }
             $app | Add-Member -MemberType ScriptMethod -Name Put -Value {
                 Test-Fail 'cmd:Put'
                 [xml]$x = $this.SDMPackageXML
@@ -329,6 +330,46 @@ internal sealed class StubHygieneSite : IConfigMgrSession
             if (-not [bool](V $state.Options 'AdrNoRun' $false)) { $row.LastRunTime = $global:Now }
         }
 
+        function global:New-StubRevision([string]$Model) {
+            $latest = Rows 'SMS_Application' | Where-Object { $_.ModelName -eq $Model -and $_.IsLatest } | Select-Object -First 1
+            $old = $latest.PSObject.Copy(); $old.IsLatest = $false; (RowList 'SMS_Application').Add($old)
+            $latest.CI_ID = [int]$latest.CI_ID + 1; $latest.CIVersion = [int]$latest.CIVersion + 1
+        }
+        function global:Get-CMDeploymentType { [CmdletBinding()] param([object]$InputObject)
+            $m = [string]$InputObject.ModelName
+            $names = [System.Collections.Generic.List[object]]::new()
+            foreach ($d in @(if ($global:Dts.ContainsKey($m)) { $global:Dts[$m] })) { if (@($names | Where-Object { $_.Dt -eq [string]$d.Dt }).Count -eq 0) { $names.Add([pscustomobject]@{ Dt = [string]$d.Dt; Title = [string]$d.Title }) } }
+            foreach ($d in @(if ($global:Deps.ContainsKey($m)) { $global:Deps[$m] })) { if (@($names | Where-Object { $_.Dt -eq [string]$d.Dt }).Count -eq 0) { $names.Add([pscustomobject]@{ Dt = [string]$d.Dt; Title = [string]$d.Title }) } }
+            $i = 0
+            foreach ($n in $names) { $i++; [pscustomobject]@{ ModelName = $n.Dt; LocalizedDisplayName = $n.Title; CI_ID = ([int]$InputObject.CI_ID * 10 + $i); AppModel = $m } }
+        }
+        function global:Get-CMDeploymentTypeDependencyGroup { [CmdletBinding()] param([object]$InputObject)
+            $rows = @(if ($global:Deps.ContainsKey($InputObject.AppModel)) { $global:Deps[$InputObject.AppModel] | Where-Object { $_.Dt -eq $InputObject.ModelName } })
+            if ($rows.Count -gt 0) { [pscustomobject]@{ AppModel = $InputObject.AppModel; Dt = $InputObject.ModelName } }
+        }
+        function global:Get-CMDeploymentTypeDependency { [CmdletBinding()] param([object]$InputObject)
+            foreach ($r in @($global:Deps[$InputObject.AppModel] | Where-Object { $_.Dt -eq $InputObject.Dt })) { [pscustomobject]@{ AppModelName = [string]$r.To } }
+        }
+        function global:Remove-CMDeploymentTypeDependency { [CmdletBinding()] param([object]$InputObject, [object]$DeploymentTypeDependency, [switch]$Force)
+            Test-Fail 'cmd:RemoveDependency'
+            $model = [string]$InputObject.AppModel; $to = [string]$DeploymentTypeDependency.AppModelName
+            $kept = @($global:Deps[$model] | Where-Object { -not ($_.Dt -eq $InputObject.Dt -and $_.To -eq $to) })
+            $global:Deps[$model] = L $kept
+            $global:Log.Add('Cmd:DependencyRemoval|' + $model + '|' + $InputObject.Dt + '|' + $to)
+            New-StubRevision $model
+        }
+        function global:Set-CMApplicationSupersedence { [CmdletBinding()] param([int]$Id, [int]$CurrentDeploymentTypeId, [int]$SupersededApplicationId, [int]$OldDeploymentTypeId, [switch]$RemoveSupersedence, [switch]$Force)
+            Test-Fail 'cmd:RemoveSupersedence'
+            $from = Rows 'SMS_Application' | Where-Object { [int]$_.CI_ID -eq $Id -and $_.IsLatest } | Select-Object -First 1
+            $target = Rows 'SMS_Application' | Where-Object { [int]$_.CI_ID -eq $SupersededApplicationId } | Select-Object -First 1
+            if ($null -eq $from -or $null -eq $target) { throw 'No object corresponds to the specified parameters.' }
+            $kept = @($global:Sup[$from.ModelName] | Where-Object { $_.Ref -ne $target.ModelName })
+            $global:Sup[$from.ModelName] = L $kept
+            Remove-Rows 'SMS_AppRelation_Flat' { [int]$_.FromApplicationCIID -eq $Id -and [int]$_.ToApplicationCIID -eq $SupersededApplicationId }
+            $global:Log.Add('Cmd:SupersedenceCmdlet|' + $from.ModelName + '|' + $target.ModelName)
+            New-StubRevision ([string]$from.ModelName)
+        }
+
         Set-StrictMode -Version 2.0
         $parameters = @{}
         foreach ($p in (Get-Content -LiteralPath $ParametersPath -Raw -Encoding UTF8 | ConvertFrom-Json).PSObject.Properties) { $value = $p.Value; if ($value -is [object[]]) { $value = [string[]]@($value | ForEach-Object { [string]$_ }) }; $parameters[$p.Name] = $value }
@@ -347,7 +388,9 @@ internal sealed class StubHygieneSite : IConfigMgrSession
         foreach ($k in $global:Dts.Keys) { $dtsOut[$k] = @($global:Dts[$k]) }
         $supOut = [ordered]@{}
         foreach ($k in $global:Sup.Keys) { $supOut[$k] = @($global:Sup[$k]) }
-        $next = if ($null -ne $gen) { $state } else { [pscustomobject]@{ Options = $state.Options; Now = $global:Now; Provider = $global:DriveRoot; Classes = [pscustomobject]$classes; Details = (V $state 'Details' ([pscustomobject]@{})); Windows = [pscustomobject]$windowsOut; AutoInstall = [pscustomobject]$autoOut; Supersedence = [pscustomobject]$supOut; Dts = [pscustomobject]$dtsOut } }
+        $depsOut = [ordered]@{}
+        foreach ($k in $global:Deps.Keys) { $depsOut[$k] = @($global:Deps[$k]) }
+        $next = if ($null -ne $gen) { $state } else { [pscustomobject]@{ Options = $state.Options; Now = $global:Now; Provider = $global:DriveRoot; Classes = [pscustomobject]$classes; Details = (V $state 'Details' ([pscustomobject]@{})); Windows = [pscustomobject]$windowsOut; AutoInstall = [pscustomobject]$autoOut; Supersedence = [pscustomobject]$supOut; Dts = [pscustomobject]$dtsOut; Dependencies = [pscustomobject]$depsOut } }
         $lines = foreach ($o in $out) { ConvertTo-Json -InputObject $o -Depth 3 -Compress }
         $document = [pscustomobject]@{ Output = @($lines); Thrown = $thrown; Log = @($global:Log); State = $next }
         [IO.File]::WriteAllText($OutPath, (ConvertTo-Json -InputObject $document -Depth 8 -Compress), (New-Object System.Text.UTF8Encoding $false))
