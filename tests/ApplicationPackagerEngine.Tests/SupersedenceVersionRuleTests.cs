@@ -266,7 +266,7 @@ public sealed class SupersedenceVersionRuleTests
 
         Assert.Null(plan.Refusal);
         Assert.Equal("GreaterEquals", plan.IntuneManifest.Detection.Operator);
-        Assert.Equal(new SupersedenceKey("Vendor App", ""), plan.Key);
+        Assert.Equal(new SupersedenceKey("Vendor App", "", "x64"), plan.Key);
         // The published script of the copy equals the script of the original: the round trip of the manifest loses nothing.
         Assert.Equal(
             MecmTarget.BuildPackageScript(manifest, "Vendor App", @"\\s\c", "MCM", "", 15, 30),
