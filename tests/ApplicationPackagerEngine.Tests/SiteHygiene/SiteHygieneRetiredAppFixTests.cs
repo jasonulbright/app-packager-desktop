@@ -86,7 +86,8 @@ public sealed class SiteHygieneRetiredAppFixTests
         Assert.Equal(OtherModel, f.FixParameters[HygieneFixParameters.DependsOnModels]);
         Assert.True(HygieneFixKinds.MakesRevision(HygieneFixKind.ClearRetiredApplicationRules));
         Assert.False(HygieneFixKinds.IsDelete(HygieneFixKind.ClearRetiredApplicationRules));
-        Assert.Equal(2, f.FixText!.Split("\r\n").Length);
+        Assert.Equal(2, f.FixText!.Split("Resume-CMApplication").Length - 1);
+        Assert.Equal(2, f.FixText.Split("Suspend-CMApplication").Length - 1);
         Assert.Contains(HygieneFixKind.ClearRetiredApplicationRules, SiteHygieneService.SupportedKinds);
     }
 
@@ -121,7 +122,7 @@ public sealed class SiteHygieneRetiredAppFixTests
         [
             "Cmd:Resume-CMApplication|" + RetiredModel, "Cmd:SupersedenceCmdlet|" + RetiredModel + "|" + ActiveModel, "Cmd:Suspend-CMApplication|" + RetiredModel,
             "Cmd:Resume-CMApplication|" + RetiredModel, "Cmd:DependencyRemoval|" + RetiredModel + "|DeploymentType_A|" + OtherModel, "Cmd:Suspend-CMApplication|" + RetiredModel
-        ], SiteCommands(h).Take(6).ToArray());
+        ], SiteCommands(h).Where(c => !c.StartsWith("Cmd:Remove-CMApplicationRevisionHistory", StringComparison.Ordinal)).Take(6).ToArray());
         Assert.All(h.Site.Class("SMS_Application").OfType<JsonObject>().Where(r => (string?)r["ModelName"] == RetiredModel), r => Assert.Equal("True", r["IsExpired"]!.ToString()));
         Assert.Empty(h.Site.State["Supersedence"]![RetiredModel]!.AsArray());
         Assert.Empty(h.Site.State["Dependencies"]![RetiredModel]!.AsArray());

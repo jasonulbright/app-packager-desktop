@@ -121,8 +121,8 @@ public static class SiteHygieneLabels
         HygieneFixKind.RunAutoDeploymentRule => "Run deployment rule",
         HygieneFixKind.ClearBrokenSupersedence => "Remove supersedence",
         HygieneFixKind.ClearRetiredRelation => "Remove retired relation",
-        HygieneFixKind.ClearRetiredApplicationRules => "Remove retired application rules",
-        HygieneFixKind.RemoveSupersededApplication => "Delete superseded application",
+        HygieneFixKind.ClearRetiredApplicationRules => "Remove retired app rules",
+        HygieneFixKind.RemoveSupersededApplication => "Delete superseded app",
         _ => kind.ToString()
     };
 

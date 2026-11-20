@@ -275,7 +275,7 @@ public sealed class SiteHygieneRenderTests
             }
 
             Check(VM.FindingsTab, "scrollFindingsTab", "txtFindingFilter", "cboFindingCategory", "cboFindingSeverity", "chkShowSuppressed", "txtFindingCount", "btnHygieneRunFix",
-                "btnHygieneSuppress", "btnHygieneUnsuppress", "dgFindings", "txtFindingDetailTitle", "txtFindingDetailEvidence", "txtFixText", "btnCopyFixText", "txtNotRun");
+                "btnHygieneShowBlockers", "btnHygieneSuppress", "btnHygieneUnsuppress", "dgFindings", "txtFindingDetailTitle", "txtFindingDetailEvidence", "txtFixText", "btnCopyFixText", "txtNotRun");
             Check(VM.RelationsTab, "scrollRelationsTab", "btnReadRelations", "btnCancelRelations", "txtRelationsSummary", "txtEdgeFilter", "cboEdgeKind", "dgEdges");
             Check(VM.SummaryTab, "scrollSummaryTab", "dgCategories", "dgChecks");
             Check(VM.HistoryTab, "scrollHygieneHistoryTab", "txtHygieneHistoryFilter", "btnHygieneHistoryRefresh", "txtHygieneHistoryCount", "dgHygieneHistory", "txtHygieneHistoryDetail");
@@ -844,6 +844,7 @@ public sealed class SiteHygieneRenderTests
             Assert.Same(finding.Item, viewModel.DetailFinding);
             Assert.True(viewModel.RunFixCommand.CanExecute(null));
             Assert.Equal("btnHygieneRunFix", NextFocus(window));
+            Assert.Equal("btnHygieneShowBlockers", NextFocus(window));
             Assert.Equal("btnHygieneSuppress", NextFocus(window));
 
             Assert.True(TabInto(window, ById<UIElement>(page, "txtFixText"), ById<DataGrid>(page, "dgHygieneResults")).IsSelected);
