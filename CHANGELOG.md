@@ -29,6 +29,7 @@
 
 ### Fixed
 
+- A download whose host name does not resolve now says so: "the vendor download host does not resolve", with the host name. The cause is the vendor (an outage or a removed download host), for example the Jabra Direct download host. Other download failures keep the general text.
 - The red Cancel button of the App Packager toolbar has the same height, line and spacing as the other buttons while a run is active, also when the toolbar wraps. The toolbar shows its labels while they fit in four lines, so the grid keeps its rows.
 - Settings: the list of pages no longer needs a horizontal scroll bar. The list is 250 px wide at the start, and a handle between the list and the page changes its width.
 - Fix the icon pack update that failed with a file in use error while the Packages page showed the icons. The page no longer keeps an icon file open, and it shows the new icons after the update without a restart.
