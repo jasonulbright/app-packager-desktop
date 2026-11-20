@@ -97,8 +97,8 @@ public static class SiteHygieneText
         var plan = new ChangePlan(Title(kind), $"{action}: {SiteHygieneLabels.Count(count, "object")}", entries.Select(e => e.Item), isDestructive: delete, hasUndo: false)
         {
             ExtraConfirmation = delete ? DeleteConfirmation(count) : null,
-            OptionalChoice = kind == HygieneFixKind.ClearBrokenSupersedence ? SupersedenceRevisionChoice : null,
-            OptionalChoiceOn = kind == HygieneFixKind.ClearBrokenSupersedence,
+            OptionalChoice = HygieneFixKinds.MakesRevision(kind) ? SupersedenceRevisionChoice : null,
+            OptionalChoiceOn = HygieneFixKinds.MakesRevision(kind),
             DestructiveConfirmation = delete ? DestructiveText : null,
             Notes = notes,
             LogName = kind.ToString(),

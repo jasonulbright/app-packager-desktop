@@ -164,7 +164,8 @@ internal static class SiteHygieneFixtures
             ["Details"] = details,
             ["Windows"] = windows,
             ["AutoInstall"] = auto,
-            ["Supersedence"] = supersedence
+            ["Supersedence"] = supersedence,
+            ["Dependencies"] = new JsonObject()
         };
     }
 }

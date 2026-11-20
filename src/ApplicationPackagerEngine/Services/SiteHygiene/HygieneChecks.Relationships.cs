@@ -129,7 +129,8 @@ internal static partial class HygieneChecks
             if (to.IsExpired)
                 Add(F("SUP-04", "Supersedence", Key(e), Pair(e),
                     $"Superseded application '{e.ToName}' is retired; the rule still exists but its target is inactive.",
-                    "Remove the supersedence relationship or delete the retired application once nothing references it.",
+                    "Remove the supersedence relationship. No active application may supersede a retired one. The fix removes the rule and deletes the old revisions that the change makes.",
+                    HygieneFixKind.ClearRetiredRelation, Params((HygieneFixParameters.ModelName, e.FromModel), (HygieneFixParameters.ReferencedModel, e.ToKey), (HygieneFixParameters.RelationKind, RelationKinds.Supersedes)),
                     guidance: $"Console: '{e.FromName}' Properties > Supersedence tab - review the reference to retired '{e.ToName}'"));
             else if (from is { IsEnabled: false })
                 Add(F("SUP-03", "Supersedence", Key(e), Pair(e),
@@ -156,7 +157,8 @@ internal static partial class HygieneChecks
             if (to.IsExpired)
                 Add(F("DEP-04", "Dependency", Key(e), Pair(e),
                     $"Dependency target '{e.ToName}' is retired; {e.DependencyState} installs relying on it will fail.",
-                    "Point the dependency at the current application or reinstate the target.",
+                    "Remove the dependency. No active application may depend on a retired one. The fix removes it and deletes the old revisions that the change makes.",
+                    HygieneFixKind.ClearRetiredRelation, Params((HygieneFixParameters.ModelName, e.FromModel), (HygieneFixParameters.ReferencedModel, e.ToKey), (HygieneFixParameters.RelationKind, RelationKinds.DependsOn)),
                     guidance: $"Console: '{e.FromName}' > Deployment Types > '{e.FromDt}' > Dependencies - update the reference to retired '{e.ToName}'"));
             else if (!to.IsEnabled)
                 Add(F("DEP-03", "Dependency", Key(e), Pair(e),

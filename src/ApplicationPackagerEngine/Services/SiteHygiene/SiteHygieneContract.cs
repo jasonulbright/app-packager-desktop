@@ -27,11 +27,15 @@ public enum HygieneFixKind
     SetBoundaryGroup,
     SetSiteMaintenanceTask,
     RunAutoDeploymentRule,
-    ClearBrokenSupersedence
+    ClearBrokenSupersedence,
+    ClearRetiredRelation
 }
 
 public static class HygieneFixKinds
 {
+    /// <summary>True for a kind whose change makes a new revision of an application, so that it offers to delete the old revisions it creates.</summary>
+    public static bool MakesRevision(HygieneFixKind kind) => kind is HygieneFixKind.ClearBrokenSupersedence or HygieneFixKind.ClearRetiredRelation;
+
     /// <summary>True for a kind that deletes a site object: it needs the second confirmation and the delete cap.</summary>
     public static bool IsDelete(HygieneFixKind kind) => kind is HygieneFixKind.RemoveApplication or HygieneFixKind.RemoveApplicationDeployment
         or HygieneFixKind.RemoveApplicationRevisionHistory or HygieneFixKind.RemovePackage or HygieneFixKind.RemoveCollection or HygieneFixKind.RemoveDevice
@@ -209,7 +213,7 @@ public sealed record HygieneChange(
     public bool ChangeConfirmed { get; init; }
 
     /// <summary>
-    /// For ClearBrokenSupersedence: after a change, delete the old revisions of the changed application, which the change made. The plan
+    /// For a kind that <see cref="HygieneFixKinds.MakesRevision"/>: after a change, delete the old revisions of the changed application, which the change made. The plan
     /// window asks the operator; PrepareAsync clears it. It touches no application that the fix did not change.
     /// </summary>
     public bool DeleteOldRevisions { get; init; }

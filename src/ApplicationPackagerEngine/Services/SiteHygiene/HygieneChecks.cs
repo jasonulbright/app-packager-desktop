@@ -12,6 +12,9 @@ internal static class HygieneSets
     public const string TaskSequences = "TaskSequences";
     public const string TsReferences = "TsReferences";
     public const string TsAppDefinitions = "TsAppDefinitions";
+
+    /// <summary>The dependencies of an application, from its deployment types: ApplicationModelName, DeploymentTypeLogicalName, DeploymentTypeName, ReferencedModelName. Read by the State operation of a fix only.</summary>
+    public const string DependencyRules = "DependencyRules";
     public const string Devices = "Devices";
     public const string DeviceAgents = "DeviceAgents";
     public const string Boundaries = "Boundaries";

@@ -28,7 +28,7 @@ public sealed partial class SiteHygieneService
         HygieneFixKind.RemoveApplication, HygieneFixKind.RemoveApplicationDeployment, HygieneFixKind.RemoveApplicationRevisionHistory, HygieneFixKind.RemovePackage,
         HygieneFixKind.RemoveCollection, HygieneFixKind.RemoveDevice, HygieneFixKind.RemoveBootImage, HygieneFixKind.RemoveDriverPackage, HygieneFixKind.RemoveAutoDeploymentRule,
         HygieneFixKind.RemoveMaintenanceWindow, HygieneFixKind.SetCollectionRefreshType, HygieneFixKind.SetApplication, HygieneFixKind.SetSiteMaintenanceTask, HygieneFixKind.RunAutoDeploymentRule,
-        HygieneFixKind.ClearBrokenSupersedence
+        HygieneFixKind.ClearBrokenSupersedence, HygieneFixKind.ClearRetiredRelation
     };
 
     private const int MaxPrepared = 32;
@@ -199,6 +199,12 @@ public sealed partial class SiteHygieneService
             lines.Add("Set-CMApplicationSupersedence -RemoveSupersedence is not used: it needs the superseded application and its deployment type, which a deleted application no longer has. The fix edits the application document with the serializer of the console. It refuses to write when the serializer is not the one of the console or when the edited document differs from the original in anything but those rules, and it reads the application again afterwards. It writes no file of the removed data.");
             lines.Add("With the check box on, the fix then deletes the older revisions of exactly the applications that it changed, so that check APP-05 does not report them. A revision that another object still uses stays, and the result says so.");
         }
+        if (kind == HygieneFixKind.ClearRetiredRelation)
+        {
+            lines.Add("Each change removes the supersedence rules or the dependencies of one application toward one retired application, and makes one new revision of the application. No active application may supersede or depend on a retired one.");
+            lines.Add("The supported cmdlets Set-CMApplicationSupersedence -RemoveSupersedence and Remove-CMDeploymentTypeDependency do the removal: both applications exist. The change is read back.");
+            lines.Add("With the check box on, the fix then deletes the older revisions of exactly the applications that it changed, so that check APP-05 does not report them. A revision that another object still uses stays, and the result says so.");
+        }
         if (kind == HygieneFixKind.RunAutoDeploymentRule) lines.Add("The rule runs now: it can create or change a software update group and its deployment, and download update content.");
         if (kind == HygieneFixKind.RemoveBootImage)
             lines.Add("Boot media, prestaged media and PXE images that were made from the boot image are not recorded on the site. Check that no media in use needs the boot image before you delete it.");
@@ -227,6 +233,7 @@ public sealed partial class SiteHygieneService
         HygieneFixKind.SetSiteMaintenanceTask => "enable the site maintenance tasks",
         HygieneFixKind.RunAutoDeploymentRule => "run the automatic deployment rules",
         HygieneFixKind.ClearBrokenSupersedence => "remove the supersedence references to deleted applications",
+        HygieneFixKind.ClearRetiredRelation => "remove the supersedence rules and dependencies toward retired applications",
         _ => "nothing"
     };
 

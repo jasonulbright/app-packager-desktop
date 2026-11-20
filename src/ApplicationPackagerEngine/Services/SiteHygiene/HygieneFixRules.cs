@@ -38,7 +38,7 @@ internal static class HygieneFixRules
             case HygieneFixKind.RemoveMaintenanceWindow:
                 yield return Get(HygieneFixParameters.CollectionId);
                 break;
-            case HygieneFixKind.ClearBrokenSupersedence:
+            case HygieneFixKind.ClearBrokenSupersedence or HygieneFixKind.ClearRetiredRelation:
                 yield return Get(HygieneFixParameters.ModelName);
                 yield return Get(HygieneFixParameters.ReferencedModel);
                 break;
@@ -67,7 +67,8 @@ internal static class HygieneFixRules
         [HygieneFixKind.SetApplication] = ["TSQ-03"],
         [HygieneFixKind.SetSiteMaintenanceTask] = ["MNT-01", "MNT-02"],
         [HygieneFixKind.RunAutoDeploymentRule] = ["UPD-03"],
-        [HygieneFixKind.ClearBrokenSupersedence] = ["SUP-01"]
+        [HygieneFixKind.ClearBrokenSupersedence] = ["SUP-01"],
+        [HygieneFixKind.ClearRetiredRelation] = ["SUP-04", "DEP-04"]
     };
 
     /// <summary>
@@ -88,6 +89,9 @@ internal static class HygieneFixRules
                 => "an expired-deployment finding names exactly one deployment.",
             (HygieneFixKind.SetCollectionRefreshType, "COL-05") when P(f, HygieneFixParameters.RefreshType) != "Continuous" => "COL-05 sets the refresh type Continuous only.",
             (HygieneFixKind.SetCollectionRefreshType, "COL-06") when P(f, HygieneFixParameters.RefreshType) != "Manual" => "COL-06 sets the refresh type Manual only.",
+            (HygieneFixKind.ClearRetiredRelation, "SUP-04" or "DEP-04") when !hasModel || P(f, HygieneFixParameters.ReferencedModel).Length == 0 => "the finding names no application or no target application.",
+            (HygieneFixKind.ClearRetiredRelation, "SUP-04") when P(f, HygieneFixParameters.RelationKind) != RelationKinds.Supersedes => "SUP-04 removes a supersedence rule only.",
+            (HygieneFixKind.ClearRetiredRelation, "DEP-04") when P(f, HygieneFixParameters.RelationKind) != RelationKinds.DependsOn => "DEP-04 removes a dependency only.",
             (HygieneFixKind.ClearBrokenSupersedence, "SUP-01") when !hasModel || P(f, HygieneFixParameters.ReferencedModel).Length == 0 => "the finding names no application or no referenced application.",
             (HygieneFixKind.SetSiteMaintenanceTask, "MNT-01") when !HygieneChecks.RecommendedTasks.Contains(P(f, HygieneFixParameters.Id), StringComparer.OrdinalIgnoreCase)
                 => "MNT-01 enables only the recommended cleanup tasks.",
@@ -126,6 +130,7 @@ internal static class HygieneFixRules
         HygieneFixKind.SetSiteMaintenanceTask => EnableTask(f, s),
         HygieneFixKind.RunAutoDeploymentRule => RunRule(f, s, now, t),
         HygieneFixKind.ClearBrokenSupersedence => ClearBrokenSupersedence(f, s),
+        HygieneFixKind.ClearRetiredRelation => ClearRetiredRelation(f, s),
         _ => HygieneEvaluation.No("this fix kind is report-only on this page.")
     };
 
@@ -395,6 +400,31 @@ internal static class HygieneFixRules
             T((HygieneFixParameters.ModelName, model), (HygieneFixParameters.ReferencedModel, reference)), T(("Id", model), ("ReferencedModel", reference)))]);
     }
 
+    /// <summary>
+    /// The supersedence rules or the dependencies of one application toward a retired application. The supported cmdlets remove them when both
+    /// applications exist; the change makes a new revision of the application.
+    /// </summary>
+    private static HygieneEvaluation ClearRetiredRelation(HygieneFinding f, HygieneSiteRead s)
+    {
+        var model = P(f, HygieneFixParameters.ModelName);
+        var reference = P(f, HygieneFixParameters.ReferencedModel);
+        var kind = P(f, HygieneFixParameters.RelationKind);
+        if (Latest(s, model) is not { } app) return HygieneEvaluation.No("the application no longer exists.");
+        if (Latest(s, reference) is not { } target) return HygieneEvaluation.No("the target application no longer exists.");
+        if (!target.B("IsExpired")) return HygieneEvaluation.No("the target application is not retired now.");
+        var set = kind == RelationKinds.Supersedes ? SupersedenceRules : DependencyRules;
+        var rules = s.Table(set).Records
+            .Where(r => string.Equals(r.S("ApplicationModelName"), model, StringComparison.OrdinalIgnoreCase) && string.Equals(r.S("ReferencedModelName"), reference, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+        if (rules.Count == 0) return HygieneEvaluation.No($"the application has no {(kind == RelationKinds.Supersedes ? "supersedence rule" : "dependency")} on that application now.");
+        var types = string.Join(", ", rules.Select(r => $"'{r.S("DeploymentTypeName")}'").Distinct(StringComparer.Ordinal).Order(StringComparer.OrdinalIgnoreCase));
+        var what = kind == RelationKinds.Supersedes ? "supersedes" : "depends on";
+        var detail = $"Deployment type {types}: remove the {(kind == RelationKinds.Supersedes ? "supersedence" : "dependency")} ({what} the retired application '{target.S("LocalizedDisplayName")}'). The change makes a new revision";
+        return new(true, "", [Write(f, kind == RelationKinds.Supersedes ? "Supersedence" : "Dependency", model + "|" + reference + "|" + kind, app.S("LocalizedDisplayName"), detail, HygieneFixKind.ClearRetiredRelation,
+            T((HygieneFixParameters.ModelName, model), (HygieneFixParameters.ReferencedModel, reference), (HygieneFixParameters.RelationKind, kind)),
+            T(("Id", model), ("ReferencedModel", reference), ("RelationKind", kind)))]);
+    }
+
     private static HygieneEvaluation EnableTask(HygieneFinding f, HygieneSiteRead s)
     {
         var name = P(f, HygieneFixParameters.Id);
@@ -425,6 +455,7 @@ internal static class HygieneFixRules
             HygieneFixKind.SetCollectionRefreshType => s.Table(Collections).Records.Any(r => Eq(r.S("CollectionID"), id) && r.I("RefreshType") == (w.Target["RefreshType"] == "Continuous" ? 4 : 1)),
             HygieneFixKind.SetApplication => s.Table(TsAppDefinitions).Records.Any(r => Eq(r.S("ModelName"), id) && r.B("AutoInstall")),
             HygieneFixKind.SetSiteMaintenanceTask => s.Table(MaintenanceTasks).Records.Any(r => Eq(r.S("ItemName"), id) && r.B("Enabled")),
+            HygieneFixKind.ClearRetiredRelation => !s.Table(w.Target["RelationKind"] == RelationKinds.Supersedes ? SupersedenceRules : DependencyRules).Records.Any(r => Eq(r.S("ApplicationModelName"), id) && Eq(r.S("ReferencedModelName"), w.Target["ReferencedModel"])),
             HygieneFixKind.ClearBrokenSupersedence => !s.Table(SupersedenceRules).Records.Any(r => Eq(r.S("ApplicationModelName"), id) && Eq(r.S("ReferencedModelName"), w.Target["ReferencedModel"])),
             HygieneFixKind.RunAutoDeploymentRule => s.Table(AutoDeploymentRules).Records.Any(r => r.S("AutoDeploymentID") == id && r.S("LastRunTime").Length > 0 && r.S("LastRunTime") != ruleRunBefore),
             _ => false
