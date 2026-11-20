@@ -63,7 +63,8 @@ public sealed class SiteHygieneScanTests
         // Per-object sets: one list query plus one read per object (7 collections with a full schedule, 4 collections with settings, 1 application a task sequence installs, 1 task sequence,
         // and the application definition of each application for its supersedence rules).
         var applications = h.Site.Class("SMS_Application").Where(r => r!["IsLatest"]!.GetValue<bool>()).Select(r => (string?)r!["ModelName"] ?? "").Where(m => System.Text.RegularExpressions.Regex.IsMatch(m, "^ScopeId_[A-Za-z0-9-]+/Application_[A-Za-z0-9-]+$")).Distinct(StringComparer.OrdinalIgnoreCase).Count();
-        Assert.Equal(sets.Count + 7 + 4 + 1 + 1 + applications, result.QueryCount);
+        // The read of the supersedence rules has no list query: the caller names the applications.
+        Assert.Equal(sets.Count - 1 + 7 + 4 + 1 + 1 + applications, result.QueryCount);
         Assert.Equal(7, h.Site.Log.Count(l => l.StartsWith("Get-CMCollection:", StringComparison.Ordinal)));
         Assert.Equal(1 + applications, h.Site.Log.Count(l => l.StartsWith("Get-CMApplication:", StringComparison.Ordinal)));
     }
