@@ -17,6 +17,7 @@
 
 ### Changed
 
+- Guide images: the images of the App Packager page, its dialogs and windows, the sidebar context menu and the Settings pages show the current toolbar and the current Settings tree (lab run on CLIENT01, 1920 x 1032, light theme; the dark theme was captured too). The lab capture scripts `Capture-PackagesPage.ps1`, `Capture-PackagesDialogs.ps1` and `Capture-WindowChecks.ps1` are new. The captions of the Settings images name the page that they show.
 - The version rule (Minimum or Exact) applies to the detection of the application that is packaged only. The older applications are never changed.
 - Publishing into an existing application is unchanged.
 - TeamViewer Host installs the MSI instead of the EXE. TeamViewer gives the MSI only in the Management Console, so you put it in the folder of the application under Settings, Local Installer Sources (file `TeamViewer_Host*.msi`). The version is the ProductVersion of that file, and detection reads the Add/Remove Programs entry. The settings API token (APITOKEN), Custom config ID (CUSTOMCONFIGID), Assignment ID (ASSIGNMENTID), Assignment options (ASSIGNMENTOPTIONS) and Remove the desktop shortcut (DESKTOPSHORTCUTS=0) are MSI properties on the install command line; the post-install assignment step is gone.

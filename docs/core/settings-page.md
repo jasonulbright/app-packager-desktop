@@ -21,7 +21,7 @@ Use the page after the Setup window, or when a site, share, certificate or key c
 3. Select **Save Settings** in the page header, at the top right. The snackbar shows "Settings saved."
 4. To discard unsaved edits, select **Discard changes** next to it. The button reloads every setting on the page from the saved settings.
 
-![Top of the Settings page with the Sidebar, Updates, Organization and Systems in Use sections](../images/core-settings-top.png)
+![The General page of Settings, with the tree of pages at the left](../images/core-settings-top.png)
 
 The theme choice **Dark Theme** or **Light Theme** is at the top of the page. The window changes at once when you select a theme. **Save Settings** stores the choice. The default theme is **Dark Theme**.
 
@@ -105,7 +105,7 @@ See [One Click](one-click.md). The section has **Action on update** (**Report on
 - **Install from file...** and **Download icon pack** install application icons. The download checks a SHA-256 value.
 - **Refresh** under **GitHub API** shows the request budget. A token from `APP_PACKAGER_GITHUB_TOKEN`, `GITHUB_TOKEN`, the **GitHub token** box below it or `gh auth login` raises the limit from 60 to 5,000 requests each hour.
 
-![The Detected Tools, Packager Icon Pack and GitHub API sections](../images/core-settings-tools.png)
+![The Tools page with the detected tools and the Packager Icon Pack](../images/core-settings-tools.png)
 
 ### Intune and CVE Lookup
 
@@ -134,7 +134,7 @@ See [One Click](one-click.md). The section has **Action on update** (**Report on
 
 See [WSUS publishing](wsus-publishing.md).
 
-![The WSUS Publishing section after a tested connection](../images/core-settings-wsus.png)
+![The WSUS page of Settings](../images/core-settings-wsus.png)
 
 ### Script Signing
 
@@ -160,11 +160,11 @@ A choice in the Workbench overrides the title choices. The two content options a
 - **Local Installer Sources**: one **Browse...** folder for each application whose installer a script cannot download (a vendor sign-in or a bot protection). You put the file in the folder by hand. Stage takes the highest file version in the folder. The installer must carry a valid signature, except where the row says otherwise. See [Installer source folders](#installer-source-folders).
 - **Packager Files**: one **Browse...** file for each file that an installer reads from its folder. The file is copied beside the installer and is never read.
 
-![Deployment Type Defaults and the M365 Apps channel](../images/core-settings-defaults.png)
+![The Deployment Type Defaults page](../images/core-settings-defaults.png)
 
-![Install Parameters with one application expanded](../images/core-settings-install-parameters.png)
+![The Install Parameters page](../images/core-settings-install-parameters.png)
 
-![Local Installer Sources and Packager Files](../images/core-settings-install-parameters-sources.png)
+![The Local Installer Sources page](../images/core-settings-install-parameters-sources.png)
 
 ### Installer source folders
 
