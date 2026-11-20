@@ -117,7 +117,7 @@ public sealed class DiscoveryRunner
     /// even when the service ignores its token; the abandoned scan finishes on its own.
     /// Never throws: every failure comes back as a plain message without exception detail.
     /// </summary>
-    public async Task<DiscoveryScanOutcome> ScanAsync(CancellationToken ct)
+    public async Task<DiscoveryScanOutcome> ScanAsync(CancellationToken ct, bool allProducts = false)
     {
         using var limit = new CancellationTokenSource(TimeLimit);
         using var linked = CancellationTokenSource.CreateLinkedTokenSource(ct, limit.Token);
@@ -135,8 +135,9 @@ public sealed class DiscoveryRunner
                 settings.DiscoverySqlServer ?? "",
                 settings.DiscoverySqlDatabase ?? "",
                 packagers,
-                settings.HiddenApplications ?? [],
-                settings.DiscoveryDismissed ?? [],
+                // Not selected: the products the Catalog hides and the user did not dismiss. All: every product of the definitions, dismissed ones too.
+                allProducts ? packagers.Select(p => p.Id).ToArray() : settings.HiddenApplications ?? [],
+                allProducts ? [] : settings.DiscoveryDismissed ?? [],
                 (int)Math.Ceiling(TimeLimit.TotalSeconds));
 
             var token = linked.Token;
@@ -170,11 +171,11 @@ public sealed class DiscoveryRunner
     /// or null when no prompt was shown.
     /// </summary>
     public async Task<DiscoveryChoice?> RunAsync(IDiscoveryPrompt prompt, Action<string> log, Action<string> status,
-        Func<Task> reloadGrid, Action settingsChanged, CancellationToken ct)
+        Func<Task> reloadGrid, Action settingsChanged, CancellationToken ct, bool allProducts = false)
     {
         status("Reading Add/Remove Programs inventory from the ConfigMgr site database...");
         log(LogPrefix + "reading hardware inventory from the ConfigMgr site database.");
-        var outcome = await ScanAsync(ct);
+        var outcome = await ScanAsync(ct, allProducts);
         if (outcome.Result is not { } result)
         {
             log(LogPrefix + outcome.Message);

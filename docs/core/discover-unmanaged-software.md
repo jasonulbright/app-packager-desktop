@@ -47,7 +47,7 @@ With both optional boxes empty, Discover reads the SQL Server name and the datab
 
 1. Select **App Packager** in the sidebar. Select **Catalog**. Clear the check box of each application that Discover must consider. Select **Save**.
 2. Close the Catalog.
-3. Select **Discover unmanaged software**.
+3. Select **Settings**, then **ConfigMgr Site Settings**. Select **Discover not selected** to scan only the applications that you cleared in the Catalog and did not dismiss. Select **Discover all** to scan every application, also the applications that you selected or dismissed.
 4. Wait for the scan. The status line shows `Reading Add/Remove Programs inventory from the ConfigMgr site database...`. Select **Cancel** to stop the scan.
 5. View the status line and the log. They show the number of applications that Discover found, for example `Discovered 3 apps.`
 6. If Discover found applications, read the prompt. The prompt title is **Discover unmanaged software**. The text is `Discovered <N> apps. Enable console view?`.

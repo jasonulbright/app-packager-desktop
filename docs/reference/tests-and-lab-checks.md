@@ -625,3 +625,15 @@ Replaces the rewrite, restore, Old Application and identity-marker design (steps
 | `PublishPreflightTests`, `BuildArgumentsTests`, `PowerShellLiteralTests`, `OneClickRowRunnerTests`, `LocalFileGridStageTests` | The preflight sentence, `--yes`, the scripts parse, One Click and the stage with the new calls. |
 
 **Lab check (2026-11-19, CM01 site MCM, CLIENT01 labadmin session, installed candidate, real mouse input).** Throw-away n-1 applications `Everything (x64) - 1.4.0.1000` and `WizTree (x64) - 4.30` against real packaged n (Everything 1.4.1.1032, WizTree 4.34). Yes: relation created on n, n-1 unchanged (same revision and XML hash). Skip: n created without a relation, n-1 unchanged. No: nothing created, n-1 unchanged. Remember: one window, both applications got a relation, both n-1 unchanged. Light and dark themes captured. After the check 0 test applications were left and the content folders were removed; free disk on CM01 did not change (103.7 GB). The Equals path is proven by the unit tests above, not by a separate site run. **Intune supersedence is not built** and so not proven (queued separately); the layout tests that need a large display ran on CLIENT01.
+
+## App Packager toolbar in one row, Publish All, Discover in Settings (Q-102, part 1)
+
+The toolbar is one row in the order One Click | Check Latest, Check ConfigMgr, Check CVEs | Stage, Publish All | Publish to ConfigMgr, Publish to Intune, Publish to WSUS | CVE Report, Ops History. The labels show where they fit in that row (a 1920 px window); in a narrower window each button shows its icon only, and the row still does not wrap down to the smallest window (900 px). Cancel keeps its room (Hidden, not Collapsed), so the row does not change when a run starts. Discover unmanaged software, Supersedence and WSUS Updates left the toolbar; the Discover buttons and WSUS Updates are in Settings.
+
+| Test class | What it proves |
+|---|---|
+| `PageStructureTests` | The toolbar has five groups in the owner order, a separator ends every group but the last, and the three removed buttons are not in it. Every toolbar button has the same margin. |
+| `AppPackagerFitTests` | In 12 sizes and both themes the toolbar is one line, the buttons have the compact height, and Cancel has the height and the line of its neighbours while a run is active. |
+| `PublishAllStateTests` | Publish All is off when no system is in use, and its target is the combination of the systems that are on (seven combinations). |
+
+Not covered by a test: the first-run question after Setup, the two Discover buttons against a real site, and Publish All against a real site. Part 2 (the supersedence settings grid) follows.

@@ -44,6 +44,18 @@ public partial class SettingsViewModel : ObservableObject, ISettingsReload
     /// <summary>The Discover unmanaged software fields; written to the store only by Save Settings.</summary>
     public DiscoverySettingsEditor Discovery { get; } = new();
 
+    /// <summary>Settings, Discover not selected: scans the products that the Catalog hides and that were not dismissed (the commands of the App Packager page).</summary>
+    public IAsyncRelayCommand DiscoverNotSelectedCommand => _packagesViewModel.DiscoverCommand;
+
+    /// <summary>Settings, Discover all: scans every product.</summary>
+    public IAsyncRelayCommand DiscoverAllCommand => _packagesViewModel.DiscoverAllCommand;
+
+    /// <summary>Why the two Discover buttons are off, or what they do.</summary>
+    public string DiscoverToolTip => _packagesViewModel.DiscoverToolTip;
+
+    /// <summary>Settings, WSUS Publishing: opens WSUS Updates, which the App Packager toolbar no longer holds.</summary>
+    public IRelayCommand OpenWsusUpdatesCommand => _packagesViewModel.WsusUpdatesCommand;
+
     /// <summary>The Sidebar section; it applies each change at once and is not part of Save Settings.</summary>
     public SidebarSettingsEditor Sidebar { get; }
 

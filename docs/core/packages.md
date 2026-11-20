@@ -88,22 +88,24 @@ The **Cancel** button shows only while an operation runs. Esc works only while a
 | **Catalog** | Opens the Catalog window. It shows or hides applications in the grid. | [Catalog](applications.md) |
 | **Search applications...** | Filters the grid. | This page |
 | **Administrative Comments** | Text for the comment field of the ConfigMgr application description. A publish run with an empty box shows the dialog **No Comment Provided**. The dialog has the buttons **Continue** and **Cancel**. | [Stage and publish](stage-and-publish.md) |
+| **One Click** | Opens the One Click plan for the tracked applications. | [One Click](one-click.md) |
 | **Check Latest** | Reads the current vendor version of each checked row. | This page |
 | **Check ConfigMgr** | Reads the version of each checked application in ConfigMgr. | This page |
-| **Discover unmanaged software** | Finds applications on clients that the catalog can package. | [Discover unmanaged software](discover-unmanaged-software.md) |
 | **Check CVEs** | Looks up the CVEs that an update fixes. | [CVE lookup](cve-lookup.md) |
 | **Stage** | Downloads and prepares the content. | [Stage and publish](stage-and-publish.md) |
+| **Publish All** | Publishes the checked applications to every system that is on in Settings, Systems in Use (ConfigMgr, Intune, WSUS), in one run. It is disabled when no system is on. | [Stage and publish](stage-and-publish.md) |
 | **Publish to ConfigMgr** | Creates the ConfigMgr application. | [Stage and publish](stage-and-publish.md) |
-| **Supersedence** | Opens a menu that turns supersedence on or off: for the checked applications (Replace, Replace and uninstall, Off, or follow the default), for all applications, or for none. Nothing is applied until a package run, and each run asks first. | [Publish to ConfigMgr](publish-to-configmgr.md) |
 | **Publish to Intune** | Publishes a Win32 app through Microsoft Graph. | [Stage and publish](stage-and-publish.md) |
 | **Publish to WSUS** | Publishes the installer as a WSUS update. | [WSUS publishing](wsus-publishing.md) |
-| **WSUS Updates** | Lists the updates that App Packager Desktop published to WSUS. | [WSUS publishing](wsus-publishing.md) |
-| **One Click** | Opens the One Click plan for the tracked applications. | [One Click](one-click.md) |
 | **CVE Report** | Writes the CVE report. | [CVE lookup](cve-lookup.md) |
-| **Operation history** | Opens the recorded operations of the highlighted row. | [App Packager grid reference](packages-grid.md) |
+| **Ops History** | Opens the recorded operations of the highlighted row (the **Operation history** window). | [App Packager grid reference](packages-grid.md) |
 | **Cancel** | Stops the running operation. | This page |
 | **Select Update Available** | Checks the rows with an update. | This page |
 | **Show debug columns** | Shows the extra columns of the grid. | [App Packager grid reference](packages-grid.md) |
+
+The buttons are in one row, in this order, with a separator between the groups: **One Click** | **Check Latest**, **Check ConfigMgr**, **Check CVEs** | **Stage**, **Publish All** | **Publish to ConfigMgr**, **Publish to Intune**, **Publish to WSUS** | **CVE Report**, **Ops History**. The row shows the labels when they fit. In a narrower window, each button shows its icon only, and the tooltip names the button. The row does not wrap at the sizes of the window. **One Click** does the work of the buttons that follow it, in their order: check, stage and publish for the destinations that you set up in One Click Settings.
+
+**Discover unmanaged software**, **Supersedence** and **WSUS Updates** are not in the row. Discover and WSUS Updates are in [Settings](settings-page.md). Supersedence is described in [Publish to ConfigMgr](publish-to-configmgr.md).
 
 A publish button is disabled, not hidden, while its system is not ready. The tooltip starts with the name of the button and names the missing setting.
 

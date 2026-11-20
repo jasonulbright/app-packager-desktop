@@ -90,6 +90,16 @@ public partial class MainWindow : IDialogHostWindow
                 var setup = _serviceProvider.GetRequiredService<SetupWindow>();
                 setup.Owner = this;
                 setup.ShowDialog();
+                // The first-run scan asks first. It helps the user pick the applicable products; nothing runs on a No.
+                if (setup.DialogResult == true)
+                {
+                    var packages = _serviceProvider.GetRequiredService<ViewModels.Pages.PackagesViewModel>();
+                    if (packages.IsDiscoverAvailable
+                        && System.Windows.MessageBox.Show(this,
+                            "Scan the ConfigMgr site inventory now? The scan helps you pick the products that apply to your site. You can run it later in Settings, ConfigMgr Site Settings (Discover not selected).",
+                            "Discover unmanaged software", System.Windows.MessageBoxButton.YesNo, System.Windows.MessageBoxImage.Question) == System.Windows.MessageBoxResult.Yes)
+                        _ = packages.RunFirstRunDiscoveryAsync();
+                }
             }
             ContentRendered += ShowSetup;
         }
