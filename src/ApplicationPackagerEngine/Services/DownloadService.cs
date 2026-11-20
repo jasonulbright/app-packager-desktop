@@ -30,6 +30,7 @@ public sealed class DownloadService
             Directory.CreateDirectory(dir);
 
         var maxAttempts = retryCount + 1;
+        var lastExitCode = 0;
 
         // A payload of an authenticated feed: the credential goes through the manual redirect loop below, never through curl -L.
         if (ImportedRunScope.Active && Uri.TryCreate(url, UriKind.Absolute, out var feedUri) && FeedPayloadCredentials.For(feedUri) is { } feedCredential)
@@ -97,6 +98,7 @@ public sealed class DownloadService
                     return;
                 }
 
+                lastExitCode = process.ExitCode;
                 if (attempt < maxAttempts)
                 {
                     onProgress?.Invoke($"Download failed (attempt {attempt}): {SecretRedactor.Redact(SecretRedactor.WithoutQueries(stderr.Trim()))}. Retrying in {retryDelaySec}s...");
@@ -111,7 +113,23 @@ public sealed class DownloadService
             }
         }
 
-        throw new InvalidOperationException($"Download failed after {maxAttempts} attempts: {SecretRedactor.Redact(SecretRedactor.WithoutQueries(url))}");
+        throw new InvalidOperationException(FailureMessage(maxAttempts, lastExitCode, url));
+    }
+
+    /// <summary>The curl exit code for a host name that does not resolve.</summary>
+    internal const int CurlCouldNotResolveHost = 6;
+
+    /// <summary>
+    /// The error text of a download that failed on every attempt. A host name that does not resolve gets its own
+    /// text, because the cause is the vendor (an outage or a removed download host), not the installer or the network path.
+    /// </summary>
+    internal static string FailureMessage(int attempts, int curlExitCode, string url)
+    {
+        var safeUrl = SecretRedactor.Redact(SecretRedactor.WithoutQueries(url));
+        if (curlExitCode != CurlCouldNotResolveHost)
+            return $"Download failed after {attempts} attempts: {safeUrl}";
+        var host = Uri.TryCreate(url, UriKind.Absolute, out var uri) ? uri.Host : safeUrl;
+        return $"Download failed: the vendor download host does not resolve ({host}). The vendor site can be down, or the vendor removed the host. Try again later. Download address: {safeUrl}";
     }
 
     private async Task DownloadWithCredentialAsync(
