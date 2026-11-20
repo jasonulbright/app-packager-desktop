@@ -40,6 +40,20 @@ public sealed class SupersedenceConfirmer
     /// <summary>The answer of this run so far (the remembered one), or null when the next application asks again.</summary>
     public SupersedenceAnswer? Remembered => _remembered;
 
+    /// <summary>
+    /// <see cref="ConfirmAsync"/> for a run that must not fail because the question failed: a dialog that throws (anything but a cancellation)
+    /// is logged in one line and counts as Skip, so the application is packaged without the supersedence.
+    /// </summary>
+    public async Task<SupersedenceAnswer> ConfirmSafeAsync(SupersedencePrompt prompt, Action<string>? log)
+    {
+        try { return await ConfirmAsync(prompt).ConfigureAwait(false); }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            log?.Invoke($"Supersedence not applied   : the confirmation failed ({ex.Message}); the application is packaged without it.");
+            return SupersedenceAnswer.Skip;
+        }
+    }
+
     public async Task<SupersedenceAnswer> ConfirmAsync(SupersedencePrompt prompt)
     {
         if (Declined) return SupersedenceAnswer.No;

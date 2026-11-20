@@ -35,6 +35,7 @@
 
 ### Fixed
 
+- Supersedence: the older version is never one of another architecture ((x86) against (x64)), and a retired or unreadable highest older version now means "no older version" instead of the next lower version. The vendor compare ignores case, punctuation and closing legal suffixes (Bitwarden Inc and Bitwarden, Inc. are the same vendor) and an application without a vendor no longer matches a named vendor, as in the PowerShell app. A Skip or Fail run no longer asks about the supersedence of an application that the site already holds. A confirmation window that fails counts as Skip, with one log line, and the package goes on. The Supersedence menu refuses Replace and uninstall while the ConfigMgr version rule is Minimum. The version lock of the title in the Workbench follows a change of the setting made while the window is open.
 - A download whose host name does not resolve now says so: "the vendor download host does not resolve", with the host name. The cause is the vendor (an outage or a removed download host), for example the Jabra Direct download host. Other download failures keep the general text.
 - The red Cancel button of the App Packager toolbar has the same height, line and spacing as the other buttons while a run is active, also when the toolbar wraps. The toolbar shows its labels while they fit in four lines, so the grid keeps its rows.
 - Settings: the list of pages no longer needs a horizontal scroll bar. The list is 250 px wide at the start, and a handle between the list and the page changes its width.

@@ -52,7 +52,7 @@ public sealed class SupersedenceRedesignTests
 
         Assert.Contains("function Test-MecmApplicationTitle", script);
         Assert.Contains("Test-MecmApplicationTitle $baseTitle", script);
-        Assert.Contains("$publisher = 'Vendor'", script);
+        Assert.DoesNotContain("$publisher =", script);
         Assert.DoesNotContain("Set-CMApplication", script);
         Assert.DoesNotContain("APD-Line", script);
     }

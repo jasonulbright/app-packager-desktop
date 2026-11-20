@@ -58,13 +58,13 @@ public sealed class SupersedenceStepTests
     }
 
     [Fact]
-    public void ARetiredApplicationIsSkippedAndTheNextLowerOneIsTaken()
+    public void ARetiredHighestOlderApplicationMeansNoOlderVersionAndNeverTheNextLowerOne()
     {
         var apps = new[] { App("1", "Vendor App 1.0", "1.0.0"), App("2", "Vendor App 1.5", "1.5.0", expired: true) };
 
         var result = SupersedenceLookup.Choose(apps, "Vendor App 2.0", "2.0.0");
 
-        Assert.Equal("1", result.Old!.CiId);
+        Assert.Null(result.Old);
         Assert.Contains(result.Notes, n => n.Contains("retired"));
     }
 
@@ -154,7 +154,9 @@ public sealed class SupersedenceStepTests
         var script = SupersedenceScripts.BuildLookupScript("MCM", null, new SupersedenceKey("O'Neil App", "O'Neil & Co"), "My App");
 
         Assert.Contains("$baseTitle = 'O''Neil App'", script);
-        Assert.Contains("$publisher = 'O''Neil & Co'", script);
+        // The vendor is compared in code (VendorKey), so the script carries no publisher literal and returns the manufacturer.
+        Assert.DoesNotContain("$publisher =", script);
+        Assert.Contains("$publisherB64", script);
         Assert.Contains("Test-MecmApplicationTitle $baseTitle", script);
         Assert.DoesNotContain("APD-Line", script);
         // The new application is found by name: every save makes a new revision with a new CI_ID.
