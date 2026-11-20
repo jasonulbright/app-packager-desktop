@@ -9,7 +9,7 @@ A count describes the build that you installed. A user file in a data folder can
 | Content | Count | Where it is used |
 |---|---|---|
 | Application definitions | 327 | Core pages. See [definitions](../core/definitions.md). |
-| Scraper types used by the definitions | 7 | Version checks. See [definitions](../core/definitions.md). |
+| Scraper types used by the definitions | 8 | Version checks. See [definitions](../core/definitions.md). |
 | Collection query templates | 245 | [Collections: queries and templates](../tools/collections-queries.md) |
 | Compliance catalog entries | 16 | [Compliance](../tools/compliance.md) |
 | Maintenance Windows templates | 5 | [Maintenance Windows](../tools/maintenance-windows.md) |
