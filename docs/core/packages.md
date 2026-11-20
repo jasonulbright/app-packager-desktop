@@ -105,7 +105,7 @@ The **Cancel** button shows only while an operation runs. Esc works only while a
 
 The buttons are in one row, in this order, with a separator between the groups: **One Click** | **Check Latest**, **Check ConfigMgr**, **Check CVEs** | **Stage**, **Publish All** | **Publish to ConfigMgr**, **Publish to Intune**, **Publish to WSUS** | **CVE Report**, **Ops History**. The row shows the labels when they fit. In a narrower window, each button shows its icon only, and the tooltip names the button. The row does not wrap at the sizes of the window. **One Click** does the work of the buttons that follow it, in their order: check, stage and publish for the destinations that you set up in One Click Settings.
 
-**Discover unmanaged software**, **Supersedence** and **WSUS Updates** are not in the row. Discover and WSUS Updates are in [Settings](settings-page.md). Supersedence is described in [Publish to ConfigMgr](publish-to-configmgr.md).
+**Discover unmanaged software**, **Supersedence** and **WSUS Updates** are not in the row. Discover is in [Settings](settings-page.md). WSUS Updates is an entry of the sidebar, under **Add from file**. Supersedence is described in [Publish to ConfigMgr](publish-to-configmgr.md).
 
 A publish button is disabled, not hidden, while its system is not ready. The tooltip starts with the name of the button and names the missing setting.
 

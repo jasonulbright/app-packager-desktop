@@ -256,7 +256,7 @@ public sealed class SidebarGroupWindowTests
         {
             Assert.Equal(
             [
-                SidebarIds.Packages, SidebarIds.AddApp, SidebarIds.AddFile, SidebarIds.Workbench,
+                SidebarIds.Packages, SidebarIds.AddApp, SidebarIds.AddFile, SidebarIds.WsusUpdates, SidebarIds.Workbench,
                 "[tools]", SidebarIds.InstallerAnalysis, SidebarIds.DetectionTester, SidebarIds.DeploymentHelper, SidebarIds.PivotsScripts,
                 SidebarIds.CollectionCompliance, SidebarIds.MaintenanceWindows, SidebarIds.DpContentManager, SidebarIds.SiteHygiene
             ], h.Menu());
@@ -289,15 +289,17 @@ public sealed class SidebarGroupWindowTests
             Assert.False(h.Presenter.HandleMoveKey(h.Presenter.ItemFor(SidebarIds.InstallerAnalysis), Key.Up, ModifierKeys.Alt));
             Assert.True(h.Presenter.HandleMoveKey(web, Key.Down, ModifierKeys.Alt));
             Assert.True(h.Presenter.HandleMoveKey(web, Key.Down, ModifierKeys.Alt));
+            Assert.True(h.Presenter.HandleMoveKey(web, Key.Down, ModifierKeys.Alt));
             Assert.False(h.Presenter.HandleMoveKey(web, Key.Down, ModifierKeys.Alt));
-            Assert.Equal([SidebarIds.Packages, SidebarIds.AddFile, SidebarIds.Workbench, SidebarIds.AddApp, "[tools]"], h.Menu().Take(5));
+            Assert.Equal([SidebarIds.Packages, SidebarIds.AddFile, SidebarIds.WsusUpdates, SidebarIds.Workbench, SidebarIds.AddApp, "[tools]"], h.Menu().Take(6));
 
             Assert.True(h.Service.Hide(SidebarIds.AddFile));
             Assert.True(h.Service.Hide(SidebarIds.Workbench));
             Assert.True(h.Service.Hide(SidebarIds.AddApp));
+            Assert.True(h.Service.Hide(SidebarIds.WsusUpdates));
             Assert.Equal([SidebarIds.Packages, "[tools]"], h.Menu().Take(2));
             h.Service.Reset();
-            Assert.Equal([SidebarIds.Packages, SidebarIds.AddApp, SidebarIds.AddFile, SidebarIds.Workbench, "[tools]", SidebarIds.InstallerAnalysis], h.Menu().Take(6));
+            Assert.Equal([SidebarIds.Packages, SidebarIds.AddApp, SidebarIds.AddFile, SidebarIds.WsusUpdates, SidebarIds.Workbench, "[tools]", SidebarIds.InstallerAnalysis], h.Menu().Take(7));
         }, registry: SidebarRegistry.CreateDefault());
     }
 
@@ -309,21 +311,21 @@ public sealed class SidebarGroupWindowTests
             var drag = h.Presenter.Drag!;
             drag.Press(h.Presenter.ItemFor(SidebarIds.SiteHygiene), h.Center(SidebarIds.SiteHygiene));
             drag.MoveTo(h.Top(SidebarIds.Workbench));
-            Assert.Equal(4, drag.InsertionIndex);
+            Assert.Equal(5, drag.InsertionIndex);
             drag.Release(h.Top(SidebarIds.Workbench));
-            Assert.Equal([SidebarIds.Packages, SidebarIds.AddApp, SidebarIds.AddFile, SidebarIds.Workbench, "[tools]", SidebarIds.SiteHygiene], h.Menu().Take(6));
+            Assert.Equal([SidebarIds.Packages, SidebarIds.AddApp, SidebarIds.AddFile, SidebarIds.WsusUpdates, SidebarIds.Workbench, "[tools]", SidebarIds.SiteHygiene], h.Menu().Take(7));
 
             drag.Press(h.Presenter.ItemFor(SidebarIds.Workbench), h.Center(SidebarIds.Workbench));
             drag.MoveTo(h.Top(SidebarIds.AddApp));
             Assert.Equal(1, drag.InsertionIndex);
             drag.Release(h.Top(SidebarIds.AddApp));
-            Assert.Equal([SidebarIds.Packages, SidebarIds.Workbench, SidebarIds.AddApp, SidebarIds.AddFile, "[tools]"], h.Menu().Take(5));
+            Assert.Equal([SidebarIds.Packages, SidebarIds.Workbench, SidebarIds.AddApp, SidebarIds.AddFile, SidebarIds.WsusUpdates, "[tools]"], h.Menu().Take(6));
 
             drag.Press(h.Presenter.ItemFor(SidebarIds.AddFile), h.Center(SidebarIds.AddFile));
             drag.MoveTo(h.Bottom(SidebarIds.SiteHygiene));
-            Assert.Equal(4, drag.InsertionIndex);
+            Assert.Equal(5, drag.InsertionIndex);
             drag.Release(h.Bottom(SidebarIds.SiteHygiene));
-            Assert.Equal([SidebarIds.Packages, SidebarIds.Workbench, SidebarIds.AddApp, SidebarIds.AddFile, "[tools]"], h.Menu().Take(5));
+            Assert.Equal([SidebarIds.Packages, SidebarIds.Workbench, SidebarIds.AddApp, SidebarIds.WsusUpdates, SidebarIds.AddFile, "[tools]"], h.Menu().Take(6));
         }, registry: SidebarRegistry.CreateDefault());
     }
 }

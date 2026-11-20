@@ -15,6 +15,7 @@ public static class SidebarIds
     public const string Applications = "applications";
     public const string AddApp = "add-app";
     public const string AddFile = "addfile";
+    public const string WsusUpdates = "wsus-updates";
     public const string Workbench = "workbench";
     public const string DetectionTester = "detection-tester";
     public const string MaintenanceWindows = "maintenance-windows";
@@ -106,6 +107,10 @@ public sealed class SidebarRegistry
         registry.Register(new SidebarItemDefinition(Id: SidebarIds.AddFile, Title: "Add from file", Symbol: "DocumentAdd24", Kind: SidebarItemKind.Page)
         {
             PageType = typeof(AddFilePage)
+        });
+        registry.Register(new SidebarItemDefinition(Id: SidebarIds.WsusUpdates, Title: "WSUS Updates", Symbol: "ArrowSyncCircle24", Kind: SidebarItemKind.Window)
+        {
+            Activate = services => services.GetRequiredService<ApplicationPackagerUI.ViewModels.Pages.PackagesViewModel>().OpenWsusUpdates()
         });
         registry.Register(new SidebarItemDefinition(Id: SidebarIds.Workbench, Title: "Workbench", Symbol: "Wrench24", Kind: SidebarItemKind.Window)
         {

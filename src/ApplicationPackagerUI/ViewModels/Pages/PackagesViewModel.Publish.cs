@@ -57,7 +57,7 @@ public partial class PackagesViewModel : IOneClickRunner, IPublishActionHost
     /// well: its listing then shows the adapter's API-not-installed text, and Catalog
     /// Import shows it per id.
     /// </summary>
-    private void OpenWsusUpdates()
+    public void OpenWsusUpdates()
     {
         var settings = _settingsService.Load();
         if (!settings.Wsus.IsConfigured)

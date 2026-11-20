@@ -24,8 +24,7 @@ This page is the second part of [WSUS publishing](wsus-publishing.md). That page
 
 ### Open the window
 
-1. Select **Settings** in the sidebar, then **WSUS**.
-2. Select **WSUS Updates**.
+1. Select **WSUS Updates** in the sidebar. It is under **Add from file**.
 3. View the summary line. It shows `<N> update(s) on <server>.`
 
 The button is disabled when **Systems in Use** does not include WSUS or when no server is set. The tooltip names the missing setting.

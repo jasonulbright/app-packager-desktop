@@ -53,8 +53,8 @@ public sealed class SidebarRegistryTests
     public void TheDefaultRegistryStartsWithAppPackagerPinnedFirstThenTheAddEntriesAndTheWorkbench()
     {
         var registry = SidebarRegistry.CreateDefault();
-        Assert.Equal([SidebarIds.Packages, SidebarIds.AddApp, SidebarIds.AddFile, SidebarIds.Workbench], SidebarFixtures.Ids(registry.Items.Take(4)));
-        Assert.Equal(["App Packager", "Add from web", "Add from file", "Workbench"], registry.Items.Take(4).Select(i => i.Title));
+        Assert.Equal([SidebarIds.Packages, SidebarIds.AddApp, SidebarIds.AddFile, SidebarIds.WsusUpdates, SidebarIds.Workbench], SidebarFixtures.Ids(registry.Items.Take(5)));
+        Assert.Equal(["App Packager", "Add from web", "Add from file", "WSUS Updates", "Workbench"], registry.Items.Take(5).Select(i => i.Title));
         Assert.True(registry.Items[0].IsPinned);
         Assert.Equal(typeof(PackagesPage), registry.Items[0].PageType);
         Assert.All(registry.Items.Skip(1), i => Assert.False(i.IsPinned));
@@ -499,11 +499,11 @@ public sealed class SidebarPersistenceTests : IDisposable
     public void TheLayoutSurvivesASaveAndANewProcess()
     {
         var service = new SidebarService(SidebarRegistry.CreateDefault(), new SettingsSidebarLayoutStore(new SettingsService()));
-        Assert.True(service.Move(SidebarIds.SiteHygiene, 4));
+        Assert.True(service.Move(SidebarIds.SiteHygiene, 5));
         Assert.True(service.Hide(SidebarIds.DetectionTester));
 
         var reloaded = new SidebarService(SidebarRegistry.CreateDefault(), new SettingsSidebarLayoutStore(new SettingsService()));
-        Assert.Equal([SidebarIds.Packages, SidebarIds.AddApp, SidebarIds.AddFile, SidebarIds.Workbench, SidebarIds.SiteHygiene], SidebarFixtures.Ids(reloaded.Items.Take(5)));
+        Assert.Equal([SidebarIds.Packages, SidebarIds.AddApp, SidebarIds.AddFile, SidebarIds.WsusUpdates, SidebarIds.Workbench, SidebarIds.SiteHygiene], SidebarFixtures.Ids(reloaded.Items.Take(6)));
         Assert.DoesNotContain(reloaded.Items, i => i.Id == SidebarIds.DetectionTester);
         Assert.Equal([SidebarIds.DetectionTester], SidebarFixtures.Ids(reloaded.Hidden));
         var stored = JsonNode.Parse(File.ReadAllText(SettingsService.SettingsPath))!["Sidebar"]!;
@@ -573,11 +573,11 @@ public sealed class SidebarPersistenceTests : IDisposable
     {
         var settings = new SettingsService();
         var service = new SidebarService(SidebarRegistry.CreateDefault(), new SettingsSidebarLayoutStore(settings));
-        service.Move(SidebarIds.SiteHygiene, 4);
+        service.Move(SidebarIds.SiteHygiene, 5);
         var s = settings.Load();
         s.CompanyName = "Fabrikam";
         settings.SaveOperatorEdit(s);
         var reloaded = new SidebarService(SidebarRegistry.CreateDefault(), new SettingsSidebarLayoutStore(new SettingsService()));
-        Assert.Equal(SidebarIds.SiteHygiene, reloaded.Items[4].Id);
+        Assert.Equal(SidebarIds.SiteHygiene, reloaded.Items[5].Id);
     }
 }
