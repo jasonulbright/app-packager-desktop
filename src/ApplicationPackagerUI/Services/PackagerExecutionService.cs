@@ -30,7 +30,8 @@ public class PackagerExecutionService(
         if (packager.IsJsonDefined && packager.DefinitionPath is not null)
         {
             var def = LoadDefinition(packager.DefinitionPath, packager.DefinitionOrigin);
-            return await stagingService.GetLatestVersionAsync(def, ct);
+            var folder = settingsService.Load().LocalSourceFolders.TryGetValue(def.Id, out var saved) ? saved : null;
+            return await stagingService.GetLatestVersionAsync(def, ct, folder);
         }
 
         var settings = settingsService.Load();
@@ -781,7 +782,7 @@ public class PackagerExecutionService(
             // there publishes install.bat and uninstall.bat instead.
             var commandOverrides = ApplicationPackagerEngine.Services.DeploymentTypeSpecResolver
                 .ResolveCommandOverrides(manifest, profiled ? null : deploymentConditionsService.GetCommandOverrides(def.Id));
-            var applicationTitle = RunApplicationTitle(manifest, conditions?.TitleMode, settings);
+            var applicationTitle = RunApplicationTitle(manifest, conditions?.TitleMode, settings, source?.ApplicationId, CommandLineSupersedence);
             var signingPolicy = StageFinalizer.EffectivePolicy(snapshot, settings.ScriptSigning);
             if (applicationTitle != manifest.AppName)
                 Report($"Application title            : {applicationTitle}");
@@ -797,12 +798,11 @@ public class PackagerExecutionService(
             if (!DeploymentTargets.SkipsMecm(target))
             {
                 var mecmTarget = new ApplicationPackagerEngine.Services.MecmTarget();
-                await ReportChainCheckAsync(mecmTarget, supersedence, applicationTitle, manifest.SoftwareVersion, settings, Report, ct);
+                supersedence = await ConfirmSupersedenceAsync(mecmTarget, supersedence, applicationTitle, manifest.SoftwareVersion, settings, Report, ct);
                 var result = await mecmTarget.PackageAsync(
                     supersedence.ConfigMgrManifest, stagedContentPath, settings.SiteCode, settings.FileShareRoot, comment,
                     settings.EstimatedRuntimeMins, settings.MaximumRuntimeMins,
                     Report,
-                    identityMarker: supersedence.Marker,
                     commandOverrides: commandOverrides,
                     conditionTemplates: new ApplicationPackagerEngine.Services.ConditionTemplateService()
                         .Load(warning => onOutputLine?.Invoke(warning)),
@@ -1173,194 +1173,6 @@ public class PackagerExecutionService(
         }
         return environment;
     }
-    /// <summary>
-    /// The site, the identity marker and the title key of one application for the rewrite of the old versions of its line. The marker comes
-    /// from the stage manifest of the row, as the publish writes it; the error text is set when none can be made.
-    /// </summary>
-    public (ApplicationPackagerEngine.Services.Supersedence.RewriteScope? Scope, string? Error) RewriteScopeFor(IPackagerExecutionRequest row, RunSnapshot? snapshot)
-    {
-        if (!row.IsJsonDefined && row.StagedManifestPath is null) return (null, "The rewrite does not apply to a PS1 packager.");
-        var settings = settingsService.Load();
-        if (string.IsNullOrWhiteSpace(settings.SiteCode)) return (null, "The rewrite needs a ConfigMgr site. Set the site code in Options.");
-        string? fallbackApplicationId = null;
-        StageManifest? fromDefinition = null;
-        if (row.IsJsonDefined && row.DefinitionPath is not null)
-        {
-            try
-            {
-                var def = LoadDefinition(row.DefinitionPath, row.DefinitionOrigin);
-                var source = ProfileSource.Resolve(WorkbenchStoreOrNull(snapshot), def.Id, ApplicationIds.RunOrigin(def.SourceOrigin));
-                fallbackApplicationId = source.ApplicationId;
-                // The marker needs only the application, the profile and the architecture, so a row without a current stage still has one.
-                fromDefinition = new StageManifest { ApplicationId = source.ApplicationId, ProfileId = source.ActiveProfileId, Architecture = def.Architecture };
-            }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException or InvalidOperationException)
-            {
-                return (null, $"The definition {row.DefinitionPath} could not be read: {ex.Message}");
-            }
-        }
-        var manifestPath = StagedManifestPath(row, new PackagerExecutionResult { ExitCode = 0 }, snapshot) ?? ExistingStageManifest(row);
-        StageManifest manifest;
-        if (manifestPath is not null)
-        {
-            try { manifest = new ManifestService().Read(manifestPath); }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException or InvalidOperationException)
-            {
-                return (null, $"The stage manifest {manifestPath} could not be read: {ex.Message}");
-            }
-        }
-        else if (fromDefinition is not null) manifest = fromDefinition;
-        else return (null, "No stage manifest was found for this application. Stage and publish it first.");
-        var applicationId = string.IsNullOrWhiteSpace(manifest.ApplicationId) ? fallbackApplicationId : manifest.ApplicationId;
-        var marker = ApplicationPackagerEngine.Services.Supersedence.IdentityMarker.For(manifest, fallbackApplicationId);
-        if (marker is null || string.IsNullOrWhiteSpace(applicationId)) return (null, "This application has no identity marker, so its line cannot be found.");
-        return (new ApplicationPackagerEngine.Services.Supersedence.RewriteScope(
-            marker, applicationId.Trim(), settings.SiteCode, settings.ProviderMachine,
-            settings.Supersedence ?? new ApplicationPackagerEngine.Services.Supersedence.SupersedenceSettings()), null);
-    }
-
-    /// <summary>The line that an old application is linked to: the new title and version, and the site service that writes the marker.</summary>
-    public sealed record OldApplicationTarget(string NewTitle, string NewVersion, string Marker, string SiteCode, string? ProviderMachine);
-
-    /// <summary>
-    /// What "Use as old application" needs for one row: the title, the version and the identity marker of the staged build, as the publish
-    /// resolves them. The row needs a staged build, because the title, the version and the architecture of the new application come from it.
-    /// </summary>
-    public (OldApplicationTarget? Target, string? Error) OldApplicationTargetFor(IPackagerExecutionRequest row, RunSnapshot? snapshot)
-    {
-        if (!row.IsJsonDefined && row.StagedManifestPath is null) return (null, "Use as old application does not apply to a PS1 packager.");
-        var manifestPath = StagedManifestPath(row, new PackagerExecutionResult { ExitCode = 0 }, snapshot) ?? ExistingStageManifest(row);
-        if (manifestPath is null) return (null, "No stage manifest was found for this application. Stage it first: the title, the version and the architecture come from the staged build.");
-        StageManifest manifest;
-        try { manifest = new ManifestService().Read(manifestPath); }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException or InvalidOperationException)
-        {
-            return (null, $"The stage manifest {manifestPath} could not be read: {ex.Message}");
-        }
-        var settings = settingsService.Load();
-        if (string.IsNullOrWhiteSpace(settings.SiteCode)) return (null, "Use as old application needs a ConfigMgr site. Set the site code in Options.");
-        string? titleMode = null;
-        string? fallbackApplicationId = null;
-        if (row.IsJsonDefined && row.DefinitionPath is not null)
-        {
-            try
-            {
-                var def = LoadDefinition(row.DefinitionPath, row.DefinitionOrigin);
-                var source = ProfileSource.Resolve(WorkbenchStoreOrNull(snapshot), def.Id, ApplicationIds.RunOrigin(def.SourceOrigin));
-                fallbackApplicationId = source.ApplicationId;
-                if (ProfileSource.LegacyMapsApplyTo(manifest, source)) titleMode = deploymentConditionsService.GetConditions(def.Id)?.TitleMode;
-            }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException or InvalidOperationException)
-            {
-                return (null, $"The definition {row.DefinitionPath} could not be read: {ex.Message}");
-            }
-        }
-        var marker = ApplicationPackagerEngine.Services.Supersedence.IdentityMarker.For(manifest, fallbackApplicationId);
-        if (marker is null) return (null, "This application has no identity marker (it has no line name yet), so an old application cannot be linked to it.");
-        return (new OldApplicationTarget(RunApplicationTitle(manifest, titleMode, settings), manifest.SoftwareVersion, marker, settings.SiteCode, settings.ProviderMachine), null);
-    }
-
-    /// <summary>
-    /// The supersedence-only pass of One Click for one application whose version is on the site and whose supersedence step failed at
-    /// the publish: the lookup and the step, with no stage and no publish. <paramref name="applicationName"/> is the application the
-    /// publish recorded. The identity marker comes from the manifest of the last stage. Never throws, except for a cancellation.
-    /// </summary>
-    public async Task<ApplicationPackagerEngine.Services.OneClick.OneClickSupersedencePassResult> RunSupersedencePassAsync(
-        IPackagerExecutionRequest row, string applicationName, string version, Action<string>? onOutputLine, CancellationToken ct)
-    {
-        void Report(string line) { if (onOutputLine is not null) OutputLineDispatch.Post(onOutputLine, line); }
-        var manifestPath = StagedManifestPath(row, new PackagerExecutionResult { ExitCode = 0 }, null) ?? ExistingStageManifest(row);
-        var settings = settingsService.Load();
-        string? fallbackApplicationId = null;
-        if (row.IsJsonDefined && row.DefinitionPath is not null)
-        {
-            try
-            {
-                var def = LoadDefinition(row.DefinitionPath, row.DefinitionOrigin);
-                fallbackApplicationId = ProfileSource.Resolve(WorkbenchStoreOrNull(null), def.Id, ApplicationIds.RunOrigin(def.SourceOrigin)).ApplicationId;
-            }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException or InvalidOperationException)
-            {
-                return ApplicationPackagerEngine.Services.OneClick.OneClickSupersedencePassResult.Of(
-                    ApplicationPackagerEngine.Services.Supersedence.SupersedenceStepStatus.NotApplied,
-                    $"The definition {row.DefinitionPath} could not be read: {ex.Message}");
-            }
-        }
-        return await ApplicationPackagerEngine.Services.OneClick.OneClickSupersedencePass.RunAsync(
-            manifestPath, applicationName, version, settings.SiteCode,
-            new ApplicationPackagerEngine.Services.OneClick.OneClickSupersedencePassSteps(
-                path => new ManifestService().Read(path),
-                (manifest, contentPath) => PlanSupersedence(manifest, contentPath, settings, DeploymentTargets.Mecm, _ => { }, fallbackApplicationId),
-                (name, ver, marker, mode, progress, token) => new MecmTarget().RunSupersedenceAsync(
-                    name, ver, marker, mode, settings.SiteCode, settings.ProviderMachine, progress, token, requirePublished: true)),
-            Report, ct);
-    }
-
-    /// <summary>What the "Apply supersedence" action did for one application.</summary>
-    public sealed record SupersedenceApplyResult(bool Ok, string Message, ApplicationPackagerEngine.Services.Supersedence.SupersedenceStepStatus? Status = null);
-
-    /// <summary>
-    /// The "Apply supersedence" action: the lookup and the supersedence step for the sealed or staged build of one application, without a
-    /// new publish. The step reads the relations first, so a repeat adds only the missing ones. A published application whose earlier step
-    /// failed leaves the state "Published, supersedence not applied" when it succeeds.
-    /// </summary>
-    public async Task<SupersedenceApplyResult> ApplySupersedenceAsync(
-        IPackagerExecutionRequest row, RunSnapshot? snapshot, Action<string>? onOutputLine, CancellationToken ct)
-    {
-        void Report(string line) { if (onOutputLine is not null) OutputLineDispatch.Post(onOutputLine, line); }
-        var manifestPath = StagedManifestPath(row, new PackagerExecutionResult { ExitCode = 0 }, snapshot) ?? ExistingStageManifest(row);
-        if (!row.IsJsonDefined && row.StagedManifestPath is null)
-            return new(false, "Apply supersedence does not apply to a PS1 packager.");
-        if (manifestPath is null) return new(false, "No stage manifest was found for this application. Stage and publish it first.");
-        StageManifest manifest;
-        try { manifest = new ManifestService().Read(manifestPath); }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException or InvalidOperationException)
-        {
-            return new(false, $"The stage manifest {manifestPath} could not be read: {ex.Message}");
-        }
-        var settings = settingsService.Load();
-        if (string.IsNullOrWhiteSpace(settings.SiteCode)) return new(false, "Supersedence needs a ConfigMgr site. Set the site code in Options.");
-
-        // The title is resolved as the publish resolves it, so the lookup finds the application that the publish created.
-        string? titleMode = null;
-        string? fallbackApplicationId = null;
-        if (row.IsJsonDefined && row.DefinitionPath is not null)
-        {
-            try
-            {
-                var def = LoadDefinition(row.DefinitionPath, row.DefinitionOrigin);
-                var source = ProfileSource.Resolve(WorkbenchStoreOrNull(snapshot), def.Id, ApplicationIds.RunOrigin(def.SourceOrigin));
-                fallbackApplicationId = source.ApplicationId;
-                if (ProfileSource.LegacyMapsApplyTo(manifest, source)) titleMode = deploymentConditionsService.GetConditions(def.Id)?.TitleMode;
-            }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException or InvalidOperationException)
-            {
-                return new(false, $"The definition {row.DefinitionPath} could not be read: {ex.Message}");
-            }
-        }
-        var title = RunApplicationTitle(manifest, titleMode, settings);
-        var plan = PlanSupersedence(manifest, Path.GetDirectoryName(manifestPath)!, settings, DeploymentTargets.Mecm, Report, fallbackApplicationId);
-        if (plan.Refusal is not null) return new(false, plan.Refusal);
-        if (plan.Mode == ApplicationPackagerEngine.Services.Supersedence.SupersedenceMode.Off)
-            return new(false, "Supersedence is off for this title. Turn it on in Options or in the override of the title.");
-        if (string.IsNullOrWhiteSpace(plan.Marker))
-            return new(false, "This application carries no identity marker (it has keywords of its own), so the older version cannot be found.");
-
-        var step = await new MecmTarget().RunSupersedenceAsync(
-            title, manifest.SoftwareVersion, plan.Marker, plan.Mode, settings.SiteCode, settings.ProviderMachine, Report, ct, requirePublished: true);
-        foreach (var warning in step.Warnings) Report($"Supersedence warning       : {warning}");
-        var ok = step.Status != ApplicationPackagerEngine.Services.Supersedence.SupersedenceStepStatus.NotApplied;
-        // Only a step that set a relation changes the inventory; "no older version" proves nothing about the publish.
-        if (step.Status == ApplicationPackagerEngine.Services.Supersedence.SupersedenceStepStatus.Applied)
-        {
-            var identity = InventoryIdentity(row, snapshot, manifest);
-            RecordDestination(row, identity, settings, "ConfigMgr", manifest.SoftwareVersion, InventoryOutcome.Succeeded, title,
-                FirstNonBlank(manifest.BuildId, snapshot?.BuildId), Guid.NewGuid().ToString("N"), DateTimeOffset.UtcNow,
-                step.Message, onOutputLine);
-        }
-        return new(ok, step.Message, step.Status);
-    }
-
 
     /// <summary>
     /// The application title of a run: the mode of the manifest (a profile), else the saved mode of the
@@ -1368,11 +1180,16 @@ public class PackagerExecutionService(
     /// One function for the definition path and the staged-manifest path, so a dropped installer follows
     /// the same title settings as a definition.
     /// </summary>
-    public static string RunApplicationTitle(StageManifest manifest, string? perApplicationMode, AppSettings settings) =>
-        TitleNaming.Finish(ApplicationTitle.Resolve(
-            manifest.AppName, manifest.SoftwareVersion,
-            ApplicationTitle.ResolveMode(manifest.TitleMode, perApplicationMode, settings.IncludeVersionInTitle, settings.RemoveVersionFromTitle)),
-            settings.AppendArchitectureToTitle);
+    public static string RunApplicationTitle(StageManifest manifest, string? perApplicationMode, AppSettings settings,
+        string? applicationId = null, ApplicationPackagerEngine.Services.Supersedence.SupersedenceCommandLine? commandLine = null)
+    {
+        var mode = ApplicationTitle.ResolveMode(manifest.TitleMode, perApplicationMode, settings.IncludeVersionInTitle, settings.RemoveVersionFromTitle);
+        // Supersedence needs n and n-1 as separate applications, so the version is in the title whenever it is on for this application.
+        var id = string.IsNullOrWhiteSpace(manifest.ApplicationId) ? applicationId : manifest.ApplicationId;
+        if (ApplicationPackagerEngine.Services.Supersedence.SupersedenceSettingsEditor.LocksVersionInTitle(settings.Supersedence ?? new(), id, commandLine))
+            mode = TitleMode.IncludeVersion;
+        return TitleNaming.Finish(ApplicationTitle.Resolve(manifest.AppName, manifest.SoftwareVersion, mode), settings.AppendArchitectureToTitle);
+    }
 
     /// <summary>
     /// Packages an already-staged content folder from its stage manifest. A dropped installer
@@ -1398,7 +1215,7 @@ public class PackagerExecutionService(
         var manifest = new ManifestService().Read(manifestPath);
         var signingPolicy = StageFinalizer.EffectivePolicy(snapshot, settings.ScriptSigning);
         // The same title settings as a definition: the global include or remove version, and the mode of the manifest.
-        var applicationTitle = RunApplicationTitle(manifest, null, settings);
+        var applicationTitle = RunApplicationTitle(manifest, null, settings, null, CommandLineSupersedence);
 
         var conflicts = new ConflictWatch();
         void Report(string line)
@@ -1425,12 +1242,11 @@ public class PackagerExecutionService(
         if (!DeploymentTargets.SkipsMecm(target))
         {
             var mecmTarget = new MecmTarget();
-            await ReportChainCheckAsync(mecmTarget, supersedence, applicationTitle, manifest.SoftwareVersion, settings, Report, ct);
+            supersedence = await ConfirmSupersedenceAsync(mecmTarget, supersedence, applicationTitle, manifest.SoftwareVersion, settings, Report, ct);
             var result = await mecmTarget.PackageAsync(
                 supersedence.ConfigMgrManifest, stagedContentPath, settings.SiteCode, settings.FileShareRoot, comment,
                 settings.EstimatedRuntimeMins, settings.MaximumRuntimeMins,
                 Report,
-                identityMarker: supersedence.Marker,
                 conditionTemplates: new ConditionTemplateService().Load(warning => onOutputLine?.Invoke(warning)),
                 providerMachine: settings.ProviderMachine,
                 onExisting: onExisting,
@@ -1493,6 +1309,22 @@ public class PackagerExecutionService(
         };
     }
 
+    /// <summary>The application identifier that keys the supersedence setting of a row; null for a row without a definition (a PS1 packager).</summary>
+    public string? SupersedenceApplicationId(PackagerInfo packager)
+    {
+        if (!packager.IsJsonDefined || packager.DefinitionPath is null) return null;
+        try
+        {
+            var def = LoadDefinition(packager.DefinitionPath, packager.DefinitionOrigin);
+            var source = ProfileSource.Resolve(WorkbenchStoreOrNull(null), def.Id, ApplicationIds.RunOrigin(def.SourceOrigin));
+            return source.Failure is null ? source.ApplicationId : null;
+        }
+        catch (Exception ex) when (ex is IOException or InvalidOperationException or System.Text.Json.JsonException or UnauthorizedAccessException)
+        {
+            return null;
+        }
+    }
+
     /// <summary>The version rule and the supersedence mode that the command line gave; they outrank the other levels. Null outside a command-line build.</summary>
     public ApplicationPackagerEngine.Services.Supersedence.SupersedenceCommandLine? CommandLineSupersedence { get; set; }
 
@@ -1528,18 +1360,54 @@ public class PackagerExecutionService(
     }
 
     /// <summary>
-    /// The chain check before a publish with the supersedence mode on: warnings in the log, never a block. The old application is read
-    /// from the site, so the check runs only when the application carries the marker that finds it.
+    /// The confirmation of a supersedence before the publish. With the mode on, the older version is found by title and publisher (the
+    /// query of Check ConfigMgr). Nothing found: one log line and no supersedence. Found: the confirmer is asked. Yes keeps the plan
+    /// (and the chain check runs), Skip packages the application without supersedence, No stops the run before anything is created.
     /// </summary>
-    private static async Task ReportChainCheckAsync(
+    private async Task<ApplicationPackagerEngine.Services.Supersedence.SupersedencePlan> ConfirmSupersedenceAsync(
         MecmTarget mecmTarget, ApplicationPackagerEngine.Services.Supersedence.SupersedencePlan supersedence, string title, string version,
         AppSettings settings, Action<string> report, CancellationToken ct)
     {
-        if (supersedence.Mode == ApplicationPackagerEngine.Services.Supersedence.SupersedenceMode.Off || string.IsNullOrWhiteSpace(supersedence.Marker)) return;
-        foreach (var warning in await mecmTarget.CheckChainAsync(title, version, supersedence.Marker, supersedence.ConfigMgrRule, supersedence.Mode,
-                     supersedence.ConfigMgrManifest, settings.SiteCode, settings.ProviderMachine, ct))
-            report($"Chain check                : {warning}");
+        var off = ApplicationPackagerEngine.Services.Supersedence.SupersedenceMode.Off;
+        if (supersedence.Mode == off || supersedence.Key is null) return supersedence;
+        var found = await mecmTarget.FindOlderVersionAsync(title, version, supersedence.Key, settings.SiteCode, settings.ProviderMachine, ct);
+        foreach (var note in found.Notes) report($"Supersedence               : {note}");
+        if (found.Problem is not null)
+        {
+            report($"Supersedence not applied   : {found.Problem}");
+            return supersedence with { Mode = off };
+        }
+        if (found.Old is null)
+        {
+            report("Supersedence               : no older version of this application was found, so nothing is superseded.");
+            return supersedence with { Mode = off };
+        }
+        var uninstall = supersedence.Mode == ApplicationPackagerEngine.Services.Supersedence.SupersedenceMode.ReplaceAndUninstall;
+        var confirmer = SupersedenceConfirmation ?? ApplicationPackagerEngine.Services.Supersedence.SupersedenceConfirmer.Fixed(ApplicationPackagerEngine.Services.Supersedence.SupersedenceAnswer.Skip);
+        var answer = await confirmer.ConfirmAsync(new ApplicationPackagerEngine.Services.Supersedence.SupersedencePrompt(
+            title, version, found.Old.Title, found.Old.SoftwareVersion ?? "", uninstall));
+        switch (answer)
+        {
+            case ApplicationPackagerEngine.Services.Supersedence.SupersedenceAnswer.Yes:
+                report($"Supersedence               : confirmed, {title} will supersede {found.Old.Title} {found.Old.SoftwareVersion}.");
+                foreach (var warning in await mecmTarget.CheckChainAsync(title, version, supersedence.Key, supersedence.ConfigMgrRule, supersedence.Mode,
+                             supersedence.ConfigMgrManifest, settings.SiteCode, settings.ProviderMachine, ct))
+                    report($"Chain check                : {warning}");
+                return supersedence;
+            case ApplicationPackagerEngine.Services.Supersedence.SupersedenceAnswer.Skip:
+                report("Supersedence               : skipped at the confirmation; the application is packaged without it.");
+                return supersedence with { Mode = off };
+            default:
+                report("Supersedence               : declined at the confirmation; the run stops and nothing was created.");
+                throw new OperationCanceledException("The supersedence was declined at the confirmation.");
+        }
     }
+
+    /// <summary>
+    /// The confirmation of the run that this service serves. The caller sets one for a run and shares it between the applications of
+    /// that run. Without one, a run that needs the answer takes Skip (it has no one to ask) and says so in the log.
+    /// </summary>
+    public ApplicationPackagerEngine.Services.Supersedence.SupersedenceConfirmer? SupersedenceConfirmation { get; set; }
 
     /// <summary>The result of a row that the version rule or the supersedence mode refused: it is recorded as refused, and nothing was created.</summary>
     private static PackagerExecutionResult SupersedenceRefused(string refusal, string target) => new()
@@ -1594,10 +1462,10 @@ public class PackagerExecutionService(
         // never fails the run: the application stays, and the outcome is "Published, supersedence not applied".
         ApplicationPackagerEngine.Services.Supersedence.SupersedenceStepResult? supersedenceResult = null;
         if (contentFailure is null && supersedence.Mode != ApplicationPackagerEngine.Services.Supersedence.SupersedenceMode.Off
-            && !string.IsNullOrWhiteSpace(supersedence.Marker))
+            && supersedence.Key is not null)
         {
             supersedenceResult = await mecmTarget.RunSupersedenceAsync(
-                result.ApplicationName, manifest.SoftwareVersion, supersedence.Marker, supersedence.Mode,
+                result.ApplicationName, manifest.SoftwareVersion, supersedence.Key, supersedence.Mode,
                 settings.SiteCode, settings.ProviderMachine, report, ct);
             report(supersedenceResult.Status switch
             {

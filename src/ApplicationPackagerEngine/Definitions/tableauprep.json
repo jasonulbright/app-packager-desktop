@@ -31,7 +31,8 @@
       "Upgrade-Insecure-Requests: 1"
     ]
   },
-  "DownloadUrl": "https://downloads.tableau.com/tssoftware/TableauPrep-{display_version_dashed}.exe",
+  "DownloadUrl": "https://downloads.tableau.com/esdalt/tableau_prep/{display_version}/TableauPrep-{display_version_dashed}.exe",
+  "FallbackDownloadUrl": "https://downloads.tableau.com/tssoftware/TableauPrep-{display_version_dashed}.exe",
   "RequireValidSignature": true,
   "InstallArgs": "/install /quiet /norestart ACCEPTEULA=1 SENDTELEMETRY=0",
   "UninstallArgs": "",

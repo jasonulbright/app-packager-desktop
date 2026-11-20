@@ -36,15 +36,13 @@ public sealed record BuildOptions
     public string? VersionRule { get; init; }
     /// <summary>--supersedence: off, replace or replace-uninstall. Outranks the title override and the site default.</summary>
     public string? Supersedence { get; init; }
-    /// <summary>--rewrite-old-versions: plan, apply or restore. It changes the version clause of the old applications of the line.</summary>
-    public string? RewriteOldVersions { get; init; }
     /// <summary>--yes: the confirmation of apply and restore.</summary>
     public bool Yes { get; init; }
     /// <summary>--record-installed-value: the value read from the installed product of --application and --version.</summary>
     public string? RecordInstalledValue { get; init; }
     /// <summary>--accept-exact-block: accepts the block of the Exact guard for --application and --version.</summary>
     public bool AcceptExactBlock { get; init; }
-    /// <summary>True when the run only writes a supersedence setting and neither stages, packages nor rewrites.</summary>
+    /// <summary>True when the run only writes a supersedence setting and neither stages nor packages.</summary>
     public bool IsSupersedenceRecord => RecordInstalledValue is not null || AcceptExactBlock;
     public string? LocalSourceFolder { get; init; }
     public string? DataRoot { get; init; }
@@ -79,7 +77,7 @@ public static class BuildArguments
         "application", "profile", "version", "target", "download-root", "estimated-minutes", "maximum-minutes",
         "packagers-root", "log-folder", "site-code", "provider-machine-name", "file-server-path", "comment",
         "wsus-server", "wsus-port", "wsus-classification", "wsus-approval-group", "on-existing",
-        "local-source-folder", "data-root", "version-rule", "supersedence", "rewrite-old-versions", "record-installed-value",
+        "local-source-folder", "data-root", "version-rule", "supersedence", "record-installed-value",
         "apps", "report-folder", "report-formats", "webhook-url", "drop-folder", "keep-report-days", "config"
     };
 
@@ -178,23 +176,13 @@ public static class BuildArguments
             && ApplicationPackagerEngine.Services.Supersedence.SupersedenceResolver.BlockedCombination(givenRule, givenMode) is { } blocked)
             return Fail(blocked);
 
-        string? rewrite = null;
-        if (values.TryGetValue("rewrite-old-versions", out var rewriteText))
-        {
-            rewrite = new[] { "plan", "apply", "restore" }.FirstOrDefault(w => w.Equals(rewriteText.Trim(), StringComparison.OrdinalIgnoreCase));
-            if (rewrite is null) return Fail($"Unknown --rewrite-old-versions value '{rewriteText}'; expected plan, apply or restore.");
-            if (Flag(values, "stage") == true || Flag(values, "package") == true)
-                return Fail("--rewrite-old-versions runs alone: it does not stage or package.");
-        }
-        if (Flag(values, "yes") == true && rewrite is null) return Fail("Option '--yes' applies to --rewrite-old-versions only.");
-
         var record = Text(values, "record-installed-value");
         var accept = Flag(values, "accept-exact-block") == true;
         if (record is not null || accept)
         {
             if (record is not null && accept) return Fail("--record-installed-value and --accept-exact-block are separate runs; give one.");
-            if (rewrite is not null || Flag(values, "stage") == true || Flag(values, "package") == true)
-                return Fail("--record-installed-value and --accept-exact-block run alone: they do not stage, package or rewrite.");
+            if (Flag(values, "stage") == true || Flag(values, "package") == true)
+                return Fail("--record-installed-value and --accept-exact-block run alone: they do not stage or package.");
             if (Text(values, "version") is not { } recordVersion)
                 return Fail("--record-installed-value and --accept-exact-block need --version: the value belongs to one version.");
             if (!ApplicationPackagerEngine.Services.Supersedence.InstalledValueRecorder.IsValidVersionText(recordVersion))
@@ -243,7 +231,6 @@ public static class BuildArguments
             OnExisting = onExisting,
             VersionRule = Text(values, "version-rule"),
             Supersedence = Text(values, "supersedence"),
-            RewriteOldVersions = rewrite,
             Yes = Flag(values, "yes") == true,
             RecordInstalledValue = record,
             AcceptExactBlock = accept,
@@ -251,7 +238,7 @@ public static class BuildArguments
             DataRoot = Text(values, "data-root")
         };
 
-        if (!options.Stage && !options.Package && options.RewriteOldVersions is null && !options.IsSupersedenceRecord) return Fail("Specify --stage, --package, or both.");
+        if (!options.Stage && !options.Package && !options.IsSupersedenceRecord) return Fail("Specify --stage, --package, or both.");
         if (options.Package && !options.Stage && DeploymentTargets.PublishesToWsus(options.Target) && DestinationSet.TryFromTarget(options.Target) is { Names.Count: > 1 })
             return Fail($"A {options.Target} package publishes the build staged in the same run; pass --stage together with --package.");
         return new ParsedArguments(options, null);
@@ -306,10 +293,8 @@ public static class BuildArguments
                                       Outranks the title override and the site default.
           --supersedence <mode>       off, replace or replace-uninstall (needs --version-rule exact). Outranks the title override
                                       and the site default.
-          --rewrite-old-versions <w>  plan, apply or restore: changes the version clause of the OLD applications of the line from
-                                      GreaterEquals to IsEquals (and back). Runs alone. plan only reads the site. apply and restore
-                                      need --yes after the plan was read. Writes the log supersedence-rewrite.jsonl.
-          --yes                       Confirms apply and restore of --rewrite-old-versions.
+          --yes                       Confirms the supersedence of a run that has supersedence on. Without --yes the run does not apply
+                                      it (Skip) and says so in the log.
           --record-installed-value <v> Records the version that the installed product of --application and --version shows
                                       (the Exact guard compares it with the expected value). Needs --version. Runs alone.
           --accept-exact-block        Accepts the block of the Exact guard for --application and --version (the clause is then

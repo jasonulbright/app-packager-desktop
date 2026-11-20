@@ -25,7 +25,7 @@ internal static class WsusSupportPins
         "mattermost.json", "mongodbcompass.json", "mremoteng.json", "msodbcsql18.json", "msoledb.json",
         "mysqlconnectornet.json", "naps2.json", "netbird.json", "netlogo.json", "networkmanager.json", "nodejs.json",
         "openvpn.json", "ownclouddesktop.json", "paintdotnet.json", "pandoc.json", "parallelsclient.json", "pdf24creator.json",
-        "pdfsam.json", "powershell7.json", "powershell7lts.json", "putty.json", "pwsafe.json", "qgis-ltr.json", "qgis.json",
+        "pdfsam.json", "powershell7.json", "putty.json", "pwsafe.json", "qgis-ltr.json", "qgis.json",
         "rancherdesktop.json", "redshiftodbc.json", "remotedesktopmanager.json", "renderdoc.json", "rocketchat.json",
         "rvtools.json", "screentogif.json", "semeru-jdk11.json", "semeru-jdk17.json", "semeru-jdk8.json", "semeru-jre11.json",
         "semeru-jre17.json", "semeru-jre8.json", "sharepointonlinemanagementshell.json", "smartty.json",

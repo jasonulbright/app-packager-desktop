@@ -2,7 +2,7 @@
 
 ## What it does
 
-This page lists the nested sections of an application definition: `InstallerSettings`, `PostInstallScript`, `Odt`, `BootstrapperLayout`, `ExtractSetup`, `LocalSource`, `LocalInstaller`, `SideFiles`, `ZipPayload` and `PayloadVariants`. The top-level fields, `VersionScraper` and `Detection` are on [Definition format](definition-format.md).
+This page lists the nested sections of an application definition: `InstallerSettings`, `PostInstallScript`, `Odt`, `BootstrapperLayout`, `ExtractSetup`, `LocalSource`, `LocalInstaller`, `SideFiles`, `ExtraFiles`, `ZipPayload` and `PayloadVariants`. The top-level fields, `VersionScraper` and `Detection` are on [Definition format](definition-format.md).
 
 ## When to use it
 
@@ -57,7 +57,7 @@ Example (`mariadb-server.json`):
 | `mariadb-server.json` | MariaDB Server (x64) | Service name, `Text`, `MariaDB`, Server. TCP port, `Number`, `3306`, Server. |
 | `sqlserver2022express.json` | SQL Server 2022 Express (x64) | Instance name, `Text`, `SQLEXPRESS`, Instance. Sysadmin accounts, `Text`, `BUILTIN\Administrators`, Instance. |
 | `ssms.json` | SQL Server Management Studio 22 (x64) | UI mode, `Dropdown` (`Quiet`, `Passive`), `Quiet`, Install behavior. Install path, `Text`, empty, Install behavior. Download all packages before installing, `Toggle`, `true`, Install behavior. Do not update the Visual Studio Installer, `Toggle`, `false`, Install behavior. Close SSMS if it is running, `Toggle`, `false`, Install behavior. The five workloads (AI assistance, business intelligence, code tools, DevOps, hybrid and migration), `Toggle`, `false`, Components, each `--add <ID>`. Product language, `Text`, empty, Components (`--addProductLang <code>`, one language, pattern `^[a-z]{2}-[a-z]{2}$`). Delete the package cache after the install, `Toggle`, `false`, Install behavior (`--nocache`). Include recommended components and Include optional components, `Toggle`, `false`, Components, passed only while a workload is on. Remove out-of-support components, `Toggle`, `true`, Components. |
-| `teamviewerhost.json` | TeamViewer Host (x64) | Assign the device after install, `Toggle`, `false`, Assignment. Assignment ID, `Text`, empty, Assignment. Assignment options, `Text`, `--grant-easy-access`, Assignment. |
+| `teamviewerhost.json` | TeamViewer Host (x64) | API token, Custom config ID, Assignment ID and Assignment options, `Text`, empty, Assignment (MSI properties APITOKEN, CUSTOMCONFIGID, ASSIGNMENTID, ASSIGNMENTOPTIONS). Remove the desktop shortcut, `Toggle`, `false`, Options (DESKTOPSHORTCUTS=0). |
 | `windowsadmincenter.json` | Windows Admin Center (v2) | HTTPS port, `Number`, `443`, no group. |
 | `m365apps-x64.json`, `m365apps-x86.json`, `m365project-x64.json`, `m365project-x86.json`, `m365visio-x64.json`, `m365visio-x86.json` | Microsoft 365 Apps, Project and Visio | The same 21 parameters in each file. Deploy mode, `Dropdown` (`Managed`, `Online`), `Managed`, Deployment. Migrate architecture and Shared computer activation, `Toggle`, `false`, Deployment. Languages, `Text`, `en-us`, Languages (ODT language IDs separated by commas; the pattern is checked). Let ConfigMgr manage Office updates (`OfficeMgmtCOM`), Office updates, Close running Office apps (`FORCEAPPSHUTDOWN`) and Remove installed Office MSI versions (`RemoveMSI`), `Toggle`, `true`, Office behavior; Device-based licensing, `Toggle`, `false`, Office behavior. Then 12 `Toggle` parameters in the group Excluded apps. |
 
@@ -73,7 +73,7 @@ PowerShell that App Packager Desktop appends to `install.ps1`. It runs only afte
 | `WhenValue` | string | The value of `WhenSetting` that enables the script. | `"true"` |
 | `Script` | string | The script body. `{setting:Key}` and `{setting:Key:MapName}` are replaced at stage. | `""` |
 
-Shipped in 6 files. Example: `teamviewerhost.json` runs `TeamViewer.exe assignment` when the parameter `AssignDevice` is `true`.
+Shipped in 6 files. The script runs only when its gating parameter has the value in `WhenValue`.
 
 ## Odt
 
@@ -128,7 +128,7 @@ For a self-extracting payload that wraps an inner setup program (the SQL Server 
 
 ## LocalSource
 
-For a product whose download needs a sign-in or whose catalog serves one build only. The installer comes from a folder that you set under Settings, Local Installer Sources. A valid signature is required. Shipped in the three `citrixworkspace-ltsr-*.json` files.
+For a product whose installer a script cannot download (a vendor sign-in or a bot protection) or whose catalog serves one build only. The installer comes from a folder that you set under Settings, Local Installer Sources. A valid signature is required unless `RequireSignature` is `false`. Shipped in the three `citrixworkspace-ltsr-*.json` files, `teamviewerhost.json` and `tortoisesvn.json`.
 
 | Field | Type | Meaning | Default |
 |---|---|---|---|
@@ -136,6 +136,11 @@ For a product whose download needs a sign-in or whose catalog serves one build o
 | `Filter` | string | File name wildcard that the installer must match. | `"*.exe"` |
 | `Exclude` | string list | Wildcards that disqualify a file that the filter matched. | `[]` |
 | `StagedNames` | list | Staged file name for each source name. The first match wins. Each item has `Match` (a wildcard) and `FileName`. `{version}` is the file version of the installer. When nothing matches, the file stages as `InstallerFileName`. | `[]` |
+| `Note` | string or null | What the folder must hold, in plain words. The folder prompt and the Settings row show it, and it ends every refusal about the folder. | `null` |
+| `VersionFromFile` | bool | `true`: the vendor has no web version source. The version is the version of the file in the folder (the ProductVersion of an MSI file), and Check Latest reports it. Use `"Type": "LocalFile"` in `VersionScraper`. | `false` |
+| `RequireSignature` | bool | `false`: an installer without a valid signature is staged and the log says so. | `true` |
+
+Example (`teamviewerhost.json`): `{ "Mode": "Required", "Filter": "TeamViewer_Host*.msi", "Exclude": [], "Note": "Put the TeamViewer Host MSI (TeamViewer_Host.msi) in that folder. ...", "VersionFromFile": true }`.
 
 Example (`citrixworkspace-ltsr-x64.json`): `{ "Mode": "Required", "Filter": "CitrixWorkspace*_x64*.exe", "Exclude": [], "StagedNames": [ { "Match": "*FullInstaller*", "FileName": "CitrixWorkspaceFullInstaller-LTSR-x64-{version}.exe" } ] }`.
 
@@ -162,6 +167,25 @@ A list of files that you choose and that Stage copies beside the installer, for 
 | `Label` | string | Name of the file in lower case, for the settings row and for the refusal message. | `""` |
 
 Example: `{ "Key": "BeyondCompareKeyFile", "FileName": "BC5Key.txt", "Label": "license key file" }`.
+
+## ExtraFiles
+
+A list of files that Stage downloads beside an MSIX or MSIX bundle and hands to `Add-AppxProvisionedPackage`: a ZIP of dependency packages and a license file. Only an MSIX definition takes them, an imported feed cannot carry them, and each file needs a verified SHA-256 when `RequireHash` is `true`. A definition has at most one file of each kind. Shipped in `appinstaller.json`.
+
+The install wrapper picks the dependency packages of the processor of the device from `Dependencies\<folder>` and gives them and the license to one call, which installs the dependencies before the package. A device with no folder for its processor stops with exit code 1. Without `ExtraFiles` the wrapper provisions the package with `-SkipLicense`.
+
+| Field | Type | Meaning | Default |
+|---|---|---|---|
+| `Kind` | string | `License` or `DependencyArchive`. | `""` |
+| `DownloadUrl` | string | Address template. `{version}` is the raw version. | `""` |
+| `DownloadUrlQuery` | string or null | A regular expression over the version answer. The named group `url`, or group 1, is the address. For a file whose name the release does not repeat, such as a license file named with a GUID. | `null` |
+| `FileName` | string | Plain ASCII file name. The license keeps this name in the content folder. The archive is removed after the extraction. | `""` |
+| `Sha256` | string or null | Fixed SHA-256. It wins over `HashQuery`. | `null` |
+| `HashQuery` | string or null | A regular expression over the version answer. The named group `hash`, or group 1, is the SHA-256. | `null` |
+| `RequireHash` | bool | Stage refuses the file when no SHA-256 is known. | `false` |
+| `ArchiveFolders` | string list or null | `DependencyArchive` only: the architecture folders of the ZIP to extract, for example `x64` and `arm64`. Each folder must hold at least one `.appx` or `.msix`. | `null` |
+
+Example: `{ "Kind": "License", "FileName": "License1.xml", "DownloadUrlQuery": "...", "HashQuery": "...", "RequireHash": true }`.
 
 ## ZipPayload
 

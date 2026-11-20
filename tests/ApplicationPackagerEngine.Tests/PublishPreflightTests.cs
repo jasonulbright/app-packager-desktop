@@ -21,7 +21,7 @@ public sealed class PublishPreflightTests
     [Fact]
     public void TheSentencesNameWhatThePublishDoesNotDo()
     {
-        Assert.Contains("does not supersede", PublishPreflight.ConfigMgrSentence);
+        Assert.Contains("supersedes an older version only when supersedence is on", PublishPreflight.ConfigMgrSentence);
         Assert.Contains("test collection that Settings name", PublishPreflight.ConfigMgrSentence);
         Assert.Contains("does not create or change assignments", PublishPreflight.IntuneSentence);
         Assert.Contains("already assigned", PublishPreflight.IntuneSentence);

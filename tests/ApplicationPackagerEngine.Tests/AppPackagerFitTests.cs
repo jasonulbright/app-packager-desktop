@@ -44,7 +44,7 @@ public sealed class AppPackagerFitTests
         { ApplicationTheme.Dark, 1269, 800 },
         { ApplicationTheme.Light, 1920, 1032 },
         { ApplicationTheme.Dark, 1920, 1032 },
-        // The smallest window of the main window (MinWidth 900): the labels do not fit in five lines, so the toolbar is icon-only.
+        // The smallest window of the main window (MinWidth 900): the labels do not fit in four lines, so the toolbar is icon-only.
         { ApplicationTheme.Light, 900, 700 },
         { ApplicationTheme.Dark, 900, 700 }
     };
@@ -120,7 +120,7 @@ public sealed class AppPackagerFitTests
                     Assert.All(buttons, b => Assert.True(b.ActualHeight <= CompactButtonHeight + 0.5,
                         $"{where}: {AutomationProperties.GetAutomationId(b)} is {b.ActualHeight:0.#} px high; the compact size is {CompactButtonHeight} px."));
                 }
-                // A normal window shows the labels: the icon-only mode is for a width that cannot hold them in five lines.
+                // A normal window shows the labels: the icon-only mode is for a width that cannot hold them in four lines.
                 if (width <= 900) Assert.True(compact, $"{where}: the toolbar keeps its labels at {width} px.");
                 if (width >= 1200) Assert.False(compact, $"{where}: the toolbar is icon-only at {width} px.");
 
@@ -143,6 +143,41 @@ public sealed class AppPackagerFitTests
                 Assert.True(catalog.Focus(), $"{where}: the Catalog button takes no keyboard focus.");
                 Assert.NotNull(UIElementAutomationPeer.CreatePeerForElement(catalog).GetPattern(PatternInterface.Invoke));
                 Assert.False(string.IsNullOrWhiteSpace(UIElementAutomationPeer.CreatePeerForElement(catalog).GetName()), $"{where}: the Catalog button has no automation name.");
+            }
+            finally { window.Close(); }
+        });
+    }
+
+    // Q-98: while a run is active the toolbar shows Cancel; it has the height and the top of its neighbours, also when the row wraps.
+    [Theory]
+    [MemberData(nameof(Sizes))]
+    public void TheCancelButtonHasTheHeightAndTheLineOfItsNeighboursWhileARunIsActive(ApplicationTheme theme, int width, int height)
+    {
+        WithApplication(theme, () =>
+        {
+            var page = Create(12, out var viewModel);
+            // The view model is built without its constructor, so the setter (which notifies commands that do not exist) is not used: the field is set and the change is announced.
+            typeof(PackagesViewModel).GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
+                .Single(f => f.Name.TrimStart('_').Equals("isOperationRunning", StringComparison.OrdinalIgnoreCase)).SetValue(viewModel, true);
+            typeof(PackagesViewModel).GetMethod("OnPropertyChanged", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Public, null, new[] { typeof(string) }, null)!.Invoke(viewModel, new object[] { "IsOperationRunning" });
+            var window = new Window { Width = width - NavigationPaneWidth, Height = height - FrameHeight, WindowStyle = WindowStyle.None, Content = page };
+            Show(window);
+            try
+            {
+                Settle(window);
+                var where = $"App Packager {theme} {width}x{height}, run active";
+                var toolbar = ById<FrameworkElement>(page, "pnlAppPackagerToolbar");
+                Pixels(window, toolbar, $"app-packager-running-{theme}-{width}");
+                var buttons = Descendants(toolbar).OfType<ButtonBase>().Where(b => b.IsVisible).ToList();
+                var cancel = buttons.Single(b => AutomationProperties.GetAutomationId(b) == "btnCancelOperation");
+                var history = buttons.Single(b => AutomationProperties.GetAutomationId(b) == "btnOperationHistory");
+                Point Top(FrameworkElement e) => e.TransformToAncestor(toolbar).Transform(new Point(0, 0));
+                Assert.True(Math.Abs(cancel.ActualHeight - history.ActualHeight) < 0.5, $"{where}: Cancel is {cancel.ActualHeight:0.#} px high, Operation history {history.ActualHeight:0.#}.");
+                Assert.True(Math.Abs(cancel.ActualWidth - history.ActualWidth) < 0.5 || (string?)toolbar.Tag != "Compact", $"{where}: an icon button is a square.");
+                // The row of Cancel: every button whose top is within 1 px of it shares its height; the buttons of that row have one top.
+                var row = buttons.Where(b => Math.Abs(Top(b).Y - Top(cancel).Y) < 1).ToList();
+                Assert.Contains(history, row);
+                Assert.All(row, b => Assert.True(Math.Abs(b.ActualHeight - cancel.ActualHeight) < 0.5, $"{where}: {AutomationProperties.GetAutomationId(b)} is {b.ActualHeight:0.#} px high."));
             }
             finally { window.Close(); }
         });

@@ -227,6 +227,17 @@ public partial class SettingsViewModel : ObservableObject, ISettingsReload
         LoadPathRows(definitions);
     }
 
+    /// <summary>The line under a Local Installer Sources row: the mode, the file name rule and what to put in the folder.</summary>
+    public static string LocalSourceRowHint(LocalSourceConfig source)
+    {
+        var line = source.IsRequired
+            ? $"Required. Stage takes the newest {source.Filter} from this folder."
+            : $"Optional. With a folder set, Stage takes the newest {source.Filter} from it instead of downloading.";
+        if (source.VersionFromFile) line += " The version comes from the file; there is no web version source.";
+        if (!source.RequireSignature) line += " An unsigned file is staged, and the log says so.";
+        return string.IsNullOrWhiteSpace(source.Note) ? line : line + " " + source.Note.Trim();
+    }
+
     /// <summary>
     /// One folder row per definition with a local installer source and one
     /// file row per side-file key, each starting from the saved path.
@@ -242,9 +253,7 @@ public partial class SettingsViewModel : ObservableObject, ISettingsReload
             {
                 Key = def.Id,
                 Label = def.Application,
-                Hint = def.LocalSource!.IsRequired
-                    ? $"Required. Stage takes the newest {def.LocalSource.Filter} from this folder."
-                    : $"Optional. With a folder set, Stage takes the newest {def.LocalSource.Filter} from it instead of downloading.",
+                Hint = LocalSourceRowHint(def.LocalSource!),
                 IsFolder = true,
                 Path = s.LocalSourceFolders.TryGetValue(def.Id, out var folder) ? folder : ""
             });

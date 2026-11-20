@@ -1,0 +1,43 @@
+{
+  "Schema": 1,
+  "Id": "7f2d9b4e0a6c8135",
+  "WsusSupport": "No (InstallerTypeUnsupported|CustomInstall)",
+  "IconSource": "External",
+  "Vendor": "Microsoft",
+  "Application": "PowerShell 7 Stable (MSIX, per user)",
+  "CMName": "PowerShell 7 Stable (MSIX, per user)",
+  "Architecture": "x64",
+  "VendorUrl": "https://github.com/PowerShell/PowerShell",
+  "Cpe": "cpe:2.3:a:microsoft:powershell:*:*:*:*:*:*:*:*",
+  "ArpName": "none",
+  "SecurityAdvisoryUrl": "https://github.com/PowerShell/PowerShell/security/advisories",
+  "InstallerType": "MSIX",
+  "InstallerFramework": "MSIX",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "HttpRegex",
+    "Url": "https://api.github.com/repos/PowerShell/PowerShell/releases?per_page=30",
+    "Pattern": "\"name\":\\s*\"PowerShell-(\\d+\\.\\d+\\.\\d+)\\.msixbundle\"",
+    "SelectHighestVersion": true,
+    "PayloadHashQuery": "\"name\":\\s*\"PowerShell-{version}\\.msixbundle\"(?:[^{}]|\\{(?:[^{}]|\\{[^{}]*\\})*\\})*?\"digest\":\\s*\"sha256:(?<hash>[0-9a-fA-F]{64})\""
+  },
+  "DownloadUrl": "https://github.com/PowerShell/PowerShell/releases/download/v{version}/PowerShell-{version}.msixbundle",
+  "InstallerFileName": "PowerShell-{version}.msixbundle",
+  "RequirePayloadHash": true,
+  "RequireValidSignature": true,
+  "StageNotes": [
+    "Release channel: Stable. Microsoft Learn (PowerShell Support Lifecycle) names two kinds of PowerShell 7 release, Long Term Servicing (LTS, today 7.6) and Stable, the release between two LTS releases. This definition takes the newest Stable release that carries the msixbundle (today 7.7.0, which the lifecycle page, written before the release, still lists as a preview). It never takes an LTS or a preview bundle. The other PowerShell 7 definitions: PowerShell 7 (x64), the LTS line as a Microsoft MSI; and PowerShell 7 (Devolutions, third party).",
+    "The MSIX package is a single-user installation. There is no option to install it for all users; provisioning gives every profile its own copy.",
+    "The MSIX package does not support PowerShell remoting. The application sandbox blocks changes to the application root folder, so the WSMan configuration cannot be changed and remote sessions cannot connect to it.",
+    "The MSIX package does not support Register-PSSessionConfiguration, Update-Help -Scope AllUsers, Enable-ExperimentalFeature -Scope AllUsers or Set-ExecutionPolicy -Scope LocalMachine, and it cannot create the all-users profile scripts. Current-user profiles work.",
+    "The MSIX package installs below Program Files\\WindowsApps, not to Program Files\\PowerShell\\7, and it does not update through Microsoft Update. The PowerShell 7 MSI definitions are the choice for a server or for a computer that needs remoting or the all-users scope.",
+    "From PowerShell 7.7.0 the project publishes no MSI, so the MSIX package is the Microsoft package for a computer that needs the current release."
+  ],
+  "Detection": {
+    "Type": "Script",
+    "Is64Bit": true
+  },
+  "RunningProcess": [
+    "pwsh"
+  ]
+}

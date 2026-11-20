@@ -115,40 +115,31 @@ public class ArpNameDefinitionTests
     }
 
     [Fact]
-    public void TheOverlapGuardCoversThePowerShellPair()
+    public void TheOverlapGuardCoversThePowerShellMsiAndTheDevolutionsRepackaging()
     {
-        var stable = DefinitionFixture.Load("powershell7.json");
-        var lts = DefinitionFixture.Load("powershell7lts.json");
-        Assert.Equal(stable.ArpName, lts.ArpName);
-        Assert.False(Overlap(stable, lts));
-        Assert.True(Overlap(new AppDefinition { ArpName = stable.ArpName }, lts));
+        var lts = DefinitionFixture.Load("powershell7.json");
+        var devolutions = DefinitionFixture.Load("devolutionspowershell.json");
+        Assert.NotEqual(lts.ArpName, devolutions.ArpName);
+        Assert.False(Overlap(lts, devolutions));
+        Assert.True(Overlap(new AppDefinition { ArpName = lts.ArpName }, lts));
         Assert.True(VersionsOverlap("7.*", "7.4.*"));
         Assert.False(VersionsOverlap("17.*", "21.*"));
     }
 
-    [Theory]
-    [InlineData("7.6.0.0", true, false)]
-    [InlineData("7.5.4.0", true, false)]
-    [InlineData("7.10.1.0", true, false)]
-    [InlineData("7.2.24.0", true, false)]
-    [InlineData("7.4.6.0", false, true)]
-    public void APowerShellVersionBelongsToExactlyOneDefinition(string version, bool stable, bool lts)
+    [Fact]
+    public void ThePowerShell7LtsDefinitionOwnsTheMsiEntryOfEveryLine_SoAnOlderInstallIsStillRecognised()
     {
-        static bool Accepts(string file, string version)
-        {
-            var patterns = ArpWildcard.Split(DefinitionFixture.Load(file).ArpVersion);
-            return patterns.Count == 0 || patterns.Any(p => ArpWildcard.TryCreate(p, out var r) && r.IsMatch(version));
-        }
-        Assert.Equal(stable, Accepts("powershell7.json", version));
-        Assert.Equal(lts, Accepts("powershell7lts.json", version));
+        // 7.4 and 7.5 are out of support, but a device that has one is still a PowerShell 7 MSI install that Discover must find.
+        var lts = DefinitionFixture.Load("powershell7.json");
+        Assert.True(string.IsNullOrWhiteSpace(lts.ArpVersion));
+        Assert.False(File.Exists(Path.Combine(AppContext.BaseDirectory, "Definitions", "powershell7lts.json")));
     }
 
     [Fact]
-    public void TheLtsVersionPinFollowsTheSeriesItsScraperReads()
+    public void TheLtsDefinitionPinsTheSeriesThatMicrosoftLearnNamesAsLts()
     {
-        var lts = DefinitionFixture.Load("powershell7lts.json");
-        var series = System.Text.RegularExpressions.Regex.Match(lts.VersionScraper.Pattern, @"v\((\d+)\\\.(\d+)\\\.").Groups;
-        Assert.Equal($"{series[1].Value}.{series[2].Value}.*", lts.ArpVersion);
+        var lts = DefinitionFixture.Load("powershell7.json");
+        Assert.Contains(@"PowerShell-(7\.6\.\d+)-win-x64\.msi", lts.VersionScraper.Pattern);
     }
 
     [Fact]

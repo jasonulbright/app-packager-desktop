@@ -5,7 +5,7 @@ namespace ApplicationPackagerEngine.Services.Supersedence;
 /// <summary>How the supersedence step of a publish ended.</summary>
 public enum SupersedenceStepStatus
 {
-    /// <summary>The mode is Off, the application has no marker, or the combination does not apply; nothing was asked of the site.</summary>
+    /// <summary>The mode is Off, the application has no title key, or the combination does not apply; nothing was asked of the site.</summary>
     NotRun,
     /// <summary>The lookup found no older application, or none that can be paired. Not a failure.</summary>
     NoOlderVersion,
@@ -24,26 +24,33 @@ public sealed record SupersedenceStepResult(SupersedenceStepStatus Status, strin
 }
 
 /// <summary>
-/// The scripts of the supersedence step. The lookup reads the applications with the marker; the step sets one relation for each pair.
+/// The scripts of the supersedence step. The lookup reads the older versions by title and publisher; the step sets one relation for each pair.
 /// The relations of a deployment type are read first, and a relation that exists is not written again. Names and not identifiers go
 /// to the cmdlet: every save of an application makes a new revision with a new CI_ID, so an identifier that the first call read is
 /// stale for the second.
 /// </summary>
 public static class SupersedenceScripts
 {
-    /// <summary>The applications of the site whose keywords hold the marker, with their deployment types.</summary>
-    public static string BuildLookupScript(string siteCode, string? providerMachine, string marker, string newApplicationName)
+    /// <summary>
+    /// The applications of the site that are older versions of the application, with their deployment types: the title rule of Check
+    /// ConfigMgr (the title holds the words of the base title, with release details around them) and the same publisher. The new
+    /// application is always listed, so the pairing can read its deployment types.
+    /// </summary>
+    public static string BuildLookupScript(string siteCode, string? providerMachine, SupersedenceKey key, string newApplicationName)
     {
         var sb = new StringBuilder();
         MecmTarget.AppendCmPreamble(sb, siteCode, providerMachine);
-        var needle = PowerShellLiteral.EscapeSingleQuoted(">" + marker.Replace("&", "&amp;").Replace("<", "&lt;").Replace(">", "&gt;") + "<");
-        sb.AppendLine($"$markerNeedle = '{needle}'");
+        sb.AppendLine(MecmApplicationTitleRule.PowerShellFunctions);
+        sb.AppendLine($"$baseTitle = '{PowerShellLiteral.EscapeSingleQuoted(key.BaseTitle)}'");
+        sb.AppendLine($"$publisher = '{PowerShellLiteral.EscapeSingleQuoted(key.Publisher)}'");
         // The new application is found by its name: every save makes a new revision with a new CI_ID (checked on the lab site), so an
         // identifier that the package script read is not reliable here.
         sb.AppendLine($"$newApplicationName = '{PowerShellLiteral.EscapeSingleQuoted(newApplicationName)}'");
         sb.AppendLine("foreach ($candidate in @(Get-CMApplication)) {");
-        // The new application is always listed, with its deployment types, even when it holds no marker (it may have keywords of its own).
-        sb.AppendLine("    if ($candidate.LocalizedDisplayName -ne $newApplicationName -and (-not $candidate.SDMPackageXML -or -not $candidate.SDMPackageXML.Contains($markerNeedle))) { continue }");
+        sb.AppendLine("    if ($candidate.LocalizedDisplayName -ne $newApplicationName) {");
+        sb.AppendLine("        if (-not (Test-MecmApplicationTitle $baseTitle ([string]$candidate.LocalizedDisplayName))) { continue }");
+        sb.AppendLine("        if ($publisher -and $candidate.Manufacturer -and ([string]$candidate.Manufacturer).Trim() -ne $publisher) { continue }");
+        sb.AppendLine("    }");
         sb.AppendLine("    $titleB64 = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes([string]$candidate.LocalizedDisplayName))");
         sb.AppendLine("    $expired = if ($candidate.IsExpired) { 1 } else { 0 }");
         sb.AppendLine($"    Write-Host (\"{SupersedenceLookup.ApplicationLine}|{{0}}|{{1}}|{{2}}|{{3}}\" -f $candidate.CI_ID, $expired, $candidate.SoftwareVersion, $titleB64)");

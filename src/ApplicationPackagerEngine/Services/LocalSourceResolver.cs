@@ -6,9 +6,16 @@ namespace ApplicationPackagerEngine.Services;
 
 /// <summary>
 /// Picks the installer a local-source definition stages. Vendors reuse one
-/// file name across releases, so the file version decides, then the newest
-/// write time.
+/// file name across releases, so the file version decides (the ProductVersion
+/// for an MSI file), then the newest write time.
 /// </summary>
+/// <summary>
+/// The application has no web version source: its version is the version of the installer in the installer source folder,
+/// and the folder holds none (or none is set). A batch that reports failures (the CVE report) treats it as "no vendor
+/// version", not as a failed check.
+/// </summary>
+public sealed class NoWebVersionSourceException(string message, Exception inner) : InvalidOperationException(message, inner);
+
 public static class LocalSourceResolver
 {
     public const string SettingsLocation = "Settings > Local Installer Sources";
@@ -20,17 +27,24 @@ public static class LocalSourceResolver
     /// </summary>
     public static string Resolve(string? folder, LocalSourceConfig config, string owner)
     {
+        // Every refusal names what the folder must hold, so the operator knows what to put there.
+        var what = string.IsNullOrWhiteSpace(config.Note) ? "" : " " + config.Note.Trim();
         if (string.IsNullOrWhiteSpace(folder))
             throw new InvalidOperationException(
-                $"No installer source folder is set for {owner}. Choose one in {SettingsLocation}.");
+                $"No installer source folder is set for {owner}. Choose one in {SettingsLocation}.{what}");
         if (!Directory.Exists(folder))
-            throw new InvalidOperationException($"Installer source folder for {owner} not found: {folder}");
+            throw new InvalidOperationException($"Installer source folder for {owner} not found: {folder}.{what}");
 
         var candidates = Directory.GetFiles(folder, config.Filter, SearchOption.TopDirectoryOnly)
             .Where(f => !config.Exclude.Any(x => WildcardMatch(Path.GetFileName(f), x)))
             .ToList();
         if (candidates.Count == 0)
-            throw new InvalidOperationException($"No installer matching '{config.Filter}' found in {folder}");
+        {
+            var zipNote = Directory.GetFiles(folder, "*.zip", SearchOption.TopDirectoryOnly).Length > 0
+                ? " The folder holds a .zip file. Unzip it and keep the installer in the folder itself; a .zip is not read."
+                : "";
+            throw new InvalidOperationException($"No installer matching '{config.Filter}' found in {folder}.{what}{zipNote}");
+        }
 
         return candidates
             .Select(f => (Path: f, Version: RankVersion(f), Written: File.GetLastWriteTimeUtc(f)))
@@ -45,7 +59,7 @@ public static class LocalSourceResolver
     /// </summary>
     public static Version RankVersion(string path)
     {
-        var raw = (FileVersionInfo.GetVersionInfo(path).FileVersion ?? "").Trim();
+        var raw = FileVersionText(path);
         var m = Regex.Match(raw, @"^\d+(\.\d+){1,3}");
         return m.Success && Version.TryParse(m.Value, out var v) ? v : new Version(0, 0);
     }
@@ -53,10 +67,24 @@ public static class LocalSourceResolver
     /// <summary>The FileVersion the staged folder and detection carry; throws when it is not numeric.</summary>
     public static string ReadVersion(string path)
     {
-        var raw = (FileVersionInfo.GetVersionInfo(path).FileVersion ?? "").Trim();
+        var raw = FileVersionText(path);
         if (!Version.TryParse(raw, out _))
             throw new InvalidOperationException($"Installer carries no numeric file version: {path}");
         return raw;
+    }
+
+    /// <summary>
+    /// The version text a file carries: the ProductVersion property of an MSI file, the FileVersion of any other file;
+    /// empty when it has none.
+    /// </summary>
+    public static string FileVersionText(string path)
+    {
+        if (Path.GetExtension(path).Equals(".msi", StringComparison.OrdinalIgnoreCase))
+        {
+            try { return new MsiInspectionService().ReadProperties(path).ProductVersion.Trim(); }
+            catch (Exception ex) when (ex is not OperationCanceledException) { return ""; }
+        }
+        return (FileVersionInfo.GetVersionInfo(path).FileVersion ?? "").Trim();
     }
 
     /// <summary>The staged name for a source file: the first matching rule, else the fallback.</summary>

@@ -1,0 +1,58 @@
+{
+  "Schema": 1,
+  "Id": "c19a5e7d3b402f68",
+  "WsusSupport": "No (InstallerTypeUnsupported|CustomInstall)",
+  "IconSource": "External",
+  "Vendor": "Microsoft",
+  "Application": "App Installer (WinGet)",
+  "CMName": "App Installer (WinGet)",
+  "Architecture": "x64",
+  "VendorUrl": "https://github.com/microsoft/winget-cli",
+  "Cpe": "cpe:2.3:a:microsoft:app_installer:*:*:*:*:*:*:*:*",
+  "ArpName": "none",
+  "SecurityAdvisoryUrl": "https://github.com/microsoft/winget-cli/security/advisories",
+  "InstallerType": "MSIX",
+  "InstallerFramework": "MSIX",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "HttpRegex",
+    "Url": "https://api.github.com/repos/microsoft/winget-cli/releases/latest",
+    "Pattern": "\"tag_name\":\\s*\"v(\\d+(?:\\.\\d+){2})\"",
+    "PayloadHashQuery": "\"name\":\\s*\"Microsoft\\.DesktopAppInstaller_8wekyb3d8bbwe\\.msixbundle\"(?:[^{}]|\\{(?:[^{}]|\\{[^{}]*\\})*\\})*?\"digest\":\\s*\"sha256:(?<hash>[0-9a-fA-F]{64})\""
+  },
+  "DownloadUrl": "https://github.com/microsoft/winget-cli/releases/download/v{version}/Microsoft.DesktopAppInstaller_8wekyb3d8bbwe.msixbundle",
+  "InstallerFileName": "Microsoft.DesktopAppInstaller_8wekyb3d8bbwe.msixbundle",
+  "RequirePayloadHash": true,
+  "RequireValidSignature": true,
+  "ExtraFiles": [
+    {
+      "Kind": "DependencyArchive",
+      "DownloadUrl": "https://github.com/microsoft/winget-cli/releases/download/v{version}/DesktopAppInstaller_Dependencies.zip",
+      "FileName": "DesktopAppInstaller_Dependencies.zip",
+      "HashQuery": "\"name\":\\s*\"DesktopAppInstaller_Dependencies\\.zip\"(?:[^{}]|\\{(?:[^{}]|\\{[^{}]*\\})*\\})*?\"digest\":\\s*\"sha256:(?<hash>[0-9a-fA-F]{64})\"",
+      "RequireHash": true,
+      "ArchiveFolders": [
+        "x64",
+        "arm64"
+      ]
+    },
+    {
+      "Kind": "License",
+      "DownloadUrlQuery": "\"browser_download_url\":\\s*\"(?<url>https://github\\.com/microsoft/winget-cli/releases/download/[^\"]+/[0-9a-fA-F]+_License1\\.xml)\"",
+      "FileName": "License1.xml",
+      "HashQuery": "\"name\":\\s*\"[0-9a-fA-F]+_License1\\.xml\"(?:[^{}]|\\{(?:[^{}]|\\{[^{}]*\\})*\\})*?\"digest\":\\s*\"sha256:(?<hash>[0-9a-fA-F]{64})\"",
+      "RequireHash": true
+    }
+  ],
+  "StageNotes": [
+    "App Installer is provisioned for all users with its dependency packages and its license file. It needs no Microsoft Store and no network access on the device.",
+    "Provisioning reaches an existing user profile at the next sign-in; the install does not register the package for a user who is signed in.",
+    "The uninstall removes the provisioning and the copies of signed-in users. It does not remove the copy of a logged-off profile, because that profile is not loaded.",
+    "The effect of a Windows feature upgrade on the provisioned package is not verified."
+  ],
+  "Detection": {
+    "Type": "Script",
+    "Is64Bit": true
+  },
+  "RunningProcess": []
+}

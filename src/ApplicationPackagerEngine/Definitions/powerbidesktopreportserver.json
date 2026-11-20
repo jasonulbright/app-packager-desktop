@@ -1,0 +1,56 @@
+{
+  "Schema": 1,
+  "Id": "907fe8579c9a33a7",
+  "WsusSupport": "No (DetectionNotMappable)",
+  "IconSource": "External",
+  "Vendor": "Microsoft",
+  "Application": "Microsoft Power BI Desktop (optimized for Power BI Report Server) (x64)",
+  "CMName": "Microsoft Power BI Desktop (optimized for Power BI Report Server)",
+  "Architecture": "x64",
+  "VendorUrl": "https://www.microsoft.com/power-platform/products/power-bi/report-server",
+  "ArpName": "Microsoft Power BI Desktop (* 20??) (x64)",
+  "ArpArch": "x64",
+  "SecurityAdvisoryUrl": "https://msrc.microsoft.com/update-guide",
+  "InstallerType": "EXE",
+  "InstallerFramework": "WixBurn",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "ChainedHttpRegex",
+    "Url": "https://learn.microsoft.com/en-us/power-bi/report-server/changelog",
+    "DownloadUrlQuery": "CHAINED",
+    "Hops": [
+      {
+        "Pattern": "Power BI Desktop \\(optimized for Power BI Report Server\\)</h3>\\s*<ul>\\s*<li>\\s*<p>\\s*<em>Version:\\s*(?<version>\\d+\\.\\d+\\.\\d+\\.\\d+)"
+      },
+      {
+        "Url": "https://www.microsoft.com/en-us/download/details.aspx?id=105945",
+        "Pattern": "\"url\":\"(?<url>https://download\\.microsoft\\.com/[^\"]*PBIDesktopSetupRS_x64\\.exe)\""
+      }
+    ]
+  },
+  "DownloadUrl": "",
+  "InstallerFileName": "PBIDesktopSetupRS_x64-{version}.exe",
+  "InstallArgs": "-quiet -norestart ACCEPT_EULA=1 DISABLE_UPDATE_NOTIFICATION=1",
+  "UninstallArgs": "-uninstall -quiet -norestart",
+  "ExpectedPayloadVersion": "{version}",
+  "RequireValidSignature": true,
+  "StageNotes": [
+    "This is the application that report authors use to create reports for a Power BI Report Server, not the report server. Microsoft Learn (Install Power BI Desktop for Power BI Report Server) says that it can be installed on the same computer as Power BI Desktop. It has its own installer, its own install folder (Program Files\\Microsoft Power BI Desktop RS) and its own entries in Add or Remove Programs. The .pbix file association goes to the edition that was installed last.",
+    "The version comes from the change log of Power BI Report Server on Microsoft Learn (the newest entry under Power BI Desktop (optimized for Power BI Report Server)). The installer comes from the Download Center page of Power BI Report Server. That page lists the build of the report server, not the version of Power BI Desktop, so staging stops when the installer reports another version than the change log.",
+    "The vendor publishes no digest for the installer. The download must carry a valid Microsoft signature.",
+    "Both editions run as PBIDesktop.exe, so the running process check of the deployment type asks the user to close a running Power BI Desktop of either edition.",
+    "NVD has no CPE for this edition. The nearest entry, microsoft:power_bi_report_server, is versioned with the build of the report server (15.0.x), not with the version of this application (2.x), so the definition has no Cpe and the CVE columns show CPE missing."
+  ],
+  "Detection": {
+    "Type": "RegistryKeyValue",
+    "RegistryHive": "HKLM",
+    "RegistryKeyTemplate": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{BundleId}",
+    "ValueName": "DisplayVersion",
+    "PropertyType": "Version",
+    "Operator": "GreaterEquals",
+    "Is64Bit": false
+  },
+  "RunningProcess": [
+    "PBIDesktop"
+  ]
+}

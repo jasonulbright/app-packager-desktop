@@ -149,14 +149,17 @@ public sealed class SupersedenceStepTests
     }
 
     [Fact]
-    public void TheLookupScriptMatchesTheMarkerInTheXmlAndAlwaysListsTheNewApplication()
+    public void TheLookupScriptMatchesTheTitleAndThePublisherAndAlwaysListsTheNewApplication()
     {
-        var script = SupersedenceScripts.BuildLookupScript("MCM", null, "APD-Line:catalog:o'neil&co|default|x64", "My App");
+        var script = SupersedenceScripts.BuildLookupScript("MCM", null, new SupersedenceKey("O'Neil App", "O'Neil & Co"), "My App");
 
-        Assert.Contains("'>APD-Line:catalog:o''neil&amp;co|default|x64<'", script);
+        Assert.Contains("$baseTitle = 'O''Neil App'", script);
+        Assert.Contains("$publisher = 'O''Neil & Co'", script);
+        Assert.Contains("Test-MecmApplicationTitle $baseTitle", script);
+        Assert.DoesNotContain("APD-Line", script);
         // The new application is found by name: every save makes a new revision with a new CI_ID.
         Assert.Contains("$newApplicationName = 'My App'", script);
-        Assert.Contains("$candidate.LocalizedDisplayName -ne $newApplicationName -and", script);
+        Assert.Contains("$candidate.LocalizedDisplayName -ne $newApplicationName", script);
         Assert.DoesNotContain("CI_ID -ne", script);
         Assert.Contains("Get-CMDeploymentType -ApplicationName $candidate.LocalizedDisplayName -DisableWildcardHandling", script);
         // The cmdlet warns for each name that it gets with wildcard handling off; the warning ended up in the log of every Apply supersedence.
@@ -269,12 +272,12 @@ public sealed class SupersedenceStepTests
     }
 
     [Fact]
-    public async Task AModeOfOffOrAMissingMarkerAsksNothingOfTheSite()
+    public async Task AModeOfOffOrAMissingKeyAsksNothingOfTheSite()
     {
         var target = new MecmTarget();
 
-        var off = await target.RunSupersedenceAsync("App", "1.0", "m", SupersedenceMode.Off, "MCM", null, null, CancellationToken.None);
-        var none = await target.RunSupersedenceAsync("App", "1.0", "", SupersedenceMode.Replace, "MCM", null, null, CancellationToken.None);
+        var off = await target.RunSupersedenceAsync("App", "1.0", new SupersedenceKey("App", "V"), SupersedenceMode.Off, "MCM", null, null, CancellationToken.None);
+        var none = await target.RunSupersedenceAsync("App", "1.0", null!, SupersedenceMode.Replace, "MCM", null, null, CancellationToken.None);
 
         Assert.Equal(SupersedenceStepStatus.NotRun, off.Status);
         Assert.Equal(SupersedenceStepStatus.NotRun, none.Status);

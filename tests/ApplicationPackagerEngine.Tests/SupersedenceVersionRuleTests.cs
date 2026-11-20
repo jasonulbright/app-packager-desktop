@@ -266,7 +266,7 @@ public sealed class SupersedenceVersionRuleTests
 
         Assert.Null(plan.Refusal);
         Assert.Equal("GreaterEquals", plan.IntuneManifest.Detection.Operator);
-        Assert.Equal("APD-Line:catalog:vendor-app|default|x64", plan.Marker);
+        Assert.Equal(new SupersedenceKey("Vendor App", ""), plan.Key);
         // The published script of the copy equals the script of the original: the round trip of the manifest loses nothing.
         Assert.Equal(
             MecmTarget.BuildPackageScript(manifest, "Vendor App", @"\\s\c", "MCM", "", 15, 30),
@@ -284,8 +284,8 @@ public sealed class SupersedenceVersionRuleTests
         var without = SupersedencePlanner.Plan(manifest, settings, null, true, false, _ => null);
         var with = SupersedencePlanner.Plan(manifest, settings, null, true, false, _ => null, "catalog:vendor-app");
 
-        Assert.Null(without.Marker);
-        Assert.Equal("APD-Line:catalog:vendor-app|default|x64", with.Marker);
+        Assert.Equal(SupersedenceMode.Off, without.Mode);
+        Assert.Equal(SupersedenceMode.Replace, with.Mode);
         Assert.Contains(with.Log, l => l.Contains("Replace") && l.Contains("title override"));
     }
 
@@ -329,7 +329,7 @@ public sealed class SupersedenceVersionRuleTests
         var plan = SupersedencePlanner.Plan(Manifest(File()), settings, null, true, false, _ => null);
 
         Assert.Equal(SupersedenceResolver.BlockedText, plan.Refusal);
-        Assert.Null(plan.Marker);
+        Assert.Null(plan.Key);
     }
 
     [Fact]
@@ -397,62 +397,5 @@ public sealed class SupersedenceVersionRuleTests
         var plan = SupersedencePlanner.Plan(Manifest(File()), new SupersedenceSettings { Mode = "Maybe" }, null, true, false, _ => null);
 
         Assert.Contains("Maybe", plan.Refusal);
-    }
-
-    // ---- the identity marker ----
-
-    [Fact]
-    public void TheMarkerHasTheIdentityTheProfileAndTheArchitecture()
-    {
-        var manifest = Manifest(File());
-        manifest.ProfileId = "pilot";
-        manifest.Architecture = "ARM64";
-
-        Assert.Equal("APD-Line:catalog:vendor-app|pilot|ARM64", IdentityMarker.For(manifest));
-    }
-
-    [Fact]
-    public void ATitleWithoutADefinitionIdentifierHasNoMarker()
-    {
-        var manifest = Manifest(File());
-        manifest.ApplicationId = "";
-
-        Assert.Null(IdentityMarker.For(manifest));
-    }
-
-    [Fact]
-    public void TheConfigMgrScriptWritesTheMarkerAfterTheApplicationExistsAndNeverRewritesKeywordsOfTheAdministrator()
-    {
-        var manifest = Manifest(File());
-
-        var script = MecmTarget.BuildPackageScript(manifest, "Vendor App", @"\\s\c", "MCM", "", 15, 30, identityMarker: "APD-Line:catalog:o'neil|default|x64");
-
-        Assert.Contains("Set-CMApplication -InputObject $markerApp -Keyword 'APD-Line:catalog:o''neil|default|x64'", script);
-        Assert.Contains("Identity marker not written : ", script);
-        Assert.Contains("-DisableWildcardHandling", script[script.IndexOf("$markerApp = Get-CMApplication", StringComparison.Ordinal)..]);
-        // The marker is written only when the application has no keywords of its own.
-        Assert.Contains("if ($markerOthers.Count -gt 0) { throw", script);
-        Assert.True(script.IndexOf("$markerOthers", StringComparison.Ordinal) < script.IndexOf("Set-CMApplication -InputObject $markerApp", StringComparison.Ordinal));
-        Assert.True(script.IndexOf("New-CMApplication -Name", StringComparison.Ordinal) < script.IndexOf("$markerApp", StringComparison.Ordinal));
-        // The keywords are read before they are written; a failed read writes nothing.
-        Assert.True(script.IndexOf("SccmSerializer", StringComparison.Ordinal) < script.IndexOf("Set-CMApplication -InputObject $markerApp", StringComparison.Ordinal));
-    }
-
-    [Fact]
-    public void WithoutAMarkerTheScriptIsAsItWas()
-    {
-        var script = MecmTarget.BuildPackageScript(Manifest(File()), "Vendor App", @"\\s\c", "MCM", "", 15, 30);
-
-        Assert.DoesNotContain("$markerApp", script);
-    }
-
-    [Fact]
-    public void AMarkerThatCouldNotBeWrittenIsAWarningOfTheResult()
-    {
-        var warnings = MecmTarget.ReadWarnings("CI_ID: 1\nIdentity marker not written : The type was not found.\nPackaged: App\n");
-
-        Assert.Single(warnings);
-        Assert.Contains("identity marker was not written", warnings[0]);
-        Assert.Contains("The type was not found.", warnings[0]);
     }
 }

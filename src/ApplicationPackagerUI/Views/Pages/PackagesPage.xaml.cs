@@ -44,8 +44,8 @@ public partial class PackagesPage
         if (import.ImportedAny) _ = viewModel.LoadPackagersCommand.ExecuteAsync(null);
     }
 
-    /// <summary>The toolbar keeps its labels while they fit in this many lines; beyond that the buttons show their icons only.</summary>
-    public const int MaxLabeledToolbarLines = 5;
+    /// <summary>The toolbar keeps its labels while they fit in this many lines (four, since the older supersedence buttons are gone: the grid keeps its rows); beyond that the buttons show their icons only.</summary>
+    public const int MaxLabeledToolbarLines = 4;
 
     /// <summary>A toolbar that went icon-only shows its labels again only when they fit with this much width to spare, so a width at the edge does not flip it back and forth.</summary>
     public const double ToolbarReturnMargin = 48;
@@ -198,17 +198,37 @@ public partial class PackagesPage
             main.OpenWorkbench(p is null ? null : WorkbenchApplicationCatalog.ApplicationIdFor(p));
     }
 
-    private void ContextMenu_EditApplication(object sender, RoutedEventArgs e) => OpenWorkbenchForSelection();
-
-    private void ContextMenu_UseAsOldApplication(object sender, RoutedEventArgs e)
+    private void Supersedence_Click(object sender, RoutedEventArgs e)
     {
-        if (GetSelectedPackager() is not { } row || Packages.OldApplicationTargetFor(row) is not { } target) return;
-        Views.Windows.OldApplicationWindow? window = null;
-        var service = new ApplicationPackagerEngine.Services.Supersedence.OldApplicationService(target.SiteCode, target.ProviderMachine, target.Marker);
-        var viewModel = new ViewModels.Windows.OldApplicationViewModel(service, target.NewTitle, target.NewVersion, (title, message) => window!.ConfirmAsync(title, message));
-        window = new Views.Windows.OldApplicationWindow(viewModel) { Owner = Window.GetWindow(this) };
-        window.ShowDialog();
+        if (sender is not FrameworkElement button) return;
+        SupersedenceMenu.PlacementTarget = button;
+        SupersedenceMenu.Placement = System.Windows.Controls.Primitives.PlacementMode.Bottom;
+        SupersedenceMenu.IsOpen = true;
     }
+
+    private PackagesViewModel? SupersedenceHost => DataContext as PackagesViewModel;
+
+    private void Supersedence_CheckedReplace(object sender, RoutedEventArgs e) =>
+        SupersedenceHost?.SetSupersedenceForChecked(ApplicationPackagerEngine.Services.Supersedence.SupersedenceMode.Replace);
+
+    private void Supersedence_CheckedUninstall(object sender, RoutedEventArgs e) =>
+        SupersedenceHost?.SetSupersedenceForChecked(ApplicationPackagerEngine.Services.Supersedence.SupersedenceMode.ReplaceAndUninstall);
+
+    private void Supersedence_CheckedOff(object sender, RoutedEventArgs e) =>
+        SupersedenceHost?.SetSupersedenceForChecked(ApplicationPackagerEngine.Services.Supersedence.SupersedenceMode.Off);
+
+    private void Supersedence_CheckedDefault(object sender, RoutedEventArgs e) => SupersedenceHost?.SetSupersedenceForChecked(null);
+
+    private void Supersedence_AllReplace(object sender, RoutedEventArgs e) =>
+        SupersedenceHost?.SetSupersedenceForAll(ApplicationPackagerEngine.Services.Supersedence.SupersedenceMode.Replace);
+
+    private void Supersedence_AllUninstall(object sender, RoutedEventArgs e) =>
+        SupersedenceHost?.SetSupersedenceForAll(ApplicationPackagerEngine.Services.Supersedence.SupersedenceMode.ReplaceAndUninstall);
+
+    private void Supersedence_AllOff(object sender, RoutedEventArgs e) =>
+        SupersedenceHost?.SetSupersedenceForAll(ApplicationPackagerEngine.Services.Supersedence.SupersedenceMode.Off);
+
+    private void ContextMenu_EditApplication(object sender, RoutedEventArgs e) => OpenWorkbenchForSelection();
 
     private void PackagerGrid_SelectionChanged(object sender, SelectionChangedEventArgs e) =>
         btnOperationHistory.IsEnabled = GetSelectedPackager() is not null;

@@ -133,22 +133,27 @@
                        ToolTipService.ShowOnDisabled="True"
                        AutomationProperties.AutomationId="btnPublishConfigMgr"
                        Margin="0,0,4,8" />
-            <ui:Button x:Name="btnApplySupersedence"
-                       Content="Apply supersedence"
+            <ui:Button x:Name="btnSupersedence"
+                       Content="Supersedence"
                        Icon="{ui:SymbolIcon ArrowSwap24}"
-                       Command="{Binding ApplySupersedenceCommand}"
-                       ToolTip="Sets the supersedence relation from the checked application to the older version of the same product line on the ConfigMgr site, without a new publish. Needs a published application and the supersedence mode in Options."
+                       Click="Supersedence_Click"
+                       ToolTip="Sets whether a package run supersedes the older version of an application. Off is the default; a title with supersedence on always has the version in its name. Nothing changes on the site until a package run, and each run asks before it applies the supersedence."
                        ToolTipService.ShowOnDisabled="True"
-                       AutomationProperties.AutomationId="btnApplySupersedence"
-                       Margin="0,0,4,8" />
-            <ui:Button x:Name="btnRewriteOldVersions"
-                       Content="Rewrite old versions"
-                       Icon="{ui:SymbolIcon ArrowUndo24}"
-                       Command="{Binding RewriteOldVersionsCommand}"
-                       ToolTip="Changes the version clause of the older applications of the checked application's product line from GreaterEquals to IsEquals, so the uninstall through supersedence is reported as successful. Shows the plan first and keeps a log; Undo restores the old operator. Check one application."
-                       ToolTipService.ShowOnDisabled="True"
-                       AutomationProperties.AutomationId="btnRewriteOldVersions"
-                       Margin="0,0,4,8" />
+                       AutomationProperties.AutomationId="btnSupersedence"
+                       Margin="0,0,4,8">
+                <ui:Button.ContextMenu>
+                    <ContextMenu x:Name="SupersedenceMenu">
+                        <MenuItem Header="Checked applications: Replace" Click="Supersedence_CheckedReplace" AutomationProperties.AutomationId="menuSupersedenceCheckedReplace" />
+                        <MenuItem Header="Checked applications: Replace and uninstall" Click="Supersedence_CheckedUninstall" AutomationProperties.AutomationId="menuSupersedenceCheckedUninstall" />
+                        <MenuItem Header="Checked applications: Off" Click="Supersedence_CheckedOff" AutomationProperties.AutomationId="menuSupersedenceCheckedOff" />
+                        <MenuItem Header="Checked applications: follow the default" Click="Supersedence_CheckedDefault" AutomationProperties.AutomationId="menuSupersedenceCheckedDefault" />
+                        <Separator />
+                        <MenuItem Header="All applications: Replace" Click="Supersedence_AllReplace" AutomationProperties.AutomationId="menuSupersedenceAllReplace" />
+                        <MenuItem Header="All applications: Replace and uninstall" Click="Supersedence_AllUninstall" AutomationProperties.AutomationId="menuSupersedenceAllUninstall" />
+                        <MenuItem Header="No applications: Off for all" Click="Supersedence_AllOff" AutomationProperties.AutomationId="menuSupersedenceAllOff" />
+                    </ContextMenu>
+                </ui:Button.ContextMenu>
+            </ui:Button>
             <ui:Button x:Name="btnPublishIntune"
                        Content="Publish to Intune"
                        Icon="{ui:SymbolIcon Cloud24}"
@@ -199,6 +204,9 @@
                        Icon="{ui:SymbolIcon Dismiss24}"
                        Appearance="Danger"
                        Command="{Binding CancelOperationCommand}"
+                       AutomationProperties.AutomationId="btnCancelOperation"
+                       VerticalAlignment="Top"
+                       Margin="0,0,4,8"
                        Visibility="{Binding IsOperationRunning, Converter={StaticResource BooleanToVisibilityConverter}}" />
             </WrapPanel>
         </WrapPanel>
@@ -252,13 +260,6 @@
                     <MenuItem Header="Edit application..." Click="ContextMenu_EditApplication">
                         <MenuItem.Icon>
                             <ui:SymbolIcon Symbol="Wrench24" />
-                        </MenuItem.Icon>
-                    </MenuItem>
-                    <MenuItem x:Name="MenuUseAsOldApplication" Header="Use as old application..." Click="ContextMenu_UseAsOldApplication"
-                              ToolTip="Links an application of the site as the older version of this application, so the next publish supersedes it. Needs a staged build."
-                              AutomationProperties.AutomationId="menuUseAsOldApplication">
-                        <MenuItem.Icon>
-                            <ui:SymbolIcon Symbol="LinkMultiple24" />
                         </MenuItem.Icon>
                     </MenuItem>
                     <Separator />
@@ -465,15 +466,6 @@
             <ui:Button Content="Select Update Available"
                        Icon="{ui:SymbolIcon CheckboxChecked24}"
                        Command="{Binding SelectUpdateAvailableCommand}"
-                       Appearance="Transparent"
-                       Margin="0,0,12,0" />
-            <ui:Button x:Name="btnRestoreOldVersions"
-                       Content="Restore Old Versions"
-                       Icon="{ui:SymbolIcon ArrowUndo24}"
-                       Command="{Binding RestoreOldVersionsCommand}"
-                       ToolTip="Writes the old operator back on the older applications of the checked application's product line, from the log of an earlier Rewrite old versions. Only the rewrites of this line. Shows the plan first. Check one application."
-                       ToolTipService.ShowOnDisabled="True"
-                       AutomationProperties.AutomationId="btnRestoreOldVersions"
                        Appearance="Transparent"
                        Margin="0,0,12,0" />
             <ui:Button Content="Import From URL"

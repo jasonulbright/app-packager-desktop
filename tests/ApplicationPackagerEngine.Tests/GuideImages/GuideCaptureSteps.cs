@@ -68,10 +68,11 @@ public static class GuideCaptureSteps
         ["tools-installer-analysis-overview"] = "tools-installer-analysis-overview",
         // The supersedence views of the App Packager page (tools/guide-capture/Capture-PackagesSupersedence.ps1: the real app driven with UI Automation, one theme after the other).
         ["core-packages-context-menu"] = "core-packages-context-menu",
-        ["core-packages-old-application"] = "core-packages-old-application",
-        ["core-packages-old-application-confirm"] = "core-packages-old-application-confirm",
-        ["core-packages-old-application-linked"] = "core-packages-old-application-linked",
-        ["core-packages-apply-supersedence"] = "core-packages-apply-supersedence",
+        ["core-packages-supersedence-menu"] = "core-packages-supersedence-menu",
+        ["core-packages-supersedence-confirm"] = "core-packages-supersedence-confirm",
+        ["core-packages-supersedence-confirm-remember"] = "core-packages-supersedence-confirm-remember",
+        ["core-packages-supersedence-log"] = "core-packages-supersedence-log",
+        ["tools-settings-supersedence"] = "tools-settings-supersedence",
         ["core-one-click-plan-supersedence"] = "core-one-click-plan-supersedence",
     };
 

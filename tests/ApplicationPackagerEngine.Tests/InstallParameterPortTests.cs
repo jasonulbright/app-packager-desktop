@@ -101,23 +101,26 @@ public class InstallParameterPortTests
     }
 
     [Fact]
-    public void TeamViewerHost_AssignmentScriptOnlyWhenAsked()
+    public void TeamViewerHost_AssignsThroughMsiPropertiesAndHasNoPostInstallScript()
     {
         var def = DefinitionFixture.Load("teamviewerhost.json");
 
-        Assert.Null(StagingService.ResolvePostInstallScript(def, null));
-
-        var script = StagingService.ResolvePostInstallScript(def, new Dictionary<string, string>
+        // The MSI takes ASSIGNMENTID and ASSIGNMENTOPTIONS itself, so no TeamViewer.exe step runs after the install.
+        Assert.Null(def.PostInstallScript);
+        Assert.Null(StagingService.ResolvePostInstallScript(def, new Dictionary<string, string>
         {
-            ["AssignDevice"] = "true",
+            ["AssignmentId"] = "0001CoAExample",
+            ["AssignmentOptions"] = "--grant-easy-access --reassign"
+        }));
+
+        var args = StagingService.ResolveInstallerArgs(def.InstallArgs, def.InstallerSettings, new Dictionary<string, string>
+        {
             ["AssignmentId"] = "0001CoAExample",
             ["AssignmentOptions"] = "--grant-easy-access --reassign"
         });
-
-        Assert.NotNull(script);
-        Assert.Contains("assignment --id 0001CoAExample --grant-easy-access --reassign", script);
-        Assert.DoesNotContain("{setting:", script);
-        Assert.Equal("/S", StagingService.ResolveInstallerArgs(def.InstallArgs, def.InstallerSettings, null));
+        Assert.Equal("/qn /norestart ASSIGNMENTID=0001CoAExample ASSIGNMENTOPTIONS=\"--grant-easy-access --reassign\"", args);
+        Assert.DoesNotContain("{setting:", args);
+        Assert.Equal("/qn /norestart", StagingService.ResolveInstallerArgs(def.InstallArgs, def.InstallerSettings, null));
     }
 
     [Fact]

@@ -47,8 +47,7 @@ public sealed partial class MecmTarget
         string? applicationTitle = null,
         MecmScriptSigningContext? scriptSigning = null,
         Workbench.ProfileContentScope? contentScope = null,
-        DeploymentTypeContentOptions? contentOptions = null,
-        string? identityMarker = null)
+        DeploymentTypeContentOptions? contentOptions = null)
     {
         try
         {
@@ -152,7 +151,7 @@ public sealed partial class MecmTarget
             var psScript = BuildPackageScript(manifest, appName, networkContentPath,
                 siteCode, comment, estimatedRuntimeMins, maximumRuntimeMins,
                 conditionTemplates, commandOverrides, onProgress, requirements, providerMachine,
-                onExisting, scriptSigning, contentOptions, identityMarker);
+                onExisting, scriptSigning, contentOptions);
 
             var result = await WindowsPowerShellHost.RunAsync(psScript, onProgress, ct);
 
@@ -290,8 +289,7 @@ public sealed partial class MecmTarget
         string? providerMachine = null,
         OnExistingBehavior onExisting = OnExistingBehavior.Skip,
         MecmScriptSigningContext? scriptSigning = null,
-        DeploymentTypeContentOptions? contentOptions = null,
-        string? identityMarker = null)
+        DeploymentTypeContentOptions? contentOptions = null)
     {
         var content = contentOptions ?? DeploymentTypeContentOptions.Default;
         onLog?.Invoke(content.LogLine);
@@ -449,8 +447,6 @@ public sealed partial class MecmTarget
         sb.AppendLine();
         sb.AppendLine("}");
         sb.AppendLine("Write-Host \"CI_ID: $($app.CI_ID)\"");
-        if (!string.IsNullOrWhiteSpace(identityMarker))
-            AppendIdentityMarker(sb, appName, identityMarker);
 
         // From here the site can refuse a step (a value it does not accept, a content path it cannot read). The steps run in a
         // try block so that a failure does not leave a half-built application: one that this run created is removed, and the
@@ -677,38 +673,7 @@ public sealed partial class MecmTarget
             var text = $"The application icon was {match.Groups[1].Value}: {match.Groups[2].Value}";
             if (!warnings.Contains(text)) warnings.Add(text);
         }
-        foreach (System.Text.RegularExpressions.Match match in MarkerWarningLine().Matches(output ?? ""))
-        {
-            var text = $"The identity marker was not written, so a later release cannot find this application as the older version of its line: {match.Groups[1].Value}";
-            if (!warnings.Contains(text)) warnings.Add(text);
-        }
         return warnings;
-    }
-
-    [System.Text.RegularExpressions.GeneratedRegex(@"^Identity marker not written[ \t]*:[ \t]*(\S.*?)[ \t]*\r?$", System.Text.RegularExpressions.RegexOptions.Multiline)]
-    private static partial System.Text.RegularExpressions.Regex MarkerWarningLine();
-
-    /// <summary>
-    /// Writes the identity marker into the keywords of the application. A keyword of an administrator is never rewritten: when the
-    /// application has keywords of its own, or when the keywords cannot be read, nothing is written and the script prints a warning that
-    /// the result carries. An earlier marker is replaced.
-    /// </summary>
-    internal static void AppendIdentityMarker(StringBuilder sb, string appName, string marker)
-    {
-        sb.AppendLine("try {");
-        sb.AppendLine($"    $markerApp = Get-CMApplication -Name '{Esc(appName)}' -DisableWildcardHandling -ErrorAction Stop");
-        sb.AppendLine("    $markerTags = @()");
-        sb.AppendLine("    $markerXml = [Microsoft.ConfigurationManagement.ApplicationManagement.Serialization.SccmSerializer]::DeserializeFromString($markerApp.SDMPackageXML, $true)");
-        sb.AppendLine("    foreach ($markerInfo in $markerXml.DisplayInfo) { foreach ($markerTag in $markerInfo.Tags) { $markerTags += [string]$markerTag } }");
-        // The cmdlet takes the keyword as one value, and how the provider stores several keywords is not confirmed on a lab site. So the
-        // marker is written only when the application has no keywords of its own; a keyword of an administrator is never rewritten.
-        sb.AppendLine($"    $markerOthers = @($markerTags | Where-Object {{ $_ -and -not $_.StartsWith('{IdentityMarker.Prefix}') }})");
-        sb.AppendLine("    if ($markerOthers.Count -gt 0) { throw 'the application has keywords of its own, which a write would replace' }");
-        sb.AppendLine($"    Set-CMApplication -InputObject $markerApp -Keyword '{Esc(marker)}' -ErrorAction Stop");
-        sb.AppendLine($"    Write-Host 'Identity marker             : {Esc(marker)}'");
-        sb.AppendLine("} catch {");
-        sb.AppendLine("    Write-Host \"Identity marker not written : $($_.Exception.Message)\"");
-        sb.AppendLine("}");
     }
 
     private const string InstallForUser = "InstallForUser";
@@ -1033,18 +998,18 @@ public sealed partial class MecmTarget
     }
 
     /// <summary>
-    /// The supersedence step after a publish: the lookup of the older application of the line (by the identity marker) and one relation for
+    /// The supersedence step after a publish: the lookup of the older application of the line (by title and publisher) and one relation for
     /// each pair of deployment types. A failure never undoes the application: the result says "supersedence not applied" and why.
     /// </summary>
     public async Task<SupersedenceStepResult> RunSupersedenceAsync(
-        string newApplicationName, string newVersion, string marker, SupersedenceMode mode,
+        string newApplicationName, string newVersion, SupersedenceKey key, SupersedenceMode mode,
         string siteCode, string? providerMachine, Action<string>? onProgress, CancellationToken ct, bool requirePublished = false)
     {
-        if (mode == SupersedenceMode.Off || string.IsNullOrWhiteSpace(marker))
+        if (mode == SupersedenceMode.Off || key is null)
             return SupersedenceStepResult.NotRun;
         try
         {
-            return await RunSupersedenceCoreAsync(newApplicationName, newVersion, marker, mode, siteCode, providerMachine, onProgress, ct, requirePublished);
+            return await RunSupersedenceCoreAsync(newApplicationName, newVersion, key, mode, siteCode, providerMachine, onProgress, ct, requirePublished);
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested)
         {
@@ -1057,17 +1022,42 @@ public sealed partial class MecmTarget
         }
     }
 
+    /// <summary>What the lookup found: the older version (null when none), the notes of the choice, and the problem when the site could not be read.</summary>
+    public sealed record OlderVersionResult(LineApplication? Old, IReadOnlyList<string> Notes, string? Problem);
+
+    /// <summary>The older version of an application, found by title and publisher: the highest version below the new one.</summary>
+    public async Task<OlderVersionResult> FindOlderVersionAsync(
+        string newTitle, string newVersion, SupersedenceKey key, string siteCode, string? providerMachine, CancellationToken ct)
+    {
+        try
+        {
+            var lookup = await WindowsPowerShellHost.RunAsync(SupersedenceScripts.BuildLookupScript(siteCode, providerMachine, key, newTitle), null, ct);
+            if (lookup.ExitCode != 0)
+                return new(null, [], $"the lookup of the older version failed: {SupersedenceScripts.FailureText(lookup.StdOut, lookup.StdErr)}");
+            var chosen = SupersedenceLookup.Choose(SupersedenceLookup.ParseSiteApplications(lookup.StdOut), newTitle, newVersion);
+            return new(chosen.Old, chosen.Notes, null);
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            return new(null, [], $"the lookup of the older version failed: {ex.Message}");
+        }
+    }
+
     /// <summary>
     /// The chain check before the publish: the detection of the old application is read from the site and compared with the new one. It
     /// returns warnings and never blocks; a failure to read is itself a warning.
     /// </summary>
     public async Task<IReadOnlyList<string>> CheckChainAsync(
-        string newTitle, string newVersion, string marker, VersionRule newRule, SupersedenceMode mode, StageManifest newManifest,
+        string newTitle, string newVersion, SupersedenceKey key, VersionRule newRule, SupersedenceMode mode, StageManifest newManifest,
         string siteCode, string? providerMachine, CancellationToken ct)
     {
         try
         {
-            var lookup = await WindowsPowerShellHost.RunAsync(SupersedenceScripts.BuildLookupScript(siteCode, providerMachine, marker, newTitle), null, ct);
+            var lookup = await WindowsPowerShellHost.RunAsync(SupersedenceScripts.BuildLookupScript(siteCode, providerMachine, key, newTitle), null, ct);
             if (lookup.ExitCode != 0) return [$"The chain check could not read the site: {SupersedenceScripts.FailureText(lookup.StdOut, lookup.StdErr)}"];
             var chosen = SupersedenceLookup.Choose(SupersedenceLookup.ParseSiteApplications(lookup.StdOut), newTitle, newVersion);
             if (chosen.Old is null) return [];
@@ -1086,11 +1076,11 @@ public sealed partial class MecmTarget
     }
 
     private async Task<SupersedenceStepResult> RunSupersedenceCoreAsync(
-        string newApplicationName, string newVersion, string marker, SupersedenceMode mode,
+        string newApplicationName, string newVersion, SupersedenceKey key, SupersedenceMode mode,
         string siteCode, string? providerMachine, Action<string>? onProgress, CancellationToken ct, bool requirePublished)
     {
         var lookup = await WindowsPowerShellHost.RunAsync(
-            SupersedenceScripts.BuildLookupScript(siteCode, providerMachine, marker, newApplicationName), null, ct);
+            SupersedenceScripts.BuildLookupScript(siteCode, providerMachine, key, newApplicationName), null, ct);
         if (lookup.ExitCode != 0)
             return new(SupersedenceStepStatus.NotApplied, $"the lookup of the older version failed: {SupersedenceScripts.FailureText(lookup.StdOut, lookup.StdErr)}", []);
 

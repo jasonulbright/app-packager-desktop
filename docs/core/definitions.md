@@ -4,7 +4,7 @@
 
 A definition is one JSON file that describes one application. It names the vendor, the place to read the current version, the download address, the install and uninstall commands and the rule that detects the installed application. The App Packager page shows one row for each definition.
 
-Shipped definitions are in the `Definitions` folder beside `ApplicationPackagerUI.exe`. The release ships 325 definitions. You can add your own definitions and you can replace a shipped definition.
+Shipped definitions are in the `Definitions` folder beside `ApplicationPackagerUI.exe`. The release ships 327 definitions. You can add your own definitions and you can replace a shipped definition.
 
 This page explains how definitions work. Every field is in [Definition format](../reference/definition-format.md).
 
@@ -64,11 +64,12 @@ The `VersionScraper.Type` field names the scraper. The comparison ignores case. 
 |---|---|---|---|
 | `HttpRegex` | 211 | Gets a page or an API answer and matches the version with a regular expression. | `putty.json` |
 | `JsonQuery` | 68 | Reads the version from a JSON API with a path expression. | `notepadplusplus.json` |
-| `FileVersion` | 31 | Downloads the installer and reads the version from its properties. | `amazondcv.json` |
-| `ChainedHttpRegex` | 7 | Follows a sequence of pages. Each page is matched with a regular expression. | `agentransack.json` |
+| `FileVersion` | 30 | Downloads the installer and reads the version from its properties. | `amazondcv.json` |
+| `ChainedHttpRegex` | 8 | Follows a sequence of pages. Each page is matched with a regular expression. | `agentransack.json` |
 | `CdnCab` | 6 | Reads the Office CDN version descriptor. | `m365apps-x64.json` |
 | `DellCatalog` | 1 | Reads the Dell update catalog. | `dellcommandupdate.json` |
 | `HeadProbe` | 1 | Probes the download host for the newest build number. | `rvtools.json` |
+| `LocalFile` | 2 | Reads nothing: the vendor has no web version source, and the version is the version of the installer that you put in the installer source folder. | `tortoisesvn.json` |
 
 How `Pattern` works for each type:
 
@@ -81,9 +82,9 @@ How `Pattern` works for each type:
 
 The scraper first returns the raw version. The `VersionTransform` field then produces the display version. A transform is a chain of steps that you separate with `|`: `strip_prefix:X`, `insert_dot:N`, `replace:X:Y` and `regex_replace:pattern:replacement`. An empty replacement deletes the match. `DisplayVersionOverride` replaces the display version. Its value `{version}` gives the raw version back.
 
-In `DownloadUrl`, `{version}` is the raw version and `{display_version}` is the display version. A `DownloadUrlQuery` finds the address in the same answer. A found address replaces the `DownloadUrl` template. 76 shipped definitions have an empty `DownloadUrl` because the scraper finds the address.
+In `DownloadUrl`, `{version}` is the raw version and `{display_version}` is the display version. A `DownloadUrlQuery` finds the address in the same answer. A found address replaces the `DownloadUrl` template. 78 shipped definitions have an empty `DownloadUrl`: the scraper finds the address, or the installer comes from the installer source folder.
 
-103 of the 325 definitions read `api.github.com`. Without a token, GitHub permits 60 requests each hour. App Packager Desktop takes a token from `APP_PACKAGER_GITHUB_TOKEN`, then `GITHUB_TOKEN`, then the token saved in Settings, then `gh auth token`.
+104 of the 327 definitions read `api.github.com`. Without a token, GitHub permits 60 requests each hour. App Packager Desktop takes a token from `APP_PACKAGER_GITHUB_TOKEN`, then `GITHUB_TOKEN`, then the token saved in Settings, then `gh auth token`.
 
 ## Detection types
 
@@ -92,27 +93,27 @@ The `Detection` field decides when ConfigMgr, Intune or WSUS counts the applicat
 | Type | Checks | Definitions | Example |
 |---|---|---|---|
 | `RegistryKeyValue` | A value under a registry key, compared with the version. | 216 | `7zip.json` |
-| `File` | The version of a file, or that the file exists. | 85 | `notepadplusplus.json` |
+| `File` | The version of a file, or that the file exists. | 84 | `notepadplusplus.json` |
 | `RegistryKey` | That a registry key exists. | 10 | `corretto-jdk8-x64.json` |
-| `Script` | That a script writes text to the output stream. | 6 | `tableaudesktop.json` |
+| `Script` | That a script writes text to the output stream. | 8 | `tableaudesktop.json` |
 | `Compound` | Several clauses that you join with `And` or `Or`. | 4 | `nomachine.json` |
-| `ArpEntry` | An Add/Remove Programs entry. The stage turns it into a script. | 4 | `aspnethostingbundle10.json` |
+| `ArpEntry` | An Add/Remove Programs entry. The stage turns it into a script. | 5 | `aspnethostingbundle10.json` |
 
 ## Counts in the shipped catalog
 
-These counts come from the 325 files.
+These counts come from the 327 files.
 
 | Item | Count |
 |---|---|
 | Vendors | 201 |
-| `InstallerType` | `EXE` 159, `MSI` 157, `ODT` 6, `MSIX` 2, `ZIP` 1 |
-| `InstallerFramework` | `NativeMSI` 151, `InnoSetup` 56, `NSIS` 41, `WixBurn` 24, `NativeEXE` 16, `Unknown` 13, `InstallShield` 9, `ODT` 6, `MSIX` 3, `Squirrel` 3, `ZIP` 2, `AdvancedInstaller` 1 |
-| `Architecture` | `x64` 304, `x86` 20, `ARM64` 1 |
+| `InstallerType` | `EXE` 159, `MSI` 157, `ODT` 6, `MSIX` 4, `ZIP` 1 |
+| `InstallerFramework` | `NativeMSI` 151, `InnoSetup` 56, `NSIS` 40, `WixBurn` 25, `NativeEXE` 16, `Unknown` 13, `InstallShield` 9, `ODT` 6, `MSIX` 5, `Squirrel` 3, `ZIP` 2, `AdvancedInstaller` 1 |
+| `Architecture` | `x64` 306, `x86` 20, `ARM64` 1 |
 | `InstallContext` `User` | 12 (the other definitions use the default `Machine`) |
-| `ArpName` pattern / `none` | 301 / 24 |
-| `Cpe` | 300 |
-| `WsusSupport` `Yes` / `No (...)` | 259 / 66 |
-| `IconSource` | `Installer` 242, `None` 35, `External` 34. 14 definitions declare no value, which counts as `None`. |
+| `ArpName` pattern / `none` | 301 / 26 |
+| `Cpe` | 302 |
+| `WsusSupport` `Yes` / `No (...)` | 258 / 69 |
+| `IconSource` | `Installer` 242, `None` 35, `External` 37. 13 definitions declare no value, which counts as `None`. |
 | `InstallerSettings` | 14 |
 
 ## Steps

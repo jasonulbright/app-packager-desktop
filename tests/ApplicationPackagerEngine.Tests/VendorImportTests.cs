@@ -535,10 +535,13 @@ public sealed class VendorImportTests : IDisposable
     [InlineData("BootstrapperLayout", null)]
     [InlineData("LocalInstaller", null)]
     [InlineData("SideFiles", null)]
+    [InlineData("ExtraFiles", null)]
+    [InlineData("FallbackDownloadUrl", "https://example.test/f.exe")]
     public void ADefinitionThatCarriesCodeIsBlockedInEveryTrustState(string property, string? text)
     {
         JsonNode value = text is not null ? text
             : property == "SideFiles" ? new JsonArray(new JsonObject { ["Key"] = "k", ["FileName"] = "a.txt", ["Label"] = "a" })
+            : property == "ExtraFiles" ? new JsonArray(new JsonObject { ["Kind"] = "License", ["FileName"] = "License1.xml", ["DownloadUrl"] = "https://example.test/l.xml" })
             : new JsonObject();
         var feed = FeedValidator.Validate(Doc(Definition("a-1", n => n[property] = value)));
 
@@ -557,6 +560,8 @@ public sealed class VendorImportTests : IDisposable
         { "LocalSource", "LocalSource" },
         { "LocalInstaller", "LocalInstaller" },
         { "SideFiles", "SideFiles" },
+        { "ExtraFiles", "ExtraFiles" },
+        { "FallbackDownloadUrl", "FallbackDownloadUrl" },
         { "TargetSecret", "TargetSecret" },
         { "Odt", "Odt" },
         { "ZipPayload", "ZipPayload" }
@@ -575,6 +580,8 @@ public sealed class VendorImportTests : IDisposable
             case "LocalSource": d.LocalSource = new LocalSourceConfig(); break;
             case "LocalInstaller": d.LocalInstaller = new LocalInstallerConfig(); break;
             case "SideFiles": d.SideFiles = [new SideFileConfig { Key = "k" }]; break;
+            case "ExtraFiles": d.ExtraFiles = [new ExtraFileConfig { Kind = "License" }]; break;
+            case "FallbackDownloadUrl": d.FallbackDownloadUrl = "https://example.test/f.exe"; break;
             case "TargetSecret": d.TargetSecret = new TargetSecretConfig(); break;
             case "Odt": d.Odt = new OdtConfig(); break;
             case "ZipPayload": d.ZipPayload = new ZipPayloadConfig { InstallDir = @"C:\Windows\System32" }; break;

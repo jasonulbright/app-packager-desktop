@@ -67,10 +67,11 @@
 
         <Grid Grid.Row="1">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="220" />
+                <ColumnDefinition Width="250" MinWidth="240" MaxWidth="420" />
+                <ColumnDefinition Width="16" />
                 <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
-            <TreeView x:Name="OptionsTree" Grid.Column="0" Margin="0,0,0,8" AutomationProperties.AutomationId="tvOptions"
+            <TreeView x:Name="OptionsTree" Grid.Column="0" Margin="0,0,0,8" AutomationProperties.AutomationId="tvOptions" ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                       SelectedItemChanged="OptionsTree_SelectedItemChanged">
                 <TreeViewItem Header="General" Tag="general" IsSelected="True" AutomationProperties.AutomationId="nav_general" />
                 <TreeViewItem Header="Sidebar" Tag="sidebar" AutomationProperties.AutomationId="nav_sidebar" />
@@ -107,7 +108,11 @@
                 <TreeViewItem Header="About" Tag="about" AutomationProperties.AutomationId="nav_about" />
             </TreeView>
 
-            <Grid Grid.Column="1" Margin="16,0,0,0">
+            <GridSplitter x:Name="NavigationSplitter" Grid.Column="1" Width="16" HorizontalAlignment="Center" VerticalAlignment="Stretch"
+                          ResizeDirection="Columns" ResizeBehavior="PreviousAndNext" Background="Transparent" Focusable="False"
+                          ToolTip="Drag to change the width of the list of pages." />
+
+            <Grid Grid.Column="2">
             <ScrollViewer x:Name="page_general" Visibility="Visible" VerticalScrollBarVisibility="Auto">
                 <StackPanel Margin="0,0,0,8" MaxWidth="960" HorizontalAlignment="Left">
                     <TextBlock Text="General" Style="{StaticResource SectionHeader}" />
@@ -529,7 +534,7 @@
             <ScrollViewer x:Name="page_supersedence" Visibility="Collapsed" VerticalScrollBarVisibility="Auto">
                 <StackPanel Margin="0,0,0,8" MaxWidth="960" HorizontalAlignment="Left">
                                 <TextBlock Text="Supersedence" Style="{StaticResource SectionHeader}" />
-                                <TextBlock Text="The version rule sets the operator of the version clause in the detection that is published: Minimum is this version or newer, Exact is this version only. The shipped values are Minimum and Off, so nothing changes until you choose. A title can override them, and the command line options --version-rule and --supersedence outrank both."
+                                <TextBlock Text="The version rule sets the operator of the version clause in the detection that is published: Minimum is this version or newer, Exact is this version only. The version rule applies to the detection of the application that is packaged (the new version) only; the older applications are never changed. The shipped values are Minimum and Off, so nothing changes until you choose. An application can override the supersedence mode (the Supersedence button on Packages), and the command line options --version-rule and --supersedence outrank both."
                                            Foreground="{DynamicResource TextFillColorTertiaryBrush}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,8" />
 
                                 <TextBlock Text="Version rule, ConfigMgr" Style="{StaticResource FieldLabel}" />
@@ -549,7 +554,7 @@
                                           Width="240" HorizontalAlignment="Left" Margin="0,0,0,4"
                                           AutomationProperties.Name="Supersedence mode, ConfigMgr" AutomationProperties.AutomationId="cboSupersedenceMode"
                                           ToolTip="Replace and uninstall needs the ConfigMgr version rule Exact. A publish with Replace or Replace and uninstall writes the supersedence relation to the older application of the line." />
-                                <TextBlock Text="Replace and uninstall needs the ConfigMgr version rule Exact; a publish with Minimum and Replace and uninstall is refused. The old application is found by the identity marker that a publish writes. Intune supersedence is not available."
+                                <TextBlock Text="Replace and uninstall needs the ConfigMgr version rule Exact; a publish with Minimum and Replace and uninstall is refused. With supersedence on, the version is in the title of the application (the setting is locked on), because the new and the older version must be separate applications. A package run finds the older version by title and publisher, the same query as Check ConfigMgr, and asks before it applies the supersedence. Intune supersedence is not available."
                                            Foreground="{DynamicResource TextFillColorTertiaryBrush}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,8" />
                 </StackPanel>
             </ScrollViewer>
@@ -788,7 +793,7 @@
             <ScrollViewer x:Name="page_localsources" Visibility="Collapsed" VerticalScrollBarVisibility="Auto">
                 <StackPanel Margin="0,0,0,8" MaxWidth="960" HorizontalAlignment="Left">
                                 <TextBlock Text="Local Installer Sources" Style="{StaticResource SectionHeader}" />
-                                <TextBlock Text="Folders that hold an installer whose download needs a sign-in. Stage takes the highest file version found in the folder, and the installer must carry a valid signature."
+                                <TextBlock Text="Folders that hold an installer that a script cannot download (a vendor sign-in or a bot protection). You put the file in the folder by hand. Stage takes the highest file version found in the folder, and the installer must carry a valid signature unless the row says otherwise."
                                            Foreground="{DynamicResource TextFillColorSecondaryBrush}" Margin="0,0,0,8" TextWrapping="Wrap" />
                                 <ItemsControl ItemsSource="{Binding LocalSourceRows}">
                                     <ItemsControl.ItemTemplate>

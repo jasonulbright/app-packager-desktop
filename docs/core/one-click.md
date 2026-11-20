@@ -97,7 +97,7 @@ When the plan has rows of that kind, the summary line ends with `, <N> supersede
 - When the ConfigMgr application was created but the content distribution or the test deployment failed, the row is Failed and the inventory shows the ConfigMgr destination as Partial. The application exists, so the version counts as published and the next run skips it. To run the steps again, select **Force** together with **Existing ConfigMgr app** set to Overwrite, or distribute the content in the ConfigMgr console.
 - One Click publishes again when the Workbench profile or the signing policy changed after the last publish.
 - **Force: ignore the cadence and publish again** ignores the cadence, the refusal memory and the already-published guard. It does not override **Existing ConfigMgr app**. It does not override a destination that is not ready.
-- When an application needs a local installer folder and none is set, a prompt asks for the folder before the run starts. The prompt text is `Choose the folder that holds the <application> installer. Its download requires a sign-in, so it stages from a local copy.` A cancelled prompt removes the row from the run with the reason `no local source folder`.
+- When an application needs a local installer folder and none is set, a prompt asks for the folder before the run starts. The prompt text is `Choose the folder that holds the <application> installer. A script cannot download it, so it stages from the copy that you put in this folder. The definition can add a sentence that names the file to put there.` A cancelled prompt removes the row from the run with the reason `no local source folder`.
 - The Workbench profile of an application decides the build. See [Workbench](workbench.md).
 
 ### Outcomes
@@ -160,7 +160,7 @@ When the supersedence mode of **Settings**, **Supersedence** is not `Off`, the C
 | Applied | Ends. | `Superseded` |
 | No older version found | Ends. | `Superseded` |
 | Not applied (the site refused, the site is not reachable, the application is not on the site, no stage manifest) | Stays. | `Skipped`, with `supersedence not applied: <reason>` in the ConfigMgr result |
-| Not run (the mode is `Off`, or the application has no identity marker) | Stays. | `Skipped`, with `supersedence not run: <reason>` |
+| Not run (the mode is `Off`) | Stays. | `Skipped`, with `supersedence not run: <reason>` |
 
 **Force** publishes the version again instead. A publish of a changed build also publishes again and clears the pending state. A row that has another destination to publish stages and publishes it as usual, and the pass runs first. Only a run with the action **Stage and Publish** runs the pass. The pass is for ConfigMgr only.
 
