@@ -80,6 +80,7 @@ public sealed class AppPackagerFitTests
         viewModel.PublishConfigMgrToolTip = "Publish to ConfigMgr";
         viewModel.PublishIntuneToolTip = "Publish to Intune";
         viewModel.PublishWsusToolTip = "Publish to WSUS";
+        viewModel.PublishAllToolTip = "Publish All";
         viewModel.WsusUpdatesToolTip = "WSUS Updates";
         return new PackagesPage(viewModel);
     }
@@ -120,9 +121,8 @@ public sealed class AppPackagerFitTests
                     Assert.All(buttons, b => Assert.True(b.ActualHeight <= CompactButtonHeight + 0.5,
                         $"{where}: {AutomationProperties.GetAutomationId(b)} is {b.ActualHeight:0.#} px high; the compact size is {CompactButtonHeight} px."));
                 }
-                // A normal window shows the labels: the icon-only mode is for a width that cannot hold them in four lines.
-                if (width <= 900) Assert.True(compact, $"{where}: the toolbar keeps its labels at {width} px.");
-                if (width >= 1200) Assert.False(compact, $"{where}: the toolbar is icon-only at {width} px.");
+                // Q-102: the toolbar is one row at every size of this list. It shows the labels where they fit in that row and the icons only where they do not.
+                Assert.True(ToolbarLines(toolbar) == 1, $"{where}: the toolbar uses {ToolbarLines(toolbar)} lines.");
 
                 Pixels(window, toolbar, $"app-packager-{theme}-{width}");
                 var grid = (DataGrid)page.FindName("PackagerGrid");

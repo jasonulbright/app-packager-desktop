@@ -50,7 +50,7 @@ Each entry has a check box, a **Move up** button and a **Move down** button. **R
 |---|---|---|
 | **ConfigMgr** | Selected | Enables **Check ConfigMgr** and **Publish to ConfigMgr**. |
 | **Intune** | Cleared | Enables **Publish to Intune**. |
-| **WSUS** | Cleared | Enables **Publish to WSUS** and **WSUS Updates**. |
+| **WSUS** | Cleared | Enables **Publish to WSUS** and **Publish All** for WSUS, and the **WSUS Updates** button of the WSUS section. |
 
 ConfigMgr is selected at first. The three systems are independent, and each one is optional. Clear **ConfigMgr** and select **Intune**, **WSUS** or both to publish with no ConfigMgr site, console or file share. A system that is not in use keeps its buttons disabled. A settings file that has no systems value infers Intune from a stored tenant ID and WSUS from a stored server name.
 
@@ -64,6 +64,7 @@ The site fields (**Site Code**, **Site Server / SMS Provider Host**, **File Shar
 | **Site Server / SMS Provider Host** | Empty | The host that the CMSite drive connects to. Empty means this computer. Leave it empty only when this computer is the SMS Provider. |
 | **Discovery SQL Server** | Empty | The SQL Server instance of the site database. Empty means the value from the SMS Provider. Windows authentication only. |
 | **Discovery Database** | Empty | The database name. Empty means `CM_` and the site code. |
+| **Discover not selected**, **Discover all** | Not applicable | Scan the site inventory for applications that the catalog can package. **Discover not selected** scans only the applications that are cleared in the Catalog and were not dismissed. **Discover all** scans every application. A scan changes nothing until you choose in the prompt. After the first-run setup, the program asks if it must run **Discover not selected** to help you pick the applicable products. |
 | **Not offered by Discover**, **Clear list** | Empty list | Applications that Discover unmanaged software no longer offers. **Clear list** takes effect on **Save Settings**. |
 | **File Share Root (UNC)** | `\\fileserver\sccm$` | The root of the content share. Content goes under `Applications`. |
 | **Content Layout** | **Nested - Applications\Vendor\App\Version** | The other choice is **Flat - Applications\Vendor-App-Version**. |

@@ -249,6 +249,17 @@
                                                AutomationProperties.AutomationId="btnClearDiscoveryDismissed"
                                                ToolTip="Offer these apps again in later discoveries. Takes effect on Save." />
                                 </StackPanel>
+                                <TextBlock Text="Discover unmanaged software" Style="{StaticResource FieldLabel}" />
+                                <TextBlock Text="Reads the hardware inventory of the site and lists the products that are installed on clients and have no ConfigMgr application. It helps you pick the products that apply to your site. A scan only offers products; nothing changes until you choose."
+                                           Foreground="{DynamicResource TextFillColorTertiaryBrush}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,4" />
+                                <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                                    <ui:Button Content="Discover not selected" Command="{Binding DiscoverNotSelectedCommand}" Margin="0,0,8,0"
+                                               AutomationProperties.AutomationId="btnDiscoverNotSelected"
+                                               ToolTip="Scan only the products that you have not selected in the Catalog and did not dismiss. Starts at once; the scan runs on the App Packager page." />
+                                    <ui:Button Content="Discover all" Command="{Binding DiscoverAllCommand}"
+                                               AutomationProperties.AutomationId="btnDiscoverAll"
+                                               ToolTip="Scan every product, also the ones that you selected or dismissed. Starts at once; the scan runs on the App Packager page." />
+                                </StackPanel>
                                 <TextBlock Text="File Share Root (UNC)" Style="{StaticResource FieldLabel}" />
                                 <ui:TextBox ToolTip="{Binding FileShareRoot}" Width="480" HorizontalAlignment="Left" Text="{Binding FileShareRoot, UpdateSourceTrigger=PropertyChanged}"
                                             PlaceholderText="\\fileserver\sccm$" Margin="0,0,0,8" />
@@ -258,7 +269,10 @@
                 <StackPanel Margin="0,0,0,8" MaxWidth="960" HorizontalAlignment="Left">
                                 <TextBlock Text="WSUS" Style="{StaticResource SectionHeader}" />
                                 <TextBlock Foreground="{DynamicResource TextFillColorSecondaryBrush}" Margin="0,0,0,8" TextWrapping="Wrap"
-                                           Text="Publish to WSUS publishes the installer of each checked app as a locally published update. WSUS Updates on the App Packager page lists and manages the published updates. This computer needs the WSUS console or RSAT WSUS tools at the server's version, an account in the WSUS Administrators group, and file-share access to the server. When this computer is not the WSUS server, it must also trust the signing certificate." />
+                                           Text="Publish to WSUS publishes the installer of each checked app as a locally published update. The WSUS Updates button below lists and manages the published updates. This computer needs the WSUS console or RSAT WSUS tools at the server's version, an account in the WSUS Administrators group, and file-share access to the server. When this computer is not the WSUS server, it must also trust the signing certificate." />
+                                <ui:Button Content="WSUS Updates" Icon="{ui:SymbolIcon TextBulletListSquare24}" Command="{Binding OpenWsusUpdatesCommand}" Margin="0,0,0,8"
+                                           AutomationProperties.AutomationId="btnWsusUpdates"
+                                           ToolTip="List and manage the updates that Publish to WSUS published. Needs the WSUS server below and the WSUS administration API." />
 
                                 <TextBlock Text="Server" Style="{StaticResource SubHeader}" />
                                 <TextBlock Text="WSUS server" Style="{StaticResource FieldLabel}" />
@@ -318,7 +332,7 @@
                                                ToolTip="Lists the computer groups of the server in the box." />
                                     <ComboBox IsEditable="True" ItemsSource="{Binding Wsus.Groups}" Text="{Binding Wsus.ApprovalGroup, UpdateSourceTrigger=PropertyChanged}"
                                               AutomationProperties.Name="Approve for group" AutomationProperties.AutomationId="cboWsusGroup"
-                                              ToolTip="Computer group the update is approved for right after it publishes. Leave empty to approve later from WSUS Updates on the App Packager page: the WSUS console does not list locally published updates." />
+                                              ToolTip="Computer group the update is approved for right after it publishes. Leave empty to approve later from WSUS Updates (Settings, WSUS Publishing): the WSUS console does not list locally published updates." />
                                 </DockPanel>
                                 <CheckBox Content="Decline earlier versions of the same application after publishing" IsChecked="{Binding Wsus.DeclineSuperseded}" Margin="0,0,0,8"
                                           AutomationProperties.AutomationId="chkWsusDecline"

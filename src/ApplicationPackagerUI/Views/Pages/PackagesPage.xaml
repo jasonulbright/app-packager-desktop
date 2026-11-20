@@ -78,6 +78,8 @@
                 <!-- Tag "Compact" drops the labels; the tooltip then names the button. -->
                 <Style TargetType="ui:Button" BasedOn="{StaticResource {x:Type ui:Button}}">
                     <Setter Property="ToolTip" Value="{Binding Content, RelativeSource={RelativeSource Self}}" />
+                    <Setter Property="Padding" Value="8,4,8,4" />
+                    <Setter Property="MinHeight" Value="32" />
                     <Style.Triggers>
                         <DataTrigger Binding="{Binding Tag, ElementName=AppPackagerToolbar}" Value="Compact">
                             <Setter Property="Padding" Value="8,0,0,0" />
@@ -95,7 +97,17 @@
                     </Style.Triggers>
                 </Style>
             </WrapPanel.Resources>
-            <WrapPanel Orientation="Horizontal" Margin="0,0,16,0">
+            <!-- One row, in the order of the owner design (Q-102): One Click | check | stage and publish all | publish per system | report and history. A separator ends each group but the last. -->
+            <WrapPanel Orientation="Horizontal" Margin="0">
+            <ui:Button Content="One Click"
+                       Icon="{ui:SymbolIcon Play24}"
+                       Command="{Binding OneClickCommand}"
+                       AutomationProperties.AutomationId="btnOneClick"
+                       ToolTip="One Click check (and optionally Stage / Publish) against your tracked apps. Configure tracked apps, action, and destinations in Settings, One Click Settings."
+                       Margin="0,0,4,8" />
+            <Border Width="1" Height="24" Margin="4,4,8,0" VerticalAlignment="Top" Background="{DynamicResource ControlStrokeColorDefaultBrush}" IsHitTestVisible="False" />
+            </WrapPanel>
+            <WrapPanel Orientation="Horizontal" Margin="0">
             <ui:Button Content="Check Latest"
                        Icon="{ui:SymbolIcon ArrowDownload24}"
                        Command="{Binding CheckLatestCommand}"
@@ -106,25 +118,30 @@
                        ToolTip="{Binding CheckMecmToolTip}"
                        ToolTipService.ShowOnDisabled="True"
                        Margin="0,0,4,8" />
-            <ui:Button Content="Discover unmanaged software"
-                       Icon="{ui:SymbolIcon BoxSearch24}"
-                       Command="{Binding DiscoverCommand}"
-                       ToolTip="{Binding DiscoverToolTip}"
-                       ToolTipService.ShowOnDisabled="True"
-                       AutomationProperties.AutomationId="btnDiscover"
-                       Margin="0,0,4,8" />
             <ui:Button Content="Check CVEs"
                        Icon="{ui:SymbolIcon ShieldError24}"
                        Command="{Binding CheckCvesCommand}"
                        ToolTip="Look up the CVEs fixed by updating each checked application from its ConfigMgr version to the latest version. Needs both versions and a CPE."
                        AutomationProperties.AutomationId="btnCheckCves"
                        Margin="0,0,4,8" />
+            <Border Width="1" Height="24" Margin="4,4,8,0" VerticalAlignment="Top" Background="{DynamicResource ControlStrokeColorDefaultBrush}" IsHitTestVisible="False" />
             </WrapPanel>
-            <WrapPanel Orientation="Horizontal" Margin="0,0,16,0">
+            <WrapPanel Orientation="Horizontal" Margin="0">
             <ui:Button Content="Stage"
                        Icon="{ui:SymbolIcon ArrowCircleDown24}"
                        Command="{Binding StageCommand}"
                        Margin="0,0,4,8" />
+            <ui:Button x:Name="btnPublishAll"
+                       Content="Publish All"
+                       Icon="{ui:SymbolIcon ArrowCircleUp24}"
+                       Command="{Binding PublishAllCommand}"
+                       ToolTip="{Binding PublishAllToolTip}"
+                       ToolTipService.ShowOnDisabled="True"
+                       AutomationProperties.AutomationId="btnPublishAll"
+                       Margin="0,0,4,8" />
+            <Border Width="1" Height="24" Margin="4,4,8,0" VerticalAlignment="Top" Background="{DynamicResource ControlStrokeColorDefaultBrush}" IsHitTestVisible="False" />
+            </WrapPanel>
+            <WrapPanel Orientation="Horizontal" Margin="0">
             <ui:Button x:Name="btnPublishConfigMgr"
                        Content="Publish to ConfigMgr"
                        Icon="{ui:SymbolIcon Server24}"
@@ -133,27 +150,6 @@
                        ToolTipService.ShowOnDisabled="True"
                        AutomationProperties.AutomationId="btnPublishConfigMgr"
                        Margin="0,0,4,8" />
-            <ui:Button x:Name="btnSupersedence"
-                       Content="Supersedence"
-                       Icon="{ui:SymbolIcon ArrowSwap24}"
-                       Click="Supersedence_Click"
-                       ToolTip="Sets whether a package run supersedes the older version of an application. Off is the default; a title with supersedence on always has the version in its name. Nothing changes on the site until a package run, and each run asks before it applies the supersedence."
-                       ToolTipService.ShowOnDisabled="True"
-                       AutomationProperties.AutomationId="btnSupersedence"
-                       Margin="0,0,4,8">
-                <ui:Button.ContextMenu>
-                    <ContextMenu x:Name="SupersedenceMenu">
-                        <MenuItem Header="Checked applications: Replace" Click="Supersedence_CheckedReplace" AutomationProperties.AutomationId="menuSupersedenceCheckedReplace" />
-                        <MenuItem Header="Checked applications: Replace and uninstall" Click="Supersedence_CheckedUninstall" AutomationProperties.AutomationId="menuSupersedenceCheckedUninstall" />
-                        <MenuItem Header="Checked applications: Off" Click="Supersedence_CheckedOff" AutomationProperties.AutomationId="menuSupersedenceCheckedOff" />
-                        <MenuItem Header="Checked applications: follow the default" Click="Supersedence_CheckedDefault" AutomationProperties.AutomationId="menuSupersedenceCheckedDefault" />
-                        <Separator />
-                        <MenuItem Header="All applications: Replace" Click="Supersedence_AllReplace" AutomationProperties.AutomationId="menuSupersedenceAllReplace" />
-                        <MenuItem Header="All applications: Replace and uninstall" Click="Supersedence_AllUninstall" AutomationProperties.AutomationId="menuSupersedenceAllUninstall" />
-                        <MenuItem Header="No applications: Off for all" Click="Supersedence_AllOff" AutomationProperties.AutomationId="menuSupersedenceAllOff" />
-                    </ContextMenu>
-                </ui:Button.ContextMenu>
-            </ui:Button>
             <ui:Button x:Name="btnPublishIntune"
                        Content="Publish to Intune"
                        Icon="{ui:SymbolIcon Cloud24}"
@@ -170,22 +166,9 @@
                        ToolTipService.ShowOnDisabled="True"
                        AutomationProperties.AutomationId="btnPublishWsus"
                        Margin="0,0,4,8" />
-            <ui:Button x:Name="btnWsusUpdates"
-                       Content="WSUS Updates"
-                       Icon="{ui:SymbolIcon TextBulletListSquare24}"
-                       Command="{Binding WsusUpdatesCommand}"
-                       ToolTip="{Binding WsusUpdatesToolTip}"
-                       ToolTipService.ShowOnDisabled="True"
-                       AutomationProperties.AutomationId="btnWsusUpdates"
-                       Margin="0,0,4,8" />
+            <Border Width="1" Height="24" Margin="4,4,8,0" VerticalAlignment="Top" Background="{DynamicResource ControlStrokeColorDefaultBrush}" IsHitTestVisible="False" />
             </WrapPanel>
-            <WrapPanel Orientation="Horizontal" Margin="0,0,16,0">
-            <ui:Button Content="One Click"
-                       Icon="{ui:SymbolIcon Play24}"
-                       Command="{Binding OneClickCommand}"
-                       AutomationProperties.AutomationId="btnOneClick"
-                       ToolTip="One Click check (and optionally Stage / Publish) against your tracked apps. Configure tracked apps, action, and destinations in Settings, One Click Settings."
-                       Margin="0,0,4,8" />
+            <WrapPanel Orientation="Horizontal" Margin="0">
             <ui:Button Content="CVE Report"
                        Icon="{ui:SymbolIcon DocumentTable24}"
                        Command="{Binding CveReportCommand}"
@@ -193,21 +176,33 @@
                        AutomationProperties.AutomationId="btnCveReport"
                        Margin="0,0,4,8" />
             <ui:Button x:Name="btnOperationHistory"
-                       Content="Operation history"
+                       Content="Ops History"
                        Icon="{ui:SymbolIcon TextBulletListSquare24}"
                        Click="ViewHistory_Click"
                        IsEnabled="False"
                        ToolTip="View recorded operations for the selected application."
                        AutomationProperties.AutomationId="btnOperationHistory"
                        Margin="0,0,4,8" />
+            <!-- Cancel keeps its room while no run is active (Hidden, not Collapsed), so the toolbar does not change its layout when a run starts. -->
+            <Grid>
+                <Grid.Style>
+                    <Style TargetType="Grid">
+                        <Setter Property="Visibility" Value="Hidden" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding IsOperationRunning}" Value="True">
+                                <Setter Property="Visibility" Value="Visible" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Grid.Style>
             <ui:Button Content="Cancel"
                        Icon="{ui:SymbolIcon Dismiss24}"
                        Appearance="Danger"
                        Command="{Binding CancelOperationCommand}"
                        AutomationProperties.AutomationId="btnCancelOperation"
                        VerticalAlignment="Top"
-                       Margin="0,0,4,8"
-                       Visibility="{Binding IsOperationRunning, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                       Margin="0,0,4,8" />
+            </Grid>
             </WrapPanel>
         </WrapPanel>
 

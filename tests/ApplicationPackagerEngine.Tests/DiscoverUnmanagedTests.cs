@@ -468,6 +468,25 @@ public sealed class DiscoveryRunnerTests
         Assert.Equal("", await runner.ResolveProviderNameAsync(settings, CancellationToken.None));
     }
 
+    // Q-102: Discover not selected scans the hidden products that were not dismissed; Discover all scans every product and ignores the dismissed list.
+    [Fact]
+    public async Task DiscoverAllScansEveryProductAndNotSelectedKeepsTheLists()
+    {
+        var settings = Configured();
+        settings.HiddenApplications = ["gsudo"];
+        settings.DiscoveryDismissed = ["git"];
+
+        var notSelected = new FakeDiscoveryService();
+        await Runner(notSelected, new InMemorySettings(settings)).ScanAsync(CancellationToken.None, allProducts: false);
+        Assert.Equal(["gsudo"], notSelected.Request!.HiddenIds);
+        Assert.Equal(["git"], notSelected.Request!.DismissedIds);
+
+        var all = new FakeDiscoveryService();
+        await Runner(all, new InMemorySettings(settings)).ScanAsync(CancellationToken.None, allProducts: true);
+        Assert.Equal([GrepWin.Id], all.Request!.HiddenIds);
+        Assert.Empty(all.Request!.DismissedIds);
+    }
+
     [Fact]
     public async Task TheScanPassesTheSiteProviderOverridesListsPackagersAndTimeLimit()
     {
