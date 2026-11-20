@@ -60,48 +60,56 @@
             <StackPanel Margin="16,0,16,8">
                 <TextBlock Text="Plan name" Style="{StaticResource FieldLabel}" Margin="0,0,0,4" />
                 <ui:TextBox x:Name="txtName" Text="{Binding Name, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="Plan name"
+                            ToolTip="Enter the name of the ring plan. The plan list and the run history show this name."
                             AutomationProperties.AutomationId="txtRingPlanName" />
                 <TextBlock Text="Description" Style="{StaticResource FieldLabel}" />
                 <ui:TextBox Text="{Binding Description, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="Plan description"
+                            ToolTip="Enter a note that says what the plan is for. It is optional."
                             AutomationProperties.AutomationId="txtRingPlanDescription" />
                 <TextBlock Text="Time basis" Style="{StaticResource FieldLabel}" />
                 <StackPanel Orientation="Horizontal">
-                    <RadioButton Content="Local time" GroupName="RingPlanBasis" IsChecked="{Binding IsLocalTime}" Margin="0,0,16,0" AutomationProperties.AutomationId="rbRingPlanLocal" />
-                    <RadioButton Content="UTC" GroupName="RingPlanBasis" IsChecked="{Binding IsUtc}" AutomationProperties.AutomationId="rbRingPlanUtc" />
+                    <RadioButton Content="Local time" GroupName="RingPlanBasis" IsChecked="{Binding IsLocalTime}" Margin="0,0,16,0" AutomationProperties.AutomationId="rbRingPlanLocal"
+                                 ToolTip="Bases the available and deadline times of every ring on the local time of each device." />
+                    <RadioButton Content="UTC" GroupName="RingPlanBasis" IsChecked="{Binding IsUtc}" AutomationProperties.AutomationId="rbRingPlanUtc"
+                                 ToolTip="Bases the available and deadline times of every ring on UTC, so every device uses the same moment." />
                 </StackPanel>
                 <CheckBox Content="Hold later rings: a run creates the first ring, and Promote creates each later ring after the previous ring was checked"
                           IsChecked="{Binding HoldLaterRings}" Style="{StaticResource Option}" Margin="0,8,0,4" AutomationProperties.AutomationId="chkRingPlanHold" />
 
                 <TextBlock Text="Rings, in order" Style="{StaticResource FieldLabel}" />
                 <WrapPanel>
-                    <ui:Button Content="Add ring" Icon="{ui:SymbolIcon Add24}" Command="{Binding AddRingCommand}" Style="{StaticResource ToolButton}" AutomationProperties.AutomationId="btnRingAdd" />
-                    <ui:Button Content="Remove ring" Icon="{ui:SymbolIcon Delete24}" Command="{Binding RemoveRingCommand}" Style="{StaticResource ToolButton}" AutomationProperties.AutomationId="btnRingRemove" />
+                    <ui:Button Content="Add ring" Icon="{ui:SymbolIcon Add24}" Command="{Binding AddRingCommand}" Style="{StaticResource ToolButton}" AutomationProperties.AutomationId="btnRingAdd"
+                               ToolTip="Adds an empty ring at the end of the plan. Pick its Device Collection and set its offsets." />
+                    <ui:Button Content="Remove ring" Icon="{ui:SymbolIcon Delete24}" Command="{Binding RemoveRingCommand}" Style="{StaticResource ToolButton}" AutomationProperties.AutomationId="btnRingRemove"
+                               ToolTip="Removes the selected ring from the plan. The change is saved when you save the plan." />
                     <ui:Button Content="Move up" Icon="{ui:SymbolIcon ArrowUp24}" Command="{Binding MoveUpCommand}" Style="{StaticResource ToolButton}"
-                               AutomationProperties.Name="Move the ring up" AutomationProperties.AutomationId="btnRingUp" />
+                               ToolTip="Moves the selected ring one place earlier in the plan." AutomationProperties.Name="Move the ring up" AutomationProperties.AutomationId="btnRingUp" />
                     <ui:Button Content="Move down" Icon="{ui:SymbolIcon ArrowDown24}" Command="{Binding MoveDownCommand}" Style="{StaticResource ToolButton}"
-                               AutomationProperties.Name="Move the ring down" AutomationProperties.AutomationId="btnRingDown" />
+                               ToolTip="Moves the selected ring one place later in the plan." AutomationProperties.Name="Move the ring down" AutomationProperties.AutomationId="btnRingDown" />
                     <ui:Button Content="Duplicate ring" Icon="{ui:SymbolIcon Copy24}" Command="{Binding DuplicateRingCommand}" Style="{StaticResource ToolButton}"
+                               ToolTip="Copies the selected ring and its offsets and success threshold below it. The copy has no Device Collection until you pick one."
                                AutomationProperties.AutomationId="btnRingDuplicate" />
                     <ui:Button Content="Add rings from collections" Icon="{ui:SymbolIcon Organization24}" Command="{Binding AddRingsFromCollectionsCommand}" Style="{StaticResource ToolButton}"
                                ToolTip="Adds one ring for each collection you check, named after the collection, with the offsets below." AutomationProperties.AutomationId="btnRingsFromCollections" />
                     <CheckBox Content="Sort the new rings by collection name (Zone 2 before Zone 10); clear it to keep the order the picker shows"
                               IsChecked="{Binding SortNewRingsByName}" Style="{StaticResource Option}" VerticalAlignment="Center"
+                              ToolTip="Sorts the rings that Add rings from collections creates by Device Collection name. Clear it to keep the order the picker shows."
                               AutomationProperties.AutomationId="chkRingSortByName" />
                 </WrapPanel>
                 <WrapPanel>
                     <StackPanel Margin="0,0,16,8">
                         <TextBlock Text="First available, days" Style="{StaticResource FieldLabel}" Margin="0,0,0,4" />
-                        <ui:TextBox Text="{Binding FirstOffsetText, UpdateSourceTrigger=PropertyChanged}" Width="110" AutomationProperties.Name="First available offset in days"
+                        <ui:TextBox Text="{Binding FirstOffsetText, UpdateSourceTrigger=PropertyChanged}" Width="110" ToolTip="Enter the days after the plan start when the first ring becomes available. Fill offsets uses it." AutomationProperties.Name="First available offset in days"
                                     AutomationProperties.AutomationId="txtFillFirst" />
                     </StackPanel>
                     <StackPanel Margin="0,0,16,8">
                         <TextBlock Text="Days between rings" Style="{StaticResource FieldLabel}" Margin="0,0,0,4" />
-                        <ui:TextBox Text="{Binding DaysBetweenText, UpdateSourceTrigger=PropertyChanged}" Width="110" AutomationProperties.Name="Days between rings"
+                        <ui:TextBox Text="{Binding DaysBetweenText, UpdateSourceTrigger=PropertyChanged}" Width="110" ToolTip="Enter the days between the available times of two rings in a row. Fill offsets uses it." AutomationProperties.Name="Days between rings"
                                     AutomationProperties.AutomationId="txtFillBetween" />
                     </StackPanel>
                     <StackPanel Margin="0,0,16,8">
                         <TextBlock Text="Days to the deadline" Style="{StaticResource FieldLabel}" Margin="0,0,0,4" />
-                        <ui:TextBox Text="{Binding DeadlineDaysText, UpdateSourceTrigger=PropertyChanged}" Width="110" AutomationProperties.Name="Days from the available time to the deadline"
+                        <ui:TextBox Text="{Binding DeadlineDaysText, UpdateSourceTrigger=PropertyChanged}" Width="110" ToolTip="Enter the days from the available time to the deadline of each Required ring. Fill offsets uses it." AutomationProperties.Name="Days from the available time to the deadline"
                                     AutomationProperties.AutomationId="txtFillDeadline" />
                     </StackPanel>
                     <ui:Button Content="Fill offsets" Icon="{ui:SymbolIcon CalendarLtr24}" Command="{Binding FillOffsetsCommand}" Style="{StaticResource ToolButton}" VerticalAlignment="Bottom"
@@ -131,19 +139,19 @@
                     <ui:Button Content="Apply to all rings" Icon="{ui:SymbolIcon CopySelect24}" Command="{Binding ApplyToAllCommand}" Style="{StaticResource ToolButton}"
                                ToolTip="Copies the checked settings of the selected ring to every ring of the plan." AutomationProperties.Name="Apply the settings of the selected ring to all rings"
                                AutomationProperties.AutomationId="btnRingApplyAll" />
-                    <CheckBox Content="Purpose" IsChecked="{Binding ApplyPurpose}" Style="{StaticResource Option}" VerticalAlignment="Center" AutomationProperties.AutomationId="chkApplyPurpose" />
-                    <CheckBox Content="User notification" IsChecked="{Binding ApplyNotification}" Style="{StaticResource Option}" VerticalAlignment="Center" AutomationProperties.AutomationId="chkApplyNotification" />
+                    <CheckBox Content="Purpose" IsChecked="{Binding ApplyPurpose}" Style="{StaticResource Option}" VerticalAlignment="Center" ToolTip="Include the purpose of the selected ring when you apply its settings to all rings." AutomationProperties.AutomationId="chkApplyPurpose" />
+                    <CheckBox Content="User notification" IsChecked="{Binding ApplyNotification}" Style="{StaticResource Option}" VerticalAlignment="Center" ToolTip="Include the user notification of the selected ring when you apply its settings to all rings." AutomationProperties.AutomationId="chkApplyNotification" />
                     <CheckBox Content="Maintenance window, metered, package, task sequence and software update group options" IsChecked="{Binding ApplyOptions}" Style="{StaticResource Option}"
                               VerticalAlignment="Center" AutomationProperties.AutomationId="chkApplyOptions" />
                 </WrapPanel>
                 <StackPanel DataContext="{Binding SelectedRing}">
                     <TextBlock Text="Ring name" Style="{StaticResource FieldLabel}" />
-                    <ui:TextBox Text="{Binding Name, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="Ring name" AutomationProperties.AutomationId="txtRingName" />
+                    <ui:TextBox Text="{Binding Name, UpdateSourceTrigger=PropertyChanged}" ToolTip="Enter the name of the selected ring." AutomationProperties.Name="Ring name" AutomationProperties.AutomationId="txtRingName" />
                     <TextBlock Text="Device collection" Style="{StaticResource FieldLabel}" />
                     <DockPanel>
                         <ui:Button DockPanel.Dock="Right" Content="Pick collection" Icon="{ui:SymbolIcon Organization24}" Margin="8,0,0,0"
                                    Command="{Binding DataContext.PickCollectionCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                                   AutomationProperties.Name="Pick the collection of the ring" AutomationProperties.AutomationId="btnRingPickCollection" />
+                                   ToolTip="Opens a list of Device Collections. Select the Device Collection the selected ring deploys to." AutomationProperties.Name="Pick the collection of the ring" AutomationProperties.AutomationId="btnRingPickCollection" />
                         <TextBlock Text="{Binding Collection}" TextWrapping="Wrap" VerticalAlignment="Center" Foreground="{DynamicResource TextFillColorPrimaryBrush}"
                                    AutomationProperties.AutomationId="txtRingCollection" />
                     </DockPanel>
@@ -151,32 +159,39 @@
                     <StackPanel Orientation="Horizontal">
                         <!-- The detail panel changes its ring under the buttons; the converter writes only a checked button, so the group's uncheck never reaches the previous ring. -->
                         <RadioButton Content="Available" GroupName="RingPurpose" Margin="0,0,16,0" AutomationProperties.AutomationId="rbRingAvailable"
+                                     ToolTip="Makes the deployment of this ring available: users install the software from Software Center when they choose."
                                      IsChecked="{Binding Purpose, Converter={StaticResource PurposeIs}, ConverterParameter=Available}" />
                         <RadioButton Content="Required" GroupName="RingPurpose" AutomationProperties.AutomationId="rbRingRequired"
+                                     ToolTip="Makes the deployment of this ring required: Configuration Manager installs the software at the deadline."
                                      IsChecked="{Binding Purpose, Converter={StaticResource PurposeIs}, ConverterParameter=Required}" />
                     </StackPanel>
                     <WrapPanel Margin="0,4,0,0">
                         <StackPanel Margin="0,0,24,0">
                             <TextBlock Text="Available, days after the plan start" Style="{StaticResource FieldLabel}" />
                             <ui:TextBox Text="{Binding AvailableOffsetText, UpdateSourceTrigger=PropertyChanged}" Width="120" HorizontalAlignment="Left"
+                                        ToolTip="Enter the whole days after the plan start when this ring becomes available."
                                         AutomationProperties.Name="Available offset in days" AutomationProperties.AutomationId="txtRingAvailableOffset" />
                         </StackPanel>
                         <StackPanel Margin="0,0,24,0" Visibility="{Binding IsRequired, Converter={StaticResource EditorVisibility}}">
                             <TextBlock Text="Deadline, days after the plan start" Style="{StaticResource FieldLabel}" />
                             <ui:TextBox Text="{Binding DeadlineOffsetText, UpdateSourceTrigger=PropertyChanged}" Width="120" HorizontalAlignment="Left"
+                                        ToolTip="Enter the whole days after the plan start when this ring installs the software. It must be later than the available time."
                                         AutomationProperties.Name="Deadline offset in days" AutomationProperties.AutomationId="txtRingDeadlineOffset" />
                         </StackPanel>
                         <StackPanel Margin="0,0,24,0">
                             <TextBlock Text="Success threshold, % (empty for none)" Style="{StaticResource FieldLabel}" />
                             <ui:TextBox Text="{Binding ThresholdText, UpdateSourceTrigger=PropertyChanged}" Width="120" HorizontalAlignment="Left"
+                                        ToolTip="Enter the success rate of this ring, from 0 to 100 percent, that opens Promote for the next ring. Leave it empty for no gate."
                                         AutomationProperties.Name="Success threshold in percent" AutomationProperties.AutomationId="txtRingThreshold" />
                         </StackPanel>
                     </WrapPanel>
                     <TextBlock Text="User notification" Style="{StaticResource FieldLabel}" />
                     <ComboBox ItemsSource="{Binding DataContext.Notifications, RelativeSource={RelativeSource AncestorType=Window}}" SelectedItem="{Binding Notification}" DisplayMemberPath="Text"
+                              ToolTip="Select whether the deployment of this ring shows in Software Center and which notifications users see. An Available ring cannot hide all notifications."
                               AutomationProperties.Name="User notification of the ring" AutomationProperties.AutomationId="cboRingNotification" />
                     <TextBlock Text="Distribution point group (empty for none)" Style="{StaticResource FieldLabel}" />
-                    <ui:TextBox Text="{Binding DpGroup, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="Distribution point group of the ring"
+                    <ui:TextBox Text="{Binding DpGroup, UpdateSourceTrigger=PropertyChanged}" ToolTip="Enter the name of the distribution point group the run distributes the content to before it creates this ring. Leave it empty for none."
+                                AutomationProperties.Name="Distribution point group of the ring"
                                 AutomationProperties.AutomationId="txtRingDpGroup" />
                     <TextBlock Text="Required only" Style="{StaticResource FieldLabel}" />
                     <WrapPanel IsEnabled="{Binding IsRequired}">
@@ -192,17 +207,17 @@
                         <StackPanel Margin="0,0,16,8">
                             <TextBlock Text="Fast network" Style="{StaticResource FieldLabel}" Margin="0,0,0,4" />
                             <ComboBox ItemsSource="{Binding DataContext.FastNetworks, RelativeSource={RelativeSource AncestorType=Window}}" SelectedItem="{Binding FastNetwork}"
-                                      DisplayMemberPath="Text" MinWidth="240" MaxWidth="420" AutomationProperties.Name="Fast network of the ring" AutomationProperties.AutomationId="cboRingFast" />
+                                      DisplayMemberPath="Text" MinWidth="240" MaxWidth="420" ToolTip="Select how devices on a fast network get the content of a Package deployment." AutomationProperties.Name="Fast network of the ring" AutomationProperties.AutomationId="cboRingFast" />
                         </StackPanel>
                         <StackPanel Margin="0,0,16,8">
                             <TextBlock Text="Slow network" Style="{StaticResource FieldLabel}" Margin="0,0,0,4" />
                             <ComboBox ItemsSource="{Binding DataContext.SlowNetworks, RelativeSource={RelativeSource AncestorType=Window}}" SelectedItem="{Binding SlowNetwork}"
-                                      DisplayMemberPath="Text" MinWidth="240" MaxWidth="420" AutomationProperties.Name="Slow network of the ring" AutomationProperties.AutomationId="cboRingSlow" />
+                                      DisplayMemberPath="Text" MinWidth="240" MaxWidth="420" ToolTip="Select how devices on a slow network get the content of a Package deployment." AutomationProperties.Name="Slow network of the ring" AutomationProperties.AutomationId="cboRingSlow" />
                         </StackPanel>
                         <StackPanel Margin="0,0,16,8">
                             <TextBlock Text="Rerun behavior" Style="{StaticResource FieldLabel}" Margin="0,0,0,4" />
                             <ComboBox ItemsSource="{Binding DataContext.Reruns, RelativeSource={RelativeSource AncestorType=Window}}" SelectedItem="{Binding Rerun}"
-                                      DisplayMemberPath="Text" MinWidth="240" MaxWidth="420" AutomationProperties.Name="Rerun behavior of the ring" AutomationProperties.AutomationId="cboRingRerun" />
+                                      DisplayMemberPath="Text" MinWidth="240" MaxWidth="420" ToolTip="Select when Configuration Manager reruns the Package program on a device that ran it before." AutomationProperties.Name="Rerun behavior of the ring" AutomationProperties.AutomationId="cboRingRerun" />
                         </StackPanel>
                     </WrapPanel>
                     <Expander Header="Advanced options: task sequence and software update group" Margin="0,8,0,0" AutomationProperties.Name="Advanced options of the ring"
@@ -213,17 +228,20 @@
                                 <StackPanel Margin="0,0,16,8">
                                     <TextBlock Text="Make available to" Style="{StaticResource FieldLabel}" Margin="0,0,0,4" />
                                     <ComboBox ItemsSource="{Binding DataContext.TaskSequenceAvailabilities, RelativeSource={RelativeSource AncestorType=Window}}" SelectedItem="{Binding TaskSequenceAvailability}"
-                                              DisplayMemberPath="Text" MinWidth="240" MaxWidth="420" AutomationProperties.Name="Task sequence availability of the ring"
+                                              DisplayMemberPath="Text" MinWidth="240" MaxWidth="420" ToolTip="Select which devices and boot media can see the Task Sequence deployment of this ring."
+                                              AutomationProperties.Name="Task sequence availability of the ring"
                                               AutomationProperties.AutomationId="cboRingTsAvailability" />
                                 </StackPanel>
                                 <StackPanel Margin="0,0,16,8">
                                     <TextBlock Text="Content" Style="{StaticResource FieldLabel}" Margin="0,0,0,4" />
                                     <ComboBox ItemsSource="{Binding DataContext.TaskSequenceContents, RelativeSource={RelativeSource AncestorType=Window}}" SelectedItem="{Binding TaskSequenceContent}"
-                                              DisplayMemberPath="Text" MinWidth="240" MaxWidth="420" AutomationProperties.Name="Task sequence content option of the ring"
+                                              DisplayMemberPath="Text" MinWidth="240" MaxWidth="420" ToolTip="Select when devices download the content of the Task Sequence."
+                                              AutomationProperties.Name="Task sequence content option of the ring"
                                               AutomationProperties.AutomationId="cboRingTsContent" />
                                 </StackPanel>
                             </WrapPanel>
                             <CheckBox Content="Show task sequence progress" IsChecked="{Binding ShowTaskSequenceProgress}" Style="{StaticResource Option}"
+                                      ToolTip="Shows the progress of the Task Sequence on the device while it runs."
                                       AutomationProperties.AutomationId="chkRingTsProgress" />
                             <TextBlock Text="Software update group options (a run of another type ignores them)" Style="{StaticResource FieldLabel}" />
                             <CheckBox Content="Allow fallback to the default site boundary group" IsChecked="{Binding AllowBoundaryFallback}" Style="{StaticResource Option}"
@@ -243,7 +261,8 @@
         <Border Grid.Row="2" BorderThickness="0,1,0,0" BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}" Padding="16,8">
             <DockPanel>
                 <WrapPanel DockPanel.Dock="Right">
-                    <ui:Button Content="Save plan" Appearance="Primary" MinWidth="120" Margin="0,0,8,0" Command="{Binding SaveCommand}" AutomationProperties.AutomationId="btnRingPlanSave" />
+                    <ui:Button Content="Save plan" Appearance="Primary" MinWidth="120" Margin="0,0,8,0" Command="{Binding SaveCommand}" AutomationProperties.AutomationId="btnRingPlanSave"
+                               ToolTip="Saves the plan with its rings. The editor checks the plan first and shows what to fix." />
                     <ui:Button Content="Cancel" MinWidth="100" IsCancel="True" Command="{Binding CancelCommand}" AutomationProperties.AutomationId="btnRingPlanCancel" />
                 </WrapPanel>
                 <TextBlock Text="{Binding ValidationMessage}" TextWrapping="Wrap" VerticalAlignment="Center" Margin="0,0,12,0"

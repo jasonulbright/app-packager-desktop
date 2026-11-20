@@ -86,12 +86,14 @@
                         <StackPanel Margin="0,0,12,0">
                             <TextBlock Text="Clause type" Style="{StaticResource FieldLabel}" Margin="0,0,0,4" />
                             <ComboBox ItemsSource="{Binding ClauseTypes}" SelectedItem="{Binding SelectedClauseType}" MinWidth="200"
+                                      ToolTip="Select the type of detection clause to test: a registry key or value, a file, or a script."
                                       AutomationProperties.AutomationId="cboClauseType" AutomationProperties.Name="Clause type" />
                         </StackPanel>
                         <CheckBox Content="Negative test (a clause that is not detected passes)" IsChecked="{Binding Negative}"
                                   VerticalAlignment="Bottom" Margin="0,0,12,4" AutomationProperties.AutomationId="chkNegative" />
                         <ui:Button Content="Run" Appearance="Primary" Icon="{ui:SymbolIcon Play24}" Command="{Binding RunCommand}"
-                                   VerticalAlignment="Bottom" Margin="0,0,8,0" MinWidth="90" AutomationProperties.AutomationId="btnRun" />
+                                   VerticalAlignment="Bottom" Margin="0,0,8,0" MinWidth="90" AutomationProperties.AutomationId="btnRun"
+                                   ToolTip="Tests the clause on this computer and shows whether it detects the application." />
                         <ui:Button Content="Cancel" Icon="{ui:SymbolIcon Dismiss24}" Command="{Binding CancelCommand}"
                                    VerticalAlignment="Bottom" Margin="0,0,8,0" AutomationProperties.AutomationId="btnCancel"
                                    Visibility="{Binding IsRunning, Converter={StaticResource BoolToVisibility}}" />
@@ -120,16 +122,19 @@
                                         <StackPanel Grid.Column="0">
                                             <TextBlock Text="Hive" Style="{StaticResource FieldLabel}" />
                                             <ComboBox ItemsSource="{Binding Hives}" SelectedItem="{Binding SelectedHive}" AutomationProperties.Name="Hive"
+                                                      ToolTip="Select the registry hive that holds the key: HKEY_LOCAL_MACHINE or HKEY_CURRENT_USER."
                                                       AutomationProperties.AutomationId="cboHive" />
                                         </StackPanel>
                                         <StackPanel Grid.Column="2">
                                             <TextBlock Text="Registry view" Style="{StaticResource FieldLabel}" />
                                             <ComboBox ItemsSource="{Binding Views}" SelectedItem="{Binding SelectedView}" AutomationProperties.Name="Registry view"
+                                                      ToolTip="Select whether the test reads the 64-bit or the 32-bit view of the registry."
                                                       AutomationProperties.AutomationId="cboRegistryView" />
                                         </StackPanel>
                                     </Grid>
                                     <TextBlock Text="Key path (below the hive)" Style="{StaticResource FieldLabel}" />
                                     <ui:TextBox Text="{Binding KeyPath, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\{product code}"
+                                                ToolTip="Enter the path of the registry key below the hive. A registry key clause passes when the key exists."
                                                 AutomationProperties.Name="Key path" AutomationProperties.AutomationId="txtKeyPath" />
                                 </StackPanel>
 
@@ -137,6 +142,7 @@
                                             Visibility="{Binding IsRegistryKeyValue, Converter={StaticResource BoolToVisibility}}">
                                     <TextBlock Text="Value name" Style="{StaticResource FieldLabel}" />
                                     <ui:TextBox Text="{Binding ValueName, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="DisplayVersion"
+                                                ToolTip="Enter the name of the registry value to read, for example DisplayVersion."
                                                 AutomationProperties.Name="Value name" AutomationProperties.AutomationId="txtValueName" />
                                     <Grid>
                                         <Grid.ColumnDefinitions>
@@ -147,16 +153,19 @@
                                         <StackPanel Grid.Column="0">
                                             <TextBlock Text="Data type" Style="{StaticResource FieldLabel}" />
                                             <ComboBox ItemsSource="{Binding RegistryPropertyTypes}" SelectedItem="{Binding RegistryPropertyType}"
+                                                      ToolTip="Select how the test compares the value: as a string or as a version."
                                                       AutomationProperties.Name="Data type" AutomationProperties.AutomationId="cboRegistryPropertyType" />
                                         </StackPanel>
                                         <StackPanel Grid.Column="2">
                                             <TextBlock Text="Operator" Style="{StaticResource FieldLabel}" />
                                             <ComboBox ItemsSource="{Binding RegistryOperators}" SelectedItem="{Binding RegistryOperator}"
+                                                      ToolTip="Select how the test compares the registry value with the expected value."
                                                       AutomationProperties.Name="Operator" AutomationProperties.AutomationId="cboRegistryOperator" />
                                         </StackPanel>
                                     </Grid>
                                     <TextBlock Text="Expected value (empty: the value exists)" Style="{StaticResource FieldLabel}" />
                                     <ui:TextBox Text="{Binding ExpectedValue, UpdateSourceTrigger=PropertyChanged}"
+                                                ToolTip="Enter the value to compare with the registry value. Leave it empty to test only that the value exists."
                                                 AutomationProperties.Name="Expected value" AutomationProperties.AutomationId="txtExpectedValue" />
                                 </StackPanel>
 
@@ -164,9 +173,11 @@
                                             Visibility="{Binding IsFile, Converter={StaticResource BoolToVisibility}}">
                                     <TextBlock Text="Folder path" Style="{StaticResource FieldLabel}" />
                                     <ui:TextBox Text="{Binding FilePath, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="%ProgramFiles%\Vendor\Product"
+                                                ToolTip="Enter the path of the folder that holds the file. Environment variables such as %ProgramFiles% work."
                                                 AutomationProperties.Name="Folder path" AutomationProperties.AutomationId="txtFilePath" />
                                     <TextBlock Text="File name" Style="{StaticResource FieldLabel}" />
                                     <ui:TextBox Text="{Binding FileName, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="product.exe"
+                                                ToolTip="Enter the name of the file to test."
                                                 AutomationProperties.Name="File name" AutomationProperties.AutomationId="txtFileName" />
                                     <Grid>
                                         <Grid.ColumnDefinitions>
@@ -177,20 +188,24 @@
                                         <StackPanel Grid.Column="0">
                                             <TextBlock Text="Property" Style="{StaticResource FieldLabel}" />
                                             <ComboBox ItemsSource="{Binding FileProperties}" SelectedItem="{Binding FileProperty}"
+                                                      ToolTip="Select what the test checks: that the file exists, or the version of the file."
                                                       AutomationProperties.Name="Property" AutomationProperties.AutomationId="cboFileProperty" />
                                         </StackPanel>
                                         <StackPanel Grid.Column="2">
                                             <TextBlock Text="View" Style="{StaticResource FieldLabel}" />
                                             <ComboBox ItemsSource="{Binding Views}" SelectedItem="{Binding SelectedView}"
+                                                      ToolTip="Select whether the test uses the 64-bit or the 32-bit view for the file."
                                                       AutomationProperties.Name="File view" AutomationProperties.AutomationId="cboFileView" />
                                         </StackPanel>
                                     </Grid>
                                     <StackPanel Visibility="{Binding IsFileVersion, Converter={StaticResource BoolToVisibility}}">
                                         <TextBlock Text="Operator" Style="{StaticResource FieldLabel}" />
                                         <ComboBox ItemsSource="{Binding FileOperators}" SelectedItem="{Binding FileOperator}"
+                                                  ToolTip="Select how the test compares the file version with the expected version."
                                                   AutomationProperties.Name="File operator" AutomationProperties.AutomationId="cboFileOperator" />
                                         <TextBlock Text="Expected version" Style="{StaticResource FieldLabel}" />
                                         <ui:TextBox Text="{Binding FileExpectedValue, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="1.2.3.4"
+                                                    ToolTip="Enter the version to compare with the file version, for example 1.2.3.4."
                                                     AutomationProperties.Name="Expected version" AutomationProperties.AutomationId="txtFileExpectedValue" />
                                     </StackPanel>
                                 </StackPanel>
@@ -310,10 +325,13 @@
                             <ui:Button Content="Use selected" Icon="{ui:SymbolIcon ArrowUpLeft24}" Command="{Binding UseSelectedCommand}" Margin="0,0,8,0"
                                        AutomationProperties.AutomationId="btnUseSelected" ToolTip="Fill the inputs from the selected test." />
                             <ui:Button Content="Export CSV" Icon="{ui:SymbolIcon DocumentTable24}" Command="{Binding ExportCsvCommand}" Margin="0,0,8,0"
+                                       ToolTip="Saves the test history as a CSV file."
                                        AutomationProperties.AutomationId="btnExportCsv" />
                             <ui:Button Content="Export HTML" Icon="{ui:SymbolIcon Globe24}" Command="{Binding ExportHtmlCommand}" Margin="0,0,8,0"
+                                       ToolTip="Saves the test history as an HTML report."
                                        AutomationProperties.AutomationId="btnExportHtml" />
                             <ui:Button Content="Clear history" Icon="{ui:SymbolIcon Delete24}" Command="{Binding ClearHistoryCommand}"
+                                       ToolTip="Removes every entry of the test history after you confirm."
                                        AutomationProperties.AutomationId="btnClearHistory" />
                         </WrapPanel>
                         <StackPanel VerticalAlignment="Center">
@@ -357,14 +375,16 @@
 
                     <DockPanel Grid.Row="0" Margin="0,0,0,8">
                         <ui:Button DockPanel.Dock="Right" Content="Refresh" Icon="{ui:SymbolIcon ArrowSync24}" Command="{Binding RefreshApplicationsCommand}"
-                                   Margin="8,0,0,0" AutomationProperties.AutomationId="btnRefreshApplications" />
+                                   Margin="8,0,0,0" AutomationProperties.AutomationId="btnRefreshApplications"
+                                   ToolTip="Reads the installed applications of this computer again." />
                         <TextBlock DockPanel.Dock="Right" VerticalAlignment="Center" Margin="12,0,0,0" Style="{StaticResource Note}"
                                    Text="{Binding ApplicationCount}" AutomationProperties.AutomationId="txtApplicationCount" />
                         <CheckBox DockPanel.Dock="Right" Content="Show system components" IsChecked="{Binding ShowSystemComponents}"
                                   VerticalAlignment="Center" Margin="12,0,0,0" AutomationProperties.AutomationId="chkShowSystemComponents"
                                   ToolTip="List the entries that Windows marks as system components (SystemComponent=1)." />
                         <ui:TextBox Text="{Binding ApplicationFilter, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="Filter by name, publisher or version"
-                                    Icon="{ui:SymbolIcon Search24}" AutomationProperties.Name="Filter" AutomationProperties.AutomationId="txtApplicationFilter" />
+                                    Icon="{ui:SymbolIcon Search24}" ToolTip="Enter text to show only the applications whose name, publisher or version contains it."
+                                    AutomationProperties.Name="Filter" AutomationProperties.AutomationId="txtApplicationFilter" />
                     </DockPanel>
 
                     <Grid Grid.Row="1" x:Name="gridApplicationsLayout" SizeChanged="OnApplicationsLayoutSizeChanged">
@@ -405,7 +425,8 @@
                                                Command="{Binding UseForDetectionCommand}" Margin="0,0,0,8" AutomationProperties.AutomationId="btnUseForDetection"
                                                ToolTip="Fill a registry value clause on this application's uninstall key." />
                                     <ui:Button Content="Copy details" Icon="{ui:SymbolIcon Copy24}" HorizontalAlignment="Stretch"
-                                               Command="{Binding CopyDetailsCommand}" AutomationProperties.AutomationId="btnCopyDetails" />
+                                               Command="{Binding CopyDetailsCommand}" AutomationProperties.AutomationId="btnCopyDetails"
+                                               ToolTip="Copies the details of the selected application to the clipboard." />
                                 </StackPanel>
                                 <ScrollViewer VerticalScrollBarVisibility="Auto">
                                     <StackPanel>

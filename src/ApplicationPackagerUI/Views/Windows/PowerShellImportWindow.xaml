@@ -39,7 +39,7 @@
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
                             <CheckBox IsChecked="{Binding Selected, UpdateSourceTrigger=PropertyChanged}" IsEnabled="{Binding Differs}" HorizontalAlignment="Center"
-                                      AutomationProperties.Name="{Binding Key, StringFormat=Import {0}}" />
+                                      AutomationProperties.Name="{Binding Key, StringFormat=Import {0}}" ToolTip="Import this setting from the PowerShell file. You can select it only when the two values differ." />
                         </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
@@ -61,10 +61,10 @@
         <Border Grid.Row="3" BorderThickness="0,1,0,0" BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}" Padding="16,8">
             <DockPanel>
                 <ui:Button DockPanel.Dock="Left" x:Name="btnOther" Content="Choose another file..." Click="OnChooseAnother"
-                           AutomationProperties.AutomationId="btnImportOther" />
+                           AutomationProperties.AutomationId="btnImportOther" ToolTip="Close this preview and select a different preferences file." />
                 <WrapPanel HorizontalAlignment="Right">
                     <ui:Button x:Name="btnImport" Content="_Import" MinWidth="100" Margin="0,0,8,0" Appearance="Primary" Click="OnImport"
-                               AutomationProperties.AutomationId="btnImportAccept" />
+                               AutomationProperties.AutomationId="btnImportAccept" ToolTip="Write the checked rows to the saved settings. The PowerShell file is not changed." />
                     <ui:Button x:Name="btnCancel" Content="_Cancel" MinWidth="100" IsCancel="True" IsDefault="True"
                                AutomationProperties.AutomationId="btnImportCancel" />
                 </WrapPanel>

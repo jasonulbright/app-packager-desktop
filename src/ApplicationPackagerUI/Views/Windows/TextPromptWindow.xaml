@@ -30,14 +30,14 @@
                        AutomationProperties.AutomationId="txtPromptNote" />
             <TextBox x:Name="txtValue" Text="{Binding Text, UpdateSourceTrigger=PropertyChanged}" AcceptsReturn="{Binding Multiline}" TextWrapping="Wrap"
                      VerticalScrollBarVisibility="Auto" VerticalContentAlignment="Top" VerticalAlignment="Stretch"
-                     AutomationProperties.Name="{Binding Label}" AutomationProperties.AutomationId="txtPromptValue" />
+                     AutomationProperties.Name="{Binding Label}" AutomationProperties.AutomationId="txtPromptValue" ToolTip="Enter the value that this window asks for." />
         </DockPanel>
 
         <Border Grid.Row="2" BorderThickness="0,1,0,0" BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}" Padding="16,8">
             <DockPanel>
                 <WrapPanel DockPanel.Dock="Right">
                     <ui:Button Content="{Binding ActionText}" Appearance="Primary" MinWidth="110" Margin="0,0,8,0" Command="{Binding AcceptCommand}"
-                               AutomationProperties.AutomationId="btnPromptAccept" />
+                               AutomationProperties.AutomationId="btnPromptAccept" ToolTip="Use the value that you entered and close the window. A message appears when the value is not accepted." />
                     <ui:Button Content="Cancel" MinWidth="100" IsCancel="True" Command="{Binding CancelCommand}" AutomationProperties.AutomationId="btnPromptCancel" />
                 </WrapPanel>
                 <TextBlock Text="{Binding ValidationMessage}" TextWrapping="Wrap" VerticalAlignment="Center" Margin="0,0,12,0"

@@ -42,6 +42,7 @@
             <TextBlock DockPanel.Dock="Right" Text="{Binding Count}" VerticalAlignment="Center" Margin="8,0,0,0" FontSize="12"
                        Foreground="{DynamicResource TextFillColorSecondaryBrush}" AutomationProperties.AutomationId="txtPickerCount" />
             <ui:TextBox x:Name="txtFilter" Text="{Binding Filter, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="Filter by name, ID or folder" Icon="{ui:SymbolIcon Search24}"
+                        ToolTip="Enter text to show only the Device Collections whose name, ID or folder path contains it."
                         AutomationProperties.Name="Collection filter" AutomationProperties.AutomationId="txtPickerFilter" />
         </DockPanel>
 
@@ -57,6 +58,7 @@
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
                             <CheckBox IsChecked="{Binding IsChecked, UpdateSourceTrigger=PropertyChanged}" IsEnabled="{Binding CanCheck}" HorizontalAlignment="Center" MinWidth="0" Padding="0"
+                                      ToolTip="Include this Device Collection in the plan."
                                       AutomationProperties.Name="{Binding Name}" />
                         </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
@@ -72,10 +74,11 @@
             <DockPanel>
                 <WrapPanel DockPanel.Dock="Right">
                     <ui:Button Content="Check shown" MinWidth="100" Margin="0,0,8,0" Command="{Binding CheckShownCommand}" Visibility="{Binding MultiSelect, Converter={StaticResource PickerVisibility}}"
-                               AutomationProperties.Name="Check every collection the filter shows" AutomationProperties.AutomationId="btnPickerCheckShown" />
+                               ToolTip="Checks every Device Collection the filter shows, except built-in collections." AutomationProperties.Name="Check every collection the filter shows" AutomationProperties.AutomationId="btnPickerCheckShown" />
                     <ui:Button Content="Clear" MinWidth="80" Margin="0,0,8,0" Command="{Binding ClearChecksCommand}" Visibility="{Binding MultiSelect, Converter={StaticResource PickerVisibility}}"
-                               AutomationProperties.Name="Clear every check" AutomationProperties.AutomationId="btnPickerClear" />
+                               ToolTip="Clears the check of every Device Collection, including those the filter hides." AutomationProperties.Name="Clear every check" AutomationProperties.AutomationId="btnPickerClear" />
                     <ui:Button Content="{Binding PickText}" Appearance="Primary" MinWidth="100" Margin="0,0,8,0" Command="{Binding PickCommand}" IsDefault="True"
+                               ToolTip="Adds the checked Device Collections as rings, or picks the selected Device Collection when the window picks one."
                                AutomationProperties.Name="{Binding PickText}" AutomationProperties.AutomationId="btnPickerPick" />
                     <ui:Button Content="Cancel" MinWidth="100" IsCancel="True" Command="{Binding CancelCommand}" AutomationProperties.AutomationId="btnPickerCancel" />
                 </WrapPanel>

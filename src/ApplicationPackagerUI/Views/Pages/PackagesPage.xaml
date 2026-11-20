@@ -111,7 +111,7 @@
             <ui:Button Content="Check Latest"
                        Icon="{ui:SymbolIcon ArrowDownload24}"
                        Command="{Binding CheckLatestCommand}"
-                       Margin="0,0,4,8" />
+                       Margin="0,0,4,8" ToolTip="Look up the latest version of each checked application." />
             <ui:Button Content="Check ConfigMgr"
                        Icon="{ui:SymbolIcon Search24}"
                        Command="{Binding CheckMecmCommand}"
@@ -130,7 +130,7 @@
             <ui:Button Content="Stage"
                        Icon="{ui:SymbolIcon ArrowCircleDown24}"
                        Command="{Binding StageCommand}"
-                       Margin="0,0,4,8" />
+                       Margin="0,0,4,8" ToolTip="Stage the installer content of each checked application." />
             <ui:Button x:Name="btnPublishAll"
                        Content="Publish All"
                        Icon="{ui:SymbolIcon ArrowCircleUp24}"
@@ -216,7 +216,7 @@
                         PlaceholderText="Search applications..."
                         Icon="{ui:SymbolIcon Search24}"
                         AutomationProperties.AutomationId="txtAppPackagerSearch"
-                        AutomationProperties.Name="Search applications" />
+                        AutomationProperties.Name="Search applications" ToolTip="Enter part of an application name, vendor or CMName to show only the matching applications." />
             <ui:TextBox Grid.Column="1"
                         Text="{Binding Comment, UpdateSourceTrigger=PropertyChanged}"
                         PlaceholderText="Administrative Comments"
@@ -333,13 +333,13 @@
                         <CheckBox x:Name="SelectAllCheckBox"
                                   Click="SelectAllCheckBox_Click"
                                   HorizontalAlignment="Center"
-                                  Background="Transparent" />
+                                  Background="Transparent" ToolTip="Select or clear every application that can run." />
                     </DataGridTemplateColumn.Header>
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
                             <CheckBox IsChecked="{Binding IsSelected, UpdateSourceTrigger=PropertyChanged}" MinWidth="0" MinHeight="0"
                                       IsEnabled="{Binding IsRunnable}"
-                                      HorizontalAlignment="Center" />
+                                      HorizontalAlignment="Center" ToolTip="Include this application in the run." />
                         </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
@@ -462,16 +462,16 @@
                        Icon="{ui:SymbolIcon CheckboxChecked24}"
                        Command="{Binding SelectUpdateAvailableCommand}"
                        Appearance="Transparent"
-                       Margin="0,0,12,0" />
+                       Margin="0,0,12,0" ToolTip="Check every application whose status shows that an update is available." />
             <ui:Button Content="Import From URL"
                        Icon="{ui:SymbolIcon ArrowDownload24}"
                        Command="{Binding ImportFromUrlCommand}"
                        AutomationProperties.AutomationId="btnImportFromUrl"
                        Appearance="Transparent"
-                       Margin="0,0,12,0" />
+                       Margin="0,0,12,0" ToolTip="Open the window that imports vendor definitions from a feed address." />
             <CheckBox Content="Show debug columns"
                       IsChecked="{Binding ShowDebugColumns}"
-                      VerticalAlignment="Center" />
+                      VerticalAlignment="Center" ToolTip="Show the CMName, Script, Max EPSS, NVD updated and CVEs Checked (UTC) columns." />
         </StackPanel>
 
         <TextBox Grid.Row="5"

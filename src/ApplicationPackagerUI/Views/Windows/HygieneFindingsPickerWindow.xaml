@@ -47,9 +47,9 @@
             <TextBlock Text="{Binding Intro}" TextWrapping="Wrap" FontSize="14" Foreground="{DynamicResource TextFillColorPrimaryBrush}"
                        AutomationProperties.AutomationId="txtHygienePickIntro" />
             <WrapPanel Margin="0,8,0,0">
-                <ui:TextBox x:Name="txtHygienePickFilter" KeyboardNavigation.TabIndex="4" Text="{Binding FilterText, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="Filter by check, object or evidence"
+                <ui:TextBox ToolTip="Enter text to show only the findings that contain it." x:Name="txtHygienePickFilter" KeyboardNavigation.TabIndex="4" Text="{Binding FilterText, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="Filter by check, object or evidence"
                             Icon="{ui:SymbolIcon Search24}" MinWidth="280" Margin="0,0,8,8" AutomationProperties.Name="Finding filter" AutomationProperties.AutomationId="txtHygienePickFilter" />
-                <ui:Button KeyboardNavigation.TabIndex="1" Content="Check shown" Command="{Binding CheckShownCommand}" Margin="0,0,8,8" AutomationProperties.AutomationId="btnHygienePickCheckShown" />
+                <ui:Button ToolTip="Selects every finding that the filter shows." KeyboardNavigation.TabIndex="1" Content="Check shown" Command="{Binding CheckShownCommand}" Margin="0,0,8,8" AutomationProperties.AutomationId="btnHygienePickCheckShown" />
                 <ui:Button KeyboardNavigation.TabIndex="2" Content="Clear" Command="{Binding ClearCommand}" Margin="0,0,8,8" ToolTip="Clears every object, also the objects the filter hides."
                            AutomationProperties.Name="Clear every object" AutomationProperties.AutomationId="btnHygienePickClear" />
                 <TextBlock Text="{Binding CountText}" TextWrapping="Wrap" VerticalAlignment="Center" Margin="0,0,0,8" Foreground="{DynamicResource TextFillColorSecondaryBrush}"
@@ -67,7 +67,7 @@
                 <DataGridTemplateColumn Header="Include" Width="72" MinWidth="72" CanUserResize="True">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
-                            <CheckBox IsChecked="{Binding IsChecked, UpdateSourceTrigger=PropertyChanged}" HorizontalAlignment="Center" MinWidth="0" Padding="0" Focusable="False"
+                            <CheckBox ToolTip="Include this finding in the plan." IsChecked="{Binding IsChecked, UpdateSourceTrigger=PropertyChanged}" HorizontalAlignment="Center" MinWidth="0" Padding="0" Focusable="False"
                                       AutomationProperties.Name="{Binding CheckName}" />
                         </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
@@ -83,7 +83,7 @@
                 <TextBlock DockPanel.Dock="Left" Text="Space checks or clears the selected object." VerticalAlignment="Center" TextWrapping="Wrap" MaxWidth="320"
                            Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
                 <WrapPanel HorizontalAlignment="Right">
-                    <ui:Button Content="Continue to the plan" MinWidth="150" Margin="0,0,8,0" Appearance="Primary" Command="{Binding ContinueCommand}"
+                    <ui:Button ToolTip="Builds the plan for the selected findings. Nothing changes until you confirm the plan." Content="Continue to the plan" MinWidth="150" Margin="0,0,8,0" Appearance="Primary" Command="{Binding ContinueCommand}"
                                AutomationProperties.AutomationId="btnHygienePickContinue" />
                     <ui:Button Content="_Cancel" MinWidth="100" IsCancel="True" Command="{Binding CancelCommand}" AutomationProperties.AutomationId="btnHygienePickCancel" />
                 </WrapPanel>

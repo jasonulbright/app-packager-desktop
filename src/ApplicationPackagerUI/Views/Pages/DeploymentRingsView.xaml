@@ -133,7 +133,7 @@
                         <TextBlock Text="{Binding ObjectHeader}" Style="{StaticResource FieldLabel}" />
                     </DockPanel>
                     <ui:TextBox Text="{Binding ObjectFilter, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="Filter by name, version or ID" Icon="{ui:SymbolIcon Search24}"
-                                Margin="0,0,0,8" AutomationProperties.Name="Object filter of the run" AutomationProperties.AutomationId="txtRingObjectFilter" />
+                                Margin="0,0,0,8" ToolTip="Enter text to show only the objects whose name, version or ID contains it." AutomationProperties.Name="Object filter of the run" AutomationProperties.AutomationId="txtRingObjectFilter" />
                     <DataGrid x:Name="dgRingObjects" Style="{StaticResource GridBase}" ItemsSource="{Binding Objects}" SelectedItem="{Binding SelectedObject}" Height="180"
                               AutomationProperties.AutomationId="dgRingObjects" AutomationProperties.Name="Objects of the run">
                         <DataGrid.Columns>
@@ -148,11 +148,13 @@
                         <StackPanel Margin="0,0,16,8" Visibility="{Binding IsPackage, Converter={StaticResource BoolToVisibility}}">
                             <TextBlock Text="Program" Style="{StaticResource FieldLabel}" />
                             <ComboBox ItemsSource="{Binding Programs}" SelectedItem="{Binding SelectedProgram}" MinWidth="200"
+                                      ToolTip="Select the Program of the Package that the run deploys."
                                       AutomationProperties.Name="Program of the run" AutomationProperties.AutomationId="cboRingProgram" />
                         </StackPanel>
                         <StackPanel Margin="0,0,16,8">
                             <TextBlock Text="Ring plan" Style="{StaticResource FieldLabel}" />
                             <ComboBox ItemsSource="{Binding Plans}" SelectedItem="{Binding SelectedPlan}" DisplayMemberPath="Name" MinWidth="240" MaxWidth="420"
+                                      ToolTip="Select the ring plan the run follows. The run creates one deployment for each ring of the plan."
                                       AutomationProperties.Name="Ring plan of the run" AutomationProperties.AutomationId="cboRingPlan" />
                         </StackPanel>
                         <StackPanel Margin="0,0,16,8">
@@ -161,6 +163,7 @@
                                 <DatePicker SelectedDate="{Binding PlanStartDate}" SelectedDateFormat="Short" ToolTip="{Binding PlanStartDateTip}" Width="150" Margin="0,0,8,0"
                                             AutomationProperties.Name="Plan start date" AutomationProperties.AutomationId="dpRingStart" />
                                 <ui:TextBox Text="{Binding PlanStartTimeText, UpdateSourceTrigger=PropertyChanged}" Width="90" PlaceholderText="08:00"
+                                            ToolTip="Enter the time of day the plan starts, as hours and minutes, for example 08:00."
                                             AutomationProperties.Name="Plan start time" AutomationProperties.AutomationId="txtRingStartTime" />
                             </StackPanel>
                         </StackPanel>
@@ -214,12 +217,16 @@
                                Text="A plan is an ordered list of rings: a device collection, a purpose and the days from the plan start for each ring. Shipped plans have no collections and cannot be changed: copy one and change the copy." />
                     <WrapPanel>
                         <ui:Button Content="New" Icon="{ui:SymbolIcon Add24}" Command="{Binding NewPlanCommand}" Style="{StaticResource ToolButton}"
+                                   ToolTip="Opens the plan editor to create a ring plan."
                                    AutomationProperties.Name="New ring plan" AutomationProperties.AutomationId="btnRingPlanNew" />
                         <ui:Button Content="Edit" Icon="{ui:SymbolIcon Edit24}" Command="{Binding EditPlanCommand}" Style="{StaticResource ToolButton}"
+                                   ToolTip="Opens the selected ring plan in the plan editor."
                                    AutomationProperties.Name="Edit ring plan" AutomationProperties.AutomationId="btnRingPlanEdit" />
                         <ui:Button Content="Copy" Icon="{ui:SymbolIcon Copy24}" Command="{Binding CopyPlanCommand}" Style="{StaticResource ToolButton}"
+                                   ToolTip="Opens a copy of the selected ring plan in the plan editor. The original stays as it is."
                                    AutomationProperties.Name="Copy ring plan" AutomationProperties.AutomationId="btnRingPlanCopy" />
                         <ui:Button Content="Delete" Icon="{ui:SymbolIcon Delete24}" Command="{Binding DeletePlanCommand}" Style="{StaticResource ToolButton}"
+                                   ToolTip="Deletes the selected ring plan after you confirm. Runs made with it keep their run files."
                                    AutomationProperties.Name="Delete ring plan" AutomationProperties.AutomationId="btnRingPlanDelete" />
                         <TextBlock Text="{Binding PlansMessage}" Style="{StaticResource Note}" VerticalAlignment="Center" Margin="0,0,0,8" MaxWidth="560"
                                    AutomationProperties.AutomationId="txtRingPlansMessage" AutomationProperties.LiveSetting="Polite" />
@@ -261,6 +268,7 @@
                                    ToolTip="For the selected ring in Creating only: shows a plan that returns the ring to Held when Reconcile cannot prove its create. A deployment of the ring may exist."
                                    ToolTipService.ShowOnDisabled="True" AutomationProperties.AutomationId="btnRingAbandon" />
                         <CheckBox Content="Show closed runs" IsChecked="{Binding ShowClosedRuns}" Style="{StaticResource Option}" VerticalAlignment="Center"
+                                  ToolTip="Includes closed runs in the list of runs."
                                   AutomationProperties.AutomationId="chkRingShowClosed" />
                     </WrapPanel>
                     <TextBlock Text="{Binding PromoteReason}" Style="{StaticResource Note}" Margin="0,0,0,4" AutomationProperties.AutomationId="txtRingPromoteReason"

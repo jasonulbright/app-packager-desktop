@@ -37,7 +37,7 @@
                                 <Run Text="{Binding Name, Mode=OneWay}" FontWeight="SemiBold" /><Run Text="{Binding Details, Mode=OneWay}" />
                             </TextBlock>
                             <TextBlock Text="{Binding Description}" TextWrapping="Wrap" Margin="0,2,0,0" Foreground="{DynamicResource TextFillColorSecondaryBrush}" Visibility="{Binding HasDescription, Converter={StaticResource ParameterVisibility}}" />
-                            <TextBox Text="{Binding Value, UpdateSourceTrigger=PropertyChanged}" Margin="0,4,0,0" AutomationProperties.Name="{Binding Name}" />
+                            <TextBox Text="{Binding Value, UpdateSourceTrigger=PropertyChanged}" Margin="0,4,0,0" ToolTip="Enter the value of this script parameter." AutomationProperties.Name="{Binding Name}" />
                             <TextBlock Text="{Binding Error}" TextWrapping="Wrap" Margin="0,2,0,0" Foreground="{DynamicResource SystemFillColorCriticalBrush}"
                                        Visibility="{Binding HasError, Converter={StaticResource ParameterVisibility}}" />
                         </StackPanel>

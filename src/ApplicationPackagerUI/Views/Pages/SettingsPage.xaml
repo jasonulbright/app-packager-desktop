@@ -60,7 +60,8 @@
                     <ui:Button Content="Save Settings"
                                Appearance="Primary"
                                Icon="{ui:SymbolIcon Save24}"
-                               Command="{Binding SaveSettingsCommand}" />
+                               Command="{Binding SaveSettingsCommand}"
+                               ToolTip="Saves the settings on this page. Discard changes reloads the saved values instead." />
                 </StackPanel>
             </controls:PageHeader.Actions>
         </controls:PageHeader>
@@ -73,39 +74,39 @@
             </Grid.ColumnDefinitions>
             <TreeView x:Name="OptionsTree" Grid.Column="0" Margin="0,0,0,8" AutomationProperties.AutomationId="tvOptions" ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                       SelectedItemChanged="OptionsTree_SelectedItemChanged">
-                <TreeViewItem Header="General" Tag="general" IsSelected="True" AutomationProperties.AutomationId="nav_general" />
-                <TreeViewItem Header="Sidebar" Tag="sidebar" AutomationProperties.AutomationId="nav_sidebar" />
-                <TreeViewItem Header="Connections" IsExpanded="True" AutomationProperties.AutomationId="nav_connections">
-                    <TreeViewItem Header="Systems in Use" Tag="systems" AutomationProperties.AutomationId="nav_systems" />
-                    <TreeViewItem Header="ConfigMgr" Tag="configmgr" AutomationProperties.AutomationId="nav_configmgr" />
-                    <TreeViewItem Header="WSUS" Tag="wsus" AutomationProperties.AutomationId="nav_wsus" />
-                    <TreeViewItem Header="Intune" Tag="intune" AutomationProperties.AutomationId="nav_intune" />
-                    <TreeViewItem Header="GitHub API" Tag="github" AutomationProperties.AutomationId="nav_github" />
+                <TreeViewItem Header="General" ToolTip="Holds the theme, the update check, your company name and the import from the PowerShell app." Tag="general" IsSelected="True" AutomationProperties.AutomationId="nav_general" />
+                <TreeViewItem Header="Sidebar" ToolTip="Select which entries the sidebar shows and set their order." Tag="sidebar" AutomationProperties.AutomationId="nav_sidebar" />
+                <TreeViewItem Header="Connections" ToolTip="Holds the connection settings of ConfigMgr, WSUS, Intune and the GitHub API." IsExpanded="True" AutomationProperties.AutomationId="nav_connections">
+                    <TreeViewItem Header="Systems in Use" ToolTip="Select the systems that you publish to." Tag="systems" AutomationProperties.AutomationId="nav_systems" />
+                    <TreeViewItem Header="ConfigMgr" ToolTip="Holds the site code, the site server, the Discover unmanaged software settings and the file share." Tag="configmgr" AutomationProperties.AutomationId="nav_configmgr" />
+                    <TreeViewItem Header="WSUS" ToolTip="Holds the WSUS server, the signing certificate and the publishing options." Tag="wsus" AutomationProperties.AutomationId="nav_wsus" />
+                    <TreeViewItem Header="Intune" ToolTip="Holds the tenant ID, the client ID, the client secret and the minimum Windows release." Tag="intune" AutomationProperties.AutomationId="nav_intune" />
+                    <TreeViewItem Header="GitHub API" ToolTip="Holds the GitHub token and shows the API request limit." Tag="github" AutomationProperties.AutomationId="nav_github" />
                 </TreeViewItem>
-                <TreeViewItem Header="Packaging" IsExpanded="True" AutomationProperties.AutomationId="nav_packaging">
-                    <TreeViewItem Header="Folders" Tag="folders" AutomationProperties.AutomationId="nav_folders" />
-                    <TreeViewItem Header="Deployment Type Defaults" Tag="dtdefaults" AutomationProperties.AutomationId="nav_dtdefaults" />
-                    <TreeViewItem Header="Application Title" Tag="title" AutomationProperties.AutomationId="nav_title" />
-                    <TreeViewItem Header="Post Packaging" Tag="postpackaging" AutomationProperties.AutomationId="nav_postpackaging" />
-                    <TreeViewItem Header="Supersedence" Tag="supersedence" AutomationProperties.AutomationId="nav_supersedence" />
+                <TreeViewItem Header="Packaging" ToolTip="Holds the settings for packaging applications." IsExpanded="True" AutomationProperties.AutomationId="nav_packaging">
+                    <TreeViewItem Header="Folders" ToolTip="Holds the content layout, the Download Root and the Packagers folder." Tag="folders" AutomationProperties.AutomationId="nav_folders" />
+                    <TreeViewItem Header="Deployment Type Defaults" ToolTip="Holds the default runtimes and the distribution point fallback settings of Deployment Types." Tag="dtdefaults" AutomationProperties.AutomationId="nav_dtdefaults" />
+                    <TreeViewItem Header="Application Title" ToolTip="Holds the options that build Application names." Tag="title" AutomationProperties.AutomationId="nav_title" />
+                    <TreeViewItem Header="Post Packaging" ToolTip="Holds the optional steps after the ConfigMgr Application exists: content distribution and a test deployment." Tag="postpackaging" AutomationProperties.AutomationId="nav_postpackaging" />
+                    <TreeViewItem Header="Supersedence" ToolTip="Holds the version rules and the supersedence mode of each Application." Tag="supersedence" AutomationProperties.AutomationId="nav_supersedence" />
                 </TreeViewItem>
-                <TreeViewItem Header="Applications" IsExpanded="True" AutomationProperties.AutomationId="nav_applications">
-                    <TreeViewItem Header="Citrix Workspace App" Tag="citrix" AutomationProperties.AutomationId="nav_citrix" />
-                    <TreeViewItem Header="Citrix Updates and Policy" Tag="citrixpolicy" AutomationProperties.AutomationId="nav_citrixpolicy" />
-                    <TreeViewItem Header="M365 Apps" Tag="m365" AutomationProperties.AutomationId="nav_m365" />
-                    <TreeViewItem Header="Install Parameters" Tag="installparams" AutomationProperties.AutomationId="nav_installparams" />
-                    <TreeViewItem Header="Local Installer Sources" Tag="localsources" AutomationProperties.AutomationId="nav_localsources" />
-                    <TreeViewItem Header="Packager Files" Tag="packagerfiles" AutomationProperties.AutomationId="nav_packagerfiles" />
+                <TreeViewItem Header="Applications" ToolTip="Holds the settings of individual applications and installers." IsExpanded="True" AutomationProperties.AutomationId="nav_applications">
+                    <TreeViewItem Header="Citrix Workspace App" ToolTip="Holds the store, installation, plugin and component switches for the Citrix Workspace app installer." Tag="citrix" AutomationProperties.AutomationId="nav_citrix" />
+                    <TreeViewItem Header="Citrix Updates and Policy" ToolTip="Holds the update, telemetry, store policy and HDX switches for the Citrix Workspace app installer." Tag="citrixpolicy" AutomationProperties.AutomationId="nav_citrixpolicy" />
+                    <TreeViewItem Header="M365 Apps" ToolTip="Holds the update channel for the M365 Apps, Project and Visio packagers." Tag="m365" AutomationProperties.AutomationId="nav_m365" />
+                    <TreeViewItem Header="Install Parameters" ToolTip="Holds the installer switches and choices that are saved for each application." Tag="installparams" AutomationProperties.AutomationId="nav_installparams" />
+                    <TreeViewItem Header="Local Installer Sources" ToolTip="Holds the folders that supply installers that a script cannot download." Tag="localsources" AutomationProperties.AutomationId="nav_localsources" />
+                    <TreeViewItem Header="Packager Files" ToolTip="Holds the files that an installer reads from its own folder, such as a license key." Tag="packagerfiles" AutomationProperties.AutomationId="nav_packagerfiles" />
                 </TreeViewItem>
-                <TreeViewItem Header="Updates and CVEs" IsExpanded="True" AutomationProperties.AutomationId="nav_updates">
-                    <TreeViewItem Header="One Click" Tag="oneclick" AutomationProperties.AutomationId="nav_oneclick" />
-                    <TreeViewItem Header="CVE Lookup" Tag="cve" AutomationProperties.AutomationId="nav_cve" />
+                <TreeViewItem Header="Updates and CVEs" ToolTip="Holds the One Click and CVE lookup settings." IsExpanded="True" AutomationProperties.AutomationId="nav_updates">
+                    <TreeViewItem Header="One Click" ToolTip="Holds the action, cadence, destinations and tracked applications of One Click." Tag="oneclick" AutomationProperties.AutomationId="nav_oneclick" />
+                    <TreeViewItem Header="CVE Lookup" ToolTip="Holds the NVD API key and the CVE lookup option." Tag="cve" AutomationProperties.AutomationId="nav_cve" />
                 </TreeViewItem>
-                <TreeViewItem Header="Security" IsExpanded="True" AutomationProperties.AutomationId="nav_security">
-                    <TreeViewItem Header="Script Signing" Tag="signing" AutomationProperties.AutomationId="nav_signing" />
+                <TreeViewItem Header="Security" ToolTip="Holds the security settings." IsExpanded="True" AutomationProperties.AutomationId="nav_security">
+                    <TreeViewItem Header="Script Signing" ToolTip="Holds the Authenticode signing settings for the scripts that the app generates." Tag="signing" AutomationProperties.AutomationId="nav_signing" />
                 </TreeViewItem>
-                <TreeViewItem Header="Tools" Tag="tools" AutomationProperties.AutomationId="nav_tools" />
-                <TreeViewItem Header="About" Tag="about" AutomationProperties.AutomationId="nav_about" />
+                <TreeViewItem Header="Tools" ToolTip="Shows the status of the helper tools and downloads the Win32 Content Prep Tool and the icon pack." Tag="tools" AutomationProperties.AutomationId="nav_tools" />
+                <TreeViewItem Header="About" ToolTip="Shows what the app does and opens the releases page." Tag="about" AutomationProperties.AutomationId="nav_about" />
             </TreeView>
 
             <GridSplitter x:Name="NavigationSplitter" Grid.Column="1" Width="16" HorizontalAlignment="Center" VerticalAlignment="Stretch"
@@ -121,10 +122,12 @@
                                 <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
                                     <RadioButton Content="Dark Theme" Margin="0,0,16,0"
                                                  IsChecked="{Binding CurrentTheme, Converter={StaticResource EnumToBooleanConverter}, ConverterParameter=Dark}"
-                                                 Command="{Binding ChangeThemeCommand}" CommandParameter="Dark" />
+                                                 Command="{Binding ChangeThemeCommand}" CommandParameter="Dark"
+                                                 ToolTip="Switches the app to the dark theme." />
                                     <RadioButton Content="Light Theme"
                                                  IsChecked="{Binding CurrentTheme, Converter={StaticResource EnumToBooleanConverter}, ConverterParameter=Light}"
-                                                 Command="{Binding ChangeThemeCommand}" CommandParameter="Light" />
+                                                 Command="{Binding ChangeThemeCommand}" CommandParameter="Light"
+                                                 ToolTip="Switches the app to the light theme." />
                                 </StackPanel>
 
                     <TextBlock Text="Updates" Style="{StaticResource SubHeader}" />
@@ -139,7 +142,8 @@
                     <TextBlock Text="Organization" Style="{StaticResource SubHeader}" />
                                 <TextBlock Text="Company Name" Style="{StaticResource FieldLabel}" />
                                 <ui:TextBox Width="360" HorizontalAlignment="Left" Text="{Binding CompanyName, UpdateSourceTrigger=PropertyChanged}"
-                                            PlaceholderText="Contoso, Ltd." Margin="0,0,0,8" />
+                                            PlaceholderText="Contoso, Ltd." Margin="0,0,0,8"
+                                            ToolTip="Enter the name of your organization. Save Settings stores it." />
 
                     <TextBlock Text="Import" Style="{StaticResource SubHeader}" Margin="0,8,0,8" />
                     <ui:Button Content="Import from App Packager (PowerShell)" Icon="{ui:SymbolIcon ArrowDownload24}"
@@ -176,7 +180,8 @@
                                                                AutomationProperties.Name="{Binding Title, StringFormat=Move {0} up}" />
                                                     <CheckBox Content="{Binding Title}" IsChecked="{Binding Shown}" IsEnabled="{Binding CanHide}"
                                                               VerticalAlignment="Center"
-                                                              AutomationProperties.Name="{Binding Title, StringFormat=Show {0}}" />
+                                                              AutomationProperties.Name="{Binding Title, StringFormat=Show {0}}"
+                                                              ToolTip="Show this entry in the sidebar. The box is disabled for an entry that must stay visible." />
                                                 </DockPanel>
                                             </StackPanel>
                                         </DataTemplate>
@@ -214,7 +219,8 @@
                                 <TextBlock Text="Site Code" Style="{StaticResource FieldLabel}" />
                                 <ui:TextBox Text="{Binding SiteCode, UpdateSourceTrigger=PropertyChanged}"
                                             PlaceholderText="MCM" MaxLength="5" Width="120" HorizontalAlignment="Left"
-                                            Margin="0,0,0,8" />
+                                            Margin="0,0,0,8"
+                                            ToolTip="Enter the site code of your ConfigMgr site. Up to five characters." />
 
                                 <TextBlock Text="Site Server / SMS Provider Host" Style="{StaticResource FieldLabel}" />
                                 <ui:TextBox Width="360" HorizontalAlignment="Left" Text="{Binding ProviderMachine, UpdateSourceTrigger=PropertyChanged}"
@@ -280,7 +286,8 @@
                                 <DockPanel Margin="0,0,0,4">
                                     <ui:Button DockPanel.Dock="Right" Content="Cancel" Command="{Binding Wsus.CancelCommand}" Margin="8,0,0,0" VerticalAlignment="Center"
                                                Visibility="{Binding Wsus.Busy, Converter={StaticResource BooleanToVisibilityConverter}}"
-                                               AutomationProperties.AutomationId="btnWsusCancel" />
+                                               AutomationProperties.AutomationId="btnWsusCancel"
+                                               ToolTip="Cancels the WSUS operation that is running." />
                                     <ui:Button DockPanel.Dock="Right" Content="Test connection" Command="{Binding Wsus.TestConnectionCommand}" Margin="8,0,0,0"
                                                VerticalAlignment="Center" AutomationProperties.AutomationId="btnWsusTest" ToolTipService.ShowOnDisabled="True"
                                                ToolTip="Connects with the values in the boxes and reads the server version, the account role and the signing certificate." />
@@ -345,11 +352,13 @@
 
                                 <TextBlock Text="Tenant ID" Style="{StaticResource FieldLabel}" />
                                 <ui:TextBox Width="360" HorizontalAlignment="Left" Text="{Binding IntuneTenantId, UpdateSourceTrigger=PropertyChanged}"
-                                            PlaceholderText="contoso.onmicrosoft.com or a GUID" Margin="0,0,0,8" />
+                                            PlaceholderText="contoso.onmicrosoft.com or a GUID" Margin="0,0,0,8"
+                                            ToolTip="Enter the tenant ID or the primary domain of your Microsoft Entra tenant. The app uses it to sign in to Microsoft Graph." />
 
                                 <TextBlock Text="Client ID" Style="{StaticResource FieldLabel}" />
                                 <ui:TextBox Width="360" HorizontalAlignment="Left" Text="{Binding IntuneClientId, UpdateSourceTrigger=PropertyChanged}"
-                                            PlaceholderText="App registration (client) ID" Margin="0,0,0,8" />
+                                            PlaceholderText="App registration (client) ID" Margin="0,0,0,8"
+                                            ToolTip="Enter the application (client) ID of the Entra app registration that publishes to Intune." />
 
                                 <TextBlock Text="Minimum Windows release" Style="{StaticResource FieldLabel}" />
                                 <ComboBox ItemsSource="{Binding IntuneWindowsReleaseChoices}"
@@ -362,7 +371,8 @@
 
                                 <TextBlock Text="Client Secret" Style="{StaticResource FieldLabel}" />
                                 <ui:PasswordBox Width="360" HorizontalAlignment="Left" Password="{Binding IntuneClientSecret, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                                PlaceholderText="{Binding IntuneSecretHint}" Margin="0,0,0,4" />
+                                                PlaceholderText="{Binding IntuneSecretHint}" Margin="0,0,0,4"
+                                                ToolTip="Enter the client secret of the app registration. Save Settings stores it encrypted for the current Windows user. Leave it empty to keep the saved secret." />
                                 <TextBlock Text="Stored encrypted for the current Windows user. Leave empty to keep the saved secret."
                                            Foreground="{DynamicResource TextFillColorTertiaryBrush}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,8" />
                                 <TextBlock Text="Only Publish to Intune builds the .intunewin; the first build downloads the Win32 Content Prep Tool when it is missing."
@@ -380,7 +390,8 @@
                                                Icon="{ui:SymbolIcon ArrowSync24}"
                                                Command="{Binding RefreshGitHubApiStatusCommand}"
                                                IsEnabled="{Binding GitHubApiIdle}"
-                                               Margin="8,0,0,0" VerticalAlignment="Center" />
+                                               Margin="8,0,0,0" VerticalAlignment="Center"
+                                               ToolTip="Asks api.github.com for the request quota of the credentials that the app uses and shows it here." />
                                     <TextBlock Text="{Binding GitHubApiStatus}"
                                                Foreground="{DynamicResource TextFillColorSecondaryBrush}"
                                                TextWrapping="Wrap" VerticalAlignment="Center" />
@@ -389,14 +400,16 @@
                                 <TextBlock Text="GitHub token" Style="{StaticResource FieldLabel}" />
                                 <ui:PasswordBox Width="360" HorizontalAlignment="Left" Password="{Binding GitHubToken, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                                 PlaceholderText="{Binding GitHubTokenHint}" Margin="0,0,0,4"
-                                                AutomationProperties.AutomationId="pwdGitHubToken" />
+                                                AutomationProperties.AutomationId="pwdGitHubToken"
+                                                ToolTip="Enter a GitHub personal access token to raise the API request limit. Save Settings stores it encrypted for the current Windows user. Leave it empty to keep the saved token." />
                                 <TextBlock Text="Stored encrypted for the current Windows user. Leave empty to keep the saved token. The two environment variables are used first, then this token, then the sign-in of the GitHub CLI."
                                            Foreground="{DynamicResource TextFillColorTertiaryBrush}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,8" />
                                 <CheckBox Content="Remove the saved token on Save"
                                           IsChecked="{Binding RemoveGitHubToken}"
                                           IsEnabled="{Binding HasStoredGitHubToken}"
                                           Margin="0,0,0,8"
-                                          AutomationProperties.AutomationId="chkRemoveGitHubToken" />
+                                          AutomationProperties.AutomationId="chkRemoveGitHubToken"
+                                          ToolTip="Select to delete the saved token when you select Save Settings. The box is disabled when no token is saved." />
                 </StackPanel>
             </ScrollViewer>
             <ScrollViewer x:Name="page_folders" Visibility="Collapsed" VerticalScrollBarVisibility="Auto">
@@ -414,7 +427,8 @@
                                 <TextBlock Text="Download Root (local staging)" Style="{StaticResource FieldLabel}" />
                                 <DockPanel Margin="0,0,0,8" Width="480" HorizontalAlignment="Left">
                                     <ui:Button DockPanel.Dock="Right" Content="Browse"
-                                               Command="{Binding BrowseDownloadRootCommand}" Margin="8,0,0,0" />
+                                               Command="{Binding BrowseDownloadRootCommand}" Margin="8,0,0,0"
+                                               ToolTip="Select the Download Root folder." />
                                     <ui:TextBox Text="{Binding DownloadRoot, UpdateSourceTrigger=PropertyChanged}" ToolTip="{Binding DownloadRoot}"
                                                 PlaceholderText="C:\temp\ap" />
                                 </DockPanel>
@@ -432,7 +446,8 @@
                     </WrapPanel>
                     <DockPanel Margin="0,0,0,8" Visibility="{Binding ShowStagingAllowed, Converter={StaticResource BooleanToVisibilityConverter}}">
                         <ui:Button DockPanel.Dock="Right" Content="End the allowance" Command="{Binding RemoveStagingAllowanceCommand}" Margin="8,0,0,0"
-                                   AutomationProperties.AutomationId="btnStagingRevoke" />
+                                   AutomationProperties.AutomationId="btnStagingRevoke"
+                                   ToolTip="Ends the allowance for the folder in the box. Staging there is blocked again." />
                         <TextBlock Text="{Binding StagingAllowedText}" TextWrapping="Wrap" VerticalAlignment="Center"
                                    Foreground="{DynamicResource TextFillColorSecondaryBrush}" AutomationProperties.AutomationId="txtStagingAllowed" />
                     </DockPanel>
@@ -440,7 +455,8 @@
                                 <TextBlock Text="Packagers Folder (leave empty for auto-detect)" Style="{StaticResource FieldLabel}" />
                                 <DockPanel Margin="0,0,0,8" Width="480" HorizontalAlignment="Left">
                                     <ui:Button DockPanel.Dock="Right" Content="Browse"
-                                               Command="{Binding BrowsePackagersRootCommand}" Margin="8,0,0,0" />
+                                               Command="{Binding BrowsePackagersRootCommand}" Margin="8,0,0,0"
+                                               ToolTip="Select the Packagers folder." />
                                     <ui:TextBox ToolTip="{Binding PackagersRoot}" Text="{Binding PackagersRoot, UpdateSourceTrigger=PropertyChanged}"
                                                 PlaceholderText="Auto-detect" />
                                 </DockPanel>
@@ -523,7 +539,8 @@
                                 <TextBlock Text="Distribution point group" Style="{StaticResource FieldLabel}" />
                                 <ui:TextBox Text="{Binding DpGroupName, UpdateSourceTrigger=PropertyChanged}"
                                             IsEnabled="{Binding AutoDistribute}"
-                                            PlaceholderText="All DPs" Width="320" HorizontalAlignment="Left" Margin="0,0,0,8" />
+                                            PlaceholderText="All DPs" Width="320" HorizontalAlignment="Left" Margin="0,0,0,8"
+                                            ToolTip="Name of the distribution point group that receives the content. The box is available when Distribute content after Package is selected." />
 
                                 <CheckBox Content="Deploy to a test collection after distribution" IsChecked="{Binding DeployToTestCollection}"
                                           IsEnabled="{Binding TestDeploymentAvailable}" Margin="0,0,0,8"
@@ -535,7 +552,8 @@
                                           ToolTip="Select to target users. When cleared, the test deployment targets a device collection. This does not change the application's install context." />
                                 <ui:TextBox Text="{Binding TestCollectionName, UpdateSourceTrigger=PropertyChanged}"
                                             IsEnabled="{Binding TestDeploymentAvailable}"
-                                            PlaceholderText="Application pilot collection" Width="320" HorizontalAlignment="Left" Margin="0,0,0,8" />
+                                            PlaceholderText="Application pilot collection" Width="320" HorizontalAlignment="Left" Margin="0,0,0,8"
+                                            ToolTip="Enter the name of the collection that receives the test deployment." />
 
                                 <CheckBox Content="Create the collection if it does not exist" IsChecked="{Binding CreateTestCollectionIfMissing}"
                                           IsEnabled="{Binding TestDeploymentAvailable}" Margin="0,0,0,8"
@@ -573,17 +591,23 @@
                                            Foreground="{DynamicResource TextFillColorTertiaryBrush}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,8" />
                                 <WrapPanel Margin="0,0,0,0" AutomationProperties.AutomationId="pnlSupersedenceBulk">
                                     <TextBlock Text="Checked applications:" VerticalAlignment="Center" Margin="0,0,8,8" />
-                                    <ui:Button Content="Follow the default" Command="{Binding SupersedenceForSelectedCommand}" CommandParameter="Follow the default" Margin="0,0,4,8" AutomationProperties.AutomationId="btnSupersedenceSelectedDefault" />
-                                    <ui:Button Content="Off" Command="{Binding SupersedenceForSelectedCommand}" CommandParameter="Off" Margin="0,0,4,8" AutomationProperties.AutomationId="btnSupersedenceSelectedOff" />
-                                    <ui:Button Content="Replace" Command="{Binding SupersedenceForSelectedCommand}" CommandParameter="Replace" Margin="0,0,4,8" AutomationProperties.AutomationId="btnSupersedenceSelectedReplace" />
-                                    <ui:Button Content="Replace and uninstall" Command="{Binding SupersedenceForSelectedCommand}" CommandParameter="Replace and uninstall" Margin="0,0,4,8" AutomationProperties.AutomationId="btnSupersedenceSelectedUninstall" />
+                                    <ui:Button Content="Follow the default" Command="{Binding SupersedenceForSelectedCommand}" CommandParameter="Follow the default" Margin="0,0,4,8" AutomationProperties.AutomationId="btnSupersedenceSelectedDefault"
+                                               ToolTip="Sets the checked applications to follow the default supersedence mode." />
+                                    <ui:Button Content="Off" Command="{Binding SupersedenceForSelectedCommand}" CommandParameter="Off" Margin="0,0,4,8" AutomationProperties.AutomationId="btnSupersedenceSelectedOff"
+                                               ToolTip="Turns supersedence off for the checked applications." />
+                                    <ui:Button Content="Replace" Command="{Binding SupersedenceForSelectedCommand}" CommandParameter="Replace" Margin="0,0,4,8" AutomationProperties.AutomationId="btnSupersedenceSelectedReplace"
+                                               ToolTip="Sets the supersedence mode of the checked applications to Replace." />
+                                    <ui:Button Content="Replace and uninstall" Command="{Binding SupersedenceForSelectedCommand}" CommandParameter="Replace and uninstall" Margin="0,0,4,8" AutomationProperties.AutomationId="btnSupersedenceSelectedUninstall"
+                                               ToolTip="Sets the supersedence mode of the checked applications to Replace and uninstall." />
                                 </WrapPanel>
                                 <WrapPanel Margin="0,0,0,0">
                                     <TextBlock Text="All applications:" VerticalAlignment="Center" Margin="0,0,8,8" />
                                     <ui:Button Content="Replace" Command="{Binding SupersedenceForAllCommand}" CommandParameter="Replace" Margin="0,0,4,8" AutomationProperties.AutomationId="btnSupersedenceAllReplace"
                                                ToolTip="The default takes this mode and every single setting of the mode is cleared." />
-                                    <ui:Button Content="Replace and uninstall" Command="{Binding SupersedenceForAllCommand}" CommandParameter="Replace and uninstall" Margin="0,0,4,8" AutomationProperties.AutomationId="btnSupersedenceAllUninstall" />
-                                    <ui:Button Content="None: Off for all" Command="{Binding SupersedenceForAllCommand}" CommandParameter="Off" Margin="0,0,16,8" AutomationProperties.AutomationId="btnSupersedenceNone" />
+                                    <ui:Button Content="Replace and uninstall" Command="{Binding SupersedenceForAllCommand}" CommandParameter="Replace and uninstall" Margin="0,0,4,8" AutomationProperties.AutomationId="btnSupersedenceAllUninstall"
+                                               ToolTip="Sets the default and every application to Replace and uninstall, and clears the single settings." />
+                                    <ui:Button Content="None: Off for all" Command="{Binding SupersedenceForAllCommand}" CommandParameter="Off" Margin="0,0,16,8" AutomationProperties.AutomationId="btnSupersedenceNone"
+                                               ToolTip="Sets the default to Off and clears the single setting of every application." />
                                     <ui:Button Content="Refresh list" Icon="{ui:SymbolIcon ArrowSync24}" Command="{Binding RefreshSupersedenceRowsCommand}" Margin="0,0,8,8"
                                                ToolTip="Rebuilds the list from the applications the App Packager page shows." />
                                     <TextBlock VerticalAlignment="Center" Margin="0,0,0,8" Foreground="{DynamicResource TextFillColorSecondaryBrush}">
@@ -599,7 +623,8 @@
                                         <DataGridTemplateColumn Header="Check" Width="64">
                                             <DataGridTemplateColumn.CellTemplate>
                                                 <DataTemplate>
-                                                    <CheckBox IsChecked="{Binding IsSelected, UpdateSourceTrigger=PropertyChanged}" HorizontalAlignment="Center" />
+                                                    <CheckBox IsChecked="{Binding IsSelected, UpdateSourceTrigger=PropertyChanged}" HorizontalAlignment="Center"
+                                                              ToolTip="Check this application to change its supersedence with the buttons above." />
                                                 </DataTemplate>
                                             </DataGridTemplateColumn.CellTemplate>
                                         </DataGridTemplateColumn>
@@ -610,7 +635,8 @@
                                                 <DataTemplate>
                                                     <ComboBox ItemsSource="{Binding DataContext.SupersedenceRowChoices, RelativeSource={RelativeSource AncestorType=DataGrid}}"
                                                               SelectedItem="{Binding ModeChoice, UpdateSourceTrigger=PropertyChanged}" Margin="4,0"
-                                                              AutomationProperties.Name="Supersedence of the application" />
+                                                              AutomationProperties.Name="Supersedence of the application"
+                                                              ToolTip="Supersedence mode of this application. Follow the default uses the default mode above." />
                                                 </DataTemplate>
                                             </DataGridTemplateColumn.CellTemplate>
                                         </DataGridTemplateColumn>
@@ -645,11 +671,13 @@
                                     </Grid.ColumnDefinitions>
                                     <StackPanel Grid.Column="0">
                                         <TextBlock Text="Store Name" Style="{StaticResource FieldLabel}" />
-                                        <ui:TextBox Text="{Binding CwaSwitches.Store.Name, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="MyStore" />
+                                        <ui:TextBox Text="{Binding CwaSwitches.Store.Name, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="MyStore"
+                                                    ToolTip="Enter the name of the Citrix store that the installer adds. The installer needs the store URL too." />
                                     </StackPanel>
                                     <StackPanel Grid.Column="2">
                                         <TextBlock Text="Store URL (passed as typed)" Style="{StaticResource FieldLabel}" />
-                                        <ui:TextBox Text="{Binding CwaSwitches.Store.Url, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="https://storefront.contoso.com/Citrix/Store/discovery" />
+                                        <ui:TextBox Text="{Binding CwaSwitches.Store.Url, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="https://storefront.contoso.com/Citrix/Store/discovery"
+                                                    ToolTip="Enter the URL of the Citrix store. The app passes it as typed. The installer needs the store name too." />
                                     </StackPanel>
                                 </Grid>
 
@@ -663,14 +691,18 @@
                                     </Grid.ColumnDefinitions>
                                     <StackPanel Grid.Column="0">
                                         <TextBlock Text="Installation" Style="{StaticResource SubHeader}" />
-                                        <CheckBox Content="Clean install" IsThreeState="True" IsChecked="{Binding CwaSwitches.Installation.CleanInstall}" Margin="0,0,0,4" />
-                                        <CheckBox Content="Include SSON" IsThreeState="True" IsChecked="{Binding CwaSwitches.Installation.IncludeSSON}" Margin="0,0,0,4" />
+                                        <CheckBox Content="Clean install" IsThreeState="True" IsChecked="{Binding CwaSwitches.Installation.CleanInstall}" Margin="0,0,0,4"
+                                                  ToolTip="Checked passes /CleanInstall. Cleared or shaded passes nothing." />
+                                        <CheckBox Content="Include SSON" IsThreeState="True" IsChecked="{Binding CwaSwitches.Installation.IncludeSSON}" Margin="0,0,0,4"
+                                                  ToolTip="Checked passes /includeSSON. Cleared or shaded passes nothing." />
                                         <CheckBox Content="Enable SSON" IsThreeState="True" IsChecked="{Binding CwaSwitches.Installation.EnableSSON}" Margin="16,0,0,4"
                                                   ToolTip="ENABLE_SSON is passed only together with Include SSON." />
                                         <CheckBox Content="startAppProtection" IsThreeState="True" IsChecked="{Binding CwaSwitches.Installation.AppProtection}" Margin="0,0,0,4"
                                                   ToolTip="Starts the App Protection component. Since version 2212 the installer already installs it. Needs an admin install." />
-                                        <CheckBox Content="Session pre-launch" IsThreeState="True" IsChecked="{Binding CwaSwitches.Installation.SessionPreLaunch}" Margin="0,0,0,4" />
-                                        <CheckBox Content="Self-service mode" IsThreeState="True" IsChecked="{Binding CwaSwitches.Installation.SelfServiceMode}" Margin="0,0,0,4" />
+                                        <CheckBox Content="Session pre-launch" IsThreeState="True" IsChecked="{Binding CwaSwitches.Installation.SessionPreLaunch}" Margin="0,0,0,4"
+                                                  ToolTip="Checked passes ENABLEPRELAUNCH=True and cleared passes ENABLEPRELAUNCH=False. Shaded passes nothing." />
+                                        <CheckBox Content="Self-service mode" IsThreeState="True" IsChecked="{Binding CwaSwitches.Installation.SelfServiceMode}" Margin="0,0,0,4"
+                                                  ToolTip="Checked passes SELFSERVICEMODE=True and cleared passes SELFSERVICEMODE=False. Shaded passes nothing." />
                                         <CheckBox Content="forceinstall" IsThreeState="True" IsChecked="{Binding CwaSwitches.Installation.ForceInstall}" Margin="0,0,0,4"
                                                   ToolTip="Cleans old Citrix data when an install or an upgrade of an unsupported version fails. Use it as a retry package. It replaces rcu." />
                                         <TextBlock Text="Device name (fixed)" Style="{StaticResource FieldLabel}" />
@@ -683,10 +715,14 @@
                                                   ToolTip="Current Release only: /InstallMSTeamsPlugin=Y|N. LTSR documents no switch and ignores it." />
                                         <CheckBox Content="Zoom" IsThreeState="True" IsChecked="{Binding CwaSwitches.Plugins.ZoomPlugin}" Margin="0,0,0,4"
                                                   ToolTip="Current Release: cleared passes Installzoomplugin=N. LTSR: checked adds ZoomVDIPlugin to ADDONS." />
-                                        <CheckBox Content="Webex" IsThreeState="True" IsChecked="{Binding CwaSwitches.Plugins.WebExPlugin}" Margin="0,0,0,4" />
-                                        <CheckBox Content="uberAgent" IsThreeState="True" IsChecked="{Binding CwaSwitches.Plugins.UberAgent}" Margin="0,0,0,4" />
-                                        <CheckBox Content="Skip uberAgent upgrade" IsThreeState="True" IsChecked="{Binding CwaSwitches.Plugins.UberAgentSkipUpgrade}" Margin="16,0,0,4" />
-                                        <CheckBox Content="EPA client" IsThreeState="True" IsChecked="{Binding CwaSwitches.Plugins.EPAClient}" Margin="0,0,0,4" />
+                                        <CheckBox Content="Webex" IsThreeState="True" IsChecked="{Binding CwaSwitches.Plugins.WebExPlugin}" Margin="0,0,0,4"
+                                                  ToolTip="Checked adds WebexVDIPlugin to ADDONS. Cleared or shaded passes nothing." />
+                                        <CheckBox Content="uberAgent" IsThreeState="True" IsChecked="{Binding CwaSwitches.Plugins.UberAgent}" Margin="0,0,0,4"
+                                                  ToolTip="Checked passes /InstallUberAgent. Cleared or shaded passes nothing." />
+                                        <CheckBox Content="Skip uberAgent upgrade" IsThreeState="True" IsChecked="{Binding CwaSwitches.Plugins.UberAgentSkipUpgrade}" Margin="16,0,0,4"
+                                                  ToolTip="Checked passes /SkipUberAgentUpgrade, and only together with uberAgent. Cleared or shaded passes nothing." />
+                                        <CheckBox Content="EPA client" IsThreeState="True" IsChecked="{Binding CwaSwitches.Plugins.EPAClient}" Margin="0,0,0,4"
+                                                  ToolTip="Cleared passes InstallEPAClient=N. Checked or shaded passes nothing." />
                                         <CheckBox Content="Session recording" IsThreeState="True" IsChecked="{Binding CwaSwitches.Plugins.SessionRecording}" Margin="0,0,0,4"
                                                   ToolTip="Current Release only: /InstallSRAgent. LTSR documents no switch and ignores it." />
                                         <CheckBox Content="Skip session recording agent upgrade" IsThreeState="True" IsChecked="{Binding CwaSwitches.Plugins.SessionRecordingSkipUpgrade}" Margin="16,0,0,4"
@@ -694,16 +730,26 @@
                                     </StackPanel>
                                     <StackPanel Grid.Column="4">
                                         <TextBlock Text="Components" Style="{StaticResource SubHeader}" />
-                                        <CheckBox Content="Customize (ADDLOCAL)" IsThreeState="True" IsChecked="{Binding CwaSwitches.Components.Customize}" Margin="0,0,0,4" />
-                                        <CheckBox Content="ReceiverInside" IsThreeState="True" IsChecked="{Binding CwaSwitches.Components.ReceiverInside}" Margin="16,0,0,4" />
-                                        <CheckBox Content="ICA__Client" IsThreeState="True" IsChecked="{Binding CwaSwitches.Components.ICA_Client}" Margin="16,0,0,4" />
-                                        <CheckBox Content="AM" IsThreeState="True" IsChecked="{Binding CwaSwitches.Components.AM}" Margin="16,0,0,4" />
-                                        <CheckBox Content="SelfService" IsThreeState="True" IsChecked="{Binding CwaSwitches.Components.SelfService}" Margin="16,0,0,4" />
-                                        <CheckBox Content="DesktopViewer" IsThreeState="True" IsChecked="{Binding CwaSwitches.Components.DesktopViewer}" Margin="16,0,0,4" />
-                                        <CheckBox Content="WebHelper" IsThreeState="True" IsChecked="{Binding CwaSwitches.Components.WebHelper}" Margin="16,0,0,4" />
-                                        <CheckBox Content="BCR__Client" IsThreeState="True" IsChecked="{Binding CwaSwitches.Components.BCR_Client}" Margin="16,0,0,4" />
-                                        <CheckBox Content="USB" IsThreeState="True" IsChecked="{Binding CwaSwitches.Components.USB}" Margin="16,0,0,4" />
-                                        <CheckBox Content="SSON" IsThreeState="True" IsChecked="{Binding CwaSwitches.Components.SSON}" Margin="16,0,0,4" />
+                                        <CheckBox Content="Customize (ADDLOCAL)" IsThreeState="True" IsChecked="{Binding CwaSwitches.Components.Customize}" Margin="0,0,0,4"
+                                                  ToolTip="Checked passes ADDLOCAL with the components that you check below. Cleared or shaded passes no ADDLOCAL." />
+                                        <CheckBox Content="ReceiverInside" IsThreeState="True" IsChecked="{Binding CwaSwitches.Components.ReceiverInside}" Margin="16,0,0,4"
+                                                  ToolTip="Checked adds ReceiverInside to ADDLOCAL. Works only when Customize (ADDLOCAL) is checked." />
+                                        <CheckBox Content="ICA__Client" IsThreeState="True" IsChecked="{Binding CwaSwitches.Components.ICA_Client}" Margin="16,0,0,4"
+                                                  ToolTip="Checked adds ICA_Client to ADDLOCAL. Works only when Customize (ADDLOCAL) is checked." />
+                                        <CheckBox Content="AM" IsThreeState="True" IsChecked="{Binding CwaSwitches.Components.AM}" Margin="16,0,0,4"
+                                                  ToolTip="Checked adds AM to ADDLOCAL. Works only when Customize (ADDLOCAL) is checked." />
+                                        <CheckBox Content="SelfService" IsThreeState="True" IsChecked="{Binding CwaSwitches.Components.SelfService}" Margin="16,0,0,4"
+                                                  ToolTip="Checked adds SelfService to ADDLOCAL. Works only when Customize (ADDLOCAL) is checked." />
+                                        <CheckBox Content="DesktopViewer" IsThreeState="True" IsChecked="{Binding CwaSwitches.Components.DesktopViewer}" Margin="16,0,0,4"
+                                                  ToolTip="Checked adds DesktopViewer to ADDLOCAL. Works only when Customize (ADDLOCAL) is checked." />
+                                        <CheckBox Content="WebHelper" IsThreeState="True" IsChecked="{Binding CwaSwitches.Components.WebHelper}" Margin="16,0,0,4"
+                                                  ToolTip="Checked adds WebHelper to ADDLOCAL. Works only when Customize (ADDLOCAL) is checked." />
+                                        <CheckBox Content="BCR__Client" IsThreeState="True" IsChecked="{Binding CwaSwitches.Components.BCR_Client}" Margin="16,0,0,4"
+                                                  ToolTip="Checked adds BCR_Client to ADDLOCAL. Works only when Customize (ADDLOCAL) is checked." />
+                                        <CheckBox Content="USB" IsThreeState="True" IsChecked="{Binding CwaSwitches.Components.USB}" Margin="16,0,0,4"
+                                                  ToolTip="Checked adds USB to ADDLOCAL. Works only when Customize (ADDLOCAL) is checked." />
+                                        <CheckBox Content="SSON" IsThreeState="True" IsChecked="{Binding CwaSwitches.Components.SSON}" Margin="16,0,0,4"
+                                                  ToolTip="Checked adds SSON to ADDLOCAL. Works only when Customize (ADDLOCAL) is checked." />
                                         <CheckBox Content="CitrixEnterpriseBrowser" IsThreeState="True" IsChecked="{Binding CwaSwitches.Components.CitrixEnterpriseBrowser}" Margin="16,0,0,4"
                                                   ToolTip="LTSR only. Installs the Citrix Enterprise Browser. Current releases do not carry it." />
                                     </StackPanel>
@@ -724,14 +770,17 @@
                                     </Grid.ColumnDefinitions>
                                     <StackPanel Grid.Column="0">
                                         <TextBlock Text="AutoUpdateCheck" Style="{StaticResource FieldLabel}" />
-                                        <ComboBox SelectedValue="{Binding CwaSwitches.UpdateAndTelemetry.AutoUpdateCheck}" SelectedValuePath="Tag" HorizontalAlignment="Stretch">
+                                        <ComboBox SelectedValue="{Binding CwaSwitches.UpdateAndTelemetry.AutoUpdateCheck}" SelectedValuePath="Tag" HorizontalAlignment="Stretch"
+                                                  ToolTip="Passes AutoUpdateCheck=auto, manual or disabled. (not set) passes nothing.">
                                             <ComboBoxItem Content="(not set)" Tag="" />
                                             <ComboBoxItem Content="auto" Tag="auto" />
                                             <ComboBoxItem Content="manual" Tag="manual" />
                                             <ComboBoxItem Content="disabled" Tag="disabled" />
                                         </ComboBox>
-                                        <CheckBox Content="EnableCEIP" IsThreeState="True" IsChecked="{Binding CwaSwitches.UpdateAndTelemetry.EnableCEIP}" Margin="0,8,0,4" />
-                                        <CheckBox Content="EnableTracing" IsThreeState="True" IsChecked="{Binding CwaSwitches.UpdateAndTelemetry.EnableTracing}" Margin="0,0,0,4" />
+                                        <CheckBox Content="EnableCEIP" IsThreeState="True" IsChecked="{Binding CwaSwitches.UpdateAndTelemetry.EnableCEIP}" Margin="0,8,0,4"
+                                                  ToolTip="Checked passes EnableCEIP=True and cleared passes EnableCEIP=False. Shaded passes nothing." />
+                                        <CheckBox Content="EnableTracing" IsThreeState="True" IsChecked="{Binding CwaSwitches.UpdateAndTelemetry.EnableTracing}" Margin="0,0,0,4"
+                                                  ToolTip="Checked passes EnableTracing=true and cleared passes EnableTracing=false. Shaded passes nothing." />
                                         <TextBlock Text="AutoUpdateStream" Style="{StaticResource FieldLabel}" />
                                         <ComboBox SelectedValue="{Binding CwaSwitches.UpdateAndTelemetry.AutoUpdateStream}" SelectedValuePath="Tag" HorizontalAlignment="Stretch"
                                                   ToolTip="Selects the update channel. Works only with AutoUpdateCheck. Use LTSR on devices that stay on a long-term build.">
@@ -751,7 +800,8 @@
                                     </StackPanel>
                                     <StackPanel Grid.Column="2">
                                         <TextBlock Text="ALLOWADDSTORE" Style="{StaticResource FieldLabel}" />
-                                        <ComboBox SelectedValue="{Binding CwaSwitches.StorePolicy.AllowAddStore}" SelectedValuePath="Tag" HorizontalAlignment="Stretch">
+                                        <ComboBox SelectedValue="{Binding CwaSwitches.StorePolicy.AllowAddStore}" SelectedValuePath="Tag" HorizontalAlignment="Stretch"
+                                                  ToolTip="Passes ALLOWADDSTORE=S, A or N. (not set) passes nothing.">
                                             <ComboBoxItem Content="(not set)" Tag="" />
                                             <ComboBoxItem Content="S - secure stores only" Tag="S" />
                                             <ComboBoxItem Content="A - secure and non-secure stores" Tag="A" />
@@ -760,7 +810,8 @@
                                     </StackPanel>
                                     <StackPanel Grid.Column="4">
                                         <TextBlock Text="ALLOWSAVEPWD" Style="{StaticResource FieldLabel}" />
-                                        <ComboBox SelectedValue="{Binding CwaSwitches.StorePolicy.AllowSavePwd}" SelectedValuePath="Tag" HorizontalAlignment="Stretch">
+                                        <ComboBox SelectedValue="{Binding CwaSwitches.StorePolicy.AllowSavePwd}" SelectedValuePath="Tag" HorizontalAlignment="Stretch"
+                                                  ToolTip="Passes ALLOWSAVEPWD=S, A or N. (not set) passes nothing.">
                                             <ComboBoxItem Content="(not set)" Tag="" />
                                             <ComboBoxItem Content="S - secure stores only" Tag="S" />
                                             <ComboBoxItem Content="A - all stores" Tag="A" />
@@ -815,7 +866,8 @@
 
                                 <ComboBox SelectedValue="{Binding M365Channel}"
                                           SelectedValuePath="Tag"
-                                          Width="320" HorizontalAlignment="Left" Margin="0,0,0,8">
+                                          Width="320" HorizontalAlignment="Left" Margin="0,0,0,8"
+                                          ToolTip="Update channel that the M365 Apps, Project and Visio packagers use.">
                                     <ComboBoxItem Content="Monthly Enterprise Channel" Tag="MonthlyEnterprise" />
                                     <ComboBoxItem Content="Current Channel" Tag="Current" />
                                     <ComboBoxItem Content="Semi-Annual Enterprise Channel (kiosk)" Tag="SemiAnnual" />
@@ -861,8 +913,10 @@
                                             <StackPanel Margin="0,0,0,8">
                                                 <TextBlock Text="{Binding Label}" Style="{StaticResource FieldLabel}" />
                                                 <DockPanel>
-                                                    <ui:Button DockPanel.Dock="Right" Content="Browse..." Command="{Binding BrowseCommand}" Margin="8,0,0,0" />
-                                                    <ui:TextBox Text="{Binding Path, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="No folder chosen" />
+                                                    <ui:Button DockPanel.Dock="Right" Content="Browse..." Command="{Binding BrowseCommand}" Margin="8,0,0,0"
+                                                               ToolTip="Select the folder that holds the installer." />
+                                                    <ui:TextBox Text="{Binding Path, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="No folder chosen"
+                                                                ToolTip="Enter the path of the folder that holds the installer, or select Browse." />
                                                 </DockPanel>
                                                 <TextBlock Text="{Binding Hint}" Foreground="{DynamicResource TextFillColorTertiaryBrush}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,0" />
                                             </StackPanel>
@@ -882,8 +936,10 @@
                                             <StackPanel Margin="0,0,0,8">
                                                 <TextBlock Text="{Binding Label}" Style="{StaticResource FieldLabel}" />
                                                 <DockPanel>
-                                                    <ui:Button DockPanel.Dock="Right" Content="Browse..." Command="{Binding BrowseCommand}" Margin="8,0,0,0" />
-                                                    <ui:TextBox Text="{Binding Path, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="No file chosen" />
+                                                    <ui:Button DockPanel.Dock="Right" Content="Browse..." Command="{Binding BrowseCommand}" Margin="8,0,0,0"
+                                                               ToolTip="Select the file to copy beside the installer." />
+                                                    <ui:TextBox Text="{Binding Path, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="No file chosen"
+                                                                ToolTip="Enter the path of the file, or select Browse." />
                                                 </DockPanel>
                                                 <TextBlock Text="{Binding Hint}" Foreground="{DynamicResource TextFillColorTertiaryBrush}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,0" />
                                             </StackPanel>
@@ -930,9 +986,12 @@
                                 <TextBlock Text="Default destinations" Style="{StaticResource FieldLabel}" />
                                 <StackPanel Orientation="Horizontal" Margin="0,0,0,8"
                                             ToolTip="The destinations of every tracked app that has no selection of its own in the grid.">
-                                    <CheckBox Content="ConfigMgr" IsChecked="{Binding OneClickDefaultConfigMgr}" Margin="0,0,24,0" AutomationProperties.AutomationId="chkOneClickMecm" />
-                                    <CheckBox Content="WSUS" IsChecked="{Binding OneClickDefaultWsus}" Margin="0,0,24,0" AutomationProperties.AutomationId="chkOneClickWsus" />
-                                    <CheckBox Content="Intune" IsChecked="{Binding OneClickDefaultIntune}" AutomationProperties.AutomationId="chkOneClickIntune" />
+                                    <CheckBox Content="ConfigMgr" IsChecked="{Binding OneClickDefaultConfigMgr}" Margin="0,0,24,0" AutomationProperties.AutomationId="chkOneClickMecm"
+                                              ToolTip="Use ConfigMgr as a default destination of One Click." />
+                                    <CheckBox Content="WSUS" IsChecked="{Binding OneClickDefaultWsus}" Margin="0,0,24,0" AutomationProperties.AutomationId="chkOneClickWsus"
+                                              ToolTip="Use WSUS as a default destination of One Click." />
+                                    <CheckBox Content="Intune" IsChecked="{Binding OneClickDefaultIntune}" AutomationProperties.AutomationId="chkOneClickIntune"
+                                              ToolTip="Use Intune as a default destination of One Click." />
                                 </StackPanel>
 
                                 <TextBlock Text="Existing ConfigMgr app" Style="{StaticResource FieldLabel}" />
@@ -944,8 +1003,10 @@
                                 </ComboBox>
 
                                 <DockPanel Margin="0,0,0,8">
-                                    <ui:Button DockPanel.Dock="Right" Content="Track none" Command="{Binding TrackNoneOneClickCommand}" Margin="8,0,0,0" />
-                                    <ui:Button DockPanel.Dock="Right" Content="Track all" Command="{Binding TrackAllOneClickCommand}" Margin="8,0,0,0" />
+                                    <ui:Button DockPanel.Dock="Right" Content="Track none" Command="{Binding TrackNoneOneClickCommand}" Margin="8,0,0,0"
+                                               ToolTip="Clears the Track box of every application in the list." />
+                                    <ui:Button DockPanel.Dock="Right" Content="Track all" Command="{Binding TrackAllOneClickCommand}" Margin="8,0,0,0"
+                                               ToolTip="Selects the Track box of every application in the list." />
                                     <ui:Button DockPanel.Dock="Right" Content="Refresh list" Icon="{ui:SymbolIcon ArrowSync24}"
                                                Command="{Binding RefreshOneClickRowsCommand}" Margin="8,0,0,0"
                                                ToolTip="Rebuilds the list from the applications the App Packager page shows." />
@@ -963,7 +1024,8 @@
                                         <DataGridTemplateColumn Header="Track" Width="60">
                                             <DataGridTemplateColumn.CellTemplate>
                                                 <DataTemplate>
-                                                    <CheckBox IsChecked="{Binding Tracked, UpdateSourceTrigger=PropertyChanged}" HorizontalAlignment="Center" />
+                                                    <CheckBox IsChecked="{Binding Tracked, UpdateSourceTrigger=PropertyChanged}" HorizontalAlignment="Center"
+                                                              ToolTip="Track this application in One Click." />
                                                 </DataTemplate>
                                             </DataGridTemplateColumn.CellTemplate>
                                         </DataGridTemplateColumn>
@@ -973,7 +1035,8 @@
                                             <DataGridTemplateColumn.CellTemplate>
                                                 <DataTemplate>
                                                     <CheckBox IsChecked="{Binding ConfigMgr, UpdateSourceTrigger=PropertyChanged}" HorizontalAlignment="Center"
-                                                              AutomationProperties.Name="ConfigMgr" />
+                                                              AutomationProperties.Name="ConfigMgr"
+                                                              ToolTip="Publish this application to ConfigMgr in a One Click run." />
                                                 </DataTemplate>
                                             </DataGridTemplateColumn.CellTemplate>
                                         </DataGridTemplateColumn>
@@ -981,7 +1044,8 @@
                                             <DataGridTemplateColumn.CellTemplate>
                                                 <DataTemplate>
                                                     <CheckBox IsChecked="{Binding Wsus, UpdateSourceTrigger=PropertyChanged}" HorizontalAlignment="Center"
-                                                              AutomationProperties.Name="WSUS" />
+                                                              AutomationProperties.Name="WSUS"
+                                                              ToolTip="Publish this application to WSUS in a One Click run." />
                                                 </DataTemplate>
                                             </DataGridTemplateColumn.CellTemplate>
                                         </DataGridTemplateColumn>
@@ -989,7 +1053,8 @@
                                             <DataGridTemplateColumn.CellTemplate>
                                                 <DataTemplate>
                                                     <CheckBox IsChecked="{Binding Intune, UpdateSourceTrigger=PropertyChanged}" HorizontalAlignment="Center"
-                                                              AutomationProperties.Name="Intune" />
+                                                              AutomationProperties.Name="Intune"
+                                                              ToolTip="Publish this application to Intune in a One Click run." />
                                                 </DataTemplate>
                                             </DataGridTemplateColumn.CellTemplate>
                                         </DataGridTemplateColumn>
@@ -1014,18 +1079,21 @@
                                 <TextBlock Text="NVD API key" Style="{StaticResource FieldLabel}" />
                                 <ui:PasswordBox Width="360" HorizontalAlignment="Left" Password="{Binding NvdApiKey, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                                 PlaceholderText="{Binding NvdApiKeyHint}" Margin="0,0,0,4"
-                                                AutomationProperties.AutomationId="pwdNvdApiKey" />
+                                                AutomationProperties.AutomationId="pwdNvdApiKey"
+                                                ToolTip="Enter an NVD API key to raise the request limit of Check CVEs. Save Settings stores it encrypted for the current Windows user. Leave it empty to keep the saved key." />
                                 <TextBlock Text="Stored encrypted for the current Windows user. Leave empty to keep the saved key. Without a saved key the NVD_API_KEY environment variable is used."
                                            Foreground="{DynamicResource TextFillColorTertiaryBrush}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,8" />
                                 <CheckBox Content="Remove the saved key on Save"
                                           IsChecked="{Binding RemoveNvdApiKey}"
                                           IsEnabled="{Binding HasStoredNvdApiKey}"
                                           Margin="0,0,0,8"
-                                          AutomationProperties.AutomationId="chkRemoveNvdApiKey" />
+                                          AutomationProperties.AutomationId="chkRemoveNvdApiKey"
+                                          ToolTip="Select to delete the saved key when you select Save Settings. The box is disabled when no key is saved." />
                                 <CheckBox Content="Look up CVEs after Check ConfigMgr"
                                           IsChecked="{Binding LookupCvesAfterCheckMecm}"
                                           Margin="0,0,0,8"
-                                          AutomationProperties.AutomationId="chkCveAfterCm" />
+                                          AutomationProperties.AutomationId="chkCveAfterCm"
+                                          ToolTip="Looks up CVEs after Check ConfigMgr finishes." />
                 </StackPanel>
             </ScrollViewer>
             <ScrollViewer x:Name="page_signing" Visibility="Collapsed" VerticalScrollBarVisibility="Auto">
@@ -1045,9 +1113,12 @@
                                 <TextBlock Text="Require Valid Signatures" Style="{StaticResource SubHeader}" />
                                 <TextBlock Text="A publishing constraint, not a change to client execution policy. When a required category fails verification the build stops; there is no unsigned fallback."
                                            Foreground="{DynamicResource TextFillColorTertiaryBrush}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,4" />
-                                <CheckBox Content="Require valid detection signatures" IsChecked="{Binding Signing.RequireDetection}" Margin="0,0,0,4" />
-                                <CheckBox Content="Require valid requirement signatures" IsChecked="{Binding Signing.RequireRequirements}" Margin="0,0,0,4" />
-                                <CheckBox Content="Require valid deployment script signatures" IsChecked="{Binding Signing.RequireDeployment}" Margin="0,0,0,8" />
+                                <CheckBox Content="Require valid detection signatures" IsChecked="{Binding Signing.RequireDetection}" Margin="0,0,0,4"
+                                          ToolTip="Stops the build when the signature of a detection script fails verification." />
+                                <CheckBox Content="Require valid requirement signatures" IsChecked="{Binding Signing.RequireRequirements}" Margin="0,0,0,4"
+                                          ToolTip="Stops the build when the signature of a requirement script fails verification." />
+                                <CheckBox Content="Require valid deployment script signatures" IsChecked="{Binding Signing.RequireDeployment}" Margin="0,0,0,8"
+                                          ToolTip="Stops the build when the signature of a deployment script fails verification." />
 
                                 <TextBlock Text="Signing Identity" Style="{StaticResource SubHeader}" />
                                 <TextBlock Text="Certificate store" Style="{StaticResource FieldLabel}" />
@@ -1059,7 +1130,8 @@
                                 <TextBlock Text="Certificate" Style="{StaticResource FieldLabel}" />
                                 <DockPanel Margin="0,0,0,4">
                                     <ui:Button DockPanel.Dock="Right" Content="Refresh" Icon="{ui:SymbolIcon ArrowSync24}"
-                                               Command="{Binding Signing.RefreshCertificatesCommand}" Margin="8,0,0,0" VerticalAlignment="Center" />
+                                               Command="{Binding Signing.RefreshCertificatesCommand}" Margin="8,0,0,0" VerticalAlignment="Center"
+                                               ToolTip="Reads the certificate store again and keeps the selected certificate when it is still listed." />
                                     <ComboBox ItemsSource="{Binding Signing.Certificates}" SelectedItem="{Binding Signing.SelectedCertificate}"
                                               DisplayMemberPath="Label" AutomationProperties.Name="Certificate" AutomationProperties.AutomationId="SigningCertificate"
                                               ToolTip="Selected by thumbprint. A renewed certificate is a new thumbprint and needs reselecting here." />
@@ -1118,12 +1190,14 @@
                                                Icon="{ui:SymbolIcon FolderOpen24}"
                                                Command="{Binding InstallIconPackFromFileCommand}"
                                                IsEnabled="{Binding IconPackIdle}"
-                                               Margin="8,0,0,0" VerticalAlignment="Center" />
+                                               Margin="8,0,0,0" VerticalAlignment="Center"
+                                               ToolTip="Installs the icon pack from a zip file that you select. Use it when your proxy blocks the download." />
                                     <ui:Button DockPanel.Dock="Right" Content="Download icon pack"
                                                Icon="{ui:SymbolIcon ArrowDownload24}"
                                                Command="{Binding DownloadIconPackCommand}"
                                                IsEnabled="{Binding IconPackIdle}"
-                                               Margin="8,0,0,0" VerticalAlignment="Center" />
+                                               Margin="8,0,0,0" VerticalAlignment="Center"
+                                               ToolTip="Downloads the icon pack from its release and installs it." />
                                     <TextBlock Text="{Binding IconPackStatus}"
                                                Foreground="{DynamicResource TextFillColorSecondaryBrush}"
                                                TextWrapping="Wrap" VerticalAlignment="Center" />
@@ -1137,7 +1211,8 @@
                                     <ui:Button DockPanel.Dock="Right" Content="Releases"
                                                Icon="{ui:SymbolIcon Open24}"
                                                Command="{Binding OpenReleasesCommand}"
-                                               Margin="8,0,0,0" VerticalAlignment="Center" />
+                                               Margin="8,0,0,0" VerticalAlignment="Center"
+                                               ToolTip="Opens the releases page of the app on GitHub in your browser." />
                                     <StackPanel>
                                         <TextBlock Foreground="{DynamicResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" Margin="0,0,0,4"
                                                    AutomationProperties.AutomationId="txtAboutDescription"

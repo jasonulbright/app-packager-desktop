@@ -97,41 +97,47 @@ public sealed class SidebarRegistry
 
         registry.Register(new SidebarItemDefinition(Id: SidebarIds.Packages, Title: "App Packager", Symbol: "Box24", Kind: SidebarItemKind.Page)
         {
+            Description = "App Packager: the list of applications. Check the latest versions, stage the files and publish to ConfigMgr, Intune or WSUS.",
             PageType = typeof(PackagesPage),
             IsPinned = true
         });
         registry.Register(new SidebarItemDefinition(Id: SidebarIds.AddApp, Title: "Add from web", Symbol: "Globe24", Kind: SidebarItemKind.Page)
         {
+            Description = "Add an application from a vendor web page: read the version and installer from the page and save a definition.",
             PageType = typeof(AddAppPage)
         });
         registry.Register(new SidebarItemDefinition(Id: SidebarIds.AddFile, Title: "Add from file", Symbol: "DocumentAdd24", Kind: SidebarItemKind.Page)
         {
+            Description = "Add an application from a local installer file: analyze the file and save a definition.",
             PageType = typeof(AddFilePage)
         });
         registry.Register(new SidebarItemDefinition(Id: SidebarIds.WsusUpdates, Title: "WSUS Updates", Symbol: "ArrowSyncCircle24", Kind: SidebarItemKind.Window)
         {
+            Description = "Open the WSUS Updates window: the locally published updates on your WSUS server, and their approval for a computer group.",
             Activate = services => services.GetRequiredService<ApplicationPackagerUI.ViewModels.Pages.PackagesViewModel>().OpenWsusUpdates()
         });
         registry.Register(new SidebarItemDefinition(Id: SidebarIds.Workbench, Title: "Workbench", Symbol: "Wrench24", Kind: SidebarItemKind.Window)
         {
+            Description = "Open the Workbench for the selected application: edit the definition, the detection and the install commands.",
             Activate = services => services.GetRequiredService<MainWindow>().OpenWorkbenchForGridSelection()
         });
 
-        Tool(registry, SidebarIds.InstallerAnalysis, "Installer Analysis", "BoxSearch24", typeof(InstallerAnalysisPage));
-        Tool(registry, SidebarIds.DetectionTester, "Detection Tester", "Beaker24", typeof(DetectionTesterPage));
-        Tool(registry, SidebarIds.DeploymentHelper, "Deployment Helper", "Rocket24", typeof(DeploymentHelperPage));
-        Tool(registry, SidebarIds.PivotsScripts, "Pivots and Scripts", "Code24", typeof(PivotsScriptsPage));
-        Tool(registry, SidebarIds.CollectionCompliance, "Collection and Compliance", "ShieldCheckmark24", typeof(CollectionCompliancePage));
-        Tool(registry, SidebarIds.MaintenanceWindows, "Maintenance Windows", "CalendarClock24", typeof(MaintenanceWindowsPage));
-        Tool(registry, SidebarIds.DpContentManager, "DP Content Manager", "Server24", typeof(DpContentManagerPage));
-        Tool(registry, SidebarIds.SiteHygiene, "Site Hygiene", "Broom24", typeof(SiteHygienePage));
+        Tool(registry, SidebarIds.InstallerAnalysis, "Installer Analysis", "BoxSearch24", typeof(InstallerAnalysisPage), "Open Installer Analysis: analyze an installer file and see its type, install commands, contents, registry settings and strings.");
+        Tool(registry, SidebarIds.DetectionTester, "Detection Tester", "Beaker24", typeof(DetectionTesterPage), "Open Detection Tester: run a detection rule on this computer and see whether it finds the application.");
+        Tool(registry, SidebarIds.DeploymentHelper, "Deployment Helper", "Rocket24", typeof(DeploymentHelperPage), "Open Deployment Helper: create deployments of an application with a template or a ring plan, and review their history.");
+        Tool(registry, SidebarIds.PivotsScripts, "Pivots and Scripts", "Code24", typeof(PivotsScriptsPage), "Open Pivots and Scripts: run the pivots and the saved scripts against the Device Collections and devices of the site.");
+        Tool(registry, SidebarIds.CollectionCompliance, "Collection and Compliance", "ShieldCheckmark24", typeof(CollectionCompliancePage), "Open Collection and Compliance: manage Device Collections and their rules, and review and fix compliance settings.");
+        Tool(registry, SidebarIds.MaintenanceWindows, "Maintenance Windows", "CalendarClock24", typeof(MaintenanceWindowsPage), "Open Maintenance Windows: list, create, change and apply maintenance windows of Device Collections.");
+        Tool(registry, SidebarIds.DpContentManager, "DP Content Manager", "Server24", typeof(DpContentManagerPage), "Open DP Content Manager: review and fix the content of the distribution points, and its distribution history.");
+        Tool(registry, SidebarIds.SiteHygiene, "Site Hygiene", "Broom24", typeof(SiteHygienePage), "Open Site Hygiene: review the checks of the site, the live health data and the findings you can fix.");
         return registry;
     }
 
-    private static void Tool(SidebarRegistry registry, string id, string title, string symbol, Type page) =>
+    private static void Tool(SidebarRegistry registry, string id, string title, string symbol, Type page, string description) =>
         registry.Register(new SidebarItemDefinition(Id: id, Title: title, Symbol: symbol, Kind: SidebarItemKind.Page)
         {
             PageType = page,
+            Description = description,
             Group = SidebarGroupIds.Tools
         });
 }

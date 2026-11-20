@@ -163,7 +163,7 @@ public sealed class SidebarPresenter
             Icon = new SymbolIcon { Symbol = symbol },
             Tag = definition.Id,
             TargetPageTag = definition.Id,
-            ToolTip = definition.Title
+            ToolTip = definition.Description ?? definition.Title
         };
         AutomationProperties.SetAutomationId(item, "nav-" + definition.Id);
         AutomationProperties.SetName(item, definition.Title);

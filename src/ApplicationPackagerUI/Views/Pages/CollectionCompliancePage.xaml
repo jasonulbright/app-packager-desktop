@@ -116,8 +116,10 @@
             <controls:PageHeader.Actions>
                 <StackPanel Orientation="Horizontal" AutomationProperties.Name="Section" AutomationProperties.AutomationId="pnlSection">
                     <RadioButton Content="Collections" GroupName="CollectionComplianceSection" IsChecked="{Binding IsCollectionsSection}" Margin="0,0,12,0"
+                                 ToolTip="Show the Device Collections of the site, their rules, the WQL Editor and the saved queries."
                                  AutomationProperties.AutomationId="rbSectionCollections" />
                     <RadioButton Content="Compliance" GroupName="CollectionComplianceSection" IsChecked="{Binding IsComplianceSection}"
+                                 ToolTip="Show the configuration items and configuration baselines of the site."
                                  AutomationProperties.AutomationId="rbSectionCompliance" />
                 </StackPanel>
             </controls:PageHeader.Actions>
@@ -157,15 +159,21 @@
                     <WrapPanel Grid.Row="0" x:Name="pnlCollectionFilters" Margin="0,0,0,4">
                         <ui:TextBox Text="{Binding TextFilter, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="Filter by name, ID, comment or limiting collection"
                                     Icon="{ui:SymbolIcon Search24}" MinWidth="300" Margin="0,0,8,8"
+                                    ToolTip="Show only the collections whose name, ID, comment or limiting collection contains this text."
                                     AutomationProperties.Name="Filter" AutomationProperties.AutomationId="txtCollectionFilter" />
                         <ComboBox ItemsSource="{Binding TypeFilters}" SelectedValue="{Binding TypeFilter}" SelectedValuePath="Value" DisplayMemberPath="Text"
-                                  MinWidth="150" Margin="0,0,8,8" AutomationProperties.Name="Type" AutomationProperties.AutomationId="cboTypeFilter" />
+                                  MinWidth="150" Margin="0,0,8,8" ToolTip="Show all collections, only the built-in collections or only the custom collections."
+                                  AutomationProperties.Name="Type" AutomationProperties.AutomationId="cboTypeFilter" />
                         <ComboBox ItemsSource="{Binding Folders}" SelectedValue="{Binding FolderFilter}" SelectedValuePath="Value" DisplayMemberPath="Text"
-                                  MinWidth="180" Margin="0,0,8,8" AutomationProperties.Name="Folder" AutomationProperties.AutomationId="cboFolderFilter" />
-                        <CheckBox Content="Empty" IsChecked="{Binding OnlyEmpty}" Margin="0,0,12,8" VerticalAlignment="Center" AutomationProperties.AutomationId="chkOnlyEmpty" />
+                                  MinWidth="180" Margin="0,0,8,8" ToolTip="Show only the collections in this folder of the Configuration Manager console."
+                                  AutomationProperties.Name="Folder" AutomationProperties.AutomationId="cboFolderFilter" />
+                        <CheckBox Content="Empty" IsChecked="{Binding OnlyEmpty}" Margin="0,0,12,8" VerticalAlignment="Center"
+                                  ToolTip="Show only the collections that have no members." AutomationProperties.AutomationId="chkOnlyEmpty" />
                         <CheckBox Content="With direct members" IsChecked="{Binding OnlyWithDirectMembers}" Margin="0,0,12,8" VerticalAlignment="Center"
+                                  ToolTip="Show only the collections that have direct membership rules."
                                   AutomationProperties.AutomationId="chkOnlyDirect" />
                         <CheckBox Content="With query rules" IsChecked="{Binding OnlyWithQueryRules}" Margin="0,0,12,8" VerticalAlignment="Center"
+                                  ToolTip="Show only the collections that have query membership rules."
                                   AutomationProperties.AutomationId="chkOnlyQuery" />
                         <TextBlock Text="{Binding RowCount}" Style="{StaticResource Note}" VerticalAlignment="Center" Margin="0,0,0,8"
                                    AutomationProperties.AutomationId="txtRowCount" />
@@ -174,8 +182,10 @@
                     <WrapPanel Grid.Row="1" x:Name="pnlCollectionTools" Margin="0,0,0,4">
                         <WrapPanel Orientation="Horizontal" Margin="0,0,16,0">
                         <ui:Button Content="New" Appearance="Primary" Icon="{ui:SymbolIcon Add24}" Command="{Binding NewCollectionCommand}"
+                                   ToolTip="Create a Device Collection. The app shows a plan first."
                                    Style="{StaticResource ToolButton}" AutomationProperties.AutomationId="btnNewCollection" />
                         <ui:Button Content="Copy" Icon="{ui:SymbolIcon Copy24}" Command="{Binding CopyCollectionCommand}"
+                                   ToolTip="Create a new Device Collection from the selected one. The app shows a plan first."
                                    Style="{StaticResource ToolButton}" AutomationProperties.AutomationId="btnCopyCollection" />
                         <ui:Button Content="Edit" Icon="{ui:SymbolIcon Edit24}" Command="{Binding EditCollectionCommand}" ToolTip="{Binding BuiltInTooltip}"
                                    ToolTipService.ShowOnDisabled="True" Style="{StaticResource ToolButton}" AutomationProperties.AutomationId="btnEditCollection" />
@@ -186,16 +196,19 @@
                         </WrapPanel>
                         <WrapPanel Orientation="Horizontal" Margin="0,0,16,0">
                         <ui:Button Content="Refresh" Icon="{ui:SymbolIcon ArrowSync24}" Command="{Binding RefreshCommand}"
+                                   ToolTip="Query the site again for the collections."
                                    Style="{StaticResource ToolButton}" AutomationProperties.AutomationId="btnRefresh" />
                         <ui:Button Content="Cancel" Icon="{ui:SymbolIcon Dismiss24}" Command="{Binding CancelLoadCommand}" Style="{StaticResource ToolButton}"
                                    AutomationProperties.AutomationId="btnCancelLoad" Visibility="{Binding IsLoading, Converter={StaticResource BoolToVisibility}}" />
                         <ui:TextBox Text="{Binding OpenByIdText, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="Collection ID" Width="140" Margin="0,0,4,8"
+                                    ToolTip="Enter a collection ID, for example SMS00001, to open that one collection without reading the whole list."
                                     AutomationProperties.Name="Collection ID" AutomationProperties.AutomationId="txtOpenById">
                             <ui:TextBox.InputBindings>
                                 <KeyBinding Key="Return" Command="{Binding OpenByIdCommand}" />
                             </ui:TextBox.InputBindings>
                         </ui:TextBox>
                         <ui:Button Content="Open by ID" Icon="{ui:SymbolIcon Open24}" Command="{Binding OpenByIdCommand}"
+                                   ToolTip="Open the collection with the ID you entered."
                                    Style="{StaticResource ToolButton}" AutomationProperties.AutomationId="btnOpenById" />
                         </WrapPanel>
                         <WrapPanel Orientation="Horizontal" Margin="0,0,16,0">
@@ -203,8 +216,10 @@
                                    ToolTip="Test the connection to the site without reading the collections." Style="{StaticResource ToolButton}"
                                    AutomationProperties.AutomationId="btnConnectSite" />
                         <ui:Button Content="Export CSV" Icon="{ui:SymbolIcon DocumentTable24}" Command="{Binding ExportCsvCommand}"
+                                   ToolTip="Save the collections in the list to a CSV report."
                                    Style="{StaticResource ToolButton}" AutomationProperties.AutomationId="btnExportCsv" />
                         <ui:Button Content="Export HTML" Icon="{ui:SymbolIcon Globe24}" Command="{Binding ExportHtmlCommand}"
+                                   ToolTip="Save the collections in the list to an HTML report."
                                    Style="{StaticResource ToolButton}" AutomationProperties.AutomationId="btnExportHtml" />
                         <CheckBox Content="Details" IsChecked="{Binding ShowDetails}" Margin="4,0,0,8" VerticalAlignment="Center"
                                   ToolTip="Show or hide the details under the list." AutomationProperties.AutomationId="chkShowDetails" />
@@ -274,6 +289,7 @@
                                                 </Grid.RowDefinitions>
                                                 <WrapPanel Grid.Row="0">
                                                     <ui:Button Content="Add" Icon="{ui:SymbolIcon Add24}" Command="{Binding AddDirectMembersCommand}" Style="{StaticResource ToolButton}"
+                                                               ToolTip="Add devices to the selected collection as direct members. You enter the device names, then the app shows a plan."
                                                                AutomationProperties.AutomationId="btnAddMembers" />
                                                     <ui:Button Content="Remove" Icon="{ui:SymbolIcon Delete24}" Command="{Binding RemoveDirectMembersCommand}" Style="{StaticResource ToolButton}"
                                                                ToolTip="Removes the direct membership rules of the selected direct members." AutomationProperties.AutomationId="btnRemoveMembers" />
@@ -299,8 +315,10 @@
                                             <DockPanel Margin="0,8,0,0">
                                                 <WrapPanel DockPanel.Dock="Top">
                                                     <ui:Button Content="Edit in WQL Editor" Icon="{ui:SymbolIcon Code24}" Command="{Binding EditRuleInEditorCommand}" Style="{StaticResource ToolButton}"
+                                                               ToolTip="Open the selected query rule in the WQL Editor tab."
                                                                AutomationProperties.AutomationId="btnEditRuleInEditor" />
                                                     <ui:Button Content="Remove" Icon="{ui:SymbolIcon Delete24}" Command="{Binding RemoveSelectedQueryRuleCommand}" Style="{StaticResource ToolButton}"
+                                                               ToolTip="Remove the selected query rule from the collection. The app shows a plan first."
                                                                AutomationProperties.AutomationId="btnRemoveQueryRule" />
                                                 </WrapPanel>
                                                 <ListBox ItemsSource="{Binding QueryRules}" SelectedItem="{Binding SelectedQueryRule}" ItemTemplate="{StaticResource RuleItemTemplate}"
@@ -312,8 +330,10 @@
                                             <DockPanel Margin="0,8,0,0">
                                                 <WrapPanel DockPanel.Dock="Top">
                                                     <ui:Button Content="Add" Icon="{ui:SymbolIcon Add24}" Command="{Binding AddIncludeRuleCommand}" Style="{StaticResource ToolButton}"
+                                                               ToolTip="Choose collections whose members the selected collection includes. The app shows a plan first."
                                                                AutomationProperties.AutomationId="btnAddInclude" />
                                                     <ui:Button Content="Remove" Icon="{ui:SymbolIcon Delete24}" Command="{Binding RemoveIncludeRuleCommand}" Style="{StaticResource ToolButton}"
+                                                               ToolTip="Remove the selected include rule from the collection. The app shows a plan first."
                                                                AutomationProperties.AutomationId="btnRemoveInclude" />
                                                 </WrapPanel>
                                                 <ListBox ItemsSource="{Binding IncludeRules}" SelectedItem="{Binding SelectedIncludeRule}" DisplayMemberPath="Text"
@@ -325,8 +345,10 @@
                                             <DockPanel Margin="0,8,0,0">
                                                 <WrapPanel DockPanel.Dock="Top">
                                                     <ui:Button Content="Add" Icon="{ui:SymbolIcon Add24}" Command="{Binding AddExcludeRuleCommand}" Style="{StaticResource ToolButton}"
+                                                               ToolTip="Choose collections whose members the selected collection excludes. The app shows a plan first."
                                                                AutomationProperties.AutomationId="btnAddExclude" />
                                                     <ui:Button Content="Remove" Icon="{ui:SymbolIcon Delete24}" Command="{Binding RemoveExcludeRuleCommand}" Style="{StaticResource ToolButton}"
+                                                               ToolTip="Remove the selected exclude rule from the collection. The app shows a plan first."
                                                                AutomationProperties.AutomationId="btnRemoveExclude" />
                                                 </WrapPanel>
                                                 <ListBox ItemsSource="{Binding ExcludeRules}" SelectedItem="{Binding SelectedExcludeRule}" DisplayMemberPath="Text"
@@ -354,6 +376,7 @@
 
                     <DockPanel Grid.Column="0">
                         <ui:TextBox DockPanel.Dock="Top" Text="{Binding WqlFilter, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="Filter by name or ID"
+                                    ToolTip="Show only the collections in the tree whose name or ID contains this text."
                                     Icon="{ui:SymbolIcon Search24}" Margin="0,0,0,8" AutomationProperties.Name="Collection filter" AutomationProperties.AutomationId="txtWqlFilter" />
                         <TreeView x:Name="treeWqlCollections" ItemsSource="{Binding WqlTree}" SelectedItemChanged="OnWqlTreeSelectionChanged"
                                   AutomationProperties.Name="Collections by folder" AutomationProperties.AutomationId="treeWqlCollections">
@@ -396,28 +419,37 @@
                             <StackPanel Grid.Column="0">
                                 <TextBlock Text="Query rule of the collection" Style="{StaticResource FieldLabel}" />
                                 <ComboBox ItemsSource="{Binding WqlRules}" SelectedItem="{Binding SelectedWqlRule}" DisplayMemberPath="RuleName"
-                                          MinHeight="40" AutomationProperties.Name="Query rule of the collection" AutomationProperties.AutomationId="cboWqlRule" />
+                                          MinHeight="40" ToolTip="Choose one of the query rules of the collection to load its name and query into the editor."
+                                          AutomationProperties.Name="Query rule of the collection" AutomationProperties.AutomationId="cboWqlRule" />
                             </StackPanel>
                             <StackPanel Grid.Column="2">
                                 <TextBlock Text="Rule name" Style="{StaticResource FieldLabel}" />
-                                <ui:TextBox Text="{Binding WqlRuleName, UpdateSourceTrigger=PropertyChanged}" MinHeight="40" VerticalContentAlignment="Center" AutomationProperties.Name="Rule name"
+                                <ui:TextBox Text="{Binding WqlRuleName, UpdateSourceTrigger=PropertyChanged}" MinHeight="40" VerticalContentAlignment="Center"
+                                            ToolTip="Enter the name of the query rule. Add Rule creates a rule with this name; Update Rule renames the selected rule." AutomationProperties.Name="Rule name"
                                             AutomationProperties.AutomationId="txtWqlRuleName" />
                             </StackPanel>
                         </Grid>
                         <TextBox Grid.Row="2" Text="{Binding WqlText, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource Monospace}" AcceptsReturn="True"
+                                 ToolTip="Enter the WQL query. Validate checks it, Preview runs it, and the rule buttons write it as a query rule."
                                  AutomationProperties.Name="WQL query" AutomationProperties.AutomationId="txtWql" />
                         <WrapPanel Grid.Row="3" Margin="0,8,0,0">
                             <ui:Button Content="Validate" Icon="{ui:SymbolIcon CheckmarkCircle24}" Command="{Binding ValidateWqlCommand}" Style="{StaticResource ToolButton}"
+                                       ToolTip="Check the WQL query on the site without changing anything."
                                        AutomationProperties.AutomationId="btnValidateWql" />
                             <ui:Button Content="Preview" Icon="{ui:SymbolIcon Eye24}" Command="{Binding PreviewWqlCommand}" Style="{StaticResource ToolButton}"
+                                       ToolTip="Run the WQL query and show the devices it matches. Nothing changes on the site."
                                        AutomationProperties.AutomationId="btnPreviewWql" />
                             <ui:Button Content="Cancel preview" Icon="{ui:SymbolIcon Dismiss24}" Command="{Binding CancelPreviewCommand}" Style="{StaticResource ToolButton}"
+                                       ToolTip="Stop the preview that is running."
                                        Visibility="{Binding IsPreviewing, Converter={StaticResource BoolToVisibility}}" AutomationProperties.AutomationId="btnCancelPreview" />
                             <ui:Button Content="Add Rule" Appearance="Primary" Icon="{ui:SymbolIcon Add24}" Command="{Binding AddRuleCommand}" Style="{StaticResource ToolButton}"
+                                       ToolTip="Add the rule name and query as a new query rule of the collection. The app shows a plan first."
                                        AutomationProperties.AutomationId="btnAddRule" />
                             <ui:Button Content="Update Rule" Icon="{ui:SymbolIcon Save24}" Command="{Binding UpdateRuleCommand}" Style="{StaticResource ToolButton}"
+                                       ToolTip="Change the name and query of the selected query rule. The app shows a plan first."
                                        AutomationProperties.AutomationId="btnUpdateRule" />
                             <ui:Button Content="Remove Rule" Icon="{ui:SymbolIcon Delete24}" Command="{Binding RemoveRuleCommand}" Style="{StaticResource ToolButton}"
+                                       ToolTip="Remove the selected query rule from the collection. The app shows a plan first."
                                        AutomationProperties.AutomationId="btnRemoveRule" />
                         </WrapPanel>
                         <TextBlock Grid.Row="4" Text="{Binding WqlMessage}" TextWrapping="Wrap" Margin="0,0,0,8" Foreground="{DynamicResource TextFillColorPrimaryBrush}"
@@ -448,6 +480,7 @@
                     </Border>
                     <WrapPanel Grid.Row="1" Grid.ColumnSpan="3" Margin="0,0,0,4">
                         <ComboBox ItemsSource="{Binding Categories}" SelectedItem="{Binding CategoryFilter}" MinWidth="220" Margin="0,0,8,8"
+                                  ToolTip="Show only the templates in this category."
                                   AutomationProperties.Name="Category" AutomationProperties.AutomationId="cboCategory" />
                         <TextBlock Text="{Binding TemplateCount}" Style="{StaticResource Note}" VerticalAlignment="Center" Margin="0,0,0,8"
                                    AutomationProperties.AutomationId="txtTemplateCount" />
@@ -477,7 +510,8 @@
                                                 <DataTemplate>
                                                     <StackPanel Margin="0,0,0,8">
                                                         <TextBlock Text="{Binding Label}" Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
-                                                        <ui:TextBox Text="{Binding Value, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="{Binding Label}" Margin="0,4,0,0" />
+                                                        <ui:TextBox Text="{Binding Value, UpdateSourceTrigger=PropertyChanged}" ToolTip="Enter the value that replaces this parameter in the final query."
+                                                                   AutomationProperties.Name="{Binding Label}" Margin="0,4,0,0" />
                                                         <TextBlock Text="{Binding HelpText}" Style="{StaticResource Note}" />
                                                     </StackPanel>
                                                 </DataTemplate>
@@ -491,8 +525,10 @@
                                                AutomationProperties.AutomationId="txtTemplateMessage" AutomationProperties.LiveSetting="Polite" />
                                     <WrapPanel Margin="0,8,0,0">
                                         <ui:Button Content="Copy to WQL Editor" Icon="{ui:SymbolIcon Code24}" Command="{Binding CopyTemplateToEditorCommand}"
+                                                   ToolTip="Copy the final query and the template name to the WQL Editor tab."
                                                    Style="{StaticResource ToolButton}" AutomationProperties.AutomationId="btnCopyTemplate" />
                                         <ui:Button Content="Apply to Collections" Appearance="Primary" Icon="{ui:SymbolIcon Add24}" Command="{Binding ApplyTemplateCommand}"
+                                                   ToolTip="Choose the collections that get the final query as a query rule. The app shows a plan first."
                                                    Style="{StaticResource ToolButton}" AutomationProperties.AutomationId="btnApplyTemplate" />
                                     </WrapPanel>
                                 </StackPanel>
@@ -516,14 +552,17 @@
                     </Grid.ColumnDefinitions>
                     <WrapPanel Grid.Row="0" Grid.ColumnSpan="3" Margin="0,0,0,4">
                         <ui:Button Content="Refresh" Icon="{ui:SymbolIcon ArrowSync24}" Command="{Binding RefreshQueriesCommand}" Style="{StaticResource ToolButton}"
+                                   ToolTip="Query the site again for the saved queries."
                                    AutomationProperties.AutomationId="btnRefreshQueries" />
                         <ui:Button Content="Load to Editor" Icon="{ui:SymbolIcon Code24}" Command="{Binding LoadQueryToEditorCommand}" Style="{StaticResource ToolButton}"
+                                   ToolTip="Copy the query of the selected saved query to the WQL Editor tab."
                                    AutomationProperties.AutomationId="btnLoadQuery" />
                         <ui:Button Content="Save as New" Appearance="Primary" Icon="{ui:SymbolIcon Add24}" Command="{Binding SaveQueryAsNewCommand}" Style="{StaticResource ToolButton}"
                                    ToolTip="Saves the WQL Editor's query as a new saved query." AutomationProperties.AutomationId="btnSaveQuery" />
                         <ui:Button Content="Update Saved" Icon="{ui:SymbolIcon Save24}" Command="{Binding UpdateSavedQueryCommand}" Style="{StaticResource ToolButton}"
                                    ToolTip="Sets the WQL Editor's query on the selected saved query." AutomationProperties.AutomationId="btnUpdateQuery" />
                         <ui:Button Content="Delete" Icon="{ui:SymbolIcon Delete24}" Command="{Binding DeleteSavedQueryCommand}" Style="{StaticResource ToolButton}"
+                                   ToolTip="Delete the selected saved query from the site. The app shows a plan first."
                                    AutomationProperties.AutomationId="btnDeleteQuery" />
                     </WrapPanel>
                     <TextBlock Grid.Row="1" Grid.ColumnSpan="3" Text="{Binding QueriesMessage}" Style="{StaticResource Note}" Margin="0,0,0,8"

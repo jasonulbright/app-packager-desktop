@@ -185,8 +185,10 @@
                         </Grid.RowDefinitions>
                         <WrapPanel Grid.Row="0" Margin="0,0,0,4">
                             <ui:TextBox Text="{Binding DpText, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="Filter by DP or site" Icon="{ui:SymbolIcon Search24}"
+                                        ToolTip="Shows only the distribution points whose name or site matches this text."
                                         MinWidth="260" Margin="0,0,8,8" AutomationProperties.Name="DP filter" AutomationProperties.AutomationId="txtDpFilter" />
                             <ComboBox ItemsSource="{Binding DpStatuses}" SelectedItem="{Binding DpStatus}" MinWidth="160" Margin="0,0,8,8"
+                                      ToolTip="Shows all DPs, only the healthy ones, only the ones with failures or only the ones with content in progress."
                                       AutomationProperties.Name="DP status" AutomationProperties.AutomationId="cboDpStatus" />
                             <TextBlock Text="{Binding DpCount}" Style="{StaticResource Note}" VerticalAlignment="Center" Margin="0,0,0,8" AutomationProperties.AutomationId="txtDpCount" />
                         </WrapPanel>
@@ -235,8 +237,10 @@
                         </Grid.RowDefinitions>
                         <WrapPanel Grid.Row="0" Margin="0,0,0,4" KeyboardNavigation.TabNavigation="Local" KeyboardNavigation.TabIndex="0">
                             <ui:TextBox Text="{Binding ContentText, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="Filter by name or PackageID" Icon="{ui:SymbolIcon Search24}"
+                                        ToolTip="Shows only the content whose name or PackageID matches this text."
                                         MinWidth="260" Margin="0,0,8,8" AutomationProperties.Name="Content filter" AutomationProperties.AutomationId="txtContentFilter" />
                             <ComboBox ItemsSource="{Binding ContentTypes}" SelectedItem="{Binding ContentType}" MinWidth="190" Margin="0,0,8,8"
+                                      ToolTip="Shows only the content of this type, for example Application or Package."
                                       AutomationProperties.Name="Content type" AutomationProperties.AutomationId="cboContentType" />
                             <TextBlock Text="{Binding ContentCount}" Style="{StaticResource Note}" VerticalAlignment="Center" Margin="0,0,0,8" AutomationProperties.AutomationId="txtContentCount" />
                         </WrapPanel>
@@ -295,8 +299,10 @@
                         </Grid.RowDefinitions>
                         <WrapPanel Grid.Row="0" Margin="0,0,0,4" KeyboardNavigation.TabNavigation="Local" KeyboardNavigation.TabIndex="0">
                             <ui:TextBox Text="{Binding IssueText, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="Filter by DP, content, PackageID or state" Icon="{ui:SymbolIcon Search24}"
+                                        ToolTip="Shows only the status issues whose DP, content, PackageID or state matches this text."
                                         MinWidth="300" Margin="0,0,8,8" AutomationProperties.Name="Status issue filter" AutomationProperties.AutomationId="txtIssueFilter" />
                             <ComboBox ItemsSource="{Binding IssueStates}" SelectedItem="{Binding IssueState}" MinWidth="160" Margin="0,0,8,8"
+                                      ToolTip="Shows all status issues, only the failed ones or only the ones in progress."
                                       AutomationProperties.Name="State" AutomationProperties.AutomationId="cboIssueState" />
                             <TextBlock Text="{Binding IssueCount}" Style="{StaticResource Note}" VerticalAlignment="Center" Margin="0,0,0,8" AutomationProperties.AutomationId="txtIssueCount" />
                         </WrapPanel>
@@ -336,8 +342,10 @@
                         </Grid.RowDefinitions>
                         <WrapPanel Grid.Row="0" Margin="0,0,0,4">
                             <ui:TextBox Text="{Binding HistoryText, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="Filter by PackageID, DP, user or result" Icon="{ui:SymbolIcon Search24}"
+                                        ToolTip="Shows only the history entries whose PackageID, DP, user or result matches this text."
                                         MinWidth="300" Margin="0,0,8,8" AutomationProperties.Name="History filter" AutomationProperties.AutomationId="txtDpHistoryFilter" />
                             <ComboBox ItemsSource="{Binding HistoryActions}" SelectedItem="{Binding HistoryAction}" MinWidth="160" Margin="0,0,8,8"
+                                      ToolTip="Shows only the history entries of this action."
                                       AutomationProperties.Name="Action" AutomationProperties.AutomationId="cboDpHistoryAction" />
                             <ui:Button Content="Refresh history" Icon="{ui:SymbolIcon ArrowClockwise24}" Command="{Binding RefreshHistoryCommand}" Style="{StaticResource ToolButton}"
                                        ToolTip="Reads the audit log again." AutomationProperties.AutomationId="btnDpHistoryRefresh" />

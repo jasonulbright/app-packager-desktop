@@ -130,16 +130,22 @@
                     </Border>
                     <WrapPanel Grid.Row="1" Margin="0,0,0,4">
                         <ui:TextBox Text="{Binding TextFilter, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="Filter by name, ID, description or registry value"
+                                    ToolTip="Show only the catalog entries whose name, ID, description or registry value contains this text."
                                     Icon="{ui:SymbolIcon Search24}" MinWidth="300" Margin="0,0,8,8" AutomationProperties.Name="Filter" AutomationProperties.AutomationId="txtCatalogFilter" />
                         <ui:TextBox Text="{Binding ReferenceFilter, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="CVE or plugin ID" Width="170" Margin="0,0,8,8"
+                                    ToolTip="Enter a CVE or a plugin ID to show only the catalog entries that list it."
                                     AutomationProperties.Name="CVE or plugin ID" AutomationProperties.AutomationId="txtCatalogReference" />
                         <ComboBox ItemsSource="{Binding Subcategories}" SelectedItem="{Binding SubcategoryFilter}" MinWidth="150" Margin="0,0,8,8"
+                                  ToolTip="Show only the catalog entries in this subcategory."
                                   AutomationProperties.Name="Subcategory" AutomationProperties.AutomationId="cboCatalogSubcategory" />
                         <ComboBox ItemsSource="{Binding Severities}" SelectedItem="{Binding SeverityFilter}" MinWidth="110" Margin="0,0,8,8"
+                                  ToolTip="Show only the catalog entries with this severity."
                                   AutomationProperties.Name="Severity" AutomationProperties.AutomationId="cboCatalogSeverity" />
                         <ComboBox ItemsSource="{Binding Statuses}" SelectedItem="{Binding StatusFilter}" MinWidth="110" Margin="0,0,8,8"
+                                  ToolTip="Show only the catalog entries with this status."
                                   AutomationProperties.Name="Status" AutomationProperties.AutomationId="cboCatalogStatus" />
                         <ComboBox ItemsSource="{Binding OsChoices}" SelectedItem="{Binding OsFilter}" MinWidth="150" Margin="0,0,8,8"
+                                  ToolTip="Show only the catalog entries that apply to this operating system."
                                   AutomationProperties.Name="Operating system" AutomationProperties.AutomationId="cboCatalogOs" />
                         <TextBlock Text="{Binding RowCount}" Style="{StaticResource Note}" VerticalAlignment="Center" Margin="0,0,0,8" AutomationProperties.AutomationId="txtCatalogCount" />
                     </WrapPanel>
@@ -195,8 +201,10 @@
                     </Grid.RowDefinitions>
                     <WrapPanel Grid.Row="0" Margin="0,0,0,4">
                         <ui:TextBox Text="{Binding TextFilter, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="Filter by name, ID or catalog ID" Icon="{ui:SymbolIcon Search24}"
+                                    ToolTip="Show only the configuration items and baselines whose name, ID or catalog ID contains this text."
                                     MinWidth="280" Margin="0,0,8,8" AutomationProperties.Name="Filter" AutomationProperties.AutomationId="txtLiveFilter" />
                         <ui:Button Content="Refresh" Icon="{ui:SymbolIcon ArrowSync24}" Command="{Binding RefreshCommand}" Style="{StaticResource ToolButton}"
+                                   ToolTip="Query the site again for the configuration items and baselines."
                                    AutomationProperties.AutomationId="btnLiveRefresh" />
                         <ui:Button Content="Cancel" Icon="{ui:SymbolIcon Dismiss24}" Command="{Binding CancelLoadCommand}" Style="{StaticResource ToolButton}"
                                    Visibility="{Binding IsLoading, Converter={StaticResource BoolToVisibility}}" AutomationProperties.AutomationId="btnLiveCancel" />
@@ -256,14 +264,18 @@
                             <TextBlock DockPanel.Dock="Top" Text="{Binding DeploymentsTitle}" Style="{StaticResource FieldLabel}" AutomationProperties.AutomationId="txtDeploymentsTitle" />
                             <WrapPanel>
                                 <ui:Button Content="Enable remediation" Icon="{ui:SymbolIcon ShieldCheckmark24}" Command="{Binding EnableRemediationCommand}" Style="{StaticResource ToolButton}"
+                                           ToolTip="Turn on remediation for the selected deployments. The app shows a plan first."
                                            AutomationProperties.AutomationId="btnEnableRemediation" />
                                 <ui:Button Content="Disable remediation" Icon="{ui:SymbolIcon Shield24}" Command="{Binding DisableRemediationCommand}" Style="{StaticResource ToolButton}"
+                                           ToolTip="Turn off remediation for the selected deployments. The app shows a plan first."
                                            AutomationProperties.AutomationId="btnDisableRemediation" />
                                 <ui:Button Content="Redeploy" Icon="{ui:SymbolIcon ArrowRepeatAll24}" Command="{Binding RedeployCommand}" Style="{StaticResource ToolButton}"
+                                           ToolTip="Create the selected deployments again, then remove the old ones. The app shows a plan first."
                                            AutomationProperties.AutomationId="btnRedeploy" />
                                 <ui:Button Content="Reassign" Icon="{ui:SymbolIcon ArrowSwap24}" Command="{Binding ReassignCommand}" Style="{StaticResource ToolButton}"
                                            ToolTip="Moves one deployment to another collection." AutomationProperties.AutomationId="btnReassign" />
                                 <ui:Button Content="Delete" Icon="{ui:SymbolIcon Delete24}" Appearance="Danger" Command="{Binding DeleteDeploymentsCommand}" Style="{StaticResource ToolButton}"
+                                           ToolTip="Delete the selected baseline deployments from the site. The app shows a plan first."
                                            AutomationProperties.AutomationId="btnDeleteDeployments" />
                             </WrapPanel>
                         </DockPanel>
@@ -297,6 +309,7 @@
                     </Grid.ColumnDefinitions>
                     <DockPanel Grid.Column="0">
                         <ui:TextBox DockPanel.Dock="Top" Text="{Binding ItemFilter, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="Filter by name or ID"
+                                    ToolTip="Show only the configuration items whose name or ID contains this text."
                                     Icon="{ui:SymbolIcon Search24}" Margin="0,0,0,8" AutomationProperties.Name="Configuration item filter" AutomationProperties.AutomationId="txtEditorFilter" />
                         <ListBox x:Name="lstEditorItems" ItemsSource="{Binding Items}" SelectedItem="{Binding SelectedItem}" ItemContainerStyle="{StaticResource SelectableListItem}"
                                  ScrollViewer.HorizontalScrollBarVisibility="Disabled" AutomationProperties.Name="Configuration items" AutomationProperties.AutomationId="lstEditorItems">
@@ -330,12 +343,16 @@
                         </StackPanel>
                         <WrapPanel Grid.Row="1">
                             <ui:Button Content="Add" Appearance="Primary" Icon="{ui:SymbolIcon Add24}" Command="{Binding AddSettingCommand}" Style="{StaticResource ToolButton}"
+                                       ToolTip="Add a setting to the selected configuration item. The app shows a plan first."
                                        AutomationProperties.AutomationId="btnAddSetting" />
                             <ui:Button Content="Edit" Icon="{ui:SymbolIcon Edit24}" Command="{Binding EditSettingCommand}" Style="{StaticResource ToolButton}"
+                                       ToolTip="Change the selected setting. The app shows a plan first."
                                        AutomationProperties.AutomationId="btnEditSetting" />
                             <ui:Button Content="Remove" Icon="{ui:SymbolIcon Delete24}" Command="{Binding RemoveSettingCommand}" Style="{StaticResource ToolButton}"
+                                       ToolTip="Remove the selected setting from the configuration item. The app shows a plan first."
                                        AutomationProperties.AutomationId="btnRemoveSetting" />
                             <ui:Button Content="Refresh" Icon="{ui:SymbolIcon ArrowSync24}" Command="{Binding RefreshCommand}" Style="{StaticResource ToolButton}"
+                                       ToolTip="Query the site again for the configuration items and their settings."
                                        AutomationProperties.AutomationId="btnEditorRefresh" />
                         </WrapPanel>
                         <DataGrid Grid.Row="2" x:Name="dgSettings" Style="{StaticResource GridBase}" ItemsSource="{Binding Settings}" SelectedItem="{Binding SelectedSetting}"
@@ -364,11 +381,15 @@
                     </Grid.RowDefinitions>
                     <WrapPanel Grid.Row="0" Margin="0,0,0,4">
                         <ui:TextBox Text="{Binding TextFilter, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="Filter by baseline, collection or catalog ID"
+                                    ToolTip="Show only the rows whose baseline, collection or catalog ID contains this text."
                                     Icon="{ui:SymbolIcon Search24}" MinWidth="280" Margin="0,0,8,8" AutomationProperties.Name="Filter" AutomationProperties.AutomationId="txtAuditingFilter" />
                         <ComboBox ItemsSource="{Binding DriftStates}" SelectedValue="{Binding DriftState}" SelectedValuePath="Value" DisplayMemberPath="Text" MinWidth="140" Margin="0,0,8,8"
+                                  ToolTip="Show only the Drift rows with this state."
                                   AutomationProperties.Name="Drift state" AutomationProperties.AutomationId="cboDriftState" />
-                        <CheckBox Content="Only stale" IsChecked="{Binding OnlyStale}" Margin="0,0,12,8" VerticalAlignment="Center" AutomationProperties.AutomationId="chkOnlyStale" />
+                        <CheckBox Content="Only stale" IsChecked="{Binding OnlyStale}" Margin="0,0,12,8" VerticalAlignment="Center"
+                                  ToolTip="Show only the Compliance rows that are stale." AutomationProperties.AutomationId="chkOnlyStale" />
                         <ui:Button Content="Refresh" Icon="{ui:SymbolIcon ArrowSync24}" Command="{Binding RefreshCommand}" Style="{StaticResource ToolButton}"
+                                   ToolTip="Query the site again for the drift and compliance data."
                                    AutomationProperties.AutomationId="btnAuditingRefresh" />
                         <ui:Button Content="Export CSV" Icon="{ui:SymbolIcon DocumentTable24}" Command="{Binding ExportCsvCommand}" Style="{StaticResource ToolButton}"
                                    ToolTip="Writes every drift row and every compliance row of the last read to a CSV file. The filters do not apply."

@@ -166,7 +166,7 @@
                                 </ListBox.ItemTemplate>
                             </ListBox>
                             <ComboBox ItemsSource="{Binding Templates}" SelectedItem="{Binding SelectedTemplate}" DisplayMemberPath="Name" MinWidth="200" Margin="0,0,8,8"
-                                      VerticalAlignment="Top" AutomationProperties.Name="Template" AutomationProperties.AutomationId="cboTemplate" />
+                                      VerticalAlignment="Top" AutomationProperties.Name="Template" ToolTip="Select a deployment template. Apply template fills the purpose, notification, time basis and options from it." AutomationProperties.AutomationId="cboTemplate" />
                             <ui:Button Content="Apply template" Icon="{ui:SymbolIcon DocumentArrowRight24}" Command="{Binding ApplyTemplateCommand}" VerticalAlignment="Top"
                                        ToolTip="Fills the purpose, notification, time basis and options from the template." Style="{StaticResource ToolButton}"
                                        AutomationProperties.AutomationId="btnApplyTemplate" />
@@ -201,11 +201,11 @@
                                         <TextBlock Text="{Binding ObjectHeader}" Style="{StaticResource CardTitle}" />
                                     </DockPanel>
                                     <ui:TextBox DockPanel.Dock="Top" Text="{Binding ObjectFilter, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="Filter by name, version or ID"
-                                                Icon="{ui:SymbolIcon Search24}" Margin="0,0,0,8" AutomationProperties.Name="Object filter" AutomationProperties.AutomationId="txtObjectFilter" />
+                                                Icon="{ui:SymbolIcon Search24}" Margin="0,0,0,8" AutomationProperties.Name="Object filter" ToolTip="Enter text to show only the objects whose name, version or ID contains it." AutomationProperties.AutomationId="txtObjectFilter" />
                                     <StackPanel DockPanel.Dock="Bottom" Margin="0,8,0,0" Visibility="{Binding IsPackage, Converter={StaticResource BoolToVisibility}}">
                                         <TextBlock Text="Program" Style="{StaticResource FieldLabel}" />
                                         <ComboBox ItemsSource="{Binding Programs}" SelectedItem="{Binding SelectedProgram}" AutomationProperties.Name="Program"
-                                                  AutomationProperties.AutomationId="cboProgram" />
+                                                  ToolTip="Select the Program of the Package to deploy." AutomationProperties.AutomationId="cboProgram" />
                                     </StackPanel>
                                     <TextBlock DockPanel.Dock="Bottom" Text="{Binding ObjectListNote}" Style="{StaticResource Warning}" Margin="0,8,0,0"
                                                Visibility="{Binding HasObjectListNote, Converter={StaticResource BoolToVisibility}}" AutomationProperties.AutomationId="txtObjectListNote"
@@ -228,7 +228,7 @@
                                         <TextBlock Text="Device collection" Style="{StaticResource CardTitle}" />
                                     </DockPanel>
                                     <ui:TextBox DockPanel.Dock="Top" Text="{Binding CollectionFilter, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="Filter by name, ID or folder"
-                                                Icon="{ui:SymbolIcon Search24}" Margin="0,0,0,8" AutomationProperties.Name="Collection filter" AutomationProperties.AutomationId="txtCollectionFilter" />
+                                                Icon="{ui:SymbolIcon Search24}" Margin="0,0,0,8" AutomationProperties.Name="Collection filter" ToolTip="Enter text to show only the Device Collections whose name, ID or folder path contains it." AutomationProperties.AutomationId="txtCollectionFilter" />
                                     <TextBlock DockPanel.Dock="Bottom" Text="{Binding CollectionMessage}" Style="{StaticResource Warning}" Margin="0,8,0,0"
                                                Visibility="{Binding HasCollectionMessage, Converter={StaticResource BoolToVisibility}}" AutomationProperties.AutomationId="txtCollectionMessage"
                                                AutomationProperties.LiveSetting="Polite" />
@@ -254,16 +254,16 @@
                                         <TextBlock Text="Purpose" Style="{StaticResource FieldLabel}" />
                                         <StackPanel Orientation="Horizontal">
                                             <RadioButton Content="Available" GroupName="DeploymentPurpose" IsChecked="{Binding IsAvailable}" Margin="0,0,16,0"
-                                                         AutomationProperties.AutomationId="rbAvailable" />
-                                            <RadioButton Content="Required" GroupName="DeploymentPurpose" IsChecked="{Binding IsRequired}" AutomationProperties.AutomationId="rbRequired" />
+                                                         ToolTip="Makes the deployment available: users install the software from Software Center when they choose." AutomationProperties.AutomationId="rbAvailable" />
+                                            <RadioButton Content="Required" GroupName="DeploymentPurpose" IsChecked="{Binding IsRequired}" ToolTip="Makes the deployment required: Configuration Manager installs the software at the deadline." AutomationProperties.AutomationId="rbRequired" />
                                         </StackPanel>
                                     </StackPanel>
                                     <StackPanel Margin="0,0,24,8">
                                         <TextBlock Text="Time basis" Style="{StaticResource FieldLabel}" />
                                         <StackPanel Orientation="Horizontal">
                                             <RadioButton Content="Local time" GroupName="DeploymentTimeBasis" IsChecked="{Binding IsLocalTime}" Margin="0,0,16,0"
-                                                         AutomationProperties.AutomationId="rbLocalTime" />
-                                            <RadioButton Content="UTC" GroupName="DeploymentTimeBasis" IsChecked="{Binding UtcBasis}" AutomationProperties.AutomationId="rbUtc" />
+                                                         ToolTip="Bases the available and deadline times on the local time of each device." AutomationProperties.AutomationId="rbLocalTime" />
+                                            <RadioButton Content="UTC" GroupName="DeploymentTimeBasis" IsChecked="{Binding UtcBasis}" ToolTip="Bases the available and deadline times on UTC, so every device uses the same moment." AutomationProperties.AutomationId="rbUtc" />
                                         </StackPanel>
                                     </StackPanel>
                                     <StackPanel Margin="0,0,24,8">
@@ -272,7 +272,7 @@
                                             <DatePicker SelectedDate="{Binding AvailableDate}" SelectedDateFormat="Short" ToolTip="{Binding AvailableDateTip}" Width="150" Margin="0,0,8,0" AutomationProperties.Name="Available date"
                                                         AutomationProperties.AutomationId="dpAvailableDate" />
                                             <ui:TextBox Text="{Binding AvailableTimeText, UpdateSourceTrigger=PropertyChanged}" Width="90" PlaceholderText="08:30"
-                                                        AutomationProperties.Name="Available time" AutomationProperties.AutomationId="txtAvailableTime" />
+                                                        AutomationProperties.Name="Available time" ToolTip="Enter the time of day the deployment becomes available, as hours and minutes, for example 08:30." AutomationProperties.AutomationId="txtAvailableTime" />
                                         </StackPanel>
                                     </StackPanel>
                                     <StackPanel Margin="0,0,24,8" Visibility="{Binding IsRequired, Converter={StaticResource BoolToVisibility}}">
@@ -281,65 +281,65 @@
                                             <DatePicker SelectedDate="{Binding DeadlineDate}" SelectedDateFormat="Short" ToolTip="{Binding DeadlineDateTip}" Width="150" Margin="0,0,8,0" AutomationProperties.Name="Deadline date"
                                                         AutomationProperties.AutomationId="dpDeadlineDate" />
                                             <ui:TextBox Text="{Binding DeadlineTimeText, UpdateSourceTrigger=PropertyChanged}" Width="90" PlaceholderText="18:00"
-                                                        AutomationProperties.Name="Deadline time" AutomationProperties.AutomationId="txtDeadlineTime" />
+                                                        AutomationProperties.Name="Deadline time" ToolTip="Enter the time of day of the deadline, as hours and minutes, for example 18:00." AutomationProperties.AutomationId="txtDeadlineTime" />
                                         </StackPanel>
                                     </StackPanel>
                                     <StackPanel Margin="0,0,24,8" Visibility="{Binding ShowNotification, Converter={StaticResource BoolToVisibility}}">
                                         <TextBlock Text="User notification" Style="{StaticResource FieldLabel}" />
                                         <ComboBox ItemsSource="{Binding Notifications}" SelectedItem="{Binding Notification}" DisplayMemberPath="Text" MinWidth="280"
-                                                  AutomationProperties.Name="User notification" AutomationProperties.AutomationId="cboNotification" />
+                                                  AutomationProperties.Name="User notification" ToolTip="Select whether the deployment shows in Software Center and which notifications users see. An Available deployment cannot hide all notifications." AutomationProperties.AutomationId="cboNotification" />
                                     </StackPanel>
                                 </WrapPanel>
                                 <TextBlock Text="{Binding TimeBasisNote}" Style="{StaticResource Note}" Margin="0,0,0,8" AutomationProperties.AutomationId="txtTimeBasisNote" />
                                 <WrapPanel Margin="0,4,0,0">
                                     <CheckBox Content="{x:Static pages:DeploymentText.ShowProgressLabel}" IsChecked="{Binding ShowProgress}" Style="{StaticResource Option}"
-                                              Visibility="{Binding IsTaskSequence, Converter={StaticResource BoolToVisibility}}" AutomationProperties.AutomationId="chkShowProgress" />
+                                              Visibility="{Binding IsTaskSequence, Converter={StaticResource BoolToVisibility}}" ToolTip="Shows the progress of the Task Sequence on the device while it runs." AutomationProperties.AutomationId="chkShowProgress" />
                                     <CheckBox Content="{x:Static pages:DeploymentText.FallbackLabel}" IsChecked="{Binding AllowFallback}" Style="{StaticResource Option}"
-                                              Visibility="{Binding ShowAllowFallback, Converter={StaticResource BoolToVisibility}}" AutomationProperties.AutomationId="chkAllowFallback" />
+                                              Visibility="{Binding ShowAllowFallback, Converter={StaticResource BoolToVisibility}}" ToolTip="Lets devices that find no content in their own boundary group use distribution points from the default site boundary group." AutomationProperties.AutomationId="chkAllowFallback" />
                                     <CheckBox Content="{x:Static pages:DeploymentText.FullScanLabel}" IsChecked="{Binding PostRebootScan}" Style="{StaticResource Option}"
-                                              Visibility="{Binding IsUpdateGroup, Converter={StaticResource BoolToVisibility}}" AutomationProperties.AutomationId="chkPostRebootScan" />
+                                              Visibility="{Binding IsUpdateGroup, Converter={StaticResource BoolToVisibility}}" ToolTip="Makes devices run a full scan for software updates after the restart that follows the installation." AutomationProperties.AutomationId="chkPostRebootScan" />
                                 </WrapPanel>
                                 <WrapPanel Margin="0,4,0,0">
                                     <StackPanel Margin="0,0,24,8" Visibility="{Binding IsPackage, Converter={StaticResource BoolToVisibility}}">
                                         <TextBlock Text="Fast network" Style="{StaticResource FieldLabel}" />
                                         <ComboBox ItemsSource="{Binding NetworkBehaviors}" SelectedItem="{Binding NetworkBehavior}" DisplayMemberPath="Text" MinWidth="300"
-                                                  AutomationProperties.Name="Fast network" AutomationProperties.AutomationId="cboNetwork" />
+                                                  AutomationProperties.Name="Fast network" ToolTip="Select how devices on a fast network get the content of the Package: download it and run locally, or run the program from the distribution point." AutomationProperties.AutomationId="cboNetwork" />
                                     </StackPanel>
                                     <StackPanel Margin="0,0,24,8" Visibility="{Binding IsPackage, Converter={StaticResource BoolToVisibility}}">
                                         <TextBlock Text="Slow network" Style="{StaticResource FieldLabel}" />
                                         <ComboBox ItemsSource="{Binding SlowNetworkBehaviors}" SelectedItem="{Binding SlowNetworkBehavior}" DisplayMemberPath="Text" MinWidth="300"
-                                                  AutomationProperties.Name="Slow network" AutomationProperties.AutomationId="cboSlowNetwork" />
+                                                  AutomationProperties.Name="Slow network" ToolTip="Select how devices on a slow network get the content of the Package: do not run the program, or download the content and run locally." AutomationProperties.AutomationId="cboSlowNetwork" />
                                     </StackPanel>
                                     <StackPanel Margin="0,0,24,8" Visibility="{Binding IsTaskSequence, Converter={StaticResource BoolToVisibility}}">
                                         <TextBlock Text="Available to" Style="{StaticResource FieldLabel}" />
                                         <ComboBox ItemsSource="{Binding TaskSequenceAvailabilities}" SelectedItem="{Binding TaskSequenceAvailability}" DisplayMemberPath="Text" MinWidth="260"
-                                                  AutomationProperties.Name="Available to" AutomationProperties.AutomationId="cboTaskSequenceAvailability" />
+                                                  AutomationProperties.Name="Available to" ToolTip="Select which devices and boot media can see the Task Sequence deployment." AutomationProperties.AutomationId="cboTaskSequenceAvailability" />
                                     </StackPanel>
                                     <StackPanel Margin="0,0,24,8" Visibility="{Binding IsTaskSequence, Converter={StaticResource BoolToVisibility}}">
                                         <TextBlock Text="Content" Style="{StaticResource FieldLabel}" />
                                         <ComboBox ItemsSource="{Binding TaskSequenceContents}" SelectedItem="{Binding TaskSequenceContent}" DisplayMemberPath="Text" MinWidth="320"
-                                                  AutomationProperties.Name="Task sequence content" AutomationProperties.AutomationId="cboTaskSequenceContent" />
+                                                  AutomationProperties.Name="Task sequence content" ToolTip="Select when devices download the content of the Task Sequence: when the Task Sequence needs it, or all before it starts." AutomationProperties.AutomationId="cboTaskSequenceContent" />
                                     </StackPanel>
                                 </WrapPanel>
                                 <TextBlock Text="Required only" Style="{StaticResource FieldLabel}" Margin="0,4,0,4" />
                                 <TextBlock Text="{Binding RequiredOnlyNote}" Style="{StaticResource Note}" Margin="0,0,0,8" AutomationProperties.AutomationId="txtRequiredOnlyNote" />
                                 <WrapPanel IsEnabled="{Binding RequiredOnlyEnabled}" AutomationProperties.AutomationId="pnlRequiredOnly">
                                     <CheckBox Content="{x:Static pages:DeploymentText.OverrideWindowLabel}" IsChecked="{Binding OverrideServiceWindow}" Style="{StaticResource Option}"
-                                              AutomationProperties.AutomationId="chkOverrideWindow" />
+                                              ToolTip="At the deadline, installs the software even when no maintenance window is open." AutomationProperties.AutomationId="chkOverrideWindow" />
                                     <CheckBox Content="{x:Static pages:DeploymentText.RebootOutsideLabel}" IsChecked="{Binding RebootOutsideServiceWindow}" Style="{StaticResource Option}"
-                                              AutomationProperties.AutomationId="chkRebootOutside" />
+                                              ToolTip="Lets devices restart after the installation even when no maintenance window is open." AutomationProperties.AutomationId="chkRebootOutside" />
                                     <CheckBox Content="{x:Static pages:DeploymentText.MeteredLabel}" IsChecked="{Binding AllowMetered}" Style="{StaticResource Option}"
-                                              Visibility="{Binding ShowMetered, Converter={StaticResource BoolToVisibility}}" AutomationProperties.AutomationId="chkMetered" />
+                                              Visibility="{Binding ShowMetered, Converter={StaticResource BoolToVisibility}}" ToolTip="Lets devices on a metered connection download content after the installation deadline. This can cost extra." AutomationProperties.AutomationId="chkMetered" />
                                     <CheckBox Content="{x:Static pages:DeploymentText.FallbackLabel}" IsChecked="{Binding FallbackToDp}" Style="{StaticResource Option}"
-                                              Visibility="{Binding IsUpdateGroup, Converter={StaticResource BoolToVisibility}}" AutomationProperties.AutomationId="chkFallbackToDp" />
+                                              Visibility="{Binding IsUpdateGroup, Converter={StaticResource BoolToVisibility}}" ToolTip="Lets devices that find no software updates on a preferred distribution point use distribution points from the default site boundary group." AutomationProperties.AutomationId="chkFallbackToDp" />
                                     <CheckBox Content="{x:Static pages:DeploymentText.MicrosoftUpdateLabel}" IsChecked="{Binding AllowMicrosoftUpdate}" Style="{StaticResource Option}"
-                                              Visibility="{Binding IsUpdateGroup, Converter={StaticResource BoolToVisibility}}" AutomationProperties.AutomationId="chkMicrosoftUpdate" />
+                                              Visibility="{Binding IsUpdateGroup, Converter={StaticResource BoolToVisibility}}" ToolTip="Lets devices download the software updates from Microsoft Update when no distribution point has them." AutomationProperties.AutomationId="chkMicrosoftUpdate" />
                                     <CheckBox Content="{Binding SuppressRestartLabel}" IsChecked="{Binding SuppressRestart}" Style="{StaticResource Option}"
-                                              Visibility="{Binding IsUpdateGroup, Converter={StaticResource BoolToVisibility}}" AutomationProperties.AutomationId="chkSuppressRestart" />
+                                              Visibility="{Binding IsUpdateGroup, Converter={StaticResource BoolToVisibility}}" ToolTip="Stops servers and workstations from restarting after the installation." AutomationProperties.AutomationId="chkSuppressRestart" />
                                     <StackPanel Margin="0,0,24,8" Visibility="{Binding ShowRerun, Converter={StaticResource BoolToVisibility}}">
                                         <TextBlock Text="Rerun behavior" Style="{StaticResource FieldLabel}" />
                                         <ComboBox ItemsSource="{Binding RerunBehaviors}" SelectedItem="{Binding RerunBehavior}" DisplayMemberPath="Text" MinWidth="280"
-                                                  AutomationProperties.Name="Rerun behavior" AutomationProperties.AutomationId="cboRerun" />
+                                                  AutomationProperties.Name="Rerun behavior" ToolTip="Select when Configuration Manager reruns the program on a device that ran it before." AutomationProperties.AutomationId="cboRerun" />
                                     </StackPanel>
                                 </WrapPanel>
                             </StackPanel>
@@ -359,6 +359,7 @@
                                                 <DataTemplate>
                                                     <!-- The default padding leaves the box less width than it draws, which cuts the box in half. -->
                                                     <CheckBox IsChecked="{Binding IsChecked, UpdateSourceTrigger=PropertyChanged}" HorizontalAlignment="Center" MinWidth="0" Padding="0"
+                                                              ToolTip="Include this distribution point group when you distribute the content."
                                                               AutomationProperties.Name="{Binding Name}" />
                                                 </DataTemplate>
                                             </DataGridTemplateColumn.CellTemplate>
@@ -428,18 +429,18 @@
                         </Grid.RowDefinitions>
                         <WrapPanel Grid.Row="0" Margin="0,0,0,4">
                             <ui:TextBox Text="{Binding TextFilter, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="Filter by object, collection, deployment ID or user"
-                                        Icon="{ui:SymbolIcon Search24}" MinWidth="300" Margin="0,0,8,8" AutomationProperties.Name="History filter" AutomationProperties.AutomationId="txtHistoryFilter" />
+                                        Icon="{ui:SymbolIcon Search24}" MinWidth="300" Margin="0,0,8,8" AutomationProperties.Name="History filter" ToolTip="Enter text to show only the audit records whose object, collection, deployment ID, user, result, plan, ring or run contains it." AutomationProperties.AutomationId="txtHistoryFilter" />
                             <ComboBox ItemsSource="{Binding Events}" SelectedItem="{Binding EventFilter}" MinWidth="120" Margin="0,0,8,8"
-                                      AutomationProperties.Name="Event" AutomationProperties.AutomationId="cboHistoryEvent" />
+                                      AutomationProperties.Name="Event" ToolTip="Select an event to show only the audit records of that event, or select all." AutomationProperties.AutomationId="cboHistoryEvent" />
                             <ComboBox ItemsSource="{Binding Types}" SelectedItem="{Binding TypeFilter}" MinWidth="170" Margin="0,0,8,8"
-                                      AutomationProperties.Name="Object type" AutomationProperties.AutomationId="cboHistoryType" />
+                                      AutomationProperties.Name="Object type" ToolTip="Select an object type to show only the audit records of that type, or select all." AutomationProperties.AutomationId="cboHistoryType" />
                             <ComboBox ItemsSource="{Binding Runs}" SelectedItem="{Binding RunFilter}" MinWidth="170" MaxWidth="320" Margin="0,0,8,8"
                                       ToolTip="Shows only the records of one ring run." AutomationProperties.Name="Ring run" AutomationProperties.AutomationId="cboHistoryRun" />
                             <TextBlock Text="{Binding RowCount}" Style="{StaticResource Note}" VerticalAlignment="Center" Margin="0,0,0,8" AutomationProperties.AutomationId="txtHistoryCount" />
                         </WrapPanel>
                         <WrapPanel Grid.Row="1" Margin="0,0,0,4">
                             <ui:Button Content="Refresh" Icon="{ui:SymbolIcon ArrowClockwise24}" Command="{Binding RefreshCommand}" Style="{StaticResource ToolButton}"
-                                       AutomationProperties.AutomationId="btnHistoryRefresh" />
+                                       ToolTip="Reads the audit log again." AutomationProperties.AutomationId="btnHistoryRefresh" />
                             <ui:Button Content="Cancel" Icon="{ui:SymbolIcon Dismiss24}" Command="{Binding CancelLoadCommand}" Style="{StaticResource ToolButton}"
                                        ToolTip="Stops the read of the audit log." AutomationProperties.Name="Cancel the read" AutomationProperties.AutomationId="btnHistoryCancel" />
                             <ui:Button Content="Remove deployment" Icon="{ui:SymbolIcon Delete24}" Appearance="Danger" Command="{Binding RemoveDeploymentCommand}" Style="{StaticResource ToolButton}"
@@ -514,9 +515,9 @@
                                         <ColumnDefinition Width="Auto" />
                                     </Grid.ColumnDefinitions>
                                     <ui:TextBox Grid.Column="0" Text="{Binding AuditLogPath, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="Default under the data root"
-                                                AutomationProperties.Name="Audit log path" AutomationProperties.AutomationId="txtAuditLogPath" />
+                                                AutomationProperties.Name="Audit log path" ToolTip="Enter the path of the audit log file. Leave it empty for the default under the data root." AutomationProperties.AutomationId="txtAuditLogPath" />
                                     <ui:Button Grid.Column="1" Content="Save path" Icon="{ui:SymbolIcon Save24}" Command="{Binding SavePathCommand}" Margin="8,0,0,0"
-                                               AutomationProperties.AutomationId="btnSaveAuditPath" />
+                                               ToolTip="Saves the audit log path after the page checks it." AutomationProperties.AutomationId="btnSaveAuditPath" />
                                     <ui:Button Grid.Column="2" Content="Check" Icon="{ui:SymbolIcon CheckmarkCircle24}" Command="{Binding CheckLogCommand}" Margin="8,0,0,0"
                                                ToolTip="Checks that the audit log can be written now." AutomationProperties.AutomationId="btnCheckAuditLog" />
                                 </Grid>
@@ -545,14 +546,14 @@
                                     </Grid.RowDefinitions>
                                     <TextBlock Grid.Row="0" Grid.Column="0" Text="Rings folder" Style="{StaticResource FieldLabel}" VerticalAlignment="Center" Margin="0,0,12,8" />
                                     <ui:TextBox Grid.Row="0" Grid.Column="1" Text="{Binding RingsFolder, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="Default under the data root"
-                                                Margin="0,0,0,8" AutomationProperties.Name="Rings folder" AutomationProperties.AutomationId="txtRingsFolder" />
+                                                Margin="0,0,0,8" AutomationProperties.Name="Rings folder" ToolTip="Enter the path of the folder that holds the ring plan files. Leave it empty for the default under the data root." AutomationProperties.AutomationId="txtRingsFolder" />
                                     <TextBlock Grid.Row="1" Grid.Column="0" Text="Runs folder" Style="{StaticResource FieldLabel}" VerticalAlignment="Center" Margin="0,0,12,8" />
                                     <ui:TextBox Grid.Row="1" Grid.Column="1" Text="{Binding RunsFolder, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="Default under the rings folder"
-                                                Margin="0,0,0,8" AutomationProperties.Name="Runs folder" AutomationProperties.AutomationId="txtRunsFolder" />
+                                                Margin="0,0,0,8" AutomationProperties.Name="Runs folder" ToolTip="Enter the path of the folder that holds the run files and the lock files. Leave it empty for the default under the rings folder." AutomationProperties.AutomationId="txtRunsFolder" />
                                 </Grid>
                                 <WrapPanel>
                                     <ui:Button Content="Save paths" Icon="{ui:SymbolIcon Save24}" Command="{Binding SaveFoldersCommand}" Style="{StaticResource ToolButton}"
-                                               AutomationProperties.Name="Save the ring folders" AutomationProperties.AutomationId="btnSaveRingFolders" />
+                                               AutomationProperties.Name="Save the ring folders" ToolTip="Saves the rings folder and the runs folder paths." AutomationProperties.AutomationId="btnSaveRingFolders" />
                                     <ui:Button Content="Check" Icon="{ui:SymbolIcon CheckmarkCircle24}" Command="{Binding CheckFoldersCommand}" Style="{StaticResource ToolButton}"
                                                ToolTip="Checks that the folders can be written and that a lock file can be made in the runs folder."
                                                AutomationProperties.Name="Check the ring folders" AutomationProperties.AutomationId="btnCheckRingFolders" />
@@ -576,11 +577,11 @@
                                            Style="{StaticResource Note}" Margin="0,0,0,8" />
                                 <WrapPanel>
                                     <ui:Button Content="New" Icon="{ui:SymbolIcon Add24}" Command="{Binding NewTemplateCommand}" Style="{StaticResource ToolButton}"
-                                               AutomationProperties.Name="New template" AutomationProperties.AutomationId="btnNewTemplate" />
+                                               AutomationProperties.Name="New template" ToolTip="Opens the template editor to create a deployment template." AutomationProperties.AutomationId="btnNewTemplate" />
                                     <ui:Button Content="Edit" Icon="{ui:SymbolIcon Edit24}" Command="{Binding EditTemplateCommand}" Style="{StaticResource ToolButton}"
-                                               AutomationProperties.Name="Edit template" AutomationProperties.AutomationId="btnEditTemplate" />
+                                               AutomationProperties.Name="Edit template" ToolTip="Opens the selected deployment template in the template editor. Shipped templates cannot be changed." AutomationProperties.AutomationId="btnEditTemplate" />
                                     <ui:Button Content="Delete" Icon="{ui:SymbolIcon Delete24}" Command="{Binding DeleteTemplateCommand}" Style="{StaticResource ToolButton}"
-                                               AutomationProperties.Name="Delete template" AutomationProperties.AutomationId="btnDeleteTemplate" />
+                                               AutomationProperties.Name="Delete template" ToolTip="Deletes the selected deployment template after you confirm. Shipped templates cannot be deleted." AutomationProperties.AutomationId="btnDeleteTemplate" />
                                     <TextBlock Text="{Binding TemplateMessage}" Style="{StaticResource Note}" VerticalAlignment="Center" Margin="0,0,0,8" MaxWidth="520"
                                                AutomationProperties.AutomationId="txtOptionsTemplateMessage" />
                                 </WrapPanel>

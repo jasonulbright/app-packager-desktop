@@ -34,14 +34,18 @@
                        Text="Paste update IDs or catalog links, one or more per line. The Copy button on a catalog update details page copies its update ID. The WSUS server downloads the update metadata itself, so it needs internet access; update files follow the server's Update files setting." />
             <TextBox Grid.Row="1" x:Name="txtInput" Text="{Binding InputText, UpdateSourceTrigger=PropertyChanged}" AcceptsReturn="True"
                      TextWrapping="NoWrap" FontFamily="Consolas" FontSize="12" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"
-                     VerticalContentAlignment="Top" AutomationProperties.Name="Update IDs" AutomationProperties.AutomationId="txtInput" />
+                     VerticalContentAlignment="Top" AutomationProperties.Name="Update IDs" AutomationProperties.AutomationId="txtInput"
+                     ToolTip="Paste the update IDs or catalog links to import, one or more per line." />
             <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,8,0,8">
                 <ui:Button x:Name="btnImport" Content="Import" Appearance="Primary" MinWidth="110" Margin="0,0,8,0"
-                           Command="{Binding ImportCommand}" AutomationProperties.AutomationId="btnImport" />
+                           Command="{Binding ImportCommand}" ToolTip="Imports each update ID in the box into the WSUS server. Each ID gets its own result line."
+                           AutomationProperties.AutomationId="btnImport" />
                 <ui:Button x:Name="btnLoadFile" Content="Load IDs from file..." MinWidth="150" Margin="0,0,8,0"
-                           Command="{Binding LoadFileCommand}" AutomationProperties.AutomationId="btnLoadFile" />
+                           Command="{Binding LoadFileCommand}" ToolTip="Replaces the text in the box with the content of a text file that you select."
+                           AutomationProperties.AutomationId="btnLoadFile" />
                 <ui:Button x:Name="btnOpenCatalog" Content="Open the catalog" MinWidth="130" Margin="0,0,8,0"
-                           Command="{Binding OpenCatalogCommand}" AutomationProperties.AutomationId="btnOpenCatalog" />
+                           Command="{Binding OpenCatalogCommand}" ToolTip="Opens the Microsoft Update Catalog in your browser."
+                           AutomationProperties.AutomationId="btnOpenCatalog" />
                 <ui:Button x:Name="btnCancel" Content="Cancel" Appearance="Danger" MinWidth="90" Command="{Binding CancelCommand}"
                            Visibility="{Binding Busy, Converter={StaticResource BoolToVisibility}}" AutomationProperties.AutomationId="btnCancel" />
             </StackPanel>

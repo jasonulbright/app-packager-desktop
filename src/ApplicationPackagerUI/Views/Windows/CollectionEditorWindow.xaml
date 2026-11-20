@@ -51,13 +51,16 @@
                 </StackPanel>
                 <TextBlock Text="Name" Style="{StaticResource EditorLabel}" />
                 <ui:TextBox x:Name="txtName" Text="{Binding Name, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="For example Workstations - Pilot ring"
+                            ToolTip="Enter the name of the Device Collection. The name can have at most 255 characters."
                             AutomationProperties.Name="Name" AutomationProperties.AutomationId="txtCollectionName" />
                 <StackPanel Visibility="{Binding CanEditProperties, Converter={StaticResource EditorVisibility}}">
                     <TextBlock Text="Comment" Style="{StaticResource EditorLabel}" />
                     <ui:TextBox Text="{Binding Comment, UpdateSourceTrigger=PropertyChanged}" TextWrapping="Wrap" PlaceholderText="Optional"
+                                ToolTip="Enter an optional comment for the collection."
                                 AutomationProperties.Name="Comment" AutomationProperties.AutomationId="txtCollectionComment" />
                     <TextBlock Text="Refresh type" Style="{StaticResource EditorLabel}" />
                     <ComboBox ItemsSource="{x:Static vm:CollectionEditorViewModel.RefreshTypes}" SelectedItem="{Binding RefreshType}"
+                              ToolTip="Choose how Configuration Manager updates the membership of the collection."
                               AutomationProperties.Name="Refresh type" AutomationProperties.AutomationId="cboRefreshType" />
                     <StackPanel Visibility="{Binding IsRefreshIntervalVisible, Converter={StaticResource EditorVisibility}}">
                         <TextBlock Text="Refresh every" Style="{StaticResource EditorLabel}" />
@@ -69,8 +72,10 @@
                                 <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
                             <ui:TextBox Grid.Column="0" Text="{Binding RefreshCount, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="Count"
+                                        ToolTip="Enter how many minutes, hours or days pass between refreshes. Leave it empty to keep the schedule or use the default."
                                         AutomationProperties.Name="Refresh interval count" AutomationProperties.AutomationId="txtRefreshCount" />
                             <ComboBox Grid.Column="2" ItemsSource="{x:Static vm:CollectionEditorViewModel.RefreshUnits}" SelectedItem="{Binding RefreshUnit}"
+                                      ToolTip="Choose whether the refresh interval counts minutes, hours or days."
                                       AutomationProperties.Name="Refresh interval unit" AutomationProperties.AutomationId="cboRefreshUnit" />
                             <TextBlock Grid.Column="3" Margin="12,0,0,0" VerticalAlignment="Center" TextWrapping="Wrap" FontSize="12"
                                        Foreground="{DynamicResource TextFillColorSecondaryBrush}"
@@ -79,6 +84,7 @@
                     </StackPanel>
                     <TextBlock Text="Limiting collection" Style="{StaticResource EditorLabel}" />
                     <ui:TextBox Text="{Binding LimitingFilter, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="Filter by name, ID or folder"
+                                ToolTip="Show only the collections in the list whose name, ID or folder contains this text."
                                 Icon="{ui:SymbolIcon Search24}" Margin="0,0,0,4" AutomationProperties.Name="Limiting collection filter"
                                 AutomationProperties.AutomationId="txtLimitingFilter" />
                 </StackPanel>
@@ -112,6 +118,7 @@
             <DockPanel>
                 <WrapPanel DockPanel.Dock="Right">
                     <ui:Button Content="Show plan" Appearance="Primary" MinWidth="110" Margin="0,0,8,0" Command="{Binding SaveCommand}" IsDefault="True"
+                               ToolTip="Show the plan for this collection. The app writes nothing until you confirm the plan."
                                AutomationProperties.AutomationId="btnCollectionSave" />
                     <ui:Button Content="Cancel" MinWidth="100" IsCancel="True" Command="{Binding CancelCommand}" AutomationProperties.AutomationId="btnCollectionCancel" />
                 </WrapPanel>

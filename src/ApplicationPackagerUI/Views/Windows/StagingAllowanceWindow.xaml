@@ -27,6 +27,7 @@
             <TextBlock x:Name="txtReason" TextWrapping="Wrap" Margin="0,0,0,12" Foreground="{DynamicResource TextFillColorPrimaryBrush}"
                        AutomationProperties.AutomationId="txtAllowReason" />
             <CheckBox x:Name="chkAcknowledge" Content="I understand the risk and allow staging in this folder."
+                      ToolTip="Select to confirm that you accept the risk of staging in this folder. Accept stays disabled until you do."
                       AutomationProperties.AutomationId="chkAllowAcknowledge" />
         </StackPanel>
 
@@ -34,6 +35,7 @@
             <WrapPanel HorizontalAlignment="Right">
                 <ui:Button x:Name="btnAccept" Content="_Accept" MinWidth="100" Margin="0,0,8,0"
                            IsEnabled="{Binding IsChecked, ElementName=chkAcknowledge}" Click="OnAccept"
+                           ToolTip="Allows staging in this folder and closes the window. The button is disabled until you select the check box."
                            AutomationProperties.AutomationId="btnAllowAccept" />
                 <ui:Button x:Name="btnCancel" Content="_Cancel" MinWidth="100" Appearance="Primary" IsDefault="True" IsCancel="True"
                            AutomationProperties.AutomationId="btnAllowCancel" />

@@ -34,7 +34,7 @@
             </Grid.ColumnDefinitions>
             <ui:TextBox x:Name="txtFilter" Grid.Column="0" Text="{Binding FilterText, UpdateSourceTrigger=PropertyChanged}" ClearButtonEnabled="False"
                         PlaceholderText="Filter by name or publisher" Icon="{ui:SymbolIcon Search24}"
-                        AutomationProperties.Name="Filter by name or publisher" AutomationProperties.AutomationId="txtOpenDefinitionFilter" />
+                        AutomationProperties.Name="Filter by name or publisher" AutomationProperties.AutomationId="txtOpenDefinitionFilter" ToolTip="Enter part of a name or publisher to show only the matching definitions." />
             <ComboBox Grid.Column="2" ItemsSource="{Binding SourceOptions}" SelectedItem="{Binding SelectedSource}"
                       ToolTip="Shows the definitions of one source." AutomationProperties.Name="Source" AutomationProperties.AutomationId="cboOpenDefinitionSource" />
         </Grid>

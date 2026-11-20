@@ -30,7 +30,7 @@
         <Border Grid.Row="2" BorderThickness="0,1,0,0" BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}" Padding="16,8">
             <WrapPanel HorizontalAlignment="Right">
                 <ui:Button x:Name="btnRemove" Content="_Remove deployment" MinWidth="150" Margin="0,0,8,0" Click="OnRemoveClick"
-                           AutomationProperties.AutomationId="btnRemovalConfirm" />
+                           AutomationProperties.AutomationId="btnRemovalConfirm" ToolTip="Confirm the removal and remove the deployment." />
                 <ui:Button x:Name="btnCancel" Content="_Cancel" MinWidth="100" Appearance="Primary" IsDefault="True" IsCancel="True"
                            AutomationProperties.AutomationId="btnRemovalCancel" />
             </WrapPanel>

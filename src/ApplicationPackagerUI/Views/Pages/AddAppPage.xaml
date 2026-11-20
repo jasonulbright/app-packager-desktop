@@ -222,7 +222,7 @@
                                 <ItemsControl ItemsSource="{Binding AnalysisRows}" ItemTemplate="{StaticResource ProposalAcceptRowTemplate}" Grid.IsSharedSizeScope="True"
                                               Focusable="False" AutomationProperties.Name="Proposed values" AutomationProperties.AutomationId="lstAddWebProposals" />
                                 <CheckBox IsChecked="{Binding AcceptDetection}" Margin="0,0,0,8" AutomationProperties.AutomationId="chkAddWebAcceptDetection"
-                                          Content="{Binding ProposedDetectionText}" AutomationProperties.Name="Use the proposed detection" />
+                                          Content="{Binding ProposedDetectionText}" AutomationProperties.Name="Use the proposed detection" ToolTip="Use the detection rule that the analysis proposed. Clear the check box to set the detection yourself." />
                                 <ItemsControl ItemsSource="{Binding AnalysisNotes}" Focusable="False" Margin="0,0,0,8" AutomationProperties.Name="Notes">
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
@@ -322,7 +322,7 @@
             <ui:Button DockPanel.Dock="Left" Content="Back"
                        Command="{Binding PreviousStepCommand}"
                        IsEnabled="{Binding CanGoBack}"
-                       Icon="{ui:SymbolIcon ArrowLeft24}" AutomationProperties.AutomationId="btnAddWebBack" />
+                       Icon="{ui:SymbolIcon ArrowLeft24}" AutomationProperties.AutomationId="btnAddWebBack" ToolTip="Go back to the previous step." />
             <ui:SplitButton x:Name="SaveSplit" DockPanel.Dock="Right" Content="Save Definition" Appearance="Primary"
                             Command="{Binding SaveDefinitionCommand}" IsDefault="{Binding CanSave}"
                             Visibility="{Binding CanSave, Converter={StaticResource BooleanToVisibilityConverter}}"
@@ -341,7 +341,7 @@
                        IsEnabled="{Binding CanGoNext}" IsDefault="{Binding CanGoNext}"
                        Visibility="{Binding CanGoNext, Converter={StaticResource BooleanToVisibilityConverter}}"
                        Icon="{ui:SymbolIcon ArrowRight24}"
-                       Margin="0,0,8,0" AutomationProperties.AutomationId="btnAddWebNext" />
+                       Margin="0,0,8,0" AutomationProperties.AutomationId="btnAddWebNext" ToolTip="Go to the next step." />
             <TextBlock DockPanel.Dock="Left" Text="{Binding StatusText}"
                        VerticalAlignment="Center" Margin="16,0,0,0" TextWrapping="Wrap"
                        Foreground="{DynamicResource TextFillColorSecondaryBrush}" AutomationProperties.AutomationId="txtAddWebStatus" />

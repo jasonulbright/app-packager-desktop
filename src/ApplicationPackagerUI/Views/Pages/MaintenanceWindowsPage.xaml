@@ -87,38 +87,48 @@
                     <WrapPanel Grid.Row="0" Margin="0,0,0,8">
                         <ui:TextBox Text="{Binding TextFilter, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="Filter by collection, window or schedule"
                                     Icon="{ui:SymbolIcon Search24}" MinWidth="280" Margin="0,0,8,8"
+                                    ToolTip="Show only the rows whose collection, window or schedule contains this text."
                                     AutomationProperties.Name="Filter" AutomationProperties.AutomationId="txtWindowFilter" />
                         <ComboBox ItemsSource="{Binding TypeFilters}" SelectedValue="{Binding TypeFilter}" SelectedValuePath="Value" DisplayMemberPath="Text"
-                                  MinWidth="160" Margin="0,0,8,8" AutomationProperties.Name="Type" AutomationProperties.AutomationId="cboTypeFilter" />
+                                  MinWidth="160" Margin="0,0,8,8" ToolTip="Show only the maintenance windows of this type."
+                                  AutomationProperties.Name="Type" AutomationProperties.AutomationId="cboTypeFilter" />
                         <ComboBox ItemsSource="{Binding EnabledFilters}" SelectedItem="{Binding EnabledFilter}"
-                                  MinWidth="120" Margin="0,0,8,8" AutomationProperties.Name="Status" AutomationProperties.AutomationId="cboEnabledFilter" />
+                                  MinWidth="120" Margin="0,0,8,8" ToolTip="Show all maintenance windows, only the enabled ones or only the disabled ones."
+                                  AutomationProperties.Name="Status" AutomationProperties.AutomationId="cboEnabledFilter" />
                         <ComboBox ItemsSource="{Binding Folders}" SelectedValue="{Binding FolderFilter}" SelectedValuePath="Value" DisplayMemberPath="Text"
-                                  MinWidth="180" Margin="0,0,8,8" AutomationProperties.Name="Folder" AutomationProperties.AutomationId="cboFolderFilter" />
+                                  MinWidth="180" Margin="0,0,8,8" ToolTip="Show only the collections in this folder of the Configuration Manager console."
+                                  AutomationProperties.Name="Folder" AutomationProperties.AutomationId="cboFolderFilter" />
                         <CheckBox Content="Only collections with windows" IsChecked="{Binding OnlyCollectionsWithWindows}" Margin="0,0,12,8"
-                                  VerticalAlignment="Center" AutomationProperties.AutomationId="chkOnlyWithWindows" />
+                                  VerticalAlignment="Center" ToolTip="Hide the collections that have no maintenance window."
+                                  AutomationProperties.AutomationId="chkOnlyWithWindows" />
                         <TextBlock Text="{Binding RowCount}" Style="{StaticResource Note}" VerticalAlignment="Center" Margin="0,0,0,8"
                                    AutomationProperties.AutomationId="txtRowCount" />
                     </WrapPanel>
 
                     <WrapPanel Grid.Row="1" Margin="0,0,0,4">
                         <ui:Button Content="New Window" Appearance="Primary" Icon="{ui:SymbolIcon Add24}" Command="{Binding NewWindowCommand}"
+                                   ToolTip="Create a maintenance window on a collection. The app shows a plan first."
                                    Style="{StaticResource ToolButton}" AutomationProperties.AutomationId="btnNewWindow" />
                         <ui:Button Content="Edit" Icon="{ui:SymbolIcon Edit24}" Command="{Binding EditWindowCommand}"
                                    ToolTip="{Binding EditTooltip}" ToolTipService.ShowOnDisabled="True"
                                    Style="{StaticResource ToolButton}" AutomationProperties.AutomationId="btnEditWindow" />
                         <ui:Button Content="Toggle Enabled" Icon="{ui:SymbolIcon ToggleLeft24}" Command="{Binding ToggleEnabledCommand}"
+                                   ToolTip="Enable the selected maintenance windows that are disabled and disable the ones that are enabled. The app shows a plan first."
                                    Style="{StaticResource ToolButton}" AutomationProperties.AutomationId="btnToggleEnabled" />
                         <ui:Button Content="Remove" Icon="{ui:SymbolIcon Delete24}" Appearance="Danger" Command="{Binding RemoveWindowsCommand}"
                                    ToolTip="{Binding RemoveTooltip}" ToolTipService.ShowOnDisabled="True"
                                    Style="{StaticResource ToolButton}" AutomationProperties.AutomationId="btnRemoveWindow" />
                         <ui:Button Content="Refresh" Icon="{ui:SymbolIcon ArrowSync24}" Command="{Binding RefreshCommand}"
+                                   ToolTip="Query the site again for the maintenance windows and collections."
                                    Style="{StaticResource ToolButton}" AutomationProperties.AutomationId="btnRefresh" />
                         <ui:Button Content="Cancel" Icon="{ui:SymbolIcon Dismiss24}" Command="{Binding CancelLoadCommand}"
                                    Style="{StaticResource ToolButton}" AutomationProperties.AutomationId="btnCancelLoad"
                                    Visibility="{Binding IsLoading, Converter={StaticResource BoolToVisibility}}" />
                         <ui:Button Content="Export CSV" Icon="{ui:SymbolIcon DocumentTable24}" Command="{Binding ExportCsvCommand}"
+                                   ToolTip="Save the maintenance windows in the list to a CSV report."
                                    Style="{StaticResource ToolButton}" AutomationProperties.AutomationId="btnExportCsv" />
                         <ui:Button Content="Export HTML" Icon="{ui:SymbolIcon Globe24}" Command="{Binding ExportHtmlCommand}"
+                                   ToolTip="Save the maintenance windows in the list to an HTML report."
                                    Style="{StaticResource ToolButton}" AutomationProperties.AutomationId="btnExportHtml" />
                     </WrapPanel>
 
@@ -206,9 +216,11 @@
                                    Style="{StaticResource ToolButton}" AutomationProperties.AutomationId="btnApplyTemplateCoverage"
                                    ToolTip="Create a window from a template on the selected collections. A plan lists every change first." />
                         <ui:Button Content="Refresh" Icon="{ui:SymbolIcon ArrowSync24}" Command="{Binding RefreshCommand}"
+                                   ToolTip="Query the site again for the maintenance windows and collections."
                                    Style="{StaticResource ToolButton}" AutomationProperties.AutomationId="btnRefreshCoverage" />
                         <ComboBox ItemsSource="{Binding Folders}" SelectedValue="{Binding FolderFilter}" SelectedValuePath="Value" DisplayMemberPath="Text"
-                                  MinWidth="180" Margin="0,0,8,8" AutomationProperties.Name="Folder" AutomationProperties.AutomationId="cboCoverageFolder" />
+                                  MinWidth="180" Margin="0,0,8,8" ToolTip="Show only the collections in this folder of the Configuration Manager console."
+                                  AutomationProperties.Name="Folder" AutomationProperties.AutomationId="cboCoverageFolder" />
                         <CheckBox Content="Only collections without a window" IsChecked="{Binding CoverageWithoutWindowOnly}" Margin="0,0,12,8"
                                   VerticalAlignment="Center" AutomationProperties.AutomationId="chkWithoutWindow" />
                         <TextBlock Text="{Binding CoverageCount}" Style="{StaticResource Note}" VerticalAlignment="Center" Margin="0,0,0,8"
@@ -258,6 +270,7 @@
                     </Grid.ColumnDefinitions>
                     <WrapPanel Grid.Row="0" Grid.ColumnSpan="3" Margin="0,0,0,4">
                         <ui:Button Content="New Template" Icon="{ui:SymbolIcon Add24}" Command="{Binding NewTemplateCommand}"
+                                   ToolTip="Create a template for maintenance windows. The app saves it on this computer."
                                    Style="{StaticResource ToolButton}" AutomationProperties.AutomationId="btnNewTemplate" />
                         <ui:Button Content="Edit" Icon="{ui:SymbolIcon Edit24}" Command="{Binding EditTemplateCommand}"
                                    Style="{StaticResource ToolButton}" AutomationProperties.AutomationId="btnEditTemplate"
@@ -266,6 +279,7 @@
                                    Style="{StaticResource ToolButton}" AutomationProperties.AutomationId="btnDeleteTemplate"
                                    ToolTip="Shipped templates cannot be deleted." />
                         <ui:Button Content="Apply" Appearance="Primary" Icon="{ui:SymbolIcon CalendarAdd24}" Command="{Binding ApplySelectedTemplateCommand}"
+                                   ToolTip="Create a window from the selected template on the collections you choose. A plan lists every change first."
                                    Style="{StaticResource ToolButton}" AutomationProperties.AutomationId="btnApplyTemplate" />
                     </WrapPanel>
                     <DataGrid Grid.Row="1" Grid.Column="0" ItemsSource="{Binding Templates}" SelectedItem="{Binding SelectedTemplate}"

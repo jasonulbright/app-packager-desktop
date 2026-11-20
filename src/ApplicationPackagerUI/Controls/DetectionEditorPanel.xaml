@@ -50,7 +50,7 @@
             </Grid.RowDefinitions>
             <TextBlock Grid.Row="0" Text="Hive" Style="{StaticResource AddLabel}" />
             <ComboBox Grid.Row="0" Grid.Column="1" ItemsSource="{Binding HiveOptions}" SelectedItem="{Binding Hive}" Style="{StaticResource AddCombo}"
-                      AutomationProperties.Name="Registry hive" AutomationProperties.AutomationId="cboDetectionHive" />
+                      AutomationProperties.Name="Registry hive" AutomationProperties.AutomationId="cboDetectionHive" ToolTip="Select the registry hive that holds the key." />
             <TextBlock Grid.Row="1" Text="Key" Style="{StaticResource AddLabel}" />
             <ui:TextBox Grid.Row="1" Grid.Column="1" Text="{Binding Key, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource AddField}"
                         PlaceholderText="SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\..."
@@ -59,7 +59,7 @@
             <TextBlock Grid.Row="2" Text="Value name" Style="{StaticResource AddLabel}" Visibility="{Binding ShowValueName, Converter={StaticResource AddBoolToVisibility}}" />
             <ui:TextBox Grid.Row="2" Grid.Column="1" Text="{Binding ValueName, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource AddField}"
                         Visibility="{Binding ShowValueName, Converter={StaticResource AddBoolToVisibility}}"
-                        AutomationProperties.Name="Registry value name" AutomationProperties.AutomationId="txtDetectionValueName" />
+                        AutomationProperties.Name="Registry value name" AutomationProperties.AutomationId="txtDetectionValueName" ToolTip="Enter the name of the registry value to check." />
             <TextBlock Grid.Row="3" Text="Expected value" Style="{StaticResource AddLabel}" Visibility="{Binding ShowValueName, Converter={StaticResource AddBoolToVisibility}}" />
             <ui:TextBox Grid.Row="3" Grid.Column="1" Text="{Binding Expected, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource AddField}"
                         PlaceholderText="Empty: the staged version"
@@ -76,7 +76,7 @@
             <TextBlock Text="Product code" Style="{StaticResource AddLabel}" />
             <ui:TextBox Grid.Column="1" Text="{Binding ProductCode, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource AddField}"
                         PlaceholderText="{}{00000000-0000-0000-0000-000000000000}"
-                        AutomationProperties.Name="MSI product code" AutomationProperties.AutomationId="txtDetectionProductCode" />
+                        AutomationProperties.Name="MSI product code" AutomationProperties.AutomationId="txtDetectionProductCode" ToolTip="Enter the MSI product code of the application, including the braces." />
         </Grid>
 
         <Grid Visibility="{Binding ShowFile, Converter={StaticResource AddBoolToVisibility}}">
@@ -91,10 +91,10 @@
             <TextBlock Grid.Row="0" Text="Folder" Style="{StaticResource AddLabel}" />
             <ui:TextBox Grid.Row="0" Grid.Column="1" Text="{Binding FilePath, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource AddField}"
                         PlaceholderText="%ProgramFiles%\Vendor\Application"
-                        AutomationProperties.Name="Detection folder" AutomationProperties.AutomationId="txtDetectionFolder" />
+                        AutomationProperties.Name="Detection folder" AutomationProperties.AutomationId="txtDetectionFolder" ToolTip="Enter the folder that contains the file. Environment variables such as %ProgramFiles% are allowed." />
             <TextBlock Grid.Row="1" Text="File name" Style="{StaticResource AddLabel}" />
             <ui:TextBox Grid.Row="1" Grid.Column="1" Text="{Binding FileName, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource AddField}"
-                        AutomationProperties.Name="Detection file name" AutomationProperties.AutomationId="txtDetectionFileName" />
+                        AutomationProperties.Name="Detection file name" AutomationProperties.AutomationId="txtDetectionFileName" ToolTip="Enter the name of the file to check in the folder." />
         </Grid>
 
         <Grid Visibility="{Binding ShowVersion, Converter={StaticResource AddBoolToVisibility}}">
@@ -105,7 +105,7 @@
             <TextBlock Text="Version" Style="{StaticResource AddLabel}" />
             <ui:TextBox Grid.Column="1" Text="{Binding Expected, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource AddField}"
                         PlaceholderText="Empty: the staged version"
-                        AutomationProperties.Name="Detection version" AutomationProperties.AutomationId="txtDetectionVersion" />
+                        AutomationProperties.Name="Detection version" AutomationProperties.AutomationId="txtDetectionVersion" ToolTip="Enter the version to compare. Leave the box empty to compare the staged version." />
         </Grid>
 
         <Border Style="{StaticResource AddCard}" Padding="12,8" Margin="0,0,0,8" Visibility="{Binding IsFixedRule, Converter={StaticResource AddBoolToVisibility}}"
