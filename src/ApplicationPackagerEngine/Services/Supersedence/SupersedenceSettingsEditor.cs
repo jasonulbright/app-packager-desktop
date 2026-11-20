@@ -33,6 +33,22 @@ public static class SupersedenceSettingsEditor
         catch (InvalidOperationException) { return null; }
     }
 
+    /// <summary>
+    /// The settings that every publish would refuse: the default (when it is Replace and uninstall with the version rule Minimum) and each
+    /// application override that is Replace and uninstall while its ConfigMgr version rule is Minimum. Empty when there is none. The Settings
+    /// page tells the administrator after Save, because the grid and the version rule are edited apart.
+    /// </summary>
+    public static IReadOnlyList<string> RefusedCombinations(SupersedenceSettings settings)
+    {
+        var refused = new List<string>();
+        if (UninstallBlockedForAll(settings, SupersedenceNames.TryParseMode(settings.Mode, out var site) ? site : SupersedenceMode.Off) is not null)
+            refused.Add("the default for all applications");
+        foreach (var (key, entry) in settings.TitleOverrides ?? new())
+            if (SupersedenceNames.TryParseMode(entry.Mode, out var mode) && UninstallBlockedFor(settings, key, mode) is not null)
+                refused.Add(key);
+        return refused;
+    }
+
     /// <summary>The same for the default of all applications: it is blocked when the default ConfigMgr version rule is Minimum.</summary>
     public static string? UninstallBlockedForAll(SupersedenceSettings settings, SupersedenceMode mode)
     {

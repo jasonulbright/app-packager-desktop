@@ -202,3 +202,26 @@ public sealed class SupersedenceReviewFixTests
         Assert.Null(SupersedenceSettingsEditor.UninstallBlockedForAll(new SupersedenceSettings(), SupersedenceMode.Replace));
     }
 }
+
+public sealed class SupersedenceRefusedCombinationTests
+{
+    [Fact]
+    public void TheSavedSettingsListWhatEveryPublishWouldRefuse()
+    {
+        var settings = new SupersedenceSettings { Mode = "Replace and uninstall" };
+        settings.TitleOverrides["catalog:foo"] = new TitleSupersedenceOverride { Mode = "Replace and uninstall" };
+        settings.TitleOverrides["catalog:bar"] = new TitleSupersedenceOverride { Mode = "Replace and uninstall", VersionRule = "Exact" };
+        settings.TitleOverrides["catalog:baz"] = new TitleSupersedenceOverride { Mode = "Replace" };
+
+        var refused = SupersedenceSettingsEditor.RefusedCombinations(settings);
+
+        Assert.Equal(["the default for all applications", "catalog:foo"], refused);
+    }
+
+    [Fact]
+    public void NothingIsRefusedWithTheRuleExactOrWithoutTheUninstallMode()
+    {
+        Assert.Empty(SupersedenceSettingsEditor.RefusedCombinations(new SupersedenceSettings { Mode = "Replace and uninstall", ConfigMgrVersionRule = "Exact" }));
+        Assert.Empty(SupersedenceSettingsEditor.RefusedCombinations(new SupersedenceSettings()));
+    }
+}
