@@ -166,6 +166,32 @@ public partial class SettingsViewModel : ObservableObject, ISettingsReload
     private ApplicationPackagerEngine.Services.Supersedence.SupersedenceSettings _supersedenceWork = new();
     private bool _supersedenceRefreshing;
 
+    /// <summary>The copy of the saved conditions (package source, install scope, version in title) that the grid edits; Save Settings writes the touched entries.</summary>
+    private Dictionary<string, DeploymentConditionEntry> _conditionsWork = new(StringComparer.OrdinalIgnoreCase);
+    private readonly HashSet<string> _conditionsTouched = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>The columns that a bulk action can set.</summary>
+    public IReadOnlyList<string> BulkColumns { get; } = ["Package source", "Install scope", "Supersedence", "Version in title", "Version rule"];
+
+    [ObservableProperty] private string _bulkColumn = "Supersedence";
+    [ObservableProperty] private string _bulkValue = "Off";
+
+    /// <summary>The values of the column that the bulk action sets.</summary>
+    public IReadOnlyList<string> BulkValues => BulkColumn switch
+    {
+        "Package source" => ApplicationGridSettings.ArchitectureChoices,
+        "Install scope" => ApplicationGridSettings.ScopeChoices,
+        "Version in title" => ApplicationGridSettings.TitleChoices,
+        "Version rule" => ApplicationPackagerEngine.Services.Supersedence.SupersedenceGrid.RuleChoices,
+        _ => ApplicationPackagerEngine.Services.Supersedence.SupersedenceGrid.Choices
+    };
+
+    partial void OnBulkColumnChanged(string value)
+    {
+        OnPropertyChanged(nameof(BulkValues));
+        BulkValue = BulkValues[0];
+    }
+
     public int SupersedenceSelectedCount => SupersedenceRows.Count(r => r.IsSelected);
 
     public ObservableCollection<OneClickRow> OneClickRows { get; } = [];
@@ -585,7 +611,7 @@ public partial class SettingsViewModel : ObservableObject, ISettingsReload
     /// <summary>Re-reads the store after another surface (the setup window) has written to it.</summary>
     public void ReloadFromStore() => LoadSettings();
 
-    /// <summary>Rebuilds the supersedence grid from the applications the App Packager page shows. The edits that are not saved are kept.</summary>
+    /// <summary>Rebuilds the application grid from the applications the App Packager page shows. The edits that are not saved are kept.</summary>
     [RelayCommand]
     public void RefreshSupersedenceRows()
     {
@@ -596,25 +622,113 @@ public partial class SettingsViewModel : ObservableObject, ISettingsReload
             SupersedenceRows.Clear();
             foreach (var p in _packagesViewModel.Packagers.OrderBy(p => p.Application, StringComparer.OrdinalIgnoreCase))
             {
-                var id = _packagesViewModel.SupersedenceIdOf(p);
-                if (id is null) continue;
+                var facts = _packagesViewModel.GridFactsOf(p);
+                if (facts is null) continue;
+                var entry = ApplicationGridSettings.Find(_conditionsWork, facts.DefinitionId);
                 var row = new SupersedenceRow
                 {
-                    Uid = p.Uid, ApplicationId = id, Application = p.Application, Vendor = p.Vendor,
+                    Uid = p.Uid, ApplicationId = facts.ApplicationId, DefinitionId = facts.DefinitionId, Application = p.Application, Vendor = p.Vendor,
+                    Architecture = facts.Architecture, OffersArchitecture = facts.OffersArchitecture, OffersInstallScope = facts.OffersInstallScope,
                     IsSelected = selected.Contains(p.Uid),
-                    ModeChoice = ApplicationPackagerEngine.Services.Supersedence.SupersedenceGrid.ChoiceOf(_supersedenceWork, id)
+                    ModeChoice = ApplicationPackagerEngine.Services.Supersedence.SupersedenceGrid.ChoiceOf(_supersedenceWork, facts.ApplicationId),
+                    RuleChoice = ApplicationPackagerEngine.Services.Supersedence.SupersedenceGrid.RuleChoiceOf(_supersedenceWork, facts.ApplicationId)
                 };
-                row.PropertyChanged += (_, e) =>
-                {
-                    if (e.PropertyName == nameof(SupersedenceRow.IsSelected)) OnPropertyChanged(nameof(SupersedenceSelectedCount));
-                    else if (e.PropertyName == nameof(SupersedenceRow.ModeChoice) && !_supersedenceRefreshing)
-                        ApplicationPackagerEngine.Services.Supersedence.SupersedenceGrid.SetChoice(_supersedenceWork, row.ApplicationId, row.ModeChoice);
-                };
+                row.ArchitectureChoice = facts.OffersArchitecture ? ApplicationGridSettings.ArchitectureOf(entry) : row.ArchitectureText;
+                row.ScopeChoice = facts.OffersInstallScope ? ApplicationGridSettings.ScopeOf(entry) : row.ScopeCells[0];
+                DeriveTitle(row);
+                row.PropertyChanged += (_, e) => OnApplicationRowChanged(row, e.PropertyName);
                 SupersedenceRows.Add(row);
             }
         }
         finally { _supersedenceRefreshing = false; }
         OnPropertyChanged(nameof(SupersedenceSelectedCount));
+    }
+
+    /// <summary>Shows the version in title of a row: the saved choice, or Include version while supersedence is on (the lock).</summary>
+    private void DeriveTitle(SupersedenceRow row)
+    {
+        var wasRefreshing = _supersedenceRefreshing;
+        _supersedenceRefreshing = true;
+        try
+        {
+            row.TitleLocked = ApplicationPackagerEngine.Services.Supersedence.SupersedenceSettingsEditor.LocksVersionInTitle(_supersedenceWork, row.ApplicationId);
+            row.TitleChoice = row.TitleLocked ? ApplicationGridSettings.IncludeVersion
+                : ApplicationGridSettings.TitleOf(ApplicationGridSettings.Find(_conditionsWork, row.DefinitionId));
+        }
+        finally { _supersedenceRefreshing = wasRefreshing; }
+    }
+
+    private void OnApplicationRowChanged(SupersedenceRow row, string? property)
+    {
+        if (property == nameof(SupersedenceRow.IsSelected)) { OnPropertyChanged(nameof(SupersedenceSelectedCount)); return; }
+        if (_supersedenceRefreshing) return;
+        switch (property)
+        {
+            case nameof(SupersedenceRow.ModeChoice):
+                ApplicationPackagerEngine.Services.Supersedence.SupersedenceGrid.SetChoice(_supersedenceWork, row.ApplicationId, row.ModeChoice);
+                DeriveTitle(row);
+                break;
+            case nameof(SupersedenceRow.RuleChoice):
+                ApplicationPackagerEngine.Services.Supersedence.SupersedenceGrid.SetRuleChoice(_supersedenceWork, row.ApplicationId, row.RuleChoice);
+                break;
+            case nameof(SupersedenceRow.ArchitectureChoice) when row.OffersArchitecture:
+                if (ApplicationGridSettings.SetArchitecture(_conditionsWork, row.DefinitionId, row.ArchitectureChoice)) _conditionsTouched.Add(row.DefinitionId);
+                break;
+            case nameof(SupersedenceRow.ScopeChoice) when row.OffersInstallScope:
+                if (ApplicationGridSettings.SetScope(_conditionsWork, row.DefinitionId, row.ScopeChoice)) _conditionsTouched.Add(row.DefinitionId);
+                break;
+            case nameof(SupersedenceRow.TitleChoice) when !row.TitleLocked:
+                if (ApplicationGridSettings.SetTitle(_conditionsWork, row.DefinitionId, row.TitleChoice)) _conditionsTouched.Add(row.DefinitionId);
+                break;
+        }
+    }
+
+    /// <summary>Sets the chosen column of the given rows to the chosen value. A row that does not offer the choice keeps its value.</summary>
+    private int ApplyBulk(IEnumerable<SupersedenceRow> rows)
+    {
+        var changed = 0;
+        foreach (var row in rows.ToList())
+        {
+            switch (BulkColumn)
+            {
+                case "Package source": if (row.OffersArchitecture) { row.ArchitectureChoice = BulkValue; changed++; } break;
+                case "Install scope": if (row.OffersInstallScope) { row.ScopeChoice = BulkValue; changed++; } break;
+                case "Supersedence": row.ModeChoice = BulkValue; changed++; break;
+                case "Version in title": if (!row.TitleLocked) { row.TitleChoice = BulkValue; changed++; } break;
+                case "Version rule": row.RuleChoice = BulkValue; changed++; break;
+            }
+        }
+        return changed;
+    }
+
+    /// <summary>Applies the chosen value of the chosen column to the checked applications.</summary>
+    [RelayCommand]
+    private void ApplyBulkToChecked() => ApplyBulk(SupersedenceRows.Where(r => r.IsSelected));
+
+    /// <summary>Applies the chosen value of the chosen column to every application of the grid.</summary>
+    [RelayCommand]
+    private void ApplyBulkToAll() => ApplyBulk(SupersedenceRows);
+
+    /// <summary>Check all or none of the applications.</summary>
+    [RelayCommand]
+    private void CheckAllApplications(string? check)
+    {
+        var on = string.Equals(check, "True", StringComparison.OrdinalIgnoreCase);
+        foreach (var row in SupersedenceRows) row.IsSelected = on;
+    }
+
+    /// <summary>None: every application of the grid goes back to the shipped behaviour (every column follows its default).</summary>
+    [RelayCommand]
+    private void ResetAllApplications()
+    {
+        foreach (var row in SupersedenceRows)
+        {
+            row.ModeChoice = SupersedenceRow.FollowDefault;
+            row.RuleChoice = SupersedenceRow.FollowDefault;
+            if (row.OffersArchitecture) row.ArchitectureChoice = ApplicationGridSettings.PackagerDefault;
+            if (row.OffersInstallScope) row.ScopeChoice = ApplicationGridSettings.InstallerDefault;
+            row.TitleChoice = ApplicationGridSettings.FollowDefault;
+        }
     }
 
     /// <summary>The bulk choice for the checked rows: a mode word, or "Follow the default".</summary>
@@ -634,7 +748,11 @@ public partial class SettingsViewModel : ObservableObject, ISettingsReload
         RefreshSupersedenceRows();
     }
 
-    partial void OnSupersedenceModeChanged(string value) => _supersedenceWork.Mode = value;
+    partial void OnSupersedenceModeChanged(string value)
+    {
+        _supersedenceWork.Mode = value;
+        foreach (var row in SupersedenceRows) DeriveTitle(row);
+    }
 
     /// <summary>
     /// Rebuilds the One Click grid from the applications the Packages page shows, so a
@@ -761,6 +879,8 @@ public partial class SettingsViewModel : ObservableObject, ISettingsReload
             ? ApplicationPackagerEngine.Services.Supersedence.SupersedenceNames.Text(siteMode) : "Off";
         _supersedenceWork = ApplicationPackagerEngine.Services.Supersedence.SupersedenceGrid.Copy(supersedence);
         _supersedenceWork.Mode = SupersedenceMode;
+        _conditionsWork = ApplicationGridSettings.Copy(s.DeploymentConditions);
+        _conditionsTouched.Clear();
         if (SupersedenceRows.Count > 0) RefreshSupersedenceRows();
         IntuneClientSecret = "";
         HasStoredIntuneSecret = !string.IsNullOrWhiteSpace(s.Intune.ClientSecretProtected);
@@ -859,6 +979,15 @@ public partial class SettingsViewModel : ObservableObject, ISettingsReload
         s.Supersedence.IntuneVersionRule = IntuneVersionRule;
         s.Supersedence.Mode = SupersedenceMode;
         s.Supersedence.TitleOverrides = ApplicationPackagerEngine.Services.Supersedence.SupersedenceGrid.Copy(_supersedenceWork).TitleOverrides;
+        // Only the applications that the grid touched are written; the saved conditions of the others stay as they are.
+        foreach (var id in _conditionsTouched)
+        {
+            var edited = ApplicationGridSettings.Find(_conditionsWork, id);
+            var stored = s.DeploymentConditions.Keys.FirstOrDefault(k => string.Equals(k, id, StringComparison.OrdinalIgnoreCase));
+            if (stored is not null) s.DeploymentConditions.Remove(stored);
+            if (edited is not null) s.DeploymentConditions[id] = ApplicationGridSettings.Copy(new() { [id] = edited })[id];
+        }
+        var conditionsChanged = _conditionsTouched.Count > 0;
         // An empty box keeps the stored secret; a typed value replaces it, DPAPI-protected for
         // the current Windows user. The plaintext never reaches settings.json.
         if (!string.IsNullOrEmpty(IntuneClientSecret))
@@ -885,6 +1014,12 @@ public partial class SettingsViewModel : ObservableObject, ISettingsReload
             _snackbarService.Show("Settings", "The settings were not saved. " + ex.Message, Wpf.Ui.Controls.ControlAppearance.Danger,
                 new SymbolIcon(SymbolRegular.ErrorCircle24), TimeSpan.FromSeconds(6));
             return;
+        }
+        if (conditionsChanged)
+        {
+            _conditionsTouched.Clear();
+            // A Migrated profile outranks the saved map: bring it up to date now, so a run in this session reads the grid.
+            ApplicationGridSettings.RefreshMigratedProfiles(s, _discoveryService.ResolvePackagersRoot());
         }
         // The allowance of a staging folder ends when the folder changes.
         StagingAllowanceStore.RemoveAllExcept(s.DownloadRoot);

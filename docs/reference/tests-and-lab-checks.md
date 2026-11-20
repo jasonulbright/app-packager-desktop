@@ -652,3 +652,13 @@ Not covered by a test: the window against a real site (a package run still asks 
 
 WSUS Updates is a window entry of the sidebar (id `wsus-updates`), registered after Add from file and before the Workbench; it opens the existing window, which approves, declines, expires and removes the published updates (Expire and Remove ask for confirmation and report each update). The toolbar button and the Settings button are gone. The `Sidebar*` tests expect the new default order, five entries in the first group and 13 in all. Not covered by a test: the window against a real WSUS server.
 
+## Application Settings grid (Q-106)
+
+Settings, Application Settings is one grid with the settings of each application: package source, install scope, supersedence, version in title and version rule. The columns write the keys that the package run reads, and the grid has a bulk bar (a column, a value, then the checked applications or all applications) and a reset for all applications.
+
+| Test class | What it proves |
+|---|---|
+| `ApplicationGridSettingsTests` | The package source becomes the requirement or the Architecture split that the package run writes; the install scope is the install mode that staging reads; the version in title is the title mode that the title of the run uses, and supersedence on forces Include version; the version rule is the operator that the detection resolves; a word that is not a choice changes nothing; an edit keeps the conditions that the grid does not show; a copy does not change the stored settings; values of an earlier version show their choice. |
+| `SupersedenceGridTests` | The grid and the bulk bar are on the Application Settings page and the toolbar has no Supersedence text. |
+
+Lab proof (CLIENT01, real mouse input, `tools/guide-capture/Capture-SettingsApplications.ps1`): the run checks an application with the mouse, sets Install scope and Supersedence for the checked application with the bulk bar, sets the package source of another application in its row, checks that the version in the title is locked, saves, and reads `settings.json` back. A stage run of one application with the install scope System, User and not set shows the install mode in its stage manifest.

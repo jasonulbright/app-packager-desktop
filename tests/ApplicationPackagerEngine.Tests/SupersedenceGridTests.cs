@@ -96,8 +96,7 @@ public class SupersedenceGridTests
         var settings = File.ReadAllText(Path.Combine(root, "src", "ApplicationPackagerUI", "Views", "Pages", "SettingsPage.xaml"));
         var page = settings[settings.IndexOf("x:Name=\"page_supersedence\"", StringComparison.Ordinal)..];
         page = page[..page.IndexOf("x:Name=\"page_citrix\"", StringComparison.Ordinal)];
-        foreach (var id in new[] { "dgSupersedenceApps", "btnSupersedenceSelectedReplace", "btnSupersedenceSelectedOff", "btnSupersedenceSelectedDefault",
-                     "btnSupersedenceAllReplace", "btnSupersedenceNone" })
+        foreach (var id in new[] { "dgSupersedenceApps", "cboBulkColumn", "cboBulkValue", "btnBulkChecked", "btnBulkAll", "btnBulkNone", "btnCheckAll", "btnCheckNone" })
             Assert.Contains(id, page);
         var packages = File.ReadAllText(Path.Combine(root, "src", "ApplicationPackagerUI", "Views", "Pages", "PackagesPage.xaml"));
         Assert.DoesNotContain("Supersedence", packages);

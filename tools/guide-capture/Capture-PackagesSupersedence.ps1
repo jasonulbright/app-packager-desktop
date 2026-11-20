@@ -112,7 +112,7 @@ try {
     Real-Click (Find-El $w 'nav_supersedence' -Timeout 10)
     Start-Sleep 2
     $grid = Find-El $w 'dgSupersedenceApps' -Timeout 10
-    if (-not $grid) { throw 'Settings, Supersedence has no grid of applications.' }
+    if (-not $grid) { throw 'Settings, Application Settings has no grid of applications.' }
     foreach ($name in $Applications) {
         # The grid shows only the rows that are on screen: scroll it from the top in steps of 2 percent (fewer rows than the grid shows) until the row is there.
         $scroll = $grid.GetCurrentPattern([System.Windows.Automation.ScrollPattern]::Pattern)
@@ -131,7 +131,10 @@ try {
         if (-not $cell) { throw "The row of '$name' has no check box cell." }
         Real-Click $cell
     }
-    Real-Click (Find-El $w 'btnSupersedenceSelectedReplace' -Timeout 5)
+    # The bulk bar sets the column that is chosen (Supersedence at the start) to the chosen value for the checked applications: choose Replace, then press the button.
+    Real-Click (Find-El $w 'cboBulkValue' -Timeout 5)
+    Real-Click (Find-El $null $null 'Replace' 'ListItem' -Timeout 5)
+    Real-Click (Find-El $w 'btnBulkChecked' -Timeout 5)
     Move-MouseAway
     Start-Sleep 1
     Shot 'tools-settings-supersedence'

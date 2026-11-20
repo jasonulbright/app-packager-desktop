@@ -88,17 +88,32 @@ Both steps are optional. They run after the ConfigMgr application exists. All co
 
 The controls for the test deployment are disabled until **Distribute content after Package** is selected. See [Deployment behavior](../deployment-behavior.md).
 
-### Supersedence
+### Application Settings
+
+This page holds the defaults for all applications, and one grid with the settings of each application. The grid replaces the Deployment Conditions page of earlier versions: it lists every application of the App Packager page, and every column is a setting that the package run uses.
+
+![Settings, Application Settings: the grid with the bulk bar](../images/core-settings-application-settings.png)
 
 | Control | Default | Effect |
 |---|---|---|
-| **Version rule, ConfigMgr**, **Version rule, Intune** | **Minimum** | The operator of the version clause of the detection that is published. See [Publish to ConfigMgr](publish-to-configmgr.md). |
+| **Version rule, ConfigMgr**, **Version rule, Intune** | **Minimum** | The operator of the version clause of the detection that is published. **Minimum** is this version or newer. **Exact** is this version only. See [Publish to ConfigMgr](publish-to-configmgr.md). |
 | **Supersedence mode, ConfigMgr** | **Off** | The default for every application: **Off**, **Replace** or **Replace and uninstall**. An application that has no setting of its own follows it. |
-| **Checked applications** buttons | Not applicable | Give the checked rows of the grid their own mode (**Off**, **Replace**, **Replace and uninstall**) or return them to the default (**Follow the default**). |
-| **All applications** buttons | Not applicable | **Replace** or **Replace and uninstall**: the default takes the mode, and the single settings of every application are cleared. **None: Off for all**: the default is **Off** and every application follows it. |
-| **Supersedence** column of the grid | **Follow the default** | The mode of one application. **Refresh list** rebuilds the list from the App Packager page. |
 
-The changes of this page are written on **Save Settings**. Nothing here switches supersedence on by itself: a stored value is kept, and a package run still asks before it applies a supersedence. While supersedence is on for an application, the version is part of its title and that title option is locked.
+The grid has one row for each application and these columns:
+
+| Column | Choices | Effect |
+|---|---|---|
+| **Check** | Checked or not | Marks the application for the bulk buttons. |
+| **Application**, **Vendor** | Not applicable | The application. The grid sorts by name. |
+| **Package source** | **Packager default**, **x64 only**, **ARM64 only**, **x64 and ARM64** | The architecture of the package. The choice is offered only for an application that has an architecture choice (a second installer for another architecture). An application with one architecture shows it, for example **x64 (fixed)**, and the cell is disabled. **x64 only** and **ARM64 only** add a requirement to the deployment type. **x64 and ARM64** makes one deployment type for each architecture. |
+| **Install scope** | **Installer default**, **System**, **User** | **System** installs for all users. **User** installs for the signed-in user, and the install command, the uninstall command and the detection follow. The choice is offered only for an installer that supports both. |
+| **Supersedence** | **Follow the default**, **Off**, **Replace**, **Replace and uninstall** | The supersedence mode of one application. |
+| **Version in title** | **Follow the default**, **Include version**, **No version** | **Include version** adds the version to the name of the application, so each release is its own application. **No version** removes it, so one application carries every release. While supersedence is on for the application the cell is locked to **Include version**, because the new and the older version must be separate applications. |
+| **Version rule** | **Follow the default**, **Minimum**, **Exact** | The version rule of one application. |
+
+The bulk bar sets one column for several applications. Choose the column in the first list and the value in the second list, then select **Checked applications** or **All applications**. **None: reset all** clears every choice of every application, so each application follows its default again. **Check all**, **Check none** and **Refresh list** manage the list. An application that does not offer a choice keeps its value when a bulk button sets that column.
+
+The changes of this page are written on **Save Settings**. They are stored in the keys that the package run reads: `Supersedence.Mode`, `Supersedence.TitleOverrides` (the mode and the version rule of an application) and `DeploymentConditions` (package source, install scope and version in title of an application, keyed by the definition identifier). A value that an earlier version stored still shows in its cell. Nothing here switches supersedence on by itself, and a package run still asks before it applies a supersedence. A Workbench profile that you made for an application outranks the grid for the package source, the install scope and the version in title of that application. See [Workbench](workbench.md).
 
 ### One Click Settings
 

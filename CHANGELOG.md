@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- Settings, Application Settings is one grid with the settings of each application (it replaces the supersedence grid and brings back the per-application view of the Deployment Conditions page): Package source (x64 only, ARM64 only, or both with one deployment type each, for an application that has an architecture choice), Install scope (System or User, for an installer that supports both), Supersedence, Version in title (Include version or No version, locked to Include version while supersedence is on) and Version rule (Minimum or Exact). Every column is the value that the package run reads: the keys Supersedence.Mode, Supersedence.TitleOverrides and DeploymentConditions. Stored values of earlier versions still show their choice.
+- A bulk bar sets one column for the checked applications or for all applications, and None: reset all returns every application to its defaults. Check all, Check none and Refresh list manage the list.
+
+### Changed
+
+- The page Settings, Supersedence is now Settings, Application Settings. The buttons Follow the default, Off, Replace, Replace and uninstall, and None: Off for all are replaced by the bulk bar.
+- Save Settings brings the Migrated Workbench profiles up to date with the saved conditions, so a package run in the same session reads the choices of the grid.
+
 ## [2026.1120.51] - 2026-11-20
 
 ### Changed

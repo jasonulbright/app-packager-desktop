@@ -10,4 +10,7 @@ public partial class PackagesViewModel
 {
     /// <summary>The identifier that keys the supersedence setting of a row; null for a row without a definition (a PS1 packager).</summary>
     public string? SupersedenceIdOf(PackagerInfo p) => _executionService.SupersedenceApplicationId(p);
+
+    /// <summary>What a row offers to the Application Settings grid; null for a row without a definition.</summary>
+    public ApplicationGridFacts? GridFactsOf(PackagerInfo p) => _executionService.GridFactsOf(p);
 }

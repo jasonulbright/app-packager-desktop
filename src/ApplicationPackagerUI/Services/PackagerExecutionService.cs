@@ -1316,6 +1316,29 @@ public class PackagerExecutionService(
         };
     }
 
+    /// <summary>
+    /// What the Application Settings grid needs of one application: the identifier of its supersedence setting, the identifier of its
+    /// definition (the key of the saved conditions), the architecture of the definition, and whether the definition offers an
+    /// architecture choice and an install scope choice. Null for a row without a definition (a PS1 packager).
+    /// </summary>
+    public ApplicationGridFacts? GridFactsOf(PackagerInfo packager)
+    {
+        if (!packager.IsJsonDefined || packager.DefinitionPath is null) return null;
+        try
+        {
+            var def = LoadDefinition(packager.DefinitionPath, packager.DefinitionOrigin);
+            var source = ProfileSource.Resolve(WorkbenchStoreOrNull(null), def.Id, ApplicationIds.RunOrigin(def.SourceOrigin));
+            if (source.Failure is not null) return null;
+            var offersArchitecture = def.PayloadVariants is { Length: > 0 }
+                || (def.SupportsVariants?.Contains("Architecture", StringComparer.OrdinalIgnoreCase) ?? false);
+            return new ApplicationGridFacts(source.ApplicationId, def.Id, def.Architecture, offersArchitecture, def.OffersInstallModes);
+        }
+        catch (Exception ex) when (ex is IOException or InvalidOperationException or System.Text.Json.JsonException or UnauthorizedAccessException)
+        {
+            return null;
+        }
+    }
+
     /// <summary>The application identifier that keys the supersedence setting of a row; null for a row without a definition (a PS1 packager).</summary>
     public string? SupersedenceApplicationId(PackagerInfo packager)
     {
