@@ -42,18 +42,18 @@ public static class SupersedenceScripts
         MecmTarget.AppendCmPreamble(sb, siteCode, providerMachine);
         sb.AppendLine(MecmApplicationTitleRule.PowerShellFunctions);
         sb.AppendLine($"$baseTitle = '{PowerShellLiteral.EscapeSingleQuoted(key.BaseTitle)}'");
-        sb.AppendLine($"$publisher = '{PowerShellLiteral.EscapeSingleQuoted(key.Publisher)}'");
         // The new application is found by its name: every save makes a new revision with a new CI_ID (checked on the lab site), so an
         // identifier that the package script read is not reliable here.
         sb.AppendLine($"$newApplicationName = '{PowerShellLiteral.EscapeSingleQuoted(newApplicationName)}'");
         sb.AppendLine("foreach ($candidate in @(Get-CMApplication)) {");
         sb.AppendLine("    if ($candidate.LocalizedDisplayName -ne $newApplicationName) {");
         sb.AppendLine("        if (-not (Test-MecmApplicationTitle $baseTitle ([string]$candidate.LocalizedDisplayName))) { continue }");
-        sb.AppendLine("        if ($publisher -and $candidate.Manufacturer -and ([string]$candidate.Manufacturer).Trim() -ne $publisher) { continue }");
         sb.AppendLine("    }");
         sb.AppendLine("    $titleB64 = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes([string]$candidate.LocalizedDisplayName))");
         sb.AppendLine("    $expired = if ($candidate.IsExpired) { 1 } else { 0 }");
-        sb.AppendLine($"    Write-Host (\"{SupersedenceLookup.ApplicationLine}|{{0}}|{{1}}|{{2}}|{{3}}\" -f $candidate.CI_ID, $expired, $candidate.SoftwareVersion, $titleB64)");
+        // The vendor is compared in code (VendorKey: case and legal suffixes ignored), so the script returns it as it is.
+        sb.AppendLine("    $publisherB64 = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes([string]$candidate.Manufacturer))");
+        sb.AppendLine($"    Write-Host (\"{SupersedenceLookup.ApplicationLine}|{{0}}|{{1}}|{{2}}|{{3}}|{{4}}\" -f $candidate.CI_ID, $expired, $candidate.SoftwareVersion, $titleB64, $publisherB64)");
         sb.AppendLine("    foreach ($candidateDt in @(Get-CMDeploymentType -ApplicationName $candidate.LocalizedDisplayName -DisableWildcardHandling -WarningAction SilentlyContinue)) {");
         sb.AppendLine("        $dtB64 = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes([string]$candidateDt.LocalizedDisplayName))");
         sb.AppendLine($"        Write-Host (\"{SupersedenceLookup.DeploymentTypeLine}|{{0}}|{{1}}|{{2}}\" -f $candidate.CI_ID, $candidateDt.CI_ID, $dtB64)");

@@ -481,8 +481,8 @@ public sealed class IntunePublishService : IDisposable
 
     /// <summary>
     /// The older version of an application in the tenant: Win32 apps whose display name holds the words of the base title (the title
-    /// rule of Check ConfigMgr) and whose publisher equals the publisher of the new app (case-insensitive, as the ConfigMgr lookup
-    /// compares it; a blank publisher on either side does not exclude, as there). The version is read from the display name after the
+    /// rule of Check ConfigMgr) and whose publisher is the same vendor as the publisher of the new app (<see cref="Supersedence.VendorKey"/>:
+    /// case and legal suffixes ignored, a candidate without a publisher does not match; the same rule as the ConfigMgr lookup). The version is read from the display name after the
     /// base title (Graph v1.0 has no display version on a Win32 app). The highest version below the new one wins; other titles and
     /// older versions are never touched. Reads through v1.0.
     /// </summary>
@@ -508,8 +508,6 @@ public sealed class IntunePublishService : IDisposable
                     if (string.IsNullOrEmpty(id) || (string?)app?["@odata.type"] != "#microsoft.graph.win32LobApp") continue;
                     if (!MecmApplicationTitleRule.Matches(key.BaseTitle, title)) continue;
                     var publisher = ((string?)app?["publisher"] ?? "").Trim();
-                    if (key.Publisher.Length > 0 && publisher.Length > 0
-                        && !string.Equals(publisher, key.Publisher, StringComparison.OrdinalIgnoreCase)) continue;
                     var version = Supersedence.IntuneTitleVersion.Read(title, key.BaseTitle);
                     if (version is null)
                     {
@@ -517,11 +515,11 @@ public sealed class IntunePublishService : IDisposable
                             notes.Add($"The version of '{title}' cannot be read from its name, so it was skipped.");
                         continue;
                     }
-                    apps.Add(new Supersedence.LineApplication(id, title, version, false, []));
+                    apps.Add(new Supersedence.LineApplication(id, title, version, false, [], publisher));
                 }
                 uri = (string?)page?["@odata.nextLink"];
             }
-            var chosen = Supersedence.SupersedenceLookup.Choose(apps, newTitle, newVersion);
+            var chosen = Supersedence.SupersedenceLookup.Choose(apps, newTitle, newVersion, key);
             return new Supersedence.LookupResult(chosen.Old, notes.Concat(chosen.Notes).ToList());
         }
         finally { EndCalls(); }

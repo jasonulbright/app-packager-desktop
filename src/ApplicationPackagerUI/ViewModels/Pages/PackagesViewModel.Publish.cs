@@ -211,7 +211,8 @@ public partial class PackagesViewModel : IOneClickRunner, IPublishActionHost
     /// The One Click run over the rows the plan window includes. Each row is checked,
     /// decided against the per-destination history, staged with one run snapshot, and
     /// published to each remaining destination from that same snapshot, ConfigMgr first.
-    /// Nothing prompts: an existing ConfigMgr application follows the saved policy.
+    /// An existing ConfigMgr application follows the saved policy and prompts nothing. With supersedence on for an application, the
+    /// confirmation window (Yes, Skip, No, Remember) can open for it; the window belongs to this attended run.
     /// </summary>
     async Task<bool> IOneClickRunner.RunAsync(IReadOnlyList<OneClickPlanItem> items, OneClickRunOptions options, CancellationToken ct)
     {
