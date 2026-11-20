@@ -44,8 +44,8 @@ public partial class PackagesPage
         if (import.ImportedAny) _ = viewModel.LoadPackagersCommand.ExecuteAsync(null);
     }
 
-    /// <summary>The toolbar keeps its labels while they fit in this many lines (four, since the older supersedence buttons are gone: the grid keeps its rows); beyond that the buttons show their icons only.</summary>
-    public const int MaxLabeledToolbarLines = 4;
+    /// <summary>The toolbar keeps its labels while they fit in this many lines (one: the toolbar is one row, and an icon-only row fits where the labels do not); beyond that the buttons show their icons only.</summary>
+    public const int MaxLabeledToolbarLines = 1;
 
     /// <summary>A toolbar that went icon-only shows its labels again only when they fit with this much width to spare, so a width at the edge does not flip it back and forth.</summary>
     public const double ToolbarReturnMargin = 48;
@@ -197,36 +197,6 @@ public partial class PackagesPage
         if (Window.GetWindow(this) is Views.Windows.MainWindow main)
             main.OpenWorkbench(p is null ? null : WorkbenchApplicationCatalog.ApplicationIdFor(p));
     }
-
-    private void Supersedence_Click(object sender, RoutedEventArgs e)
-    {
-        if (sender is not FrameworkElement button) return;
-        SupersedenceMenu.PlacementTarget = button;
-        SupersedenceMenu.Placement = System.Windows.Controls.Primitives.PlacementMode.Bottom;
-        SupersedenceMenu.IsOpen = true;
-    }
-
-    private PackagesViewModel? SupersedenceHost => DataContext as PackagesViewModel;
-
-    private void Supersedence_CheckedReplace(object sender, RoutedEventArgs e) =>
-        SupersedenceHost?.SetSupersedenceForChecked(ApplicationPackagerEngine.Services.Supersedence.SupersedenceMode.Replace);
-
-    private void Supersedence_CheckedUninstall(object sender, RoutedEventArgs e) =>
-        SupersedenceHost?.SetSupersedenceForChecked(ApplicationPackagerEngine.Services.Supersedence.SupersedenceMode.ReplaceAndUninstall);
-
-    private void Supersedence_CheckedOff(object sender, RoutedEventArgs e) =>
-        SupersedenceHost?.SetSupersedenceForChecked(ApplicationPackagerEngine.Services.Supersedence.SupersedenceMode.Off);
-
-    private void Supersedence_CheckedDefault(object sender, RoutedEventArgs e) => SupersedenceHost?.SetSupersedenceForChecked(null);
-
-    private void Supersedence_AllReplace(object sender, RoutedEventArgs e) =>
-        SupersedenceHost?.SetSupersedenceForAll(ApplicationPackagerEngine.Services.Supersedence.SupersedenceMode.Replace);
-
-    private void Supersedence_AllUninstall(object sender, RoutedEventArgs e) =>
-        SupersedenceHost?.SetSupersedenceForAll(ApplicationPackagerEngine.Services.Supersedence.SupersedenceMode.ReplaceAndUninstall);
-
-    private void Supersedence_AllOff(object sender, RoutedEventArgs e) =>
-        SupersedenceHost?.SetSupersedenceForAll(ApplicationPackagerEngine.Services.Supersedence.SupersedenceMode.Off);
 
     private void ContextMenu_EditApplication(object sender, RoutedEventArgs e) => OpenWorkbenchForSelection();
 

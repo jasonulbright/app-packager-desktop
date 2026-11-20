@@ -44,8 +44,8 @@ public sealed class GuideImageContentTests
         Assert.True(low.Count == 0, $"These images look as empty as an empty page of the app (ink {empty:0.0000} plus {MarginOverEmpty}): " + string.Join(", ", low.Select(i => $"{i.Name} {i.Ink:0.0000}")));
     }
 
-    /// <summary>The images that show a page empty on purpose (the first step of a flow, before anything is entered).</summary>
-    public static readonly string[] EmptyByDesign = ["core-add-file-pick"];
+    /// <summary>The images that show a page with little content by design: the first step of a flow, before anything is entered, and two short Settings pages.</summary>
+    public static readonly string[] EmptyByDesign = ["core-add-file-pick", "core-settings-about", "core-settings-defaults"];
 
     /// <summary>An image of a page with a list, a form or a result has at least this much more ink in the body than the empty page.</summary>
     public const double MarginOverEmpty = 0.01;

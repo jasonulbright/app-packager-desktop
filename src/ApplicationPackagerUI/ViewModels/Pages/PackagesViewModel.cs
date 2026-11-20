@@ -60,6 +60,9 @@ public partial class PackagesViewModel : ObservableObject
     [ObservableProperty] private string _publishIntuneToolTip = "";
     [ObservableProperty] private bool _isPublishWsusAvailable;
     [ObservableProperty] private string _publishWsusToolTip = "";
+    [ObservableProperty] private bool _isPublishAllAvailable;
+    [ObservableProperty] private string _publishAllToolTip = "";
+    private string _publishAllTarget = "";
     [ObservableProperty] private bool _isWsusUpdatesAvailable;
     [ObservableProperty] private string _wsusUpdatesToolTip = "";
     /// <summary>The Intune note column shows only while Intune is a system in use.</summary>
@@ -73,6 +76,7 @@ public partial class PackagesViewModel : ObservableObject
     public IAsyncRelayCommand PublishConfigMgrCommand { get; }
     public IAsyncRelayCommand PublishIntuneCommand { get; }
     public IAsyncRelayCommand PublishWsusCommand { get; }
+    public IAsyncRelayCommand PublishAllCommand { get; }
     public IRelayCommand WsusUpdatesCommand { get; }
     public IAsyncRelayCommand OneClickCommand { get; }
 
@@ -123,6 +127,7 @@ public partial class PackagesViewModel : ObservableObject
         PublishConfigMgrCommand = new AsyncRelayCommand(() => StartPublishRunAsync(PublishRunTargets.ConfigMgr), () => CanRunOperation() && IsPublishConfigMgrAvailable);
         PublishIntuneCommand = new AsyncRelayCommand(() => StartPublishRunAsync(PublishRunTargets.IntuneOnly), () => CanRunOperation() && IsPublishIntuneAvailable);
         PublishWsusCommand = new AsyncRelayCommand(() => StartPublishRunAsync(PublishRunTargets.WsusOnly), () => CanRunOperation() && IsPublishWsusAvailable);
+        PublishAllCommand = new AsyncRelayCommand(() => StartPublishRunAsync(_publishAllTarget), () => CanRunOperation() && IsPublishAllAvailable);
         WsusUpdatesCommand = new RelayCommand(OpenWsusUpdates, () => CanRunOperation() && IsWsusUpdatesAvailable);
         OneClickCommand = new AsyncRelayCommand(OneClickAsync, CanRunOperation);
         ImportFromUrlCommand = new RelayCommand(() => ImportFromUrlRequested?.Invoke(this, EventArgs.Empty), CanRunOperation);
@@ -158,6 +163,7 @@ public partial class PackagesViewModel : ObservableObject
         PublishIntuneToolTip = state.IntuneToolTip;
         IsPublishWsusAvailable = state.WsusEnabled;
         PublishWsusToolTip = state.WsusToolTip;
+        (IsPublishAllAvailable, PublishAllToolTip, _publishAllTarget) = PublishAllState.For(readiness.Systems);
         IsWsusUpdatesAvailable = state.WsusUpdatesEnabled;
         WsusUpdatesToolTip = state.WsusUpdatesToolTip;
         _skipMecmPreflight = state.SkipMecmPreflight;
@@ -174,10 +180,12 @@ public partial class PackagesViewModel : ObservableObject
         PublishConfigMgrCommand.NotifyCanExecuteChanged();
         PublishIntuneCommand.NotifyCanExecuteChanged();
         PublishWsusCommand.NotifyCanExecuteChanged();
+        PublishAllCommand.NotifyCanExecuteChanged();
         WsusUpdatesCommand.NotifyCanExecuteChanged();
         OneClickCommand.NotifyCanExecuteChanged();
         ImportFromUrlCommand.NotifyCanExecuteChanged();
         DiscoverCommand.NotifyCanExecuteChanged();
+        DiscoverAllCommand.NotifyCanExecuteChanged();
         NotifyCveCommands();
     }
 

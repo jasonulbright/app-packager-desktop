@@ -15,16 +15,8 @@ core-cve-report-html
 core-cve-window
 core-discover-prompt
 core-discover-settings
-core-one-click-plan
-core-packages-buttons-disabled
-core-packages-conflict-dialog
 core-packages-cve-columns
-core-packages-operation-history
-core-packages-review-dialog
-core-packages-select-update
-core-publish-configmgr-log
 core-publish-wsus-row
-core-stage-result-log
 core-update-available
 core-update-ready
 core-workbench-bundle-menu
@@ -39,7 +31,6 @@ core-wsus-updates-window
 start-first-package-end-to-end
 start-setup-connection
 start-setup-systems
-start-sidebar-context-menu
 tools-collections-editor
 tools-collections-remove-plan
 tools-compliance-catalog
@@ -86,7 +77,4 @@ tools-site-hygiene-live-site-health
 tools-site-hygiene-picker
 tools-site-hygiene-plan-fix
 tools-site-hygiene-trends
-packages
-core-packages-list
-tools-pivots-pivot
 tools-dp-content-dps

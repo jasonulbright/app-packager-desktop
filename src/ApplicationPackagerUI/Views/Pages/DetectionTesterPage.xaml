@@ -230,7 +230,7 @@
                                         <TextBlock Text="Running the test. A script stops after 30 seconds." VerticalAlignment="Center"
                                                    Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
                                     </StackPanel>
-                                    <TextBlock Text="Press Run to test the clause on this computer." Style="{StaticResource Note}">
+                                    <TextBlock Text="Select Run to test the clause on this computer." Style="{StaticResource Note}">
                                         <TextBlock.Visibility>
                                             <MultiBinding Converter="{x:Static helpers:DetectionTesterConverters.NeitherVisible}">
                                                 <Binding Path="HasResult" />

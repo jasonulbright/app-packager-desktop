@@ -21,6 +21,15 @@ $images = [ordered]@{
     'core-settings-configmgr'   = 'nav_configmgr'
     'core-settings-citrix'      = 'nav_citrix'
     'core-settings-intune-cve'  = 'nav_intune'
+    'core-settings-top'         = 'nav_general'
+    'core-settings-wsus'        = 'nav_wsus'
+    'core-settings-install-parameters' = 'nav_installparams'
+    'core-settings-tools'       = 'nav_tools'
+    'core-settings-defaults'    = 'nav_dtdefaults'
+    'core-settings-install-parameters-sources' = 'nav_localsources'
+    'core-settings-about'       = 'nav_about'
+    'core-script-signing-settings' = 'nav_signing'
+    'core-one-click-settings'   = 'nav_oneclick'
 }
 foreach ($theme in $Themes) {
     $root = Join-Path $DataRoot $theme

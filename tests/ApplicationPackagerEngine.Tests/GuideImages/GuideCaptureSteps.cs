@@ -33,7 +33,7 @@ public static class GuideCaptureSteps
         ["start-sidebar-default"] = "app-packager",
         ["core-add-app-step1"] = "add-from-web",
         ["core-add-file-pick"] = "add-from-file",
-        ["core-settings-top"] = "settings",
+        ["core-settings-top"] = "core-settings-top",
         ["core-workbench-application"] = "workbench",
         ["core-settings-wsus"] = "core-settings-wsus",
         ["core-settings-tools"] = "core-settings-tools",
@@ -68,12 +68,25 @@ public static class GuideCaptureSteps
         ["tools-installer-analysis-overview"] = "tools-installer-analysis-overview",
         // The supersedence views of the App Packager page (tools/guide-capture/Capture-PackagesSupersedence.ps1: the real app driven with UI Automation, one theme after the other).
         ["core-packages-context-menu"] = "core-packages-context-menu",
-        ["core-packages-supersedence-menu"] = "core-packages-supersedence-menu",
         ["core-packages-supersedence-confirm"] = "core-packages-supersedence-confirm",
         ["core-packages-supersedence-confirm-remember"] = "core-packages-supersedence-confirm-remember",
         ["core-packages-supersedence-log"] = "core-packages-supersedence-log",
         ["tools-settings-supersedence"] = "tools-settings-supersedence",
         ["core-one-click-plan-supersedence"] = "core-one-click-plan-supersedence",
+        // The states of the App Packager page and its windows (tools/guide-capture/Capture-PackagesPage.ps1 and Capture-PackagesDialogs.ps1: the real app, a Stage into the staging folder of the run, a
+        // Publish of one application that the run removes from the site again, one theme after the other).
+        ["packages"] = "packages",
+        ["core-packages-list"] = "core-packages-list",
+        ["core-packages-select-update"] = "core-packages-select-update",
+        ["core-packages-buttons-disabled"] = "core-packages-buttons-disabled",
+        ["core-packages-operation-history"] = "core-packages-operation-history",
+        ["core-packages-review-dialog"] = "core-packages-review-dialog",
+        ["core-packages-conflict-dialog"] = "core-packages-conflict-dialog",
+        ["core-one-click-plan"] = "core-one-click-plan",
+        ["core-stage-result-log"] = "core-stage-result-log",
+        ["core-publish-configmgr-log"] = "core-publish-configmgr-log",
+        ["start-sidebar-context-menu"] = "start-sidebar-context-menu",
+        ["tools-pivots-pivot"] = "pivots-and-scripts",
     };
 
     /// <summary>Every image that a check run produces: the lab capture run, and the render of the pages in the tests.</summary>

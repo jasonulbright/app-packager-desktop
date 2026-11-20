@@ -137,17 +137,30 @@ public sealed class PageStructureTests
         Assert.Equal(Column("TitleText"), Column("StatusText"));
     }
 
-    // The App Packager toolbar wraps by group: each child of the wrap panel is a group, so a row never breaks inside a group or starts with a separator.
+    // The App Packager toolbar (Q-102): one row in the owner order, each child of the wrap panel is a group, a separator ends every group but the last,
+    // so a narrow window wraps by group and a row never starts with a separator.
     [Fact]
-    public void TheAppPackagerToolbarWrapsByGroup()
+    public void TheAppPackagerToolbarHasTheOwnerOrderAndWrapsByGroup()
     {
         var doc = Xaml("Views", "Pages", "PackagesPage.xaml");
         var toolbar = doc.Descendants().Single(e => e.Name.LocalName == "WrapPanel" && Attr(e, "{http://schemas.microsoft.com/winfx/2006/xaml}Name") == "AppPackagerToolbar");
         var groups = toolbar.Elements().Where(e => e.Name.LocalName != "WrapPanel.Resources").ToList();
-        Assert.Equal(3, groups.Count);
+        Assert.Equal(5, groups.Count);
         Assert.All(groups, g => Assert.Equal("WrapPanel", g.Name.LocalName));
         Assert.All(groups, g => Assert.Equal("Horizontal", Attr(g, "Orientation")));
-        Assert.All(groups, g => Assert.True(g.Elements().Count() >= 3));
+        var names = groups.Select(g => g.Elements().Where(e => e.Name.LocalName == "Button" && Attr(e, "Content") != "Cancel").Select(b => Attr(b, "Content")).ToArray()).ToList();
+        Assert.Equal(new[] { "One Click" }, names[0]);
+        Assert.Equal(new[] { "Check Latest", "Check ConfigMgr", "Check CVEs" }, names[1]);
+        Assert.Equal(new[] { "Stage", "Publish All" }, names[2]);
+        Assert.Equal(new[] { "Publish to ConfigMgr", "Publish to Intune", "Publish to WSUS" }, names[3]);
+        Assert.Equal(new[] { "CVE Report", "Ops History" }, names[4]);
+        Assert.All(groups.Take(4), g => Assert.Equal("Border", g.Elements().Last().Name.LocalName));
+        Assert.DoesNotContain(groups.Last().Elements(), e => e.Name.LocalName == "Border");
+        // The buttons that the owner design removed from the toolbar.
+        var all = toolbar.Descendants().Where(e => e.Name.LocalName == "Button").Select(b => Attr(b, "Content")).ToList();
+        Assert.DoesNotContain("Discover unmanaged software", all);
+        Assert.DoesNotContain("Supersedence", all);
+        Assert.DoesNotContain("WSUS Updates", all);
     }
 
     // Every toolbar button, Cancel included, has the same margin and does not stretch, so Cancel has the height and the baseline of its neighbours when the row wraps.

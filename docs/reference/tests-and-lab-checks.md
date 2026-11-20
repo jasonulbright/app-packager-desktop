@@ -625,3 +625,25 @@ Replaces the rewrite, restore, Old Application and identity-marker design (steps
 | `PublishPreflightTests`, `BuildArgumentsTests`, `PowerShellLiteralTests`, `OneClickRowRunnerTests`, `LocalFileGridStageTests` | The preflight sentence, `--yes`, the scripts parse, One Click and the stage with the new calls. |
 
 **Lab check (2026-11-19, CM01 site MCM, CLIENT01 labadmin session, installed candidate, real mouse input).** Throw-away n-1 applications `Everything (x64) - 1.4.0.1000` and `WizTree (x64) - 4.30` against real packaged n (Everything 1.4.1.1032, WizTree 4.34). Yes: relation created on n, n-1 unchanged (same revision and XML hash). Skip: n created without a relation, n-1 unchanged. No: nothing created, n-1 unchanged. Remember: one window, both applications got a relation, both n-1 unchanged. Light and dark themes captured. After the check 0 test applications were left and the content folders were removed; free disk on CM01 did not change (103.7 GB). The Equals path is proven by the unit tests above, not by a separate site run. **Intune supersedence is not built** and so not proven (queued separately); the layout tests that need a large display ran on CLIENT01.
+
+## App Packager toolbar in one row, Publish All, Discover in Settings (Q-102, part 1)
+
+The toolbar is one row in the order One Click | Check Latest, Check ConfigMgr, Check CVEs | Stage, Publish All | Publish to ConfigMgr, Publish to Intune, Publish to WSUS | CVE Report, Ops History. The labels show where they fit in that row (a 1920 px window); in a narrower window each button shows its icon only, and the row still does not wrap down to the smallest window (900 px). Cancel keeps its room (Hidden, not Collapsed), so the row does not change when a run starts. Discover unmanaged software, Supersedence and WSUS Updates left the toolbar; the Discover buttons and WSUS Updates are in Settings.
+
+| Test class | What it proves |
+|---|---|
+| `PageStructureTests` | The toolbar has five groups in the owner order, a separator ends every group but the last, and the three removed buttons are not in it. Every toolbar button has the same margin. |
+| `AppPackagerFitTests` | In 12 sizes and both themes the toolbar is one line, the buttons have the compact height, and Cancel has the height and the line of its neighbours while a run is active. |
+| `PublishAllStateTests` | Publish All is off when no system is in use, and its target is the combination of the systems that are on (seven combinations). |
+
+Not covered by a test: the first-run question after Setup, the two Discover buttons against a real site, and Publish All against a real site. Part 2 (the supersedence settings grid) follows.
+
+## Supersedence grid in Settings (Q-102, part 2)
+
+The supersedence setting of an application moved from the App Packager toolbar to Settings, Supersedence: a grid of all applications with a Supersedence column, the buttons for the checked applications (Follow the default, Off, Replace, Replace and uninstall), for all applications (Replace, Replace and uninstall) and for none (Off for all). The grid edits a copy of the settings, and Save Settings writes it. The key names are unchanged. The edits go through the same editor as before, so nothing is switched on silently.
+
+| Test class | What it proves |
+|---|---|
+| `SupersedenceGridTests` | A row follows the default until it has a mode of its own; a word that is not a choice changes nothing; the checked applications get their own mode; all applications take the mode as the default and clear the single settings; none is Off for all; the copy is edited without changing the stored settings and keeps the version rule of an override; the grid and its buttons are on the Supersedence page and the toolbar has no Supersedence text. |
+
+Not covered by a test: the window against a real site (a package run still asks before it applies a supersedence). The lab capture script of the supersedence guide still drives the removed toolbar button and needs the grid before it runs again.

@@ -249,6 +249,17 @@
                                                AutomationProperties.AutomationId="btnClearDiscoveryDismissed"
                                                ToolTip="Offer these apps again in later discoveries. Takes effect on Save." />
                                 </StackPanel>
+                                <TextBlock Text="Discover unmanaged software" Style="{StaticResource FieldLabel}" />
+                                <TextBlock Text="Reads the hardware inventory of the site and lists the products that are installed on devices and have no ConfigMgr application. It helps you pick the products that apply to your site. A scan only offers products; nothing changes until you choose."
+                                           Foreground="{DynamicResource TextFillColorTertiaryBrush}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,4" />
+                                <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                                    <ui:Button Content="Discover not selected" Command="{Binding DiscoverNotSelectedCommand}" Margin="0,0,8,0"
+                                               AutomationProperties.AutomationId="btnDiscoverNotSelected"
+                                               ToolTip="Scan only the products that you have not selected in the Catalog and did not dismiss. Starts at once; the scan runs on the App Packager page." />
+                                    <ui:Button Content="Discover all" Command="{Binding DiscoverAllCommand}"
+                                               AutomationProperties.AutomationId="btnDiscoverAll"
+                                               ToolTip="Scan every product, also the ones that you selected or dismissed. Starts at once; the scan runs on the App Packager page." />
+                                </StackPanel>
                                 <TextBlock Text="File Share Root (UNC)" Style="{StaticResource FieldLabel}" />
                                 <ui:TextBox ToolTip="{Binding FileShareRoot}" Width="480" HorizontalAlignment="Left" Text="{Binding FileShareRoot, UpdateSourceTrigger=PropertyChanged}"
                                             PlaceholderText="\\fileserver\sccm$" Margin="0,0,0,8" />
@@ -258,7 +269,10 @@
                 <StackPanel Margin="0,0,0,8" MaxWidth="960" HorizontalAlignment="Left">
                                 <TextBlock Text="WSUS" Style="{StaticResource SectionHeader}" />
                                 <TextBlock Foreground="{DynamicResource TextFillColorSecondaryBrush}" Margin="0,0,0,8" TextWrapping="Wrap"
-                                           Text="Publish to WSUS publishes the installer of each checked app as a locally published update. WSUS Updates on the App Packager page lists and manages the published updates. This computer needs the WSUS console or RSAT WSUS tools at the server's version, an account in the WSUS Administrators group, and file-share access to the server. When this computer is not the WSUS server, it must also trust the signing certificate." />
+                                           Text="Publish to WSUS publishes the installer of each checked app as a locally published update. The WSUS Updates button below lists and manages the published updates. This computer needs the WSUS console or RSAT WSUS tools at the server's version, an account in the WSUS Administrators group, and file-share access to the server. When this computer is not the WSUS server, it must also trust the signing certificate." />
+                                <ui:Button Content="WSUS Updates" Icon="{ui:SymbolIcon TextBulletListSquare24}" Command="{Binding OpenWsusUpdatesCommand}" Margin="0,0,0,8"
+                                           AutomationProperties.AutomationId="btnWsusUpdates"
+                                           ToolTip="List and manage the updates that Publish to WSUS published. Needs the WSUS server below and the WSUS administration API." />
 
                                 <TextBlock Text="Server" Style="{StaticResource SubHeader}" />
                                 <TextBlock Text="WSUS server" Style="{StaticResource FieldLabel}" />
@@ -318,7 +332,7 @@
                                                ToolTip="Lists the computer groups of the server in the box." />
                                     <ComboBox IsEditable="True" ItemsSource="{Binding Wsus.Groups}" Text="{Binding Wsus.ApprovalGroup, UpdateSourceTrigger=PropertyChanged}"
                                               AutomationProperties.Name="Approve for group" AutomationProperties.AutomationId="cboWsusGroup"
-                                              ToolTip="Computer group the update is approved for right after it publishes. Leave empty to approve later from WSUS Updates on the App Packager page: the WSUS console does not list locally published updates." />
+                                              ToolTip="Computer group the update is approved for right after it publishes. Leave empty to approve later from WSUS Updates (Settings, WSUS Publishing): the WSUS console does not list locally published updates." />
                                 </DockPanel>
                                 <CheckBox Content="Decline earlier versions of the same application after publishing" IsChecked="{Binding Wsus.DeclineSuperseded}" Margin="0,0,0,8"
                                           AutomationProperties.AutomationId="chkWsusDecline"
@@ -556,6 +570,55 @@
                                           ToolTip="Replace and uninstall needs the ConfigMgr version rule Exact. A publish with Replace or Replace and uninstall writes the supersedence relation to the older application of the line." />
                                 <TextBlock Text="Replace and uninstall needs the ConfigMgr version rule Exact; a publish with Minimum and Replace and uninstall is refused. With supersedence on, the version is in the title of the application (the setting is locked on), because the new and the older version must be separate applications. A package run finds the older version by title and publisher, the same query as Check ConfigMgr, and asks before it applies the supersedence. Intune supersedence is not available."
                                            Foreground="{DynamicResource TextFillColorTertiaryBrush}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,8" />
+
+                                <TextBlock Text="Supersedence of each application" Style="{StaticResource FieldLabel}" />
+                                <TextBlock Text="Each application follows the default above until you give it its own mode. Check applications to change several at once. The changes are written on Save Settings. A package run still asks before it applies a supersedence."
+                                           Foreground="{DynamicResource TextFillColorTertiaryBrush}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,8" />
+                                <WrapPanel Margin="0,0,0,0" AutomationProperties.AutomationId="pnlSupersedenceBulk">
+                                    <TextBlock Text="Checked applications:" VerticalAlignment="Center" Margin="0,0,8,8" />
+                                    <ui:Button Content="Follow the default" Command="{Binding SupersedenceForSelectedCommand}" CommandParameter="Follow the default" Margin="0,0,4,8" AutomationProperties.AutomationId="btnSupersedenceSelectedDefault" />
+                                    <ui:Button Content="Off" Command="{Binding SupersedenceForSelectedCommand}" CommandParameter="Off" Margin="0,0,4,8" AutomationProperties.AutomationId="btnSupersedenceSelectedOff" />
+                                    <ui:Button Content="Replace" Command="{Binding SupersedenceForSelectedCommand}" CommandParameter="Replace" Margin="0,0,4,8" AutomationProperties.AutomationId="btnSupersedenceSelectedReplace" />
+                                    <ui:Button Content="Replace and uninstall" Command="{Binding SupersedenceForSelectedCommand}" CommandParameter="Replace and uninstall" Margin="0,0,4,8" AutomationProperties.AutomationId="btnSupersedenceSelectedUninstall" />
+                                </WrapPanel>
+                                <WrapPanel Margin="0,0,0,0">
+                                    <TextBlock Text="All applications:" VerticalAlignment="Center" Margin="0,0,8,8" />
+                                    <ui:Button Content="Replace" Command="{Binding SupersedenceForAllCommand}" CommandParameter="Replace" Margin="0,0,4,8" AutomationProperties.AutomationId="btnSupersedenceAllReplace"
+                                               ToolTip="The default takes this mode and every single setting of the mode is cleared." />
+                                    <ui:Button Content="Replace and uninstall" Command="{Binding SupersedenceForAllCommand}" CommandParameter="Replace and uninstall" Margin="0,0,4,8" AutomationProperties.AutomationId="btnSupersedenceAllUninstall" />
+                                    <ui:Button Content="None: Off for all" Command="{Binding SupersedenceForAllCommand}" CommandParameter="Off" Margin="0,0,16,8" AutomationProperties.AutomationId="btnSupersedenceNone" />
+                                    <ui:Button Content="Refresh list" Icon="{ui:SymbolIcon ArrowSync24}" Command="{Binding RefreshSupersedenceRowsCommand}" Margin="0,0,8,8"
+                                               ToolTip="Rebuilds the list from the applications the App Packager page shows." />
+                                    <TextBlock VerticalAlignment="Center" Margin="0,0,0,8" Foreground="{DynamicResource TextFillColorSecondaryBrush}">
+                                        <Run Text="{Binding SupersedenceSelectedCount, Mode=OneWay}" /><Run Text=" checked" />
+                                    </TextBlock>
+                                </WrapPanel>
+                                <DataGrid ItemsSource="{Binding SupersedenceRows}" AutoGenerateColumns="False" CanUserAddRows="False"
+                                          CanUserDeleteRows="False" HeadersVisibility="Column" RowHeaderWidth="0" BorderThickness="1"
+                                          BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}" GridLinesVisibility="Horizontal"
+                                          Height="320" Margin="0,0,0,8" IsTextSearchEnabled="True" TextSearch.TextPath="Application"
+                                          AutomationProperties.AutomationId="dgSupersedenceApps">
+                                    <DataGrid.Columns>
+                                        <DataGridTemplateColumn Header="Check" Width="64">
+                                            <DataGridTemplateColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <CheckBox IsChecked="{Binding IsSelected, UpdateSourceTrigger=PropertyChanged}" HorizontalAlignment="Center" />
+                                                </DataTemplate>
+                                            </DataGridTemplateColumn.CellTemplate>
+                                        </DataGridTemplateColumn>
+                                        <DataGridTextColumn Header="Application" Width="*" MinWidth="160" Binding="{Binding Application}" IsReadOnly="True" />
+                                        <DataGridTextColumn Header="Vendor" Width="140" Binding="{Binding Vendor}" IsReadOnly="True" />
+                                        <DataGridTemplateColumn Header="Supersedence" Width="200" SortMemberPath="ModeChoice">
+                                            <DataGridTemplateColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <ComboBox ItemsSource="{Binding DataContext.SupersedenceRowChoices, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                                              SelectedItem="{Binding ModeChoice, UpdateSourceTrigger=PropertyChanged}" Margin="4,0"
+                                                              AutomationProperties.Name="Supersedence of the application" />
+                                                </DataTemplate>
+                                            </DataGridTemplateColumn.CellTemplate>
+                                        </DataGridTemplateColumn>
+                                    </DataGrid.Columns>
+                                </DataGrid>
                 </StackPanel>
             </ScrollViewer>
             <ScrollViewer x:Name="page_citrix" Visibility="Collapsed" VerticalScrollBarVisibility="Auto">

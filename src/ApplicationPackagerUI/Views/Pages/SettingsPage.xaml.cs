@@ -29,6 +29,8 @@ public partial class SettingsPage
         {
             if (_viewModel.OneClickRows.Count != _viewModel.PackagerCount)
                 _viewModel.RefreshOneClickRows();
+            if (_viewModel.SupersedenceRows.Count == 0 || _viewModel.SupersedenceRows.Count > _viewModel.PackagerCount)
+                _viewModel.RefreshSupersedenceRows();
         };
     }
 

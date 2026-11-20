@@ -21,7 +21,7 @@ Use the page after the Setup window, or when a site, share, certificate or key c
 3. Select **Save Settings** in the page header, at the top right. The snackbar shows "Settings saved."
 4. To discard unsaved edits, select **Discard changes** next to it. The button reloads every setting on the page from the saved settings.
 
-![Top of the Settings page with the Sidebar, Updates, Organization and Systems in Use sections](../images/core-settings-top.png)
+![The General page of Settings, with the tree of pages at the left](../images/core-settings-top.png)
 
 The theme choice **Dark Theme** or **Light Theme** is at the top of the page. The window changes at once when you select a theme. **Save Settings** stores the choice. The default theme is **Dark Theme**.
 
@@ -50,7 +50,7 @@ Each entry has a check box, a **Move up** button and a **Move down** button. **R
 |---|---|---|
 | **ConfigMgr** | Selected | Enables **Check ConfigMgr** and **Publish to ConfigMgr**. |
 | **Intune** | Cleared | Enables **Publish to Intune**. |
-| **WSUS** | Cleared | Enables **Publish to WSUS** and **WSUS Updates**. |
+| **WSUS** | Cleared | Enables **Publish to WSUS** and **Publish All** for WSUS, and the **WSUS Updates** button of the WSUS section. |
 
 ConfigMgr is selected at first. The three systems are independent, and each one is optional. Clear **ConfigMgr** and select **Intune**, **WSUS** or both to publish with no ConfigMgr site, console or file share. A system that is not in use keeps its buttons disabled. A settings file that has no systems value infers Intune from a stored tenant ID and WSUS from a stored server name.
 
@@ -64,6 +64,7 @@ The site fields (**Site Code**, **Site Server / SMS Provider Host**, **File Shar
 | **Site Server / SMS Provider Host** | Empty | The host that the CMSite drive connects to. Empty means this computer. Leave it empty only when this computer is the SMS Provider. |
 | **Discovery SQL Server** | Empty | The SQL Server instance of the site database. Empty means the value from the SMS Provider. Windows authentication only. |
 | **Discovery Database** | Empty | The database name. Empty means `CM_` and the site code. |
+| **Discover not selected**, **Discover all** | Not applicable | Scan the site inventory for applications that the catalog can package. **Discover not selected** scans only the applications that are cleared in the Catalog and were not dismissed. **Discover all** scans every application. A scan changes nothing until you choose in the prompt. After the first-run setup, the program asks if it must run **Discover not selected** to help you pick the applicable products. |
 | **Not offered by Discover**, **Clear list** | Empty list | Applications that Discover unmanaged software no longer offers. **Clear list** takes effect on **Save Settings**. |
 | **File Share Root (UNC)** | `\\fileserver\sccm$` | The root of the content share. Content goes under `Applications`. |
 | **Content Layout** | **Nested - Applications\Vendor\App\Version** | The other choice is **Flat - Applications\Vendor-App-Version**. |
@@ -87,6 +88,18 @@ Both steps are optional. They run after the ConfigMgr application exists. All co
 
 The controls for the test deployment are disabled until **Distribute content after Package** is selected. See [Deployment behavior](../deployment-behavior.md).
 
+### Supersedence
+
+| Control | Default | Effect |
+|---|---|---|
+| **Version rule, ConfigMgr**, **Version rule, Intune** | **Minimum** | The operator of the version clause of the detection that is published. See [Publish to ConfigMgr](publish-to-configmgr.md). |
+| **Supersedence mode, ConfigMgr** | **Off** | The default for every application: **Off**, **Replace** or **Replace and uninstall**. An application that has no setting of its own follows it. |
+| **Checked applications** buttons | Not applicable | Give the checked rows of the grid their own mode (**Off**, **Replace**, **Replace and uninstall**) or return them to the default (**Follow the default**). |
+| **All applications** buttons | Not applicable | **Replace** or **Replace and uninstall**: the default takes the mode, and the single settings of every application are cleared. **None: Off for all**: the default is **Off** and every application follows it. |
+| **Supersedence** column of the grid | **Follow the default** | The mode of one application. **Refresh list** rebuilds the list from the App Packager page. |
+
+The changes of this page are written on **Save Settings**. Nothing here switches supersedence on by itself: a stored value is kept, and a package run still asks before it applies a supersedence. While supersedence is on for an application, the version is part of its title and that title option is locked.
+
 ### One Click Settings
 
 See [One Click](one-click.md). The section has **Action on update** (**Report only**, **Stage**, **Stage and Publish**; default **Report only**), **Default cadence (days)** (default 7), **Force on launch (ignore cadence)** (default cleared), **Default destinations** (**ConfigMgr**, **WSUS**, **Intune**), **Existing ConfigMgr app** (**Skip the application** or **Overwrite it**; default **Skip the application**), the buttons **Track none**, **Track all** and **Refresh list**, and a grid with the columns **Track**, **Application**, **Vendor**, **ConfigMgr**, **WSUS**, **Intune** and **Cadence (days)**.
@@ -104,7 +117,7 @@ See [One Click](one-click.md). The section has **Action on update** (**Report on
 - **Install from file...** and **Download icon pack** install application icons. The download checks a SHA-256 value.
 - **Refresh** under **GitHub API** shows the request budget. A token from `APP_PACKAGER_GITHUB_TOKEN`, `GITHUB_TOKEN`, the **GitHub token** box below it or `gh auth login` raises the limit from 60 to 5,000 requests each hour.
 
-![The Detected Tools, Packager Icon Pack and GitHub API sections](../images/core-settings-tools.png)
+![The Tools page with the detected tools and the Packager Icon Pack](../images/core-settings-tools.png)
 
 ### Intune and CVE Lookup
 
@@ -133,7 +146,7 @@ See [One Click](one-click.md). The section has **Action on update** (**Report on
 
 See [WSUS publishing](wsus-publishing.md).
 
-![The WSUS Publishing section after a tested connection](../images/core-settings-wsus.png)
+![The WSUS page of Settings](../images/core-settings-wsus.png)
 
 ### Script Signing
 
@@ -159,11 +172,11 @@ A choice in the Workbench overrides the title choices. The two content options a
 - **Local Installer Sources**: one **Browse...** folder for each application whose installer a script cannot download (a vendor sign-in or a bot protection). You put the file in the folder by hand. Stage takes the highest file version in the folder. The installer must carry a valid signature, except where the row says otherwise. See [Installer source folders](#installer-source-folders).
 - **Packager Files**: one **Browse...** file for each file that an installer reads from its folder. The file is copied beside the installer and is never read.
 
-![Deployment Type Defaults and the M365 Apps channel](../images/core-settings-defaults.png)
+![The Deployment Type Defaults page](../images/core-settings-defaults.png)
 
-![Install Parameters with one application expanded](../images/core-settings-install-parameters.png)
+![The Install Parameters page](../images/core-settings-install-parameters.png)
 
-![Local Installer Sources and Packager Files](../images/core-settings-install-parameters-sources.png)
+![The Local Installer Sources page](../images/core-settings-install-parameters-sources.png)
 
 ### Installer source folders
 

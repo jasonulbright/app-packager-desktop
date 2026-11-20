@@ -14,7 +14,9 @@ public sealed record SupersedencePlan(
     string? Refusal,
     IReadOnlyList<string> Log,
     SupersedenceMode Mode = SupersedenceMode.Off,
-    VersionRule ConfigMgrRule = VersionRule.Minimum);
+    VersionRule ConfigMgrRule = VersionRule.Minimum,
+    SupersedenceMode IntuneMode = SupersedenceMode.Off,
+    SupersedenceAnswer? ConfirmedAnswer = null);
 
 public static class SupersedencePlanner
 {
@@ -96,7 +98,9 @@ public static class SupersedencePlanner
             return new SupersedencePlan(manifest, manifest, null,
                 "The version rule Exact was not applied to this title (the block is accepted), so Replace and uninstall is blocked for it. Set the supersedence mode of the title to Replace or Off.", log);
 
-        var key = publishesToConfigMgr ? SupersedenceKey.For(manifest) : null;
-        return new SupersedencePlan(configMgr, intune, key, null, log, resolved.Mode.Value, resolved.ConfigMgrRule.Value);
+        var key = publishesToConfigMgr || publishesToIntune ? SupersedenceKey.For(manifest) : null;
+        // IntuneMode keeps the resolved mode after the ConfigMgr confirmation has turned Mode off (no older version there, or Skip).
+        return new SupersedencePlan(configMgr, intune, key, null, log, resolved.Mode.Value, resolved.ConfigMgrRule.Value,
+            publishesToIntune ? resolved.Mode.Value : SupersedenceMode.Off);
     }
 }

@@ -24,6 +24,12 @@ public sealed record IntuneRunOutcome(IntuneStepStatus Status, string BuildNote,
 {
     public static readonly IntuneRunOutcome NotRun = new(IntuneStepStatus.NotRun, "", "");
 
+    /// <summary>
+    /// Set when the app was published but the supersedence relation could not be created. The app stays published; the run records
+    /// "Published, supersedence not applied" with this sentence. Null when no relation was wanted or it was created.
+    /// </summary>
+    public string? SupersedenceFailure { get; init; }
+
     public static IntuneRunOutcome Published(string buildNote, string publishNote) =>
         new(IntuneStepStatus.Published, buildNote, publishNote);
 

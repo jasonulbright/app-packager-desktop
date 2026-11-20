@@ -613,7 +613,8 @@ public class PackagerExecutionService(
 
     private static InventoryOutcome IntuneOutcome(IntuneRunOutcome outcome) => outcome.Status switch
     {
-        IntuneStepStatus.Published => InventoryOutcome.Succeeded,
+        IntuneStepStatus.Published => string.IsNullOrWhiteSpace(outcome.SupersedenceFailure)
+            ? InventoryOutcome.Succeeded : InventoryOutcome.PublishedSupersedenceNotApplied,
         IntuneStepStatus.PublishRefused => InventoryOutcome.Refused,
         IntuneStepStatus.BuildFailed or IntuneStepStatus.PublishFailed => InventoryOutcome.Failed,
         _ => InventoryOutcome.Skipped
@@ -841,7 +842,8 @@ public class PackagerExecutionService(
                 manifest.AppName = applicationTitle;
                 supersedence.IntuneManifest.AppName = applicationTitle;
                 notes = await intuneDeploymentService.BuildAndPublishAsync(
-                    supersedence.IntuneManifest, stagedContentPath, Report, comment, ct, signingPolicy, requirements);
+                    supersedence.IntuneManifest, stagedContentPath, Report, comment, ct, signingPolicy, requirements,
+                    IntuneSupersedenceFor(supersedence, applicationTitle, manifest.SoftwareVersion));
             }
 
             var outcome = PackagingOutcomeComposer.Compose(
@@ -865,7 +867,9 @@ public class PackagerExecutionService(
                 ConfigMgrModelName = NonBlank(mecmResult?.ModelName),
                 IntuneOutcome = !intuneRequested ? null : IntuneOutcome(notes),
                 IntuneObjectId = IntuneAppId(notes.PublishNote),
-                IntuneDetail = FirstNonBlank(notes.FailureNote, outcome.StdErr),
+                IntuneDetail = !string.IsNullOrWhiteSpace(notes.SupersedenceFailure)
+                    ? "Published, supersedence not applied: " + notes.SupersedenceFailure
+                    : FirstNonBlank(notes.FailureNote, outcome.StdErr),
                 PublishedVersion = manifest.SoftwareVersion,
                 PublishedBuildId = manifest.BuildId
             };
@@ -1279,7 +1283,8 @@ public class PackagerExecutionService(
             // The Intune display name carries the same title as the ConfigMgr application, as in a definition run.
             manifest.AppName = applicationTitle;
             supersedence.IntuneManifest.AppName = applicationTitle;
-            notes = await intuneDeploymentService.BuildAndPublishAsync(supersedence.IntuneManifest, stagedContentPath, Report, comment, ct, signingPolicy);
+            notes = await intuneDeploymentService.BuildAndPublishAsync(supersedence.IntuneManifest, stagedContentPath, Report, comment, ct, signingPolicy,
+                untranslatedRequirements: null, supersedence: IntuneSupersedenceFor(supersedence, applicationTitle, manifest.SoftwareVersion));
         }
 
         var outcome = PackagingOutcomeComposer.Compose(
@@ -1303,7 +1308,9 @@ public class PackagerExecutionService(
             ConfigMgrModelName = NonBlank(mecmResult?.ModelName),
             IntuneOutcome = !intuneRequested ? null : IntuneOutcome(notes),
             IntuneObjectId = IntuneAppId(notes.PublishNote),
-            IntuneDetail = FirstNonBlank(notes.FailureNote, outcome.StdErr),
+            IntuneDetail = !string.IsNullOrWhiteSpace(notes.SupersedenceFailure)
+                    ? "Published, supersedence not applied: " + notes.SupersedenceFailure
+                    : FirstNonBlank(notes.FailureNote, outcome.StdErr),
             PublishedVersion = manifest.SoftwareVersion,
             PublishedBuildId = manifest.BuildId
         };
@@ -1393,14 +1400,27 @@ public class PackagerExecutionService(
                 foreach (var warning in await mecmTarget.CheckChainAsync(title, version, supersedence.Key, supersedence.ConfigMgrRule, supersedence.Mode,
                              supersedence.ConfigMgrManifest, settings.SiteCode, settings.ProviderMachine, ct))
                     report($"Chain check                : {warning}");
-                return supersedence;
+                return supersedence with { ConfirmedAnswer = answer };
             case ApplicationPackagerEngine.Services.Supersedence.SupersedenceAnswer.Skip:
                 report("Supersedence               : skipped at the confirmation; the application is packaged without it.");
-                return supersedence with { Mode = off };
+                return supersedence with { Mode = off, ConfirmedAnswer = answer };
             default:
                 report("Supersedence               : declined at the confirmation; the run stops and nothing was created.");
                 throw new OperationCanceledException("The supersedence was declined at the confirmation.");
         }
+    }
+
+    /// <summary>
+    /// What the Intune half needs for supersedence (Q-94): the same key, the resolved mode and the confirmation of the run. Null when the
+    /// mode is Off or the title has no key. An answer that the ConfigMgr half already got in this run is reused, so the administrator is asked once.
+    /// </summary>
+    private ApplicationPackagerEngine.Services.Supersedence.IntuneSupersedenceRequest? IntuneSupersedenceFor(
+        ApplicationPackagerEngine.Services.Supersedence.SupersedencePlan plan, string title, string version)
+    {
+        if (plan.IntuneMode == ApplicationPackagerEngine.Services.Supersedence.SupersedenceMode.Off || plan.Key is null) return null;
+        var confirmer = SupersedenceConfirmation ?? ApplicationPackagerEngine.Services.Supersedence.SupersedenceConfirmer.Fixed(
+            ApplicationPackagerEngine.Services.Supersedence.SupersedenceAnswer.Skip);
+        return new(plan.Key, title, version, plan.IntuneMode, confirmer, plan.ConfirmedAnswer);
     }
 
     /// <summary>
