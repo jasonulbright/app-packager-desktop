@@ -21,6 +21,12 @@ public sealed class IntunePublishOptions
     /// <summary>x86 or x64.</summary>
     public string Architecture { get; set; } = "x64";
     public string GraphBase { get; set; } = "https://graph.microsoft.com/v1.0";
+    /// <summary>
+    /// THE ONE BETA EXCEPTION (owner decision Q-94b, 2026-11-19). Graph v1.0 has no call that writes a supersedence relationship; only
+    /// /beta has it (mobileAppSupersedence and updateRelationships). Only <see cref="IntunePublishService.ApplySupersedenceAsync"/> uses
+    /// this base. Every other Intune call stays on <see cref="GraphBase"/> (v1.0). A beta call can change without notice.
+    /// </summary>
+    public string GraphBetaBase { get; set; } = "https://graph.microsoft.com/beta";
     public string TokenAuthority { get; set; } = "https://login.microsoftonline.com";
     public int PollTimeoutSec { get; set; } = 600;
     public TimeSpan PollInterval { get; set; } = TimeSpan.FromSeconds(3);
@@ -454,6 +460,168 @@ public sealed class IntunePublishService : IDisposable
             throw new InvalidOperationException(
                 $"Multiple Intune apps are named '{displayName}' and none carries this application's identity tag (ids: {string.Join(", ", candidates.Select(a => (string?)a?["id"]))}); rename or tag the intended app before publishing.");
         return candidates.FirstOrDefault();
+    }
+
+    private void BeginCalls(IntunePublishOptions options, Action<string>? log)
+    {
+        _maxRetries = Math.Max(0, options.MaxRetries);
+        _retryBaseDelay = options.RetryBaseDelay;
+        _retryMaxDelay = options.RetryMaxDelay;
+        _log = log;
+        _freshToken = null;
+        _refreshToken = c => GetTokenAsync(options, c);
+    }
+
+    private void EndCalls()
+    {
+        _log = null;
+        _refreshToken = null;
+        _freshToken = null;
+    }
+
+    /// <summary>
+    /// The older version of an application in the tenant: Win32 apps whose display name holds the words of the base title (the title
+    /// rule of Check ConfigMgr) and whose publisher equals the publisher of the new app (case-insensitive, as the ConfigMgr lookup
+    /// compares it; a blank publisher on either side does not exclude, as there). The version is read from the display name after the
+    /// base title (Graph v1.0 has no display version on a Win32 app). The highest version below the new one wins; other titles and
+    /// older versions are never touched. Reads through v1.0.
+    /// </summary>
+    public async Task<Supersedence.LookupResult> FindOlderVersionAsync(
+        IntunePublishOptions options, Supersedence.SupersedenceKey key, string newTitle, string newVersion,
+        Action<string>? log = null, CancellationToken ct = default)
+    {
+        BeginCalls(options, log);
+        try
+        {
+            var token = await GetTokenAsync(options, ct).ConfigureAwait(false);
+            var graph = options.GraphBase.TrimEnd('/');
+            var apps = new List<Supersedence.LineApplication>();
+            var notes = new List<string>();
+            string? uri = $"{graph}/deviceAppManagement/mobileApps?$filter=isof('microsoft.graph.win32LobApp')";
+            while (!string.IsNullOrEmpty(uri))
+            {
+                var page = await GraphJsonAsync(HttpMethod.Get, uri, token, null, ct).ConfigureAwait(false);
+                foreach (var app in page?["value"] as JsonArray ?? [])
+                {
+                    var id = (string?)app?["id"];
+                    var title = (string?)app?["displayName"] ?? "";
+                    if (string.IsNullOrEmpty(id) || (string?)app?["@odata.type"] != "#microsoft.graph.win32LobApp") continue;
+                    if (!MecmApplicationTitleRule.Matches(key.BaseTitle, title)) continue;
+                    var publisher = ((string?)app?["publisher"] ?? "").Trim();
+                    if (key.Publisher.Length > 0 && publisher.Length > 0
+                        && !string.Equals(publisher, key.Publisher, StringComparison.OrdinalIgnoreCase)) continue;
+                    var version = Supersedence.IntuneTitleVersion.Read(title, key.BaseTitle);
+                    if (version is null)
+                    {
+                        if (!string.Equals(title, newTitle, StringComparison.OrdinalIgnoreCase))
+                            notes.Add($"The version of '{title}' cannot be read from its name, so it was skipped.");
+                        continue;
+                    }
+                    apps.Add(new Supersedence.LineApplication(id, title, version, false, []));
+                }
+                uri = (string?)page?["@odata.nextLink"];
+            }
+            var chosen = Supersedence.SupersedenceLookup.Choose(apps, newTitle, newVersion);
+            return new Supersedence.LookupResult(chosen.Old, notes.Concat(chosen.Notes).ToList());
+        }
+        finally { EndCalls(); }
+    }
+
+    /// <summary>
+    /// Makes the new app supersede the old one. This is the single call that uses the beta endpoint (<see cref="IntunePublishOptions.GraphBetaBase"/>):
+    /// v1.0 has no write for a relationship. updateRelationships REPLACES every relationship of the app, dependencies included, so the
+    /// existing ones are read first and sent again with the supersedence added. If they cannot be read, nothing is written. A relation
+    /// that already exists is left alone. After a failed write the relations are read again, and one that is now there counts as done.
+    /// <paramref name="uninstall"/> sets supersedenceType replace (the old app is uninstalled first); otherwise update (the installer of
+    /// the new app updates the old one in place). Assignments of either app are not changed.
+    /// </summary>
+    public async Task<Supersedence.SupersedenceStepResult> ApplySupersedenceAsync(
+        IntunePublishOptions options, string newAppId, string oldAppId, string oldTitle, string oldVersion, bool uninstall,
+        Action<string>? log = null, CancellationToken ct = default)
+    {
+        BeginCalls(options, log);
+        var done = $"supersedes {oldTitle} {oldVersion}" + (uninstall ? " and uninstalls it" : "");
+        try
+        {
+            var token = await GetTokenAsync(options, ct).ConfigureAwait(false);
+            var beta = options.GraphBetaBase.TrimEnd('/');
+            var relationsUri = $"{beta}/deviceAppManagement/mobileApps/{newAppId}/relationships";
+            JsonArray existing;
+            try { existing = await ReadRelationshipsAsync(relationsUri, token, ct).ConfigureAwait(false); }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            { return Fail($"the relations of the new app could not be read, so nothing was written: {ex.Message}"); }
+
+            if (HasSupersedenceOf(existing, oldAppId))
+                return new(Supersedence.SupersedenceStepStatus.Applied, $"already supersedes {oldTitle} {oldVersion}", []);
+
+            var resend = new JsonArray();
+            foreach (var relation in existing)
+                if (relation is JsonObject item && (string?)item["targetType"] != "parent")
+                    resend.Add(ResendForm(item));
+            resend.Add(new JsonObject
+            {
+                ["@odata.type"] = "#microsoft.graph.mobileAppSupersedence",
+                ["targetId"] = oldAppId,
+                ["supersedenceType"] = uninstall ? "replace" : "update"
+            });
+            try
+            {
+                // The full list is the same on every send, so a send can be repeated.
+                await GraphJsonAsync(HttpMethod.Post, $"{beta}/deviceAppManagement/mobileApps/{newAppId}/updateRelationships", token,
+                    new JsonObject { ["relationships"] = resend }, ct, repeatable: true).ConfigureAwait(false);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                try
+                {
+                    if (HasSupersedenceOf(await ReadRelationshipsAsync(relationsUri, token, ct).ConfigureAwait(false), oldAppId))
+                        return new(Supersedence.SupersedenceStepStatus.Applied, done, []);
+                }
+                catch (Exception readEx) when (readEx is not OperationCanceledException) { }
+                return Fail($"the relation could not be written: {ex.Message}");
+            }
+            return new(Supersedence.SupersedenceStepStatus.Applied, done, []);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            return Fail(ex.Message);
+        }
+        finally { EndCalls(); }
+
+        static Supersedence.SupersedenceStepResult Fail(string message) =>
+            new(Supersedence.SupersedenceStepStatus.NotApplied, message, []);
+    }
+
+    private async Task<JsonArray> ReadRelationshipsAsync(string uri, string token, CancellationToken ct)
+    {
+        var all = new JsonArray();
+        string? next = uri;
+        while (!string.IsNullOrEmpty(next))
+        {
+            var page = await GraphJsonAsync(HttpMethod.Get, next, token, null, ct).ConfigureAwait(false);
+            foreach (var item in page?["value"] as JsonArray ?? []) all.Add(item?.DeepClone());
+            next = (string?)page?["@odata.nextLink"];
+        }
+        return all;
+    }
+
+    private static bool HasSupersedenceOf(JsonArray relations, string oldAppId) =>
+        relations.OfType<JsonObject>().Any(r =>
+            (string?)r["targetType"] != "parent"
+            && string.Equals((string?)r["targetId"], oldAppId, StringComparison.OrdinalIgnoreCase)
+            && ((string?)r["@odata.type"] ?? "").Contains("Supersedence", StringComparison.OrdinalIgnoreCase));
+
+    /// <summary>A relation as updateRelationships takes it back: the type, the target and the writable setting; the read-only fields are dropped.</summary>
+    private static JsonObject ResendForm(JsonObject relation)
+    {
+        var form = new JsonObject
+        {
+            ["@odata.type"] = (string?)relation["@odata.type"] ?? "#microsoft.graph.mobileAppRelationship",
+            ["targetId"] = (string?)relation["targetId"]
+        };
+        foreach (var name in new[] { "supersedenceType", "dependencyType" })
+            if (relation[name] is JsonNode value) form[name] = value.DeepClone();
+        return form;
     }
 
     private const string IdentityTagPrefix = "AppPackager:";
