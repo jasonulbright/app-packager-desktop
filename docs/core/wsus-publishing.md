@@ -49,7 +49,7 @@ The rights of each page are in [Permissions](../reference/permissions.md).
 
 If the buttons of the section are disabled, the WSUS administration API is not on this computer. The status line then shows the text that names the fix. See [Troubleshooting](#troubleshooting).
 
-![The WSUS Publishing section of Settings after a successful connection test](../images/core-settings-wsus.png)
+![The WSUS page of Settings](../images/core-settings-wsus.png)
 
 ### Prepare the signing certificate
 
