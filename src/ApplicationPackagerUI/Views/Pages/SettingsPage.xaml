@@ -570,6 +570,55 @@
                                           ToolTip="Replace and uninstall needs the ConfigMgr version rule Exact. A publish with Replace or Replace and uninstall writes the supersedence relation to the older application of the line." />
                                 <TextBlock Text="Replace and uninstall needs the ConfigMgr version rule Exact; a publish with Minimum and Replace and uninstall is refused. With supersedence on, the version is in the title of the application (the setting is locked on), because the new and the older version must be separate applications. A package run finds the older version by title and publisher, the same query as Check ConfigMgr, and asks before it applies the supersedence. Intune supersedence is not available."
                                            Foreground="{DynamicResource TextFillColorTertiaryBrush}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,8" />
+
+                                <TextBlock Text="Supersedence of each application" Style="{StaticResource FieldLabel}" />
+                                <TextBlock Text="Each application follows the default above until you give it its own mode. Check applications to change several at once. The changes are written on Save Settings. A package run still asks before it applies a supersedence."
+                                           Foreground="{DynamicResource TextFillColorTertiaryBrush}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,8" />
+                                <WrapPanel Margin="0,0,0,0" AutomationProperties.AutomationId="pnlSupersedenceBulk">
+                                    <TextBlock Text="Checked applications:" VerticalAlignment="Center" Margin="0,0,8,8" />
+                                    <ui:Button Content="Follow the default" Command="{Binding SupersedenceForSelectedCommand}" CommandParameter="Follow the default" Margin="0,0,4,8" AutomationProperties.AutomationId="btnSupersedenceSelectedDefault" />
+                                    <ui:Button Content="Off" Command="{Binding SupersedenceForSelectedCommand}" CommandParameter="Off" Margin="0,0,4,8" AutomationProperties.AutomationId="btnSupersedenceSelectedOff" />
+                                    <ui:Button Content="Replace" Command="{Binding SupersedenceForSelectedCommand}" CommandParameter="Replace" Margin="0,0,4,8" AutomationProperties.AutomationId="btnSupersedenceSelectedReplace" />
+                                    <ui:Button Content="Replace and uninstall" Command="{Binding SupersedenceForSelectedCommand}" CommandParameter="Replace and uninstall" Margin="0,0,4,8" AutomationProperties.AutomationId="btnSupersedenceSelectedUninstall" />
+                                </WrapPanel>
+                                <WrapPanel Margin="0,0,0,0">
+                                    <TextBlock Text="All applications:" VerticalAlignment="Center" Margin="0,0,8,8" />
+                                    <ui:Button Content="Replace" Command="{Binding SupersedenceForAllCommand}" CommandParameter="Replace" Margin="0,0,4,8" AutomationProperties.AutomationId="btnSupersedenceAllReplace"
+                                               ToolTip="The default takes this mode and every single setting of the mode is cleared." />
+                                    <ui:Button Content="Replace and uninstall" Command="{Binding SupersedenceForAllCommand}" CommandParameter="Replace and uninstall" Margin="0,0,4,8" AutomationProperties.AutomationId="btnSupersedenceAllUninstall" />
+                                    <ui:Button Content="None: Off for all" Command="{Binding SupersedenceForAllCommand}" CommandParameter="Off" Margin="0,0,16,8" AutomationProperties.AutomationId="btnSupersedenceNone" />
+                                    <ui:Button Content="Refresh list" Icon="{ui:SymbolIcon ArrowSync24}" Command="{Binding RefreshSupersedenceRowsCommand}" Margin="0,0,8,8"
+                                               ToolTip="Rebuilds the list from the applications the App Packager page shows." />
+                                    <TextBlock VerticalAlignment="Center" Margin="0,0,0,8" Foreground="{DynamicResource TextFillColorSecondaryBrush}">
+                                        <Run Text="{Binding SupersedenceSelectedCount, Mode=OneWay}" /><Run Text=" checked" />
+                                    </TextBlock>
+                                </WrapPanel>
+                                <DataGrid ItemsSource="{Binding SupersedenceRows}" AutoGenerateColumns="False" CanUserAddRows="False"
+                                          CanUserDeleteRows="False" HeadersVisibility="Column" RowHeaderWidth="0" BorderThickness="1"
+                                          BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}" GridLinesVisibility="Horizontal"
+                                          Height="320" Margin="0,0,0,8" IsTextSearchEnabled="True" TextSearch.TextPath="Application"
+                                          AutomationProperties.AutomationId="dgSupersedenceApps">
+                                    <DataGrid.Columns>
+                                        <DataGridTemplateColumn Header="Check" Width="64">
+                                            <DataGridTemplateColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <CheckBox IsChecked="{Binding IsSelected, UpdateSourceTrigger=PropertyChanged}" HorizontalAlignment="Center" />
+                                                </DataTemplate>
+                                            </DataGridTemplateColumn.CellTemplate>
+                                        </DataGridTemplateColumn>
+                                        <DataGridTextColumn Header="Application" Width="*" MinWidth="160" Binding="{Binding Application}" IsReadOnly="True" />
+                                        <DataGridTextColumn Header="Vendor" Width="140" Binding="{Binding Vendor}" IsReadOnly="True" />
+                                        <DataGridTemplateColumn Header="Supersedence" Width="200" SortMemberPath="ModeChoice">
+                                            <DataGridTemplateColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <ComboBox ItemsSource="{Binding DataContext.SupersedenceRowChoices, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                                              SelectedItem="{Binding ModeChoice, UpdateSourceTrigger=PropertyChanged}" Margin="4,0"
+                                                              AutomationProperties.Name="Supersedence of the application" />
+                                                </DataTemplate>
+                                            </DataGridTemplateColumn.CellTemplate>
+                                        </DataGridTemplateColumn>
+                                    </DataGrid.Columns>
+                                </DataGrid>
                 </StackPanel>
             </ScrollViewer>
             <ScrollViewer x:Name="page_citrix" Visibility="Collapsed" VerticalScrollBarVisibility="Auto">
