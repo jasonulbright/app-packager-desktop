@@ -17,6 +17,7 @@ param(
 Add-Type -AssemblyName System.Drawing, System.Windows.Forms
 Add-Type -TypeDefinition 'using System; using System.Runtime.InteropServices; public static class W { [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr h, int c); [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr h); [DllImport("user32.dll")] public static extern bool SetProcessDPIAware(); [DllImport("user32.dll")] public static extern void mouse_event(uint f, uint x, uint y, uint d, UIntPtr e); }'
 [void][W]::SetProcessDPIAware()
+. (Join-Path $PSScriptRoot 'ApdUiDriver.ps1')
 $out = 'C:\guide\apdcap-out'
 New-Item -ItemType Directory -Force $out | Out-Null
 
@@ -56,6 +57,7 @@ foreach ($theme in $Themes) {
     Set-Content -LiteralPath (Join-Path $userRoot 'settings.json') -Value ('{"Theme":"' + $theme + '","FirstRunCompleted":true,"SiteCode":"MCM","ProviderMachine":"cm01.contoso.com","UseConfigMgr":true}') -Encoding Ascii
     $env:APP_PACKAGER_DATA_ROOT = $root
     $p = Start-Process -FilePath (Join-Path $PSScriptRoot 'ApplicationPackagerUI.exe') -PassThru
+    $script:App = $p
     $deadline = (Get-Date).AddSeconds(40)
     while ((Get-Date) -lt $deadline -and $p.MainWindowHandle -eq 0) { Start-Sleep -Milliseconds 500; $p.Refresh() }
     if ($p.MainWindowHandle -eq 0) { "FAIL $theme : no main window"; Stop-Process -Id $p.Id -Force; continue }
@@ -71,7 +73,7 @@ foreach ($theme in $Themes) {
         if (-not $sample) { 'FAIL no MSI in C:\Windows\Installer'; Stop-Process -Id $p.Id -Force; continue }
         New-Item -ItemType Directory -Force 'C:\guide\apdcap-sample' | Out-Null
         $copy = Copy-Item $sample.FullName 'C:\guide\apdcap-sample\sample.msi' -PassThru -Force
-        Click 110 321; Start-Sleep -Seconds 3
+        $null = Click-Nav 'Installer Analysis'; Start-Sleep -Seconds 3
         Click 900 157; Start-Sleep -Milliseconds 500
         [System.Windows.Forms.SendKeys]::SendWait($copy.FullName.Replace('+', '{+}').Replace('^', '{^}').Replace('%', '{%}').Replace('~', '{~}') + '{ENTER}')
         Start-Sleep -Seconds 12
@@ -88,7 +90,7 @@ foreach ($theme in $Themes) {
     }
     if ($Scenario -eq 'SiteHygiene') {
         # Scan reads the site (CM01); the findings and the other tabs are shown after it.
-        Click 110 601; Start-Sleep -Seconds 4
+        $null = Click-Nav 'Site Hygiene'; Start-Sleep -Seconds 4
         Click 291 154
         Start-Sleep -Seconds 150
         [System.Windows.Forms.Cursor]::Position = New-Object System.Drawing.Point 1000, 1060
@@ -104,13 +106,13 @@ foreach ($theme in $Themes) {
     if ($Scenario -eq 'LivePages') {
         # Pages that read the lab site when they open: (sidebar y, wait, then the tabs: id, x, y; a null x is the page as it opens).
         $pages = @(
-            @{ Nav = 521; Wait = 12; Tabs = @(@('tools-maintenance-windows-list', $null, 0), @('tools-maintenance-windows-coverage', 360, 155), @('tools-maintenance-windows-templates', 434, 155)) }
-            @{ Nav = 481; Wait = 15; Tabs = @(@('tools-collections-list', $null, 0), @('tools-collections-wql', 377, 155), @('tools-collections-templates', 457, 155), @('tools-collections-site-queries', 539, 155)) }
-            @{ Nav = 401; Wait = 15; Tabs = @(@('tools-deployment-helper-deploy', $null, 0), @('tools-deployment-helper-history', 388, 155), @('tools-deployment-helper-options', 447, 155)) }
-            @{ Nav = 561; Wait = 15; Tabs = @(@('tools-dp-content-dps', $null, 0), @('tools-dp-content-content', 322, 219), @('tools-dp-content-issues', 399, 219), @('tools-dp-content-history', 475, 219)) }
+            @{ Nav = 'Maintenance Windows'; Wait = 12; Tabs = @(@('tools-maintenance-windows-list', $null, 0), @('tools-maintenance-windows-coverage', 360, 155), @('tools-maintenance-windows-templates', 434, 155)) }
+            @{ Nav = 'Collection and Compliance'; Wait = 15; Tabs = @(@('tools-collections-list', $null, 0), @('tools-collections-wql', 377, 155), @('tools-collections-templates', 457, 155), @('tools-collections-site-queries', 539, 155)) }
+            @{ Nav = 'Deployment Helper'; Wait = 15; Tabs = @(@('tools-deployment-helper-deploy', $null, 0), @('tools-deployment-helper-history', 388, 155), @('tools-deployment-helper-options', 447, 155)) }
+            @{ Nav = 'DP Content Manager'; Wait = 15; Tabs = @(@('tools-dp-content-dps', $null, 0), @('tools-dp-content-content', 322, 219), @('tools-dp-content-issues', 399, 219), @('tools-dp-content-history', 475, 219)) }
         )
         foreach ($page in $pages) {
-            Click 110 $page.Nav; Start-Sleep -Seconds $page.Wait
+            $null = Click-Nav $page.Nav; Start-Sleep -Seconds $page.Wait
             foreach ($tab in $page.Tabs) {
                 if ($null -ne $tab[1]) { Click $tab[1] $tab[2]; Start-Sleep -Seconds 6 }
                 [System.Windows.Forms.Cursor]::Position = New-Object System.Drawing.Point 1000, 1060
@@ -120,7 +122,7 @@ foreach ($theme in $Themes) {
         }
     }    if ($Scenario -eq 'SettingsScroll') {
         # The Settings page from the top, one screen at a time (the wheel scrolls three lines of 40 px for each notch at 100 percent).
-        Click 110 984; Start-Sleep -Seconds 5
+        $null = Click-Nav 'Settings'; Start-Sleep -Seconds 5
         [System.Windows.Forms.Cursor]::Position = New-Object System.Drawing.Point 1000, 600
         for ($i = 0; $i -lt 30; $i++) {
             Shot (Join-Path $dir ('settings-scroll-{0:00}.png' -f $i))

@@ -90,6 +90,25 @@ function Find-El($Scope, [string]$AutomationId, [string]$Name, [string]$ControlT
     $null
 }
 
+# Clicks an entry of the sidebar by its name (the sidebar has changed its entries over time, so a click by position goes stale). The entry is the element with the name
+# in the left 240 px of the work area. Returns $false when the sidebar has no such entry.
+function Click-Nav([string]$Name, [double]$Timeout = 10) {
+    $cond = New-Object System.Windows.Automation.PropertyCondition ($script:AE::NameProperty), $Name
+    $deadline = (Get-Date).AddSeconds($Timeout)
+    do {
+        foreach ($w in (Get-ApdWindows)) {
+            foreach ($e in $w.FindAll($script:TS::Descendants, $cond)) {
+                $r = $e.Current.BoundingRectangle
+                if ($r.IsEmpty -or $e.Current.IsOffscreen -or $r.X -gt 240) { continue }
+                Click-El $e
+                return $true
+            }
+        }
+        Start-Sleep -Milliseconds 300
+    } while ((Get-Date) -lt $deadline)
+    $false
+}
+
 function Invoke-El($El) { $El.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke() }
 
 function Set-ElText($El, [string]$Text) { $El.GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern).SetValue($Text) }

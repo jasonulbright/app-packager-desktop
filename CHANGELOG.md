@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- The lab capture scripts click the sidebar by name, the capture script of the supersedence guide drives the grid in Settings, and the guide images that showed the old toolbar and sidebar are retaken.
+- Settings, Supersedence names the grid as the place for the mode of an application (the text named the Supersedence button of the toolbar, which no longer exists).
+
 ## [2026.1120.50] - 2026-11-20
 
 ### Added
