@@ -196,7 +196,7 @@
                         </WrapPanel>
                         <WrapPanel Orientation="Horizontal" Margin="0,0,16,0">
                         <ui:Button Content="Refresh" Icon="{ui:SymbolIcon ArrowSync24}" Command="{Binding RefreshCommand}"
-                                   ToolTip="Read the collections from the site again."
+                                   ToolTip="Query the site again for the collections."
                                    Style="{StaticResource ToolButton}" AutomationProperties.AutomationId="btnRefresh" />
                         <ui:Button Content="Cancel" Icon="{ui:SymbolIcon Dismiss24}" Command="{Binding CancelLoadCommand}" Style="{StaticResource ToolButton}"
                                    AutomationProperties.AutomationId="btnCancelLoad" Visibility="{Binding IsLoading, Converter={StaticResource BoolToVisibility}}" />
@@ -552,7 +552,7 @@
                     </Grid.ColumnDefinitions>
                     <WrapPanel Grid.Row="0" Grid.ColumnSpan="3" Margin="0,0,0,4">
                         <ui:Button Content="Refresh" Icon="{ui:SymbolIcon ArrowSync24}" Command="{Binding RefreshQueriesCommand}" Style="{StaticResource ToolButton}"
-                                   ToolTip="Read the saved queries from the site again."
+                                   ToolTip="Query the site again for the saved queries."
                                    AutomationProperties.AutomationId="btnRefreshQueries" />
                         <ui:Button Content="Load to Editor" Icon="{ui:SymbolIcon Code24}" Command="{Binding LoadQueryToEditorCommand}" Style="{StaticResource ToolButton}"
                                    ToolTip="Copy the query of the selected saved query to the WQL Editor tab."
