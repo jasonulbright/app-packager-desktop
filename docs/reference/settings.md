@@ -247,7 +247,7 @@ The six Microsoft 365 definitions share these exclusion switches (group "Exclude
 
 | UI label | Property | Default | Effect |
 |---|---|---|---|
-| `Local Installer Sources` (folder per application, `Browse...`) | `LocalSourceFolders` | empty | Maps definition ID to folder. Stage takes the highest file version in the folder. The installer must carry a valid signature. Use it for an installer whose download needs a sign-in. |
+| `Local Installer Sources` (folder per application, `Browse...`) | `LocalSourceFolders` | empty | Maps definition ID to folder. Stage takes the highest file version in the folder. The installer must carry a valid signature. Use it for an installer that a script cannot download (a vendor sign-in or a bot protection). See [Installer source folders](../core/settings-page.md#installer-source-folders). |
 | `Packager Files` (file per key, `Browse...`) | `SideFiles` | empty | Maps side-file key to path. Stage copies the file beside the installer. The app never reads it. |
 
 ## Citrix Workspace App - Install Parameters

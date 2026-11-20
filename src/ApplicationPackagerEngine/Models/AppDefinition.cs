@@ -459,6 +459,24 @@ public sealed class LocalSourceConfig
     public string[] Exclude { get; set; } = [];
 
     /// <summary>
+    /// What the folder must hold, in plain words (the file and where it comes from). It ends every refusal about the
+    /// folder, and the Settings row and the folder prompt show it.
+    /// </summary>
+    public string? Note { get; set; }
+
+    /// <summary>
+    /// True when the vendor has no web version source a script can read: the version is the version of the file in the
+    /// folder (the ProductVersion of an MSI file), and the version scraper of the definition is never run.
+    /// </summary>
+    public bool VersionFromFile { get; set; }
+
+    /// <summary>
+    /// True (the default): the staged installer must carry a valid signature. False: an installer without one is staged
+    /// and the log says so; for a vendor whose file may be unsigned.
+    /// </summary>
+    public bool RequireSignature { get; set; } = true;
+
+    /// <summary>
     /// Staged file name per source-name wildcard, first match wins. {version}
     /// is the installer's file version. No match stages under InstallerFileName.
     /// </summary>

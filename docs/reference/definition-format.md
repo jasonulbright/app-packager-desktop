@@ -111,7 +111,7 @@ These fields hold an object or a list. The page [Definition format: sections](de
 
 | Field | Type | Meaning | Default | Shipped |
 |---|---|---|---|---|
-| `Type` | string | `HttpRegex`, `JsonQuery`, `FileVersion`, `ChainedHttpRegex`, `CdnCab`, `DellCatalog` or `HeadProbe`. | `"HttpRegex"` | 327 |
+| `Type` | string | `HttpRegex`, `JsonQuery`, `FileVersion`, `ChainedHttpRegex`, `CdnCab`, `DellCatalog`, `HeadProbe` or `LocalFile`. `LocalFile` reads nothing: the definition has no web version source, and `LocalSource.VersionFromFile` takes the version from the installer in the folder. | `"HttpRegex"` | 327 |
 | `Url` | string | Address to read. `HeadProbe` takes a template with `{version}`. `FileVersion` can take `{build}`. | `""` | 327 |
 | `Pattern` | string | The expression or the property name. The meaning depends on `Type`. See [Definitions](../core/definitions.md#version-sources-scrapers). | `""` | 320; `"tag_name"` in `notepadplusplus.json` |
 | `VersionTransform` | string or null | Chain of `strip_prefix:X`, `insert_dot:N`, `replace:X:Y` and `regex_replace:pattern:replacement` that you separate with `\|`. | `null` | 71; `"strip_prefix:v"` |

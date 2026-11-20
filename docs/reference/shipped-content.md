@@ -29,13 +29,14 @@ The folder `src\ApplicationPackagerEngine\Definitions` holds 327 definition file
 
 | Property | Count of definitions |
 |---|---|
-| Version scraper `HttpRegex` | 212 |
+| Version scraper `HttpRegex` | 211 |
 | Version scraper `JsonQuery` | 68 |
-| Version scraper `FileVersion` | 31 |
+| Version scraper `FileVersion` | 30 |
 | Version scraper `ChainedHttpRegex` | 8 |
 | Version scraper `CdnCab` | 6 |
 | Version scraper `DellCatalog` | 1 |
 | Version scraper `HeadProbe` | 1 |
+| Version scraper `LocalFile` | 2 |
 | `ArpName` with a pattern | 301 |
 | `ArpName` set to `none` | 26 |
 | With a `Cpe` | 302 |

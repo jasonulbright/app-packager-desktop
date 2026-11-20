@@ -793,7 +793,7 @@
             <ScrollViewer x:Name="page_localsources" Visibility="Collapsed" VerticalScrollBarVisibility="Auto">
                 <StackPanel Margin="0,0,0,8" MaxWidth="960" HorizontalAlignment="Left">
                                 <TextBlock Text="Local Installer Sources" Style="{StaticResource SectionHeader}" />
-                                <TextBlock Text="Folders that hold an installer whose download needs a sign-in. Stage takes the highest file version found in the folder, and the installer must carry a valid signature."
+                                <TextBlock Text="Folders that hold an installer that a script cannot download (a vendor sign-in or a bot protection). You put the file in the folder by hand. Stage takes the highest file version found in the folder, and the installer must carry a valid signature unless the row says otherwise."
                                            Foreground="{DynamicResource TextFillColorSecondaryBrush}" Margin="0,0,0,8" TextWrapping="Wrap" />
                                 <ItemsControl ItemsSource="{Binding LocalSourceRows}">
                                     <ItemsControl.ItemTemplate>

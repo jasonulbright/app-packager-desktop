@@ -68,7 +68,7 @@ Press Ctrl+C to cancel. The run writes `Cancelled.` and returns exit code 1.
 | `--estimated-minutes <n>`, `--maximum-minutes <n>` | Timing for this build only. A package of a sealed build refuses them. | profile or Settings |
 | `--download-root <folder>` | Local staging root. A non-default profile stages under `profiles\<ProfileId>`. | Settings |
 | `--site-code`, `--provider-machine-name`, `--file-server-path` | ConfigMgr site, SMS Provider and content share root. | Settings |
-| `--local-source-folder <folder>` | Installer folder for a definition whose download needs a sign-in. | Settings |
+| `--local-source-folder <folder>` | Installer folder for a definition whose installer a script cannot download (see Installer source folders in Settings). | Settings |
 | `--packagers-root <folder>` | Folder of PS1 packagers. | Settings |
 | `--wsus-server`, `--wsus-port`, `--wsus-use-ssl`, `--wsus-classification`, `--wsus-approval-group`, `--wsus-decline-superseded` | WSUS values for this run. The port is 1 to 65535. Without a port, a change of SSL takes the default port of the new scheme. The classification is one of `Updates`, `SecurityUpdates`, `CriticalUpdates`, `FeaturePacks`, `ServicePacks`, `Tools`, `UpdateRollups`. | Settings |
 | `--data-root <folder>` | Data root of settings and Workbench for this run. It sets `APP_PACKAGER_DATA_ROOT`. | none |

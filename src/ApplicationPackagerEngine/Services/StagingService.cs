@@ -228,12 +228,29 @@ public sealed class StagingService
         return match.Groups.Count > 1 ? match.Groups[1].Value : match.Value;
     }
 
-    /// <summary>Gets the latest version for a JSON-defined app without downloading.</summary>
-    public async Task<string?> GetLatestVersionAsync(AppDefinition def, CancellationToken ct = default)
+    /// <summary>
+    /// Gets the latest version for a JSON-defined app without downloading. A definition with no web version source
+    /// (LocalSource.VersionFromFile) answers with the version of the installer in <paramref name="localSourceFolder"/>,
+    /// and refuses with a message that names the folder and the file to put there when the folder holds none.
+    /// </summary>
+    public async Task<string?> GetLatestVersionAsync(AppDefinition def, CancellationToken ct = default, string? localSourceFolder = null)
     {
         using var importedScope = ImportedRunScope.EnterFor(def);
         if (StagesFromSavedInstaller(def))
             return string.IsNullOrWhiteSpace(def.LocalInstaller?.Version) ? null : def.LocalInstaller.Version.Trim();
+        if (def.LocalSource is { VersionFromFile: true } fromFile)
+        {
+            try
+            {
+                return LocalSourceResolver.ReadVersion(LocalSourceResolver.Resolve(localSourceFolder, fromFile, def.Application));
+            }
+            catch (InvalidOperationException ex)
+            {
+                // The vendor publishes no version a script can read; say where the version comes from.
+                throw new NoWebVersionSourceException(
+                    $"{def.Application} has no web version source: its version is read from the installer in the installer source folder. {ex.Message}", ex);
+            }
+        }
 
         var (raw, display) = await _scrapers.GetLatestVersionWithTransformAsync(def.VersionScraper, ct);
 
@@ -300,6 +317,21 @@ public sealed class StagingService
         return note is null ? result : result.WithStagingNote(note);
     }
 
+    /// <summary>
+    /// A local installer must carry a valid signature unless the definition says its vendor's file may be unsigned
+    /// (RequireSignature false); then the log reports the status and the stage goes on.
+    /// </summary>
+    private static void RequireLocalSignature(LocalSourceConfig config, string path, Action<string>? onProgress)
+    {
+        if (config.RequireSignature)
+        {
+            AuthenticodeVerifier.RequireValid(path, onProgress);
+            return;
+        }
+        try { AuthenticodeVerifier.RequireValid(path, onProgress); }
+        catch (InvalidOperationException ex) { onProgress?.Invoke($"WARNING: {ex.Message}. The file comes from your installer source folder; staging it as found."); }
+    }
+
     private async Task<StagingResult> StageCoreAsync(
         AppDefinition def, string downloadRoot,
         Action<string>? onProgress,
@@ -357,6 +389,11 @@ public sealed class StagingService
             {
                 version = rawVersion = savedInstaller.Version.Trim();
             }
+            else if (localInstaller is not null && def.LocalSource!.VersionFromFile)
+            {
+                // No web version source: the file in the folder is the version.
+                version = rawVersion = LocalSourceResolver.ReadVersion(localInstaller);
+            }
             else if (!string.IsNullOrEmpty(knownVersion) && string.IsNullOrEmpty(def.VersionScraper.VersionTransform))
             {
                 onProgress?.Invoke($"Checking latest version for {def.Application}...");
@@ -389,7 +426,7 @@ public sealed class StagingService
             if (localInstaller is not null)
             {
                 onProgress?.Invoke($"Local installer              : {localInstaller}");
-                AuthenticodeVerifier.RequireValid(localInstaller, onProgress);
+                RequireLocalSignature(def.LocalSource!, localInstaller, onProgress);
                 var localVersion = LocalSourceResolver.ReadVersion(localInstaller);
                 if (System.Version.TryParse(localVersion, out var local) && System.Version.TryParse(displayVersion, out var published)
                     && local < published)
@@ -416,7 +453,7 @@ public sealed class StagingService
                     def.InstallerFileName ?? Path.GetFileName(localInstaller)));
                 installerPath = Workbench.WorkbenchPaths.CombineUnder(contentPath, installerFileName);
                 StageLocalInstaller(localInstaller, installerPath, onProgress);
-                AuthenticodeVerifier.RequireValid(installerPath, onProgress);
+                RequireLocalSignature(def.LocalSource!, installerPath, onProgress);
             }
             else if (savedInstaller is not null)
             {
@@ -744,7 +781,9 @@ public sealed class StagingService
                 Architecture = def.Architecture,
                 InstallContext = installContext,
                 InstallMode = string.IsNullOrWhiteSpace(installMode) ? null : installMode,
-                InstallArgs = installArgs.Replace(TargetSecretScript.Token, TargetSecretScript.ManifestText, StringComparison.Ordinal),
+                InstallArgs = System.Text.RegularExpressions.Regex.Replace(
+                    installArgs.Replace(TargetSecretScript.Token, TargetSecretScript.ManifestText, StringComparison.Ordinal),
+                    @"\bAPITOKEN=\S+", "APITOKEN=<in install.ps1>"),
                 UninstallArgs = uninstallArgs,
                 UninstallCommand = modeUninstallCommandLine,
                 ProductCode = productCode,

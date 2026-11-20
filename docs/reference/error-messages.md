@@ -95,7 +95,7 @@ See [App Packager page](../core/packages.md) and [Stage and publish](../core/sta
 | Version is required. | Installer drop dialog | The field is empty. | Fill the field. |
 | Install args are required for a non-MSI installer. | Installer drop dialog | A non-MSI drop has no install arguments. | Fill the field. |
 | Package refused: <reason> | App Packager page, bring-your-own run | The run was refused. | The code names no fix. Review the reason. |
-| Skipped <app>: no installer source folder chosen. | App Packager page log | You cancelled the folder prompt. The prompt says: "Choose the folder that holds the <app> installer. Its download requires a sign-in, so it stages from a local copy." | Choose a folder. |
+| Skipped <app>: no installer source folder chosen. | App Packager page log | You cancelled the folder prompt. The prompt says: "Choose the folder that holds the <app> installer. A script cannot download it, so it stages from the copy that you put in this folder." and, for some applications, one more sentence that names the file. | Choose a folder. |
 
 ## Settings and data folders
 

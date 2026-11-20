@@ -39,7 +39,7 @@ The app does not need elevation. Do not run the app as administrator if you use 
 3. Optional: select **Check Latest**. Stage reuses the version that **Check Latest** found and does not read the vendor again.
 4. Select **Stage**.
 5. If the dialog **Configure: `<application>`** opens, set the values and select **Continue**. Select **Cancel** to skip the application. The row then shows `Skipped`.
-6. If a folder prompt opens, choose the folder that holds the installer. The prompt appears for an application whose download needs a sign-in. If you cancel the prompt, the log shows `Skipped <application>: no installer source folder chosen.`
+6. If a folder prompt opens, choose the folder that holds the installer. The prompt appears for an application whose installer a script cannot download. If you cancel the prompt, the log shows `Skipped <application>: no installer source folder chosen.`
 7. Watch the row status. It changes from `Staging...` to `Staged`.
 8. To stop the run, select **Cancel** or press Esc. The status of the running row changes to `Cancelled`.
 9. To read the result, right-click the row and select **Open Staged Folder**.
@@ -86,7 +86,7 @@ A download that fails is tried a second time after 5 seconds. The log shows `Dow
 | Download Root (local staging) | Folder for staged content. |
 | Skip the review dialog before staging and use the saved values | Stage uses the saved Install Parameters and does not show **Configure**. An application with `ReviewBeforeStage` in its definition still shows the dialog. |
 | Install Parameters | Values for each installer switch, saved per application. |
-| Local Installer Sources | Folder that holds the installer of an application whose download needs a sign-in. Stage takes the highest file version in the folder. |
+| Local Installer Sources | Folder that holds the installer of an application that a script cannot download. Stage takes the highest file version in the folder. |
 | Packager Files | Files that Stage copies beside the installer. The app never reads them. |
 | M365 Apps - Channel | Update channel for the Microsoft 365 Apps, Project and Visio definitions. |
 | Script Signing | Signature policy for the generated scripts. |
