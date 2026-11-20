@@ -214,11 +214,12 @@ public sealed class VendorPageDefinitionTests : IDisposable
         Assert.True(uninstall.IndexOf("exit 3010", StringComparison.Ordinal) < uninstall.IndexOf("exit $proc.ExitCode", StringComparison.Ordinal));
     }
 
-    public static TheoryData<string, string, bool, string, string> TableauCases() => new()
+    // The download order of the three definitions: the esdalt folder first, and the tssoftware folder when the first fails (FallbackDownloadUrl).
+    public static TheoryData<string, string, bool, string, string, string> TableauCases() => new()
     {
-        { "tableaureader.json", "Tableau Reader*", false, "https://downloads.tableau.com/tssoftware/TableauReader-64bit-2026-2-2.exe", "tabreader" },
-        { "tableauprep.json", "Tableau Prep*", false, "https://downloads.tableau.com/tssoftware/TableauPrep-2026-2-2.exe", "tabprep" },
-        { "tableaudesktop.json", "Tableau 20*", true, "https://downloads.tableau.com/esdalt/2026.2.2/TableauDesktop-64bit-2026-2-2.exe", "tableau" }
+        { "tableaureader.json", "Tableau Reader*", false, "https://downloads.tableau.com/esdalt/2026.2.2/TableauReader-64bit-2026-2-2.exe", "https://downloads.tableau.com/tssoftware/TableauReader-64bit-2026-2-2.exe", "tabreader" },
+        { "tableauprep.json", "Tableau Prep*", false, "https://downloads.tableau.com/esdalt/tableau_prep/2026.2.2/TableauPrep-2026-2-2.exe", "https://downloads.tableau.com/tssoftware/TableauPrep-2026-2-2.exe", "tabprep" },
+        { "tableaudesktop.json", "Tableau 20*", true, "https://downloads.tableau.com/esdalt/2026.2.2/TableauDesktop-64bit-2026-2-2.exe", "https://downloads.tableau.com/tssoftware/TableauDesktop-64bit-2026-2-2.exe", "tableau" }
     };
 
     [Fact]
@@ -235,11 +236,12 @@ public sealed class VendorPageDefinitionTests : IDisposable
 
     [Theory]
     [MemberData(nameof(TableauCases))]
-    public void TableauBuildsItsUrlSwitchesAndScripts(string file, string pattern, bool removeInstalled, string url, string process)
+    public void TableauBuildsItsUrlSwitchesAndScripts(string file, string pattern, bool removeInstalled, string url, string fallbackUrl, string process)
     {
         var def = DefinitionFixture.Load(file);
 
         Assert.Equal(url, StagingService.ApplyDashedVersion(def.DownloadUrl.Replace("{display_version}", "2026.2.2"), "2026.2.2"));
+        Assert.Equal(fallbackUrl, StagingService.ApplyDashedVersion(def.FallbackDownloadUrl!.Replace("{display_version}", "2026.2.2"), "2026.2.2"));
         Assert.Null(def.LocalSource);
         Assert.True(def.RequireValidSignature);
         Assert.Equal(removeInstalled, def.InstallArgs.Contains("REMOVEINSTALLEDAPP=1"));
