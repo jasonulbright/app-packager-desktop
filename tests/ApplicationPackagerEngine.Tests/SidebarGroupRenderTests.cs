@@ -179,7 +179,7 @@ public sealed class SidebarGroupRenderTests : IDisposable
             var tester = entries.Single(i => (string)i.Tag == SidebarIds.DetectionTester);
             var maintenance = entries.Single(i => (string)i.Tag == SidebarIds.MaintenanceWindows);
             var firstTool = entries.Single(i => (string)i.Tag == SidebarIds.InstallerAnalysis);
-            Assert.Equal(["App Packager", "Add from web", "Add from file", "Workbench"], entries.Take(4).Select(e => (string)e.Content));
+            Assert.Equal(["App Packager", "Add from web", "Add from file", "WSUS Updates", "Workbench"], entries.Take(5).Select(e => (string)e.Content));
 
             foreach (var caption in captions)
             {

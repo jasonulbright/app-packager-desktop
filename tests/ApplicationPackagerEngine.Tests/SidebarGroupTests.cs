@@ -52,9 +52,9 @@ public sealed class SidebarGroupRegistryTests
     {
         var registry = SidebarRegistry.CreateDefault();
         var first = registry.Items.Where(i => i.Group is null).ToList();
-        Assert.Equal([SidebarIds.Packages, SidebarIds.AddApp, SidebarIds.AddFile, SidebarIds.Workbench], SidebarFixtures.Ids(first));
-        Assert.Equal(["App Packager", "Add from web", "Add from file", "Workbench"], first.Select(i => i.Title));
-        Assert.Equal(first, registry.Items.Take(4));
+        Assert.Equal([SidebarIds.Packages, SidebarIds.AddApp, SidebarIds.AddFile, SidebarIds.WsusUpdates, SidebarIds.Workbench], SidebarFixtures.Ids(first));
+        Assert.Equal(["App Packager", "Add from web", "Add from file", "WSUS Updates", "Workbench"], first.Select(i => i.Title));
+        Assert.Equal(first, registry.Items.Take(5));
         Assert.True(first[0].IsPinned);
         Assert.Equal(typeof(PackagesPage), first[0].PageType);
         Assert.Equal(typeof(AddAppPage), first[1].PageType);
@@ -74,7 +74,7 @@ public sealed class SidebarGroupRegistryTests
             "Installer Analysis", "Detection Tester", "Deployment Helper", "Pivots and Scripts",
             "Collection and Compliance", "Maintenance Windows", "DP Content Manager", "Site Hygiene"
         ], tools.Select(i => i.Title));
-        Assert.Equal(tools, registry.Items.Skip(4));
+        Assert.Equal(tools, registry.Items.Skip(5));
     }
 
     [Fact]
@@ -201,7 +201,7 @@ public sealed class SidebarGroupServiceTests
     {
         var service = new SidebarService(SidebarRegistry.CreateDefault(), new InMemorySidebarStore());
         Assert.True(service.Move(SidebarIds.SiteHygiene, 1));
-        Assert.Equal([SidebarIds.Packages, SidebarIds.AddApp, SidebarIds.AddFile, SidebarIds.Workbench, SidebarIds.SiteHygiene], SidebarFixtures.Ids(service.All.Take(5)));
+        Assert.Equal([SidebarIds.Packages, SidebarIds.AddApp, SidebarIds.AddFile, SidebarIds.WsusUpdates, SidebarIds.Workbench, SidebarIds.SiteHygiene], SidebarFixtures.Ids(service.All.Take(6)));
         Assert.False(service.Move(SidebarIds.Workbench, 5));
     }
 }
@@ -307,7 +307,7 @@ public sealed class SidebarGroupMigrationTests : IDisposable
         var service = new SidebarService(SidebarRegistry.CreateDefault(), new SettingsSidebarLayoutStore(new SettingsService()));
         Assert.Equal(
         [
-            SidebarIds.Packages, SidebarIds.Workbench, SidebarIds.AddApp, SidebarIds.AddFile,
+            SidebarIds.Packages, SidebarIds.Workbench, SidebarIds.AddApp, SidebarIds.AddFile, SidebarIds.WsusUpdates,
             SidebarIds.SiteHygiene, SidebarIds.DetectionTester, SidebarIds.InstallerAnalysis,
             SidebarIds.DeploymentHelper, SidebarIds.PivotsScripts, SidebarIds.CollectionCompliance, SidebarIds.MaintenanceWindows, SidebarIds.DpContentManager
         ], SidebarFixtures.Ids(service.All));

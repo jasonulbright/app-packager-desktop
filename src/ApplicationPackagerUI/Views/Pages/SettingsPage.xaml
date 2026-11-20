@@ -269,10 +269,7 @@
                 <StackPanel Margin="0,0,0,8" MaxWidth="960" HorizontalAlignment="Left">
                                 <TextBlock Text="WSUS" Style="{StaticResource SectionHeader}" />
                                 <TextBlock Foreground="{DynamicResource TextFillColorSecondaryBrush}" Margin="0,0,0,8" TextWrapping="Wrap"
-                                           Text="Publish to WSUS publishes the installer of each checked app as a locally published update. The WSUS Updates button below lists and manages the published updates. This computer needs the WSUS console or RSAT WSUS tools at the server's version, an account in the WSUS Administrators group, and file-share access to the server. When this computer is not the WSUS server, it must also trust the signing certificate." />
-                                <ui:Button Content="WSUS Updates" Icon="{ui:SymbolIcon TextBulletListSquare24}" Command="{Binding OpenWsusUpdatesCommand}" Margin="0,0,0,8"
-                                           AutomationProperties.AutomationId="btnWsusUpdates"
-                                           ToolTip="List and manage the updates that Publish to WSUS published. Needs the WSUS server below and the WSUS administration API." />
+                                           Text="Publish to WSUS publishes the installer of each checked app as a locally published update. The WSUS Updates entry of the sidebar lists and manages the published updates. This computer needs the WSUS console or RSAT WSUS tools at the server's version, an account in the WSUS Administrators group, and file-share access to the server. When this computer is not the WSUS server, it must also trust the signing certificate." />
 
                                 <TextBlock Text="Server" Style="{StaticResource SubHeader}" />
                                 <TextBlock Text="WSUS server" Style="{StaticResource FieldLabel}" />
@@ -332,7 +329,7 @@
                                                ToolTip="Lists the computer groups of the server in the box." />
                                     <ComboBox IsEditable="True" ItemsSource="{Binding Wsus.Groups}" Text="{Binding Wsus.ApprovalGroup, UpdateSourceTrigger=PropertyChanged}"
                                               AutomationProperties.Name="Approve for group" AutomationProperties.AutomationId="cboWsusGroup"
-                                              ToolTip="Computer group the update is approved for right after it publishes. Leave empty to approve later from WSUS Updates (Settings, WSUS Publishing): the WSUS console does not list locally published updates." />
+                                              ToolTip="Computer group the update is approved for right after it publishes. Leave empty to approve later from WSUS Updates (sidebar): the WSUS console does not list locally published updates." />
                                 </DockPanel>
                                 <CheckBox Content="Decline earlier versions of the same application after publishing" IsChecked="{Binding Wsus.DeclineSuperseded}" Margin="0,0,0,8"
                                           AutomationProperties.AutomationId="chkWsusDecline"

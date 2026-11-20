@@ -193,7 +193,7 @@ public sealed class SidebarWiringTests : IDisposable
             var show = packages.ContextMenu!.Items.OfType<System.Windows.Controls.MenuItem>().Single(m => (string)m.Header == "Show tool");
             var entry = show.Items.OfType<System.Windows.Controls.MenuItem>().Single(m => (string)m.Header == "Detection Tester");
             entry.RaiseEvent(new System.Windows.RoutedEventArgs(System.Windows.Controls.MenuItem.ClickEvent, entry));
-            Assert.Equal("Detection Tester", Titles(window)[5]);
+            Assert.Equal("Detection Tester", Titles(window)[6]);
             Assert.False(tester.IsActive);
             Assert.True(packages.IsActive);
             Assert.Equal(typeof(ApplicationPackagerUI.Views.Pages.PackagesPage), ShownPage(navigation));
@@ -218,13 +218,13 @@ public sealed class SidebarWiringTests : IDisposable
 
             var window = provider.GetRequiredService<ApplicationPackagerUI.Views.Windows.MainWindow>();
             var items = window.GetNavigation().MenuItems.OfType<Wpf.Ui.Controls.NavigationViewItem>().ToList();
-            Assert.Equal(["App Packager", "Add from web", "Add from file", "Workbench", .. ToolTitles], items.Select(i => (string)i.Content));
+            Assert.Equal(["App Packager", "Add from web", "Add from file", "WSUS Updates", "Workbench", .. ToolTitles], items.Select(i => (string)i.Content));
             Assert.Equal(typeof(ApplicationPackagerUI.Views.Pages.PackagesPage), items[0].TargetPageType);
             Assert.Null(items[3].TargetPageType);
 
             provider.GetRequiredService<SidebarService>().Hide(SidebarIds.SiteHygiene);
-            Assert.Equal(11, Titles(window).Length);
-            Assert.Equal(12, window.GetNavigation().MenuItems.Count);
+            Assert.Equal(12, Titles(window).Length);
+            Assert.Equal(13, window.GetNavigation().MenuItems.Count);
             window.Close();
         });
     }
@@ -236,9 +236,9 @@ public sealed class SidebarWiringTests : IDisposable
         {
             using var provider = MainWindowServices();
             var window = provider.GetRequiredService<ApplicationPackagerUI.Views.Windows.MainWindow>();
-            Assert.Equal(ToolTitles, Titles(window).Skip(4));
+            Assert.Equal(ToolTitles, Titles(window).Skip(5));
 
-            var items = window.GetNavigation().MenuItems.OfType<Wpf.Ui.Controls.NavigationViewItem>().Skip(4).ToList();
+            var items = window.GetNavigation().MenuItems.OfType<Wpf.Ui.Controls.NavigationViewItem>().Skip(5).ToList();
             Assert.Equal(typeof(ApplicationPackagerUI.Views.Pages.InstallerAnalysisPage), items[0].TargetPageType);
             Assert.Equal(typeof(ApplicationPackagerUI.Views.Pages.DetectionTesterPage), items[1].TargetPageType);
             Assert.Equal(typeof(ApplicationPackagerUI.Views.Pages.DeploymentHelperPage), items[2].TargetPageType);
@@ -255,13 +255,13 @@ public sealed class SidebarWiringTests : IDisposable
             var hide = menu.Items.OfType<System.Windows.Controls.MenuItem>().Single(m => (string)m.Header == "Hide DP Content Manager");
             hide.RaiseEvent(new System.Windows.RoutedEventArgs(System.Windows.Controls.MenuItem.ClickEvent, hide));
             Assert.DoesNotContain("DP Content Manager", Titles(window));
-            Assert.Equal(11, Titles(window).Length);
+            Assert.Equal(12, Titles(window).Length);
 
             var first = window.GetNavigation().MenuItems.OfType<Wpf.Ui.Controls.NavigationViewItem>().First();
             var show = first.ContextMenu!.Items.OfType<System.Windows.Controls.MenuItem>().Single(m => (string)m.Header == "Show tool");
             var entry = show.Items.OfType<System.Windows.Controls.MenuItem>().Single(m => (string)m.Header == "DP Content Manager");
             entry.RaiseEvent(new System.Windows.RoutedEventArgs(System.Windows.Controls.MenuItem.ClickEvent, entry));
-            Assert.Equal(["App Packager", "Add from web", "Add from file", "Workbench", .. ToolTitles], Titles(window));
+            Assert.Equal(["App Packager", "Add from web", "Add from file", "WSUS Updates", "Workbench", .. ToolTitles], Titles(window));
             window.Close();
         });
     }
@@ -414,11 +414,11 @@ public sealed class SidebarWiringTests : IDisposable
             """);
         using var provider = new ServiceCollection().AddPackagerServices().AddSidebar().BuildServiceProvider();
         var service = provider.GetRequiredService<SidebarService>();
-        Assert.Equal([SidebarIds.Packages, SidebarIds.AddApp, SidebarIds.AddFile, SidebarIds.Workbench, SidebarIds.DeploymentHelper], SidebarFixtures.Ids(service.All).Take(5));
+        Assert.Equal([SidebarIds.Packages, SidebarIds.AddApp, SidebarIds.AddFile, SidebarIds.WsusUpdates, SidebarIds.Workbench, SidebarIds.DeploymentHelper], SidebarFixtures.Ids(service.All).Take(6));
         Assert.True(service.IsHidden(SidebarIds.DeploymentHelper));
         Assert.True(service.Show(SidebarIds.DeploymentHelper));
-        Assert.Equal(ApplicationPackagerUI.Models.SidebarItemKind.Page, service.Items[4].Kind);
-        Assert.Equal(typeof(ApplicationPackagerUI.Views.Pages.DeploymentHelperPage), service.Items[4].PageType);
+        Assert.Equal(ApplicationPackagerUI.Models.SidebarItemKind.Page, service.Items[5].Kind);
+        Assert.Equal(typeof(ApplicationPackagerUI.Views.Pages.DeploymentHelperPage), service.Items[5].PageType);
     }
 
     [Fact]
@@ -450,11 +450,11 @@ public sealed class SidebarWiringTests : IDisposable
             """);
         using var provider = new ServiceCollection().AddPackagerServices().AddSidebar().BuildServiceProvider();
         var service = provider.GetRequiredService<SidebarService>();
-        Assert.Equal([SidebarIds.Packages, SidebarIds.AddApp, SidebarIds.AddFile, SidebarIds.Workbench, SidebarIds.DpContentManager], SidebarFixtures.Ids(service.All).Take(5));
+        Assert.Equal([SidebarIds.Packages, SidebarIds.AddApp, SidebarIds.AddFile, SidebarIds.WsusUpdates, SidebarIds.Workbench, SidebarIds.DpContentManager], SidebarFixtures.Ids(service.All).Take(6));
         Assert.True(service.IsHidden(SidebarIds.DpContentManager));
         Assert.True(service.Show(SidebarIds.DpContentManager));
-        Assert.Equal(ApplicationPackagerUI.Models.SidebarItemKind.Page, service.Items[4].Kind);
-        Assert.Equal(typeof(ApplicationPackagerUI.Views.Pages.DpContentManagerPage), service.Items[4].PageType);
+        Assert.Equal(ApplicationPackagerUI.Models.SidebarItemKind.Page, service.Items[5].Kind);
+        Assert.Equal(typeof(ApplicationPackagerUI.Views.Pages.DpContentManagerPage), service.Items[5].PageType);
     }
 
     [Fact]
@@ -486,11 +486,11 @@ public sealed class SidebarWiringTests : IDisposable
             """);
         using var provider = new ServiceCollection().AddPackagerServices().AddSidebar().BuildServiceProvider();
         var service = provider.GetRequiredService<SidebarService>();
-        Assert.Equal([SidebarIds.Packages, SidebarIds.AddApp, SidebarIds.AddFile, SidebarIds.Workbench, SidebarIds.PivotsScripts], SidebarFixtures.Ids(service.All).Take(5));
+        Assert.Equal([SidebarIds.Packages, SidebarIds.AddApp, SidebarIds.AddFile, SidebarIds.WsusUpdates, SidebarIds.Workbench, SidebarIds.PivotsScripts], SidebarFixtures.Ids(service.All).Take(6));
         Assert.True(service.IsHidden(SidebarIds.PivotsScripts));
         Assert.True(service.Show(SidebarIds.PivotsScripts));
-        Assert.Equal(ApplicationPackagerUI.Models.SidebarItemKind.Page, service.Items[4].Kind);
-        Assert.Equal(typeof(ApplicationPackagerUI.Views.Pages.PivotsScriptsPage), service.Items[4].PageType);
+        Assert.Equal(ApplicationPackagerUI.Models.SidebarItemKind.Page, service.Items[5].Kind);
+        Assert.Equal(typeof(ApplicationPackagerUI.Views.Pages.PivotsScriptsPage), service.Items[5].PageType);
     }
 
     [Fact]
@@ -501,11 +501,11 @@ public sealed class SidebarWiringTests : IDisposable
             """);
         using var provider = new ServiceCollection().AddPackagerServices().AddSidebar().BuildServiceProvider();
         var service = provider.GetRequiredService<SidebarService>();
-        Assert.Equal([SidebarIds.Packages, SidebarIds.AddApp, SidebarIds.AddFile, SidebarIds.Workbench, SidebarIds.MaintenanceWindows], SidebarFixtures.Ids(service.All).Take(5));
+        Assert.Equal([SidebarIds.Packages, SidebarIds.AddApp, SidebarIds.AddFile, SidebarIds.WsusUpdates, SidebarIds.Workbench, SidebarIds.MaintenanceWindows], SidebarFixtures.Ids(service.All).Take(6));
         Assert.True(service.IsHidden(SidebarIds.MaintenanceWindows));
         Assert.True(service.Show(SidebarIds.MaintenanceWindows));
-        Assert.Equal(ApplicationPackagerUI.Models.SidebarItemKind.Page, service.Items[4].Kind);
-        Assert.Equal(typeof(ApplicationPackagerUI.Views.Pages.MaintenanceWindowsPage), service.Items[4].PageType);
+        Assert.Equal(ApplicationPackagerUI.Models.SidebarItemKind.Page, service.Items[5].Kind);
+        Assert.Equal(typeof(ApplicationPackagerUI.Views.Pages.MaintenanceWindowsPage), service.Items[5].PageType);
     }
 
     [Fact]
@@ -537,11 +537,11 @@ public sealed class SidebarWiringTests : IDisposable
             """);
         using var provider = new ServiceCollection().AddPackagerServices().AddSidebar().BuildServiceProvider();
         var service = provider.GetRequiredService<SidebarService>();
-        Assert.Equal([SidebarIds.Packages, SidebarIds.AddApp, SidebarIds.AddFile, SidebarIds.Workbench, SidebarIds.SiteHygiene], SidebarFixtures.Ids(service.All).Take(5));
+        Assert.Equal([SidebarIds.Packages, SidebarIds.AddApp, SidebarIds.AddFile, SidebarIds.WsusUpdates, SidebarIds.Workbench, SidebarIds.SiteHygiene], SidebarFixtures.Ids(service.All).Take(6));
         Assert.True(service.IsHidden(SidebarIds.SiteHygiene));
         Assert.True(service.Show(SidebarIds.SiteHygiene));
-        Assert.Equal(ApplicationPackagerUI.Models.SidebarItemKind.Page, service.Items[4].Kind);
-        Assert.Equal(typeof(ApplicationPackagerUI.Views.Pages.SiteHygienePage), service.Items[4].PageType);
+        Assert.Equal(ApplicationPackagerUI.Models.SidebarItemKind.Page, service.Items[5].Kind);
+        Assert.Equal(typeof(ApplicationPackagerUI.Views.Pages.SiteHygienePage), service.Items[5].PageType);
         Assert.DoesNotContain(service.All, i => i.Kind == ApplicationPackagerUI.Models.SidebarItemKind.Tool);
     }
 }

@@ -50,7 +50,7 @@ Each entry has a check box, a **Move up** button and a **Move down** button. **R
 |---|---|---|
 | **ConfigMgr** | Selected | Enables **Check ConfigMgr** and **Publish to ConfigMgr**. |
 | **Intune** | Cleared | Enables **Publish to Intune**. |
-| **WSUS** | Cleared | Enables **Publish to WSUS** and **Publish All** for WSUS, and the **WSUS Updates** button of the WSUS section. |
+| **WSUS** | Cleared | Enables **Publish to WSUS** and **Publish All** for WSUS and the **WSUS Updates** entry of the sidebar. |
 
 ConfigMgr is selected at first. The three systems are independent, and each one is optional. Clear **ConfigMgr** and select **Intune**, **WSUS** or both to publish with no ConfigMgr site, console or file share. A system that is not in use keeps its buttons disabled. A settings file that has no systems value infers Intune from a stored tenant ID and WSUS from a stored server name.
 

@@ -53,9 +53,6 @@ public partial class SettingsViewModel : ObservableObject, ISettingsReload
     /// <summary>Why the two Discover buttons are off, or what they do.</summary>
     public string DiscoverToolTip => _packagesViewModel.DiscoverToolTip;
 
-    /// <summary>Settings, WSUS Publishing: opens WSUS Updates, which the App Packager toolbar no longer holds.</summary>
-    public IRelayCommand OpenWsusUpdatesCommand => _packagesViewModel.WsusUpdatesCommand;
-
     /// <summary>The Sidebar section; it applies each change at once and is not part of Save Settings.</summary>
     public SidebarSettingsEditor Sidebar { get; }
 
