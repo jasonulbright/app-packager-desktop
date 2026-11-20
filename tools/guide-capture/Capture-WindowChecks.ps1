@@ -89,7 +89,7 @@ foreach ($theme in $Themes) {
             # The Workbench entry of the sidebar opens the Workbench window over the page.
             Nav 249
             Show-Both $theme 'workbench' $p
-            [System.Windows.Forms.SendKeys]::SendWait('%{F4}')
+            if (Get-ApdWindows | Where-Object { $_.Current.Name -match 'Workbench' }) { [System.Windows.Forms.SendKeys]::SendWait('%{F4}') }
             Start-Sleep -Seconds 2
         }
     }

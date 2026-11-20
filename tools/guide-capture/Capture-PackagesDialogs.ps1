@@ -7,7 +7,7 @@
     Run it in the interactive session of the lab user under the capture lock (Run-VisibleProbe.ps1 takes it), from the folder of the published app:
         Run-VisibleProbe.ps1 -Worktree <published folder with these scripts> -ProbeArgs "& .\Capture-PackagesDialogs.ps1 -Run C:\guide\runs\apd-<timestamp>"
     The images are <Run>\images\<theme>\<id>.png. The Stage goes to the staging folder of the run. The Publish step answers the Application Already Exists dialog with
-    Skip, so the run creates nothing on the site when the application is there; when the site has no such application, the publish creates it and the run says so.
+    Skip, the first Publish creates the application on the site and the run script of the caller must remove it again; the second Publish meets it and Skip answers the dialog.
     A step that fails says FAIL for its image and the run goes on.
 #>
 param(
@@ -108,13 +108,15 @@ foreach ($theme in $Themes) {
             Shot $theme 'core-publish-configmgr-log'
         }
         Step $theme 'core-packages-conflict-dialog' {
-            # The application of the first publish is on the site now: a second publish of the same version asks what to do. The window closes without a choice: nothing changes.
+            # The application of the first publish is on the site now: a second publish of the same version asks what to do. Skip answers it: nothing changes.
             Check-Row $w $Application
             Real-Click (Find-El $w 'btnPublishConfigMgr')
             Start-Sleep 20
             Move-MouseAway
             Shot $theme 'core-packages-conflict-dialog'
-            [System.Windows.Forms.SendKeys]::SendWait('%{F4}')
+            # The Application Already Exists dialog is a dialog inside the main window: Skip keeps the application as it is.
+            $skip = Find-El $w -Name 'Skip' -ControlType 'Button' -Timeout 5
+            if ($skip) { Real-Click $skip } else { 'No Skip button found: the dialog stays open and the run ends the app.' }
             Start-Sleep 5
             if (Find-El $w 'btnCancelOperation' -Timeout 2) { Real-Click (Find-El $w 'btnCancelOperation'); Start-Sleep 3 }
         }
