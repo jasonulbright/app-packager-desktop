@@ -73,7 +73,7 @@ public sealed class SupersedenceRedesignTests
     }
 
     [Fact]
-    public void ThePlannerGivesTheKeyOfAConfigMgrPublishOnly()
+    public void ThePlannerGivesTheKeyToEachTargetAndTheIntuneModeToIntuneOnly()
     {
         var manifest = Manifest("Vendor App - 2.0", "2.0");
         var settings = new SupersedenceSettings { Mode = "Replace" };
@@ -82,7 +82,10 @@ public sealed class SupersedenceRedesignTests
         var intune = SupersedencePlanner.Plan(manifest, settings, null, false, true, _ => null);
 
         Assert.Equal(new SupersedenceKey("Vendor App", "Vendor"), configMgr.Key);
-        Assert.Null(intune.Key);
+        Assert.Equal(configMgr.Key, intune.Key);
+        Assert.Equal(SupersedenceMode.Replace, intune.IntuneMode);
+        Assert.Equal(SupersedenceMode.Off, configMgr.IntuneMode);
+        Assert.Null(SupersedencePlanner.Plan(manifest, settings, null, false, false, _ => null).Key);
     }
 
     // ---- the confirmation ----
