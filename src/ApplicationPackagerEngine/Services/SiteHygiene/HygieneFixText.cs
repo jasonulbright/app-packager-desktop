@@ -19,6 +19,15 @@ public static class HygieneFixParameters
     /// <summary>Supersedes or DependsOn: the kind of relation that ClearRetiredRelation removes.</summary>
     public const string RelationKind = "RelationKind";
 
+    /// <summary>APP-07: the ModelNames of the active applications a retired application supersedes, comma separated.</summary>
+    public const string SupersedesModels = "SupersedesModels";
+
+    /// <summary>APP-07: the ModelNames of the active applications a retired application depends on, comma separated.</summary>
+    public const string DependsOnModels = "DependsOnModels";
+
+    /// <summary>APP-08: the ModelNames of the applications that supersede the superseded application, comma separated.</summary>
+    public const string ReplacementModels = "ReplacementModels";
+
     /// <summary>Old revision numbers, comma separated.</summary>
     public const string Revisions = "Revisions";
 
@@ -45,6 +54,12 @@ public sealed record HygieneCommand(string Cmdlet, IReadOnlyList<KeyValuePair<st
 
     /// <summary>The removal of a rule or a dependency toward a retired application, with the supported cmdlets.</summary>
     public bool IsRetiredRelationRemoval => Cmdlet == HygieneFixText.RetiredRelationRemoval;
+
+    /// <summary>The removal of a rule of a retired application: reinstate, remove, retire again.</summary>
+    public bool IsRetiredApplicationRulesRemoval => Cmdlet == HygieneFixText.RetiredApplicationRulesRemoval;
+
+    /// <summary>The delete of a superseded application after the removal of the supersedence rules of its replacements.</summary>
+    public bool IsSupersededApplicationRemoval => Cmdlet == HygieneFixText.SupersededApplicationRemoval;
 }
 
 /// <summary>Builds the commands and the read-only PowerShell text of a typed fix.</summary>
@@ -60,6 +75,15 @@ public static class HygieneFixText
     internal const string SupersedenceRemoval = "SMS_Application.SDMPackageXML.Supersedes";
 
     internal const string RetiredRelationRemoval = "Set-CMApplicationSupersedence or Remove-CMDeploymentTypeDependency";
+
+    /// <summary>
+    /// APP-07: a retired application cannot be changed (the cmdlets run and change nothing), so the fix reinstates it, removes the rule and retires it
+    /// again.
+    /// </summary>
+    internal const string RetiredApplicationRulesRemoval = "Resume-CMApplication, Set-CMApplicationSupersedence or Remove-CMDeploymentTypeDependency, Suspend-CMApplication";
+
+    /// <summary>APP-08: the supersedence rules of the replacements go, then the superseded application.</summary>
+    internal const string SupersededApplicationRemoval = "Set-CMApplicationSupersedence and Remove-CMApplication";
 
     private static KeyValuePair<string, string> P(string name, string value) => new(name, value);
 
@@ -89,9 +113,24 @@ public static class HygieneFixText
             HygieneFixKind.SetSiteMaintenanceTask => [new("Set-CMSiteMaintenanceTask", [P("SiteCode", Get(p, HygieneFixParameters.SiteCode)), P("Name", id), P("Enabled", "$true")])],
             HygieneFixKind.RunAutoDeploymentRule => [new("Invoke-CMSoftwareUpdateAutoDeploymentRule", [P("Id", id)])],
             HygieneFixKind.ClearRetiredRelation => [new(RetiredRelationRemoval, [P("ModelName", Get(p, HygieneFixParameters.ModelName)), P("ReferencedModel", Get(p, HygieneFixParameters.ReferencedModel)), P("RelationKind", Get(p, HygieneFixParameters.RelationKind))])],
+            HygieneFixKind.ClearRetiredApplicationRules => RetiredRules(p),
+            HygieneFixKind.RemoveSupersededApplication => [new(SupersededApplicationRemoval, [P("ModelName", Get(p, HygieneFixParameters.ModelName)), P("ReplacementModels", Get(p, HygieneFixParameters.ReplacementModels))])],
             HygieneFixKind.ClearBrokenSupersedence => [new(SupersedenceRemoval, [P("ModelName", Get(p, HygieneFixParameters.ModelName)), P("ReferencedModel", Get(p, HygieneFixParameters.ReferencedModel))])],
             _ => []
         };
+    }
+
+    /// <summary>
+    /// APP-07: one command for each rule toward an active application. A parameter set that names one target (a write of the plan) gives that one
+    /// command; the finding gives one command for each supersedence target and each dependency target.
+    /// </summary>
+    private static IReadOnlyList<HygieneCommand> RetiredRules(IReadOnlyDictionary<string, string> p)
+    {
+        var model = Get(p, HygieneFixParameters.ModelName);
+        HygieneCommand One(string reference, string kind) => new(RetiredApplicationRulesRemoval, [P("ModelName", model), P("ReferencedModel", reference), P("RelationKind", kind)]);
+        if (Get(p, HygieneFixParameters.ReferencedModel).Length > 0) return [One(Get(p, HygieneFixParameters.ReferencedModel), Get(p, HygieneFixParameters.RelationKind))];
+        return List(p, HygieneFixParameters.SupersedesModels).Select(m => One(m, "Supersedes"))
+            .Concat(List(p, HygieneFixParameters.DependsOnModels).Select(m => One(m, "DependsOn"))).ToList();
     }
 
     /// <summary>The read-only PowerShell of a fix; null for a report-only kind.</summary>
@@ -128,6 +167,27 @@ public static class HygieneFixText
                 : "$f = Get-CMApplication -ModelName " + from + "\r\n"
                     + "# For each deployment type $dt of $f, each dependency group $g and each dependency $d whose AppModelName is " + to + ":\r\n"
                     + "Remove-CMDeploymentTypeDependency -InputObject $g -DeploymentTypeDependency $d -Force";
+        }
+        if (c.IsRetiredApplicationRulesRemoval)
+        {
+            var from = Quote(c.Parameters[0].Value);
+            var to = Quote(c.Parameters[1].Value);
+            var change = c.Parameters[2].Value == "Supersedes"
+                ? "# For each supersedence rule of $f that names $t (the deployment types are read from SMS_AppRelation_Flat):\r\nSet-CMApplicationSupersedence -Id $f.CI_ID -CurrentDeploymentTypeId $fd.CI_ID -SupersededApplicationId $t.CI_ID -OldDeploymentTypeId $td.CI_ID -RemoveSupersedence -Force"
+                : "# For each deployment type $dt of $f, each dependency group $g and each dependency $d whose AppModelName is " + to + ":\r\nRemove-CMDeploymentTypeDependency -InputObject $g -DeploymentTypeDependency $d -Force";
+            return "$f = Get-CMApplication -ModelName " + from + "\r\n$t = Get-CMApplication -ModelName " + to + "\r\n"
+                + "# A retired application cannot be changed: reinstate it, make the change, retire it again.\r\n"
+                + "Resume-CMApplication -InputObject $f\r\n" + change + "\r\nSuspend-CMApplication -InputObject (Get-CMApplication -ModelName " + from + ")";
+        }
+        if (c.IsSupersededApplicationRemoval)
+        {
+            var model = Quote(c.Parameters[0].Value);
+            var names = string.Join(", ", c.Parameters[1].Value.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Select(Quote));
+            return "$t = Get-CMApplication -ModelName " + model + "\r\n"
+                + "# For each supersedence rule of the replacements (" + names + ") that names $t (the deployment types are read from SMS_AppRelation_Flat):\r\n"
+                + "Set-CMApplicationSupersedence -Id $f.CI_ID -CurrentDeploymentTypeId $fd.CI_ID -SupersededApplicationId $t.CI_ID -OldDeploymentTypeId $td.CI_ID -RemoveSupersedence -Force\r\n"
+                + "# Only when no deployment, dependency, task sequence or stale reference row refers to the application:\r\n"
+                + "Remove-CMApplication -Id $t.CI_ID -Force";
         }
         if (c.IsSupersedenceRemoval)
         {

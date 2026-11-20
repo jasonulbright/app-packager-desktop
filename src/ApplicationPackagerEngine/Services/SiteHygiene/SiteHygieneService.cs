@@ -176,8 +176,14 @@ public sealed partial class SiteHygieneService : ISiteHygieneService
         var notes = new List<string>();
         if (cut.Count > 0) notes.Add("Reads cut at their cap: " + string.Join(", ", cut.Select(t => $"{Label(t.Name)} ({N(t.Rows.Count)} of {N(t.Total)})")) + ". The checks that need them did not run.");
         if (failed.Count > 0) notes.Add("Reads that failed: " + string.Join(", ", failed.Select(t => Label(t.Name))) + ". The checks that need them did not run.");
+        // The blockers of an application come from the data this scan read; no query is made for them. They need the retired and superseded family to have run.
+        var (blockers, blockersNote) = areas.Contains("AppRelationships")
+            ? HygieneChecks.BlockersOf(new HygieneContext(data, context.T, context.Now, context.SiteCode))
+            : (null, "");
         var result = new HygieneScanResult(findings, checks, _utcNow(), cut.Count > 0, notes.Count > 0 ? string.Join(" ", notes) : null)
         {
+            Blockers = blockers,
+            BlockersNote = blockersNote,
             Areas = areas.Order(StringComparer.Ordinal).ToList(),
             QueryCount = data.Queries,
             SiteCode = connection?.NormalizedSiteCode is { Length: > 0 } code ? code : data.SiteCode,

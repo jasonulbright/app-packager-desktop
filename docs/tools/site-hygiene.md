@@ -51,6 +51,10 @@ Filters: a text box (**Filter by check, object, evidence or action**), a **Categ
 
 **Copy** copies the PowerShell text of the fix of the selected finding. The page runs the typed fix, not this text.
 
+**Show blockers** opens a window for the application of the selected finding (an application finding, or TSQ-05). It lists every object that refers to the application and so blocks its delete: deployments, task sequences (also a task sequence that holds the task sequence that installs the application), stale reference rows of a task sequence that the site does not return, applications that depend on it and applications that supersede it. The list comes from the data of the last scan and makes no site call. A task sequence or a collection that the account may not see is not in the list; the window says so. After a stored scan, or a scan that did not read the data, the window asks for a new scan.
+
+![The Show blockers window with the deployments, task sequences, dependencies and supersedence rules that block the delete of an application](../images/tools-site-hygiene-blockers.png)
+
 ## Steps: fix findings
 
 1. On the **Findings** tab, select one or more findings. All selected findings must have the same fix.
@@ -79,11 +83,14 @@ The result of an object is **Done**, **Unchanged**, **Failed** or **Skipped**. *
 | Delete device | Removes the device record. |
 | Delete deployment rule | Removes an auto deployment rule. |
 | Delete maintenance window | Removes one window by its ID. |
+| Delete superseded application | Removes the supersedence rule of each replacement with `Set-CMApplicationSupersedence -RemoveSupersedence`, then deletes the superseded application when no deployment, dependency, task sequence or stale reference row refers to it. The delete needs the second confirmation. Each removed rule makes a new revision of the replacement; the plan has the check box **Also delete the old revisions this fix creates**, on at the start. |
 | Change refresh type | Sets the refresh type of a collection (Continuous or Manual, as the check requires). |
 | Change application | Sets the `AutoInstall` option of an application to true. This creates a new revision of the application. |
 | Change maintenance task | Turns on a site maintenance task. |
 | Run deployment rule | Runs an auto deployment rule. |
 | Remove supersedence | Removes the supersedence rules of an application that point at an application that was deleted. It edits the application definition with the serializer of the console and refuses to write when anything but those rules would change. The change makes one new revision of the application. The plan has the check box **Also delete the old revisions this fix creates**, on at the start. The plan lists each application with its deployment types and the reference that goes. No file of the removed data is written. |
+| Remove retired relation | Removes the supersedence rule or the dependency of an application on a retired application (SUP-04, DEP-04) with the supported cmdlets. The change makes a new revision; the plan has the same check box. |
+| Remove retired application rules | Removes the supersedence rules and dependencies of a retired application toward active applications (APP-07). The site ignores a change of a retired application, so the fix reinstates the application, removes the rule and retires it again, and it does not run for a retired application that has a deployment. The plan has the same check box. |
 
 The checks that assign each fix are in [Site Hygiene checks](../reference/site-hygiene-checks.md).
 

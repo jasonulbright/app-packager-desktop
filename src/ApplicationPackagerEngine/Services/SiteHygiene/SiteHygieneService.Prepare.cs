@@ -28,7 +28,7 @@ public sealed partial class SiteHygieneService
         HygieneFixKind.RemoveApplication, HygieneFixKind.RemoveApplicationDeployment, HygieneFixKind.RemoveApplicationRevisionHistory, HygieneFixKind.RemovePackage,
         HygieneFixKind.RemoveCollection, HygieneFixKind.RemoveDevice, HygieneFixKind.RemoveBootImage, HygieneFixKind.RemoveDriverPackage, HygieneFixKind.RemoveAutoDeploymentRule,
         HygieneFixKind.RemoveMaintenanceWindow, HygieneFixKind.SetCollectionRefreshType, HygieneFixKind.SetApplication, HygieneFixKind.SetSiteMaintenanceTask, HygieneFixKind.RunAutoDeploymentRule,
-        HygieneFixKind.ClearBrokenSupersedence, HygieneFixKind.ClearRetiredRelation
+        HygieneFixKind.ClearBrokenSupersedence, HygieneFixKind.ClearRetiredRelation, HygieneFixKind.ClearRetiredApplicationRules, HygieneFixKind.RemoveSupersededApplication
     };
 
     private const int MaxPrepared = 32;
@@ -205,6 +205,19 @@ public sealed partial class SiteHygieneService
             lines.Add("The supported cmdlets Set-CMApplicationSupersedence -RemoveSupersedence and Remove-CMDeploymentTypeDependency do the removal: both applications exist. The change is read back.");
             lines.Add("With the check box on, the fix then deletes the older revisions of exactly the applications that it changed, so that check APP-05 does not report them. A revision that another object still uses stays, and the result says so.");
         }
+        if (kind == HygieneFixKind.ClearRetiredApplicationRules)
+        {
+            lines.Add("Each change removes the supersedence rules or the dependencies that one retired application holds toward one active application, and makes one new revision of the retired application. No retired application may supersede or depend on an active one.");
+            lines.Add("A retired application cannot be changed: the cmdlets Set-CMApplicationSupersedence -RemoveSupersedence and Remove-CMDeploymentTypeDependency run without an error and change nothing. For each change the fix reinstates the application (Resume-CMApplication), removes the rule and retires the application again (Suspend-CMApplication). The change is read back, and the application is retired again also when the change fails.");
+            lines.Add("The fix does not run for a retired application that has a deployment: the application would deploy while it is reinstated. Delete the deployment first (check APP-02).");
+            lines.Add("With the check box on, the fix then deletes the older revisions of exactly the applications that it changed, so that check APP-05 does not report them. A revision that another object still uses stays, and the result says so.");
+        }
+        if (kind == HygieneFixKind.RemoveSupersededApplication)
+        {
+            lines.Add("Each change removes the supersedence rule of every replacement of one superseded application (a new revision of each replacement), then deletes the superseded application.");
+            lines.Add("The delete runs only when the command finds, in the same call, no deployment, no dependency on the application, no task sequence that names it and no stale reference row of a task sequence. When something refers to the application, nothing is changed, and the result names what.");
+            lines.Add("With the check box on, the fix deletes the older revisions of exactly the replacements that it changed. A revision that another object still uses stays, and the result says so.");
+        }
         if (kind == HygieneFixKind.RunAutoDeploymentRule) lines.Add("The rule runs now: it can create or change a software update group and its deployment, and download update content.");
         if (kind == HygieneFixKind.RemoveBootImage)
             lines.Add("Boot media, prestaged media and PXE images that were made from the boot image are not recorded on the site. Check that no media in use needs the boot image before you delete it.");
@@ -234,6 +247,8 @@ public sealed partial class SiteHygieneService
         HygieneFixKind.RunAutoDeploymentRule => "run the automatic deployment rules",
         HygieneFixKind.ClearBrokenSupersedence => "remove the supersedence references to deleted applications",
         HygieneFixKind.ClearRetiredRelation => "remove the supersedence rules and dependencies toward retired applications",
+        HygieneFixKind.ClearRetiredApplicationRules => "remove the supersedence rules and dependencies of retired applications",
+        HygieneFixKind.RemoveSupersededApplication => "remove the supersedence rule of the replacement and delete the superseded applications",
         _ => "nothing"
     };
 

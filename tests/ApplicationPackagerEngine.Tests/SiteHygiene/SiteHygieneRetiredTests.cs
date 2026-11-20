@@ -42,7 +42,9 @@ public sealed class SiteHygieneRetiredTests
         Assert.Equal(Model("Retired"), one.ObjectKey);
         Assert.Contains("supersedes 'Active'", one.Evidence);
         Assert.Contains("depends on 'ActiveToo'", one.Evidence);
-        Assert.Equal(HygieneFixKind.None, one.FixKind);
+        Assert.Equal(HygieneFixKind.ClearRetiredApplicationRules, one.FixKind);
+        Assert.Equal(Model("Active"), one.FixParameters[HygieneFixParameters.SupersedesModels]);
+        Assert.Equal(Model("ActiveToo"), one.FixParameters[HygieneFixParameters.DependsOnModels]);
     }
 
     [Fact]

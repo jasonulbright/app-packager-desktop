@@ -28,18 +28,26 @@ public enum HygieneFixKind
     SetSiteMaintenanceTask,
     RunAutoDeploymentRule,
     ClearBrokenSupersedence,
-    ClearRetiredRelation
+    ClearRetiredRelation,
+
+    /// <summary>APP-07: the supersedence rules and dependencies that a retired application holds toward active applications.</summary>
+    ClearRetiredApplicationRules,
+
+    /// <summary>APP-08: removes the supersedence rule of the replacement, then deletes the superseded application when nothing else refers to it. A delete, so the name starts with Remove.</summary>
+    RemoveSupersededApplication
 }
 
 public static class HygieneFixKinds
 {
     /// <summary>True for a kind whose change makes a new revision of an application, so that it offers to delete the old revisions it creates.</summary>
-    public static bool MakesRevision(HygieneFixKind kind) => kind is HygieneFixKind.ClearBrokenSupersedence or HygieneFixKind.ClearRetiredRelation;
+    public static bool MakesRevision(HygieneFixKind kind) => kind is HygieneFixKind.ClearBrokenSupersedence or HygieneFixKind.ClearRetiredRelation
+        or HygieneFixKind.ClearRetiredApplicationRules or HygieneFixKind.RemoveSupersededApplication;
 
     /// <summary>True for a kind that deletes a site object: it needs the second confirmation and the delete cap.</summary>
     public static bool IsDelete(HygieneFixKind kind) => kind is HygieneFixKind.RemoveApplication or HygieneFixKind.RemoveApplicationDeployment
         or HygieneFixKind.RemoveApplicationRevisionHistory or HygieneFixKind.RemovePackage or HygieneFixKind.RemoveCollection or HygieneFixKind.RemoveDevice
-        or HygieneFixKind.RemoveBootImage or HygieneFixKind.RemoveDriverPackage or HygieneFixKind.RemoveAutoDeploymentRule or HygieneFixKind.RemoveMaintenanceWindow;
+        or HygieneFixKind.RemoveBootImage or HygieneFixKind.RemoveDriverPackage or HygieneFixKind.RemoveAutoDeploymentRule or HygieneFixKind.RemoveMaintenanceWindow
+        or HygieneFixKind.RemoveSupersededApplication;
 }
 
 /// <summary>
@@ -103,6 +111,22 @@ public static class HygieneCheckStates
     public const string Failed = "Failed";
 }
 
+/// <summary>One object that refers to an application and so blocks its delete.</summary>
+/// <param name="Kind">See <see cref="HygieneBlockerKinds"/>.</param>
+public sealed record HygieneBlocker(string Kind, string Name, string Detail);
+
+public static class HygieneBlockerKinds
+{
+    public const string Deployment = "Deployment";
+    public const string TaskSequence = "Task sequence";
+    public const string NestedTaskSequence = "Task sequence (nested)";
+
+    /// <summary>A reference row of a task sequence that the site does not return. It still blocks the delete.</summary>
+    public const string StaleReference = "Stale reference";
+    public const string Dependency = "Dependency";
+    public const string Supersedence = "Supersedence";
+}
+
 /// <param name="State">See <see cref="HygieneCheckStates"/>.</param>
 /// <param name="Findings">The findings of the check; 0 only when <paramref name="State"/> is Ran.</param>
 /// <param name="Reason">Why the check did not run; null when it ran.</param>
@@ -116,6 +140,16 @@ public sealed record HygieneScanResult(IReadOnlyList<HygieneFinding> Findings, I
 {
     /// <summary>The areas the scan covered.</summary>
     public IReadOnlyList<string> Areas { get; init; } = [];
+
+    /// <summary>
+    /// Every object that refers to an application and so blocks its delete, by the ModelName of the application, made from the data the scan read (no
+    /// extra query). An application without an entry has no blocker in that data. Null when the scan did not read the data (a stored result, or an area
+    /// the scan left out): the Show Blockers window then asks for a new scan.
+    /// </summary>
+    public IReadOnlyDictionary<string, IReadOnlyList<HygieneBlocker>>? Blockers { get; init; }
+
+    /// <summary>What the blocker list cannot show: an object the account may not see, or a read that was cut.</summary>
+    public string BlockersNote { get; init; } = "";
 
     /// <summary>The number of provider queries the scan made; 0 for a stored result.</summary>
     public int QueryCount { get; init; }

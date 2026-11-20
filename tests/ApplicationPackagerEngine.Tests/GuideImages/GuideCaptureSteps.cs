@@ -60,6 +60,7 @@ public static class GuideCaptureSteps
         ["tools-site-hygiene-summary"] = "tools-site-hygiene-summary",
         ["tools-site-hygiene-relationships"] = "tools-site-hygiene-relationships",
         ["tools-site-hygiene-findings"] = "tools-site-hygiene-findings",
+        ["tools-site-hygiene-blockers"] = "tools-site-hygiene-blockers",
         ["tools-installer-analysis-strings"] = "tools-installer-analysis-strings",
         ["tools-installer-analysis-registry"] = "tools-installer-analysis-registry",
         ["tools-installer-analysis-file-browser"] = "tools-installer-analysis-file-browser",

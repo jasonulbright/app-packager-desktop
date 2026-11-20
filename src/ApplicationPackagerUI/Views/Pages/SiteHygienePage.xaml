@@ -272,6 +272,9 @@
                         <WrapPanel Grid.Row="1" x:Name="pnlFindingActions" KeyboardNavigation.TabNavigation="Local" KeyboardNavigation.TabIndex="2">
                             <ui:Button x:Name="btnHygieneRunFix" Content="Run fix" Icon="{ui:SymbolIcon Wrench24}" Command="{Binding RunFixCommand}" Style="{StaticResource ToolButton}"
                                        ToolTip="Checks the selected findings again on the site, then shows the plan of their fix." AutomationProperties.AutomationId="btnHygieneRunFix" />
+                            <ui:Button x:Name="btnHygieneShowBlockers" Content="Show blockers" Icon="{ui:SymbolIcon ShieldError24}" Command="{Binding ShowBlockersCommand}" Style="{StaticResource ToolButton}"
+                                       ToolTip="Lists the deployments, task sequences, dependencies and supersedence rules that block the delete of the selected application. It reads nothing from the site."
+                                       AutomationProperties.AutomationId="btnHygieneShowBlockers" />
                             <ui:Button Content="Suppress" Icon="{ui:SymbolIcon EyeOff24}" Command="{Binding SuppressCommand}" Style="{StaticResource ToolButton}"
                                        ToolTip="Hides the selected findings with a comment. A suppression is kept by check and object." AutomationProperties.AutomationId="btnHygieneSuppress" />
                             <ui:Button Content="Unsuppress" Icon="{ui:SymbolIcon Eye24}" Command="{Binding UnsuppressCommand}" Style="{StaticResource ToolButton}"

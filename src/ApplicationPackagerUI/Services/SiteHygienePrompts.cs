@@ -24,6 +24,9 @@ public interface ISiteHygieneDialogs
     /// <summary>Shows the findings of a fix until the operator continues or cancels; the result is on the view model.</summary>
     void ShowFindings(HygieneFindingsPickerViewModel findings);
 
+    /// <summary>Shows what blocks the delete of one application until the operator closes the window.</summary>
+    void ShowBlockers(HygieneBlockersViewModel blockers);
+
     /// <summary>The comment the operator typed; null when cancelled.</summary>
     string? AskComment(string title, string prompt);
 
@@ -54,6 +57,8 @@ public sealed class SiteHygieneDialogs : ISiteHygieneDialogs
     }
 
     public void ShowFindings(HygieneFindingsPickerViewModel findings) => ShowModal(new HygieneFindingsPickerWindow(findings));
+
+    public void ShowBlockers(HygieneBlockersViewModel blockers) => ShowModal(new HygieneBlockersWindow(blockers));
 
     public string? AskComment(string title, string prompt)
     {
