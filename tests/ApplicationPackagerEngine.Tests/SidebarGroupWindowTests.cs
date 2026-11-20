@@ -73,6 +73,9 @@ public sealed class SidebarGroupWindowTests
 
     private static string[] Headers(System.Windows.Controls.ContextMenu menu) => menu.Items.OfType<MenuItem>().Select(m => (string)m.Header).ToArray();
 
+    /// <summary>The tooltip of a default sidebar entry is its description (Q-103).</summary>
+    private static string? Description(string id) => SidebarRegistry.CreateDefault().Items.Single(i => i.Id == id).Description;
+
     [Fact]
     public void ACaptionRowStandsBeforeEachGroupAndKeepsItsInstance()
     {
@@ -265,14 +268,14 @@ public sealed class SidebarGroupWindowTests
 
             var packager = h.Presenter.ItemFor(SidebarIds.Packages);
             Assert.Equal("App Packager", packager.Content);
-            Assert.Equal("App Packager", packager.ToolTip);
+            Assert.Equal(Description(SidebarIds.Packages), packager.ToolTip);
             Assert.Equal("App Packager", AutomationProperties.GetName(packager));
             Assert.Equal("nav-packages", AutomationProperties.GetAutomationId(packager));
             Assert.Equal(["Reset sidebar"], Headers(packager.ContextMenu!));
 
             var workbench = h.Presenter.ItemFor(SidebarIds.Workbench);
             Assert.Equal("Workbench", workbench.Content);
-            Assert.Equal("Workbench", workbench.ToolTip);
+            Assert.Equal(Description(SidebarIds.Workbench), workbench.ToolTip);
             Assert.Equal("Workbench", AutomationProperties.GetName(workbench));
             Assert.Equal(["Hide Workbench", "Reset sidebar"], Headers(workbench.ContextMenu!));
 
@@ -281,7 +284,7 @@ public sealed class SidebarGroupWindowTests
             Assert.Equal("Add from web", AutomationProperties.GetName(web));
             Assert.Equal(["Hide Add from web", "Reset sidebar"], Headers(web.ContextMenu!));
             var file = h.Presenter.ItemFor(SidebarIds.AddFile);
-            Assert.Equal("Add from file", file.ToolTip);
+            Assert.Equal(Description(SidebarIds.AddFile), file.ToolTip);
             Assert.Equal("nav-addfile", AutomationProperties.GetAutomationId(file));
 
             Assert.False(h.Presenter.HandleMoveKey(workbench, Key.Down, ModifierKeys.Alt));
