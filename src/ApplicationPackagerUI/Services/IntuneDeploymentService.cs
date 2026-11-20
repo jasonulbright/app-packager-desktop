@@ -3,6 +3,7 @@ using ApplicationPackagerEngine.Models;
 using ApplicationPackagerEngine.Models.Signing;
 using ApplicationPackagerEngine.Services;
 using ApplicationPackagerEngine.Services.Signing;
+using ApplicationPackagerEngine.Services.Supersedence;
 using ApplicationPackagerEngine.Services.Workbench;
 using ApplicationPackagerUI.Models;
 
@@ -27,7 +28,8 @@ public sealed class IntuneDeploymentService(SettingsService settingsService)
         string description = "",
         CancellationToken ct = default,
         SigningPolicy? signingPolicy = null,
-        IReadOnlyList<StageRequirement>? untranslatedRequirements = null)
+        IReadOnlyList<StageRequirement>? untranslatedRequirements = null,
+        IntuneSupersedenceRequest? supersedence = null)
     {
         string intuneWinPath;
         bool reused;
@@ -81,10 +83,15 @@ public sealed class IntuneDeploymentService(SettingsService settingsService)
         try
         {
             using var publisher = new IntunePublishService();
+            // The older version is found and confirmed before anything is published: No stops the run here.
+            var plan = supersedence is null ? null : await IntuneSupersedenceFlow.PrepareAsync(publisher, options, supersedence, log, ct).ConfigureAwait(false);
             var appId = await publisher.PublishAsync(intuneWinPath, manifest, options, log, ct,
                 IntuneScriptRuleContext.FromManifest(manifest, signingPolicy, stagedContentPath), findings, requirements: requirementPlan).ConfigureAwait(false);
             PublicationRecords.TryAppend(manifest, PublicationRecords.Intune, PublicationRecords.Succeeded, appId, options.TenantId, onLog: log);
-            return IntuneRunOutcome.Published(winNote, $"published (app id {appId})");
+            var published = IntuneRunOutcome.Published(winNote, $"published (app id {appId})");
+            // The app is published whatever the relation does; a failed relation is reported, never silent.
+            return plan is null ? published
+                : published with { SupersedenceFailure = await IntuneSupersedenceFlow.ApplyAsync(publisher, options, plan, appId, log, ct).ConfigureAwait(false) };
         }
         catch (OperationCanceledException)
         {
