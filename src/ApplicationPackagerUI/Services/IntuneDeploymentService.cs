@@ -91,7 +91,7 @@ public sealed class IntuneDeploymentService(SettingsService settingsService)
             var published = IntuneRunOutcome.Published(winNote, $"published (app id {appId})");
             // The app is published whatever the relation does; a failed relation is reported, never silent.
             return plan is null ? published
-                : published with { SupersedenceFailure = await IntuneSupersedenceFlow.ApplyAsync(publisher, options, plan, appId, log, ct).ConfigureAwait(false) };
+                : published with { SupersedenceFailure = await IntuneSupersedenceFlow.ApplyRelationAsync(publisher, options, plan, appId, log, ct).ConfigureAwait(false) };
         }
         catch (OperationCanceledException)
         {

@@ -57,7 +57,7 @@ public static class IntuneSupersedenceFlow
     }
 
     /// <summary>Creates the relation for the published app. Returns null on success, else the sentence of the failure (the app stays published).</summary>
-    public static async Task<string?> ApplyAsync(
+    public static async Task<string?> ApplyRelationAsync(
         IntunePublishService service, IntunePublishOptions options, IntuneSupersedencePlan plan, string newAppId, Action<string>? log, CancellationToken ct)
     {
         var result = await service.ApplySupersedenceAsync(

@@ -185,7 +185,7 @@ public sealed class IntuneSupersedenceTests
         Assert.NotNull(plan);
         Assert.Equal("n1", plan!.Old.CiId);
         Assert.DoesNotContain(handler.Requests, r => r.Uri.EndsWith("/updateRelationships"));
-        var failure = await IntuneSupersedenceFlow.ApplyAsync(service, Options(), plan, "new-app", log.Add, default);
+        var failure = await IntuneSupersedenceFlow.ApplyRelationAsync(service, Options(), plan, "new-app", log.Add, default);
         Assert.Null(failure);
         Assert.Single(handler.Requests, r => r.Uri.EndsWith("/updateRelationships"));
     }
@@ -261,7 +261,7 @@ public sealed class IntuneSupersedenceTests
         var log = new List<string>();
         using var service = new IntunePublishService(handler);
         var plan = await IntuneSupersedenceFlow.PrepareAsync(service, Options(), Request(SupersedenceConfirmer.Fixed(SupersedenceAnswer.Yes)), log.Add, default);
-        var failure = await IntuneSupersedenceFlow.ApplyAsync(service, Options(), plan!, "new-app", log.Add, default);
+        var failure = await IntuneSupersedenceFlow.ApplyRelationAsync(service, Options(), plan!, "new-app", log.Add, default);
         Assert.NotNull(failure);
         Assert.Contains("relation could not be written", failure);
         Assert.Contains(log, l => l.StartsWith("Supersedence not applied") && l.Contains("app is published"));
