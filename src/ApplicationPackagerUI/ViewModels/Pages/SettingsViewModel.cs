@@ -914,6 +914,11 @@ public partial class SettingsViewModel : ObservableObject, ISettingsReload
 
         _snackbarService.Show("Settings", "Settings saved.", Wpf.Ui.Controls.ControlAppearance.Success,
             new SymbolIcon(SymbolRegular.Checkmark24), TimeSpan.FromSeconds(2));
+        // Replace and uninstall with the version rule Minimum is refused by every publish: say so now, not at the first package run.
+        if (ApplicationPackagerEngine.Services.Supersedence.SupersedenceSettingsEditor.RefusedCombinations(s.Supersedence) is { Count: > 0 } refused)
+            _snackbarService.Show("Settings",
+                $"Replace and uninstall needs the ConfigMgr version rule Exact, so a package run refuses {string.Join(", ", refused.Take(3))}{(refused.Count > 3 ? $" and {refused.Count - 3} more" : "")}. Set the version rule to Exact or the mode to Replace.",
+                Wpf.Ui.Controls.ControlAppearance.Caution, new SymbolIcon(SymbolRegular.Warning24), TimeSpan.FromSeconds(10));
     }
 
     [RelayCommand]

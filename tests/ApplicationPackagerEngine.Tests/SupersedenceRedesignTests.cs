@@ -25,7 +25,7 @@ public sealed class SupersedenceRedesignTests
     {
         var key = SupersedenceKey.For(Manifest("Vendor App 2.0.1 (x64)", "2.0.1"));
 
-        Assert.Equal(new SupersedenceKey("Vendor App (x64)", "Vendor"), key);
+        Assert.Equal(new SupersedenceKey("Vendor App (x64)", "Vendor", "x64"), key);
     }
 
     [Theory]
@@ -52,7 +52,7 @@ public sealed class SupersedenceRedesignTests
 
         Assert.Contains("function Test-MecmApplicationTitle", script);
         Assert.Contains("Test-MecmApplicationTitle $baseTitle", script);
-        Assert.Contains("$publisher = 'Vendor'", script);
+        Assert.DoesNotContain("$publisher =", script);
         Assert.DoesNotContain("Set-CMApplication", script);
         Assert.DoesNotContain("APD-Line", script);
     }
@@ -81,7 +81,7 @@ public sealed class SupersedenceRedesignTests
         var configMgr = SupersedencePlanner.Plan(manifest, settings, null, true, false, _ => null);
         var intune = SupersedencePlanner.Plan(manifest, settings, null, false, true, _ => null);
 
-        Assert.Equal(new SupersedenceKey("Vendor App", "Vendor"), configMgr.Key);
+        Assert.Equal(new SupersedenceKey("Vendor App", "Vendor", "x64"), configMgr.Key);
         Assert.Equal(configMgr.Key, intune.Key);
         Assert.Equal(SupersedenceMode.Replace, intune.IntuneMode);
         Assert.Equal(SupersedenceMode.Off, configMgr.IntuneMode);

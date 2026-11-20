@@ -1022,6 +1022,23 @@ public sealed partial class MecmTarget
         }
     }
 
+    /// <summary>
+    /// True when the site already holds an application with this title (the probe that a Skip or Fail run makes before it copies content).
+    /// A probe that fails answers false: the package run itself reports the failure.
+    /// </summary>
+    public async Task<bool> ApplicationExistsAsync(string appName, string version, string siteCode, string? providerMachine, CancellationToken ct)
+    {
+        try
+        {
+            var conflicted = false;
+            var probe = await WindowsPowerShellHost.RunAsync(BuildExistingProbeScript(appName, version, siteCode, providerMachine),
+                line => { if (OnExistingConflict.TryParse(line, out _, out _, out _)) conflicted = true; }, ct);
+            return probe.ExitCode == 0 && conflicted;
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
+        catch (Exception) { return false; }
+    }
+
     /// <summary>What the lookup found: the older version (null when none), the notes of the choice, and the problem when the site could not be read.</summary>
     public sealed record OlderVersionResult(LineApplication? Old, IReadOnlyList<string> Notes, string? Problem);
 
@@ -1034,7 +1051,7 @@ public sealed partial class MecmTarget
             var lookup = await WindowsPowerShellHost.RunAsync(SupersedenceScripts.BuildLookupScript(siteCode, providerMachine, key, newTitle), null, ct);
             if (lookup.ExitCode != 0)
                 return new(null, [], $"the lookup of the older version failed: {SupersedenceScripts.FailureText(lookup.StdOut, lookup.StdErr)}");
-            var chosen = SupersedenceLookup.Choose(SupersedenceLookup.ParseSiteApplications(lookup.StdOut), newTitle, newVersion);
+            var chosen = SupersedenceLookup.Choose(SupersedenceLookup.ParseSiteApplications(lookup.StdOut), newTitle, newVersion, key);
             return new(chosen.Old, chosen.Notes, null);
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested)
@@ -1059,7 +1076,7 @@ public sealed partial class MecmTarget
         {
             var lookup = await WindowsPowerShellHost.RunAsync(SupersedenceScripts.BuildLookupScript(siteCode, providerMachine, key, newTitle), null, ct);
             if (lookup.ExitCode != 0) return [$"The chain check could not read the site: {SupersedenceScripts.FailureText(lookup.StdOut, lookup.StdErr)}"];
-            var chosen = SupersedenceLookup.Choose(SupersedenceLookup.ParseSiteApplications(lookup.StdOut), newTitle, newVersion);
+            var chosen = SupersedenceLookup.Choose(SupersedenceLookup.ParseSiteApplications(lookup.StdOut), newTitle, newVersion, key);
             if (chosen.Old is null) return [];
             var detection = await WindowsPowerShellHost.RunAsync(ChainCheck.BuildDetectionScript(siteCode, providerMachine, chosen.Old.Title), null, ct);
             if (detection.ExitCode != 0) return [$"The chain check could not read the detection of '{chosen.Old.Title}': {SupersedenceScripts.FailureText(detection.StdOut, detection.StdErr)}"];
@@ -1094,7 +1111,7 @@ public sealed partial class MecmTarget
             if (!ExactGuard.SameVersionText(published.SoftwareVersion ?? "", newVersion))
                 return new(SupersedenceStepStatus.NotApplied, $"The site holds '{newApplicationName}' at version {published.SoftwareVersion}, not {newVersion}. Publish this version first.", []);
         }
-        var chosen = SupersedenceLookup.Choose(applications, newApplicationName, newVersion);
+        var chosen = SupersedenceLookup.Choose(applications, newApplicationName, newVersion, key);
         if (chosen.Old is null)
             return new(SupersedenceStepStatus.NoOlderVersion, chosen.Summary, chosen.Notes);
 

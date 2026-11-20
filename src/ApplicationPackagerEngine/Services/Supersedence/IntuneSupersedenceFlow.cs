@@ -40,8 +40,8 @@ public static class IntuneSupersedenceFlow
             return null;
         }
         var uninstall = request.Mode == SupersedenceMode.ReplaceAndUninstall;
-        var answer = request.AlreadyAnswered ?? await request.Confirmer.ConfirmAsync(
-            new SupersedencePrompt(request.Title, request.Version, found.Old.Title, found.Old.SoftwareVersion, uninstall)).ConfigureAwait(false);
+        var answer = request.AlreadyAnswered ?? await request.Confirmer.ConfirmSafeAsync(
+            new SupersedencePrompt(request.Title, request.Version, found.Old.Title, found.Old.SoftwareVersion, uninstall), log).ConfigureAwait(false);
         switch (answer)
         {
             case SupersedenceAnswer.Yes:

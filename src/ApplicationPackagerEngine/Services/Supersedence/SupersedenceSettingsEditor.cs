@@ -17,6 +17,46 @@ public static class SupersedenceSettingsEditor
         catch (InvalidOperationException) { return SupersedenceMode.Off; }
     }
 
+    /// <summary>
+    /// The refusal text when "Replace and uninstall" would be set for the application while its ConfigMgr version rule is Minimum (the
+    /// publish refuses that combination, see <see cref="SupersedenceResolver.BlockedCombination"/>); null when the combination is allowed
+    /// or the mode is another one.
+    /// </summary>
+    public static string? UninstallBlockedFor(SupersedenceSettings settings, string? applicationId, SupersedenceMode mode)
+    {
+        if (mode != SupersedenceMode.ReplaceAndUninstall) return null;
+        try
+        {
+            var rule = SupersedenceResolver.Resolve(settings, applicationId, null).ConfigMgrRule.Value;
+            return SupersedenceResolver.BlockedCombination(rule, mode);
+        }
+        catch (InvalidOperationException) { return null; }
+    }
+
+    /// <summary>
+    /// The settings that every publish would refuse: the default (when it is Replace and uninstall with the version rule Minimum) and each
+    /// application override that is Replace and uninstall while its ConfigMgr version rule is Minimum. Empty when there is none. The Settings
+    /// page tells the administrator after Save, because the grid and the version rule are edited apart.
+    /// </summary>
+    public static IReadOnlyList<string> RefusedCombinations(SupersedenceSettings settings)
+    {
+        var refused = new List<string>();
+        if (UninstallBlockedForAll(settings, SupersedenceNames.TryParseMode(settings.Mode, out var site) ? site : SupersedenceMode.Off) is not null)
+            refused.Add("the default for all applications");
+        foreach (var (key, entry) in settings.TitleOverrides ?? new())
+            if (SupersedenceNames.TryParseMode(entry.Mode, out var mode) && UninstallBlockedFor(settings, key, mode) is not null)
+                refused.Add(key);
+        return refused;
+    }
+
+    /// <summary>The same for the default of all applications: it is blocked when the default ConfigMgr version rule is Minimum.</summary>
+    public static string? UninstallBlockedForAll(SupersedenceSettings settings, SupersedenceMode mode)
+    {
+        if (mode != SupersedenceMode.ReplaceAndUninstall) return null;
+        var rule = SupersedenceNames.TryParseRule(settings.ConfigMgrVersionRule, out var parsed) ? parsed : VersionRule.Minimum;
+        return SupersedenceResolver.BlockedCombination(rule, mode);
+    }
+
     /// <summary>True when supersedence is on for the application, so the version in its title is forced and locked.</summary>
     public static bool LocksVersionInTitle(SupersedenceSettings settings, string? applicationId, SupersedenceCommandLine? commandLine = null)
     {

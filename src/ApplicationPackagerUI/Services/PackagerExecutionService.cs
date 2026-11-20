@@ -799,7 +799,7 @@ public class PackagerExecutionService(
             if (!DeploymentTargets.SkipsMecm(target))
             {
                 var mecmTarget = new ApplicationPackagerEngine.Services.MecmTarget();
-                supersedence = await ConfirmSupersedenceAsync(mecmTarget, supersedence, applicationTitle, manifest.SoftwareVersion, settings, Report, ct);
+                supersedence = await ConfirmSupersedenceAsync(mecmTarget, supersedence, applicationTitle, manifest.SoftwareVersion, settings, Report, ct, onExisting);
                 var result = await mecmTarget.PackageAsync(
                     supersedence.ConfigMgrManifest, stagedContentPath, settings.SiteCode, settings.FileShareRoot, comment,
                     settings.EstimatedRuntimeMins, settings.MaximumRuntimeMins,
@@ -1246,7 +1246,7 @@ public class PackagerExecutionService(
         if (!DeploymentTargets.SkipsMecm(target))
         {
             var mecmTarget = new MecmTarget();
-            supersedence = await ConfirmSupersedenceAsync(mecmTarget, supersedence, applicationTitle, manifest.SoftwareVersion, settings, Report, ct);
+            supersedence = await ConfirmSupersedenceAsync(mecmTarget, supersedence, applicationTitle, manifest.SoftwareVersion, settings, Report, ct, onExisting);
             var result = await mecmTarget.PackageAsync(
                 supersedence.ConfigMgrManifest, stagedContentPath, settings.SiteCode, settings.FileShareRoot, comment,
                 settings.EstimatedRuntimeMins, settings.MaximumRuntimeMins,
@@ -1373,10 +1373,18 @@ public class PackagerExecutionService(
     /// </summary>
     private async Task<ApplicationPackagerEngine.Services.Supersedence.SupersedencePlan> ConfirmSupersedenceAsync(
         MecmTarget mecmTarget, ApplicationPackagerEngine.Services.Supersedence.SupersedencePlan supersedence, string title, string version,
-        AppSettings settings, Action<string> report, CancellationToken ct)
+        AppSettings settings, Action<string> report, CancellationToken ct, OnExistingBehavior onExisting = OnExistingBehavior.Overwrite)
     {
         var off = ApplicationPackagerEngine.Services.Supersedence.SupersedenceMode.Off;
         if (supersedence.Mode == off || supersedence.Key is null) return supersedence;
+        // A Skip or Fail run leaves an application that the site already holds alone, so it is never published: ask nothing about it. The
+        // Overwrite run that follows an answer of the administrator asks once, because this run never got as far as the question.
+        if (MecmTarget.ProbesBeforeContentCopy(onExisting)
+            && await mecmTarget.ApplicationExistsAsync(title, version, settings.SiteCode, settings.ProviderMachine, ct))
+        {
+            report("Supersedence               : the application already exists on the site and is not published by this run, so nothing is asked or superseded.");
+            return supersedence with { Mode = off };
+        }
         var found = await mecmTarget.FindOlderVersionAsync(title, version, supersedence.Key, settings.SiteCode, settings.ProviderMachine, ct);
         foreach (var note in found.Notes) report($"Supersedence               : {note}");
         if (found.Problem is not null)
@@ -1391,8 +1399,8 @@ public class PackagerExecutionService(
         }
         var uninstall = supersedence.Mode == ApplicationPackagerEngine.Services.Supersedence.SupersedenceMode.ReplaceAndUninstall;
         var confirmer = SupersedenceConfirmation ?? ApplicationPackagerEngine.Services.Supersedence.SupersedenceConfirmer.Fixed(ApplicationPackagerEngine.Services.Supersedence.SupersedenceAnswer.Skip);
-        var answer = await confirmer.ConfirmAsync(new ApplicationPackagerEngine.Services.Supersedence.SupersedencePrompt(
-            title, version, found.Old.Title, found.Old.SoftwareVersion ?? "", uninstall));
+        var answer = await confirmer.ConfirmSafeAsync(new ApplicationPackagerEngine.Services.Supersedence.SupersedencePrompt(
+            title, version, found.Old.Title, found.Old.SoftwareVersion ?? "", uninstall), report);
         switch (answer)
         {
             case ApplicationPackagerEngine.Services.Supersedence.SupersedenceAnswer.Yes:

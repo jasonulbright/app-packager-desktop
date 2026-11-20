@@ -468,6 +468,16 @@ public partial class WorkbenchWindowViewModel : ObservableObject
             + ". Detection establishes installed state; eligibility rules belong in Requirements & variants.";
     }
 
+    /// <summary>Reads the supersedence setting again, so the title lock follows a change made while the window was open.</summary>
+    public void RefreshSupersedenceLock()
+    {
+        if (_session is null) return;
+        var locked = ApplicationPackagerEngine.Services.Supersedence.SupersedenceSettingsEditor.LocksVersionInTitle(
+            _settingsService.Load().Supersedence ?? new(), _session.ApplicationId);
+        TitleModeEditable = !locked;
+        TitleModeLockNote = locked ? ApplicationPackagerEngine.Services.Supersedence.SupersedenceSettingsEditor.TitleLockNote : "";
+    }
+
     /// <summary>Source labels, effective readouts, the icon block and the review pane.</summary>
     private void RefreshIndicators()
     {
@@ -479,7 +489,7 @@ public partial class WorkbenchWindowViewModel : ObservableObject
         TitleModeSource = s.SourceText("Application.TitleMode");
         // Supersedence needs n and n-1 as separate applications: while it is on for this application the version is in the title and the choice is locked.
         var locked = ApplicationPackagerEngine.Services.Supersedence.SupersedenceSettingsEditor.LocksVersionInTitle(
-            _settings.Supersedence ?? new(), s.ApplicationId);
+            _settingsService.Load().Supersedence ?? new(), s.ApplicationId);
         TitleModeEditable = !locked;
         TitleModeLockNote = locked ? ApplicationPackagerEngine.Services.Supersedence.SupersedenceSettingsEditor.TitleLockNote : "";
         InstallModeSource = s.SourceText(ScriptTarget + ".Mode");
