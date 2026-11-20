@@ -156,6 +156,18 @@ public partial class SettingsViewModel : ObservableObject, ISettingsReload
 
     /// <summary>The per-application destinations of applications the grid does not list; a save keeps them.</summary>
     private Dictionary<string, DestinationSet> _unlistedDestinations = new(StringComparer.OrdinalIgnoreCase);
+    /// <summary>The supersedence grid: every application of the App Packager page with its own mode, or "Follow the default".</summary>
+    public ObservableCollection<SupersedenceRow> SupersedenceRows { get; } = [];
+
+    /// <summary>The choices of a grid row.</summary>
+    public IReadOnlyList<string> SupersedenceRowChoices => ApplicationPackagerEngine.Services.Supersedence.SupersedenceGrid.Choices;
+
+    /// <summary>The copy of the supersedence settings that the grid edits; Save Settings writes it.</summary>
+    private ApplicationPackagerEngine.Services.Supersedence.SupersedenceSettings _supersedenceWork = new();
+    private bool _supersedenceRefreshing;
+
+    public int SupersedenceSelectedCount => SupersedenceRows.Count(r => r.IsSelected);
+
     public ObservableCollection<OneClickRow> OneClickRows { get; } = [];
     public int OneClickTrackedCount => OneClickRows.Count(r => r.Tracked);
     /// <summary>Size of the application list the grid mirrors.</summary>
@@ -572,6 +584,57 @@ public partial class SettingsViewModel : ObservableObject, ISettingsReload
     /// <summary>Re-reads the store after another surface (the setup window) has written to it.</summary>
     public void ReloadFromStore() => LoadSettings();
 
+    /// <summary>Rebuilds the supersedence grid from the applications the App Packager page shows. The edits that are not saved are kept.</summary>
+    [RelayCommand]
+    public void RefreshSupersedenceRows()
+    {
+        _supersedenceRefreshing = true;
+        try
+        {
+            var selected = new HashSet<string>(SupersedenceRows.Where(r => r.IsSelected).Select(r => r.Uid), StringComparer.OrdinalIgnoreCase);
+            SupersedenceRows.Clear();
+            foreach (var p in _packagesViewModel.Packagers.OrderBy(p => p.Application, StringComparer.OrdinalIgnoreCase))
+            {
+                var id = _packagesViewModel.SupersedenceIdOf(p);
+                if (id is null) continue;
+                var row = new SupersedenceRow
+                {
+                    Uid = p.Uid, ApplicationId = id, Application = p.Application, Vendor = p.Vendor,
+                    IsSelected = selected.Contains(p.Uid),
+                    ModeChoice = ApplicationPackagerEngine.Services.Supersedence.SupersedenceGrid.ChoiceOf(_supersedenceWork, id)
+                };
+                row.PropertyChanged += (_, e) =>
+                {
+                    if (e.PropertyName == nameof(SupersedenceRow.IsSelected)) OnPropertyChanged(nameof(SupersedenceSelectedCount));
+                    else if (e.PropertyName == nameof(SupersedenceRow.ModeChoice) && !_supersedenceRefreshing)
+                        ApplicationPackagerEngine.Services.Supersedence.SupersedenceGrid.SetChoice(_supersedenceWork, row.ApplicationId, row.ModeChoice);
+                };
+                SupersedenceRows.Add(row);
+            }
+        }
+        finally { _supersedenceRefreshing = false; }
+        OnPropertyChanged(nameof(SupersedenceSelectedCount));
+    }
+
+    /// <summary>The bulk choice for the checked rows: a mode word, or "Follow the default".</summary>
+    [RelayCommand]
+    private void SupersedenceForSelected(string? choice)
+    {
+        foreach (var row in SupersedenceRows.Where(r => r.IsSelected)) row.ModeChoice = choice ?? SupersedenceRow.FollowDefault;
+    }
+
+    /// <summary>All applications (or none, with Off): the default takes the mode and every single setting of the mode is cleared. Applied to the rows at once, written on Save.</summary>
+    [RelayCommand]
+    private void SupersedenceForAll(string? mode)
+    {
+        if (!ApplicationPackagerEngine.Services.Supersedence.SupersedenceNames.TryParseMode(mode, out var parsed)) return;
+        ApplicationPackagerEngine.Services.Supersedence.SupersedenceSettingsEditor.SetAll(_supersedenceWork, parsed);
+        SupersedenceMode = ApplicationPackagerEngine.Services.Supersedence.SupersedenceNames.Text(parsed);
+        RefreshSupersedenceRows();
+    }
+
+    partial void OnSupersedenceModeChanged(string value) => _supersedenceWork.Mode = value;
+
     /// <summary>
     /// Rebuilds the One Click grid from the applications the Packages page shows, so a
     /// hidden application cannot be tracked. Called when the page opens and on demand.
@@ -695,6 +758,9 @@ public partial class SettingsViewModel : ObservableObject, ISettingsReload
             ? ApplicationPackagerEngine.Services.Supersedence.SupersedenceNames.Text(inRule) : "Minimum";
         SupersedenceMode = ApplicationPackagerEngine.Services.Supersedence.SupersedenceNames.TryParseMode(supersedence.Mode, out var siteMode)
             ? ApplicationPackagerEngine.Services.Supersedence.SupersedenceNames.Text(siteMode) : "Off";
+        _supersedenceWork = ApplicationPackagerEngine.Services.Supersedence.SupersedenceGrid.Copy(supersedence);
+        _supersedenceWork.Mode = SupersedenceMode;
+        if (SupersedenceRows.Count > 0) RefreshSupersedenceRows();
         IntuneClientSecret = "";
         HasStoredIntuneSecret = !string.IsNullOrWhiteSpace(s.Intune.ClientSecretProtected);
 
@@ -791,6 +857,7 @@ public partial class SettingsViewModel : ObservableObject, ISettingsReload
         s.Supersedence.ConfigMgrVersionRule = ConfigMgrVersionRule;
         s.Supersedence.IntuneVersionRule = IntuneVersionRule;
         s.Supersedence.Mode = SupersedenceMode;
+        s.Supersedence.TitleOverrides = ApplicationPackagerEngine.Services.Supersedence.SupersedenceGrid.Copy(_supersedenceWork).TitleOverrides;
         // An empty box keeps the stored secret; a typed value replaces it, DPAPI-protected for
         // the current Windows user. The plaintext never reaches settings.json.
         if (!string.IsNullOrEmpty(IntuneClientSecret))

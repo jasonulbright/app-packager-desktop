@@ -637,3 +637,13 @@ The toolbar is one row in the order One Click | Check Latest, Check ConfigMgr, C
 | `PublishAllStateTests` | Publish All is off when no system is in use, and its target is the combination of the systems that are on (seven combinations). |
 
 Not covered by a test: the first-run question after Setup, the two Discover buttons against a real site, and Publish All against a real site. Part 2 (the supersedence settings grid) follows.
+
+## Supersedence grid in Settings (Q-102, part 2)
+
+The supersedence setting of an application moved from the App Packager toolbar to Settings, Supersedence: a grid of all applications with a Supersedence column, the buttons for the checked applications (Follow the default, Off, Replace, Replace and uninstall), for all applications (Replace, Replace and uninstall) and for none (Off for all). The grid edits a copy of the settings, and Save Settings writes it. The key names are unchanged. The edits go through the same editor as before, so nothing is switched on silently.
+
+| Test class | What it proves |
+|---|---|
+| `SupersedenceGridTests` | A row follows the default until it has a mode of its own; a word that is not a choice changes nothing; the checked applications get their own mode; all applications take the mode as the default and clear the single settings; none is Off for all; the copy is edited without changing the stored settings and keeps the version rule of an override; the grid and its buttons are on the Supersedence page and the toolbar has no Supersedence text. |
+
+Not covered by a test: the window against a real site (a package run still asks before it applies a supersedence). The lab capture script of the supersedence guide still drives the removed toolbar button and needs the grid before it runs again.

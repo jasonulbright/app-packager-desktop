@@ -88,6 +88,18 @@ Both steps are optional. They run after the ConfigMgr application exists. All co
 
 The controls for the test deployment are disabled until **Distribute content after Package** is selected. See [Deployment behavior](../deployment-behavior.md).
 
+### Supersedence
+
+| Control | Default | Effect |
+|---|---|---|
+| **Version rule, ConfigMgr**, **Version rule, Intune** | **Minimum** | The operator of the version clause of the detection that is published. See [Publish to ConfigMgr](publish-to-configmgr.md). |
+| **Supersedence mode, ConfigMgr** | **Off** | The default for every application: **Off**, **Replace** or **Replace and uninstall**. An application that has no setting of its own follows it. |
+| **Checked applications** buttons | Not applicable | Give the checked rows of the grid their own mode (**Off**, **Replace**, **Replace and uninstall**) or return them to the default (**Follow the default**). |
+| **All applications** buttons | Not applicable | **Replace** or **Replace and uninstall**: the default takes the mode, and the single settings of every application are cleared. **None: Off for all**: the default is **Off** and every application follows it. |
+| **Supersedence** column of the grid | **Follow the default** | The mode of one application. **Refresh list** rebuilds the list from the App Packager page. |
+
+The changes of this page are written on **Save Settings**. Nothing here switches supersedence on by itself: a stored value is kept, and a package run still asks before it applies a supersedence. While supersedence is on for an application, the version is part of its title and that title option is locked.
+
 ### One Click Settings
 
 See [One Click](one-click.md). The section has **Action on update** (**Report only**, **Stage**, **Stage and Publish**; default **Report only**), **Default cadence (days)** (default 7), **Force on launch (ignore cadence)** (default cleared), **Default destinations** (**ConfigMgr**, **WSUS**, **Intune**), **Existing ConfigMgr app** (**Skip the application** or **Overwrite it**; default **Skip the application**), the buttons **Track none**, **Track all** and **Refresh list**, and a grid with the columns **Track**, **Application**, **Vendor**, **ConfigMgr**, **WSUS**, **Intune** and **Cadence (days)**.
