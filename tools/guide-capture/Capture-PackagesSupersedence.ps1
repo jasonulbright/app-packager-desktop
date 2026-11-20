@@ -1,9 +1,8 @@
 <#
 .SYNOPSIS
     The lab run of the supersedence redesign (Q-93): drives the real app on the lab client against the ConfigMgr site, one scenario and one theme at a time.
-    It turns supersedence on from the Supersedence menu of the Packages page, publishes, answers the confirmation window (Yes, Skip, No, or Yes with
-    "Remember this answer" for two applications) and saves the guide images of the menu, the confirmation window, the locked title in the Workbench and the
-    Options page.
+    It turns supersedence on for the applications in Settings, Supersedence (the grid and the buttons of the checked applications), publishes, answers the confirmation window (Yes, Skip, No, or Yes with
+    "Remember this answer" for two applications) and saves the guide images of the grid in Settings, the confirmation window and the locked title in the Workbench.
 
 .DESCRIPTION
     Run it in the interactive session of the lab user under the capture lock (Run-VisibleProbe.ps1 takes it), from the folder of the installed app or a copy
@@ -94,7 +93,7 @@ try {
     $w = Main-Window
     $w.SetFocus()
 
-    # Check the application rows; the default is Off, so the Supersedence menu turns it on for the checked ones only.
+    # Check the application rows of the App Packager page.
     foreach ($name in $Applications) { $null = Check-Row $w $name }
     Set-ElText (Find-El $w 'txtAppPackagerSearch') ''
     Start-Sleep 1
@@ -106,15 +105,40 @@ try {
     while ((Get-Date) -lt $latestDeadline -and (Status-Text $w) -match 'Check|Checking') { Start-Sleep 2 }
     "status after Check Latest: $(Status-Text $w)"
 
-    Real-Click (Find-El $w 'btnSupersedence')
-    $menu = Find-El ([System.Windows.Automation.AutomationElement]::RootElement) 'menuSupersedenceCheckedReplace' -Timeout 5
-    if (-not $menu) { throw 'The Supersedence menu did not open.' }
-    [System.Windows.Forms.Cursor]::Position = Get-ElCenter $menu
-    Start-Sleep -Milliseconds 400
-    Shot 'core-packages-supersedence-menu'
-    Real-Click $menu
+    # The mode of an application is a setting of Settings, Supersedence (the toolbar has no button for it): check the rows of the applications in the grid, give them
+    # Replace with the button of the checked applications, save, and go back to the App Packager page.
+    Real-Click (Find-El $w -Name 'Settings' -ControlType 'DataItem' -Timeout 5)
+    Start-Sleep 3
+    Real-Click (Find-El $w 'nav_supersedence' -Timeout 10)
     Start-Sleep 2
+    $grid = Find-El $w 'dgSupersedenceApps' -Timeout 10
+    if (-not $grid) { throw 'Settings, Supersedence has no grid of applications.' }
+    foreach ($name in $Applications) {
+        # The grid shows only the rows that are on screen: scroll it from the top in steps of 2 percent (fewer rows than the grid shows) until the row is there.
+        $scroll = $grid.GetCurrentPattern([System.Windows.Automation.ScrollPattern]::Pattern)
+        $row = $null
+        foreach ($percent in @(0..50 | ForEach-Object { $_ * 2 })) {
+            $scroll.SetScrollPercent([System.Windows.Automation.ScrollPattern]::NoScroll, $percent)
+            Start-Sleep -Milliseconds 400
+            foreach ($item in $grid.FindAll([System.Windows.Automation.TreeScope]::Children, (New-Object System.Windows.Automation.PropertyCondition ([System.Windows.Automation.AutomationElement]::ControlTypeProperty), ([System.Windows.Automation.ControlType]::DataItem)))) {
+                if ($item.Current.Name -like "$name*") { $row = $item; break }
+            }
+            if ($row) { break }
+        }
+        if (-not $row) { throw "The supersedence grid has no row for '$name'." }
+        # The check box is in the first cell of the row.
+        $cell = $row.FindFirst([System.Windows.Automation.TreeScope]::Children, (New-Object System.Windows.Automation.PropertyCondition ([System.Windows.Automation.AutomationElement]::NameProperty), ('Item: ' + $row.Current.Name + ', Column Display Index: 0')))
+        if (-not $cell) { throw "The row of '$name' has no check box cell." }
+        Real-Click $cell
+    }
+    Real-Click (Find-El $w 'btnSupersedenceSelectedReplace' -Timeout 5)
     Move-MouseAway
+    Start-Sleep 1
+    Shot 'tools-settings-supersedence'
+    Real-Click (Find-El $w -Name 'Save Settings' -ControlType 'Button' -Timeout 5)
+    Start-Sleep 2
+    Real-Click (Find-El $w -Name 'App Packager' -ControlType 'DataItem' -Timeout 5)
+    Start-Sleep 3
     $settingsFile = (Get-ChildItem $data -Recurse -Filter settings.json | Select-Object -First 1).FullName
     $saved = Get-Content $settingsFile -Raw | ConvertFrom-Json
     "settings after the menu: default Mode='$($saved.Supersedence.Mode)'; overrides: $($saved.Supersedence.TitleOverrides | ConvertTo-Json -Compress)"
@@ -191,13 +215,6 @@ try {
             }
             Start-Sleep 2
         }
-        $w = Main-Window
-        Real-Click (Find-El $w -Name 'Settings' -ControlType 'DataItem' -Timeout 5)
-        Start-Sleep 3
-        Real-Click (Find-El $w 'nav_supersedence' -Timeout 10)
-        Start-Sleep 2
-        Move-MouseAway
-        Shot 'tools-settings-supersedence'
     }
 }
 finally {

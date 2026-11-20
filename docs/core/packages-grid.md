@@ -40,7 +40,7 @@ The columns **CVEs**, **Max CVSS**, **In latest** and **Max EPSS** sort by numbe
 
 ![The grid scrolled to the CVE columns](../images/core-packages-cve-columns.png)
 
-The check box in the first column and the highlighted row are two states. The check box marks a row for an operation. The highlighted row is the row you selected. **Operation history**, **Edit application...** and the other context menu entries act on the highlighted row.
+The check box in the first column and the highlighted row are two states. The check box marks a row for an operation. The highlighted row is the row you selected. **Ops History**, **Edit application...** and the other context menu entries act on the highlighted row.
 
 ## Status values
 
@@ -115,7 +115,7 @@ After the list loads, the page tests the ConfigMgr connection once. When **Confi
 
 ## Operation history window
 
-Select a row, then select **Operation history**. The button is disabled until a row is highlighted. The title bar shows `Operation history`. The window name, which the taskbar and screen readers use, is `Operation history — <application>`.
+Select a row, then select **Ops History**. The button is disabled until a row is highlighted. The title bar shows `Operation history`. The window name, which the taskbar and screen readers use, is `Operation history — <application>`.
 
 The upper grid lists the latest 100 operations of the application, with local times. A new window selects the first operation.
 

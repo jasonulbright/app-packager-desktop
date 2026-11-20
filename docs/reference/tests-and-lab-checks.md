@@ -646,8 +646,9 @@ The supersedence setting of an application moved from the App Packager toolbar t
 |---|---|
 | `SupersedenceGridTests` | A row follows the default until it has a mode of its own; a word that is not a choice changes nothing; the checked applications get their own mode; all applications take the mode as the default and clear the single settings; none is Off for all; the copy is edited without changing the stored settings and keeps the version rule of an override; the grid and its buttons are on the Supersedence page and the toolbar has no Supersedence text. |
 
-Not covered by a test: the window against a real site (a package run still asks before it applies a supersedence). The lab capture script of the supersedence guide still drives the removed toolbar button and needs the grid before it runs again.
+Not covered by a test: the window against a real site (a package run still asks before it applies a supersedence). The lab capture script of the supersedence guide (`Capture-PackagesSupersedence.ps1`) drives the grid of Settings, Supersedence and the buttons of the checked applications.
 
 ## WSUS Updates in the sidebar (Q-102, addendum)
 
 WSUS Updates is a window entry of the sidebar (id `wsus-updates`), registered after Add from file and before the Workbench; it opens the existing window, which approves, declines, expires and removes the published updates (Expire and Remove ask for confirmation and report each update). The toolbar button and the Settings button are gone. The `Sidebar*` tests expect the new default order, five entries in the first group and 13 in all. Not covered by a test: the window against a real WSUS server.
+
