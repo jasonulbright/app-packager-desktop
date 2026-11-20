@@ -37,6 +37,7 @@
         <StackPanel Grid.Row="1" Margin="16,0,16,8">
             <TextBlock Text="Template" FontSize="12" Margin="0,0,0,4" Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
             <ComboBox ItemsSource="{Binding Templates}" SelectedItem="{Binding SelectedTemplate}" DisplayMemberPath="Name"
+                      ToolTip="Choose the template that gives the new maintenance windows their schedule."
                       AutomationProperties.Name="Template" AutomationProperties.AutomationId="cboApplyTemplate" />
             <TextBlock Text="{Binding SelectedTemplate.Description}" FontSize="12" TextWrapping="Wrap" Margin="0,4,0,0"
                        Foreground="{DynamicResource TextFillColorSecondaryBrush}" AutomationProperties.AutomationId="txtApplyTemplateDescription" />
@@ -48,11 +49,14 @@
 
         <WrapPanel Grid.Row="2" Margin="16,0,16,8">
             <ui:TextBox Text="{Binding Filter, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="Filter by name, ID or folder" Icon="{ui:SymbolIcon Search24}"
+                        ToolTip="Show only the collections whose name, ID or folder contains this text."
                         MinWidth="260" Margin="0,0,8,0" AutomationProperties.Name="Collection filter" AutomationProperties.AutomationId="txtApplyFilter" />
             <CheckBox Content="Only collections without a window" IsChecked="{Binding OnlyWithoutWindow}" Margin="0,0,8,0" VerticalAlignment="Center"
                       AutomationProperties.AutomationId="chkApplyWithoutWindow" />
-            <ui:Button Content="Check shown" Command="{Binding CheckShownCommand}" Margin="0,0,8,0" AutomationProperties.AutomationId="btnCheckShown" />
-            <ui:Button Content="Clear" Command="{Binding ClearChecksCommand}" Margin="0,0,8,0" AutomationProperties.AutomationId="btnClearChecks" />
+            <ui:Button Content="Check shown" Command="{Binding CheckShownCommand}" Margin="0,0,8,0" ToolTip="Check every collection that the filter shows."
+                       AutomationProperties.AutomationId="btnCheckShown" />
+            <ui:Button Content="Clear" Command="{Binding ClearChecksCommand}" Margin="0,0,8,0" ToolTip="Uncheck every collection, including those the filter hides."
+                       AutomationProperties.AutomationId="btnClearChecks" />
             <TextBlock VerticalAlignment="Center" FontSize="12" Foreground="{DynamicResource TextFillColorSecondaryBrush}" AutomationProperties.AutomationId="txtCheckedCount">
                 <Run Text="{Binding CheckedCount, Mode=OneWay}" />
                 <Run Text="selected" />
@@ -68,6 +72,7 @@
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
                             <CheckBox IsChecked="{Binding IsChecked, UpdateSourceTrigger=PropertyChanged}" HorizontalAlignment="Center" MinWidth="0" Padding="0"
+                                      ToolTip="Create a maintenance window on this Device Collection."
                                       AutomationProperties.Name="{Binding Name}" />
                         </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
@@ -83,6 +88,7 @@
             <DockPanel>
                 <WrapPanel DockPanel.Dock="Right">
                     <ui:Button Content="Show plan" Appearance="Primary" MinWidth="110" Margin="0,0,8,0" Command="{Binding ApplyCommand}"
+                               ToolTip="Show the plan for the checked collections. The app writes nothing until you confirm the plan."
                                AutomationProperties.AutomationId="btnApplyShowPlan" />
                     <ui:Button Content="Cancel" MinWidth="100" IsCancel="True" Command="{Binding CancelCommand}"
                                AutomationProperties.AutomationId="btnApplyCancel" />

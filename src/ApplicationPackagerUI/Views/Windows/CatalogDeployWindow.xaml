@@ -58,15 +58,15 @@
                                             <ColumnDefinition Width="Auto" />
                                         </Grid.ColumnDefinitions>
                                         <ui:TextBox Grid.Column="0" Text="{Binding Value, UpdateSourceTrigger=PropertyChanged}" IsReadOnly="{Binding IsReadOnly}"
-                                                    AutomationProperties.Name="{Binding Name}" AutomationProperties.AutomationId="{Binding Name, StringFormat='txtParam{0}'}" />
+                                                    AutomationProperties.Name="{Binding Name}" AutomationProperties.AutomationId="{Binding Name, StringFormat='txtParam{0}'}" ToolTip="Enter the value for this parameter. Fields with * are required." />
                                         <ui:Button Grid.Column="1" Content="Pick" Margin="8,0,0,0" Icon="{ui:SymbolIcon Search24}"
                                                    Command="{Binding DataContext.PickCollectionCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                                    CommandParameter="{Binding}" Visibility="{Binding IsCollection, Converter={StaticResource DeployVisibility}}"
-                                                   AutomationProperties.Name="{Binding Name, StringFormat='Pick {0}'}" AutomationProperties.AutomationId="{Binding Name, StringFormat='btnPick{0}'}" />
+                                                   AutomationProperties.Name="{Binding Name, StringFormat='Pick {0}'}" AutomationProperties.AutomationId="{Binding Name, StringFormat='btnPick{0}'}" ToolTip="Select a Device Collection from the site and use its name as the value." />
                                     </Grid>
                                 </StackPanel>
                                 <CheckBox Margin="0,8,0,0" IsChecked="{Binding IsChecked}" Visibility="{Binding IsSwitch, Converter={StaticResource DeployVisibility}}"
-                                          AutomationProperties.Name="{Binding Name}" AutomationProperties.AutomationId="{Binding Name, StringFormat='chkParam{0}'}">
+                                          AutomationProperties.Name="{Binding Name}" AutomationProperties.AutomationId="{Binding Name, StringFormat='chkParam{0}'}" ToolTip="Turn this option on or off for the deployment.">
                                     <TextBlock Text="{Binding Label}" Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
                                 </CheckBox>
                                 <TextBlock Text="{Binding Description}" Style="{StaticResource DeployNote}" Margin="0,2,0,0" />
@@ -90,7 +90,7 @@
                                     <ui:Button DockPanel.Dock="Right" Content="Create" Margin="8,0,0,0" Icon="{ui:SymbolIcon Add24}"
                                                Command="{Binding DataContext.CreateDependencyCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                                CommandParameter="{Binding}" Visibility="{Binding CanCreate, Converter={StaticResource DeployVisibility}}"
-                                               AutomationProperties.Name="{Binding Name, StringFormat='Create {0}'}" />
+                                               AutomationProperties.Name="{Binding Name, StringFormat='Create {0}'}" ToolTip="Create the missing item that this entry needs. A plan appears for you to confirm first." />
                                     <TextBlock Text="{Binding Text}" TextWrapping="Wrap" VerticalAlignment="Center" Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
                                 </DockPanel>
                             </DataTemplate>
@@ -105,7 +105,7 @@
             <DockPanel>
                 <WrapPanel DockPanel.Dock="Right">
                     <ui:Button Content="Show plan" Appearance="Primary" MinWidth="110" Margin="0,0,8,0" Command="{Binding DeployCommand}" IsDefault="True"
-                               AutomationProperties.AutomationId="btnDeployShowPlan" />
+                               AutomationProperties.AutomationId="btnDeployShowPlan" ToolTip="Check the values and show the plan of changes. Nothing is created until you confirm the plan." />
                     <ui:Button Content="Cancel" MinWidth="100" IsCancel="True" Command="{Binding CancelCommand}" AutomationProperties.AutomationId="btnDeployCancel" />
                 </WrapPanel>
                 <TextBlock Text="{Binding ValidationMessage}" TextWrapping="Wrap" VerticalAlignment="Center" Margin="0,0,12,0"

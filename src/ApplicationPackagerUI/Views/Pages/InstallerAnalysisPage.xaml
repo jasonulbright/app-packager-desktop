@@ -157,21 +157,21 @@
                 </ComboBox.ItemTemplate>
             </ComboBox>
             <ui:Button Content="Open recent" Icon="{ui:SymbolIcon History24}" Command="{Binding OpenRecentCommand}" Style="{StaticResource ToolButton}"
-                       AutomationProperties.AutomationId="btnOpenRecent" />
+                       ToolTip="Opens and analyzes the installer selected in the recent files list." AutomationProperties.AutomationId="btnOpenRecent" />
             <ui:Button Content="Clear recent" Icon="{ui:SymbolIcon Delete24}" Command="{Binding ClearRecentCommand}" Style="{StaticResource ToolButton}"
                        ToolTip="Removes every path from the recent files." AutomationProperties.AutomationId="btnClearRecent" />
             </WrapPanel>
             <WrapPanel Orientation="Horizontal" Margin="0,0,16,0">
             <ui:Button Content="Copy summary" Icon="{ui:SymbolIcon Copy24}" Command="{Binding CopySummaryCommand}" Style="{StaticResource ToolButton}"
-                       AutomationProperties.AutomationId="btnCopySummary" />
+                       ToolTip="Copies a text summary of the analysis to the clipboard." AutomationProperties.AutomationId="btnCopySummary" />
             <ui:Button Content="Copy JSON" Icon="{ui:SymbolIcon Code24}" Command="{Binding CopyJsonCommand}" Style="{StaticResource ToolButton}"
                        ToolTip="Copies the ConfigMgr digest. Key material of a .intunewin package is never included." AutomationProperties.AutomationId="btnCopyJson" />
             </WrapPanel>
             <WrapPanel Orientation="Horizontal" Margin="0,0,16,0">
             <ui:Button Content="Export CSV" Icon="{ui:SymbolIcon DocumentTable24}" Command="{Binding ExportCsvCommand}" Style="{StaticResource ToolButton}"
-                       AutomationProperties.AutomationId="btnExportCsv" />
+                       ToolTip="Writes the analysis report with the registry settings as a CSV file in the reports folder." AutomationProperties.AutomationId="btnExportCsv" />
             <ui:Button Content="Export HTML" Icon="{ui:SymbolIcon Globe24}" Command="{Binding ExportHtmlCommand}" Style="{StaticResource ToolButton}"
-                       AutomationProperties.AutomationId="btnExportHtml" />
+                       ToolTip="Writes the analysis report with the payload and the registry settings as an HTML file in the reports folder." AutomationProperties.AutomationId="btnExportHtml" />
             <ui:Button Content="Open folder" Icon="{ui:SymbolIcon FolderOpen24}" Command="{Binding OpenReportsFolderCommand}" Style="{StaticResource ToolButton}"
                        ToolTip="Opens the folder of the last report." AutomationProperties.AutomationId="btnOpenReportsFolder" />
             </WrapPanel>
@@ -296,7 +296,7 @@
                         </Grid.RowDefinitions>
                         <WrapPanel Grid.Row="0">
                             <ui:TextBox Text="{Binding MsiFilter, UpdateSourceTrigger=PropertyChanged, Delay=250}" PlaceholderText="Filter by property or value" Icon="{ui:SymbolIcon Search24}"
-                                        MinWidth="280" Margin="0,0,8,8" AutomationProperties.Name="MSI property filter" AutomationProperties.AutomationId="txtMsiFilter" />
+                                        MinWidth="280" Margin="0,0,8,8" AutomationProperties.Name="MSI property filter" ToolTip="Enter text to show only the MSI properties whose name or value contains it." AutomationProperties.AutomationId="txtMsiFilter" />
                             <TextBlock Text="{Binding MsiCount}" Style="{StaticResource Note}" VerticalAlignment="Center" Margin="0,0,0,8" AutomationProperties.AutomationId="txtMsiCount" />
                         </WrapPanel>
                         <DataGrid Grid.Row="1" x:Name="dgMsi" Style="{StaticResource GridBase}" ItemsSource="{Binding MsiRows}"
@@ -321,22 +321,22 @@
                         </Grid.RowDefinitions>
                         <WrapPanel Grid.Row="0">
                             <ui:TextBox Text="{Binding PayloadFilter, UpdateSourceTrigger=PropertyChanged, Delay=250}" PlaceholderText="Filter by path or type" Icon="{ui:SymbolIcon Search24}"
-                                        MinWidth="240" Margin="0,0,8,8" AutomationProperties.Name="Payload filter" AutomationProperties.AutomationId="txtPayloadFilter" />
+                                        MinWidth="240" Margin="0,0,8,8" AutomationProperties.Name="Payload filter" ToolTip="Enter text to show only the payload entries whose path or type contains it." AutomationProperties.AutomationId="txtPayloadFilter" />
                             <ui:Button Content="Analyze selected" Appearance="Primary" Icon="{ui:SymbolIcon BoxSearch24}" Command="{Binding AnalyzeSelectedCommand}"
                                        Style="{StaticResource ToolButton}" ToolTip="Extracts the selected entry to the temporary analysis folder and analyzes it."
                                        AutomationProperties.AutomationId="btnPayloadAnalyze" />
                             <ui:Button Content="Extract to temp" Icon="{ui:SymbolIcon ArrowDownload24}" Command="{Binding ExtractToTempCommand}" Style="{StaticResource ToolButton}"
-                                       AutomationProperties.AutomationId="btnPayloadExtractTemp" />
+                                       ToolTip="Extracts the selected entry to the temporary analysis folder. The folder is removed when you leave the page." AutomationProperties.AutomationId="btnPayloadExtractTemp" />
                             <ui:Button Content="Copy name" Icon="{ui:SymbolIcon Copy24}" Command="{Binding CopyNameCommand}" Style="{StaticResource ToolButton}"
-                                       AutomationProperties.AutomationId="btnPayloadCopyName" />
+                                       ToolTip="Copies the name of the selected entry to the clipboard." AutomationProperties.AutomationId="btnPayloadCopyName" />
                             <ui:Button Content="Copy full path" Icon="{ui:SymbolIcon Copy24}" Command="{Binding CopyPathCommand}" Style="{StaticResource ToolButton}"
-                                       AutomationProperties.AutomationId="btnPayloadCopyPath" />
+                                       ToolTip="Copies the full path of the selected entry to the clipboard." AutomationProperties.AutomationId="btnPayloadCopyPath" />
                             <ui:Button Content="SHA-256" Icon="{ui:SymbolIcon Fingerprint24}" Command="{Binding HashCommand}" Style="{StaticResource ToolButton}"
                                        ToolTip="Computes the SHA-256 of the selected entry." AutomationProperties.AutomationId="btnPayloadHash" />
                             <ui:Button Content="Extract payload" Icon="{ui:SymbolIcon FolderArrowRight24}" Command="{Binding ExtractPayloadCommand}" Style="{StaticResource ToolButton}"
                                        ToolTip="Extracts every file of the payload into a new payload folder inside the folder you choose. Nothing is started." AutomationProperties.AutomationId="btnExtractPayload" />
                             <ui:Button Content="Open extracted folder" Icon="{ui:SymbolIcon FolderOpen24}" Command="{Binding OpenExtractFolderCommand}" Style="{StaticResource ToolButton}"
-                                       AutomationProperties.AutomationId="btnPayloadOpenFolder" />
+                                       ToolTip="Opens the temporary folder of the last extraction." AutomationProperties.AutomationId="btnPayloadOpenFolder" />
                         </WrapPanel>
                         <StackPanel Grid.Row="1">
                             <TextBlock Text="{Binding PayloadStatus}" Style="{StaticResource Note}" Margin="0,0,0,8" AutomationProperties.AutomationId="txtPayloadStatus" />
@@ -383,13 +383,13 @@
                             <ui:Button Content="Extract" Icon="{ui:SymbolIcon FolderArrowRight24}" Command="{Binding ExtractInnerCommand}" Style="{StaticResource ToolButton}"
                                        ToolTip="Copies the selected inner installer into a new payload folder inside the folder you choose. Nothing is started." AutomationProperties.AutomationId="btnInnerExtract" />
                             <ui:Button Content="Extract to temp" Icon="{ui:SymbolIcon ArrowDownload24}" Command="{Binding ExtractToTempCommand}" Style="{StaticResource ToolButton}"
-                                       AutomationProperties.AutomationId="btnInnerExtractTemp" />
+                                       ToolTip="Extracts the selected inner installer to the temporary analysis folder. The folder is removed when you leave the page." AutomationProperties.AutomationId="btnInnerExtractTemp" />
                             <ui:Button Content="Copy name" Icon="{ui:SymbolIcon Copy24}" Command="{Binding CopyNameCommand}" Style="{StaticResource ToolButton}"
-                                       AutomationProperties.AutomationId="btnInnerCopyName" />
+                                       ToolTip="Copies the name of the selected inner installer to the clipboard." AutomationProperties.AutomationId="btnInnerCopyName" />
                             <ui:Button Content="SHA-256" Icon="{ui:SymbolIcon Fingerprint24}" Command="{Binding HashCommand}" Style="{StaticResource ToolButton}"
-                                       AutomationProperties.AutomationId="btnInnerHash" />
+                                       ToolTip="Computes the SHA-256 of the selected inner installer." AutomationProperties.AutomationId="btnInnerHash" />
                             <ui:Button Content="Open extracted folder" Icon="{ui:SymbolIcon FolderOpen24}" Command="{Binding OpenExtractFolderCommand}" Style="{StaticResource ToolButton}"
-                                       AutomationProperties.AutomationId="btnInnerOpenFolder" />
+                                       ToolTip="Opens the temporary folder of the last extraction." AutomationProperties.AutomationId="btnInnerOpenFolder" />
                         </WrapPanel>
                         <StackPanel Grid.Row="1">
                             <TextBlock Text="{Binding InnerStatus}" Style="{StaticResource Note}" Margin="0,0,0,8" AutomationProperties.AutomationId="txtInnerStatus" />
@@ -430,7 +430,7 @@
                         </Grid.RowDefinitions>
                         <WrapPanel Grid.Row="0">
                             <ComboBox ItemsSource="{Binding FileFolders}" SelectedItem="{Binding SelectedFolder}" Width="260" Margin="0,0,8,8"
-                                      AutomationProperties.Name="Folder" AutomationProperties.AutomationId="cboFileFolder">
+                                      AutomationProperties.Name="Folder" ToolTip="Select a folder to show only the files in it, or select all folders." AutomationProperties.AutomationId="cboFileFolder">
                                 <ComboBox.ItemTemplate>
                                     <DataTemplate>
                                         <TextBlock Text="{Binding}" TextTrimming="CharacterEllipsis" ToolTip="{Binding}" />
@@ -438,15 +438,15 @@
                                 </ComboBox.ItemTemplate>
                             </ComboBox>
                             <ui:TextBox Text="{Binding FileFilter, UpdateSourceTrigger=PropertyChanged, Delay=250}" PlaceholderText="Filter by file name" Icon="{ui:SymbolIcon Search24}"
-                                        MinWidth="220" Margin="0,0,8,8" AutomationProperties.Name="File filter" AutomationProperties.AutomationId="txtFileFilter" />
+                                        MinWidth="220" Margin="0,0,8,8" AutomationProperties.Name="File filter" ToolTip="Enter text to show only the files whose name contains it." AutomationProperties.AutomationId="txtFileFilter" />
                             <ui:Button Content="Extract to temp" Icon="{ui:SymbolIcon ArrowDownload24}" Command="{Binding ExtractToTempCommand}" Style="{StaticResource ToolButton}"
-                                       AutomationProperties.AutomationId="btnFilesExtractTemp" />
+                                       ToolTip="Extracts the selected file to the temporary analysis folder. The folder is removed when you leave the page." AutomationProperties.AutomationId="btnFilesExtractTemp" />
                             <ui:Button Content="Copy name" Icon="{ui:SymbolIcon Copy24}" Command="{Binding CopyNameCommand}" Style="{StaticResource ToolButton}"
-                                       AutomationProperties.AutomationId="btnFilesCopyName" />
+                                       ToolTip="Copies the name of the selected file to the clipboard." AutomationProperties.AutomationId="btnFilesCopyName" />
                             <ui:Button Content="Copy full path" Icon="{ui:SymbolIcon Copy24}" Command="{Binding CopyPathCommand}" Style="{StaticResource ToolButton}"
-                                       AutomationProperties.AutomationId="btnFilesCopyPath" />
+                                       ToolTip="Copies the full path of the selected file to the clipboard." AutomationProperties.AutomationId="btnFilesCopyPath" />
                             <ui:Button Content="SHA-256" Icon="{ui:SymbolIcon Fingerprint24}" Command="{Binding HashCommand}" Style="{StaticResource ToolButton}"
-                                       AutomationProperties.AutomationId="btnFilesHash" />
+                                       ToolTip="Computes the SHA-256 of the selected file." AutomationProperties.AutomationId="btnFilesHash" />
                         </WrapPanel>
                         <StackPanel Grid.Row="1">
                             <TextBlock Text="{Binding FileStatus}" Style="{StaticResource Note}" Margin="0,0,0,8" AutomationProperties.AutomationId="txtFileStatus" />
@@ -490,11 +490,11 @@
                         <WrapPanel Grid.Row="0">
                             <ui:TextBox Text="{Binding RegistryFilter, UpdateSourceTrigger=PropertyChanged, Delay=250}" PlaceholderText="Filter by key, name, value, origin or condition"
                                         Icon="{ui:SymbolIcon Search24}" MinWidth="300" Margin="0,0,8,8" AutomationProperties.Name="Registry filter"
-                                        AutomationProperties.AutomationId="txtRegistryFilter" />
+                                        ToolTip="Enter text to show only the registry rows whose key, name, value, origin or condition contains it." AutomationProperties.AutomationId="txtRegistryFilter" />
                             <ui:Button Content="Copy key" Icon="{ui:SymbolIcon Copy24}" Command="{Binding CopyRegistryKeyCommand}" Style="{StaticResource ToolButton}"
-                                       AutomationProperties.AutomationId="btnRegistryCopyKey" />
+                                       ToolTip="Copies the key path of the selected registry row to the clipboard." AutomationProperties.AutomationId="btnRegistryCopyKey" />
                             <ui:Button Content="Copy value" Icon="{ui:SymbolIcon Copy24}" Command="{Binding CopyRegistryValueCommand}" Style="{StaticResource ToolButton}"
-                                       AutomationProperties.AutomationId="btnRegistryCopyValue" />
+                                       ToolTip="Copies the value of the selected registry row to the clipboard." AutomationProperties.AutomationId="btnRegistryCopyValue" />
                             <ui:Button Content="Copy shown rows" Icon="{ui:SymbolIcon DocumentCopy24}" Command="{Binding CopyRegistryRowsCommand}" Style="{StaticResource ToolButton}"
                                        ToolTip="Copies every row the filter shows, one tab-separated line per row." AutomationProperties.AutomationId="btnRegistryCopyRows" />
                         </WrapPanel>
@@ -548,13 +548,13 @@
                         </Grid.RowDefinitions>
                         <WrapPanel Grid.Row="0">
                             <ui:TextBox Text="{Binding StringsFilter, UpdateSourceTrigger=PropertyChanged, Delay=250}" PlaceholderText="Filter the strings" Icon="{ui:SymbolIcon Search24}"
-                                        MinWidth="260" Margin="0,0,8,8" AutomationProperties.Name="String filter" AutomationProperties.AutomationId="txtStringsFilter" />
+                                        MinWidth="260" Margin="0,0,8,8" AutomationProperties.Name="String filter" ToolTip="Enter text to show only the strings that contain it." AutomationProperties.AutomationId="txtStringsFilter" />
                             <ComboBox ItemsSource="{Binding StringCategories}" SelectedItem="{Binding StringsCategory}" MinWidth="160" Margin="0,0,8,8"
-                                      AutomationProperties.Name="Category" AutomationProperties.AutomationId="cboStringsCategory" />
+                                      AutomationProperties.Name="Category" ToolTip="Select a category to show only the strings of that category, or select all categories." AutomationProperties.AutomationId="cboStringsCategory" />
                             <ui:Button Content="Copy string" Icon="{ui:SymbolIcon Copy24}" Command="{Binding CopyStringCommand}" Style="{StaticResource ToolButton}"
-                                       AutomationProperties.AutomationId="btnCopyString" />
+                                       ToolTip="Copies the selected string to the clipboard." AutomationProperties.AutomationId="btnCopyString" />
                             <ui:Button Content="Copy shown strings" Icon="{ui:SymbolIcon DocumentCopy24}" Command="{Binding CopyStringsCommand}" Style="{StaticResource ToolButton}"
-                                       AutomationProperties.AutomationId="btnCopyStrings" />
+                                       ToolTip="Copies every string the filter and the category show, one per line." AutomationProperties.AutomationId="btnCopyStrings" />
                         </WrapPanel>
                         <TextBlock Grid.Row="1" Text="{Binding StringsStatus}" Style="{StaticResource Note}" Margin="0,0,0,8" AutomationProperties.AutomationId="txtStringsStatus" />
                         <DataGrid Grid.Row="2" x:Name="dgStrings" Style="{StaticResource GridBase}" ItemsSource="{Binding StringRows}" SelectedItem="{Binding SelectedString}"

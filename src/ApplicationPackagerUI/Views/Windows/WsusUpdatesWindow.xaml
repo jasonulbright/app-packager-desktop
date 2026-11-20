@@ -57,7 +57,8 @@
                               AutomationProperties.Name="Computer group" AutomationProperties.AutomationId="cboGroup"
                               ToolTip="Computer group for Approve. The list loads from the server." />
                     <ui:Button x:Name="btnApprove" Content="Approve for group" Appearance="Primary" MinWidth="130" Margin="0,0,8,0"
-                               Command="{Binding ApproveCommand}" AutomationProperties.AutomationId="btnApprove" />
+                               Command="{Binding ApproveCommand}" AutomationProperties.AutomationId="btnApprove"
+                               ToolTip="Approves the selected updates for install on the computer group in the box." />
                     <ui:Button x:Name="btnDecline" Content="Decline" MinWidth="90" Margin="0,0,8,0" Command="{Binding DeclineCommand}"
                                AutomationProperties.AutomationId="btnDecline"
                                ToolTip="Declined updates are not offered to any client. Approving again reverses it." />
@@ -68,7 +69,8 @@
                                AutomationProperties.AutomationId="btnRemove"
                                ToolTip="Declines the update and deletes it from the WSUS database. It cannot be undone." />
                     <ui:Button x:Name="btnRefresh" Content="Refresh" MinWidth="90" Command="{Binding RefreshCommand}"
-                               AutomationProperties.AutomationId="btnRefresh" />
+                               AutomationProperties.AutomationId="btnRefresh"
+                               ToolTip="Reads the list of updates from the WSUS server again." />
                 </StackPanel>
             </DockPanel>
         </Border>

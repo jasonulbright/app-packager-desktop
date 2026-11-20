@@ -25,6 +25,7 @@
 
         <TextBox Grid.Row="2" x:Name="txtComment" Margin="16,0,16,8" Text="{Binding Text, UpdateSourceTrigger=PropertyChanged}" TextWrapping="Wrap" AcceptsReturn="False"
                  MaxLength="1000" VerticalScrollBarVisibility="Auto" KeyboardNavigation.TabIndex="0"
+                 ToolTip="Enter the comment for this action. The comment can hold up to 1000 characters on one line."
                  AutomationProperties.Name="{Binding Prompt}" AutomationProperties.AutomationId="txtComment" />
 
         <Border Grid.Row="3" BorderThickness="0,1,0,0" BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}" Padding="16,8"

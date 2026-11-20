@@ -39,7 +39,7 @@
                            AutomationProperties.AutomationId="txtUpdateLatest" />
                 <TextBlock Grid.Row="2" Text="Release notes" />
                 <TextBlock Grid.Row="2" Grid.Column="1">
-                    <Hyperlink x:Name="lnkNotes" Click="Notes_Click" AutomationProperties.AutomationId="lnkUpdateNotes">Open the release page</Hyperlink>
+                    <Hyperlink x:Name="lnkNotes" Click="Notes_Click" ToolTip="Opens the release page of the latest version in your browser." AutomationProperties.AutomationId="lnkUpdateNotes">Open the release page</Hyperlink>
                 </TextBlock>
             </Grid>
             <TextBlock Text="{Binding StatusText}" TextWrapping="Wrap" FontSize="12"
@@ -56,6 +56,7 @@
         <Border Grid.Row="3" BorderThickness="0,1,0,0" BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}" Padding="16,8">
             <WrapPanel HorizontalAlignment="Right">
                 <ui:Button Content="Check _again" MinWidth="110" Margin="0,0,8,0" Command="{Binding CheckCommand}"
+                           ToolTip="Looks up the latest release again. The button is disabled while a check or download runs."
                            AutomationProperties.AutomationId="btnUpdateCheck" />
                 <ui:Button Content="_Download" MinWidth="110" Margin="0,0,8,0" Command="{Binding DownloadCommand}"
                            ToolTip="Download the installer and check its checksum and signature. Nothing starts."

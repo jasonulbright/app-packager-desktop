@@ -76,15 +76,18 @@
                                    Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
                         <TextBlock Text="Site Code" Style="{StaticResource FieldLabel}" />
                         <ui:TextBox Text="{Binding SiteCode, UpdateSourceTrigger=PropertyChanged}"
-                                    PlaceholderText="MCM" Margin="0,0,0,12" />
+                                    PlaceholderText="MCM" Margin="0,0,0,12"
+                                    ToolTip="Enter the three-character site code of your ConfigMgr site." />
 
                         <TextBlock Text="Site Server / SMS Provider" Style="{StaticResource FieldLabel}" />
                         <ui:TextBox Text="{Binding ProviderMachine, UpdateSourceTrigger=PropertyChanged}"
-                                    PlaceholderText="Empty uses the local computer" Margin="0,0,0,12" />
+                                    PlaceholderText="Empty uses the local computer" Margin="0,0,0,12"
+                                    ToolTip="Enter the name of the computer that hosts the SMS Provider. Leave it empty to use the local computer." />
 
                         <TextBlock Text="File Share Root" Style="{StaticResource FieldLabel}" />
                         <ui:TextBox Text="{Binding FileShareRoot, UpdateSourceTrigger=PropertyChanged}"
-                                    PlaceholderText="\\fileserver\sccm$" Margin="0,0,0,12" />
+                                    PlaceholderText="\\fileserver\sccm$" Margin="0,0,0,12"
+                                    ToolTip="Enter the UNC path of the content share where the app stores application content for ConfigMgr." />
 
                         <TextBlock Text="Download Root" Style="{StaticResource FieldLabel}" />
                         <ui:TextBox Text="{Binding DownloadRoot, UpdateSourceTrigger=PropertyChanged}" ToolTip="{Binding DownloadRoot}"
@@ -96,15 +99,18 @@
                                    Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
                         <TextBlock Text="Tenant ID" Style="{StaticResource FieldLabel}" />
                         <ui:TextBox Text="{Binding IntuneTenantId, UpdateSourceTrigger=PropertyChanged}"
-                                    PlaceholderText="contoso.onmicrosoft.com or a GUID" Margin="0,0,0,12" />
+                                    PlaceholderText="contoso.onmicrosoft.com or a GUID" Margin="0,0,0,12"
+                                    ToolTip="Enter the tenant ID or the primary domain of your Microsoft Entra tenant. The app uses it to sign in to Microsoft Graph." />
 
                         <TextBlock Text="Client ID" Style="{StaticResource FieldLabel}" />
                         <ui:TextBox Text="{Binding IntuneClientId, UpdateSourceTrigger=PropertyChanged}"
-                                    PlaceholderText="App registration (client) ID" Margin="0,0,0,12" />
+                                    PlaceholderText="App registration (client) ID" Margin="0,0,0,12"
+                                    ToolTip="Enter the application (client) ID of the Entra app registration that publishes to Intune." />
 
                         <TextBlock Text="Client Secret" Style="{StaticResource FieldLabel}" />
                         <ui:PasswordBox Password="{Binding IntuneClientSecret, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                        PlaceholderText="{Binding IntuneSecretHint}" Margin="0,0,0,4" />
+                                        PlaceholderText="{Binding IntuneSecretHint}" Margin="0,0,0,4"
+                                        ToolTip="Enter the client secret of the app registration. Save stores it encrypted for the current Windows user. Leave it empty to keep the saved secret." />
                         <TextBlock Text="Stored encrypted for the current Windows user. Leave empty to keep the saved secret. Publishing needs an Entra app registration with the application permission DeviceManagementApps.ReadWrite.All, admin-consented."
                                    Style="{StaticResource HintText}" />
                     </StackPanel>
@@ -140,14 +146,19 @@
                 BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}" Padding="28,12">
             <DockPanel>
                 <CheckBox DockPanel.Dock="Left" Content="Don't show this again"
-                          IsChecked="{Binding DontShowAgain}" VerticalAlignment="Center" />
+                          IsChecked="{Binding DontShowAgain}" VerticalAlignment="Center"
+                          ToolTip="Select to stop showing this window at startup when you select Skip. Nothing is configured." />
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                     <ui:Button Content="Back" Command="{Binding BackCommand}" Margin="0,0,8,0"
+                               ToolTip="Returns to the selection of systems."
                                Visibility="{Binding CurrentStep, Converter={StaticResource StepVisibilityConverter}, ConverterParameter=2}" />
-                    <ui:Button Content="Skip" Command="{Binding SkipCommand}" Margin="0,0,8,0" />
+                    <ui:Button Content="Skip" Command="{Binding SkipCommand}" Margin="0,0,8,0"
+                               ToolTip="Closes this window without saving. The window shows again at the next start unless you select Don't show this again." />
                     <ui:Button Content="Next" Appearance="Primary" Command="{Binding NextCommand}"
+                               ToolTip="Continues to the connection details of the selected systems."
                                Visibility="{Binding CurrentStep, Converter={StaticResource StepVisibilityConverter}, ConverterParameter=1}" />
                     <ui:Button Content="Save" Appearance="Primary" Command="{Binding SaveCommand}"
+                               ToolTip="Saves the settings and closes this window. The settings apply without a restart."
                                Visibility="{Binding CurrentStep, Converter={StaticResource StepVisibilityConverter}, ConverterParameter=2}" />
                 </StackPanel>
             </DockPanel>

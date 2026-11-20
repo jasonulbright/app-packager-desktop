@@ -60,7 +60,7 @@
                                             Text="{Binding Value, UpdateSourceTrigger=PropertyChanged}"
                                             IsReadOnly="{Binding IsReadOnlyValue}"
                                             AutomationProperties.Name="{Binding Label}"
-                                            TextWrapping="Wrap" />
+                                            TextWrapping="Wrap" ToolTip="Review or change the value for this field. A field that is not editable is read only." />
 
                                 <Border Grid.Row="0" Grid.Column="2"
                                         Margin="8,0,0,0"

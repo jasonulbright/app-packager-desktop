@@ -25,6 +25,9 @@ public sealed record SidebarItemDefinition(string Id, string Title, string Symbo
 
     public Action<IServiceProvider>? Activate { get; init; }
 
+    /// <summary>The tooltip of the entry: one sentence that says what the entry opens or does.</summary>
+    public string? Description { get; init; }
+
     public bool IsPinned { get; init; }
 
     /// <summary>The id of a captioned group; null puts the entry in the group without a caption.</summary>

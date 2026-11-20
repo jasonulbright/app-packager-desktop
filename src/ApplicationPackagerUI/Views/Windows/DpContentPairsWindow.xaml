@@ -48,8 +48,10 @@
                        AutomationProperties.AutomationId="txtPairsIntro" />
             <WrapPanel Margin="0,8,0,0">
                 <ui:TextBox x:Name="txtPairsFilter" KeyboardNavigation.TabIndex="4" Text="{Binding FilterText, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="Filter by content, PackageID, DP or state" Icon="{ui:SymbolIcon Search24}"
+                            ToolTip="Shows only the pairs whose content, PackageID, DP or state matches this text."
                             MinWidth="280" Margin="0,0,8,8" AutomationProperties.Name="Pair filter" AutomationProperties.AutomationId="txtPairsFilter" />
-                <ui:Button KeyboardNavigation.TabIndex="1" Content="Check shown" Command="{Binding CheckShownCommand}" Margin="0,0,8,8" AutomationProperties.AutomationId="btnPairsCheckShown" />
+                <ui:Button KeyboardNavigation.TabIndex="1" Content="Check shown" Command="{Binding CheckShownCommand}" Margin="0,0,8,8" ToolTip="Checks every pair that the filter shows."
+                           AutomationProperties.AutomationId="btnPairsCheckShown" />
                 <ui:Button KeyboardNavigation.TabIndex="2" Content="Clear" Command="{Binding ClearCommand}" Margin="0,0,8,8" ToolTip="Clears every pair, also the pairs the filter hides."
                            AutomationProperties.Name="Clear every pair" AutomationProperties.AutomationId="btnPairsClear" />
                 <TextBlock Text="{Binding CountText}" TextWrapping="Wrap" VerticalAlignment="Center" Margin="0,0,0,8" Foreground="{DynamicResource TextFillColorSecondaryBrush}"
@@ -68,6 +70,7 @@
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
                             <CheckBox IsChecked="{Binding IsChecked, UpdateSourceTrigger=PropertyChanged}" HorizontalAlignment="Center" MinWidth="0" Padding="0" Focusable="False"
+                                      ToolTip="Include this content and DP pair in the plan."
                                       AutomationProperties.Name="{Binding CheckName}" />
                         </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
@@ -86,6 +89,7 @@
                            Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
                 <WrapPanel HorizontalAlignment="Right">
                     <ui:Button x:Name="btnContinue" Content="Continue to the plan" MinWidth="150" Margin="0,0,8,0" Appearance="Primary" Command="{Binding ContinueCommand}"
+                               ToolTip="Builds a plan from the checked pairs. Check at least one pair first. The app changes nothing until you confirm the plan."
                                AutomationProperties.AutomationId="btnPairsContinue" />
                     <ui:Button x:Name="btnCancel" Content="_Cancel" MinWidth="100" IsCancel="True" Command="{Binding CancelCommand}" AutomationProperties.AutomationId="btnPairsCancel" />
                 </WrapPanel>

@@ -258,11 +258,11 @@
                             <RowDefinition Height="Auto" />
                         </Grid.RowDefinitions>
                         <WrapPanel Grid.Row="0" x:Name="pnlFindingFilter" KeyboardNavigation.TabNavigation="Local" KeyboardNavigation.TabIndex="0">
-                            <ui:TextBox x:Name="txtFindingFilter" Text="{Binding FindingText, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="Filter by check, object, evidence or action" Icon="{ui:SymbolIcon Search24}"
+                            <ui:TextBox ToolTip="Enter text to show only the findings that contain it." x:Name="txtFindingFilter" Text="{Binding FindingText, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="Filter by check, object, evidence or action" Icon="{ui:SymbolIcon Search24}"
                                         MinWidth="300" Margin="0,0,8,8" AutomationProperties.Name="Finding filter" AutomationProperties.AutomationId="txtFindingFilter" />
-                            <ComboBox ItemsSource="{Binding Categories}" SelectedItem="{Binding CategoryFilter}" MinWidth="190" Margin="0,0,8,8"
+                            <ComboBox ToolTip="Show only the findings of one category, or all categories." ItemsSource="{Binding Categories}" SelectedItem="{Binding CategoryFilter}" MinWidth="190" Margin="0,0,8,8"
                                       AutomationProperties.Name="Category" AutomationProperties.AutomationId="cboFindingCategory" />
-                            <ComboBox ItemsSource="{Binding Severities}" SelectedItem="{Binding SeverityFilter}" MinWidth="130" Margin="0,0,8,8"
+                            <ComboBox ToolTip="Show only the findings of one severity, or all severities." ItemsSource="{Binding Severities}" SelectedItem="{Binding SeverityFilter}" MinWidth="130" Margin="0,0,8,8"
                                       AutomationProperties.Name="Severity" AutomationProperties.AutomationId="cboFindingSeverity" />
                             <CheckBox Content="Show suppressed" IsChecked="{Binding ShowSuppressed}" Margin="0,0,12,8" VerticalAlignment="Center"
                                       ToolTip="Shows the suppressed findings in the list as well." AutomationProperties.AutomationId="chkShowSuppressed" />
@@ -350,9 +350,9 @@
                                         <RowDefinition Height="*" />
                                     </Grid.RowDefinitions>
                                     <WrapPanel Grid.Row="0" Margin="0,0,0,4">
-                                        <ui:TextBox Text="{Binding EdgeText, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="Filter by application, key or health" Icon="{ui:SymbolIcon Search24}"
+                                        <ui:TextBox ToolTip="Enter text to show only the relationships that contain it." Text="{Binding EdgeText, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="Filter by application, key or health" Icon="{ui:SymbolIcon Search24}"
                                                     MinWidth="280" Margin="0,0,8,8" AutomationProperties.Name="Relationship filter" AutomationProperties.AutomationId="txtEdgeFilter" />
-                                        <ComboBox ItemsSource="{Binding EdgeKinds}" SelectedItem="{Binding EdgeKind}" MinWidth="150" Margin="0,0,8,8"
+                                        <ComboBox ToolTip="Show only one kind of relationship between objects, or all kinds." ItemsSource="{Binding EdgeKinds}" SelectedItem="{Binding EdgeKind}" MinWidth="150" Margin="0,0,8,8"
                                                   AutomationProperties.Name="Relationship kind" AutomationProperties.AutomationId="cboEdgeKind" />
                                         <TextBlock Text="{Binding EdgeCount}" Style="{StaticResource Note}" VerticalAlignment="Center" Margin="0,0,0,8" AutomationProperties.AutomationId="txtEdgeCount" />
                                     </WrapPanel>
@@ -421,21 +421,21 @@
                                        AutomationProperties.AutomationId="txtAutoRefresh" AutomationProperties.LiveSetting="Polite" />
                         </WrapPanel>
                         <WrapPanel Grid.Row="1" x:Name="pnlLiveFilter" KeyboardNavigation.TabNavigation="Local" KeyboardNavigation.TabIndex="1">
-                            <ComboBox x:Name="cboLiveView" ItemsSource="{Binding LiveViews}" SelectedItem="{Binding SelectedLiveView}" MinWidth="200" Margin="0,0,8,8"
+                            <ComboBox ToolTip="Select the live view to show. Each view reads the SMS Provider or the site database and changes nothing." x:Name="cboLiveView" ItemsSource="{Binding LiveViews}" SelectedItem="{Binding SelectedLiveView}" MinWidth="200" Margin="0,0,8,8"
                                       AutomationProperties.Name="Live view" AutomationProperties.AutomationId="cboLiveView" />
-                            <ComboBox ItemsSource="{Binding LiveStatusChoices}" SelectedItem="{Binding LiveStatusFilter}" MinWidth="130" Margin="0,0,8,8"
+                            <ComboBox ToolTip="Show only the rows with one status, or all rows." ItemsSource="{Binding LiveStatusChoices}" SelectedItem="{Binding LiveStatusFilter}" MinWidth="130" Margin="0,0,8,8"
                                       Visibility="{Binding IsGridPane, Converter={StaticResource BoolToVisibility}}"
                                       AutomationProperties.Name="Status" AutomationProperties.AutomationId="cboLiveStatus" />
-                            <ui:TextBox Text="{Binding LiveFilterText, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="Filter the rows by any text" Icon="{ui:SymbolIcon Search24}"
+                            <ui:TextBox ToolTip="Enter text to show only the rows of the live view that contain it." Text="{Binding LiveFilterText, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="Filter the rows by any text" Icon="{ui:SymbolIcon Search24}"
                                         MinWidth="280" Margin="0,0,8,8" Visibility="{Binding IsGridPane, Converter={StaticResource BoolToVisibility}}"
                                         AutomationProperties.Name="Live filter" AutomationProperties.AutomationId="txtLiveFilter" />
-                            <ComboBox ItemsSource="{Binding TrendMetrics}" SelectedItem="{Binding SelectedTrendMetric}" MinWidth="300" Margin="0,0,8,8"
+                            <ComboBox ToolTip="Select the metric that the trend chart shows." ItemsSource="{Binding TrendMetrics}" SelectedItem="{Binding SelectedTrendMetric}" MinWidth="300" Margin="0,0,8,8"
                                       Visibility="{Binding IsTrendsPane, Converter={StaticResource BoolToVisibility}}"
                                       AutomationProperties.Name="Metric" AutomationProperties.AutomationId="cboTrendMetric" />
-                            <ComboBox ItemsSource="{Binding TrendDayChoices}" SelectedItem="{Binding TrendDays}" ItemStringFormat="Last {0} days" MinWidth="150" Margin="0,0,8,8"
+                            <ComboBox ToolTip="Select how many days the trend chart covers." ItemsSource="{Binding TrendDayChoices}" SelectedItem="{Binding TrendDays}" ItemStringFormat="Last {0} days" MinWidth="150" Margin="0,0,8,8"
                                       Visibility="{Binding IsTrendsPane, Converter={StaticResource BoolToVisibility}}"
                                       AutomationProperties.Name="Period" AutomationProperties.AutomationId="cboTrendDays" />
-                            <ui:Button Content="Mark as seen" Icon="{ui:SymbolIcon CheckmarkCircle24}" Command="{Binding MarkAlertsSeenCommand}" Style="{StaticResource ToolButton}"
+                            <ui:Button ToolTip="Marks every alert as seen and clears the alert banner. The alerts stay in the list." Content="Mark as seen" Icon="{ui:SymbolIcon CheckmarkCircle24}" Command="{Binding MarkAlertsSeenCommand}" Style="{StaticResource ToolButton}"
                                        Visibility="{Binding IsAlertsPane, Converter={StaticResource BoolToVisibility}}" AutomationProperties.Name="Mark every alert as seen"
                                        AutomationProperties.AutomationId="btnAlertsSeen" />
                             <TextBlock Text="{Binding LiveRowCount}" Style="{StaticResource Note}" VerticalAlignment="Center" Margin="0,0,0,8"
@@ -553,7 +553,7 @@
                         <TextBlock Grid.Row="0" x:Name="txtHygieneHistoryIntro" Style="{StaticResource Note}" Margin="0,0,0,8" AutomationProperties.AutomationId="txtHygieneHistoryIntro"
                                    Text="The audit log of the fixes of this page, newest first. The list reads the file on this computer only; it reads nothing from the site. A record the hash chain does not verify was changed or added outside the page." />
                         <WrapPanel Grid.Row="1" x:Name="pnlHygieneHistoryFilter" Margin="0,0,0,4" KeyboardNavigation.TabNavigation="Local" KeyboardNavigation.TabIndex="0">
-                            <ui:TextBox Text="{Binding HistoryText, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="Filter by action, result, user, site or object" Icon="{ui:SymbolIcon Search24}"
+                            <ui:TextBox ToolTip="Enter text to show only the history entries that contain it." Text="{Binding HistoryText, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="Filter by action, result, user, site or object" Icon="{ui:SymbolIcon Search24}"
                                         MinWidth="300" Margin="0,0,8,8" AutomationProperties.Name="History filter" AutomationProperties.AutomationId="txtHygieneHistoryFilter" />
                             <ui:Button Content="Refresh" Icon="{ui:SymbolIcon ArrowClockwise24}" Command="{Binding RefreshHistoryCommand}" Style="{StaticResource ToolButton}"
                                        ToolTip="Reads the audit log file again." AutomationProperties.Name="Reload the audit log" AutomationProperties.AutomationId="btnHygieneHistoryRefresh" />
@@ -591,9 +591,9 @@
                         <TextBlock Text="The scan reads the objects of the checked areas and runs the checks of those areas. Only a scan of every area becomes the last scan that the New column compares with."
                                    Style="{StaticResource Note}" Margin="0,0,0,8" />
                         <WrapPanel Margin="0,0,0,4">
-                            <ui:Button Content="Select all" Command="{Binding SelectAllAreasCommand}" Style="{StaticResource ToolButton}" AutomationProperties.Name="Select every scan area"
+                            <ui:Button ToolTip="Selects every area for the next scan." Content="Select all" Command="{Binding SelectAllAreasCommand}" Style="{StaticResource ToolButton}" AutomationProperties.Name="Select every scan area"
                                        AutomationProperties.AutomationId="btnAreasAll" />
-                            <ui:Button Content="Clear" Command="{Binding ClearAreasCommand}" Style="{StaticResource ToolButton}" AutomationProperties.Name="Clear every scan area"
+                            <ui:Button ToolTip="Clears every area, so the next scan has none selected." Content="Clear" Command="{Binding ClearAreasCommand}" Style="{StaticResource ToolButton}" AutomationProperties.Name="Clear every scan area"
                                        AutomationProperties.AutomationId="btnAreasClear" />
                         </WrapPanel>
                         <ItemsControl ItemsSource="{Binding AreaChoices}" AutomationProperties.AutomationId="lstAreas" Focusable="False">
@@ -604,7 +604,7 @@
                             </ItemsControl.ItemsPanel>
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate DataType="{x:Type pages:HygieneAreaChoice}">
-                                    <CheckBox IsChecked="{Binding IsChecked}" Width="340" Margin="0,0,8,4" AutomationProperties.Name="{Binding Title}"
+                                    <CheckBox ToolTip="Include this area in the scan." IsChecked="{Binding IsChecked}" Width="340" Margin="0,0,8,4" AutomationProperties.Name="{Binding Title}"
                                               AutomationProperties.AutomationId="{Binding Id, StringFormat=chkArea{0}}">
                                         <TextBlock Text="{Binding Title}" TextWrapping="Wrap" Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
                                     </CheckBox>
@@ -614,14 +614,14 @@
 
                         <TextBlock Text="Pause between provider calls" Style="{StaticResource CardTitle}" Margin="0,16,0,8" />
                         <WrapPanel>
-                            <ComboBox ItemsSource="{Binding Pauses}" SelectedItem="{Binding PauseMilliseconds}" ItemStringFormat="{}{0} ms" MinWidth="130" Margin="0,0,8,8"
+                            <ComboBox ToolTip="Select how long the scan waits between calls to the SMS Provider. A longer pause lowers the load on a busy provider and lengthens the scan." ItemsSource="{Binding Pauses}" SelectedItem="{Binding PauseMilliseconds}" ItemStringFormat="{}{0} ms" MinWidth="130" Margin="0,0,8,8"
                                       AutomationProperties.Name="Pause between provider calls in milliseconds" AutomationProperties.AutomationId="cboPause" />
                             <TextBlock Text="A pause lowers the load on a busy SMS Provider. Each pause adds to the scan time, once per provider call." Style="{StaticResource Note}"
                                        VerticalAlignment="Center" Margin="0,0,0,8" MaxWidth="560" />
                         </WrapPanel>
 
                         <TextBlock Text="Content source probe" Style="{StaticResource CardTitle}" Margin="0,16,0,8" />
-                        <CheckBox IsChecked="{Binding ProbeContentSources}" Margin="0,0,0,8" AutomationProperties.Name="Probe the content source paths of the deployment types"
+                        <CheckBox ToolTip="When selected, the scan connects to the file servers of the content source paths, for a limited number of paths and with a time limit. Off by default." IsChecked="{Binding ProbeContentSources}" Margin="0,0,0,8" AutomationProperties.Name="Probe the content source paths of the deployment types"
                                   AutomationProperties.AutomationId="chkProbeSources">
                             <TextBlock TextWrapping="Wrap" Foreground="{DynamicResource TextFillColorPrimaryBrush}"
                                        Text="Probe the content source paths of the deployment types. The scan then connects to the file servers of the paths, for a limited number of paths and with a time limit. Off by default." />
@@ -631,24 +631,24 @@
                         <TextBlock Style="{StaticResource Note}" Margin="0,0,0,8" AutomationProperties.AutomationId="txtLiveOptionsIntro"
                                    Text="The Live views read the SMS Provider and the site database and change nothing. Client Health and Inactive Devices read the site database with Windows authentication. The SQL server and database are the ones Discover uses; empty values are found from the site." />
                         <WrapPanel x:Name="pnlLiveSql">
-                            <ui:TextBox Text="{Binding LiveSqlServer, UpdateSourceTrigger=LostFocus}" PlaceholderText="SQL server, empty finds it from the site" MinWidth="300" Margin="0,0,8,8"
+                            <ui:TextBox ToolTip="Enter the SQL server of the site database. Leave it empty to find it from the site." Text="{Binding LiveSqlServer, UpdateSourceTrigger=LostFocus}" PlaceholderText="SQL server, empty finds it from the site" MinWidth="300" Margin="0,0,8,8"
                                         AutomationProperties.Name="SQL server of the site database" AutomationProperties.AutomationId="txtLiveSqlServer" />
-                            <ui:TextBox Text="{Binding LiveSqlDatabase, UpdateSourceTrigger=LostFocus}" PlaceholderText="Database, empty uses CM_ and the site code" MinWidth="300" Margin="0,0,8,8"
+                            <ui:TextBox ToolTip="Enter the name of the site database. Leave it empty to use CM_ and the site code." Text="{Binding LiveSqlDatabase, UpdateSourceTrigger=LostFocus}" PlaceholderText="Database, empty uses CM_ and the site code" MinWidth="300" Margin="0,0,8,8"
                                         AutomationProperties.Name="Site database name" AutomationProperties.AutomationId="txtLiveSqlDatabase" />
                             <ui:Button Content="Test SQL" Icon="{ui:SymbolIcon PlugConnected24}" Command="{Binding TestSqlCommand}" Style="{StaticResource ToolButton}"
                                        ToolTip="Connects to the site database and runs one read." AutomationProperties.Name="Test the SQL connection" AutomationProperties.AutomationId="btnTestSql" />
                         </WrapPanel>
                         <TextBlock Text="{Binding SqlTestResult}" Style="{StaticResource Note}" Margin="0,0,0,8" AutomationProperties.AutomationId="txtSqlTestResult" AutomationProperties.LiveSetting="Polite" />
-                        <CheckBox IsChecked="{Binding TrustSqlCertificate}" Margin="0,0,0,8" AutomationProperties.Name="Trust the SQL server certificate" AutomationProperties.AutomationId="chkTrustSqlCertificate">
+                        <CheckBox ToolTip="When selected, the SQL connection accepts the server certificate without a check. Use it only for a server with a self-signed certificate. Off by default." IsChecked="{Binding TrustSqlCertificate}" Margin="0,0,0,8" AutomationProperties.Name="Trust the SQL server certificate" AutomationProperties.AutomationId="chkTrustSqlCertificate">
                             <TextBlock TextWrapping="Wrap" Foreground="{DynamicResource TextFillColorPrimaryBrush}"
                                        Text="Trust the SQL server certificate without a check. Use this only for a server with a self-signed certificate. Off by default." />
                         </CheckBox>
                         <WrapPanel>
                             <TextBlock Text="Auto-refresh every" Style="{StaticResource Note}" VerticalAlignment="Center" Margin="0,0,8,8" />
-                            <ComboBox ItemsSource="{Binding RefreshIntervals}" SelectedItem="{Binding RefreshMinutes}" ItemStringFormat="{}{0} minutes" MinWidth="150" Margin="0,0,16,8"
+                            <ComboBox ToolTip="Select how often the live views refresh while this page shows." ItemsSource="{Binding RefreshIntervals}" SelectedItem="{Binding RefreshMinutes}" ItemStringFormat="{}{0} minutes" MinWidth="150" Margin="0,0,16,8"
                                       AutomationProperties.Name="Auto-refresh interval in minutes" AutomationProperties.AutomationId="cboRefreshMinutes" />
                             <TextBlock Text="A device is inactive after" Style="{StaticResource Note}" VerticalAlignment="Center" Margin="0,0,8,8" />
-                            <ComboBox ItemsSource="{Binding InactiveDayChoices}" SelectedItem="{Binding InactiveDays}" ItemStringFormat="{}{0} days" MinWidth="130" Margin="0,0,8,8"
+                            <ComboBox ToolTip="Select the number of days without contact after which a device counts as inactive." ItemsSource="{Binding InactiveDayChoices}" SelectedItem="{Binding InactiveDays}" ItemStringFormat="{}{0} days" MinWidth="130" Margin="0,0,8,8"
                                       AutomationProperties.Name="Days without contact after which a device is inactive" AutomationProperties.AutomationId="cboInactiveDays" />
                         </WrapPanel>
                         <TextBlock Style="{StaticResource Note}" Margin="0,0,0,8" MaxWidth="900" HorizontalAlignment="Left"
@@ -657,30 +657,30 @@
                         <TextBlock Text="Alerts" Style="{StaticResource CardTitle}" Margin="0,16,0,8" />
                         <TextBlock Style="{StaticResource Note}" Margin="0,0,0,8" AutomationProperties.AutomationId="txtAlertsIntro"
                                    Text="An alert fires when a completed refresh finds a threshold crossed, and again only after the value recovered. A view that failed neither raises nor clears an alert. The first complete read of a value after the app starts sets its starting state and raises no alert, also when the threshold is crossed already. When you turn alerts or a threshold off and on again, an alert that fired does not fire again until a complete read shows the recovery. Alerts show on this page and go to the alerts log, only while the app runs." />
-                        <CheckBox IsChecked="{Binding AlertsEnabled}" Margin="0,0,0,4" AutomationProperties.Name="Raise alerts" AutomationProperties.AutomationId="chkAlertsEnabled">
+                        <CheckBox ToolTip="When selected, a completed refresh raises an alert when a threshold below is crossed." IsChecked="{Binding AlertsEnabled}" Margin="0,0,0,4" AutomationProperties.Name="Raise alerts" AutomationProperties.AutomationId="chkAlertsEnabled">
                             <TextBlock TextWrapping="Wrap" Foreground="{DynamicResource TextFillColorPrimaryBrush}" Text="Raise alerts" />
                         </CheckBox>
                         <StackPanel Margin="28,0,0,0" IsEnabled="{Binding AlertsEnabled}">
-                            <CheckBox IsChecked="{Binding AlertSiteCritical}" Margin="0,0,0,4" AutomationProperties.Name="A site component or site system is critical" AutomationProperties.AutomationId="chkAlertSiteCritical">
+                            <CheckBox ToolTip="Raise an alert when a site component or site system has the status Critical." IsChecked="{Binding AlertSiteCritical}" Margin="0,0,0,4" AutomationProperties.Name="A site component or site system is critical" AutomationProperties.AutomationId="chkAlertSiteCritical">
                                 <TextBlock TextWrapping="Wrap" Foreground="{DynamicResource TextFillColorPrimaryBrush}" Text="A site component or site system is critical" />
                             </CheckBox>
-                            <CheckBox IsChecked="{Binding AlertDpCritical}" Margin="0,0,0,4" AutomationProperties.Name="A distribution point is critical" AutomationProperties.AutomationId="chkAlertDpCritical">
+                            <CheckBox ToolTip="Raise an alert when a distribution point has the status Critical." IsChecked="{Binding AlertDpCritical}" Margin="0,0,0,4" AutomationProperties.Name="A distribution point is critical" AutomationProperties.AutomationId="chkAlertDpCritical">
                                 <TextBlock TextWrapping="Wrap" Foreground="{DynamicResource TextFillColorPrimaryBrush}" Text="A distribution point is critical" />
                             </CheckBox>
-                            <CheckBox IsChecked="{Binding AlertContentFailed}" Margin="0,0,0,4" AutomationProperties.Name="A DP-content pair failed" AutomationProperties.AutomationId="chkAlertContentFailed">
+                            <CheckBox ToolTip="Raise an alert when the content of a package or application failed on a distribution point." IsChecked="{Binding AlertContentFailed}" Margin="0,0,0,4" AutomationProperties.Name="A DP-content pair failed" AutomationProperties.AutomationId="chkAlertContentFailed">
                                 <TextBlock TextWrapping="Wrap" Foreground="{DynamicResource TextFillColorPrimaryBrush}" Text="A DP-content pair failed" />
                             </CheckBox>
                             <WrapPanel>
-                                <CheckBox IsChecked="{Binding AlertCompliance}" Margin="0,0,8,8" VerticalAlignment="Center" AutomationProperties.Name="Overall deployment compliance is below the floor"
+                                <CheckBox ToolTip="Raise an alert when the overall deployment compliance is below the percentage you select." IsChecked="{Binding AlertCompliance}" Margin="0,0,8,8" VerticalAlignment="Center" AutomationProperties.Name="Overall deployment compliance is below the floor"
                                           AutomationProperties.AutomationId="chkAlertCompliance">
                                     <TextBlock TextWrapping="Wrap" Foreground="{DynamicResource TextFillColorPrimaryBrush}" Text="Overall deployment compliance is below" />
                                 </CheckBox>
-                                <ComboBox ItemsSource="{Binding ComplianceFloors}" SelectedItem="{Binding CompliancePctFloor}" ItemStringFormat="{}{0} %" MinWidth="110" Margin="0,0,8,8"
+                                <ComboBox ToolTip="Select the compliance percentage below which an alert is raised." ItemsSource="{Binding ComplianceFloors}" SelectedItem="{Binding CompliancePctFloor}" ItemStringFormat="{}{0} %" MinWidth="110" Margin="0,0,8,8"
                                           IsEnabled="{Binding AlertCompliance}" AutomationProperties.Name="Compliance floor in percent" AutomationProperties.AutomationId="cboComplianceFloor" />
                             </WrapPanel>
                         </StackPanel>
                         <WrapPanel>
-                            <ui:Button Content="Open the alerts log" Icon="{ui:SymbolIcon DocumentText24}" Command="{Binding OpenAlertsLogCommand}" Style="{StaticResource ToolButton}"
+                            <ui:Button ToolTip="Opens the alerts log file." Content="Open the alerts log" Icon="{ui:SymbolIcon DocumentText24}" Command="{Binding OpenAlertsLogCommand}" Style="{StaticResource ToolButton}"
                                        AutomationProperties.AutomationId="btnOptionsAlertsLog" />
                         </WrapPanel>
 
@@ -688,7 +688,7 @@
                         <TextBlock Style="{StaticResource Note}" Margin="0,0,0,8" AutomationProperties.AutomationId="txtImportIntro"
                                    Text="Copies the metrics history and the settings of the retired Health Dashboard of the suite. The import shows what it copies and asks once. It does not change the old files, and a second import changes nothing." />
                         <WrapPanel>
-                            <ui:Button Content="Import from the Health Dashboard" Icon="{ui:SymbolIcon ArrowImport24}" Command="{Binding ImportDashboardCommand}" Style="{StaticResource ToolButton}"
+                            <ui:Button ToolTip="Shows what the import copies from the retired Health Dashboard, then asks once before it copies the metrics history and the settings." Content="Import from the Health Dashboard" Icon="{ui:SymbolIcon ArrowImport24}" Command="{Binding ImportDashboardCommand}" Style="{StaticResource ToolButton}"
                                        AutomationProperties.AutomationId="btnImportDashboard" />
                         </WrapPanel>
                         <TextBlock Text="{Binding ImportNote}" Style="{StaticResource Note}" TextWrapping="Wrap" Margin="0,0,0,8"
@@ -701,7 +701,7 @@
                                 <Run Text="Report folder:" />
                                 <Run Text="{Binding ReportFolder, Mode=OneWay}" />
                             </TextBlock>
-                            <ui:Button Content="Open folder" Icon="{ui:SymbolIcon FolderOpen24}" Command="{Binding OpenReportsFolderCommand}" Style="{StaticResource ToolButton}"
+                            <ui:Button ToolTip="Opens the folder that holds the Site Hygiene reports." Content="Open folder" Icon="{ui:SymbolIcon FolderOpen24}" Command="{Binding OpenReportsFolderCommand}" Style="{StaticResource ToolButton}"
                                        AutomationProperties.Name="Open the report folder" AutomationProperties.AutomationId="btnOptionsFolder" />
                         </WrapPanel>
                     </StackPanel>

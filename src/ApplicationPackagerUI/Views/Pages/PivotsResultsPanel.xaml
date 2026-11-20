@@ -43,7 +43,7 @@
                 <ui:Button Content="Open folder" Icon="{ui:SymbolIcon FolderOpen24}" Command="{Binding OpenReportsFolderCommand}" Style="{StaticResource ToolButton}"
                            ToolTip="Opens the folder of the last report." AutomationProperties.AutomationId="btnResultsFolder" />
                 <ui:TextBox Text="{Binding ResultFilter, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="Filter the results" Icon="{ui:SymbolIcon Search24}"
-                            MinWidth="220" Margin="0,0,8,8" AutomationProperties.Name="Result filter" AutomationProperties.AutomationId="txtResultFilter" />
+                            MinWidth="220" Margin="0,0,8,8" ToolTip="Enter text to show only the result rows and devices that contain it." AutomationProperties.Name="Result filter" AutomationProperties.AutomationId="txtResultFilter" />
                 <TextBlock Text="{Binding ResultCount}" Style="{StaticResource Note}" VerticalAlignment="Center" Margin="0,0,0,8" AutomationProperties.AutomationId="txtResultCount" />
             </WrapPanel>
             <TabControl Grid.Row="2" SelectedIndex="{Binding ResultTabIndex}" AutomationProperties.AutomationId="tabResults">

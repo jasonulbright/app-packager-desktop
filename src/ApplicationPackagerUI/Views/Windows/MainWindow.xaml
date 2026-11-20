@@ -37,6 +37,7 @@
             <ui:NavigationView.FooterMenuItems>
                 <ui:NavigationViewItem
                     Content="Settings"
+                    ToolTip="Open Settings: the connections, folders, packaging defaults, supersedence and security options of the application."
                     Icon="{ui:SymbolIcon Settings24}"
                     TargetPageType="{x:Type pages:SettingsPage}" />
             </ui:NavigationView.FooterMenuItems>

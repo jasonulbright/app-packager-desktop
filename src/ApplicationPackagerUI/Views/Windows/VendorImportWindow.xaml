@@ -39,20 +39,20 @@
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
                     <TextBox x:Name="txtFeedAddress" Grid.Column="0" Text="{Binding Address, UpdateSourceTrigger=PropertyChanged}"
-                             VerticalContentAlignment="Center" AutomationProperties.AutomationId="txtFeedAddress" />
+                             VerticalContentAlignment="Center" AutomationProperties.AutomationId="txtFeedAddress" ToolTip="Enter the HTTPS address of the feed document to import." />
                     <ui:Button x:Name="btnFetchFeed" Grid.Column="2" Content="Fetch" MinWidth="100" Appearance="Primary"
-                               FontWeight="SemiBold" Command="{Binding FetchCommand}" AutomationProperties.AutomationId="btnFetchFeed" />
+                               FontWeight="SemiBold" Command="{Binding FetchCommand}" AutomationProperties.AutomationId="btnFetchFeed" ToolTip="Download the feed document from the address and show its definitions and findings. Nothing is stored until you select Import." />
                     <ui:Button x:Name="btnCancelFetch" Grid.Column="4" Content="Cancel Fetch" MinWidth="110" FontWeight="SemiBold"
-                               Command="{Binding CancelFetchCommand}" AutomationProperties.AutomationId="btnCancelFetch" />
+                               Command="{Binding CancelFetchCommand}" AutomationProperties.AutomationId="btnCancelFetch" ToolTip="Cancel the download that is running." />
                 </Grid>
 
                 <TextBlock Text="Pinned SHA-256 of the document (optional, from the vendor's other channel)" FontWeight="SemiBold" Margin="0,0,0,4" />
                 <TextBox x:Name="txtPinnedDigest" Text="{Binding PinnedDigest, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,8"
-                         VerticalContentAlignment="Center" FontFamily="Consolas" AutomationProperties.AutomationId="txtPinnedDigest" />
+                         VerticalContentAlignment="Center" FontFamily="Consolas" AutomationProperties.AutomationId="txtPinnedDigest" ToolTip="Optional. Enter the SHA-256 of the document that the vendor published on another channel. The import refuses a document that does not match." />
 
                 <TextBlock Text="Pinned publisher (optional): subject | issuer of the code-signing certificate, or key: and the SHA-256 of its public key" FontWeight="SemiBold" Margin="0,0,0,4" TextWrapping="Wrap" />
                 <TextBox x:Name="txtPinnedPublisher" Text="{Binding PinnedPublisher, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,8"
-                         VerticalContentAlignment="Center" AutomationProperties.AutomationId="txtPinnedPublisher" />
+                         VerticalContentAlignment="Center" AutomationProperties.AutomationId="txtPinnedPublisher" ToolTip="Optional. Enter the subject and issuer of the code-signing certificate, or key: and the SHA-256 of its public key. The import checks the detached .p7s signature of the document against this publisher and stops when it is not valid." />
 
                 <TextBlock x:Name="txtImportStatus" Text="{Binding StatusText}" TextWrapping="Wrap" Margin="0,0,0,8"
                            Foreground="{DynamicResource TextFillColorSecondaryBrush}" AutomationProperties.AutomationId="txtImportStatus" />
@@ -71,12 +71,12 @@
                         <StackPanel Grid.Column="0">
                             <TextBlock Text="Vendor" FontWeight="SemiBold" Margin="0,0,0,4" />
                             <TextBox Text="{Binding Vendor, UpdateSourceTrigger=PropertyChanged}" VerticalContentAlignment="Center"
-                                     AutomationProperties.AutomationId="txtImportVendor" />
+                                     AutomationProperties.AutomationId="txtImportVendor" ToolTip="Enter the vendor name to store with the feed." />
                         </StackPanel>
                         <StackPanel Grid.Column="2">
                             <TextBlock Text="Feed Id (names the folder of the definitions)" FontWeight="SemiBold" Margin="0,0,0,4" />
                             <TextBox Text="{Binding FeedId, UpdateSourceTrigger=PropertyChanged}" VerticalContentAlignment="Center"
-                                     AutomationProperties.AutomationId="txtImportFeedId" />
+                                     AutomationProperties.AutomationId="txtImportFeedId" ToolTip="Enter the identifier of the feed. It names the folder that holds the imported definitions." />
                         </StackPanel>
                     </Grid>
 
@@ -91,7 +91,7 @@
                                     <DataTemplate>
                                         <CheckBox IsChecked="{Binding Replace, UpdateSourceTrigger=PropertyChanged}" HorizontalAlignment="Center"
                                                   Visibility="{Binding IsShippedConflict, Converter={StaticResource BooleanToVisibilityConverter}}"
-                                                  AutomationProperties.Name="{Binding Id}" />
+                                                  AutomationProperties.Name="{Binding Id}" ToolTip="Replace the shipped definition that has the same Id with this imported definition." />
                                     </DataTemplate>
                                 </DataGridTemplateColumn.CellTemplate>
                             </DataGridTemplateColumn>
@@ -114,7 +114,7 @@
                                    ToolTip="Shows the full text of every script and command of the selected definition with its SHA-256, and unblocks the definition after a confirmation. A path to a local file or a bootstrapper is never unblocked."
                                    AutomationProperties.AutomationId="btnUnblockSelected" />
                         <ui:Button x:Name="btnBlockAgain" Content="Block Again" Margin="0,0,8,8" Command="{Binding BlockAgainCommand}"
-                                   AutomationProperties.AutomationId="btnBlockAgain" />
+                                   AutomationProperties.AutomationId="btnBlockAgain" ToolTip="Block the selected definition again after you unblocked it." />
                     </WrapPanel>
 
                     <TextBlock Text="Findings" Margin="0,0,0,4" />
@@ -146,9 +146,9 @@
                                ToolTip="Fetches the selected feed again (at its stored address, or at the address above) and shows what changed. Nothing is stored until you select Apply Update."
                                AutomationProperties.AutomationId="btnCheckForUpdate" />
                     <ui:Button x:Name="btnApplyUpdate" Content="Apply Update" Margin="0,0,8,8" Appearance="Primary" Command="{Binding ApplyUpdateCommand}"
-                               AutomationProperties.AutomationId="btnApplyUpdate" />
+                               AutomationProperties.AutomationId="btnApplyUpdate" ToolTip="Store the update of the selected feed after you review the changes. A confirmation appears first." />
                     <ui:Button x:Name="btnRemoveFeed" Content="Remove Feed" MinWidth="130" Margin="0,0,8,8" Appearance="Danger"
-                               Command="{Binding RemoveFeedCommand}" AutomationProperties.AutomationId="btnRemoveFeed" />
+                               Command="{Binding RemoveFeedCommand}" AutomationProperties.AutomationId="btnRemoveFeed" ToolTip="Remove the selected feed and its definitions after a confirmation. Stages that already exist stay, and you cannot undo this." />
                 </WrapPanel>
                 <TextBlock Text="Access to an authenticated feed" Margin="0,8,0,4" />
                 <TextBlock Text="{Binding AccessStatus}" TextWrapping="Wrap" Margin="0,0,0,8" Foreground="{DynamicResource TextFillColorSecondaryBrush}"
@@ -167,15 +167,15 @@
                 <WrapPanel Margin="0,0,0,4">
                     <StackPanel Margin="0,0,8,8">
                         <TextBlock Text="Entry id" FontWeight="SemiBold" Margin="0,0,0,4" />
-                        <TextBox Width="160" Text="{Binding AccessId, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.AutomationId="txtAccessId" />
+                        <TextBox Width="160" Text="{Binding AccessId, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.AutomationId="txtAccessId" ToolTip="Enter a name for this access entry." />
                     </StackPanel>
                     <StackPanel Margin="0,0,8,8">
                         <TextBlock Text="Address of the feed (binds the host)" FontWeight="SemiBold" Margin="0,0,0,4" />
-                        <TextBox Width="320" Text="{Binding AccessAddress, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.AutomationId="txtAccessAddress" />
+                        <TextBox Width="320" Text="{Binding AccessAddress, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.AutomationId="txtAccessAddress" ToolTip="Enter the HTTPS address of the authenticated feed. The entry is bound to its host." />
                     </StackPanel>
                     <StackPanel Margin="0,0,8,8">
                         <TextBlock Text="Method" FontWeight="SemiBold" Margin="0,0,0,4" />
-                        <ComboBox Width="160" SelectedIndex="{Binding AccessMethod}" AutomationProperties.AutomationId="cboAccessMethod">
+                        <ComboBox Width="160" SelectedIndex="{Binding AccessMethod}" AutomationProperties.AutomationId="cboAccessMethod" ToolTip="Select how the feed host authenticates you.">
                             <ComboBoxItem Content="Key in a header" />
                             <ComboBoxItem Content="Basic" />
                             <ComboBoxItem Content="Windows (integrated)" />
@@ -186,39 +186,39 @@
                     </StackPanel>
                     <StackPanel Margin="0,0,8,8" Visibility="{Binding AccessIsHeader, Converter={StaticResource BooleanToVisibilityConverter}}">
                         <TextBlock Text="Header name" FontWeight="SemiBold" Margin="0,0,0,4" />
-                        <TextBox Width="160" Text="{Binding AccessHeader, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.AutomationId="txtAccessHeader" />
+                        <TextBox Width="160" Text="{Binding AccessHeader, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.AutomationId="txtAccessHeader" ToolTip="Enter the name of the HTTP header that carries the key." />
                     </StackPanel>
                     <StackPanel Margin="0,0,8,8" Visibility="{Binding AccessIsBasic, Converter={StaticResource BooleanToVisibilityConverter}}">
                         <TextBlock Text="User name" FontWeight="SemiBold" Margin="0,0,0,4" />
-                        <TextBox Width="160" Text="{Binding AccessUser, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.AutomationId="txtAccessUser" />
+                        <TextBox Width="160" Text="{Binding AccessUser, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.AutomationId="txtAccessUser" ToolTip="Enter the user name for Basic authentication." />
                     </StackPanel>
                     <StackPanel Margin="0,0,8,8" Visibility="{Binding AccessIsCertificate, Converter={StaticResource BooleanToVisibilityConverter}}">
                         <TextBlock Text="Certificate thumbprint (CurrentUser\My)" FontWeight="SemiBold" Margin="0,0,0,4" />
-                        <TextBox Width="320" Text="{Binding AccessThumbprint, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.AutomationId="txtAccessThumbprint" />
+                        <TextBox Width="320" Text="{Binding AccessThumbprint, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.AutomationId="txtAccessThumbprint" ToolTip="Enter the thumbprint of the client certificate in the CurrentUser\My store." />
                     </StackPanel>
                     <StackPanel Margin="0,0,8,8" Visibility="{Binding AccessIsOAuth, Converter={StaticResource BooleanToVisibilityConverter}}">
                         <TextBlock Text="Token address (second bound host)" FontWeight="SemiBold" Margin="0,0,0,4" />
-                        <TextBox Width="320" Text="{Binding AccessTokenAddress, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.AutomationId="txtAccessTokenAddress" />
+                        <TextBox Width="320" Text="{Binding AccessTokenAddress, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.AutomationId="txtAccessTokenAddress" ToolTip="Enter the HTTPS address of the OAuth 2 token endpoint. The entry is also bound to this host." />
                     </StackPanel>
                     <StackPanel Margin="0,0,8,8" Visibility="{Binding AccessIsOAuth, Converter={StaticResource BooleanToVisibilityConverter}}">
                         <TextBlock Text="Client id" FontWeight="SemiBold" Margin="0,0,0,4" />
-                        <TextBox Width="240" Text="{Binding AccessClientId, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.AutomationId="txtAccessClientId" />
+                        <TextBox Width="240" Text="{Binding AccessClientId, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.AutomationId="txtAccessClientId" ToolTip="Enter the OAuth 2 client id." />
                     </StackPanel>
                     <StackPanel Margin="0,0,8,8" Visibility="{Binding AccessIsOAuth, Converter={StaticResource BooleanToVisibilityConverter}}">
                         <TextBlock Text="Scope" FontWeight="SemiBold" Margin="0,0,0,4" />
-                        <TextBox Width="240" Text="{Binding AccessScope, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.AutomationId="txtAccessScope" />
+                        <TextBox Width="240" Text="{Binding AccessScope, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.AutomationId="txtAccessScope" ToolTip="Enter the OAuth 2 scope to request." />
                     </StackPanel>
                     <StackPanel Margin="0,0,8,8" Visibility="{Binding AccessShowsSecret, Converter={StaticResource BooleanToVisibilityConverter}}">
                         <TextBlock Text="Key, password or client secret" FontWeight="SemiBold" Margin="0,0,0,4" />
-                        <ui:PasswordBox Width="240" Password="{Binding AccessSecret, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.AutomationId="pwdAccessSecret" />
+                        <ui:PasswordBox Width="240" Password="{Binding AccessSecret, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.AutomationId="pwdAccessSecret" ToolTip="Enter the key, password or client secret. It is stored in the Windows Credential Manager and cleared from this window." />
                     </StackPanel>
                 </WrapPanel>
                 <WrapPanel Margin="0,0,0,8">
-                    <ui:Button x:Name="btnAddAccess" Content="Add and Test" Margin="0,0,8,8" Command="{Binding AddAccessCommand}" AutomationProperties.AutomationId="btnAddAccess" />
+                    <ui:Button x:Name="btnAddAccess" Content="Add and Test" Margin="0,0,8,8" Command="{Binding AddAccessCommand}" AutomationProperties.AutomationId="btnAddAccess" ToolTip="Save this access entry and test it against the feed address." />
                     <ui:Button x:Name="btnRotateAccess" Content="Rotate Secret" Margin="0,0,8,8" Command="{Binding RotateAccessCommand}"
                                ToolTip="Replaces the secret of the selected entry with the one in the box." AutomationProperties.AutomationId="btnRotateAccess" />
                     <ui:Button x:Name="btnRemoveAccess" Content="Remove Access" Margin="0,0,8,8" Appearance="Danger" Command="{Binding RemoveAccessCommand}"
-                               AutomationProperties.AutomationId="btnRemoveAccess" />
+                               AutomationProperties.AutomationId="btnRemoveAccess" ToolTip="Remove the selected access entry and its secret from the Windows Credential Manager after a confirmation. Imported definitions stay." />
                 </WrapPanel>
                 <StackPanel Visibility="{Binding HasUpdate, Converter={StaticResource BooleanToVisibilityConverter}}">
                     <TextBlock Text="Update of the selected feed (read only)" Margin="0,0,0,4" />
@@ -240,7 +240,7 @@
                 KeyboardNavigation.TabNavigation="Local">
             <WrapPanel HorizontalAlignment="Right">
                 <ui:Button x:Name="btnImportFeed" Content="Import" MinWidth="100" Margin="0,0,8,0" Appearance="Primary" FontWeight="SemiBold"
-                           Command="{Binding ImportCommand}" AutomationProperties.AutomationId="btnImportFeed" />
+                           Command="{Binding ImportCommand}" AutomationProperties.AutomationId="btnImportFeed" ToolTip="Store the previewed feed and its definitions. Blocked definitions stay blocked unless you unblocked them." />
                 <ui:Button x:Name="btnCloseImport" Content="_Close" MinWidth="100" FontWeight="SemiBold" IsCancel="True"
                            Command="{Binding CloseCommand}" AutomationProperties.AutomationId="btnCloseImport" />
             </WrapPanel>

@@ -38,13 +38,13 @@
                             Text="{Binding ApplicationName, UpdateSourceTrigger=PropertyChanged}"
                             IsEnabled="{Binding Idle}" PlaceholderText="Exact name in the console"
                             AutomationProperties.AutomationId="txtCmApplicationName"
-                            AutomationProperties.Name="Application name" />
+                            AutomationProperties.Name="Application name" ToolTip="Enter the exact name of the Application in the Configuration Manager console. This value is required." />
                 <TextBlock Grid.Row="1" Text="Output folder" VerticalAlignment="Center" />
                 <ui:TextBox Grid.Row="1" Grid.Column="1"
                             Text="{Binding OutputFolder, UpdateSourceTrigger=PropertyChanged}"
                             IsEnabled="{Binding Idle}"
                             AutomationProperties.AutomationId="txtCmOutputFolder"
-                            AutomationProperties.Name="Output folder" />
+                            AutomationProperties.Name="Output folder" ToolTip="Enter the folder that receives the converted files and reports." />
             </Grid>
             <WrapPanel>
                 <CheckBox Content="Assign by group" Margin="0,0,16,0" IsChecked="{Binding AssignByGroup}" IsEnabled="{Binding Idle}"
@@ -60,7 +60,7 @@
                           ToolTip="Write the plan and the reports without copying the content."
                           AutomationProperties.AutomationId="chkSkipContent" />
                 <CheckBox Content="Build the .intunewin files" Margin="0,0,16,0" IsChecked="{Binding BuildIntuneWin}" IsEnabled="{Binding Idle}"
-                          AutomationProperties.AutomationId="chkBuildIntuneWin" />
+                          AutomationProperties.AutomationId="chkBuildIntuneWin" ToolTip="Build an .intunewin file for each converted app. Selecting Skip content clears this check box." />
                 <CheckBox Content="Publish to Intune" IsChecked="{Binding Publish}" IsEnabled="{Binding Idle}"
                           ToolTip="Publish each app with the Intune values stored in Settings."
                           AutomationProperties.AutomationId="chkPublish" />

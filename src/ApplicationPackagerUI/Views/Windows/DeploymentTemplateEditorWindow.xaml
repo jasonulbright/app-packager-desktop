@@ -44,6 +44,7 @@
             <StackPanel Margin="16,0,16,8">
                 <TextBlock Text="Name" Style="{StaticResource FieldLabel}" Margin="0,0,0,4" />
                 <ui:TextBox x:Name="txtName" Text="{Binding Name, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="Template name"
+                            ToolTip="Enter the name of the deployment template."
                             AutomationProperties.AutomationId="txtTemplateName" />
                 <TextBlock Text="Purpose" Style="{StaticResource FieldLabel}" />
                 <CheckBox Content="Required (installs at the deadline)" IsChecked="{Binding IsRequired}" Style="{StaticResource Option}"
@@ -51,14 +52,16 @@
                 <StackPanel Visibility="{Binding IsRequired, Converter={StaticResource EditorVisibility}}">
                     <TextBlock Text="Deadline, hours after the available time (0 for none)" Style="{StaticResource FieldLabel}" />
                     <ui:TextBox Text="{Binding DeadlineOffsetText, UpdateSourceTrigger=PropertyChanged}" Width="120" HorizontalAlignment="Left"
-                                AutomationProperties.Name="Deadline offset in hours" AutomationProperties.AutomationId="txtTemplateOffset" />
+                                ToolTip="Enter the whole hours after the available time when the deployment installs the software. Enter 0 for no deadline." AutomationProperties.Name="Deadline offset in hours" AutomationProperties.AutomationId="txtTemplateOffset" />
                 </StackPanel>
                 <TextBlock Text="User notification" Style="{StaticResource FieldLabel}" />
                 <ComboBox ItemsSource="{Binding Notifications}" SelectedItem="{Binding Notification}" DisplayMemberPath="Text"
+                          ToolTip="Select whether the deployment shows in Software Center and which notifications users see."
                           AutomationProperties.Name="User notification" AutomationProperties.AutomationId="cboTemplateNotification" />
                 <TextBlock Text="Options" Style="{StaticResource FieldLabel}" />
                 <CheckBox Content="Use UTC instead of local time" IsChecked="{Binding UtcBasis}" Style="{StaticResource Option}" AutomationProperties.AutomationId="chkTemplateUtc" />
-                <CheckBox Content="Override maintenance windows" IsChecked="{Binding OverrideServiceWindow}" Style="{StaticResource Option}" AutomationProperties.AutomationId="chkTemplateOverride" />
+                <CheckBox Content="Override maintenance windows" IsChecked="{Binding OverrideServiceWindow}" Style="{StaticResource Option}"
+                          ToolTip="Installs outside maintenance windows when the deadline passes." AutomationProperties.AutomationId="chkTemplateOverride" />
                 <CheckBox Content="Allow restart outside maintenance windows" IsChecked="{Binding RebootOutsideServiceWindow}" Style="{StaticResource Option}"
                           AutomationProperties.AutomationId="chkTemplateReboot" />
                 <CheckBox Content="Allow download on a metered connection" IsChecked="{Binding AllowMetered}" Style="{StaticResource Option}" AutomationProperties.AutomationId="chkTemplateMetered" />
@@ -74,6 +77,7 @@
             <DockPanel>
                 <WrapPanel DockPanel.Dock="Right">
                     <ui:Button Content="Save template" Appearance="Primary" MinWidth="120" Margin="0,0,8,0" Command="{Binding SaveCommand}"
+                               ToolTip="Saves the template with these settings."
                                AutomationProperties.AutomationId="btnTemplateSave" />
                     <ui:Button Content="Cancel" MinWidth="100" IsCancel="True" Command="{Binding CancelCommand}" AutomationProperties.AutomationId="btnTemplateCancel" />
                 </WrapPanel>

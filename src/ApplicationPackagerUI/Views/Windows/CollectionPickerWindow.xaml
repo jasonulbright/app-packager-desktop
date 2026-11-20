@@ -39,9 +39,12 @@
 
         <WrapPanel Grid.Row="2" Margin="16,0,16,8">
             <ui:TextBox x:Name="txtFilter" Text="{Binding Filter, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="Filter by name, ID or folder" Icon="{ui:SymbolIcon Search24}"
+                        ToolTip="Show only the collections whose name, ID or folder contains this text."
                         MinWidth="260" Margin="0,0,8,0" AutomationProperties.Name="Collection filter" AutomationProperties.AutomationId="txtPickerFilter" />
-            <ui:Button Content="Check shown" Command="{Binding CheckShownCommand}" Margin="0,0,8,0" AutomationProperties.AutomationId="btnPickerCheckShown" />
-            <ui:Button Content="Clear" Command="{Binding ClearChecksCommand}" Margin="0,0,8,0" AutomationProperties.AutomationId="btnPickerClear" />
+            <ui:Button Content="Check shown" Command="{Binding CheckShownCommand}" Margin="0,0,8,0" ToolTip="Check every collection that the filter shows."
+                       AutomationProperties.AutomationId="btnPickerCheckShown" />
+            <ui:Button Content="Clear" Command="{Binding ClearChecksCommand}" Margin="0,0,8,0" ToolTip="Uncheck every collection, including those the filter hides."
+                       AutomationProperties.AutomationId="btnPickerClear" />
             <TextBlock VerticalAlignment="Center" FontSize="12" Foreground="{DynamicResource TextFillColorSecondaryBrush}" AutomationProperties.AutomationId="txtPickerCount">
                 <Run Text="{Binding CheckedCount, Mode=OneWay}" />
                 <Run Text="checked" />
@@ -58,6 +61,7 @@
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
                             <CheckBox IsChecked="{Binding IsChecked, UpdateSourceTrigger=PropertyChanged}" HorizontalAlignment="Center" MinWidth="0" Padding="0"
+                                      ToolTip="Include this Device Collection in the choice."
                                       AutomationProperties.Name="{Binding Text}" />
                         </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
@@ -72,6 +76,7 @@
             <DockPanel>
                 <WrapPanel DockPanel.Dock="Right">
                     <ui:Button Content="{Binding ActionText}" Appearance="Primary" MinWidth="110" Margin="0,0,8,0" Command="{Binding AcceptCommand}"
+                               ToolTip="Continue with the collections you checked. Check at least one collection first."
                                AutomationProperties.AutomationId="btnPickerAccept" />
                     <ui:Button Content="Cancel" MinWidth="100" IsCancel="True" Command="{Binding CancelCommand}" AutomationProperties.AutomationId="btnPickerCancel" />
                 </WrapPanel>

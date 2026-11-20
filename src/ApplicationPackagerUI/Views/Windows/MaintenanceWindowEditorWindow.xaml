@@ -47,6 +47,7 @@
                         <TextBlock Text="Collection" Style="{StaticResource EditorLabel}" Margin="0,0,0,4" />
                         <ui:TextBox Text="{Binding CollectionFilter, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="Filter by name, ID or folder"
                                     Icon="{ui:SymbolIcon Search24}" IsEnabled="{Binding CanPickCollection}" Margin="0,0,0,4"
+                                    ToolTip="Show only the collections in the list whose name, ID or folder contains this text."
                                     AutomationProperties.Name="Collection filter" AutomationProperties.AutomationId="txtCollectionFilter" />
                         <ListBox ItemsSource="{Binding Collections}" SelectedItem="{Binding SelectedCollection}" Height="140"
                                  ScrollViewer.HorizontalScrollBarVisibility="Disabled"
@@ -75,11 +76,14 @@
                     </StackPanel>
 
                     <TextBlock Text="Name" Style="{StaticResource EditorLabel}" />
-                    <ui:TextBox Text="{Binding Name, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="Name" AutomationProperties.AutomationId="txtWindowName" />
+                    <ui:TextBox Text="{Binding Name, UpdateSourceTrigger=PropertyChanged}"
+                                ToolTip="Enter the name of the maintenance window or template."
+                                AutomationProperties.Name="Name" AutomationProperties.AutomationId="txtWindowName" />
 
                     <StackPanel Visibility="{Binding IsTemplate, Converter={StaticResource EditorVisibility}}">
                         <TextBlock Text="Description" Style="{StaticResource EditorLabel}" />
                         <ui:TextBox Text="{Binding Description, UpdateSourceTrigger=PropertyChanged}" TextWrapping="Wrap" AcceptsReturn="True" MinHeight="56"
+                                    ToolTip="Enter a description of the template."
                                     AutomationProperties.Name="Description" AutomationProperties.AutomationId="txtTemplateDescription" />
                     </StackPanel>
 
@@ -95,10 +99,12 @@
 
                     <TextBlock Text="Type" Style="{StaticResource EditorLabel}" />
                     <ComboBox ItemsSource="{Binding WindowTypes}" SelectedValue="{Binding WindowType}" SelectedValuePath="Value" DisplayMemberPath="Text"
+                              ToolTip="Choose the type of the maintenance window."
                               AutomationProperties.Name="Type" AutomationProperties.AutomationId="cboWindowType" />
 
                     <TextBlock Text="Recurrence" Style="{StaticResource EditorLabel}" />
                     <ComboBox ItemsSource="{Binding Kinds}" SelectedValue="{Binding Kind}" SelectedValuePath="Value" DisplayMemberPath="Text"
+                              ToolTip="Choose how often the window repeats."
                               AutomationProperties.Name="Recurrence" AutomationProperties.AutomationId="cboKind" />
 
                     <Grid>
@@ -118,11 +124,13 @@
                         <StackPanel Grid.Column="2">
                             <TextBlock Text="Hour" Style="{StaticResource EditorLabel}" />
                             <ComboBox ItemsSource="{Binding Hours}" SelectedItem="{Binding StartHour}" MinWidth="70"
+                                      ToolTip="Choose the hour when the window starts."
                                       AutomationProperties.Name="Start hour" AutomationProperties.AutomationId="cboStartHour" />
                         </StackPanel>
                         <StackPanel Grid.Column="4">
                             <TextBlock Text="Minute" Style="{StaticResource EditorLabel}" />
                             <ComboBox ItemsSource="{Binding Minutes}" SelectedItem="{Binding StartMinute}" MinWidth="70"
+                                      ToolTip="Choose the minute when the window starts."
                                       AutomationProperties.Name="Start minute" AutomationProperties.AutomationId="cboStartMinute" />
                         </StackPanel>
                     </Grid>
@@ -138,11 +146,13 @@
                         <StackPanel Grid.Column="0">
                             <TextBlock Text="Duration hours" Style="{StaticResource EditorLabel}" />
                             <ComboBox ItemsSource="{Binding DurationHourChoices}" SelectedItem="{Binding DurationHours}" MinWidth="70"
+                                      ToolTip="Choose the hours that the window lasts."
                                       AutomationProperties.Name="Duration hours" AutomationProperties.AutomationId="cboDurationHours" />
                         </StackPanel>
                         <StackPanel Grid.Column="2">
                             <TextBlock Text="Minutes" Style="{StaticResource EditorLabel}" />
                             <ComboBox ItemsSource="{Binding Minutes}" SelectedItem="{Binding DurationMinutes}" MinWidth="70"
+                                      ToolTip="Choose the minutes that the window lasts, in addition to the hours."
                                       AutomationProperties.Name="Duration minutes" AutomationProperties.AutomationId="cboDurationMinutes" />
                         </StackPanel>
                         <CheckBox Grid.Column="4" Content="UTC" IsChecked="{Binding IsUtc}" VerticalAlignment="Bottom" Margin="0,0,0,4"
@@ -153,21 +163,25 @@
                     <StackPanel Visibility="{Binding ShowInterval, Converter={StaticResource EditorVisibility}}">
                         <TextBlock Text="{Binding IntervalLabel}" Style="{StaticResource EditorLabel}" />
                         <ComboBox ItemsSource="{Binding Intervals}" SelectedItem="{Binding Interval}"
+                                  ToolTip="Choose how many days, weeks or months pass between occurrences of the window."
                                   AutomationProperties.Name="Interval" AutomationProperties.AutomationId="cboInterval" />
                     </StackPanel>
                     <StackPanel Visibility="{Binding ShowWeekOrder, Converter={StaticResource EditorVisibility}}">
                         <TextBlock Text="Week of the month" Style="{StaticResource EditorLabel}" />
                         <ComboBox ItemsSource="{Binding WeekOrders}" SelectedValue="{Binding WeekOrder}" SelectedValuePath="Value" DisplayMemberPath="Text"
+                                  ToolTip="Choose which week of the month the window runs in."
                                   AutomationProperties.Name="Week of the month" AutomationProperties.AutomationId="cboWeekOrder" />
                     </StackPanel>
                     <StackPanel Visibility="{Binding ShowDayOfWeek, Converter={StaticResource EditorVisibility}}">
                         <TextBlock Text="Day" Style="{StaticResource EditorLabel}" />
                         <ComboBox ItemsSource="{Binding Days}" SelectedValue="{Binding DayOfWeek}" SelectedValuePath="Value" DisplayMemberPath="Text"
+                                  ToolTip="Choose the day of the week that the window runs on."
                                   AutomationProperties.Name="Day" AutomationProperties.AutomationId="cboDayOfWeek" />
                     </StackPanel>
                     <StackPanel Visibility="{Binding ShowDayOfMonth, Converter={StaticResource EditorVisibility}}">
                         <TextBlock Text="Day of the month" Style="{StaticResource EditorLabel}" />
                         <ComboBox ItemsSource="{Binding DaysOfMonth}" SelectedValue="{Binding DayOfMonth}" SelectedValuePath="Value" DisplayMemberPath="Text"
+                                  ToolTip="Choose the day of the month that the window runs on."
                                   AutomationProperties.Name="Day of the month" AutomationProperties.AutomationId="cboDayOfMonth" />
                         <TextBlock Text="{Binding DayOfMonthNote}" FontSize="12" Margin="0,4,0,0" TextWrapping="Wrap"
                                    Foreground="{DynamicResource TextFillColorSecondaryBrush}"
@@ -177,11 +191,13 @@
                     <StackPanel Visibility="{Binding ShowWeekdayOffset, Converter={StaticResource EditorVisibility}}">
                         <TextBlock Text="Days after that weekday" Style="{StaticResource EditorLabel}" />
                         <ComboBox ItemsSource="{Binding WeekdayOffsets}" SelectedItem="{Binding WeekdayOffsetDays}"
+                                  ToolTip="Choose how many days after the selected weekday the window runs."
                                   AutomationProperties.Name="Days after that weekday" AutomationProperties.AutomationId="cboWeekdayOffset" />
                     </StackPanel>
                     <StackPanel Visibility="{Binding ShowPatchOffset, Converter={StaticResource EditorVisibility}}">
                         <TextBlock Text="Days after Patch Tuesday (the second Tuesday)" Style="{StaticResource EditorLabel}" />
                         <ComboBox ItemsSource="{Binding PatchTuesdayOffsets}" SelectedItem="{Binding PatchTuesdayOffsetDays}"
+                                  ToolTip="Choose how many days after Patch Tuesday the window runs. A negative number runs the window before Patch Tuesday."
                                   AutomationProperties.Name="Days after Patch Tuesday" AutomationProperties.AutomationId="cboPatchOffset" />
                     </StackPanel>
                     <TextBlock Text="{x:Static vm:MaintenanceWindowEditorViewModel.NoEndDateNote}" FontSize="12" Margin="0,12,0,0" TextWrapping="Wrap"
@@ -215,6 +231,7 @@
             <DockPanel>
                 <WrapPanel DockPanel.Dock="Right">
                     <ui:Button Content="{Binding SaveText}" Appearance="Primary" MinWidth="110" Margin="0,0,8,0" Command="{Binding SaveCommand}"
+                               ToolTip="Save what you entered. For a maintenance window, the app shows a plan first and writes nothing until you confirm it."
                                AutomationProperties.AutomationId="btnEditorSave" />
                     <ui:Button Content="Cancel" MinWidth="100" IsCancel="True" Command="{Binding CancelCommand}"
                                AutomationProperties.AutomationId="btnEditorCancel" />

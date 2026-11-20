@@ -72,7 +72,7 @@
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
                             <CheckBox IsChecked="{Binding Selected, UpdateSourceTrigger=PropertyChanged}" HorizontalAlignment="Center"
-                                      AutomationProperties.Name="{Binding Name}" />
+                                      AutomationProperties.Name="{Binding Name}" ToolTip="Include this application when you select Enable selected or Don't ask again for selected." />
                         </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>

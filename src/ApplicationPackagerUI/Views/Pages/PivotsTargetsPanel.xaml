@@ -27,9 +27,11 @@
             <StackPanel Grid.Row="0" Grid.Column="0" Margin="0,0,8,0">
                 <TextBlock Text="Targets" Style="{StaticResource CardTitle}" />
                 <ComboBox ItemsSource="{Binding TargetKindChoices}" SelectedItem="{Binding SelectedTargetKind}" MinWidth="170"
+                          ToolTip="Select what the target text names: a Device Collection, one device, a device name pattern, or a list of device names."
                           AutomationProperties.Name="Target kind" AutomationProperties.AutomationId="cboTargetKind" />
             </StackPanel>
             <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding TargetText, UpdateSourceTrigger=PropertyChanged}" AcceptsReturn="True" TextWrapping="NoWrap"
+                     ToolTip="Enter the target of the run. The format depends on the target kind; the hint below the box shows it."
                      Height="72" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" VerticalContentAlignment="Top" Margin="0,24,8,0"
                      AutomationProperties.Name="Target" AutomationProperties.AutomationId="txtTarget" />
             <WrapPanel Grid.Row="0" Grid.Column="2" Orientation="Vertical" Margin="0,24,0,0">

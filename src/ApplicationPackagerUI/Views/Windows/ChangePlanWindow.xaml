@@ -112,21 +112,25 @@
         <StackPanel Margin="16,0,16,0">
             <CheckBox x:Name="chkDestructive" Margin="0,0,0,8" AutomationProperties.Name="{Binding DestructiveText}"
                       IsChecked="{Binding DestructiveAcknowledged}" IsEnabled="{Binding ShowPlan}"
+                      ToolTip="{Binding DestructiveText}"
                       AutomationProperties.AutomationId="chkChangePlanDestructive"
                       Visibility="{Binding IsDestructive, Converter={StaticResource ChangePlanVisibility}}">
                 <TextBlock Text="{Binding DestructiveText}" TextWrapping="Wrap" Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
             </CheckBox>
             <CheckBox x:Name="chkExtra" Margin="0,0,0,8" IsChecked="{Binding ExtraAcknowledged}" IsEnabled="{Binding ShowPlan}"
+                      ToolTip="{Binding ExtraConfirmationText}"
                       AutomationProperties.AutomationId="chkChangePlanExtra" AutomationProperties.Name="{Binding ExtraConfirmationText}"
                       Visibility="{Binding HasExtraConfirmation, Converter={StaticResource ChangePlanVisibility}}">
                 <TextBlock Text="{Binding ExtraConfirmationText}" TextWrapping="Wrap" Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
             </CheckBox>
             <CheckBox x:Name="chkSecond" Margin="0,0,0,8" IsChecked="{Binding SecondAcknowledged}" IsEnabled="{Binding ShowPlan}"
+                      ToolTip="{Binding SecondConfirmationText}"
                       AutomationProperties.AutomationId="chkChangePlanSecond" AutomationProperties.Name="{Binding SecondConfirmationText}"
                       Visibility="{Binding HasSecondConfirmation, Converter={StaticResource ChangePlanVisibility}}">
                 <TextBlock Text="{Binding SecondConfirmationText}" TextWrapping="Wrap" Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
             </CheckBox>
             <CheckBox x:Name="chkOption" Margin="0,0,0,8" IsChecked="{Binding OptionChosen}" IsEnabled="{Binding ShowPlan}"
+                      ToolTip="{Binding OptionalChoiceText}"
                       AutomationProperties.AutomationId="chkChangePlanOption" AutomationProperties.Name="{Binding OptionalChoiceText}"
                       Visibility="{Binding HasOptionalChoice, Converter={StaticResource ChangePlanVisibility}}">
                 <TextBlock Text="{Binding OptionalChoiceText}" TextWrapping="Wrap" Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
@@ -142,12 +146,15 @@
             <WrapPanel HorizontalAlignment="Right">
                 <ui:Button x:Name="btnConfirm" Content="{Binding ConfirmContent}" MinWidth="130" Margin="0,0,8,0"
                            Command="{Binding ConfirmCommand}" AutomationProperties.AutomationId="btnChangePlanConfirm"
+                           ToolTip="Runs the changes listed in the plan. Select each confirmation box above first."
                            Visibility="{Binding ShowConfirm, Converter={StaticResource ChangePlanVisibility}}" />
                 <ui:Button x:Name="btnUndo" Content="_Undo" MinWidth="100" Margin="0,0,8,0"
                            Command="{Binding UndoCommand}" AutomationProperties.AutomationId="btnChangePlanUndo"
+                           ToolTip="Reverses the changes this plan made, where an Undo exists for them."
                            Visibility="{Binding ShowUndo, Converter={StaticResource ChangePlanVisibility}}" />
                 <ui:Button x:Name="btnForceClose" Content="Close _without waiting" MinWidth="130" Margin="0,0,8,0"
                            Command="{Binding ForceCloseCommand}" AutomationProperties.AutomationId="btnChangePlanForceClose"
+                           ToolTip="Closes this window while the run is still going. The run may still change Configuration Manager, and its later result is not shown."
                            Visibility="{Binding ShowForceClose, Converter={StaticResource ChangePlanVisibility}}" />
                 <ui:Button x:Name="btnCancel" Content="_Cancel" MinWidth="100" Margin="0,0,8,0" IsCancel="True"
                            Command="{Binding CancelCommand}" AutomationProperties.AutomationId="btnChangePlanCancel"
