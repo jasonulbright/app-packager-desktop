@@ -143,6 +143,7 @@ internal static partial class HygieneChecks
         AddCollections(list);
         AddOther(list);
         AddRelationships(list);
+        AddRetired(list);
         return list;
     }
 

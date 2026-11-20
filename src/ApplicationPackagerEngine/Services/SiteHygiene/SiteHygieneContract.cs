@@ -171,6 +171,9 @@ public sealed record HygieneThresholds
     public int DeadlineGraceDays { get; init; } = 7;
     public int FailurePctThreshold { get; init; } = 20;
     public int AvailableUnusedMinAgeDays { get; init; } = 30;
+
+    /// <summary>The age in days from which DPL-06 reports a deployment.</summary>
+    public int DeploymentOldDays { get; init; } = 365;
     public int InactiveDeviceDays { get; init; } = 90;
     public int SugExpiredPctThreshold { get; init; } = 30;
     public int AdrStaleDays { get; init; } = 45;
@@ -532,7 +535,7 @@ public static class HygieneAreas
     ];
 }
 
-/// <summary>The 57 checks with their ID, category, severity and title.</summary>
+/// <summary>The 62 checks with their ID, category, severity and title.</summary>
 public static class HygieneCatalog
 {
     public sealed record Check(string Id, string Category, HygieneSeverity Severity, string Title);
@@ -546,6 +549,8 @@ public static class HygieneCatalog
         new("APP-03", "Applications", W, "Superseded application still deployed"),
         new("APP-04", "Applications", W, "Deployment type content source missing or unreachable"),
         new("APP-05", "Applications", I, "Application with old revisions"),
+        new("APP-07", "Applications", W, "Retired application that still supersedes or depends on an application"),
+        new("APP-08", "Applications", I, "Superseded application that qualifies for deletion"),
         new("PKG-01", "Packages", W, "Package with no programs and no references"),
         new("CNT-01", "Content", W, "Content failed on one or more distribution points"),
         new("CNT-02", "Content", I, "Content distribution in progress beyond threshold"),
@@ -570,6 +575,8 @@ public static class HygieneCatalog
         new("TSQ-02", "Task Sequences", W, "Boot image or driver package referenced by nothing"),
         new("TSQ-03", "Task Sequences", W, "Application in a task sequence without the task sequence install setting"),
         new("TSQ-04", "Task Sequences", E, "Application in a task sequence with content on no distribution point"),
+        new("TSQ-05", "Task Sequences", W, "Task sequence installs a retired or superseded application"),
+        new("TSQ-06", "Task Sequences", W, "Stale reference rows of a task sequence that the site does not return"),
         new("UPD-01", "Updates", W, "Update group with high expired-update ratio"),
         new("UPD-03", "Updates", W, "Automatic deployment rule disabled, stale, or erroring"),
         new("MNT-01", "Site", I, "Recommended maintenance tasks disabled"),
@@ -589,6 +596,7 @@ public static class HygieneCatalog
         new("DPL-03", "Deployments", I, "Available deployment with no takers"),
         new("DPL-04", "Deployments", W, "Required deployment to a built-in all-resources collection"),
         new("DPL-05", "Deployments", W, "Deployment of a disabled task sequence or program"),
+        new("DPL-06", "Deployments", I, "Deployment created more than the age threshold ago"),
         new("UPD-04", "Updates", W, "Update group over the per-deployment update limit"),
         new("UPD-05", "Updates", I, "Deployment package holding expired update content"),
         new("DPT-01", "Distribution Points", W, "Distribution point in no boundary group"),

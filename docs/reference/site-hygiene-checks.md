@@ -1,6 +1,6 @@
 # Site Hygiene checks and scan areas
 
-The Site Hygiene page runs 57 checks in 18 scan areas. This page lists every check and every area, as the code defines them. For the steps of a scan and a fix, see [Site Hygiene](../tools/site-hygiene.md).
+The Site Hygiene page runs 62 checks in 18 scan areas. This page lists every check and every area, as the code defines them. For the steps of a scan and a fix, see [Site Hygiene](../tools/site-hygiene.md).
 
 ## When to use this page
 
@@ -32,7 +32,7 @@ The Site Hygiene page runs 57 checks in 18 scan areas. This page lists every che
 | Stale deployment rule | 45 days | UPD-03 |
 | Content source probe | 3 seconds for each path, at most 200 paths | APP-04 |
 
-## The 57 checks
+## The 62 checks
 
 | ID | Category | Severity | Title | Finds | Fix | Fix kind |
 |---|---|---|---|---|---|---|
@@ -41,6 +41,8 @@ The Site Hygiene page runs 57 checks in 18 scan areas. This page lists every che
 | APP-03 | Applications | Warning | Superseded application still deployed | A superseded application, not retired, whose own deployments are active. | Yes | Delete deployment |
 | APP-04 | Applications | Warning | Deployment type content source missing or unreachable | A content source path of the latest deployment type that this computer cannot reach. Info when the path did not answer in 3 seconds. Runs only when the content source probe is on. The check does not run when a path cannot be probed safely or within the limit of 200 paths. | No | Report only |
 | APP-05 | Applications | Info | Application with old revisions | An application with one or more old revisions. | Yes | Delete old revisions |
+| APP-07 | Applications | Warning | Retired application that still supersedes or depends on an application | A retired application that holds a supersedence rule or a dependency toward an application that exists and is not retired. A rule toward a retired application is SUP-04 or DEP-04, toward a deleted one SUP-01 or DEP-01. | No | Report only |
+| APP-08 | Applications | Info | Superseded application that qualifies for deletion | A superseded application, not retired, with no deployment, no dependency on it, no task sequence that names it and no stale reference row. The text says `Blocked by: nothing`. A retired superseded application is left to SUP-04. | No | Report only |
 | PKG-01 | Packages | Warning | Package with no programs and no references | A standard package with no program, no deployment and no task sequence reference. Packages named Configuration Manager Client are skipped. | Yes | Delete package |
 | CNT-01 | Content | Warning | Content failed on one or more distribution points | Content with an error on at least one targeted distribution point. | No | Report only |
 | CNT-02 | Content | Info | Content distribution in progress beyond threshold | Content with distribution in progress and no error, last updated more than 2 days ago. | No | Report only |
@@ -64,6 +66,8 @@ The Site Hygiene page runs 57 checks in 18 scan areas. This page lists every che
 | TSQ-01 | Task Sequences | Error | Task sequence referencing deleted content | A task sequence with a reference to an ID that no longer exists. | No | Report only |
 | TSQ-02 | Task Sequences | Warning | Boot image or driver package referenced by nothing | A custom boot image or a driver package that no task sequence references. Default boot images are skipped. | Yes, with a condition | Delete boot image; Delete driver package |
 | TSQ-03 | Task Sequences | Warning | Application in a task sequence without the task sequence install setting | An application that a task sequence installs and that lacks the setting "Allow this application to be installed from the Install Application task sequence action without being deployed". | Yes | Change application |
+| TSQ-05 | Task Sequences | Warning | Task sequence installs a retired or superseded application | A task sequence with a step that installs a retired or superseded application: the task sequence name and package ID, the application. The page finds it through the reference rows and the steps of the task sequence, because the reference rows leave out a retired application. | No | Report only |
+| TSQ-06 | Task Sequences | Warning | Stale reference rows of a task sequence that the site does not return | Reference rows of a task sequence that the site returns in the reference class but not in the list of task sequences (deleted, or outside your security scope). The rows still block the delete of the applications they name. Labelled `Stale reference`. | No | Report only |
 | TSQ-04 | Task Sequences | Error | Application in a task sequence with content on no distribution point | An application that a task sequence installs, with source files and no targeted distribution point. | No | Report only |
 | UPD-01 | Updates | Warning | Update group with high expired-update ratio | A software update group in which 30 percent or more of the updates are expired. | No | Report only |
 | UPD-03 | Updates | Warning | Automatic deployment rule disabled, stale, or erroring | Error: the last run ended with an error code. Info: the rule is disabled. Warning: the rule is enabled and last ran more than 45 days ago. | Yes, for Info and Warning | Delete deployment rule (disabled); Run deployment rule (stale) |
@@ -86,6 +90,7 @@ The Site Hygiene page runs 57 checks in 18 scan areas. This page lists every che
 | DPL-03 | Deployments | Info | Available deployment with no takers | An Available deployment created at least 30 days ago, with targeted clients, no success and nothing in progress. | No | Report only |
 | DPL-04 | Deployments | Warning | Required deployment to a built-in all-resources collection | A Required deployment to All Systems, All Users, All Desktop and Server Clients or a similar built-in collection. | No | Report only |
 | DPL-05 | Deployments | Warning | Deployment of a disabled task sequence or program | A deployment of a task sequence or a program that is disabled. | No | Report only |
+| DPL-06 | Deployments | Info | Deployment created more than the age threshold ago | A deployment created more than 365 days ago. A deployment that DPL-03 already reports is left to DPL-03. Nothing is deleted from here. | No | Report only |
 | DPT-01 | Distribution Points | Warning | Distribution point in no boundary group | A distribution point that is a site system of no boundary group. | No | Report only |
 | DPT-02 | Distribution Points | Info | Distribution point group with no members | A distribution point group with no member. | No | Report only |
 | CFG-01 | Compliance | Info | Configuration baseline deployed nowhere | A user-defined baseline with no deployment that no other baseline uses. | No | Report only |
@@ -135,12 +140,12 @@ The **Options** tab lists the areas. Each area is checked by default. A check ru
 | Area ID | Title in **Options** | Checks |
 |---|---|---|
 | Applications | Applications | APP-01, APP-02, APP-03, APP-05 |
-| AppRelationships | Application relationships and content paths | SUP-01 to SUP-04, DEP-01 to DEP-05, REL-01, APP-04 |
+| AppRelationships | Application relationships and content paths | SUP-01 to SUP-04, DEP-01 to DEP-05, REL-01, APP-04, APP-07, APP-08, TSQ-05, TSQ-06 |
 | Content | Content distribution | CNT-01, CNT-02, CNT-03 |
 | Packages | Packages | PKG-01 |
 | Collections | Collections | COL-01, COL-02, COL-03, COL-04, COL-07, COL-08 |
 | CollectionSchedules | Collection evaluation schedules | COL-05, COL-06, COL-09, COL-07, COL-08 |
-| Deployments | Deployments | DPL-01 to DPL-05 |
+| Deployments | Deployments | DPL-01 to DPL-06 |
 | Devices | Devices | DEV-01, DEV-02, DEV-03 |
 | Boundaries | Boundaries | BND-01, BND-02, BND-03 |
 | TaskSequences | Task sequences | TSQ-01 to TSQ-04 |
@@ -173,7 +178,7 @@ A read is cut at 200,000 rows. A read that costs one provider call for each obje
 
 - Dates and times are compared with the clock of this computer. The provider returns its times without conversion.
 - A fix deletes or changes objects on the site. Most deletes cannot be undone.
-- The lab ran the page on one site. No lab record states which of the 57 checks found an object on that site.
+- The lab ran the page on one site. No lab record states which of the 62 checks found an object on that site.
 
 ## Troubleshooting
 
