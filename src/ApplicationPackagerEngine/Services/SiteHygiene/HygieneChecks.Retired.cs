@@ -110,7 +110,7 @@ internal static partial class HygieneChecks
             if (d.T("CreationTime") is not { } created || created > cutoff) continue;
             if (d.I("DeploymentIntent") == 2 && created <= unusedCutoff && d.I("NumberTargeted") > 0 && d.I("NumberSuccess") + d.I("NumberInProgress") == 0) continue;
             yield return F("DPL-06", "Deployment", d.S("DeploymentID"), $"{d.S("SoftwareName")} -> {d.S("CollectionName")}",
-                $"The deployment was created {Minute(created)}, more than {Count(days, "day")} ago. It targets {Count(d.I("NumberTargeted"), "client")}: {N(d.I("NumberSuccess"))} installed, {N(d.I("NumberInProgress"))} in progress, {N(d.I("NumberErrors"))} with errors.",
+                $"The deployment was created {Minute(created)}, more than {Count(days, "day")} ago. It targets {Count(d.I("NumberTargeted"), "client")}: {N(d.I("NumberSuccess"))} installed, {N(d.I("NumberInProgress"))} in progress, {N(d.I("NumberErrors"))} failed.",
                 "Review whether the deployment is still needed. Nothing is deleted from here.",
                 guidance: $"Review: the deployment of '{d.S("SoftwareName")}' to '{d.S("CollectionName")}'.");
         }

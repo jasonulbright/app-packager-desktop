@@ -140,7 +140,8 @@ public sealed class SiteHygieneRelationshipTests
         Assert.Single(findings, f => f.CheckId == "DEP-03");
         Assert.Single(findings, f => f.CheckId == "SUP-03");
         Assert.Equal("ScopeId_X/Application_NoMaker", Assert.Single(findings, f => f.CheckId == "REL-01").ObjectKey);
-        Assert.All(findings.Where(f => f.CheckId != "SUP-01"), f => Assert.Equal(HygieneFixKind.None, f.FixKind));
+        Assert.All(findings.Where(f => f.CheckId is not ("SUP-01" or "SUP-04" or "DEP-04")), f => Assert.Equal(HygieneFixKind.None, f.FixKind));
+        Assert.All(findings.Where(f => f.CheckId is "SUP-04" or "DEP-04"), f => Assert.Equal(HygieneFixKind.ClearRetiredRelation, f.FixKind));
     }
 
     [Fact]
