@@ -329,7 +329,7 @@ public partial class PackagesViewModel : ObservableObject
     {
         var dialog = new Microsoft.Win32.SaveFileDialog
         {
-            Title = "Export the Check ConfigMgr result",
+            Title = "Export Check ConfigMgr Results",
             Filter = "CSV, all checked applications (*.csv)|*.csv|CSV, only updates available (*.csv)|*.csv|JSON, all checked applications (*.json)|*.json|JSON, only updates available (*.json)|*.json",
             FileName = "CheckConfigMgrResult"
         };
