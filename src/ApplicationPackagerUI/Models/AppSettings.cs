@@ -155,6 +155,9 @@ public sealed class AppSettings
 
     // Per-app deployment conditions and command overrides (definition Id → entry)
     public Dictionary<string, DeploymentConditionEntry> DeploymentConditions { get; set; } = [];
+
+    /// <summary>Content distribution of single applications (application identifier to DP group and test collection); an application without an entry follows the site-wide settings.</summary>
+    public Dictionary<string, ApplicationDistribution> DistributionOverrides { get; set; } = [];
     public Dictionary<string, CommandOverrideEntry> CommandOverrides { get; set; } = [];
 
     public string Theme { get; set; } = "Dark";
@@ -287,6 +290,47 @@ public static class OneClickActions
 /// distribution point group, then a deployment to a test collection. The test
 /// deployment only runs after a distribution.
 /// </summary>
+/// <summary>
+/// The content distribution of one application, where it differs from the site-wide settings: an empty value follows the site-wide value, a
+/// value is used for this application only. A DP group here also turns distribution on for the application; a test collection here also turns
+/// the test deployment on for it.
+/// </summary>
+public sealed class ApplicationDistribution
+{
+    public string DpGroupName { get; set; } = "";
+    public string TestCollectionName { get; set; } = "";
+}
+
+/// <summary>Resolves the content distribution settings that one package run uses: the value of the application first, the site-wide value as the fallback.</summary>
+public static class ContentDistributionResolver
+{
+    public static ContentDistributionSettings For(AppSettings settings, string? applicationId)
+    {
+        var site = settings.ContentDistribution;
+        var copy = new ContentDistributionSettings
+        {
+            AutoDistribute = site.AutoDistribute, DpGroupName = site.DpGroupName, DeployToTestCollection = site.DeployToTestCollection,
+            TestCollectionName = site.TestCollectionName, TestCollectionIsUser = site.TestCollectionIsUser,
+            CreateTestCollectionIfMissing = site.CreateTestCollectionIfMissing
+        };
+        if (string.IsNullOrWhiteSpace(applicationId) || settings.DistributionOverrides is null) return copy;
+        var key = settings.DistributionOverrides.Keys.FirstOrDefault(k => string.Equals(k.Trim(), applicationId.Trim(), StringComparison.OrdinalIgnoreCase));
+        if (key is null) return copy;
+        var own = settings.DistributionOverrides[key];
+        if (!string.IsNullOrWhiteSpace(own.DpGroupName))
+        {
+            copy.DpGroupName = own.DpGroupName.Trim();
+            copy.AutoDistribute = true;
+        }
+        if (!string.IsNullOrWhiteSpace(own.TestCollectionName))
+        {
+            copy.TestCollectionName = own.TestCollectionName.Trim();
+            copy.DeployToTestCollection = true;
+        }
+        return copy;
+    }
+}
+
 public sealed class ContentDistributionSettings
 {
     public bool AutoDistribute { get; set; }

@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- Settings, Application Settings has the columns Distribution point group and Test collection. A package run reads the value of the application first and the setting of the Post Packaging page as the fallback. The column Detection shows whether the Workbench profile holds its own detection rule (read only).
+
 ## [2026.1121.53] - 2026-11-21
 
 ### Added
