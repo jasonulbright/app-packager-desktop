@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- Settings, Application Settings has the columns Estimated runtime, Maximum runtime and Reboot after install. They write the Workbench profile of the application (an empty value or Inherit removes the field; a value is a custom override). An application that uses another profile of your choice shows the cell greyed out and the tooltip names the profile.
+
 ## [2026.1120.52] - 2026-11-20
 
 ### Added
