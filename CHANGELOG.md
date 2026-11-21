@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## [2026.1120.52] - 2026-11-20
 
 ### Added
 
