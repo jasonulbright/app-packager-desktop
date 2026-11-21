@@ -463,6 +463,12 @@
                        Command="{Binding SelectUpdateAvailableCommand}"
                        Appearance="Transparent"
                        Margin="0,0,12,0" ToolTip="Check every application whose status shows that an update is available." />
+            <ui:Button Content="Export Check Results"
+                       Icon="{ui:SymbolIcon DocumentTable24}"
+                       Command="{Binding ExportCheckResultsCommand}"
+                       AutomationProperties.AutomationId="btnExportCheckResults"
+                       Appearance="Transparent"
+                       Margin="0,0,12,0" ToolTip="Saves the result of the last Check ConfigMgr run as a CSV or JSON file. The file type in the dialog chooses all checked applications or only those with an update available. Each run also writes CheckConfigMgrResult.csv in the SRLPackr data folder." />
             <ui:Button Content="Import From URL"
                        Icon="{ui:SymbolIcon ArrowDownload24}"
                        Command="{Binding ImportFromUrlCommand}"
