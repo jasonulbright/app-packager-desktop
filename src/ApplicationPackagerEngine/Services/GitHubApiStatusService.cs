@@ -15,7 +15,7 @@ public sealed record GitHubApiStatus(
 {
     /// <summary>
     /// The one status text of every place that shows the GitHub sign-in (Settings and the token box). It names the source:
-    /// "Signed in via GitHub CLI as octocat (5,000 requests per hour, 4,991 remaining)", "Token saved in settings as octocat ...",
+    /// "Signed in by using GitHub CLI as octocat (5,000 requests per hour, 4,991 remaining)", "Token saved in settings as octocat ...",
     /// "Environment variable GITHUB_TOKEN as octocat ...", "Not authenticated: 60 requests per hour (57 remaining)".
     /// A token that GitHub refuses (401) or a request that GitHub blocks (403) is named as such.
     /// </summary>
@@ -34,7 +34,7 @@ public sealed record GitHubApiStatus(
         {
             var who = string.IsNullOrEmpty(Account) ? "" : $" as {Account}";
             return Source == "gh auth login"
-                ? $"Signed in via GitHub CLI{who}{quota}"
+                ? $"Signed in by using GitHub CLI{who}{quota}"
                 : $"{phrase}{who}{quota}";
         }
 
