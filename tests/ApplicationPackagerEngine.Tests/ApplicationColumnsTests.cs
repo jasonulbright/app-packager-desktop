@@ -105,6 +105,7 @@ public class ApplicationColumnsTests
     public void TheOneClickColumnsWriteTheRowThatOneClickSaves()
     {
         var oc = OneClick();
+        oc.ConfigMgr = true;
         var work = Work(oc);
         work.DefaultDestinations = () => new DestinationSet(true, false, false);
         var row = Row();

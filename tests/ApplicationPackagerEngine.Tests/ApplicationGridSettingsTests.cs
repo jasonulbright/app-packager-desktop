@@ -73,7 +73,7 @@ public class ApplicationGridSettingsTests
     }
 
     [Theory]
-    [InlineData(ApplicationGridSettings.IncludeVersion, TitleMode.IncludeVersion, "Audacity - 3.7.9")]
+    [InlineData(ApplicationGridSettings.IncludeVersion, TitleMode.IncludeVersion, "Audacity 3.7.9")]
     [InlineData(ApplicationGridSettings.NoVersion, TitleMode.NoVersion, "Audacity")]
     [InlineData(ApplicationGridSettings.FollowDefault, TitleMode.Default, "Audacity 3.7.9")]
     public void TheVersionInTitleChoiceIsTheTitleModeOfThePackageRun(string choice, TitleMode expected, string title)
