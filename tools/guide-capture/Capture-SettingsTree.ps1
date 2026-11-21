@@ -25,6 +25,7 @@ $images = [ordered]@{
     'core-settings-wsus'        = 'nav_wsus'
     'core-settings-install-parameters' = 'nav_installparams'
     'core-settings-tools'       = 'nav_tools'
+    'core-settings-github-api'  = 'nav_github'
     'core-settings-defaults'    = 'nav_dtdefaults'
     'core-settings-install-parameters-sources' = 'nav_localsources'
     'core-settings-about'       = 'nav_about'
