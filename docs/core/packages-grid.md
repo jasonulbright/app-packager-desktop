@@ -93,6 +93,27 @@ A right-click selects the row and opens the menu.
 
 A double-click on the check box or on a column header does not open the Workbench.
 
+## Check ConfigMgr result file
+
+Each **Check ConfigMgr** run writes the result to two files in the legacy data folder, `%LOCALAPPDATA%\SRLPackr` by default: `CheckConfigMgrResult.csv` and `CheckConfigMgrResult.json`. The next run overwrites them. The log pane shows the path. The files hold one row for each application the run checked, except a row that ended in **Error** or **Cancelled**, or that has no vendor version. The Update rollout view of [Deployment Helper](../tools/deployment-helper.md) reads the file to list the applications that are behind. The PowerShell App Packager writes the same format.
+
+**Export Check Results** saves the result of the last run to a file that you choose. The button is disabled until a **Check ConfigMgr** run ends. The **Save as type** list in the dialog chooses the format and the filter: CSV or JSON, all checked applications or only the applications with an update available.
+
+![The Export Check Results button below the grid](../images/core-packages-export-check-results.png)
+
+The CSV is UTF-8 with a byte order mark. Every field is in quotes. The columns:
+
+| Column | Content |
+|---|---|
+| **Application**, **Vendor**, **CMName** | The definition of the row. |
+| **InstalledSoftwareName** | The Add/Remove Programs name patterns of the definition, joined with ` \| `. Empty when the definition has none. |
+| **Architecture** | `x64`, `x86` or `arm64`. |
+| **ConfigMgrVersion** | The version in ConfigMgr. Empty for **NotFound**. |
+| **LatestVersion** | The vendor version. |
+| **Status** | `UpdateAvailable`, `UpToDate` (also **Current newer**) or `NotFound`. |
+| **Source** | `APD` here, `AppPackager` in the PowerShell app. |
+| **CheckedAtUtc** | The end of the run, `yyyy-MM-ddTHH:mm:ssZ`. |
+
 ## Log pane
 
 The pane under the grid is read only. Each line starts with the date and the time. The pane scrolls to the newest line.

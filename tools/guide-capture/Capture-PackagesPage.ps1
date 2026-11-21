@@ -91,6 +91,17 @@ foreach ($theme in $Themes) {
             Move-MouseAway
             Shot $theme 'core-packages-select-update'
         }
+        Step $theme 'core-packages-export-check-results' {
+            # The Check ConfigMgr run of the 'checks' step wrote the result file in the data folder of the run; the button below the grid is enabled.
+            $resultFile = Join-Path $data (Join-Path 'Users' (Join-Path $sid (Join-Path 'SRLPackr' 'CheckConfigMgrResult.csv')))
+            if (-not (Test-Path -LiteralPath $resultFile)) { throw "no result file at $resultFile" }
+            "result file: $((Get-Content -LiteralPath $resultFile | Measure-Object).Count) lines"
+            Get-Content -LiteralPath $resultFile -TotalCount 4
+            $b = Find-El $w 'btnExportCheckResults'
+            if (-not $b -or -not $b.Current.IsEnabled) { throw 'Export Check Results is missing or disabled' }
+            Move-MouseAway
+            Shot $theme 'core-packages-export-check-results'
+        }
         Step $theme 'core-packages-buttons-disabled' {
             $b = Find-El $w 'btnPublishIntune'
             [System.Windows.Forms.Cursor]::Position = Get-ElCenter $b

@@ -176,6 +176,7 @@ public partial class PackagesViewModel : ObservableObject
         CancelOperationCommand.NotifyCanExecuteChanged();
         CheckLatestCommand.NotifyCanExecuteChanged();
         CheckMecmCommand.NotifyCanExecuteChanged();
+        ExportCheckResultsCommand.NotifyCanExecuteChanged();
         StageCommand.NotifyCanExecuteChanged();
         PublishConfigMgrCommand.NotifyCanExecuteChanged();
         PublishIntuneCommand.NotifyCanExecuteChanged();
@@ -280,6 +281,68 @@ public partial class PackagesViewModel : ObservableObject
                 Wpf.Ui.Controls.ControlAppearance.Success, new SymbolIcon(SymbolRegular.Checkmark24), TimeSpan.FromSeconds(2));
         }
         catch (Exception ex)
+        {
+            AddLogLine($"Export failed: {ex.Message}");
+        }
+    }
+
+    /// <summary>The rows of the last Check ConfigMgr run, as the export file carries them.</summary>
+    private IReadOnlyList<CheckConfigMgrResultRow> _lastCheckResult = [];
+
+    private IReadOnlyList<CheckConfigMgrResultRow> BuildCheckResultRows(IEnumerable<PackagerInfo> rows, DateTime checkedAtUtc)
+    {
+        var result = new List<CheckConfigMgrResultRow>();
+        foreach (var p in rows)
+        {
+            var status = CheckConfigMgrResultExport.MapStatus(p.Status);
+            if (status is null) continue;
+            var definition = LoadDefinitionOrNull(p);
+            var arp = string.Join(" | ", ArpWildcard.Split(definition?.ArpName));
+            var architecture = string.IsNullOrWhiteSpace(definition?.Architecture) ? "x64" : definition!.Architecture.Trim().ToLowerInvariant();
+            result.Add(new CheckConfigMgrResultRow(p.Application, p.Vendor, p.CMName, arp, architecture,
+                p.CurrentVersion ?? "", p.LatestVersion ?? "", status, CheckConfigMgrResultExport.SourceName, checkedAtUtc));
+        }
+        return result;
+    }
+
+    /// <summary>Writes the fixed result file after a run. A write failure goes to the log and never fails the check.</summary>
+    private void WriteCheckResultFile(IEnumerable<PackagerInfo> checkedRows, DateTime checkedAtUtc)
+    {
+        _lastCheckResult = BuildCheckResultRows(checkedRows, checkedAtUtc);
+        ExportCheckResultsCommand.NotifyCanExecuteChanged();
+        try
+        {
+            var path = CheckConfigMgrResultExport.WriteDefault(_lastCheckResult);
+            AddLogLine($"Check ConfigMgr result written to: {path}");
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            AddLogLine($"Check ConfigMgr result file not written: {ex.Message}");
+        }
+    }
+
+    private bool CanExportCheckResults() => _lastCheckResult.Count > 0 && !IsOperationRunning;
+
+    /// <summary>Saves the result of the last Check ConfigMgr run; the file type in the dialog chooses the format and the filter.</summary>
+    [RelayCommand(CanExecute = nameof(CanExportCheckResults))]
+    private void ExportCheckResults()
+    {
+        var dialog = new Microsoft.Win32.SaveFileDialog
+        {
+            Title = "Export the Check ConfigMgr result",
+            Filter = "CSV, all checked applications (*.csv)|*.csv|CSV, only updates available (*.csv)|*.csv|JSON, all checked applications (*.json)|*.json|JSON, only updates available (*.json)|*.json",
+            FileName = "CheckConfigMgrResult"
+        };
+        if (dialog.ShowDialog() != true) return;
+        try
+        {
+            var rows = CheckConfigMgrResultExport.Filter(_lastCheckResult, onlyUpdatesAvailable: dialog.FilterIndex is 2 or 4);
+            CheckConfigMgrResultExport.Write(dialog.FileName, rows);
+            AddLogLine($"Exported {rows.Count} Check ConfigMgr result rows to: {dialog.FileName}");
+            _snackbarService.Show("Export", $"Exported {rows.Count} rows.",
+                Wpf.Ui.Controls.ControlAppearance.Success, new SymbolIcon(SymbolRegular.Checkmark24), TimeSpan.FromSeconds(2));
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
             AddLogLine($"Export failed: {ex.Message}");
         }
@@ -705,6 +768,7 @@ public partial class PackagesViewModel : ObservableObject
             tally.Finish(_operationCts.Token);
             StatusText = RunEndLine(tally, "ConfigMgr query", selected.Count, "checked", "Check ConfigMgr");
             if (!tally.Cancelled) AddLogLine(CheckResultSummary.Line("Check ConfigMgr", selected.Select(p => p.Status).ToList(), Packagers.Count(p => p.IsSelected)));
+            WriteCheckResultFile(selected, DateTime.UtcNow);
         }
         finally
         {
