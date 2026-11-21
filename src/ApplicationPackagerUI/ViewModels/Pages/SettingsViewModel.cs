@@ -169,6 +169,7 @@ public partial class SettingsViewModel : ObservableObject, ISettingsReload
     /// <summary>The working copies that the columns of the grid edit; Save Settings writes what changed.</summary>
     private readonly ApplicationWork _work = new();
     private bool _cellsRefreshing;
+    private readonly Dictionary<string, GridProfileFields.State> _profileCache = new(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>The columns of the registry (one registration for each per-application setting).</summary>
     public IReadOnlyList<ApplicationColumn> ApplicationColumnList => ApplicationColumns.All;
@@ -637,6 +638,15 @@ public partial class SettingsViewModel : ObservableObject, ISettingsReload
         _work.Supersedence = _supersedenceWork;
         _work.OneClickRowOf = uid => OneClickRows.FirstOrDefault(r => string.Equals(r.Uid, uid, StringComparison.OrdinalIgnoreCase));
         _work.DefaultDestinations = () => OneClickDefaultDestinations;
+        _profileCache.Clear();
+        _work.ProfileOf = row =>
+        {
+            if (_profileCache.TryGetValue(row.ApplicationId, out var state)) return state;
+            try { state = GridProfileFields.Read(ApplicationPackagerEngine.Services.Workbench.WorkbenchStore.Open(), row.ApplicationId, row.DefinitionId); }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Text.Json.JsonException or InvalidOperationException or ArgumentException)
+            { state = GridProfileFields.State.Empty; }
+            return _profileCache[row.ApplicationId] = state;
+        };
         _cellsRefreshing = true;
         try
         {
@@ -742,6 +752,24 @@ public partial class SettingsViewModel : ObservableObject, ISettingsReload
             foreach (var column in ApplicationColumns.All)
                 if (column.NotApplicable(_work, row) is null) column.Set(_work, row, column.ResetValue);
             RefreshCells(row);
+        }
+    }
+
+    /// <summary>Writes the Workbench profile fields that the grid edited (runtime, reboot behavior), after the saved conditions are migrated.</summary>
+    private void WriteProfileFields()
+    {
+        try
+        {
+            var store = ApplicationPackagerEngine.Services.Workbench.WorkbenchStore.Open();
+            foreach (var (applicationId, fields) in _work.ProfilePending.ToList())
+                GridProfileFields.Write(store, applicationId, _work.ProfileDefinition[applicationId], fields);
+            _work.ProfilePending.Clear();
+            _profileCache.Clear();
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Text.Json.JsonException or InvalidOperationException or ArgumentException)
+        {
+            _snackbarService.Show("Settings", "The Workbench profile fields were not saved. " + ex.Message, Wpf.Ui.Controls.ControlAppearance.Danger,
+                new SymbolIcon(SymbolRegular.ErrorCircle24), TimeSpan.FromSeconds(6));
         }
     }
 
@@ -1000,6 +1028,7 @@ public partial class SettingsViewModel : ObservableObject, ISettingsReload
             if (_work.Commands.TryGetValue(id, out var edited)) s.CommandOverrides[id] = new CommandOverrideEntry { Install = edited.Install, Uninstall = edited.Uninstall };
         }
         var conditionsChanged = _work.ConditionsTouched.Count > 0 || _work.CommandsTouched.Count > 0;
+        var profileChanged = _work.ProfilePending.Count > 0;
         // An empty box keeps the stored secret; a typed value replaces it, DPAPI-protected for
         // the current Windows user. The plaintext never reaches settings.json.
         if (!string.IsNullOrEmpty(IntuneClientSecret))
@@ -1034,6 +1063,7 @@ public partial class SettingsViewModel : ObservableObject, ISettingsReload
             // A Migrated profile outranks the saved map: bring it up to date now, so a run in this session reads the grid.
             ApplicationGridSettings.RefreshMigratedProfiles(s, _discoveryService.ResolvePackagersRoot());
         }
+        if (profileChanged) WriteProfileFields();
         // The allowance of a staging folder ends when the folder changes.
         StagingAllowanceStore.RemoveAllExcept(s.DownloadRoot);
         RefreshStagingStatus();

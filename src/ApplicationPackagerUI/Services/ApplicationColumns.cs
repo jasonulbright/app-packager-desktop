@@ -19,6 +19,32 @@ public sealed class ApplicationWork
     /// <summary>The One Click row of an application (the work copy of the One Click grid); null when the application has none.</summary>
     public Func<string, OneClickRow?> OneClickRowOf { get; set; } = _ => null;
 
+    /// <summary>The Workbench profile fields of an application as stored (runtime, reboot behavior) and whether another profile is active.</summary>
+    public Func<SupersedenceRow, GridProfileFields.State> ProfileOf { get; set; } = _ => GridProfileFields.State.Empty;
+
+    /// <summary>The profile field values that Save Settings writes, by application identifier then field path (an empty value or Inherit clears the field).</summary>
+    public Dictionary<string, Dictionary<string, string>> ProfilePending { get; } = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>The definition identifier of each application in <see cref="ProfilePending"/>.</summary>
+    public Dictionary<string, string> ProfileDefinition { get; } = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>The value of a profile field: the pending edit, else the stored one.</summary>
+    public string ProfileValue(SupersedenceRow row, string path) =>
+        ProfilePending.TryGetValue(row.ApplicationId, out var pending) && pending.TryGetValue(path, out var value) ? value : ProfileOf(row).Fields.GetValueOrDefault(path, "");
+
+    public bool SetProfileValue(SupersedenceRow row, string path, string value)
+    {
+        if (!GridProfileFields.IsValid(path, value)) return false;
+        if (!ProfilePending.TryGetValue(row.ApplicationId, out var pending)) ProfilePending[row.ApplicationId] = pending = new(StringComparer.Ordinal);
+        pending[path] = value;
+        ProfileDefinition[row.ApplicationId] = row.DefinitionId;
+        return true;
+    }
+
+    /// <summary>The reason a profile field cannot be set here: another profile is active for the application.</summary>
+    public string? ProfileReason(SupersedenceRow row) => ProfileOf(row).ActiveElsewhere is { } name
+        ? $"This application uses its Workbench profile {name}. Set this value in the Workbench, or make the Migrated profile the active one." : null;
+
     /// <summary>The One Click default destinations, which an application follows until it has its own.</summary>
     public Func<DestinationSet> DefaultDestinations { get; set; } = () => new(true, false, false);
 }
@@ -189,6 +215,31 @@ public static class ApplicationColumns
             Tooltip = "Replaces the uninstall command line of the deployment type. Leave it empty for the command of the definition.",
             Get = (w, r) => w.Commands.TryGetValue(r.DefinitionId, out var e) ? e.Uninstall ?? "" : "",
             Set = (w, r, v) => { ApplicationGridSettings.SetCommand(w.Commands, r.DefinitionId, install: null, uninstall: v.Trim()); w.CommandsTouched.Add(r.DefinitionId); return true; }
+        },
+        new ApplicationColumn
+        {
+            Id = "estimated", Header = "Estimated runtime (min)", AutomationName = "Estimated runtime of the application", Width = 190,
+            Tooltip = "The estimated installation time in minutes that the deployment type shows. Leave it empty to inherit the default runtime. It is stored in the Workbench profile of the application.",
+            Get = (w, r) => w.ProfileValue(r, GridProfileFields.EstimatedMinutes),
+            Set = (w, r, v) => w.SetProfileValue(r, GridProfileFields.EstimatedMinutes, v.Trim()),
+            NotApplicable = (w, r) => w.ProfileReason(r)
+        },
+        new ApplicationColumn
+        {
+            Id = "maximum", Header = "Maximum runtime (min)", AutomationName = "Maximum runtime of the application", Width = 190,
+            Tooltip = "The maximum allowed run time in minutes of the deployment type. Leave it empty to inherit the default runtime. It is stored in the Workbench profile of the application.",
+            Get = (w, r) => w.ProfileValue(r, GridProfileFields.MaximumMinutes),
+            Set = (w, r, v) => w.SetProfileValue(r, GridProfileFields.MaximumMinutes, v.Trim()),
+            NotApplicable = (w, r) => w.ProfileReason(r)
+        },
+        new ApplicationColumn
+        {
+            Id = "reboot", Header = "Reboot after install", AutomationName = "Reboot behavior of the application", Width = 190,
+            Choices = GridProfileFields.RebootChoices,
+            Tooltip = "What the deployment type does after the install: no reboot, soft reboot, hard reboot or force restart. Inherit uses the behavior of the definition. It is stored in the Workbench profile of the application.",
+            Get = (w, r) => w.ProfileValue(r, GridProfileFields.InstallReboot) is { Length: > 0 } v ? v : GridProfileFields.Inherit,
+            Set = (w, r, v) => w.SetProfileValue(r, GridProfileFields.InstallReboot, v),
+            NotApplicable = (w, r) => w.ProfileReason(r)
         },
         new ApplicationColumn
         {
