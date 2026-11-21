@@ -139,7 +139,14 @@ public static class LegacyPreferenceMigration
         }
         if (rules.Count > 0)
         {
-            var requirements = WorkbenchJson.NewObject();
+            // The pass owns the operations of the saved conditions (the RuleIds above). Every other operation of the profile,
+            // such as a minimum from the Application Settings grid or a rule that a person added in the Workbench, stays.
+            var requirements = profile.Data["Requirements"] as JsonObject ?? WorkbenchJson.NewObject();
+            foreach (var operation in WorkbenchProfileValidator.Items(requirements["Operations"]))
+            {
+                var ruleId = WorkbenchJson.Get(operation, "RuleId").Text ?? "";
+                if (operation is not null && !OwnedRuleIds.Contains(ruleId, StringComparer.OrdinalIgnoreCase)) rules.Add(operation.DeepClone());
+            }
             requirements["Operations"] = rules;
             profile.Data["Requirements"] = requirements;
         }
@@ -180,6 +187,9 @@ public static class LegacyPreferenceMigration
             profile.Data[section]!["Command"] = value;
         }
     }
+
+    /// <summary>The RuleIds of the requirement operations that the migration of the saved conditions writes.</summary>
+    private static readonly string[] OwnedRuleIds = ["cpu-arch", "os-language", "vpn-connected"];
 
     private static JsonObject Operation(string ruleId, JsonObject rule)
     {

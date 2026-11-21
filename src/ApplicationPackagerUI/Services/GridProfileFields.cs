@@ -5,7 +5,7 @@ using ApplicationPackagerEngine.Services.Workbench;
 namespace ApplicationPackagerUI.Services;
 
 /// <summary>
-/// The Workbench profile fields that the Application Settings grid shows as columns: runtime and reboot behavior. A field keeps the semantics
+/// The Workbench profile fields that the Application Settings grid shows as columns: runtime, reboot behavior and the requirement minimums. A field keeps the semantics
 /// of the Workbench: an empty value (Inherit) removes the key so the next level supplies the value, a value is a custom override. The grid
 /// writes the profile of the application that carries the marker MigratedFrom with its definition identifier (the profile that the saved
 /// conditions already use); a missing profile is created in the same shape, and it becomes the active profile only while the application is on
@@ -22,11 +22,13 @@ public static class GridProfileFields
     /// <summary>The words of the reboot policy that the stage accepts (see ProfileDeploymentSettings); the first one is Inherit.</summary>
     public static readonly IReadOnlyList<string> RebootChoices = [Inherit, "No reboot", "Soft reboot", "Hard reboot", "Force restart"];
 
-    public static readonly IReadOnlyList<string> Paths = [EstimatedMinutes, MaximumMinutes, InstallReboot];
+    /// <summary>The fields of the grid: the three profile fields and the requirement operations (see <see cref="GridRequirementFields"/>).</summary>
+    public static readonly IReadOnlyList<string> Paths = [EstimatedMinutes, MaximumMinutes, InstallReboot, .. GridRequirementFields.Paths];
 
     /// <summary>The text of a stored field for the cell; empty when the profile does not set it.</summary>
     public static string Text(JsonNode? profileData, string path)
     {
+        if (GridRequirementFields.Handles(path)) return GridRequirementFields.Text(profileData, path);
         var member = WorkbenchJson.Get(profileData, path);
         return member.Found && member.Value is not null ? member.Text ?? "" : "";
     }
@@ -36,12 +38,14 @@ public static class GridProfileFields
     {
         EstimatedMinutes or MaximumMinutes => value.Length == 0 || (int.TryParse(value, out var minutes) && minutes > 0),
         InstallReboot => RebootChoices.Contains(value),
+        _ when GridRequirementFields.Handles(path) => GridRequirementFields.IsValid(path, value),
         _ => false
     };
 
     /// <summary>Sets one field on a profile document; an empty value or Inherit removes the key.</summary>
     public static void Apply(WorkbenchProfile profile, string path, string value)
     {
+        if (GridRequirementFields.Handles(path)) { GridRequirementFields.Apply(profile, path, value == Inherit ? "" : value); return; }
         if (value.Length == 0 || value == Inherit) { profile.ClearField(path, FieldClearMode.Inherit); return; }
         if (path is EstimatedMinutes or MaximumMinutes) profile.Set(path, JsonValue.Create(int.Parse(value)));
         else profile.Set(path, JsonValue.Create(value));

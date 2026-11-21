@@ -19,7 +19,7 @@ public sealed class ConditionTemplateTests : IDisposable
         new(Path.Combine(_root, "condition-templates.json"));
 
     [Fact]
-    public void Defaults_CarryTheThreeShippedConditions()
+    public void Defaults_CarryTheShippedConditions()
     {
         var doc = ConditionTemplateService.Defaults();
 
@@ -46,7 +46,7 @@ public sealed class ConditionTemplateTests : IDisposable
         var warnings = new List<string>();
         var doc = Service().Load(warnings.Add);
 
-        Assert.Equal(3, doc.Conditions.Length);
+        Assert.Equal(6, doc.Conditions.Length);
         Assert.Empty(warnings);
     }
 
@@ -59,7 +59,7 @@ public sealed class ConditionTemplateTests : IDisposable
 
         var doc = service.Load(warnings.Add);
 
-        Assert.Equal(3, doc.Conditions.Length);
+        Assert.Equal(6, doc.Conditions.Length);
         Assert.Contains(warnings, w => w.Contains("unreadable"));
     }
 

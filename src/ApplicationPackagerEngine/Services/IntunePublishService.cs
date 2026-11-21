@@ -157,6 +157,7 @@ public sealed class IntunePublishService : IDisposable
         var rules = conversion is null
             ? BuildRules(manifest.Detection, scriptSigning)
             : new JsonArray(CloneAll(conversion.Rules, "rules"));
+        var requirementSettings = new List<IntuneAppSetting>();
         if (conversion is null)
         {
             // The requirement rules of the application follow its detection rules. A rule with no
@@ -167,6 +168,7 @@ public sealed class IntunePublishService : IDisposable
             foreach (var translation in IntuneRequirementRules.Translate(plan.AllSpecs(manifest), plan.Templates, plan.SigningPolicy))
             {
                 if (translation.Rule is { } requirementRule) rules.Add(requirementRule.DeepClone());
+                else if (translation.Setting is { } requirementSetting) requirementSettings.Add(requirementSetting);
                 else if (!plan.AcceptedDrops.Contains(IntuneRequirementPlan.DropKey(manifest, translation.Spec.ConditionId ?? "")))
                     throw new InvalidOperationException(
                         $"The requirement '{translation.Spec.ConditionId}' has no Intune rule: {translation.Gap}");
@@ -237,6 +239,8 @@ public sealed class IntunePublishService : IDisposable
                 ? ProfileDeploymentSettings.IntuneReturnCodeArray(manifest)
                 : new JsonArray(CloneAll(conversion.ReturnCodes, "return codes"))
         };
+        ApplyRequirementSettings(appBody, requirementSettings, onProgress);
+
         if (conversion is not null)
         {
             // All four hardware minimums of the Graph resource. A minimum that the conversion does not
@@ -1386,6 +1390,28 @@ public sealed class IntunePublishService : IDisposable
         ("MinimumCpuSpeedInMHz", "minimumCpuSpeedInMHz"),
         ("MinimumFreeDiskSpaceInMB", "minimumFreeDiskSpaceInMB")
     ];
+
+    /// <summary>
+    /// Writes the requirements that have an app property: the hardware minimums and the minimum Windows release. A property is
+    /// written only when a requirement names it, so a value that an administrator typed in the Intune admin center stays. When two
+    /// requirements name the same property the stricter one wins, and a release never goes below the one of the settings.
+    /// </summary>
+    internal static void ApplyRequirementSettings(JsonObject appBody, IEnumerable<IntuneAppSetting> settings, Action<string>? log = null)
+    {
+        foreach (var group in settings.GroupBy(s => s.Property, StringComparer.Ordinal))
+        {
+            JsonNode value;
+            if (group.Key == "minimumSupportedWindowsRelease")
+            {
+                var release = appBody[group.Key]?.GetValue<string>() ?? IntuneWindowsReleases.Default;
+                foreach (var setting in group) release = IntuneWindowsReleases.Later(release, setting.Value.GetValue<string>());
+                value = JsonValue.Create(release)!;
+            }
+            else value = JsonValue.Create(group.Max(s => s.Value.GetValue<int>()))!;
+            appBody[group.Key] = value;
+            log?.Invoke($"Intune requirement setting   : {group.Key} = {value.ToJsonString()}");
+        }
+    }
 
     private static string FirstNonBlank(string? candidate, string fallback)
         => string.IsNullOrWhiteSpace(candidate) ? fallback : candidate;

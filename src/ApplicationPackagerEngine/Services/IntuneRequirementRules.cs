@@ -56,10 +56,16 @@ public sealed class IntuneRequirementPlan
 /// <summary>A requirement script must be signed by the policy and the signature was not produced. It is not a gap that a drop can accept.</summary>
 public sealed class IntuneRequirementSigningException(string message) : InvalidOperationException(message);
 
-/// <summary>One requirement spec and what became of it.</summary>
-public sealed record IntuneRequirementTranslation(StageRequirement Spec, JsonObject? Rule, string? Gap)
+/// <summary>A property of the Win32 app resource that carries a requirement as a minimum (the Intune admin center shows it under Requirements).</summary>
+public sealed record IntuneAppSetting(string Property, JsonNode Value);
+
+/// <summary>
+/// One requirement spec and what became of it: a requirement rule, a property of the app (a hardware minimum or the minimum
+/// Windows release), or a gap.
+/// </summary>
+public sealed record IntuneRequirementTranslation(StageRequirement Spec, JsonObject? Rule, string? Gap, IntuneAppSetting? Setting = null)
 {
-    public bool Translated => Rule is not null;
+    public bool Translated => Rule is not null || Setting is not null;
 }
 
 /// <summary>
@@ -81,7 +87,8 @@ public static class IntuneRequirementRules
         {
             try
             {
-                result.Add(new(spec, Build(spec, templates, signingPolicy), null));
+                var (rule, setting) = Build(spec, templates, signingPolicy);
+                result.Add(new(spec, rule, null, setting));
             }
             catch (IntuneRequirementSigningException)
             {
@@ -96,7 +103,7 @@ public static class IntuneRequirementRules
         return result;
     }
 
-    private static JsonObject Build(StageRequirement spec, ConditionTemplateDocument templates, SigningPolicy? signingPolicy)
+    private static (JsonObject? Rule, IntuneAppSetting? Setting) Build(StageRequirement spec, ConditionTemplateDocument templates, SigningPolicy? signingPolicy)
     {
         var id = spec.ConditionId ?? "";
         var template = templates.Conditions.FirstOrDefault(c => string.Equals(c.Id, id, StringComparison.OrdinalIgnoreCase))
@@ -104,9 +111,21 @@ public static class IntuneRequirementRules
 
         // The same binding as the ConfigMgr publish: an unknown value or a missing value is a failure there too.
         var resolved = RequirementRuleBuilder.Resolve([spec], templates)[0];
+
+        // A minimum that the Win32 app resource has a property for goes there. An unknown build number has no release
+        // and becomes a rule, so the requirement keeps its exact meaning.
+        string? minimumScript = null;
+        if (!string.IsNullOrWhiteSpace(template.IntuneProperty))
+        {
+            var setting = AppSetting(template, resolved);
+            if (setting is not null) return (null, setting);
+            minimumScript = BuildMinimumScript(resolved);
+        }
+
         var (script, expected) = template.RuleType switch
         {
-            "CommonValue" when string.Equals(template.Kind, "Wql", StringComparison.Ordinal) => (WqlScript(template, resolved.Value!), true),
+            _ when minimumScript is not null => (minimumScript, true),
+            "CommonValue" when string.Equals(template.Kind, "Wql", StringComparison.Ordinal) && resolved.Operator == RequirementRuleBuilder.DefaultOperator => (WqlScript(template, resolved.Value!), true),
             "OperatingSystemLanguage" when string.Equals(template.Kind, "BuiltIn", StringComparison.Ordinal) => (LanguageScript(resolved.Cultures), true),
             "Boolean" when string.Equals(template.Kind, "Script", StringComparison.Ordinal) => (ConditionTemplateService.ResolveScriptText(template), resolved.BooleanValue),
             _ => throw new InvalidOperationException(
@@ -133,7 +152,7 @@ public static class IntuneRequirementRules
             }
         }
 
-        return new JsonObject
+        return (new JsonObject
         {
             ["@odata.type"] = "#microsoft.graph.win32LobAppPowerShellScriptRule",
             ["ruleType"] = "requirement",
@@ -145,8 +164,39 @@ public static class IntuneRequirementRules
             ["operationType"] = "string",
             ["operator"] = "equal",
             ["comparisonValue"] = expected ? "True" : "False"
-        };
+        }, null);
     }
+
+    /// <summary>
+    /// The app property for a minimum, or null when the app has none for this value (a build that is not the build of a
+    /// release). The app property is a minimum, so a template with another operator has no Intune form.
+    /// </summary>
+    private static IntuneAppSetting? AppSetting(ConditionTemplate template, ResolvedRequirement resolved)
+    {
+        if (!string.Equals(resolved.Operator, "GreaterEquals", StringComparison.Ordinal))
+            throw new InvalidOperationException(
+                $"The condition '{template.Id}' uses the operator {resolved.Operator}, but the Intune setting {template.IntuneProperty} is a minimum, so only GreaterEquals has an Intune form.");
+        var number = resolved.Number
+            ?? throw new InvalidOperationException($"The condition '{template.Id}' has no whole number for the Intune setting {template.IntuneProperty}.");
+
+        switch (template.IntuneProperty)
+        {
+            case "minimumFreeDiskSpaceInMB":
+            case "minimumMemoryInMB":
+                if (number > int.MaxValue)
+                    throw new InvalidOperationException($"The value {number} of the condition '{template.Id}' is larger than the Intune setting {template.IntuneProperty} takes (a 32-bit whole number of MB).");
+                return new IntuneAppSetting(template.IntuneProperty!, JsonValue.Create((int)number));
+            case "minimumSupportedWindowsRelease":
+                return IntuneWindowsReleases.OfBuild(number) is { } release ? new IntuneAppSetting(template.IntuneProperty!, JsonValue.Create(release)) : null;
+            default:
+                throw new InvalidOperationException($"The condition '{template.Id}' names the unknown Intune setting '{template.IntuneProperty}'.");
+        }
+    }
+
+    /// <summary>True when the build number of the operating system is at least the required build (the rule that stands in for a build with no release name).</summary>
+    private static string BuildMinimumScript(ResolvedRequirement resolved) => string.Join("\r\n",
+        "$ErrorActionPreference = 'SilentlyContinue'",
+        $"Write-Output ([int](Get-CimInstance -ClassName Win32_OperatingSystem).BuildNumber -ge {resolved.Number})");
 
     /// <summary>True when some row of the WMI class has the value; the ConfigMgr rule compares with IsEquals.</summary>
     private static string WqlScript(ConditionTemplate template, string value)

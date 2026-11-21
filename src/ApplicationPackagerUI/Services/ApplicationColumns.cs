@@ -241,6 +241,7 @@ public static class ApplicationColumns
             Set = (w, r, v) => w.SetProfileValue(r, GridProfileFields.InstallReboot, v),
             NotApplicable = (w, r) => w.ProfileReason(r)
         },
+        .. RequirementColumns.Build(),
         new ApplicationColumn
         {
             Id = "tracked", Header = "In One Click", AutomationName = "One Click inclusion of the application", Width = 150,

@@ -858,6 +858,69 @@ public sealed class IntunePublishServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task Publish_SendsTheMinimumsOfTheRequirementsAsPropertiesOfTheApp_AndNoRuleForThem()
+    {
+        var package = IntuneWinFixture.Create(_dir);
+        var handler = BuildHandler(NoApps);
+        using var svc = new IntunePublishService(handler);
+        var manifest = ManifestWithRequirements(
+            new StageRequirement { ConditionId = "min-disk-space", Value = "2048" },
+            new StageRequirement { ConditionId = "min-memory", Value = "4096" },
+            new StageRequirement { ConditionId = "min-os-build", Value = "22631" });
+
+        await svc.PublishAsync(package, manifest, Options());
+
+        var body = JsonNode.Parse(handler.Requests.Single(r => r.Method == HttpMethod.Post && r.Uri.EndsWith("/deviceAppManagement/mobileApps")).Body)!;
+        Assert.Equal(2048, (int?)body["minimumFreeDiskSpaceInMB"]);
+        Assert.Equal(4096, (int?)body["minimumMemoryInMB"]);
+        Assert.Equal("Windows11_23H2", (string?)body["minimumSupportedWindowsRelease"]);
+        Assert.Equal(["detection"], ((JsonArray)body["rules"]!).Select(r => (string?)r!["ruleType"]));
+    }
+
+    [Fact]
+    public async Task Publish_KeepsTheReleaseOfTheSettingsWhenTheBuildIsLower_AndSendsNoMinimumThatNoRequirementNames()
+    {
+        var package = IntuneWinFixture.Create(_dir);
+        var handler = BuildHandler(NoApps);
+        using var svc = new IntunePublishService(handler);
+        var options = Options();
+        options.MinimumSupportedWindowsRelease = "Windows11_24H2";
+
+        await svc.PublishAsync(package, ManifestWithRequirements(new StageRequirement { ConditionId = "min-os-build", Value = "19045" }), options);
+
+        var body = JsonNode.Parse(handler.Requests.Single(r => r.Method == HttpMethod.Post && r.Uri.EndsWith("/deviceAppManagement/mobileApps")).Body)!;
+        Assert.Equal("Windows11_24H2", (string?)body["minimumSupportedWindowsRelease"]);
+        Assert.False(((JsonObject)body).ContainsKey("minimumMemoryInMB"));
+        Assert.False(((JsonObject)body).ContainsKey("minimumFreeDiskSpaceInMB"));
+    }
+
+    [Fact]
+    public async Task Publish_RefusesAMinimumThatTheAppCannotExpress_AndLeavesItOutWhenItsDropWasAccepted()
+    {
+        var package = IntuneWinFixture.Create(_dir);
+        var manifest = ManifestWithRequirements(new StageRequirement { ConditionId = "min-memory", Value = "4096" });
+        var templates = ConditionTemplateService.Defaults();
+        templates.Conditions.Single(c => c.Id == "min-memory").Operator = "LessEquals";
+
+        var refused = BuildHandler(NoApps);
+        using (var svc = new IntunePublishService(refused))
+        {
+            var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+                svc.PublishAsync(package, manifest, Options(), requirements: IntuneRequirementPlan.Of(null, templates, null)));
+            Assert.Contains("min-memory", ex.Message);
+            Assert.Empty(refused.Requests);
+        }
+
+        var accepted = BuildHandler(NoApps);
+        using var second = new IntunePublishService(accepted);
+        await second.PublishAsync(package, manifest, Options(),
+            requirements: IntuneRequirementPlan.Of(null, templates, [IntuneRequirementPlan.DropKey(manifest, "min-memory")]));
+
+        var body = JsonNode.Parse(accepted.Requests.Single(r => r.Method == HttpMethod.Post && r.Uri.EndsWith("/deviceAppManagement/mobileApps")).Body)!;
+        Assert.False(((JsonObject)body).ContainsKey("minimumMemoryInMB"));
+    }
+
+    [Fact]
     public async Task Publish_SendsTheRequirementsThatTheRunAppliesBesideTheManifest()
     {
         var package = IntuneWinFixture.Create(_dir);

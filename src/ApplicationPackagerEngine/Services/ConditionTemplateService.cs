@@ -27,6 +27,11 @@ public sealed class ConditionTemplateService
 
     public string TemplatesPath => _path;
 
+    /// <summary>The condition ids of the requirement columns of the Application Settings grid.</summary>
+    public const string MinimumFreeDiskSpaceId = "min-disk-space";
+    public const string MinimumMemoryId = "min-memory";
+    public const string MinimumOsBuildId = "min-os-build";
+
     /// <summary>The built-in condition template document.</summary>
     public static ConditionTemplateDocument Defaults() => new()
     {
@@ -73,6 +78,48 @@ public sealed class ConditionTemplateService
                 AdapterPatterns = ["Zscaler", "Juniper", "PANGP", "Cisco AnyConnect", "Fortinet"],
                 AliasPattern = "vpn",
                 Description = "True when an IP-enabled network adapter description matches a configured VPN client pattern or an interface alias contains the alias pattern."
+            },
+            // The requirement templates of the Application Settings grid: a minimum, so the operator is GreaterEquals.
+            // The two built-in conditions exist once per site (PlatformType 1 is Windows); the build condition is a WQL
+            // condition on the version of the operating system, because the site has no built-in condition for a build.
+            new ConditionTemplate
+            {
+                Id = MinimumFreeDiskSpaceId,
+                GlobalConditionName = "Disk space",
+                Kind = "BuiltIn",
+                RuleType = "FreeDiskSpace",
+                Operator = "GreaterEquals",
+                PlatformType = 1,
+                IntuneProperty = "minimumFreeDiskSpaceInMB",
+                Description = "Free disk space of the system drive in MB (the built-in Disk space condition)."
+            },
+            new ConditionTemplate
+            {
+                Id = MinimumMemoryId,
+                GlobalConditionName = "Total physical memory",
+                Kind = "BuiltIn",
+                RuleType = "CommonValue",
+                DataType = "Integer",
+                Operator = "GreaterEquals",
+                PlatformType = 1,
+                IntuneProperty = "minimumMemoryInMB",
+                Description = "Total physical memory in MB (the built-in Total physical memory condition)."
+            },
+            new ConditionTemplate
+            {
+                Id = MinimumOsBuildId,
+                GlobalConditionName = "APKG - Operating System Build",
+                Kind = "Wql",
+                RuleType = "CommonValue",
+                DataType = "Version",
+                Namespace = @"root\cimv2",
+                Class = "Win32_OperatingSystem",
+                Property = "Version",
+                Operator = "GreaterEquals",
+                // Windows 10 and Windows 11 report 10.0.<build>; the requirement is the build number.
+                ValueFormat = "10.0.{0}",
+                IntuneProperty = "minimumSupportedWindowsRelease",
+                Description = "Win32_OperatingSystem.Version, compared as a version (10.0.<build>)."
             }
         ]
     };
@@ -89,7 +136,7 @@ public sealed class ConditionTemplateService
             {
                 var doc = JsonSerializer.Deserialize<ConditionTemplateDocument>(
                     File.ReadAllText(_path), JsonOptions);
-                if (doc?.Conditions is { Length: > 0 }) return doc;
+                if (doc?.Conditions is { Length: > 0 }) return WithBuiltIns(doc);
                 onWarning?.Invoke($"Condition templates file has no Conditions; using built-in defaults: {_path}");
             }
             catch (Exception ex)
@@ -98,6 +145,19 @@ public sealed class ConditionTemplateService
             }
         }
         return Defaults();
+    }
+
+    /// <summary>
+    /// A file written before a built-in condition existed lacks it. The built-in templates that the file does not
+    /// have are added, so a new requirement works with an old file; a template of the file always wins.
+    /// </summary>
+    private static ConditionTemplateDocument WithBuiltIns(ConditionTemplateDocument doc)
+    {
+        var missing = Defaults().Conditions
+            .Where(d => !doc.Conditions.Any(c => string.Equals(c.Id, d.Id, StringComparison.OrdinalIgnoreCase)))
+            .ToArray();
+        if (missing.Length > 0) doc.Conditions = [.. doc.Conditions, .. missing];
+        return doc;
     }
 
     public string Save(ConditionTemplateDocument templates)

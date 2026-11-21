@@ -84,7 +84,10 @@ public static partial class IntuneCompatibilityFindings
         foreach (var translation in IntuneRequirementRules.Translate(requirementPlan.AllSpecs(manifest), requirementPlan.Templates))
         {
             var id = translation.Spec.ConditionId ?? "";
-            if (translation.Translated)
+            if (translation.Setting is { } setting)
+                findings.Add(new(Info, "RequirementTranslated",
+                    $"The requirement '{id}' is published as the Intune setting {setting.Property} ({setting.Value.ToJsonString()})."));
+            else if (translation.Translated)
                 findings.Add(new(Info, "RequirementTranslated",
                     $"The requirement '{id}' is published as a PowerShell requirement rule."));
             else if (requirementPlan.AcceptedDrops.Contains(IntuneRequirementPlan.DropKey(manifest, id)))
