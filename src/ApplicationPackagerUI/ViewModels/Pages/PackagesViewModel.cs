@@ -321,7 +321,7 @@ public partial class PackagesViewModel : ObservableObject
         }
     }
 
-    private bool CanExportCheckResults() => _lastCheckResult.Count > 0 && !IsOperationRunning;
+    private bool CanExportCheckResults() => _lastCheckResult is { Count: > 0 } && !IsOperationRunning;
 
     /// <summary>Saves the result of the last Check ConfigMgr run; the file type in the dialog chooses the format and the filter.</summary>
     [RelayCommand(CanExecute = nameof(CanExportCheckResults))]
