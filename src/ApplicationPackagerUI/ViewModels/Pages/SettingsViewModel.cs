@@ -913,6 +913,9 @@ public partial class SettingsViewModel : ObservableObject, ISettingsReload
         _work.Supersedence = _supersedenceWork;
         _work.Conditions = ApplicationGridSettings.Copy(s.DeploymentConditions);
         _work.Commands = ApplicationGridSettings.CopyCommands(s.CommandOverrides);
+        _work.Distribution = s.DistributionOverrides.ToDictionary(kv => kv.Key,
+            kv => new ApplicationDistribution { DpGroupName = kv.Value.DpGroupName, TestCollectionName = kv.Value.TestCollectionName }, StringComparer.OrdinalIgnoreCase);
+        _work.DistributionTouched.Clear();
         _work.ConditionsTouched.Clear();
         _work.CommandsTouched.Clear();
         if (SupersedenceRows.Count > 0) RefreshSupersedenceRows();
@@ -1027,6 +1030,14 @@ public partial class SettingsViewModel : ObservableObject, ISettingsReload
             if (stored is not null) s.CommandOverrides.Remove(stored);
             if (_work.Commands.TryGetValue(id, out var edited)) s.CommandOverrides[id] = new CommandOverrideEntry { Install = edited.Install, Uninstall = edited.Uninstall };
         }
+        foreach (var id in _work.DistributionTouched)
+        {
+            var stored = s.DistributionOverrides.Keys.FirstOrDefault(k => string.Equals(k, id, StringComparison.OrdinalIgnoreCase));
+            if (stored is not null) s.DistributionOverrides.Remove(stored);
+            if (_work.Distribution.TryGetValue(id, out var own))
+                s.DistributionOverrides[id] = new ApplicationDistribution { DpGroupName = own.DpGroupName, TestCollectionName = own.TestCollectionName };
+        }
+        _work.DistributionTouched.Clear();
         var conditionsChanged = _work.ConditionsTouched.Count > 0 || _work.CommandsTouched.Count > 0;
         var profileChanged = _work.ProfilePending.Count > 0;
         // An empty box keeps the stored secret; a typed value replaces it, DPAPI-protected for

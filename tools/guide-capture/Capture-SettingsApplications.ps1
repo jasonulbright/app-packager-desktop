@@ -125,6 +125,20 @@ foreach ($theme in $Themes) {
         Choose-Item $rebootCell 'Soft reboot'
         $gs.SetScrollPercent(0, [System.Windows.Automation.ScrollPattern]::NoScroll); Start-Sleep -Milliseconds 800
 
+        # The distribution columns and the read-only detection column come from the chooser too.
+        foreach ($name in 'Distribution point group', 'Test collection', 'Detection') {
+            Click-El (Find-El $w 'btnColumns' -Timeout 5); Start-Sleep -Milliseconds 800
+            $mi = Find-El $null $null $name 'MenuItem' -Timeout 5
+            Check ($null -ne $mi) "$theme the column chooser lists $name"
+            if ($mi) { Click-El $mi; Start-Sleep -Milliseconds 600 }
+            [System.Windows.Forms.SendKeys]::SendWait('{ESC}'); Start-Sleep -Milliseconds 600
+        }
+        $gs0 = $grid.GetCurrentPattern([System.Windows.Automation.ScrollPattern]::Pattern)
+        $gs0.SetScrollPercent(100, [System.Windows.Automation.ScrollPattern]::NoScroll); Start-Sleep -Milliseconds 900
+        $det = Find-El $grid $null 'Detection method of the application' 'ComboBox' -Timeout 5
+        Check ($null -ne $det -and -not $det.Current.IsEnabled) "$theme the Detection cell is read only"
+        $gs0.SetScrollPercent(0, [System.Windows.Automation.ScrollPattern]::NoScroll); Start-Sleep -Milliseconds 600
+
         # Filtered scope: type in the search box (real keys), set the Network column for the filtered applications only.
         $box = Find-El $w 'txtApplicationFilter' -Timeout 5
         Click-El $box; Start-Sleep -Milliseconds 500

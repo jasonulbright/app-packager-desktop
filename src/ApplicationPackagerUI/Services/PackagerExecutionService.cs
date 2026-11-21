@@ -1491,7 +1491,7 @@ public class PackagerExecutionService(
         AppSettings settings, string target, Action<string> report, CancellationToken ct,
         ApplicationPackagerEngine.Services.Supersedence.SupersedencePlan supersedence)
     {
-        var distribution = settings.ContentDistribution;
+        var distribution = ContentDistributionResolver.For(settings, manifest.ApplicationId);
         string? contentFailure = null;
         if (distribution.AutoDistribute)
         {

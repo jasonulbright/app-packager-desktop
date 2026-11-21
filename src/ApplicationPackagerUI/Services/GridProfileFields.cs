@@ -60,7 +60,7 @@ public static class GridProfileFields
     }
 
     /// <summary>The stored fields of one application, and the name of the profile that is active instead of the one the grid writes (null when none).</summary>
-    public sealed record State(IReadOnlyDictionary<string, string> Fields, string? ActiveElsewhere)
+    public sealed record State(IReadOnlyDictionary<string, string> Fields, string? ActiveElsewhere, bool CustomDetection = false)
     {
         public static readonly State Empty = new(Paths.ToDictionary(p => p, _ => "", StringComparer.Ordinal), null);
     }
@@ -75,7 +75,10 @@ public static class GridProfileFields
         if (!string.IsNullOrWhiteSpace(active) && !ApplicationIds.IsDefaultProfile(active)
             && !string.Equals(active, profile?.ProfileId, StringComparison.OrdinalIgnoreCase))
             elsewhere = store.GetProfile(applicationId, active).Name;
-        return new State(fields, elsewhere);
+        // The detection rule of the profile that is active (the grid never edits it): custom when its mode is not Inherit.
+        var activeProfile = !string.IsNullOrWhiteSpace(active) && !ApplicationIds.IsDefaultProfile(active) ? store.GetProfile(applicationId, active) : profile;
+        var mode = activeProfile is null ? "" : activeProfile.Get("Detection.Mode").Text ?? "";
+        return new State(fields, elsewhere, mode.Length > 0 && !string.Equals(mode, "Inherit", StringComparison.OrdinalIgnoreCase));
     }
 
     /// <summary>Writes the fields of one application. Returns the saved profile.</summary>
