@@ -81,6 +81,7 @@ public static class GuideCaptureSteps
         ["packages"] = "packages",
         ["core-packages-list"] = "core-packages-list",
         ["core-packages-select-update"] = "core-packages-select-update",
+        ["core-packages-export-check-results"] = "core-packages-export-check-results",
         ["core-packages-buttons-disabled"] = "core-packages-buttons-disabled",
         ["core-packages-operation-history"] = "core-packages-operation-history",
         ["core-packages-review-dialog"] = "core-packages-review-dialog",
