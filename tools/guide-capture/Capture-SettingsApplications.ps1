@@ -108,6 +108,23 @@ foreach ($theme in $Themes) {
         [System.Windows.Forms.SendKeys]::SendWait('{ESC}'); Start-Sleep -Milliseconds 700
         Check ($null -ne (Find-El $w $null 'One Click inclusion of the application' 'ComboBox' -Timeout 5)) "$theme the grid shows the One Click column after it is chosen"
 
+        # A Workbench profile field: show the reboot column with the chooser, set it for 7-Zip in its row.
+        Click-El (Find-El $w 'btnColumns' -Timeout 5); Start-Sleep -Milliseconds 800
+        $item = Find-El $null $null 'Reboot after install' 'MenuItem' -Timeout 5
+        Check ($null -ne $item) "$theme the column chooser lists Reboot after install"
+        if ($item) { Click-El $item; Start-Sleep -Milliseconds 700 }
+        [System.Windows.Forms.SendKeys]::SendWait('{ESC}'); Start-Sleep -Milliseconds 700
+        $row7 = Find-GridRow $grid '7-Zip'
+        try { $row7.GetCurrentPattern([System.Windows.Automation.ScrollItemPattern]::Pattern).ScrollIntoView(); Start-Sleep -Milliseconds 700 } catch { $null = $_ }
+        $gs = $grid.GetCurrentPattern([System.Windows.Automation.ScrollPattern]::Pattern)
+        $gs.SetScrollPercent(100, [System.Windows.Automation.ScrollPattern]::NoScroll); Start-Sleep -Milliseconds 800
+        $row7 = Find-GridRow $grid '7-Zip'
+        $gs.SetScrollPercent(100, [System.Windows.Automation.ScrollPattern]::NoScroll); Start-Sleep -Milliseconds 800
+        $rebootCell = $row7.FindFirst([System.Windows.Automation.TreeScope]::Descendants, (New-Object System.Windows.Automation.PropertyCondition ([System.Windows.Automation.AutomationElement]::NameProperty), 'Reboot behavior of the application'))
+        if (-not $rebootCell) { throw 'The row of 7-Zip has no reboot cell.' }
+        Choose-Item $rebootCell 'Soft reboot'
+        $gs.SetScrollPercent(0, [System.Windows.Automation.ScrollPattern]::NoScroll); Start-Sleep -Milliseconds 800
+
         # Filtered scope: type in the search box (real keys), set the Network column for the filtered applications only.
         $box = Find-El $w 'txtApplicationFilter' -Timeout 5
         Click-El $box; Start-Sleep -Milliseconds 500
@@ -135,6 +152,8 @@ foreach ($theme in $Themes) {
         Check ($null -eq $conditions.$sevenZipId.InstallMode -or $conditions.$sevenZipId.InstallMode -eq '') "$theme settings.json: 7-Zip has no install scope (the installer offers none)"
         $overrides = $json.Supersedence.TitleOverrides.PSObject.Properties
         Check (@($overrides | Where-Object { $_.Value.Mode -eq 'Replace' }).Count -eq 1) "$theme settings.json: one application has the supersedence mode Replace"
+        $profileHit = @(Get-ChildItem $data -Recurse -File -Filter *.json -ErrorAction SilentlyContinue | Where-Object { $_.FullName -match 'profile' -and (Select-String -LiteralPath $_.FullName -Pattern 'Soft reboot' -Quiet) })
+        Check ($profileHit.Count -ge 1) "$theme the Workbench profile of 7-Zip holds the reboot policy Soft reboot"
         Check ($conditions.$bitwardenId.Network -eq 'VpnOnly') "$theme settings.json: the filtered bulk set the Network requirement of Bitwarden"
         Check ($null -eq $conditions.$sevenZipId.Network -or $conditions.$sevenZipId.Network -eq 'Any') "$theme settings.json: the filtered bulk left 7-Zip alone"
         'DONE {0}' -f $theme
