@@ -1,9 +1,33 @@
+using System.ComponentModel;
+
 namespace ApplicationPackagerUI.Models;
 
+/// <summary>A set of values that a grid cell binds to by the id of its column (<c>Cells[source]</c>); a change of one value tells the binding.</summary>
+public sealed class CellBag<T> : INotifyPropertyChanged
+{
+    private readonly Dictionary<string, T> _values = new(StringComparer.Ordinal);
+
+    public event PropertyChangedEventHandler? PropertyChanged;
+
+    /// <summary>Raised after every write, with the id of the column; the grid uses it to find out which cell the person edited.</summary>
+    public event Action<string>? ValueSet;
+
+    public T? this[string id]
+    {
+        get => _values.TryGetValue(id, out var value) ? value : default;
+        set
+        {
+            _values[id] = value!;
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs("Item[]"));
+            ValueSet?.Invoke(id);
+        }
+    }
+}
+
 /// <summary>
-/// One application in the Application Settings grid: the check box for the bulk actions on the checked applications, and the choice of
-/// each column. A choice that the application does not offer (the package source of an application with one architecture, the install
-/// scope of an installer with one scope) has its column disabled; the cell then shows the fixed value.
+/// One application in the Application Settings grid: the check box for the bulk actions, the facts that decide which settings apply to the
+/// application, and one cell for each column of the registry (<see cref="Services.ApplicationColumns"/>). A cell holds the value, whether
+/// it can be edited, and the tooltip: the reason when the setting does not apply to the application.
 /// </summary>
 public partial class SupersedenceRow : ObservableObject
 {
@@ -15,7 +39,7 @@ public partial class SupersedenceRow : ObservableObject
     /// <summary>The identifier that keys the setting of the application.</summary>
     public required string ApplicationId { get; init; }
 
-    /// <summary>The identifier of the definition; it keys the saved conditions (package source, install scope, version in title).</summary>
+    /// <summary>The identifier of the definition; it keys the saved conditions and command overrides.</summary>
     public string DefinitionId { get; init; } = "";
 
     public required string Application { get; init; }
@@ -24,27 +48,26 @@ public partial class SupersedenceRow : ObservableObject
     /// <summary>The architecture the definition packages; the fixed value that the package source cell shows when there is no choice.</summary>
     public string Architecture { get; init; } = "";
 
-    /// <summary>True when the definition offers an architecture choice (a second payload or the Architecture split).</summary>
+    /// <summary>True when the definition offers an architecture choice (a second installer or the Architecture split).</summary>
     public bool OffersArchitecture { get; init; }
 
     /// <summary>True when the installer installs for the system and for the user.</summary>
     public bool OffersInstallScope { get; init; }
 
+    /// <summary>True when the definition supports the Network split.</summary>
+    public bool OffersNetworkSplit { get; init; }
+
+    /// <summary>The refusal codes of WSUS for this application, joined with '|'; empty when WSUS can publish it.</summary>
+    public string WsusNotSupported { get; init; } = "";
+
     [ObservableProperty] private bool _isSelected;
-    [ObservableProperty] private string _modeChoice = FollowDefault;
-    [ObservableProperty] private string _architectureChoice = "";
-    [ObservableProperty] private string _scopeChoice = "";
-    [ObservableProperty] private string _titleChoice = FollowDefault;
-    [ObservableProperty] private string _ruleChoice = FollowDefault;
 
-    /// <summary>True while supersedence is on for the application: the version in the title is forced and locked.</summary>
-    [ObservableProperty] private bool _titleLocked;
+    public CellBag<string> Cells { get; } = new();
+    public CellBag<bool> Editable { get; } = new();
+    public CellBag<string> Tips { get; } = new();
 
-    /// <summary>The cell of the package source column: a choice where one is offered, else the fixed architecture.</summary>
-    public IReadOnlyList<string> ArchitectureCells => OffersArchitecture ? Services.ApplicationGridSettings.ArchitectureChoices : [ArchitectureText];
-
-    /// <summary>The cell of the install scope column.</summary>
-    public IReadOnlyList<string> ScopeCells => OffersInstallScope ? Services.ApplicationGridSettings.ScopeChoices : ["Per installer"];
+    /// <summary>The list of choices that a cell offers; a cell with a fixed value (no choice for this application) offers that value only.</summary>
+    public CellBag<IReadOnlyList<string>> Lists { get; } = new();
 
     public string ArchitectureText => string.IsNullOrWhiteSpace(Architecture) ? "Fixed" : Architecture + " (fixed)";
 
@@ -53,4 +76,5 @@ public partial class SupersedenceRow : ObservableObject
 }
 
 /// <summary>What one application offers to the Application Settings grid; see <c>PackagerExecutionService.GridFactsOf</c>.</summary>
-public sealed record ApplicationGridFacts(string ApplicationId, string DefinitionId, string Architecture, bool OffersArchitecture, bool OffersInstallScope);
+public sealed record ApplicationGridFacts(string ApplicationId, string DefinitionId, string Architecture, bool OffersArchitecture, bool OffersInstallScope,
+    bool OffersNetworkSplit = false);

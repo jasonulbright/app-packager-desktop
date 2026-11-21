@@ -107,6 +107,39 @@ public static class ApplicationGridSettings
         return true;
     }
 
+    /// <summary>Sets the network requirement: Any, VpnOnly or OnSiteOnly.</summary>
+    public static void SetNetwork(Dictionary<string, DeploymentConditionEntry> map, string definitionId, string token)
+    {
+        Entry(map, definitionId).Network = token;
+        Prune(map, definitionId);
+    }
+
+    /// <summary>Turns the Network split on or off; a split of another kind (Architecture, Language) is left as it is.</summary>
+    public static void SetNetworkSplit(Dictionary<string, DeploymentConditionEntry> map, string definitionId, bool on)
+    {
+        var entry = Entry(map, definitionId);
+        if (on) entry.Split = "Network";
+        else if (string.Equals(entry.Split, "Network", StringComparison.OrdinalIgnoreCase)) entry.Split = DeploymentConditionValues.NoSplit;
+        Prune(map, definitionId);
+    }
+
+    /// <summary>Sets the install or the uninstall command override of an application (null leaves that one as it is); an entry with both empty is removed.</summary>
+    public static void SetCommand(Dictionary<string, CommandOverrideEntry> map, string definitionId, string? install, string? uninstall)
+    {
+        var key = map.Keys.FirstOrDefault(k => string.Equals(k, definitionId, StringComparison.OrdinalIgnoreCase)) ?? definitionId;
+        if (!map.TryGetValue(key, out var entry)) map[key] = entry = new CommandOverrideEntry();
+        if (install is not null) entry.Install = install;
+        if (uninstall is not null) entry.Uninstall = uninstall;
+        if (string.IsNullOrWhiteSpace(entry.Install) && string.IsNullOrWhiteSpace(entry.Uninstall)) map.Remove(key);
+    }
+
+    public static Dictionary<string, CommandOverrideEntry> CopyCommands(Dictionary<string, CommandOverrideEntry>? source)
+    {
+        var copy = new Dictionary<string, CommandOverrideEntry>(StringComparer.OrdinalIgnoreCase);
+        foreach (var (key, e) in source ?? []) copy[key] = new CommandOverrideEntry { Install = e.Install, Uninstall = e.Uninstall };
+        return copy;
+    }
+
     private static DeploymentConditionEntry Entry(Dictionary<string, DeploymentConditionEntry> map, string definitionId)
     {
         var existing = map.Keys.FirstOrDefault(k => string.Equals(k, definitionId, StringComparison.OrdinalIgnoreCase));

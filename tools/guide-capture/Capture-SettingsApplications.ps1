@@ -41,7 +41,8 @@ function Find-GridRow($Grid, [string]$Name) {
 function Choose-Item($Combo, [string]$Text) {
     # Bring the cell into view first: the grid scrolls, and a click on a cell below the visible part misses.
     try { $Combo.GetCurrentPattern([System.Windows.Automation.ScrollItemPattern]::Pattern).ScrollIntoView(); Start-Sleep -Milliseconds 500 } catch { $null = $_ }
-    Click-El $Combo
+    $r = $Combo.Current.BoundingRectangle
+    Click-At (New-Object System.Drawing.Point ([int]($r.X + $r.Width - 14)), ([int]($r.Y + $r.Height / 2)))
     Start-Sleep -Milliseconds 900
     $entry = Find-El $null $null $Text 'ListItem' -Timeout 3
     if (-not $entry) {
@@ -83,10 +84,10 @@ foreach ($theme in $Themes) {
         $null = Check-Row $grid 'Bitwarden'
         Choose-Item (Find-El $w 'cboBulkColumn' -Timeout 5) 'Install scope'
         Choose-Item (Find-El $w 'cboBulkValue' -Timeout 5) 'User'
-        Click-El (Find-El $w 'btnBulkChecked' -Timeout 5); Start-Sleep -Milliseconds 800
+        Click-El (Find-El $w 'btnBulkApply' -Timeout 5); Start-Sleep -Milliseconds 800
         Choose-Item (Find-El $w 'cboBulkColumn' -Timeout 5) 'Supersedence'
         Choose-Item (Find-El $w 'cboBulkValue' -Timeout 5) 'Replace'
-        Click-El (Find-El $w 'btnBulkChecked' -Timeout 5); Start-Sleep -Milliseconds 800
+        Click-El (Find-El $w 'btnBulkApply' -Timeout 5); Start-Sleep -Milliseconds 800
 
         # One cell of a row with the mouse: the package source of 7-Zip.
         $row = Find-GridRow $grid '7-Zip'
@@ -98,6 +99,25 @@ foreach ($theme in $Themes) {
         $row = Find-GridRow $grid 'Bitwarden'
         $title = $row.FindFirst([System.Windows.Automation.TreeScope]::Descendants, (New-Object System.Windows.Automation.PropertyCondition ([System.Windows.Automation.AutomationElement]::NameProperty), 'Version in the title of the application'))
         Check ((-not $title.Current.IsEnabled)) "$theme the version in the title of Bitwarden is locked while supersedence is on"
+
+        # The column chooser lists every setting of the registry: show the One Click column with the mouse.
+        Click-El (Find-El $w 'btnColumns' -Timeout 5); Start-Sleep -Milliseconds 800
+        $item = Find-El $null $null 'In One Click' 'MenuItem' -Timeout 5
+        Check ($null -ne $item) "$theme the column chooser lists In One Click"
+        if ($item) { Click-El $item; Start-Sleep -Milliseconds 700 }
+        [System.Windows.Forms.SendKeys]::SendWait('{ESC}'); Start-Sleep -Milliseconds 700
+        Check ($null -ne (Find-El $w $null 'One Click inclusion of the application' 'ComboBox' -Timeout 5)) "$theme the grid shows the One Click column after it is chosen"
+
+        # Filtered scope: type in the search box (real keys), set the Network column for the filtered applications only.
+        $box = Find-El $w 'txtApplicationFilter' -Timeout 5
+        Click-El $box; Start-Sleep -Milliseconds 500
+        [System.Windows.Forms.SendKeys]::SendWait('Bitwarden'); Start-Sleep -Seconds 1
+        Choose-Item (Find-El $w 'cboBulkColumn' -Timeout 5) 'Network'
+        Choose-Item (Find-El $w 'cboBulkValue' -Timeout 5) 'VPN only'
+        Choose-Item (Find-El $w 'cboBulkScope' -Timeout 5) 'Filtered applications'
+        Click-El (Find-El $w 'btnBulkApply' -Timeout 5); Start-Sleep -Milliseconds 800
+        # The filter stays for the image: the changed row and nothing else; clear it afterwards so the rows around it show.
+        Click-El $box; [System.Windows.Forms.SendKeys]::SendWait('^a{BACKSPACE}'); Start-Sleep -Seconds 1
 
         # Scroll to the rows around Bitwarden for the image: the changed row and its neighbours.
         $near = Find-GridRow $grid 'BleachBit'
@@ -115,6 +135,8 @@ foreach ($theme in $Themes) {
         Check ($null -eq $conditions.$sevenZipId.InstallMode -or $conditions.$sevenZipId.InstallMode -eq '') "$theme settings.json: 7-Zip has no install scope (the installer offers none)"
         $overrides = $json.Supersedence.TitleOverrides.PSObject.Properties
         Check (@($overrides | Where-Object { $_.Value.Mode -eq 'Replace' }).Count -eq 1) "$theme settings.json: one application has the supersedence mode Replace"
+        Check ($conditions.$bitwardenId.Network -eq 'VpnOnly') "$theme settings.json: the filtered bulk set the Network requirement of Bitwarden"
+        Check ($null -eq $conditions.$sevenZipId.Network -or $conditions.$sevenZipId.Network -eq 'Any') "$theme settings.json: the filtered bulk left 7-Zip alone"
         'DONE {0}' -f $theme
     }
     finally { Stop-Apd }

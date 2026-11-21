@@ -5,7 +5,7 @@
 ### Added
 
 - Settings, Application Settings is one grid with the settings of each application (it replaces the supersedence grid and brings back the per-application view of the Deployment Conditions page): Package source (x64 only, ARM64 only, or both with one deployment type each, for an application that has an architecture choice), Install scope (System or User, for an installer that supports both), Supersedence, Version in title (Include version or No version, locked to Include version while supersedence is on) and Version rule (Minimum or Exact). Every column is the value that the package run reads: the keys Supersedence.Mode, Supersedence.TitleOverrides and DeploymentConditions. Stored values of earlier versions still show their choice.
-- A bulk bar sets one column for the checked applications or for all applications, and None: reset all returns every application to its defaults. Check all, Check none and Refresh list manage the list.
+- The grid also has the columns Network, Network split, Install command, Uninstall command, In One Click, Check interval and Publish to ConfigMgr, Intune and WSUS (the column chooser Columns shows them). A setting that does not apply to an application is greyed out with the reason in its tooltip. A bulk bar sets one column for the checked, the filtered (search box) or all applications, and None: reset all returns every application to its defaults. Check all, Check none and Refresh list manage the list.
 
 ### Changed
 

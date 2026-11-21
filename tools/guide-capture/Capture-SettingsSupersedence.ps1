@@ -46,7 +46,7 @@ foreach ($theme in $Themes) {
     }
         Real-Click (Find-El $w 'cboBulkValue' -Timeout 5)
         Real-Click (Find-El $null $null 'Replace' 'ListItem' -Timeout 5)
-        Real-Click (Find-El $w 'btnBulkChecked' -Timeout 5)
+        Real-Click (Find-El $w 'btnBulkApply' -Timeout 5)
         Move-MouseAway
         Start-Sleep 1
         Save-Shot (Join-Path $OutDir (Join-Path $theme.ToLower() 'tools-settings-supersedence.png')) -MaskFooter

@@ -590,39 +590,47 @@
                                            Foreground="{DynamicResource TextFillColorTertiaryBrush}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,8" />
 
                                 <TextBlock Text="Settings of each application" Style="{StaticResource FieldLabel}" />
-                                <TextBlock Text="Each application follows the defaults above until you give it a choice of its own. Package source and Install scope are offered only where the application supports them. Supersedence On forces and locks the version in the title. Check applications to change several at once. The changes are written on Save Settings. A package run still asks before it applies a supersedence."
+                                <TextBlock Text="Each application follows the defaults above until you give it a choice of its own. A setting that does not apply to an application is greyed out, and its tooltip says why. Columns lists every setting that the grid can show. Check applications, or type in the search box, to change several at once. The changes are written on Save Settings. A package run still asks before it applies a supersedence."
                                            Foreground="{DynamicResource TextFillColorTertiaryBrush}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,8" />
                                 <WrapPanel Margin="0,0,0,0" AutomationProperties.AutomationId="pnlSupersedenceBulk">
                                     <TextBlock Text="Set" VerticalAlignment="Center" Margin="0,0,8,8" />
-                                    <ComboBox ItemsSource="{Binding BulkColumns}" SelectedItem="{Binding BulkColumn}" Width="150" Margin="0,0,8,8"
+                                    <ComboBox ItemsSource="{Binding BulkColumns}" SelectedItem="{Binding BulkColumn}" Width="180" Margin="0,0,8,8"
                                               AutomationProperties.Name="Column to set" AutomationProperties.AutomationId="cboBulkColumn"
-                                              ToolTip="Select the column that the buttons set for several applications at once." />
+                                              ToolTip="Select the column that the button sets for several applications at once." />
                                     <TextBlock Text="to" VerticalAlignment="Center" Margin="0,0,8,8" />
-                                    <ComboBox ItemsSource="{Binding BulkValues}" SelectedItem="{Binding BulkValue}" Width="180" Margin="0,0,8,8"
+                                    <ComboBox ItemsSource="{Binding BulkValues}" Text="{Binding BulkValue, UpdateSourceTrigger=PropertyChanged}" IsEditable="True" Width="200" Margin="0,0,8,8"
                                               AutomationProperties.Name="Value to set" AutomationProperties.AutomationId="cboBulkValue"
-                                              ToolTip="Select the value that the buttons write. An application that does not offer the choice keeps its value." />
-                                    <ui:Button Content="Checked applications" Command="{Binding ApplyBulkToCheckedCommand}" Margin="0,0,4,8" AutomationProperties.AutomationId="btnBulkChecked"
-                                               ToolTip="Sets the selected column to the selected value for the checked applications." />
-                                    <ui:Button Content="All applications" Command="{Binding ApplyBulkToAllCommand}" Margin="0,0,4,8" AutomationProperties.AutomationId="btnBulkAll"
-                                               ToolTip="Sets the selected column to the selected value for every application in the list." />
+                                              ToolTip="Select the value that the button writes, or type it for a column of text. The first value of a column returns the application to its default. An application that the setting does not apply to keeps its value." />
+                                    <TextBlock Text="for" VerticalAlignment="Center" Margin="0,0,8,8" />
+                                    <ComboBox ItemsSource="{Binding BulkScopes}" SelectedItem="{Binding BulkScope}" Width="180" Margin="0,0,8,8"
+                                              AutomationProperties.Name="Applications to set" AutomationProperties.AutomationId="cboBulkScope"
+                                              ToolTip="Checked applications are the rows with a check mark. Filtered applications are the rows that the search box shows. All applications are every row of the list." />
+                                    <ui:Button Content="Apply" Command="{Binding ApplyBulkNowCommand}" Margin="0,0,4,8" AutomationProperties.AutomationId="btnBulkApply"
+                                               ToolTip="Writes the selected value into the selected column for the selected applications." />
                                     <ui:Button Content="None: reset all" Command="{Binding ResetAllApplicationsCommand}" Margin="0,0,16,8" AutomationProperties.AutomationId="btnBulkNone"
-                                               ToolTip="Clears every choice of every application, so each follows its default: Off, Minimum and the packager defaults." />
+                                               ToolTip="Clears every choice of every application, so each follows its default: Off, Minimum, the packager defaults and no One Click." />
                                 </WrapPanel>
                                 <WrapPanel Margin="0,0,0,0">
+                                    <ui:TextBox Text="{Binding ApplicationFilter, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="Search applications" Width="220" Margin="0,0,8,8"
+                                                AutomationProperties.AutomationId="txtApplicationFilter"
+                                                ToolTip="Type part of an application name or of a vendor name. The grid shows the matching applications, and Filtered applications means these rows." />
                                     <ui:Button Content="Check all" Command="{Binding CheckAllApplicationsCommand}" CommandParameter="True" Margin="0,0,4,8" AutomationProperties.AutomationId="btnCheckAll"
-                                               ToolTip="Checks every application in the list." />
+                                               ToolTip="Checks every application that the grid shows." />
                                     <ui:Button Content="Check none" Command="{Binding CheckAllApplicationsCommand}" CommandParameter="False" Margin="0,0,16,8" AutomationProperties.AutomationId="btnCheckNone"
-                                               ToolTip="Clears the check box of every application in the list." />
+                                               ToolTip="Clears the check box of every application that the grid shows." />
+                                    <ui:Button x:Name="btnColumns" Content="Columns" Click="Columns_Click" Margin="0,0,4,8" AutomationProperties.AutomationId="btnColumns"
+                                               ToolTip="Choose which settings the grid shows as columns." />
                                     <ui:Button Content="Refresh list" Icon="{ui:SymbolIcon ArrowSync24}" Command="{Binding RefreshSupersedenceRowsCommand}" Margin="0,0,8,8"
                                                ToolTip="Rebuilds the list from the applications the App Packager page shows." />
                                     <TextBlock VerticalAlignment="Center" Margin="0,0,0,8" Foreground="{DynamicResource TextFillColorSecondaryBrush}" AutomationProperties.AutomationId="txtCheckedCount">
                                         <Run Text="{Binding SupersedenceSelectedCount, Mode=OneWay}" /><Run Text=" checked" />
                                     </TextBlock>
                                 </WrapPanel>
-                                <DataGrid ItemsSource="{Binding SupersedenceRows}" AutoGenerateColumns="False" CanUserAddRows="False"
+                                <DataGrid x:Name="dgApplications" ItemsSource="{Binding SupersedenceRows}" AutoGenerateColumns="False" CanUserAddRows="False"
                                           CanUserDeleteRows="False" HeadersVisibility="Column" RowHeaderWidth="0" BorderThickness="1"
                                           BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}" GridLinesVisibility="Horizontal"
                                           Height="360" Margin="0,0,0,8" IsTextSearchEnabled="True" TextSearch.TextPath="Application"
+                                          HorizontalScrollBarVisibility="Auto"
                                           AutomationProperties.AutomationId="dgSupersedenceApps">
                                     <DataGrid.Columns>
                                         <DataGridTemplateColumn Header="Check" Width="56">
@@ -633,57 +641,8 @@
                                                 </DataTemplate>
                                             </DataGridTemplateColumn.CellTemplate>
                                         </DataGridTemplateColumn>
-                                        <DataGridTextColumn Header="Application" Width="*" MinWidth="120" Binding="{Binding Application}" IsReadOnly="True" />
+                                        <DataGridTextColumn Header="Application" Width="220" Binding="{Binding Application}" IsReadOnly="True" />
                                         <DataGridTextColumn Header="Vendor" Width="120" Binding="{Binding Vendor}" IsReadOnly="True" />
-                                        <DataGridTemplateColumn Header="Package source" Width="150" SortMemberPath="ArchitectureChoice">
-                                            <DataGridTemplateColumn.CellTemplate>
-                                                <DataTemplate>
-                                                    <ComboBox ItemsSource="{Binding ArchitectureCells}" SelectedItem="{Binding ArchitectureChoice, UpdateSourceTrigger=PropertyChanged}"
-                                                              IsEnabled="{Binding OffersArchitecture}" Margin="4,0"
-                                                              AutomationProperties.Name="Package source of the application"
-                                                              ToolTip="Select the architecture that the package targets. It is offered only for an application that has an architecture choice; the others show the fixed architecture." />
-                                                </DataTemplate>
-                                            </DataGridTemplateColumn.CellTemplate>
-                                        </DataGridTemplateColumn>
-                                        <DataGridTemplateColumn Header="Install scope" Width="165" SortMemberPath="ScopeChoice">
-                                            <DataGridTemplateColumn.CellTemplate>
-                                                <DataTemplate>
-                                                    <ComboBox ItemsSource="{Binding ScopeCells}" SelectedItem="{Binding ScopeChoice, UpdateSourceTrigger=PropertyChanged}"
-                                                              IsEnabled="{Binding OffersInstallScope}" Margin="4,0"
-                                                              AutomationProperties.Name="Install scope of the application"
-                                                              ToolTip="Select System to install for all users or User to install for the signed-in user. It is offered only for an installer that supports both." />
-                                                </DataTemplate>
-                                            </DataGridTemplateColumn.CellTemplate>
-                                        </DataGridTemplateColumn>
-                                        <DataGridTemplateColumn Header="Supersedence" Width="190" SortMemberPath="ModeChoice">
-                                            <DataGridTemplateColumn.CellTemplate>
-                                                <DataTemplate>
-                                                    <ComboBox ItemsSource="{Binding DataContext.SupersedenceRowChoices, RelativeSource={RelativeSource AncestorType=DataGrid}}"
-                                                              SelectedItem="{Binding ModeChoice, UpdateSourceTrigger=PropertyChanged}" Margin="4,0"
-                                                              AutomationProperties.Name="Supersedence of the application"
-                                                              ToolTip="Supersedence mode of this application. Follow the default uses the default mode above." />
-                                                </DataTemplate>
-                                            </DataGridTemplateColumn.CellTemplate>
-                                        </DataGridTemplateColumn>
-                                        <DataGridTemplateColumn Header="Version in title" Width="190" SortMemberPath="TitleChoice">
-                                            <DataGridTemplateColumn.CellTemplate>
-                                                <DataTemplate>
-                                                    <ComboBox ItemsSource="{x:Static svc:ApplicationGridSettings.TitleChoices}" SelectedItem="{Binding TitleChoice, UpdateSourceTrigger=PropertyChanged}"
-                                                              IsEnabled="{Binding TitleLocked, Converter={StaticResource InverseBool}}" Margin="4,0"
-                                                              AutomationProperties.Name="Version in the title of the application"
-                                                              ToolTip="Include version adds the version to the Application name. No version removes it, so one Application carries every release. It is locked to Include version while supersedence is on." />
-                                                </DataTemplate>
-                                            </DataGridTemplateColumn.CellTemplate>
-                                        </DataGridTemplateColumn>
-                                        <DataGridTemplateColumn Header="Version rule" Width="195" SortMemberPath="RuleChoice">
-                                            <DataGridTemplateColumn.CellTemplate>
-                                                <DataTemplate>
-                                                    <ComboBox ItemsSource="{x:Static sup:SupersedenceGrid.RuleChoices}" SelectedItem="{Binding RuleChoice, UpdateSourceTrigger=PropertyChanged}" Margin="4,0"
-                                                              AutomationProperties.Name="Version rule of the application"
-                                                              ToolTip="Minimum is this version or newer. Exact is this version only (the detection operator equals). Follow the default uses the version rule above." />
-                                                </DataTemplate>
-                                            </DataGridTemplateColumn.CellTemplate>
-                                        </DataGridTemplateColumn>
                                     </DataGrid.Columns>
                                 </DataGrid>
                 </StackPanel>

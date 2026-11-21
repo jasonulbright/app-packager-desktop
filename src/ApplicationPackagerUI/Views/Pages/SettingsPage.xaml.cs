@@ -2,6 +2,9 @@ using System.Windows;
 using System.Windows.Controls;
 using TreeViewItem = System.Windows.Controls.TreeViewItem;
 using Microsoft.Extensions.DependencyInjection;
+using System.ComponentModel;
+using System.Windows.Data;
+using ApplicationPackagerUI.Services;
 using ApplicationPackagerUI.ViewModels.Pages;
 
 namespace ApplicationPackagerUI.Views.Pages;
@@ -22,6 +25,9 @@ public partial class SettingsPage
         DataContext = viewModel;
         InitializeComponent();
         SelectPage(s_lastPage);
+        BuildApplicationColumns();
+        CollectionViewSource.GetDefaultView(_viewModel.SupersedenceRows).Filter = o => o is Models.SupersedenceRow r && _viewModel.MatchesFilter(r);
+        _viewModel.FilterChanged += () => CollectionViewSource.GetDefaultView(_viewModel.SupersedenceRows).Refresh();
         // The view model is built before the application list finishes loading, so the
         // One Click grid is filled when the page is shown and refilled when that list
         // changed size; an unchanged list keeps unsaved edits.
@@ -71,5 +77,49 @@ public partial class SettingsPage
         }
         s_lastPage = id;
         ShowOnly(id);
+    }
+
+    /// <summary>Builds the columns of the application grid after the fixed ones, one for each registered setting that the person chose to show.</summary>
+    private void BuildApplicationColumns()
+    {
+        while (dgApplications.Columns.Count > 3) dgApplications.Columns.RemoveAt(dgApplications.Columns.Count - 1);
+        foreach (var column in ApplicationColumns.All.Where(c => _viewModel.VisibleColumnIds.Contains(c.Id)))
+        {
+            var cell = column.Choices is null
+                ? new FrameworkElementFactory(typeof(System.Windows.Controls.TextBox))
+                : new FrameworkElementFactory(typeof(ComboBox));
+            cell.SetValue(FrameworkElement.MarginProperty, new Thickness(4, 0, 4, 0));
+            cell.SetValue(System.Windows.Automation.AutomationProperties.NameProperty, column.AutomationName);
+            cell.SetBinding(UIElement.IsEnabledProperty, new Binding($"Editable[{column.Id}]"));
+            cell.SetBinding(FrameworkElement.ToolTipProperty, new Binding($"Tips[{column.Id}]"));
+            if (column.Choices is null)
+                cell.SetBinding(System.Windows.Controls.TextBox.TextProperty, new Binding($"Cells[{column.Id}]") { Mode = BindingMode.TwoWay, UpdateSourceTrigger = UpdateSourceTrigger.LostFocus });
+            else
+            {
+                cell.SetBinding(ItemsControl.ItemsSourceProperty, new Binding($"Lists[{column.Id}]") { Mode = BindingMode.OneWay });
+                cell.SetBinding(System.Windows.Controls.Primitives.Selector.SelectedItemProperty,
+                    new Binding($"Cells[{column.Id}]") { Mode = BindingMode.TwoWay, UpdateSourceTrigger = UpdateSourceTrigger.PropertyChanged });
+            }
+            dgApplications.Columns.Add(new DataGridTemplateColumn
+            {
+                Header = column.Header,
+                Width = column.Width,
+                SortMemberPath = $"Cells[{column.Id}]",
+                CellTemplate = new DataTemplate { VisualTree = cell }
+            });
+        }
+    }
+
+    /// <summary>The column chooser: one check item for each setting of the registry.</summary>
+    private void Columns_Click(object sender, RoutedEventArgs e)
+    {
+        var menu = new ContextMenu { PlacementTarget = (UIElement)sender };
+        foreach (var column in ApplicationColumns.All)
+        {
+            var item = new System.Windows.Controls.MenuItem { Header = column.Header, IsCheckable = true, IsChecked = _viewModel.VisibleColumnIds.Contains(column.Id), StaysOpenOnClick = true, ToolTip = column.Tooltip };
+            item.Click += (_, _) => { _viewModel.SetColumnVisible(column.Id, item.IsChecked); BuildApplicationColumns(); };
+            menu.Items.Add(item);
+        }
+        menu.IsOpen = true;
     }
 }

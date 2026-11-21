@@ -134,7 +134,7 @@ try {
     # The bulk bar sets the column that is chosen (Supersedence at the start) to the chosen value for the checked applications: choose Replace, then press the button.
     Real-Click (Find-El $w 'cboBulkValue' -Timeout 5)
     Real-Click (Find-El $null $null 'Replace' 'ListItem' -Timeout 5)
-    Real-Click (Find-El $w 'btnBulkChecked' -Timeout 5)
+    Real-Click (Find-El $w 'btnBulkApply' -Timeout 5)
     Move-MouseAway
     Start-Sleep 1
     Shot 'tools-settings-supersedence'

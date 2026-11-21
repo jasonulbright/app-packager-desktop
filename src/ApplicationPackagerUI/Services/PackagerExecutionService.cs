@@ -1331,7 +1331,8 @@ public class PackagerExecutionService(
             if (source.Failure is not null) return null;
             var offersArchitecture = def.PayloadVariants is { Length: > 0 }
                 || (def.SupportsVariants?.Contains("Architecture", StringComparer.OrdinalIgnoreCase) ?? false);
-            return new ApplicationGridFacts(source.ApplicationId, def.Id, def.Architecture, offersArchitecture, def.OffersInstallModes);
+            var offersNetwork = def.SupportsVariants?.Contains("Network", StringComparer.OrdinalIgnoreCase) ?? false;
+            return new ApplicationGridFacts(source.ApplicationId, def.Id, def.Architecture, offersArchitecture, def.OffersInstallModes, offersNetwork);
         }
         catch (Exception ex) when (ex is IOException or InvalidOperationException or System.Text.Json.JsonException or UnauthorizedAccessException)
         {
