@@ -37,6 +37,7 @@ public static class GuideCaptureSteps
         ["core-workbench-application"] = "workbench",
         ["core-settings-wsus"] = "core-settings-wsus",
         ["core-settings-tools"] = "core-settings-tools",
+        ["core-settings-github-api"] = "core-settings-github-api",
         ["core-settings-intune-cve"] = "core-settings-intune-cve",
         ["core-settings-install-parameters"] = "core-settings-install-parameters",
         ["core-settings-install-parameters-sources"] = "core-settings-install-parameters-sources",
