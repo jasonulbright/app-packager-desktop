@@ -16,6 +16,10 @@ public sealed class ResolvedRequirement
     public string[] Cultures { get; init; } = [];
     /// <summary>Parsed value for a Boolean rule.</summary>
     public bool BooleanValue { get; init; }
+    /// <summary>The ConfigMgr rule operator of a CommonValue or FreeDiskSpace rule.</summary>
+    public string Operator { get; init; } = RequirementRuleBuilder.DefaultOperator;
+    /// <summary>The whole number of a FreeDiskSpace rule, or of a CommonValue rule whose template takes a whole number.</summary>
+    public long? Number { get; init; }
 }
 
 /// <summary>
@@ -29,6 +33,41 @@ public static class RequirementRuleBuilder
 {
     /// <summary>PowerShell helper the generated scripts call per condition.</summary>
     public const string GlobalConditionFunctionName = "Get-ApkgGlobalCondition";
+
+    public const string DefaultOperator = "IsEquals";
+
+    /// <summary>The comparison operators of a value rule (RuleExpressionOperator members of the ConfigurationManager module).</summary>
+    public static readonly IReadOnlyList<string> Operators =
+        ["IsEquals", "NotEquals", "GreaterThan", "GreaterEquals", "LessThan", "LessEquals"];
+
+    /// <summary>The operator of a template (IsEquals when the template names none); an operator outside <see cref="Operators"/> throws.</summary>
+    public static string OperatorOf(ConditionTemplate template)
+    {
+        if (string.IsNullOrWhiteSpace(template.Operator)) return DefaultOperator;
+        return Operators.FirstOrDefault(o => string.Equals(o, template.Operator.Trim(), StringComparison.OrdinalIgnoreCase))
+            ?? throw new InvalidOperationException(
+                $"Condition template '{template.Id}' has the unsupported Operator '{template.Operator}' (known: {string.Join(", ", Operators)}).");
+    }
+
+    /// <summary>
+    /// True when the template compares a whole number: a template with a ValueFormat, or an Integer condition with an Operator
+    /// (a minimum), in both cases without a value map. An Integer condition without an Operator keeps taking any text, as it did before.
+    /// </summary>
+    public static bool TakesWholeNumber(ConditionTemplate template) =>
+        template.Values is not { Count: > 0 }
+        && (!string.IsNullOrWhiteSpace(template.ValueFormat)
+            || (string.Equals(template.DataType, "Integer", StringComparison.OrdinalIgnoreCase) && !string.IsNullOrWhiteSpace(template.Operator)));
+
+    /// <summary>The whole number of a value (a positive count of MB, or a build number); throws when it is not one.</summary>
+    public static long WholeNumber(object? value, string conditionId)
+    {
+        var text = ValueAsString(value)?.Trim();
+        if (text is null || text.Length == 0 || !text.All(char.IsAsciiDigit)
+            || !long.TryParse(text, NumberStyles.None, CultureInfo.InvariantCulture, out var number) || number < 1)
+            throw new InvalidOperationException(
+                $"Condition '{conditionId}' requires a whole number above zero as its Value (got '{text}').");
+        return number;
+    }
 
     public static List<ResolvedRequirement> Resolve(
         IEnumerable<StageRequirement> specs, ConditionTemplateDocument doc)
@@ -50,6 +89,7 @@ public static class RequirementRuleBuilder
             {
                 case "CommonValue":
                 {
+                    var ruleOperator = OperatorOf(template);
                     var value = ValueAsString(spec.Value);
                     if (template.Values is { Count: > 0 })
                     {
@@ -58,9 +98,27 @@ public static class RequirementRuleBuilder
                                 $"Condition '{conditionId}' has no mapping for value '{value}' (known: {string.Join(", ", template.Values.Keys)}).");
                         value = mapped;
                     }
+                    long? number = null;
+                    if (TakesWholeNumber(template))
+                    {
+                        number = WholeNumber(spec.Value, conditionId);
+                        value = string.IsNullOrWhiteSpace(template.ValueFormat)
+                            ? number.Value.ToString(CultureInfo.InvariantCulture)
+                            : template.ValueFormat.Replace("{0}", number.Value.ToString(CultureInfo.InvariantCulture), StringComparison.Ordinal);
+                    }
                     if (string.IsNullOrWhiteSpace(value))
                         throw new InvalidOperationException($"Condition '{conditionId}' requires a Value.");
-                    resolved.Add(new ResolvedRequirement { Template = template, Value = value });
+                    resolved.Add(new ResolvedRequirement { Template = template, Value = value, Operator = ruleOperator, Number = number });
+                    break;
+                }
+                case "FreeDiskSpace":
+                {
+                    resolved.Add(new ResolvedRequirement
+                    {
+                        Template = template,
+                        Operator = OperatorOf(template),
+                        Number = WholeNumber(spec.Value, conditionId)
+                    });
                     break;
                 }
                 case "OperatingSystemLanguage":
@@ -197,7 +255,11 @@ public static class RequirementRuleBuilder
             switch (template.RuleType)
             {
                 case "CommonValue":
-                    sb.AppendLine($"{ruleVar} = New-CMRequirementRuleCommonValue -InputObject {gcVar} -RuleOperator IsEquals -Value1 '{Esc(item.Value!)}'");
+                    sb.AppendLine($"{ruleVar} = New-CMRequirementRuleCommonValue -InputObject {gcVar} -RuleOperator {item.Operator} -Value1 '{Esc(item.Value!)}'");
+                    break;
+                case "FreeDiskSpace":
+                    // The free space of the system drive in MB; the Disk space condition also takes a drive letter, which a profile does not name.
+                    sb.AppendLine($"{ruleVar} = New-CMRequirementRuleFreeDiskSpaceValue -InputObject {gcVar} -PartitionOption System -RuleOperator {item.Operator} -Value1 {item.Number!.Value.ToString(CultureInfo.InvariantCulture)}");
                     break;
                 case "OperatingSystemLanguage":
                     var cultures = string.Join(", ", item.Cultures.Select(

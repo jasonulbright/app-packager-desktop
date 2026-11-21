@@ -107,7 +107,7 @@ Fields: **Display name**, **Publisher**, **Description**, **Application title**,
 
 ![The Requirements & variants section](../images/core-workbench-requirements.png)
 
-- **Requirement operations** list: columns **Operation**, **Rule id**, **Rule**, **Value**, **Applies to**. Choose a condition in the list above the grid and select **Add**, **Replace** or **Remove**.
+- **Requirement operations** list: columns **Operation**, **Rule id**, **Rule**, **Value**, **Applies to**. Choose a condition in the list above the grid and select **Add**, **Replace** or **Remove**. The conditions `min-disk-space` (free disk space in MB), `min-memory` (memory in MB) and `min-os-build` (lowest operating system build) take a whole number as the value and mean at least that value. The columns **Free disk space (MB)**, **Memory (MB)** and **OS build (minimum)** of Settings, Application Settings write the same operations.
 - **Variant split** stages one application with several deployment types. The list offers `None` and the splits that the packager declares.
 - **Install for** offers `Packager default`, `System` and `User`, as far as the packager declares them. The arguments, the uninstall command, the detection hive and the view follow this choice.
 - **Variant overrides** list: **Variant**, **Install command**, **Detection**, **Estimated**, **Maximum**.

@@ -65,6 +65,8 @@ The share folder depends on **Content Layout**:
 | `Nested - Applications\Vendor\App\Version` | `<File Share Root>\Applications\<Vendor>\<App>\<Version>` |
 | `Flat - Applications\Vendor-App-Version` | `<File Share Root>\Applications\<Vendor>-<App>-<Version>` |
 
+The requirements of the deployment type come from the Workbench profile (and from the saved conditions of an application without a profile). Each one is a global condition and a rule. The global conditions **Disk space** and **Total physical memory** are the built-in conditions of the site; the rules are `New-CMRequirementRuleFreeDiskSpaceValue` (system drive, at least the value in MB) and `New-CMRequirementRuleCommonValue` with the operator `GreaterEquals`. The requirement for the operating system build uses the global condition **APKG - Operating System Build**, a WQL condition on `Win32_OperatingSystem.Version` with the data type Version. The publish creates it when the site has none of that name, and the value is compared as `10.0.<build>`. The columns **Free disk space (MB)**, **Memory (MB)** and **OS build (minimum)** of Settings, Application Settings set these three requirements.
+
 Deployment types are created in the order of the definition. When the application changes version, the app creates the new deployment types under names that end in `(staging)` first.
 
 ## Post Packaging steps

@@ -253,6 +253,7 @@ public static class ApplicationColumns
             Set = (w, r, v) => w.SetProfileValue(r, GridProfileFields.InstallReboot, v),
             NotApplicable = (w, r) => w.ProfileReason(r)
         },
+        .. RequirementColumns.Build(),
         new ApplicationColumn
         {
             Id = "dpgroup", Header = "Distribution point group", AutomationName = "Distribution point group of the application", Width = 210,
