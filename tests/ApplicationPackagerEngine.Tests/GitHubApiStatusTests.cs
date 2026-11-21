@@ -26,7 +26,7 @@ public class GitHubApiStatusTests
         Assert.Equal("octocat", status.Account);
         Assert.Equal(5000, status.Limit);
         Assert.Equal(4991, status.Remaining);
-        Assert.Equal("Signed in via GitHub CLI as octocat (5,000 requests per hour, 4,991 remaining)", status.StatusText());
+        Assert.Equal("Signed in by using GitHub CLI as octocat (5,000 requests per hour, 4,991 remaining)", status.StatusText());
     }
 
     [Fact]
@@ -60,7 +60,7 @@ public class GitHubApiStatusTests
     [Theory]
     [InlineData(true, "Settings", "Token saved in settings as octocat (5,000 requests per hour, 4,991 remaining)")]
     [InlineData(true, "GITHUB_TOKEN", "Environment variable GITHUB_TOKEN as octocat (5,000 requests per hour, 4,991 remaining)")]
-    [InlineData(true, "gh auth login", "Signed in via GitHub CLI as octocat (5,000 requests per hour, 4,991 remaining)")]
+    [InlineData(true, "gh auth login", "Signed in by using GitHub CLI as octocat (5,000 requests per hour, 4,991 remaining)")]
     public void EverySourceIsNamed(bool auth, string source, string expected)
         => Assert.Equal(expected, GitHubApiStatusService.Parse(AuthenticatedRateLimit, User, auth, source).StatusText());
 

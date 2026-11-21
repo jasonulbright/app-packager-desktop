@@ -44,7 +44,9 @@ foreach ($theme in $Themes) {
         if (-not $cell) { throw "The row of '$name' has no check box cell." }
         Real-Click $cell
     }
-        Real-Click (Find-El $w 'btnSupersedenceSelectedReplace' -Timeout 5)
+        Real-Click (Find-El $w 'cboBulkValue' -Timeout 5)
+        Real-Click (Find-El $null $null 'Replace' 'ListItem' -Timeout 5)
+        Real-Click (Find-El $w 'btnBulkApply' -Timeout 5)
         Move-MouseAway
         Start-Sleep 1
         Save-Shot (Join-Path $OutDir (Join-Path $theme.ToLower() 'tools-settings-supersedence.png')) -MaskFooter

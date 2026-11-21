@@ -38,6 +38,44 @@ public static class SupersedenceGrid
         return SupersedenceNames.TryParseMode(settings.TitleOverrides[existing].Mode, out var mode) ? SupersedenceNames.Text(mode) : FollowDefault;
     }
 
+    /// <summary>The choices of the version rule column of an application.</summary>
+    public static readonly IReadOnlyList<string> RuleChoices = [FollowDefault, "Minimum", "Exact"];
+
+    /// <summary>What the version rule cell of an application shows: its own rule, or <see cref="FollowDefault"/> when it has none.</summary>
+    public static string RuleChoiceOf(SupersedenceSettings settings, string? applicationId)
+    {
+        if (SupersedenceResolver.OverrideKey(applicationId) is not { } key || settings.TitleOverrides is null) return FollowDefault;
+        var existing = settings.TitleOverrides.Keys.FirstOrDefault(k => string.Equals(k.Trim(), key, StringComparison.OrdinalIgnoreCase));
+        if (existing is null) return FollowDefault;
+        return SupersedenceNames.TryParseRule(settings.TitleOverrides[existing].VersionRule, out var rule) ? SupersedenceNames.Text(rule) : FollowDefault;
+    }
+
+    /// <summary>Applies the version rule choice of a row; the mode of the override is not touched. A word that is not a choice returns false.</summary>
+    public static bool SetRuleChoice(SupersedenceSettings settings, string? applicationId, string? choice)
+    {
+        if (SupersedenceResolver.OverrideKey(applicationId) is not { } key) return false;
+        var clear = string.Equals(choice, FollowDefault, StringComparison.Ordinal);
+        if (!clear && !SupersedenceNames.TryParseRule(choice, out _)) return false;
+        settings.TitleOverrides ??= new(StringComparer.OrdinalIgnoreCase);
+        var existing = settings.TitleOverrides.Keys.FirstOrDefault(k => string.Equals(k.Trim(), key, StringComparison.OrdinalIgnoreCase));
+        if (clear)
+        {
+            if (existing is null) return true;
+            var kept = settings.TitleOverrides[existing];
+            kept.VersionRule = null;
+            if (string.IsNullOrWhiteSpace(kept.Mode)) settings.TitleOverrides.Remove(existing);
+            return true;
+        }
+        SupersedenceNames.TryParseRule(choice, out var rule);
+        if (existing is null)
+        {
+            existing = key;
+            settings.TitleOverrides[key] = new TitleSupersedenceOverride();
+        }
+        settings.TitleOverrides[existing].VersionRule = SupersedenceNames.Text(rule);
+        return true;
+    }
+
     /// <summary>Applies the choice of a row. A word that is not a choice leaves the settings as they are and returns false.</summary>
     public static bool SetChoice(SupersedenceSettings settings, string? applicationId, string? choice)
     {
