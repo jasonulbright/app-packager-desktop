@@ -48,6 +48,10 @@ function Type-Cell($Grid, [string]$Row, [string]$CellName, [string]$Text) {
     $item = Find-GridRow $Grid $Row
     if (-not $item) { throw "The grid has no row for '$Row'." }
     try { $item.GetCurrentPattern([System.Windows.Automation.ScrollItemPattern]::Pattern).ScrollIntoView(); Start-Sleep -Milliseconds 700 } catch { $null = $_ }
+    # The requirement columns are the last ones: scroll the grid to its right edge so that the cells are on screen, then find the row again.
+    $Grid.GetCurrentPattern([System.Windows.Automation.ScrollPattern]::Pattern).SetScrollPercent(100, [System.Windows.Automation.ScrollPattern]::NoScroll); Start-Sleep -Milliseconds 800
+    $item = Find-GridRow $Grid $Row
+    $Grid.GetCurrentPattern([System.Windows.Automation.ScrollPattern]::Pattern).SetScrollPercent(100, [System.Windows.Automation.ScrollPattern]::NoScroll); Start-Sleep -Milliseconds 800
     $cell = $item.FindFirst([System.Windows.Automation.TreeScope]::Descendants, (New-Object System.Windows.Automation.PropertyCondition ([System.Windows.Automation.AutomationElement]::NameProperty), $CellName))
     if (-not $cell) { throw "The row of '$Row' has no cell '$CellName'." }
     try { $cell.GetCurrentPattern([System.Windows.Automation.ScrollItemPattern]::Pattern).ScrollIntoView(); Start-Sleep -Milliseconds 500 } catch { $null = $_ }
@@ -56,6 +60,7 @@ function Type-Cell($Grid, [string]$Row, [string]$CellName, [string]$Text) {
     if ($Text.Length -eq 0) { [System.Windows.Forms.SendKeys]::SendWait('{BACKSPACE}') } else { [System.Windows.Forms.SendKeys]::SendWait($Text) }
     Start-Sleep -Milliseconds 300
     [System.Windows.Forms.SendKeys]::SendWait('{TAB}'); Start-Sleep -Milliseconds 800
+    $Grid.GetCurrentPattern([System.Windows.Automation.ScrollPattern]::Pattern).SetScrollPercent(100, [System.Windows.Automation.ScrollPattern]::NoScroll); Start-Sleep -Milliseconds 600
     $again = (Find-GridRow $Grid $Row).FindFirst([System.Windows.Automation.TreeScope]::Descendants, (New-Object System.Windows.Automation.PropertyCondition ([System.Windows.Automation.AutomationElement]::NameProperty), $CellName))
     try { $again.GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern).Current.Value } catch { '' }
 }
