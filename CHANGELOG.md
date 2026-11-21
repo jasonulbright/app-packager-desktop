@@ -1,22 +1,17 @@
 # Changelog
 
-## Unreleased
+## [2026.1121.54] - 2026-11-21
 
 ### Added
 
 - Settings, Application Settings has the columns Free disk space (MB), Memory (MB) and OS build (minimum). Each writes one requirement operation of the Workbench profile of the application (an empty value removes it; a value that is not a whole number above zero is refused). The deployment type gets a requirement with the global condition Disk space (New-CMRequirementRuleFreeDiskSpaceValue, system drive, GreaterEquals), the global condition Total physical memory (GreaterEquals), or the new WQL condition APKG - Operating System Build on the version of the operating system (GreaterEquals, 10.0 and the build). Intune gets the three as the app properties minimumFreeDiskSpaceInMB, minimumMemoryInMB and minimumSupportedWindowsRelease (a build that is not the build of a release becomes a PowerShell requirement rule). A requirement that has no Intune form is named by the blocking finding, and its drop can be accepted as before.
 - The condition templates have the fields Operator, ValueFormat and IntuneProperty, and the rule type FreeDiskSpace. A condition-templates.json that was written before these templates existed gets the built-in templates that it lacks.
+- Check ConfigMgr writes CheckConfigMgrResult.csv and .json to the SRLPackr data folder after each run; Export Check Results saves it (CSV or JSON, all or only updates available). Deployment Helper's Update rollout reads it.
+- Settings, Application Settings has the columns Distribution point group and Test collection. A package run reads the value of the application first and the setting of the Post Packaging page as the fallback. The column Detection shows whether the Workbench profile holds its own detection rule (read only).
 
 ### Changed
 
 - The migration of the saved conditions into the Migrated profile keeps every requirement operation that it did not write. Before, it replaced the whole list.
-
-## [2026.1121.54] - 2026-11-21
-
-### Added
-
-- Check ConfigMgr writes CheckConfigMgrResult.csv and .json to the SRLPackr data folder after each run; Export Check Results saves it (CSV or JSON, all or only updates available). Deployment Helper's Update rollout reads it.
-- Settings, Application Settings has the columns Distribution point group and Test collection. A package run reads the value of the application first and the setting of the Post Packaging page as the fallback. The column Detection shows whether the Workbench profile holds its own detection rule (read only).
 
 ## [2026.1121.53] - 2026-11-21
 
