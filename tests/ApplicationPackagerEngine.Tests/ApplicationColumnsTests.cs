@@ -31,6 +31,7 @@ public class ApplicationColumnsTests
             Assert.False(string.IsNullOrWhiteSpace(column.Header));
             Assert.False(string.IsNullOrWhiteSpace(column.Tooltip));
             Assert.False(string.IsNullOrWhiteSpace(column.AutomationName));
+            if (column.Id == "detection") continue; // read-only: the Workbench edits the rule
             Assert.True(column.Set(work, row, column.ResetValue), column.Id);
             Assert.Equal(column.ResetValue, column.Get(work, row) is { Length: > 0 } v ? v : column.ResetValue);
         }

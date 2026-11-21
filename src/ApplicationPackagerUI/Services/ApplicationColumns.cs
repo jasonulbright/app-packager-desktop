@@ -15,6 +15,8 @@ public sealed class ApplicationWork
     public Dictionary<string, CommandOverrideEntry> Commands { get; set; } = new(StringComparer.OrdinalIgnoreCase);
     public HashSet<string> ConditionsTouched { get; } = new(StringComparer.OrdinalIgnoreCase);
     public HashSet<string> CommandsTouched { get; } = new(StringComparer.OrdinalIgnoreCase);
+    public Dictionary<string, ApplicationDistribution> Distribution { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+    public HashSet<string> DistributionTouched { get; } = new(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>The One Click row of an application (the work copy of the One Click grid); null when the application has none.</summary>
     public Func<string, OneClickRow?> OneClickRowOf { get; set; } = _ => null;
@@ -114,6 +116,16 @@ public static class ApplicationColumns
         },
         NotApplicable = (w, r) => w.OneClickRowOf(r.Uid) is null ? "One Click does not list this application." : notApplicable(r)
     };
+
+    private static bool SetDistribution(ApplicationWork w, SupersedenceRow r, string? dp, string? test)
+    {
+        if (!w.Distribution.TryGetValue(r.ApplicationId, out var entry)) w.Distribution[r.ApplicationId] = entry = new ApplicationDistribution();
+        if (dp is not null) entry.DpGroupName = dp;
+        if (test is not null) entry.TestCollectionName = test;
+        if (string.IsNullOrWhiteSpace(entry.DpGroupName) && string.IsNullOrWhiteSpace(entry.TestCollectionName)) w.Distribution.Remove(r.ApplicationId);
+        w.DistributionTouched.Add(r.ApplicationId);
+        return true;
+    }
 
     private static bool Touch(ApplicationWork w, SupersedenceRow r) { w.ConditionsTouched.Add(r.DefinitionId); return true; }
 
@@ -242,6 +254,31 @@ public static class ApplicationColumns
             NotApplicable = (w, r) => w.ProfileReason(r)
         },
         .. RequirementColumns.Build(),
+        new ApplicationColumn
+        {
+            Id = "dpgroup", Header = "Distribution point group", AutomationName = "Distribution point group of the application", Width = 210,
+            Tooltip = "The distribution point group that receives the content of this application after Package. Leave it empty to use the group of the Post Packaging page. A group here also turns distribution on for this application.",
+            Get = (w, r) => w.Distribution.TryGetValue(r.ApplicationId, out var d) ? d.DpGroupName : "",
+            Set = (w, r, v) => SetDistribution(w, r, dp: v.Trim(), test: null)
+        },
+        new ApplicationColumn
+        {
+            Id = "testcollection", Header = "Test collection", AutomationName = "Test collection of the application", Width = 210,
+            Tooltip = "The collection that receives the test deployment of this application. Leave it empty to use the collection of the Post Packaging page. A collection here also turns the test deployment on for this application.",
+            Get = (w, r) => w.Distribution.TryGetValue(r.ApplicationId, out var d) ? d.TestCollectionName : "",
+            Set = (w, r, v) => SetDistribution(w, r, dp: null, test: v.Trim())
+        },
+        new ApplicationColumn
+        {
+            Id = "detection", Header = "Detection", AutomationName = "Detection method of the application", Width = 190,
+            Choices = ["Inherit", "Custom in Workbench"],
+            Tooltip = "Shows whether the Workbench profile of this application holds its own detection rule. The grid does not edit a detection rule: it is a list of rules. Edit it in the Workbench.",
+            Get = (w, r) => w.ProfileOf(r).CustomDetection ? "Custom in Workbench" : "Inherit",
+            Set = (_, _, _) => false,
+            NotApplicable = (w, r) => w.ProfileOf(r).CustomDetection
+                ? "This application has its own detection rule in the Workbench. Edit it there."
+                : "The detection rule is edited in the Workbench, not in this grid."
+        },
         new ApplicationColumn
         {
             Id = "tracked", Header = "In One Click", AutomationName = "One Click inclusion of the application", Width = 150,
