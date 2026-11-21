@@ -146,7 +146,7 @@ jobs:
 
       - name: Engine tests
         shell: pwsh
-        run: dotnet test tests/ApplicationPackagerEngine.Tests/ApplicationPackagerEngine.Tests.csproj --configuration Release --nologo
+        run: dotnet test tests/ApplicationPackagerEngine.Tests/ApplicationPackagerEngine.Tests.csproj --configuration Release --nologo --blame --blame-hang-timeout 8m --blame-hang-dump-type mini
 
       - name: Publish the application
         shell: pwsh
