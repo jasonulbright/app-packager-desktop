@@ -91,6 +91,8 @@ public static class GuideCaptureSteps
         ["core-publish-configmgr-log"] = "core-publish-configmgr-log",
         ["start-sidebar-context-menu"] = "start-sidebar-context-menu",
         ["tools-pivots-pivot"] = "pivots-and-scripts",
+        ["tools-compliance-catalog"] = "tools-compliance-catalog",
+        ["tools-compliance-deploy"] = "tools-compliance-deploy",
         // The Site Hygiene import window and Live views (Capture-ToolsHygiene).
         ["tools-site-hygiene-import"] = "tools-site-hygiene-import",
         ["tools-site-hygiene-live-deployments"] = "tools-site-hygiene-live-deployments",

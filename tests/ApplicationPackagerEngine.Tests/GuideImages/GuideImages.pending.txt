@@ -8,9 +8,7 @@ core-packages-cve-columns
 core-publish-wsus-row
 core-wsus-catalog-import
 core-wsus-updates-window
-tools-compliance-catalog
 tools-compliance-compliance
-tools-compliance-deploy
 tools-compliance-editor
 tools-compliance-plan
 tools-deployment-helper-distribute-create
