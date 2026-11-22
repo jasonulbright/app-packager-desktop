@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Internal
+
+- Add SiteDataPaths, the paths and names of the per-site data layout (Q-112b), with shared fixtures pinned by SHA-256. No part of the app uses it yet. No change in behavior.
+
 ### Changed
 
 - Retook 30 guide images of the tool pages from the real app on a lab client.
