@@ -170,7 +170,7 @@ public sealed class BuildRunner(
         if (row is { IsJsonDefined: true } && stageThisRun && o.Version is not null)
             throw new BuildRefusal("--version does not apply to staging a definition: a definition stages its latest version. Use --version with --package alone to publish the sealed build of that version.");
 
-        if (row is not null && LoadDefinitionOrNull(row) is { LocalSource.IsRequired: true } definition)
+        if (row is not null && LocalSourceFolderPrompt.ForInstallerType(LoadDefinitionOrNull(row), settingsService.Load()) is { LocalSource.IsRequired: true } definition)
         {
             _localSourceDefinitionId = definition.Id;
             var kept = LocalSourceFolderPrompt.Confirm([row], LoadDefinitionOrNull, settingsService.Load(), _ => null, output.Info, out _);
