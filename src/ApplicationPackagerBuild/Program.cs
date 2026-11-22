@@ -44,6 +44,9 @@ public static class Program
             if (options.DataRoot is not null)
                 Environment.SetEnvironmentVariable(AppDataPaths.DataRootVariable, Path.GetFullPath(options.DataRoot));
 
+            // The command-line build reads the same site as the program: migration once, then the active site.
+            SiteStartup.Initialize();
+
             output.OpenLog(options.LogFolder ?? Path.Combine(AppDataPaths.LegacyRoot, "Logs"));
             if (output.LogPath is not null) output.Info($"Run log: {output.LogPath}");
 

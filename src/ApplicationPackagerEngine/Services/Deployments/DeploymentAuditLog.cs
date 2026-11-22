@@ -67,7 +67,7 @@ public sealed class DeploymentAuditLog : IDeploymentAuditLog
         _user = user ?? (() => $@"{Environment.UserDomainName}\{Environment.UserName}");
     }
 
-    public static string DefaultPath() => System.IO.Path.Combine(AppDataPaths.Root, "Deployments", FileName);
+    public static string DefaultPath() => SiteContext.Resolve(System.IO.Path.Combine(SiteContext.Areas.Deployments, "audit.jsonl"), () => System.IO.Path.Combine(AppDataPaths.Root, "Deployments", FileName));
 
     public string Path => _path() is { } custom && !string.IsNullOrWhiteSpace(custom) ? custom.Trim() : DefaultPath();
 

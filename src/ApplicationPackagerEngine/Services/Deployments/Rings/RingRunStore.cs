@@ -60,7 +60,7 @@ public sealed class RingRunStore
 
     private readonly bool? _pinnedDefault;
 
-    public static string DefaultFolder() => Path.Combine(AppDataPaths.Root, "Deployments", "Rings", "runs");
+    public static string DefaultFolder() => SiteContext.Resolve(SiteContext.Areas.RingRuns, () => Path.Combine(AppDataPaths.Root, "Deployments", "Rings", "runs"));
 
     public string Folder => _folder() is { } custom && !string.IsNullOrWhiteSpace(custom) ? custom.Trim() : DefaultFolder();
 

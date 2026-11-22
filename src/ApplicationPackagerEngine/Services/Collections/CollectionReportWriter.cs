@@ -21,7 +21,7 @@ public sealed class CollectionReportWriter(string? folder = null, Func<DateTimeO
 
     private readonly Func<DateTimeOffset> _clock = clock ?? (() => DateTimeOffset.Now);
 
-    public static string DefaultFolder() => Path.Combine(CollectionsFolders.Root(), "Reports");
+    public static string DefaultFolder() => SiteContext.Resolve(SiteContext.Areas.CollectionsReports, () => Path.Combine(CollectionsFolders.Root(), "Reports"));
 
     public string WriteCsv(IReadOnlyList<CollectionRow> rows)
     {

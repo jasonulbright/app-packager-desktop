@@ -72,6 +72,8 @@ public sealed partial class ComplianceShared(CompliancePageServices services) : 
     [NotifyCanExecuteChangedFor(nameof(UndoLastCommand))]
     private bool _isWriting;
 
+    partial void OnIsWritingChanged(bool value) => ApplicationPackagerEngine.Services.SiteRunGuard.Set(this, value ? "a collection or compliance change is being written" : null);
+
     public bool HasConnectionMessage => ConnectionMessage.Length > 0;
     public bool HasResults => LastResults.Count > 0;
     public bool HasUndo => LastPlan is not null;

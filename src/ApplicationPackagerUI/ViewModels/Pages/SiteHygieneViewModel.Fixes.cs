@@ -56,6 +56,8 @@ public sealed partial class SiteHygieneViewModel
     [NotifyCanExecuteChangedFor(nameof(RunFixCommand), nameof(SuppressCommand), nameof(UnsuppressCommand))]
     private bool _isWriting;
 
+    partial void OnIsWritingChanged(bool value) => ApplicationPackagerEngine.Services.SiteRunGuard.Set(this, value ? "a Site Hygiene change is being written" : null);
+
     public bool HasResults => LastResults.Count > 0;
 
     /// <summary>The result rows show on the Findings tab only: on the other tabs they would take the height of the tab.</summary>

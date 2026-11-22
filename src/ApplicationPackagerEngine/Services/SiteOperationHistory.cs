@@ -85,15 +85,25 @@ public interface ISiteOperationHistory
 public sealed class SiteOperationHistory : ISiteOperationHistory
 {
     public const string MigrationId = "site-operations-v1";
+
+    /// <summary>Adds the site_code column (Q-112d). Rows written before it belong to the site whose folder holds the database.</summary>
+    public const string SiteColumnMigrationId = "site-operations-v2";
     public const string LogArea = "History";
 
     private static readonly TimeSpan DefaultBusyTimeout = TimeSpan.FromSeconds(30);
 
-    private readonly string _dbPath;
+    private readonly string? _fixedDbPath;
     private readonly IAppLog? _log;
     private readonly TimeSpan _busyTimeout;
     private readonly object _migrationGate = new();
-    private bool _migrated;
+    private string? _migratedPath;
+
+    /// <summary>The database in use now: the path given to the constructor, else results\history.db of the active site, else the single-site file.</summary>
+    private string DbPath => _fixedDbPath ?? SiteHistoryDatabase.DefaultPath();
+
+    /// <summary>The site code that rows are written with and read by: the active site, or empty when the single-site layout is in use.</summary>
+    private static string CurrentSiteCode() =>
+        SiteContext.ActiveFolderName is { } f && SiteDataPaths.TryParseFolderName(f, out var parsed) && parsed is not null ? parsed.SiteCode : "";
 
     public SiteOperationHistory(string? dbPath = null, IAppLog? log = null)
         : this(dbPath, log, DefaultBusyTimeout)
@@ -102,7 +112,7 @@ public sealed class SiteOperationHistory : ISiteOperationHistory
 
     internal SiteOperationHistory(string? dbPath, IAppLog? log, TimeSpan busyTimeout)
     {
-        _dbPath = Path.GetFullPath(dbPath ?? Path.Combine(AppDataPaths.LegacyRoot, "history.db"));
+        _fixedDbPath = dbPath is null ? null : Path.GetFullPath(dbPath);
         _log = log;
         _busyTimeout = busyTimeout;
     }
@@ -116,10 +126,11 @@ public sealed class SiteOperationHistory : ISiteOperationHistory
             using var connection = Open();
             using var command = connection.CreateCommand();
             command.CommandText = """
-                INSERT INTO SiteOperations(occurred_at, tool, action, target, outcome, detail)
-                VALUES($at, $tool, $action, $target, $outcome, $detail);
+                INSERT INTO SiteOperations(occurred_at, tool, action, target, outcome, detail, site_code)
+                VALUES($at, $tool, $action, $target, $outcome, $detail, $site);
                 SELECT last_insert_rowid();
                 """;
+            command.Parameters.AddWithValue("$site", CurrentSiteCode());
             command.Parameters.AddWithValue("$at", (entry.Time ?? DateTimeOffset.UtcNow).ToUniversalTime().ToString("O", CultureInfo.InvariantCulture));
             command.Parameters.AddWithValue("$tool", entry.Tool.Trim());
             command.Parameters.AddWithValue("$action", entry.Action.Trim());
@@ -145,10 +156,16 @@ public sealed class SiteOperationHistory : ISiteOperationHistory
 
             using var connection = Open();
             using var command = connection.CreateCommand();
-            command.CommandText = tool is null
-                ? "SELECT id, occurred_at, tool, action, target, outcome, detail FROM SiteOperations ORDER BY occurred_at DESC, id DESC LIMIT $count"
-                : "SELECT id, occurred_at, tool, action, target, outcome, detail FROM SiteOperations WHERE tool = $tool ORDER BY occurred_at DESC, id DESC LIMIT $count";
+            // With a site active only that site's rows are listed, even when the file holds rows of another site.
+            var site = CurrentSiteCode();
+            var conditions = new List<string>();
+            if (site.Length > 0) conditions.Add("site_code = $site");
+            if (tool is not null) conditions.Add("tool = $tool");
+            command.CommandText = "SELECT id, occurred_at, tool, action, target, outcome, detail FROM SiteOperations"
+                + (conditions.Count > 0 ? " WHERE " + string.Join(" AND ", conditions) : "")
+                + " ORDER BY occurred_at DESC, id DESC LIMIT $count";
             command.Parameters.AddWithValue("$count", count);
+            if (site.Length > 0) command.Parameters.AddWithValue("$site", site);
             if (tool is not null) command.Parameters.AddWithValue("$tool", tool.Trim());
             using var reader = command.ExecuteReader();
             var rows = new List<SiteOperation>();
@@ -186,24 +203,26 @@ public sealed class SiteOperationHistory : ISiteOperationHistory
     {
         lock (_migrationGate)
         {
-            if (_migrated) return;
-            Directory.CreateDirectory(Path.GetDirectoryName(_dbPath)!);
+            var path = DbPath;
+            if (string.Equals(_migratedPath, path, StringComparison.OrdinalIgnoreCase)) return;
+            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
             using var connection = Open();
             // A read first: a database that is already migrated needs no write lock, so a
             // read-only file still serves Recent.
-            if (!IsMigrated(connection, null)) Migrate(connection);
-            _migrated = true;
+            if (!IsMigrated(connection, null, MigrationId)) Migrate(connection);
+            if (!IsMigrated(connection, null, SiteColumnMigrationId)) AddSiteColumn(connection);
+            _migratedPath = path;
         }
     }
 
-    private static bool IsMigrated(SQLiteConnection connection, SQLiteTransaction? transaction)
+    private static bool IsMigrated(SQLiteConnection connection, SQLiteTransaction? transaction, string migrationId)
     {
         using var command = connection.CreateCommand();
         command.Transaction = transaction;
         command.CommandText = "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = 'inventory_migrations'";
         if (Convert.ToInt64(command.ExecuteScalar(), CultureInfo.InvariantCulture) == 0) return false;
         command.CommandText = "SELECT COUNT(*) FROM inventory_migrations WHERE migration_id = $id";
-        command.Parameters.AddWithValue("$id", MigrationId);
+        command.Parameters.AddWithValue("$id", migrationId);
         return Convert.ToInt64(command.ExecuteScalar(), CultureInfo.InvariantCulture) > 0;
     }
 
@@ -221,7 +240,7 @@ public sealed class SiteOperationHistory : ISiteOperationHistory
                 """;
             ledger.ExecuteNonQuery();
         }
-        if (IsMigrated(connection, transaction))
+        if (IsMigrated(connection, transaction, MigrationId))
         {
             transaction.Commit();
             return;
@@ -250,9 +269,45 @@ public sealed class SiteOperationHistory : ISiteOperationHistory
         transaction.Commit();
     }
 
+    /// <summary>
+    /// Adds site_code and gives every earlier row the site code of this database: the folder of a site holds its own file, so each
+    /// row in it belongs to that site. In the single-site file the column stays empty and no filter applies.
+    /// </summary>
+    private static void AddSiteColumn(SQLiteConnection connection)
+    {
+        using var transaction = connection.BeginTransaction(IsolationLevel.Serializable);
+        if (IsMigrated(connection, transaction, SiteColumnMigrationId))
+        {
+            transaction.Commit();
+            return;
+        }
+        var hasColumn = false;
+        using (var info = connection.CreateCommand())
+        {
+            info.Transaction = transaction;
+            info.CommandText = "PRAGMA table_info(SiteOperations)";
+            using var reader = info.ExecuteReader();
+            while (reader.Read())
+                if (string.Equals(reader.GetString(1), "site_code", StringComparison.OrdinalIgnoreCase)) hasColumn = true;
+        }
+        using (var alter = connection.CreateCommand())
+        {
+            alter.Transaction = transaction;
+            alter.CommandText = (hasColumn ? "" : "ALTER TABLE SiteOperations ADD COLUMN site_code TEXT NOT NULL DEFAULT '';")
+                + "UPDATE SiteOperations SET site_code = $site WHERE site_code = '';"
+                + "CREATE INDEX IF NOT EXISTS idx_site_operations_site_time ON SiteOperations(site_code, occurred_at);"
+                + "INSERT INTO inventory_migrations(migration_id, completed_at) VALUES($id, $at);";
+            alter.Parameters.AddWithValue("$site", CurrentSiteCode());
+            alter.Parameters.AddWithValue("$id", SiteColumnMigrationId);
+            alter.Parameters.AddWithValue("$at", DateTimeOffset.UtcNow.ToString("O", CultureInfo.InvariantCulture));
+            alter.ExecuteNonQuery();
+        }
+        transaction.Commit();
+    }
+
     private SQLiteConnection Open()
     {
-        var connection = new SQLiteConnection($"Data Source={_dbPath};Version=3;Pooling=False;");
+        var connection = new SQLiteConnection($"Data Source={DbPath};Version=3;Pooling=False;");
         try
         {
             connection.Open();

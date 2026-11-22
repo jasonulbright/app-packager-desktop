@@ -1,6 +1,9 @@
 using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using ApplicationPackagerEngine.Models;
+using ApplicationPackagerEngine.Services;
 using Microsoft.Extensions.DependencyInjection;
 using ApplicationPackagerUI.Services;
 using ApplicationPackagerUI.ViewModels.Windows;
@@ -64,10 +67,76 @@ public partial class MainWindow : IDialogHostWindow
         OpenWorkbench(selected is null ? null : WorkbenchApplicationCatalog.ApplicationIdFor(selected));
     }
 
+    // ---- site switcher (Q-112d) ----
+
+    private void SiteSwitcher_Click(object sender, RoutedEventArgs e)
+    {
+        var manager = _serviceProvider.GetRequiredService<SiteManager>();
+        if (manager.Refusal() is { } refusal)
+        {
+            ShowSiteMessage(refusal, ControlAppearance.Caution);
+            return;
+        }
+        var menu = new ContextMenu { PlacementTarget = btnSiteSwitcher, Placement = PlacementMode.Top };
+        foreach (var site in manager.Sites())
+        {
+            var folder = site.FolderName;
+            var item = new System.Windows.Controls.MenuItem
+            {
+                Header = site.DisplayName,
+                IsChecked = string.Equals(folder, manager.ActiveFolderName, StringComparison.Ordinal),
+                ToolTip = $"Switch to site {folder}. Its settings and data are loaded; the data of the current site is not shown.",
+            };
+            System.Windows.Automation.AutomationProperties.SetAutomationId(item, "miSite" + folder.Replace("~", ""));
+            item.Click += (_, _) => ShowSiteResult(manager.Switch(folder));
+            menu.Items.Add(item);
+        }
+        if (menu.Items.Count > 0) menu.Items.Add(new Separator());
+        var add = new System.Windows.Controls.MenuItem { Header = "Add site...", ToolTip = "Add a site by its site code and SMS Provider. If the code is already in use, you choose between the same site with another provider and a different environment." };
+        System.Windows.Automation.AutomationProperties.SetAutomationId(add, "miAddSite");
+        add.Click += (_, _) => AddSiteFromWindow(manager);
+        menu.Items.Add(add);
+        menu.IsOpen = true;
+    }
+
+    private void AddSiteFromWindow(SiteManager manager)
+    {
+        var window = _serviceProvider.GetRequiredService<AddSiteWindow>();
+        window.Owner = this;
+        window.ShowDialog();
+        if (!window.ViewModel.Accepted) return;
+        var vm = window.ViewModel;
+        ShowSiteResult(manager.AddSite(vm.SiteCode, vm.Provider, vm.Label, existing => SiteReusePrompt.Ask(this, existing)));
+    }
+
+    private void ShowSiteResult(SiteSwitchResult result) =>
+        ShowSiteMessage(result.Message, result.Succeeded ? ControlAppearance.Success : ControlAppearance.Caution);
+
+    private void ShowSiteMessage(string message, ControlAppearance appearance) =>
+        _snackbarService.Show("Site", message, appearance,
+            new SymbolIcon(appearance == ControlAppearance.Success ? SymbolRegular.Checkmark24 : SymbolRegular.Warning24), TimeSpan.FromSeconds(6));
+
+    /// <summary>After a switch every page that holds site data reads the new site again. Nothing is written.</summary>
+    private void OnSiteChanged()
+    {
+        void Reload()
+        {
+            _serviceProvider.GetRequiredService<ViewModels.Pages.SettingsViewModel>().ReloadFromStore();
+            var packages = _serviceProvider.GetRequiredService<ViewModels.Pages.PackagesViewModel>();
+            ViewModels.Pages.PackagesViewModel.ClearSiteResults(packages.Packagers);
+            packages.LoadPackagersCommand.Execute(null);
+        }
+        if (Dispatcher.CheckAccess()) Reload();
+        else Dispatcher.BeginInvoke(Reload);
+    }
+
     private void FluentWindow_Loaded(object sender, RoutedEventArgs e)
     {
         var settingsService = _serviceProvider.GetRequiredService<SettingsService>();
         var settings = settingsService.Load();
+        if (_serviceProvider.GetService<SiteManager>() is { } siteManager) siteManager.Changed += OnSiteChanged;
+        if (SiteStartup.Last?.Notice is { } startupNotice)
+            ShowSiteMessage(startupNotice, ControlAppearance.Caution);
 
         if (settings.WindowLeft >= 0 && settings.WindowTop >= 0)
         {

@@ -245,10 +245,14 @@ public partial class SettingsViewModel : ObservableObject, ISettingsReload
 
     partial void OnHasStoredIntuneSecretChanged(bool value) => OnPropertyChanged(nameof(IntuneSecretHint));
 
+    private readonly SiteManager? _siteManager;
+
     public SettingsViewModel(SettingsService settingsService, PackagerPreferencesService prefsSync, ISnackbarService snackbarService,
         PackagesViewModel packagesViewModel, PackagerDiscoveryService discoveryService,
-        ApplicationPackagerEngine.Services.Wsus.IWsusAdminClient wsusClient, IWsusPrompts wsusPrompts, SidebarService sidebarService)
+        ApplicationPackagerEngine.Services.Wsus.IWsusAdminClient wsusClient, IWsusPrompts wsusPrompts, SidebarService sidebarService,
+        SiteManager? siteManager = null)
     {
+        _siteManager = siteManager;
         _settingsService = settingsService;
         Sidebar = new SidebarSettingsEditor(sidebarService);
         _prefsSync = prefsSync;
@@ -939,6 +943,21 @@ public partial class SettingsViewModel : ObservableObject, ISettingsReload
     private void SaveSettings()
     {
         var s = _settingsService.Load();
+        // A different site code is a different site: switch to it (or add it) first. The page then shows that site's values and nothing is
+        // written into either site, so the values of the previous site cannot reach the new one.
+        if (_siteManager is not null && ApplicationPackagerEngine.Services.SiteContext.IsActive
+            && SiteCode.Trim().Length > 0 && !string.Equals(SiteCode.Trim(), (s.SiteCode ?? "").Trim(), StringComparison.OrdinalIgnoreCase))
+        {
+            var result = _siteManager.AddSite(SiteCode, ProviderMachine, null,
+                existing => SiteReusePrompt.Ask(System.Windows.Application.Current?.MainWindow, existing));
+            _snackbarService.Show("Site", result.Succeeded
+                    ? result.Message + " Review the settings of this site and save again if you changed anything."
+                    : result.Message,
+                result.Succeeded ? Wpf.Ui.Controls.ControlAppearance.Success : Wpf.Ui.Controls.ControlAppearance.Caution,
+                new SymbolIcon(result.Succeeded ? SymbolRegular.Checkmark24 : SymbolRegular.Warning24), TimeSpan.FromSeconds(6));
+            if (!result.Succeeded) SiteCode = s.SiteCode ?? "";
+            return;
+        }
         var siteBefore = SiteIdentity.Key(s.SiteCode, s.ProviderMachine);
 
         s.CompanyName = CompanyName;

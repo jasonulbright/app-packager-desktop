@@ -41,7 +41,7 @@ public sealed class DpContentAuditLog : IDpContentAuditLog
         _user = user ?? (() => System.Security.Principal.WindowsIdentity.GetCurrent().Name);
     }
 
-    public static string DefaultPath() => System.IO.Path.Combine(AppDataPaths.Root, "DpContent", FileName);
+    public static string DefaultPath() => SiteContext.Resolve(System.IO.Path.Combine(SiteContext.Areas.DpContent, FileName), () => System.IO.Path.Combine(AppDataPaths.Root, "DpContent", FileName));
 
     public string Path => _path() is { } custom && !string.IsNullOrWhiteSpace(custom) ? custom.Trim() : DefaultPath();
 

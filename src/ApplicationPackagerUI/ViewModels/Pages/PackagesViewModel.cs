@@ -209,6 +209,7 @@ public partial class PackagesViewModel : ObservableObject
     partial void OnIsOperationRunningChanged(bool value)
     {
         if (value) _cancelRequested = false;
+        ApplicationPackagerEngine.Services.SiteRunGuard.Set(this, value ? "a check, Stage or publish run is active" : null);
         NotifyActionCommands();
     }
 

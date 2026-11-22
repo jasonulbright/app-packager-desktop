@@ -4,10 +4,10 @@ using ApplicationPackagerEngine.Services.Logging;
 
 namespace ApplicationPackagerEngine.Services;
 
-/// <summary>The data folder of the Site Hygiene page: &lt;data root&gt;\SiteHygiene.</summary>
+/// <summary>The data folder of the Site Hygiene page: hygiene\ of the active site, else &lt;data root&gt;\SiteHygiene.</summary>
 public static class HygieneFolders
 {
-    public static string Root() => Path.Combine(AppDataPaths.Root, "SiteHygiene");
+    public static string Root() => SiteContext.Resolve(SiteContext.Areas.Hygiene, () => Path.Combine(AppDataPaths.Root, "SiteHygiene"));
 }
 
 /// <summary>

@@ -27,7 +27,7 @@ public sealed class MaintenanceReportWriter(string? folder = null, Func<DateTime
 
     private readonly Func<DateTimeOffset> _clock = clock ?? (() => DateTimeOffset.Now);
 
-    public static string DefaultFolder() => Path.Combine(MaintenanceWindowsFolders.Root(), "Reports");
+    public static string DefaultFolder() => SiteContext.Resolve(SiteContext.Areas.MaintenanceReports, () => Path.Combine(MaintenanceWindowsFolders.Root(), "Reports"));
 
     public string WriteCsv(IReadOnlyList<MaintenanceWindowInfo> rows)
     {

@@ -40,6 +40,8 @@ public sealed partial class DpContentManagerViewModel
         nameof(ValidateCommand), nameof(RedistributeIssuesCommand), nameof(RemoveFailuresCommand))]
     private bool _isWriting;
 
+    partial void OnIsWritingChanged(bool value) => ApplicationPackagerEngine.Services.SiteRunGuard.Set(this, value ? "a DP content change is being written" : null);
+
     /// <summary>The Distribute again of the pairs the last removal took from DPs that were Installed; it outlives the visit until a new run replaces it.</summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasUndo), nameof(HasResultPanel))]
