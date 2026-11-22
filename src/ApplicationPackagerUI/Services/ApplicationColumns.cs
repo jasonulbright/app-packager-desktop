@@ -154,6 +154,16 @@ public static class ApplicationColumns
         },
         new ApplicationColumn
         {
+            Id = "installertype", Header = "Installer type", AutomationName = "Installer type of the application", Width = 150,
+            Choices = ApplicationGridSettings.InstallerTypeChoices,
+            Tooltip = "Select EXE or MSI. The application stages and installs with that installer, its own silent switches and its own detection. Packager default uses the type that the definition ships. It is offered only for an application that supports both types.",
+            Get = (w, r) => r.InstallerTypes.Count >= 2 ? ApplicationGridSettings.InstallerTypeOf(ApplicationGridSettings.Find(w.Conditions, r.DefinitionId)) : ApplicationGridSettings.PackagerDefault,
+            Set = (w, r, v) => r.InstallerTypes.Count >= 2 && (v == ApplicationGridSettings.PackagerDefault || r.InstallerTypes.Contains(v))
+                && ApplicationGridSettings.SetInstallerType(w.Conditions, r.DefinitionId, v) && Touch(w, r),
+            NotApplicable = (_, r) => r.InstallerTypes.Count >= 2 ? null : "The vendor of this application ships one installer type, so there is no choice."
+        },
+        new ApplicationColumn
+        {
             Id = "supersedence", Header = "Supersedence", AutomationName = "Supersedence of the application", Width = 190, DefaultVisible = true,
             Choices = SupersedenceGrid.Choices,
             Tooltip = "Supersedence mode of this application. Follow the default uses the default mode above. Replace and uninstall needs the version rule Exact.",

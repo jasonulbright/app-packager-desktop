@@ -22,6 +22,7 @@ public static class EffectiveSettingsResolver
         new("Icon", null, "Icon", "Application.Icon", true),
         new("PinnedVersion", null, "SoftwareVersion", "PinnedVersion", true),
         new("InstallMode", null, "InstallMode", "InstallMode", false),
+        new("InstallerType", null, "InstallerType", "InstallerType", false),
         new("InstallCommand", null, "InstallCommandLine", "Install.Command", true),
         new("UninstallCommand", null, "UninstallCommandLine", "Uninstall.Command", true),
         new("InstallScriptMode", null, null, "Install.Mode", false),

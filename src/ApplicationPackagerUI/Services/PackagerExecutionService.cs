@@ -30,6 +30,7 @@ public class PackagerExecutionService(
         if (packager.IsJsonDefined && packager.DefinitionPath is not null)
         {
             var def = LoadDefinition(packager.DefinitionPath, packager.DefinitionOrigin);
+            def = InstallerTypeSwitch.Apply(def, ChosenInstallerType(def, null));
             var folder = settingsService.Load().LocalSourceFolders.TryGetValue(def.Id, out var saved) ? saved : null;
             return await stagingService.GetLatestVersionAsync(def, ct, folder);
         }
@@ -137,6 +138,7 @@ public class PackagerExecutionService(
         {
             var def = LoadDefinition(packager.DefinitionPath, packager.DefinitionOrigin);
             var appSettings = settingsService.Load();
+            var chosenType = ChosenInstallerType(def, snapshot);
             // A grid run builds from the application's active profile; the default
             // profile runs without a snapshot.
             var source = ProfileSource.Resolve(WorkbenchStoreOrNull(snapshot), def.Id, ApplicationIds.RunOrigin(def.SourceOrigin));
@@ -151,6 +153,8 @@ public class PackagerExecutionService(
                 if (snapshot is not null)
                     onOutputLine?.Invoke($"Workbench profile             : {WorkbenchJson.AsText(snapshot.Profile["Name"]) ?? activeProfile} (revision {snapshot.ProfileRevision}, build {snapshot.BuildId})");
             }
+            // The Installer type choice (EXE or MSI) of an application that declares both: the staged definition is the one of that type.
+            def = InstallerTypeSwitch.Apply(def, chosenType);
             // Reuse version from Check Latest to avoid redundant API calls (GitHub rate limiting)
             var knownVersion = !string.IsNullOrEmpty(packager.LatestVersion) ? packager.LatestVersion : null;
             // The Install for choice comes from the build's profile; the saved per-app
@@ -1332,7 +1336,8 @@ public class PackagerExecutionService(
             var offersArchitecture = def.PayloadVariants is { Length: > 0 }
                 || (def.SupportsVariants?.Contains("Architecture", StringComparer.OrdinalIgnoreCase) ?? false);
             var offersNetwork = def.SupportsVariants?.Contains("Network", StringComparer.OrdinalIgnoreCase) ?? false;
-            return new ApplicationGridFacts(source.ApplicationId, def.Id, def.Architecture, offersArchitecture, def.OffersInstallModes, offersNetwork);
+            return new ApplicationGridFacts(source.ApplicationId, def.Id, def.Architecture, offersArchitecture, def.OffersInstallModes, offersNetwork,
+                def.InstallerTypeChoices);
         }
         catch (Exception ex) when (ex is IOException or InvalidOperationException or System.Text.Json.JsonException or UnauthorizedAccessException)
         {
@@ -1746,6 +1751,28 @@ public class PackagerExecutionService(
             ErrLog: Path.Combine(logDir, $"{baseName}.err.log"),
             StructuredLog: Path.Combine(logDir, $"{baseName}.structured.log")
         );
+    }
+
+    /// <summary>
+    /// The Installer type (EXE or MSI) that a run uses for an application that declares both: the build's Workbench profile when it is not the
+    /// default one, else the saved per-application entry where the legacy maps still apply. Null means the default type of the definition.
+    /// </summary>
+    private string? ChosenInstallerType(AppDefinition def, RunSnapshot? snapshot)
+    {
+        if (!def.OffersInstallerTypes) return null;
+        string? chosen = null;
+        try
+        {
+            var source = ProfileSource.Resolve(WorkbenchStoreOrNull(snapshot), def.Id, ApplicationIds.RunOrigin(def.SourceOrigin));
+            if (snapshot is not null && !ApplicationIds.IsDefaultProfile(snapshot.ProfileId))
+                chosen = WorkbenchJson.Get(snapshot.Profile, "InstallerType").Text;
+            else if (snapshot is null && source.Failure is null && source.ActiveProfileId is { } active && WorkbenchStoreOrNull(null) is { } store)
+                chosen = store.GetProfile(source.ApplicationId, active).Get("InstallerType").Text;
+            else if (source.LegacyMapsApply)
+                chosen = deploymentConditionsService.GetConditions(def.Id)?.InstallerType;
+        }
+        catch (Exception ex) when (ex is IOException or InvalidOperationException or JsonException or UnauthorizedAccessException) { }
+        return InstallerTypeSwitch.IsType(chosen) ? chosen : null;
     }
 
     private static AppDefinition LoadDefinition(string path, ApplicationOrigin origin)

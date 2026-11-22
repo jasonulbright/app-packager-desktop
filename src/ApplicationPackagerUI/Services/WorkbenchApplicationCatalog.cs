@@ -23,6 +23,8 @@ public sealed class WorkbenchApplicationItem
     public bool Runnable { get; init; }
     public IReadOnlyList<string> SupportsVariants { get; init; } = [];
     public IReadOnlyList<string> SupportsInstallModes { get; init; } = [];
+    /// <summary>The installer types (EXE, MSI) the application offers, default first; empty when it has one.</summary>
+    public IReadOnlyList<string> InstallerTypes { get; init; } = [];
     public string? IconPackDirectory { get; init; }
     public string? IconPackBaseName { get; init; }
     public string? IconSource { get; init; }
@@ -98,6 +100,7 @@ public sealed class WorkbenchApplicationCatalog(SettingsService settingsService,
                     Runnable = true,
                     SupportsVariants = definition.SupportsVariants ?? [],
                     SupportsInstallModes = definition.SupportsInstallModes ?? [],
+                    InstallerTypes = definition.InstallerTypeChoices,
                     IconPackDirectory = iconPath is null
                         ? IconExtractionService.ExternalIconsDirectory(definition)
                         : Path.GetDirectoryName(iconPath),

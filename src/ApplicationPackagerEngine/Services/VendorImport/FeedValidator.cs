@@ -322,7 +322,7 @@ public static class DefinitionCode
     public static readonly IReadOnlyCollection<string> CodeProperties =
     [
         "PostInstallScript", "UninstallCommand", "ExtractSetup", "BootstrapperLayout", "InstallerSettings",
-        "LocalSource", "LocalInstaller", "SideFiles", "ExtraFiles", "FallbackDownloadUrl", "TargetSecret", "Odt", "ZipPayload"
+        "LocalSource", "LocalInstaller", "SideFiles", "ExtraFiles", "FallbackDownloadUrl", "TargetSecret", "Odt", "ZipPayload", "InstallerTypeOverrides"
     ];
 
     /// <summary>The top-level properties that hold no code (the nested values are checked by <see cref="Find"/>).</summary>
@@ -333,7 +333,7 @@ public static class DefinitionCode
         "DownloadUrl", "InstallerFileName", "InstallArgs", "UninstallArgs", "ReviewBeforeStage", "CanUninstall", "Detection", "RunningProcess",
         "PostInstallKillProcesses", "RebootExitCodes", "SuccessExitCodes", "Icon", "IconFormat", "IconSource", "DisplayVersionOverride",
         "StageNotes", "SupportsVariants", "PayloadVariants", "SupportsInstallModes", "CitrixSwitchStream", "PostExecutionBehavior", "ExpectedPayloadVersion",
-        "PayloadSha256Url", "PayloadSha256", "OffersInstallModes", "RequirePayloadHash", "ExpandInstallArgs", "RequireValidSignature", "SourcePath", "SourceOrigin", "SourceLabel"
+        "PayloadSha256Url", "PayloadSha256", "OffersInstallModes", "InstallerTypeChoices", "OffersInstallerTypes", "RequirePayloadHash", "ExpandInstallArgs", "RequireValidSignature", "SourcePath", "SourceOrigin", "SourceLabel"
     ];
 
     /// <summary>The names of the top-level properties of the format that no list classifies; empty when the lists are complete.</summary>
@@ -350,6 +350,7 @@ public static class DefinitionCode
         if (d.PostInstallScript is not null) found.Add("PostInstallScript");
         if (!string.IsNullOrWhiteSpace(d.UninstallCommand)) found.Add("UninstallCommand");
         if (d.ExpandInstallArgs && !string.IsNullOrWhiteSpace(d.InstallArgs)) found.Add("InstallArgs with ExpandInstallArgs");
+        if (d.InstallerTypeOverrides is { Count: > 0 }) found.Add("InstallerTypeOverrides");
         if (d.ExtractSetup is not null) found.Add("ExtractSetup (ExtractArgs)");
         if (d.BootstrapperLayout is not null) found.Add("BootstrapperLayout");
         foreach (var setting in d.InstallerSettings ?? [])

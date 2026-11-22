@@ -34,5 +34,14 @@
                   },
     "RunningProcess":  [
                            "notepad++"
-                       ]
+                       ],
+  "InstallerTypeOverrides": {
+    "MSI": {
+      "InstallerType": "MSI",
+      "InstallerFramework": "NativeMSI",
+      "DownloadUrl": "https://github.com/notepad-plus-plus/notepad-plus-plus/releases/download/v{display_version}/npp.{display_version}.Installer.x64.msi",
+      "InstallArgs": "/qn /norestart",
+      "UninstallArgs": "/x {ProductCode} /qn /norestart"
+    }
+  }
 }

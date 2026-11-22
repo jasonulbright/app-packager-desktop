@@ -91,5 +91,32 @@
   "RunningProcess": [
     "TeamViewer",
     "TeamViewer_Service"
-  ]
+  ],
+  "InstallerTypeOverrides": {
+    "EXE": {
+      "InstallerType": "EXE",
+      "InstallerFramework": "NSIS",
+      "VersionScraper": {
+        "Type": "HttpRegex",
+        "Url": "https://www.teamviewer.com/en-us/download/windows/",
+        "Pattern": "versionNumber&quot;:&quot;(\\d+\\.\\d+\\.\\d+)"
+      },
+      "DownloadUrl": "https://download.teamviewer.com/download/TeamViewer_Host_Setup.exe",
+      "InstallerFileName": "TeamViewer_Host_Setup.exe",
+      "LocalSource": null,
+      "InstallArgs": "/S",
+      "UninstallArgs": "/S",
+      "UninstallCommand": "$proc = Start-Process -FilePath 'C:\\Program Files\\TeamViewer\\uninstall.exe' -ArgumentList '/S' -Wait -PassThru -NoNewWindow",
+      "InstallerSettings": null,
+      "Detection": {
+        "Type": "ArpEntry",
+        "ArpEntry": {
+          "View": "Both",
+          "DisplayNamePrefix": "TeamViewer Host",
+          "WindowsInstaller": false,
+          "Version": "{version}"
+        }
+      }
+    }
+  }
 }

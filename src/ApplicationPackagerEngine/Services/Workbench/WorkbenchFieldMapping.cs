@@ -205,6 +205,13 @@ public static class WorkbenchFieldMapping
         return options;
     }
 
+    /// <summary>Installer type options: Packager default plus each type the application declares.</summary>
+    public static IReadOnlyList<string> InstallerTypeOptions(IEnumerable<string>? types) => ["Packager default", .. (types ?? [])];
+
+    public static string InstallerTypeToDisplay(string? stored) => InstallerTypeSwitch.Normalize(stored) ?? "Packager default";
+
+    public static string? DisplayToInstallerType(string? display) => InstallerTypeSwitch.Normalize(display);
+
     public static string InstallModeToDisplay(string? stored) => stored switch
     {
         "AllUsers" => "System",

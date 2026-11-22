@@ -1,5 +1,11 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+
+- Installer type (EXE or MSI) per application, for an application whose vendor ships both: 7-Zip (MSI by default, EXE with /S), Notepad++ (EXE by default, MSI with /qn /norestart) and TeamViewer Host (MSI from Local Installer Sources by default; EXE downloaded from TeamViewer, installed with /S). Settings, Application Settings has the column Installer type (with the bulk bar), and the Workbench profile has the field Installer type (custom, inherited, reset). Each type carries its own download, silent switches and detection. TeamViewer documents silent install for the MSI only; the /S switch of the EXE is the NSIS silent switch and is not in the TeamViewer documentation.
+
 ## [2026.1121.54] - 2026-11-21
 
 ### Added

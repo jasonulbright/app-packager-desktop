@@ -660,7 +660,7 @@ public partial class SettingsViewModel : ObservableObject, ISettingsReload
                 {
                     Uid = p.Uid, ApplicationId = facts.ApplicationId, DefinitionId = facts.DefinitionId, Application = p.Application, Vendor = p.Vendor,
                     Architecture = facts.Architecture, OffersArchitecture = facts.OffersArchitecture, OffersInstallScope = facts.OffersInstallScope,
-                    OffersNetworkSplit = facts.OffersNetworkSplit, WsusNotSupported = p.WsusNotSupported,
+                    OffersNetworkSplit = facts.OffersNetworkSplit, InstallerTypes = facts.InstallerTypes ?? [], WsusNotSupported = p.WsusNotSupported,
                     IsSelected = selected.Contains(p.Uid)
                 };
                 RefreshCells(row);

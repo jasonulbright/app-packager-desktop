@@ -16,7 +16,7 @@ public static class WorkbenchReview
         "Application.DisplayName", "Application.Publisher", "Application.Description", "Application.TitleMode",
         "Install.Mode", "Install.Command", "Install.ScriptText", "Install.BeforeText", "Install.AfterText",
         "Uninstall.Mode", "Uninstall.Command", "Uninstall.ScriptText", "Uninstall.BeforeText", "Uninstall.AfterText",
-        "Detection.Mode", "InstallMode", "Timing.EstimatedMinutes", "Timing.MaximumMinutes",
+        "Detection.Mode", "InstallMode", "InstallerType", "Timing.EstimatedMinutes", "Timing.MaximumMinutes",
         "Execution.Context", "Execution.ScriptHost"
     ];
 

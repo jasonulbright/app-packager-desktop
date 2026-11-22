@@ -94,6 +94,23 @@ public static class ApplicationGridSettings
         return true;
     }
 
+    /// <summary>The choice that a stored entry shows in the Installer type column: Packager default, EXE or MSI.</summary>
+    public static string InstallerTypeOf(DeploymentConditionEntry? entry) =>
+        ApplicationPackagerEngine.Services.InstallerTypeSwitch.Normalize(entry?.InstallerType) ?? PackagerDefault;
+
+    /// <summary>The choices of the Installer type column, for an application that declares both EXE and MSI.</summary>
+    public static readonly IReadOnlyList<string> InstallerTypeChoices =
+        [PackagerDefault, ApplicationPackagerEngine.Services.InstallerTypeSwitch.Exe, ApplicationPackagerEngine.Services.InstallerTypeSwitch.Msi];
+
+    /// <summary>Applies an Installer type choice (Packager default, EXE or MSI). A word that is not a choice changes nothing and returns false.</summary>
+    public static bool SetInstallerType(Dictionary<string, DeploymentConditionEntry> map, string? definitionId, string? choice)
+    {
+        if (string.IsNullOrWhiteSpace(definitionId) || !InstallerTypeChoices.Contains(choice ?? "")) return false;
+        Entry(map, definitionId).InstallerType = choice == PackagerDefault ? "" : choice!;
+        Prune(map, definitionId);
+        return true;
+    }
+
     public static bool SetTitle(Dictionary<string, DeploymentConditionEntry> map, string? definitionId, string? choice)
     {
         if (string.IsNullOrWhiteSpace(definitionId) || !TitleChoices.Contains(choice ?? "")) return false;
@@ -159,7 +176,7 @@ public static class ApplicationGridSettings
             && (e.Languages is null || e.Languages.Length == 0)
             && string.Equals(e.Network, DeploymentConditionValues.Any, StringComparison.OrdinalIgnoreCase)
             && string.Equals(e.Split, DeploymentConditionValues.NoSplit, StringComparison.OrdinalIgnoreCase)
-            && string.IsNullOrEmpty(e.InstallMode) && string.IsNullOrEmpty(e.TitleMode);
+            && string.IsNullOrEmpty(e.InstallMode) && string.IsNullOrEmpty(e.TitleMode) && string.IsNullOrEmpty(e.InstallerType);
         if (empty) map.Remove(key);
     }
 
@@ -171,7 +188,7 @@ public static class ApplicationGridSettings
             copy[key] = new DeploymentConditionEntry
             {
                 Architecture = e.Architecture, Languages = [.. e.Languages ?? []], Network = e.Network,
-                Split = e.Split, InstallMode = e.InstallMode, TitleMode = e.TitleMode
+                Split = e.Split, InstallMode = e.InstallMode, TitleMode = e.TitleMode, InstallerType = e.InstallerType
             };
         return copy;
     }

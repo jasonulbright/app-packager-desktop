@@ -13,7 +13,7 @@ public class ApplicationColumnsTests
     private static SupersedenceRow Row(bool arch = true, bool scope = true, bool network = true, string wsus = "") => new()
     {
         Uid = "u1", ApplicationId = "catalog:aaaaaaaaaaaaaaaa", DefinitionId = "def1", Application = "App", Vendor = "Vendor", Architecture = "x64",
-        OffersArchitecture = arch, OffersInstallScope = scope, OffersNetworkSplit = network, WsusNotSupported = wsus
+        OffersArchitecture = arch, OffersInstallScope = scope, OffersNetworkSplit = network, WsusNotSupported = wsus, InstallerTypes = ["MSI", "EXE"]
     };
 
     private static ApplicationWork Work(OneClickRow? oneClick = null) => new() { OneClickRowOf = _ => oneClick };

@@ -54,6 +54,9 @@ public partial class SupersedenceRow : ObservableObject
     /// <summary>True when the installer installs for the system and for the user.</summary>
     public bool OffersInstallScope { get; init; }
 
+    /// <summary>The installer types the application offers (default first); empty when it has one type.</summary>
+    public IReadOnlyList<string> InstallerTypes { get; init; } = [];
+
     /// <summary>True when the definition supports the Network split.</summary>
     public bool OffersNetworkSplit { get; init; }
 
@@ -77,4 +80,4 @@ public partial class SupersedenceRow : ObservableObject
 
 /// <summary>What one application offers to the Application Settings grid; see <c>PackagerExecutionService.GridFactsOf</c>.</summary>
 public sealed record ApplicationGridFacts(string ApplicationId, string DefinitionId, string Architecture, bool OffersArchitecture, bool OffersInstallScope,
-    bool OffersNetworkSplit = false);
+    bool OffersNetworkSplit = false, IReadOnlyList<string>? InstallerTypes = null);

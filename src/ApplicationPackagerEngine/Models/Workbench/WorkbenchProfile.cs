@@ -105,6 +105,7 @@ public sealed class WorkbenchProfile
         variants["Overrides"] = WorkbenchJson.NewObject();
         data["Variants"] = variants;
         data["InstallMode"] = null;
+        data["InstallerType"] = null;
         data["Timing"] = WorkbenchJson.NewObject();
         data["Execution"] = WorkbenchJson.NewObject();
         data["SourceFiles"] = new JsonArray();
