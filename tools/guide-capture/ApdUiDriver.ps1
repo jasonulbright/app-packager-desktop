@@ -51,6 +51,13 @@ function Start-Apd([string]$Exe, [string]$DataRoot, [string]$Theme, [hashtable]$
     $all = [ordered]@{ Theme = $Theme; FirstRunCompleted = $true; SiteCode = 'MCM'; ProviderMachine = 'cm01.contoso.com'; UseConfigMgr = $true }
     foreach ($k in $Settings.Keys) { $all[$k] = $Settings[$k] }
     Set-Content -LiteralPath (Join-Path $userRoot 'settings.json') -Value ($all | ConvertTo-Json -Depth 6) -Encoding Ascii
+    # The icon pack (C:\guide\icon-pack.zip, the release asset of app-packager-icons) goes into the user definitions folder of the run, so the grids show the packager icons.
+    $pack = 'C:\guide\icon-pack.zip'
+    $icons = Join-Path $userRoot 'Workbench\definitions\Icons'
+    if ((Test-Path -LiteralPath $pack) -and -not (Test-Path -LiteralPath $icons)) {
+        New-Item -ItemType Directory -Force $icons | Out-Null
+        Expand-Archive -LiteralPath $pack -DestinationPath $icons -Force
+    }
     $env:APP_PACKAGER_DATA_ROOT = $DataRoot
     $env:DOTNET_ROOT = 'C:\tools\dotnet'
     $p = Start-Process -FilePath $Exe -PassThru
