@@ -77,15 +77,23 @@ internal sealed class StubSitePowerShell : IConfigMgrSession
             $shift = switch ($Unit) { 'Minutes' { 13 } 'Hours' { 8 } default { 3 } }
             '{0:X16}' -f ($v -bor ([uint64]$Count -shl $shift))
         }
+        # The real provider leaves the lazy properties of SMS_Collection (CollectionRules, RefreshSchedule) empty on a Fast or Lazy read.
+        # The stub does the same, so that a read with a lazy option shows an empty rule list in the tests as it does on a site.
+        function global:Limit-Read([object[]]$Rows, [string]$Option) {
+            foreach ($r in $Rows) {
+                if ($Option -in 'Fast', 'Lazy' -and $null -ne $r -and $r.PSObject.Properties['CollectionRules']) { $r.CollectionRules = @(); $r.RefreshSchedule = $null }
+                $r
+            }
+        }
         function global:Invoke-CMWmiQuery {
             [CmdletBinding()] param([string]$Query, [string]$Option)
             $global:Log.Add('Invoke-CMWmiQuery')
             if ($Query -match "FROM SMS_Collection WHERE CollectionType = 2 AND CollectionID = '(\w+)'") {
                 $id = $Matches[1]
                 if ($global:Opt.ContainsKey('HideNew') -and $global:NewIds.Contains($id)) { return @() }
-                return @(Snap (Get-Col $id) | Where-Object { $null -ne $_ })
+                return @(Limit-Read @(Snap (Get-Col $id) | Where-Object { $null -ne $_ }) $Option)
             }
-            if ($Query -match 'FROM SMS_Collection WHERE CollectionType = 2$') { return @($global:Cols | ForEach-Object { Snap $_ }) }
+            if ($Query -match 'FROM SMS_Collection WHERE CollectionType = 2$') { return @(Limit-Read @($global:Cols | ForEach-Object { Snap $_ }) $Option) }
             if ($Query -match "SMS_CollectionDependencies WHERE SourceCollectionID = '(\w+)'") {
                 $id = $Matches[1]
                 return @(foreach ($c in $global:Cols) {

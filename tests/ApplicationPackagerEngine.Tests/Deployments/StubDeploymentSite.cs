@@ -81,8 +81,18 @@ internal sealed class StubDeploymentSite : IConfigMgrSession
         }
         function global:Hidden([object]$O, [string]$Key) { return $global:Opt.ContainsKey('HideNew') -and $global:NewKeys.Contains([string]$O.$Key) }
         function global:Ids([string]$Where, [string]$Name) { @([regex]::Matches($Where, "$Name = '([^']+)'") | ForEach-Object { $_.Groups[1].Value }) }
+        # The real provider leaves the lazy properties of SMS_Advertisement empty on a Fast or Lazy read. The stub does the same, so that a
+        # read with a lazy option shows no deadline and no time basis in the tests, as it does on a site.
         function global:Invoke-CMWmiQuery {
             [CmdletBinding()] param([string]$Query, [string]$Option)
+            $rows = @(Invoke-CMWmiQueryFull -Query $Query)
+            if ($Option -in 'Fast', 'Lazy' -and $Query -match 'FROM SMS_Advertisement') {
+                foreach ($r in $rows) { foreach ($n in 'PresentTimeIsGMT', 'AssignedSchedule', 'ExpirationTimeEnabled', 'AssignedScheduleEnabled') { if ($null -ne $r.PSObject.Properties[$n]) { $r.$n = $null } } }
+            }
+            $rows
+        }
+        function global:Invoke-CMWmiQueryFull {
+            [CmdletBinding()] param([string]$Query)
             $global:Log.Add('Query')
             if ($Query -match '^SELECT CI_ID, LocalizedDisplayName FROM SMS_Application WHERE IsLatest = 1$') { $global:Log.Add('NameScan') }
             if ($Query -match 'FROM (\w+)') { Test-Fail ('query:' + $Matches[1]) }
