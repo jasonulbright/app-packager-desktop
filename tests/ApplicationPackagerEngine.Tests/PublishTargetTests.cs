@@ -265,7 +265,10 @@ public sealed class PublishTargetTests : IDisposable
     [Fact]
     public async Task AGridStageRecordsTheStoredIntuneAndWsusTargetWithoutASite()
     {
+        using var scope = ApplicationPackagerEngine.Services.SiteContext.Scope(null);
         StoreTarget(DeploymentTargets.IntuneAndWsus);
+        // This test is about a run with no site: the single-site layout, because an active site always carries its code (Q-112d).
+        ApplicationPackagerEngine.Services.SiteContext.Deactivate();
         var settings = new SettingsService();
         var s = settings.Load();
         s.SiteCode = "";

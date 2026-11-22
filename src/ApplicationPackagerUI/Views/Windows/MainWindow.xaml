@@ -54,7 +54,7 @@
              Here it is also the site switcher: a click lists the known sites and Add site. The site code and the server are edited in Settings. -->
         <Border Grid.Row="2" BorderThickness="0,1,0,0" BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}" Padding="16,2">
             <ui:Button x:Name="btnSiteSwitcher" HorizontalAlignment="Right" Appearance="Transparent" Padding="8,2" Click="SiteSwitcher_Click"
-                       AutomationProperties.AutomationId="btnSiteSwitcher" AutomationProperties.Name="Site switcher"
+                       AutomationProperties.AutomationId="btnSiteSwitcher" AutomationProperties.Name="{Binding FooterText, StringFormat=Site switcher. {0}}"
                        ToolTip="The active site. Select it to switch to another site or to add a site. Each site keeps its own settings and data. The site cannot change while a run is active.">
                 <StackPanel Orientation="Horizontal">
                     <TextBlock x:Name="txtSiteFooter" Text="{Binding FooterText}" VerticalAlignment="Center" FontFamily="Segoe UI" FontSize="12" FontWeight="Normal" FontStyle="Normal" TextDecorations="{x:Null}"
