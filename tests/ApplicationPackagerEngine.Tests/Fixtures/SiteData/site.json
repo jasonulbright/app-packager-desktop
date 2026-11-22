@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "siteCode": "PCM",
+  "label": "Production",
+  "providers": ["cm01.contoso.com", "cm02.contoso.com"],
+  "createdUtc": "2026-11-22T09:00:00Z",
+  "lastUsedUtc": "2026-11-22T10:30:00Z",
+  "migratedFrom": "legacy-single-site"
+}
