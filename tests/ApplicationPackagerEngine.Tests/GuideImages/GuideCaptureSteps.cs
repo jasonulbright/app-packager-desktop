@@ -91,6 +91,13 @@ public static class GuideCaptureSteps
         ["core-publish-configmgr-log"] = "core-publish-configmgr-log",
         ["start-sidebar-context-menu"] = "start-sidebar-context-menu",
         ["tools-pivots-pivot"] = "pivots-and-scripts",
+        // The Site Hygiene import window and Live views (Capture-ToolsHygiene).
+        ["tools-site-hygiene-import"] = "tools-site-hygiene-import",
+        ["tools-site-hygiene-live-deployments"] = "tools-site-hygiene-live-deployments",
+        ["tools-site-hygiene-live-clients"] = "tools-site-hygiene-live-clients",
+        ["tools-site-hygiene-live-site-health"] = "tools-site-hygiene-live-site-health",
+        ["tools-site-hygiene-trends"] = "tools-site-hygiene-trends",
+        ["tools-site-hygiene-live-options"] = "tools-site-hygiene-live-options",
         // The update window, the command-line help and the first package (Capture-UpdateAndCli, Capture-FirstPackage).
         ["core-update-available"] = "core-update-available",
         ["core-update-ready"] = "core-update-ready",

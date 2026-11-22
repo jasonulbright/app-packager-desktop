@@ -32,14 +32,8 @@ tools-pivots-results
 tools-pivots-script
 tools-site-hygiene-alerts
 tools-site-hygiene-history
-tools-site-hygiene-import
-tools-site-hygiene-live-clients
 tools-site-hygiene-live-content
-tools-site-hygiene-live-deployments
 tools-site-hygiene-live-dps
 tools-site-hygiene-live-inactive
-tools-site-hygiene-live-options
-tools-site-hygiene-live-site-health
 tools-site-hygiene-picker
 tools-site-hygiene-plan-fix
-tools-site-hygiene-trends
