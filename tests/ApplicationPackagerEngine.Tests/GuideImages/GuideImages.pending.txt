@@ -1,9 +1,6 @@
 # Guide images that no capture step produces yet (decision D-21). The list only shrinks: add a step to GuideCaptureSteps and delete the id here.
 core-add-result-panel
 core-byo-replacement
-core-publish-wsus-row
-core-wsus-catalog-import
-core-wsus-updates-window
 tools-compliance-compliance
 tools-compliance-editor
 tools-compliance-plan

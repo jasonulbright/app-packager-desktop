@@ -91,6 +91,10 @@ public static class GuideCaptureSteps
         ["core-publish-configmgr-log"] = "core-publish-configmgr-log",
         ["start-sidebar-context-menu"] = "start-sidebar-context-menu",
         ["tools-pivots-pivot"] = "pivots-and-scripts",
+        // The WSUS publish row, the WSUS Updates window and the Catalog Import window (Capture-FirstPackage).
+        ["core-publish-wsus-row"] = "core-publish-wsus-row",
+        ["core-wsus-updates-window"] = "core-wsus-updates-window",
+        ["core-wsus-catalog-import"] = "core-wsus-catalog-import",
         // The Discover prompt and the CVE views (Capture-CoreWindows, with a throw-away Mozilla Firefox 140.0 application on the site that the caller removes).
         ["core-discover-prompt"] = "core-discover-prompt",
         ["core-packages-cve-columns"] = "core-packages-cve-columns",
