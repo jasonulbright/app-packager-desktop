@@ -99,7 +99,7 @@
       "VersionScraper": {
         "Type": "HttpRegex",
         "Url": "https://www.teamviewer.com/en-us/download/windows/",
-        "Pattern": "versionNumber&quot;:&quot;(\\d+\\.\\d+\\.\\d+)"
+        "Pattern": "versionNumber[^0-9]{1,30}(\\d+\\.\\d+\\.\\d+)"
       },
       "DownloadUrl": "https://download.teamviewer.com/download/TeamViewer_Host_Setup.exe",
       "InstallerFileName": "TeamViewer_Host_Setup.exe",

@@ -103,6 +103,19 @@ public class InstallerTypeSwitchTests
         Assert.Equal("LocalFile", host.VersionScraper.Type);
     }
 
+    [Theory]
+    [InlineData("teamviewer.json")]
+    [InlineData("teamviewerhost.json")]
+    public void TheTeamViewerVersionPatternReadsTheCurrentAndTheEarlierPageFormat(string file)
+    {
+        var def = Load(file);
+        var pattern = file == "teamviewerhost.json" ? def.InstallerTypeOverrides!["EXE"]["VersionScraper"]!["Pattern"]!.GetValue<string>() : def.VersionScraper.Pattern;
+        var current = "..\\\"versionNumber\\\":{\\\"value\\\":\\\"15.83.5\\\"},\\\"downloadItems\\\"";
+        var earlier = "versionNumber&quot;:&quot;15.83.7&quot;";
+        Assert.Equal("15.83.5", System.Text.RegularExpressions.Regex.Match(current, pattern).Groups[1].Value);
+        Assert.Equal("15.83.7", System.Text.RegularExpressions.Regex.Match(earlier, pattern).Groups[1].Value);
+    }
+
     [Fact]
     public void TheLocalSourcePromptFollowsTheSavedInstallerType()
     {
