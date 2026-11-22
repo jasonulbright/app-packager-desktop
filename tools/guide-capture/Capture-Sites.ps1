@@ -168,7 +168,7 @@ foreach ($theme in $Themes) {
             Real-Click (Need-El 'tabRings'); Start-Sleep 6
             $grid = Need-El 'dgRingPlans' 20
             $names = @($grid.FindAll([System.Windows.Automation.TreeScope]::Descendants, [System.Windows.Automation.Condition]::TrueCondition) | ForEach-Object { $_.Current.Name })
-            Check 'e2e-11 under CD2 the ring plan list has no plan of AB1' (-not ($names -contains 'AB1-Pilot-Rings')) ('rows: ' + (($names | Select-Object -First 12) -join ', '))
+            Check 'e2e-11 under CD2 the ring plan list shows the seed plans and no plan of AB1' (($names -contains 'Workstation-Rings') -and -not ($names -contains 'AB1-Pilot-Rings')) ('names: ' + (($names | Where-Object { $_ } | Select-Object -Unique) -join ', '))
         }
 
         # ---- 4. Back to AB1
@@ -183,7 +183,7 @@ foreach ($theme in $Themes) {
             Real-Click (Need-El 'tabRings'); Start-Sleep 5
             $grid2 = Need-El 'dgRingPlans' 20
             $names2 = @($grid2.FindAll([System.Windows.Automation.TreeScope]::Descendants, [System.Windows.Automation.Condition]::TrueCondition) | ForEach-Object { $_.Current.Name })
-            Check 'e2e-14 the ring plan of AB1 is listed again' ($names2 -contains 'AB1-Pilot-Rings') ('rows: ' + (($names2 | Select-Object -First 12) -join ', '))
+            Check 'e2e-14 the ring plan of AB1 is listed again' ($names2 -contains 'AB1-Pilot-Rings') ('names: ' + (($names2 | Where-Object { $_ } | Select-Object -Unique) -join ', '))
             # The last switch before the close is to CD2; the restart must open CD2 although settings.json still names AB1.
             Switch-To 'CD2 - Lab (cm.cd2.example.com)'
             Check 'e2e-14b footer shows CD2 before the close' ((Wait-Footer 'Site CD2*') -like 'Site CD2*') 'switch to CD2 failed'
