@@ -21,6 +21,9 @@ using ApplicationPackagerEngine.Scrapers;
 //   --timeout <sec>  Per-app install timeout in seconds (default 300)
 //   Exit code: 1 when any definition failed in any mode, 0 otherwise.
 //
+// Site data migration (Q-112c), live per-user locations (APP_PACKAGER_DATA_ROOT applies). Prints the report.
+//   TestHarness.exe --site-migration plan|run [--json]     exit 1 when the run failed
+//
 // Server modes (no definitions directory; each exits 0 on success, 1 otherwise):
 //   TestHarness.exe --wsus <operation> --server <name> [--port <n>] [--ssl]
 //                    [--classification <name>] [--approval-group <group>] [--decline-superseded]
@@ -42,6 +45,15 @@ using ApplicationPackagerEngine.Scrapers;
 //     ConfigMgr application for an already staged folder with the settings the UI passes:
 //     title from the manifest's title mode, the manifest's command overrides, default
 //     condition templates, Nested content layout, 15/30 runtime minutes, signing off.
+
+if (args.Contains("--site-migration"))
+{
+    var mode = args[Array.IndexOf(args, "--site-migration") + 1];
+    var report = mode.Equals("run", StringComparison.OrdinalIgnoreCase) ? SiteDataMigration.Run() : SiteDataMigration.Plan();
+    Console.WriteLine(args.Contains("--json") ? report.ToJson() : report.ToText());
+    Environment.ExitCode = report.Outcome == "Failed" ? 1 : 0;
+    return;
+}
 
 if (LabModes.Handles(args))
 {
