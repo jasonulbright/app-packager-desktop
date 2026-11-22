@@ -64,7 +64,7 @@ public class InstallerTypeSwitchTests
         Assert.Equal("/S", def.UninstallArgs);
         Assert.Contains("Uninstall.exe", def.UninstallCommand);
         Assert.Equal("RegistryKeyValue", def.Detection.Type);
-        Assert.Contains("x64.exe", def.VersionScraper.PayloadHashQuery);
+        Assert.Contains("x64\\.exe", def.VersionScraper.PayloadHashQuery);
         Assert.True(def.RequirePayloadHash);
         Assert.Equal("7-Zip (x64)", def.Application);
         Assert.Equal(def.Id, Load("7zip.json").Id);
