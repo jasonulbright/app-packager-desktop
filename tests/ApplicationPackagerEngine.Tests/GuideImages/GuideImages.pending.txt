@@ -31,3 +31,4 @@ tools-site-hygiene-live-dps
 tools-site-hygiene-live-inactive
 tools-site-hygiene-picker
 tools-site-hygiene-plan-fix
+core-cve-report-html

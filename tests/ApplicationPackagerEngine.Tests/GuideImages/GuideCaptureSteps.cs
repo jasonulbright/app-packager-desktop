@@ -95,7 +95,6 @@ public static class GuideCaptureSteps
         ["core-discover-prompt"] = "core-discover-prompt",
         ["core-packages-cve-columns"] = "core-packages-cve-columns",
         ["core-cve-window"] = "core-cve-window",
-        ["core-cve-report-html"] = "core-cve-report-html",
         ["tools-compliance-catalog"] = "tools-compliance-catalog",
         ["tools-compliance-deploy"] = "tools-compliance-deploy",
         // The Site Hygiene import window and Live views (Capture-ToolsHygiene).
