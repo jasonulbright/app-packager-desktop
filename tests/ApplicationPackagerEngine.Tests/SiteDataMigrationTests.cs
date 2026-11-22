@@ -313,6 +313,24 @@ public sealed class SiteDataMigrationTests : IDisposable
     }
 
     [Fact]
+    public void A_file_that_another_app_copied_to_the_same_destination_is_a_conflict_not_a_changed_source()
+    {
+        SeedLegacyProfile();
+        SiteDataMigration.Run(Options());
+        // The marker says another source made the copy at this destination, and this source now differs.
+        var markerPath = Path.Combine(DataRoot, "sites", "AB1", SiteDataMigration.MarkerFileName);
+        var marker = System.Text.Json.Nodes.JsonNode.Parse(File.ReadAllText(markerPath))!;
+        foreach (var entry in marker["items"]!.AsArray())
+            if (entry!["destination"]!.GetValue<string>().EndsWith("CheckConfigMgrResult.csv", StringComparison.OrdinalIgnoreCase))
+                entry["source"] = @"C:\other-app\CheckConfigMgrResult.csv";
+        File.WriteAllText(markerPath, marker.ToJsonString());
+        Write(LegacyRoot, "CheckConfigMgrResult.csv", "App,Version\nother,1\n");
+        var report = SiteDataMigration.Run(Options());
+        var item = Assert.Single(report.Items, i => i.Destination.EndsWith("CheckConfigMgrResult.csv", StringComparison.OrdinalIgnoreCase));
+        Assert.Equal(SiteMigrationStatus.Conflict, item.Status);
+    }
+
+    [Fact]
     public void A_copy_that_does_not_match_its_source_stops_the_run_and_the_old_files_stay()
     {
         SeedLegacyProfile();

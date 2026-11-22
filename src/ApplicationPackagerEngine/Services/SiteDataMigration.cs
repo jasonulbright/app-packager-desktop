@@ -312,7 +312,7 @@ public static class SiteDataMigration
             {
                 var destHash = Hash(c.Destination);
                 if (destHash == srcHash) return new SiteMigrationItem(c.Id, scope, c.Source, c.Destination, srcHash, SiteMigrationStatus.AlreadyDone, "");
-                var recorded = marker.Items.Any(m => string.Equals(m.Destination, c.Destination, StringComparison.OrdinalIgnoreCase) && m.Sha256 == destHash);
+                var recorded = marker.Items.Any(m => string.Equals(m.Destination, c.Destination, StringComparison.OrdinalIgnoreCase) && string.Equals(m.Source, c.Source, StringComparison.OrdinalIgnoreCase) && m.Sha256 == destHash);
                 return recorded
                     ? new SiteMigrationItem(c.Id, scope, c.Source, c.Destination, srcHash, SiteMigrationStatus.SourceChanged, "the source changed after the earlier copy; the copy is kept as it is")
                     : new SiteMigrationItem(c.Id, scope, c.Source, c.Destination, srcHash, SiteMigrationStatus.Conflict, $"the destination exists with different content (SHA-256 {destHash}); both are kept");
@@ -360,7 +360,7 @@ public static class SiteDataMigration
         if (conflicts.Count > 0)
         {
             var destHash = Hash(c.Destination);
-            var recorded = marker.Items.Any(m => string.Equals(m.Destination, c.Destination, StringComparison.OrdinalIgnoreCase) && m.Sha256 == destHash);
+            var recorded = marker.Items.Any(m => string.Equals(m.Destination, c.Destination, StringComparison.OrdinalIgnoreCase) && string.Equals(m.Source, c.Source, StringComparison.OrdinalIgnoreCase) && m.Sha256 == destHash);
             return new SiteMigrationItem(c.Id, scope, c.Source, c.Destination, ownedHash,
                 recorded ? SiteMigrationStatus.SourceChanged : SiteMigrationStatus.Conflict,
                 (recorded ? "the source changed after the earlier copy; kept: " : "the destination has other values for: ") + string.Join(", ", conflicts) + "; both are kept");
