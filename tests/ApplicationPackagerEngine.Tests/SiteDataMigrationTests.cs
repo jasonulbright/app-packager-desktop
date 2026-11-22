@@ -383,6 +383,36 @@ public sealed class SiteDataMigrationTests : IDisposable
         Assert.Equal("NothingChanged", SiteDataMigration.Run(Options()).Outcome);
     }
 
+
+    [Fact]
+    public void A_settings_file_written_by_another_app_is_merged_and_its_keys_are_kept()
+    {
+        SeedLegacyProfile();
+        Write(DataRoot, @"sites\AB1\settings.json", "{\"SiteCode\":\"AB1\",\"ProviderMachineName\":\"cm01.example.com\",\"FromOtherApp\":{\"a\":1}}");
+        var report = SiteDataMigration.Run(Options());
+        Assert.Equal("Migrated", report.Outcome);
+        using var merged = JsonDocument.Parse(File.ReadAllText(Path.Combine(DataRoot, @"sites\AB1\settings.json")));
+        Assert.Equal(1, merged.RootElement.GetProperty("FromOtherApp").GetProperty("a").GetInt32());
+        Assert.Equal("cm01.example.com", merged.RootElement.GetProperty("ProviderMachine").GetString());
+        Assert.Equal("AB1", merged.RootElement.GetProperty("SiteCode").GetString());
+        var tree = Snapshot(DataRoot);
+        Assert.Equal("NothingChanged", SiteDataMigration.Run(Options()).Outcome);
+        Assert.Equal(tree, Snapshot(DataRoot));
+    }
+
+    [Fact]
+    public void A_settings_key_with_another_value_is_a_conflict_and_the_file_is_not_written()
+    {
+        SeedLegacyProfile();
+        var dest = Path.Combine(DataRoot, @"sites\AB1\settings.json");
+        Write(DataRoot, @"sites\AB1\settings.json", "{\"FileShareRoot\":\"\\other.example.com\share$\"}");
+        var existing = Sha(dest);
+        var report = SiteDataMigration.Run(Options());
+        Assert.Equal(existing, Sha(dest));
+        var conflict = Assert.Single(report.Items, i => i.Status == SiteMigrationStatus.Conflict);
+        Assert.Contains("FileShareRoot", conflict.Detail);
+    }
+
     [Fact]
     public void Every_apd_entry_of_the_scope_manifest_is_accounted_for_with_the_right_scope()
     {

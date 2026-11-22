@@ -126,7 +126,8 @@ public static class SiteDataMigration
     /// <summary>Copies the site items, verifies each by SHA-256 and writes the marker. Safe to run again and after a crash.</summary>
     public static SiteMigrationReport Run(SiteMigrationOptions? options = null) => Execute(options ?? new SiteMigrationOptions(), dryRun: false);
 
-    private sealed record Candidate(string Id, string Source, string Destination, byte[]? Content);
+    /// <summary>One thing to copy. Content is set for a generated file. Owned is set for a shared JSON settings file: the top-level keys this migration owns.</summary>
+    private sealed record Candidate(string Id, string Source, string Destination, byte[]? Content, JsonObject? Owned = null);
 
     private static SiteMigrationReport Execute(SiteMigrationOptions o, bool dryRun)
     {
@@ -162,10 +163,10 @@ public static class SiteDataMigration
         // 2. Composite items built from settings.json and monitor-config.json (never a secret).
         var candidates = new List<Candidate>();
         var settingsExtract = ExtractSiteSettings(settings, Path.Combine(o.Root, "monitor-config.json"), out var dropped);
-        candidates.Add(new Candidate("settings", settingsPath, Path.Combine(siteFolder, "settings.json"), Encoding.UTF8.GetBytes(ToStable(settingsExtract))));
+        candidates.Add(new Candidate("settings", settingsPath, Path.Combine(siteFolder, "settings.json"), Encoding.UTF8.GetBytes(ToStable(settingsExtract)), settingsExtract));
         var appState = ExtractAppState(settings);
         if (appState is not null)
-            candidates.Add(new Candidate("app-state", settingsPath, Path.Combine(siteFolder, "state", "app-state.json"), Encoding.UTF8.GetBytes(ToStable(appState))));
+            candidates.Add(new Candidate("app-state", settingsPath, Path.Combine(siteFolder, "state", "app-state.json"), Encoding.UTF8.GetBytes(ToStable(appState)), appState));
 
         // 3. Plain files and folders.
         AddFile(candidates, "check-cm-result", Path.Combine(o.LegacyRoot, "CheckConfigMgrResult.csv"), Path.Combine(siteFolder, "results", "CheckConfigMgrResult.csv"));
@@ -305,6 +306,8 @@ public static class SiteDataMigration
                 }
             }
             var srcHash = c.Content is null ? Hash(c.Source) : HashBytes(c.Content);
+            if (c.Owned is not null && File.Exists(c.Destination))
+                return ProcessMerge(o, dryRun, c, marker, scope);
             if (File.Exists(c.Destination))
             {
                 var destHash = Hash(c.Destination);
@@ -332,6 +335,61 @@ public static class SiteDataMigration
         }
     }
 
+
+    /// <summary>
+    /// A shared JSON settings file (settings.json, statepp-state.json) that another app or an earlier run may have written.
+    /// Each owned top-level key is added when absent, accepted when equal, and a conflict when different. Existing keys are kept.
+    /// Nothing is written when any key conflicts.
+    /// </summary>
+    private static SiteMigrationItem ProcessMerge(SiteMigrationOptions o, bool dryRun, Candidate c, Marker marker, string scope)
+    {
+        var owned = c.Owned!;
+        var ownedHash = HashBytes(c.Content!);
+        JsonObject? existing;
+        try { existing = JsonNode.Parse(File.ReadAllText(c.Destination)) as JsonObject; }
+        catch (JsonException) { existing = null; }
+        if (existing is null)
+            return new SiteMigrationItem(c.Id, scope, c.Source, c.Destination, ownedHash, SiteMigrationStatus.Conflict, "the destination exists and is not a JSON object; kept");
+        var conflicts = new List<string>();
+        var toAdd = new List<string>();
+        foreach (var (key, value) in owned)
+        {
+            if (!existing.ContainsKey(key)) toAdd.Add(key);
+            else if (Canonical(existing[key]) != Canonical(value)) conflicts.Add(key);
+        }
+        if (conflicts.Count > 0)
+        {
+            var destHash = Hash(c.Destination);
+            var recorded = marker.Items.Any(m => string.Equals(m.Destination, c.Destination, StringComparison.OrdinalIgnoreCase) && m.Sha256 == destHash);
+            return new SiteMigrationItem(c.Id, scope, c.Source, c.Destination, ownedHash,
+                recorded ? SiteMigrationStatus.SourceChanged : SiteMigrationStatus.Conflict,
+                (recorded ? "the source changed after the earlier copy; kept: " : "the destination has other values for: ") + string.Join(", ", conflicts) + "; both are kept");
+        }
+        if (toAdd.Count == 0)
+            return new SiteMigrationItem(c.Id, scope, c.Source, c.Destination, Hash(c.Destination), SiteMigrationStatus.AlreadyDone, "");
+        foreach (var key in toAdd) existing[key] = owned[key]!.DeepClone();
+        var bytes = Encoding.UTF8.GetBytes(ToStable(existing));
+        var hash = HashBytes(bytes);
+        if (dryRun) return new SiteMigrationItem(c.Id, scope, c.Source, c.Destination, hash, SiteMigrationStatus.Planned, "adds keys: " + string.Join(", ", toAdd));
+        WriteVerified(c.Destination, bytes, o.Hook, hash, overwrite: true);
+        return new SiteMigrationItem(c.Id, scope, c.Source, c.Destination, hash, SiteMigrationStatus.Copied, "adds keys: " + string.Join(", ", toAdd));
+    }
+
+    /// <summary>Compact JSON with object keys in ordinal order, so two equal values compare equal.</summary>
+    private static string Canonical(JsonNode? node)
+    {
+        switch (node)
+        {
+            case null: return "null";
+            case JsonObject obj:
+                return "{" + string.Join(",", obj.OrderBy(p => p.Key, StringComparer.Ordinal).Select(p => JsonSerializer.Serialize(p.Key) + ":" + Canonical(p.Value))) + "}";
+            case JsonArray arr:
+                return "[" + string.Join(",", arr.Select(Canonical)) + "]";
+            default:
+                return node.ToJsonString();
+        }
+    }
+
     // ---- copy with verification ----
 
     private sealed class SiteMigrationVerifyException(string message) : Exception(message);
@@ -347,16 +405,16 @@ public static class SiteDataMigration
         FinishCopy(temp, destination, expectedHash, hook);
     }
 
-    private static void WriteVerified(string destination, byte[] content, Action<string, string>? hook, string? expectedHash = null)
+    private static void WriteVerified(string destination, byte[] content, Action<string, string>? hook, string? expectedHash = null, bool overwrite = false)
     {
         Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
         var temp = destination + ".migrating";
         if (File.Exists(temp)) File.Delete(temp);
         File.WriteAllBytes(temp, content);
-        FinishCopy(temp, destination, expectedHash ?? HashBytes(content), hook);
+        FinishCopy(temp, destination, expectedHash ?? HashBytes(content), hook, overwrite);
     }
 
-    private static void FinishCopy(string temp, string destination, string expectedHash, Action<string, string>? hook)
+    private static void FinishCopy(string temp, string destination, string expectedHash, Action<string, string>? hook, bool overwrite = false)
     {
         hook?.Invoke("temp-written", destination);
         var actual = Hash(temp);
@@ -365,7 +423,7 @@ public static class SiteDataMigration
             File.Delete(temp);
             throw new SiteMigrationVerifyException($"The copy of {destination} did not match its source (expected {expectedHash}, got {actual}). The old files stay in use.");
         }
-        File.Move(temp, destination);
+        File.Move(temp, destination, overwrite);
         if (Hash(destination) != expectedHash)
             throw new SiteMigrationVerifyException($"The copy {destination} did not verify after the move.");
     }
