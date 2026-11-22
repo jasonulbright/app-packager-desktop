@@ -140,7 +140,7 @@ public static class SiteDataMigration
         {
             settings = JsonNode.Parse(File.ReadAllText(settingsPath), documentOptions: new JsonDocumentOptions { AllowTrailingCommas = true, CommentHandling = JsonCommentHandling.Skip }) as JsonObject;
         }
-        catch (JsonException) { }
+        catch (Exception ex) when (ex is JsonException or IOException or UnauthorizedAccessException) { }
         if (settings is null)
             return Refuse(dryRun, "NothingMigrated", "No site code is configured: settings.json is not a valid JSON object.");
         var saved = settings["SiteCodeSaved"] is JsonValue sv && sv.TryGetValue<bool>(out var b) && b;
@@ -158,7 +158,12 @@ public static class SiteDataMigration
         // 1. site.json: identity. Written once. An existing valid file stays as it is.
         var siteJson = Path.Combine(siteFolder, "site.json");
         var provider = settings["ProviderMachine"] is JsonValue pv && pv.TryGetValue<string>(out var ps) ? ps : "";
-        items.Add(HandleSiteJson(o, dryRun, siteCode, siteFolder, siteJson, provider));
+        try { items.Add(HandleSiteJson(o, dryRun, siteCode, siteFolder, siteJson, provider)); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or SiteMigrationVerifyException)
+        {
+            items.Add(new SiteMigrationItem("site.json", "site", "(identity)", siteJson, "", SiteMigrationStatus.Failed, ex.Message));
+            return new SiteMigrationReport(dryRun, siteCode, siteFolder, "Failed", "", items);
+        }
 
         // 2. Composite items built from settings.json and monitor-config.json (never a secret).
         var candidates = new List<Candidate>();
@@ -176,7 +181,7 @@ public static class SiteDataMigration
         AddFile(candidates, "deployments", Path.Combine(o.Root, "Deployments", "deployment-audit.jsonl"), Path.Combine(siteFolder, "deployments", "audit.jsonl"));
         AddFolder(candidates, "hygiene", Path.Combine(o.Root, "SiteHygiene"), Path.Combine(siteFolder, "hygiene"), items);
         AddFolder(candidates, "dpcontent", Path.Combine(o.Root, "DpContent"), Path.Combine(siteFolder, "dpcontent"), items);
-        AddFolder(candidates, "pivots", Path.Combine(o.Root, "PivotsScripts", "Sessions"), Path.Combine(siteFolder, "pivots", "sessions"), items);
+        AddFolder(candidates, "pivots", Path.Combine(o.Root, "PivotsScripts", "Sessions"), Path.Combine(siteFolder, "pivots", "sessions"), items, siteCode);
         AddFolder(candidates, "maintenance", Path.Combine(o.Root, "MaintenanceWindows", "Reports"), Path.Combine(siteFolder, "maintenance", "reports"), items);
         AddFolder(candidates, "collections", Path.Combine(o.Root, "Collections", "Reports"), Path.Combine(siteFolder, "collections", "reports"), items);
 
@@ -225,7 +230,7 @@ public static class SiteDataMigration
         if (File.Exists(source)) list.Add(new Candidate(id, source, destination, null));
     }
 
-    private static void AddFolder(List<Candidate> list, string id, string sourceDir, string destDir, List<SiteMigrationItem> report)
+    private static void AddFolder(List<Candidate> list, string id, string sourceDir, string destDir, List<SiteMigrationItem> report, string? siteCode = null)
     {
         if (!Directory.Exists(sourceDir)) return;
         if (AppDataPaths.IsReparsePointDirectory(sourceDir))
@@ -241,8 +246,25 @@ public static class SiteDataMigration
                 report.Add(new SiteMigrationItem(id, "site", file, "", "", SiteMigrationStatus.Blocked, "the path crosses a junction or symbolic link"));
                 continue;
             }
+            if (id == "pivots" && SessionSite(file) is { } other && other != siteCode)
+            {
+                report.Add(new SiteMigrationItem(id, "site", file, "", "", SiteMigrationStatus.Blocked, $"the session names site {other}, not this site; run the migration for that site"));
+                continue;
+            }
             list.Add(new Candidate(id, file, Path.Combine(destDir, relative), null));
         }
+    }
+
+    /// <summary>The site code inside a Pivots session file when it is a valid code, else null.</summary>
+    private static string? SessionSite(string file)
+    {
+        try
+        {
+            if (JsonNode.Parse(File.ReadAllText(file)) is JsonObject o && o["SiteCode"] is JsonValue v && v.TryGetValue<string>(out var code)
+                && SiteDataPaths.IsValidSiteCode(code)) return code.ToUpperInvariant();
+        }
+        catch (Exception ex) when (ex is JsonException or IOException or UnauthorizedAccessException) { }
+        return null;
     }
 
     private static bool IsUnderReparsePoint(string root, string file)
@@ -270,7 +292,7 @@ public static class SiteDataMigration
                 return new SiteMigrationItem(Id, "site", "(identity)", path, Hash(path), ok ? SiteMigrationStatus.AlreadyDone : SiteMigrationStatus.Conflict,
                     ok ? "exists" : "site.json exists for another site code; kept");
             }
-            catch (Exception ex) when (ex is JsonException or IOException)
+            catch (Exception ex) when (ex is JsonException or IOException or UnauthorizedAccessException)
             {
                 return new SiteMigrationItem(Id, "site", "(identity)", path, "", SiteMigrationStatus.Conflict, "site.json exists and is not valid JSON; kept");
             }
@@ -466,10 +488,9 @@ public static class SiteDataMigration
             var o = new JsonObject();
             foreach (var key in new[] { "CurrentVersion", "LastStaged", "Published", "NotSupported" })
                 if (app[key] is JsonNode n) o[key] = n.DeepClone();
+            Sanitize(o, "", new List<string>());
             result[id] = o;
         }
-        var dropped = new List<string>();
-        Sanitize(result, "", dropped);
         return result;
     }
 

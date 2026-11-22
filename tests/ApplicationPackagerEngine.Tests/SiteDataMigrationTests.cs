@@ -331,6 +331,23 @@ public sealed class SiteDataMigrationTests : IDisposable
     }
 
     [Fact]
+    public void An_application_id_that_looks_like_a_secret_name_keeps_its_state_and_a_session_of_another_site_is_blocked()
+    {
+        SeedLegacyProfile();
+        var settingsPath = Path.Combine(Root, "settings.json");
+        var node = System.Text.Json.Nodes.JsonNode.Parse(File.ReadAllText(settingsPath))!;
+        node["AppStates"]!["1Password"] = System.Text.Json.Nodes.JsonNode.Parse("{\"CurrentVersion\":\"8.1\"}");
+        File.WriteAllText(settingsPath, node.ToJsonString());
+        Write(Root, Path.Combine("PivotsScripts", "Sessions", "s2.json"), "{\"SiteCode\":\"CD2\"}");
+        var report = SiteDataMigration.Run(Options());
+        using var state = JsonDocument.Parse(File.ReadAllText(Path.Combine(DataRoot, "sites", "AB1", "state", "app-state.json")));
+        Assert.Equal("8.1", state.RootElement.GetProperty("1Password").GetProperty("CurrentVersion").GetString());
+        Assert.Contains(report.Items, i => i.Status == SiteMigrationStatus.Blocked && i.Source.EndsWith("s2.json"));
+        Assert.False(File.Exists(Path.Combine(DataRoot, "sites", "AB1", "pivots", "sessions", "s2.json")));
+        Assert.True(File.Exists(Path.Combine(DataRoot, "sites", "AB1", "pivots", "sessions", "s1.json")));
+    }
+
+    [Fact]
     public void A_copy_that_does_not_match_its_source_stops_the_run_and_the_old_files_stay()
     {
         SeedLegacyProfile();
