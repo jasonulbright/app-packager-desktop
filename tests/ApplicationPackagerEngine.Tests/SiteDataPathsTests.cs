@@ -30,9 +30,9 @@ public sealed class SiteDataPathsTests
     private static readonly Dictionary<string, string> Pins = new()
     {
         ["scope-manifest.json"] = "b6ef8da676de41bdd067f390baa586bdacd2dcf85284d5f05170d13fed8f3307",
-        ["site-cases.json"] = "bef79e14b8a5628b6758f105dba609105a8529a4820d627b751203b2fa0c3e45",
-        ["site.json"] = "d06e0b9cd62833749a1ee85c324b29f33ac475c29ffe85e798b67a9e38307afe",
-        ["active-site.json"] = "668f50612694c88f6ef1c7dacf8c6e3d9b5b08ff5e71c8f3c77d5a60826202ee",
+        ["site-cases.json"] = "63a8b5795cd11d61a568fca5dc9790dc76669adef0edec4c32ae89ba9715f412",
+        ["site.json"] = "33d8b80f2f64057407b1907efb66cd28f3fded7151397ccf5f35be68150215ca",
+        ["active-site.json"] = "1a82f657c57f72a8f21ef2445dab9225a3a91e9c2e748d3802dca40ed7e30500",
         ["site.schema.json"] = "677036729cf4f1752025a85ce9802cf607340b7e7c4b96ee13a06450d48658c3",
         ["active-site.schema.json"] = "2d1c07be15d6794f47df54be5e83e4c7ce38afe27a59e138b084f55ea678ef0c",
         ["scope-manifest.schema.json"] = "8e9ed900f7146eda3a1bcced89c6a7b54c5ece292ce9c7b7bbeb91e2e995e345",
@@ -128,7 +128,7 @@ public sealed class SiteDataPathsTests
     [Fact]
     public void Tool_and_area_are_exclusive()
     {
-        Assert.Throws<ArgumentException>(() => SiteDataPaths.GetSiteFolder("PCM", "a", "b", "C:\\x"));
+        Assert.Throws<ArgumentException>(() => SiteDataPaths.GetSiteFolder("AB1", "a", "b", "C:\\x"));
     }
 
     [Fact]
@@ -160,19 +160,19 @@ public sealed class SiteDataPathsTests
             Assert.Null(SiteDataPaths.GetActiveSite(root, _ => null));
             File.Copy(Fx("active-site.json"), Path.Combine(root, "active-site.json"));
             var fromFile = SiteDataPaths.GetActiveSite(root, _ => null);
-            Assert.Equal(new ActiveSite("PCM", "active-site.json"), fromFile);
+            Assert.Equal(new ActiveSite("AB1", "active-site.json"), fromFile);
 
-            string? Env(string n) => n == "APP_PACKAGER_SITE" ? "dcm" : null;
-            Assert.Equal(new ActiveSite("DCM", "APP_PACKAGER_SITE"), SiteDataPaths.GetActiveSite(root, Env));
-            string? Both(string n) => n == "SUITE_CM_SITECODE" ? "TCM~2" : "dcm";
-            Assert.Equal(new ActiveSite("TCM~2", "SUITE_CM_SITECODE"), SiteDataPaths.GetActiveSite(root, Both));
+            string? Env(string n) => n == "APP_PACKAGER_SITE" ? "cd2" : null;
+            Assert.Equal(new ActiveSite("CD2", "APP_PACKAGER_SITE"), SiteDataPaths.GetActiveSite(root, Env));
+            string? Both(string n) => n == "SUITE_CM_SITECODE" ? "EF3~2" : "cd2";
+            Assert.Equal(new ActiveSite("EF3~2", "SUITE_CM_SITECODE"), SiteDataPaths.GetActiveSite(root, Both));
             Assert.Equal(fromFile, SiteDataPaths.GetActiveSite(root, n => n == "SUITE_CM_SITECODE" ? "..\\x" : null));
         }
         finally { Directory.Delete(root, true); }
     }
 
     [Theory]
-    [InlineData("{\"schemaVersion\":2,\"siteCode\":\"PCM\",\"changedUtc\":\"2026-11-22T10:30:00Z\"}")]
+    [InlineData("{\"schemaVersion\":2,\"siteCode\":\"AB1\",\"changedUtc\":\"2026-11-22T10:30:00Z\"}")]
     [InlineData("{\"schemaVersion\":1,\"siteCode\":\"AUX\",\"changedUtc\":\"2026-11-22T10:30:00Z\"}")]
     [InlineData("{\"schemaVersion\":1,\"siteCode\":5}")]
     [InlineData("[1]")]

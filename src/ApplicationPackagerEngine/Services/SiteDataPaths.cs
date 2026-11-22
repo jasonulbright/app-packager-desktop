@@ -3,7 +3,7 @@ using System.Text.RegularExpressions;
 
 namespace ApplicationPackagerEngine.Services;
 
-/// <summary>A parsed site folder name: the site code and the ordinal (1 for PCM, 2 for PCM~2).</summary>
+/// <summary>A parsed site folder name: the site code and the ordinal (1 for AB1, 2 for AB1~2).</summary>
 public sealed record SiteFolderName(string SiteCode, int Ordinal)
 {
     public string FolderName => Ordinal > 1 ? $"{SiteCode}~{Ordinal}" : SiteCode;
@@ -54,7 +54,7 @@ public static partial class SiteDataPaths
         && SiteCodePattern().IsMatch(value)
         && !ReservedSiteCodes.Contains(value.ToUpperInvariant(), StringComparer.Ordinal);
 
-    /// <summary>Parses PCM or PCM~2. Returns false for an invalid name.</summary>
+    /// <summary>Parses AB1 or AB1~2. Returns false for an invalid name.</summary>
     public static bool TryParseFolderName(string? value, out SiteFolderName? parsed)
     {
         parsed = null;
@@ -68,7 +68,7 @@ public static partial class SiteDataPaths
 
     public static bool IsValidFolderName(string? value) => TryParseFolderName(value, out _);
 
-    /// <summary>The first free folder name for a site code: PCM, PCM~2, PCM~3. Names compare without regard to case.</summary>
+    /// <summary>The first free folder name for a site code: AB1, AB1~2, AB1~3. Names compare without regard to case.</summary>
     public static string NextFreeFolderName(string siteCode, IEnumerable<string>? existingNames = null)
     {
         if (!IsValidSiteCode(siteCode)) throw new ArgumentException($"Invalid site code: '{siteCode}'.", nameof(siteCode));
