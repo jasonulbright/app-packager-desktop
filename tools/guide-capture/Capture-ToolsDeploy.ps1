@@ -15,7 +15,7 @@ param(
     [Parameter(Mandatory)][string]$Run,
     [string[]]$Themes = @('Light', 'Dark'),
     [string]$AppFolder = $PSScriptRoot,
-    [string]$Application = 'Doc Demo Reader 1.0',
+    [string]$Application = 'CMTrace Open',
     [string]$EmptyCollection = 'Zone 13'
 )
 $ErrorActionPreference = 'Stop'
@@ -40,6 +40,9 @@ function Confirm-Plan([int]$Seconds = 180) {
     $deadline = (Get-Date).AddSeconds($Seconds)
     while ((Get-Date) -lt $deadline -and -not $close) {
         Start-Sleep 3
+        # An undo asks once more before it removes a deployment: answer it with the button of the question.
+        $ask = Find-El $null $null 'Remove deployment' 'Button' -Timeout 1
+        if ($ask -and -not $ask.Current.IsOffscreen -and $ask.Current.IsEnabled) { Click-El $ask; Start-Sleep 2 }
         $c = Find-El $null 'btnChangePlanClose' -Timeout 1
         if ($c -and -not $c.Current.IsOffscreen -and $c.Current.IsEnabled) { $close = $c }
     }
@@ -48,6 +51,13 @@ function Confirm-Plan([int]$Seconds = 180) {
     "plan result: " + $(if ($r) { $r.Current.Name } else { '(no text)' })
     Start-Sleep 1
     $close
+}
+
+# Confirms the open plan, says its result, and closes its window.
+function Finish-Plan([int]$Seconds = 180) {
+    $all = @(Confirm-Plan $Seconds)
+    if ($all.Count -gt 1) { $all[0..($all.Count - 2)] }
+    Real-Click $all[$all.Count - 1]
 }
 
 foreach ($theme in $Themes) {
@@ -78,6 +88,24 @@ foreach ($theme in $Themes) {
             Shot 'tools-deployment-helper-distribute-create'
             Cancel-Plan
             Set-Check (Need-El 'chkDistributeFirst') $false
+        }
+        # A real Available deployment of the application to the empty collection: the History tab then holds its create record. The Undo of the Deploy tab removes it again.
+        Step 'tools-deployment-helper-history' {
+            Real-Click (Need-El 'rbAvailable'); Start-Sleep 1
+            Invoke-El (Need-El 'btnValidate'); Start-Sleep 1; Start-Sleep 8
+            Invoke-El (Need-El 'btnDeploy'); Start-Sleep 1
+            $null = Wait-Window 'btnChangePlanCancel' 60
+            Finish-Plan; Start-Sleep 3
+            Tab 'tabHistory'; Start-Sleep 3
+            Real-Click (Need-El 'btnHistoryRefresh'); Start-Sleep 4
+            $null = Pick-First 'dgHistory'
+            Shot 'tools-deployment-helper-history'
+        }
+        Step 'tools-deployment-helper-history-undo' {
+            Tab 'tabDeploy'; Start-Sleep 2
+            Invoke-El (Need-El 'btnDeploymentUndo'); Start-Sleep 1
+            $null = Wait-Window 'btnChangePlanCancel' 60
+            Finish-Plan; Start-Sleep 3
         }
         # ---- Rings
         Step 'tools-deployment-rings-plan-editor' {
@@ -111,7 +139,32 @@ foreach ($theme in $Themes) {
             Shot 'tools-deployment-rings-plan-required'
             Cancel-Plan
         }
+
+        # A real run with its first ring on the empty collection: the run list then shows an open run with its rings. Undo run removes it again.
+        Step 'tools-deployment-rings-open-runs' {
+            # Hold the later rings: only the first ring is created, so the run stays open and the other rings wait.
+            Set-Check (Need-El 'chkRingHold') $true
+            Invoke-El (Need-El 'btnRingValidate'); Start-Sleep 1; Start-Sleep 12
+            Invoke-El (Need-El 'btnRingCreate'); Start-Sleep 1
+            $null = Wait-Window 'btnChangePlanCancel' 60
+            Finish-Plan; Start-Sleep 4
+            Real-Click (Need-El 'btnRingsRefresh'); Start-Sleep 8
+            # The run list is below the form and the result of the plan: scroll it into view, select the open run, then show the run and its rings.
+            # The page scrolls above the pinned action bar; the run list is the last card, so scroll to the end of the page.
+            [System.Windows.Forms.Cursor]::Position = New-Object System.Drawing.Point 1000, 400
+            for ($i = 0; $i -lt 40; $i++) { [ApdW]::mouse_event(0x0800, 0, 0, [uint32]4294967176, [UIntPtr]::Zero); Start-Sleep -Milliseconds 150 }
+            Start-Sleep 2
+            try { $null = Pick-First 'dgRingRuns' 0 15 } catch { "no run row to select: $($_.Exception.Message)" }
+            Start-Sleep 2
+            Shot 'tools-deployment-rings-open-runs'
+        }
+        Step 'tools-deployment-rings-undo-run' {
+            Invoke-El (Need-El 'btnRingUndo'); Start-Sleep 1
+            $null = Wait-Window 'btnChangePlanCancel' 60
+            Finish-Plan; Start-Sleep 3
+        }
     }
     finally { Stop-Apd }
 }
+
 

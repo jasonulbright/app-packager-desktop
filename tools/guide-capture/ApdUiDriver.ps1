@@ -44,11 +44,12 @@ function Save-Shot([string]$Path, [int[]]$Rect, [switch]$MaskFooter) {
 }
 
 # Writes settings.json for the isolated data folder and starts the app maximized. Returns the process.
-function Start-Apd([string]$Exe, [string]$DataRoot, [string]$Theme, [hashtable]$Settings = @{}) {
+function Start-Apd([string]$Exe, [string]$DataRoot, [string]$Theme, [hashtable]$Settings = @{}, [string[]]$Arguments = @()) {
     $sid = [Security.Principal.WindowsIdentity]::GetCurrent().User.Value
     $userRoot = Join-Path $DataRoot (Join-Path 'Users' $sid)
     New-Item -ItemType Directory -Force $userRoot | Out-Null
-    $all = [ordered]@{ Theme = $Theme; FirstRunCompleted = $true; SiteCode = 'MCM'; ProviderMachine = 'cm01.contoso.com'; UseConfigMgr = $true }
+    # CheckForUpdatesAtStartup is off: the update window of a newer release must not cover a page in the image (Capture-UpdateAndCli opens it with its own button).
+    $all = [ordered]@{ Theme = $Theme; FirstRunCompleted = $true; SiteCode = 'MCM'; ProviderMachine = 'cm01.contoso.com'; UseConfigMgr = $true; CheckForUpdatesAtStartup = $false }
     foreach ($k in $Settings.Keys) { $all[$k] = $Settings[$k] }
     Set-Content -LiteralPath (Join-Path $userRoot 'settings.json') -Value ($all | ConvertTo-Json -Depth 6) -Encoding Ascii
     # The icon pack (C:\guide\icon-pack.zip, the release asset of app-packager-icons) goes into the user definitions folder of the run, so the grids show the packager icons.
@@ -60,7 +61,7 @@ function Start-Apd([string]$Exe, [string]$DataRoot, [string]$Theme, [hashtable]$
     }
     $env:APP_PACKAGER_DATA_ROOT = $DataRoot
     $env:DOTNET_ROOT = 'C:\tools\dotnet'
-    $p = Start-Process -FilePath $Exe -PassThru
+    $p = if ($Arguments) { Start-Process -FilePath $Exe -ArgumentList $Arguments -PassThru } else { Start-Process -FilePath $Exe -PassThru }
     $deadline = (Get-Date).AddSeconds(45)
     while ((Get-Date) -lt $deadline -and $p.MainWindowHandle -eq 0) { Start-Sleep -Milliseconds 500; $p.Refresh() }
     if ($p.MainWindowHandle -eq 0) { Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue; throw 'no main window' }

@@ -31,14 +31,6 @@ if (-not (Test-Path $sample)) {
     Invoke-WebRequest -UseBasicParsing ($putty + $file) -OutFile $sample
 }
 "sample: $((Get-Item $sample).Length) bytes"
-# The installer of another product for the replacement revision of the bring-your-own application: the 7-Zip MSI.
-$other = Join-Path $Run 'sample\other-x64.msi'
-if (-not (Test-Path $other)) {
-    $rel = Invoke-RestMethod -UseBasicParsing 'https://api.github.com/repos/ip7z/7zip/releases/latest' -Headers @{ 'User-Agent' = 'guide-capture' }
-    $asset = $rel.assets | Where-Object { $_.name -like '7z*-x64.msi' } | Select-Object -First 1
-    Invoke-WebRequest -UseBasicParsing $asset.browser_download_url -OutFile $other
-}
-"other: $((Get-Item $other).Length) bytes"
 
 foreach ($theme in $Themes) {
     $data = Start-RunApp $exe $theme @{ Systems = @{ ConfigMgr = $true; Intune = $false; Wsus = $false } }
@@ -106,16 +98,6 @@ foreach ($theme in $Themes) {
             Click-El $save; Start-Sleep 4
             if (-not (Wait-El 'btnAddResultDone' 30)) { throw "no result panel: $((Need-El 'txtAddFileStatus').Current.Name)" }
             Shot 'core-add-result-panel'
-            # Open in Workbench: the bring-your-own application of the saved file; Replace installer opens the replacement revision dialog.
-            Click-El (Need-El 'btnAddResultWorkbench'); Start-Sleep 5
-            Step 'core-byo-replacement' {
-                Click-El (Need-Name 'Replace installer...' 'Button'); Start-Sleep 2
-                Send-DialogPath $other
-                Start-Sleep 6
-                Shot 'core-byo-replacement'
-                [System.Windows.Forms.SendKeys]::SendWait('{ESC}'); Start-Sleep 2
-            }
-            Close-Front
             $done = Find-El $null 'btnAddResultDone' -Timeout 5
             if ($done) { Invoke-El $done; Start-Sleep 2 }
         }

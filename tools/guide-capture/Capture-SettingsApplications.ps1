@@ -101,6 +101,17 @@ foreach ($theme in $Themes) {
         Choose-Item (Find-El $w 'cboBulkValue' -Timeout 5) 'Replace'
         Click-El (Find-El $w 'btnBulkApply' -Timeout 5); Start-Sleep -Milliseconds 800
 
+        # The installer type of 7-Zip with the mouse: the column is not on at the start, so choose it in the column chooser first.
+        Click-El (Find-El $w 'btnColumns' -Timeout 5); Start-Sleep -Milliseconds 800
+        $item = Find-El $null $null 'Installer type' 'MenuItem' -Timeout 5
+        Check ($null -ne $item) "$theme the column chooser lists Installer type"
+        if ($item) { Click-El $item; Start-Sleep -Milliseconds 700 }
+        [System.Windows.Forms.SendKeys]::SendWait('{ESC}'); Start-Sleep -Milliseconds 700
+        $row = Find-GridRow $grid '7-Zip'
+        $cell = $row.FindFirst([System.Windows.Automation.TreeScope]::Descendants, (New-Object System.Windows.Automation.PropertyCondition ([System.Windows.Automation.AutomationElement]::NameProperty), 'Installer type of the application'))
+        if (-not $cell) { throw 'The row of 7-Zip has no installer type cell.' }
+        Choose-Item $cell 'EXE'
+
         # One cell of a row with the mouse: the package source of 7-Zip.
         $row = Find-GridRow $grid '7-Zip'
         $cell = $row.FindFirst([System.Windows.Automation.TreeScope]::Descendants, (New-Object System.Windows.Automation.PropertyCondition ([System.Windows.Automation.AutomationElement]::NameProperty), 'Package source of the application'))
@@ -175,6 +186,7 @@ foreach ($theme in $Themes) {
         $conditions = $json.DeploymentConditions
         Check ($conditions.$bitwardenId.InstallMode -eq 'CurrentUser') "$theme settings.json: Bitwarden install scope is CurrentUser"
         Check ($conditions.$sevenZipId.Architecture -eq 'ARM64') "$theme settings.json: 7-Zip package source is ARM64"
+        Check ($conditions.$sevenZipId.InstallerType -eq 'EXE') "$theme settings.json: 7-Zip installer type is EXE"
         Check ($null -eq $conditions.$sevenZipId.InstallMode -or $conditions.$sevenZipId.InstallMode -eq '') "$theme settings.json: 7-Zip has no install scope (the installer offers none)"
         $overrides = $json.Supersedence.TitleOverrides.PSObject.Properties
         Check (@($overrides | Where-Object { $_.Value.Mode -eq 'Replace' }).Count -eq 1) "$theme settings.json: one application has the supersedence mode Replace"
