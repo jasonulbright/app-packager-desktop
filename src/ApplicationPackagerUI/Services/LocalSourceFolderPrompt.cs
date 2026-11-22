@@ -19,10 +19,12 @@ public static class LocalSourceFolderPrompt
     /// The definition as it stages for the Installer type saved for the application (EXE or MSI): an EXE type that needs no local source
     /// must not ask for a folder because the default type does.
     /// </summary>
-    public static AppDefinition? ForInstallerType(AppDefinition? def, AppSettings settings) =>
-        def is not null && settings.DeploymentConditions.TryGetValue(def.Id, out var entry)
-            ? ApplicationPackagerEngine.Services.InstallerTypeSwitch.Apply(def, entry.InstallerType)
-            : def;
+    public static AppDefinition? ForInstallerType(AppDefinition? def, AppSettings settings)
+    {
+        if (def is null || !settings.DeploymentConditions.TryGetValue(def.Id, out var entry)) return def;
+        try { return ApplicationPackagerEngine.Services.InstallerTypeSwitch.Apply(def, entry.InstallerType); }
+        catch (Exception ex) when (ex is System.Text.Json.JsonException or InvalidOperationException) { return def; }
+    }
 
     /// <param name="rows">The selected rows in run order.</param>
     /// <param name="definitionOf">The row's definition, or null for a row with none.</param>
