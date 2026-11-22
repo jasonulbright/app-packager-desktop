@@ -23,11 +23,11 @@
             <TextBlock Text="Each site keeps its own settings and data. Adding a site makes it the active site." TextWrapping="Wrap" FontSize="12"
                        Foreground="{DynamicResource TextFillColorSecondaryBrush}" Margin="0,0,0,12" />
             <TextBlock Text="Site code" FontSize="12" Margin="0,0,0,4" Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
-            <TextBox x:Name="txtSiteCode" Text="{Binding SiteCode, UpdateSourceTrigger=PropertyChanged}" MaxLength="3" Margin="0,0,0,10"
+            <TextBox x:Name="txtSiteCode" Text="{Binding SiteCode, UpdateSourceTrigger=PropertyChanged}" MaxLength="3" Margin="0,0,0,8"
                      AutomationProperties.Name="Site code" AutomationProperties.AutomationId="txtAddSiteCode"
                      ToolTip="The three-character ConfigMgr site code, for example AB1. It names the site's data folder." />
             <TextBlock Text="SMS Provider" FontSize="12" Margin="0,0,0,4" Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
-            <TextBox Text="{Binding Provider, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,10"
+            <TextBox Text="{Binding Provider, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,8"
                      AutomationProperties.Name="SMS Provider" AutomationProperties.AutomationId="txtAddSiteProvider"
                      ToolTip="The server that runs the SMS Provider of this site, for example provider.example.com. You can add it later in Settings." />
             <TextBlock Text="Label (optional)" FontSize="12" Margin="0,0,0,4" Foreground="{DynamicResource TextFillColorSecondaryBrush}" />

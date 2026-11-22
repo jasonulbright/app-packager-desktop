@@ -106,7 +106,6 @@ public sealed class SiteSwitcherRenderTests : IDisposable
             Assert.False(string.IsNullOrWhiteSpace(switcher.ToolTip as string), $"{where}: the switcher has no tooltip.");
             Assert.Contains("switch", (string)switcher.ToolTip, StringComparison.OrdinalIgnoreCase);
             Assert.Equal("Site switcher. " + text.Text, System.Windows.Automation.AutomationProperties.GetName(switcher));
-            window.Close();
         });
     }
 
