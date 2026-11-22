@@ -21,7 +21,7 @@ public sealed class DpContentReportWriter(string? folder = null, Func<DateTimeOf
 
     private readonly Func<DateTimeOffset> _clock = clock ?? (() => DateTimeOffset.Now);
 
-    public static string DefaultFolder() => Path.Combine(AppDataPaths.Root, "DpContent", "Reports");
+    public static string DefaultFolder() => SiteContext.Resolve(Path.Combine(SiteContext.Areas.DpContent, "Reports"), () => Path.Combine(AppDataPaths.Root, "DpContent", "Reports"));
 
     public string Folder => folder ?? DefaultFolder();
 

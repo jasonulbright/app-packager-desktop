@@ -41,7 +41,7 @@ public sealed class HygieneAuditLog : IHygieneAuditLog
         _user = user ?? (() => System.Security.Principal.WindowsIdentity.GetCurrent().Name);
     }
 
-    public static string DefaultPath() => System.IO.Path.Combine(AppDataPaths.Root, "SiteHygiene", FileName);
+    public static string DefaultPath() => System.IO.Path.Combine(HygieneFolders.Root(), FileName);
 
     public string Path => _path() is { } custom && !string.IsNullOrWhiteSpace(custom) ? custom.Trim() : DefaultPath();
 

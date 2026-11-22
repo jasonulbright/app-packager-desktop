@@ -33,7 +33,7 @@ public sealed partial class PivotsSessionStore(string? folder = null, IAppLog? l
     [GeneratedRegex("^[a-f0-9]{32}$")]
     private static partial Regex IdRegex();
 
-    public static string DefaultFolder() => Path.Combine(PivotsFolders.Root(), "Sessions");
+    public static string DefaultFolder() => SiteContext.Resolve(SiteContext.Areas.PivotsSessions, () => Path.Combine(PivotsFolders.Root(), "Sessions"));
 
     public string Folder => folder ?? DefaultFolder();
 

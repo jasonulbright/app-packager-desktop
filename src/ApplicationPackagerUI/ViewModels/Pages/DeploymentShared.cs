@@ -83,6 +83,8 @@ public sealed partial class DeploymentShared(DeploymentPageServices services) : 
     [NotifyCanExecuteChangedFor(nameof(UndoLastCommand))]
     private bool _isWriting;
 
+    partial void OnIsWritingChanged(bool value) => ApplicationPackagerEngine.Services.SiteRunGuard.Set(this, value ? "a deployment change is being written" : null);
+
     public bool HasConnectionMessage => ConnectionMessage.Length > 0;
     public bool HasResults => LastResults.Count > 0;
     public bool HasUndo => LastPlan is not null;

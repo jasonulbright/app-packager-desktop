@@ -13,6 +13,18 @@ public partial class MainWindowViewModel : ObservableObject
 
     public MainWindowViewModel() { }
 
+    public MainWindowViewModel(SettingsService settingsService, SiteManager siteManager) : this(settingsService)
+    {
+        // A switch of site changes the footer to the new site's code and provider.
+        siteManager.Changed += () =>
+        {
+            var text = SiteFooter.Format(settingsService.Load().SiteCode, settingsService.Load().ProviderMachine);
+            var dispatcher = System.Windows.Application.Current?.Dispatcher;
+            if (dispatcher is null || dispatcher.CheckAccess()) FooterText = text;
+            else dispatcher.BeginInvoke(() => FooterText = text);
+        };
+    }
+
     public MainWindowViewModel(SettingsService settingsService)
     {
         var settings = settingsService.Load();

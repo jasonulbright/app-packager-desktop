@@ -80,6 +80,9 @@ public class SettingsService : IRunSettingsReader<AppSettings>
             }
         }
 
+        // With a site active the site-scoped values come from the site files only; the global file's copies are ignored.
+        if (readError is null && json is not null) json = OverlayActiveSite(json);
+
         AppSettings settings;
         var unreadable = false;
         if (readError is null && json is null)
@@ -142,6 +145,32 @@ public class SettingsService : IRunSettingsReader<AppSettings>
         ApplyLauncherDefaults(settings);
         _runOverrides?.Invoke(settings);
         return settings;
+    }
+
+    /// <summary>The site settings file of the active site, or null when the single-site layout is in use.</summary>
+    public static string? SiteSettingsPath => SiteContext.ActiveSiteFolder is { } f ? SiteSettingsSplit.SettingsPathOf(f) : null;
+
+    /// <summary>The per-application site state file of the active site, or null when the single-site layout is in use.</summary>
+    public static string? SiteAppStatePath => SiteContext.ActiveSiteFolder is { } f ? SiteSettingsSplit.AppStatePathOf(f) : null;
+
+    private static string OverlayActiveSite(string globalJson)
+    {
+        if (SiteContext.ActiveFolderName is not { } folderName || SiteContext.ActiveSiteFolder is not { } siteFolder) return globalJson;
+        try
+        {
+            if (JsonNode.Parse(globalJson, documentOptions: new JsonDocumentOptions { AllowTrailingCommas = true, CommentHandling = JsonCommentHandling.Skip }) is not JsonObject global) return globalJson;
+            SiteDataPaths.TryParseFolderName(folderName, out var parsed);
+            var info = SiteCatalog.Get(folderName);
+            var overlaid = SiteSettingsSplit.Overlay(global, SiteSettingsSplit.ReadObject(SiteSettingsSplit.SettingsPathOf(siteFolder)),
+                SiteSettingsSplit.ReadObject(SiteSettingsSplit.AppStatePathOf(siteFolder)), parsed!.SiteCode, info?.DefaultProvider);
+            // A site file that holds the key SiteCodeSaved is not read; the flag is global. A site that exists is a saved site.
+            overlaid["SiteCodeSaved"] = true;
+            return overlaid.ToJsonString(JsonOptions);
+        }
+        catch (JsonException)
+        {
+            return globalJson;
+        }
     }
 
     /// <summary>
@@ -354,6 +383,14 @@ public class SettingsService : IRunSettingsReader<AppSettings>
     {
         settings.SiteCodeSaved = true;
         Write(settings, operatorEdit: true);
+        // The first save of a site code (Setup) starts the per-site layout: copy the single-site data, make the site active,
+        // and write the settings again so the site keys go to the site files.
+        if (!SiteContext.IsActive && _runOverrides is null && SiteDataPaths.IsValidSiteCode(settings.SiteCode))
+        {
+            var started = SiteStartup.Initialize();
+            if (started.Notice is not null) lock (_gate) _pendingWarning = started.Notice;
+            if (SiteContext.IsActive) Write(settings, operatorEdit: true);
+        }
         OperatorSaved?.Invoke(settings);
     }
 
@@ -391,7 +428,36 @@ public class SettingsService : IRunSettingsReader<AppSettings>
                 if (_launcherProvider is { } provider && settings.ProviderMachine == provider.Applied)
                     node[nameof(AppSettings.ProviderMachine)] = provider.Original;
             }
+            if (SiteContext.ActiveSiteFolder is { } siteFolder && SiteContext.ActiveFolderName is { } folderName)
+            {
+                WriteSplit(node, siteFolder, folderName);
+                return;
+            }
             ApplicationPackagerEngine.Services.Workbench.WorkbenchJson.WriteText(SettingsPath, node.ToJsonString(JsonOptions));
+        }
+    }
+
+    /// <summary>
+    /// The save of an active site: the site keys go to the site files, everything else to the global file. The site code is the
+    /// code of the active folder; a switch of site is the only way to change it, so a save can never write into another site.
+    /// </summary>
+    private void WriteSplit(JsonObject node, string siteFolder, string folderName)
+    {
+        SiteDataPaths.TryParseFolderName(folderName, out var parsed);
+        node[nameof(AppSettings.SiteCode)] = parsed!.SiteCode;
+        var split = SiteSettingsSplit.Split(node,
+            SiteSettingsSplit.ReadObject(SettingsPath),
+            SiteSettingsSplit.ReadObject(SiteSettingsSplit.SettingsPathOf(siteFolder)));
+        var write = ApplicationPackagerEngine.Services.Workbench.WorkbenchJson.WriteText;
+        write(SiteSettingsSplit.SettingsPathOf(siteFolder), split.Site.ToJsonString(JsonOptions));
+        var statePath = SiteSettingsSplit.AppStatePathOf(siteFolder);
+        if (split.AppState is not null) write(statePath, split.AppState.ToJsonString(JsonOptions));
+        else if (File.Exists(statePath)) write(statePath, new JsonObject().ToJsonString(JsonOptions));
+        write(SettingsPath, split.Global.ToJsonString(JsonOptions));
+        if (node[nameof(AppSettings.ProviderMachine)] is JsonValue pv && pv.TryGetValue<string>(out var provider) && !string.IsNullOrWhiteSpace(provider))
+        {
+            try { SiteCatalog.AddProvider(folderName, provider); }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
         }
     }
 

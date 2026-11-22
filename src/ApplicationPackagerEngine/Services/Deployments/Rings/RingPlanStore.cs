@@ -49,7 +49,7 @@ public sealed partial class RingPlanStore
         _log = log;
     }
 
-    public static string DefaultFolder() => Path.Combine(AppDataPaths.Root, "Deployments", "Rings");
+    public static string DefaultFolder() => SiteContext.Resolve(SiteContext.Areas.Rings, () => Path.Combine(AppDataPaths.Root, "Deployments", "Rings"));
 
     public string Folder => _folder() is { } custom && !string.IsNullOrWhiteSpace(custom) ? custom.Trim() : DefaultFolder();
 

@@ -15,13 +15,37 @@ namespace ApplicationPackagerEngine.Services;
 public sealed partial class ApplicationInventoryService
 {
     public const string LegacySettingsMigrationId = "settings-appstates-v1";
-    private readonly string _dbPath;
+    private readonly string? _fixedDbPath;
+    private readonly object _schemaGate = new();
+    private string? _schemaPath;
 
+    /// <summary>
+    /// A path given to the constructor is used as it is. With none, the database of the active site (results\history.db),
+    /// else the single-site file. The path is read on every use, so a site switch moves the next call to the other site's file.
+    /// </summary>
     public ApplicationInventoryService(string? dbPath = null)
     {
-        _dbPath = Path.GetFullPath(dbPath ?? Path.Combine(AppDataPaths.LegacyRoot, "history.db"));
-        Directory.CreateDirectory(Path.GetDirectoryName(_dbPath)!);
-        InitializeSchema();
+        _fixedDbPath = dbPath is null ? null : Path.GetFullPath(dbPath);
+        _ = DbPath;
+    }
+
+    private string DbPath
+    {
+        get
+        {
+            var path = _fixedDbPath ?? SiteHistoryDatabase.DefaultPath();
+            lock (_schemaGate)
+            {
+                if (!string.Equals(_schemaPath, path, StringComparison.OrdinalIgnoreCase))
+                {
+                    Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+                    _schemaPath = path;
+                    try { InitializeSchema(path); }
+                    catch { _schemaPath = null; throw; }
+                }
+            }
+            return path;
+        }
     }
 
     public void RegisterIdentity(InventoryApplicationIdentity identity)
@@ -602,9 +626,9 @@ public sealed partial class ApplicationInventoryService
         }
     }
 
-    private void InitializeSchema()
+    private void InitializeSchema(string path)
     {
-        using var connection = Open();
+        using var connection = OpenAt(path);
         using var command = connection.CreateCommand();
         command.CommandText = """
             CREATE TABLE IF NOT EXISTS inventory_identities (
@@ -744,9 +768,11 @@ public sealed partial class ApplicationInventoryService
         }
     }
 
-    private SQLiteConnection Open()
+    private SQLiteConnection Open() => OpenAt(DbPath);
+
+    private static SQLiteConnection OpenAt(string path)
     {
-        var connection = new SQLiteConnection($"Data Source={_dbPath};Version=3;Pooling=False;");
+        var connection = new SQLiteConnection($"Data Source={path};Version=3;Pooling=False;");
         connection.Open();
         using var command = connection.CreateCommand();
         command.CommandText = "PRAGMA busy_timeout = 30000;";

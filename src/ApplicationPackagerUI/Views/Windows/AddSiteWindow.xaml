@@ -1,0 +1,52 @@
+<ui:FluentWindow
+    x:Class="ApplicationPackagerUI.Views.Windows.AddSiteWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+    Title="Add site"
+    Width="520" Height="360"
+    MinWidth="420" MinHeight="320"
+    WindowStartupLocation="CenterOwner"
+    ExtendsContentIntoTitleBar="True"
+    WindowBackdropType="None">
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <ui:TitleBar Grid.Row="0" Title="Add site" ShowMinimize="False" />
+
+        <StackPanel Grid.Row="1" Margin="16,0,16,8">
+            <TextBlock Text="Each site keeps its own settings and data. Adding a site makes it the active site." TextWrapping="Wrap" FontSize="12"
+                       Foreground="{DynamicResource TextFillColorSecondaryBrush}" Margin="0,0,0,12" />
+            <TextBlock Text="Site code" FontSize="12" Margin="0,0,0,4" Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+            <TextBox x:Name="txtSiteCode" Text="{Binding SiteCode, UpdateSourceTrigger=PropertyChanged}" MaxLength="3" Margin="0,0,0,8"
+                     AutomationProperties.Name="Site code" AutomationProperties.AutomationId="txtAddSiteCode"
+                     ToolTip="The three-character ConfigMgr site code, for example AB1. It names the site's data folder." />
+            <TextBlock Text="SMS Provider" FontSize="12" Margin="0,0,0,4" Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+            <TextBox Text="{Binding Provider, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,8"
+                     AutomationProperties.Name="SMS Provider" AutomationProperties.AutomationId="txtAddSiteProvider"
+                     ToolTip="The server that runs the SMS Provider of this site, for example provider.example.com. You can add it later in Settings." />
+            <TextBlock Text="Label (optional)" FontSize="12" Margin="0,0,0,4" Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+            <TextBox Text="{Binding Label, UpdateSourceTrigger=PropertyChanged}"
+                     AutomationProperties.Name="Label" AutomationProperties.AutomationId="txtAddSiteLabel"
+                     ToolTip="A short name that the site list shows next to the code, for example Production." />
+        </StackPanel>
+
+        <Border Grid.Row="2" BorderThickness="0,1,0,0" BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}" Padding="16,8">
+            <DockPanel>
+                <WrapPanel DockPanel.Dock="Right">
+                    <ui:Button Content="Add site" Appearance="Primary" MinWidth="110" Margin="0,0,8,0" Command="{Binding AcceptCommand}" IsDefault="True"
+                               AutomationProperties.AutomationId="btnAddSiteAccept" ToolTip="Add the site and make it the active site. A message appears when the site code is not valid." />
+                    <ui:Button Content="Cancel" MinWidth="100" IsCancel="True" Command="{Binding CancelCommand}" AutomationProperties.AutomationId="btnAddSiteCancel"
+                               ToolTip="Close the window without adding a site." />
+                </WrapPanel>
+                <TextBlock Text="{Binding ValidationMessage}" TextWrapping="Wrap" VerticalAlignment="Center" Margin="0,0,12,0"
+                           Foreground="{DynamicResource SystemFillColorCautionBrush}" AutomationProperties.AutomationId="txtAddSiteMessage" AutomationProperties.LiveSetting="Assertive" />
+            </DockPanel>
+        </Border>
+    </Grid>
+</ui:FluentWindow>

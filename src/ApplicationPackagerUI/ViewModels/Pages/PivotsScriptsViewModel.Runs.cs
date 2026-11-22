@@ -27,6 +27,8 @@ public sealed partial class PivotsScriptsViewModel
         nameof(RemoveScriptCommand), nameof(RemoveLeftoverCommand), nameof(CheckDraftCommand), nameof(WaitAgainCommand))]
     private bool _isWriting;
 
+    partial void OnIsWritingChanged(bool value) => ApplicationPackagerEngine.Services.SiteRunGuard.Set(this, value ? "a Pivots and Scripts action is running" : null);
+
     private bool CanWrite() => !IsWriting;
 
     [RelayCommand(CanExecute = nameof(CanWrite))]

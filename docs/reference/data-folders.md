@@ -20,6 +20,23 @@ Rules for the roots:
 - Each tool refuses a report or template folder that is a junction or a symbolic link.
 - An explicitly configured staging folder stays where you set it.
 
+## Sites
+
+With a site active, the data of that site is in `Sites\<site>\`. `Sites` is the folder `%LOCALAPPDATA%\AppPackagerData\sites` (with `APP_PACKAGER_DATA_ROOT` set: `<value>\Users\<Windows SID>\sites`). `<site>` is the site code, or the site code, a tilde and a number (`AB1~2`) for a second environment that reuses a code. See [Sites](../core/sites.md).
+
+| Location | Content |
+|---|---|
+| `AppPackagerData\active-site.json` | The site that you used last. |
+| `Sites\<site>\site.json` | The site code, the label, the SMS Providers and the times of creation and last use. |
+| `Sites\<site>\settings.json`, `state\app-state.json` | The settings of the site and the per-application state of the site. |
+| `Sites\<site>\results\CheckConfigMgrResult.csv` and `.json` | The result of Check ConfigMgr for the site. |
+| `Sites\<site>\results\history.db` | The application inventory and the operation history of the site (SQLite). |
+| `Sites\<site>\deployments\rings\`, `rings\runs\`, `audit.jsonl` | Ring plans, ring runs and the Deployment Helper audit of the site. |
+| `Sites\<site>\hygiene\`, `dpcontent\`, `pivots\sessions\`, `maintenance\reports\`, `collections\reports\` | Site Hygiene stores, DP Content audit and reports, saved Pivots and Scripts runs, and the reports of Maintenance Windows and Collections. |
+| `Sites\<site>\migration.json` | The list of files that the first start copied from the single-site layout, with their SHA-256. |
+
+The first start of this version copies the data of the saved site code into `Sites\<code>\` and keeps the old files in `Data` and `Legacy`. The old files stay for at least one release. A tool that is not listed here keeps its folder in `Data`.
+
 ## Settings, cache and reports
 
 | Location | Content | Retention |

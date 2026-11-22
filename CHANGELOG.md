@@ -2,6 +2,18 @@
 
 ## [Unreleased]
 
+### Added
+
+- Add a site switcher to the footer: switch between sites, add a site by site code and SMS Provider, and refuse a switch while a run is active.
+- Keep the settings and the data of each site apart: the site settings, the Check ConfigMgr result, the application inventory, ring plans and runs, Site Hygiene, DP Content, Pivots and Scripts runs, and the reports of Maintenance Windows and Collections.
+- Ask "same site, other provider" or "different environment" when a site code is already in use.
+- Copy the data of the saved site into its site folder at the first start, check each copy by SHA-256 and keep the old files.
+
+### Changed
+
+- Record the site with every row of the operation history.
+- Change the Site Code box of Settings into a site switch.
+
 ### Internal
 
 - Add SiteDataPaths, the paths and names of the per-site data layout (Q-112b), with shared fixtures pinned by SHA-256. No part of the app uses it yet. No change in behavior.

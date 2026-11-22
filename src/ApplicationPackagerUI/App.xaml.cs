@@ -31,6 +31,14 @@ public partial class App : Application
             args.Handled = true;
         };
 
+        // The per-site layout starts before any store is read: migration of the single-site data (copy, verify, keep the old files), then the active site.
+        try { ApplicationPackagerEngine.Services.SiteStartup.Initialize(); }
+        catch (Exception ex) when (ex is System.IO.IOException or UnauthorizedAccessException or InvalidOperationException)
+        {
+            // The single-site layout stays in use.
+            ApplicationPackagerEngine.Services.SiteContext.Deactivate();
+        }
+
         _host = Host.CreateDefaultBuilder()
             .ConfigureServices((context, services) =>
             {
@@ -51,6 +59,9 @@ public partial class App : Application
                 services.AddSingleton<UpdateCoordinator>();
                 services.AddSingleton<IChangePlanDialogs, ChangePlanDialogs>();
 
+                services.AddSingleton<SiteManager>();
+                services.AddTransient<AddSiteWindow>();
+                services.AddTransient<ApplicationPackagerUI.ViewModels.Windows.AddSiteViewModel>();
                 services.AddSingleton<MainWindow>();
                 services.AddSingleton<MainWindowViewModel>();
 

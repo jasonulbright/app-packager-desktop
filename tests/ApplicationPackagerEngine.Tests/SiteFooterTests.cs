@@ -88,7 +88,10 @@ public sealed class SiteFooterTests
         var window = XDocument.Load(Path.Combine(SourceRoot(), "Views", "Windows", "MainWindow.xaml"));
         var footer = window.Descendants(Presentation + "TextBlock").Single(e => (string?)e.Attribute(Xaml + "Name") == "txtSiteFooter");
 
-        Assert.Equal("Right", (string?)footer.Attribute("HorizontalAlignment"));
+        // The footer is also the site switcher (Q-112d): the text sits in a button that is aligned to the right.
+        var switcher = footer.Ancestors().First(e => e.Name.LocalName == "Button");
+        Assert.Equal("btnSiteSwitcher", (string?)switcher.Attribute(Xaml + "Name"));
+        Assert.Equal("Right", (string?)switcher.Attribute("HorizontalAlignment"));
         Assert.Equal("Segoe UI", (string?)footer.Attribute("FontFamily"));
         Assert.Equal("12", (string?)footer.Attribute("FontSize"));
         Assert.Equal("Normal", (string?)footer.Attribute("FontWeight"));
@@ -104,10 +107,11 @@ public sealed class SiteFooterTests
         text is not null && (text.Contains("SiteCode", StringComparison.Ordinal) || text.Contains("ProviderMachine", StringComparison.Ordinal));
 
     [Fact]
-    public void OnlyOptionsAndTheSetupWindowHaveAnEditableSiteField()
+    public void OnlyOptionsTheSetupWindowAndTheAddSiteWindowHaveAnEditableSiteField()
     {
         var root = SourceRoot();
-        var allowed = new[] { Path.Combine("Views", "Pages", "SettingsPage.xaml"), Path.Combine("Views", "Windows", "SetupWindow.xaml") };
+        // The Add site window of the footer switcher takes the code and the provider of a new site (Q-112d).
+        var allowed = new[] { Path.Combine("Views", "Pages", "SettingsPage.xaml"), Path.Combine("Views", "Windows", "SetupWindow.xaml"), Path.Combine("Views", "Windows", "AddSiteWindow.xaml") };
         // A grid column is not a field: the grid of the DP page lists the site code of each distribution point.
         var editable = new HashSet<string> { "TextBox", "ComboBox", "PasswordBox", "NumberBox", "AutoSuggestBox" };
         var offenders = new List<string>();

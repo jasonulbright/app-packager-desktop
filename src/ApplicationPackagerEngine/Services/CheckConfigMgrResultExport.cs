@@ -28,8 +28,8 @@ public static class CheckConfigMgrResultExport
         "ConfigMgrVersion", "LatestVersion", "Status", "Source", "CheckedAtUtc"
     ];
 
-    /// <summary>The folder of the fixed result file: the per-user app data folder.</summary>
-    public static string DefaultFolder => AppDataPaths.LegacyRoot;
+    /// <summary>The folder of the fixed result file: results\ of the active site, else the per-user app data folder. The file describes one site.</summary>
+    public static string DefaultFolder => SiteContext.Resolve(SiteContext.Areas.Results, () => AppDataPaths.LegacyRoot);
 
     public static string DefaultCsvPath => Path.Combine(DefaultFolder, FileBaseName + ".csv");
 

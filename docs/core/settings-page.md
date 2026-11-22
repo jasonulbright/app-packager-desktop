@@ -56,11 +56,11 @@ ConfigMgr is selected at first. The three systems are independent, and each one 
 
 ### ConfigMgr Site Settings
 
-The site fields (**Site Code**, **Site Server / SMS Provider Host**, **File Share Root (UNC)**) apply to ConfigMgr only. A run that does not publish to ConfigMgr does not read them. **Download Root (local staging)** and **Packagers Folder** are in this section, but they are not ConfigMgr settings: every destination uses them.
+The site fields (**Site Code**, **Site Server / SMS Provider Host**, **File Share Root (UNC)**) apply to ConfigMgr only. A run that does not publish to ConfigMgr does not read them. The settings of this section that name a site are kept for each site: see [Sites](sites.md). **Download Root (local staging)** and **Packagers Folder** are in this section, but they are not ConfigMgr settings: every destination uses them.
 
 | Control | Default | Effect |
 |---|---|---|
-| **Site Code** | `MCM` | The site for every ConfigMgr step. Replace the default with your site code. |
+| **Site Code** | `MCM` | The site for every ConfigMgr step. Replace the default with your site code. This box shows the site code of the active site. Another code switches to that site when you save: see [Sites](sites.md). |
 | **Site Server / SMS Provider Host** | Empty | The host that the CMSite drive connects to. Empty means this computer. Leave it empty only when this computer is the SMS Provider. |
 | **Discovery SQL Server** | Empty | The SQL Server instance of the site database. Empty means the value from the SMS Provider. Windows authentication only. |
 | **Discovery Database** | Empty | The database name. Empty means `CM_` and the site code. |

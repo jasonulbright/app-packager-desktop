@@ -148,6 +148,8 @@ public sealed partial class SiteHygieneViewModel : ObservableObject
     [NotifyCanExecuteChangedFor(nameof(ScanCommand), nameof(CancelScanCommand))]
     private bool _isScanning;
 
+    partial void OnIsScanningChanged(bool value) => ApplicationPackagerEngine.Services.SiteRunGuard.Set(this, value ? "a Site Hygiene scan is running" : null);
+
     /// <summary>The step the running scan reports; empty when no scan runs.</summary>
     [ObservableProperty] private string _scanProgress = "";
 

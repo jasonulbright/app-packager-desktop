@@ -81,12 +81,14 @@ public sealed class PublishSettingsContractTests : IDisposable
     [Fact]
     public void TheOneClickDestinationsDefaultsAndPolicyRoundTrip()
     {
+        using var scope = ApplicationPackagerEngine.Services.SiteContext.Scope(null);
         var service = new SettingsService();
         var s = service.Load();
         s.OneClick.Destinations["package-a"] = new DestinationSet(false, true, false);
         s.OneClick.DefaultDestinations = new DestinationSet(true, true, false);
         s.OneClick.OnExisting = "Overwrite";
         service.SaveOperatorEdit(s);
+        // With a site active the destination flags are read from the site folder; the odd-file part below is about the single-site file.
 
         var stored = Stored()["OneClick"]!;
         Assert.True((bool)stored["Destinations"]!["package-a"]!["WSUS"]!);
@@ -95,6 +97,7 @@ public sealed class PublishSettingsContractTests : IDisposable
         Assert.True(back.Destinations["PACKAGE-A"].Wsus);
         Assert.Equal("Overwrite", back.OnExisting);
 
+        ApplicationPackagerEngine.Services.SiteContext.Deactivate();
         Directory.CreateDirectory(Path.GetDirectoryName(SettingsService.SettingsPath)!);
         File.WriteAllText(SettingsService.SettingsPath, """{ "OneClick": { "OnExisting": "Ask", "Destinations": null } }""");
         var odd = new SettingsService().Load().OneClick;
