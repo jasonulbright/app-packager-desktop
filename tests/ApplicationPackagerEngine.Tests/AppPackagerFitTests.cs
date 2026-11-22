@@ -177,6 +177,8 @@ public sealed class AppPackagerFitTests
                 // The row of Cancel: every button whose top is within 1 px of it shares its height; the buttons of that row have one top.
                 var row = buttons.Where(b => Math.Abs(Top(b).Y - Top(cancel).Y) < 1).ToList();
                 Assert.Contains(history, row);
+                // Q-98: at a normal width the toolbar does not wrap while a run is active (every button has the top of Cancel).
+                if (width >= 1269) Assert.True(row.Count == buttons.Count, $"{where}: the toolbar wraps ({row.Count} of {buttons.Count} buttons on the row of Cancel).");
                 Assert.All(row, b => Assert.True(Math.Abs(b.ActualHeight - cancel.ActualHeight) < 0.5, $"{where}: {AutomationProperties.GetAutomationId(b)} is {b.ActualHeight:0.#} px high."));
             }
             finally { window.Close(); }
