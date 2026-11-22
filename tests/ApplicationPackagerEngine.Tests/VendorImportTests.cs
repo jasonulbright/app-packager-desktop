@@ -564,7 +564,8 @@ public sealed class VendorImportTests : IDisposable
         { "FallbackDownloadUrl", "FallbackDownloadUrl" },
         { "TargetSecret", "TargetSecret" },
         { "Odt", "Odt" },
-        { "ZipPayload", "ZipPayload" }
+        { "ZipPayload", "ZipPayload" },
+        { "InstallerTypeOverrides", "InstallerTypeOverrides" }
     };
 
     private static AppDefinition WithCode(string property)
@@ -585,6 +586,7 @@ public sealed class VendorImportTests : IDisposable
             case "TargetSecret": d.TargetSecret = new TargetSecretConfig(); break;
             case "Odt": d.Odt = new OdtConfig(); break;
             case "ZipPayload": d.ZipPayload = new ZipPayloadConfig { InstallDir = @"C:\Windows\System32" }; break;
+            case "InstallerTypeOverrides": d.InstallerTypeOverrides = new() { ["EXE"] = new System.Text.Json.Nodes.JsonObject { ["InstallArgs"] = "/S" } }; break;
             default: throw new InvalidOperationException(property);
         }
         return d;
