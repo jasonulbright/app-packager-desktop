@@ -104,6 +104,23 @@ public class InstallerTypeSwitchTests
     }
 
     [Fact]
+    public void TheLocalSourcePromptFollowsTheSavedInstallerType()
+    {
+        var host = Load("teamviewerhost.json");
+        var settings = new AppSettings();
+        var row = new PackagerInfo { Application = "TeamViewer Host" };
+        var asked = 0;
+        // The default type (MSI) needs the folder.
+        LocalSourceFolderPrompt.Confirm([row], _ => host, settings, _ => { asked++; return null; }, _ => { }, out _);
+        Assert.Equal(1, asked);
+        // The EXE type downloads: no prompt.
+        settings.DeploymentConditions[host.Id] = new DeploymentConditionEntry { InstallerType = "EXE" };
+        var kept = LocalSourceFolderPrompt.Confirm([row], _ => host, settings, _ => { asked++; return null; }, _ => { }, out _);
+        Assert.Equal(1, asked);
+        Assert.Single(kept);
+    }
+
+    [Fact]
     public void TheGridColumnWritesTheChoiceToTheSameEntryThatThePackageRunReads()
     {
         var column = ApplicationColumns.Find("installertype")!;

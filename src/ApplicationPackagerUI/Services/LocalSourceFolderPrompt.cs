@@ -15,6 +15,17 @@ public static class LocalSourceFolderPrompt
         $"Choose the folder that holds the {application} installer. A script cannot download it, so it stages from the copy that you put in this folder."
         + (string.IsNullOrWhiteSpace(note) ? "" : " " + note.Trim());
 
+    /// <summary>
+    /// The definition as it stages for the Installer type saved for the application (EXE or MSI): an EXE type that needs no local source
+    /// must not ask for a folder because the default type does.
+    /// </summary>
+    public static AppDefinition? ForInstallerType(AppDefinition? def, AppSettings settings)
+    {
+        if (def is null || !settings.DeploymentConditions.TryGetValue(def.Id, out var entry)) return def;
+        try { return ApplicationPackagerEngine.Services.InstallerTypeSwitch.Apply(def, entry.InstallerType); }
+        catch (Exception ex) when (ex is System.Text.Json.JsonException or InvalidOperationException) { return def; }
+    }
+
     /// <param name="rows">The selected rows in run order.</param>
     /// <param name="definitionOf">The row's definition, or null for a row with none.</param>
     /// <param name="pickFolder">Shows the folder prompt with the given description; null when cancelled.</param>
@@ -28,7 +39,7 @@ public static class LocalSourceFolderPrompt
         var kept = new List<PackagerInfo>();
         foreach (var row in rows)
         {
-            var def = definitionOf(row);
+            var def = ForInstallerType(definitionOf(row), settings);
             if (def?.LocalSource is not { IsRequired: true })
             {
                 kept.Add(row);
