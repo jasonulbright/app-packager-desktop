@@ -91,6 +91,11 @@ public static class GuideCaptureSteps
         ["core-publish-configmgr-log"] = "core-publish-configmgr-log",
         ["start-sidebar-context-menu"] = "start-sidebar-context-menu",
         ["tools-pivots-pivot"] = "pivots-and-scripts",
+        // The Discover prompt and the CVE views (Capture-CoreWindows, with a throw-away Mozilla Firefox 140.0 application on the site that the caller removes).
+        ["core-discover-prompt"] = "core-discover-prompt",
+        ["core-packages-cve-columns"] = "core-packages-cve-columns",
+        ["core-cve-window"] = "core-cve-window",
+        ["core-cve-report-html"] = "core-cve-report-html",
         ["tools-compliance-catalog"] = "tools-compliance-catalog",
         ["tools-compliance-deploy"] = "tools-compliance-deploy",
         // The Site Hygiene import window and Live views (Capture-ToolsHygiene).
