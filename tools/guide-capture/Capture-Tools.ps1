@@ -32,11 +32,25 @@ function Combo([string]$Id, [string[]]$Likes) {
 }
 function Wait-Window([string]$Id, [double]$Seconds = 30) { $e = Wait-El $Id $Seconds; if (-not $e) { throw "the window with $Id did not open" }; Start-Sleep 2; $e }
 
-# A sample installer that has inner installers: the Visual C++ redistributable (a bundle that carries MSI packages).
-$bundle = Join-Path $Run 'sample\vc_redist.x64.exe'
+# A sample installer that has inner installers: a self-extracting bundle of two MSI packages (7-Zip and PuTTY), built with the 7-Zip of the lab client. The Visual C++
+# redistributable is a bundle that 7-Zip does not list, so it holds no inner installer for the page.
+$bundle = Join-Path $Run 'sample\Guide-Bundle-Setup.exe'
 if (-not (Test-Path $bundle)) {
     New-Item -ItemType Directory -Force (Split-Path $bundle) | Out-Null
-    try { Invoke-WebRequest -UseBasicParsing 'https://aka.ms/vs/17/release/vc_redist.x64.exe' -OutFile $bundle } catch { "bundle download failed: $($_.Exception.Message)" }
+    try {
+        $parts = Join-Path $Run 'sample\parts'
+        New-Item -ItemType Directory -Force $parts | Out-Null
+        $rel = Invoke-RestMethod -UseBasicParsing 'https://api.github.com/repos/ip7z/7zip/releases/latest' -Headers @{ 'User-Agent' = 'guide-capture' }
+        $asset = $rel.assets | Where-Object { $_.name -like '7z*-x64.msi' } | Select-Object -First 1
+        Invoke-WebRequest -UseBasicParsing $asset.browser_download_url -OutFile (Join-Path $parts $asset.name)
+        $putty = 'https://the.earth.li/~sgtatham/putty/latest/w64/'
+        $page = (Invoke-WebRequest -UseBasicParsing $putty).Content
+        $file = [regex]::Match($page, 'putty-64bit-[0-9.]+-installer\.msi').Value
+        Invoke-WebRequest -UseBasicParsing ($putty + $file) -OutFile (Join-Path $parts $file)
+        $sevenZip = Join-Path $env:ProgramFiles '7-Zip'
+        & (Join-Path $sevenZip '7z.exe') a "-sfx$(Join-Path $sevenZip '7z.sfx')" $bundle (Join-Path $parts '*.msi') | Out-Null
+        Remove-Item $parts -Recurse -Force
+    } catch { "bundle build failed: $($_.Exception.Message)" }
 }
 
 foreach ($theme in $Themes) {
@@ -96,15 +110,27 @@ foreach ($theme in $Themes) {
             # The plan: pick the collection with its button, then Show plan.
             $pick = @((Find-El $null 'scrollDeploy' -Timeout 3).FindAll($script:TS::Descendants, [System.Windows.Automation.Condition]::TrueCondition) | Where-Object { $_.Current.AutomationId -like 'btnPick*' }) | Select-Object -First 1
             if ($pick) {
+                # The picker window: filter to the collection, tick it and use it.
                 Real-Click $pick; Start-Sleep 3
-                $null = Pick-Row 'dgCollections' '*Zone 13*' 15
+                $null = Wait-Window 'txtPickerFilter'
+                Set-ElText (Need-El 'txtPickerFilter') 'Zone 13'; Start-Sleep 2
+                Real-Click (Need-El 'btnPickerCheckShown'); Start-Sleep 1
+                Real-Click (Need-Name 'Use collection' 'Button'); Start-Sleep 3
             }
         }
         Step 'tools-compliance-plan' {
             $plan = Need-El 'btnDeployShowPlan'
             if (-not $plan.Current.IsEnabled) { throw 'Show plan is disabled' }
+            # A deploy with remediation: switch DetectOnly off, so the plan asks for its confirmation box.
+            $detect = Find-El $null $null 'DetectOnly' 'CheckBox' -Timeout 5
+            if ($detect) { Set-Check $detect $false; Start-Sleep 1 }
             Real-Click $plan
             $null = Wait-Window 'btnChangePlanCancel' 60
+            foreach ($box in 'chkChangePlanExtra', 'chkChangePlanDestructive', 'chkChangePlanSecond') {
+                $el = Find-El $null $box -Timeout 2
+                if ($el -and -not $el.Current.IsOffscreen) { Set-Check $el $true }
+            }
+            Start-Sleep 1
             Shot 'tools-compliance-plan'
             Real-Click (Need-El 'btnChangePlanCancel'); Start-Sleep 2
             $c = Find-El $null 'btnDeployCancel' -Timeout 3
@@ -171,8 +197,12 @@ foreach ($theme in $Themes) {
         }
         Step 'tools-dp-content-plan-remove' {
             Tab 'tabContent'; Start-Sleep 3
-            $null = Pick-First 'dgContent'
+            $null = Pick-Row 'dgContent' '*ConfigMgr Client Health*'
             Real-Click (Need-El 'btnRemoveFromDp')
+            # The pair window first: check every pair of the content, then continue to the plan.
+            $null = Wait-Window 'btnPairsContinue' 60
+            Real-Click (Need-El 'btnPairsCheckShown'); Start-Sleep 1
+            Real-Click (Need-El 'btnPairsContinue')
             $null = Wait-Window 'btnChangePlanCancel' 60
             Shot 'tools-dp-content-plan-remove'
             Real-Click (Need-El 'btnChangePlanCancel'); Start-Sleep 2

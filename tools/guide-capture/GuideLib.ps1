@@ -118,14 +118,14 @@ function Send-DialogPath([string]$Path) {
 }
 
 # Starts the app for a theme with the settings of the run; returns the data root.
-function Start-RunApp([string]$Exe, [string]$Theme, [hashtable]$Settings = @{}) {
+function Start-RunApp([string]$Exe, [string]$Theme, [hashtable]$Settings = @{}, [string[]]$Arguments = @()) {
     $script:GuideTheme = $Theme
     $data = Join-Path $script:GuideRun "data-$Theme"
     Remove-Item $data -Recurse -Force -ErrorAction SilentlyContinue
     $staging = New-RunStaging $data
     $all = @{ DownloadRoot = $staging }
     foreach ($k in $Settings.Keys) { $all[$k] = $Settings[$k] }
-    $null = Start-Apd $Exe $data $Theme $all
+    $null = Start-Apd $Exe $data $Theme $all $Arguments
     (Main-Window).SetFocus()
     $data
 }
@@ -146,6 +146,17 @@ function Scroll-ToId([string]$Id, [int]$X = 1000, [int]$Y = 600, [int]$Max = 40)
 
 # Closes every window of the app except the main window (a dialog that a failed step left open).
 function Close-OtherWindows {
+    # The dialogs of the app are owned windows: UI Automation lists them below the main window, not at the top. Close the innermost first.
+    $isWindow = New-Object System.Windows.Automation.PropertyCondition ($script:AE::ControlTypeProperty), ([System.Windows.Automation.ControlType]::Window)
+    foreach ($top in @(Get-ApdWindows)) {
+        $nested = @($top.FindAll($script:TS::Descendants, $isWindow))
+        [array]::Reverse($nested)
+        foreach ($n in $nested) {
+            $p = $null
+            if ($n.TryGetCurrentPattern([System.Windows.Automation.WindowPattern]::Pattern, [ref]$p)) { try { $p.Close() } catch { } }
+            Start-Sleep -Milliseconds 700
+        }
+    }
     foreach ($w in @(Get-ApdWindows)) {
         if ($w.Current.Name -eq 'App Packager Desktop') { continue }
         $p = $null

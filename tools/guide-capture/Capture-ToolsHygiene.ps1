@@ -94,11 +94,33 @@ foreach ($theme in $Themes) {
             Shot 'tools-site-hygiene-live-deployments'
         }
         foreach ($v in @(@('Content*', 'tools-site-hygiene-live-content'), @('Distribution*', 'tools-site-hygiene-live-dps'), @('Client Health*', 'tools-site-hygiene-live-clients'),
-                         @('Inactive*', 'tools-site-hygiene-live-inactive'), @('Site Health*', 'tools-site-hygiene-live-site-health'), @('Trends*', 'tools-site-hygiene-trends'), @('Alerts*', 'tools-site-hygiene-alerts'))) {
+                         @('Inactive*', 'tools-site-hygiene-live-inactive'), @('Site Health*', 'tools-site-hygiene-live-site-health'), @('Trends*', 'tools-site-hygiene-trends'))) {
             Step $v[1] {
                 Combo 'cboLiveView' $v[0]; Start-Sleep 4
                 Shot $v[1]
             }
+        }
+        # An alert fires when a value goes into breach after the first complete read. The deployment compliance of the lab is below 80 percent: the first refresh above set the
+        # starting state with the floor at 80 (no alert). Lower the floor to 70, refresh (not in breach), raise it to 80 again and refresh: the value is newly in breach and the alert fires.
+        Step 'tools-site-hygiene-alerts' {
+            function Refresh-Live {
+                Real-Click (Need-El 'btnLiveRefresh')
+                $end = (Get-Date).AddSeconds(180)
+                do { Start-Sleep 5; $busy = Find-El $null 'btnLiveCancel' -Timeout 1 } while ((Get-Date) -lt $end -and ($busy -and $busy.Current.IsEnabled))
+                Start-Sleep 2
+            }
+            foreach ($floor in '70*', '80*') {
+                Tab 'tabHygieneOptions'; Start-Sleep 2
+                $null = Scroll-ToId 'cboComplianceFloor'
+                Combo 'cboComplianceFloor' $floor; Start-Sleep 2
+                Tab 'tabHygieneLive'; Start-Sleep 2
+                Refresh-Live
+            }
+            $banner = Find-El $null 'txtAlertBanner' -Timeout 5
+            if (-not $banner -or $banner.Current.IsOffscreen) { throw 'no alert was raised' }
+            "alert banner: $($banner.Current.Name)"
+            Combo 'cboLiveView' 'Alerts*'; Start-Sleep 3
+            Shot 'tools-site-hygiene-alerts'
         }
         Step 'tools-site-hygiene-live-options' {
             Tab 'tabHygieneOptions'; Start-Sleep 3

@@ -1,5 +1,12 @@
 # Changelog
 
+## [Unreleased]
+
+### Changed
+
+- Retook 30 guide images of the tool pages from the real app on a lab client.
+- Retook the Application Settings image so it shows the Installer type column.
+
 ## [2026.1122.55] - 2026-11-22
 
 ### Added

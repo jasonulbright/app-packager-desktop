@@ -44,8 +44,17 @@ public sealed class GuideImageContentTests
         Assert.True(low.Count == 0, $"These images look as empty as an empty page of the app (ink {empty:0.0000} plus {MarginOverEmpty}): " + string.Join(", ", low.Select(i => $"{i.Name} {i.Ink:0.0000}")));
     }
 
-    /// <summary>The images that show a page with little content by design: the first step of a flow, before anything is entered, and three short Settings pages.</summary>
-    public static readonly string[] EmptyByDesign = ["core-add-file-pick", "core-settings-about", "core-settings-defaults", "core-settings-github-api"];
+    /// <summary>
+    /// The images that show a page with little content by design: the first step of a flow, before anything is entered, three short Settings pages, the result panel of Add from file
+    /// (a card at the top of the page), the HTML report in the browser (a white page with a short table), the Inner Installers tab (a list of one inner installer) and three Site
+    /// Hygiene Live views of a lab with one distribution point and one row each (Content, Distribution Points and Inactive Devices).
+    /// </summary>
+    public static readonly string[] EmptyByDesign =
+    [
+        "core-add-file-pick", "core-settings-about", "core-settings-defaults", "core-settings-github-api",
+        "core-add-result-panel", "core-cve-report-html", "tools-installer-analysis-inner",
+        "tools-site-hygiene-live-content", "tools-site-hygiene-live-dps", "tools-site-hygiene-live-inactive"
+    ];
 
     /// <summary>An image of a page with a list, a form or a result has at least this much more ink in the body than the empty page.</summary>
     public const double MarginOverEmpty = 0.01;
