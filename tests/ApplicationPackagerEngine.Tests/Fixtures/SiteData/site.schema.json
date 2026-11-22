@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://github.com/jasonulbright/app-packager-suite/docs/schema/site.schema.json",
   "title": "Site data: site.json",
-  "description": "Identity and contract version of one site folder, sites\<SITECODE>\site.json.",
+  "description": "Identity and contract version of one site folder, sites\\<SITECODE>\\site.json.",
   "type": "object",
   "required": ["schemaVersion", "siteCode", "providers", "createdUtc", "lastUsedUtc"],
   "properties": {

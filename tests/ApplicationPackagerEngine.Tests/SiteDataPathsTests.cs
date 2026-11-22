@@ -33,9 +33,9 @@ public sealed class SiteDataPathsTests
         ["site-cases.json"] = "e4084aa3c3da1774046bd75d5cab1dd97157b9dfa4b6f0c2849e12b29d7096ca",
         ["site.json"] = "33d8b80f2f64057407b1907efb66cd28f3fded7151397ccf5f35be68150215ca",
         ["active-site.json"] = "1a82f657c57f72a8f21ef2445dab9225a3a91e9c2e748d3802dca40ed7e30500",
-        ["site.schema.json"] = "677036729cf4f1752025a85ce9802cf607340b7e7c4b96ee13a06450d48658c3",
-        ["active-site.schema.json"] = "2d1c07be15d6794f47df54be5e83e4c7ce38afe27a59e138b084f55ea678ef0c",
-        ["scope-manifest.schema.json"] = "8e9ed900f7146eda3a1bcced89c6a7b54c5ece292ce9c7b7bbeb91e2e995e345",
+        ["site.schema.json"] = "9a4283e4ee0bd3b0c0dfd4133c78f9765e058adc12d967e0a6a3a8db285f2007",
+        ["active-site.schema.json"] = "a26607a3a9e7b32c765e986d9144161c1beb3712a952452ae0f69e78b576b902",
+        ["scope-manifest.schema.json"] = "1d90288bed5aaca55b471c530ea3974803cbdca02edb3041e1592434e5c0788a",
     };
 
     private static string[] Strings(JsonElement array) => array.EnumerateArray().Select(e => e.GetString()!).ToArray();

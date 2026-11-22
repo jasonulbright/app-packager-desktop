@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://github.com/jasonulbright/app-packager-suite/docs/schema/active-site.schema.json",
   "title": "Site data: active-site.json",
-  "description": "The site folder that the user used last, <DATA ROOT>\active-site.json.",
+  "description": "The site folder that the user used last, <DATA ROOT>\\active-site.json.",
   "type": "object",
   "required": ["schemaVersion", "siteCode", "changedUtc"],
   "properties": {
