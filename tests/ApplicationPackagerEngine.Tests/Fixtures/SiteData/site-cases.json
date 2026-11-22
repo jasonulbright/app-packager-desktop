@@ -50,7 +50,7 @@
     { "value": "-tool", "valid": false },
     { "value": "tool name", "valid": false },
     { "value": "..", "valid": false },
-    { "value": "a\b", "valid": false },
+    { "value": "a\\b", "valid": false },
     { "value": "a/b", "valid": false }
   ],
   "nextFolderName": [
@@ -64,17 +64,17 @@
     { "siteCode": "AB1", "existing": ["AB1~2"], "expected": "AB1" }
   ],
   "relativePaths": [
-    { "siteCode": "AB1", "tool": null, "area": null, "expected": "sites\AB1" },
-    { "siteCode": "ab1", "tool": null, "area": null, "expected": "sites\AB1" },
-    { "siteCode": "AB1~2", "tool": null, "area": null, "expected": "sites\AB1~2" },
-    { "siteCode": "AB1", "tool": "update-planner", "area": null, "expected": "sites\AB1\tools\update-planner" },
-    { "siteCode": "AB1", "tool": null, "area": "deployments", "expected": "sites\AB1\deployments" },
-    { "siteCode": "AB1", "tool": null, "area": "pivots\sessions", "expected": "sites\AB1\pivots\sessions" },
+    { "siteCode": "AB1", "tool": null, "area": null, "expected": "sites\\AB1" },
+    { "siteCode": "ab1", "tool": null, "area": null, "expected": "sites\\AB1" },
+    { "siteCode": "AB1~2", "tool": null, "area": null, "expected": "sites\\AB1~2" },
+    { "siteCode": "AB1", "tool": "update-planner", "area": null, "expected": "sites\\AB1\\tools\\update-planner" },
+    { "siteCode": "AB1", "tool": null, "area": "deployments", "expected": "sites\\AB1\\deployments" },
+    { "siteCode": "AB1", "tool": null, "area": "pivots\\sessions", "expected": "sites\\AB1\\pivots\\sessions" },
     { "siteCode": "AB1", "tool": "site-hygiene", "area": "x", "expected": null },
     { "siteCode": "AUX", "tool": null, "area": null, "expected": null },
     { "siteCode": "AB1", "tool": "..", "area": null, "expected": null },
-    { "siteCode": "AB1", "tool": null, "area": "..\other", "expected": null },
-    { "siteCode": "AB1", "tool": null, "area": "C:\temp", "expected": null },
+    { "siteCode": "AB1", "tool": null, "area": "..\\other", "expected": null },
+    { "siteCode": "AB1", "tool": null, "area": "C:\\temp", "expected": null },
     { "siteCode": "AB1", "tool": null, "area": "a/b", "expected": null }
   ]
 }

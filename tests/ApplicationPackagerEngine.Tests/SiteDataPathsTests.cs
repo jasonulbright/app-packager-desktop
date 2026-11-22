@@ -30,7 +30,7 @@ public sealed class SiteDataPathsTests
     private static readonly Dictionary<string, string> Pins = new()
     {
         ["scope-manifest.json"] = "b6ef8da676de41bdd067f390baa586bdacd2dcf85284d5f05170d13fed8f3307",
-        ["site-cases.json"] = "63a8b5795cd11d61a568fca5dc9790dc76669adef0edec4c32ae89ba9715f412",
+        ["site-cases.json"] = "e4084aa3c3da1774046bd75d5cab1dd97157b9dfa4b6f0c2849e12b29d7096ca",
         ["site.json"] = "33d8b80f2f64057407b1907efb66cd28f3fded7151397ccf5f35be68150215ca",
         ["active-site.json"] = "1a82f657c57f72a8f21ef2445dab9225a3a91e9c2e748d3802dca40ed7e30500",
         ["site.schema.json"] = "677036729cf4f1752025a85ce9802cf607340b7e7c4b96ee13a06450d48658c3",
