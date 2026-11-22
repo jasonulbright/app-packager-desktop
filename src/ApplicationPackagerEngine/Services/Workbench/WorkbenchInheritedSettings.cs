@@ -113,7 +113,7 @@ public sealed class WorkbenchInheritedSettings
         "Uninstall.Command" => UninstallCommand,
         "Install.Mode" or "Uninstall.Mode" => "Generated",
         "Detection.Mode" => "Inherit",
-        "InstallMode" => "Packager default",
+        "InstallMode" or "InstallerType" => "Packager default",
         "Timing.EstimatedMinutes" => EstimatedMinutes.ToString(System.Globalization.CultureInfo.InvariantCulture),
         "Timing.MaximumMinutes" => MaximumMinutes.ToString(System.Globalization.CultureInfo.InvariantCulture),
         "Execution.Context" => ExecutionContext,

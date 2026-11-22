@@ -149,6 +149,10 @@ public partial class WorkbenchWindowViewModel : ObservableObject
     [ObservableProperty] private string _installFor = "Packager default";
     [ObservableProperty] private bool _installForEnabled;
     [ObservableProperty] private string _variantSource = "";
+    [ObservableProperty] private ObservableCollection<string> _installerTypeOptions = ["Packager default"];
+    [ObservableProperty] private string _installerType = "Packager default";
+    [ObservableProperty] private bool _installerTypeEnabled;
+    [ObservableProperty] private string _installerTypeSource = "";
     public ObservableCollection<VariantOverrideRow> Variants { get; } = [];
     [ObservableProperty] private string _siteArchGc = "";
     [ObservableProperty] private string _siteLangGc = "";
@@ -254,6 +258,8 @@ public partial class WorkbenchWindowViewModel : ObservableObject
             VariantSplitEnabled = application.SupportsVariants.Count > 0;
             InstallForOptions = new ObservableCollection<string>(WorkbenchFieldMapping.InstallForOptions(application.SupportsInstallModes));
             InstallForEnabled = application.SupportsInstallModes.Count > 0;
+            InstallerTypeOptions = new ObservableCollection<string>(WorkbenchFieldMapping.InstallerTypeOptions(application.InstallerTypes));
+            InstallerTypeEnabled = application.InstallerTypes.Count >= 2;
         }
         finally { _loading = false; }
 
@@ -371,6 +377,8 @@ public partial class WorkbenchWindowViewModel : ObservableObject
             if (!VariantSplitOptions.Contains(VariantSplit)) VariantSplit = "None";
             InstallFor = WorkbenchFieldMapping.InstallModeToDisplay(s.Get("InstallMode").Text);
             if (!InstallForOptions.Contains(InstallFor)) InstallFor = "Packager default";
+            InstallerType = WorkbenchFieldMapping.InstallerTypeToDisplay(s.Get("InstallerType").Text);
+            if (!InstallerTypeOptions.Contains(InstallerType)) InstallerType = "Packager default";
             Variants.Clear();
             if (s.Get("Variants.Overrides").Value is JsonObject overrides)
             {
@@ -497,6 +505,7 @@ public partial class WorkbenchWindowViewModel : ObservableObject
         DetectionSource = s.SourceText("Detection.Mode");
         ExecContextSource = s.SourceText("Execution.Context");
         VariantSource = s.SourceText("InstallMode");
+        InstallerTypeSource = s.SourceText("InstallerType");
         EstimatedEffective = $"Default: {s.Inherited.EstimatedMinutes} minutes";
         MaximumEffective = $"Default: {s.Inherited.MaximumMinutes} minutes";
         RefreshIcon();
@@ -708,6 +717,13 @@ public partial class WorkbenchWindowViewModel : ObservableObject
     {
         if (_loading || _session is null) return;
         _session.SetValue("Variants.Split", WorkbenchFieldMapping.DisplayToVariantSplit(value));
+        AfterEdit();
+    }
+
+    partial void OnInstallerTypeChanged(string value)
+    {
+        if (_loading || _session is null) return;
+        _session.SetValue("InstallerType", WorkbenchFieldMapping.DisplayToInstallerType(value));
         AfterEdit();
     }
 

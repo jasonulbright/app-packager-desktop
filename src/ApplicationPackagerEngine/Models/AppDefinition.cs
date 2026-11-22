@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 using ApplicationPackagerEngine.Models.Workbench;
 
@@ -294,6 +295,21 @@ public sealed class AppDefinition
     /// arguments mark its place with {TargetSecret}.
     /// </summary>
     public TargetSecretConfig? TargetSecret { get; set; }
+
+    /// <summary>
+    /// The other installer types of this application, keyed EXE or MSI. The definition itself is the default type
+    /// (<see cref="InstallerType"/>); each entry holds only the properties that differ for that type (download, file name, silent switches,
+    /// detection, local source, version scraper). Declared only where the vendor ships both types; the operator then chooses per application.
+    /// </summary>
+    public Dictionary<string, JsonObject>? InstallerTypeOverrides { get; set; }
+
+    /// <summary>The types the operator may choose, default type first; empty when the application has one type.</summary>
+    [JsonIgnore]
+    public IReadOnlyList<string> InstallerTypeChoices => Services.InstallerTypeSwitch.Choices(this);
+
+    /// <summary>True when the application declares both EXE and MSI.</summary>
+    [JsonIgnore]
+    public bool OffersInstallerTypes => InstallerTypeChoices.Count >= 2;
 
     /// <summary>True when both modes are declared and an operator choice applies.</summary>
     [JsonIgnore]

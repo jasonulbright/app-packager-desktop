@@ -21,10 +21,10 @@ public sealed class EffectiveSettingsResolverTests
         """);
 
     [Fact]
-    public void FieldMap_HasTheEighteenFieldsInTableOrder()
+    public void FieldMap_HasTheNineteenFieldsInTableOrder()
     {
         Assert.Equal(
-            ["DisplayName", "Publisher", "Description", "TitleMode", "Icon", "PinnedVersion", "InstallMode",
+            ["DisplayName", "Publisher", "Description", "TitleMode", "Icon", "PinnedVersion", "InstallMode", "InstallerType",
              "InstallCommand", "UninstallCommand", "InstallScriptMode", "UninstallScriptMode", "EstimatedMinutes",
              "MaximumMinutes", "Context", "LogonRequirement", "UserInteraction", "ScriptHost", "Detection"],
             EffectiveSettingsResolver.FieldMap.Select(f => f.Field));

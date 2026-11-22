@@ -144,7 +144,7 @@ public sealed class WorkbenchEditorSession
         return path switch
         {
             "Detection.Mode" => !string.Equals(member.Text, "Inherit", StringComparison.OrdinalIgnoreCase),
-            "InstallMode" => member.Value is not null,
+            "InstallMode" or "InstallerType" => member.Value is not null,
             "Variants.Split" => WorkbenchJson.IsTruthy(member.Value),
             _ => true
         };
@@ -194,6 +194,7 @@ public sealed class WorkbenchEditorSession
                 ResetSection(WorkbenchSection.Detection);
                 return;
             case "InstallMode":
+            case "InstallerType":
                 if (Profile.Get(path).Found) Profile.Set(path, null);
                 break;
             case "Variants.Split":

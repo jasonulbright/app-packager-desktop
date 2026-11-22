@@ -104,7 +104,7 @@ public static class LegacyPreferenceMigration
         return new LegacyMigrationResult(migrated, skipped);
     }
 
-    private static void ApplyConditions(WorkbenchProfile profile, JsonNode condition)
+    internal static void ApplyConditions(WorkbenchProfile profile, JsonNode condition)
     {
         var rules = new JsonArray();
         var architecture = WorkbenchJson.Get(condition, "Architecture").Text;
@@ -167,6 +167,9 @@ public static class LegacyPreferenceMigration
 
         var installMode = WorkbenchJson.Get(condition, "InstallMode").Text;
         if (IsOneOf(installMode, "CurrentUser", "AllUsers")) profile.Data["InstallMode"] = installMode;
+
+        var installerType = WorkbenchJson.Get(condition, "InstallerType").Text;
+        if (IsOneOf(installerType, "EXE", "MSI")) profile.Data["InstallerType"] = installerType;
 
         var titleMode = WorkbenchJson.Get(condition, "TitleMode").Text;
         if (IsOneOf(titleMode, "IncludeVersion", "NoVersion"))

@@ -356,6 +356,8 @@ public sealed class DeploymentConditionEntry
     public string Split { get; set; } = DeploymentConditionValues.NoSplit;
     /// <summary>Empty for the installer's own default, else AllUsers or CurrentUser.</summary>
     public string InstallMode { get; set; } = "";
+    /// <summary>Empty for the definition's default installer type, else EXE or MSI (only for an application that declares both).</summary>
+    public string InstallerType { get; set; } = "";
     /// <summary>Empty for the packager default, else IncludeVersion or NoVersion.</summary>
     public string TitleMode { get; set; } = "";
 }

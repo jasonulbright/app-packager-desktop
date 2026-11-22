@@ -667,6 +667,10 @@
                         </DataGrid>
 
                         <Grid Grid.Row="3" Margin="0,12,0,4">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto" />
                                 <ColumnDefinition Width="180" />
@@ -686,6 +690,13 @@
                             <TextBlock Grid.Column="4" x:Name="lblVariantSrc" Text="{Binding VariantSource}" Style="{StaticResource WbSource}" />
                             <ui:Button Grid.Column="5" x:Name="btnInstallForReset" Content="Reset" Style="{StaticResource WbInlineButton}" HorizontalAlignment="Left"
                                        Command="{Binding ResetFieldCommand}" CommandParameter="InstallMode" ToolTip="Remove your override and use the Install for value from the packager definition." />
+                            <TextBlock Grid.Row="1" Grid.Column="0" Text="Installer type" Style="{StaticResource WbLabel}" />
+                            <ComboBox Grid.Row="1" Grid.Column="1" x:Name="cboInstallerType" Style="{StaticResource WbCombo}"
+                                      ItemsSource="{Binding InstallerTypeOptions}" SelectedItem="{Binding InstallerType}" IsEnabled="{Binding InstallerTypeEnabled}"
+                                      ToolTip="EXE or MSI. The application stages with that installer, its own silent switches and its own detection. Offered only where the vendor ships both types." />
+                            <TextBlock Grid.Row="1" Grid.Column="4" x:Name="lblInstallerTypeSrc" Text="{Binding InstallerTypeSource}" Style="{StaticResource WbSource}" />
+                            <ui:Button Grid.Row="1" Grid.Column="5" x:Name="btnInstallerTypeReset" Content="Reset" Style="{StaticResource WbInlineButton}" HorizontalAlignment="Left"
+                                       Command="{Binding ResetFieldCommand}" CommandParameter="InstallerType" ToolTip="Remove your override and use the Installer type that the packager definition ships." />
                         </Grid>
 
                         <TextBlock Grid.Row="4" Text="Variant overrides" Style="{StaticResource WbHeading}" />
