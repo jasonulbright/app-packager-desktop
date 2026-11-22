@@ -91,6 +91,11 @@ public static class GuideCaptureSteps
         ["core-publish-configmgr-log"] = "core-publish-configmgr-log",
         ["start-sidebar-context-menu"] = "start-sidebar-context-menu",
         ["tools-pivots-pivot"] = "pivots-and-scripts",
+        // The update window, the command-line help and the first package (Capture-UpdateAndCli, Capture-FirstPackage).
+        ["core-update-available"] = "core-update-available",
+        ["core-update-ready"] = "core-update-ready",
+        ["core-cli-help"] = "core-cli-help",
+        ["start-first-package-end-to-end"] = "start-first-package-end-to-end",
         // The pending images that the lab capture runs of tools/guide-capture (Capture-AddAndWorkbench, Capture-Setup, Capture-CoreWindows, Capture-Tools) produce.
         ["core-add-app-step2-test"] = "core-add-app-step2-test",
         ["core-add-app-step3"] = "core-add-app-step3",
