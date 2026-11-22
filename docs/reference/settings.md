@@ -12,6 +12,7 @@ The Settings page is described in [Settings page](../core/settings-page.md). The
 - The Settings page writes the file only when you select `Save Settings`. `Discard changes` drops the edits.
 - The `Sidebar` section writes at once. It is not part of `Save Settings`.
 - A save from the Settings page sets `SiteCodeSaved`.
+- With a site active, `settings.json` holds the global settings only. The settings of a site (`SiteCode`, `ProviderMachine`, `DiscoverySqlServer`, `DiscoverySqlDatabase`, `FileShareRoot`, `ContentDistribution`, `DistributionOverrides`, `Wsus`, `SiteHygiene`, `SiteHygieneLive`, `OneClick.Destinations`, `OneClick.DefaultDestinations`, and `CurrentVersion`, `LastStaged`, `Published` and `NotSupported` of each `AppStates` entry) are in `sites\<site>\settings.json` and `sites\<site>\state\app-state.json`. A load reads both files. A save writes each key to its own file. `SiteCode` and `ProviderMachine` stay in `settings.json` as the last selection. See [Sites](../core/sites.md).
 - The command-line build reads `settings.json` one time per run. A run with command-line overrides does not write the file.
 - When `settings.json` cannot be read, the app uses the defaults. It writes nothing to that file until you save the Settings page. That save first keeps the unreadable file as `settings.json.unreadable-<timestamp>`.
 
