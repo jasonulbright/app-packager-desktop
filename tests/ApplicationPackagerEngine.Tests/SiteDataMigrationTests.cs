@@ -405,7 +405,7 @@ public sealed class SiteDataMigrationTests : IDisposable
     {
         SeedLegacyProfile();
         var dest = Path.Combine(DataRoot, @"sites\AB1\settings.json");
-        Write(DataRoot, @"sites\AB1\settings.json", "{\"FileShareRoot\":\"\\other.example.com\share$\"}");
+        Write(DataRoot, @"sites\AB1\settings.json", "{\"FileShareRoot\":\"other.example.com-share\"}");
         var existing = Sha(dest);
         var report = SiteDataMigration.Run(Options());
         Assert.Equal(existing, Sha(dest));
