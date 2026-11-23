@@ -173,7 +173,7 @@
                             <ui:Button Content="Save as template" Icon="{ui:SymbolIcon Save24}" Command="{Binding SaveAsTemplateCommand}" VerticalAlignment="Top"
                                        ToolTip="Saves the purpose, notification, time basis and options as a user template." Style="{StaticResource ToolButton}"
                                        AutomationProperties.AutomationId="btnSaveTemplate" />
-                            <ui:Button Content="Refresh" Icon="{ui:SymbolIcon ArrowClockwise24}" Command="{Binding RefreshCommand}" VerticalAlignment="Top"
+                            <ui:Button Content="Refresh" Icon="{ui:SymbolIcon ArrowSync24}" Command="{Binding RefreshCommand}" VerticalAlignment="Top"
                                        ToolTip="Reads the objects, the collections and the templates again." Style="{StaticResource ToolButton}"
                                        AutomationProperties.Name="Refresh objects and collections" AutomationProperties.AutomationId="btnDeployRefresh" />
                             <ui:Button Content="Cancel" Icon="{ui:SymbolIcon Dismiss24}" Command="{Binding CancelLoadCommand}" VerticalAlignment="Top"
@@ -373,7 +373,7 @@
                                     </DataGrid.Columns>
                                 </DataGrid>
                                 <WrapPanel Margin="0,8,0,0">
-                                    <ui:Button Content="Refresh status" Icon="{ui:SymbolIcon ArrowClockwise24}" Command="{Binding RefreshDpGroupsCommand}" Style="{StaticResource ToolButton}"
+                                    <ui:Button Content="Refresh status" Icon="{ui:SymbolIcon ArrowSync24}" Command="{Binding RefreshDpGroupsCommand}" Style="{StaticResource ToolButton}"
                                                ToolTip="Reads the content status of the selected object again." AutomationProperties.AutomationId="btnRefreshDpGroups" />
                                     <ui:Button Content="Distribute content" Icon="{ui:SymbolIcon CloudArrowUp24}" Command="{Binding DistributeCommand}" Style="{StaticResource ToolButton}"
                                                ToolTip="Shows a plan that sends the content to the checked groups." AutomationProperties.AutomationId="btnDistribute" />
@@ -439,7 +439,7 @@
                             <TextBlock Text="{Binding RowCount}" Style="{StaticResource Note}" VerticalAlignment="Center" Margin="0,0,0,8" AutomationProperties.AutomationId="txtHistoryCount" />
                         </WrapPanel>
                         <WrapPanel Grid.Row="1" Margin="0,0,0,4">
-                            <ui:Button Content="Refresh" Icon="{ui:SymbolIcon ArrowClockwise24}" Command="{Binding RefreshCommand}" Style="{StaticResource ToolButton}"
+                            <ui:Button Content="Refresh" Icon="{ui:SymbolIcon ArrowSync24}" Command="{Binding RefreshCommand}" Style="{StaticResource ToolButton}"
                                        ToolTip="Reads the audit log again." AutomationProperties.AutomationId="btnHistoryRefresh" />
                             <ui:Button Content="Cancel" Icon="{ui:SymbolIcon Dismiss24}" Command="{Binding CancelLoadCommand}" Style="{StaticResource ToolButton}"
                                        ToolTip="Stops the read of the audit log." AutomationProperties.Name="Cancel the read" AutomationProperties.AutomationId="btnHistoryCancel" />
@@ -447,7 +447,7 @@
                                        ToolTip="Shows a plan that removes the deployment of the selected create record." AutomationProperties.AutomationId="btnRemoveDeployment" />
                             <ui:Button Content="Export CSV" Icon="{ui:SymbolIcon DocumentTable24}" Command="{Binding ExportCsvCommand}" Style="{StaticResource ToolButton}"
                                        ToolTip="Saves the rows the filters show as a CSV file." AutomationProperties.AutomationId="btnHistoryCsv" />
-                            <ui:Button Content="Export HTML" Icon="{ui:SymbolIcon Document24}" Command="{Binding ExportHtmlCommand}" Style="{StaticResource ToolButton}"
+                            <ui:Button Content="Export HTML" Icon="{ui:SymbolIcon Globe24}" Command="{Binding ExportHtmlCommand}" Style="{StaticResource ToolButton}"
                                        ToolTip="Saves the rows the filters show as an HTML file." AutomationProperties.AutomationId="btnHistoryHtml" />
                             <ui:Button Content="Open folder" Icon="{ui:SymbolIcon FolderOpen24}" Command="{Binding OpenReportsFolderCommand}" Style="{StaticResource ToolButton}"
                                        ToolTip="Opens the folder of the last report." AutomationProperties.AutomationId="btnHistoryFolder" />
@@ -497,7 +497,7 @@
                               AutomationProperties.AutomationId="scrollOptionsTab">
                     <StackPanel>
                         <WrapPanel Margin="0,0,0,4">
-                            <ui:Button Content="Refresh" Icon="{ui:SymbolIcon ArrowClockwise24}" Command="{Binding RefreshCommand}" Style="{StaticResource ToolButton}"
+                            <ui:Button Content="Refresh" Icon="{ui:SymbolIcon ArrowSync24}" Command="{Binding RefreshCommand}" Style="{StaticResource ToolButton}"
                                        ToolTip="Reads the templates, the audit log check and the connection again." AutomationProperties.Name="Refresh options"
                                        AutomationProperties.AutomationId="btnOptionsRefresh" />
                             <ui:Button Content="Cancel" Icon="{ui:SymbolIcon Dismiss24}" Command="{Binding CancelLoadCommand}" Style="{StaticResource ToolButton}"

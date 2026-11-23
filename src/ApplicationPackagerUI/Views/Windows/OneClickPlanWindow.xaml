@@ -114,16 +114,16 @@
             <DockPanel>
                 <ui:Button x:Name="btnClose" DockPanel.Dock="Right" Content="Close" MinWidth="90" Click="Close_Click"
                            IsEnabled="{Binding CanClose}" AutomationProperties.AutomationId="btnClose" />
-                <ui:Button x:Name="btnOpenReport" DockPanel.Dock="Right" Content="Open report" MinWidth="110" Margin="0,0,8,0" Click="OpenReport_Click"
+                <ui:Button x:Name="btnOpenReport" DockPanel.Dock="Right" Content="Open report" Icon="{ui:SymbolIcon Open24}" MinWidth="110" Margin="0,0,8,0" Click="OpenReport_Click"
                            IsEnabled="{Binding CanOpenReport}" ToolTip="Opens the latest report of this window. The button is available after a plan or a run wrote a report."
                            AutomationProperties.AutomationId="btnOpenReport" />
-                <ui:Button x:Name="btnHistory" DockPanel.Dock="Right" Content="Run history" MinWidth="110" Margin="0,0,8,0" Click="History_Click"
+                <ui:Button x:Name="btnHistory" DockPanel.Dock="Right" Content="Run history" Icon="{ui:SymbolIcon History24}" MinWidth="110" Margin="0,0,8,0" Click="History_Click"
                            ToolTip="Opens the folder with the reports of earlier runs." AutomationProperties.AutomationId="btnHistory" />
-                <ui:Button x:Name="btnCancelRun" DockPanel.Dock="Right" Content="Cancel" Appearance="Danger" MinWidth="90" Margin="0,0,8,0"
+                <ui:Button x:Name="btnCancelRun" DockPanel.Dock="Right" Content="Cancel" Icon="{ui:SymbolIcon Dismiss24}" Appearance="Danger" MinWidth="90" Margin="0,0,8,0"
                            Command="{Binding CancelCommand}" Visibility="{Binding IsRunning, Converter={StaticResource BoolToVisibility}}"
                            AutomationProperties.AutomationId="btnCancelRun" />
                 <StackPanel Orientation="Horizontal">
-                    <ui:Button x:Name="btnRun" Content="Run" Appearance="Primary" MinWidth="110" Margin="0,0,8,0"
+                    <ui:Button x:Name="btnRun" Content="Run" Icon="{ui:SymbolIcon Play24}" Appearance="Primary" MinWidth="110" Margin="0,0,8,0"
                                Command="{Binding RunCommand}" ToolTip="Runs One Click for the included applications and destinations. The button is disabled while a run is active or when no application is included."
                                AutomationProperties.AutomationId="btnRun" />
                     <ui:Button x:Name="btnPlanOnly" Content="Plan only" MinWidth="110" Margin="0,0,16,0"

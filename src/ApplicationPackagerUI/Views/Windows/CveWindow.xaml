@@ -119,13 +119,13 @@
             <ui:Button DockPanel.Dock="Right" Content="Close" MinWidth="90" Click="Close_Click"
                        AutomationProperties.AutomationId="btnCveClose" />
             <StackPanel Orientation="Horizontal">
-                <ui:Button Content="Refresh" MinWidth="110" Margin="0,0,8,0" Click="Refresh_Click"
+                <ui:Button Content="Refresh" Icon="{ui:SymbolIcon ArrowSync24}" MinWidth="110" Margin="0,0,8,0" Click="Refresh_Click"
                            IsEnabled="{Binding CanRefresh}"
                            ToolTip="Look the CVEs up again, bypassing the cache"
                            AutomationProperties.AutomationId="btnCveRefresh" />
-                <ui:Button Content="Copy CVE IDs" MinWidth="110" Margin="0,0,8,0" Click="Copy_Click"
+                <ui:Button Content="Copy CVE IDs" Icon="{ui:SymbolIcon Copy24}" MinWidth="110" Margin="0,0,8,0" Click="Copy_Click"
                            AutomationProperties.AutomationId="btnCveCopy" ToolTip="Copy the CVE IDs of this application to the Clipboard, one on each line." />
-                <ui:Button Content="Export report" MinWidth="110" Margin="0,0,8,0" Click="Export_Click"
+                <ui:Button Content="Export report" Icon="{ui:SymbolIcon DocumentTable24}" MinWidth="110" Margin="0,0,8,0" Click="Export_Click"
                            ToolTip="Write the HTML, CSV, XLSX, Markdown and JSON report for this application and open the HTML page"
                            AutomationProperties.AutomationId="btnCveExport" />
             </StackPanel>

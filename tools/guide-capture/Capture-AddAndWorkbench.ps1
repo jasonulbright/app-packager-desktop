@@ -112,6 +112,7 @@ foreach ($theme in $Themes) {
             Set-ElText (Need-El 'txtAppPackagerSearch') ''; Start-Sleep 2
             $null = Click-Nav 'Workbench'; Start-Sleep 5
             "workbench application: $((Need-El 'cboApplication').Current.Name) / $((Need-El 'PART_EditableTextBox').GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern).Current.Value)"
+            Shot 'core-workbench-application'
             foreach ($pair in @(@('Install & uninstall', 'core-workbench-install'), @('Detection', 'core-workbench-detection'), @('Requirements & variants', 'core-workbench-requirements'),
                                 @('Timing & execution', 'core-workbench-timing'), @('Source files', 'core-workbench-source-files'))) {
                 Step $pair[1] {

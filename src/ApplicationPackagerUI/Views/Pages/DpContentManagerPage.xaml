@@ -150,14 +150,14 @@
 
         <StackPanel Grid.Row="2" Margin="0,0,0,8">
             <WrapPanel>
-                <ui:Button Content="Refresh" Icon="{ui:SymbolIcon ArrowClockwise24}" Command="{Binding RefreshCommand}" Style="{StaticResource ToolButton}"
+                <ui:Button Content="Refresh" Icon="{ui:SymbolIcon ArrowSync24}" Command="{Binding RefreshCommand}" Style="{StaticResource ToolButton}"
                            ToolTip="Reads the distribution points, the content and every status row again." AutomationProperties.Name="Refresh the distribution point content"
                            AutomationProperties.AutomationId="btnDpContentRefresh" />
                 <ui:Button Content="Cancel" Icon="{ui:SymbolIcon Dismiss24}" Command="{Binding CancelLoadCommand}" Style="{StaticResource ToolButton}"
                            ToolTip="Stops the read." AutomationProperties.Name="Cancel the read" AutomationProperties.AutomationId="btnDpContentCancel" />
                 <ui:Button Content="Export CSV" Icon="{ui:SymbolIcon DocumentTable24}" Command="{Binding ExportCsvCommand}" Style="{StaticResource ToolButton}"
                            ToolTip="Saves the rows the filters of the active tab show as a CSV file." AutomationProperties.AutomationId="btnDpContentCsv" />
-                <ui:Button Content="Export HTML" Icon="{ui:SymbolIcon Document24}" Command="{Binding ExportHtmlCommand}" Style="{StaticResource ToolButton}"
+                <ui:Button Content="Export HTML" Icon="{ui:SymbolIcon Globe24}" Command="{Binding ExportHtmlCommand}" Style="{StaticResource ToolButton}"
                            ToolTip="Saves the rows the filters of the active tab show as an HTML file." AutomationProperties.AutomationId="btnDpContentHtml" />
                 <ui:Button Content="Open folder" Icon="{ui:SymbolIcon FolderOpen24}" Command="{Binding OpenReportsFolderCommand}" Style="{StaticResource ToolButton}"
                            ToolTip="Opens the folder of the last report." AutomationProperties.AutomationId="btnDpContentFolder" />
@@ -347,7 +347,7 @@
                             <ComboBox ItemsSource="{Binding HistoryActions}" SelectedItem="{Binding HistoryAction}" MinWidth="160" Margin="0,0,8,8"
                                       ToolTip="Shows only the history entries of this action."
                                       AutomationProperties.Name="Action" AutomationProperties.AutomationId="cboDpHistoryAction" />
-                            <ui:Button Content="Refresh history" Icon="{ui:SymbolIcon ArrowClockwise24}" Command="{Binding RefreshHistoryCommand}" Style="{StaticResource ToolButton}"
+                            <ui:Button Content="Refresh history" Icon="{ui:SymbolIcon ArrowSync24}" Command="{Binding RefreshHistoryCommand}" Style="{StaticResource ToolButton}"
                                        ToolTip="Reads the audit log again." AutomationProperties.AutomationId="btnDpHistoryRefresh" />
                             <TextBlock Text="{Binding HistoryCount}" Style="{StaticResource Note}" VerticalAlignment="Center" Margin="0,0,0,8" AutomationProperties.AutomationId="txtDpHistoryCount" />
                         </WrapPanel>

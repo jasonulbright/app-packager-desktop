@@ -24,15 +24,21 @@ $cli = Join-Path $AppFolder 'AppPackagerBuild.exe'
 
 foreach ($theme in $Themes) {
     $before = @(Get-ChildItem $env:TEMP -Directory -ErrorAction SilentlyContinue | ForEach-Object { $_.FullName })
-    $data = Start-RunApp $exe $theme @{}
+    $data = Start-RunApp $exe $theme @{ CheckForUpdatesAtStartup = $true }
     try {
         Step 'core-update-available' {
             # With a newer release on GitHub the start check opens the update window once; when it does not show, Settings, Updates, Check for updates opens it.
             $latest = Wait-El 'txtUpdateLatest' 45
             if (-not $latest) {
                 $null = Click-Nav 'Settings'; Start-Sleep 4
-                Click-El (Need-El 'nav_updates'); Start-Sleep 2
-                Invoke-El (Need-El 'btnCheckForUpdates')
+                # The button is on the General page, which the Settings page shows first; the other pages are the fallback.
+                $check = Find-El $null 'btnCheckForUpdates' -Timeout 5
+                foreach ($page in $(if ($check) { @() } else { 'nav_general', 'nav_about', 'nav_updates' })) {
+                    $node = Find-El $null $page -Timeout 5
+                    if ($node) { Click-El $node; Start-Sleep 2; $check = Find-El $null 'btnCheckForUpdates' -Timeout 3; if ($check) { break } }
+                }
+                if (-not $check) { throw 'The Settings page has no Check for updates button.' }
+                Invoke-El $check
                 $latest = Need-El 'txtUpdateLatest' 30
             }
             $deadline = (Get-Date).AddSeconds(60)

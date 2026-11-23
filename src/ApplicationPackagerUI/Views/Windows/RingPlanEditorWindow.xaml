@@ -86,7 +86,7 @@
                                ToolTip="Moves the selected ring one place earlier in the plan." AutomationProperties.Name="Move the ring up" AutomationProperties.AutomationId="btnRingUp" />
                     <ui:Button Content="Move down" Icon="{ui:SymbolIcon ArrowDown24}" Command="{Binding MoveDownCommand}" Style="{StaticResource ToolButton}"
                                ToolTip="Moves the selected ring one place later in the plan." AutomationProperties.Name="Move the ring down" AutomationProperties.AutomationId="btnRingDown" />
-                    <ui:Button Content="Duplicate ring" Icon="{ui:SymbolIcon Copy24}" Command="{Binding DuplicateRingCommand}" Style="{StaticResource ToolButton}"
+                    <ui:Button Content="Duplicate ring" Icon="{ui:SymbolIcon CopyAdd24}" Command="{Binding DuplicateRingCommand}" Style="{StaticResource ToolButton}"
                                ToolTip="Copies the selected ring and its offsets and success threshold below it. The copy has no Device Collection until you pick one."
                                AutomationProperties.AutomationId="btnRingDuplicate" />
                     <ui:Button Content="Add rings from collections" Icon="{ui:SymbolIcon Organization24}" Command="{Binding AddRingsFromCollectionsCommand}" Style="{StaticResource ToolButton}"

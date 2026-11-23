@@ -95,7 +95,7 @@
                         </Grid.RowDefinitions>
                         <pages:PivotsTargetsPanel Grid.Row="0" KeyboardNavigation.TabIndex="0" KeyboardNavigation.TabNavigation="Local" />
                         <WrapPanel Grid.Row="1" Margin="0,0,0,4" KeyboardNavigation.TabIndex="1" KeyboardNavigation.TabNavigation="Local">
-                            <ui:Button Content="Refresh scripts" Icon="{ui:SymbolIcon ArrowClockwise24}" Command="{Binding RefreshScriptsCommand}" Style="{StaticResource ToolButton}"
+                            <ui:Button Content="Refresh scripts" Icon="{ui:SymbolIcon ArrowSync24}" Command="{Binding RefreshScriptsCommand}" Style="{StaticResource ToolButton}"
                                        ToolTip="Reads the site scripts again." AutomationProperties.AutomationId="btnRefreshScripts" />
                             <TextBlock Text="{Binding ScriptsCount}" Style="{StaticResource Note}" VerticalAlignment="Center" Margin="0,0,0,8" AutomationProperties.AutomationId="txtScriptsCount" />
                         </WrapPanel>
@@ -138,7 +138,7 @@
                         <WrapPanel Grid.Row="0" Margin="0,0,0,4" KeyboardNavigation.TabIndex="0" KeyboardNavigation.TabNavigation="Local">
                             <ui:TextBox Text="{Binding SiteScriptText, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="Filter by name, GUID, author or state" Icon="{ui:SymbolIcon Search24}"
                                         MinWidth="280" Margin="0,0,8,8" ToolTip="Enter text to show only the site scripts whose name, GUID, author or state contains it." AutomationProperties.Name="Site script filter" AutomationProperties.AutomationId="txtSiteScriptFilter" />
-                            <ui:Button Content="Refresh" Icon="{ui:SymbolIcon ArrowClockwise24}" Command="{Binding RefreshScriptsCommand}" Style="{StaticResource ToolButton}"
+                            <ui:Button Content="Refresh" Icon="{ui:SymbolIcon ArrowSync24}" Command="{Binding RefreshScriptsCommand}" Style="{StaticResource ToolButton}"
                                        ToolTip="Reads the site scripts again." AutomationProperties.Name="Refresh the site scripts" AutomationProperties.AutomationId="btnRefreshSiteScripts" />
                             <TextBlock Text="{Binding SiteScriptCount}" Style="{StaticResource Note}" VerticalAlignment="Center" Margin="0,0,0,8" AutomationProperties.AutomationId="txtSiteScriptCount" />
                         </WrapPanel>
@@ -234,7 +234,7 @@
                         <WrapPanel Grid.Row="0" Margin="0,0,0,4" KeyboardNavigation.TabIndex="0" KeyboardNavigation.TabNavigation="Local">
                             <ui:TextBox Text="{Binding HistoryText, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="Filter the audit records" Icon="{ui:SymbolIcon Search24}"
                                         MinWidth="260" Margin="0,0,8,8" ToolTip="Enter text to show only the audit records whose action, result, target, user, message or script GUID contains it." AutomationProperties.Name="History filter" AutomationProperties.AutomationId="txtPivotsHistoryFilter" />
-                            <ui:Button Content="Refresh history" Icon="{ui:SymbolIcon ArrowClockwise24}" Command="{Binding RefreshHistoryCommand}" Style="{StaticResource ToolButton}"
+                            <ui:Button Content="Refresh history" Icon="{ui:SymbolIcon ArrowSync24}" Command="{Binding RefreshHistoryCommand}" Style="{StaticResource ToolButton}"
                                        ToolTip="Reads the saved sessions and the audit log again." AutomationProperties.AutomationId="btnPivotsHistoryRefresh" />
                             <ui:Button Content="Open session" Icon="{ui:SymbolIcon Open24}" Command="{Binding OpenSessionCommand}" Style="{StaticResource ToolButton}"
                                        ToolTip="Opens the selected saved session read only in the result tabs." AutomationProperties.AutomationId="btnOpenSession" />

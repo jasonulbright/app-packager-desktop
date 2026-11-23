@@ -254,13 +254,13 @@
                     <Separator />
                     <MenuItem Header="Edit application..." Click="ContextMenu_EditApplication">
                         <MenuItem.Icon>
-                            <ui:SymbolIcon Symbol="Wrench24" />
+                            <ui:SymbolIcon Symbol="Edit24" />
                         </MenuItem.Icon>
                     </MenuItem>
                     <Separator />
                     <MenuItem Header="Open Log Folder" Click="ContextMenu_OpenLogFolder">
                         <MenuItem.Icon>
-                            <ui:SymbolIcon Symbol="Folder24" />
+                            <ui:SymbolIcon Symbol="DocumentText24" />
                         </MenuItem.Icon>
                     </MenuItem>
                     <MenuItem Header="Open Staged Folder" Click="ContextMenu_OpenStagedFolder">
@@ -270,7 +270,7 @@
                     </MenuItem>
                     <MenuItem Header="Open Network Share" Click="ContextMenu_OpenNetworkShare">
                         <MenuItem.Icon>
-                            <ui:SymbolIcon Symbol="Globe24" />
+                            <ui:SymbolIcon Symbol="FolderLink24" />
                         </MenuItem.Icon>
                     </MenuItem>
                     <Separator />

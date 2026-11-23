@@ -222,7 +222,7 @@
                            ToolTip="Stops the scan after the current step. The earlier result stays." AutomationProperties.Name="Cancel the scan" AutomationProperties.AutomationId="btnHygieneCancel" />
                 <ui:Button Content="Export CSV" Icon="{ui:SymbolIcon DocumentTable24}" Command="{Binding ExportCsvCommand}" Style="{StaticResource ToolButton}"
                            ToolTip="Saves the rows the filters of the active tab show as a CSV file." AutomationProperties.AutomationId="btnHygieneCsv" />
-                <ui:Button Content="Export HTML" Icon="{ui:SymbolIcon Document24}" Command="{Binding ExportHtmlCommand}" Style="{StaticResource ToolButton}"
+                <ui:Button Content="Export HTML" Icon="{ui:SymbolIcon Globe24}" Command="{Binding ExportHtmlCommand}" Style="{StaticResource ToolButton}"
                            ToolTip="Saves the rows the filters of the active tab show as an HTML file." AutomationProperties.AutomationId="btnHygieneHtml" />
                 <ui:Button Content="Open folder" Icon="{ui:SymbolIcon FolderOpen24}" Command="{Binding OpenReportsFolderCommand}" Style="{StaticResource ToolButton}"
                            ToolTip="Opens the report folder." AutomationProperties.AutomationId="btnHygieneFolder" />
@@ -555,7 +555,7 @@
                         <WrapPanel Grid.Row="1" x:Name="pnlHygieneHistoryFilter" Margin="0,0,0,4" KeyboardNavigation.TabNavigation="Local" KeyboardNavigation.TabIndex="0">
                             <ui:TextBox ToolTip="Enter text to show only the history entries that contain it." Text="{Binding HistoryText, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="Filter by action, result, user, site or object" Icon="{ui:SymbolIcon Search24}"
                                         MinWidth="300" Margin="0,0,8,8" AutomationProperties.Name="History filter" AutomationProperties.AutomationId="txtHygieneHistoryFilter" />
-                            <ui:Button Content="Refresh" Icon="{ui:SymbolIcon ArrowClockwise24}" Command="{Binding RefreshHistoryCommand}" Style="{StaticResource ToolButton}"
+                            <ui:Button Content="Refresh" Icon="{ui:SymbolIcon ArrowSync24}" Command="{Binding RefreshHistoryCommand}" Style="{StaticResource ToolButton}"
                                        ToolTip="Reads the audit log file again." AutomationProperties.Name="Reload the audit log" AutomationProperties.AutomationId="btnHygieneHistoryRefresh" />
                             <TextBlock Text="{Binding HistoryCount}" Style="{StaticResource Note}" VerticalAlignment="Center" Margin="0,0,12,8" AutomationProperties.AutomationId="txtHygieneHistoryCount" />
                             <TextBlock Text="{Binding HistoryCapText}" Style="{StaticResource Note}" VerticalAlignment="Center" Margin="0,0,0,8" MaxWidth="560"

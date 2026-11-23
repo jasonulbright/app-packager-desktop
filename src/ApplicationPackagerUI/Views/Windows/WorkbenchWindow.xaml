@@ -164,7 +164,7 @@
                            Click="OpenDefinition_Click"
                            ToolTip="Lists the definitions made by Add from file, the shipped definitions and the definitions made by Add from web."
                            AutomationProperties.AutomationId="btnOpenDefinition" />
-                <ui:Button x:Name="btnProfileRename" Content="Rename" MinWidth="90"
+                <ui:Button x:Name="btnProfileRename" Content="Rename" Icon="{ui:SymbolIcon Edit24}" MinWidth="90"
                            Command="{Binding RenameProfileCommand}" ToolTip="Rename the selected custom profile." />
                 <ui:DropDownButton x:Name="btnBundle" Content="Bundle" Margin="8,0,0,0"
                                    ToolTip="Export this application with its profiles and assets as a portable bundle, or import a bundle.">
@@ -313,11 +313,11 @@
                             </Border>
                             <StackPanel Grid.Column="1" VerticalAlignment="Center">
                                 <StackPanel Orientation="Horizontal">
-                                    <ui:Button x:Name="btnIconChoose" Content="Choose file..." Style="{StaticResource WbInlineButton}" MinWidth="110"
+                                    <ui:Button x:Name="btnIconChoose" Content="Choose file..." Icon="{ui:SymbolIcon FolderOpen24}" Style="{StaticResource WbInlineButton}" MinWidth="110"
                                                Command="{Binding ChooseIconCommand}" ToolTip="Select an image file (PNG, ICO, JPG or BMP) to use as the application icon." />
                                     <ui:Button x:Name="btnIconReset" Content="Reset" Style="{StaticResource WbInlineButton}"
                                                Command="{Binding ResetIconCommand}" ToolTip="Remove your icon override and use the icon from the packager definition." />
-                                    <ui:Button x:Name="btnIconRemove" Content="Remove" Style="{StaticResource WbInlineButton}"
+                                    <ui:Button x:Name="btnIconRemove" Content="Remove" Icon="{ui:SymbolIcon Delete24}" Style="{StaticResource WbInlineButton}"
                                                Command="{Binding RemoveIconCommand}"
                                                ToolTip="Explicitly publish no icon, rather than inheriting the packager's icon." />
                                 </StackPanel>
@@ -345,7 +345,7 @@
                                     <DataGridTextColumn Header="Blocking changes" Width="*" MinWidth="200" Binding="{Binding Flags}" />
                                 </DataGrid.Columns>
                             </DataGrid>
-                            <ui:Button x:Name="btnReplaceInstaller" Content="Replace installer..." MinWidth="150" HorizontalAlignment="Left"
+                            <ui:Button x:Name="btnReplaceInstaller" Content="Replace installer..." Icon="{ui:SymbolIcon ArrowSwap24}" MinWidth="150" HorizontalAlignment="Left"
                                        Command="{Binding ReplaceInstallerCommand}"
                                        ToolTip="Analyze a new installer, compare its identity with the current revision, and add it as the next source revision. Earlier revisions are kept." />
                         </StackPanel>
@@ -575,8 +575,8 @@
                                 <DockPanel Grid.Row="6" Grid.Column="0" Grid.ColumnSpan="4" Margin="0,8,0,4">
                                     <TextBlock DockPanel.Dock="Left" Text="Clauses" Style="{StaticResource WbHeading}" Margin="0,0,12,0" VerticalAlignment="Center" />
                                     <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" HorizontalAlignment="Right">
-                                        <ui:Button x:Name="btnDetClauseAdd" Content="Add clause" Style="{StaticResource WbInlineButton}" Command="{Binding AddClauseCommand}" ToolTip="Add a clause to the detection rule." />
-                                        <ui:Button x:Name="btnDetClauseRemove" Content="Remove" Style="{StaticResource WbInlineButton}" Margin="0,0,0,8" Command="{Binding RemoveClauseCommand}" ToolTip="Remove the selected clause from the detection rule." />
+                                        <ui:Button x:Name="btnDetClauseAdd" Content="Add clause" Icon="{ui:SymbolIcon Add24}" Style="{StaticResource WbInlineButton}" Command="{Binding AddClauseCommand}" ToolTip="Add a clause to the detection rule." />
+                                        <ui:Button x:Name="btnDetClauseRemove" Content="Remove" Icon="{ui:SymbolIcon Delete24}" Style="{StaticResource WbInlineButton}" Margin="0,0,0,8" Command="{Binding RemoveClauseCommand}" ToolTip="Remove the selected clause from the detection rule." />
                                     </StackPanel>
                                 </DockPanel>
 
@@ -649,9 +649,9 @@
                                 <ComboBox x:Name="cboReqTemplate" Width="200" Margin="0,0,8,8"
                                           ItemsSource="{Binding RequirementTemplates}" SelectedItem="{Binding SelectedRequirementTemplate}"
                                           ToolTip="Site conditions, named below; a rule attaches one to this application." />
-                                <ui:Button x:Name="btnReqAdd" Content="Add" Style="{StaticResource WbInlineButton}" MinWidth="70" Command="{Binding AddRequirementCommand}" ToolTip="Add a requirement operation for the selected site condition." />
-                                <ui:Button x:Name="btnReqReplace" Content="Replace" Style="{StaticResource WbInlineButton}" Command="{Binding ReplaceRequirementCommand}" ToolTip="Set the selected requirement operation to Replace." />
-                                <ui:Button x:Name="btnReqRemove" Content="Remove" Style="{StaticResource WbInlineButton}" Margin="0,0,0,8" Command="{Binding RemoveRequirementCommand}" ToolTip="Set the selected requirement operation to Remove. The row stays in the list and suppresses the rule the packager would otherwise add." />
+                                <ui:Button x:Name="btnReqAdd" Content="Add" Icon="{ui:SymbolIcon Add24}" Style="{StaticResource WbInlineButton}" MinWidth="70" Command="{Binding AddRequirementCommand}" ToolTip="Add a requirement operation for the selected site condition." />
+                                <ui:Button x:Name="btnReqReplace" Content="Replace" Icon="{ui:SymbolIcon ArrowSwap24}" Style="{StaticResource WbInlineButton}" Command="{Binding ReplaceRequirementCommand}" ToolTip="Set the selected requirement operation to Replace." />
+                                <ui:Button x:Name="btnReqRemove" Content="Remove" Icon="{ui:SymbolIcon Delete24}" Style="{StaticResource WbInlineButton}" Margin="0,0,0,8" Command="{Binding RemoveRequirementCommand}" ToolTip="Set the selected requirement operation to Remove. The row stays in the list and suppresses the rule the packager would otherwise add." />
                             </StackPanel>
                         </DockPanel>
 
@@ -829,10 +829,10 @@
                     <DockPanel Grid.Row="1" Margin="0,0,0,4">
                         <TextBlock DockPanel.Dock="Left" Text="Custom source files" Style="{StaticResource WbHeading}" Margin="0,0,12,0" VerticalAlignment="Center" />
                         <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" HorizontalAlignment="Right">
-                            <ui:Button x:Name="btnSourceAddFile" Content="Add file..." Style="{StaticResource WbInlineButton}" Command="{Binding AddSourceFileCommand}" ToolTip="Select one or more files to bundle in the package content." />
-                            <ui:Button x:Name="btnSourceAddFolder" Content="Add folder..." Style="{StaticResource WbInlineButton}" Command="{Binding AddSourceFolderCommand}" ToolTip="Select a folder to bundle every file under it in the package content." />
-                            <ui:Button x:Name="btnSourceReplace" Content="Replace..." Style="{StaticResource WbInlineButton}" Command="{Binding ReplaceSourceFileCommand}" ToolTip="Select a file to replace the selected source file." />
-                            <ui:Button x:Name="btnSourceRemove" Content="Remove" Style="{StaticResource WbInlineButton}" Margin="0,0,0,8" Command="{Binding RemoveSourceFileCommand}" ToolTip="Remove the selected source file from the bundle." />
+                            <ui:Button x:Name="btnSourceAddFile" Content="Add file..." Icon="{ui:SymbolIcon Add24}" Style="{StaticResource WbInlineButton}" Command="{Binding AddSourceFileCommand}" ToolTip="Select one or more files to bundle in the package content." />
+                            <ui:Button x:Name="btnSourceAddFolder" Content="Add folder..." Icon="{ui:SymbolIcon Add24}" Style="{StaticResource WbInlineButton}" Command="{Binding AddSourceFolderCommand}" ToolTip="Select a folder to bundle every file under it in the package content." />
+                            <ui:Button x:Name="btnSourceReplace" Content="Replace..." Icon="{ui:SymbolIcon ArrowSwap24}" Style="{StaticResource WbInlineButton}" Command="{Binding ReplaceSourceFileCommand}" ToolTip="Select a file to replace the selected source file." />
+                            <ui:Button x:Name="btnSourceRemove" Content="Remove" Icon="{ui:SymbolIcon Delete24}" Style="{StaticResource WbInlineButton}" Margin="0,0,0,8" Command="{Binding RemoveSourceFileCommand}" ToolTip="Remove the selected source file from the bundle." />
                         </StackPanel>
                     </DockPanel>
 
@@ -944,17 +944,17 @@
                 <ui:Button x:Name="btnUseDefaults" Content="Use defaults" Style="{StaticResource WbFooterButton}" MinWidth="106"
                            Command="{Binding UseDefaultsCommand}"
                            ToolTip="Clear every override in this profile and inherit the packager defaults." />
-                <ui:Button x:Name="btnSave" Content="Save" Style="{StaticResource WbFooterButton}" Command="{Binding SaveCommand}" ToolTip="Save this profile. The packager default profile asks for a name and is saved as a new profile." />
-                <ui:Button x:Name="btnSaveAs" Content="Save as..." Style="{StaticResource WbFooterButton}" Command="{Binding SaveAsCommand}" ToolTip="Save a copy of this profile under a new name." />
-                <ui:Button x:Name="btnValidate" Content="Validate" Style="{StaticResource WbFooterButton}" Command="{Binding ValidateCommand}" ToolTip="Check this profile and show the findings on the Review page. Nothing runs." />
-                <ui:Button x:Name="btnStage" Content="Stage" Style="{StaticResource WbFooterButton}" Command="{Binding StageCommand}" ToolTip="Stage this application with the saved profile. Unsaved edits are saved or discarded first, and blocking findings stop the run." />
+                <ui:Button x:Name="btnSave" Content="Save" Icon="{ui:SymbolIcon Save24}" Style="{StaticResource WbFooterButton}" Command="{Binding SaveCommand}" ToolTip="Save this profile. The packager default profile asks for a name and is saved as a new profile." />
+                <ui:Button x:Name="btnSaveAs" Content="Save as..." Icon="{ui:SymbolIcon Save24}" Style="{StaticResource WbFooterButton}" Command="{Binding SaveAsCommand}" ToolTip="Save a copy of this profile under a new name." />
+                <ui:Button x:Name="btnValidate" Content="Validate" Icon="{ui:SymbolIcon CheckmarkCircle24}" Style="{StaticResource WbFooterButton}" Command="{Binding ValidateCommand}" ToolTip="Check this profile and show the findings on the Review page. Nothing runs." />
+                <ui:Button x:Name="btnStage" Content="Stage" Icon="{ui:SymbolIcon ArrowDownload24}" Style="{StaticResource WbFooterButton}" Command="{Binding StageCommand}" ToolTip="Stage this application with the saved profile. Unsaved edits are saved or discarded first, and blocking findings stop the run." />
                 <TextBlock Text="Publish to:" FontSize="14" VerticalAlignment="Center" Margin="8,0,8,0"
                            Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
-                <ui:Button x:Name="btnPublishMecm" Content="ConfigMgr" Appearance="Primary" Style="{StaticResource WbFooterButton}"
+                <ui:Button x:Name="btnPublishMecm" Content="ConfigMgr" Icon="{ui:SymbolIcon CloudArrowUp24}" Appearance="Primary" Style="{StaticResource WbFooterButton}"
                            Command="{Binding PublishConfigMgrCommand}" ToolTip="{Binding PublishConfigMgrToolTip}" ToolTipService.ShowOnDisabled="True" />
-                <ui:Button x:Name="btnPublishIntune" Content="Intune" Appearance="Primary" Style="{StaticResource WbFooterButton}"
+                <ui:Button x:Name="btnPublishIntune" Content="Intune" Icon="{ui:SymbolIcon CloudArrowUp24}" Appearance="Primary" Style="{StaticResource WbFooterButton}"
                            Command="{Binding PublishIntuneCommand}" ToolTip="{Binding PublishIntuneToolTip}" ToolTipService.ShowOnDisabled="True" />
-                <ui:Button x:Name="btnPublishWsus" Content="WSUS" Appearance="Primary" Style="{StaticResource WbFooterButton}" Margin="0"
+                <ui:Button x:Name="btnPublishWsus" Content="WSUS" Icon="{ui:SymbolIcon CloudArrowUp24}" Appearance="Primary" Style="{StaticResource WbFooterButton}" Margin="0"
                            Command="{Binding PublishWsusCommand}" ToolTip="{Binding PublishWsusToolTip}" ToolTipService.ShowOnDisabled="True"
                            AutomationProperties.AutomationId="btnPublishWsus" />
             </StackPanel>
