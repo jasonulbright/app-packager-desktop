@@ -48,7 +48,7 @@
             <DockPanel>
                 <ui:Button x:Name="btnClose" DockPanel.Dock="Right" Content="Close" MinWidth="90" IsCancel="True" Click="Close_Click"
                            AutomationProperties.AutomationId="btnClose" />
-                <ui:Button x:Name="btnCatalog" DockPanel.Dock="Right" Content="Catalog Import" MinWidth="120" Margin="0,0,8,0"
+                <ui:Button x:Name="btnCatalog" DockPanel.Dock="Right" Content="Catalog Import" Icon="{ui:SymbolIcon ArrowImport24}" MinWidth="120" Margin="0,0,8,0"
                            Command="{Binding CatalogImportCommand}" AutomationProperties.AutomationId="btnCatalog"
                            ToolTip="Import Microsoft updates that do not synchronize automatically, by catalog update ID or link." />
                 <StackPanel Orientation="Horizontal">
@@ -56,19 +56,19 @@
                               ItemsSource="{Binding Groups}" Text="{Binding GroupText, UpdateSourceTrigger=PropertyChanged}"
                               AutomationProperties.Name="Computer group" AutomationProperties.AutomationId="cboGroup"
                               ToolTip="Computer group for Approve. The list loads from the server." />
-                    <ui:Button x:Name="btnApprove" Content="Approve for group" Appearance="Primary" MinWidth="130" Margin="0,0,8,0"
+                    <ui:Button x:Name="btnApprove" Content="Approve for group" Icon="{ui:SymbolIcon CheckmarkCircle24}" Appearance="Primary" MinWidth="130" Margin="0,0,8,0"
                                Command="{Binding ApproveCommand}" AutomationProperties.AutomationId="btnApprove"
                                ToolTip="Approves the selected updates for install on the computer group in the box." />
-                    <ui:Button x:Name="btnDecline" Content="Decline" MinWidth="90" Margin="0,0,8,0" Command="{Binding DeclineCommand}"
+                    <ui:Button x:Name="btnDecline" Content="Decline" Icon="{ui:SymbolIcon DismissCircle24}" MinWidth="90" Margin="0,0,8,0" Command="{Binding DeclineCommand}"
                                AutomationProperties.AutomationId="btnDecline"
                                ToolTip="Declined updates are not offered to any client. Approving again reverses it." />
                     <ui:Button x:Name="btnExpire" Content="Expire" MinWidth="90" Margin="0,0,8,0" Command="{Binding ExpireCommand}"
                                AutomationProperties.AutomationId="btnExpire"
                                ToolTip="Expires the update on the server permanently. Clients stop seeing it; it cannot be approved again." />
-                    <ui:Button x:Name="btnRemove" Content="Remove" MinWidth="90" Margin="0,0,8,0" Command="{Binding RemoveCommand}"
+                    <ui:Button x:Name="btnRemove" Content="Remove" Icon="{ui:SymbolIcon Delete24}" MinWidth="90" Margin="0,0,8,0" Command="{Binding RemoveCommand}"
                                AutomationProperties.AutomationId="btnRemove"
                                ToolTip="Declines the update and deletes it from the WSUS database. It cannot be undone." />
-                    <ui:Button x:Name="btnRefresh" Content="Refresh" MinWidth="90" Command="{Binding RefreshCommand}"
+                    <ui:Button x:Name="btnRefresh" Content="Refresh" Icon="{ui:SymbolIcon ArrowSync24}" MinWidth="90" Command="{Binding RefreshCommand}"
                                AutomationProperties.AutomationId="btnRefresh"
                                ToolTip="Reads the list of updates from the WSUS server again." />
                 </StackPanel>

@@ -32,7 +32,7 @@
                            ToolTip="Ends the wait on the page only. Clients that received the request still run it." AutomationProperties.AutomationId="btnStopWaiting" />
                 <ui:Button Content="Export CSV" Icon="{ui:SymbolIcon DocumentTable24}" Command="{Binding ExportCsvCommand}" Style="{StaticResource ToolButton}"
                            ToolTip="Saves the rows the filter of the active result tab shows as a CSV file." AutomationProperties.AutomationId="btnExportCsv" />
-                <ui:Button Content="Export JSON" Icon="{ui:SymbolIcon Document24}" Command="{Binding ExportJsonCommand}" Style="{StaticResource ToolButton}"
+                <ui:Button Content="Export JSON" Icon="{ui:SymbolIcon Braces24}" Command="{Binding ExportJsonCommand}" Style="{StaticResource ToolButton}"
                            ToolTip="Saves the rows the filter of the active result tab shows as a JSON file." AutomationProperties.AutomationId="btnExportJson" />
                 <ui:Button Content="Copy as PowerShell" Icon="{ui:SymbolIcon Copy24}" Command="{Binding CopyAsPowerShellCommand}" Style="{StaticResource ToolButton}"
                            ToolTip="Copies the shown rows as a PowerShell expression that gives them back as objects." AutomationProperties.AutomationId="btnCopyPowerShell" />

@@ -149,15 +149,15 @@
                           IsChecked="{Binding DontShowAgain}" VerticalAlignment="Center"
                           ToolTip="Select to stop showing this window at startup when you select Skip. Nothing is configured." />
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                    <ui:Button Content="Back" Command="{Binding BackCommand}" Margin="0,0,8,0"
+                    <ui:Button Content="Back" Icon="{ui:SymbolIcon ArrowLeft24}" Command="{Binding BackCommand}" Margin="0,0,8,0"
                                ToolTip="Returns to the selection of systems."
                                Visibility="{Binding CurrentStep, Converter={StaticResource StepVisibilityConverter}, ConverterParameter=2}" />
                     <ui:Button Content="Skip" Command="{Binding SkipCommand}" Margin="0,0,8,0"
                                ToolTip="Closes this window without saving. The window shows again at the next start unless you select Don't show this again." />
-                    <ui:Button Content="Next" Appearance="Primary" Command="{Binding NextCommand}"
+                    <ui:Button Content="Next" Icon="{ui:SymbolIcon ArrowRight24}" Appearance="Primary" Command="{Binding NextCommand}"
                                ToolTip="Continues to the connection details of the selected systems."
                                Visibility="{Binding CurrentStep, Converter={StaticResource StepVisibilityConverter}, ConverterParameter=1}" />
-                    <ui:Button Content="Save" Appearance="Primary" Command="{Binding SaveCommand}"
+                    <ui:Button Content="Save" Icon="{ui:SymbolIcon Save24}" Appearance="Primary" Command="{Binding SaveCommand}"
                                ToolTip="Saves the settings and closes this window. The settings apply without a restart."
                                Visibility="{Binding CurrentStep, Converter={StaticResource StepVisibilityConverter}, ConverterParameter=2}" />
                 </StackPanel>

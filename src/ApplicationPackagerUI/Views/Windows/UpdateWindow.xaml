@@ -55,13 +55,13 @@
 
         <Border Grid.Row="3" BorderThickness="0,1,0,0" BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}" Padding="16,8">
             <WrapPanel HorizontalAlignment="Right">
-                <ui:Button Content="Check _again" MinWidth="110" Margin="0,0,8,0" Command="{Binding CheckCommand}"
+                <ui:Button Content="Check _again" Icon="{ui:SymbolIcon ArrowSync24}" MinWidth="110" Margin="0,0,8,0" Command="{Binding CheckCommand}"
                            ToolTip="Looks up the latest release again. The button is disabled while a check or download runs."
                            AutomationProperties.AutomationId="btnUpdateCheck" />
-                <ui:Button Content="_Download" MinWidth="110" Margin="0,0,8,0" Command="{Binding DownloadCommand}"
+                <ui:Button Content="_Download" Icon="{ui:SymbolIcon ArrowDownload24}" MinWidth="110" Margin="0,0,8,0" Command="{Binding DownloadCommand}"
                            ToolTip="Download the installer and check its checksum and signature. Nothing starts."
                            AutomationProperties.AutomationId="btnUpdateDownload" />
-                <ui:Button Content="_Install and close" Appearance="Primary" MinWidth="140" Margin="0,0,8,0" Command="{Binding InstallCommand}"
+                <ui:Button Content="_Install and close" Icon="{ui:SymbolIcon Checkmark24}" Appearance="Primary" MinWidth="140" Margin="0,0,8,0" Command="{Binding InstallCommand}"
                            ToolTip="Close this app and run the installer."
                            AutomationProperties.AutomationId="btnUpdateInstall" />
                 <ui:Button Content="C_lose" MinWidth="90" IsCancel="True" Click="Close_Click"

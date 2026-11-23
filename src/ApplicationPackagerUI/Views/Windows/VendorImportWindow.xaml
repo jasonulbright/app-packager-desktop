@@ -40,9 +40,9 @@
                     </Grid.ColumnDefinitions>
                     <TextBox x:Name="txtFeedAddress" Grid.Column="0" Text="{Binding Address, UpdateSourceTrigger=PropertyChanged}"
                              VerticalContentAlignment="Center" AutomationProperties.AutomationId="txtFeedAddress" ToolTip="Enter the HTTPS address of the feed document to import." />
-                    <ui:Button x:Name="btnFetchFeed" Grid.Column="2" Content="Fetch" MinWidth="100" Appearance="Primary"
+                    <ui:Button x:Name="btnFetchFeed" Grid.Column="2" Content="Fetch" Icon="{ui:SymbolIcon ArrowDownload24}" MinWidth="100" Appearance="Primary"
                                FontWeight="SemiBold" Command="{Binding FetchCommand}" AutomationProperties.AutomationId="btnFetchFeed" ToolTip="Download the feed document from the address and show its definitions and findings. Nothing is stored until you select Import." />
-                    <ui:Button x:Name="btnCancelFetch" Grid.Column="4" Content="Cancel Fetch" MinWidth="110" FontWeight="SemiBold"
+                    <ui:Button x:Name="btnCancelFetch" Grid.Column="4" Content="Cancel Fetch" Icon="{ui:SymbolIcon Dismiss24}" MinWidth="110" FontWeight="SemiBold"
                                Command="{Binding CancelFetchCommand}" AutomationProperties.AutomationId="btnCancelFetch" ToolTip="Cancel the download that is running." />
                 </Grid>
 
@@ -142,12 +142,12 @@
                     </DataGrid.Columns>
                 </DataGrid>
                 <WrapPanel Margin="0,0,0,8">
-                    <ui:Button x:Name="btnCheckForUpdate" Content="Check for Update" Margin="0,0,8,8" Command="{Binding CheckForUpdateCommand}"
+                    <ui:Button x:Name="btnCheckForUpdate" Content="Check for Update" Icon="{ui:SymbolIcon ArrowSync24}" Margin="0,0,8,8" Command="{Binding CheckForUpdateCommand}"
                                ToolTip="Fetches the selected feed again (at its stored address, or at the address above) and shows what changed. Nothing is stored until you select Apply Update."
                                AutomationProperties.AutomationId="btnCheckForUpdate" />
                     <ui:Button x:Name="btnApplyUpdate" Content="Apply Update" Margin="0,0,8,8" Appearance="Primary" Command="{Binding ApplyUpdateCommand}"
                                AutomationProperties.AutomationId="btnApplyUpdate" ToolTip="Store the update of the selected feed after you review the changes. A confirmation appears first." />
-                    <ui:Button x:Name="btnRemoveFeed" Content="Remove Feed" MinWidth="130" Margin="0,0,8,8" Appearance="Danger"
+                    <ui:Button x:Name="btnRemoveFeed" Content="Remove Feed" Icon="{ui:SymbolIcon Delete24}" MinWidth="130" Margin="0,0,8,8" Appearance="Danger"
                                Command="{Binding RemoveFeedCommand}" AutomationProperties.AutomationId="btnRemoveFeed" ToolTip="Remove the selected feed and its definitions after a confirmation. Stages that already exist stay, and you cannot undo this." />
                 </WrapPanel>
                 <TextBlock Text="Access to an authenticated feed" Margin="0,8,0,4" />
@@ -214,10 +214,10 @@
                     </StackPanel>
                 </WrapPanel>
                 <WrapPanel Margin="0,0,0,8">
-                    <ui:Button x:Name="btnAddAccess" Content="Add and Test" Margin="0,0,8,8" Command="{Binding AddAccessCommand}" AutomationProperties.AutomationId="btnAddAccess" ToolTip="Save this access entry and test it against the feed address." />
+                    <ui:Button x:Name="btnAddAccess" Content="Add and Test" Icon="{ui:SymbolIcon Add24}" Margin="0,0,8,8" Command="{Binding AddAccessCommand}" AutomationProperties.AutomationId="btnAddAccess" ToolTip="Save this access entry and test it against the feed address." />
                     <ui:Button x:Name="btnRotateAccess" Content="Rotate Secret" Margin="0,0,8,8" Command="{Binding RotateAccessCommand}"
                                ToolTip="Replaces the secret of the selected entry with the one in the box." AutomationProperties.AutomationId="btnRotateAccess" />
-                    <ui:Button x:Name="btnRemoveAccess" Content="Remove Access" Margin="0,0,8,8" Appearance="Danger" Command="{Binding RemoveAccessCommand}"
+                    <ui:Button x:Name="btnRemoveAccess" Content="Remove Access" Icon="{ui:SymbolIcon Delete24}" Margin="0,0,8,8" Appearance="Danger" Command="{Binding RemoveAccessCommand}"
                                AutomationProperties.AutomationId="btnRemoveAccess" ToolTip="Remove the selected access entry and its secret from the Windows Credential Manager after a confirmation. Imported definitions stay." />
                 </WrapPanel>
                 <StackPanel Visibility="{Binding HasUpdate, Converter={StaticResource BooleanToVisibilityConverter}}">
@@ -239,7 +239,7 @@
         <Border Grid.Row="2" BorderThickness="0,1,0,0" BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}" Padding="16,8"
                 KeyboardNavigation.TabNavigation="Local">
             <WrapPanel HorizontalAlignment="Right">
-                <ui:Button x:Name="btnImportFeed" Content="Import" MinWidth="100" Margin="0,0,8,0" Appearance="Primary" FontWeight="SemiBold"
+                <ui:Button x:Name="btnImportFeed" Content="Import" Icon="{ui:SymbolIcon ArrowImport24}" MinWidth="100" Margin="0,0,8,0" Appearance="Primary" FontWeight="SemiBold"
                            Command="{Binding ImportCommand}" AutomationProperties.AutomationId="btnImportFeed" ToolTip="Store the previewed feed and its definitions. Blocked definitions stay blocked unless you unblocked them." />
                 <ui:Button x:Name="btnCloseImport" Content="_Close" MinWidth="100" FontWeight="SemiBold" IsCancel="True"
                            Command="{Binding CloseCommand}" AutomationProperties.AutomationId="btnCloseImport" />

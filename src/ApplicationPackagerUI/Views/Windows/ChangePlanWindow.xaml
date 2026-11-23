@@ -144,11 +144,11 @@
         <Border Grid.Row="4" BorderThickness="0,1,0,0" BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}" Padding="16,8"
                 KeyboardNavigation.TabNavigation="Local" KeyboardNavigation.TabIndex="2">
             <WrapPanel HorizontalAlignment="Right">
-                <ui:Button x:Name="btnConfirm" Content="{Binding ConfirmContent}" MinWidth="130" Margin="0,0,8,0"
+                <ui:Button x:Name="btnConfirm" Content="{Binding ConfirmContent}" Icon="{ui:SymbolIcon Checkmark24}" MinWidth="130" Margin="0,0,8,0"
                            Command="{Binding ConfirmCommand}" AutomationProperties.AutomationId="btnChangePlanConfirm"
                            ToolTip="Runs the changes listed in the plan. Select each confirmation box above first."
                            Visibility="{Binding ShowConfirm, Converter={StaticResource ChangePlanVisibility}}" />
-                <ui:Button x:Name="btnUndo" Content="_Undo" MinWidth="100" Margin="0,0,8,0"
+                <ui:Button x:Name="btnUndo" Content="_Undo" Icon="{ui:SymbolIcon ArrowUndo24}" MinWidth="100" Margin="0,0,8,0"
                            Command="{Binding UndoCommand}" AutomationProperties.AutomationId="btnChangePlanUndo"
                            ToolTip="Reverses the changes this plan made, where an Undo exists for them."
                            Visibility="{Binding ShowUndo, Converter={StaticResource ChangePlanVisibility}}" />
@@ -156,7 +156,7 @@
                            Command="{Binding ForceCloseCommand}" AutomationProperties.AutomationId="btnChangePlanForceClose"
                            ToolTip="Closes this window while the run is still going. The run may still change Configuration Manager, and its later result is not shown."
                            Visibility="{Binding ShowForceClose, Converter={StaticResource ChangePlanVisibility}}" />
-                <ui:Button x:Name="btnCancel" Content="_Cancel" MinWidth="100" Margin="0,0,8,0" IsCancel="True"
+                <ui:Button x:Name="btnCancel" Content="_Cancel" Icon="{ui:SymbolIcon Dismiss24}" MinWidth="100" Margin="0,0,8,0" IsCancel="True"
                            Command="{Binding CancelCommand}" AutomationProperties.AutomationId="btnChangePlanCancel"
                            Visibility="{Binding ShowCancel, Converter={StaticResource ChangePlanVisibility}}" />
                 <ui:Button x:Name="btnClose" Content="C_lose" MinWidth="100" Appearance="Primary" IsCancel="True"

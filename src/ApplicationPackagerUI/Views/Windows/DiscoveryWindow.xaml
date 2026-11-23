@@ -97,13 +97,13 @@
 
         <Border Grid.Row="3" BorderThickness="0,1,0,0" BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}" Padding="16,8">
             <WrapPanel HorizontalAlignment="Right">
-                <ui:Button x:Name="btnEnableSelected" Content="_Enable selected" Appearance="Primary" MinWidth="130" Margin="0,0,8,0" IsDefault="True"
+                <ui:Button x:Name="btnEnableSelected" Content="_Enable selected" Icon="{ui:SymbolIcon Checkmark24}" Appearance="Primary" MinWidth="130" Margin="0,0,8,0" IsDefault="True"
                            Command="{Binding EnableSelectedCommand}" AutomationProperties.AutomationId="btnEnableSelected"
                            ToolTip="Show the checked apps in the App Packager grid." />
-                <ui:Button x:Name="btnEnableAll" Content="Enable _all" MinWidth="110" Margin="0,0,8,0"
+                <ui:Button x:Name="btnEnableAll" Content="Enable _all" Icon="{ui:SymbolIcon CheckmarkCircle24}" MinWidth="110" Margin="0,0,8,0"
                            Command="{Binding EnableAllCommand}" AutomationProperties.AutomationId="btnEnableAll"
                            ToolTip="Show every app in this list in the App Packager grid." />
-                <ui:Button x:Name="btnNotNow" Content="_Not now" MinWidth="100" Margin="0,0,8,0" IsCancel="True"
+                <ui:Button x:Name="btnNotNow" Content="_Not now" Icon="{ui:SymbolIcon Dismiss24}" MinWidth="100" Margin="0,0,8,0" IsCancel="True"
                            Command="{Binding NotNowCommand}" AutomationProperties.AutomationId="btnNotNow"
                            ToolTip="Close without a change. The next discovery offers these apps again." />
                 <ui:Button x:Name="btnDismiss" Content="_Don't ask again for selected" MinWidth="200"
