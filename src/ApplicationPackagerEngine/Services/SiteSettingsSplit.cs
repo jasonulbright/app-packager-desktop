@@ -38,13 +38,39 @@ public static class SiteSettingsSplit
 
     public static string AppStatePathOf(string siteFolder) => Path.Combine(siteFolder, SiteContext.Areas.State, AppStateFileName);
 
+    /// <summary>
+    /// The text of a file, or null when it does not exist. A writer that replaces the file or holds it for a moment (another instance, the
+    /// command-line build) is waited for up to two seconds before the IOException passes on.
+    /// </summary>
+    private static string? ReadTextWithRetry(string path)
+    {
+        var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(2);
+        while (true)
+        {
+            try
+            {
+                return File.Exists(path) ? File.ReadAllText(path) : null;
+            }
+            catch (Exception ex) when (ex is FileNotFoundException or DirectoryNotFoundException)
+            {
+                return null;
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                if (DateTime.UtcNow >= deadline) throw;
+                Thread.Sleep(10);
+            }
+        }
+    }
+
     /// <summary>Reads a JSON object file. Null when it does not exist or is not an object. Never throws for a damaged file.</summary>
     public static JsonObject? ReadObject(string path)
     {
         try
         {
-            if (!File.Exists(path)) return null;
-            return JsonNode.Parse(File.ReadAllText(path), documentOptions: new JsonDocumentOptions { AllowTrailingCommas = true, CommentHandling = JsonCommentHandling.Skip }) as JsonObject;
+            return ReadTextWithRetry(path) is { } text
+                ? JsonNode.Parse(text, documentOptions: new JsonDocumentOptions { AllowTrailingCommas = true, CommentHandling = JsonCommentHandling.Skip }) as JsonObject
+                : null;
         }
         catch (Exception ex) when (ex is JsonException or IOException or UnauthorizedAccessException)
         {
@@ -57,8 +83,8 @@ public static class SiteSettingsSplit
     {
         try
         {
-            if (!File.Exists(path)) return false;
-            return JsonNode.Parse(File.ReadAllText(path), documentOptions: new JsonDocumentOptions { AllowTrailingCommas = true, CommentHandling = JsonCommentHandling.Skip }) is not JsonObject;
+            if (ReadTextWithRetry(path) is not { } text) return false;
+            return JsonNode.Parse(text, documentOptions: new JsonDocumentOptions { AllowTrailingCommas = true, CommentHandling = JsonCommentHandling.Skip }) is not JsonObject;
         }
         catch (Exception ex) when (ex is JsonException or IOException or UnauthorizedAccessException)
         {
