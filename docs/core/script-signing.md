@@ -43,7 +43,7 @@ The app never exports a private key. A private key never reaches profiles, manif
 
 ![The Script Signing section of Settings](../images/core-script-signing-settings.png)
 
-The result of the test reads like this: `Status: <status>. Signature intact: yes. Trusted on this host: yes. Timestamp verified: <value>.` followed by a reason when one applies. *Signature intact* and *Trusted on this host* are two separate results. A signature can be intact and still not trusted on this computer. A local check does not prove that the certificate is trusted on your clients.
+The result of the test reads like this: `Status: <status>. Signature intact: yes. Trusted on this host: yes. Timestamp verified: <value>.` followed by a reason when one applies. *Signature intact* and *Trusted on this host* are two separate results. A signature can be intact and still not trusted on this computer. A local check does not prove that the certificate is trusted on your devices.
 
 With a self-signed code-signing certificate that this computer does not trust, the result starts with `Status: UnknownError.` The text that follows names the cause: the signer chain is not trusted. The status word is not the cause. View the text after it.
 

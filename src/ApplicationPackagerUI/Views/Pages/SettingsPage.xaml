@@ -322,7 +322,7 @@
                                 </WrapPanel>
                                 <TextBlock FontSize="12" TextWrapping="Wrap" Margin="0,0,0,8" Foreground="{DynamicResource TextFillColorTertiaryBrush}"
                                            AutomationProperties.AutomationId="txtWsusClientTrust"
-                                           Text="Clients install locally published updates only when the signing certificate is in their Trusted Publishers store (and Trusted Root Certification Authorities when it is self-signed) and the policy Allow signed updates from an intranet Microsoft update service location is enabled: HKLM\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate, AcceptTrustedPublisherCerts = 1 (DWORD)." />
+                                           Text="Devices install locally published updates only when the signing certificate is in their Trusted Publishers store (and Trusted Root Certification Authorities when it is self-signed) and the policy Allow signed updates from an intranet Microsoft update service location is enabled: HKLM\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate, AcceptTrustedPublisherCerts = 1 (DWORD)." />
 
                                 <TextBlock Text="Publishing" Style="{StaticResource SubHeader}" />
                                 <TextBlock FontSize="12" TextWrapping="Wrap" Margin="0,0,0,8" Foreground="{DynamicResource TextFillColorSecondaryBrush}"
@@ -1103,7 +1103,7 @@
             <ScrollViewer x:Name="page_signing" Visibility="Collapsed" VerticalScrollBarVisibility="Auto">
                 <StackPanel Margin="0,0,0,8" MaxWidth="960" HorizontalAlignment="Left">
                                 <TextBlock Text="Script Signing" Style="{StaticResource SectionHeader}" />
-                                <TextBlock Text="Authenticode signing for the scripts AppPackager generates. Signing a detection script does not sign install wrappers, and signing deployment scripts does not sign requirement scripts. A local signature check does not prove the certificate is trusted on your clients."
+                                <TextBlock Text="Authenticode signing for the scripts AppPackager generates. Signing a detection script does not sign install wrappers, and signing deployment scripts does not sign requirement scripts. A local signature check does not prove the certificate is trusted on your devices."
                                            Foreground="{DynamicResource TextFillColorSecondaryBrush}" Margin="0,0,0,8" TextWrapping="Wrap" />
 
                                 <TextBlock Text="Sign" Style="{StaticResource SubHeader}" />
