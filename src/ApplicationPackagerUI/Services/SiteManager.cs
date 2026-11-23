@@ -111,6 +111,14 @@ public sealed class SiteManager
             : "There is no other site to import from. Add a second site first.";
     }
 
+    /// <summary>The text that says why the active site cannot be exported, or null when it can.</summary>
+    public string? ExportRefusal() =>
+        ActiveFolderName is null ? "No site is active. Add a site first." : null;
+
+    /// <summary>Writes the site file of a site (Q-112h). The site is only read.</summary>
+    public SiteFileExportResult ExportSiteFile(string folderName, string destination) =>
+        SiteFile.Export(folderName, destination, _dataRoot, createdBy: "Application Packager Desktop " + (typeof(SiteManager).Assembly.GetName().Version?.ToString(3) ?? ""));
+
     /// <summary>The sites that can be the source of an import into the active site (every site except the active one).</summary>
     public IReadOnlyList<SiteInfo> ImportSources() =>
         Sites().Where(s => !string.Equals(s.FolderName, ActiveFolderName, StringComparison.Ordinal)).ToList();

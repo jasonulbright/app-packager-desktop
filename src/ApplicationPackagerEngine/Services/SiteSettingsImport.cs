@@ -63,7 +63,11 @@ public sealed record SiteImportRequest(
     IReadOnlyDictionary<string, SiteImportChoice>? Choices = null,
     string? DataRoot = null,
     Func<DateTime>? UtcNow = null,
-    Action<string, string>? Hook = null);
+    Action<string, string>? Hook = null,
+    JsonObject? SourceSettings = null,
+    string SourceSettingsSha256 = "",
+    bool CreateTargetIfMissing = false,
+    string? SourceLabel = null);
 
 public sealed record SiteImportReport(
     bool DryRun,
@@ -180,16 +184,26 @@ public static class SiteSettingsImport
             return Refuse(request, dryRun, $"The source site '{request.SourceFolder}' is not a site folder name.");
         if (!SiteDataPaths.TryParseFolderName(request.TargetFolder, out var target) || target is null)
             return Refuse(request, dryRun, $"The target site '{request.TargetFolder}' is not a site folder name.");
-        if (string.Equals(source.FolderName, target.FolderName, StringComparison.OrdinalIgnoreCase))
+        // A site file (Q-112h) is the source when SourceSettings is set: it may come from the same site code on another machine.
+        var fromFile = request.SourceSettings is not null;
+        if (!fromFile && string.Equals(source.FolderName, target.FolderName, StringComparison.OrdinalIgnoreCase))
             return Refuse(request, dryRun, "The source and the target are the same site. Choose another source site.");
         var sourceFolder = SiteDataPaths.GetSiteFolder(source.FolderName, dataRoot: root);
         var targetFolder = SiteDataPaths.GetSiteFolder(target.FolderName, dataRoot: root);
-        if (!Directory.Exists(sourceFolder)) return Refuse(request, dryRun, $"The source site {source.FolderName} does not exist.");
-        if (!Directory.Exists(targetFolder)) return Refuse(request, dryRun, $"The target site {target.FolderName} does not exist.");
+        if (!fromFile && !Directory.Exists(sourceFolder)) return Refuse(request, dryRun, $"The source site {source.FolderName} does not exist.");
+        var targetMissing = !Directory.Exists(targetFolder);
+        if (targetMissing && !(fromFile && request.CreateTargetIfMissing)) return Refuse(request, dryRun, $"The target site {target.FolderName} does not exist.");
 
         var sourcePath = SiteSettingsSplit.SettingsPathOf(sourceFolder);
         var targetPath = SiteSettingsSplit.SettingsPathOf(targetFolder);
-        if (!TryReadObject(sourcePath, out var sourceObject, out var sourceHash, out var sourceProblem))
+        JsonObject sourceObject;
+        string sourceHash;
+        if (fromFile)
+        {
+            sourceObject = request.SourceSettings!;
+            sourceHash = request.SourceSettingsSha256;
+        }
+        else if (!TryReadObject(sourcePath, out sourceObject, out sourceHash, out var sourceProblem))
             return Refuse(request, dryRun, $"The settings of site {source.FolderName} cannot be read ({sourceProblem}). Nothing was changed.");
         if (!TryReadObject(targetPath, out var targetObject, out var targetHash, out var targetProblem))
             return Refuse(request, dryRun, $"The settings of site {target.FolderName} cannot be read ({targetProblem}). Nothing was changed.");
@@ -279,6 +293,12 @@ public static class SiteSettingsImport
         {
             if (writes.Count > 0)
             {
+                if (targetMissing)
+                {
+                    var created = SiteCatalog.Create(target.SiteCode, null, request.SourceLabel, root);
+                    if (!string.Equals(created.FolderName, target.FolderName, StringComparison.Ordinal))
+                        throw new IOException($"The site folder {target.FolderName} could not be created; {created.FolderName} was created instead. Run the import again.");
+                }
                 var updated = (JsonObject)targetObject.DeepClone();
                 foreach (var (_, key, value, _) in writes) Set(updated, key, value.DeepClone());
                 if (replaced && File.Exists(targetPath))
@@ -326,7 +346,7 @@ public static class SiteSettingsImport
             var logPath = Path.Combine(targetFolder, LogFileName);
             var written = finalRows.Count(r => r.Outcome is SiteImportOutcome.Copied or SiteImportOutcome.Replaced);
             if (written > 0 || (!File.Exists(logPath) && finalRows.Any(r => r.Outcome == SiteImportOutcome.AlreadyDone)))
-                WriteLog(logPath, source.FolderName, sourceHash, targetHashAfter, now, finalRows);
+                WriteLog(logPath, source.FolderName, sourceHash, targetHashAfter, now, finalRows, fromFile);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
         {
@@ -341,7 +361,7 @@ public static class SiteSettingsImport
 
     // ---- values ----
 
-    private static JsonNode? Get(JsonObject obj, string path)
+    internal static JsonNode? Get(JsonObject obj, string path)
     {
         JsonNode? node = obj;
         foreach (var part in path.Split('.'))
@@ -351,7 +371,7 @@ public static class SiteSettingsImport
         return node;
     }
 
-    private static void Set(JsonObject obj, string path, JsonNode value)
+    internal static void Set(JsonObject obj, string path, JsonNode value)
     {
         var parts = path.Split('.');
         var current = obj;
@@ -367,7 +387,7 @@ public static class SiteSettingsImport
         current[parts[^1]] = value;
     }
 
-    private static bool IsEmpty(JsonNode? node) => node switch
+    internal static bool IsEmpty(JsonNode? node) => node switch
     {
         null => true,
         JsonObject o => o.Count == 0,
@@ -377,7 +397,7 @@ public static class SiteSettingsImport
     };
 
     /// <summary>A clone of the value without any property whose name looks like a secret. A secret never reaches the target.</summary>
-    private static JsonNode? Sanitized(JsonNode? node, string key, List<string> dropped)
+    internal static JsonNode? Sanitized(JsonNode? node, string key, List<string> dropped)
     {
         if (node is null) return null;
         var clone = node.DeepClone();
@@ -478,7 +498,7 @@ public static class SiteSettingsImport
             throw new IOException($"The settings file {destination} did not verify after the replace.");
     }
 
-    private static void WriteLog(string logPath, string sourceFolder, string sourceHash, string targetHash, DateTime now, IReadOnlyList<SiteImportRow> rows)
+    private static void WriteLog(string logPath, string sourceFolder, string sourceHash, string targetHash, DateTime now, IReadOnlyList<SiteImportRow> rows, bool fromFile = false)
     {
         var items = new JsonArray();
         foreach (var r in rows)
@@ -487,6 +507,7 @@ public static class SiteSettingsImport
         {
             ["schemaVersion"] = SiteDataPaths.SchemaVersion,
             ["sourceSite"] = sourceFolder,
+            ["sourceKind"] = fromFile ? "file" : "site",
             ["importedUtc"] = now.ToString("yyyy-MM-dd'T'HH:mm:ss'Z'", CultureInfo.InvariantCulture),
             ["sourceSettingsSha256"] = sourceHash,
             ["targetSettingsSha256"] = targetHash,

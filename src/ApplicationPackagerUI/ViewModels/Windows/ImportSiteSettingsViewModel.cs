@@ -40,6 +40,9 @@ public partial class ImportSettingRowViewModel : ObservableObject
         $"{Label}. {Note} Tick it to copy it from the source site into the active site.";
 }
 
+/// <summary>A target of a site-file import: an existing site (merge) or a new site that the import creates.</summary>
+public sealed record SiteFileTarget(string FolderName, string Text, bool IsNew);
+
 /// <summary>
 /// The Import settings window (Q-112e). The user chooses a source site, ticks the site-scoped items to copy, and sees the preview
 /// (what each tick does, and the conflicts with values that the active site already holds) before anything is written. The source
@@ -66,8 +69,54 @@ public partial class ImportSiteSettingsViewModel : ObservableObject
         else Refresh();
     }
 
-    public string TargetFolder { get; }
-    public string TargetText { get; }
+    private readonly SiteFileContent? _file;
+
+    /// <summary>The window for a site file (Q-112h): the source is the file, the target is an existing site (merge) or a new site.</summary>
+    public ImportSiteSettingsViewModel(SiteFileContent file, string? defaultTargetFolder, string? dataRoot = null)
+    {
+        _dataRoot = dataRoot;
+        _file = file;
+        SourceText = $"Site file: {file.SiteCode}{(file.Label.Length > 0 ? " - " + file.Label : "")}" +
+                     (file.CreatedUtc.Length > 0 ? $" (exported {file.CreatedUtc})" : "");
+        var existing = SiteCatalog.List(dataRoot);
+        foreach (var site in existing)
+            Targets.Add(new SiteFileTarget(site.FolderName, $"Merge into {site.DisplayName}", false));
+        var fresh = SiteFile.NewFolderNameFor(file, dataRoot);
+        Targets.Add(new SiteFileTarget(fresh, existing.Any(s => s.SiteCode == file.SiteCode)
+            ? $"New site {fresh} (a different environment with the code {file.SiteCode})"
+            : $"New site {fresh}", true));
+        foreach (var item in SiteSettingsImport.Items) Rows.Add(new ImportSettingRowViewModel(item, Refresh));
+        NeverCopied = SiteSettingsImport.NeverCopied.Select(n => $"{n.Label}: {n.Reason}").ToList();
+        TargetFolder = "";
+        TargetText = "";
+        _loading = false;
+        // A site that has the file's code is the natural target; with none, the new site; otherwise the active site.
+        bool SameCode(SiteFileTarget t) => existing.Any(s => s.FolderName == t.FolderName && s.SiteCode == file.SiteCode);
+        SelectedTarget = Targets.FirstOrDefault(t => !t.IsNew && t.FolderName == defaultTargetFolder && SameCode(t))
+                         ?? Targets.FirstOrDefault(t => !t.IsNew && SameCode(t))
+                         ?? Targets.FirstOrDefault(t => t.IsNew && !existing.Any(s => s.SiteCode == file.SiteCode))
+                         ?? Targets.FirstOrDefault(t => !t.IsNew && t.FolderName == defaultTargetFolder)
+                         ?? Targets[0];
+    }
+
+    public bool IsFileMode => _file is not null;
+    public bool IsSiteMode => _file is null;
+    public string WindowTitle => IsFileMode ? "Import a site file" : Title;
+    public string SourceLabel => IsFileMode ? "Copy from (site file)" : "Copy from (source site)";
+    public string TargetLabel => IsFileMode ? "Copy into (target site)" : "Copy into (active site)";
+    public string SourceText { get; } = "";
+    public ObservableCollection<SiteFileTarget> Targets { get; } = [];
+    [ObservableProperty] private SiteFileTarget? _selectedTarget;
+
+    partial void OnSelectedTargetChanged(SiteFileTarget? value)
+    {
+        TargetFolder = value?.FolderName ?? "";
+        TargetText = value?.Text ?? "";
+        Refresh();
+    }
+
+    public string TargetFolder { get; private set; }
+    public string TargetText { get; private set; }
     public ObservableCollection<SiteInfo> Sources { get; }
     public ObservableCollection<ImportSettingRowViewModel> Rows { get; } = [];
     public IReadOnlyList<string> NeverCopied { get; }
@@ -92,12 +141,13 @@ public partial class ImportSiteSettingsViewModel : ObservableObject
     public void Refresh()
     {
         if (_loading) return;
-        if (SelectedSource is null)
+        if (!IsFileMode && SelectedSource is null)
         {
             Summary = "Choose the site to copy the settings from.";
             CanImport = false;
             return;
         }
+        if (IsFileMode && SelectedTarget is null) return;
         var report = SiteSettingsImport.Plan(BuildRequest());
         Preview = report;
         if (report.Outcome == SiteImportReport.Refused)
@@ -139,7 +189,10 @@ public partial class ImportSiteSettingsViewModel : ObservableObject
         _ => r.Outcome,
     };
 
-    private SiteImportRequest BuildRequest() => new(
+    private SiteImportRequest BuildRequest() => _file is not null
+        ? SiteFile.ImportRequest(_file, TargetFolder, Rows.Where(r => r.Selected).Select(r => r.Id).ToList(),
+            Rows.ToDictionary(r => r.Id, r => r.Choice), _dataRoot)
+        : new(
         SelectedSource!.FolderName, TargetFolder,
         Rows.Where(r => r.Selected).Select(r => r.Id).ToList(),
         Rows.ToDictionary(r => r.Id, r => r.Choice),
@@ -148,7 +201,8 @@ public partial class ImportSiteSettingsViewModel : ObservableObject
     [RelayCommand]
     private void Import()
     {
-        if (SelectedSource is null) return;
+        if (!IsFileMode && SelectedSource is null) return;
+        if (IsFileMode && SelectedTarget is null) return;
         var report = SiteSettingsImport.Run(BuildRequest());
         Result = report;
         if (report.Outcome is SiteImportReport.Refused or SiteImportReport.FailedOutcome)
@@ -167,7 +221,7 @@ public partial class ImportSiteSettingsViewModel : ObservableObject
     }
 
     /// <summary>The message after a run: what was copied, replaced and kept, and where the log is.</summary>
-    public static string ResultMessage(SiteImportReport report, string target)
+    public static string ResultMessage(SiteImportReport report, string target, bool fromFile = false)
     {
         if (report.Outcome == SiteImportReport.Refused || report.Outcome == SiteImportReport.FailedOutcome) return report.Reason;
         var copied = report.Count(SiteImportOutcome.Copied);
@@ -175,7 +229,9 @@ public partial class ImportSiteSettingsViewModel : ObservableObject
         var kept = report.Count(SiteImportOutcome.Kept);
         var text = report.Outcome == SiteImportReport.NothingToDo
             ? $"Nothing changed in site {target}. {report.Reason}"
-            : $"Imported from site {report.SourceFolder} into site {target}: {copied} copied, {replaced} replaced, {kept} kept. The source site is unchanged.";
+            : fromFile
+                ? $"Imported the site file of {report.SourceFolder} into site {target}: {copied} copied, {replaced} replaced, {kept} kept. The file is unchanged."
+                : $"Imported from site {report.SourceFolder} into site {target}: {copied} copied, {replaced} replaced, {kept} kept. The source site is unchanged.";
         return report.Warning.Length > 0 ? text + " " + report.Warning : text;
     }
 }

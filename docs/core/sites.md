@@ -117,3 +117,26 @@ At the first start the app finds the site code that you saved in an earlier vers
 - [Settings page](settings-page.md)
 - [Data folders](../reference/data-folders.md)
 - [Settings reference](../reference/settings.md)
+
+## Export a site file and import it on another machine
+
+A site file carries the settings of one site from one machine to another. It is one zip file with a manifest, the settings and a list of what it holds. The file is small, a few kilobytes.
+
+### Export
+
+1. Make the site the active site.
+2. Select the footer, then **Export site file...**.
+3. Choose where to save the file. The name proposes the site code and the date, for example `site-AB1-20261123.zip`.
+
+The file holds the same settings that **Import settings from another site** offers: the content distribution names, the distribution overrides, the One Click destination flags, the Site Hygiene options, and the environment values (file share root, WSUS server, Discovery SQL Server and database, SMS Provider). The environment values are in the file and are not ticked when you import.
+
+The file never holds a secret. The export is a list of allowed settings, not a list of excluded ones: a setting that the list does not name cannot enter the file. This includes the GitHub token, the Intune client secret, the NVD API key, the feed credentials, and every result, version, history, ring plan and audit record of the site. A value whose name looks like a secret is dropped even inside an allowed setting.
+
+### Import
+
+1. Select the footer, then **Import site file...** and choose the file.
+2. The app checks the file before it shows anything: the manifest, the SHA-256 and the size of each part, the site code, and that the file holds only the allowed settings. A file that fails a check is refused and nothing is written. The message names the check.
+3. In **Copy into (target site)**, choose **Merge into** a site that you have, or the new site that the import creates. When you already have a site with the code of the file, the new site is a different environment with the same code (for example `AB1~2`).
+4. Tick the settings, read the preview and select **Import**. A value that the target site already has is kept unless you choose **Replace with source value**. A replace keeps a verified backup of the settings file. Nothing is written until you select **Import**.
+
+A new site is not made active. Select the footer and choose the site to use it. The file is only read and is never changed.
