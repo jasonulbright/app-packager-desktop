@@ -35,7 +35,7 @@
         <ui:TitleBar Grid.Row="0" Title="Import settings from another site" ShowMinimize="False" />
 
         <StackPanel Grid.Row="1" Margin="16,0,16,8">
-            <TextBlock TextWrapping="Wrap" FontSize="12" Foreground="{DynamicResource TextFillColorSecondaryBrush}" Margin="0,0,0,10"
+            <TextBlock TextWrapping="Wrap" FontSize="12" Foreground="{DynamicResource TextFillColorSecondaryBrush}" Margin="0,0,0,12"
                        Text="Copy the site-scoped settings of another site into the active site. The source site is only read and is not changed. Nothing is written until you select Import." />
             <Grid>
                 <Grid.ColumnDefinitions>
@@ -51,7 +51,7 @@
                 </StackPanel>
                 <StackPanel Grid.Column="2">
                     <TextBlock Text="Copy into (active site)" FontSize="12" Margin="0,0,0,4" Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
-                    <TextBlock Text="{Binding TargetText}" FontSize="14" FontWeight="SemiBold" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Margin="0,6,0,0"
+                    <TextBlock Text="{Binding TargetText}" FontSize="14" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Margin="0,4,0,0"
                                AutomationProperties.AutomationId="txtImportTarget" ToolTip="The active site. It receives the values that you tick." />
                 </StackPanel>
             </Grid>
@@ -80,7 +80,7 @@
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
                             <ComboBox ItemsSource="{Binding DataContext.Choices, RelativeSource={RelativeSource AncestorType=Window}}" SelectedIndex="{Binding ChoiceIndex, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                      IsEnabled="{Binding IsConflict}" MinHeight="0" Padding="6,1" HorizontalAlignment="Stretch"
+                                      IsEnabled="{Binding IsConflict}" MinHeight="0" Padding="8,0" HorizontalAlignment="Stretch"
                                       AutomationProperties.Name="{Binding Label, StringFormat=Conflict choice for {0}}"
                                       ToolTip="Used when the active site already has another value. Keep is the default: the active site value stays." />
                         </DataTemplate>
@@ -89,9 +89,9 @@
             </DataGrid.Columns>
         </DataGrid>
 
-        <Border Grid.Row="3" Margin="16,0,16,8" Padding="10,8" BorderThickness="1" BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}" CornerRadius="4">
+        <Border Grid.Row="3" Margin="16,0,16,8" Padding="12,8" BorderThickness="1" BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}" CornerRadius="4">
             <StackPanel>
-                <TextBlock Text="Never copied" FontWeight="SemiBold" FontSize="12" Margin="0,0,0,4" />
+                <TextBlock Text="Never copied" FontSize="12" Margin="0,0,0,4" Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
                 <TextBlock TextWrapping="Wrap" FontSize="12" Foreground="{DynamicResource TextFillColorSecondaryBrush}" AutomationProperties.AutomationId="txtImportNever"
                            Text="The site code (the active site keeps its own), every record that describes the source site (check results, versions, ring plans, audit, findings, saved runs), and every secret and token (GitHub token, Intune client secret, NVD API key, feed credentials). Secrets are global and work in every site." />
             </StackPanel>
