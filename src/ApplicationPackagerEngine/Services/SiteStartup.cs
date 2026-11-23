@@ -48,7 +48,9 @@ public static class SiteStartup
         if (hasLegacySite)
         {
             var markerPath = Path.Combine(SiteDataPaths.GetSiteFolder(legacyCode!.ToUpperInvariant(), dataRoot: dataRoot), SiteDataMigration.MarkerFileName);
-            if (!MarkerComplete(markerPath))
+            // The single-site data goes to one site only. When another site folder already holds a migration marker, the legacy
+            // data belongs to that site; the mirrored SiteCode of settings.json (the last selection) must not copy it again.
+            if (!MarkerComplete(markerPath) && !AnotherSiteHoldsTheMigration(dataRoot, legacyCode!.ToUpperInvariant()))
             {
                 migration = SiteDataMigration.Run(new SiteMigrationOptions { Root = settingsRoot, LegacyRoot = legacyRoot, DataRoot = dataRoot });
                 if (migration.Outcome == "Failed")
@@ -119,6 +121,18 @@ public static class SiteStartup
             }
         }
         return new SiteStartupResult(folder, source, migration, notice);
+    }
+
+    private static bool AnotherSiteHoldsTheMigration(string dataRoot, string code)
+    {
+        var sites = Path.Combine(dataRoot, "sites");
+        if (!Directory.Exists(sites)) return false;
+        foreach (var dir in Directory.EnumerateDirectories(sites))
+        {
+            if (string.Equals(Path.GetFileName(dir), code, StringComparison.OrdinalIgnoreCase)) continue;
+            if (File.Exists(Path.Combine(dir, SiteDataMigration.MarkerFileName))) return true;
+        }
+        return false;
     }
 
     private static bool MarkerComplete(string path)

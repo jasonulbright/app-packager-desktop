@@ -86,7 +86,7 @@ public sealed class SettingsServiceSiteTests : IDisposable
         using var scope = SiteContext.Scope(null);
         var service = new SettingsService();
         FirstSave(service);
-        var manager = new SiteManager(null);
+        var manager = new SiteManager(() => null);
 
         var added = manager.AddSite("CD2", "cm.cd2.example.com", "Lab", _ => SiteReuseAnswer.Cancel);
 
@@ -120,7 +120,7 @@ public sealed class SettingsServiceSiteTests : IDisposable
         using var scope = SiteContext.Scope(null);
         var service = new SettingsService();
         FirstSave(service);
-        var manager = new SiteManager(null);
+        var manager = new SiteManager(() => null);
         manager.AddSite("CD2", "cm.cd2.example.com", null, _ => SiteReuseAnswer.Cancel);
         var ab1Before = File.ReadAllText(SiteFile("AB1"));
         var ab1Stamp = File.GetLastWriteTimeUtc(SiteFile("AB1"));
@@ -168,6 +168,24 @@ public sealed class SettingsServiceSiteTests : IDisposable
         var global = (JsonObject)JsonNode.Parse(File.ReadAllText(SettingsService.SettingsPath))!;
         Assert.Equal("sql.ab1.example.com", (string?)global["DiscoverySqlServer"]);
         Assert.Equal("Example Corp", (string?)global["CompanyName"]);
+    }
+
+    [Fact]
+    public void ADamagedSiteFileIsNeverReplacedByDefaultsAndAnOperatorSaveKeepsACopy()
+    {
+        using var scope = SiteContext.Scope(null);
+        var service = new SettingsService();
+        FirstSave(service);
+        File.WriteAllText(SiteFile("AB1"), "{ \"DiscoverySqlServer\": ");
+
+        var loaded = service.Load();
+        Assert.True(service.IsFileUnreadable);
+        loaded.CompanyName = "Changed";
+        service.Save(loaded);
+        Assert.Equal("{ \"DiscoverySqlServer\": ", File.ReadAllText(SiteFile("AB1")));
+
+        service.SaveOperatorEdit(loaded);
+        Assert.Single(Directory.GetFiles(Path.GetDirectoryName(SiteFile("AB1"))!, "settings.json.unreadable-*"));
     }
 
     [Fact]

@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [2026.1122.56] - 2026-11-22
 
 ### Added
 
@@ -13,15 +13,12 @@
 
 - Record the site with every row of the operation history.
 - Change the Site Code box of Settings into a site switch.
+- Retook 30 guide images of the tool pages from the real app on a lab client.
+- Retook the Application Settings image so it shows the Installer type column.
 
 ### Internal
 
-- Add SiteDataPaths, the paths and names of the per-site data layout (Q-112b), with shared fixtures pinned by SHA-256. No part of the app uses it yet. No change in behavior.
-
-### Changed
-
-- Retook 30 guide images of the tool pages from the real app on a lab client.
-- Retook the Application Settings image so it shows the Installer type column.
+- Add SiteDataPaths, the paths and names of the per-site data layout, with shared fixtures pinned by SHA-256.
 
 ## [2026.1122.55] - 2026-11-22
 

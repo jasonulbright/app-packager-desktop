@@ -125,6 +125,26 @@ public sealed class SiteStartupTests : IDisposable
     }
 
     [Fact]
+    public void AfterASwitchTheMirroredSiteCodeDoesNotCopyTheSingleSiteDataIntoTheNewSite()
+    {
+        SeedLegacyProfile();
+        using var scope = SiteContext.Scope(null, Data);
+        Start();
+        SiteCatalog.Create("CD2", "cm.cd2.example.com", null, Data);
+        SiteCatalog.WriteActiveSite("CD2", Data);
+        // After a save under CD2 the global file mirrors the code of CD2 as the last selection.
+        Seed("settings.json", "{ \"SiteCode\": \"CD2\", \"SiteCodeSaved\": true, \"ProviderMachine\": \"cm.cd2.example.com\", \"FileShareRoot\": \"stale\" }");
+
+        var second = Start();
+
+        Assert.Equal("CD2", second.ActiveFolder);
+        Assert.Null(second.Migration);
+        Assert.False(Directory.Exists(Path.Combine(Data, "sites", "CD2", "hygiene")));
+        Assert.False(File.Exists(Path.Combine(Data, "sites", "CD2", "results", "history.db")));
+        Assert.False(File.Exists(Path.Combine(Data, "sites", "CD2", "settings.json")));
+    }
+
+    [Fact]
     public void WithNoSavedSiteCodeNothingIsMigratedAndTheSingleSiteLayoutStays()
     {
         SeedLegacyProfile(saved: false);

@@ -87,6 +87,17 @@ public sealed class SiteOperationHistorySiteTests : IDisposable
     }
 
     [Fact]
+    public void RowsOfTheSingleSiteFileStayVisibleInASiteFolder()
+    {
+        var history = new SiteOperationHistory(Db);
+        using (SiteContext.Scope(null, _folder))
+            history.Record(new SiteOperationEntry("T", "single site action", "x", SiteOperationOutcome.Succeeded, new Dictionary<string, int>(), T0));
+        // The file reaches a site folder by the migration after the v2 stamp: its rows carry no site code.
+        using (SiteContext.Scope("AB1", _folder))
+            Assert.Equal(["single site action"], history.Recent(null, 10).Select(r => r.Action));
+    }
+
+    [Fact]
     public void RowsCarryTheSiteCodeAndAFileHoldingTwoSitesListsOnlyTheActiveOne()
     {
         var history = new SiteOperationHistory(Db);
