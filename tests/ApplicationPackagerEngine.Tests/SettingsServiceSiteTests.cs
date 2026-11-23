@@ -86,7 +86,7 @@ public sealed class SettingsServiceSiteTests : IDisposable
         using var scope = SiteContext.Scope(null);
         var service = new SettingsService();
         FirstSave(service);
-        var manager = new SiteManager(null);
+        var manager = new SiteManager(() => null);
 
         var added = manager.AddSite("CD2", "cm.cd2.example.com", "Lab", _ => SiteReuseAnswer.Cancel);
 
@@ -120,7 +120,7 @@ public sealed class SettingsServiceSiteTests : IDisposable
         using var scope = SiteContext.Scope(null);
         var service = new SettingsService();
         FirstSave(service);
-        var manager = new SiteManager(null);
+        var manager = new SiteManager(() => null);
         manager.AddSite("CD2", "cm.cd2.example.com", null, _ => SiteReuseAnswer.Cancel);
         var ab1Before = File.ReadAllText(SiteFile("AB1"));
         var ab1Stamp = File.GetLastWriteTimeUtc(SiteFile("AB1"));
