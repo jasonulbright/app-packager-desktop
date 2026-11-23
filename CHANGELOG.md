@@ -1,5 +1,14 @@
 # Changelog
 
+## [2026.1123.58] - 2026-11-23
+
+### Added
+
+- Export the settings of a site to one zip file with a SHA-256 for each entry.
+- Import a site file on another computer into a site or as a new site.
+- Keep every secret out of the file and refuse a file that fails a check.
+- Read and write the same site file as the PowerShell app.
+
 ## [2026.1123.57] - 2026-11-23
 
 ### Added
