@@ -4,7 +4,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
     xmlns:helpers="clr-namespace:ApplicationPackagerUI.Helpers"
-    Title="Import settings from another site"
+    Title="{Binding WindowTitle}"
     Width="1180" Height="720"
     MinWidth="900" MinHeight="560"
     WindowStartupLocation="CenterOwner"
@@ -16,6 +16,7 @@
             <ResourceDictionary.MergedDictionaries>
                 <ResourceDictionary Source="/ApplicationPackagerUI;component/Views/Styles/SelectableRows.xaml" />
             </ResourceDictionary.MergedDictionaries>
+            <BooleanToVisibilityConverter x:Key="BoolToVis" />
             <Style x:Key="TrimmedCell" TargetType="TextBlock" BasedOn="{x:Static DataGridTextColumn.DefaultElementStyle}">
                 <Setter Property="TextTrimming" Value="CharacterEllipsis" />
                 <Setter Property="ToolTip" Value="{Binding Text, RelativeSource={RelativeSource Self}}" />
@@ -32,7 +33,7 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <ui:TitleBar Grid.Row="0" Title="Import settings from another site" ShowMinimize="False" />
+        <ui:TitleBar Grid.Row="0" Title="{Binding WindowTitle}" ShowMinimize="False" />
 
         <StackPanel Grid.Row="1" Margin="16,0,16,8">
             <TextBlock TextWrapping="Wrap" FontSize="12" Foreground="{DynamicResource TextFillColorSecondaryBrush}" Margin="0,0,0,12"
@@ -44,14 +45,19 @@
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
                 <StackPanel Grid.Column="0">
-                    <TextBlock Text="Copy from (source site)" FontSize="12" Margin="0,0,0,4" Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
-                    <ComboBox x:Name="cmbSource" ItemsSource="{Binding Sources}" SelectedItem="{Binding SelectedSource}" DisplayMemberPath="DisplayName"
+                    <TextBlock Text="{Binding SourceLabel}" FontSize="12" Margin="0,0,0,4" Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                    <TextBlock Text="{Binding SourceText}" FontSize="14" Margin="0,4,0,0" TextTrimming="CharacterEllipsis" AutomationProperties.AutomationId="txtImportFileSource"
+                               Visibility="{Binding IsFileMode, Converter={StaticResource BoolToVis}}" ToolTip="{Binding SourceText}" />
+                    <ComboBox x:Name="cmbSource" Visibility="{Binding IsSiteMode, Converter={StaticResource BoolToVis}}" ItemsSource="{Binding Sources}" SelectedItem="{Binding SelectedSource}" DisplayMemberPath="DisplayName"
                               HorizontalAlignment="Stretch" AutomationProperties.Name="Source site" AutomationProperties.AutomationId="cmbImportSource"
                               ToolTip="The site to copy the settings from. Its files are only read." />
                 </StackPanel>
                 <StackPanel Grid.Column="2">
-                    <TextBlock Text="Copy into (active site)" FontSize="12" Margin="0,0,0,4" Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
-                    <TextBlock Text="{Binding TargetText}" FontSize="14" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Margin="0,4,0,0"
+                    <TextBlock Text="{Binding TargetLabel}" FontSize="12" Margin="0,0,0,4" Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                    <ComboBox x:Name="cmbTarget" ItemsSource="{Binding Targets}" SelectedItem="{Binding SelectedTarget}" DisplayMemberPath="Text" HorizontalAlignment="Stretch"
+                              Visibility="{Binding IsFileMode, Converter={StaticResource BoolToVis}}" AutomationProperties.Name="Target site" AutomationProperties.AutomationId="cmbImportTarget"
+                              ToolTip="Merge into a site that you have, or create a new site from the file. A value that the site already has is kept unless you choose Replace." />
+                    <TextBlock Text="{Binding TargetText}" Visibility="{Binding IsSiteMode, Converter={StaticResource BoolToVis}}" FontSize="14" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Margin="0,4,0,0"
                                AutomationProperties.AutomationId="txtImportTarget" ToolTip="The active site. It receives the values that you tick." />
                 </StackPanel>
             </Grid>
@@ -74,7 +80,7 @@
                 <DataGridTextColumn Header="Setting" Binding="{Binding Label, Mode=OneWay}" Width="3*" MinWidth="280" IsReadOnly="True" ElementStyle="{StaticResource TrimmedCell}" />
                 <DataGridTextColumn Header="Kind" Binding="{Binding Kind, Mode=OneWay}" Width="140" MinWidth="130" IsReadOnly="True" ElementStyle="{StaticResource TrimmedCell}" />
                 <DataGridTextColumn Header="Source value" Binding="{Binding SourceText, Mode=OneWay}" Width="2*" MinWidth="140" IsReadOnly="True" ElementStyle="{StaticResource TrimmedCell}" />
-                <DataGridTextColumn Header="Active site value" Binding="{Binding TargetText, Mode=OneWay}" Width="2*" MinWidth="140" IsReadOnly="True" ElementStyle="{StaticResource TrimmedCell}" />
+                <DataGridTextColumn Header="Target value" Binding="{Binding TargetText, Mode=OneWay}" Width="2*" MinWidth="140" IsReadOnly="True" ElementStyle="{StaticResource TrimmedCell}" />
                 <DataGridTextColumn Header="Result" Binding="{Binding PlanText, Mode=OneWay}" Width="*" MinWidth="170" IsReadOnly="True" ElementStyle="{StaticResource TrimmedCell}" />
                 <DataGridTemplateColumn Header="If both have a value" Width="190" MinWidth="170" CanUserSort="False">
                     <DataGridTemplateColumn.CellTemplate>

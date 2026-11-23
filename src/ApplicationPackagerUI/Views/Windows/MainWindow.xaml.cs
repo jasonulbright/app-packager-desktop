@@ -102,7 +102,23 @@ public partial class MainWindow : IDialogHostWindow
         import.ToolTip = importRefusal ?? "Copy the site-scoped settings of another site into the active site. You choose the settings and see a preview first. Secrets are never copied, and the other site is not changed.";
         System.Windows.Automation.AutomationProperties.SetAutomationId(import, "miImportSiteSettings");
         import.Click += (_, _) => ImportSiteSettingsFromWindow(manager);
+        import.Icon = new SymbolIcon(SymbolRegular.DocumentArrowLeft24);
         menu.Items.Add(import);
+        menu.Items.Add(new Separator());
+        var export = new System.Windows.Controls.MenuItem { Header = "Export site file...", Icon = new SymbolIcon(SymbolRegular.DocumentArrowRight24) };
+        var exportRefusal = manager.ExportRefusal();
+        export.IsEnabled = exportRefusal is null;
+        export.ToolTip = exportRefusal ?? "Save the settings of the active site in one file (zip) to take to another machine. Names and options only: no secrets, tokens or credentials, and no results or history.";
+        System.Windows.Automation.AutomationProperties.SetAutomationId(export, "miExportSiteFile");
+        export.Click += (_, _) => ExportSiteFileFromWindow(manager);
+        menu.Items.Add(export);
+        var importFile = new System.Windows.Controls.MenuItem { Header = "Import site file...", Icon = new SymbolIcon(SymbolRegular.DocumentArrowLeft24) };
+        var importFileRefusal = manager.Refusal();
+        importFile.IsEnabled = importFileRefusal is null;
+        importFile.ToolTip = importFileRefusal ?? "Read a site file from another machine. You see what it holds before anything is written, then merge it into a site or create a new site. A value that a site already has is kept unless you choose Replace.";
+        System.Windows.Automation.AutomationProperties.SetAutomationId(importFile, "miImportSiteFile");
+        importFile.Click += (_, _) => ImportSiteFileFromWindow(manager);
+        menu.Items.Add(importFile);
         menu.IsOpen = true;
     }
 
@@ -131,6 +147,63 @@ public partial class MainWindow : IDialogHostWindow
         var ok = report.Outcome != ApplicationPackagerEngine.Services.SiteImportReport.Refused && report.Outcome != ApplicationPackagerEngine.Services.SiteImportReport.FailedOutcome;
         ShowSiteMessage(ViewModels.Windows.ImportSiteSettingsViewModel.ResultMessage(report, target), ok ? ControlAppearance.Success : ControlAppearance.Caution);
         if (report.TargetChanged || report.Written > 0) manager.NotifyActiveSiteSettingsChanged();
+    }
+
+    private void ExportSiteFileFromWindow(SiteManager manager)
+    {
+        if (manager.ExportRefusal() is { } refusal)
+        {
+            ShowSiteMessage(refusal, ControlAppearance.Caution);
+            return;
+        }
+        var folder = manager.ActiveFolderName!;
+        var dialog = new Microsoft.Win32.SaveFileDialog
+        {
+            Title = "Export site file",
+            Filter = "Site file (*.zip)|*.zip",
+            DefaultExt = ".zip",
+            AddExtension = true,
+            OverwritePrompt = true,
+            FileName = ApplicationPackagerEngine.Services.SiteFile.SuggestedFileName(folder, DateTime.UtcNow),
+        };
+        if (dialog.ShowDialog(this) != true) return;
+        var result = manager.ExportSiteFile(folder, dialog.FileName);
+        ShowSiteMessage(result.Ok
+            ? $"Site {folder} exported to {result.Path}: {result.ItemCount} setting groups. The file holds no secrets, tokens or credentials."
+            : "The site file was not written. " + result.Reason, result.Ok ? ControlAppearance.Success : ControlAppearance.Caution);
+    }
+
+    private void ImportSiteFileFromWindow(SiteManager manager)
+    {
+        if (manager.Refusal() is { } refusal)
+        {
+            ShowSiteMessage(refusal, ControlAppearance.Caution);
+            return;
+        }
+        var dialog = new Microsoft.Win32.OpenFileDialog
+        {
+            Title = "Import site file",
+            Filter = "Site file (*.zip)|*.zip",
+            CheckFileExists = true,
+        };
+        if (dialog.ShowDialog(this) != true) return;
+        var read = ApplicationPackagerEngine.Services.SiteFile.Read(dialog.FileName);
+        if (!read.Ok)
+        {
+            ShowSiteMessage("The file was refused and nothing was written. " + read.Reason, ControlAppearance.Caution);
+            return;
+        }
+        var viewModel = new ViewModels.Windows.ImportSiteSettingsViewModel(read.Content!, manager.ActiveFolderName, manager.DataRoot);
+        var window = new ImportSiteSettingsWindow(viewModel) { Owner = this };
+        window.ShowDialog();
+        if (viewModel.Result is not { } report) return;
+        var ok = report.Outcome != ApplicationPackagerEngine.Services.SiteImportReport.Refused && report.Outcome != ApplicationPackagerEngine.Services.SiteImportReport.FailedOutcome;
+        var target = report.TargetFolder;
+        var text = ViewModels.Windows.ImportSiteSettingsViewModel.ResultMessage(report, target, fromFile: true);
+        if (ok && viewModel.SelectedTarget is { IsNew: true } && report.Written > 0) text += $" Switch to site {target} from the site list to use it.";
+        ShowSiteMessage(text, ok ? ControlAppearance.Success : ControlAppearance.Caution);
+        if (string.Equals(target, manager.ActiveFolderName, StringComparison.Ordinal) && (report.TargetChanged || report.Written > 0))
+            manager.NotifyActiveSiteSettingsChanged();
     }
 
     private void ShowSiteResult(SiteSwitchResult result) =>
