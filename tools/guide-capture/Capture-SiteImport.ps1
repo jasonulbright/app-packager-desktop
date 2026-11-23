@@ -184,6 +184,10 @@ foreach ($theme in $Themes) {
             $combo = Need-Name 'Conflict choice for Content distribution (DP group, test collection)' 'ComboBox' 10
             Select-Combo $combo '*Replace*'
             Start-Sleep 1
+            $sum2 = [string](Need-El 'txtImportSummary').Current.Name
+            $imp3 = Need-El 'btnImportSettings'
+            "INFO after choosing Replace: summary '$sum2'; Import enabled: $($imp3.Current.IsEnabled)"
+            Save-Shot (Join-Path $Run 'replace-choice.png')
             $targetBefore = (Get-FileHash $abSettings -Algorithm SHA256).Hash
             Real-Click (Need-El 'btnImportSettings')
             Start-Sleep 4

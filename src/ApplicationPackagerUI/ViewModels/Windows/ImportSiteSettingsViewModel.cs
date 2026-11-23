@@ -124,7 +124,7 @@ public partial class ImportSiteSettingsViewModel : ObservableObject
         var already = report.Count(SiteImportOutcome.AlreadyDone);
         Summary = copy + replace + keep + already == 0
             ? "Nothing is ticked that the source site has set."
-            : $"The import will copy {copy}, replace {replace}, keep {keep} and skip {already} that the active site already has. The source site is not changed.";
+            : $"The import will copy {copy}, replace {replace} and keep {keep}; {already} already the same. The source site is not changed.";
         CanImport = copy + replace > 0;
     }
 

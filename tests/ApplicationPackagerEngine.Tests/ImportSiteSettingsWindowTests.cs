@@ -222,7 +222,16 @@ public sealed class ImportSiteSettingsWindowTests : IDisposable
                 Assert.All(combos, c => Assert.False(string.IsNullOrWhiteSpace(c.ToolTip as string), $"{where}: a conflict box has no tooltip."));
                 Assert.Single(combos.Where(c => c.IsEnabled));
 
-                // A tick refreshes the preview in the window.
+                // The conflict box drives the view model: choosing Replace changes the plan and enables Import.
+            var conflict = combos.Single(c => c.IsEnabled);
+            conflict.SelectedIndex = 1;
+            RenderKit.Settle(window);
+            Assert.Equal(1, vm.Rows.Single(r => r.Id == "apd.content-distribution").ChoiceIndex);
+            Assert.Equal("Will replace", vm.Rows.Single(r => r.Id == "apd.content-distribution").PlanText);
+            conflict.SelectedIndex = 0;
+            RenderKit.Settle(window);
+
+            // A tick refreshes the preview in the window.
                 var box = checks.First(c => (string)System.Windows.Automation.AutomationProperties.GetName(c) == "File share root");
                 box.IsChecked = true;
                 RenderKit.Settle(window);

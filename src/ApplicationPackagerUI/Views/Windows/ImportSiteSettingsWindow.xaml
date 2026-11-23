@@ -5,8 +5,8 @@
     xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
     xmlns:helpers="clr-namespace:ApplicationPackagerUI.Helpers"
     Title="Import settings from another site"
-    Width="940" Height="720"
-    MinWidth="760" MinHeight="560"
+    Width="1180" Height="720"
+    MinWidth="900" MinHeight="560"
     WindowStartupLocation="CenterOwner"
     ExtendsContentIntoTitleBar="True"
     WindowBackdropType="None">
@@ -71,15 +71,15 @@
                         </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
-                <DataGridTextColumn Header="Setting" Binding="{Binding Label, Mode=OneWay}" Width="2*" MinWidth="170" IsReadOnly="True" ElementStyle="{StaticResource TrimmedCell}" />
-                <DataGridTextColumn Header="Kind" Binding="{Binding Kind, Mode=OneWay}" Width="120" MinWidth="110" IsReadOnly="True" ElementStyle="{StaticResource TrimmedCell}" />
+                <DataGridTextColumn Header="Setting" Binding="{Binding Label, Mode=OneWay}" Width="3*" MinWidth="280" IsReadOnly="True" ElementStyle="{StaticResource TrimmedCell}" />
+                <DataGridTextColumn Header="Kind" Binding="{Binding Kind, Mode=OneWay}" Width="140" MinWidth="130" IsReadOnly="True" ElementStyle="{StaticResource TrimmedCell}" />
                 <DataGridTextColumn Header="Source value" Binding="{Binding SourceText, Mode=OneWay}" Width="2*" MinWidth="140" IsReadOnly="True" ElementStyle="{StaticResource TrimmedCell}" />
                 <DataGridTextColumn Header="Active site value" Binding="{Binding TargetText, Mode=OneWay}" Width="2*" MinWidth="140" IsReadOnly="True" ElementStyle="{StaticResource TrimmedCell}" />
-                <DataGridTextColumn Header="Result" Binding="{Binding PlanText, Mode=OneWay}" Width="*" MinWidth="130" IsReadOnly="True" ElementStyle="{StaticResource TrimmedCell}" />
+                <DataGridTextColumn Header="Result" Binding="{Binding PlanText, Mode=OneWay}" Width="*" MinWidth="170" IsReadOnly="True" ElementStyle="{StaticResource TrimmedCell}" />
                 <DataGridTemplateColumn Header="If both have a value" Width="190" MinWidth="170" CanUserSort="False">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
-                            <ComboBox ItemsSource="{Binding DataContext.Choices, RelativeSource={RelativeSource AncestorType=Window}}" SelectedIndex="{Binding ChoiceIndex}"
+                            <ComboBox ItemsSource="{Binding DataContext.Choices, RelativeSource={RelativeSource AncestorType=Window}}" SelectedIndex="{Binding ChoiceIndex, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                       IsEnabled="{Binding IsConflict}" MinHeight="0" Padding="6,1" HorizontalAlignment="Stretch"
                                       AutomationProperties.Name="{Binding Label, StringFormat=Conflict choice for {0}}"
                                       ToolTip="Used when the active site already has another value. Keep is the default: the active site value stays." />
