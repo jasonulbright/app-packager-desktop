@@ -1,5 +1,24 @@
 # Changelog
 
+## [2026.1123.57] - 2026-11-23
+
+### Added
+
+- Import settings from another site: choose a source site, tick the settings, preview, then import.
+- Keep the value of the active site on a conflict, or replace it per item with a verified backup.
+- Never copy the site code, the records of the source site or any secret.
+- Record each import in imported-from.json with the source, the date and the file hashes.
+
+### Changed
+
+- Use one glyph per action: Refresh, the export formats, the imports and the Packages menu.
+- Show the glyph of the matching page action on the primary buttons of nine dialogs.
+- Retook the guide images of the screens whose icons changed.
+
+### Internal
+
+- Add IconConsistencyTests, which fails when one action label uses two glyphs.
+
 ## [2026.1122.56] - 2026-11-22
 
 ### Added
