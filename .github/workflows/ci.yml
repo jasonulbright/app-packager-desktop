@@ -32,7 +32,10 @@ jobs:
     runs-on: windows-latest
     timeout-minutes: 90
     steps:
+      # The full history: GuideImageStalenessTests compares the last commit of each guide image with the last commit of its sources (a shallow clone only reports Unknown).
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          fetch-depth: 0
 
       # DetectionTesterParityTests compares this app with the standalone Detection Tester module. The module comes from a
       # released tag, so the test runs in CI. Move the tag when the parity test is checked against a newer release.

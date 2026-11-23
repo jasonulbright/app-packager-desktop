@@ -1,0 +1,129 @@
+{
+  "_note": "Guide image id to the source files of the screen it shows (H-5). An image is stale when a commit that touches one of its sources is newer than the last commit that touched docs/images/<id>.png. The list 'shared' applies to every image. Each rule adds its sources to every image whose id matches one of its 'ids' patterns (* is a wildcard). A source is a git pathspec: a file, a folder (ends in /) or a pattern with *. Every image id in docs/images needs at least one rule (GuideImageStalenessTests). Add the view, the view model and the resources a screen reads. Leave out the engine services that only supply data.",
+  "shared": [
+    "src/ApplicationPackagerUI/Views/Styles/",
+    "src/ApplicationPackagerUI/Controls/PageHeader.xaml",
+    "src/ApplicationPackagerUI/Controls/PageHeader.xaml.cs",
+    "src/ApplicationPackagerUI/Views/Windows/MainWindow.xaml",
+    "src/ApplicationPackagerUI/Views/Windows/SidebarPresenter.cs",
+    "src/ApplicationPackagerUI/Services/ThemeApplier.cs"
+  ],
+  "rules": [
+    {
+      "ids": ["core-add-app-*"],
+      "sources": ["src/ApplicationPackagerUI/Views/Pages/AddAppPage*", "src/ApplicationPackagerUI/ViewModels/Pages/AddApp*", "src/ApplicationPackagerUI/ViewModels/Pages/AddProposals.cs", "src/ApplicationPackagerUI/ViewModels/Pages/AddResultViewModel.cs", "src/ApplicationPackagerUI/Controls/AddResultPanel*", "src/ApplicationPackagerUI/Controls/InstallerSettingsPanel*", "src/ApplicationPackagerUI/Controls/DetectionEditorPanel*", "src/ApplicationPackagerUI/Services/AddFlowServices.cs"]
+    },
+    {
+      "ids": ["core-add-file-*"],
+      "sources": ["src/ApplicationPackagerUI/Views/Pages/AddFilePage*", "src/ApplicationPackagerUI/ViewModels/Pages/AddFile*", "src/ApplicationPackagerUI/ViewModels/Pages/AddProposals.cs", "src/ApplicationPackagerUI/ViewModels/Pages/AddResultViewModel.cs", "src/ApplicationPackagerUI/Controls/DropReviewPanel*", "src/ApplicationPackagerUI/Controls/AddResultPanel*", "src/ApplicationPackagerUI/Controls/InstallerSettingsPanel*", "src/ApplicationPackagerUI/Controls/DetectionEditorPanel*"]
+    },
+    {
+      "ids": ["core-add-result-panel"],
+      "sources": ["src/ApplicationPackagerUI/Controls/AddResultPanel*", "src/ApplicationPackagerUI/ViewModels/Pages/AddResultViewModel.cs", "src/ApplicationPackagerUI/Views/Pages/AddAppPage*"]
+    },
+    {
+      "ids": ["core-byo-replacement"],
+      "sources": ["src/ApplicationPackagerUI/Controls/ByoReplacementPanel*", "src/ApplicationPackagerUI/ViewModels/Pages/PackagesViewModel.Byo.cs", "src/ApplicationPackagerUI/ViewModels/Windows/WorkbenchWindowViewModel.Byo.cs"]
+    },
+    {
+      "ids": ["core-catalog"],
+      "sources": ["src/ApplicationPackagerUI/Views/Windows/CatalogWindow*", "src/ApplicationPackagerUI/ViewModels/Windows/CatalogViewModel.cs"]
+    },
+    {
+      "ids": ["core-cli-help"],
+      "sources": ["src/ApplicationPackagerBuild/"]
+    },
+    {
+      "ids": ["core-convert-window"],
+      "sources": ["src/ApplicationPackagerUI/Views/Windows/ConvertFromCmWindow*", "src/ApplicationPackagerUI/ViewModels/Windows/ConvertFromCmViewModel.cs"]
+    },
+    {
+      "ids": ["core-cve-window", "core-packages-cve-columns"],
+      "sources": ["src/ApplicationPackagerUI/Views/Windows/CveWindow*", "src/ApplicationPackagerUI/ViewModels/Windows/CveWindowViewModel.cs", "src/ApplicationPackagerUI/Views/Pages/PackagesPage.Cve.cs", "src/ApplicationPackagerUI/ViewModels/Pages/PackagesViewModel.Cve.cs", "src/ApplicationPackagerUI/Services/CveRows.cs"]
+    },
+    {
+      "ids": ["core-cve-report-html"],
+      "sources": ["src/ApplicationPackagerEngine/Services/Vulnerability/"]
+    },
+    {
+      "ids": ["core-discover-*"],
+      "sources": ["src/ApplicationPackagerUI/Views/Windows/DiscoveryWindow*", "src/ApplicationPackagerUI/ViewModels/Windows/DiscoveryDialogViewModel.cs", "src/ApplicationPackagerUI/ViewModels/Pages/DiscoverySettingsEditor.cs", "src/ApplicationPackagerUI/ViewModels/Pages/PackagesViewModel.Discover.cs", "src/ApplicationPackagerUI/Services/DiscoveryPrompt.cs", "src/ApplicationPackagerUI/Services/DiscoveryPreferences.cs"]
+    },
+    {
+      "ids": ["core-one-click-plan*"],
+      "sources": ["src/ApplicationPackagerUI/Views/Windows/OneClickPlanWindow*", "src/ApplicationPackagerUI/ViewModels/Windows/OneClickPlanViewModel.cs", "src/ApplicationPackagerUI/Services/OneClickRowRunner.cs", "src/ApplicationPackagerUI/Services/ChangePlan*.cs"]
+    },
+    {
+      "ids": ["packages", "core-packages-*", "core-publish-*", "core-stage-*", "start-first-package-end-to-end"],
+      "sources": ["src/ApplicationPackagerUI/Views/Pages/PackagesPage*", "src/ApplicationPackagerUI/ViewModels/Pages/PackagesViewModel*", "src/ApplicationPackagerUI/Services/ApplicationColumns.cs", "src/ApplicationPackagerUI/Services/ApplicationGridSettings.cs", "src/ApplicationPackagerUI/Services/CheckResultSummary.cs", "src/ApplicationPackagerUI/Services/PublishDialogs.cs", "src/ApplicationPackagerUI/Services/PublishRunService.cs", "src/ApplicationPackagerUI/Views/Windows/OperationHistoryWindow*", "src/ApplicationPackagerUI/Views/Windows/ChangePlanWindow*", "src/ApplicationPackagerUI/Views/Windows/StagingAllowanceWindow*", "src/ApplicationPackagerUI/Helpers/DataGrid*.cs"]
+    },
+    {
+      "ids": ["core-packages-supersedence-*", "core-packages-conflict-dialog", "core-packages-review-dialog"],
+      "sources": ["src/ApplicationPackagerUI/Views/Windows/SupersedenceConfirmWindow*", "src/ApplicationPackagerUI/Views/Windows/RemovalConfirmWindow*", "src/ApplicationPackagerUI/Views/Windows/ChangePlanWindow*", "src/ApplicationPackagerEngine/Services/Supersedence/"]
+    },
+    {
+      "ids": ["core-settings-*", "core-script-signing-settings", "tools-settings-supersedence", "core-one-click-settings"],
+      "sources": ["src/ApplicationPackagerUI/Views/Pages/SettingsPage*", "src/ApplicationPackagerUI/ViewModels/Pages/SettingsViewModel*", "src/ApplicationPackagerUI/ViewModels/Pages/*Editor.cs", "src/ApplicationPackagerUI/Services/SettingsService.cs", "src/ApplicationPackagerUI/Services/ISettingsSurfaces.cs", "src/ApplicationPackagerUI/Services/OneClickSettingsMap.cs"]
+    },
+    {
+      "ids": ["core-settings-citrix"],
+      "sources": ["src/ApplicationPackagerUI/Views/Pages/CitrixWorkspacePage*", "src/ApplicationPackagerUI/ViewModels/Pages/CitrixWorkspaceViewModel.cs"]
+    },
+    {
+      "ids": ["core-site-*", "start-sidebar-*"],
+      "sources": ["src/ApplicationPackagerUI/Views/Windows/AddSiteWindow*", "src/ApplicationPackagerUI/Views/Windows/ImportSiteSettingsWindow*", "src/ApplicationPackagerUI/Views/Windows/MainWindow.xaml.cs", "src/ApplicationPackagerUI/Views/Windows/SidebarGroupCaption.cs", "src/ApplicationPackagerUI/ViewModels/Windows/AddSiteViewModel.cs", "src/ApplicationPackagerUI/ViewModels/Windows/ImportSiteSettingsViewModel.cs", "src/ApplicationPackagerUI/ViewModels/Windows/MainWindowViewModel.cs", "src/ApplicationPackagerUI/Services/SiteManager.cs", "src/ApplicationPackagerUI/Services/SidebarService.cs", "src/ApplicationPackagerUI/Services/SidebarRegistry.cs"]
+    },
+    {
+      "ids": ["core-update-*"],
+      "sources": ["src/ApplicationPackagerUI/Views/Windows/UpdateWindow*", "src/ApplicationPackagerUI/ViewModels/Windows/UpdateViewModel.cs", "src/ApplicationPackagerUI/Services/UpdateCoordinator.cs"]
+    },
+    {
+      "ids": ["core-workbench-*"],
+      "sources": ["src/ApplicationPackagerUI/Views/Windows/WorkbenchWindow*", "src/ApplicationPackagerUI/ViewModels/Windows/WorkbenchWindowViewModel*", "src/ApplicationPackagerUI/Helpers/WorkbenchConverters.cs", "src/ApplicationPackagerUI/Controls/InstallerSettingsPanel*", "src/ApplicationPackagerUI/Controls/DetectionEditorPanel*", "src/ApplicationPackagerUI/Controls/OpenDefinitionPanel*", "src/ApplicationPackagerUI/ViewModels/Pages/DetectionEditorViewModel.cs", "src/ApplicationPackagerUI/Services/Workbench*.cs"]
+    },
+    {
+      "ids": ["core-wsus-*"],
+      "sources": ["src/ApplicationPackagerUI/Views/Windows/Wsus*", "src/ApplicationPackagerUI/ViewModels/Windows/Wsus*", "src/ApplicationPackagerUI/ViewModels/Pages/WsusPublishingEditor.cs"]
+    },
+    {
+      "ids": ["start-setup-*"],
+      "sources": ["src/ApplicationPackagerUI/Views/Windows/SetupWindow*", "src/ApplicationPackagerUI/ViewModels/Windows/SetupWindowViewModel.cs"]
+    },
+    {
+      "ids": ["tools-collections-*"],
+      "sources": ["src/ApplicationPackagerUI/Views/Pages/CollectionCompliancePage*", "src/ApplicationPackagerUI/ViewModels/Pages/Collection*", "src/ApplicationPackagerUI/Views/Windows/Collection*", "src/ApplicationPackagerUI/ViewModels/Windows/Collection*", "src/ApplicationPackagerUI/Services/Collection*.cs"]
+    },
+    {
+      "ids": ["tools-compliance-*"],
+      "sources": ["src/ApplicationPackagerUI/Views/Pages/Compliance*", "src/ApplicationPackagerUI/ViewModels/Pages/Compliance*", "src/ApplicationPackagerUI/Views/Windows/Catalog*", "src/ApplicationPackagerUI/ViewModels/Windows/Catalog*", "src/ApplicationPackagerUI/Views/Windows/CiSettingEditorWindow*", "src/ApplicationPackagerUI/ViewModels/Windows/CiSettingEditorViewModel.cs", "src/ApplicationPackagerUI/Services/Compliance*.cs"]
+    },
+    {
+      "ids": ["tools-deployment-helper-*", "tools-deployment-rings-*"],
+      "sources": ["src/ApplicationPackagerUI/Views/Pages/Deployment*", "src/ApplicationPackagerUI/ViewModels/Pages/Deployment*", "src/ApplicationPackagerUI/ViewModels/Pages/Ring*", "src/ApplicationPackagerUI/Views/Windows/Ring*", "src/ApplicationPackagerUI/ViewModels/Windows/Ring*", "src/ApplicationPackagerUI/Views/Windows/DeploymentTemplateEditorWindow*", "src/ApplicationPackagerUI/ViewModels/Windows/DeploymentTemplateEditorViewModel.cs", "src/ApplicationPackagerUI/Services/Deployment*.cs", "src/ApplicationPackagerUI/Services/Ring*.cs"]
+    },
+    {
+      "ids": ["tools-detection-tester-*"],
+      "sources": ["src/ApplicationPackagerUI/Views/Pages/DetectionTesterPage*", "src/ApplicationPackagerUI/ViewModels/Pages/DetectionTester*", "src/ApplicationPackagerUI/ViewModels/Pages/DetectionClauseText.cs", "src/ApplicationPackagerUI/Helpers/DetectionTesterConverters.cs", "src/ApplicationPackagerUI/Services/DetectionTesterPrompts.cs"]
+    },
+    {
+      "ids": ["tools-dp-content-*"],
+      "sources": ["src/ApplicationPackagerUI/Views/Pages/DpContentManagerPage*", "src/ApplicationPackagerUI/ViewModels/Pages/DpContent*", "src/ApplicationPackagerUI/Views/Windows/DpContentPairsWindow*", "src/ApplicationPackagerUI/ViewModels/Windows/DpContentPairsViewModel.cs", "src/ApplicationPackagerUI/Services/DpContent*.cs"]
+    },
+    {
+      "ids": ["tools-installer-analysis-*"],
+      "sources": ["src/ApplicationPackagerUI/Views/Pages/InstallerAnalysisPage*", "src/ApplicationPackagerUI/ViewModels/Pages/InstallerAnalysis*", "src/ApplicationPackagerUI/Services/InstallerAnalysis*.cs"]
+    },
+    {
+      "ids": ["tools-maintenance-windows-*"],
+      "sources": ["src/ApplicationPackagerUI/Views/Pages/MaintenanceWindowsPage*", "src/ApplicationPackagerUI/ViewModels/Pages/MaintenanceWindows*", "src/ApplicationPackagerUI/Views/Windows/Maintenance*", "src/ApplicationPackagerUI/ViewModels/Windows/Maintenance*", "src/ApplicationPackagerUI/Helpers/MaintenanceWindowsConverters.cs", "src/ApplicationPackagerUI/Services/MaintenanceWindows*.cs"]
+    },
+    {
+      "ids": ["tools-pivots-*"],
+      "sources": ["src/ApplicationPackagerUI/Views/Pages/Pivots*", "src/ApplicationPackagerUI/ViewModels/Pages/PivotsScripts*", "src/ApplicationPackagerUI/Views/Windows/Pivots*", "src/ApplicationPackagerUI/ViewModels/Windows/PivotsParametersViewModel.cs", "src/ApplicationPackagerUI/Views/Windows/PowerShellImportWindow*", "src/ApplicationPackagerUI/Services/Pivots*.cs"]
+    },
+    {
+      "ids": ["tools-site-hygiene-*"],
+      "sources": ["src/ApplicationPackagerUI/Views/Pages/SiteHygienePage*", "src/ApplicationPackagerUI/ViewModels/Pages/SiteHygiene*", "src/ApplicationPackagerUI/Views/Windows/Hygiene*", "src/ApplicationPackagerUI/ViewModels/Windows/Hygiene*", "src/ApplicationPackagerUI/Helpers/TrendChart.cs", "src/ApplicationPackagerUI/Services/SiteHygiene*.cs"]
+    }
+  ]
+}
