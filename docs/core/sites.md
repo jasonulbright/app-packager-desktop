@@ -11,6 +11,7 @@ The footer at the lower right of the main window shows the active site: "Site AB
 1. Select the footer. The list shows each known site with its label and its SMS Provider. A check mark shows the active site.
 2. Select a site to make it active. The Settings page, the App Packager grid and every tool then show the settings and the data of that site.
 3. To add a site, select **Add site...**.
+4. To copy the settings of another site into the active site, select **Import settings from another site...**. See [Import settings from another site](#import-settings-from-another-site).
 
 The tooltip of the footer says what it does. The footer is the only control that changes the site, and **Settings** shows the site code of the active site.
 
@@ -35,6 +36,49 @@ When you add a code that a site already uses with another SMS Provider, a questi
 - **Yes** means the same site with another SMS Provider. The app uses the existing site, and its data stays. The new provider is added to the site.
 - **No** means a different environment that reuses the code, for example a second lab. The app creates a new site with its own data. Its folder name is the code, a tilde and a number, for example `AB1~2`.
 - **Cancel** adds nothing.
+
+## Import settings from another site
+
+When you manage more than one site, you can copy the site-scoped settings of one site into another. A typical case: you add the site `AB1` and you want the same DP group names and options as the site `CD2`. The import only copies. The source site is read and is never changed.
+
+![The Import settings window with the source CD2 and the active site AB1](../images/core-site-import.png)
+
+1. Make the target the active site. Select the footer, then the target site, or add it with **Add site...**.
+2. Select the footer, then **Import settings from another site...**. The entry is disabled while a run is active, and while the app knows only one site.
+3. In **Copy from (source site)**, choose the site to copy from. The target is always the active site.
+4. Tick the settings to copy. The list shows each setting with its value in the source site and its value in the active site, and the **Result** column shows what the import will do. **Nothing is written until you select Import.**
+5. Select **Import**. A message tells how many settings were copied, replaced and kept.
+
+### What the list offers
+
+| Kind | Settings | Ticked at first |
+|---|---|---|
+| Site option | Content distribution (DP group and test collection names), distribution overrides of single applications, the One Click destination flags, and the Site Hygiene options | Yes |
+| Environment value | File share root, WSUS server settings, Discovery SQL Server, Discovery SQL database, and the SMS Provider (server FQDN) | No |
+
+An environment value belongs to one environment and usually differs between sites. It is copied only when you tick it. The names of a DP group or a collection are copied as text. The next connect shows each name that the active site does not have, and the app clears nothing.
+
+The settings that are global (the packaging options, the per-application settings, the templates, the theme) are the same in every site. They need no import.
+
+### What is never copied
+
+- The site code. The active site keeps its own code, which is the name of its folder.
+- Every record that describes the source site: the ConfigMgr and published versions of the applications, the Check ConfigMgr result, the inventory, the operation history, ring plans and ring runs, the deployment audit, the Site Hygiene findings, suppressions and metrics, the DP Content, Pivots and Scripts, Maintenance Windows and Collections records.
+- Every secret and token: the GitHub token, the Intune client secret, the NVD API key and the feed credentials. They are global and work in every site. A value whose name looks like a secret (token, password, secret, key, credential, webhook) is dropped from every copied setting.
+
+The **Never copied** note at the bottom of the window repeats this list.
+
+### A setting that the active site already has
+
+When the active site already holds another value for a setting, the row shows **Keeps the target value**, and the box **If both have a value** is enabled. The default is **Keep target value**: the value of the active site stays. Choose **Replace with source value** to overwrite it. The choice is per setting. A row with the same value in both sites shows **Already the same** and changes nothing.
+
+Before a replace, the app keeps a copy of the settings file of the active site as `settings.json.before-import-<date>` in the site folder. The app checks the copy by its SHA-256.
+
+### Check, repeat and resume
+
+Every file that the import writes is written to a temporary file first. The app checks the SHA-256 of the temporary file, replaces the settings file, and checks the SHA-256 again. A run that stops before the replace leaves the settings file as it was. Run the import again: it has the same effect as a first run. A second import of the same settings changes nothing, and **Import** is disabled when there is nothing to copy.
+
+The file `imported-from.json` in the site folder records the last import: the source site, the date, the result of each setting, and the SHA-256 of the source settings file and of the settings file of the active site.
 
 ## Change the site code in Settings
 

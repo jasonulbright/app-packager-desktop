@@ -118,7 +118,7 @@ public static class SiteDataMigration
     /// <summary>Secret manifest ids. They are never copied.</summary>
     public static readonly IReadOnlyList<string> SecretIds = ["apd.github-token", "apd.intune-secret", "apd.feed-credentials", "apd.nvd-key"];
 
-    private static readonly Regex SecretName = new("token|secret|password|passwd|apikey|api_key|credential|protected|webhook", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+    internal static readonly Regex SecretName = new("token|secret|password|passwd|apikey|api_key|credential|protected|webhook", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
 
     /// <summary>The report of what a run would do. Writes nothing and creates no folder.</summary>
     public static SiteMigrationReport Plan(SiteMigrationOptions? options = null) => Execute(options ?? new SiteMigrationOptions(), dryRun: true);
@@ -398,7 +398,7 @@ public static class SiteDataMigration
     }
 
     /// <summary>Compact JSON with object keys in ordinal order, so two equal values compare equal.</summary>
-    private static string Canonical(JsonNode? node)
+    internal static string Canonical(JsonNode? node)
     {
         switch (node)
         {
@@ -495,7 +495,7 @@ public static class SiteDataMigration
     }
 
     /// <summary>Removes every property whose name looks like a secret, at any depth. A secret never reaches a site folder.</summary>
-    private static void Sanitize(JsonNode? node, string path, List<string> dropped)
+    internal static void Sanitize(JsonNode? node, string path, List<string> dropped)
     {
         if (node is JsonObject obj)
         {
@@ -511,7 +511,7 @@ public static class SiteDataMigration
         }
     }
 
-    private static string ToStable(JsonNode node) =>
+    internal static string ToStable(JsonNode node) =>
         node.ToJsonString(new JsonSerializerOptions { WriteIndented = true }).Replace("\r\n", "\n") + "\n";
 
     // ---- marker ----

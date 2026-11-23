@@ -179,6 +179,7 @@ public static class GuideCaptureSteps
         ["core-cve-report-html"] = "core-cve-report-html",
         ["core-site-switcher-menu"] = "core-site-switcher-menu",
         ["core-site-add"] = "core-site-add",
+        ["core-site-import"] = "core-site-import",
     };
 
     /// <summary>Every image that a check run produces: the lab capture run, and the render of the pages in the tests.</summary>

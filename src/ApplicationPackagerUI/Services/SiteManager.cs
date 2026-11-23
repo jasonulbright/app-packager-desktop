@@ -98,6 +98,28 @@ public sealed class SiteManager
         return Switch(target.FolderName);
     }
 
+    /// <summary>
+    /// The text that says why settings cannot be imported into the active site now, or null when they can: a run is active, no site is
+    /// active, or no other site exists to import from.
+    /// </summary>
+    public string? ImportRefusal()
+    {
+        if (Refusal() is { } refusal) return refusal;
+        if (ActiveFolderName is not { } active) return "No site is active. Add a site first.";
+        return Sites().Any(s => !string.Equals(s.FolderName, active, StringComparison.Ordinal))
+            ? null
+            : "There is no other site to import from. Add a second site first.";
+    }
+
+    /// <summary>The sites that can be the source of an import into the active site (every site except the active one).</summary>
+    public IReadOnlyList<SiteInfo> ImportSources() =>
+        Sites().Where(s => !string.Equals(s.FolderName, ActiveFolderName, StringComparison.Ordinal)).ToList();
+
+    /// <summary>Tells the pages that the settings of the active site changed on disk (an import). Pages read them again; nothing is written.</summary>
+    public void NotifyActiveSiteSettingsChanged() => Changed?.Invoke();
+
+    public string? DataRoot => _dataRoot;
+
     public static string InvalidCodeMessage(string code) =>
         code.Length == 0 ? "Enter the site code: three letters or digits."
         : SiteDataPaths.ReservedSiteCodes.Contains(code.ToUpperInvariant()) ? $"'{code}' is reserved by Windows or ConfigMgr and cannot be a site code."

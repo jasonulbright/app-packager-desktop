@@ -96,6 +96,13 @@ public partial class MainWindow : IDialogHostWindow
         System.Windows.Automation.AutomationProperties.SetAutomationId(add, "miAddSite");
         add.Click += (_, _) => AddSiteFromWindow(manager);
         menu.Items.Add(add);
+        var import = new System.Windows.Controls.MenuItem { Header = "Import settings from another site..." };
+        var importRefusal = manager.ImportRefusal();
+        import.IsEnabled = importRefusal is null;
+        import.ToolTip = importRefusal ?? "Copy the site-scoped settings of another site into the active site. You choose the settings and see a preview first. Secrets are never copied, and the other site is not changed.";
+        System.Windows.Automation.AutomationProperties.SetAutomationId(import, "miImportSiteSettings");
+        import.Click += (_, _) => ImportSiteSettingsFromWindow(manager);
+        menu.Items.Add(import);
         menu.IsOpen = true;
     }
 
@@ -107,6 +114,23 @@ public partial class MainWindow : IDialogHostWindow
         if (!window.ViewModel.Accepted) return;
         var vm = window.ViewModel;
         ShowSiteResult(manager.AddSite(vm.SiteCode, vm.Provider, vm.Label, existing => SiteReusePrompt.Ask(this, existing)));
+    }
+
+    private void ImportSiteSettingsFromWindow(SiteManager manager)
+    {
+        if (manager.ImportRefusal() is { } refusal)
+        {
+            ShowSiteMessage(refusal, ControlAppearance.Caution);
+            return;
+        }
+        var target = manager.ActiveFolderName!;
+        var viewModel = new ViewModels.Windows.ImportSiteSettingsViewModel(manager.ImportSources(), target, manager.DataRoot);
+        var window = new ImportSiteSettingsWindow(viewModel) { Owner = this };
+        window.ShowDialog();
+        if (viewModel.Result is not { } report) return;
+        var ok = report.Outcome != ApplicationPackagerEngine.Services.SiteImportReport.Refused && report.Outcome != ApplicationPackagerEngine.Services.SiteImportReport.FailedOutcome;
+        ShowSiteMessage(ViewModels.Windows.ImportSiteSettingsViewModel.ResultMessage(report, target), ok ? ControlAppearance.Success : ControlAppearance.Caution);
+        if (report.TargetChanged || report.Written > 0) manager.NotifyActiveSiteSettingsChanged();
     }
 
     private void ShowSiteResult(SiteSwitchResult result) =>

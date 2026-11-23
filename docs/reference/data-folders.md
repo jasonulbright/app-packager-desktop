@@ -33,6 +33,7 @@ With a site active, the data of that site is in `Sites\<site>\`. `Sites` is the 
 | `Sites\<site>\results\history.db` | The application inventory and the operation history of the site (SQLite). |
 | `Sites\<site>\deployments\rings\`, `rings\runs\`, `audit.jsonl` | Ring plans, ring runs and the Deployment Helper audit of the site. |
 | `Sites\<site>\hygiene\`, `dpcontent\`, `pivots\sessions\`, `maintenance\reports\`, `collections\reports\` | Site Hygiene stores, DP Content audit and reports, saved Pivots and Scripts runs, and the reports of Maintenance Windows and Collections. |
+| `Sites\<site>\imported-from.json`, `settings.json.before-import-<date>` | The log of the last import of settings from another site (source, date, SHA-256 of both settings files), and the copy of the settings file that a replace kept. See [Sites](../core/sites.md#import-settings-from-another-site). |
 | `Sites\<site>\migration.json` | The list of files that the first start copied from the single-site layout, with their SHA-256. |
 
 The first start of this version copies the data of the saved site code into `Sites\<code>\` and keeps the old files in `Data` and `Legacy`. The old files stay for at least one release. A tool that is not listed here keeps its folder in `Data`.
