@@ -271,7 +271,8 @@
                                 </StackPanel>
                                 <TextBlock Text="File Share Root (UNC)" Style="{StaticResource FieldLabel}" />
                                 <ui:TextBox ToolTip="{Binding FileShareRoot}" Width="480" HorizontalAlignment="Left" Text="{Binding FileShareRoot, UpdateSourceTrigger=PropertyChanged}"
-                                            PlaceholderText="\\fileserver\sccm$" Margin="0,0,0,8" />
+                                            PlaceholderText="\\fileserver\sccm$" Margin="0,0,0,8"
+                                            AutomationProperties.AutomationId="txtFileShareRoot" AutomationProperties.Name="File Share Root" />
                 </StackPanel>
             </ScrollViewer>
             <ScrollViewer x:Name="page_wsus" Visibility="Collapsed" VerticalScrollBarVisibility="Auto">
