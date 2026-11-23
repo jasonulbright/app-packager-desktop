@@ -91,7 +91,9 @@ public partial class ImportSiteSettingsViewModel : ObservableObject
         TargetText = "";
         _loading = false;
         // A site that has the file's code is the natural target; with none, the new site; otherwise the active site.
-        SelectedTarget = Targets.FirstOrDefault(t => t.FolderName == defaultTargetFolder && !t.IsNew && existing.Any(s => s.FolderName == t.FolderName && s.SiteCode == file.SiteCode))
+        bool SameCode(SiteFileTarget t) => existing.Any(s => s.FolderName == t.FolderName && s.SiteCode == file.SiteCode);
+        SelectedTarget = Targets.FirstOrDefault(t => !t.IsNew && t.FolderName == defaultTargetFolder && SameCode(t))
+                         ?? Targets.FirstOrDefault(t => !t.IsNew && SameCode(t))
                          ?? Targets.FirstOrDefault(t => t.IsNew && !existing.Any(s => s.SiteCode == file.SiteCode))
                          ?? Targets.FirstOrDefault(t => !t.IsNew && t.FolderName == defaultTargetFolder)
                          ?? Targets[0];
