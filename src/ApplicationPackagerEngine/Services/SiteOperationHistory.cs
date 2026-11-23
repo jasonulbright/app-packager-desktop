@@ -159,7 +159,8 @@ public sealed class SiteOperationHistory : ISiteOperationHistory
             // With a site active only that site's rows are listed, even when the file holds rows of another site.
             var site = CurrentSiteCode();
             var conditions = new List<string>();
-            if (site.Length > 0) conditions.Add("site_code = $site");
+            // Rows with no site code come from the single-site file; the folder of a site holds its own file, so they are its rows.
+            if (site.Length > 0) conditions.Add("(site_code = $site OR site_code = '')");
             if (tool is not null) conditions.Add("tool = $tool");
             command.CommandText = "SELECT id, occurred_at, tool, action, target, outcome, detail FROM SiteOperations"
                 + (conditions.Count > 0 ? " WHERE " + string.Join(" AND ", conditions) : "")

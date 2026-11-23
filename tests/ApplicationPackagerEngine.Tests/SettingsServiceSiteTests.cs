@@ -171,6 +171,24 @@ public sealed class SettingsServiceSiteTests : IDisposable
     }
 
     [Fact]
+    public void ADamagedSiteFileIsNeverReplacedByDefaultsAndAnOperatorSaveKeepsACopy()
+    {
+        using var scope = SiteContext.Scope(null);
+        var service = new SettingsService();
+        FirstSave(service);
+        File.WriteAllText(SiteFile("AB1"), "{ \"DiscoverySqlServer\": ");
+
+        var loaded = service.Load();
+        Assert.True(service.IsFileUnreadable);
+        loaded.CompanyName = "Changed";
+        service.Save(loaded);
+        Assert.Equal("{ \"DiscoverySqlServer\": ", File.ReadAllText(SiteFile("AB1")));
+
+        service.SaveOperatorEdit(loaded);
+        Assert.Single(Directory.GetFiles(Path.GetDirectoryName(SiteFile("AB1"))!, "settings.json.unreadable-*"));
+    }
+
+    [Fact]
     public void WithNoSiteActiveTheSingleSiteFileIsWrittenAsBefore()
     {
         using var scope = SiteContext.Scope(null);

@@ -81,7 +81,8 @@ public class SettingsService : IRunSettingsReader<AppSettings>
         }
 
         // With a site active the site-scoped values come from the site files only; the global file's copies are ignored.
-        if (readError is null && json is not null) json = OverlayActiveSite(json);
+        string? siteProblem = null;
+        if (readError is null && json is not null) json = OverlayActiveSite(json, out siteProblem);
 
         AppSettings settings;
         var unreadable = false;
@@ -142,6 +143,8 @@ public class SettingsService : IRunSettingsReader<AppSettings>
 
         if (!unreadable)
             lock (_gate) _unreadableReason = null;
+        // A damaged or locked site file is never replaced by defaults: no automatic save writes until the operator saves (the unreadable file is kept first).
+        if (siteProblem is not null) MarkUnreadable(siteProblem);
         ApplyLauncherDefaults(settings);
         _runOverrides?.Invoke(settings);
         return settings;
@@ -153,9 +156,12 @@ public class SettingsService : IRunSettingsReader<AppSettings>
     /// <summary>The per-application site state file of the active site, or null when the single-site layout is in use.</summary>
     public static string? SiteAppStatePath => SiteContext.ActiveSiteFolder is { } f ? SiteSettingsSplit.AppStatePathOf(f) : null;
 
-    private static string OverlayActiveSite(string globalJson)
+    private static string OverlayActiveSite(string globalJson, out string? problem)
     {
+        problem = null;
         if (SiteContext.ActiveFolderName is not { } folderName || SiteContext.ActiveSiteFolder is not { } siteFolder) return globalJson;
+        foreach (var file in new[] { SiteSettingsSplit.SettingsPathOf(siteFolder), SiteSettingsSplit.AppStatePathOf(siteFolder) })
+            if (SiteSettingsSplit.IsUnreadable(file)) { problem = $"site file {file} is damaged or locked"; return globalJson; }
         try
         {
             if (JsonNode.Parse(globalJson, documentOptions: new JsonDocumentOptions { AllowTrailingCommas = true, CommentHandling = JsonCommentHandling.Skip }) is not JsonObject global) return globalJson;
@@ -463,6 +469,14 @@ public class SettingsService : IRunSettingsReader<AppSettings>
 
     private static void PreserveUnreadable()
     {
+        var siteFolder = SiteContext.ActiveSiteFolder;
+        if (siteFolder is not null)
+        {
+            var stampSite = DateTime.Now.ToString("yyyyMMdd-HHmmss", System.Globalization.CultureInfo.InvariantCulture);
+            foreach (var file in new[] { SiteSettingsSplit.SettingsPathOf(siteFolder), SiteSettingsSplit.AppStatePathOf(siteFolder) })
+                if (File.Exists(file) && SiteSettingsSplit.IsUnreadable(file)) File.Copy(file, $"{file}.unreadable-{stampSite}", overwrite: true);
+        }
+        if (!File.Exists(SettingsPath)) return;
         var stamp = DateTime.Now.ToString("yyyyMMdd-HHmmss", System.Globalization.CultureInfo.InvariantCulture);
         var copy = $"{SettingsPath}.unreadable-{stamp}";
         for (var n = 2; File.Exists(copy); n++) copy = $"{SettingsPath}.unreadable-{stamp}-{n}";

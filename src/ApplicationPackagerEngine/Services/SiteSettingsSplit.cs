@@ -52,6 +52,20 @@ public static class SiteSettingsSplit
         }
     }
 
+    /// <summary>True when the file exists and cannot be read as a JSON object (damaged, locked or not an object).</summary>
+    public static bool IsUnreadable(string path)
+    {
+        try
+        {
+            if (!File.Exists(path)) return false;
+            return JsonNode.Parse(File.ReadAllText(path), documentOptions: new JsonDocumentOptions { AllowTrailingCommas = true, CommentHandling = JsonCommentHandling.Skip }) is not JsonObject;
+        }
+        catch (Exception ex) when (ex is JsonException or IOException or UnauthorizedAccessException)
+        {
+            return true;
+        }
+    }
+
     /// <summary>
     /// The settings of the active site: the global object with every site key replaced by the value of the site files.
     /// A site key that the site files lack is removed, so it reads as its default. Nothing of another site can remain.

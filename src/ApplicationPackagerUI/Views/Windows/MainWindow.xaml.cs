@@ -124,6 +124,9 @@ public partial class MainWindow : IDialogHostWindow
             _serviceProvider.GetRequiredService<ViewModels.Pages.SettingsViewModel>().ReloadFromStore();
             var packages = _serviceProvider.GetRequiredService<ViewModels.Pages.PackagesViewModel>();
             ViewModels.Pages.PackagesViewModel.ClearSiteResults(packages.Packagers);
+            _serviceProvider.GetService<ViewModels.Pages.DeploymentHelperViewModel>()?.Shared.ClearForSiteChange();
+            _serviceProvider.GetService<ViewModels.Pages.ComplianceViewModel>()?.Shared.ClearForSiteChange();
+            _serviceProvider.GetService<ViewModels.Pages.DpContentManagerViewModel>()?.ClearForSiteChange();
             packages.LoadPackagersCommand.Execute(null);
         }
         if (Dispatcher.CheckAccess()) Reload();
