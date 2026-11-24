@@ -108,14 +108,14 @@ public partial class MainWindow : IDialogHostWindow
         var export = new System.Windows.Controls.MenuItem { Header = "Export site file...", Icon = new SymbolIcon(SymbolRegular.DocumentArrowRight24) };
         var exportRefusal = manager.ExportRefusal();
         export.IsEnabled = exportRefusal is null;
-        export.ToolTip = exportRefusal ?? "Save the settings of the active site in one file (zip) to take to another machine. Names and options only: no secrets, tokens or credentials, and no results or history.";
+        export.ToolTip = exportRefusal ?? "Save the settings of the active site in one file (zip) to take to another computer. Names and options only: no secrets, tokens or credentials, and no results or history.";
         System.Windows.Automation.AutomationProperties.SetAutomationId(export, "miExportSiteFile");
         export.Click += (_, _) => ExportSiteFileFromWindow(manager);
         menu.Items.Add(export);
         var importFile = new System.Windows.Controls.MenuItem { Header = "Import site file...", Icon = new SymbolIcon(SymbolRegular.DocumentArrowLeft24) };
         var importFileRefusal = manager.Refusal();
         importFile.IsEnabled = importFileRefusal is null;
-        importFile.ToolTip = importFileRefusal ?? "Read a site file from another machine. You see what it holds before anything is written, then merge it into a site or create a new site. A value that a site already has is kept unless you choose Replace.";
+        importFile.ToolTip = importFileRefusal ?? "Open a site file from another computer. You see what it holds before anything is written, then merge it into a site or create a new site. A value that a site already has is kept unless you choose Replace.";
         System.Windows.Automation.AutomationProperties.SetAutomationId(importFile, "miImportSiteFile");
         importFile.Click += (_, _) => ImportSiteFileFromWindow(manager);
         menu.Items.Add(importFile);
