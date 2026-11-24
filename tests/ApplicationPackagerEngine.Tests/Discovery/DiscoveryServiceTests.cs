@@ -276,10 +276,10 @@ public class DiscoveryServiceTests
             ".NET 10 Desktop Runtime", "Git", "grepWin", "gsudo", "HashTools",
             "Microsoft .NET 10", "Microsoft .NET 8", "Microsoft Edge", "Microsoft Edge WebView2 Runtime",
             "Microsoft ODBC Driver 18 for SQL Server", "Microsoft OLE DB Driver 19 for SQL Server",
-            "Microsoft Visual C++ v14 Redistributable (x64)", "Microsoft Visual C++ v14 Redistributable (x86)",
+            "Microsoft Visual C++ v14 Redistributable (x64)", "Microsoft Visual C++ v14 Redistributable (x86)", "Microsoft Windows Desktop Runtime - 8",
             "Windows ADK for Windows 11", "Windows PE add-on for the Windows ADK",
         ], result.Candidates.Select(c => c.CMName));
-        Assert.Equal("Discovered 15 apps.", result.StatusText);
+        Assert.Equal("Discovered 16 apps.", result.StatusText);
     }
 
     [Fact]
