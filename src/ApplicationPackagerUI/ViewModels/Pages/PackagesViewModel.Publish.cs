@@ -110,7 +110,7 @@ public partial class PackagesViewModel : IOneClickRunner, IPublishActionHost
                 if (_operationCts.IsCancellationRequested) { tally.MarkCancelled(); break; }
                 var p = selected[i];
                 ProgressCurrent = i + 1;
-                StatusText = $"Publishing to WSUS: {ProgressCurrent} of {ProgressTotal} — {p.Application}";
+                StatusText = ApplicationPackagerEngine.Models.RunProgress.Running("Publishing to WSUS", ProgressCurrent, ProgressTotal, p.Application);
                 AddLogLine($"Publish to WSUS: {p.Application} ({p.Script})");
 
                 try
@@ -270,7 +270,7 @@ public partial class PackagesViewModel : IOneClickRunner, IPublishActionHost
                 if (token.IsCancellationRequested) { canceled = true; break; }
                 ProgressCurrent = i + 1;
                 var item = items[i];
-                StatusText = $"One Click {i + 1}/{items.Count}: {item.Application}";
+                StatusText = ApplicationPackagerEngine.Models.RunProgress.Running("One Click", i + 1, items.Count, item.Application);
                 try
                 {
                     await RunOneClickRowAsync(item, options, token);
@@ -292,7 +292,7 @@ public partial class PackagesViewModel : IOneClickRunner, IPublishActionHost
                 }
             }
             if (!canceled && token.IsCancellationRequested) { canceled = true; done = items.Count; }
-            StatusText = canceled ? $"One Click cancelled: {done} of {items.Count} {(items.Count == 1 ? "product" : "products")} done." : "One Click: run complete.";
+            StatusText = canceled ? ApplicationPackagerEngine.Models.RunProgress.Cancelled("One Click", done, items.Count, "product", "done") : $"One Click: {items.Count} of {items.Count} {(items.Count == 1 ? "product" : "products")} done.";
             if (canceled) AddLogLine(StatusText);
             return canceled;
         }

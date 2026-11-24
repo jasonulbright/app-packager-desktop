@@ -156,7 +156,7 @@ public sealed partial class ChangePlanViewModel : ObservableObject
         if (!CanConfirm()) return;
         _confirmed = ConfirmedChangePlan.Issue(s_issueKey!, _plan, DestructiveAcknowledged, ExtraAcknowledged, OptionChosen, SecondAcknowledged);
         Stage = ChangePlanStage.Running;
-        ResultText = "Running...";
+        ResultText = ChangesLine("Running", 0, PlanTotal);
         var result = await RunAsync(_run, "");
         if (IsDetached) return;
         Outcome = new ChangePlanOutcome(true, result, null);
@@ -171,7 +171,7 @@ public sealed partial class ChangePlanViewModel : ObservableObject
     {
         if (!CanUndo()) return;
         Stage = ChangePlanStage.Undoing;
-        ResultText = "Undoing...";
+        ResultText = ChangesLine("Undoing", 0, PlanTotal);
         var result = await RunAsync(_undo!, "Undo: ");
         if (IsDetached) return;
         if (result.Declined && Outcome.Result is { } done)
@@ -247,10 +247,16 @@ public sealed partial class ChangePlanViewModel : ObservableObject
         var cts = new CancellationTokenSource();
         var context = SynchronizationContext.Current;
         ReportedItems? reported = null;
+        var verb = prefix.Length == 0 ? "Running" : "Undoing";
         reported = new ReportedItems(text =>
         {
             if (context is null) StepText = text;
             else context.Post(_ => { if (ReferenceEquals(_reported, reported) && _cts is not null) StepText = text; }, null);
+        }, count =>
+        {
+            // The line of the run counts the changes that reported: "Running: 2 of 5 changes done."
+            if (context is null) ResultText = ChangesLine(verb, count, PlanTotal);
+            else context.Post(_ => { if (ReferenceEquals(_reported, reported) && _cts is not null) ResultText = ChangesLine(verb, count, PlanTotal); }, null);
         });
         _cts = cts;
         _reported = reported;
@@ -267,7 +273,7 @@ public sealed partial class ChangePlanViewModel : ObservableObject
         catch (OperationCanceledException)
         {
             result = Partial(reported.Snapshot(), ChangePlanStop.Cancelled, CancelledReason);
-            text = CancelledText + ReportedBefore(reported.Snapshot(), "cancel");
+            text = ChangesCancelledLine(reported.Snapshot().Count, PlanTotal) + " " + CancelledText + ReportedBefore(reported.Snapshot(), "cancel");
         }
         catch (Exception ex)
         {
@@ -290,6 +296,16 @@ public sealed partial class ChangePlanViewModel : ObservableObject
         }
         return result;
     }
+
+    private int PlanTotal => (_confirmed?.Plan ?? _plan).Items.Count;
+
+    /// <summary>The line of a run that counts its changes: "Running: 2 of 5 changes done."</summary>
+    public static string ChangesLine(string verb, int done, int total) =>
+        ApplicationPackagerEngine.Models.RunProgress.Running(verb, done, total) + $" {(total == 1 ? "change" : "changes")} done.";
+
+    /// <summary>The line of a cancelled run: "Cancelled: 2 of 5 changes done."</summary>
+    public static string ChangesCancelledLine(int done, int total) =>
+        $"Cancelled: {done} of {total} {(total == 1 ? "change" : "changes")} done.";
 
     private static string ReportedBefore(IReadOnlyList<ChangePlanItemResult> reported, string what)
     {
@@ -314,7 +330,7 @@ public sealed partial class ChangePlanViewModel : ObservableObject
 
     // Unlike Progress<T>, a report is stored on the reporting thread before Report returns,
     // so an outcome reported just before a throw is never lost to a pending post.
-    private sealed class ReportedItems(Action<string> step) : IProgress<ChangePlanItemResult>
+    private sealed class ReportedItems(Action<string> step, Action<int> counted) : IProgress<ChangePlanItemResult>
     {
         private readonly List<ChangePlanItemResult> _items = [];
 
@@ -326,7 +342,9 @@ public sealed partial class ChangePlanViewModel : ObservableObject
                 step(SecretMask.Apply(value.Message));
                 return;
             }
-            lock (_items) _items.Add(value);
+            int count;
+            lock (_items) { _items.Add(value); count = _items.Count; }
+            counted(count);
         }
 
         public IReadOnlyList<ChangePlanItemResult> Snapshot()

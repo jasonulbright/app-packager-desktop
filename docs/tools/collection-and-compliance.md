@@ -102,7 +102,7 @@ To remove a rule, select it in the list and select `Remove`. The `Query Rules` t
 All writes of the page use the same plan window.
 
 1. Before the run, the window shows "<n> change(s). Review the list, then confirm." The grid has the columns `Action`, `Object` and `Detail`. A notes box can show lines with checks and impact.
-2. During the run, the window shows "Running..." and the step. `_Cancel` stops the run between changes.
+2. During the run, the window shows "Running: N of M changes done." and the step. `_Cancel` stops the run between changes.
 3. After the run, the window shows the grid `Result`, `Action`, `Object` and `Message`.
 4. `_Undo` reverses the run when the plan has an Undo. `C_lose` closes the window.
 5. If a run does not stop after `_Cancel`, the window offers `Close _without waiting`. The run can then still change ConfigMgr.
