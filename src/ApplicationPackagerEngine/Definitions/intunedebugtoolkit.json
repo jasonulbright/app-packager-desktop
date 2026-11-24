@@ -6,7 +6,7 @@
   "Vendor": "MSEndpointMgr",
   "Application": "Intune Debug Toolkit",
   "StageFolderName": "Intune Debug Toolkit (x64)",
-  "CMName": "Intune Debug Toolkit",
+  "CMName": "IntuneDebugTools",
   "Architecture": "x64",
   "VendorUrl": "https://msendpointmgr.com/",
   "Cpe": "cpe:2.3:a:msendpointmgr:intune_debug_toolkit:*:*:*:*:*:*:*:*",

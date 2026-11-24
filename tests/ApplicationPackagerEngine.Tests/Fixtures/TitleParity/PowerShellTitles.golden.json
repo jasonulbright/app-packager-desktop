@@ -271,7 +271,7 @@
       "Definition": "awssamcli",
       "Vendor": "Amazon Web Services",
       "App": "AWS SAM CLI",
-      "CMName": "AWS SAM CLI",
+      "CMName": "AWS SAM Command Line Interface",
       "StageKind": "installer",
       "StageNames": [],
       "StageExpressions": [
@@ -1523,7 +1523,7 @@
       "Definition": "intunedebugtoolkit",
       "Vendor": "MSEndpointMgr",
       "App": "Intune Debug Toolkit",
-      "CMName": "Intune Debug Toolkit",
+      "CMName": "IntuneDebugTools",
       "StageKind": "installer",
       "StageNames": [],
       "StageExpressions": [
@@ -2781,7 +2781,7 @@
       "Definition": "putty",
       "Vendor": "Simon Tatham",
       "App": "PuTTY",
-      "CMName": "PuTTY",
+      "CMName": "PuTTY release",
       "StageKind": "installer",
       "StageNames": [],
       "StageExpressions": [
