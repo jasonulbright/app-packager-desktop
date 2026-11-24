@@ -113,8 +113,9 @@ public sealed class ConfigMgrNameLookupTests : IDisposable
     }
 
     [Fact]
-    public void ALongerProductNameIsNotTheApplication() =>
-        Assert.Equal("NOT_FOUND", Lookup("Git", ("Git Extensions 4.3", "4.3"), ("GitHub Desktop", "3.4")));
+    public void AWordThatContinuesTheNameIsNotTheApplication() =>
+        // GitHub Desktop is another word; Git Extensions is found only by the last tier, with its note, because no other title fits.
+        Assert.StartsWith("FOUND|Git Extensions 4.3|4.3|1|tier=prefix;", Lookup("Git", ("Git Extensions 4.3", "4.3"), ("GitHub Desktop", "3.4")));
 
     [Fact]
     public void ReleaseDetailsAfterCMNameStillMatch() =>
@@ -139,13 +140,26 @@ public sealed class ConfigMgrNameLookupTests : IDisposable
     [Theory]
     [InlineData("PowerShell 7", "PowerShell 7-x64", true)]
     [InlineData("PowerShell 7", "PowerShell 7.5.3", true)]
-    [InlineData("PowerShell 7", "PowerShell 7-preview", false)]
+    [InlineData("PowerShell 7", "PowerShell 7-preview", true)]
     [InlineData("Microsoft ODBC Driver 18 for SQL Server", "Microsoft ODBC Driver 18.5.1.1 for SQL Server", true)]
     [InlineData("Microsoft ODBC Driver 18 for SQL Server", "Microsoft ODBC Driver 18 for SQL Server 18.5.1.1", true)]
     [InlineData("Microsoft ODBC Driver 18 for SQL Server", "Microsoft ODBC Driver 17 for SQL Server", false)]
-    [InlineData("Microsoft ODBC Driver 18 for SQL Server", "Microsoft ODBC Driver 18 for SQL Server Tools", false)]
-    [InlineData("Mozilla Firefox", "Mozilla Firefox ESR (x64 en-US)", false)]
-    [InlineData("Microsoft Edge", "Microsoft Edge WebView2 Runtime", false)]
     public void ATitleWithTheVersionMidNameOrTheArchitectureAttachedIsFound(string cmName, string title, bool found) =>
-        Assert.Equal(found ? $"FOUND|{title}|1.0|1" : "NOT_FOUND", Lookup(cmName, (title, "1.0")));
+        Assert.Equal(found ? "FOUND" : "NOT_FOUND", Lookup(cmName, (title, "1.0")).Split('|')[0]);
+
+    [Theory]
+    [InlineData("PuTTY", "PuTTY release 0.85 (64-bit)")]
+    [InlineData("Mozilla Firefox", "Mozilla Firefox ESR (x64 en-US)")]
+    [InlineData("Intune Debug Toolkit", "Intune Debug Toolkit 2.3 beta")]
+    public void TheLastTierFindsTheNameThatTheInstallerGivesAndSaysSo(string cmName, string title) =>
+        Assert.Equal($"FOUND|{title}|1.0|1|tier=prefix; chose '{title}'", Lookup(cmName, (title, "1.0")));
+
+    [Fact]
+    public void TheLastTierPrefersTheTitleWithTheFewestWordsAfterTheNameAndSaysSoInTheNote() =>
+        Assert.Equal("FOUND|Chrome 142.0|142.0|2|tier=prefix; chose 'Chrome 142.0'; other matches: Chrome Remote Desktop Host",
+            Lookup("Chrome", ("Chrome Remote Desktop Host", "1.0"), ("Chrome 142.0", "142.0")));
+
+    [Fact]
+    public void TheLastTierNeverMatchesInTheMiddleOfAWord() =>
+        Assert.Equal("NOT_FOUND", Lookup("Git", ("GitHub Desktop", "3.4"), ("Digit Tool", "1.0")));
 }

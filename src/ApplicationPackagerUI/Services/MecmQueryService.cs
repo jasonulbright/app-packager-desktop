@@ -54,6 +54,7 @@ public class MecmQueryService(SettingsService settingsService)
             Write-Output 'ERROR:SITE_DRIVE_FAILED'; exit 4
         }
         """ + "\n" + MecmApplicationTitleRule.PowerShellFunctions + "\n" + """
+        $tier = 'rule'
         try {
             $apps = @(Get-CMApplication -Name $CMName -ErrorAction Stop)
             if (-not $apps -or $apps.Count -eq 0) {
@@ -61,6 +62,17 @@ public class MecmQueryService(SettingsService settingsService)
                 $apps = @(Get-CMApplication -Name (Get-MecmApplicationNamePattern -CMName $CMName) -ErrorAction Stop | Where-Object {
                         $title = if ($_.LocalizedDisplayName) { [string]$_.LocalizedDisplayName } else { [string]$_.Name }
                         Test-MecmApplicationTitle -CMName $CMName -Title $title
+                    })
+            }
+            if (-not $apps -or $apps.Count -eq 0) {
+                # The PowerShell app creates the name of an installer ("PuTTY release 0.85 (64-bit)", "Git 2.47.1 (x64)"),
+                # and the rule above allows release details only. Last tier: the words of CMName at the start of the title,
+                # any words after them; the next character must end the word, so "Git" does not find "GitHub Desktop".
+                $tier = 'prefix'
+                $apps = @(Get-CMApplication -Name (([string]$CMName).Trim() + '*') -ErrorAction Stop | Where-Object {
+                        $title = if ($_.LocalizedDisplayName) { [string]$_.LocalizedDisplayName } else { [string]$_.Name }
+                        $lead = ([string]$CMName).Trim()
+                        $title.StartsWith($lead, [System.StringComparison]::OrdinalIgnoreCase) -and ($title.Length -eq $lead.Length -or -not [char]::IsLetterOrDigit($title[$lead.Length]))
                     })
             }
         } catch {
@@ -71,6 +83,18 @@ public class MecmQueryService(SettingsService settingsService)
         }
         $exact = $apps | Where-Object { $_.LocalizedDisplayName -eq $CMName -or $_.Name -eq $CMName }
         if ($exact -and @($exact).Count -gt 0) { $chosen = @($exact)[0] }
+        elseif ($tier -eq 'prefix') {
+            # Best fit: the title with the fewest words after CMName that are not release details; then the newest version.
+            $lead = ([string]$CMName).Trim()
+            $scored = @($apps | ForEach-Object {
+                    $title = if ($_.LocalizedDisplayName) { [string]$_.LocalizedDisplayName } else { [string]$_.Name }
+                    $rest = @([regex]::Matches($title.Substring($lead.Length), '\([^)]*\)|\S+') | ForEach-Object { $_.Value })
+                    $extra = @($rest | Where-Object { $_ -ne '-' -and $_ -notmatch '^(\([^)]*\)|v?\d+([.\-+_]\w+)*|x64|x86|arm64|amd64|latest)$' }).Count
+                    $ver = try { [version]([string]$_.SoftwareVersion -replace '^(\d+)$', '$1.0') } catch { [version]'0.0' }
+                    [pscustomobject]@{ App = $_; Extra = $extra; Ver = $ver }
+                })
+            $chosen = ($scored | Sort-Object @{ Expression = 'Extra'; Descending = $false }, @{ Expression = 'Ver'; Descending = $true } | Select-Object -First 1).App
+        }
         else {
             $parsable = @(); $nonParsable = @()
             foreach ($a in $apps) {
@@ -82,7 +106,13 @@ public class MecmQueryService(SettingsService settingsService)
                 $chosen = $nonParsable | Sort-Object Name -Descending | Select-Object -First 1
             }
         }
-        Write-Output "FOUND|$($chosen.LocalizedDisplayName)|$($chosen.SoftwareVersion)|$($apps.Count)"
+        $note = ''
+        if ($tier -eq 'prefix' -or $apps.Count -gt 1) {
+            $others = @($apps | Where-Object { $_.CI_ID -ne $chosen.CI_ID } | ForEach-Object { ([string]$_.LocalizedDisplayName) -replace '[|;]', ' ' })
+            $note = "tier=$tier; chose '$((([string]$chosen.LocalizedDisplayName) -replace '[|;]', ' '))'" + $(if ($others.Count) { "; other matches: " + ($others -join '; ') } else { '' })
+        }
+        $suffix = if ($note) { "|$note" } else { '' }
+        Write-Output "FOUND|$($chosen.LocalizedDisplayName)|$($chosen.SoftwareVersion)|$($apps.Count)$suffix"
         exit 0
         """;
 

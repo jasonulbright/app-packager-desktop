@@ -739,6 +739,7 @@ public partial class PackagesViewModel : ObservableObject
                         }
 
                         AddLogLine($"  {result.MatchCount} match(es), version: {result.SoftwareVersion}");
+                        if (!string.IsNullOrEmpty(result.MatchNote)) AddLogLine($"  Match: {result.MatchNote}");
                     }
                     else
                     {

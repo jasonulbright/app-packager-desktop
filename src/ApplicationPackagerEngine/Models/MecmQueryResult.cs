@@ -26,6 +26,9 @@ public sealed class MecmQueryResult
     public string? SoftwareVersion { get; init; }
     public int MatchCount { get; init; }
 
+    /// <summary>How the application was matched when it was not the plain rule or when several applications matched; null otherwise.</summary>
+    public string? MatchNote { get; init; }
+
     /// <summary>Why the query failed; null unless Status is Failed.</summary>
     public string? FailureReason { get; init; }
 
@@ -94,7 +97,7 @@ public static class MecmQueryClassifier
         if (exitCode != 0) return MecmQueryResult.Failure($"query exited {exitCode}");
 
         var parts = record.Split('|');
-        if (parts.Length != 4)
+        if (parts.Length is not (4 or 5))
             return MecmQueryResult.Failure($"malformed FOUND record with {parts.Length} field(s): {record}");
 
         var displayName = parts[1].Trim();
@@ -110,7 +113,8 @@ public static class MecmQueryClassifier
             DisplayName = displayName,
             // An application with no version recorded on the site is a real answer.
             SoftwareVersion = parts[2],
-            MatchCount = matchCount
+            MatchCount = matchCount,
+            MatchNote = parts.Length == 5 && parts[4].Trim().Length > 0 ? parts[4].Trim() : null
         };
     }
 

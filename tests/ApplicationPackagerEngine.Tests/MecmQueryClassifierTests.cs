@@ -25,6 +25,16 @@ public class MecmQueryClassifierTests
         Assert.Equal(4, result.MatchCount);
     }
 
+    [Fact]
+    public void AFoundApplicationMayCarryANoteOnHowItWasMatched()
+    {
+        var result = MecmQueryClassifier.Classify(0, "FOUND|PuTTY release 0.85 (64-bit)|0.85|1|tier=prefix; chose 'PuTTY release 0.85 (64-bit)'", "");
+
+        Assert.True(result.Found);
+        Assert.Equal("tier=prefix; chose 'PuTTY release 0.85 (64-bit)'", result.MatchNote);
+        Assert.Null(MecmQueryClassifier.Classify(0, "FOUND|Contoso App|1.2.3|4", "").MatchNote);
+    }
+
     /// <summary>An application the site carries with no version recorded is a real answer.</summary>
     [Fact]
     public void AFoundApplicationMayCarryAnEmptyVersionField()
