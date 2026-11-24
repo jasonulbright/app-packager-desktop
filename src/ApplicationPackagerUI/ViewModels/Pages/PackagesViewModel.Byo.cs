@@ -129,7 +129,7 @@ public partial class PackagesViewModel
             }
             else
             {
-                var plan = await ByoStaging.PlanAsync(store, _dropAnalysisService, applicationId, deepInspect: true);
+                var plan = await ByoStaging.PlanAsync(store, _dropAnalysisService, applicationId, deepInspect: true, ct: _operationCts!.Token);
                 var profileId = store.GetApplicationDefinition(applicationId).ActiveProfileId;
                 var current = new ByoStageCurrency(store.GetProfile(applicationId, profileId).Revision, settings.ScriptSigning.PolicyDigest);
                 var manifestPath = ByoStaging.FindPriorStageManifest(plan, settings.DownloadRoot, profileId, target, current);
@@ -146,6 +146,12 @@ public partial class PackagesViewModel
                 }
             }
         }
+        catch (OperationCanceledException) when (_operationCts?.IsCancellationRequested == true)
+        {
+            StatusText = CancelledStageLine();
+            AddLogLine(StatusText);
+            return;
+        }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException or ArgumentException or InstallerAnalysisException)
         {
             AddLogLine($"Package refused: {ex.Message}");
@@ -160,6 +166,12 @@ public partial class PackagesViewModel
         else await PackageAsync([row!], target, snapshot);
     }
 
+    /// <summary>The token of the Workbench stage in progress.</summary>
+    private CancellationToken StageToken => _operationCts?.Token ?? throw new InvalidOperationException("A Workbench stage runs under the operation token.");
+
+    /// <summary>The status line of a cancelled single-product stage, the same line as in every other run.</summary>
+    private static string CancelledStageLine() => PackagingRunTally.CancelledText(0, 1);
+
     /// <summary>Ends the Workbench stage: releases the run flag and the cancellation source.</summary>
     private void EndByoOperation()
     {
@@ -173,7 +185,13 @@ public partial class PackagesViewModel
         ByoStagePlan plan;
         try
         {
-            plan = await ByoStaging.PlanAsync(WorkbenchStore.Open(snapshot.DataRoot), _dropAnalysisService, applicationId, deepInspect: true);
+            plan = await ByoStaging.PlanAsync(WorkbenchStore.Open(snapshot.DataRoot), _dropAnalysisService, applicationId, deepInspect: true, ct: StageToken);
+        }
+        catch (OperationCanceledException) when (StageToken.IsCancellationRequested)
+        {
+            StatusText = CancelledStageLine();
+            AddLogLine(StatusText);
+            return null;
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException or ArgumentException or InstallerAnalysisException)
         {
@@ -187,7 +205,7 @@ public partial class PackagesViewModel
         var inputs = new StageInputs { RunSnapshot = snapshot, SigningPolicy = settings.ScriptSigning };
         var pendingRow = Services.WorkbenchRunSnapshots.ByoRow(plan.Manifest, plan.Analysis, "", applicationId);
         var outcome = await CancellableStageRun.RunAsync(ct => ByoStaging.StageAsync(
-            _stagingService, plan, settings.DownloadRoot, line => AddLogLine($"  {line}"), ct, inputs), _operationCts!.Token);
+            _stagingService, plan, settings.DownloadRoot, line => AddLogLine($"  {line}"), ct, inputs), StageToken);
         if (outcome.Cancelled)
         {
             StatusText = RunEndLine(outcome.Tally, "Stage", 1, "staged");
