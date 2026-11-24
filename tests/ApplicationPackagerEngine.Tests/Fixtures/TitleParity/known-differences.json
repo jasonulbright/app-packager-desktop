@@ -18,5 +18,8 @@
     { "Definition": "vs2026community", "Reason": "Not in the PowerShell catalog." },
     { "Definition": "wiztree", "Reason": "Not in the PowerShell catalog." }
   ],
-  "Defects": []
+  "Defects": [
+    { "Packager": "putty", "Field": "CMName", "Reason": "The MSI names the application PuTTY release 0.83 (64-bit); the CMName PuTTY does not find it by the title rule (the word release). APD says PuTTY release." },
+    { "Packager": "awssamcli", "Field": "CMName", "Reason": "The ARP name is AWS SAM Command Line Interface; the CMName AWS SAM CLI does not find it." }
+  ]
 }

@@ -149,7 +149,17 @@ public sealed class TitleParityTests
     }
 
     [Theory]
-    [InlineData("putty", "PuTTY")]
+    [InlineData("putty", "PuTTY release 0.83 (64-bit)")]
+    [InlineData("awssamcli", "AWS SAM Command Line Interface")]
+    public void TheCMNameOfAPowerShellDefectFindsTheApplicationThatThePowerShellAppCreates(string definition, string titleOnTheSite)
+    {
+        var def = Definitions()[definition];
+
+        Assert.True(MecmApplicationTitleRule.IsManaged(def.CMName, [titleOnTheSite]), $"'{def.CMName}' does not find '{titleOnTheSite}'");
+        Assert.Contains(LoadKnown().Defects, d => d.Packager == definition && d.Field == "CMName");
+    }
+
+    [Theory]
     [InlineData("7zip", "7-Zip 26.06 (x64 edition)")]
     [InlineData("7zip", "7-Zip")]
     [InlineData("git", "Git 2.47.1")]

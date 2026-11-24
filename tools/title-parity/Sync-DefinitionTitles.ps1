@@ -36,10 +36,10 @@ function Set-Field {
 }
 $known = @{}
 $knownFile = Join-Path (Split-Path -Parent $Golden) 'known-differences.json'
-if (Test-Path -LiteralPath $knownFile) { foreach ($k in @((Get-Content -LiteralPath $knownFile -Raw | ConvertFrom-Json).Defects)) { $known[$k.Packager] = $k } }
+if (Test-Path -LiteralPath $knownFile) { foreach ($k in @((Get-Content -LiteralPath $knownFile -Raw | ConvertFrom-Json).Defects)) { $known[$k.Packager + '|' + $k.Field] = $k } }
 $changed = 0
 foreach ($p in (Get-Content -LiteralPath $Golden -Raw | ConvertFrom-Json).Packagers) {
-    if (-not $p.Definition -or $known.ContainsKey($p.Packager)) { continue }
+    if (-not $p.Definition) { continue }
     $path = Join-Path $Definitions ($p.Definition + '.json')
     $raw = [System.IO.File]::ReadAllText($path)
     $bom = $raw.Length -gt 0 -and $raw[0] -eq [char]0xFEFF
@@ -47,7 +47,7 @@ foreach ($p in (Get-Content -LiteralPath $Golden -Raw | ConvertFrom-Json).Packag
     $lines = @($raw.TrimStart([char]0xFEFF) -split "`r?`n")
     $before = $lines -join $eol
     $lines = Set-Field $lines 'Application' $p.App 'Vendor'
-    $lines = Set-Field $lines 'CMName' $p.CMName 'Application'
+    if (-not $known.ContainsKey($p.Packager + '|CMName')) { $lines = Set-Field $lines 'CMName' $p.CMName 'Application' }
     if ($p.StageKind -eq 'template' -and @($p.StageNames).Count -eq 1) { $lines = Set-Field $lines 'AppName' @($p.StageNames)[0] 'CMName' }
     $after = $lines -join $eol
     if ($after -ne $before) {
