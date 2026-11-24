@@ -211,7 +211,7 @@ public class MecmApplicationTitleRuleTests
     /// </summary>
     private static readonly HashSet<string> MetadataNamed = new(StringComparer.OrdinalIgnoreCase)
     {
-        "nodejs.json", "webex.json"
+        "nodejs.json", "powershell7.json", "webex.json"
     };
 
     [Fact]
