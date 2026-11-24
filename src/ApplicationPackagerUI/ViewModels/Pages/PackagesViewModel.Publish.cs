@@ -206,6 +206,8 @@ public partial class PackagesViewModel : IOneClickRunner, IPublishActionHost
             return;
         }
 
+        // The history before the checks: the cadence, the last known version and the last publish of the plan are read from it, because the checks record a new check time and version.
+        var history = _inventoryProjection.History(rows, settings, _executionService.ResolveBuildPlan);
         if (!await OneClickPrechecks.RunAsync(rows, new OneClickChecks(this), AddLogLine))
         {
             AddLogLine("One Click: a check was cancelled, so no plan was made.");
@@ -219,7 +221,7 @@ public partial class PackagesViewModel : IOneClickRunner, IPublishActionHost
             Apps = rows.Select(p => (new OneClickApp(p.Uid, p.Application, p.Vendor, p.LatestVersion, p.CurrentVersion)
                 { WsusNotSupported = p.WsusNotSupported }, (PackagerInfo?)p)).ToList(),
             Settings = () => OneClickSettingsMap.PlanSettings(_settingsService.Load(), consoleFound),
-            History = _inventoryProjection.History(rows, settings, _executionService.ResolveBuildPlan),
+            History = history,
             Action = action,
             Force = settings.OneClick.ForceOnLaunch,
             OnExisting = settings.OneClick.OnExisting,

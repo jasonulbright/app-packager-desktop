@@ -170,6 +170,7 @@ public partial class OneClickPlanViewModel : ObservableObject
                     Vendor = p.Vendor,
                     Row = _apps.TryGetValue(p.Key, out var app) ? app.Row : null,
                     Version = p.Version,
+                    PriorKnownVersion = _context.History.TryGetValue(p.Key, out var prior) ? prior.LastKnownVersion : null,
                     ConfigMgr = p.Destinations.ConfigMgr,
                     Wsus = p.Destinations.Wsus,
                     Intune = p.Destinations.Intune,
