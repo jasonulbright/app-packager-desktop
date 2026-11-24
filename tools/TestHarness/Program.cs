@@ -56,14 +56,14 @@ if (args.Contains("--site-migration"))
 }
 
 // Discover unmanaged software, the real DiscoveryService against a site database (Q-129 lab conditions).
-//   TestHarness.exe --discover [--site <code>] [--provider <name>] [--server <sql>] [--database <db>] [--timeout <s>]
+//   TestHarness.exe --discover [--site <code>] [--provider <name>] [--server <sql>] [--database <db>] [--timeout <s>] [--encrypt] [--trust] [--test]
 //     Prints the scan status, or the message the app would show, and exits 0 on success, 1 on a failure.
 if (args.Contains("--discover"))
 {
     string? Arg(string name) { var i = Array.IndexOf(args, name); return i >= 0 && i + 1 < args.Length ? args[i + 1] : null; }
     var probe = new DiscoveryRequest(Arg("--site") ?? "", Arg("--provider") ?? "", Arg("--server") ?? "", Arg("--database") ?? "",
         [new DiscoveryPackager("7zip", "Igor Pavlov", "7-Zip", "7-Zip", "7-Zip", null, null)], ["7zip"], [],
-        int.TryParse(Arg("--timeout"), out var seconds) ? seconds : 120);
+        int.TryParse(Arg("--timeout"), out var seconds) ? seconds : 120, args.Contains("--encrypt"), args.Contains("--trust"), args.Contains("--test"));
     try
     {
         var result = await new DiscoveryService().ScanAsync(probe, CancellationToken.None);

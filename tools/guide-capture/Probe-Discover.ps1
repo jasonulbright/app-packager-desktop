@@ -37,7 +37,7 @@ $scenarios = [ordered]@{
 }
 if ($Only.Count) { foreach ($k in @($scenarios.Keys)) { if ($Only -notcontains $k) { $scenarios.Remove($k) } } }
 
-function Status-Text($w) { $e = Find-El $w 'StatusLabel' -Timeout 2; if ($e) { $e.Current.Name } else { '' } }
+function Status-Text($w) { $e = Find-El $null 'txtDiscoverStatus' -Timeout 1; if (-not $e -or -not $e.Current.Name) { $e = Find-El $w 'StatusLabel' -Timeout 2 }; if ($e) { $e.Current.Name } else { '' } }
 function Press([string]$id) { $e = Find-El $null $id -Timeout 5; if (-not $e) { return $false }; Click-El $e; Start-Sleep -Milliseconds 800; $true }
 
 foreach ($name in $scenarios.Keys) {
@@ -76,7 +76,7 @@ foreach ($name in $scenarios.Keys) {
                 $here = Status-Text (Main-Window)
                 if ($here) { $seen = $here }
                 if ($here -and -not (Find-El $null 'btnCancelOperation' -Timeout 1)) { $outcome = 'STATUS: ' + $here; break }
-                if ((Get-Date) - $started -gt [TimeSpan]::FromSeconds(20) -and $onSettings) {
+                if ($false -and (Get-Date) - $started -gt [TimeSpan]::FromSeconds(20) -and $onSettings) {
                     # Look at the App Packager page, where the status line is.
                     $null = Click-Nav 'App Packager'; Start-Sleep 2; $onSettings = $false
                 }
