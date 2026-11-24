@@ -22,6 +22,7 @@ namespace ApplicationPackagerEngine.Tests;
 /// (LayoutRounding). The button is drawn with the app styles at 100, 125 and 150 percent of display scale and at several fractional positions, and the pixels give the offset
 /// between the centre of the glyph and the centre of the first capital letter of the text.
 /// </summary>
+[Collection(ProcessEnvironmentCollection.Name)]
 public sealed class ButtonAlignmentTests
 {
     private static readonly string[] Labels = ["Cancel", "Check Latest", "Stage", "One Click"];
