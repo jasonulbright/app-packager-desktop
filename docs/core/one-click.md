@@ -46,7 +46,7 @@ The rights of each destination are in [Permissions](../reference/permissions.md)
 
 1. Select **App Packager** in the sidebar.
 2. Optional: enter text in **Administrative Comments**. A publish to ConfigMgr uses this comment.
-3. Select **One Click**. The **One Click** window opens.
+3. Select **One Click**. One Click runs the whole chain on every tracked application: **Check Latest**, **Check ConfigMgr** and **Check CVEs** first, then the **One Click** window opens with the checked versions. **Run** stages and packages each application. Select **Cancel** during a check to stop before the plan opens.
 4. View the summary line, the action line, the scope line and the grid. A line that starts with `Not ready:` names a destination that cannot take a publish.
 5. Optional: clear **Include** for a row, or change the destination boxes of a row. These changes apply to this run only.
 6. Optional: select **Plan only** to write the plan as a report without a run.

@@ -27,8 +27,6 @@ public partial class WorkbenchWindow : IWorkbenchPrompts
         };
         Closing += OnClosing;
         PreviewKeyDown += OnPreviewKeyDown;
-        // The supersedence setting can change on the Packages page while this window is open: the title lock follows it.
-        Activated += (_, _) => viewModel.RefreshSupersedenceLock();
     }
 
     /// <summary>The application to open first; null opens the first one listed.</summary>

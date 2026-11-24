@@ -91,7 +91,7 @@
                     <TreeViewItem Header="Deployment Type Defaults" ToolTip="Holds the default runtimes and the distribution point fallback settings of Deployment Types." Tag="dtdefaults" AutomationProperties.AutomationId="nav_dtdefaults" />
                     <TreeViewItem Header="Application Title" ToolTip="Holds the options that build Application names." Tag="title" AutomationProperties.AutomationId="nav_title" />
                     <TreeViewItem Header="Post Packaging" ToolTip="Holds the optional steps after the ConfigMgr Application exists: content distribution and a test deployment." Tag="postpackaging" AutomationProperties.AutomationId="nav_postpackaging" />
-                    <TreeViewItem Header="Application Settings" ToolTip="Holds the version rules, the supersedence mode and the package source, install scope and version in the title of each Application." Tag="supersedence" AutomationProperties.AutomationId="nav_supersedence" />
+                    <TreeViewItem Header="Application Settings" ToolTip="Holds the version rules, the supersedence mode and the architecture, install scope and version in the title of each Application." Tag="supersedence" AutomationProperties.AutomationId="nav_supersedence" />
                 </TreeViewItem>
                 <TreeViewItem Header="Applications" ToolTip="Holds the settings of individual applications and installers." IsExpanded="True" AutomationProperties.AutomationId="nav_applications">
                     <TreeViewItem Header="Citrix Workspace App" ToolTip="Holds the store, installation, plugin and component switches for the Citrix Workspace app installer." Tag="citrix" AutomationProperties.AutomationId="nav_citrix" />

@@ -16,6 +16,12 @@ public partial class OneClickPlanItem : ObservableObject
     /// <summary>The grid row the run checks, stages and publishes; null in a plan built without one.</summary>
     public PackagerInfo? Row { get; init; }
 
+    /// <summary>
+    /// The version the history held before the chain checks of this One Click run recorded theirs; null reads the history at the start of the row.
+    /// The run compares the new version with this one, so the checks that open One Click do not hide an update.
+    /// </summary>
+    public string? PriorKnownVersion { get; init; }
+
     [ObservableProperty] private string _version = "";
     [ObservableProperty] private bool _include;
     [ObservableProperty] private bool _configMgr;

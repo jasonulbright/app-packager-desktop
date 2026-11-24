@@ -100,8 +100,9 @@ public sealed class OneClickRowRunnerTests : IDisposable
         return new OneClickRowRunner(execution, new SettingsService(), inventory, new ApplicationInventoryProjection(inventory), _log.Add);
     }
 
-    private static OneClickPlanItem Item(bool configMgr, bool wsus, bool intune, IReadOnlyDictionary<string, string>? notReady = null) => new()
+    private static OneClickPlanItem Item(bool configMgr, bool wsus, bool intune, IReadOnlyDictionary<string, string>? notReady = null, string? priorKnownVersion = null) => new()
     {
+        PriorKnownVersion = priorKnownVersion,
         Key = "widget",
         Application = "Widget",
         Row = new PackagerInfo { Uid = "widget", Application = "Widget", Script = "widget.json" },
@@ -507,6 +508,21 @@ public sealed class OneClickRowRunnerTests : IDisposable
         Assert.Equal("2.0", row.LatestVersion);
         Assert.Equal(("", "", ""), (row.CveCount, row.CveKev, row.CveFixed));
         Assert.Equal("Update available", row.Status);
+    }
+
+    [Fact]
+    public async Task TheVersionKnownBeforeTheChainChecksDecidesWhetherAnUpdateIsAvailable()
+    {
+        // The chain checks of One Click already recorded 2.0; the plan carries the version that the history held before them.
+        SeedEarlierRun();
+        var execution = new FakeExecution(Path.Combine(_root, "workbench")) { Latest = "2.0" };
+        var withPrior = Item(true, false, false, priorKnownVersion: "1.0");
+        await Runner(execution).RunAsync(withPrior, Report, CancellationToken.None);
+        Assert.Equal("Update available", withPrior.Row!.Status);
+
+        var withoutPrior = Item(true, false, false);
+        await Runner(execution).RunAsync(withoutPrior, Report, CancellationToken.None);
+        Assert.Equal("Up to date", withoutPrior.Row!.Status);
     }
 
     [Fact]

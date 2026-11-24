@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- Rename the Package Source column of the application grids to Architecture.
+- Run Check Latest, Check ConfigMgr and Check CVEs before the One Click plan opens.
+- Remove the supersedence lock and note from the application title of the Workbench.
+
 ## [2026.1123.59] - 2026-11-23
 
 ### Fixed

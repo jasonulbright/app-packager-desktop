@@ -45,7 +45,7 @@ public partial class SupersedenceRow : ObservableObject
     public required string Application { get; init; }
     public required string Vendor { get; init; }
 
-    /// <summary>The architecture the definition packages; the fixed value that the package source cell shows when there is no choice.</summary>
+    /// <summary>The architecture the definition packages; the fixed value that the Architecture cell shows when there is no choice.</summary>
     public string Architecture { get; init; } = "";
 
     /// <summary>True when the definition offers an architecture choice (a second installer or the Architecture split).</summary>

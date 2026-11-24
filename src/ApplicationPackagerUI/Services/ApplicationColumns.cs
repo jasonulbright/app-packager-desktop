@@ -136,7 +136,7 @@ public static class ApplicationColumns
     [
         new ApplicationColumn
         {
-            Id = "source", Header = "Package source", AutomationName = "Package source of the application", Width = 150, DefaultVisible = true,
+            Id = "source", Header = "Architecture", AutomationName = "Architecture of the application", Width = 150, DefaultVisible = true,
             Choices = ApplicationGridSettings.ArchitectureChoices,
             Tooltip = "Select the architecture that the package targets. It is offered only for an application that has an architecture choice; the others show the fixed architecture.",
             Get = (w, r) => r.OffersArchitecture ? ApplicationGridSettings.ArchitectureOf(ApplicationGridSettings.Find(w.Conditions, r.DefinitionId)) : r.ArchitectureText,
