@@ -13,7 +13,7 @@
          Cancel shows only while a run is active;
       3. the sidebar has the entry WSUS Updates, and Settings, Application Settings opens its grid;
       4. Check Latest and Check ConfigMgr for one product end with their complete line and the buttons are enabled again;
-      5. Check Latest for every product, then Cancel with a real mouse click: the status line reads "Cancelled: N of M products done.", Cancel is hidden and the buttons are enabled again;
+      5. Check Latest for every product, then Cancel with a real mouse click: the status line reads "Check Latest cancelled: N of M products checked.", Cancel is hidden and the buttons are enabled again;
       6. a Site Hygiene scan ends and shows its results;
       7. the app idles for 60 seconds and does not crash (the process runs, a crash file does not appear).
     A screenshot of the work area of each check is saved under <Run>\checks\<theme>.
@@ -35,12 +35,22 @@ $exe = Join-Path $AppFolder 'ApplicationPackagerUI.exe'
 $script:Fails = 0
 function Check([string]$Name, [bool]$Ok, [string]$Detail = '') { if ($Ok) { "PASS $Name" } else { $script:Fails++; "FAIL ${Name}: $Detail" } }
 function Real-Click($El) { Click-El $El; Start-Sleep -Milliseconds 800 }
-function Status-Text($w) { $e = Find-El $w 'StatusLabel' -Timeout 2; if ($e) { $e.Current.Name } else { '' } }
+# The status line of the Packages page is a text block without an automation id: the text element whose name reads like a status line.
+function Status-Text($w) {
+    $texts = $w.FindAll([System.Windows.Automation.TreeScope]::Descendants, [System.Windows.Automation.Condition]::TrueCondition)
+    $hit = @($texts | ForEach-Object { try { $_.Current.Name } catch { '' } } | Where-Object { $_ -match '^(Cancelled: \d+ of \d+|The scan ended|Check [A-Za-z ]+(complete|cancelled)|ConfigMgr query complete|Loaded \d+ packager|Showing \d+ of|Staging |Latest:|Checking|Check Latest:|Check ConfigMgr:|Query)' })
+    if ($hit.Count) { $hit[0] } else { '' }
+}
 function Check-Shot([string]$Theme, [string]$Id) { Move-MouseAway; Save-Shot (Join-Path $Run (Join-Path 'checks' (Join-Path $Theme.ToLower() ($Id + '.png')))) }
 function Wait-Idle($w, [int]$Seconds) {
     Start-Sleep 4
     $deadline = (Get-Date).AddSeconds($Seconds)
     while ((Get-Date) -lt $deadline -and (Find-El $w 'btnCancelOperation' -Timeout 1)) { Start-Sleep 2 }
+}
+# The session log of the run (the app writes the same lines to the log box and to this file).
+function Session-Log([string]$Data) {
+    $f = Get-ChildItem $Data -Recurse -Filter packr.log -ErrorAction SilentlyContinue | Select-Object -First 1
+    if ($f) { Get-Content $f.FullName -Raw -ErrorAction SilentlyContinue } else { '' }
 }
 function Run-Check([string]$Name, [scriptblock]$Body) { try { & $Body } catch { $script:Fails++; "FAIL ${Name}: $($_.Exception.Message)" } }
 function Check-Row($w, [string]$Name) {
@@ -110,11 +120,11 @@ foreach ($theme in $Themes) {
             Real-Click (Find-El $w -Name 'Check Latest' -ControlType 'Button' -Timeout 5)
             Wait-Idle $w 180
             $s1 = Status-Text $w
-            Check "$theme-04a Check Latest ends with its complete line" ($s1 -match 'complete') "status: $s1"
+            Check "$theme-04a Check Latest ends with its finished line in the log" ((Session-Log $data) -match 'Check Latest finished: \d+ of 1 product') "status: '$s1'"
             Real-Click (Find-El $w -Name 'Check ConfigMgr' -ControlType 'Button' -Timeout 5)
             Wait-Idle $w 240
             $s2 = Status-Text $w
-            Check "$theme-04b Check ConfigMgr ends with its complete line" ($s2 -match 'complete|Ready') "status: $s2"
+            Check "$theme-04b Check ConfigMgr ends with its finished line and its status line" ((Session-Log $data) -match 'Check ConfigMgr finished: \d+ of 1 product' -and $s2 -match 'ConfigMgr query complete\. 1 of 1 checked\.') "status: '$s2'"
             $cl = Find-El $w -Name 'Check Latest' -ControlType 'Button' -Timeout 5
             Check "$theme-04c the buttons are enabled again" ($cl.Current.IsEnabled) 'Check Latest is disabled'
             Check-Shot $theme 'checks'
@@ -133,7 +143,9 @@ foreach ($theme in $Themes) {
             $deadline = (Get-Date).AddSeconds(90)
             while ((Get-Date) -lt $deadline -and -not ((Status-Text $w) -match '^Cancelled')) { Start-Sleep 2 }
             $s = Status-Text $w
-            Check "$theme-05b the status line reads Cancelled: N of M products done." ($s -match '^Cancelled: \d+ of \d+ products? done\.$') "status: $s"
+            $logged = [regex]::Match((Session-Log $data), 'Check Latest cancelled: \d+ of \d+ products? checked\.').Value
+            "INFO status line: '$s'; log line: '$logged'"
+            Check "$theme-05b the status line and the log read Check Latest cancelled: N of M products checked." (($s -match '^Check Latest cancelled: \d+ of \d+ products? checked\.$') -and $logged) "status: '$s'; log: '$logged'"
             Start-Sleep 3
             Check "$theme-05c Cancel is hidden after the run" ($null -eq (Find-El $w 'btnCancelOperation' -Timeout 3)) 'Cancel still shows'
             $cl = Find-El $w -Name 'Check Latest' -ControlType 'Button' -Timeout 5
@@ -146,10 +158,10 @@ foreach ($theme in $Themes) {
             Real-Click (Need-El 'btnHygieneScan')
             $deadline = (Get-Date).AddSeconds(300)
             Start-Sleep 5
-            while ((Get-Date) -lt $deadline -and (Find-El $null 'btnHygieneCancel' -Timeout 1)) { Start-Sleep 3 }
+            while ((Get-Date) -lt $deadline) { $c = Find-El $null 'btnHygieneCancel' -Timeout 1; if (-not ($c -and $c.Current.IsEnabled)) { break }; Start-Sleep 3 }
             Start-Sleep 3
-            $results = Find-El $w 'dgHygieneResults' -Timeout 5
-            Check "$theme-06 the Site Hygiene scan ended and shows its results" ($null -ne $results -or $null -ne (Find-El $w 'pnlHygieneResults' -Timeout 5)) 'no results'
+            $line = Status-Text $w
+            Check "$theme-06 the Site Hygiene scan ended and shows its result line" ($line -match '^The scan ended: \d+ findings') "line: $line"
             Check-Shot $theme 'site-hygiene'
             $null = Click-Nav 'App Packager'; Start-Sleep 3
         }

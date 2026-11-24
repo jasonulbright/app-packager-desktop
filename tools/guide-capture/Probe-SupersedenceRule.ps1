@@ -22,8 +22,8 @@ param(
     [Parameter(Mandatory)][ValidateSet('Exact', 'Minimum')][string]$Rule,
     [ValidateSet('Light', 'Dark')][string]$Theme = 'Light',
     [string]$AppFolder = $PSScriptRoot,
-    [string]$ApplicationId = 'catalog:67cc2246f034493e',
-    [string]$OlderVersion = '1.4.0.1000',
+    [string]$ApplicationId = 'catalog:06915f526f2e443f',
+    [string]$OlderVersion = '4.30',
     [string]$SiteCode = 'MCM',
     [string]$Provider = 'cm01.contoso.com',
     [string]$FileShareRoot = '\\cm01.contoso.com\ContentShare$'
@@ -93,23 +93,25 @@ try {
     "INFO manifest: AppName='$appName' Publisher='$publisher' Version='$version' InstallerType='$($m.InstallerType)'"
     $clauses = @($m.Detection)
     foreach ($c in $clauses) { "INFO detection clause: $($c | ConvertTo-Json -Compress)" }
-    $newName = "$appName - $version"
-    $oldName = "$appName - $OlderVersion"
+    # The title of a stage with supersedence on holds the version ("WizTree (x64) - 4.34"): the older application is the same base title with the older version.
+    $base = if ($appName.EndsWith(" - $version")) { $appName.Substring(0, $appName.Length - $version.Length - 3) } else { $appName }
+    $newName = "$base - $version"
+    $oldName = "$base - $OlderVersion"
 
     # ---- 2. the older application (throw-away)
     if (Get-AppDigest $newName) { throw "A site application named '$newName' already exists. The run does not touch it." }
     if (Get-AppDigest $oldName) { throw "A site application named '$oldName' already exists. The run does not touch it." }
     $null = New-CMApplication -Name $oldName -Publisher $publisher -SoftwareVersion $OlderVersion
     $null = Add-CMScriptDeploymentType -ApplicationName $oldName -DeploymentTypeName 'ZZAPD old' -InstallCommand 'cmd.exe /c exit 0' -ScriptLanguage PowerShell -ScriptText 'Write-Output 1' `
-        -InstallationBehaviorType InstallForSystem -LogonRequirementType WhetherOrNotUserLoggedOn -ContentFallbackBehavior NoFallback -ErrorAction Stop
+        -InstallationBehaviorType InstallForSystem -LogonRequirementType WhetherOrNotUserLoggedOn -ErrorAction Stop
     $oldBefore = Get-AppDigest $oldName
     Check 'rule-02 the older application exists on the site' ($null -ne $oldBefore) 'not created'
     "INFO older '$oldName' revision $($oldBefore.CIVersion) hash $($oldBefore.Hash.Substring(0, 12))"
 
     # ---- 3. the installed value for Exact (a clause that is not an MSI product clause needs it)
+    $expected = @($clauses | Where-Object { $_.ExpectedValue } | Select-Object -First 1).ExpectedValue
+    $isMsi = ([string]$m.InstallerType -eq 'MSI')
     if ($Rule -eq 'Exact') {
-        $expected = @($clauses | Where-Object { $_.ExpectedValue } | Select-Object -First 1).ExpectedValue
-        $isMsi = ([string]$m.InstallerType -eq 'MSI')
         if (-not $isMsi -and $expected) {
             $ErrorActionPreference = 'Continue'
             $rec = & $cli --application $ApplicationId --record-installed-value $expected --version $version --data-root $data 2>&1 | Out-String
@@ -120,13 +122,16 @@ try {
 
     # ---- 4. the app, with the override of this application
     $override = @{ Mode = 'Replace'; VersionRule = $Rule }
+    # The app rewrites settings.json when it starts, so the installed value that the command line recorded is seeded here again (the same key and value).
+    $installed = @{}
+    if ($Rule -eq 'Exact' -and -not $isMsi -and $expected) { foreach ($k in @($ApplicationId, ($ApplicationId -replace '^catalog:', ''))) { $installed["$k|$version"] = [string]$expected } }
     $keys = @($ApplicationId, ($ApplicationId -replace '^catalog:', ''))
     $overrides = @{}; foreach ($k in $keys) { $overrides[$k] = $override }
     $settings = @{
         FileShareRoot = $FileShareRoot; DownloadRoot = $staging; RemoveVersionFromTitle = $true
         SiteCode = $SiteCode; ProviderMachine = $Provider; SiteCodeSaved = $true
         Systems = @{ ConfigMgr = $true; Intune = $false; Wsus = $false }
-        Supersedence = @{ Mode = 'Off'; TitleOverrides = $overrides }
+        Supersedence = @{ Mode = 'Off'; TitleOverrides = $overrides; InstalledValues = $installed }
     }
     $null = Start-Apd $exe $data $Theme $settings
     try {
@@ -136,7 +141,8 @@ try {
         Set-ElText (Find-El $w 'txtAppPackagerSearch') $term
         Start-Sleep 2
         $cell = Find-El $w -Name $term -ControlType 'Custom' -Timeout 15
-        if (-not $cell) { $cell = Find-El $w -Name $appName -ControlType 'Custom' -Timeout 5 }
+        if (-not $cell) { $cell = Find-El $w -Name "$term (x64)" -ControlType 'Custom' -Timeout 5 }
+        if (-not $cell) { $cell = Find-El $w -Name $base -ControlType 'Custom' -Timeout 5 }
         if (-not $cell) { throw "The grid has no row named '$term'." }
         Click-El $cell; Start-Sleep 1
         $grid = Find-El $w 'PackagerGrid'
@@ -161,9 +167,10 @@ try {
             $yes = Find-El $null 'btnSupersedeYes' -Timeout 2
             if ($yes -and -not $answered) {
                 "INFO confirmation: $((Find-El $null 'txtSupersedeOld' -Timeout 2).Current.Name) / $((Find-El $null 'txtSupersedeNew' -Timeout 2).Current.Name)"
-                # Before Yes: the new application is on the site and has no relation.
+                # Before Yes: the new application has no relation (it may not be on the site yet: the relation is written after the answer).
                 $before = Get-AppDigest $newName
-                Check 'rule-03 at the window the new application exists and has no relation yet' ($null -ne $before -and @(Get-Relations $before).Count -eq 0) "exists: $($null -ne $before); relations: $(@(Get-Relations $before).Count)"
+                Check 'rule-03 at the window the new application has no relation yet' ($null -eq $before -or @(Get-Relations $before).Count -eq 0) "exists: $($null -ne $before); relations: $(if ($before) { @(Get-Relations $before).Count } else { 0 })"
+                "INFO at the window the new application is on the site: $($null -ne $before)"
                 Move-MouseAway; Shot "probe-rule-$Rule-confirm"
                 Real-Click $yes
                 $answered = $true
@@ -217,3 +224,4 @@ finally {
     Set-Location $home0
 }
 "RULE-FAILS=$script:Fails"
+
