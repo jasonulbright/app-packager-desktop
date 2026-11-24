@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Added
+
+- Add Encrypt the connection, Trust server certificate and Test connection to Settings, ConfigMgr Site Settings, for the SQL Server that Discover reads. Trust server certificate is the option of Site Hygiene, Live (one value for the site). Test connection connects with the values on the page, reads one row of the inventory views and shows the result or the exact error. The SQL server box takes name, name,port and name\instance.
+
 ### Changed
 
 - Show N of M in the status line while Check ConfigMgr runs.
@@ -9,6 +13,11 @@
 - Show how many changes are done of the plan while a change plan runs, and when it is cancelled.
 - Make the header check box of the Packages grid cycle as in the PowerShell app: every visible row, only the rows with an update (shown as the indeterminate state), then none. Each step writes a line to the log.
 - Make Select Update Available select only the visible rows, clear all others, and write a log line.
+
+### Fixed
+
+- Show the result and the error of Discover not selected and Discover all under the two buttons in Settings, ConfigMgr Site Settings. The status line was on the App Packager page only, so a failed scan or a scan with no result showed nothing where the button was.
+- Name the cause in a Discover failure: the server, the database, the exception type, the SQL error number and the text of the error (for example an untrusted SQL Server certificate), what to check, and the exit code and error output of a script that did not finish. The failure of DCOM and WinRM to the SMS Provider is named. The log has the same line.
 
 ## [2026.1124.61] - 2026-11-24
 

@@ -7,13 +7,14 @@ using System.Text.RegularExpressions;
 namespace ApplicationPackagerEngine.Services;
 
 /// <summary>Where the site database lives.</summary>
-internal sealed record DiscoveryDatabaseTarget(string Server, string Database);
+internal sealed record DiscoveryDatabaseTarget(string Server, string Database, bool Encrypt = false, bool TrustServerCertificate = false, bool TestOnly = false);
 
 /// <summary>
 /// Discover unmanaged software: reads the site database through Windows PowerShell's
 /// System.Data.SqlClient (Windows authentication, read-only intent, bound parameters) and
 /// matches hidden packagers in this process. Standard output of the child is never logged,
-/// because the inventory lines carry per-scan client ordinals.
+/// because the inventory lines carry per-scan client ordinals. A failure names the exception
+/// type and its text, the server and the database, and what to check (Q-129).
 /// </summary>
 public sealed partial class DiscoveryService : IDiscoveryService
 {
@@ -47,6 +48,9 @@ public sealed partial class DiscoveryService : IDiscoveryService
         _time = time;
     }
 
+    [GeneratedRegex(@"certificate|SSL Provider|TLS|SSL Security|trust relationship", RegexOptions.IgnoreCase)]
+    private static partial Regex CertificateCause();
+
     [GeneratedRegex("^[A-Za-z0-9]{3}$")]
     private static partial Regex SiteCodeRegex();
 
@@ -65,7 +69,10 @@ public sealed partial class DiscoveryService : IDiscoveryService
         try
         {
             var target = await ResolveTargetAsync(request, limit.Token).ConfigureAwait(false);
+            target = target with { Encrypt = request.Encrypt, TrustServerCertificate = request.TrustServerCertificate, TestOnly = request.TestOnly };
             var snapshot = await ReadSnapshotAsync(target, timeout, limit.Token).ConfigureAwait(false);
+            if (request.TestOnly)
+                return new DiscoveryResult([], $"Connected to SQL Server {target.Server}, database {target.Database}. The account can read the inventory views.");
             var candidates = DiscoveryMatcher.FindCandidates(snapshot, packagers);
             var status = DiscoveryMatcher.StatusText(snapshot, candidates.Count, _time.GetLocalNow().DateTime);
             return new DiscoveryResult(candidates, status);
@@ -102,19 +109,19 @@ public sealed partial class DiscoveryService : IDiscoveryService
         else
         {
             var site = await ReadSiteDefinitionAsync(provider, code, ct).ConfigureAwait(false);
-            if (site is null)
+            if (site.Failed)
             {
-                lookupError = $"the SMS Provider {provider} did not return the site definition";
+                lookupError = $"the SMS Provider {provider} did not return the site definition: {site.Reason}. Check that the provider name is the SMS Provider computer, that this account is a ConfigMgr administrator, and that DCOM or WinRM to it is open";
             }
-            else if (!site.Value.Found)
+            else if (!site.Found)
             {
                 lookupError = $"the SMS Provider {provider} has no site definition for {code}";
             }
             else
             {
                 lookupError = "";
-                var siteServer = site.Value.Server.Trim();
-                var siteDatabase = site.Value.Database.Trim();
+                var siteServer = site.Server.Trim();
+                var siteDatabase = site.Database.Trim();
                 // A named instance is stored as INSTANCE\CM_<code> in SQLDatabaseName.
                 var named = NamedInstanceRegex().Match(siteDatabase);
                 if (named.Success)
@@ -136,37 +143,56 @@ public sealed partial class DiscoveryService : IDiscoveryService
         return new DiscoveryDatabaseTarget(server, database);
     }
 
-    private async Task<string> RunAsync(string script, CancellationToken ct)
+    /// <summary>The output of one script run: standard output, standard error and the exit code.</summary>
+    private sealed record ScriptOutput(string StdOut, string StdErr, int ExitCode);
+
+    private async Task<ScriptOutput> RunAsync(string script, CancellationToken ct)
     {
         try
         {
             var run = await _run(script, ct).ConfigureAwait(false);
-            return run.StdOut ?? "";
+            return new ScriptOutput(run.StdOut ?? "", run.StdErr ?? "", run.ExitCode);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            throw new DiscoveryException("Windows PowerShell could not start. Discover needs Windows PowerShell 5.1 (powershell.exe).");
+            throw new DiscoveryException($"Windows PowerShell could not run the scan ({ex.GetType().Name}: {OneLine(ex.Message)}). Discover needs Windows PowerShell 5.1 (powershell.exe) that can start a script from the temporary folder. Check that it is installed and that application control does not block it.");
         }
     }
 
-    private async Task<(bool Found, string Server, string Database)?> ReadSiteDefinitionAsync(string provider, string code, CancellationToken ct)
+    /// <summary>One line of at most 300 characters: the text of an exception or of standard error for a message.</summary>
+    public static string OneLine(string? text)
     {
-        var stdout = await RunAsync(BuildSiteDefinitionScript(provider, code), ct).ConfigureAwait(false);
-        var lines = ReadLines(stdout);
-        if (lines is null) return null;
+        var line = Regex.Replace(text ?? "", @"\s+", " ").Trim();
+        return line.Length > 300 ? line[..300] : line;
+    }
+
+    private async Task<(bool Found, string Server, string Database, string Reason, bool Failed)> ReadSiteDefinitionAsync(string provider, string code, CancellationToken ct)
+    {
+        var output = await RunAsync(BuildSiteDefinitionScript(provider, code), ct).ConfigureAwait(false);
+        var lines = ReadLines(output.StdOut);
+        if (lines is null) return (false, "", "", $"the script did not finish{ScriptTail(output)}", true);
         foreach (var line in lines)
         {
+            if (Text(line, "t") == "error" && Text(line, "stage") == "site")
+                return (false, "", "", Text(line, "detail") is { Length: > 0 } detail ? detail : "no protocol answered", true);
             if (Text(line, "t") != "site") continue;
             var found = line.TryGetProperty("found", out var f) && f.ValueKind == JsonValueKind.True;
-            return (found, Text(line, "server"), Text(line, "database"));
+            return (found, Text(line, "server"), Text(line, "database"), "", false);
         }
-        return null;
+        return (false, "", "", "no answer", true);
     }
 
     private async Task<InventorySnapshot> ReadSnapshotAsync(DiscoveryDatabaseTarget target, int timeout, CancellationToken ct)
     {
-        var stdout = await RunAsync(BuildInventoryScript(target, timeout), ct).ConfigureAwait(false);
-        return ParseInventory(stdout, target, timeout);
+        var output = await RunAsync(BuildInventoryScript(target, timeout), ct).ConfigureAwait(false);
+        return ParseInventory(output.StdOut, target, timeout, ScriptTail(output));
+    }
+
+    /// <summary>The exit code and the start of standard error of a run, for the message of a run that did not finish.</summary>
+    private static string ScriptTail(ScriptOutput output)
+    {
+        var error = OneLine(output.StdErr);
+        return $" (exit code {output.ExitCode.ToString(CultureInfo.InvariantCulture)}{(error.Length > 0 ? ", " + error : "")})";
     }
 
     internal static string ReadResource(string name)
@@ -185,6 +211,9 @@ public sealed partial class DiscoveryService : IDiscoveryService
         sb.Append("$DiscoveryDatabase = ").AppendLine(PowerShellLiteral.SingleQuoted(target.Database));
         sb.Append("$DiscoveryConnectTimeout = ").AppendLine(Math.Min(ConnectTimeoutSeconds, commandTimeoutSeconds).ToString(CultureInfo.InvariantCulture));
         sb.Append("$DiscoveryCommandTimeout = ").AppendLine(commandTimeoutSeconds.ToString(CultureInfo.InvariantCulture));
+        sb.Append("$DiscoveryEncrypt = ").AppendLine(target.Encrypt ? "$true" : "$false");
+        sb.Append("$DiscoveryTrust = ").AppendLine(target.TrustServerCertificate ? "$true" : "$false");
+        sb.Append("$DiscoveryTestOnly = ").AppendLine(target.TestOnly ? "$true" : "$false");
         sb.AppendLine("$DiscoveryRun = $true");
         sb.Append(ReadResource(InventoryResource));
         return sb.ToString();
@@ -223,10 +252,10 @@ public sealed partial class DiscoveryService : IDiscoveryService
         element.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.String ? value.GetString() ?? "" : "";
 
     /// <summary>Parses the inventory output. Throws a plain <see cref="DiscoveryException"/> for an error line or a broken run.</summary>
-    internal static InventorySnapshot ParseInventory(string stdout, DiscoveryDatabaseTarget target, int timeout)
+    internal static InventorySnapshot ParseInventory(string stdout, DiscoveryDatabaseTarget target, int timeout, string scriptTail = "")
     {
         var lines = ReadLines(stdout)
-            ?? throw new DiscoveryException($"The site database query on {target.Server} did not finish. Check that Windows PowerShell 5.1 runs on this computer.");
+            ?? throw new DiscoveryException($"The site database query on {target.Server}, database {target.Database}, did not finish{scriptTail}. Check that Windows PowerShell 5.1 runs on this computer and that application control (Constrained Language Mode, AppLocker) does not block the script.");
 
         var rows = new List<InventoryRow>();
         var applications = new List<string>();
@@ -253,8 +282,29 @@ public sealed partial class DiscoveryService : IDiscoveryService
         return new InventorySnapshot(rows, applications);
     }
 
-    /// <summary>The plain message for an error line: SQL error numbers and two flags, never the raw text.</summary>
+    /// <summary>
+    /// The message for an error line: what to check, then the server, the database, the exception type, the SQL error numbers and the
+    /// text of the innermost exception, so a cause such as an untrusted SQL Server certificate shows as it is.
+    /// </summary>
     internal static string SqlMessage(JsonElement line, DiscoveryDatabaseTarget target, int timeout)
+    {
+        var advice = SqlAdvice(line, target, timeout);
+        var types = new List<string>();
+        if (line.TryGetProperty("types", out var typeArray) && typeArray.ValueKind == JsonValueKind.Array)
+            foreach (var t in typeArray.EnumerateArray())
+                if (t.ValueKind == JsonValueKind.String && t.GetString() is { Length: > 0 } name) types.Add(name);
+        var numbers = new List<int>();
+        if (line.TryGetProperty("numbers", out var numberArray) && numberArray.ValueKind == JsonValueKind.Array)
+            foreach (var n in numberArray.EnumerateArray())
+                if (n.TryGetInt32(out var value)) numbers.Add(value);
+        var detail = OneLine(Text(line, "detail"));
+        if (types.Count == 0 && detail.Length == 0) return advice;
+        var errorType = types.Count > 0 ? types[^1] : "error";
+        var codes = numbers.Count > 0 ? " " + string.Join(",", numbers.Select(n => n.ToString(CultureInfo.InvariantCulture))) : "";
+        return $"{advice} Server {target.Server}, database {target.Database}. Error: {errorType}{codes}{(detail.Length > 0 ? ": " + detail : "")}";
+    }
+
+    private static string SqlAdvice(JsonElement line, DiscoveryDatabaseTarget target, int timeout)
     {
         var numbers = new List<int>();
         if (line.TryGetProperty("numbers", out var array) && array.ValueKind == JsonValueKind.Array)
@@ -266,6 +316,9 @@ public sealed partial class DiscoveryService : IDiscoveryService
         var server = target.Server;
         var database = target.Database;
 
+        var cause = Text(line, "detail");
+        if (CertificateCause().IsMatch(cause) && !Has(DatabaseErrors) && !Has(LoginErrors))
+            return $"The connection to SQL Server {server} was refused during the TLS handshake: the certificate of the SQL Server is not trusted by this computer, or its name does not match {server}. Select Trust server certificate in Settings, ConfigMgr Site Settings, or install the certificate authority of the SQL Server on this computer, and use the name that the certificate has.";
         if (Has(DatabaseErrors))
             return $"Database {database} does not exist on SQL Server {server}, or the Windows login cannot open it. Check the database name.";
         if (Has(LoginErrors))

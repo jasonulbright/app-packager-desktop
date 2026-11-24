@@ -533,6 +533,76 @@ public sealed class DiscoveryRunnerTests
     }
 
     [Fact]
+    public async Task TheCertificateOptionsOfTheSiteReachTheRequestAndTheEditorKeepsThem()
+    {
+        var settings = Configured();
+        settings.SiteHygieneLive = new SiteHygieneLiveSettings { TrustSqlCertificate = true, EncryptSql = true };
+        var service = new FakeDiscoveryService();
+        await Runner(service, new InMemorySettings(settings)).ScanAsync(CancellationToken.None);
+        Assert.True(service.Request!.Encrypt);
+        Assert.True(service.Request.TrustServerCertificate);
+        Assert.False(service.Request.TestOnly);
+
+        var editor = new ApplicationPackagerUI.ViewModels.Pages.DiscoverySettingsEditor();
+        editor.Load(settings);
+        Assert.True(editor.EncryptConnection);
+        Assert.True(editor.TrustServerCertificate);
+        editor.TrustServerCertificate = false;
+        var target = new AppSettings();
+        editor.ApplyTo(target);
+        Assert.False(target.SiteHygieneLive!.TrustSqlCertificate);
+        Assert.True(target.SiteHygieneLive.EncryptSql);
+
+        var untouched = new AppSettings();
+        new ApplicationPackagerUI.ViewModels.Pages.DiscoverySettingsEditor().ApplyTo(untouched);
+        Assert.Null(untouched.SiteHygieneLive);
+    }
+
+    [Fact]
+    public async Task TestConnectionReportsTheServerOrTheRealError()
+    {
+        var ok = new FakeDiscoveryService { Answer = (_, _) => Task.FromResult(new DiscoveryResult([], "Connected to SQL Server sql01, database CM_LAB. The account can read the inventory views.")) };
+        var good = await Runner(ok, new InMemorySettings(Configured())).TestConnectionAsync(Configured(), CancellationToken.None);
+        Assert.True(good.Ok);
+        Assert.True(ok.Request!.TestOnly);
+        Assert.Empty(ok.Request.Packagers);
+
+        var bad = new FakeDiscoveryService { Answer = (_, _) => throw new DiscoveryException("The certificate of the SQL Server is not trusted") };
+        var failed = await Runner(bad, new InMemorySettings(Configured())).TestConnectionAsync(Configured(), CancellationToken.None);
+        Assert.False(failed.Ok);
+        Assert.Contains("not trusted", failed.Message);
+    }
+
+    [Fact]
+    public async Task AnUnexpectedFailureNamesTheExceptionTypeAndTheText()
+    {
+        var service = new FakeDiscoveryService { Answer = (_, _) => throw new InvalidDataException("the inventory view returned a broken row") };
+        var outcome = await Runner(service, new InMemorySettings(Configured())).ScanAsync(CancellationToken.None);
+        Assert.False(outcome.Ok);
+        Assert.Contains("InvalidDataException: the inventory view returned a broken row", outcome.Message);
+        Assert.Contains("Settings, ConfigMgr Site Settings", outcome.Message);
+    }
+
+    [Fact]
+    public async Task AFailureReachesTheStatusTheLogAndTheSettingsPage()
+    {
+        var service = new FakeDiscoveryService { Answer = (_, _) => throw new DiscoveryException("Cannot reach SQL Server sql01. Check the server name, the network path and the SQL Server firewall port.") };
+        var log = new List<string>();
+        var status = new List<string>();
+        var choice = await Runner(service, new InMemorySettings(Configured())).RunAsync(new NeverPrompt(), log.Add, status.Add, () => Task.CompletedTask, () => { }, CancellationToken.None);
+        Assert.Null(choice);
+        var expected = DiscoveryRunner.LogPrefix + "Cannot reach SQL Server sql01. Check the server name, the network path and the SQL Server firewall port.";
+        Assert.Contains(expected, log);
+        Assert.Equal(expected, status[^1]);
+    }
+
+    private sealed class NeverPrompt : IDiscoveryPrompt
+    {
+        public ApplicationPackagerUI.ViewModels.Windows.DiscoveryChoice Show(ApplicationPackagerUI.ViewModels.Windows.DiscoveryDialogViewModel viewModel) =>
+            throw new InvalidOperationException("No prompt is expected when the scan failed.");
+    }
+
+    [Fact]
     public async Task AScanThatOverrunsTheTimeLimitStopsWithAPlainMessageEvenWhenTheServiceIgnoresItsToken()
     {
         var service = new FakeDiscoveryService { Answer = (_, _) => new TaskCompletionSource<DiscoveryResult>().Task };

@@ -53,6 +53,19 @@ public partial class SettingsViewModel : ObservableObject, ISettingsReload
     /// <summary>Why the two Discover buttons are off, or what they do.</summary>
     public string DiscoverToolTip => _packagesViewModel.DiscoverToolTip;
 
+    /// <summary>Settings, Test connection: connects with the values on the page, shown under the buttons.</summary>
+    [RelayCommand]
+    private async Task TestDiscoveryConnection()
+    {
+        var basis = _settingsService.Load();
+        basis.SiteCode = SiteCode;
+        basis.ProviderMachine = ProviderMachine;
+        await _packagesViewModel.TestDiscoveryConnectionAsync(Discovery.Snapshot(basis));
+    }
+
+    /// <summary>What the last Discover run reported, or the error it ended with. Shown under the two buttons.</summary>
+    public string DiscoverStatus => _packagesViewModel.DiscoverStatus;
+
     /// <summary>The Sidebar section; it applies each change at once and is not part of Save Settings.</summary>
     public SidebarSettingsEditor Sidebar { get; }
 
@@ -258,6 +271,10 @@ public partial class SettingsViewModel : ObservableObject, ISettingsReload
         _prefsSync = prefsSync;
         _snackbarService = snackbarService;
         _packagesViewModel = packagesViewModel;
+        _packagesViewModel.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(PackagesViewModel.DiscoverStatus)) OnPropertyChanged(nameof(DiscoverStatus));
+        };
         _discoveryService = discoveryService;
         Wsus = new WsusPublishingEditor(wsusClient, prompts: wsusPrompts);
 

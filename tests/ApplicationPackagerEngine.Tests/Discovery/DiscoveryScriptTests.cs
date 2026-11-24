@@ -183,14 +183,31 @@ public sealed class DiscoveryScriptTests : IDisposable
     }
 
     [Fact]
-    public void AnInventoryFailureWritesNumbersAndFlagsButNoRawText()
+    public void AnInventoryFailureWritesNumbersFlagsTheTypesAndTheInnermostText()
     {
         var script = InventoryText + Environment.NewLine + """
             $inner = New-Object System.Exception "Login failed for user 'NT AUTHORITY\ANONYMOUS LOGON'. Cannot generate SSPI context. CONTOSO\jdoe"
             Write-DiscoveryError -Exception (New-Object System.Management.Automation.MethodInvocationException 'Exception calling "Open"', $inner)
             """;
         var output = RunPowerShell(script).Trim();
-        Assert.Equal("{\"t\":\"error\",\"stage\":\"sql\",\"numbers\":[],\"sspi\":true,\"anonymous\":true}", output);
+        Assert.Equal("{\"t\":\"error\",\"stage\":\"sql\",\"numbers\":[],\"sspi\":true,\"anonymous\":true,\"types\":[\"MethodInvocationException\",\"Exception\"],"
+                     + "\"detail\":\"Login failed for user 'NT AUTHORITY\\\\ANONYMOUS LOGON'. Cannot generate SSPI context. CONTOSO\\\\jdoe\"}", output);
+    }
+
+    [Fact]
+    public void AnInventoryFailureTextIsOneAsciiLineOfAtMostThreeHundredCharacters()
+    {
+        var script = InventoryText + Environment.NewLine + """
+            $text = "The certificate chain was issued by an authority that is not trusted." + [char]13 + [char]10 + ("x" * 400) + [char]0x00e9
+            Write-DiscoveryError -Exception (New-Object System.Exception $text)
+            """;
+        var line = RunPowerShell(script).Trim();
+        using var json = System.Text.Json.JsonDocument.Parse(line);
+        var detail = json.RootElement.GetProperty("detail").GetString()!;
+        Assert.StartsWith("The certificate chain was issued by an authority that is not trusted. xxx", detail);
+        Assert.Equal(300, detail.Length);
+        Assert.All(line, c => Assert.True(c < 128));
+        Assert.DoesNotContain('\n', line.TrimEnd());
     }
 
     [Fact]

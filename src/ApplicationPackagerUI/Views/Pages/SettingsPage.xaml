@@ -248,6 +248,18 @@
                                 <TextBlock Text="Leave empty to use the database of the site."
                                            Foreground="{DynamicResource TextFillColorTertiaryBrush}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,8" />
 
+                                <CheckBox Content="Encrypt the connection" IsChecked="{Binding Discovery.EncryptConnection}" Margin="0,0,0,4"
+                                          AutomationProperties.AutomationId="chkDiscoveryEncrypt"
+                                          ToolTip="Ask SQL Server for an encrypted connection (Encrypt=True). Leave it cleared to keep the default of the SQL client. Stored for this site." />
+                                <CheckBox Content="Trust server certificate" IsChecked="{Binding Discovery.TrustServerCertificate}" Margin="0,0,0,4"
+                                          AutomationProperties.AutomationId="chkDiscoveryTrustCertificate"
+                                          ToolTip="Do not validate the certificate chain of the SQL Server (TrustServerCertificate=True). Select it when the SQL Server certificate is self-signed or issued by an authority that this computer does not trust. The connection stays encrypted. The same option as in Site Hygiene, Live. Stored for this site." />
+                                <TextBlock Text="The server accepts a name, name,port or name\instance, for example cm01.contoso.com,1433 or cm01.contoso.com\SCCM."
+                                           Foreground="{DynamicResource TextFillColorTertiaryBrush}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,8" />
+                                <ui:Button Content="Test connection" Command="{Binding TestDiscoveryConnectionCommand}" Margin="0,0,0,8"
+                                           AutomationProperties.AutomationId="btnDiscoveryTestConnection"
+                                           ToolTip="Connect to the site database with the values on this page (not yet saved) and read one row of the inventory views. Shows the result or the exact error below the Discover buttons." />
+
                                 <TextBlock Text="Not offered by Discover" Style="{StaticResource FieldLabel}" />
                                 <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
                                     <TextBlock Text="{Binding Discovery.DismissedSummary}" VerticalAlignment="Center" Margin="0,0,12,0"
@@ -264,11 +276,14 @@
                                 <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
                                     <ui:Button Content="Discover not selected" Command="{Binding DiscoverNotSelectedCommand}" Margin="0,0,8,0"
                                                AutomationProperties.AutomationId="btnDiscoverNotSelected"
-                                               ToolTip="Scan only the products that you have not selected in the Catalog and did not dismiss. Starts at once; the scan runs on the App Packager page." />
+                                               ToolTip="Scan only the products that you have not selected in the Catalog and did not dismiss. Starts at once; the result or the error shows below the buttons and in the log." />
                                     <ui:Button Content="Discover all" Command="{Binding DiscoverAllCommand}"
                                                AutomationProperties.AutomationId="btnDiscoverAll"
-                                               ToolTip="Scan every product, also the ones that you selected or dismissed. Starts at once; the scan runs on the App Packager page." />
+                                               ToolTip="Scan every product, also the ones that you selected or dismissed. Starts at once; the result or the error shows below the buttons and in the log." />
                                 </StackPanel>
+                                <TextBlock Text="{Binding DiscoverStatus}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,8"
+                                           AutomationProperties.AutomationId="txtDiscoverStatus" AutomationProperties.Name="{Binding DiscoverStatus}"
+                                           Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
                                 <TextBlock Text="File Share Root (UNC)" Style="{StaticResource FieldLabel}" />
                                 <ui:TextBox ToolTip="{Binding FileShareRoot}" Width="480" HorizontalAlignment="Left" Text="{Binding FileShareRoot, UpdateSourceTrigger=PropertyChanged}"
                                             PlaceholderText="\\fileserver\sccm$" Margin="0,0,0,8"
