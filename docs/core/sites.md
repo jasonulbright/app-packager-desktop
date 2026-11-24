@@ -118,9 +118,9 @@ At the first start the app finds the site code that you saved in an earlier vers
 - [Data folders](../reference/data-folders.md)
 - [Settings reference](../reference/settings.md)
 
-## Export a site file and import it on another machine
+## Export a site file and import it on another computer
 
-A site file carries the settings of one site from one machine to another. It is one zip file with a manifest, the settings and a list of what it holds. The file is small, a few kilobytes.
+A site file carries the settings of one site from one computer to another. It is one zip file with a manifest, the settings and a list of what it holds. The file is small, a few kilobytes.
 
 ### Export
 

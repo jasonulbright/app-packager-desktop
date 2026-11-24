@@ -19,7 +19,7 @@ public sealed record SiteFileReadResult(bool Ok, string Reason, SiteFileContent?
 public sealed record SiteFileExportResult(bool Ok, string Reason, string Path, string Sha256, int ItemCount, long Bytes);
 
 /// <summary>
-/// Export and import of a site file between machines (Q-112h). The file is one zip with three fixed entries: manifest.json (kind, format
+/// Export and import of a site file between computers (Q-112h). The file is one zip with three fixed entries: manifest.json (kind, format
 /// version, site code, label, and the SHA-256 and size of the other entries), settings.json and scope.json. Settings.json holds only the
 /// keys of the Q-112e import items (an allowlist, not a denylist): secrets, tokens, credentials, the site code value and every record
 /// that describes a site (results, states, ring plans, audit) are never exported because no item names them. Import never extracts to
