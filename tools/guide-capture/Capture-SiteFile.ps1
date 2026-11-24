@@ -12,9 +12,12 @@
       4. after Add site CD2, Import site file of the AB1 file offers merge and new site; New site AB1~2 creates the site with the file's values;
       5. AB1 files are unchanged (SHA-256); the new site holds no secret; the log names the file as the source.
     Every dialog and window that the run opens is closed; the app is stopped at the end. Lines are PASS or FAIL with the reason.
+    The image core-site-file-import (the Import window opened from a site file, with the new site AB1~2 chosen and the preview) is saved as <Run>\images\<theme>\core-site-file-import.png.
+    Run it once for each theme: -Theme Light, then -Theme Dark.
 #>
 param(
     [Parameter(Mandatory)][string]$Run,
+    [ValidateSet('Light', 'Dark')][string]$Theme = 'Light',
     [string]$AppFolder = $PSScriptRoot
 )
 $ErrorActionPreference = 'Stop'
@@ -75,7 +78,6 @@ function Close-Snack { Start-Sleep -Milliseconds 300 }
 $out = Join-Path $Run 'files'
 Remove-Item -LiteralPath $out -Recurse -Force -ErrorAction SilentlyContinue
 New-Item -ItemType Directory -Force $out | Out-Null
-$theme = 'Light'
 $script:GuideTheme = $theme
 $data = Join-Path $Run "data-$theme"
 Remove-Item $data -Recurse -Force -ErrorAction SilentlyContinue
@@ -168,6 +170,7 @@ try {
         Start-Sleep 2
         $sum = [string](Need-El 'txtImportSummary').Current.Name
         Check 'e2e-12 the preview says what the import copies' ($sum -match 'will copy') "summary: '$sum'"
+        Step 'core-site-file-import' { Shot 'core-site-file-import' }
         Real-Click (Need-El 'btnImportSettings')
         Start-Sleep 4
         $new = Join-Path $sites 'AB1~2'

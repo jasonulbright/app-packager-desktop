@@ -1348,14 +1348,25 @@ public partial class PackagesViewModel : ObservableObject
         manifest.AdHocSource = analysis.Path;
 
         IsOperationRunning = true;
+        _operationCts = new CancellationTokenSource();
         StatusText = $"Staging dropped installer: {manifest.AppName}";
         AddLogLine($"Stage: {manifest.AppName} {manifest.SoftwareVersion} (dropped installer)");
 
         try
         {
-            var result = await _stagingService.StageDroppedInstallerAsync(
-                manifest, analysis.Path, settings.DownloadRoot, line => AddLogLine($"  {line}"));
-
+            var outcome = await CancellableStageRun.RunAsync(ct => _stagingService.StageDroppedInstallerAsync(
+                manifest, analysis.Path, settings.DownloadRoot, line => AddLogLine($"  {line}"), ct), _operationCts.Token);
+            if (outcome.Cancelled)
+            {
+                StatusText = RunEndLine(outcome.Tally, "Stage", 1, "staged");
+                return;
+            }
+            var result = outcome.Result;
+            if (result is null)
+            {
+                AddLogLine($"Stage ERROR: {outcome.ErrorMessage}");
+                return;
+            }
             if (!result.Success)
             {
                 AddLogLine($"Stage FAILED: {result.ErrorMessage}");
@@ -1374,6 +1385,8 @@ public partial class PackagesViewModel : ObservableObject
         finally
         {
             IsOperationRunning = false;
+            _operationCts?.Dispose();
+            _operationCts = null;
         }
     }
 

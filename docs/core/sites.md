@@ -6,12 +6,13 @@ A site is one ConfigMgr site with its SMS Provider. App Packager Desktop keeps t
 
 The footer at the lower right of the main window shows the active site: "Site AB1", a middle dot and the SMS Provider. The footer is the site switcher.
 
-![The footer site switcher with two sites](../images/core-site-switcher-menu.png)
+![The footer site switcher with two sites and the entries for the site file](../images/core-site-switcher-menu.png)
 
 1. Select the footer. The list shows each known site with its label and its SMS Provider. A check mark shows the active site.
 2. Select a site to make it active. The Settings page, the App Packager grid and every tool then show the settings and the data of that site.
 3. To add a site, select **Add site...**.
 4. To copy the settings of another site into the active site, select **Import settings from another site...**. See [Import settings from another site](#import-settings-from-another-site).
+5. To move the settings of the active site to another computer, select **Export site file...**. To read such a file, select **Import site file...**. The two entries are at the end of the list, and each has an icon. See [Export a site file and import it on another computer](#export-a-site-file-and-import-it-on-another-computer).
 
 The tooltip of the footer says what it does. The footer is the only control that changes the site, and **Settings** shows the site code of the active site.
 
@@ -133,6 +134,8 @@ The file holds the same settings that **Import settings from another site** offe
 The file never holds a secret. The export is a list of allowed settings, not a list of excluded ones: a setting that the list does not name cannot enter the file. This includes the GitHub token, the Intune client secret, the NVD API key, the feed credentials, and every result, version, history, ring plan and audit record of the site. A value whose name looks like a secret is dropped even inside an allowed setting.
 
 ### Import
+
+![The Import window opened from a site file, with the new site AB1~2 as the target](../images/core-site-file-import.png)
 
 1. Select the footer, then **Import site file...** and choose the file.
 2. The app checks the file before it shows anything: the manifest, the SHA-256 and the size of each part, the site code, and that the file holds only the allowed settings. A file that fails a check is refused and nothing is written. The message names the check.

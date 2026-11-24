@@ -132,7 +132,7 @@ foreach ($theme in $Themes) {
         Step 'core-site-switcher-menu' {
             $b = (Need-El 'btnSiteSwitcher').Current.BoundingRectangle
             $scr = Get-ApdScreen
-            Shot 'core-site-switcher-menu' @([int]($scr.Width - 760), [int]($scr.Height - 240), 760, 240)
+            Shot 'core-site-switcher-menu' @([int]($scr.Width - 760), [int]($scr.Height - 400), 760, 400)
         }
         $add = Need-Name 'Add site...' 'MenuItem' 8
         Real-Click $add
