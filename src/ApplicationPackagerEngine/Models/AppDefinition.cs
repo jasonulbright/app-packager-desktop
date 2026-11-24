@@ -38,8 +38,7 @@ public sealed class AppDefinition
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? StageFolderName { get; set; }
     /// <summary>The name of the stage folder and of the installer file stem: <see cref="StageFolderName"/>, else <see cref="Application"/>.</summary>
-    [JsonIgnore]
-    public string FolderApplication => string.IsNullOrWhiteSpace(StageFolderName) ? Application : StageFolderName;
+    public string FolderApplication() => string.IsNullOrWhiteSpace(StageFolderName) ? Application : StageFolderName;
     public string Architecture { get; set; } = "x64";
     public string VendorUrl { get; set; } = "";
     /// <summary>CPE 2.3 name of the product, in the URI or the formatted form. The CVE lookup needs it.</summary>

@@ -211,11 +211,7 @@ public class MecmApplicationTitleRuleTests
     /// </summary>
     private static readonly HashSet<string> MetadataNamed = new(StringComparer.OrdinalIgnoreCase)
     {
-        "anaconda.json", "azurestorageexplorer.json", "bitwarden.json", "citrixworkspacecr.json",
-        "corretto-jdk11-x64.json", "corretto-jdk11-x86.json", "corretto-jdk17-x64.json", "corretto-jdk21-x64.json",
-        "corretto-jdk25-x64.json", "corretto-jdk8-x64.json", "corretto-jdk8-x86.json", "dbeaver.json", "drawio.json",
-        "git.json", "googledrive.json", "nodejs.json", "r.json", "rocketchat.json", "rstudio.json", "soapui.json",
-        "sqlserver2022express.json", "thunderbird.json", "webex.json"
+        "nodejs.json", "webex.json"
     };
 
     [Fact]

@@ -328,7 +328,7 @@ public static class DefinitionCode
     /// <summary>The top-level properties that hold no code (the nested values are checked by <see cref="Find"/>).</summary>
     public static readonly IReadOnlyCollection<string> OtherProperties =
     [
-        "Schema", "Id", "WsusSupport", "Vendor", "Application", "CMName", "AppName", "Publisher", "Architecture", "VendorUrl", "Cpe",
+        "Schema", "Id", "WsusSupport", "Vendor", "Application", "StageFolderName", "CMName", "AppName", "Publisher", "Architecture", "VendorUrl", "Cpe",
         "ArpName", "ArpVersion", "ArpArch", "SecurityAdvisoryUrl", "InstallerType", "InstallerFramework", "InstallContext", "VersionScraper",
         "DownloadUrl", "InstallerFileName", "InstallArgs", "UninstallArgs", "ReviewBeforeStage", "CanUninstall", "Detection", "RunningProcess",
         "PostInstallKillProcesses", "RebootExitCodes", "SuccessExitCodes", "Icon", "IconFormat", "IconSource", "DisplayVersionOverride",

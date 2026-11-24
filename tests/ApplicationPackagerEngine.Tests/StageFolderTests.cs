@@ -27,7 +27,7 @@ public sealed class StageFolderTests
         {
             var def = JsonSerializer.Deserialize<AppDefinition>(File.ReadAllText(file), options);
             if (def is null || string.IsNullOrWhiteSpace(def.Application)) continue;
-            Assert.Equal($"{def.FolderApplication.Replace(" ", "")}-{def.Architecture}", StageFolder.Name(def));
+            Assert.Equal($"{def.FolderApplication().Replace(" ", "")}-{def.Architecture}", StageFolder.Name(def));
             if (def.StageFolderName is not null) Assert.NotEqual(def.Application, def.StageFolderName);
             checkedCount++;
         }

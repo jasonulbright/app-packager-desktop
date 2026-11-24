@@ -151,7 +151,7 @@ public sealed class SevenZipDefinitionTests
             var definition = DefinitionFixture.Load("7zip.json");
             var version = "24.08";
             var baseInstaller = Path.Combine(AppContext.BaseDirectory, "Fixtures", "WsusRules", "seven-zip.msi");
-            var appFolder = $"{definition.Application.Replace(" ", "", StringComparison.Ordinal)}-{definition.Architecture}";
+            var appFolder = StageFolder.Name(definition);
             var content = Path.Combine(root, appFolder, version);
             var arm64 = Path.Combine(content, "arm64");
             Directory.CreateDirectory(arm64);
@@ -229,7 +229,7 @@ public sealed class SevenZipDefinitionTests
             var definition = DefinitionFixture.Load("7zip.json");
             var version = "24.08";
             var baseInstaller = Path.Combine(AppContext.BaseDirectory, "Fixtures", "WsusRules", "seven-zip.msi");
-            var content = Path.Combine(root, $"{definition.Application.Replace(" ", "", StringComparison.Ordinal)}-{definition.Architecture}", version);
+            var content = Path.Combine(root, $"{StageFolder.Name(definition)}", version);
             var arm64 = Path.Combine(content, "arm64");
             Directory.CreateDirectory(arm64);
 
@@ -272,7 +272,7 @@ public sealed class SevenZipDefinitionTests
             var definition = DefinitionFixture.Load("7zip.json");
             var version = "24.08";
             var baseInstaller = Path.Combine(AppContext.BaseDirectory, "Fixtures", "WsusRules", "seven-zip.msi");
-            var content = Path.Combine(root, $"{definition.Application.Replace(" ", "", StringComparison.Ordinal)}-{definition.Architecture}", version);
+            var content = Path.Combine(root, $"{StageFolder.Name(definition)}", version);
             var arm64 = Path.Combine(content, "arm64");
             Directory.CreateDirectory(arm64);
 

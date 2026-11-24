@@ -720,7 +720,7 @@ public sealed class StagingService
             {
                 var (arpKeyName, installFolder) = WrapperGeneratorService.ResolveUninstallHints(detection);
                 wrappers.GenerateExeWrappers(contentPath, installerFileName,
-                    installArgs, uninstallArgs, def.InstallerFramework, def.FolderApplication, uninstallCommand,
+                    installArgs, uninstallArgs, def.InstallerFramework, def.FolderApplication(), uninstallCommand,
                     ResolvePostInstallScript(def, settingsValues, displayVersion), arpKeyName, installFolder,
                     def.PostInstallKillProcesses, def.RebootExitCodes, def.SuccessExitCodes);
             }
@@ -1072,7 +1072,7 @@ public sealed class StagingService
         finalizer.PrepareStageRoot(variantPath);
         var wrappers = finalizer.Wrappers(_wrapperService);
         wrappers.GenerateExeWrappers(variantPath, fileName, installArgs, uninstallArgs,
-            applicationName: definition.FolderApplication, uninstallCommand: uninstallCommand,
+            applicationName: definition.FolderApplication(), uninstallCommand: uninstallCommand,
             postInstallKillProcesses: definition.PostInstallKillProcesses, rebootExitCodes: definition.RebootExitCodes,
             successExitCodes: variantDefinition.SuccessExitCodes);
 
@@ -2259,7 +2259,7 @@ public sealed class StagingService
         if (!string.IsNullOrEmpty(urlFileName) && urlFileName.Contains('.'))
             return urlFileName;
 
-        var safeName = StageFolder.FileStem(def.FolderApplication);
+        var safeName = StageFolder.FileStem(def.FolderApplication());
         var ext = def.InstallerType.ToUpperInvariant() switch
         {
             "MSI" => ".msi",

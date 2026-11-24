@@ -101,9 +101,12 @@ foreach ($theme in $Themes) {
             Wait-Idle $w 240
             $log = Session-Log $data
             Check "$theme-03a Check ConfigMgr ends with its finished line" ($log -match "Check ConfigMgr finished: \d+ of $($SiteApplications.Count) product") "log: $($log.Substring([Math]::Max(0, $log.Length - 400)))"
+            foreach ($pair in @(@('7-Zip', '26.06'), @('Audacity', '3.7.9'))) {
+                Search-Grid $w $pair[0]
+                $texts = Grid-Texts $w
+                Check "$theme-03b Check ConfigMgr found $($pair[0]) $($pair[1]) by its ConfigMgr name" ($texts -contains $pair[1]) ("cells: " + (($texts | Select-Object -First 16) -join ' | '))
+            }
             Search-Grid $w ''
-            $texts = Grid-Texts $w
-            Check "$theme-03b Check ConfigMgr found 7-Zip 26.06 and Audacity 3.7.9 by their ConfigMgr names" (($texts -contains '26.06') -and ($texts -contains '3.7.9')) ("cells: " + (($texts | Where-Object { $_ -match '^\d' } | Select-Object -First 12) -join ' | '))
             Save-Shot (Join-Path $Run (Join-Path 'checks' (Join-Path $theme.ToLower() 'check-configmgr.png')))
             Uncheck-All $w
         }
