@@ -108,7 +108,7 @@ public class MecmQueryService(SettingsService settingsService)
         }
         $note = ''
         if ($tier -eq 'prefix') {
-            $others = @($apps | Where-Object { $_.CI_ID -ne $chosen.CI_ID } | ForEach-Object { ([string]$_.LocalizedDisplayName) -replace '[|;]', ' ' })
+            $others = @($apps | Where-Object { [string]$_.LocalizedDisplayName -ne [string]$chosen.LocalizedDisplayName } | ForEach-Object { ([string]$_.LocalizedDisplayName) -replace '[|;]', ' ' })
             $note = "tier=$tier; chose '$((([string]$chosen.LocalizedDisplayName) -replace '[|;]', ' '))'" + $(if ($others.Count) { "; other matches: " + ($others -join '; ') } else { '' })
         }
         $suffix = if ($note) { "|$note" } else { '' }
