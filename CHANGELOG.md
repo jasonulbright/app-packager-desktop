@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- Align the icon of every button with the text of its label.
+
 ## [2026.1124.60] - 2026-11-24
 
 ### Changed

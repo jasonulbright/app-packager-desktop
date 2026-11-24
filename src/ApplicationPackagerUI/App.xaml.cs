@@ -21,6 +21,8 @@ public partial class App : Application
     {
         base.OnStartup(e);
 
+        Helpers.LayoutRounding.Register();
+
         DispatcherUnhandledException += (_, args) =>
         {
             System.Windows.MessageBox.Show(
