@@ -18,7 +18,7 @@ public class ApplicationGridSettingsTests
     private static Dictionary<string, DeploymentConditionEntry> NewMap() => new(StringComparer.OrdinalIgnoreCase);
 
     [Fact]
-    public void ThePackageSourceChoiceBecomesTheRequirementThatThePackageRunWrites()
+    public void TheArchitectureChoiceBecomesTheRequirementThatThePackageRunWrites()
     {
         var map = NewMap();
         Assert.True(ApplicationGridSettings.SetArchitecture(map, Definition, ApplicationGridSettings.ArchitectureArm64));
@@ -32,7 +32,7 @@ public class ApplicationGridSettingsTests
     }
 
     [Fact]
-    public void ThePackageSourceSplitMakesOneDeploymentTypeForEachArchitecture()
+    public void TheArchitectureSplitMakesOneDeploymentTypeForEachArchitecture()
     {
         var map = NewMap();
         ApplicationGridSettings.SetArchitecture(map, Definition, ApplicationGridSettings.ArchitectureSplit);

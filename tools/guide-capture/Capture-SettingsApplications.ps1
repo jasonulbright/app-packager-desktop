@@ -112,10 +112,10 @@ foreach ($theme in $Themes) {
         if (-not $cell) { throw 'The row of 7-Zip has no installer type cell.' }
         Choose-Item $cell 'EXE'
 
-        # One cell of a row with the mouse: the package source of 7-Zip.
+        # One cell of a row with the mouse: the Architecture of 7-Zip.
         $row = Find-GridRow $grid '7-Zip'
-        $cell = $row.FindFirst([System.Windows.Automation.TreeScope]::Descendants, (New-Object System.Windows.Automation.PropertyCondition ([System.Windows.Automation.AutomationElement]::NameProperty), 'Package source of the application'))
-        if (-not $cell) { throw 'The row of 7-Zip has no package source cell.' }
+        $cell = $row.FindFirst([System.Windows.Automation.TreeScope]::Descendants, (New-Object System.Windows.Automation.PropertyCondition ([System.Windows.Automation.AutomationElement]::NameProperty), 'Architecture of the application'))
+        if (-not $cell) { throw 'The row of 7-Zip has no Architecture cell.' }
         Choose-Item $cell 'ARM64 only'
 
         # The version in the title of Bitwarden is locked to Include version while supersedence is on.
@@ -185,7 +185,7 @@ foreach ($theme in $Themes) {
         $json = Get-Content $file -Raw | ConvertFrom-Json
         $conditions = $json.DeploymentConditions
         Check ($conditions.$bitwardenId.InstallMode -eq 'CurrentUser') "$theme settings.json: Bitwarden install scope is CurrentUser"
-        Check ($conditions.$sevenZipId.Architecture -eq 'ARM64') "$theme settings.json: 7-Zip package source is ARM64"
+        Check ($conditions.$sevenZipId.Architecture -eq 'ARM64') "$theme settings.json: 7-Zip Architecture is ARM64"
         Check ($conditions.$sevenZipId.InstallerType -eq 'EXE') "$theme settings.json: 7-Zip installer type is EXE"
         Check ($null -eq $conditions.$sevenZipId.InstallMode -or $conditions.$sevenZipId.InstallMode -eq '') "$theme settings.json: 7-Zip has no install scope (the installer offers none)"
         $overrides = $json.Supersedence.TitleOverrides.PSObject.Properties

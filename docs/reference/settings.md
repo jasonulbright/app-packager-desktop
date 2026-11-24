@@ -300,7 +300,7 @@ When you select no system, the window says "No system is selected. Save stores t
 | `AppStates` | empty | Per application: last checked, latest version, current version, last staged, published per destination, not supported per destination. |
 | `WindowLeft`, `WindowTop`, `WindowWidth`, `WindowHeight`, `WindowMaximized`, `PaneOpen` | -1, -1, 1200, 800, off, on | The app saves the window state when the main window closes. The minimum window size is 900 x 600. The supported minimum is 1024 x 720. |
 | `FirstRunCompleted` | null | See the Setup window. |
-| `DeploymentConditions` | empty | The package source, install scope and version in title of an application, per definition. Settings, Application Settings writes it (the Package source, Install scope, Installer type and Version in title columns). It applies only when no Workbench profile applies. A migration moves it into a Migrated Workbench profile at start and after Save Settings. |
+| `DeploymentConditions` | empty | The architecture, install scope and version in title of an application, per definition. Settings, Application Settings writes it (the Architecture, Install scope, Installer type and Version in title columns). It applies only when no Workbench profile applies. A migration moves it into a Migrated Workbench profile at start and after Save Settings. |
 | `CommandOverrides` | empty | A legacy map of install and uninstall commands per definition. It has the same rules as `DeploymentConditions`. |
 
 ## Choices saved by each page

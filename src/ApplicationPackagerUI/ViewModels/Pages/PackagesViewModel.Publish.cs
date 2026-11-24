@@ -160,8 +160,26 @@ public partial class PackagesViewModel : IOneClickRunner, IPublishActionHost
     /// <summary>The folder of the One Click run reports.</summary>
     public static string OneClickReportFolder => OneClickReportWriter.Folder(LogDir);
 
-    /// <summary>Opens the plan window for the tracked applications the grid shows.</summary>
-    private Task OneClickAsync()
+    /// <summary>The checks of the One Click chain, run over the tracked rows before the plan opens.</summary>
+    private sealed class OneClickChecks(PackagesViewModel vm) : IOneClickChecks
+    {
+        public async Task<bool> CheckLatestAsync(IReadOnlyList<PackagerInfo> rows) =>
+            !(await vm.RunCheckLatestOnList(rows.ToList(), "One Click: checking latest versions...", "Latest check")).Cancelled;
+
+        public Task<bool> CheckConfigMgrAsync(IReadOnlyList<PackagerInfo> rows) => vm.RunCheckMecmAsync(rows.ToList(), lookupCvesAfter: false);
+
+        public async Task<bool> CheckCvesAsync(IReadOnlyList<PackagerInfo> rows)
+        {
+            await vm.RunCveCheckAsync(rows, force: false, "One Click: checking CVEs...");
+            return true;
+        }
+    }
+
+    /// <summary>
+    /// Runs the whole chain, Check Latest, Check ConfigMgr and Check CVEs, over the tracked
+    /// applications the grid shows, then opens the plan window (D-47).
+    /// </summary>
+    private async Task OneClickAsync()
     {
         var settings = _settingsService.Load();
         var action = OneClickActions.Normalize(settings.OneClick.Action);
@@ -172,20 +190,27 @@ public partial class PackagesViewModel : IOneClickRunner, IPublishActionHost
             StatusText = "No apps tracked.";
             _publishDialogs.ShowMessage("One Click Not Configured",
                 "No apps are tracked yet.\n\nOpen Settings, One Click Settings, choose which applications to include, pick an action (Report only, Stage, or Stage and Publish) and the destinations, and save.");
-            return Task.CompletedTask;
+            return;
         }
         if (action != OneClickActions.Report && string.IsNullOrWhiteSpace(settings.DownloadRoot))
         {
             AddLogLine($"Download Root is required for action '{action}'. Open Settings.");
             StatusText = "Download Root is required.";
-            return Task.CompletedTask;
+            return;
         }
         var rows = Packagers.Where(p => p.IsRunnable && tracked.Contains(p.Uid)).ToList();
         if (rows.Count == 0)
         {
             AddLogLine("No tracked apps are visible in the grid.");
             StatusText = "No visible tracked apps.";
-            return Task.CompletedTask;
+            return;
+        }
+
+        if (!await OneClickPrechecks.RunAsync(rows, new OneClickChecks(this), AddLogLine))
+        {
+            AddLogLine("One Click: a check was cancelled, so no plan was made.");
+            StatusText = "One Click cancelled.";
+            return;
         }
 
         var consoleFound = ConfigMgrConsole.IsInstalled();
@@ -204,7 +229,7 @@ public partial class PackagesViewModel : IOneClickRunner, IPublishActionHost
             Log = AddLogLine
         };
         _publishDialogs.ShowOneClickPlan(new OneClickPlanViewModel(context, this));
-        return Task.CompletedTask;
+        return;
     }
 
     /// <summary>

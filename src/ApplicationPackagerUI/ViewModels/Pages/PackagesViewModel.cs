@@ -661,13 +661,18 @@ public partial class PackagesViewModel : ObservableObject
     {
         var selected = SelectedPackagers.ToList();
         if (selected.Count == 0) { ShowNoneSelected("Check ConfigMgr"); return; }
+        _ = await RunCheckMecmAsync(selected, lookupCvesAfter: true);
+    }
 
+    /// <summary>Queries ConfigMgr for the rows. Check CVEs follows when the setting asks for it and <paramref name="lookupCvesAfter"/> is true.</summary>
+    private async Task<bool> RunCheckMecmAsync(List<PackagerInfo> selected, bool lookupCvesAfter)
+    {
         var settings = _settingsService.Load();
         if (string.IsNullOrWhiteSpace(settings.SiteCode))
         {
             _snackbarService.Show("Check ConfigMgr", "SiteCode is required. Open Settings.",
                 Wpf.Ui.Controls.ControlAppearance.Danger, new SymbolIcon(SymbolRegular.Warning24), TimeSpan.FromSeconds(3));
-            return;
+            return true;
         }
         var environment = InventoryEnvironmentIdentity.ConfigMgr(settings.SiteCode, settings.ProviderMachine);
 
@@ -778,8 +783,9 @@ public partial class PackagesViewModel : ObservableObject
             _operationCts = null;
         }
 
-        if (settings.Vulnerability is { LookupAfterCheckCm: true } && !tally.Cancelled)
+        if (lookupCvesAfter && settings.Vulnerability is { LookupAfterCheckCm: true } && !tally.Cancelled)
             await RunCveCheckAsync(selected, force: false, "Checking CVEs for the queried applications...");
+        return !tally.Cancelled;
     }
 
     private async Task StageAsync() => await RunStageAsync();

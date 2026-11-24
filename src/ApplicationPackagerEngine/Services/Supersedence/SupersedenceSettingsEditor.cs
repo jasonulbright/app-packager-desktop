@@ -7,9 +7,6 @@ namespace ApplicationPackagerEngine.Services.Supersedence;
 /// </summary>
 public static class SupersedenceSettingsEditor
 {
-    /// <summary>The note that the version in the title is locked while supersedence is on, because n and n-1 must be separate applications.</summary>
-    public const string TitleLockNote = "Supersedence needs the version in the title, so the title of this application includes the version.";
-
     /// <summary>The mode that one application has: its override, else the default.</summary>
     public static SupersedenceMode EffectiveMode(SupersedenceSettings settings, string? applicationId)
     {

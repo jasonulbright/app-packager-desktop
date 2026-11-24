@@ -27,7 +27,7 @@ public static class ApplicationGridSettings
     public const string IncludeVersion = "Include version";
     public const string NoVersion = "No version";
 
-    /// <summary>The choices of the package source column, for an application that offers an architecture choice.</summary>
+    /// <summary>The choices of the Architecture column, for an application that offers an architecture choice.</summary>
     public static readonly IReadOnlyList<string> ArchitectureChoices = [PackagerDefault, ArchitectureX64, ArchitectureArm64, ArchitectureSplit];
 
     /// <summary>The choices of the install scope column, for an application that installs for the system and for the user.</summary>
@@ -64,7 +64,7 @@ public static class ApplicationGridSettings
         string.IsNullOrWhiteSpace(definitionId) ? null
             : map.FirstOrDefault(p => string.Equals(p.Key, definitionId, StringComparison.OrdinalIgnoreCase)).Value;
 
-    /// <summary>Applies a package source choice. A word that is not a choice changes nothing and returns false.</summary>
+    /// <summary>Applies an Architecture choice. A word that is not a choice changes nothing and returns false.</summary>
     public static bool SetArchitecture(Dictionary<string, DeploymentConditionEntry> map, string? definitionId, string? choice)
     {
         if (string.IsNullOrWhiteSpace(definitionId) || !ArchitectureChoices.Contains(choice ?? "")) return false;

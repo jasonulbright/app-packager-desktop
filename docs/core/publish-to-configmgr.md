@@ -73,7 +73,7 @@ Deployment types are created in the order of the definition. When the applicatio
 
 These steps are optional. Turn them on in Settings, Post Packaging.
 
-Supersedence is a setting of each application. It is **Off** for every application until you turn it on, for existing and new applications alike. Settings, Application Settings holds the default. The App Packager toolbar has no Supersedence button. Settings, Application Settings has a grid of all applications with the **Supersedence** column, and the bulk bar for the checked applications, for all applications and for none. See [Settings](settings-page.md). The version is part of the application title while supersedence is on for it: the title option is locked to "include the version", because the new and the older version must be separate applications. Publishing into an existing application (a title without a version) is not changed.
+Supersedence is a setting of each application. It is **Off** for every application until you turn it on, for existing and new applications alike. Settings, Application Settings holds the default. The App Packager toolbar has no Supersedence button. Settings, Application Settings has a grid of all applications with the **Supersedence** column, and the bulk bar for the checked applications, for all applications and for none. See [Settings](settings-page.md). The version is part of the application title while supersedence is on for it: a run writes the version into the title whatever the title option says, because the new and the older version must be separate applications. Publishing into an existing application (a title without a version) is not changed.
 
 Settings, Application Settings holds the default for all applications:
 
