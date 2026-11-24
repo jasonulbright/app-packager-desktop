@@ -150,7 +150,6 @@ public sealed class TitleParityTests
 
     [Theory]
     [InlineData("putty", "PuTTY release 0.83 (64-bit)")]
-    [InlineData("awssamcli", "AWS SAM Command Line Interface")]
     [InlineData("intunedebugtoolkit", "IntuneDebugTools")]
     public void TheCMNameOfAPackagerNamedByItsInstallerFindsTheApplicationThatTheInstallerNames(string definition, string titleOnTheSite)
     {

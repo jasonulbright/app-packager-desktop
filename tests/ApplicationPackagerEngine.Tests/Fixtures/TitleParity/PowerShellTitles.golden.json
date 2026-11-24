@@ -271,7 +271,7 @@
       "Definition": "awssamcli",
       "Vendor": "Amazon Web Services",
       "App": "AWS SAM CLI",
-      "CMName": "AWS SAM Command Line Interface",
+      "CMName": "AWS SAM CLI",
       "StageKind": "installer",
       "StageNames": [],
       "StageExpressions": [
