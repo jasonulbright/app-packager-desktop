@@ -52,7 +52,7 @@ public sealed class RunProgressTests
         var root = Path.Combine(CatalogServiceTests.RepositoryRoot(), "src", "ApplicationPackagerUI", "ViewModels", "Pages");
         var text = string.Join('\n', Directory.EnumerateFiles(root, "PackagesViewModel*.cs").Select(File.ReadAllText));
 
-        foreach (var action in new[] { "logPrefix", "\"Check ConfigMgr\"", "\"CVEs\"", "\"Staging\"", "\"Packaging\"", "\"Publishing to WSUS\"", "\"One Click\"" })
+        foreach (var action in new[] { "\"Check Latest\"", "\"Check ConfigMgr\"", "\"CVEs\"", "\"Staging\"", "\"Packaging\"", "\"Publishing to WSUS\"", "\"One Click\"" })
             Assert.Matches(new Regex(@"RunProgress\.Running\(" + Regex.Escape(action) + ",", RegexOptions.None), text);
         Assert.Contains("RunProgress.Starting(\"Check ConfigMgr\"", text, StringComparison.Ordinal);
         Assert.Contains("RunProgress.Cancelled(\"One Click\"", text, StringComparison.Ordinal);

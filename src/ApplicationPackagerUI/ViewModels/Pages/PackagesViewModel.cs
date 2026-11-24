@@ -575,7 +575,7 @@ public partial class PackagesViewModel : ObservableObject
 
                 var p = targets[i];
                 ProgressCurrent = i + 1;
-                StatusText = ApplicationPackagerEngine.Models.RunProgress.Running(logPrefix, ProgressCurrent, ProgressTotal, p.Application);
+                StatusText = ApplicationPackagerEngine.Models.RunProgress.Running("Check Latest", ProgressCurrent, ProgressTotal, p.Application);
                 p.Status = "Checking latest...";
                 AddLogLine($"Latest: {p.Application} ({p.Script})");
                 var operationId = Guid.NewGuid().ToString("N");

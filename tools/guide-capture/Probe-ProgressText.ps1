@@ -7,9 +7,9 @@
     Run it in the interactive session of the lab user under the capture lock (Run-VisibleProbe.ps1 takes it), from a folder that holds the scripts of tools\guide-capture:
         Run-VisibleProbe.ps1 -Worktree <folder with these scripts> -ProbeArgs "& .\Probe-ProgressText.ps1 -Run C:\guide\runs\apd-q127"
     The run reads and changes nothing on the site. Per theme, with every application selected:
-      1. Check Latest shows "Check Latest: N of M — name" with M greater than 1; Cancel ends it with "Check Latest cancelled: N of M products checked.";
-      2. Check ConfigMgr shows "Check ConfigMgr: N of M — name" (and the start line "Check ConfigMgr: 0 of M" or the first item); Cancel ends it with "Check ConfigMgr cancelled: N of M products checked.";
-      3. Check CVEs shows "CVEs: N of M — name"; Cancel ends it with "CVE check cancelled" or "Check CVEs cancelled: N of M products checked.";
+      1. Check Latest shows "Check Latest: N of M" with M greater than 1; Cancel ends it with "Check Latest cancelled: N of M products checked.";
+      2. Check ConfigMgr shows "Check ConfigMgr: N of M" (and the start line "Check ConfigMgr: 0 of M" or the first item); Cancel ends it with "Check ConfigMgr cancelled: N of M products checked.";
+      3. Check CVEs shows "CVEs: N of M"; Cancel ends it with "CVE check cancelled" or "Check CVEs cancelled: N of M products checked.";
       4. with one application selected, Check ConfigMgr ends with "ConfigMgr query complete. 1 of 1 checked.".
     A screenshot of the status line of each check is saved under <Run>\progress\<theme>.
 #>
@@ -86,13 +86,20 @@ foreach ($theme in $Themes) {
         Start-Sleep 3
         Run-Check "$theme-latest" {
             Select-All $w $true
-            Prove-Counted $w $theme 'check-latest' 'Check Latest' '^Check Latest: \d+ of (\d{2,}|[2-9]) — ' '^Check Latest cancelled: \d+ of \d+ products checked\.$'
+            Prove-Counted $w $theme 'check-latest' 'Check Latest' '^Check Latest: \d+ of (\d{2,}|[2-9]) .{1,3} ' '^Check Latest cancelled: \d+ of \d+ products checked\.$'
         }
         Run-Check "$theme-configmgr" {
-            Prove-Counted $w $theme 'check-configmgr' 'Check ConfigMgr' '^Check ConfigMgr: \d+ of (\d{2,}|[2-9])( — |$)' '^Check ConfigMgr cancelled: \d+ of \d+ products checked\.$'
+            Prove-Counted $w $theme 'check-configmgr' 'Check ConfigMgr' '^Check ConfigMgr: \d+ of (\d{2,}|[2-9])( .{1,3} |$)' '^Check ConfigMgr cancelled: \d+ of \d+ products checked\.$'
         }
         Run-Check "$theme-cves" {
-            Prove-Counted $w $theme 'check-cves' 'Check CVEs' '^CVEs: \d+ of (\d{2,}|[2-9]) — ' '(cancelled: \d+ of \d+|^Cancelled: \d+ of \d+)'
+            # The lab has no route to the NVD, so the CVE check can end before a running line shows: its finished line counts the set too.
+            Real-Click (Find-El $w -Name 'Check CVEs' -ControlType 'Button' -Timeout 5)
+            $line = Wait-Line $w '^(CVEs: \d+ of \d+|CVE check (complete|cancelled).*\d+ of \d+)' 120
+            Check "$theme check-cves line shows N of M" ($null -ne $line) "lines: $((Status-Lines $w) -join ' | ')"
+            "INFO cves line: '$line'"
+            Shot $theme 'check-cves'
+            $cancel = Find-El $w 'btnCancelOperation' -Timeout 3
+            if ($cancel) { Real-Click $cancel }
         }
         Run-Check "$theme-finished" {
             Select-All $w $false
