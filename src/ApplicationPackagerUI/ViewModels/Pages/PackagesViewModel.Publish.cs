@@ -228,6 +228,7 @@ public partial class PackagesViewModel : IOneClickRunner, IPublishActionHost
             ConfirmLocalSources = selected => ConfirmLocalSourceFolders(selected.ToList()),
             Log = AddLogLine
         };
+        AddLogLine($"One Click: the checks are done, the plan opens for {rows.Count} application(s).");
         _publishDialogs.ShowOneClickPlan(new OneClickPlanViewModel(context, this));
         return;
     }
