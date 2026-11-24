@@ -6,6 +6,7 @@
   "Vendor": "MariaDB",
   "Application": "MariaDB Server (x64)",
   "CMName": "MariaDB Server",
+  "AppName": "MariaDB Server (x64)",
   "Architecture": "x64",
   "VendorUrl": "https://mariadb.org/",
   "Cpe": "cpe:2.3:a:mariadb:mariadb:*:*:*:*:*:*:*:*",

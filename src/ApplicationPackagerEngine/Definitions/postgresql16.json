@@ -6,6 +6,7 @@
     "Vendor":  "PostgreSQL Global Development Group",
     "Application":  "PostgreSQL 16 (x64)",
     "CMName":  "PostgreSQL 16",
+    "AppName":  "PostgreSQL 16 {version}",
     "Architecture":  "x64",
     "VendorUrl":  "https://www.postgresql.org/",
     "Cpe":  "cpe:2.3:a:postgresql:postgresql:16.*:*:*:*:*:*:*:*",

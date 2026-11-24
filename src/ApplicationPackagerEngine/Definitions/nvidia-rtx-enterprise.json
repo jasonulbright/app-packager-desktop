@@ -6,6 +6,7 @@
   "Vendor": "NVIDIA",
   "Application": "NVIDIA Graphics Driver - RTX Enterprise (x64)",
   "CMName": "NVIDIA Graphics Driver - RTX Enterprise",
+  "AppName": "NVIDIA Graphics Driver - RTX Enterprise {version}",
   "Architecture": "x64",
   "VendorUrl": "https://www.nvidia.com/Download/index.aspx",
   "Cpe": "cpe:2.3:a:nvidia:gpu_display_driver:*:*:*:*:*:*:*:*",

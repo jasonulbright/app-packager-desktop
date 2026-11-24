@@ -6,6 +6,7 @@
   "Vendor": "Salesforce (Tableau)",
   "Application": "Tableau Prep Builder (x64)",
   "CMName": "Tableau Prep Builder",
+  "AppName": "Tableau Prep Builder",
   "Architecture": "x64",
   "VendorUrl": "https://www.tableau.com/products/prep",
   "Cpe": "cpe:2.3:a:tableau:prep_builder:*:*:*:*:*:*:*:*",

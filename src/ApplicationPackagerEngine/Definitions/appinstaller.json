@@ -6,6 +6,7 @@
   "Vendor": "Microsoft",
   "Application": "App Installer (WinGet)",
   "CMName": "App Installer (WinGet)",
+  "AppName": "App Installer (WinGet)",
   "Architecture": "x64",
   "VendorUrl": "https://github.com/microsoft/winget-cli",
   "Cpe": "cpe:2.3:a:microsoft:app_installer:*:*:*:*:*:*:*:*",

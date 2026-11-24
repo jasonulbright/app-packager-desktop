@@ -162,7 +162,7 @@ public sealed class RemovedDefinitionsTests
         var config = def.VersionScraper;
 
         Assert.Equal("7.6.10", HttpRegexScraper.ExtractVersion(Releases, config.Pattern, config.SelectHighestVersion));
-        Assert.Equal("PowerShell 7 (x64)", def.Application); // the title of the ConfigMgr application stays, so Check ConfigMgr still finds the applications of the sites
+        Assert.Equal("PowerShell 7 LTS (MSI)", def.Application); // the title of the PowerShell app; Check ConfigMgr finds the applications of the sites by CMName
         Assert.Equal("PowerShell 7", def.CMName);
         Assert.Equal(NewId, def.Id);
     }
@@ -179,7 +179,7 @@ public sealed class RemovedDefinitionsTests
     }
 
     [Theory]
-    [InlineData("powershell7.json", "PowerShell 7 (x64)", "Long Term Servicing")]
+    [InlineData("powershell7.json", "PowerShell 7 LTS (MSI)", "Long Term Servicing")]
     [InlineData("powershell7msix.json", "PowerShell 7 Stable (MSIX, per user)", "Release channel: Stable")]
     [InlineData("devolutionspowershell.json", "PowerShell 7 (Devolutions, third party)", "Third party")]
     public void EveryPowerShell7DefinitionNamesItsChannelInTheNameAndTheStageNotes(string file, string name, string channelText)

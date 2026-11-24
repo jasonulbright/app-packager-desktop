@@ -6,6 +6,7 @@
   "Vendor": "BellSoft",
   "Application": "Liberica JDK 21 (x64)",
   "CMName": "Liberica JDK 21",
+  "AppName": "Liberica JDK 21 (x64)",
   "Architecture": "x64",
   "VendorUrl": "https://bell-sw.com/libericajdk/",
   "Cpe": "cpe:2.3:a:bell-sw:liberica_jdk:*:*:*:*:*:*:*:*",

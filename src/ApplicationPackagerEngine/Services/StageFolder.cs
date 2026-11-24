@@ -12,7 +12,7 @@ namespace ApplicationPackagerEngine.Services;
 /// </summary>
 public static class StageFolder
 {
-    public static string Name(AppDefinition def) => Name(def.Application, def.Architecture);
+    public static string Name(AppDefinition def) => Name(def.FolderApplication, def.Architecture);
 
     public static string Name(string? application, string? architecture)
     {

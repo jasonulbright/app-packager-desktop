@@ -30,6 +30,16 @@ public sealed class AppDefinition
     public string? AppName { get; set; }
     /// <summary>The staged publisher when <see cref="AppName"/> is set; Vendor otherwise.</summary>
     public string? Publisher { get; set; }
+    /// <summary>
+    /// The name that the stage folder, the installer file name and the uninstall name match were built from before the
+    /// grid title followed the PowerShell app (2026-11-24). A stage that exists keeps its folder, so the folder does not
+    /// follow a change of <see cref="Application"/>. Absent: <see cref="Application"/>.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? StageFolderName { get; set; }
+    /// <summary>The name of the stage folder and of the installer file stem: <see cref="StageFolderName"/>, else <see cref="Application"/>.</summary>
+    [JsonIgnore]
+    public string FolderApplication => string.IsNullOrWhiteSpace(StageFolderName) ? Application : StageFolderName;
     public string Architecture { get; set; } = "x64";
     public string VendorUrl { get; set; } = "";
     /// <summary>CPE 2.3 name of the product, in the URI or the formatted form. The CVE lookup needs it.</summary>

@@ -6,6 +6,7 @@
   "Vendor": "IBM",
   "Application": "IBM Aspera Connect (x64)",
   "CMName": "IBM Aspera Connect",
+  "AppName": "IBM Aspera Connect (x64)",
   "Architecture": "x64",
   "VendorUrl": "https://www.ibm.com/aspera/connect/",
   "Cpe": "cpe:2.3:a:ibm:aspera_connect:*:*:*:*:*:*:*:*",

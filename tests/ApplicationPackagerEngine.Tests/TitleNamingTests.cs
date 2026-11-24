@@ -18,7 +18,7 @@ public sealed class TitleNamingTests
         Directory.GetFiles(Path.Combine(AppContext.BaseDirectory, "Definitions"), "*.json").Order(StringComparer.Ordinal)
             .Select(f => JsonSerializer.Deserialize<AppDefinition>(File.ReadAllText(f), Json)!).ToList();
 
-    private static AppDefinition SevenZip() => Shipped().Single(d => d.Application == "7-Zip (x64)");
+    private static AppDefinition SevenZip() => Shipped().Single(d => d.Application == "7-Zip");
 
     [Fact]
     public void SevenZipWithoutInstallerMetadataIsNotTaggedTwice()

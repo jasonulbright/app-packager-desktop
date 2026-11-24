@@ -6,6 +6,7 @@
     "Vendor":  "The Git Development Community",
     "Application":  "Git for Windows (x64)",
     "CMName":  "Git",
+    "AppName":  "Git",
     "Architecture":  "x64",
     "VendorUrl":  "https://gitforwindows.org/",
     "Cpe":  "cpe:2.3:a:git-scm:git:*:*:*:*:*:*:*:*",

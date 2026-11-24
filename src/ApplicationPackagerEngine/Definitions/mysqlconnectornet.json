@@ -6,6 +6,7 @@
   "Vendor": "Oracle",
   "Application": "MySQL Connector/NET",
   "CMName": "MySQL Connector/NET",
+  "AppName": "MySQL Connector/NET",
   "Architecture": "x86",
   "VendorUrl": "https://dev.mysql.com/downloads/connector/net/",
   "Cpe": "cpe:2.3:a:oracle:mysql_connectors:*:*:*:*:*:*:*:*",

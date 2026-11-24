@@ -6,6 +6,7 @@
   "Vendor": "Azul",
   "Application": "Azul Zulu JRE 11 (x64)",
   "CMName": "Azul Zulu JRE 11 (x64)",
+  "AppName": "Azul Zulu JRE 11 (x64)",
   "Architecture": "x64",
   "VendorUrl": "https://www.azul.com/downloads/?package=jre",
   "Cpe": "cpe:2.3:a:azul:zulu:*:*:*:*:*:*:*:*",

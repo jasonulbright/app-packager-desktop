@@ -6,6 +6,7 @@
     "Vendor":  "Microsoft",
     "Application":  "Microsoft Edge",
     "CMName":  "Microsoft Edge",
+    "AppName":  "Microsoft Edge - {version}",
     "Architecture":  "x64",
     "VendorUrl":  "https://www.microsoft.com/edge/business/download",
     "Cpe":  "cpe:2.3:a:microsoft:edge_chromium:*:*:*:*:*:*:*:*",

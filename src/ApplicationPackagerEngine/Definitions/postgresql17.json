@@ -6,6 +6,7 @@
     "Vendor":  "PostgreSQL Global Development Group",
     "Application":  "PostgreSQL 17 (x64)",
     "CMName":  "PostgreSQL 17",
+    "AppName":  "PostgreSQL 17 {version}",
     "Architecture":  "x64",
     "VendorUrl":  "https://www.postgresql.org/",
     "Cpe":  "cpe:2.3:a:postgresql:postgresql:17.*:*:*:*:*:*:*:*",

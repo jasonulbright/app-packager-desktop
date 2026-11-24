@@ -228,10 +228,7 @@ public partial class PackagesViewModel : ObservableObject
         {
             var term = SearchText;
             FilteredPackagers = new ObservableCollection<PackagerInfo>(
-                Packagers.Where(p =>
-                    p.Application.Contains(term, StringComparison.OrdinalIgnoreCase) ||
-                    p.Vendor.Contains(term, StringComparison.OrdinalIgnoreCase) ||
-                    p.CMName.Contains(term, StringComparison.OrdinalIgnoreCase)));
+                Packagers.Where(p => PackagerSearch.Matches(p, term)));
         }
         StatusText = string.IsNullOrWhiteSpace(SearchText)
             ? $"Loaded {Packagers.Count} packager(s). Ready."

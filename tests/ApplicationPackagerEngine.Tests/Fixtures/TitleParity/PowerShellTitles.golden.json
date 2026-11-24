@@ -1,0 +1,4372 @@
+{
+  "Source": "package-*.ps1 headers and stage manifest AppName; AppPackagerCommon.psm1 Format-ApplicationTitleArchitecture; start-apppackager.ps1 defaults",
+  "Count": 317,
+  "ArchitectureTagPattern": "\\(\\s*(?:x64|x86|arm64|arm|32-bit|64-bit)\\s*\\)",
+  "AppendArchitectureDefault": true,
+  "Packagers": [
+    {
+      "Packager": "7zip",
+      "Definition": "7zip",
+      "Vendor": "7-Zip",
+      "App": "7-Zip",
+      "CMName": "7-Zip",
+      "StageKind": "installer",
+      "StageNames": [],
+      "StageExpressions": [
+        "if ($deploymentTypes) { \"7-Zip\" } else { $productName }"
+      ]
+    },
+    {
+      "Packager": "adobereader",
+      "Definition": "adobereader",
+      "Vendor": "Adobe Inc.",
+      "App": "Adobe Acrobat Reader",
+      "CMName": "Adobe Acrobat Reader",
+      "StageKind": "template",
+      "StageNames": [
+        "Adobe Acrobat Reader {version}"
+      ],
+      "StageExpressions": [
+        "\"Adobe Acrobat Reader $version\""
+      ]
+    },
+    {
+      "Packager": "agentransack",
+      "Definition": "agentransack",
+      "Vendor": "Mythicsoft",
+      "App": "Agent Ransack",
+      "CMName": "Agent Ransack",
+      "StageKind": "template",
+      "StageNames": [
+        "Agent Ransack"
+      ],
+      "StageExpressions": [
+        "\"Agent Ransack\""
+      ]
+    },
+    {
+      "Packager": "aimp",
+      "Definition": "aimp",
+      "Vendor": "AIMP DevTeam",
+      "App": "AIMP",
+      "CMName": "AIMP",
+      "StageKind": "template",
+      "StageNames": [
+        "AIMP (x64)"
+      ],
+      "StageExpressions": [
+        "\"AIMP (x64)\""
+      ]
+    },
+    {
+      "Packager": "amazondcv",
+      "Definition": "amazondcv",
+      "Vendor": "Amazon Web Services",
+      "App": "Amazon DCV Client",
+      "CMName": "Amazon DCV Client",
+      "StageKind": "template",
+      "StageNames": [
+        "Amazon DCV Client"
+      ],
+      "StageExpressions": [
+        "\"Amazon DCV Client\""
+      ]
+    },
+    {
+      "Packager": "amazonworkspaces",
+      "Definition": "amazonworkspaces",
+      "Vendor": "Amazon Web Services",
+      "App": "Amazon WorkSpaces",
+      "CMName": "Amazon WorkSpaces",
+      "StageKind": "template",
+      "StageNames": [
+        "Amazon WorkSpaces"
+      ],
+      "StageExpressions": [
+        "\"Amazon WorkSpaces\""
+      ]
+    },
+    {
+      "Packager": "anaconda",
+      "Definition": "anaconda",
+      "Vendor": "Anaconda, Inc.",
+      "App": "Anaconda Distribution",
+      "CMName": "Anaconda",
+      "StageKind": "template",
+      "StageNames": [
+        "Anaconda"
+      ],
+      "StageExpressions": [
+        "\"Anaconda\""
+      ]
+    },
+    {
+      "Packager": "androidstudio",
+      "Definition": "androidstudio",
+      "Vendor": "Google",
+      "App": "Android Studio",
+      "CMName": "Android Studio",
+      "StageKind": "template",
+      "StageNames": [
+        "Android Studio"
+      ],
+      "StageExpressions": [
+        "\"Android Studio\""
+      ]
+    },
+    {
+      "Packager": "anyburn",
+      "Definition": "anyburn",
+      "Vendor": "PowerSoft",
+      "App": "AnyBurn",
+      "CMName": "AnyBurn",
+      "StageKind": "template",
+      "StageNames": [
+        "AnyBurn"
+      ],
+      "StageExpressions": [
+        "\"AnyBurn\""
+      ]
+    },
+    {
+      "Packager": "anydesk",
+      "Definition": "anydesk",
+      "Vendor": "AnyDesk Software GmbH",
+      "App": "AnyDesk",
+      "CMName": "AnyDesk",
+      "StageKind": "template",
+      "StageNames": [
+        "AnyDesk"
+      ],
+      "StageExpressions": [
+        "\"AnyDesk\""
+      ]
+    },
+    {
+      "Packager": "anypointstudio",
+      "Definition": "anypointstudio",
+      "Vendor": "MuleSoft",
+      "App": "Anypoint Studio",
+      "CMName": "Anypoint Studio",
+      "StageKind": "template",
+      "StageNames": [
+        "Anypoint Studio"
+      ],
+      "StageExpressions": [
+        "\"Anypoint Studio\""
+      ]
+    },
+    {
+      "Packager": "appinstaller",
+      "Definition": "appinstaller",
+      "Vendor": "Microsoft",
+      "App": "App Installer (WinGet)",
+      "CMName": "App Installer (WinGet)",
+      "StageKind": "template",
+      "StageNames": [
+        "App Installer (WinGet)"
+      ],
+      "StageExpressions": [
+        "\"App Installer (WinGet)\""
+      ]
+    },
+    {
+      "Packager": "apppackagersuite",
+      "Definition": "apppackagersuite",
+      "Vendor": "Jason Ulbright",
+      "App": "AppPackager Suite (User)",
+      "CMName": "AppPackager Suite",
+      "StageKind": "template",
+      "StageNames": [
+        "AppPackager Suite (User)"
+      ],
+      "StageExpressions": [
+        "\"AppPackager Suite (User)\""
+      ]
+    },
+    {
+      "Packager": "arduinoide",
+      "Definition": "arduinoide",
+      "Vendor": "Arduino",
+      "App": "Arduino IDE",
+      "CMName": "Arduino IDE",
+      "StageKind": "installer",
+      "StageNames": [],
+      "StageExpressions": [
+        "\"Arduino IDE $productVersionRaw\""
+      ]
+    },
+    {
+      "Packager": "asperaconnect",
+      "Definition": "asperaconnect",
+      "Vendor": "IBM",
+      "App": "IBM Aspera Connect (x64)",
+      "CMName": "IBM Aspera Connect",
+      "StageKind": "template",
+      "StageNames": [
+        "IBM Aspera Connect (x64)"
+      ],
+      "StageExpressions": [
+        "\"IBM Aspera Connect (x64)\""
+      ]
+    },
+    {
+      "Packager": "aspnethostingbundle10",
+      "Definition": "aspnethostingbundle10",
+      "Vendor": "Microsoft",
+      "App": "ASP.NET 10 Server Hosting Bundle (x64)",
+      "CMName": "Microsoft .NET 10",
+      "StageKind": "template",
+      "StageNames": [
+        "Microsoft .NET {version} - Windows Server Hosting"
+      ],
+      "StageExpressions": [
+        "\"Microsoft .NET ${version} - Windows Server Hosting\""
+      ]
+    },
+    {
+      "Packager": "aspnethostingbundle8",
+      "Definition": "aspnethostingbundle8",
+      "Vendor": "Microsoft",
+      "App": "ASP.NET 8 Server Hosting Bundle (x64)",
+      "CMName": "Microsoft .NET 8",
+      "StageKind": "template",
+      "StageNames": [
+        "Microsoft .NET {version} - Windows Server Hosting"
+      ],
+      "StageExpressions": [
+        "\"Microsoft .NET ${version} - Windows Server Hosting\""
+      ]
+    },
+    {
+      "Packager": "audacity",
+      "Definition": "audacity",
+      "Vendor": "Audacity Team",
+      "App": "Audacity",
+      "CMName": "Audacity",
+      "StageKind": "template",
+      "StageNames": [
+        "Audacity {version}"
+      ],
+      "StageExpressions": [
+        "\"Audacity $version\""
+      ]
+    },
+    {
+      "Packager": "awscli",
+      "Definition": "awscli",
+      "Vendor": "Amazon",
+      "App": "Amazon AWS Command Line Interface",
+      "CMName": "AWS Command Line Interface",
+      "StageKind": "template",
+      "StageNames": [
+        "AWS Command Line Interface"
+      ],
+      "StageExpressions": [
+        "\"AWS Command Line Interface\""
+      ]
+    },
+    {
+      "Packager": "awssamcli",
+      "Definition": "awssamcli",
+      "Vendor": "Amazon Web Services",
+      "App": "AWS SAM CLI",
+      "CMName": "AWS SAM CLI",
+      "StageKind": "installer",
+      "StageNames": [],
+      "StageExpressions": [
+        "\"AWS SAM CLI $productVersionRaw\""
+      ]
+    },
+    {
+      "Packager": "awsssmplugin",
+      "Definition": "awsssmplugin",
+      "Vendor": "Amazon Web Services",
+      "App": "Session Manager Plugin",
+      "CMName": "AWS Session Manager Plugin",
+      "StageKind": "template",
+      "StageNames": [
+        "AWS Session Manager Plugin {version}"
+      ],
+      "StageExpressions": [
+        "\"AWS Session Manager Plugin $version\""
+      ]
+    },
+    {
+      "Packager": "awstools",
+      "Definition": "awstools",
+      "Vendor": "Amazon",
+      "App": "Amazon AWS Tools for Windows",
+      "CMName": "AWS Tools for Windows",
+      "StageKind": "template",
+      "StageNames": [
+        "AWS Tools for Windows"
+      ],
+      "StageExpressions": [
+        "\"AWS Tools for Windows\""
+      ]
+    },
+    {
+      "Packager": "awsvpnclient",
+      "Definition": "awsvpnclient",
+      "Vendor": "Amazon",
+      "App": "AWS VPN Client",
+      "CMName": "AWS VPN Client",
+      "StageKind": "template",
+      "StageNames": [
+        "AWS VPN Client"
+      ],
+      "StageExpressions": [
+        "\"AWS VPN Client\""
+      ]
+    },
+    {
+      "Packager": "axcrypt",
+      "Definition": "axcrypt",
+      "Vendor": "AxCrypt",
+      "App": "AxCrypt",
+      "CMName": "AxCrypt",
+      "StageKind": "installer",
+      "StageNames": [],
+      "StageExpressions": [
+        "\"AxCrypt $productVersionRaw\""
+      ]
+    },
+    {
+      "Packager": "azurecli",
+      "Definition": "azurecli",
+      "Vendor": "Microsoft",
+      "App": "Azure CLI (x64)",
+      "CMName": "Azure CLI",
+      "StageKind": "template",
+      "StageNames": [
+        "Azure CLI"
+      ],
+      "StageExpressions": [
+        "\"Azure CLI\""
+      ]
+    },
+    {
+      "Packager": "azurefunctionscore",
+      "Definition": "azurefunctionscore",
+      "Vendor": "Microsoft",
+      "App": "Azure Functions Core Tools",
+      "CMName": "Azure Functions Core Tools",
+      "StageKind": "template",
+      "StageNames": [
+        "Azure Functions Core Tools {version}"
+      ],
+      "StageExpressions": [
+        "\"Azure Functions Core Tools $version\""
+      ]
+    },
+    {
+      "Packager": "azurepowershell",
+      "Definition": "azurepowershell",
+      "Vendor": "Microsoft",
+      "App": "Azure PowerShell (Az module, x64)",
+      "CMName": "Azure PowerShell",
+      "StageKind": "installer",
+      "StageNames": [],
+      "StageExpressions": [
+        "$productName"
+      ]
+    },
+    {
+      "Packager": "azurestorageexplorer",
+      "Definition": "azurestorageexplorer",
+      "Vendor": "Microsoft",
+      "App": "Azure Storage Explorer (x64)",
+      "CMName": "Microsoft Azure Storage Explorer",
+      "StageKind": "template",
+      "StageNames": [
+        "Microsoft Azure Storage Explorer"
+      ],
+      "StageExpressions": [
+        "\"Microsoft Azure Storage Explorer\""
+      ]
+    },
+    {
+      "Packager": "bambustudio",
+      "Definition": "bambustudio",
+      "Vendor": "Bambu Lab",
+      "App": "Bambu Studio",
+      "CMName": "Bambu Studio",
+      "StageKind": "template",
+      "StageNames": [
+        "Bambu Studio"
+      ],
+      "StageExpressions": [
+        "\"Bambu Studio\""
+      ]
+    },
+    {
+      "Packager": "bcuninstaller",
+      "Definition": "bcuninstaller",
+      "Vendor": "Marcin Szeniak",
+      "App": "Bulk Crap Uninstaller",
+      "CMName": "Bulk Crap Uninstaller",
+      "StageKind": "template",
+      "StageNames": [
+        "Bulk Crap Uninstaller"
+      ],
+      "StageExpressions": [
+        "\"Bulk Crap Uninstaller\""
+      ]
+    },
+    {
+      "Packager": "beyondcompare5",
+      "Definition": "beyondcompare5",
+      "Vendor": "Scooter Software",
+      "App": "Beyond Compare 5",
+      "CMName": "Beyond Compare 5",
+      "StageKind": "template",
+      "StageNames": [
+        "Beyond Compare 5"
+      ],
+      "StageExpressions": [
+        "\"Beyond Compare 5\""
+      ]
+    },
+    {
+      "Packager": "bitwarden",
+      "Definition": "bitwarden",
+      "Vendor": "Bitwarden Inc.",
+      "App": "Bitwarden Desktop (x64)",
+      "CMName": "Bitwarden",
+      "StageKind": "template",
+      "StageNames": [
+        "Bitwarden {version}"
+      ],
+      "StageExpressions": [
+        "\"Bitwarden $version\""
+      ]
+    },
+    {
+      "Packager": "bleachbit",
+      "Definition": "bleachbit",
+      "Vendor": "BleachBit",
+      "App": "BleachBit",
+      "CMName": "BleachBit",
+      "StageKind": "template",
+      "StageNames": [
+        "BleachBit"
+      ],
+      "StageExpressions": [
+        "\"BleachBit\""
+      ]
+    },
+    {
+      "Packager": "blender",
+      "Definition": "blender",
+      "Vendor": "Blender Foundation",
+      "App": "Blender",
+      "CMName": "Blender",
+      "StageKind": "template",
+      "StageNames": [
+        "Blender"
+      ],
+      "StageExpressions": [
+        "\"Blender\""
+      ]
+    },
+    {
+      "Packager": "boxdrive",
+      "Definition": "boxdrive",
+      "Vendor": "Box",
+      "App": "Box Drive",
+      "CMName": "Box Drive",
+      "StageKind": "template",
+      "StageNames": [
+        "Box Drive"
+      ],
+      "StageExpressions": [
+        "\"Box Drive\""
+      ]
+    },
+    {
+      "Packager": "brave",
+      "Definition": "brave",
+      "Vendor": "Brave Software",
+      "App": "Brave Browser",
+      "CMName": "Brave Browser",
+      "StageKind": "template",
+      "StageNames": [
+        "Brave Browser"
+      ],
+      "StageExpressions": [
+        "\"Brave Browser\""
+      ]
+    },
+    {
+      "Packager": "bruno",
+      "Definition": "bruno",
+      "Vendor": "Bruno Software Inc",
+      "App": "Bruno",
+      "CMName": "Bruno",
+      "StageKind": "installer",
+      "StageNames": [],
+      "StageExpressions": [
+        "\"Bruno $productVersionRaw\""
+      ]
+    },
+    {
+      "Packager": "bulkrenameutility",
+      "Definition": "bulkrenameutility",
+      "Vendor": "TGRMN Software",
+      "App": "Bulk Rename Utility",
+      "CMName": "Bulk Rename Utility",
+      "StageKind": "template",
+      "StageNames": [
+        "Bulk Rename Utility"
+      ],
+      "StageExpressions": [
+        "\"Bulk Rename Utility\""
+      ]
+    },
+    {
+      "Packager": "calibre",
+      "Definition": "calibre",
+      "Vendor": "Kovid Goyal",
+      "App": "calibre",
+      "CMName": "calibre",
+      "StageKind": "template",
+      "StageNames": [
+        "calibre"
+      ],
+      "StageExpressions": [
+        "\"calibre\""
+      ]
+    },
+    {
+      "Packager": "calibrite",
+      "Definition": "calibrite",
+      "Vendor": "Calibrite",
+      "App": "Calibrite PROFILER",
+      "CMName": "Calibrite PROFILER",
+      "StageKind": "template",
+      "StageNames": [
+        "Calibrite PROFILER"
+      ],
+      "StageExpressions": [
+        "\"Calibrite PROFILER\""
+      ]
+    },
+    {
+      "Packager": "ccleaner",
+      "Definition": "ccleaner",
+      "Vendor": "Piriform Software Ltd.",
+      "App": "CCleaner",
+      "CMName": "CCleaner",
+      "StageKind": "template",
+      "StageNames": [
+        "CCleaner"
+      ],
+      "StageExpressions": [
+        "\"CCleaner\""
+      ]
+    },
+    {
+      "Packager": "certifytheweb",
+      "Definition": "certifytheweb",
+      "Vendor": "Webprofusion",
+      "App": "Certify The Web",
+      "CMName": "Certify The Web",
+      "StageKind": "template",
+      "StageNames": [
+        "Certify The Web"
+      ],
+      "StageExpressions": [
+        "\"Certify The Web\""
+      ]
+    },
+    {
+      "Packager": "chefworkstation",
+      "Definition": "chefworkstation",
+      "Vendor": "Chef Software",
+      "App": "Chef Workstation",
+      "CMName": "Chef Workstation",
+      "StageKind": "template",
+      "StageNames": [
+        "Chef Workstation"
+      ],
+      "StageExpressions": [
+        "\"Chef Workstation\""
+      ]
+    },
+    {
+      "Packager": "chrome",
+      "Definition": "chrome-x64",
+      "Vendor": "Google",
+      "App": "Google Chrome",
+      "CMName": "Google Chrome",
+      "StageKind": "installer",
+      "StageNames": [],
+      "StageExpressions": [
+        "\"Google Chrome $productVersionRaw\""
+      ]
+    },
+    {
+      "Packager": "chromeremotedesktophost",
+      "Definition": "chromeremotedesktophost",
+      "Vendor": "Google",
+      "App": "Chrome Remote Desktop Host",
+      "CMName": "Chrome Remote Desktop Host",
+      "StageKind": "installer",
+      "StageNames": [],
+      "StageExpressions": [
+        "$productName"
+      ]
+    },
+    {
+      "Packager": "citrixworkspace-cr",
+      "Definition": "citrixworkspacecr",
+      "Vendor": "Cloud Software Group",
+      "App": "Citrix Workspace app for Windows (Current Release)",
+      "CMName": "Citrix Workspace CR",
+      "StageKind": "template",
+      "StageNames": [
+        "Citrix Workspace CR {version}"
+      ],
+      "StageExpressions": [
+        "\"Citrix Workspace CR $version\""
+      ]
+    },
+    {
+      "Packager": "citrixworkspace-ltsr-arm64",
+      "Definition": "citrixworkspace-ltsr-arm64",
+      "Vendor": "Cloud Software Group",
+      "App": "Citrix Workspace app for Windows (LTSR ARM64)",
+      "CMName": "Citrix Workspace LTSR ARM64",
+      "StageKind": "template",
+      "StageNames": [
+        "Citrix Workspace LTSR ARM64 {version}"
+      ],
+      "StageExpressions": [
+        "\"Citrix Workspace LTSR $Architecture $version\""
+      ]
+    },
+    {
+      "Packager": "citrixworkspace-ltsr-x64",
+      "Definition": "citrixworkspace-ltsr-x64",
+      "Vendor": "Cloud Software Group",
+      "App": "Citrix Workspace app for Windows (LTSR x64)",
+      "CMName": "Citrix Workspace LTSR x64",
+      "StageKind": "template",
+      "StageNames": [
+        "Citrix Workspace LTSR x64 {version}"
+      ],
+      "StageExpressions": [
+        "\"Citrix Workspace LTSR $Architecture $version\""
+      ]
+    },
+    {
+      "Packager": "citrixworkspace-ltsr-x86",
+      "Definition": "citrixworkspace-ltsr-x86",
+      "Vendor": "Cloud Software Group",
+      "App": "Citrix Workspace app for Windows (LTSR x86)",
+      "CMName": "Citrix Workspace LTSR x86",
+      "StageKind": "template",
+      "StageNames": [
+        "Citrix Workspace LTSR x86 {version}"
+      ],
+      "StageExpressions": [
+        "\"Citrix Workspace LTSR $Architecture $version\""
+      ]
+    },
+    {
+      "Packager": "clockify",
+      "Definition": "clockify",
+      "Vendor": "CAKE.com",
+      "App": "Clockify",
+      "CMName": "Clockify",
+      "StageKind": "template",
+      "StageNames": [
+        "Clockify"
+      ],
+      "StageExpressions": [
+        "\"Clockify\""
+      ]
+    },
+    {
+      "Packager": "cloudcompare",
+      "Definition": "cloudcompare",
+      "Vendor": "CloudCompare Project",
+      "App": "CloudCompare",
+      "CMName": "CloudCompare",
+      "StageKind": "template",
+      "StageNames": [
+        "CloudCompare"
+      ],
+      "StageExpressions": [
+        "\"CloudCompare\""
+      ]
+    },
+    {
+      "Packager": "cloudflarewarp",
+      "Definition": "cloudflarewarp",
+      "Vendor": "Cloudflare",
+      "App": "Cloudflare WARP",
+      "CMName": "Cloudflare WARP",
+      "StageKind": "template",
+      "StageNames": [
+        "Cloudflare WARP"
+      ],
+      "StageExpressions": [
+        "\"Cloudflare WARP\""
+      ]
+    },
+    {
+      "Packager": "cmake",
+      "Definition": "cmake",
+      "Vendor": "Kitware",
+      "App": "CMake",
+      "CMName": "CMake",
+      "StageKind": "template",
+      "StageNames": [
+        "CMake"
+      ],
+      "StageExpressions": [
+        "\"CMake\""
+      ]
+    },
+    {
+      "Packager": "codemeterruntime",
+      "Definition": "codemeterruntime",
+      "Vendor": "WIBU-SYSTEMS",
+      "App": "CodeMeter Runtime Kit",
+      "CMName": "CodeMeter Runtime Kit",
+      "StageKind": "template",
+      "StageNames": [
+        "CodeMeter Runtime Kit"
+      ],
+      "StageExpressions": [
+        "\"CodeMeter Runtime Kit\""
+      ]
+    },
+    {
+      "Packager": "colourcontrastanalyser",
+      "Definition": "colourcontrastanalyser",
+      "Vendor": "TPGi",
+      "App": "Colour Contrast Analyser",
+      "CMName": "Colour Contrast Analyser",
+      "StageKind": "template",
+      "StageNames": [
+        "Colour Contrast Analyser"
+      ],
+      "StageExpressions": [
+        "\"Colour Contrast Analyser\""
+      ]
+    },
+    {
+      "Packager": "corretto-jdk11-x64",
+      "Definition": "corretto-jdk11-x64",
+      "Vendor": "Amazon",
+      "App": "Amazon Corretto JDK 11 (x64)",
+      "CMName": "Amazon Corretto 11 (x64)",
+      "StageKind": "template",
+      "StageNames": [
+        "Amazon Corretto 11 (x64)"
+      ],
+      "StageExpressions": [
+        "\"Amazon Corretto $FeatureVersion ($Architecture)\""
+      ]
+    },
+    {
+      "Packager": "corretto-jdk11-x86",
+      "Definition": "corretto-jdk11-x86",
+      "Vendor": "Amazon",
+      "App": "Amazon Corretto JDK 11 (x86)",
+      "CMName": "Amazon Corretto 11 (x86)",
+      "StageKind": "template",
+      "StageNames": [
+        "Amazon Corretto 11 (x86)"
+      ],
+      "StageExpressions": [
+        "\"Amazon Corretto $FeatureVersion ($Architecture)\""
+      ]
+    },
+    {
+      "Packager": "corretto-jdk17",
+      "Definition": "corretto-jdk17-x64",
+      "Vendor": "Amazon",
+      "App": "Amazon Corretto JDK 17 (x64)",
+      "CMName": "Amazon Corretto 17 (x64)",
+      "StageKind": "template",
+      "StageNames": [
+        "Amazon Corretto 17 (x64)"
+      ],
+      "StageExpressions": [
+        "\"Amazon Corretto $FeatureVersion ($Architecture)\""
+      ]
+    },
+    {
+      "Packager": "corretto-jdk21",
+      "Definition": "corretto-jdk21-x64",
+      "Vendor": "Amazon",
+      "App": "Amazon Corretto JDK 21 (x64)",
+      "CMName": "Amazon Corretto 21 (x64)",
+      "StageKind": "template",
+      "StageNames": [
+        "Amazon Corretto 21 (x64)"
+      ],
+      "StageExpressions": [
+        "\"Amazon Corretto $FeatureVersion ($Architecture)\""
+      ]
+    },
+    {
+      "Packager": "corretto-jdk25",
+      "Definition": "corretto-jdk25-x64",
+      "Vendor": "Amazon",
+      "App": "Amazon Corretto JDK 25 (x64)",
+      "CMName": "Amazon Corretto 25 (x64)",
+      "StageKind": "template",
+      "StageNames": [
+        "Amazon Corretto 25 (x64)"
+      ],
+      "StageExpressions": [
+        "\"Amazon Corretto $FeatureVersion ($Architecture)\""
+      ]
+    },
+    {
+      "Packager": "corretto-jdk8-x64",
+      "Definition": "corretto-jdk8-x64",
+      "Vendor": "Amazon",
+      "App": "Amazon Corretto JDK 8 (x64)",
+      "CMName": "Amazon Corretto 8 (x64)",
+      "StageKind": "template",
+      "StageNames": [
+        "Amazon Corretto 8 (x64)"
+      ],
+      "StageExpressions": [
+        "\"Amazon Corretto $FeatureVersion ($Architecture)\""
+      ]
+    },
+    {
+      "Packager": "corretto-jdk8-x86",
+      "Definition": "corretto-jdk8-x86",
+      "Vendor": "Amazon",
+      "App": "Amazon Corretto JDK 8 (x86)",
+      "CMName": "Amazon Corretto 8 (x86)",
+      "StageKind": "template",
+      "StageNames": [
+        "Amazon Corretto 8 (x86)"
+      ],
+      "StageExpressions": [
+        "\"Amazon Corretto $FeatureVersion ($Architecture)\""
+      ]
+    },
+    {
+      "Packager": "cpuz",
+      "Definition": "cpuz",
+      "Vendor": "CPUID",
+      "App": "CPU-Z",
+      "CMName": "CPU-Z",
+      "StageKind": "template",
+      "StageNames": [
+        "CPU-Z (x64)"
+      ],
+      "StageExpressions": [
+        "\"CPU-Z (x64)\""
+      ]
+    },
+    {
+      "Packager": "cryptomator",
+      "Definition": "cryptomator",
+      "Vendor": "Skymatic",
+      "App": "Cryptomator",
+      "CMName": "Cryptomator",
+      "StageKind": "template",
+      "StageNames": [
+        "Cryptomator"
+      ],
+      "StageExpressions": [
+        "\"Cryptomator\""
+      ]
+    },
+    {
+      "Packager": "cura",
+      "Definition": "cura",
+      "Vendor": "UltiMaker",
+      "App": "UltiMaker Cura",
+      "CMName": "UltiMaker Cura",
+      "StageKind": "template",
+      "StageNames": [
+        "UltiMaker Cura"
+      ],
+      "StageExpressions": [
+        "\"UltiMaker Cura\""
+      ]
+    },
+    {
+      "Packager": "cutepdfwriter",
+      "Definition": "cutepdfwriter",
+      "Vendor": "Acro Software Inc.",
+      "App": "CutePDF Writer",
+      "CMName": "CutePDF Writer",
+      "StageKind": "template",
+      "StageNames": [
+        "CutePDF Writer {version}"
+      ],
+      "StageExpressions": [
+        "\"CutePDF Writer $version\""
+      ]
+    },
+    {
+      "Packager": "cyberduck",
+      "Definition": "cyberduck",
+      "Vendor": "iterate GmbH",
+      "App": "Cyberduck",
+      "CMName": "Cyberduck",
+      "StageKind": "template",
+      "StageNames": [
+        "Cyberduck"
+      ],
+      "StageExpressions": [
+        "\"Cyberduck\""
+      ]
+    },
+    {
+      "Packager": "datagrip",
+      "Definition": "datagrip",
+      "Vendor": "JetBrains",
+      "App": "DataGrip",
+      "CMName": "DataGrip",
+      "StageKind": "template",
+      "StageNames": [
+        "DataGrip"
+      ],
+      "StageExpressions": [
+        "\"DataGrip\""
+      ]
+    },
+    {
+      "Packager": "daxstudio",
+      "Definition": "daxstudio",
+      "Vendor": "DAX Studio",
+      "App": "DAX Studio",
+      "CMName": "DAX Studio",
+      "StageKind": "template",
+      "StageNames": [
+        "DAX Studio"
+      ],
+      "StageExpressions": [
+        "\"DAX Studio\""
+      ]
+    },
+    {
+      "Packager": "dbbrowsersqlite",
+      "Definition": "dbbrowsersqlite",
+      "Vendor": "DB Browser for SQLite Team",
+      "App": "DB Browser for SQLite",
+      "CMName": "DB Browser for SQLite",
+      "StageKind": "template",
+      "StageNames": [
+        "DB Browser for SQLite"
+      ],
+      "StageExpressions": [
+        "\"DB Browser for SQLite\""
+      ]
+    },
+    {
+      "Packager": "dbeaver",
+      "Definition": "dbeaver",
+      "Vendor": "DBeaver Corp",
+      "App": "DBeaver Community",
+      "CMName": "DBeaver",
+      "StageKind": "template",
+      "StageNames": [
+        "DBeaver {version}"
+      ],
+      "StageExpressions": [
+        "\"DBeaver $version\""
+      ]
+    },
+    {
+      "Packager": "dbvisualizer",
+      "Definition": "dbvisualizer",
+      "Vendor": "DbVis Software AB",
+      "App": "DbVisualizer",
+      "CMName": "DbVisualizer",
+      "StageKind": "template",
+      "StageNames": [
+        "DbVisualizer {version}"
+      ],
+      "StageExpressions": [
+        "\"DbVisualizer $version\""
+      ]
+    },
+    {
+      "Packager": "defraggler",
+      "Definition": "defraggler",
+      "Vendor": "Piriform Software Ltd.",
+      "App": "Defraggler",
+      "CMName": "Defraggler",
+      "StageKind": "template",
+      "StageNames": [
+        "Defraggler"
+      ],
+      "StageExpressions": [
+        "\"Defraggler\""
+      ]
+    },
+    {
+      "Packager": "dellcommandupdate",
+      "Definition": "dellcommandupdate",
+      "Vendor": "Dell Inc.",
+      "App": "Dell Command Update",
+      "CMName": "Dell Command Update",
+      "StageKind": "template",
+      "StageNames": [
+        "Dell Command Update"
+      ],
+      "StageExpressions": [
+        "\"Dell Command Update\""
+      ]
+    },
+    {
+      "Packager": "devolutionspowershell",
+      "Definition": "devolutionspowershell",
+      "Vendor": "Devolutions",
+      "App": "PowerShell 7 (Devolutions, third party)",
+      "CMName": "PowerShell 7 (Devolutions)",
+      "StageKind": "template",
+      "StageNames": [
+        "PowerShell 7 (Devolutions)"
+      ],
+      "StageExpressions": [
+        "\"PowerShell 7 (Devolutions)\""
+      ]
+    },
+    {
+      "Packager": "displaylink",
+      "Definition": "displaylink",
+      "Vendor": "DisplayLink",
+      "App": "DisplayLink Graphics",
+      "CMName": "DisplayLink Graphics",
+      "StageKind": "template",
+      "StageNames": [
+        "DisplayLink Graphics"
+      ],
+      "StageExpressions": [
+        "\"DisplayLink Graphics\""
+      ]
+    },
+    {
+      "Packager": "dngrep",
+      "Definition": "dngrep",
+      "Vendor": "dnGREP",
+      "App": "dnGREP",
+      "CMName": "dnGREP",
+      "StageKind": "template",
+      "StageNames": [
+        "dnGREP"
+      ],
+      "StageExpressions": [
+        "\"dnGREP\""
+      ]
+    },
+    {
+      "Packager": "dotnet10both",
+      "Definition": "",
+      "Vendor": "Microsoft",
+      "App": ".NET 10 Desktop Runtime (x86+x64)",
+      "CMName": "Microsoft Windows Desktop Runtime - 10",
+      "StageKind": "template",
+      "StageNames": [
+        "Microsoft Windows Desktop Runtime - {version}"
+      ],
+      "StageExpressions": [
+        "\"Microsoft Windows Desktop Runtime - ${version}\""
+      ]
+    },
+    {
+      "Packager": "dotnet8",
+      "Definition": "dotnet8-x64",
+      "Vendor": "Microsoft",
+      "App": ".NET 8 Desktop Runtime (x86+x64)",
+      "CMName": "Microsoft Windows Desktop Runtime - 8",
+      "StageKind": "template",
+      "StageNames": [
+        "Microsoft Windows Desktop Runtime - {version}"
+      ],
+      "StageExpressions": [
+        "\"Microsoft Windows Desktop Runtime - ${version}\""
+      ]
+    },
+    {
+      "Packager": "dotnet9x64",
+      "Definition": "Dotnet9x64",
+      "Vendor": "Microsoft",
+      "App": ".NET 9 Desktop Runtime (x64)",
+      "CMName": "Microsoft Windows Desktop Runtime - 9",
+      "StageKind": "template",
+      "StageNames": [
+        "Microsoft Windows Desktop Runtime - {version} (x64)"
+      ],
+      "StageExpressions": [
+        "\"Microsoft Windows Desktop Runtime - ${version} (x64)\""
+      ]
+    },
+    {
+      "Packager": "draftable",
+      "Definition": "draftable",
+      "Vendor": "Draftable",
+      "App": "Draftable Desktop",
+      "CMName": "Draftable Desktop",
+      "StageKind": "template",
+      "StageNames": [
+        "Draftable Desktop"
+      ],
+      "StageExpressions": [
+        "\"Draftable Desktop\""
+      ]
+    },
+    {
+      "Packager": "drawio",
+      "Definition": "drawio",
+      "Vendor": "JGraph Ltd",
+      "App": "draw.io",
+      "CMName": "draw.io",
+      "StageKind": "installer",
+      "StageNames": [],
+      "StageExpressions": [
+        "\"draw.io $productVersionRaw\""
+      ]
+    },
+    {
+      "Packager": "duodesktop",
+      "Definition": "duodesktop",
+      "Vendor": "Cisco",
+      "App": "Duo Desktop",
+      "CMName": "Duo Desktop",
+      "StageKind": "template",
+      "StageNames": [
+        "Duo Desktop"
+      ],
+      "StageExpressions": [
+        "\"Duo Desktop\""
+      ]
+    },
+    {
+      "Packager": "edge",
+      "Definition": "edge",
+      "Vendor": "Microsoft",
+      "App": "Microsoft Edge",
+      "CMName": "Microsoft Edge",
+      "StageKind": "template",
+      "StageNames": [
+        "Microsoft Edge - {version}"
+      ],
+      "StageExpressions": [
+        "\"Microsoft Edge - $version\""
+      ]
+    },
+    {
+      "Packager": "everything",
+      "Definition": "everything",
+      "Vendor": "Voidtools",
+      "App": "Everything (x64)",
+      "CMName": "Everything",
+      "StageKind": "installer",
+      "StageNames": [],
+      "StageExpressions": [
+        "\"Everything $productVersionRaw (x64)\""
+      ]
+    },
+    {
+      "Packager": "firefox",
+      "Definition": "firefox",
+      "Vendor": "Mozilla",
+      "App": "Mozilla Firefox",
+      "CMName": "Mozilla Firefox",
+      "StageKind": "installer",
+      "StageNames": [],
+      "StageExpressions": [
+        "if ($variants -and $variants.Split -eq 'Architecture') { \"Mozilla Firefox (en-US)\" }"
+      ]
+    },
+    {
+      "Packager": "firefoxesr",
+      "Definition": "firefoxesr",
+      "Vendor": "Mozilla",
+      "App": "Mozilla Firefox ESR",
+      "CMName": "Mozilla Firefox ESR",
+      "StageKind": "template",
+      "StageNames": [
+        "Mozilla Firefox ESR (x64 en-US)"
+      ],
+      "StageExpressions": [
+        "\"Mozilla Firefox ESR (x64 en-US)\""
+      ]
+    },
+    {
+      "Packager": "freecad",
+      "Definition": "freecad",
+      "Vendor": "FreeCAD Team",
+      "App": "FreeCAD",
+      "CMName": "FreeCAD",
+      "StageKind": "template",
+      "StageNames": [
+        "FreeCAD"
+      ],
+      "StageExpressions": [
+        "\"FreeCAD\""
+      ]
+    },
+    {
+      "Packager": "gcpw",
+      "Definition": "gcpw",
+      "Vendor": "Google",
+      "App": "Google Credential Provider for Windows",
+      "CMName": "Google Credential Provider for Windows",
+      "StageKind": "installer",
+      "StageNames": [],
+      "StageExpressions": [
+        "$productName"
+      ]
+    },
+    {
+      "Packager": "geogebra",
+      "Definition": "geogebra",
+      "Vendor": "International GeoGebra Institute",
+      "App": "GeoGebra Classic 6",
+      "CMName": "GeoGebra Classic",
+      "StageKind": "template",
+      "StageNames": [
+        "GeoGebra Classic"
+      ],
+      "StageExpressions": [
+        "\"GeoGebra Classic\""
+      ]
+    },
+    {
+      "Packager": "gephi",
+      "Definition": "gephi",
+      "Vendor": "Gephi Consortium",
+      "App": "Gephi",
+      "CMName": "Gephi",
+      "StageKind": "template",
+      "StageNames": [
+        "Gephi"
+      ],
+      "StageExpressions": [
+        "\"Gephi\""
+      ]
+    },
+    {
+      "Packager": "gimp",
+      "Definition": "gimp",
+      "Vendor": "The GIMP Team",
+      "App": "GIMP (x64)",
+      "CMName": "GIMP",
+      "StageKind": "template",
+      "StageNames": [
+        "GIMP {version}"
+      ],
+      "StageExpressions": [
+        "\"GIMP $version\""
+      ]
+    },
+    {
+      "Packager": "git",
+      "Definition": "git",
+      "Vendor": "The Git Development Community",
+      "App": "Git for Windows (x64)",
+      "CMName": "Git",
+      "StageKind": "template",
+      "StageNames": [
+        "Git"
+      ],
+      "StageExpressions": [
+        "\"Git\""
+      ]
+    },
+    {
+      "Packager": "githubcli",
+      "Definition": "githubcli",
+      "Vendor": "GitHub",
+      "App": "GitHub CLI",
+      "CMName": "GitHub CLI",
+      "StageKind": "template",
+      "StageNames": [
+        "GitHub CLI"
+      ],
+      "StageExpressions": [
+        "\"GitHub CLI\""
+      ]
+    },
+    {
+      "Packager": "githubdesktop",
+      "Definition": "githubdesktop",
+      "Vendor": "GitHub",
+      "App": "GitHub Desktop (User)",
+      "CMName": "GitHub Desktop",
+      "StageKind": "template",
+      "StageNames": [
+        "GitHub Desktop (User)"
+      ],
+      "StageExpressions": [
+        "\"GitHub Desktop (User)\""
+      ]
+    },
+    {
+      "Packager": "go",
+      "Definition": "go",
+      "Vendor": "Google",
+      "App": "Go Programming Language",
+      "CMName": "Go Programming Language",
+      "StageKind": "template",
+      "StageNames": [
+        "Go Programming Language"
+      ],
+      "StageExpressions": [
+        "\"Go Programming Language\""
+      ]
+    },
+    {
+      "Packager": "goland",
+      "Definition": "goland",
+      "Vendor": "JetBrains",
+      "App": "GoLand",
+      "CMName": "GoLand",
+      "StageKind": "template",
+      "StageNames": [
+        "GoLand"
+      ],
+      "StageExpressions": [
+        "\"GoLand\""
+      ]
+    },
+    {
+      "Packager": "googledrive",
+      "Definition": "googledrive",
+      "Vendor": "Google",
+      "App": "Google Drive for desktop",
+      "CMName": "Google Drive",
+      "StageKind": "template",
+      "StageNames": [
+        "Google Drive"
+      ],
+      "StageExpressions": [
+        "\"Google Drive\""
+      ]
+    },
+    {
+      "Packager": "gpg4win",
+      "Definition": "gpg4win",
+      "Vendor": "g10 Code GmbH",
+      "App": "Gpg4win",
+      "CMName": "Gpg4win",
+      "StageKind": "template",
+      "StageNames": [
+        "Gpg4win"
+      ],
+      "StageExpressions": [
+        "\"Gpg4win\""
+      ]
+    },
+    {
+      "Packager": "graphviz",
+      "Definition": "graphviz",
+      "Vendor": "Graphviz",
+      "App": "Graphviz",
+      "CMName": "Graphviz",
+      "StageKind": "template",
+      "StageNames": [
+        "Graphviz"
+      ],
+      "StageExpressions": [
+        "\"Graphviz\""
+      ]
+    },
+    {
+      "Packager": "greenshot",
+      "Definition": "greenshot",
+      "Vendor": "Greenshot",
+      "App": "Greenshot",
+      "CMName": "Greenshot",
+      "StageKind": "template",
+      "StageNames": [
+        "Greenshot"
+      ],
+      "StageExpressions": [
+        "\"Greenshot\""
+      ]
+    },
+    {
+      "Packager": "grepwin",
+      "Definition": "grepwin",
+      "Vendor": "Stefan Kueng",
+      "App": "grepWin",
+      "CMName": "grepWin",
+      "StageKind": "template",
+      "StageNames": [
+        "grepWin"
+      ],
+      "StageExpressions": [
+        "\"grepWin\""
+      ]
+    },
+    {
+      "Packager": "gsudo",
+      "Definition": "gsudo",
+      "Vendor": "gerardog",
+      "App": "gsudo",
+      "CMName": "gsudo",
+      "StageKind": "template",
+      "StageNames": [
+        "gsudo"
+      ],
+      "StageExpressions": [
+        "\"gsudo\""
+      ]
+    },
+    {
+      "Packager": "handbrake",
+      "Definition": "handbrake",
+      "Vendor": "HandBrake Team",
+      "App": "HandBrake",
+      "CMName": "HandBrake",
+      "StageKind": "template",
+      "StageNames": [
+        "HandBrake"
+      ],
+      "StageExpressions": [
+        "\"HandBrake\""
+      ]
+    },
+    {
+      "Packager": "hashtools",
+      "Definition": "hashtools",
+      "Vendor": "Binary Fortress Software",
+      "App": "HashTools",
+      "CMName": "HashTools",
+      "StageKind": "template",
+      "StageNames": [
+        "HashTools"
+      ],
+      "StageExpressions": [
+        "\"HashTools\""
+      ]
+    },
+    {
+      "Packager": "heidisql",
+      "Definition": "heidisql",
+      "Vendor": "Ansgar Becker",
+      "App": "HeidiSQL",
+      "CMName": "HeidiSQL",
+      "StageKind": "template",
+      "StageNames": [
+        "HeidiSQL"
+      ],
+      "StageExpressions": [
+        "\"HeidiSQL\""
+      ]
+    },
+    {
+      "Packager": "hwmonitor",
+      "Definition": "hwmonitor",
+      "Vendor": "CPUID",
+      "App": "HWMonitor",
+      "CMName": "HWMonitor",
+      "StageKind": "template",
+      "StageNames": [
+        "HWMonitor (x64)"
+      ],
+      "StageExpressions": [
+        "\"HWMonitor (x64)\""
+      ]
+    },
+    {
+      "Packager": "iapdesktop",
+      "Definition": "iapdesktop",
+      "Vendor": "Google",
+      "App": "IAP Desktop (x64)",
+      "CMName": "IAP Desktop",
+      "StageKind": "template",
+      "StageNames": [
+        "IAP Desktop (x64)"
+      ],
+      "StageExpressions": [
+        "\"IAP Desktop (x64)\""
+      ]
+    },
+    {
+      "Packager": "imageglass",
+      "Definition": "imageglass",
+      "Vendor": "Duong Dieu Phap",
+      "App": "ImageGlass (x64)",
+      "CMName": "ImageGlass",
+      "StageKind": "template",
+      "StageNames": [
+        "ImageGlass"
+      ],
+      "StageExpressions": [
+        "\"ImageGlass\""
+      ]
+    },
+    {
+      "Packager": "inkscape",
+      "Definition": "inkscape",
+      "Vendor": "Inkscape Project",
+      "App": "Inkscape",
+      "CMName": "Inkscape",
+      "StageKind": "installer",
+      "StageNames": [],
+      "StageExpressions": [
+        "\"Inkscape $productVersionRaw\""
+      ]
+    },
+    {
+      "Packager": "intunedebugtoolkit",
+      "Definition": "intunedebugtoolkit",
+      "Vendor": "MSEndpointMgr",
+      "App": "Intune Debug Toolkit",
+      "CMName": "Intune Debug Toolkit",
+      "StageKind": "installer",
+      "StageNames": [],
+      "StageExpressions": [
+        "$productName"
+      ]
+    },
+    {
+      "Packager": "irfanview",
+      "Definition": "irfanview",
+      "Vendor": "Irfan Skiljan",
+      "App": "IrfanView",
+      "CMName": "IrfanView",
+      "StageKind": "template",
+      "StageNames": [
+        "IrfanView"
+      ],
+      "StageExpressions": [
+        "\"IrfanView\""
+      ]
+    },
+    {
+      "Packager": "jabradirect",
+      "Definition": "jabradirect",
+      "Vendor": "GN Audio A/S",
+      "App": "Jabra Direct",
+      "CMName": "Jabra Direct",
+      "StageKind": "template",
+      "StageNames": [
+        "Jabra Direct"
+      ],
+      "StageExpressions": [
+        "\"Jabra Direct\""
+      ]
+    },
+    {
+      "Packager": "joplin",
+      "Definition": "joplin",
+      "Vendor": "Laurent Cozic",
+      "App": "Joplin",
+      "CMName": "Joplin",
+      "StageKind": "template",
+      "StageNames": [
+        "Joplin"
+      ],
+      "StageExpressions": [
+        "\"Joplin\""
+      ]
+    },
+    {
+      "Packager": "kdiff3",
+      "Definition": "kdiff3",
+      "Vendor": "KDE e.V.",
+      "App": "KDiff3",
+      "CMName": "KDiff3",
+      "StageKind": "template",
+      "StageNames": [
+        "KDiff3"
+      ],
+      "StageExpressions": [
+        "\"KDiff3\""
+      ]
+    },
+    {
+      "Packager": "keepass",
+      "Definition": "keepass",
+      "Vendor": "Dominik Reichl",
+      "App": "KeePass",
+      "CMName": "KeePass",
+      "StageKind": "installer",
+      "StageNames": [],
+      "StageExpressions": [
+        "$productName"
+      ]
+    },
+    {
+      "Packager": "keepassxc",
+      "Definition": "keepassxc",
+      "Vendor": "KeePassXC Team",
+      "App": "KeePassXC",
+      "CMName": "KeePassXC",
+      "StageKind": "template",
+      "StageNames": [
+        "KeePassXC"
+      ],
+      "StageExpressions": [
+        "\"KeePassXC\""
+      ]
+    },
+    {
+      "Packager": "keystoreexplorer",
+      "Definition": "keystoreexplorer",
+      "Vendor": "Kai Kramer",
+      "App": "KeyStore Explorer",
+      "CMName": "KeyStore Explorer",
+      "StageKind": "template",
+      "StageNames": [
+        "KeyStore Explorer"
+      ],
+      "StageExpressions": [
+        "\"KeyStore Explorer\""
+      ]
+    },
+    {
+      "Packager": "kreya",
+      "Definition": "kreya",
+      "Vendor": "riok GmbH",
+      "App": "Kreya",
+      "CMName": "Kreya",
+      "StageKind": "template",
+      "StageNames": [
+        "Kreya"
+      ],
+      "StageExpressions": [
+        "\"Kreya\""
+      ]
+    },
+    {
+      "Packager": "krita",
+      "Definition": "krita",
+      "Vendor": "KDE",
+      "App": "Krita",
+      "CMName": "Krita",
+      "StageKind": "template",
+      "StageNames": [
+        "Krita"
+      ],
+      "StageExpressions": [
+        "\"Krita\""
+      ]
+    },
+    {
+      "Packager": "liberica-jdk21",
+      "Definition": "liberica-jdk21",
+      "Vendor": "BellSoft",
+      "App": "Liberica JDK 21 (x64)",
+      "CMName": "Liberica JDK 21",
+      "StageKind": "template",
+      "StageNames": [
+        "Liberica JDK 21 (x64)"
+      ],
+      "StageExpressions": [
+        "\"Liberica JDK $FeatureVersion (x64)\""
+      ]
+    },
+    {
+      "Packager": "libreoffice",
+      "Definition": "libreoffice",
+      "Vendor": "The Document Foundation",
+      "App": "LibreOffice",
+      "CMName": "LibreOffice",
+      "StageKind": "installer",
+      "StageNames": [],
+      "StageExpressions": [
+        "\"LibreOffice $productVersionRaw\""
+      ]
+    },
+    {
+      "Packager": "m365apps-x64",
+      "Definition": "m365apps-x64",
+      "Vendor": "Microsoft",
+      "App": "M365 Apps for Enterprise (x64)",
+      "CMName": "M365 Apps for Enterprise",
+      "StageKind": "installer",
+      "StageNames": [],
+      "StageExpressions": [
+        "\"M365 Apps for Enterprise (x64) ($($ch.Tag))\"",
+        "\"M365 Apps for Enterprise - $version (x64) ($($ch.Tag))\""
+      ]
+    },
+    {
+      "Packager": "m365apps-x86",
+      "Definition": "m365apps-x86",
+      "Vendor": "Microsoft",
+      "App": "M365 Apps for Enterprise (x86)",
+      "CMName": "M365 Apps for Enterprise",
+      "StageKind": "installer",
+      "StageNames": [],
+      "StageExpressions": [
+        "\"M365 Apps for Enterprise (x86) ($($ch.Tag))\"",
+        "\"M365 Apps for Enterprise - $version (x86) ($($ch.Tag))\""
+      ]
+    },
+    {
+      "Packager": "m365project-x64",
+      "Definition": "m365project-x64",
+      "Vendor": "Microsoft",
+      "App": "M365 Project (x64)",
+      "CMName": "M365 Project",
+      "StageKind": "installer",
+      "StageNames": [],
+      "StageExpressions": [
+        "\"M365 Project (x64) ($($ch.Tag))\"",
+        "\"M365 Project - $version (x64) ($($ch.Tag))\""
+      ]
+    },
+    {
+      "Packager": "m365project-x86",
+      "Definition": "m365project-x86",
+      "Vendor": "Microsoft",
+      "App": "M365 Project (x86)",
+      "CMName": "M365 Project",
+      "StageKind": "installer",
+      "StageNames": [],
+      "StageExpressions": [
+        "\"M365 Project (x86) ($($ch.Tag))\"",
+        "\"M365 Project - $version (x86) ($($ch.Tag))\""
+      ]
+    },
+    {
+      "Packager": "m365visio-x64",
+      "Definition": "m365visio-x64",
+      "Vendor": "Microsoft",
+      "App": "M365 Visio (x64)",
+      "CMName": "M365 Visio",
+      "StageKind": "installer",
+      "StageNames": [],
+      "StageExpressions": [
+        "\"M365 Visio (x64) ($($ch.Tag))\"",
+        "\"M365 Visio - $version (x64) ($($ch.Tag))\""
+      ]
+    },
+    {
+      "Packager": "m365visio-x86",
+      "Definition": "m365visio-x86",
+      "Vendor": "Microsoft",
+      "App": "M365 Visio (x86)",
+      "CMName": "M365 Visio",
+      "StageKind": "installer",
+      "StageNames": [],
+      "StageExpressions": [
+        "\"M365 Visio (x86) ($($ch.Tag))\"",
+        "\"M365 Visio - $version (x86) ($($ch.Tag))\""
+      ]
+    },
+    {
+      "Packager": "malwarebytes",
+      "Definition": "malwarebytes",
+      "Vendor": "Malwarebytes",
+      "App": "Malwarebytes",
+      "CMName": "Malwarebytes",
+      "StageKind": "template",
+      "StageNames": [
+        "Malwarebytes {version}"
+      ],
+      "StageExpressions": [
+        "\"Malwarebytes $version\""
+      ]
+    },
+    {
+      "Packager": "mariadb-server",
+      "Definition": "mariadb-server",
+      "Vendor": "MariaDB",
+      "App": "MariaDB Server (x64)",
+      "CMName": "MariaDB Server",
+      "StageKind": "template",
+      "StageNames": [
+        "MariaDB Server (x64)"
+      ],
+      "StageExpressions": [
+        "\"MariaDB Server (x64)\""
+      ]
+    },
+    {
+      "Packager": "mattermost",
+      "Definition": "mattermost",
+      "Vendor": "Mattermost",
+      "App": "Mattermost Desktop (x64)",
+      "CMName": "Mattermost Desktop",
+      "StageKind": "template",
+      "StageNames": [
+        "Mattermost Desktop (x64)"
+      ],
+      "StageExpressions": [
+        "\"Mattermost Desktop (x64)\""
+      ]
+    },
+    {
+      "Packager": "mongodbcompass",
+      "Definition": "mongodbcompass",
+      "Vendor": "MongoDB",
+      "App": "MongoDB Compass",
+      "CMName": "MongoDB Compass",
+      "StageKind": "template",
+      "StageNames": [
+        "MongoDB Compass {version}"
+      ],
+      "StageExpressions": [
+        "\"MongoDB Compass $version\""
+      ]
+    },
+    {
+      "Packager": "mremoteng",
+      "Definition": "mremoteng",
+      "Vendor": "mRemoteNG",
+      "App": "mRemoteNG",
+      "CMName": "mRemoteNG",
+      "StageKind": "installer",
+      "StageNames": [],
+      "StageExpressions": [
+        "\"mRemoteNG $productVersionRaw\""
+      ]
+    },
+    {
+      "Packager": "ms-openjdk17-exe-user",
+      "Definition": "ms-openjdk17-exe-user",
+      "Vendor": "Microsoft",
+      "App": "Microsoft Build of OpenJDK 17 (x64, EXE, per user)",
+      "CMName": "Microsoft OpenJDK 17 (EXE, per user)",
+      "StageKind": "template",
+      "StageNames": [
+        "Microsoft OpenJDK 17 (EXE, per user)"
+      ],
+      "StageExpressions": [
+        "\"Microsoft OpenJDK 17 (EXE, per user)\""
+      ]
+    },
+    {
+      "Packager": "ms-openjdk17-exe",
+      "Definition": "ms-openjdk17-exe",
+      "Vendor": "Microsoft",
+      "App": "Microsoft Build of OpenJDK 17 (x64, EXE)",
+      "CMName": "Microsoft OpenJDK 17 (EXE)",
+      "StageKind": "template",
+      "StageNames": [
+        "Microsoft OpenJDK 17 (EXE)"
+      ],
+      "StageExpressions": [
+        "\"Microsoft OpenJDK 17 (EXE)\""
+      ]
+    },
+    {
+      "Packager": "ms-openjdk17-msi-user",
+      "Definition": "ms-openjdk17-msi-user",
+      "Vendor": "Microsoft",
+      "App": "Microsoft Build of OpenJDK 17 (x64, MSI, per user)",
+      "CMName": "Microsoft OpenJDK 17 (MSI, per user)",
+      "StageKind": "template",
+      "StageNames": [
+        "Microsoft OpenJDK 17 (MSI, per user)"
+      ],
+      "StageExpressions": [
+        "\"Microsoft OpenJDK 17 (MSI, per user)\""
+      ]
+    },
+    {
+      "Packager": "ms-openjdk17-msi",
+      "Definition": "ms-openjdk17-msi",
+      "Vendor": "Microsoft",
+      "App": "Microsoft Build of OpenJDK 17 (x64, MSI)",
+      "CMName": "Microsoft OpenJDK 17 (MSI)",
+      "StageKind": "template",
+      "StageNames": [
+        "Microsoft OpenJDK 17 (MSI)"
+      ],
+      "StageExpressions": [
+        "\"Microsoft OpenJDK 17 (MSI)\""
+      ]
+    },
+    {
+      "Packager": "ms-openjdk21-exe-user",
+      "Definition": "ms-openjdk21-exe-user",
+      "Vendor": "Microsoft",
+      "App": "Microsoft Build of OpenJDK 21 (x64, EXE, per user)",
+      "CMName": "Microsoft OpenJDK 21 (EXE, per user)",
+      "StageKind": "template",
+      "StageNames": [
+        "Microsoft OpenJDK 21 (EXE, per user)"
+      ],
+      "StageExpressions": [
+        "\"Microsoft OpenJDK 21 (EXE, per user)\""
+      ]
+    },
+    {
+      "Packager": "ms-openjdk21-exe",
+      "Definition": "ms-openjdk21-exe",
+      "Vendor": "Microsoft",
+      "App": "Microsoft Build of OpenJDK 21 (x64, EXE)",
+      "CMName": "Microsoft OpenJDK 21 (EXE)",
+      "StageKind": "template",
+      "StageNames": [
+        "Microsoft OpenJDK 21 (EXE)"
+      ],
+      "StageExpressions": [
+        "\"Microsoft OpenJDK 21 (EXE)\""
+      ]
+    },
+    {
+      "Packager": "ms-openjdk21-msi-user",
+      "Definition": "ms-openjdk21-msi-user",
+      "Vendor": "Microsoft",
+      "App": "Microsoft Build of OpenJDK 21 (x64, MSI, per user)",
+      "CMName": "Microsoft OpenJDK 21 (MSI, per user)",
+      "StageKind": "template",
+      "StageNames": [
+        "Microsoft OpenJDK 21 (MSI, per user)"
+      ],
+      "StageExpressions": [
+        "\"Microsoft OpenJDK 21 (MSI, per user)\""
+      ]
+    },
+    {
+      "Packager": "ms-openjdk21-msi",
+      "Definition": "ms-openjdk21-msi",
+      "Vendor": "Microsoft",
+      "App": "Microsoft Build of OpenJDK 21 (x64, MSI)",
+      "CMName": "Microsoft OpenJDK 21 (MSI)",
+      "StageKind": "template",
+      "StageNames": [
+        "Microsoft OpenJDK 21 (MSI)"
+      ],
+      "StageExpressions": [
+        "\"Microsoft OpenJDK 21 (MSI)\""
+      ]
+    },
+    {
+      "Packager": "ms-openjdk25-exe-user",
+      "Definition": "ms-openjdk25-exe-user",
+      "Vendor": "Microsoft",
+      "App": "Microsoft Build of OpenJDK 25 (x64, EXE, per user)",
+      "CMName": "Microsoft OpenJDK 25 (EXE, per user)",
+      "StageKind": "template",
+      "StageNames": [
+        "Microsoft OpenJDK 25 (EXE, per user)"
+      ],
+      "StageExpressions": [
+        "\"Microsoft OpenJDK 25 (EXE, per user)\""
+      ]
+    },
+    {
+      "Packager": "ms-openjdk25-exe",
+      "Definition": "ms-openjdk25-exe",
+      "Vendor": "Microsoft",
+      "App": "Microsoft Build of OpenJDK 25 (x64, EXE)",
+      "CMName": "Microsoft OpenJDK 25 (EXE)",
+      "StageKind": "template",
+      "StageNames": [
+        "Microsoft OpenJDK 25 (EXE)"
+      ],
+      "StageExpressions": [
+        "\"Microsoft OpenJDK 25 (EXE)\""
+      ]
+    },
+    {
+      "Packager": "ms-openjdk25-msi-user",
+      "Definition": "ms-openjdk25-msi-user",
+      "Vendor": "Microsoft",
+      "App": "Microsoft Build of OpenJDK 25 (x64, MSI, per user)",
+      "CMName": "Microsoft OpenJDK 25 (MSI, per user)",
+      "StageKind": "template",
+      "StageNames": [
+        "Microsoft OpenJDK 25 (MSI, per user)"
+      ],
+      "StageExpressions": [
+        "\"Microsoft OpenJDK 25 (MSI, per user)\""
+      ]
+    },
+    {
+      "Packager": "ms-openjdk25-msi",
+      "Definition": "ms-openjdk25-msi",
+      "Vendor": "Microsoft",
+      "App": "Microsoft Build of OpenJDK 25 (x64, MSI)",
+      "CMName": "Microsoft OpenJDK 25 (MSI)",
+      "StageKind": "template",
+      "StageNames": [
+        "Microsoft OpenJDK 25 (MSI)"
+      ],
+      "StageExpressions": [
+        "\"Microsoft OpenJDK 25 (MSI)\""
+      ]
+    },
+    {
+      "Packager": "msodbcsql18",
+      "Definition": "msodbcsql18",
+      "Vendor": "Microsoft",
+      "App": "Microsoft ODBC Driver 18 for SQL Server (x64)",
+      "CMName": "Microsoft ODBC Driver 18 for SQL Server",
+      "StageKind": "installer",
+      "StageNames": [],
+      "StageExpressions": [
+        "\"$productName $productVersionRaw\""
+      ]
+    },
+    {
+      "Packager": "msoledb",
+      "Definition": "msoledb",
+      "Vendor": "Microsoft",
+      "App": "Microsoft OLE DB Driver 19 for SQL Server (x64)",
+      "CMName": "Microsoft OLE DB Driver 19 for SQL Server",
+      "StageKind": "installer",
+      "StageNames": [],
+      "StageExpressions": [
+        "\"$productName $productVersionRaw\""
+      ]
+    },
+    {
+      "Packager": "msvcruntimes",
+      "Definition": "",
+      "Vendor": "Microsoft",
+      "App": "Microsoft Visual C++ v14 Redistributable (x86+x64)",
+      "CMName": "Microsoft Visual C++ v14 Redistributable (x86+x64)",
+      "StageKind": "installer",
+      "StageNames": [],
+      "StageExpressions": [
+        "\"Microsoft Visual C++ v14 Redistributable (x86+x64) - $shortVersion\""
+      ]
+    },
+    {
+      "Packager": "msvcruntimesx64",
+      "Definition": "msvcruntimesx64",
+      "Vendor": "Microsoft",
+      "App": "Microsoft Visual C++ v14 Redistributable (x64)",
+      "CMName": "Microsoft Visual C++ v14 Redistributable (x64)",
+      "StageKind": "installer",
+      "StageNames": [],
+      "StageExpressions": [
+        "\"Microsoft Visual C++ v14 Redistributable (x64) - $shortVersion\""
+      ]
+    },
+    {
+      "Packager": "msvcruntimesx86",
+      "Definition": "msvcruntimesx86",
+      "Vendor": "Microsoft",
+      "App": "Microsoft Visual C++ v14 Redistributable (x86)",
+      "CMName": "Microsoft Visual C++ v14 Redistributable (x86)",
+      "StageKind": "installer",
+      "StageNames": [],
+      "StageExpressions": [
+        "\"Microsoft Visual C++ v14 Redistributable (x86) - $shortVersion\""
+      ]
+    },
+    {
+      "Packager": "musescore",
+      "Definition": "musescore",
+      "Vendor": "MuseScore",
+      "App": "MuseScore Studio",
+      "CMName": "MuseScore Studio",
+      "StageKind": "template",
+      "StageNames": [
+        "MuseScore Studio"
+      ],
+      "StageExpressions": [
+        "\"MuseScore Studio\""
+      ]
+    },
+    {
+      "Packager": "mysqlconnectornet",
+      "Definition": "mysqlconnectornet",
+      "Vendor": "Oracle",
+      "App": "MySQL Connector/NET",
+      "CMName": "MySQL Connector/NET",
+      "StageKind": "template",
+      "StageNames": [
+        "MySQL Connector/NET"
+      ],
+      "StageExpressions": [
+        "\"MySQL Connector/NET\""
+      ]
+    },
+    {
+      "Packager": "nagstamon",
+      "Definition": "nagstamon",
+      "Vendor": "Henri Wahl",
+      "App": "Nagstamon",
+      "CMName": "Nagstamon",
+      "StageKind": "template",
+      "StageNames": [
+        "Nagstamon"
+      ],
+      "StageExpressions": [
+        "\"Nagstamon\""
+      ]
+    },
+    {
+      "Packager": "naps2",
+      "Definition": "naps2",
+      "Vendor": "NAPS2",
+      "App": "NAPS2",
+      "CMName": "NAPS2",
+      "StageKind": "template",
+      "StageNames": [
+        "NAPS2"
+      ],
+      "StageExpressions": [
+        "\"NAPS2\""
+      ]
+    },
+    {
+      "Packager": "netbeans",
+      "Definition": "netbeans",
+      "Vendor": "Apache Software Foundation",
+      "App": "Apache NetBeans",
+      "CMName": "Apache NetBeans",
+      "StageKind": "template",
+      "StageNames": [
+        "Apache NetBeans"
+      ],
+      "StageExpressions": [
+        "\"Apache NetBeans\""
+      ]
+    },
+    {
+      "Packager": "netbird",
+      "Definition": "netbird",
+      "Vendor": "NetBird",
+      "App": "NetBird",
+      "CMName": "NetBird",
+      "StageKind": "template",
+      "StageNames": [
+        "NetBird"
+      ],
+      "StageExpressions": [
+        "\"NetBird\""
+      ]
+    },
+    {
+      "Packager": "netlogo",
+      "Definition": "netlogo",
+      "Vendor": "Northwestern University",
+      "App": "NetLogo",
+      "CMName": "NetLogo",
+      "StageKind": "template",
+      "StageNames": [
+        "NetLogo"
+      ],
+      "StageExpressions": [
+        "\"NetLogo\""
+      ]
+    },
+    {
+      "Packager": "networkmanager",
+      "Definition": "networkmanager",
+      "Vendor": "BornToBeRoot",
+      "App": "NETworkManager",
+      "CMName": "NETworkManager",
+      "StageKind": "template",
+      "StageNames": [
+        "NETworkManager"
+      ],
+      "StageExpressions": [
+        "\"NETworkManager\""
+      ]
+    },
+    {
+      "Packager": "nextcloud",
+      "Definition": "nextcloud",
+      "Vendor": "Nextcloud GmbH",
+      "App": "Nextcloud Desktop Client",
+      "CMName": "Nextcloud Desktop Client",
+      "StageKind": "template",
+      "StageNames": [
+        "Nextcloud Desktop Client"
+      ],
+      "StageExpressions": [
+        "\"Nextcloud Desktop Client\""
+      ]
+    },
+    {
+      "Packager": "nodejs",
+      "Definition": "nodejs",
+      "Vendor": "OpenJS Foundation",
+      "App": "Node.js LTS",
+      "CMName": "Node.js",
+      "StageKind": "installer",
+      "StageNames": [],
+      "StageExpressions": [
+        "$productName"
+      ]
+    },
+    {
+      "Packager": "nomachine",
+      "Definition": "nomachine",
+      "Vendor": "NoMachine",
+      "App": "NoMachine",
+      "CMName": "NoMachine",
+      "StageKind": "template",
+      "StageNames": [
+        "NoMachine"
+      ],
+      "StageExpressions": [
+        "\"NoMachine\""
+      ]
+    },
+    {
+      "Packager": "notepadplusplus",
+      "Definition": "notepadplusplus",
+      "Vendor": "Notepad++ Team",
+      "App": "Notepad++ (x64)",
+      "CMName": "Notepad++",
+      "StageKind": "template",
+      "StageNames": [
+        "Notepad++ (64-bit x64)"
+      ],
+      "StageExpressions": [
+        "\"Notepad++ (64-bit x64)\""
+      ]
+    },
+    {
+      "Packager": "nvda",
+      "Definition": "nvda",
+      "Vendor": "NV Access",
+      "App": "NVDA",
+      "CMName": "NVDA",
+      "StageKind": "template",
+      "StageNames": [
+        "NVDA"
+      ],
+      "StageExpressions": [
+        "\"NVDA\""
+      ]
+    },
+    {
+      "Packager": "nvidia-geforce",
+      "Definition": "nvidia-geforce",
+      "Vendor": "NVIDIA",
+      "App": "NVIDIA Graphics Driver - GeForce Game Ready (x64)",
+      "CMName": "NVIDIA Graphics Driver - GeForce Game Ready",
+      "StageKind": "template",
+      "StageNames": [
+        "NVIDIA Graphics Driver - GeForce Game Ready {version}"
+      ],
+      "StageExpressions": [
+        "\"NVIDIA Graphics Driver - GeForce Game Ready $version\""
+      ]
+    },
+    {
+      "Packager": "nvidia-rtx-enterprise",
+      "Definition": "nvidia-rtx-enterprise",
+      "Vendor": "NVIDIA",
+      "App": "NVIDIA Graphics Driver - RTX Enterprise (x64)",
+      "CMName": "NVIDIA Graphics Driver - RTX Enterprise",
+      "StageKind": "template",
+      "StageNames": [
+        "NVIDIA Graphics Driver - RTX Enterprise {version}"
+      ],
+      "StageExpressions": [
+        "\"NVIDIA Graphics Driver - RTX Enterprise $version\""
+      ]
+    },
+    {
+      "Packager": "obsidian",
+      "Definition": "obsidian",
+      "Vendor": "Obsidian",
+      "App": "Obsidian",
+      "CMName": "Obsidian",
+      "StageKind": "template",
+      "StageNames": [
+        "Obsidian {version}"
+      ],
+      "StageExpressions": [
+        "\"Obsidian $version\""
+      ]
+    },
+    {
+      "Packager": "ocenaudio",
+      "Definition": "ocenaudio",
+      "Vendor": "Ocenaudio Team",
+      "App": "ocenaudio",
+      "CMName": "ocenaudio",
+      "StageKind": "template",
+      "StageNames": [
+        "ocenaudio {version}"
+      ],
+      "StageExpressions": [
+        "\"ocenaudio $version\""
+      ]
+    },
+    {
+      "Packager": "ohmyposh",
+      "Definition": "ohmyposh",
+      "Vendor": "Jan De Dobbeleer",
+      "App": "Oh My Posh",
+      "CMName": "Oh My Posh",
+      "StageKind": "template",
+      "StageNames": [
+        "Oh My Posh {version}"
+      ],
+      "StageExpressions": [
+        "\"Oh My Posh $version\""
+      ]
+    },
+    {
+      "Packager": "omnissahorizonclient",
+      "Definition": "omnissahorizonclient",
+      "Vendor": "Omnissa",
+      "App": "Omnissa Horizon Client",
+      "CMName": "Omnissa Horizon Client",
+      "StageKind": "template",
+      "StageNames": [
+        "Omnissa Horizon Client"
+      ],
+      "StageExpressions": [
+        "\"Omnissa Horizon Client\""
+      ]
+    },
+    {
+      "Packager": "openshot",
+      "Definition": "openshot",
+      "Vendor": "OpenShot Studios, LLC",
+      "App": "OpenShot Video Editor",
+      "CMName": "OpenShot Video Editor",
+      "StageKind": "template",
+      "StageNames": [
+        "OpenShot Video Editor {version}"
+      ],
+      "StageExpressions": [
+        "\"OpenShot Video Editor $version\""
+      ]
+    },
+    {
+      "Packager": "openvpn",
+      "Definition": "openvpn",
+      "Vendor": "OpenVPN Inc.",
+      "App": "OpenVPN",
+      "CMName": "OpenVPN",
+      "StageKind": "template",
+      "StageNames": [
+        "OpenVPN"
+      ],
+      "StageExpressions": [
+        "\"OpenVPN\""
+      ]
+    },
+    {
+      "Packager": "openwebstart",
+      "Definition": "openwebstart",
+      "Vendor": "Karakun AG",
+      "App": "OpenWebStart",
+      "CMName": "OpenWebStart",
+      "StageKind": "template",
+      "StageNames": [
+        "OpenWebStart"
+      ],
+      "StageExpressions": [
+        "\"OpenWebStart\""
+      ]
+    },
+    {
+      "Packager": "opera",
+      "Definition": "opera",
+      "Vendor": "Opera Software",
+      "App": "Opera Browser",
+      "CMName": "Opera Browser",
+      "StageKind": "template",
+      "StageNames": [
+        "Opera Browser"
+      ],
+      "StageExpressions": [
+        "\"Opera Browser\""
+      ]
+    },
+    {
+      "Packager": "orcaslicer",
+      "Definition": "orcaslicer",
+      "Vendor": "SoftFever",
+      "App": "OrcaSlicer",
+      "CMName": "OrcaSlicer",
+      "StageKind": "template",
+      "StageNames": [
+        "OrcaSlicer"
+      ],
+      "StageExpressions": [
+        "\"OrcaSlicer\""
+      ]
+    },
+    {
+      "Packager": "ownclouddesktop",
+      "Definition": "ownclouddesktop",
+      "Vendor": "ownCloud GmbH",
+      "App": "ownCloud Desktop Client",
+      "CMName": "ownCloud Desktop Client",
+      "StageKind": "template",
+      "StageNames": [
+        "ownCloud Desktop Client"
+      ],
+      "StageExpressions": [
+        "\"ownCloud Desktop Client\""
+      ]
+    },
+    {
+      "Packager": "paintdotnet",
+      "Definition": "paintdotnet",
+      "Vendor": "dotPDN LLC",
+      "App": "Paint.NET",
+      "CMName": "Paint.NET",
+      "StageKind": "installer",
+      "StageNames": [],
+      "StageExpressions": [
+        "$productName"
+      ]
+    },
+    {
+      "Packager": "pandoc",
+      "Definition": "pandoc",
+      "Vendor": "John MacFarlane",
+      "App": "Pandoc",
+      "CMName": "Pandoc",
+      "StageKind": "template",
+      "StageNames": [
+        "Pandoc"
+      ],
+      "StageExpressions": [
+        "\"Pandoc\""
+      ]
+    },
+    {
+      "Packager": "parallelsclient",
+      "Definition": "parallelsclient",
+      "Vendor": "Parallels",
+      "App": "Parallels Client",
+      "CMName": "Parallels Client",
+      "StageKind": "template",
+      "StageNames": [
+        "Parallels Client"
+      ],
+      "StageExpressions": [
+        "\"Parallels Client\""
+      ]
+    },
+    {
+      "Packager": "pathcopycopy",
+      "Definition": "pathcopycopy",
+      "Vendor": "Charles Lechasseur",
+      "App": "Path Copy Copy",
+      "CMName": "Path Copy Copy",
+      "StageKind": "template",
+      "StageNames": [
+        "Path Copy Copy"
+      ],
+      "StageExpressions": [
+        "\"Path Copy Copy\""
+      ]
+    },
+    {
+      "Packager": "pdf24creator",
+      "Definition": "pdf24creator",
+      "Vendor": "geek software GmbH",
+      "App": "PDF24 Creator",
+      "CMName": "PDF24 Creator",
+      "StageKind": "template",
+      "StageNames": [
+        "PDF24 Creator"
+      ],
+      "StageExpressions": [
+        "\"PDF24 Creator\""
+      ]
+    },
+    {
+      "Packager": "pdfcreator",
+      "Definition": "pdfcreator",
+      "Vendor": "pdfforge GmbH",
+      "App": "PDFCreator",
+      "CMName": "PDFCreator",
+      "StageKind": "template",
+      "StageNames": [
+        "PDFCreator"
+      ],
+      "StageExpressions": [
+        "\"PDFCreator\""
+      ]
+    },
+    {
+      "Packager": "pdfgear",
+      "Definition": "pdfgear",
+      "Vendor": "PDFgear Software",
+      "App": "PDFgear",
+      "CMName": "PDFgear",
+      "StageKind": "template",
+      "StageNames": [
+        "PDFgear"
+      ],
+      "StageExpressions": [
+        "\"PDFgear\""
+      ]
+    },
+    {
+      "Packager": "pdfsam",
+      "Definition": "pdfsam",
+      "Vendor": "Sober Lemur S.r.l.",
+      "App": "PDFsam Basic",
+      "CMName": "PDFsam Basic",
+      "StageKind": "template",
+      "StageNames": [
+        "PDFsam Basic"
+      ],
+      "StageExpressions": [
+        "\"PDFsam Basic\""
+      ]
+    },
+    {
+      "Packager": "pdfstudioviewer",
+      "Definition": "pdfstudioviewer",
+      "Vendor": "Qoppa Software",
+      "App": "PDF Studio Viewer",
+      "CMName": "PDF Studio Viewer",
+      "StageKind": "template",
+      "StageNames": [
+        "PDF Studio Viewer"
+      ],
+      "StageExpressions": [
+        "\"PDF Studio Viewer\""
+      ]
+    },
+    {
+      "Packager": "peazip",
+      "Definition": "peazip",
+      "Vendor": "Giorgio Tani",
+      "App": "PeaZip",
+      "CMName": "PeaZip",
+      "StageKind": "template",
+      "StageNames": [
+        "PeaZip"
+      ],
+      "StageExpressions": [
+        "\"PeaZip\""
+      ]
+    },
+    {
+      "Packager": "pgadmin4",
+      "Definition": "pgadmin4",
+      "Vendor": "pgAdmin Development Team",
+      "App": "pgAdmin 4",
+      "CMName": "pgAdmin 4",
+      "StageKind": "template",
+      "StageNames": [
+        "pgAdmin 4"
+      ],
+      "StageExpressions": [
+        "\"pgAdmin 4\""
+      ]
+    },
+    {
+      "Packager": "picpick",
+      "Definition": "picpick",
+      "Vendor": "NGWIN",
+      "App": "PicPick",
+      "CMName": "PicPick",
+      "StageKind": "template",
+      "StageNames": [
+        "PicPick"
+      ],
+      "StageExpressions": [
+        "\"PicPick\""
+      ]
+    },
+    {
+      "Packager": "pidgin",
+      "Definition": "pidgin",
+      "Vendor": "Pidgin",
+      "App": "Pidgin",
+      "CMName": "Pidgin",
+      "StageKind": "template",
+      "StageNames": [
+        "Pidgin"
+      ],
+      "StageExpressions": [
+        "\"Pidgin\""
+      ]
+    },
+    {
+      "Packager": "positron",
+      "Definition": "positron",
+      "Vendor": "Posit Software, PBC",
+      "App": "Positron",
+      "CMName": "Positron",
+      "StageKind": "template",
+      "StageNames": [
+        "Positron"
+      ],
+      "StageExpressions": [
+        "\"Positron\""
+      ]
+    },
+    {
+      "Packager": "postgresql13",
+      "Definition": "postgresql13",
+      "Vendor": "PostgreSQL Global Development Group",
+      "App": "PostgreSQL 13 (x64)",
+      "CMName": "PostgreSQL 13",
+      "StageKind": "template",
+      "StageNames": [
+        "PostgreSQL 13 {version}"
+      ],
+      "StageExpressions": [
+        "\"PostgreSQL $MajorVersion $version\""
+      ]
+    },
+    {
+      "Packager": "postgresql14",
+      "Definition": "postgresql14",
+      "Vendor": "PostgreSQL Global Development Group",
+      "App": "PostgreSQL 14 (x64)",
+      "CMName": "PostgreSQL 14",
+      "StageKind": "template",
+      "StageNames": [
+        "PostgreSQL 14 {version}"
+      ],
+      "StageExpressions": [
+        "\"PostgreSQL $MajorVersion $version\""
+      ]
+    },
+    {
+      "Packager": "postgresql15",
+      "Definition": "postgresql15",
+      "Vendor": "PostgreSQL Global Development Group",
+      "App": "PostgreSQL 15 (x64)",
+      "CMName": "PostgreSQL 15",
+      "StageKind": "template",
+      "StageNames": [
+        "PostgreSQL 15 {version}"
+      ],
+      "StageExpressions": [
+        "\"PostgreSQL $MajorVersion $version\""
+      ]
+    },
+    {
+      "Packager": "postgresql16",
+      "Definition": "postgresql16",
+      "Vendor": "PostgreSQL Global Development Group",
+      "App": "PostgreSQL 16 (x64)",
+      "CMName": "PostgreSQL 16",
+      "StageKind": "template",
+      "StageNames": [
+        "PostgreSQL 16 {version}"
+      ],
+      "StageExpressions": [
+        "\"PostgreSQL $MajorVersion $version\""
+      ]
+    },
+    {
+      "Packager": "postgresql17",
+      "Definition": "postgresql17",
+      "Vendor": "PostgreSQL Global Development Group",
+      "App": "PostgreSQL 17 (x64)",
+      "CMName": "PostgreSQL 17",
+      "StageKind": "template",
+      "StageNames": [
+        "PostgreSQL 17 {version}"
+      ],
+      "StageExpressions": [
+        "\"PostgreSQL $MajorVersion $version\""
+      ]
+    },
+    {
+      "Packager": "postman",
+      "Definition": "postman",
+      "Vendor": "Postman",
+      "App": "Postman (User)",
+      "CMName": "Postman",
+      "StageKind": "template",
+      "StageNames": [
+        "Postman (User) - {version}"
+      ],
+      "StageExpressions": [
+        "\"Postman (User) - $version\""
+      ]
+    },
+    {
+      "Packager": "powerbi-desktop-report-server",
+      "Definition": "powerbidesktopreportserver",
+      "Vendor": "Microsoft",
+      "App": "Microsoft Power BI Desktop (optimized for Power BI Report Server) (x64)",
+      "CMName": "Microsoft Power BI Desktop (optimized for Power BI Report Server)",
+      "StageKind": "template",
+      "StageNames": [
+        "Microsoft Power BI Desktop (optimized for Power BI Report Server) - {version}"
+      ],
+      "StageExpressions": [
+        "\"Microsoft Power BI Desktop (optimized for Power BI Report Server) - $version\""
+      ]
+    },
+    {
+      "Packager": "powerbi-desktop",
+      "Definition": "powerbidesktop",
+      "Vendor": "Microsoft",
+      "App": "Power BI Desktop (x64)",
+      "CMName": "Power BI Desktop",
+      "StageKind": "template",
+      "StageNames": [
+        "Power BI Desktop - {version}"
+      ],
+      "StageExpressions": [
+        "\"Power BI Desktop - $version\""
+      ]
+    },
+    {
+      "Packager": "powershell7",
+      "Definition": "powershell7",
+      "Vendor": "Microsoft",
+      "App": "PowerShell 7 LTS (MSI)",
+      "CMName": "PowerShell 7",
+      "StageKind": "installer",
+      "StageNames": [],
+      "StageExpressions": [
+        "$productName"
+      ]
+    },
+    {
+      "Packager": "powershell7msix",
+      "Definition": "powershell7msix",
+      "Vendor": "Microsoft",
+      "App": "PowerShell 7 Stable (MSIX, per user)",
+      "CMName": "PowerShell 7 (MSIX)",
+      "StageKind": "template",
+      "StageNames": [
+        "PowerShell 7 (MSIX)"
+      ],
+      "StageExpressions": [
+        "\"PowerShell 7 (MSIX)\""
+      ]
+    },
+    {
+      "Packager": "powertoys",
+      "Definition": "powertoys",
+      "Vendor": "Microsoft",
+      "App": "PowerToys",
+      "CMName": "PowerToys",
+      "StageKind": "template",
+      "StageNames": [
+        "PowerToys {version}"
+      ],
+      "StageExpressions": [
+        "\"PowerToys $version\""
+      ]
+    },
+    {
+      "Packager": "protonvpn",
+      "Definition": "protonvpn",
+      "Vendor": "Proton AG",
+      "App": "Proton VPN",
+      "CMName": "Proton VPN",
+      "StageKind": "template",
+      "StageNames": [
+        "Proton VPN"
+      ],
+      "StageExpressions": [
+        "\"Proton VPN\""
+      ]
+    },
+    {
+      "Packager": "pspad",
+      "Definition": "pspad",
+      "Vendor": "Jan Fiala",
+      "App": "PSPad",
+      "CMName": "PSPad",
+      "StageKind": "template",
+      "StageNames": [
+        "PSPad"
+      ],
+      "StageExpressions": [
+        "\"PSPad\""
+      ]
+    },
+    {
+      "Packager": "putty",
+      "Definition": "putty",
+      "Vendor": "Simon Tatham",
+      "App": "PuTTY",
+      "CMName": "PuTTY",
+      "StageKind": "installer",
+      "StageNames": [],
+      "StageExpressions": [
+        "$productName"
+      ]
+    },
+    {
+      "Packager": "pwsafe",
+      "Definition": "pwsafe",
+      "Vendor": "Rony Shapiro",
+      "App": "Password Safe",
+      "CMName": "Password Safe",
+      "StageKind": "template",
+      "StageNames": [
+        "Password Safe"
+      ],
+      "StageExpressions": [
+        "\"Password Safe\""
+      ]
+    },
+    {
+      "Packager": "pycharm",
+      "Definition": "pycharm",
+      "Vendor": "JetBrains",
+      "App": "PyCharm",
+      "CMName": "PyCharm",
+      "StageKind": "template",
+      "StageNames": [
+        "PyCharm"
+      ],
+      "StageExpressions": [
+        "\"PyCharm\""
+      ]
+    },
+    {
+      "Packager": "python",
+      "Definition": "python",
+      "Vendor": "Python Software Foundation",
+      "App": "Python",
+      "CMName": "Python",
+      "StageKind": "template",
+      "StageNames": [
+        "Python {version} (64-bit)"
+      ],
+      "StageExpressions": [
+        "\"Python $version (64-bit)\""
+      ]
+    },
+    {
+      "Packager": "qgis-ltr",
+      "Definition": "qgis-ltr",
+      "Vendor": "QGIS",
+      "App": "QGIS LTR",
+      "CMName": "QGIS LTR",
+      "StageKind": "template",
+      "StageNames": [
+        "QGIS LTR"
+      ],
+      "StageExpressions": [
+        "\"QGIS LTR\""
+      ]
+    },
+    {
+      "Packager": "qgis",
+      "Definition": "qgis",
+      "Vendor": "QGIS",
+      "App": "QGIS",
+      "CMName": "QGIS",
+      "StageKind": "template",
+      "StageNames": [
+        "QGIS"
+      ],
+      "StageExpressions": [
+        "\"QGIS\""
+      ]
+    },
+    {
+      "Packager": "r",
+      "Definition": "r",
+      "Vendor": "The R Foundation",
+      "App": "R for Windows",
+      "CMName": "R for Windows",
+      "StageKind": "template",
+      "StageNames": [
+        "R for Windows {version}"
+      ],
+      "StageExpressions": [
+        "\"R for Windows $version\""
+      ]
+    },
+    {
+      "Packager": "rainmeter",
+      "Definition": "rainmeter",
+      "Vendor": "Rainmeter",
+      "App": "Rainmeter",
+      "CMName": "Rainmeter",
+      "StageKind": "template",
+      "StageNames": [
+        "Rainmeter"
+      ],
+      "StageExpressions": [
+        "\"Rainmeter\""
+      ]
+    },
+    {
+      "Packager": "rancherdesktop",
+      "Definition": "rancherdesktop",
+      "Vendor": "SUSE",
+      "App": "Rancher Desktop",
+      "CMName": "Rancher Desktop",
+      "StageKind": "template",
+      "StageNames": [
+        "Rancher Desktop"
+      ],
+      "StageExpressions": [
+        "\"Rancher Desktop\""
+      ]
+    },
+    {
+      "Packager": "redshiftodbc",
+      "Definition": "redshiftodbc",
+      "Vendor": "Amazon Web Services",
+      "App": "Amazon Redshift ODBC Driver",
+      "CMName": "Amazon Redshift ODBC Driver",
+      "StageKind": "template",
+      "StageNames": [
+        "Amazon Redshift ODBC Driver"
+      ],
+      "StageExpressions": [
+        "\"Amazon Redshift ODBC Driver\""
+      ]
+    },
+    {
+      "Packager": "remotedesktopmanager",
+      "Definition": "remotedesktopmanager",
+      "Vendor": "Devolutions",
+      "App": "Remote Desktop Manager",
+      "CMName": "Remote Desktop Manager",
+      "StageKind": "template",
+      "StageNames": [
+        "Remote Desktop Manager"
+      ],
+      "StageExpressions": [
+        "\"Remote Desktop Manager\""
+      ]
+    },
+    {
+      "Packager": "renderdoc",
+      "Definition": "renderdoc",
+      "Vendor": "Baldur Karlsson",
+      "App": "RenderDoc",
+      "CMName": "RenderDoc",
+      "StageKind": "template",
+      "StageNames": [
+        "RenderDoc"
+      ],
+      "StageExpressions": [
+        "\"RenderDoc\""
+      ]
+    },
+    {
+      "Packager": "rocketchat",
+      "Definition": "rocketchat",
+      "Vendor": "Rocket.Chat",
+      "App": "Rocket.Chat Desktop",
+      "CMName": "Rocket.Chat",
+      "StageKind": "template",
+      "StageNames": [
+        "Rocket.Chat"
+      ],
+      "StageExpressions": [
+        "\"Rocket.Chat\""
+      ]
+    },
+    {
+      "Packager": "rpiimager",
+      "Definition": "rpiimager",
+      "Vendor": "Raspberry Pi Ltd",
+      "App": "Raspberry Pi Imager",
+      "CMName": "Raspberry Pi Imager",
+      "StageKind": "template",
+      "StageNames": [
+        "Raspberry Pi Imager"
+      ],
+      "StageExpressions": [
+        "\"Raspberry Pi Imager\""
+      ]
+    },
+    {
+      "Packager": "rstudio",
+      "Definition": "rstudio",
+      "Vendor": "Posit Software, PBC",
+      "App": "RStudio Desktop",
+      "CMName": "RStudio",
+      "StageKind": "template",
+      "StageNames": [
+        "RStudio"
+      ],
+      "StageExpressions": [
+        "\"RStudio\""
+      ]
+    },
+    {
+      "Packager": "rtools",
+      "Definition": "rtools",
+      "Vendor": "The R Foundation",
+      "App": "Rtools",
+      "CMName": "Rtools",
+      "StageKind": "template",
+      "StageNames": [
+        "Rtools {version}"
+      ],
+      "StageExpressions": [
+        "\"Rtools $version\""
+      ]
+    },
+    {
+      "Packager": "rustdesk",
+      "Definition": "rustdesk",
+      "Vendor": "Purslane Tech Pte. Ltd.",
+      "App": "RustDesk",
+      "CMName": "RustDesk",
+      "StageKind": "template",
+      "StageNames": [
+        "RustDesk"
+      ],
+      "StageExpressions": [
+        "\"RustDesk\""
+      ]
+    },
+    {
+      "Packager": "rvtools",
+      "Definition": "rvtools",
+      "Vendor": "Dell",
+      "App": "RVTools",
+      "CMName": "RVTools",
+      "StageKind": "template",
+      "StageNames": [
+        "RVTools"
+      ],
+      "StageExpressions": [
+        "\"RVTools\""
+      ]
+    },
+    {
+      "Packager": "salesforcecli",
+      "Definition": "salesforcecli",
+      "Vendor": "Salesforce",
+      "App": "Salesforce CLI",
+      "CMName": "Salesforce CLI",
+      "StageKind": "template",
+      "StageNames": [
+        "Salesforce CLI"
+      ],
+      "StageExpressions": [
+        "\"Salesforce CLI\""
+      ]
+    },
+    {
+      "Packager": "screentogif",
+      "Definition": "screentogif",
+      "Vendor": "Nicke Manarin",
+      "App": "ScreenToGif",
+      "CMName": "ScreenToGif",
+      "StageKind": "template",
+      "StageNames": [
+        "ScreenToGif"
+      ],
+      "StageExpressions": [
+        "\"ScreenToGif\""
+      ]
+    },
+    {
+      "Packager": "semeru-jdk11",
+      "Definition": "semeru-jdk11",
+      "Vendor": "IBM",
+      "App": "IBM Semeru Runtime Open Edition JDK 11 (x64)",
+      "CMName": "IBM Semeru Runtime Open Edition JDK 11",
+      "StageKind": "template",
+      "StageNames": [
+        "IBM Semeru Runtime Open Edition JDK 11 (x64)"
+      ],
+      "StageExpressions": [
+        "\"IBM Semeru Runtime Open Edition JDK $FeatureVersion ($Architecture)\""
+      ]
+    },
+    {
+      "Packager": "semeru-jdk17",
+      "Definition": "semeru-jdk17",
+      "Vendor": "IBM",
+      "App": "IBM Semeru Runtime Open Edition JDK 17 (x64)",
+      "CMName": "IBM Semeru Runtime Open Edition JDK 17",
+      "StageKind": "template",
+      "StageNames": [
+        "IBM Semeru Runtime Open Edition JDK 17 (x64)"
+      ],
+      "StageExpressions": [
+        "\"IBM Semeru Runtime Open Edition JDK $FeatureVersion ($Architecture)\""
+      ]
+    },
+    {
+      "Packager": "semeru-jdk8",
+      "Definition": "semeru-jdk8",
+      "Vendor": "IBM",
+      "App": "IBM Semeru Runtime Open Edition JDK 8 (x64)",
+      "CMName": "IBM Semeru Runtime Open Edition JDK 8",
+      "StageKind": "template",
+      "StageNames": [
+        "IBM Semeru Runtime Open Edition JDK 8 (x64)"
+      ],
+      "StageExpressions": [
+        "\"IBM Semeru Runtime Open Edition JDK $FeatureVersion ($Architecture)\""
+      ]
+    },
+    {
+      "Packager": "semeru-jre11",
+      "Definition": "semeru-jre11",
+      "Vendor": "IBM",
+      "App": "IBM Semeru Runtime Open Edition JRE 11 (x64)",
+      "CMName": "IBM Semeru Runtime Open Edition JRE 11",
+      "StageKind": "template",
+      "StageNames": [
+        "IBM Semeru Runtime Open Edition JRE 11 (x64)"
+      ],
+      "StageExpressions": [
+        "\"IBM Semeru Runtime Open Edition JRE $FeatureVersion ($Architecture)\""
+      ]
+    },
+    {
+      "Packager": "semeru-jre17",
+      "Definition": "semeru-jre17",
+      "Vendor": "IBM",
+      "App": "IBM Semeru Runtime Open Edition JRE 17 (x64)",
+      "CMName": "IBM Semeru Runtime Open Edition JRE 17",
+      "StageKind": "template",
+      "StageNames": [
+        "IBM Semeru Runtime Open Edition JRE 17 (x64)"
+      ],
+      "StageExpressions": [
+        "\"IBM Semeru Runtime Open Edition JRE $FeatureVersion ($Architecture)\""
+      ]
+    },
+    {
+      "Packager": "semeru-jre8",
+      "Definition": "semeru-jre8",
+      "Vendor": "IBM",
+      "App": "IBM Semeru Runtime Open Edition JRE 8 (x64)",
+      "CMName": "IBM Semeru Runtime Open Edition JRE 8",
+      "StageKind": "template",
+      "StageNames": [
+        "IBM Semeru Runtime Open Edition JRE 8 (x64)"
+      ],
+      "StageExpressions": [
+        "\"IBM Semeru Runtime Open Edition JRE $FeatureVersion ($Architecture)\""
+      ]
+    },
+    {
+      "Packager": "sharepointonlinemanagementshell",
+      "Definition": "sharepointonlinemanagementshell",
+      "Vendor": "Microsoft",
+      "App": "SharePoint Online Management Shell",
+      "CMName": "SharePoint Online Management Shell",
+      "StageKind": "template",
+      "StageNames": [
+        "SharePoint Online Management Shell"
+      ],
+      "StageExpressions": [
+        "\"SharePoint Online Management Shell\""
+      ]
+    },
+    {
+      "Packager": "sharex",
+      "Definition": "sharex",
+      "Vendor": "ShareX Team",
+      "App": "ShareX",
+      "CMName": "ShareX",
+      "StageKind": "template",
+      "StageNames": [
+        "ShareX {version}"
+      ],
+      "StageExpressions": [
+        "\"ShareX $version\""
+      ]
+    },
+    {
+      "Packager": "shotcut",
+      "Definition": "shotcut",
+      "Vendor": "Meltytech",
+      "App": "Shotcut",
+      "CMName": "Shotcut",
+      "StageKind": "template",
+      "StageNames": [
+        "Shotcut"
+      ],
+      "StageExpressions": [
+        "\"Shotcut\""
+      ]
+    },
+    {
+      "Packager": "signingsuite",
+      "Definition": "signingsuite",
+      "Vendor": "Jason Ulbright",
+      "App": "Signing Suite",
+      "CMName": "Signing Suite",
+      "StageKind": "template",
+      "StageNames": [
+        "Signing Suite"
+      ],
+      "StageExpressions": [
+        "\"Signing Suite\""
+      ]
+    },
+    {
+      "Packager": "simplenote",
+      "Definition": "simplenote",
+      "Vendor": "Automattic",
+      "App": "Simplenote",
+      "CMName": "Simplenote",
+      "StageKind": "template",
+      "StageNames": [
+        "Simplenote"
+      ],
+      "StageExpressions": [
+        "\"Simplenote\""
+      ]
+    },
+    {
+      "Packager": "slack",
+      "Definition": "slack",
+      "Vendor": "Slack Technologies",
+      "App": "Slack",
+      "CMName": "Slack",
+      "StageKind": "template",
+      "StageNames": [
+        "Slack"
+      ],
+      "StageExpressions": [
+        "\"Slack\""
+      ]
+    },
+    {
+      "Packager": "slido",
+      "Definition": "slido",
+      "Vendor": "Slido",
+      "App": "Slido for Windows",
+      "CMName": "Slido for Windows",
+      "StageKind": "template",
+      "StageNames": [
+        "Slido for Windows {version}"
+      ],
+      "StageExpressions": [
+        "\"Slido for Windows $version\""
+      ]
+    },
+    {
+      "Packager": "smartty",
+      "Definition": "smartty",
+      "Vendor": "Sysprogs",
+      "App": "SmarTTY",
+      "CMName": "SmarTTY",
+      "StageKind": "template",
+      "StageNames": [
+        "SmarTTY"
+      ],
+      "StageExpressions": [
+        "\"SmarTTY\""
+      ]
+    },
+    {
+      "Packager": "smathstudio",
+      "Definition": "smathstudio",
+      "Vendor": "SMath",
+      "App": "SMath Studio",
+      "CMName": "SMath Studio",
+      "StageKind": "template",
+      "StageNames": [
+        "SMath Studio"
+      ],
+      "StageExpressions": [
+        "\"SMath Studio\""
+      ]
+    },
+    {
+      "Packager": "soapui",
+      "Definition": "soapui",
+      "Vendor": "SmartBear Software",
+      "App": "SoapUI Open Source",
+      "CMName": "SoapUI",
+      "StageKind": "template",
+      "StageNames": [
+        "SoapUI {version}"
+      ],
+      "StageExpressions": [
+        "\"SoapUI $version\""
+      ]
+    },
+    {
+      "Packager": "softerraldapbrowser",
+      "Definition": "softerraldapbrowser",
+      "Vendor": "Softerra",
+      "App": "Softerra LDAP Browser",
+      "CMName": "Softerra LDAP Browser",
+      "StageKind": "template",
+      "StageNames": [
+        "Softerra LDAP Browser"
+      ],
+      "StageExpressions": [
+        "\"Softerra LDAP Browser\""
+      ]
+    },
+    {
+      "Packager": "spectrapdf",
+      "Definition": "spectrapdf",
+      "Vendor": "Signal Ridge Labs",
+      "App": "Spectra PDF",
+      "CMName": "Spectra PDF",
+      "StageKind": "template",
+      "StageNames": [
+        "Spectra PDF"
+      ],
+      "StageExpressions": [
+        "'Spectra PDF'"
+      ]
+    },
+    {
+      "Packager": "sqlserver2022express",
+      "Definition": "sqlserver2022express",
+      "Vendor": "Microsoft",
+      "App": "SQL Server 2022 Express (x64)",
+      "CMName": "Microsoft SQL Server 2022 Express",
+      "StageKind": "template",
+      "StageNames": [
+        "Microsoft SQL Server 2022 Express"
+      ],
+      "StageExpressions": [
+        "\"Microsoft SQL Server 2022 Express\""
+      ]
+    },
+    {
+      "Packager": "ssms",
+      "Definition": "ssms",
+      "Vendor": "Microsoft",
+      "App": "SQL Server Management Studio 22",
+      "CMName": "SQL Server Management Studio",
+      "StageKind": "template",
+      "StageNames": [
+        "SQL Server Management Studio 22 - {version}"
+      ],
+      "StageExpressions": [
+        "\"SQL Server Management Studio 22 - $version\""
+      ]
+    },
+    {
+      "Packager": "stellarium",
+      "Definition": "stellarium",
+      "Vendor": "Stellarium",
+      "App": "Stellarium",
+      "CMName": "Stellarium",
+      "StageKind": "template",
+      "StageNames": [
+        "Stellarium"
+      ],
+      "StageExpressions": [
+        "\"Stellarium\""
+      ]
+    },
+    {
+      "Packager": "syncbackfree",
+      "Definition": "syncbackfree",
+      "Vendor": "2BrightSparks",
+      "App": "SyncBackFree",
+      "CMName": "SyncBackFree",
+      "StageKind": "template",
+      "StageNames": [
+        "SyncBackFree"
+      ],
+      "StageExpressions": [
+        "\"SyncBackFree\""
+      ]
+    },
+    {
+      "Packager": "synologydriveclient",
+      "Definition": "synologydriveclient",
+      "Vendor": "Synology",
+      "App": "Synology Drive Client",
+      "CMName": "Synology Drive Client",
+      "StageKind": "template",
+      "StageNames": [
+        "Synology Drive Client"
+      ],
+      "StageExpressions": [
+        "\"Synology Drive Client\""
+      ]
+    },
+    {
+      "Packager": "sysinternals",
+      "Definition": "sysinternals",
+      "Vendor": "Microsoft",
+      "App": "Sysinternals Suite",
+      "CMName": "Sysinternals Suite",
+      "StageKind": "template",
+      "StageNames": [
+        "Sysinternals Suite {version}"
+      ],
+      "StageExpressions": [
+        "\"Sysinternals Suite $version\""
+      ]
+    },
+    {
+      "Packager": "tableaudesktop",
+      "Definition": "tableaudesktop",
+      "Vendor": "Salesforce (Tableau)",
+      "App": "Tableau Desktop (x64)",
+      "CMName": "Tableau Desktop",
+      "StageKind": "template",
+      "StageNames": [
+        "Tableau Desktop"
+      ],
+      "StageExpressions": [
+        "$ProductLabel"
+      ]
+    },
+    {
+      "Packager": "tableauprep",
+      "Definition": "tableauprep",
+      "Vendor": "Salesforce (Tableau)",
+      "App": "Tableau Prep Builder (x64)",
+      "CMName": "Tableau Prep Builder",
+      "StageKind": "template",
+      "StageNames": [
+        "Tableau Prep Builder"
+      ],
+      "StageExpressions": [
+        "$ProductLabel"
+      ]
+    },
+    {
+      "Packager": "tableaureader",
+      "Definition": "tableaureader",
+      "Vendor": "Salesforce (Tableau)",
+      "App": "Tableau Reader (x64)",
+      "CMName": "Tableau Reader",
+      "StageKind": "template",
+      "StageNames": [
+        "Tableau Reader"
+      ],
+      "StageExpressions": [
+        "$ProductLabel"
+      ]
+    },
+    {
+      "Packager": "tabulareditor2",
+      "Definition": "tabulareditor2",
+      "Vendor": "Tabular Editor ApS",
+      "App": "Tabular Editor 2",
+      "CMName": "Tabular Editor 2",
+      "StageKind": "template",
+      "StageNames": [
+        "Tabular Editor 2"
+      ],
+      "StageExpressions": [
+        "\"Tabular Editor 2\""
+      ]
+    },
+    {
+      "Packager": "tailscale",
+      "Definition": "tailscale",
+      "Vendor": "Tailscale",
+      "App": "Tailscale",
+      "CMName": "Tailscale",
+      "StageKind": "template",
+      "StageNames": [
+        "Tailscale"
+      ],
+      "StageExpressions": [
+        "\"Tailscale\""
+      ]
+    },
+    {
+      "Packager": "teams-new",
+      "Definition": "teams",
+      "Vendor": "Microsoft",
+      "App": "Microsoft Teams (new client)",
+      "CMName": "Microsoft Teams",
+      "StageKind": "template",
+      "StageNames": [
+        "Microsoft Teams - {version} (new client)"
+      ],
+      "StageExpressions": [
+        "\"Microsoft Teams - $version (new client)\""
+      ]
+    },
+    {
+      "Packager": "teamspeak3client",
+      "Definition": "teamspeak3client",
+      "Vendor": "TeamSpeak Systems GmbH",
+      "App": "TeamSpeak 3 Client",
+      "CMName": "TeamSpeak 3 Client",
+      "StageKind": "template",
+      "StageNames": [
+        "TeamSpeak 3 Client"
+      ],
+      "StageExpressions": [
+        "\"TeamSpeak 3 Client\""
+      ]
+    },
+    {
+      "Packager": "teamviewer",
+      "Definition": "teamviewer",
+      "Vendor": "TeamViewer",
+      "App": "TeamViewer (x64)",
+      "CMName": "TeamViewer",
+      "StageKind": "installer",
+      "StageNames": [],
+      "StageExpressions": [
+        "\"TeamViewer $productVersionRaw\""
+      ]
+    },
+    {
+      "Packager": "teamviewerhost",
+      "Definition": "teamviewerhost",
+      "Vendor": "TeamViewer",
+      "App": "TeamViewer Host (x64)",
+      "CMName": "TeamViewer Host",
+      "StageKind": "template",
+      "StageNames": [
+        "TeamViewer Host {version}"
+      ],
+      "StageExpressions": [
+        "\"TeamViewer Host $version\""
+      ]
+    },
+    {
+      "Packager": "temurin-jdk11-x64",
+      "Definition": "temurin-jdk11-x64",
+      "Vendor": "Eclipse Adoptium",
+      "App": "Eclipse Temurin JDK 11 (x64)",
+      "CMName": "Eclipse Temurin JDK 11 (x64)",
+      "StageKind": "template",
+      "StageNames": [
+        "Eclipse Temurin JDK 11 (x64)"
+      ],
+      "StageExpressions": [
+        "\"Eclipse Temurin $($ImageType.ToUpper()) $FeatureVersion ($Architecture)\""
+      ]
+    },
+    {
+      "Packager": "temurin-jdk11-x86",
+      "Definition": "temurin-jdk11-x86",
+      "Vendor": "Eclipse Adoptium",
+      "App": "Eclipse Temurin JDK 11 (x86)",
+      "CMName": "Eclipse Temurin JDK 11 (x86)",
+      "StageKind": "template",
+      "StageNames": [
+        "Eclipse Temurin JDK 11 (x86)"
+      ],
+      "StageExpressions": [
+        "\"Eclipse Temurin $($ImageType.ToUpper()) $FeatureVersion ($Architecture)\""
+      ]
+    },
+    {
+      "Packager": "temurin-jdk17",
+      "Definition": "temurin-jdk17-x64",
+      "Vendor": "Eclipse Adoptium",
+      "App": "Eclipse Temurin JDK 17 (x64)",
+      "CMName": "Eclipse Temurin JDK 17",
+      "StageKind": "template",
+      "StageNames": [
+        "Eclipse Temurin JDK 17 (x64)"
+      ],
+      "StageExpressions": [
+        "\"Eclipse Temurin $($ImageType.ToUpper()) $FeatureVersion ($Architecture)\""
+      ]
+    },
+    {
+      "Packager": "temurin-jdk21",
+      "Definition": "temurin-jdk21-x64",
+      "Vendor": "Eclipse Adoptium",
+      "App": "Eclipse Temurin JDK 21 (x64)",
+      "CMName": "Eclipse Temurin JDK 21",
+      "StageKind": "template",
+      "StageNames": [
+        "Eclipse Temurin JDK 21 (x64)"
+      ],
+      "StageExpressions": [
+        "\"Eclipse Temurin $($ImageType.ToUpper()) $FeatureVersion ($Architecture)\""
+      ]
+    },
+    {
+      "Packager": "temurin-jdk25",
+      "Definition": "temurin-jdk25-x64",
+      "Vendor": "Eclipse Adoptium",
+      "App": "Eclipse Temurin JDK 25 (x64)",
+      "CMName": "Eclipse Temurin JDK 25",
+      "StageKind": "template",
+      "StageNames": [
+        "Eclipse Temurin JDK 25 (x64)"
+      ],
+      "StageExpressions": [
+        "\"Eclipse Temurin $($ImageType.ToUpper()) $FeatureVersion ($Architecture)\""
+      ]
+    },
+    {
+      "Packager": "temurin-jdk8-x64",
+      "Definition": "temurin-jdk8-x64",
+      "Vendor": "Eclipse Adoptium",
+      "App": "Eclipse Temurin JDK 8 (x64)",
+      "CMName": "Eclipse Temurin JDK 8 (x64)",
+      "StageKind": "template",
+      "StageNames": [
+        "Eclipse Temurin JDK 8 (x64)"
+      ],
+      "StageExpressions": [
+        "\"Eclipse Temurin $($ImageType.ToUpper()) $FeatureVersion ($Architecture)\""
+      ]
+    },
+    {
+      "Packager": "temurin-jdk8-x86",
+      "Definition": "temurin-jdk8-x86",
+      "Vendor": "Eclipse Adoptium",
+      "App": "Eclipse Temurin JDK 8 (x86)",
+      "CMName": "Eclipse Temurin JDK 8 (x86)",
+      "StageKind": "template",
+      "StageNames": [
+        "Eclipse Temurin JDK 8 (x86)"
+      ],
+      "StageExpressions": [
+        "\"Eclipse Temurin $($ImageType.ToUpper()) $FeatureVersion ($Architecture)\""
+      ]
+    },
+    {
+      "Packager": "temurin-jre11-x64",
+      "Definition": "temurin-jre11-x64",
+      "Vendor": "Eclipse Adoptium",
+      "App": "Eclipse Temurin JRE 11 (x64)",
+      "CMName": "Eclipse Temurin JRE 11 (x64)",
+      "StageKind": "template",
+      "StageNames": [
+        "Eclipse Temurin JRE 11 (x64)"
+      ],
+      "StageExpressions": [
+        "\"Eclipse Temurin $($ImageType.ToUpper()) $FeatureVersion ($Architecture)\""
+      ]
+    },
+    {
+      "Packager": "temurin-jre11-x86",
+      "Definition": "temurin-jre11-x86",
+      "Vendor": "Eclipse Adoptium",
+      "App": "Eclipse Temurin JRE 11 (x86)",
+      "CMName": "Eclipse Temurin JRE 11 (x86)",
+      "StageKind": "template",
+      "StageNames": [
+        "Eclipse Temurin JRE 11 (x86)"
+      ],
+      "StageExpressions": [
+        "\"Eclipse Temurin $($ImageType.ToUpper()) $FeatureVersion ($Architecture)\""
+      ]
+    },
+    {
+      "Packager": "temurin-jre17",
+      "Definition": "temurin-jre17-x64",
+      "Vendor": "Eclipse Adoptium",
+      "App": "Eclipse Temurin JRE 17 (x64)",
+      "CMName": "Eclipse Temurin JRE 17",
+      "StageKind": "template",
+      "StageNames": [
+        "Eclipse Temurin JRE 17 (x64)"
+      ],
+      "StageExpressions": [
+        "\"Eclipse Temurin $($ImageType.ToUpper()) $FeatureVersion ($Architecture)\""
+      ]
+    },
+    {
+      "Packager": "temurin-jre21",
+      "Definition": "temurin-jre21-x64",
+      "Vendor": "Eclipse Adoptium",
+      "App": "Eclipse Temurin JRE 21 (x64)",
+      "CMName": "Eclipse Temurin JRE 21",
+      "StageKind": "template",
+      "StageNames": [
+        "Eclipse Temurin JRE 21 (x64)"
+      ],
+      "StageExpressions": [
+        "\"Eclipse Temurin $($ImageType.ToUpper()) $FeatureVersion ($Architecture)\""
+      ]
+    },
+    {
+      "Packager": "temurin-jre25",
+      "Definition": "temurin-jre25-x64",
+      "Vendor": "Eclipse Adoptium",
+      "App": "Eclipse Temurin JRE 25 (x64)",
+      "CMName": "Eclipse Temurin JRE 25",
+      "StageKind": "template",
+      "StageNames": [
+        "Eclipse Temurin JRE 25 (x64)"
+      ],
+      "StageExpressions": [
+        "\"Eclipse Temurin $($ImageType.ToUpper()) $FeatureVersion ($Architecture)\""
+      ]
+    },
+    {
+      "Packager": "temurin-jre8-x64",
+      "Definition": "temurin-jre8-x64",
+      "Vendor": "Eclipse Adoptium",
+      "App": "Eclipse Temurin JRE 8 (x64)",
+      "CMName": "Eclipse Temurin JRE 8 (x64)",
+      "StageKind": "template",
+      "StageNames": [
+        "Eclipse Temurin JRE 8 (x64)"
+      ],
+      "StageExpressions": [
+        "\"Eclipse Temurin $($ImageType.ToUpper()) $FeatureVersion ($Architecture)\""
+      ]
+    },
+    {
+      "Packager": "temurin-jre8-x86",
+      "Definition": "temurin-jre8-x86",
+      "Vendor": "Eclipse Adoptium",
+      "App": "Eclipse Temurin JRE 8 (x86)",
+      "CMName": "Eclipse Temurin JRE 8 (x86)",
+      "StageKind": "template",
+      "StageNames": [
+        "Eclipse Temurin JRE 8 (x86)"
+      ],
+      "StageExpressions": [
+        "\"Eclipse Temurin $($ImageType.ToUpper()) $FeatureVersion ($Architecture)\""
+      ]
+    },
+    {
+      "Packager": "teracopy",
+      "Definition": "teracopy",
+      "Vendor": "Code Sector",
+      "App": "TeraCopy",
+      "CMName": "TeraCopy",
+      "StageKind": "template",
+      "StageNames": [
+        "TeraCopy"
+      ],
+      "StageExpressions": [
+        "\"TeraCopy\""
+      ]
+    },
+    {
+      "Packager": "thonny",
+      "Definition": "thonny",
+      "Vendor": "Aivar Annamaa",
+      "App": "Thonny",
+      "CMName": "Thonny",
+      "StageKind": "template",
+      "StageNames": [
+        "Thonny"
+      ],
+      "StageExpressions": [
+        "\"Thonny\""
+      ]
+    },
+    {
+      "Packager": "thunderbird",
+      "Definition": "thunderbird",
+      "Vendor": "Mozilla",
+      "App": "Thunderbird",
+      "CMName": "Mozilla Thunderbird (x64 en-US)",
+      "StageKind": "template",
+      "StageNames": [
+        "Mozilla Thunderbird (x64 en-US)"
+      ],
+      "StageExpressions": [
+        "\"Mozilla Thunderbird (x64 en-US)\""
+      ]
+    },
+    {
+      "Packager": "tightvnc",
+      "Definition": "tightvnc",
+      "Vendor": "GlavSoft",
+      "App": "TightVNC",
+      "CMName": "TightVNC",
+      "StageKind": "template",
+      "StageNames": [
+        "TightVNC"
+      ],
+      "StageExpressions": [
+        "\"TightVNC\""
+      ]
+    },
+    {
+      "Packager": "tortoisegit",
+      "Definition": "tortoisegit",
+      "Vendor": "TortoiseGit",
+      "App": "TortoiseGit",
+      "CMName": "TortoiseGit",
+      "StageKind": "installer",
+      "StageNames": [],
+      "StageExpressions": [
+        "$productName"
+      ]
+    },
+    {
+      "Packager": "tortoisehg",
+      "Definition": "tortoisehg",
+      "Vendor": "TortoiseHg",
+      "App": "TortoiseHg",
+      "CMName": "TortoiseHg",
+      "StageKind": "template",
+      "StageNames": [
+        "TortoiseHg"
+      ],
+      "StageExpressions": [
+        "\"TortoiseHg\""
+      ]
+    },
+    {
+      "Packager": "tortoisesvn",
+      "Definition": "tortoisesvn",
+      "Vendor": "TortoiseSVN",
+      "App": "TortoiseSVN",
+      "CMName": "TortoiseSVN",
+      "StageKind": "installer",
+      "StageNames": [],
+      "StageExpressions": [
+        "$productName"
+      ]
+    },
+    {
+      "Packager": "treesizefree",
+      "Definition": "treesizefree",
+      "Vendor": "JAM Software",
+      "App": "TreeSize Free",
+      "CMName": "TreeSize Free",
+      "StageKind": "template",
+      "StageNames": [
+        "TreeSize Free (x64)"
+      ],
+      "StageExpressions": [
+        "\"TreeSize Free (x64)\""
+      ]
+    },
+    {
+      "Packager": "turbovnc",
+      "Definition": "turbovnc",
+      "Vendor": "The VirtualGL Project",
+      "App": "TurboVNC",
+      "CMName": "TurboVNC",
+      "StageKind": "template",
+      "StageNames": [
+        "TurboVNC"
+      ],
+      "StageExpressions": [
+        "\"TurboVNC\""
+      ]
+    },
+    {
+      "Packager": "typora",
+      "Definition": "typora",
+      "Vendor": "Typora",
+      "App": "Typora",
+      "CMName": "Typora",
+      "StageKind": "template",
+      "StageNames": [
+        "Typora"
+      ],
+      "StageExpressions": [
+        "\"Typora\""
+      ]
+    },
+    {
+      "Packager": "ultravnc",
+      "Definition": "ultravnc",
+      "Vendor": "uvnc bvba",
+      "App": "UltraVNC",
+      "CMName": "UltraVNC",
+      "StageKind": "template",
+      "StageNames": [
+        "UltraVNC"
+      ],
+      "StageExpressions": [
+        "\"UltraVNC\""
+      ]
+    },
+    {
+      "Packager": "unityhub",
+      "Definition": "unityhub",
+      "Vendor": "Unity Technologies",
+      "App": "Unity Hub",
+      "CMName": "Unity Hub",
+      "StageKind": "template",
+      "StageNames": [
+        "Unity Hub"
+      ],
+      "StageExpressions": [
+        "\"Unity Hub\""
+      ]
+    },
+    {
+      "Packager": "urbackupclient",
+      "Definition": "urbackupclient",
+      "Vendor": "UrBackup",
+      "App": "UrBackup Client",
+      "CMName": "UrBackup Client",
+      "StageKind": "template",
+      "StageNames": [
+        "UrBackup Client"
+      ],
+      "StageExpressions": [
+        "\"UrBackup Client\""
+      ]
+    },
+    {
+      "Packager": "vagrant",
+      "Definition": "vagrant",
+      "Vendor": "HashiCorp",
+      "App": "Vagrant",
+      "CMName": "Vagrant",
+      "StageKind": "template",
+      "StageNames": [
+        "Vagrant"
+      ],
+      "StageExpressions": [
+        "\"Vagrant\""
+      ]
+    },
+    {
+      "Packager": "veracrypt",
+      "Definition": "veracrypt",
+      "Vendor": "AM Crypto",
+      "App": "VeraCrypt",
+      "CMName": "VeraCrypt",
+      "StageKind": "template",
+      "StageNames": [
+        "VeraCrypt"
+      ],
+      "StageExpressions": [
+        "\"VeraCrypt\""
+      ]
+    },
+    {
+      "Packager": "vim",
+      "Definition": "vim",
+      "Vendor": "The Vim Project",
+      "App": "Vim",
+      "CMName": "Vim",
+      "StageKind": "installer",
+      "StageNames": [],
+      "StageExpressions": [
+        "\"Vim $majorMinor (x64)\""
+      ]
+    },
+    {
+      "Packager": "vlc",
+      "Definition": "vlc",
+      "Vendor": "VideoLAN",
+      "App": "VLC Media Player",
+      "CMName": "VLC Media Player",
+      "StageKind": "installer",
+      "StageNames": [],
+      "StageExpressions": [
+        "$productName"
+      ]
+    },
+    {
+      "Packager": "vscode-system",
+      "Definition": "vscode",
+      "Vendor": "Microsoft",
+      "App": "Visual Studio Code (System)",
+      "CMName": "Visual Studio Code (System)",
+      "StageKind": "template",
+      "StageNames": [
+        "Visual Studio Code (System) - {version}"
+      ],
+      "StageExpressions": [
+        "\"Visual Studio Code (System) - $version\""
+      ]
+    },
+    {
+      "Packager": "vscode-user",
+      "Definition": "vscode-user",
+      "Vendor": "Microsoft",
+      "App": "Visual Studio Code (User)",
+      "CMName": "Visual Studio Code (User)",
+      "StageKind": "template",
+      "StageNames": [
+        "Visual Studio Code (User) - {version}"
+      ],
+      "StageExpressions": [
+        "\"Visual Studio Code (User) - $version\""
+      ]
+    },
+    {
+      "Packager": "vscodium",
+      "Definition": "vscodium",
+      "Vendor": "VSCodium",
+      "App": "VSCodium",
+      "CMName": "VSCodium",
+      "StageKind": "template",
+      "StageNames": [
+        "VSCodium"
+      ],
+      "StageExpressions": [
+        "\"VSCodium\""
+      ]
+    },
+    {
+      "Packager": "webex",
+      "Definition": "webex",
+      "Vendor": "Cisco",
+      "App": "Cisco Webex (x64)",
+      "CMName": "Webex",
+      "StageKind": "installer",
+      "StageNames": [],
+      "StageExpressions": [
+        "$productName"
+      ]
+    },
+    {
+      "Packager": "webstorm",
+      "Definition": "webstorm",
+      "Vendor": "JetBrains",
+      "App": "WebStorm",
+      "CMName": "WebStorm",
+      "StageKind": "template",
+      "StageNames": [
+        "WebStorm"
+      ],
+      "StageExpressions": [
+        "\"WebStorm\""
+      ]
+    },
+    {
+      "Packager": "webview2",
+      "Definition": "webview2",
+      "Vendor": "Microsoft",
+      "App": "Microsoft Edge WebView2 Runtime (x64)",
+      "CMName": "Microsoft Edge WebView2 Runtime",
+      "StageKind": "template",
+      "StageNames": [
+        "Microsoft Edge WebView2 Runtime"
+      ],
+      "StageExpressions": [
+        "\"Microsoft Edge WebView2 Runtime\""
+      ]
+    },
+    {
+      "Packager": "windirstat",
+      "Definition": "windirstat",
+      "Vendor": "WinDirStat Team",
+      "App": "WinDirStat",
+      "CMName": "WinDirStat",
+      "StageKind": "installer",
+      "StageNames": [],
+      "StageExpressions": [
+        "$productName"
+      ]
+    },
+    {
+      "Packager": "windowsadk",
+      "Definition": "windowsadk",
+      "Vendor": "Microsoft",
+      "App": "Windows ADK for Windows 11",
+      "CMName": "Windows ADK for Windows 11",
+      "StageKind": "template",
+      "StageNames": [
+        "Windows ADK for Windows 11 {version}"
+      ],
+      "StageExpressions": [
+        "\"Windows ADK for Windows 11 $version\""
+      ]
+    },
+    {
+      "Packager": "windowsadmincenter",
+      "Definition": "windowsadmincenter",
+      "Vendor": "Microsoft",
+      "App": "Windows Admin Center",
+      "CMName": "Windows Admin Center",
+      "StageKind": "template",
+      "StageNames": [
+        "Windows Admin Center (v2)"
+      ],
+      "StageExpressions": [
+        "\"Windows Admin Center (v2)\""
+      ]
+    },
+    {
+      "Packager": "windowspeaddon",
+      "Definition": "windowspeaddon",
+      "Vendor": "Microsoft",
+      "App": "Windows PE add-on for the Windows ADK",
+      "CMName": "Windows PE add-on for the Windows ADK",
+      "StageKind": "template",
+      "StageNames": [
+        "Windows PE add-on for the Windows ADK {version}"
+      ],
+      "StageExpressions": [
+        "\"Windows PE add-on for the Windows ADK $version\""
+      ]
+    },
+    {
+      "Packager": "winmerge",
+      "Definition": "winmerge",
+      "Vendor": "WinMerge",
+      "App": "WinMerge",
+      "CMName": "WinMerge",
+      "StageKind": "template",
+      "StageNames": [
+        "WinMerge x64"
+      ],
+      "StageExpressions": [
+        "\"WinMerge x64\""
+      ]
+    },
+    {
+      "Packager": "winrar",
+      "Definition": "winrar",
+      "Vendor": "win.rar GmbH",
+      "App": "WinRAR",
+      "CMName": "WinRAR",
+      "StageKind": "template",
+      "StageNames": [
+        "WinRAR {version} (64-bit)"
+      ],
+      "StageExpressions": [
+        "\"WinRAR $version (64-bit)\""
+      ]
+    },
+    {
+      "Packager": "winscp",
+      "Definition": "winscp",
+      "Vendor": "Martin Prikryl",
+      "App": "WinSCP (x64)",
+      "CMName": "WinSCP",
+      "StageKind": "template",
+      "StageNames": [
+        "WinSCP {version}"
+      ],
+      "StageExpressions": [
+        "\"WinSCP $version\""
+      ]
+    },
+    {
+      "Packager": "wireguard",
+      "Definition": "wireguard",
+      "Vendor": "WireGuard",
+      "App": "WireGuard",
+      "CMName": "WireGuard",
+      "StageKind": "template",
+      "StageNames": [
+        "WireGuard"
+      ],
+      "StageExpressions": [
+        "\"WireGuard\""
+      ]
+    },
+    {
+      "Packager": "wireshark",
+      "Definition": "wireshark",
+      "Vendor": "Wireshark Foundation",
+      "App": "Wireshark (x64)",
+      "CMName": "Wireshark",
+      "StageKind": "installer",
+      "StageNames": [],
+      "StageExpressions": [
+        "$registryData.DisplayName"
+      ]
+    },
+    {
+      "Packager": "xencenter",
+      "Definition": "xencenter",
+      "Vendor": "Cloud Software Group",
+      "App": "XenCenter",
+      "CMName": "XenCenter",
+      "StageKind": "template",
+      "StageNames": [
+        "XenCenter {version}"
+      ],
+      "StageExpressions": [
+        "\"XenCenter $version\""
+      ]
+    },
+    {
+      "Packager": "xenserver-vmtools",
+      "Definition": "xenservervmtools",
+      "Vendor": "Cloud Software Group",
+      "App": "XenServer VM Tools for Windows",
+      "CMName": "XenServer VM Tools",
+      "StageKind": "template",
+      "StageNames": [
+        "XenServer VM Tools {version}"
+      ],
+      "StageExpressions": [
+        "\"XenServer VM Tools $version\""
+      ]
+    },
+    {
+      "Packager": "xnviewmp",
+      "Definition": "xnviewmp",
+      "Vendor": "XnSoft",
+      "App": "XnView MP",
+      "CMName": "XnView MP",
+      "StageKind": "template",
+      "StageNames": [
+        "XnView MP"
+      ],
+      "StageExpressions": [
+        "\"XnView MP\""
+      ]
+    },
+    {
+      "Packager": "yubicoauthenticator",
+      "Definition": "yubicoauthenticator",
+      "Vendor": "Yubico",
+      "App": "Yubico Authenticator",
+      "CMName": "Yubico Authenticator",
+      "StageKind": "template",
+      "StageNames": [
+        "Yubico Authenticator"
+      ],
+      "StageExpressions": [
+        "\"Yubico Authenticator\""
+      ]
+    },
+    {
+      "Packager": "yubicopivtool",
+      "Definition": "yubicopivtool",
+      "Vendor": "Yubico",
+      "App": "Yubico PIV Tool",
+      "CMName": "Yubico PIV Tool",
+      "StageKind": "template",
+      "StageNames": [
+        "Yubico PIV Tool"
+      ],
+      "StageExpressions": [
+        "\"Yubico PIV Tool\""
+      ]
+    },
+    {
+      "Packager": "yubikeymanagercli",
+      "Definition": "yubikeymanagercli",
+      "Vendor": "Yubico",
+      "App": "YubiKey Manager CLI",
+      "CMName": "YubiKey Manager CLI",
+      "StageKind": "template",
+      "StageNames": [
+        "YubiKey Manager CLI"
+      ],
+      "StageExpressions": [
+        "\"YubiKey Manager CLI\""
+      ]
+    },
+    {
+      "Packager": "zeal",
+      "Definition": "zeal",
+      "Vendor": "Zeal",
+      "App": "Zeal",
+      "CMName": "Zeal",
+      "StageKind": "template",
+      "StageNames": [
+        "Zeal"
+      ],
+      "StageExpressions": [
+        "\"Zeal\""
+      ]
+    },
+    {
+      "Packager": "zoom",
+      "Definition": "zoom",
+      "Vendor": "Zoom Video Communications",
+      "App": "Zoom Workplace",
+      "CMName": "Zoom Workplace",
+      "StageKind": "template",
+      "StageNames": [
+        "Zoom Workplace"
+      ],
+      "StageExpressions": [
+        "\"Zoom Workplace\""
+      ]
+    },
+    {
+      "Packager": "zotero",
+      "Definition": "zotero",
+      "Vendor": "Corporation for Digital Scholarship",
+      "App": "Zotero",
+      "CMName": "Zotero",
+      "StageKind": "template",
+      "StageNames": [
+        "Zotero"
+      ],
+      "StageExpressions": [
+        "\"Zotero\""
+      ]
+    },
+    {
+      "Packager": "zulip",
+      "Definition": "zulip",
+      "Vendor": "Zulip",
+      "App": "Zulip Desktop",
+      "CMName": "Zulip Desktop",
+      "StageKind": "template",
+      "StageNames": [
+        "Zulip Desktop"
+      ],
+      "StageExpressions": [
+        "\"Zulip Desktop\""
+      ]
+    },
+    {
+      "Packager": "zulu-jdk11",
+      "Definition": "zulu-jdk11",
+      "Vendor": "Azul",
+      "App": "Azul Zulu JDK 11 (x64)",
+      "CMName": "Azul Zulu JDK 11 (x64)",
+      "StageKind": "template",
+      "StageNames": [
+        "Azul Zulu JDK 11 (x64)"
+      ],
+      "StageExpressions": [
+        "$DisplayTitle"
+      ]
+    },
+    {
+      "Packager": "zulu-jdk17",
+      "Definition": "zulu-jdk17",
+      "Vendor": "Azul",
+      "App": "Azul Zulu JDK 17 (x64)",
+      "CMName": "Azul Zulu JDK 17 (x64)",
+      "StageKind": "template",
+      "StageNames": [
+        "Azul Zulu JDK 17 (x64)"
+      ],
+      "StageExpressions": [
+        "$DisplayTitle"
+      ]
+    },
+    {
+      "Packager": "zulu-jdk8",
+      "Definition": "zulu-jdk8",
+      "Vendor": "Azul",
+      "App": "Azul Zulu JDK 8 (x64)",
+      "CMName": "Azul Zulu JDK 8 (x64)",
+      "StageKind": "template",
+      "StageNames": [
+        "Azul Zulu JDK 8 (x64)"
+      ],
+      "StageExpressions": [
+        "$DisplayTitle"
+      ]
+    },
+    {
+      "Packager": "zulu-jre11",
+      "Definition": "zulu-jre11",
+      "Vendor": "Azul",
+      "App": "Azul Zulu JRE 11 (x64)",
+      "CMName": "Azul Zulu JRE 11 (x64)",
+      "StageKind": "template",
+      "StageNames": [
+        "Azul Zulu JRE 11 (x64)"
+      ],
+      "StageExpressions": [
+        "$DisplayTitle"
+      ]
+    },
+    {
+      "Packager": "zulu-jre17",
+      "Definition": "zulu-jre17",
+      "Vendor": "Azul",
+      "App": "Azul Zulu JRE 17 (x64)",
+      "CMName": "Azul Zulu JRE 17 (x64)",
+      "StageKind": "template",
+      "StageNames": [
+        "Azul Zulu JRE 17 (x64)"
+      ],
+      "StageExpressions": [
+        "$DisplayTitle"
+      ]
+    },
+    {
+      "Packager": "zulu-jre8",
+      "Definition": "zulu-jre8",
+      "Vendor": "Azul",
+      "App": "Azul Zulu JRE 8 (x64)",
+      "CMName": "Azul Zulu JRE 8 (x64)",
+      "StageKind": "template",
+      "StageNames": [
+        "Azul Zulu JRE 8 (x64)"
+      ],
+      "StageExpressions": [
+        "$DisplayTitle"
+      ]
+    }
+  ]
+}

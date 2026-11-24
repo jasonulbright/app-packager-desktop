@@ -6,6 +6,7 @@
   "Vendor": "Amazon Web Services",
   "Application": "Amazon WorkSpaces",
   "CMName": "Amazon WorkSpaces",
+  "AppName": "Amazon WorkSpaces",
   "Architecture": "x64",
   "VendorUrl": "https://clients.amazonworkspaces.com/",
   "Cpe": "cpe:2.3:a:amazon:workspaces:*:*:*:*:*:*:*:*",

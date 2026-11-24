@@ -6,6 +6,7 @@
   "Vendor": "TeamViewer",
   "Application": "TeamViewer Host (x64)",
   "CMName": "TeamViewer Host",
+  "AppName": "TeamViewer Host {version}",
   "Architecture": "x64",
   "VendorUrl": "https://www.teamviewer.com/",
   "Cpe": "cpe:2.3:a:teamviewer:teamviewer:*:*:*:*:*:*:*:*",

@@ -34,6 +34,7 @@
     <Content Include="Fixtures\Vulnerability\*.json" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="Fixtures\SiteHygiene\*.json;Fixtures\SiteHygiene\*.jsonl" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="Fixtures\Discovery\*.txt" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="Fixtures\TitleParity\*.json" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="Fixtures\CmImport\*.xml" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="Fixtures\DetectionTester\*.json" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="Fixtures\SiteData\*.json" CopyToOutputDirectory="PreserveNewest" />

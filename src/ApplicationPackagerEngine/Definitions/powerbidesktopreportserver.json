@@ -6,6 +6,7 @@
   "Vendor": "Microsoft",
   "Application": "Microsoft Power BI Desktop (optimized for Power BI Report Server) (x64)",
   "CMName": "Microsoft Power BI Desktop (optimized for Power BI Report Server)",
+  "AppName": "Microsoft Power BI Desktop (optimized for Power BI Report Server) - {version}",
   "Architecture": "x64",
   "VendorUrl": "https://www.microsoft.com/power-platform/products/power-bi/report-server",
   "ArpName": "Microsoft Power BI Desktop (* 20??) (x64)",

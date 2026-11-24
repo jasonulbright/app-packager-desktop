@@ -6,6 +6,7 @@
   "Vendor": "Microsoft",
   "Application": "SQL Server 2022 Express (x64)",
   "CMName": "Microsoft SQL Server 2022 Express",
+  "AppName": "Microsoft SQL Server 2022 Express",
   "Architecture": "x64",
   "VendorUrl": "https://www.microsoft.com/sql-server/sql-server-downloads",
   "Cpe": "cpe:2.3:a:microsoft:sql_server:2022:*:*:*:express:*:*:*",

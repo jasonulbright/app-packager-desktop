@@ -6,6 +6,7 @@
   "Vendor": "Azul",
   "Application": "Azul Zulu JDK 17 (x64)",
   "CMName": "Azul Zulu JDK 17 (x64)",
+  "AppName": "Azul Zulu JDK 17 (x64)",
   "Architecture": "x64",
   "VendorUrl": "https://www.azul.com/downloads/?package=jdk",
   "Cpe": "cpe:2.3:a:azul:zulu:*:*:*:*:*:*:*:*",
