@@ -43,7 +43,9 @@ function Header-State($w) {
 # The row check boxes: every check box in the grid except the one in the header.
 function Row-States($w) {
     $grid = Find-El $w -ControlType 'DataGrid' -Timeout 10
-    $boxes = $grid.FindAll([System.Windows.Automation.TreeScope]::Descendants, (New-Object System.Windows.Automation.PropertyCondition ([System.Windows.Automation.AutomationElement]::ControlTypeProperty), [System.Windows.Automation.ControlType]::CheckBox))
+    $checkBoxType = [System.Windows.Automation.ControlType]::CheckBox
+    $cond = [System.Windows.Automation.PropertyCondition]::new([System.Windows.Automation.AutomationElement]::ControlTypeProperty, $checkBoxType)
+    $boxes = $grid.FindAll([System.Windows.Automation.TreeScope]::Descendants, $cond)
     @(foreach ($b in $boxes) { if ($b.Current.AutomationId -ne 'chkSelectAllPackages') { $b.GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern).Current.ToggleState.ToString() } })
 }
 function Click-Header($w) { Real-Click (Find-El $w 'chkSelectAllPackages' -Timeout 10) }
