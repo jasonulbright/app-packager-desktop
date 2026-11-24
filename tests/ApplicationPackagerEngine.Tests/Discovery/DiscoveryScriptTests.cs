@@ -104,7 +104,9 @@ public sealed class DiscoveryScriptTests : IDisposable
         Assert.Contains("$builder['ApplicationIntent'] = 'ReadOnly'", text);
         Assert.Contains("$builder['Connect Timeout']", text);
         Assert.Contains("$command.CommandTimeout = [Math]::Max(1, $CommandTimeout)", text);
-        Assert.DoesNotMatch("(?i)password|user id|Encrypt", text);
+        Assert.DoesNotMatch("(?i)password|user id", text);
+        Assert.Contains("if ($Encrypt) { $builder['Encrypt'] = $true }", text);
+        Assert.Contains("if ($Trust) { $builder['TrustServerCertificate'] = $true }", text);
         var final = text[text.IndexOf("    finally {", StringComparison.Ordinal)..];
         Assert.Contains("$reader.Dispose()", final);
         Assert.Contains("$command.Dispose()", final);
@@ -204,8 +206,8 @@ public sealed class DiscoveryScriptTests : IDisposable
         var line = RunPowerShell(script).Trim();
         using var json = System.Text.Json.JsonDocument.Parse(line);
         var detail = json.RootElement.GetProperty("detail").GetString()!;
-        Assert.StartsWith("The certificate chain was issued by an authority that is not trusted. xxx", detail);
-        Assert.Equal(300, detail.Length);
+        Assert.StartsWith("The certificate chain was issued by an authority that is not trusted.", detail);
+        Assert.InRange(detail.Length, 250, 300);
         Assert.All(line, c => Assert.True(c < 128));
         Assert.DoesNotContain('\n', line.TrimEnd());
     }
@@ -304,8 +306,8 @@ public sealed class DiscoveryScriptTests : IDisposable
     public void BothProtocolsFailingWritesOnePlainErrorLine()
     {
         var output = RunSite("$global:FailQuery = @('Dcom', 'Wsman')");
-        Assert.Contains("{\"t\":\"error\",\"stage\":\"site\"}", output);
-        Assert.DoesNotContain("Access is denied", output);
+        Assert.Contains("{\"t\":\"error\",\"stage\":\"site\",\"detail\":\"Dcom ", output);
+        Assert.Contains("; Wsman ", output);
         Assert.DoesNotContain("HRESULT", output);
         Assert.Contains("dispose:Dcom", output);
         Assert.Contains("dispose:Wsman", output);

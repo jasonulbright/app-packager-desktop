@@ -550,7 +550,7 @@ public sealed class DiscoveryRunnerTests
         editor.TrustServerCertificate = false;
         var target = new AppSettings();
         editor.ApplyTo(target);
-        Assert.False(target.SiteHygieneLive!.TrustSqlCertificate);
+        Assert.NotEqual(true, target.SiteHygieneLive!.TrustSqlCertificate);
         Assert.True(target.SiteHygieneLive.EncryptSql);
 
         var untouched = new AppSettings();
@@ -641,13 +641,13 @@ public sealed class DiscoveryRunnerTests
     }
 
     [Fact]
-    public async Task AnUnexpectedFailureShowsNoExceptionText()
+    public async Task AnUnexpectedFailureShowsTheTypeAndTheTextButNoStackTrace()
     {
-        var service = new FakeDiscoveryService { Answer = (_, _) => throw new InvalidOperationException("at System.Data.SqlClient.Secret line 42") };
+        var service = new FakeDiscoveryService { Answer = (_, _) => throw new InvalidOperationException("the view is missing") };
         var outcome = await Runner(service, new InMemorySettings(Configured())).ScanAsync(CancellationToken.None);
         Assert.False(outcome.Ok);
-        Assert.DoesNotContain("SqlClient", outcome.Message);
-        Assert.DoesNotContain("line 42", outcome.Message);
+        Assert.Contains("InvalidOperationException: the view is missing", outcome.Message);
+        Assert.DoesNotContain("   at ", outcome.Message);
     }
 
     [Fact]

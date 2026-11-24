@@ -264,10 +264,10 @@ public class DiscoveryServiceTests
     public void ASqlErrorLineWithTypesAndTextShowsTheServerTheDatabaseTheTypeTheNumbersAndTheCause()
     {
         const string line = "{\"t\":\"error\",\"stage\":\"sql\",\"numbers\":[],\"sspi\":false,\"anonymous\":false,\"types\":[\"MethodInvocationException\",\"SqlException\",\"Win32Exception\"],"
-            + "\"detail\":\"The certificate chain was issued by an authority that is not trusted.\"}";
+            + "\"detail\":\"A transport-level error has occurred.\"}";
         var ex = Assert.Throws<DiscoveryException>(() =>
             DiscoveryService.ParseInventory(line + "\n{\"t\":\"end\"}", new DiscoveryDatabaseTarget("sql01.corp.example.com\\SCCM", "CM_ABC"), 45));
-        Assert.Equal("The site database query on sql01.corp.example.com\\SCCM failed. Server sql01.corp.example.com\\SCCM, database CM_ABC. Error: Win32Exception: The certificate chain was issued by an authority that is not trusted.", ex.Message);
+        Assert.Equal("The site database query on sql01.corp.example.com\\SCCM failed. Server sql01.corp.example.com\\SCCM, database CM_ABC. Error: Win32Exception: A transport-level error has occurred.", ex.Message);
     }
 
     [Fact]
