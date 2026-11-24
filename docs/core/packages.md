@@ -152,7 +152,7 @@ The full list is in [Settings reference](../reference/settings.md).
 - A row that the search box hides stays checked. An operation still includes it. Ctrl+A and the header check box act on all rows, also on hidden rows.
 - Check ConfigMgr stops a query for one application after 60 seconds. The log shows `query timed out after 60s`.
 - App Packager Desktop does not check for a new version of itself. Select **Releases** under Settings, About to open the releases page.
-- The toolbar shows the label of each button while the labels fit in two lines. When they need more lines, the toolbar shows the icons only. The tooltip of each button then names the button.
+- The toolbar is one row. It shows the label of each button while the labels fit in that row. When they do not fit, the toolbar shows the icons only. The tooltip of each button then names the button.
 - The window opens at 1200 by 800 and cannot be smaller than 900 by 600. The supported minimum size is 1024 by 720. A smaller size can work and is not supported.
 - The grid scrolls sideways. A long application name ends with an ellipsis. The tooltip shows the full name.
 

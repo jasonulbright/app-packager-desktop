@@ -5,6 +5,7 @@ using ApplicationPackagerEngine.Services;
 using ApplicationPackagerEngine.Services.Workbench;
 using ApplicationPackagerUI.Controls;
 using ApplicationPackagerUI.Models;
+using ApplicationPackagerUI.Services;
 
 namespace ApplicationPackagerUI.ViewModels.Pages;
 
@@ -79,6 +80,7 @@ public partial class PackagesViewModel
         }
 
         IsOperationRunning = true;
+        _operationCts = new CancellationTokenSource();
         try
         {
             var profileName = WorkbenchJson.AsText(snapshot.Profile["Name"]) ?? snapshot.ProfileId;
@@ -88,7 +90,7 @@ public partial class PackagesViewModel
         }
         finally
         {
-            IsOperationRunning = false;
+            EndByoOperation();
         }
     }
 
@@ -115,6 +117,7 @@ public partial class PackagesViewModel
         PackagerInfo? row = null;
         RunSnapshot? snapshot = buildSnapshot;
         IsOperationRunning = true;
+        _operationCts = new CancellationTokenSource();
         try
         {
             var store = WorkbenchStore.Open();
@@ -151,10 +154,18 @@ public partial class PackagesViewModel
         }
         finally
         {
-            IsOperationRunning = false;
+            EndByoOperation();
         }
         if (target == PublishRunTargets.WsusOnly) await PublishWsusRunAsync([row!], snapshot);
         else await PackageAsync([row!], target, snapshot);
+    }
+
+    /// <summary>Ends the Workbench stage: releases the run flag and the cancellation source.</summary>
+    private void EndByoOperation()
+    {
+        IsOperationRunning = false;
+        _operationCts?.Dispose();
+        _operationCts = null;
     }
 
     private async Task<PackagerInfo?> StageByoCoreAsync(string applicationId, RunSnapshot snapshot, AppSettings settings)
@@ -175,7 +186,16 @@ public partial class PackagesViewModel
         AddLogLine($"Stage: {plan.Manifest.AppName} {plan.Manifest.SoftwareVersion} (source revision {plan.Source.Revision}, {plan.Source.FileName})");
         var inputs = new StageInputs { RunSnapshot = snapshot, SigningPolicy = settings.ScriptSigning };
         var pendingRow = Services.WorkbenchRunSnapshots.ByoRow(plan.Manifest, plan.Analysis, "", applicationId);
-        var result = await ByoStaging.StageAsync(_stagingService, plan, settings.DownloadRoot, line => AddLogLine($"  {line}"), CancellationToken.None, inputs);
+        var outcome = await CancellableStageRun.RunAsync(ct => ByoStaging.StageAsync(
+            _stagingService, plan, settings.DownloadRoot, line => AddLogLine($"  {line}"), ct, inputs), _operationCts!.Token);
+        if (outcome.Cancelled)
+        {
+            StatusText = RunEndLine(outcome.Tally, "Stage", 1, "staged");
+            _executionService.RecordExternalStage(pendingRow,
+                new PackagerExecutionResult { ExitCode = 1, StdErr = "Stage cancelled." }, snapshot, AddLogLine);
+            return null;
+        }
+        var result = outcome.Result ?? new StagingResult { Success = false, ErrorMessage = outcome.ErrorMessage };
         if (!result.Success)
         {
             AddLogLine($"Stage FAILED: {result.ErrorMessage}");

@@ -127,7 +127,7 @@ A failed supersedence step does not use `Partial`. `Partial` means that the obje
 2. One Click shows the row as published with a warning. It keeps the version pending in its inventory for a supersedence-only pass: on the next run, the program does not publish the version again. It runs the lookup and the supersedence step for that application, and nothing else. The step reads the existing relations first, so a second run adds only the missing ones.
 
    Built (Q-53, after the PowerShell app): the inventory entry of the ConfigMgr publish carries the state. A record whose last attempt is "Published, supersedence not applied" for the version that last succeeded is pending. The plan reads the record of the site that is set now, and it does not read the supersedence mode. For a pending version, with no Force and the same build, the plan shows the step `Supersedence` and no ConfigMgr publish. A row that has no other destination to publish drops the step `Stage`, so the run stages nothing. The count line ends with `, <N> supersedence only`. The run does the lookup and the supersedence step for the application that the record names, with the published-only requirement, and with the identity marker from the manifest of the last stage (without that manifest, or without a site code, the pass reports it, and the version stays pending). The pass runs before any other work of the row. `Applied` or `No older version` ends the pending state (the destination record is written again as a success of the same version, object and build) and the row outcome is `Superseded`. `Not applied` keeps it pending, and so does a mode of `Off` (`not run`). Force publishes the version again instead. A new publish replaces the record, so it clears the pending state. The report counts `Supersedence applied` (rows with the outcome `Superseded`) and `Supersedence not applied` (rows whose ConfigMgr result says so; a publish with a failed step stays `Published`). The pass applies to ConfigMgr only: WSUS and Intune have no supersedence step.
-3. The publish page has an "Apply supersedence" action for one application. It runs the lookup and the step without a new publish.
+3. *Historical:* the publish page had an "Apply supersedence" action for one application. The action is removed.
 
 ## Blocked combination
 
@@ -182,7 +182,7 @@ WSUS keeps its own supersedence and its own "decline superseded" setting. This s
 ## Interface
 
 1. Options: a "Supersedence" group with the version rule (ConfigMgr and Intune) and the supersedence mode, per site.
-2. Publish page: one line that shows the effective values and where they come from (site default, per-title override, command line). A link opens the per-title override. The "Apply supersedence" action is on this page.
+2. Publish page: one line that shows the effective values and where they come from (site default, per-title override, command line). A link opens the per-title override. *Historical:* the "Apply supersedence" action on this page is removed.
 3. Preflight panel (per target): the blocked combination, the Exact guard blocks, the chain warnings, and the count for the rewrite step.
 4. Result: the result of the publish names the supersedence step, the old application, and the outcome.
 
@@ -212,7 +212,7 @@ Unit tests (run in CI):
 6. The old-application lookup (identity marker required, architecture kept in the match, lower version only, newest first, retired skipped, unparseable version skipped, an application with the same title as the new one is never returned, a title without a version gives no supersedence). Two definitions whose titles reduce to the same form are not linked. Two profiles of one definition are not linked. Two titles without a definition that have the same base title but different line names are not linked. A title without a line name gets no supersedence. A line name is not copied to another title. An application without a marker is never chosen, and the chain warning lists it. "Use this as the old application" writes the marker only after confirmation. The publish writes the marker, and the replace path keeps it.
 7. The pairing of deployment types: one-to-one for single-type applications, by name suffix for multi-type applications, and the warning for one with no pair.
 8. The script for the supersedence step (parameter text, quoting, uninstall option, existing relations are not added again).
-9. A failed supersedence step gives the separate state and keeps the new application. A second run (publish with Skip or Overwrite, and a One Click run) runs only that step. A One Click row in this state is not skipped as published. The "Apply supersedence" action runs it without a publish.
+9. A failed supersedence step gives the separate state and keeps the new application. A second run (publish with Skip or Overwrite, and a One Click run) runs only that step. A One Click row in this state is not skipped as published. *Historical:* the "Apply supersedence" action that ran it without a publish is removed.
 10. The chain check gives the expected warnings.
 11. The rewrite step: changes only the clauses that it must, is blocked with a required deployment, skips a clause that fails the Exact guard and lists the reason, writes the log, and "Restore" reads the log.
 12. The shipped site default is `Minimum` and `Off`, and a current user's publish output does not change, except that it carries the identity marker.
@@ -234,7 +234,7 @@ The lab rules apply: only the lab site server, the lab client and the lab domain
 One pull request for this specification. Then the implementation in four pull requests, one at a time. Each has its tests, its test documentation, a version change and a changelog entry.
 
 1. Settings, the version rule, the Exact guard, and the identity marker that every ConfigMgr publish writes (engine, publish, Options, per-title override, command line). The marker comes first so that applications published from now on can be found by the lookup. The lab confirmation of the marker field (the keywords field is visible to users in Software Center, so the marker is appended to the keywords that an administrator set and never replaces them, or another field is used) and the lab test 5 belong to this step. The command line behaves like One Click: a blocked row creates nothing, and a title without a definition gets no supersedence.
-2. The old-application lookup, the ConfigMgr supersedence step with its separate outcome and the "Apply supersedence" action, the replace path that keeps the relations, the blocked combination in the preflight panel, and the lab tests 1 to 3 and 6.
+2. The old-application lookup, the ConfigMgr supersedence step with its separate outcome (*historical:* the "Apply supersedence" action is removed), the replace path that keeps the relations, the blocked combination in the preflight panel, and the lab tests 1 to 3 and 6.
 3. The chain check.
 4. The rewrite step with "Restore", and the lab test 4.
 

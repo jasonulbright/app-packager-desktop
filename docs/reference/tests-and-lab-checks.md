@@ -628,7 +628,7 @@ Replaces the rewrite, restore, Old Application and identity-marker design (steps
 
 ## App Packager toolbar in one row, Publish All, Discover in Settings (Q-102, part 1)
 
-The toolbar is one row in the order One Click | Check Latest, Check ConfigMgr, Check CVEs | Stage, Publish All | Publish to ConfigMgr, Publish to Intune, Publish to WSUS | CVE Report, Ops History. The labels show where they fit in that row (a 1920 px window); in a narrower window each button shows its icon only, and the row still does not wrap down to the smallest window (900 px). Cancel keeps its room (Hidden, not Collapsed), so the row does not change when a run starts. Discover unmanaged software, Supersedence and WSUS Updates left the toolbar; the Discover buttons and WSUS Updates are in Settings.
+The toolbar is one row in the order One Click | Check Latest, Check ConfigMgr, Check CVEs | Stage, Publish All | Publish to ConfigMgr, Publish to Intune, Publish to WSUS | CVE Report, Ops History. The labels show where they fit in that row (a 1920 px window); in a narrower window each button shows its icon only, and the row still does not wrap down to the smallest window (900 px). Cancel keeps its room (Hidden, not Collapsed), so the row does not change when a run starts. Discover unmanaged software, Supersedence and WSUS Updates left the toolbar; the Discover buttons are in Settings, and WSUS Updates is an entry of the sidebar under Add from file.
 
 | Test class | What it proves |
 |---|---|
@@ -640,13 +640,13 @@ Not covered by a test: the first-run question after Setup, the two Discover butt
 
 ## Supersedence grid in Settings (Q-102, part 2)
 
-The supersedence setting of an application moved from the App Packager toolbar to Settings, Supersedence: a grid of all applications with a Supersedence column, the buttons for the checked applications (Follow the default, Off, Replace, Replace and uninstall), for all applications (Replace, Replace and uninstall) and for none (Off for all). The grid edits a copy of the settings, and Save Settings writes it. The key names are unchanged. The edits go through the same editor as before, so nothing is switched on silently.
+The supersedence setting of an application moved from the App Packager toolbar to Settings, Application Settings: a grid of all applications with a Supersedence column, the buttons for the checked applications (Follow the default, Off, Replace, Replace and uninstall), for all applications (Replace, Replace and uninstall) and for none (Off for all). The grid edits a copy of the settings, and Save Settings writes it. The key names are unchanged. The edits go through the same editor as before, so nothing is switched on silently.
 
 | Test class | What it proves |
 |---|---|
-| `SupersedenceGridTests` | A row follows the default until it has a mode of its own; a word that is not a choice changes nothing; the checked applications get their own mode; all applications take the mode as the default and clear the single settings; none is Off for all; the copy is edited without changing the stored settings and keeps the version rule of an override; the grid and its buttons are on the Supersedence page and the toolbar has no Supersedence text. |
+| `SupersedenceGridTests` | A row follows the default until it has a mode of its own; a word that is not a choice changes nothing; the checked applications get their own mode; all applications take the mode as the default and clear the single settings; none is Off for all; the copy is edited without changing the stored settings and keeps the version rule of an override; the grid and its buttons are on the Application Settings page and the toolbar has no Supersedence text. |
 
-Not covered by a test: the window against a real site (a package run still asks before it applies a supersedence). The lab capture script of the supersedence guide (`Capture-PackagesSupersedence.ps1`) drives the grid of Settings, Supersedence and the buttons of the checked applications.
+Not covered by a test: the window against a real site (a package run still asks before it applies a supersedence). The lab capture script of the supersedence guide (`Capture-PackagesSupersedence.ps1`) drives the grid of Settings, Application Settings and the buttons of the checked applications.
 
 ## WSUS Updates in the sidebar (Q-102, addendum)
 

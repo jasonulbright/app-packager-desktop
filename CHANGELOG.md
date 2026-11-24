@@ -1,5 +1,18 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- Stop the Stage of a dropped installer or a bring-your-own application with Cancel.
+- Show the Cancelled status line for these stages, as for the other runs.
+
+### Changed
+
+- Show the site file entries in the image of the site switcher.
+- Add an image of the Import window for a site file.
+- Correct the page names and the toolbar text in the guide.
+
 ## [2026.1123.58] - 2026-11-23
 
 ### Added
