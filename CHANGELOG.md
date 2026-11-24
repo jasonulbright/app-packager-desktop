@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## [2026.1124.60] - 2026-11-24
 
 ### Changed
 
