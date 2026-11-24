@@ -139,18 +139,17 @@ public partial class PackagesPage
 
     private void SelectAllCheckBox_Click(object sender, RoutedEventArgs e)
     {
-        if (sender is System.Windows.Controls.CheckBox cb)
-        {
-            var vm = (PackagesViewModel)DataContext!;
-            var newState = cb.IsChecked == true;
-            foreach (var p in vm.Packagers)
-                p.IsSelected = newState;
-            vm.IsAllSelected = newState;
-        }
+        // The header is tri-state: the view model owns the value, the click only advances its cycle.
+        var vm = (PackagesViewModel)DataContext!;
+        vm.CycleSelectionCommand.Execute(null);
+        if (sender is System.Windows.Controls.CheckBox cb) cb.IsChecked = vm.HeaderSelection;
+        e.Handled = true;
     }
 
     private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
+        if (e.PropertyName == nameof(PackagesViewModel.HeaderSelection))
+            SelectAllCheckBox.IsChecked = ((PackagesViewModel)DataContext!).HeaderSelection;
         if (e.PropertyName == nameof(PackagesViewModel.ShowDebugColumns))
         {
             var show = ((PackagesViewModel)DataContext!).ShowDebugColumns;

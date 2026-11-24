@@ -45,7 +45,11 @@ public partial class PackagesViewModel : ObservableObject
     [ObservableProperty] private string _statusText = "Ready.";
     [ObservableProperty] private bool _isOperationRunning;
     [ObservableProperty] private bool _showDebugColumns;
-    [ObservableProperty] private bool _isAllSelected;
+    /// <summary>The bulk selection cycle behind the header check box (same rules as the PowerShell app).</summary>
+    private readonly SelectionCycle _selection = new();
+
+    /// <summary>Header check box: checked = all visible rows, indeterminate = updates only, unchecked = none.</summary>
+    public bool? HeaderSelection => _selection.HeaderCheck;
     [ObservableProperty] private int _progressCurrent;
     [ObservableProperty] private int _progressTotal;
     [ObservableProperty] private bool _showProgress;
@@ -235,20 +239,28 @@ public partial class PackagesViewModel : ObservableObject
             : $"Showing {FilteredPackagers.Count} of {Packagers.Count} packager(s).";
     }
 
+    /// <summary>One click on the header check box: none, every visible row, updates only, none.</summary>
+    [RelayCommand]
+    private void CycleSelection()
+    {
+        _selection.Advance(Packagers, FilteredPackagers, AddLogLine);
+        OnPropertyChanged(nameof(HeaderSelection));
+    }
+
+    /// <summary>Ctrl+A: every visible row, or clear when every visible row is already the bulk selection.</summary>
     [RelayCommand]
     private void ToggleSelectAll()
     {
-        var newState = !IsAllSelected;
-        foreach (var p in Packagers)
-            if (p.IsRunnable) p.IsSelected = newState;
-        IsAllSelected = newState;
+        if (_selection.State == SelectionCycleState.All) _selection.Clear(Packagers, AddLogLine);
+        else _selection.SelectAllVisible(Packagers, FilteredPackagers, AddLogLine);
+        OnPropertyChanged(nameof(HeaderSelection));
     }
 
     [RelayCommand]
     private void SelectUpdateAvailable()
     {
-        foreach (var p in Packagers)
-            p.IsSelected = p.IsRunnable && CveRowState.IsUpdateAvailable(p.Status);
+        _selection.SelectUpdates(Packagers, FilteredPackagers, AddLogLine);
+        OnPropertyChanged(nameof(HeaderSelection));
     }
 
     [RelayCommand]

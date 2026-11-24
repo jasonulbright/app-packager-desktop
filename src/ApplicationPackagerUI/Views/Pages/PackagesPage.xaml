@@ -331,9 +331,12 @@
                     </DataGridTemplateColumn.CellStyle>
                     <DataGridTemplateColumn.Header>
                         <CheckBox x:Name="SelectAllCheckBox"
+                                  IsThreeState="True" IsChecked="False"
+                                  AutomationProperties.AutomationId="chkSelectAllPackages"
+                                  AutomationProperties.Name="Select applications"
                                   Click="SelectAllCheckBox_Click"
                                   HorizontalAlignment="Center"
-                                  Background="Transparent" ToolTip="Select or clear every application that can run." />
+                                  Background="Transparent" ToolTip="Click to cycle: every visible application, only those with an update available, then none." />
                     </DataGridTemplateColumn.Header>
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
