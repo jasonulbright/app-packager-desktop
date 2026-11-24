@@ -624,7 +624,9 @@ Replaces the rewrite, restore, Old Application and identity-marker design (steps
 | `SupersedenceStepTests`, `SupersedenceVersionRuleTests` | The choice and the pairing, the step script, the Exact guard and the Equals (`IsEquals`) path for the application that is packaged. |
 | `PublishPreflightTests`, `BuildArgumentsTests`, `PowerShellLiteralTests`, `OneClickRowRunnerTests`, `LocalFileGridStageTests` | The preflight sentence, `--yes`, the scripts parse, One Click and the stage with the new calls. |
 
-**Lab check (2026-11-19, CM01 site MCM, CLIENT01 labadmin session, installed candidate, real mouse input).** Throw-away n-1 applications `Everything (x64) - 1.4.0.1000` and `WizTree (x64) - 4.30` against real packaged n (Everything 1.4.1.1032, WizTree 4.34). Yes: relation created on n, n-1 unchanged (same revision and XML hash). Skip: n created without a relation, n-1 unchanged. No: nothing created, n-1 unchanged. Remember: one window, both applications got a relation, both n-1 unchanged. Light and dark themes captured. After the check 0 test applications were left and the content folders were removed; free disk on CM01 did not change (103.7 GB). The Equals path is proven by the unit tests above, not by a separate site run. **Intune supersedence is not built** and so not proven (queued separately); the layout tests that need a large display ran on CLIENT01.
+**Lab check (2026-11-19, CM01 site MCM, CLIENT01 labadmin session, installed candidate, real mouse input).** Throw-away n-1 applications `Everything (x64) - 1.4.0.1000` and `WizTree (x64) - 4.30` against real packaged n (Everything 1.4.1.1032, WizTree 4.34). Yes: relation created on n, n-1 unchanged (same revision and XML hash). Skip: n created without a relation, n-1 unchanged. No: nothing created, n-1 unchanged. Remember: one window, both applications got a relation, both n-1 unchanged. Light and dark themes captured. After the check 0 test applications were left and the content folders were removed; free disk on CM01 did not change (103.7 GB). The Equals path has its own site run (2026-11-23, next paragraph). **Intune supersedence is not built** and so not proven (queued separately); the layout tests that need a large display ran on CLIENT01.
+
+**Lab check of the version rule (2026-11-23, CM01 site MCM, CLIENT01 labadmin session, installed candidate 2026.1123.59, `tools/guide-capture/Probe-SupersedenceRule.ps1`).** A throw-away older application `WizTree (x64) - 4.30` and the real new application `WizTree (x64) - 4.34` (File version clause, staged operator `GreaterEquals`). The setting of the application was supersedence `Replace` with the version rule `Exact` in one run and `Minimum` in the other. The run answered the confirmation window with Yes by mouse. At the window the new application was not on the site yet, so no relation could exist before Yes. After the publish the run read the application back from the site. Exact: the stored version operator is `Equals` (the SDM text of `IsEquals`) and the relation to the older application exists. Minimum: the stored operator is `GreaterEquals` and the relation exists. In both runs the older application kept its revision and its XML hash. The Exact guard refused the first Exact run, because the seeded settings held no installed value for the file version (the log named the missing value); the second run seeded the value that the command line records and passed. The run removed both applications and the content folder.
 
 ## App Packager toolbar in one row, Publish All, Discover in Settings (Q-102, part 1)
 
@@ -665,3 +667,19 @@ Settings, Application Settings is one grid with the settings of each application
 | `SupersedenceGridTests` | The grid and the bulk bar are on the Application Settings page and the toolbar has no Supersedence text. |
 
 Lab proof (CLIENT01, real mouse input, `tools/guide-capture/Capture-SettingsApplications.ps1`): the run checks an application with the mouse, sets Install scope and Supersedence for the checked application with the bulk bar, sets the package source of another application in its row, checks that the version in the title is locked, saves, and reads `settings.json` back. A stage run of one application with the install scope System, User and not set shows the install mode in its stage manifest.
+
+## Lab check of a release candidate
+
+`tools/guide-capture/Probe-CandidateCheck.ps1` checks the installed candidate in the interactive session of the lab user, under the capture lock, in Light and in Dark. It starts the app in an isolated data folder and drives it with real mouse input. Each check reads PASS or FAIL.
+
+| Check | What it proves |
+|---|---|
+| Version | The file version of the installed app is the version of the candidate. |
+| Toolbar | The eleven buttons are in one row in the owner order, and Cancel is hidden while no run is active. |
+| Sidebar and Settings | The sidebar has WSUS Updates. Settings, Application Settings shows its grid. |
+| Check Latest and Check ConfigMgr | One product ends with the finished line in the log. Check ConfigMgr also shows its status line. The buttons are enabled again. |
+| Cancel | Check Latest for every product, then Cancel with the mouse. The status line and the log read `Check Latest cancelled: N of M products checked.` Cancel is hidden and the buttons are enabled again. |
+| Site Hygiene | A scan ends and shows its result line. |
+| Idle | The app idles 60 seconds and does not crash. |
+
+The run reads the site only. It changes nothing on it.
