@@ -683,3 +683,11 @@ Lab proof (CLIENT01, real mouse input, `tools/guide-capture/Capture-SettingsAppl
 | Idle | The app idles 60 seconds and does not crash. |
 
 The run reads the site only. It changes nothing on it.
+
+## Glyph and text of a button on one line (Q-125)
+
+The icon of a button sat one pixel off the text of its label on some pages. The text of a control snaps to the pixel grid on its own, so a control at a fractional position put its glyph and its text on different pixel rows. The pages that a frame hosts were not rounded. `LayoutRounding` now rounds every window and every page, and the button style rounds too.
+
+`ButtonAlignmentTests` draws a button at 100, 125 and 150 percent display scale in both themes, in the Secondary and the Danger appearance, at four fractional positions. It measures the pixels. The offset between the glyph and the first capital letter of the text is at most one device pixel and is the same at every position. Two more tests pin the rounding of the windows, the pages and the button style.
+
+`tools/guide-capture/Probe-CancelAlignment.ps1` measures the pixels of the installed app in the interactive session of the lab user, under the capture lock, in Light and in Dark. It starts runs that show a Cancel button (Check Latest on the Packages page, a Site Hygiene scan, the read of Deployment Helper, DP Content Manager and Collection and Compliance, a Detection Tester run) and measures the Cancel button and the idle buttons of each page. Each button passes when the offset is at most half a device pixel. The run ends with `ALIGN-FAILS=<n>`. The session of the lab user keeps the display scale that it signed in with, so the render tests cover 125 and 150 percent.

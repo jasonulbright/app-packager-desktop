@@ -10,10 +10,14 @@
     <!-- The text of a button is always bold, in both themes (decision D-07 of the suite); bold elsewhere is for the title of a field only.
          Every button style of a page is based on this one. A test fails when a button turns its text normal. -->
     <!-- The size of a button: 32 px high at 14 pt (12 px left and right, 4 px above and below), on the 4 px grid. One style for the app. -->
+    <!-- The glyph of a button and its text share one line (Q-125). A button at a fractional position put its text and its glyph on different pixel rows (the text snaps to the pixel grid,
+         the glyph does not), so the glyph sat 1 px high on the Packages toolbar and in step with the text on other pages. The rounding of the layout gives the same rows wherever the
+         button sits. ButtonAlignmentTests measures the pixels at 100, 125 and 150 percent display scale. -->
     <Style TargetType="ui:Button" BasedOn="{StaticResource {x:Type ui:Button}}">
         <Setter Property="FontWeight" Value="SemiBold" />
         <Setter Property="Padding" Value="12,4" />
         <Setter Property="MinHeight" Value="32" />
+        <Setter Property="UseLayoutRounding" Value="True" />
     </Style>
     <Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
         <Setter Property="FontWeight" Value="SemiBold" />
