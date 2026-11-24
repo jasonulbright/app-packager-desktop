@@ -155,9 +155,9 @@ public sealed class ConfigMgrNameLookupTests : IDisposable
         Assert.Equal($"FOUND|{title}|1.0|1|tier=prefix; chose '{title}'", Lookup(cmName, (title, "1.0")));
 
     [Fact]
-    public void TheLastTierPrefersTheTitleWithTheFewestWordsAfterTheNameAndSaysSoInTheNote() =>
-        Assert.Equal("FOUND|Chrome 142.0|142.0|2|tier=prefix; chose 'Chrome 142.0'; other matches: Chrome Remote Desktop Host",
-            Lookup("Chrome", ("Chrome Remote Desktop Host", "1.0"), ("Chrome 142.0", "142.0")));
+    public void TheLastTierPrefersTheTitleWithTheFewestExtraWordsAndSaysSoInTheNote() =>
+        Assert.Equal("FOUND|Chrome Beta Channel|2.0|2|tier=prefix; chose 'Chrome Beta Channel'; other matches: Chrome Remote Desktop Host",
+            Lookup("Chrome", ("Chrome Remote Desktop Host", "1.0"), ("Chrome Beta Channel", "2.0")));
 
     [Fact]
     public void TheLastTierNeverMatchesInTheMiddleOfAWord() =>

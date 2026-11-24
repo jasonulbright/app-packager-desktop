@@ -97,7 +97,7 @@ public static class MecmQueryClassifier
         if (exitCode != 0) return MecmQueryResult.Failure($"query exited {exitCode}");
 
         var parts = record.Split('|');
-        if (parts.Length is not (4 or 5))
+        if (parts.Length is not (4 or 5) || (parts.Length == 5 && !parts[4].StartsWith("tier=", StringComparison.Ordinal)))
             return MecmQueryResult.Failure($"malformed FOUND record with {parts.Length} field(s): {record}");
 
         var displayName = parts[1].Trim();
