@@ -27,10 +27,20 @@ public sealed class StageFolderTests
         {
             var def = JsonSerializer.Deserialize<AppDefinition>(File.ReadAllText(file), options);
             if (def is null || string.IsNullOrWhiteSpace(def.Application)) continue;
-            Assert.Equal($"{def.Application.Replace(" ", "")}-{def.Architecture}", StageFolder.Name(def));
+            Assert.Equal($"{def.FolderApplication().Replace(" ", "")}-{def.Architecture}", StageFolder.Name(def));
+            if (def.StageFolderName is not null) Assert.NotEqual(def.Application, def.StageFolderName);
             checkedCount++;
         }
         Assert.True(checkedCount > 300);
+    }
+
+    [Fact]
+    public void TheTitleOfThePowerShellAppDoesNotMoveTheStageOfAnApplicationThatWasStagedBefore()
+    {
+        var putty = JsonSerializer.Deserialize<AppDefinition>(File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Definitions", "putty.json")), new JsonSerializerOptions { PropertyNameCaseInsensitive = true })!;
+
+        Assert.Equal("PuTTY", putty.Application);
+        Assert.Equal("PuTTY(x64)-x64", StageFolder.Name(putty));
     }
 
     [Theory]

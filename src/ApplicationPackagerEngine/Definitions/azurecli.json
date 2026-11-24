@@ -6,6 +6,7 @@
   "Vendor": "Microsoft",
   "Application": "Azure CLI (x64)",
   "CMName": "Azure CLI",
+  "AppName": "Azure CLI",
   "Architecture": "x64",
   "VendorUrl": "https://learn.microsoft.com/cli/azure/",
   "Cpe": "cpe:2.3:a:microsoft:azure_cli:*:*:*:*:*:*:*:*",

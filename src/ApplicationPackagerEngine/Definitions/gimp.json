@@ -6,6 +6,7 @@
     "Vendor":  "The GIMP Team",
     "Application":  "GIMP (x64)",
     "CMName":  "GIMP",
+    "AppName":  "GIMP {version}",
     "Architecture":  "x64",
     "VendorUrl":  "https://www.gimp.org/",
     "Cpe":  "cpe:2.3:a:gimp:gimp:*:*:*:*:*:*:*:*",

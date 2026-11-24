@@ -6,6 +6,7 @@
     "Vendor":  "AnyDesk Software GmbH",
     "Application":  "AnyDesk",
     "CMName":  "AnyDesk",
+    "AppName":  "AnyDesk",
     "Architecture":  "x64",
     "VendorUrl":  "https://anydesk.com/",
     "Cpe":  "cpe:2.3:a:anydesk:anydesk:*:*:*:*:*:*:*:*",

@@ -6,6 +6,7 @@
   "Vendor": "2BrightSparks",
   "Application": "SyncBackFree",
   "CMName": "SyncBackFree",
+  "AppName": "SyncBackFree",
   "Architecture": "x86",
   "VendorUrl": "https://www.2brightsparks.com/",
   "Cpe": "cpe:2.3:a:2brightsparks:syncback_free:*:*:*:*:*:*:*:*",

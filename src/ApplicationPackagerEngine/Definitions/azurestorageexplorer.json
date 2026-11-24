@@ -6,6 +6,7 @@
   "Vendor": "Microsoft",
   "Application": "Azure Storage Explorer (x64)",
   "CMName": "Microsoft Azure Storage Explorer",
+  "AppName": "Microsoft Azure Storage Explorer",
   "Architecture": "x64",
   "VendorUrl": "https://azure.microsoft.com/products/storage/storage-explorer/",
   "Cpe": "cpe:2.3:a:microsoft:azure_storage_explorer:*:*:*:*:*:*:*:*",

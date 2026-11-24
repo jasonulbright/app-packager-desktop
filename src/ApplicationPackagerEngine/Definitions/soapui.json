@@ -6,6 +6,7 @@
     "Vendor":  "SmartBear Software",
     "Application":  "SoapUI Open Source",
     "CMName":  "SoapUI",
+    "AppName":  "SoapUI {version}",
     "Architecture":  "x64",
     "VendorUrl":  "https://www.soapui.org/",
     "Cpe":  "cpe:2.3:a:smartbear:soapui:*:*:*:*:*:*:*:*",

@@ -6,6 +6,7 @@
     "Vendor":  "Bitwarden Inc",
     "Application":  "Bitwarden Desktop (x64)",
     "CMName":  "Bitwarden",
+    "AppName":  "Bitwarden {version}",
     "Architecture":  "x64",
     "VendorUrl":  "https://bitwarden.com/",
     "Cpe":  "cpe:2.3:a:bitwarden:desktop:*:*:*:*:*:*:*:*",

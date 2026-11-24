@@ -194,7 +194,7 @@ public sealed class CveReportRunnerTests : IDisposable
         var csv = Assert.Single(Directory.GetFiles(_reports, "cve-report-*-applications.csv"));
         var rows = VulnerabilityFixtures.ReadCsv(csv);
         Assert.True(rows.Count >= 300, rows.Count.ToString());
-        Assert.Equal(VulnerabilityFixtures.PuttyCpe, rows.Single(r => r["Application"] == "PuTTY (x64)")["CPE"]);
+        Assert.Equal(VulnerabilityFixtures.PuttyCpe, rows.Single(r => r["Application"] == "PuTTY")["CPE"]);
         Assert.Single(Directory.GetFiles(_reports, "*.json"));
         Assert.Empty(Directory.GetFiles(_reports, "*.html"));
 
@@ -247,7 +247,7 @@ public sealed class CveReportRunnerTests : IDisposable
         Assert.Equal(3, Directory.GetFiles(drop).Length);
         Assert.False(File.Exists(old));
         var row = VulnerabilityFixtures.ReadCsv(Directory.GetFiles(_reports, "*-applications.csv").Single()).Single();
-        Assert.Equal(("PuTTY (x64)", "0.78", "0.83", "2", "3", "Update available (2 CVEs)"),
+        Assert.Equal(("PuTTY", "0.78", "0.83", "2", "3", "Update available (2 CVEs)"),
             (row["Application"], row["ConfigMgrVersion"], row["LatestVersion"], row["CVEs"], row["StillInLatest"], row["Status"]));
 
         var (url, body) = Assert.Single(transport.Posts);

@@ -6,6 +6,7 @@
   "Vendor": "Jason Ulbright",
   "Application": "AppPackager Suite (User)",
   "CMName": "AppPackager Suite",
+  "AppName": "AppPackager Suite (User)",
   "Architecture": "x64",
   "VendorUrl": "https://github.com/jasonulbright/app-packager-suite",
   "Cpe": "cpe:2.3:a:jasonulbright:app_packager_suite:*:*:*:*:*:*:*:*",

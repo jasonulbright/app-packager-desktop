@@ -6,6 +6,7 @@
   "Vendor": "IBM",
   "Application": "IBM Semeru Runtime Open Edition JRE 8 (x64)",
   "CMName": "IBM Semeru Runtime Open Edition JRE 8",
+  "AppName": "IBM Semeru Runtime Open Edition JRE 8 (x64)",
   "Architecture": "x64",
   "VendorUrl": "https://developer.ibm.com/languages/java/semeru-runtimes/",
   "Cpe": "cpe:2.3:a:ibm:semeru_runtime:*:*:*:*:open:*:*:*",

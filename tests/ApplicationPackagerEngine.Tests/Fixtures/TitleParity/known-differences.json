@@ -1,0 +1,22 @@
+{
+  "About": "Decisions about names that the golden file of the PowerShell app cannot decide by itself. Read by Sync-DefinitionTitles.ps1 and by TitleParityTests.",
+  "PowerShellOnly": [
+    { "Packager": "dotnet10both", "Reason": "One PowerShell packager for x86 and x64 of .NET 10 Desktop Runtime; APD has one definition for each architecture." },
+    { "Packager": "msvcruntimes", "Reason": "One PowerShell packager for x86 and x64 of the Visual C++ runtime; APD has the packagers msvcruntimesx86 and msvcruntimesx64." }
+  ],
+  "ApdOnly": [
+    { "Definition": "aspnethostingbundle11", "Reason": "Newer than the PowerShell catalog." },
+    { "Definition": "aspnethostingbundle9", "Reason": "Not in the PowerShell catalog." },
+    { "Definition": "Dotnet10x64", "Reason": "Split of dotnet10both." },
+    { "Definition": "Dotnet11x64", "Reason": "Newer than the PowerShell catalog." },
+    { "Definition": "dotnet8-x86", "Reason": "Split of the PowerShell dotnet8 packager." },
+    { "Definition": "Dotnet9x86", "Reason": "Not in the PowerShell catalog." },
+    { "Definition": "filezilla", "Reason": "Not in the PowerShell catalog." },
+    { "Definition": "foxitreader", "Reason": "Not in the PowerShell catalog." },
+    { "Definition": "vmwaretools", "Reason": "Not in the PowerShell catalog." },
+    { "Definition": "vs2026", "Reason": "Not in the PowerShell catalog." },
+    { "Definition": "vs2026community", "Reason": "Not in the PowerShell catalog." },
+    { "Definition": "wiztree", "Reason": "Not in the PowerShell catalog." }
+  ],
+  "Defects": []
+}

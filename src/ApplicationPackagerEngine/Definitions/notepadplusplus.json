@@ -6,6 +6,7 @@
     "Vendor":  "Don HO",
     "Application":  "Notepad++ (x64)",
     "CMName":  "Notepad++",
+    "AppName":  "Notepad++ (64-bit x64)",
     "Architecture":  "x64",
     "VendorUrl":  "https://notepad-plus-plus.org/",
     "Cpe":  "cpe:2.3:a:notepad-plus-plus:notepad%2b%2b:*:*:*:*:*:*:*:*",

@@ -6,6 +6,7 @@
   "Vendor": "Mattermost",
   "Application": "Mattermost Desktop (x64)",
   "CMName": "Mattermost Desktop",
+  "AppName": "Mattermost Desktop (x64)",
   "Architecture": "x64",
   "VendorUrl": "https://mattermost.com/",
   "Cpe": "cpe:2.3:a:mattermost:mattermost_desktop:*:*:*:*:*:*:*:*",

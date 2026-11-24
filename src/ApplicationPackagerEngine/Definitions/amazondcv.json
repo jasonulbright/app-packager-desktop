@@ -6,6 +6,7 @@
   "Vendor": "Amazon Web Services",
   "Application": "Amazon DCV Client",
   "CMName": "Amazon DCV Client",
+  "AppName": "Amazon DCV Client",
   "Architecture": "x64",
   "VendorUrl": "https://www.amazondcv.com/",
   "Cpe": "cpe:2.3:a:amazon:dcv:*:*:*:*:*:*:*:*",

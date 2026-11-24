@@ -6,6 +6,7 @@
     "Vendor":  "Acro Software Inc.",
     "Application":  "CutePDF Writer",
     "CMName":  "CutePDF Writer",
+    "AppName":  "CutePDF Writer {version}",
     "Architecture":  "x64",
     "VendorUrl":  "https://www.cutepdf.com/",
     "Cpe":  "cpe:2.3:a:acrosoftware:cutepdf_writer:*:*:*:*:*:*:*:*",

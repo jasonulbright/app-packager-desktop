@@ -6,6 +6,7 @@
   "Vendor": "NVIDIA",
   "Application": "NVIDIA Graphics Driver - GeForce Game Ready (x64)",
   "CMName": "NVIDIA Graphics Driver - GeForce Game Ready",
+  "AppName": "NVIDIA Graphics Driver - GeForce Game Ready {version}",
   "Architecture": "x64",
   "VendorUrl": "https://www.nvidia.com/Download/index.aspx",
   "Cpe": "cpe:2.3:a:nvidia:gpu_display_driver:*:*:*:*:*:*:*:*",

@@ -6,6 +6,7 @@
     "Vendor":  "Piriform Software Ltd.",
     "Application":  "CCleaner",
     "CMName":  "CCleaner",
+    "AppName":  "CCleaner",
     "Architecture":  "x64",
     "VendorUrl":  "https://www.ccleaner.com/",
     "Cpe":  "cpe:2.3:a:piriform:ccleaner:*:*:*:*:*:*:*:*",

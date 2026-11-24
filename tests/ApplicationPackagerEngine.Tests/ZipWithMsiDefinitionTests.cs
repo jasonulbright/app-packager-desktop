@@ -36,7 +36,7 @@ public sealed class ZipWithMsiDefinitionTests
             var definition = DefinitionFixture.Load("agentransack.json");
             var msi = Path.Combine(AppContext.BaseDirectory, "Fixtures", "WsusRules", "seven-zip.msi");
             var version = new MsiInspectionService().ReadProperties(msi).ProductVersion!;
-            var content = Path.Combine(root, $"{definition.Application.Replace(" ", "", StringComparison.Ordinal)}-{definition.Architecture}", version);
+            var content = Path.Combine(root, $"{StageFolder.Name(definition)}", version);
             Directory.CreateDirectory(content);
 
             var archive = Path.Combine(content, "agentransack_x64_msi_3562.zip");

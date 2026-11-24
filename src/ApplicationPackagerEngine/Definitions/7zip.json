@@ -4,7 +4,8 @@
     "WsusSupport":  "Yes",
     "IconSource":  "External",
     "Vendor":  "7-Zip",
-    "Application":  "7-Zip (x64)",
+    "Application":  "7-Zip",
+    "StageFolderName":  "7-Zip (x64)",
     "CMName":  "7-Zip",
     "Architecture":  "x64",
     "SupportsVariants":  [

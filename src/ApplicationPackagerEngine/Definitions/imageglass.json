@@ -6,6 +6,7 @@
   "Vendor": "Duong Dieu Phap",
   "Application": "ImageGlass (x64)",
   "CMName": "ImageGlass",
+  "AppName": "ImageGlass",
   "Architecture": "x64",
   "VendorUrl": "https://imageglass.org/",
   "Cpe": "cpe:2.3:a:imageglass:imageglass:*:*:*:*:*:*:*:*",

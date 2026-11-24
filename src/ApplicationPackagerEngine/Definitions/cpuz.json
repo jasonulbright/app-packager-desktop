@@ -6,6 +6,7 @@
   "Vendor": "CPUID",
   "Application": "CPU-Z",
   "CMName": "CPU-Z",
+  "AppName": "CPU-Z (x64)",
   "Architecture": "x64",
   "VendorUrl": "https://www.cpuid.com/softwares/cpu-z.html",
   "Cpe": "cpe:2.3:a:cpuid:cpu-z:*:*:*:*:*:*:*:*",

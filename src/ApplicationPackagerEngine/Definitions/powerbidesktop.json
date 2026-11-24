@@ -6,6 +6,7 @@
     "Vendor":  "Microsoft",
     "Application":  "Power BI Desktop (x64)",
     "CMName":  "Power BI Desktop",
+    "AppName":  "Power BI Desktop - {version}",
     "Architecture":  "x64",
     "VendorUrl":  "https://powerbi.microsoft.com/",
     "Cpe":  "cpe:2.3:a:microsoft:power_bi:*:*:*:*:*:*:*:*",

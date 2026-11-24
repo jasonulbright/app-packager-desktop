@@ -6,6 +6,7 @@
   "Vendor": "NV Access",
   "Application": "NVDA",
   "CMName": "NVDA",
+  "AppName": "NVDA",
   "Architecture": "x86",
   "VendorUrl": "https://www.nvaccess.org/",
   "ArpName": "NVDA | NVDA [0-9]*",

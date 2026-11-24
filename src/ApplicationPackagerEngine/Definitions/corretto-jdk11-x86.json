@@ -6,6 +6,7 @@
     "Vendor":  "Amazon",
     "Application":  "Amazon Corretto JDK 11 (x86)",
     "CMName":  "Amazon Corretto 11 (x86)",
+    "AppName":  "Amazon Corretto 11 (x86)",
     "Architecture":  "x86",
     "VendorUrl":  "https://aws.amazon.com/corretto/",
     "Cpe":  "cpe:2.3:a:amazon:corretto:*:*:*:*:*:*:*:*",
