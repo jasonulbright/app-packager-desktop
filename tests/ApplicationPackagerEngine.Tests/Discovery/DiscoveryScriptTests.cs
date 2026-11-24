@@ -308,7 +308,7 @@ public sealed class DiscoveryScriptTests : IDisposable
         var output = RunSite("$global:FailQuery = @('Dcom', 'Wsman')");
         Assert.Contains("{\"t\":\"error\",\"stage\":\"site\",\"detail\":\"Dcom ", output);
         Assert.Contains("; Wsman ", output);
-        Assert.DoesNotContain("HRESULT", output);
+        Assert.Contains("Access is denied. (HRESULT 0x80070005)", output);
         Assert.Contains("dispose:Dcom", output);
         Assert.Contains("dispose:Wsman", output);
     }

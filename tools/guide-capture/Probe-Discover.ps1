@@ -32,6 +32,8 @@ $scenarios = [ordered]@{
     'sql-wrong-port'   = @{ SiteCode = 'MCM'; ProviderMachine = 'cm01.contoso.com'; DiscoverySqlServer = 'cm01.contoso.com,1444'; DiscoverySqlDatabase = 'CM_MCM' }
     'sql-named-nohost' = @{ SiteCode = 'MCM'; ProviderMachine = 'cm01.contoso.com'; DiscoverySqlServer = 'cm01.contoso.com\NOSUCH'; DiscoverySqlDatabase = 'CM_MCM' }
     'sql-unknown-host' = @{ SiteCode = 'MCM'; ProviderMachine = 'cm01.contoso.com'; DiscoverySqlServer = 'NOHOST01'; DiscoverySqlDatabase = 'CM_MCM' }
+    'tls-untrusted'    = @{ SiteCode = 'MCM'; ProviderMachine = 'cm01.contoso.com'; DiscoverySqlServer = 'cm01'; DiscoverySqlDatabase = 'CM_MCM'; SiteHygieneLive = @{ EncryptSql = $true } }
+    'tls-trusted'      = @{ SiteCode = 'MCM'; ProviderMachine = 'cm01.contoso.com'; DiscoverySqlServer = 'cm01'; DiscoverySqlDatabase = 'CM_MCM'; SiteHygieneLive = @{ EncryptSql = $true; TrustSqlCertificate = $true } }
     'provider-wrong'   = @{ SiteCode = 'MCM'; ProviderMachine = 'NOHOST01' }
     'site-wrong-code'  = @{ SiteCode = 'ZZZ'; ProviderMachine = 'cm01.contoso.com' }
 }
