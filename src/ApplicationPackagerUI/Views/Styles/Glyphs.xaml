@@ -8,7 +8,7 @@
          Glyph.OneClick, and a test compares the two. The key is Glyph. and the label with no spaces. The value of a glyph that
          is already in use is the value in use, so no button changes by this file. -->
     <ui:SymbolRegular x:Key="Glyph.OneClick">Play24</ui:SymbolRegular>
-    <ui:SymbolRegular x:Key="Glyph.Check">Search24</ui:SymbolRegular>
+    <ui:SymbolRegular x:Key="Glyph.Check">CheckmarkCircle24</ui:SymbolRegular>
     <ui:SymbolRegular x:Key="Glyph.CheckLatest">ArrowDownload24</ui:SymbolRegular>
     <ui:SymbolRegular x:Key="Glyph.CheckConfigMgr">Search24</ui:SymbolRegular>
     <ui:SymbolRegular x:Key="Glyph.CheckCves">ShieldError24</ui:SymbolRegular>

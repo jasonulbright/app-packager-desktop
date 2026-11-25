@@ -213,10 +213,6 @@ public sealed class FoundationsTests
     {
         RenderKit.WithApplication(theme, () =>
         {
-            Application.Current.Resources.MergedDictionaries.Add(new ResourceDictionary
-            {
-                Source = new Uri("pack://application:,,,/ApplicationPackagerUI;component/Views/Styles/CancelSlot.xaml", UriKind.Absolute)
-            });
             var neighbor = new UiButton { Content = "Stage", Icon = new SymbolIcon(SymbolRegular.ArrowCircleDown24), VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 8, 0) };
             var cancel = new UiButton { Content = "Cancel", Icon = new SymbolIcon(SymbolRegular.Dismiss24), VerticalAlignment = VerticalAlignment.Center };
             cancel.SetResourceReference(FrameworkElement.StyleProperty, "CancelSlot");

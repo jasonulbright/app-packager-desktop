@@ -17,7 +17,7 @@ public sealed partial class HardCodedColorScanTests
         // The V1 foundations (overhaul V1, Q-126): only the palette files hold a color. The list grows with each phase.
         Path.Combine("Views", "Styles", "Spacing.xaml"),
         Path.Combine("Views", "Styles", "Glyphs.xaml"),
-        Path.Combine("Views", "Styles", "CancelSlot.xaml"),
+        Path.Combine("Views", "Styles", "ButtonText.xaml"),
         Path.Combine("Views", "Styles", "Typography.xaml"),
         Path.Combine("Views", "Windows", "OneClickPlanWindow.xaml")
     ];

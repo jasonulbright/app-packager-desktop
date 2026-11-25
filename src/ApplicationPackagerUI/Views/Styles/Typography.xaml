@@ -16,7 +16,6 @@
     <!-- The plain page title of the V1 workspace (overhaul V1, Q-126): 28, on the scale. PageTitle stays 14 for the pages that keep the header card. -->
     <Style x:Key="PageTitleLarge" TargetType="TextBlock">
         <Setter Property="FontSize" Value="28" />
-        <Setter Property="FontWeight" Value="SemiBold" />
         <Setter Property="TextWrapping" Value="NoWrap" />
         <Setter Property="TextTrimming" Value="CharacterEllipsis" />
         <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
