@@ -4,6 +4,7 @@ using ApplicationPackagerEngine.Models.Inventory;
 using ApplicationPackagerEngine.Models.Workbench;
 using ApplicationPackagerEngine.Services;
 using ApplicationPackagerUI.Controls;
+using ApplicationPackagerUI.Helpers;
 using ApplicationPackagerUI.Models;
 using ApplicationPackagerUI.Services;
 
@@ -167,7 +168,7 @@ public partial class PackagesViewModel : ObservableObject
         PublishIntuneToolTip = state.IntuneToolTip;
         IsPublishWsusAvailable = state.WsusEnabled;
         PublishWsusToolTip = state.WsusToolTip;
-        (IsPublishAllAvailable, PublishAllToolTip, _publishAllTarget) = PublishAllState.For(readiness.Systems);
+        (IsPublishAllAvailable, PublishAllToolTip, _publishAllTarget) = PublishAllState.For(readiness);
         IsWsusUpdatesAvailable = state.WsusUpdatesEnabled;
         WsusUpdatesToolTip = state.WsusUpdatesToolTip;
         _skipMecmPreflight = state.SkipMecmPreflight;
@@ -219,6 +220,15 @@ public partial class PackagesViewModel : ObservableObject
 
     private IEnumerable<PackagerInfo> SelectedPackagers =>
         Packagers.Where(p => p.IsSelected && p.IsRunnable);
+
+    /// <summary>The checked rows. A run acts on all of them, hidden by the search or not.</summary>
+    public int SelectedCount => SelectionCounts.Of(Packagers, FilteredPackagers).Selected;
+
+    /// <summary>The checked rows that the current search hides.</summary>
+    public int HiddenSelectedCount => SelectionCounts.Of(Packagers, FilteredPackagers).Hidden;
+
+    /// <summary>The row counts of the status tabs, over every row.</summary>
+    public PackagesTabCounts TabCounts => PackagesTab.Count(Packagers);
 
     partial void OnSearchTextChanged(string value) => ApplyFilter();
 
@@ -471,8 +481,11 @@ public partial class PackagesViewModel : ObservableObject
             var vendor = _inventoryProjection.Vendor(p);
             p.LastChecked = vendor?.LastSucceededAt?.LocalDateTime;
             p.LatestVersion = vendor?.LatestVersion ?? "";
-            p.CurrentVersion = _inventoryProjection.Environment(p, settings)?.LatestObservedVersion ?? "";
+            var observed = _inventoryProjection.Environment(p, settings);
+            p.CurrentVersion = observed?.LatestObservedVersion ?? "";
             if (!string.IsNullOrEmpty(vendor?.LatestVersion)) p.Status = "Cached";
+            // The last completed ConfigMgr check found no application: the tab count survives a restart.
+            if (CveRowState.IsStoredNotFound(observed)) p.Status = PackagesTab.NotFoundStatus;
             ApplyStoredCveState(p, settings);
         }
 
@@ -991,6 +1004,9 @@ public partial class PackagesViewModel : ObservableObject
             return;
         }
 
+        // A target with WSUS needs the server and the administration API before anything stages.
+        if (DeploymentTargets.PublishesToWsus(target) && !ConfirmWsusPrerequisites(settings, "Publish")) return;
+
         if (string.IsNullOrWhiteSpace(Comment))
         {
             var dialog = new ContentDialog
@@ -1049,49 +1065,81 @@ public partial class PackagesViewModel : ObservableObject
 
                 try
                 {
-                    var result = await _executionService.PackageAsync(
-                        p, Comment, line => AddLogLine($"  {line}"), _operationCts.Token,
-                        targetOverride: target, snapshot: snapshot);
+                    var token = _operationCts.Token;
+                    var conflictStop = false;
+                    var conflictKept = false;
 
-                    if (result.Conflict is not null)
+                    // ConfigMgr and Intune run through one package call. An existing application asks here.
+                    async Task<PackagerExecutionResult> PackageRowAsync(string packageTarget)
                     {
-                        var answer = runConflictAnswer ?? await AskExistingConflictAsync(result.Conflict);
+                        var packaged = await _executionService.PackageAsync(
+                            p, Comment, line => AddLogLine($"  {line}"), token,
+                            targetOverride: packageTarget, snapshot: snapshot);
+                        if (packaged.Conflict is null) return packaged;
+
+                        var answer = runConflictAnswer ?? await AskExistingConflictAsync(packaged.Conflict);
                         if (answer.ApplyToAll && answer.Behavior != ConflictAnswer.CancelRemaining)
                             runConflictAnswer = answer;
 
                         if (answer.Behavior == ConflictAnswer.CancelRemaining)
                         {
-                            p.Status = "Skipped";
-                            tally.RecordSkip();
-                            AddLogLine($"Existing application kept: {result.Conflict.ApplicationName} v{result.Conflict.Version}. Remaining applications cancelled.");
-                            _operationCts.Cancel();
-                            break;
+                            conflictStop = true;
+                            AddLogLine($"Existing application kept: {packaged.Conflict.ApplicationName} v{packaged.Conflict.Version}. Remaining applications cancelled.");
+                            return packaged;
                         }
 
                         if (answer.Behavior == ConflictAnswer.Overwrite)
                         {
-                            AddLogLine($"Overwriting existing: {result.Conflict.ApplicationName} v{result.Conflict.Version}");
-                            result = await _executionService.PackageAsync(
-                                p, Comment, line => AddLogLine($"  {line}"), _operationCts.Token,
+                            AddLogLine($"Overwriting existing: {packaged.Conflict.ApplicationName} v{packaged.Conflict.Version}");
+                            return await _executionService.PackageAsync(
+                                p, Comment, line => AddLogLine($"  {line}"), token,
                                 ApplicationPackagerEngine.Services.OnExistingBehavior.Overwrite,
-                                snapshot, target);
+                                snapshot, packageTarget);
                         }
-                        else
-                        {
-                            p.Status = "Skipped";
-                            p.IsSelected = false;
-                            tally.RecordSkip();
-                            AddLogLine($"Existing application kept: {result.Conflict.ApplicationName} v{result.Conflict.Version}");
-                            continue;
-                        }
+
+                        conflictKept = true;
+                        AddLogLine($"Existing application kept: {packaged.Conflict.ApplicationName} v{packaged.Conflict.Version}");
+                        return packaged;
                     }
 
-                    if (result.ExitCode == 0)
+                    // Each destination of the target runs once; one that fails does not stop the next.
+                    var run = await PublishRowRunner.RunAsync(p.Uid, p.LatestVersion ?? "", target, PackageRowAsync,
+                        () => _publishRuns.PublishWsusRowAsync(p, snapshot, AddLogLine, token),
+                        AddLogLine, token, () => conflictStop);
+                    var result = run.Package;
+                    var wsusStep = run.WsusStep;
+
+                    if (conflictStop)
                     {
-                        p.Status = RowStatus(target, result.ExitCode);
+                        p.Status = "Skipped";
+                        tally.RecordSkip();
+                        _operationCts.Cancel();
+                        break;
+                    }
+
+                    if (conflictKept && run.Wsus is null)
+                    {
+                        p.Status = "Skipped";
+                        p.IsSelected = false;
+                        tally.RecordSkip();
+                        continue;
+                    }
+
+                    // A package call that threw has no result; its cells carry the error and the row failed.
+                    var packageThrew = result is null && PublishRowRunner.PackageTarget(target) is not null;
+                    var packageExit = packageThrew ? 1 : result?.ExitCode ?? 0;
+                    var wsusFailed = run.Wsus is not null && (wsusStep is null || wsusStep.Status == WsusStepStatus.Failed);
+                    var rowStatus = run.Wsus is null
+                        ? RowStatus(target, packageExit)
+                        : PublishRowOutcome.For(target, packageExit, conflictKept ? PackageRunEnd.Skipped : PackageRunEnd.Completed, wsusStep).Status;
+
+                    if (packageExit == 0 && !wsusFailed)
+                    {
+                        p.Status = rowStatus;
                         p.IsSelected = false;
                         tally.RecordSuccess();
-                        AddLogLine(PublishRunService.PackagedLine(result));
+                        if (result is not null) AddLogLine(PublishRunService.PackagedLine(result));
+                        if (wsusStep is not null) AddLogLine("WSUS publish: " + wsusStep.Message);
                     }
                     else
                     {
@@ -1099,22 +1147,27 @@ public partial class PackagesViewModel : ObservableObject
                         // comes back as an ordinary failed result. The caller's token is what
                         // tells the two apart.
                         var stopped = tally.RecordInterruptedOrFailed(_operationCts.Token);
-                        p.Status = stopped ? "Cancelled" : RowStatus(target, result.ExitCode);
+                        p.Status = stopped ? "Cancelled" : rowStatus;
                         if (!stopped)
                         {
                             p.IsSelected = false;
-                            AddLogLine($"Package FAILED (exit {result.ExitCode})");
-                            LogStdErr(result.StdErr);
+                            if (packageExit != 0)
+                            {
+                                AddLogLine($"Package FAILED (exit {packageExit})");
+                                if (result is not null) LogStdErr(result.StdErr);
+                            }
+                            if (wsusFailed)
+                                AddLogLine("WSUS publish FAILED: " + (wsusStep?.Message ?? run.Wsus!.Stage.StdErr.Trim()));
                         }
 
                         // Notes stand either way: a partially completed target may already
                         // have created the application or written content.
-                        LogIntuneNotes(p, result);
+                        if (result is not null) LogIntuneNotes(p, result);
                         if (stopped) break;
                         continue;
                     }
 
-                    LogIntuneNotes(p, result);
+                    if (result is not null) LogIntuneNotes(p, result);
                 }
                 catch (OperationCanceledException ex)
                 {

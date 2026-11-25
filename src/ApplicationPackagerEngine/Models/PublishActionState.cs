@@ -81,26 +81,48 @@ public sealed record PublishActionState
     }
 
     /// <summary>
-    /// The reason a publish run to a target cannot start, or null. The site
-    /// gates apply only to a ConfigMgr run; Intune needs its credentials and
-    /// WSUS its server.
+    /// The reason one destination cannot take a publish, or null when it is ready. The site
+    /// gates apply to ConfigMgr; Intune needs its credentials and WSUS its server.
     /// </summary>
-    public static string? RunGate(string target, PublishReadiness readiness)
+    public static string? DestinationGate(string destination, PublishReadiness readiness)
     {
-        if (target == PublishRunTargets.IntuneOnly)
-            return readiness.IntuneCredentialsSet
-                ? null
-                : "Publish requires Intune credentials. Open Settings, Intune, to configure Tenant ID, Client ID, and Client Secret.";
-        if (target == PublishRunTargets.WsusOnly)
-            return readiness.WsusServerSet
-                ? null
-                : "Publish requires a WSUS server. Open Settings, WSUS Publishing, to configure it.";
-        if (!readiness.ConsoleFound)
-            return "Publish to ConfigMgr requires the ConfigMgr Console. Not detected on this workstation.";
-        if (string.IsNullOrWhiteSpace(readiness.SiteCode))
-            return "SiteCode is required. Open Settings to configure.";
-        if (string.IsNullOrWhiteSpace(readiness.FileShareRoot))
-            return "File Share Root is required. Open Settings to configure.";
-        return null;
+        switch (OneClickDestinations.Resolve(destination))
+        {
+            case OneClickDestinations.Intune:
+                return readiness.IntuneCredentialsSet
+                    ? null
+                    : "Publish requires Intune credentials. Open Settings, Intune, to configure Tenant ID, Client ID, and Client Secret.";
+            case OneClickDestinations.Wsus:
+                return readiness.WsusServerSet
+                    ? null
+                    : "Publish requires a WSUS server. Open Settings, WSUS Publishing, to configure it.";
+            default:
+                if (!readiness.ConsoleFound)
+                    return "Publish to ConfigMgr requires the ConfigMgr Console. Not detected on this workstation.";
+                if (string.IsNullOrWhiteSpace(readiness.SiteCode))
+                    return "SiteCode is required. Open Settings to configure.";
+                if (string.IsNullOrWhiteSpace(readiness.FileShareRoot))
+                    return "File Share Root is required. Open Settings to configure.";
+                return null;
+        }
     }
+
+    /// <summary>The destinations of a target that are not ready, each with its reason, in the order ConfigMgr, Intune, WSUS.</summary>
+    public static IReadOnlyList<(string Destination, string Reason)> BlockedDestinations(string target, PublishReadiness readiness)
+    {
+        // An unknown or empty target keeps the earlier reading: the ConfigMgr gates.
+        var set = DestinationSet.TryFromTarget(target) is { Any: true } known ? known : new DestinationSet(true, false, false);
+        var blocked = new List<(string, string)>();
+        foreach (var destination in new[] { OneClickDestinations.ConfigMgr, OneClickDestinations.Intune, OneClickDestinations.Wsus })
+            if (set.Has(destination) && DestinationGate(destination, readiness) is { } reason)
+                blocked.Add((destination, reason));
+        return blocked;
+    }
+
+    /// <summary>
+    /// The reason a publish run to a target cannot start, or null: the first destination of
+    /// the target that is not ready. A target with several destinations is checked for each.
+    /// </summary>
+    public static string? RunGate(string target, PublishReadiness readiness) =>
+        BlockedDestinations(target, readiness).Select(b => b.Reason).FirstOrDefault();
 }
