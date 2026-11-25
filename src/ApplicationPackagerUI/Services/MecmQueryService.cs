@@ -103,7 +103,8 @@ public class MecmQueryService(SettingsService settingsService)
             $lead = ([string]$CMName).Trim()
             $scored = @($apps | ForEach-Object {
                     $title = if ($_.LocalizedDisplayName) { [string]$_.LocalizedDisplayName } else { [string]$_.Name }
-                    $rest = @([regex]::Matches($title.Substring($lead.Length), '\([^)]*\)|\S+') | ForEach-Object { $_.Value })
+                    $tail = if ($title.StartsWith($lead, [System.StringComparison]::OrdinalIgnoreCase)) { $title.Substring($lead.Length) } else { '' }
+                    $rest = @([regex]::Matches($tail, '\([^)]*\)|\S+') | ForEach-Object { $_.Value })
                     $extra = @($rest | Where-Object { $_ -ne '-' -and $_ -notmatch '^(\([^)]*\)|v?\d+([.\-+_]\w+)*|x64|x86|arm64|amd64|latest)$' }).Count
                     $ver = try { [version]([string]$_.SoftwareVersion -replace '^(\d+)$', '$1.0') } catch { [version]'0.0' }
                     [pscustomobject]@{ App = $_; Extra = $extra; Ver = $ver }
