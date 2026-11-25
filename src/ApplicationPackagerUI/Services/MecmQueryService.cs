@@ -14,7 +14,7 @@ public class MecmQueryService(SettingsService settingsService)
     // one rooted at that provider: a drive the console left for another provider of the
     // same site code is replaced, so the answer comes from the provider the caller names.
     public const string QueryScript = """
-        param($SiteCode, $CMName, $ProviderMachineName)
+        param($SiteCode, $CMName, $ProviderMachineName, $ArpName)
         if (-not (Get-Command -Name Get-CMApplication -ErrorAction SilentlyContinue)) {
             try {
                 if ($env:SMS_ADMIN_UI_PATH) {
@@ -75,6 +75,21 @@ public class MecmQueryService(SettingsService settingsService)
                         $title.StartsWith($lead, [System.StringComparison]::OrdinalIgnoreCase) -and ($title.Length -eq $lead.Length -or -not [char]::IsLetterOrDigit($title[$lead.Length]))
                     })
             }
+            if (-not $apps -or $apps.Count -eq 0) {
+                # The installer names the application by its Add/Remove Programs name (ArpName of the definition, patterns joined by " | ",
+                # for example "Microsoft Azure PowerShell - *" or "IntuneDebugTools*"). The text before the first wildcard asks the site; -like decides.
+                $tier = 'arp'
+                $found = @()
+                foreach ($pattern in (([string]$ArpName) -split '\s*\|\s*' | Where-Object { $_ -and $_ -ne 'none' })) {
+                    $head = ($pattern -split '[*?\[]')[0].TrimEnd()
+                    if ($head.Length -lt 3) { continue }
+                    $found += @(Get-CMApplication -Name ($head + '*') -ErrorAction Stop | Where-Object {
+                            $title = if ($_.LocalizedDisplayName) { [string]$_.LocalizedDisplayName } else { [string]$_.Name }
+                            $title -like $pattern
+                        })
+                }
+                $apps = @($found | Sort-Object LocalizedDisplayName -Unique)
+            }
         } catch {
             Write-Output 'ERROR:QUERY_FAILED'; exit 5
         }
@@ -83,7 +98,7 @@ public class MecmQueryService(SettingsService settingsService)
         }
         $exact = $apps | Where-Object { $_.LocalizedDisplayName -eq $CMName -or $_.Name -eq $CMName }
         if ($exact -and @($exact).Count -gt 0) { $chosen = @($exact)[0] }
-        elseif ($tier -eq 'prefix') {
+        elseif ($tier -in 'prefix','arp') {
             # Best fit: the title with the fewest words after CMName that are not release details; then the newest version.
             $lead = ([string]$CMName).Trim()
             $scored = @($apps | ForEach-Object {
@@ -107,7 +122,7 @@ public class MecmQueryService(SettingsService settingsService)
             }
         }
         $note = ''
-        if ($tier -eq 'prefix') {
+        if ($tier -in 'prefix','arp') {
             $others = @($apps | Where-Object { [string]$_.LocalizedDisplayName -ne [string]$chosen.LocalizedDisplayName } | ForEach-Object { ([string]$_.LocalizedDisplayName) -replace '[|;]', ' ' })
             $note = "tier=$tier; chose '$((([string]$chosen.LocalizedDisplayName) -replace '[|;]', ' '))'" + $(if ($others.Count) { "; other matches: " + ($others -join '; ') } else { '' })
         }
@@ -117,7 +132,7 @@ public class MecmQueryService(SettingsService settingsService)
         """;
 
     /// <summary>The query process: the site, the provider and the name are argument values, never script text.</summary>
-    public static ProcessStartInfo BuildStartInfo(string scriptFile, string? siteCode, string? providerMachine, string? cmName)
+    public static ProcessStartInfo BuildStartInfo(string scriptFile, string? siteCode, string? providerMachine, string? cmName, string? arpName = null)
     {
         var startInfo = new ProcessStartInfo { FileName = "powershell.exe" };
         WindowsPowerShellHost.ApplyLogonModulePath(startInfo);
@@ -131,6 +146,11 @@ public class MecmQueryService(SettingsService settingsService)
         startInfo.ArgumentList.Add(siteCode ?? "");
         startInfo.ArgumentList.Add("-CMName");
         startInfo.ArgumentList.Add(cmName ?? "");
+        if (!string.IsNullOrWhiteSpace(arpName))
+        {
+            startInfo.ArgumentList.Add("-ArpName");
+            startInfo.ArgumentList.Add(arpName.Trim());
+        }
         // An empty value would not survive the -File argument parsing as a bound parameter.
         if (!string.IsNullOrWhiteSpace(providerMachine))
         {
@@ -140,7 +160,7 @@ public class MecmQueryService(SettingsService settingsService)
         return startInfo;
     }
 
-    public async Task<MecmQueryResult> QueryVersionAsync(string cmName, CancellationToken ct = default)
+    public async Task<MecmQueryResult> QueryVersionAsync(string cmName, CancellationToken ct = default, string? arpName = null)
     {
         var settings = settingsService.Load();
 
@@ -148,7 +168,7 @@ public class MecmQueryService(SettingsService settingsService)
         try
         {
             await File.WriteAllTextAsync(scriptFile, QueryScript, ct).ConfigureAwait(false);
-            var startInfo = BuildStartInfo(scriptFile, settings.SiteCode, settings.ProviderMachine, cmName);
+            var startInfo = BuildStartInfo(scriptFile, settings.SiteCode, settings.ProviderMachine, cmName, arpName);
 
             var run = await BoundedProcessRunner.RunAsync(startInfo, Timeout, ct).ConfigureAwait(false);
 

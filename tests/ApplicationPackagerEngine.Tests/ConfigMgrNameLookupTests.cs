@@ -28,7 +28,11 @@ public sealed class ConfigMgrNameLookupTests : IDisposable
     /// rooted at <paramref name="driveRoot"/>; a drive the query creates is recorded with
     /// its provider type and root in created.txt.
     /// </summary>
-    private string Lookup(string cmName, string? provider, string? driveRoot, params (string Title, string Version)[] apps)
+    private string LookupWithArp(string cmName, string arpName, params (string Title, string Version)[] apps) => Lookup(cmName, null, null, arpName, apps);
+
+    private string Lookup(string cmName, string? provider, string? driveRoot, params (string Title, string Version)[] apps) => Lookup(cmName, provider, driveRoot, null, apps);
+
+    private string Lookup(string cmName, string? provider, string? driveRoot, string? arpName, params (string Title, string Version)[] apps)
     {
         var script = Path.Combine(_dir, "lookup.ps1");
         File.WriteAllText(script, MecmQueryService.QueryScript);
@@ -48,7 +52,7 @@ public sealed class ConfigMgrNameLookupTests : IDisposable
                 Microsoft.PowerShell.Management\New-PSDrive -Name $Name -PSProvider FileSystem -Root '{{_dir}}' -Scope Global
             }
             {{(driveRoot is null && provider is not null ? "" : $"Microsoft.PowerShell.Management\\New-PSDrive -Name TST -PSProvider FileSystem -Root '{driveRoot ?? _dir}' -Scope Global | Out-Null")}}
-            & '{{script}}' -SiteCode TST -CMName '{{cmName}}'{{(provider is null ? "" : $" -ProviderMachineName '{provider}'")}}
+            & '{{script}}' -SiteCode TST -CMName '{{cmName}}'{{(provider is null ? "" : $" -ProviderMachineName '{provider}'")}}{{(arpName is null ? "" : $" -ArpName '{arpName}'")}}
             """);
         var start = new ProcessStartInfo("powershell.exe")
         {
@@ -158,6 +162,16 @@ public sealed class ConfigMgrNameLookupTests : IDisposable
     public void TheLastTierPrefersTheTitleWithTheFewestExtraWordsAndSaysSoInTheNote() =>
         Assert.Equal("FOUND|Chrome Beta Channel|2.0|2|tier=prefix; chose 'Chrome Beta Channel'; other matches: Chrome Remote Desktop Host",
             Lookup("Chrome", ("Chrome Remote Desktop Host", "1.0"), ("Chrome Beta Channel", "2.0")));
+
+    [Theory]
+    [InlineData("Azure PowerShell", "Microsoft Azure PowerShell - *", "Microsoft Azure PowerShell - November 2026")]
+    [InlineData("Intune Debug Toolkit", "IntuneDebugTools*", "IntuneDebugTools")]
+    public void TheInstallerNameOfTheDefinitionFindsAnApplicationThatTheWordsOfCMNameDoNotStart(string cmName, string arpName, string title) =>
+        Assert.Equal($"FOUND|{title}|1.0|1|tier=arp; chose '{title}'", LookupWithArp(cmName, arpName, (title, "1.0")));
+
+    [Fact]
+    public void AnInstallerNameThatNoApplicationCarriesFindsNothing() =>
+        Assert.Equal("NOT_FOUND", LookupWithArp("Azure PowerShell", "Microsoft Azure PowerShell - *", ("Microsoft Azure CLI", "2.0")));
 
     [Fact]
     public void TheLastTierNeverMatchesInTheMiddleOfAWord() =>

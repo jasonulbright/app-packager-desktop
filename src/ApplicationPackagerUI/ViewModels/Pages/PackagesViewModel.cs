@@ -693,7 +693,7 @@ public partial class PackagesViewModel : ObservableObject
                 {
                     _inventory.BeginOperation(new InventoryOperation(operationId, "CheckEnvironment", p.Uid,
                         ApplicationInventoryProjection.ReferenceFor(p), environment.Key, startedAt));
-                    var result = await _mecmQueryService.QueryVersionAsync(p.CMName, _operationCts.Token);
+                    var result = await _mecmQueryService.QueryVersionAsync(p.CMName, _operationCts.Token, p.ArpName);
 
                     // A query that never reached an answer establishes nothing, so the last
                     // known version stays put rather than being cleared as an absence.
