@@ -170,33 +170,6 @@
             <Border Width="1" Height="24" Margin="4,4,8,0" VerticalAlignment="Top" Background="{DynamicResource ControlStrokeColorDefaultBrush}" IsHitTestVisible="False" />
             </WrapPanel>
             <WrapPanel Orientation="Horizontal" Margin="0">
-            <ui:Button x:Name="btnPublishConfigMgr"
-                       Content="Publish to ConfigMgr"
-                       Icon="{ui:SymbolIcon Server24}"
-                       Command="{Binding PublishConfigMgrCommand}"
-                       ToolTip="{Binding PublishConfigMgrToolTip}"
-                       ToolTipService.ShowOnDisabled="True"
-                       AutomationProperties.AutomationId="btnPublishConfigMgr"
-                       Margin="0,0,4,8" />
-            <ui:Button x:Name="btnPublishIntune"
-                       Content="Publish to Intune"
-                       Icon="{ui:SymbolIcon Cloud24}"
-                       Command="{Binding PublishIntuneCommand}"
-                       ToolTip="{Binding PublishIntuneToolTip}"
-                       ToolTipService.ShowOnDisabled="True"
-                       AutomationProperties.AutomationId="btnPublishIntune"
-                       Margin="0,0,4,8" />
-            <ui:Button x:Name="btnPublishWsus"
-                       Content="Publish to WSUS"
-                       Icon="{ui:SymbolIcon ArrowSyncCircle24}"
-                       Command="{Binding PublishWsusCommand}"
-                       ToolTip="{Binding PublishWsusToolTip}"
-                       ToolTipService.ShowOnDisabled="True"
-                       AutomationProperties.AutomationId="btnPublishWsus"
-                       Margin="0,0,4,8" />
-            <Border Width="1" Height="24" Margin="4,4,8,0" VerticalAlignment="Top" Background="{DynamicResource ControlStrokeColorDefaultBrush}" IsHitTestVisible="False" />
-            </WrapPanel>
-            <WrapPanel Orientation="Horizontal" Margin="0">
             <ui:Button Content="CVE Report"
                        Icon="{ui:SymbolIcon DocumentTable24}"
                        Command="{Binding CveReportCommand}"
@@ -530,6 +503,8 @@
             <CheckBox Content="Show debug columns"
                       IsChecked="{Binding ShowDebugColumns}"
                       VerticalAlignment="Center" ToolTip="Show the CMName, Script, Max EPSS, NVD updated and CVEs Checked (UTC) columns." />
+            <ui:Button x:Name="btnColumns" Content="Columns" Icon="{ui:SymbolIcon TableSettings24}" Click="Columns_Click" Appearance="Transparent" Margin="12,0,0,0"
+                       AutomationProperties.AutomationId="btnColumns" ToolTip="Choose the columns of the grid. The choice is saved." />
             <TextBlock Text="{Binding SelectionText}" Margin="12,0,8,0" VerticalAlignment="Center" FontSize="14"
                        Foreground="{DynamicResource TextFillColorPrimaryBrush}"
                        AutomationProperties.AutomationId="txtSelectionCount" AutomationProperties.LiveSetting="Polite"
@@ -537,9 +512,12 @@
             <ui:Button Content="Show selected" Command="{Binding ShowSelectedCommand}" Appearance="Transparent" Margin="0,0,8,0"
                        Visibility="{Binding HasHiddenSelection, Converter={StaticResource BooleanToVisibilityConverter}}"
                        AutomationProperties.AutomationId="btnShowSelected" ToolTip="Show only the checked applications, so that you see the ones that the search or the tab hides." />
-            <ui:Button Content="Clear selection" Command="{Binding ClearSelectionCommand}" Appearance="Transparent"
+            <ui:Button Content="Clear selection" Command="{Binding ClearSelectionCommand}" Appearance="Transparent" Margin="0,0,12,0"
                        Visibility="{Binding HasSelection, Converter={StaticResource BooleanToVisibilityConverter}}"
                        AutomationProperties.AutomationId="btnClearSelection" ToolTip="Uncheck every application, also those that the search or the tab hides." />
+            <TextBlock Text="{Binding PublishScopeText}" VerticalAlignment="Center" FontSize="14" Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                       AutomationProperties.AutomationId="txtPublishScope"
+                       ToolTip="Publish All reaches the systems that Settings, Systems in Use turns on. One run covers all of them." />
         </StackPanel>
 
         <TextBox Grid.Row="6"
