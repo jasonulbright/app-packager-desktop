@@ -9,6 +9,7 @@
 - Show how many changes are done of the plan while a change plan runs, and when it is cancelled.
 - Make the header check box of the Packages grid cycle as in the PowerShell app: every visible row, only the rows with an update (shown as the indeterminate state), then none. Each step writes a line to the log.
 - Make Select Update Available select only the visible rows, clear all others, and write a log line.
+- Find the ConfigMgr application that the installer names (PuTTY, Azure PowerShell, Intune Debug Toolkit) with Check ConfigMgr, and log how it matched.
 
 ## [2026.1124.61] - 2026-11-24
 
