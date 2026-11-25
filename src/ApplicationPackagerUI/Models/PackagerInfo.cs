@@ -23,6 +23,8 @@ public partial class PackagerInfo : ObservableObject, IPackagerExecutionRequest
     public string Vendor { get; init; } = "";
     public string Application { get; init; } = "";
     public string CMName { get; init; } = "";
+    /// <summary>The Add/Remove Programs name of the installer; Check ConfigMgr uses it as its last tier.</summary>
+    public string ArpName { get; init; } = "";
     public string Script { get; init; } = "";
     public string FullPath { get; init; } = "";
     public string VendorUrl { get; init; } = "";

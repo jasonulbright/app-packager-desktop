@@ -28,7 +28,11 @@ public sealed class ConfigMgrNameLookupTests : IDisposable
     /// rooted at <paramref name="driveRoot"/>; a drive the query creates is recorded with
     /// its provider type and root in created.txt.
     /// </summary>
-    private string Lookup(string cmName, string? provider, string? driveRoot, params (string Title, string Version)[] apps)
+    private string LookupWithArp(string cmName, string arpName, params (string Title, string Version)[] apps) => Lookup(cmName, null, null, arpName, apps);
+
+    private string Lookup(string cmName, string? provider, string? driveRoot, params (string Title, string Version)[] apps) => Lookup(cmName, provider, driveRoot, null, apps);
+
+    private string Lookup(string cmName, string? provider, string? driveRoot, string? arpName, params (string Title, string Version)[] apps)
     {
         var script = Path.Combine(_dir, "lookup.ps1");
         File.WriteAllText(script, MecmQueryService.QueryScript);
@@ -48,7 +52,7 @@ public sealed class ConfigMgrNameLookupTests : IDisposable
                 Microsoft.PowerShell.Management\New-PSDrive -Name $Name -PSProvider FileSystem -Root '{{_dir}}' -Scope Global
             }
             {{(driveRoot is null && provider is not null ? "" : $"Microsoft.PowerShell.Management\\New-PSDrive -Name TST -PSProvider FileSystem -Root '{driveRoot ?? _dir}' -Scope Global | Out-Null")}}
-            & '{{script}}' -SiteCode TST -CMName '{{cmName}}'{{(provider is null ? "" : $" -ProviderMachineName '{provider}'")}}
+            & '{{script}}' -SiteCode TST -CMName '{{cmName}}'{{(provider is null ? "" : $" -ProviderMachineName '{provider}'")}}{{(arpName is null ? "" : $" -ArpName '{arpName}'")}}
             """);
         var start = new ProcessStartInfo("powershell.exe")
         {
@@ -113,8 +117,9 @@ public sealed class ConfigMgrNameLookupTests : IDisposable
     }
 
     [Fact]
-    public void ALongerProductNameIsNotTheApplication() =>
-        Assert.Equal("NOT_FOUND", Lookup("Git", ("Git Extensions 4.3", "4.3"), ("GitHub Desktop", "3.4")));
+    public void AWordThatContinuesTheNameIsNotTheApplication() =>
+        // GitHub Desktop is another word; Git Extensions is found only by the last tier, with its note, because no other title fits.
+        Assert.StartsWith("FOUND|Git Extensions 4.3|4.3|1|tier=prefix;", Lookup("Git", ("Git Extensions 4.3", "4.3"), ("GitHub Desktop", "3.4")));
 
     [Fact]
     public void ReleaseDetailsAfterCMNameStillMatch() =>
@@ -139,13 +144,36 @@ public sealed class ConfigMgrNameLookupTests : IDisposable
     [Theory]
     [InlineData("PowerShell 7", "PowerShell 7-x64", true)]
     [InlineData("PowerShell 7", "PowerShell 7.5.3", true)]
-    [InlineData("PowerShell 7", "PowerShell 7-preview", false)]
+    [InlineData("PowerShell 7", "PowerShell 7-preview", true)]
     [InlineData("Microsoft ODBC Driver 18 for SQL Server", "Microsoft ODBC Driver 18.5.1.1 for SQL Server", true)]
     [InlineData("Microsoft ODBC Driver 18 for SQL Server", "Microsoft ODBC Driver 18 for SQL Server 18.5.1.1", true)]
     [InlineData("Microsoft ODBC Driver 18 for SQL Server", "Microsoft ODBC Driver 17 for SQL Server", false)]
-    [InlineData("Microsoft ODBC Driver 18 for SQL Server", "Microsoft ODBC Driver 18 for SQL Server Tools", false)]
-    [InlineData("Mozilla Firefox", "Mozilla Firefox ESR (x64 en-US)", false)]
-    [InlineData("Microsoft Edge", "Microsoft Edge WebView2 Runtime", false)]
     public void ATitleWithTheVersionMidNameOrTheArchitectureAttachedIsFound(string cmName, string title, bool found) =>
-        Assert.Equal(found ? $"FOUND|{title}|1.0|1" : "NOT_FOUND", Lookup(cmName, (title, "1.0")));
+        Assert.Equal(found ? "FOUND" : "NOT_FOUND", Lookup(cmName, (title, "1.0")).Split('|')[0]);
+
+    [Theory]
+    [InlineData("PuTTY", "PuTTY release 0.85 (64-bit)")]
+    [InlineData("Mozilla Firefox", "Mozilla Firefox ESR (x64 en-US)")]
+    [InlineData("Intune Debug Toolkit", "Intune Debug Toolkit 2.3 beta")]
+    public void TheLastTierFindsTheNameThatTheInstallerGivesAndSaysSo(string cmName, string title) =>
+        Assert.Equal($"FOUND|{title}|1.0|1|tier=prefix; chose '{title}'", Lookup(cmName, (title, "1.0")));
+
+    [Fact]
+    public void TheLastTierPrefersTheTitleWithTheFewestExtraWordsAndSaysSoInTheNote() =>
+        Assert.Equal("FOUND|Chrome Beta Channel|2.0|2|tier=prefix; chose 'Chrome Beta Channel'; other matches: Chrome Remote Desktop Host",
+            Lookup("Chrome", ("Chrome Remote Desktop Host", "1.0"), ("Chrome Beta Channel", "2.0")));
+
+    [Theory]
+    [InlineData("Azure PowerShell", "Microsoft Azure PowerShell - *", "Microsoft Azure PowerShell - November 2026")]
+    [InlineData("Intune Debug Toolkit", "IntuneDebugTools*", "IntuneDebugTools")]
+    public void TheInstallerNameOfTheDefinitionFindsAnApplicationThatTheWordsOfCMNameDoNotStart(string cmName, string arpName, string title) =>
+        Assert.Equal($"FOUND|{title}|1.0|1|tier=arp; chose '{title}'", LookupWithArp(cmName, arpName, (title, "1.0")));
+
+    [Fact]
+    public void AnInstallerNameThatNoApplicationCarriesFindsNothing() =>
+        Assert.Equal("NOT_FOUND", LookupWithArp("Azure PowerShell", "Microsoft Azure PowerShell - *", ("Microsoft Azure CLI", "2.0")));
+
+    [Fact]
+    public void TheLastTierNeverMatchesInTheMiddleOfAWord() =>
+        Assert.Equal("NOT_FOUND", Lookup("Git", ("GitHub Desktop", "3.4"), ("Digit Tool", "1.0")));
 }

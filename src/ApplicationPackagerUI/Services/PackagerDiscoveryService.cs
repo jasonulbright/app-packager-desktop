@@ -243,6 +243,7 @@ public partial class PackagerDiscoveryService(SettingsService settingsService)
         Vendor = def.Vendor,
         Application = def.Application,
         CMName = def.CMName,
+        ArpName = def.ArpName ?? "",
         Script = Path.GetFileName(jsonPath),
         FullPath = jsonPath,
         VendorUrl = def.VendorUrl,
