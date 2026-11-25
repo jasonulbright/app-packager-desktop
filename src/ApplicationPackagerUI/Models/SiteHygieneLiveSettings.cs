@@ -9,6 +9,9 @@ public sealed class SiteHygieneLiveSettings
 {
     public bool? TrustSqlCertificate { get; set; }
 
+    /// <summary>Discover asks for an encrypted connection. Null keeps the default of the client library.</summary>
+    public bool? EncryptSql { get; set; }
+
     public int? RefreshMinutes { get; set; }
 
     public int? InactiveDays { get; set; }

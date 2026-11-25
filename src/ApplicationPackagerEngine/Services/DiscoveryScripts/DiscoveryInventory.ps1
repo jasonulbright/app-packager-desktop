@@ -84,17 +84,33 @@ function Write-DiscoveryInventory {
     foreach ($title in $applications) { $out.WriteLine('{"t":"app","n":' + (ConvertTo-DiscoveryJsonString $title) + '}') }
 }
 
+function ConvertTo-DiscoveryDetail {
+    # One line, ASCII only, at most 300 characters: the text of an exception for the status line and the log.
+    param([AllowNull()][string]$Text)
+    if ($null -eq $Text) { return '' }
+    $clean = ($Text -replace '[
+	]+', ' ') -replace '[^ -~]', '?'
+    $clean = $clean.Trim()
+    if ($clean.Length -gt 300) { $clean = $clean.Substring(0, 300) }
+    return $clean
+}
+
 function Write-DiscoveryError {
-    # Error numbers and two message flags leave the process; the raw message text does not.
+    # The error numbers, two message flags, the exception type names and the text of the innermost exception leave the process.
+    # The text names the cause (for example the certificate chain of the SQL Server is not trusted); it never holds inventory.
     param([System.Exception]$Exception)
     $numbers = New-Object System.Collections.Generic.List[int]
+    $types = New-Object System.Collections.Generic.List[string]
     $sspi = $false
     $anonymous = $false
+    $detail = ''
     $current = $Exception
     while ($null -ne $current) {
         $text = [string]$current.Message
         if ($text -match 'SSPI') { $sspi = $true }
         if ($text -match 'ANONYMOUS LOGON') { $anonymous = $true }
+        $types.Add($current.GetType().Name)
+        if ($text.Trim()) { $detail = $text }
         if ($current -is [System.Data.SqlClient.SqlException]) {
             foreach ($e in $current.Errors) { $numbers.Add([int]$e.Number) }
             if ($numbers.Count -eq 0) { $numbers.Add([int]$current.Number) }
@@ -102,11 +118,13 @@ function Write-DiscoveryError {
         $current = $current.InnerException
     }
     $flag = { param($b) if ($b) { 'true' } else { 'false' } }
-    [Console]::Out.WriteLine('{"t":"error","stage":"sql","numbers":[' + ($numbers -join ',') + '],"sspi":' + (& $flag $sspi) + ',"anonymous":' + (& $flag $anonymous) + '}')
+    $typeJson = ($types | ForEach-Object { ConvertTo-DiscoveryJsonString $_ }) -join ','
+    [Console]::Out.WriteLine('{"t":"error","stage":"sql","numbers":[' + ($numbers -join ',') + '],"sspi":' + (& $flag $sspi) + ',"anonymous":' + (& $flag $anonymous) +
+        ',"types":[' + $typeJson + '],"detail":' + (ConvertTo-DiscoveryJsonString (ConvertTo-DiscoveryDetail $detail)) + '}')
 }
 
 function Invoke-DiscoveryInventory {
-    param([string]$Server, [string]$Database, [int]$ConnectTimeout, [int]$CommandTimeout)
+    param([string]$Server, [string]$Database, [int]$ConnectTimeout, [int]$CommandTimeout, [bool]$Encrypt = $false, [bool]$Trust = $false, [bool]$TestOnly = $false)
     $connection = $null
     $command = $null
     $reader = $null
@@ -120,20 +138,30 @@ function Invoke-DiscoveryInventory {
         $builder['ApplicationIntent'] = 'ReadOnly'
         $builder['Application Name'] = 'Application Packager Discovery'
         $builder['Connect Timeout'] = [Math]::Max(1, $ConnectTimeout)
+        # Only a chosen option is written; the client library keeps its own default otherwise.
+        if ($Encrypt) { $builder['Encrypt'] = $true }
+        if ($Trust) { $builder['TrustServerCertificate'] = $true }
         $connection = New-Object System.Data.SqlClient.SqlConnection $builder.ConnectionString
         $connection.Open()
         $command = $connection.CreateCommand()
-        $command.CommandText = $DiscoveryInventoryQuery
+        $command.CommandText = if ($TestOnly) { 'SELECT TOP (1) ResourceID FROM dbo.v_R_System' } else { $DiscoveryInventoryQuery }
         $command.CommandType = [System.Data.CommandType]::Text
         $command.CommandTimeout = [Math]::Max(1, $CommandTimeout)
-        $arch32 = $command.Parameters.Add('@Arch32', [System.Data.SqlDbType]::NVarChar, 3)
-        $arch32.Value = 'x86'
-        $arch64 = $command.Parameters.Add('@Arch64', [System.Data.SqlDbType]::NVarChar, 3)
-        $arch64.Value = 'x64'
-        $objectType = $command.Parameters.Add('@AppObjectType', [System.Data.SqlDbType]::Int)
-        $objectType.Value = 31
-        $reader = $command.ExecuteReader()
-        Write-DiscoveryInventory -Reader $reader
+        if ($TestOnly) {
+            $command.CommandTimeout = [Math]::Max(1, [Math]::Min($CommandTimeout, 60))
+            [void]$command.ExecuteScalar()
+            [Console]::Out.WriteLine('{"t":"summary"}')
+        }
+        else {
+            $arch32 = $command.Parameters.Add('@Arch32', [System.Data.SqlDbType]::NVarChar, 3)
+            $arch32.Value = 'x86'
+            $arch64 = $command.Parameters.Add('@Arch64', [System.Data.SqlDbType]::NVarChar, 3)
+            $arch64.Value = 'x64'
+            $objectType = $command.Parameters.Add('@AppObjectType', [System.Data.SqlDbType]::Int)
+            $objectType.Value = 31
+            $reader = $command.ExecuteReader()
+            Write-DiscoveryInventory -Reader $reader
+        }
     }
     catch {
         Write-DiscoveryError -Exception $_.Exception
@@ -147,5 +175,5 @@ function Invoke-DiscoveryInventory {
 }
 
 if (Get-Variable -Name DiscoveryRun -Scope Script -ValueOnly -ErrorAction SilentlyContinue) {
-    Invoke-DiscoveryInventory -Server $DiscoveryServer -Database $DiscoveryDatabase -ConnectTimeout $DiscoveryConnectTimeout -CommandTimeout $DiscoveryCommandTimeout
+    Invoke-DiscoveryInventory -Server $DiscoveryServer -Database $DiscoveryDatabase -ConnectTimeout $DiscoveryConnectTimeout -CommandTimeout $DiscoveryCommandTimeout -Encrypt $DiscoveryEncrypt -Trust $DiscoveryTrust -TestOnly $DiscoveryTestOnly
 }

@@ -170,6 +170,52 @@ public sealed class SettingsServiceSiteTests : IDisposable
         Assert.Equal("Example Corp", (string?)global["CompanyName"]);
     }
 
+    /// <summary>Q-129: settings written by the single-site layout (SQL server, database, provider) still reach the Discover request after the migration into the site folder.</summary>
+    [Theory]
+    [InlineData("sql01.corp.example.com\\SCCM,2433", "CM_ABC")]
+    [InlineData("sql01.corp.example.com", "CM_ABC")]
+    [InlineData("", "")]
+    public async Task SettingsOfTheSingleSiteLayoutStillReachTheDiscoverRequestAfterTheMigration(string sqlServer, string sqlDatabase)
+    {
+        using var scope = SiteContext.Scope(null);
+        var legacy = new JsonObject
+        {
+            ["SiteCode"] = "ABC", ["SiteCodeSaved"] = true, ["ProviderMachine"] = "cm.corp.example.com", ["FirstRunCompleted"] = true,
+            ["DiscoverySqlServer"] = sqlServer, ["DiscoverySqlDatabase"] = sqlDatabase,
+            ["HiddenApplications"] = new JsonArray("git"), ["DiscoveryDismissed"] = new JsonArray("grepwin"),
+        };
+        File.WriteAllText(SettingsService.SettingsPath, legacy.ToJsonString());
+        SiteStartup.Initialize();
+        Assert.Equal("ABC", SiteContext.ActiveFolderName);
+        var service = new SettingsService();
+
+        DiscoveryRequest? seen = null;
+        var runner = new DiscoveryRunner(new CapturingDiscovery(r => seen = r), service.Load, service.Save,
+            _ => Task.FromResult<IReadOnlyList<DiscoveryPackager>>([new DiscoveryPackager("git", "Git", "Git", "Git", "Git", null, null)]),
+            _ => Task.FromResult<IReadOnlyList<CmSiteDrive>>([]));
+        var outcome = await runner.ScanAsync(CancellationToken.None);
+
+        Assert.True(outcome.Ok, outcome.Message);
+        Assert.Equal(("ABC", "cm.corp.example.com", sqlServer, sqlDatabase), (seen!.SiteCode, seen.ProviderMachineName, seen.ServerOverride, seen.DatabaseOverride));
+        Assert.Equal(["git"], seen.HiddenIds);
+        Assert.Equal(["grepwin"], seen.DismissedIds);
+        // The values now live in the site file, and a save does not lose them.
+        var settings = service.Load();
+        service.Save(settings);
+        var site = (JsonObject)JsonNode.Parse(File.ReadAllText(SiteFile("ABC")))!;
+        Assert.Equal(sqlServer, (string?)site["DiscoverySqlServer"] ?? "");
+        Assert.Equal(sqlDatabase, (string?)site["DiscoverySqlDatabase"] ?? "");
+    }
+
+    private sealed class CapturingDiscovery(Action<DiscoveryRequest> capture) : IDiscoveryService
+    {
+        public Task<DiscoveryResult> ScanAsync(DiscoveryRequest request, CancellationToken ct)
+        {
+            capture(request);
+            return Task.FromResult(new DiscoveryResult([], "Discovered 0 apps."));
+        }
+    }
+
     [Fact]
     public void ADamagedSiteFileIsNeverReplacedByDefaultsAndAnOperatorSaveKeepsACopy()
     {

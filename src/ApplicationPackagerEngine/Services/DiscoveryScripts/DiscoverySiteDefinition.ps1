@@ -29,7 +29,8 @@ function Invoke-DiscoverySiteDefinition {
     param([string]$Provider, [string]$SiteCode)
     # A provider answering without an instance does not end the search: the other protocol
     # can still return it. A not-found answer outranks a later protocol failure.
-    $line = '{"t":"error","stage":"site"}'
+    $line = '{"t":"error","stage":"site","detail":""}'
+    $failures = New-Object System.Collections.Generic.List[string]
     foreach ($protocol in 'Dcom', 'Wsman') {
         $session = $null
         try {
@@ -43,7 +44,14 @@ function Invoke-DiscoverySiteDefinition {
             $line = '{"t":"site","found":false,"via":"' + $protocol + '"}'
         }
         catch {
-            # $line keeps the previous answer: the initial error line or an earlier not-found.
+            # $line keeps the previous answer: the initial error line or an earlier not-found. The failure of each protocol is kept for the message.
+            $reason = ([string]$_.Exception.Message -replace '[
+	]+', ' ') -replace '[^ -~]', '?'
+            if ($reason.Length -gt 150) { $reason = $reason.Substring(0, 150) }
+            $failures.Add($protocol + ' ' + $_.Exception.GetType().Name + ': ' + $reason.Trim())
+            if ($line -like '{"t":"error"*') {
+                $line = '{"t":"error","stage":"site","detail":' + (ConvertTo-DiscoveryJsonString ($failures -join '; ')) + '}'
+            }
         }
         finally {
             if ($null -ne $session) { $session.Dispose() }

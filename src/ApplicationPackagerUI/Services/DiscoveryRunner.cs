@@ -115,7 +115,7 @@ public sealed class DiscoveryRunner
     /// <summary>
     /// Runs one scan on a worker thread. Returns at the time limit or on <paramref name="ct"/>
     /// even when the service ignores its token; the abandoned scan finishes on its own.
-    /// Never throws: every failure comes back as a plain message without exception detail.
+    /// Never throws: every failure comes back as a message that names the cause (exception type, server, database, what to check).
     /// </summary>
     public async Task<DiscoveryScanOutcome> ScanAsync(CancellationToken ct, bool allProducts = false)
     {
@@ -138,7 +138,9 @@ public sealed class DiscoveryRunner
                 // Not selected: the products the Catalog hides and the user did not dismiss. All: every product of the definitions, dismissed ones too.
                 allProducts ? packagers.Select(p => p.Id).ToArray() : settings.HiddenApplications ?? [],
                 allProducts ? [] : settings.DiscoveryDismissed ?? [],
-                (int)Math.Ceiling(TimeLimit.TotalSeconds));
+                (int)Math.Ceiling(TimeLimit.TotalSeconds),
+                settings.SiteHygieneLive?.EncryptSql ?? false,
+                settings.SiteHygieneLive?.TrustSqlCertificate ?? false);
 
             var token = linked.Token;
             var result = await Task.Run(() => _service.ScanAsync(request, token), token).WaitAsync(token);
@@ -158,10 +160,35 @@ public sealed class DiscoveryRunner
         {
             return new DiscoveryScanOutcome(null, ex.Message);
         }
-        catch (Exception)
+        catch (Exception ex)
         {
-            return new DiscoveryScanOutcome(null, "the query failed with an unexpected error. Nothing changed.");
+            // The type and the text name the cause; "unexpected error" alone gave the user nothing to check.
+            return new DiscoveryScanOutcome(null, $"the query failed with an unexpected error ({ex.GetType().Name}: {DiscoveryService.OneLine(ex.Message)}). Nothing changed. Check the SQL server and database in Settings, ConfigMgr Site Settings, and that Windows PowerShell 5.1 can run.");
         }
+    }
+
+    /// <summary>
+    /// Settings, Test connection: connects with the values of the page (not yet saved), reads one inventory row, and reports the
+    /// result or the real error. Nothing is changed.
+    /// </summary>
+    public async Task<DiscoveryScanOutcome> TestConnectionAsync(AppSettings settings, CancellationToken ct)
+    {
+        using var limit = new CancellationTokenSource(TimeSpan.FromSeconds(90));
+        using var linked = CancellationTokenSource.CreateLinkedTokenSource(ct, limit.Token);
+        try
+        {
+            var provider = await ResolveProviderNameAsync(settings, linked.Token);
+            var request = new DiscoveryRequest(settings.SiteCode?.Trim() ?? "", provider, settings.DiscoverySqlServer ?? "",
+                settings.DiscoverySqlDatabase ?? "", [], [], [], 60,
+                settings.SiteHygieneLive?.EncryptSql ?? false, settings.SiteHygieneLive?.TrustSqlCertificate ?? false, TestOnly: true);
+            var token = linked.Token;
+            var result = await Task.Run(() => _service.ScanAsync(request, token), token).WaitAsync(token);
+            return new DiscoveryScanOutcome(result, result.StatusText ?? "");
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { return new DiscoveryScanOutcome(null, "the test was stopped.", true); }
+        catch (OperationCanceledException) { return new DiscoveryScanOutcome(null, "the test did not finish within 90 seconds and was stopped."); }
+        catch (DiscoveryException ex) { return new DiscoveryScanOutcome(null, ex.Message); }
+        catch (Exception ex) { return new DiscoveryScanOutcome(null, $"the test failed with an unexpected error ({ex.GetType().Name}: {DiscoveryService.OneLine(ex.Message)})."); }
     }
 
     /// <summary>

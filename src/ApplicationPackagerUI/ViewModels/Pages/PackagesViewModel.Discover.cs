@@ -14,6 +14,9 @@ public partial class PackagesViewModel
     [ObservableProperty] private bool _isDiscoverAvailable;
     [ObservableProperty] private string _discoverToolTip = "";
 
+    /// <summary>The last line Discover reported: what it is doing, the result, or the error. The Settings page shows it under the two buttons, where the user clicked.</summary>
+    [ObservableProperty] private string _discoverStatus = "";
+
     /// <summary>Settings, Discover not selected: the scan of the products that the Catalog hides and that the user did not dismiss.</summary>
     public IAsyncRelayCommand DiscoverCommand =>
         _discoverCommand ??= new AsyncRelayCommand(() => DiscoverAsync(false), () => CanRunOperation() && IsDiscoverAvailable && _discoveryRunner is not null);
@@ -40,6 +43,17 @@ public partial class PackagesViewModel
             settingsUnreadable: () => _settingsService.IsFileUnreadable);
     }
 
+    /// <summary>Settings, Test connection: the result or the error goes to the status under the buttons and to the log.</summary>
+    public async Task TestDiscoveryConnectionAsync(AppSettings settings)
+    {
+        if (_discoveryRunner is null) return;
+        DiscoverStatus = "Testing the connection to the site database...";
+        var outcome = await _discoveryRunner.TestConnectionAsync(settings, CancellationToken.None);
+        var text = outcome.Ok ? outcome.Message : DiscoveryRunner.LogPrefix + outcome.Message;
+        DiscoverStatus = text;
+        AddLogLine(DiscoveryRunner.LogPrefix + "test connection: " + (outcome.Ok ? outcome.Message : outcome.Message));
+    }
+
     private void RefreshDiscoverState(AppSettings settings)
     {
         (IsDiscoverAvailable, DiscoverToolTip) = DiscoveryRunner.Availability(settings);
@@ -57,6 +71,7 @@ public partial class PackagesViewModel
     private async Task DiscoverAsync(bool allProducts)
     {
         if (_discoveryRunner is null || _discoveryPrompt is null) return;
+        DiscoverStatus = "";
         IsOperationRunning = true;
         _operationCts = new CancellationTokenSource();
         _discoveryCts = _operationCts;
@@ -65,7 +80,7 @@ public partial class PackagesViewModel
             await _discoveryRunner.RunAsync(
                 new ScanEndPrompt(this, _discoveryPrompt),
                 AddLogLine,
-                text => StatusText = text,
+                text => { StatusText = text; DiscoverStatus = text; },
                 () => LoadPackagersCommand.ExecuteAsync(null),
                 () => HiddenApplicationsChanged?.Invoke(this, EventArgs.Empty),
                 _operationCts.Token,
@@ -73,7 +88,8 @@ public partial class PackagesViewModel
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            StatusText = DiscoveryRunner.LogPrefix + "the action failed with an unexpected error.";
+            StatusText = DiscoveryRunner.LogPrefix + $"the action failed with an unexpected error ({ex.GetType().Name}: {ApplicationPackagerEngine.Services.DiscoveryService.OneLine(ex.Message)}).";
+            DiscoverStatus = StatusText;
             AddLogLine(StatusText);
         }
         finally

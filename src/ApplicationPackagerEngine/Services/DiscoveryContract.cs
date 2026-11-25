@@ -13,7 +13,7 @@ public sealed record DiscoveryPackager(string Id, string Vendor, string Applicat
 public sealed record DiscoveryRequest(string SiteCode, string ProviderMachineName, string ServerOverride,
                                       string DatabaseOverride, IReadOnlyList<DiscoveryPackager> Packagers,
                                       IReadOnlyCollection<string> HiddenIds, IReadOnlyCollection<string> DismissedIds,
-                                      int TimeoutSeconds = 600);
+                                      int TimeoutSeconds = 600, bool Encrypt = false, bool TrustServerCertificate = false, bool TestOnly = false);
 
 /// <summary>A hidden packager whose application name and version appear in inventory and that has no ConfigMgr Application.</summary>
 public sealed record DiscoveryCandidate(string Id, string CMName, string Vendor, string Application);

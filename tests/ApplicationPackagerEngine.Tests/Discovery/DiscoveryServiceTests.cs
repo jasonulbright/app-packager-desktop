@@ -115,8 +115,10 @@ public class DiscoveryServiceTests
     }
 
     [Theory]
-    [InlineData("{\"t\":\"error\",\"stage\":\"site\"}\n{\"t\":\"end\"}", "the SMS Provider CM01.contoso.com did not return the site definition")]
-    [InlineData("", "the SMS Provider CM01.contoso.com did not return the site definition")]
+    [InlineData("{\"t\":\"error\",\"stage\":\"site\"}\n{\"t\":\"end\"}", "the SMS Provider CM01.contoso.com did not return the site definition: no protocol answered")]
+    [InlineData("{\"t\":\"error\",\"stage\":\"site\",\"detail\":\"Dcom CimException: Access is denied. ; Wsman CimException: The WinRM client cannot process the request.\"}\n{\"t\":\"end\"}",
+        "the SMS Provider CM01.contoso.com did not return the site definition: Dcom CimException: Access is denied. ; Wsman CimException: The WinRM client cannot process the request.")]
+    [InlineData("", "the SMS Provider CM01.contoso.com did not return the site definition: the script did not finish (exit code 0, raw stderr text 0x80070005)")]
     [InlineData("{\"t\":\"site\",\"found\":false}\n{\"t\":\"end\"}", "the SMS Provider CM01.contoso.com has no site definition for MCM")]
     [InlineData("{\"t\":\"site\",\"found\":true,\"server\":\"\",\"database\":\"CM_MCM\"}\n{\"t\":\"end\"}", "the site definition has no SQL Server name")]
     public async Task AnUnknownServerGivesAPlainMessageWithTheReason(string siteOutput, string reason)
@@ -124,8 +126,19 @@ public class DiscoveryServiceTests
         var (service, runner) = Service();
         runner.SiteOutput = siteOutput;
         var ex = await Assert.ThrowsAsync<DiscoveryException>(() => service.ScanAsync(Request(), CancellationToken.None));
-        Assert.Equal($"The SQL Server for site MCM is not known ({reason}). Enter the SQL Server name in Settings, ConfigMgr Site Settings.", ex.Message);
-        Assert.DoesNotContain("0x8007", ex.Message);
+        Assert.StartsWith($"The SQL Server for site MCM is not known ({reason}", ex.Message);
+        Assert.EndsWith("Enter the SQL Server name in Settings, ConfigMgr Site Settings.", ex.Message);
+    }
+
+    [Fact]
+    public async Task AFailedSiteLookupSaysWhatToCheck()
+    {
+        var (service, runner) = Service();
+        runner.SiteOutput = "{\"t\":\"error\",\"stage\":\"site\",\"detail\":\"Dcom CimException: Access is denied.\"}\n{\"t\":\"end\"}";
+        var ex = await Assert.ThrowsAsync<DiscoveryException>(() => service.ScanAsync(Request(), CancellationToken.None));
+        Assert.Contains("SMS Provider computer", ex.Message);
+        Assert.Contains("ConfigMgr administrator", ex.Message);
+        Assert.Contains("Access is denied", ex.Message);
     }
 
     [Fact]
@@ -195,21 +208,21 @@ public class DiscoveryServiceTests
     }
 
     [Fact]
-    public async Task ARunWithoutTheEndLineGivesAPlainMessageWithoutTheStandardError()
+    public async Task ARunWithoutTheEndLineNamesTheServerTheDatabaseTheExitCodeAndTheStandardError()
     {
         var (service, runner) = Service();
         runner.InventoryOutput = "{\"t\":\"row\",\"n\":\"Git\",\"v\":\"\",\"a\":\"x64\"}";
         var ex = await Assert.ThrowsAsync<DiscoveryException>(() => service.ScanAsync(Request(server: "CM01", database: "CM_MCM"), CancellationToken.None));
-        Assert.Contains("CM01 did not finish", ex.Message);
-        Assert.DoesNotContain("0x8007", ex.Message);
+        Assert.Contains("CM01, database CM_MCM, did not finish (exit code 0, raw stderr text 0x80070005)", ex.Message);
+        Assert.Contains("Constrained Language Mode", ex.Message);
     }
 
     [Fact]
-    public async Task ARunThatCannotStartGivesAPlainMessage()
+    public async Task ARunThatCannotStartNamesTheExceptionTypeAndText()
     {
         var service = new DiscoveryService((_, _) => throw new System.ComponentModel.Win32Exception(2, "raw native text"), TimeProvider.System);
         var ex = await Assert.ThrowsAsync<DiscoveryException>(() => service.ScanAsync(Request(server: "s", database: "d"), CancellationToken.None));
-        Assert.DoesNotContain("raw native", ex.Message);
+        Assert.Contains("Win32Exception: raw native text", ex.Message);
         Assert.Contains("Windows PowerShell", ex.Message);
     }
 
@@ -246,6 +259,56 @@ public class DiscoveryServiceTests
         { "{\"t\":\"error\",\"stage\":\"sql\",\"numbers\":[8152],\"sspi\":false,\"anonymous\":false}", "The site database query on CM01 failed with SQL error 8152." },
         { "{\"t\":\"error\",\"stage\":\"sql\",\"numbers\":[],\"sspi\":false,\"anonymous\":false}", "The site database query on CM01 failed." },
     };
+
+    [Fact]
+    public void ASqlErrorLineWithTypesAndTextShowsTheServerTheDatabaseTheTypeTheNumbersAndTheCause()
+    {
+        const string line = "{\"t\":\"error\",\"stage\":\"sql\",\"numbers\":[],\"sspi\":false,\"anonymous\":false,\"types\":[\"MethodInvocationException\",\"SqlException\",\"Win32Exception\"],"
+            + "\"detail\":\"A transport-level error has occurred.\"}";
+        var ex = Assert.Throws<DiscoveryException>(() =>
+            DiscoveryService.ParseInventory(line + "\n{\"t\":\"end\"}", new DiscoveryDatabaseTarget("sql01.corp.example.com\\SCCM", "CM_ABC"), 45));
+        Assert.Equal("The site database query on sql01.corp.example.com\\SCCM failed. Server sql01.corp.example.com\\SCCM, database CM_ABC. Error: Win32Exception: A transport-level error has occurred.", ex.Message);
+    }
+
+    [Fact]
+    public void AnUntrustedCertificateNamesTheCertificateAndTheOptionToSelect()
+    {
+        const string line = "{\"t\":\"error\",\"stage\":\"sql\",\"numbers\":[-2146893019],\"sspi\":false,\"anonymous\":false,\"types\":[\"SqlException\"],\"detail\":\"A connection was successfully established with the server, but then an error occurred during the login process. (provider: SSL Provider, error: 0 - The certificate chain was issued by an authority that is not trusted.)\"}";
+        var ex = Assert.Throws<DiscoveryException>(() =>
+            DiscoveryService.ParseInventory(line + "\n{\"t\":\"end\"}", new DiscoveryDatabaseTarget("sql01", "CM_ABC"), 45));
+        Assert.Contains("certificate of the SQL Server is not trusted", ex.Message);
+        Assert.Contains("Trust server certificate", ex.Message);
+        Assert.Contains("Server sql01, database CM_ABC", ex.Message);
+        Assert.Contains("The certificate chain was issued by an authority that is not trusted", ex.Message);
+    }
+
+    [Fact]
+    public async Task TheEncryptAndTrustOptionsReachTheScriptAndTheTestSkipsTheMatching()
+    {
+        var (service, runner) = Service();
+        var request = new DiscoveryRequest("MCM", "", "sql01", "CM_MCM", Packagers, ["7z"], [], 60, Encrypt: true, TrustServerCertificate: true, TestOnly: true);
+        runner.InventoryOutput = "{\"t\":\"summary\"}\n{\"t\":\"end\"}";
+        var result = await service.ScanAsync(request, CancellationToken.None);
+        Assert.Empty(result.Candidates);
+        Assert.Equal("Connected to SQL Server sql01, database CM_MCM. The account can read the inventory views.", result.StatusText);
+        var script = Assert.Single(runner.Scripts);
+        Assert.Contains("$DiscoveryEncrypt = $true", script);
+        Assert.Contains("$DiscoveryTrust = $true", script);
+        Assert.Contains("$DiscoveryTestOnly = $true", script);
+        var plain = DiscoveryService.BuildInventoryScript(new DiscoveryDatabaseTarget("s", "d"), 30);
+        Assert.Contains("$DiscoveryEncrypt = $false", plain);
+        Assert.Contains("$DiscoveryTrust = $false", plain);
+    }
+
+    [Fact]
+    public void ALoginErrorKeepsItsAdviceAndAddsTheErrorNumberAndText()
+    {
+        const string line = "{\"t\":\"error\",\"stage\":\"sql\",\"numbers\":[18456],\"sspi\":false,\"anonymous\":false,\"types\":[\"SqlException\"],\"detail\":\"Login failed for user 'CORP\\\\svc'.\"}";
+        var ex = Assert.Throws<DiscoveryException>(() =>
+            DiscoveryService.ParseInventory(line + "\n{\"t\":\"end\"}", new DiscoveryDatabaseTarget("sql01", "CM_ABC"), 45));
+        Assert.StartsWith("SQL Server on sql01 denied the Windows login. The account needs the db_datareader role on CM_ABC.", ex.Message);
+        Assert.EndsWith("Error: SqlException 18456: Login failed for user 'CORP\\svc'.", ex.Message);
+    }
 
     [Theory]
     [MemberData(nameof(SqlErrors))]

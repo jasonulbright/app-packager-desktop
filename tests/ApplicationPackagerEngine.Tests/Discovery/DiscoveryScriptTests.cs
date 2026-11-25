@@ -104,7 +104,9 @@ public sealed class DiscoveryScriptTests : IDisposable
         Assert.Contains("$builder['ApplicationIntent'] = 'ReadOnly'", text);
         Assert.Contains("$builder['Connect Timeout']", text);
         Assert.Contains("$command.CommandTimeout = [Math]::Max(1, $CommandTimeout)", text);
-        Assert.DoesNotMatch("(?i)password|user id|Encrypt", text);
+        Assert.DoesNotMatch("(?i)password|user id", text);
+        Assert.Contains("if ($Encrypt) { $builder['Encrypt'] = $true }", text);
+        Assert.Contains("if ($Trust) { $builder['TrustServerCertificate'] = $true }", text);
         var final = text[text.IndexOf("    finally {", StringComparison.Ordinal)..];
         Assert.Contains("$reader.Dispose()", final);
         Assert.Contains("$command.Dispose()", final);
@@ -183,14 +185,31 @@ public sealed class DiscoveryScriptTests : IDisposable
     }
 
     [Fact]
-    public void AnInventoryFailureWritesNumbersAndFlagsButNoRawText()
+    public void AnInventoryFailureWritesNumbersFlagsTheTypesAndTheInnermostText()
     {
         var script = InventoryText + Environment.NewLine + """
             $inner = New-Object System.Exception "Login failed for user 'NT AUTHORITY\ANONYMOUS LOGON'. Cannot generate SSPI context. CONTOSO\jdoe"
             Write-DiscoveryError -Exception (New-Object System.Management.Automation.MethodInvocationException 'Exception calling "Open"', $inner)
             """;
         var output = RunPowerShell(script).Trim();
-        Assert.Equal("{\"t\":\"error\",\"stage\":\"sql\",\"numbers\":[],\"sspi\":true,\"anonymous\":true}", output);
+        Assert.Equal("{\"t\":\"error\",\"stage\":\"sql\",\"numbers\":[],\"sspi\":true,\"anonymous\":true,\"types\":[\"MethodInvocationException\",\"Exception\"],"
+                     + "\"detail\":\"Login failed for user 'NT AUTHORITY\\\\ANONYMOUS LOGON'. Cannot generate SSPI context. CONTOSO\\\\jdoe\"}", output);
+    }
+
+    [Fact]
+    public void AnInventoryFailureTextIsOneAsciiLineOfAtMostThreeHundredCharacters()
+    {
+        var script = InventoryText + Environment.NewLine + """
+            $text = "The certificate chain was issued by an authority that is not trusted." + [char]13 + [char]10 + ("x" * 400) + [char]0x00e9
+            Write-DiscoveryError -Exception (New-Object System.Exception $text)
+            """;
+        var line = RunPowerShell(script).Trim();
+        using var json = System.Text.Json.JsonDocument.Parse(line);
+        var detail = json.RootElement.GetProperty("detail").GetString()!;
+        Assert.StartsWith("The certificate chain was issued by an authority that is not trusted.", detail);
+        Assert.InRange(detail.Length, 250, 300);
+        Assert.All(line, c => Assert.True(c < 128));
+        Assert.DoesNotContain('\n', line.TrimEnd());
     }
 
     [Fact]
@@ -287,9 +306,9 @@ public sealed class DiscoveryScriptTests : IDisposable
     public void BothProtocolsFailingWritesOnePlainErrorLine()
     {
         var output = RunSite("$global:FailQuery = @('Dcom', 'Wsman')");
-        Assert.Contains("{\"t\":\"error\",\"stage\":\"site\"}", output);
-        Assert.DoesNotContain("Access is denied", output);
-        Assert.DoesNotContain("HRESULT", output);
+        Assert.Contains("{\"t\":\"error\",\"stage\":\"site\",\"detail\":\"Dcom ", output);
+        Assert.Contains("; Wsman ", output);
+        Assert.Contains("Access is denied. (HRESULT 0x80070005)", output);
         Assert.Contains("dispose:Dcom", output);
         Assert.Contains("dispose:Wsman", output);
     }
