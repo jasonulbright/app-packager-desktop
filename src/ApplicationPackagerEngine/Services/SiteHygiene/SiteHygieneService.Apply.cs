@@ -45,18 +45,29 @@ public sealed partial class SiteHygieneService
         }
         catch (Exception ex) when (ex is not OutOfMemoryException)
         {
-            _log?.Warning(LogArea, $"{change.Kind} stopped with an unexpected error: {ex.GetType().Name}.");
+            _log?.Error(LogArea, $"{change.Kind} stopped with an unexpected error. {Describe(change.Findings)}", ex);
             var known = state.Results.ToList();
             var rest = change.Findings.Where(f => known.All(k => !string.Equals(k.Finding.Key, f.Key, StringComparison.OrdinalIgnoreCase))).ToList();
             var objects = known.Concat(rest.Select(f => state.Writing
                 ? new HygieneObjectOutcome(f, HygieneResults.Failed, UnexpectedStop)
                 : Skip(f, "the fix stopped with an unexpected error before the first write. Nothing was changed."))).ToList();
             var missing = state.Started && !state.Finished;
-            outcome = new HygieneOutcome(change, false, "The fix stopped with an unexpected error. Scan again to see the current state. The log has the kind of failure."
+            outcome = new HygieneOutcome(change, false, "The fix stopped with an unexpected error. Scan again to see the current state. The log has the details."
                 + (missing ? AuditMissing() : ""), objects, true) { AuditIncomplete = missing, AuditPath = missing ? _audit.Path : "" };
         }
         progress.Report(outcome);
         return outcome;
+    }
+
+    /// <summary>The object of a write for a log line: its type, name and identifier.</summary>
+    private static string ObjectText(HygieneTarget t) => $"Object: {t.ObjectType} '{t.ObjectName}' ({t.ObjectKey}); {t.Detail}";
+
+    /// <summary>The findings of a run for a log line: check, object name and identifier of each, the first few in full.</summary>
+    private static string Describe(IEnumerable<HygieneFinding> findings)
+    {
+        var list = findings.ToList();
+        var shown = string.Join("; ", list.Take(10).Select(f => $"{f.CheckId} {f.ObjectType} '{f.ObjectName}' ({f.ObjectKey})"));
+        return $"Findings of the run ({list.Count}): {shown}{(list.Count > 10 ? "; and more" : "")}.";
     }
 
     private string AuditMissing() =>
@@ -124,7 +135,7 @@ public sealed partial class SiteHygieneService
             }
             catch (Exception ex) when (ex is not OutOfMemoryException)
             {
-                _log?.Warning(LogArea, $"{change.Kind} stopped at an object with an unexpected error: {ex.GetType().Name}.");
+                _log?.Error(LogArea, $"{change.Kind} stopped at an object with an unexpected error. {Describe([f])}", ex);
                 var known = state.Current.ToList();
                 var targets = known.Concat(planned.Skip(known.Count).Select(t => new HygieneTargetOutcome(t, HygieneResults.Failed, UnexpectedStop))).ToList();
                 result = known.Count == 0 || targets.Count == 0
@@ -304,7 +315,7 @@ public sealed partial class SiteHygieneService
         }
         catch (Exception ex) when (ex is ConfigMgrSessionException or HygieneServiceException)
         {
-            _log?.Warning(LogArea, $"A {kind} write failed in the ConfigMgr session ({(ex as ConfigMgrSessionException)?.Failure.ToString() ?? "parse"}).");
+            _log?.Error(LogArea, $"A {kind} write failed in the ConfigMgr session ({(ex as ConfigMgrSessionException)?.Failure.ToString() ?? "parse"}). {ObjectText(t)}. The result of the write is not known.", ex);
             return (new HygieneTargetOutcome(t, HygieneResults.Failed, WriteSessionFailed), SessionStopped);
         }
         if (applied.OtherConnection)
@@ -313,6 +324,11 @@ public sealed partial class SiteHygieneService
             return (new HygieneTargetOutcome(t, HygieneResults.Skipped, SkippedPrefix + ConnectionChanged), ConnectionChanged);
         }
         var (status, failure) = applied.Applied.FirstOrDefault();
+        if (status == "in-use" && kind == HygieneFixKind.ClearBrokenSupersedence && failure == "deployed")
+        {
+            _log?.Warning(LogArea, $"{kind} was not run. {ObjectText(t)}. Blocked by: the application is retired and has a deployment.");
+            return (new HygieneTargetOutcome(t, HygieneResults.Skipped, SkippedPrefix + "the application is retired and has a deployment. A retired application cannot be changed, so the fix reinstates it for a moment, and it does not do that while a deployment exists: delete the deployment first (check APP-02). Nothing was changed."), "");
+        }
         if (status == "in-use" && kind == HygieneFixKind.ClearBrokenSupersedence)
         {
             _log?.Info(LogArea, $"{kind}: the referenced application exists again, so nothing was changed.");
@@ -332,13 +348,17 @@ public sealed partial class SiteHygieneService
         }
         if (status == "in-use")
         {
-            _log?.Info(LogArea, $"{kind}: a delete was refused in the delete command: the object is in use ({failure}).");
-            return (new HygieneTargetOutcome(t, HygieneResults.Skipped, SkippedPrefix + InUseText(failure)), "");
+            _log?.Warning(LogArea, $"{kind} was not run. {ObjectText(t)}. Blocked by: {InUseText(failure, applied.AppliedDetails.FirstOrDefault() ?? "")}");
+            var blockedBy = applied.AppliedDetails.FirstOrDefault() ?? "";
+            return (new HygieneTargetOutcome(t, HygieneResults.Skipped, SkippedPrefix + InUseText(failure, blockedBy)), "");
         }
         if (status != "done")
         {
-            _log?.Warning(LogArea, $"{kind}: a write failed with kind {(failure.Length > 0 ? failure : "none")}.");
-            return (new HygieneTargetOutcome(t, HygieneResults.Failed, FailureText(failure)), "");
+            var detail = applied.AppliedDetails.FirstOrDefault() ?? "";
+            _log?.Error(LogArea, $"{kind} failed. {ObjectText(t)}. Result kind: {(failure.Length > 0 ? failure : "none")}. Meaning: {FailureText(failure)} {(detail.Length > 0 ? detail : "The script gave no further detail.")}");
+            // A refused delete names the objects that refer to the application, when the script found them.
+            var blockers = failure == "referenced" && detail.IndexOf(BlockersMarker, StringComparison.Ordinal) is var at and >= 0 ? " " + detail[at..] : "";
+            return (new HygieneTargetOutcome(t, HygieneResults.Failed, FailureText(failure) + blockers), "");
         }
         return await ReadBackAsync(kind, f, w, prepared, ruleBefore).ConfigureAwait(false) switch
         {
@@ -378,7 +398,7 @@ public sealed partial class SiteHygieneService
         ? $"The site accepted the run; the rule showed no new run time within {RuleRunWindow.TotalSeconds:0} seconds."
         : $"The read-back shows {(writes == 1 ? "the object" : $"{N(unchanged)} of {N(writes)} objects")} as before.";
 
-    internal static string InUseText(string use) => "the delete command found that the object is in use now" + use switch
+    internal static string InUseText(string use, string blockedBy = "") => "the delete command found that the object is in use now" + use switch
     {
         "deployments" => ": a deployment targets it or uses it",
         "collections" => ": another collection includes, excludes or limits to it",
@@ -395,7 +415,9 @@ public sealed partial class SiteHygieneService
         "auto-apply-drivers" => ": a task sequence has an Auto Apply Drivers step",
         "enabled" => ": the rule is enabled",
         _ => ""
-    } + ". It was not deleted.";
+    } + "." + (blockedBy.Length > 0 ? " " + blockedBy : "") + " It was not deleted.";
+
+    private const string BlockersMarker = "Blocking objects:";
 
     private enum ReadBack { Done, AsBefore, NotVerified }
 
@@ -412,7 +434,7 @@ public sealed partial class SiteHygieneService
             }
             catch (Exception ex) when (ex is HygieneServiceException or OtherConnectionException)
             {
-                _log?.Warning(LogArea, "A read-back after a fix could not be made.");
+                _log?.Warning(LogArea, "A read-back after a fix could not be made.", ex);
                 return ReadBack.NotVerified;
             }
             if (_utcNow() >= deadline) return ReadBack.AsBefore;
@@ -440,10 +462,10 @@ public sealed partial class SiteHygieneService
         "referenced" => "ConfigMgr refused the delete: another object references this object.",
         "invalid" => "The object identifier is not valid.",
         "unsupported" => "This kind of fix is not supported.",
-        "serializer" => "The serializer for application documents is not the one of the console, so nothing was changed.",
-        "document" => "The edited application document differs from the original in more than the broken rules, so nothing was changed.",
-        "retire" => "The fix reinstated the retired application to change it and could not retire it again. Retire the application again in the ConfigMgr console.",
-        "readback" => "The application did not read back as the original without the broken rules. Check it in the ConfigMgr console.",
-        _ => "ConfigMgr reported an error. The log has the kind of failure."
+        "serializer" => "The serializer for application documents is not the one of the console, so nothing was changed. The log has the details.",
+        "document" => "The edited application document differs from the original in more than the broken rules, so nothing was changed. The log has the details.",
+        "retire" => "The fix reinstated the retired application to change it and could not retire it again. Retire the application again in the ConfigMgr console. The log has the details.",
+        "readback" => "The application did not read back as the original without the broken rules. Check it in the ConfigMgr console. The log has the details.",
+        _ => "ConfigMgr reported an error. The log has the details."
     };
 }

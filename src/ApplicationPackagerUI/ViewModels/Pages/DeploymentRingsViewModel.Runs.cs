@@ -180,7 +180,7 @@ public sealed partial class DeploymentRingsViewModel
         {
             if (mine != _runsGeneration || generation != Shared.Generation) return;
             RunsMessage = DeploymentShared.PlainMessage(ex, RunsFailedText);
-            Services.Log.Warning(DeploymentShared.LogArea, $"Rings: the runs could not be read ({DeploymentShared.FailureName(ex)}).");
+            Services.Log.Warning(DeploymentShared.LogArea, $"Rings: the runs could not be read ({DeploymentShared.FailureName(ex)}).", ex);
         }
         finally
         {
@@ -214,7 +214,7 @@ public sealed partial class DeploymentRingsViewModel
         {
             if (mine != _countsGeneration || generation != Shared.Generation) return;
             RunsMessage = DeploymentShared.PlainMessage(ex, CountsFailedText);
-            Services.Log.Warning(DeploymentShared.LogArea, $"Rings: the live counts could not be read ({DeploymentShared.FailureName(ex)}).");
+            Services.Log.Warning(DeploymentShared.LogArea, $"Rings: the live counts could not be read ({DeploymentShared.FailureName(ex)}).", ex);
         }
         finally
         {
@@ -303,7 +303,7 @@ public sealed partial class DeploymentRingsViewModel
                 catch (Exception ex)
                 {
                     problems.Add($"{id}: {DeploymentShared.PlainMessage(ex, ReconcileFailedText)}");
-                    Services.Log.Warning(DeploymentShared.LogArea, $"Rings: a run could not be reconciled ({DeploymentShared.FailureName(ex)}).");
+                    Services.Log.Warning(DeploymentShared.LogArea, $"Rings: a run could not be reconciled ({DeploymentShared.FailureName(ex)}).", ex);
                 }
             }
         }

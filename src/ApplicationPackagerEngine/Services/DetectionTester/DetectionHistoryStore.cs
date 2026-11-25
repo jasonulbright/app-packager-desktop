@@ -105,7 +105,7 @@ public sealed class DetectionHistoryStore : IDetectionHistoryStore
         }
         catch (Exception ex) when (IsStorageFailure(ex))
         {
-            _log?.Warning(LogArea, $"The detection history folder could not be resolved ({ex.GetType().Name}).");
+            _log?.Warning(LogArea, $"The detection history folder could not be resolved ({ex.GetType().Name}).", ex);
             return _entries;
         }
 
@@ -117,7 +117,7 @@ public sealed class DetectionHistoryStore : IDetectionHistoryStore
         catch (Exception ex) when (IsStorageFailure(ex))
         {
             if (!_readPending)
-                _log?.Warning(LogArea, $"The detection history file could not be opened; it is not changed until it can be read ({ex.GetType().Name}).");
+                _log?.Warning(LogArea, $"The detection history file could not be opened; it is not changed until it can be read ({ex.GetType().Name}).", ex);
             _readPending = true;
             return _entries;
         }
@@ -138,7 +138,7 @@ public sealed class DetectionHistoryStore : IDetectionHistoryStore
         catch (Exception ex) when (ex is JsonException or NotSupportedException)
         {
             _preserveBeforeWrite = true;
-            _log?.Warning(LogArea, $"The detection history file could not be parsed and is set aside at the next save ({ex.GetType().Name}).");
+            _log?.Warning(LogArea, $"The detection history file could not be parsed and is set aside at the next save ({ex.GetType().Name}).", ex);
         }
         return _entries;
     }
@@ -181,7 +181,7 @@ public sealed class DetectionHistoryStore : IDetectionHistoryStore
         }
         catch (Exception ex) when (IsStorageFailure(ex))
         {
-            _log?.Warning(LogArea, $"The detection history could not be saved ({ex.GetType().Name}).");
+            _log?.Warning(LogArea, $"The detection history could not be saved ({ex.GetType().Name}).", ex);
         }
     }
 

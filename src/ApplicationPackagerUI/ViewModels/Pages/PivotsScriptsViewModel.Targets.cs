@@ -140,7 +140,7 @@ public sealed partial class PivotsScriptsViewModel
         {
             if (generation != Generation || mine != _resolveGeneration) return;
             StatusMessage = PlainMessage(ex, ResolveFailed);
-            Services.Log.Warning(LogArea, $"A target could not be resolved ({FailureName(ex)}).");
+            Services.Log.Warning(LogArea, $"A target could not be resolved ({FailureName(ex)}).", ex);
         }
         finally
         {
@@ -183,7 +183,7 @@ public sealed partial class PivotsScriptsViewModel
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Security.SecurityException or ArgumentException or NotSupportedException)
         {
             if (generation == Generation) StatusMessage = ImportFailed;
-            Services.Log.Warning(LogArea, $"A target file could not be read ({ex.GetType().Name}).");
+            Services.Log.Warning(LogArea, $"A target file could not be read ({ex.GetType().Name}).", ex);
             return;
         }
         if (generation != Generation) return;

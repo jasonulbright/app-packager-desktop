@@ -43,7 +43,7 @@ internal static class HygieneJsonFile
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException or NotSupportedException)
         {
-            log?.Warning(SiteHygieneService.LogArea, $"The {what} file could not be read ({ex.GetType().Name}); it is ignored.");
+            log?.Warning(SiteHygieneService.LogArea, $"The {what} file could not be read ({ex.GetType().Name}); it is ignored.", ex);
             return null;
         }
     }
@@ -67,7 +67,7 @@ internal static class HygieneJsonFile
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException or NotSupportedException)
         {
-            log?.Warning(SiteHygieneService.LogArea, $"The {what} file could not be read before a change ({ex.GetType().Name}); it was not changed.");
+            log?.Warning(SiteHygieneService.LogArea, $"The {what} file could not be read before a change ({ex.GetType().Name}); it was not changed.", ex);
             throw new HygieneServiceException($"The {what} file could not be read, so it was not changed. Close the program that uses it, or move the file away if it is damaged: {path}");
         }
     }

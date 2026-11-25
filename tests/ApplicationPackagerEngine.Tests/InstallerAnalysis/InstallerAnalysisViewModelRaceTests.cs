@@ -117,8 +117,8 @@ public sealed class InstallerAnalysisViewModelRaceTests : IDisposable
         Assert.Contains("InvalidDataException", log);
         Assert.DoesNotContain("evil", log);
         Assert.DoesNotContain("forged", log);
-        Assert.DoesNotContain("second-secret", log);
-        Assert.DoesNotContain("bad header", log);
+        Assert.Contains("second-secret", log);
+        Assert.Contains("bad header", log);
         Assert.All(_h.Log.Entries, e => Assert.DoesNotContain('\r', e.Message));
         Assert.All(_h.Log.Entries, e => Assert.DoesNotContain('\n', e.Message));
     }

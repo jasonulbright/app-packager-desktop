@@ -94,7 +94,7 @@ public sealed partial class SiteHygieneViewModel
             if (mine != _trendGeneration) return;
             TrendRows = [];
             TrendNote = TrendReadFailed;
-            Services.Log.Warning(LogArea, $"The metrics history could not be read ({ex.GetType().Name}).");
+            Services.Log.Warning(LogArea, $"The metrics history could not be read ({ex.GetType().Name}).", ex);
         }
         finally
         {

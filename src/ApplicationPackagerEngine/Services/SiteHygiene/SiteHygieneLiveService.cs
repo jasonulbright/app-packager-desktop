@@ -147,7 +147,7 @@ public sealed class SiteHygieneLiveService : ISiteHygieneLiveService
         "access" => $"The SMS Provider denied the read of {LiveText.Title(view)}. The account needs a ConfigMgr security role with read rights on the site.",
         "not-found" => $"The SMS Provider does not offer the data the {LiveText.Title(view)} view reads.",
         "timeout" => $"The SMS Provider did not answer the read of {LiveText.Title(view)} in time. Refresh again.",
-        _ => $"The read of {LiveText.Title(view)} failed. The log has the kind of failure."
+        _ => $"The read of {LiveText.Title(view)} failed. The log has the details."
     };
 
     private LiveViewResult Failed(LiveView view, string message, int queries = 0) =>
@@ -239,7 +239,7 @@ public sealed class SiteHygieneLiveService : ISiteHygieneLiveService
         }
         catch (Exception ex) when (ex is JsonException or InvalidOperationException or FormatException)
         {
-            _log?.Warning(LogArea, $"ConfigMgr returned {view} data that could not be read ({ex.GetType().Name}).");
+            _log?.Warning(LogArea, $"ConfigMgr returned {view} data that could not be read ({ex.GetType().Name}).", ex);
             return Failed(view, UnreadableMessage);
         }
     }
@@ -386,7 +386,7 @@ public sealed class SiteHygieneLiveService : ISiteHygieneLiveService
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            _log?.Warning(LogArea, $"Windows PowerShell did not start for the SQL views ({ex.GetType().Name}).");
+            _log?.Warning(LogArea, $"Windows PowerShell did not start for the SQL views ({ex.GetType().Name}).", ex);
             return All(v => Failed(v, "Windows PowerShell could not start. The SQL views need Windows PowerShell 5.1 (powershell.exe)."));
         }
 
@@ -454,7 +454,7 @@ public sealed class SiteHygieneLiveService : ISiteHygieneLiveService
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            _log?.Warning(LogArea, $"Test SQL could not run ({ex.GetType().Name}).");
+            _log?.Warning(LogArea, $"Test SQL could not run ({ex.GetType().Name}).", ex);
             return "Windows PowerShell could not start. The SQL views need Windows PowerShell 5.1 (powershell.exe).";
         }
         var parsed = ParseSql(stdout);

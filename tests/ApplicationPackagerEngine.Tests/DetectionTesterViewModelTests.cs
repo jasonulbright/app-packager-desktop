@@ -754,7 +754,7 @@ public sealed class DetectionTesterViewModelTests
         var viewModel = await _h.OpenAsync();
         await viewModel.ExportCsvCommand.ExecuteAsync(null);
         Assert.Equal("The CSV report could not be written.", viewModel.StatusMessage);
-        Assert.DoesNotContain(_h.Log.Entries, e => e.Message.Contains("disk is full"));
+        Assert.Contains(_h.Log.Entries, e => e.Message.Contains("disk is full"));
         Assert.Contains(_h.Log.Entries, e => e.Message.Contains("IOException"));
         Assert.Empty(_h.Prompts.OpenedFolders);
     }
@@ -793,7 +793,7 @@ public sealed class DetectionTesterViewModelTests
         var viewModel = await _h.OpenAsync();
         await viewModel.ImportManifestCommand.ExecuteAsync(null);
         Assert.Equal("The file could not be read as a stage manifest.", viewModel.ResultSummary);
-        Assert.DoesNotContain(_h.Log.Entries, e => e.Message.Contains("server"));
+        Assert.Contains(_h.Log.Entries, e => e.Message.Contains("server"));
     }
 
     [Fact]

@@ -193,7 +193,7 @@ public sealed partial class PivotsScriptsViewModel
             devices = (counter.Last ?? sent)?.Devices ?? [];
             partial = true;
             note = PlainMessage(ex, WaitFailed);
-            Services.Log.Warning(LogArea, $"The results of a run could not be read ({FailureName(ex)}).");
+            Services.Log.Warning(LogArea, $"The results of a run could not be read ({FailureName(ex)}).", ex);
         }
         finally
         {
@@ -268,7 +268,7 @@ public sealed partial class PivotsScriptsViewModel
             try { raw = await Task.Run(() => RawOf(Services.Sessions.Read(id))); }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or PivotsServiceException or InvalidOperationException)
             {
-                Services.Log.Warning(LogArea, $"The raw responses of a session could not be read ({ex.GetType().Name}).");
+                Services.Log.Warning(LogArea, $"The raw responses of a session could not be read ({ex.GetType().Name}).", ex);
             }
         }
         Show(new PivotsResultSet(devices, partial, header, online ?? OnlineOf(targets?.Devices), raw), final);
@@ -413,7 +413,7 @@ public sealed partial class PivotsScriptsViewModel
         catch (Exception ex)
         {
             StatusMessage = PlainMessage(ex, $"The {format} report could not be written. The log has the details.");
-            Services.Log.Warning(LogArea, $"The {format} report could not be written ({ex.GetType().Name}).");
+            Services.Log.Warning(LogArea, $"The {format} report could not be written ({ex.GetType().Name}).", ex);
             return;
         }
         StatusMessage = $"Saved the {format} report to {path}: {PivotsLabels.Count(report.Rows.Count, "row")}." + (report.Filter.Length > 0 ? " Filter: " + report.Filter : " No filter.") + (report.Note is { } n ? " " + n : "")

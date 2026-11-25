@@ -95,7 +95,7 @@ public sealed class DpContentServiceScriptTests
         Assert.False(outcome.Succeeded);
         Assert.DoesNotContain("SECRET", pair.Message);
         Assert.DoesNotContain("SECRET", outcome.Message);
-        Assert.Equal("ConfigMgr reported an error. The log has the kind of failure.", pair.Message);
+        Assert.Equal("ConfigMgr reported an error. The log has the details.", pair.Message);
     }
 
     [Fact]

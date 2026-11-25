@@ -60,7 +60,7 @@ public sealed class LegacyDashboardImport : ILegacyDashboardImport
         }
         catch (Exception ex) when (ex is System.Security.SecurityException or IOException or UnauthorizedAccessException)
         {
-            log?.Warning(SiteHygieneService.LogArea, $"The suite install folder could not be read from the registry ({ex.GetType().Name}).");
+            log?.Warning(SiteHygieneService.LogArea, $"The suite install folder could not be read from the registry ({ex.GetType().Name}).", ex);
         }
         roots.Add(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "AppPackagerSuite"));
         var folders = new List<string>();
@@ -73,7 +73,7 @@ public sealed class LegacyDashboardImport : ILegacyDashboardImport
             }
             catch (Exception ex) when (ex is ArgumentException or NotSupportedException or PathTooLongException)
             {
-                log?.Warning(SiteHygieneService.LogArea, $"A suite install folder could not be resolved ({ex.GetType().Name}).");
+                log?.Warning(SiteHygieneService.LogArea, $"A suite install folder could not be resolved ({ex.GetType().Name}).", ex);
             }
         }
         return folders;
@@ -261,7 +261,7 @@ public sealed class LegacyDashboardImport : ILegacyDashboardImport
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {
                 var message = $"The files in {folder} could not be read. Nothing was imported.";
-                _log?.Warning(SiteHygieneService.LogArea, $"The dashboard import was refused: the files could not be read ({ex.GetType().Name}).");
+                _log?.Warning(SiteHygieneService.LogArea, $"The dashboard import was refused: the files could not be read ({ex.GetType().Name}).", ex);
                 return new LegacyImportPlan(folder, [], 0, false, message);
             }
         }
@@ -288,7 +288,7 @@ public sealed class LegacyDashboardImport : ILegacyDashboardImport
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            _log?.Warning(SiteHygieneService.LogArea, $"The dashboard import failed ({ex.GetType().Name}).");
+            _log?.Warning(SiteHygieneService.LogArea, $"The dashboard import failed ({ex.GetType().Name}).", ex);
             return new LegacyImportResult([], 0, false, $"The files in {plan.SourceFolder} could not be read. Nothing was imported.");
         }
 
@@ -314,7 +314,7 @@ public sealed class LegacyDashboardImport : ILegacyDashboardImport
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {
-                _log?.Warning(SiteHygieneService.LogArea, $"The dashboard history could not be copied ({ex.GetType().Name}).");
+                _log?.Warning(SiteHygieneService.LogArea, $"The dashboard history could not be copied ({ex.GetType().Name}).", ex);
                 historyProblem = $"The history file {plan.HistoryFile} could not be read. The history was not copied.";
             }
         }

@@ -149,7 +149,7 @@ public sealed class SiteHygieneLivePageRealServiceTests
         Assert.Contains("1 failed (Content)", vm.StatusMessage);
         Assert.Contains("2 not set up", vm.StatusMessage);
         vm.SelectedLiveView = View(LiveView.Content);
-        Assert.Equal("The read of this view failed. The read of Content failed. The log has the kind of failure.", vm.LiveViewMessage);
+        Assert.Equal("The read of this view failed. The read of Content failed. The log has the details.", vm.LiveViewMessage);
         Assert.Empty(vm.LiveViewRows);
         vm.SelectedLiveView = View(LiveView.ClientHealth);
         Assert.StartsWith(LiveText.SqlNotSetUp, vm.LiveViewMessage);

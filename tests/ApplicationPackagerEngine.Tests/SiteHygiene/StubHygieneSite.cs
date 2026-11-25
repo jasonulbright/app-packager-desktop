@@ -85,7 +85,7 @@ internal sealed class StubHygieneSite : IConfigMgrSession
         '@
         Add-Type -Path $serializerPath
         # The console module: its folder is the one of the serializer, unless a test asks for another serializer.
-        $global:ModuleBase = $(if ([string](V $state.Options 'WrongSerializer' '') -eq '1') { 'C:\\Elsewhere' } else { $serializerFolder })
+        $global:ModuleBase = $(if ([string](V $state.Options 'WrongSerializer' '') -eq '1') { 'C:\\Elsewhere' } elseif ([string](V $state.Options 'ModuleInSubfolder' '') -eq '1') { Join-Path $serializerFolder 'ConfigurationManager' } else { $serializerFolder })
         function global:Get-Module { [CmdletBinding()] param([string]$Name) [pscustomobject]@{ Name = 'ConfigurationManager'; ModuleBase = $global:ModuleBase; Version = [version]'5.2603.1035.1000' } }
         $global:Log = [System.Collections.Generic.List[string]]::new()
         $global:FailLeft = [System.Collections.Generic.List[string]]::new()
@@ -226,6 +226,8 @@ internal sealed class StubHygieneSite : IConfigMgrSession
             $app = [pscustomobject]@{ ModelName = $ModelName; IsExpired = (Eq $row.IsExpired "True"); ModelID = [int](V $row 'ModelID' 0); CI_ID = [int]$row.CI_ID; CIVersion = [int]$row.CIVersion; LocalizedDisplayName = [string]$row.LocalizedDisplayName; SDMPackageXML = "<AppMgmtDigest xmlns=`"$digest`"><Application><AutoInstall>$auto</AutoInstall></Application>$types</AppMgmtDigest>" }
             $app | Add-Member -MemberType ScriptMethod -Name Put -Value {
                 Test-Fail 'cmd:Put'
+                # The site changes nothing in a retired application and returns no error.
+                if ($this.IsExpired) { return }
                 [xml]$x = $this.SDMPackageXML
                 $ns = New-Object System.Xml.XmlNamespaceManager($x.NameTable)
                 $ns.AddNamespace('d', 'http://schemas.microsoft.com/SystemCenterConfigurationManager/2009/AppMgmtDigest'); $ns.AddNamespace('r', 'http://schemas.microsoft.com/SystemsCenterConfigurationManager/2009/06/14/Rules')

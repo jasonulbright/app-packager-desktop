@@ -145,13 +145,13 @@ public sealed class CollectionComplianceViewModelTests
     }
 
     [Fact]
-    public async Task AFailedReadShowsAPlainMessageAndLogsNoRawText()
+    public async Task AFailedReadShowsAPlainMessageAndLogsTheException()
     {
         var harness = new CollectionComplianceHarness();
         harness.Service.ListFailure = new InvalidOperationException("raw provider text at line 7");
         var viewModel = await harness.OpenAsync();
         Assert.Equal(CollectionComplianceViewModel.LoadFailed, viewModel.ConnectionMessage);
-        AssertNoSiteTextInLog(harness, "raw provider text");
+        Assert.Contains(harness.Log.Entries, e => e.Message.Contains("System.InvalidOperationException: raw provider text at line 7", StringComparison.Ordinal));
 
         harness.Service.ListFailure = new ConfigMgrSessionException(ConfigMgrFailure.AccessDenied, "Access is denied.");
         await viewModel.RefreshCommand.ExecuteAsync(null);

@@ -704,7 +704,7 @@ public sealed class RingService : IRingService
                 }
                 catch (Exception ex) when (ex is not OutOfMemoryException)
                 {
-                    _log?.Warning(LogArea, $"A ring {change.Kind} stopped with an unexpected error: {ex.GetType().Name}.");
+                    _log?.Warning(LogArea, $"A ring {change.Kind} stopped with an unexpected error: {ex.GetType().Name}.", ex);
                     outcome = new RingOutcome(change, false, "The ring change stopped with an unexpected error. Refresh and reconcile the run to see the current state. The log has the details.", [], change.RunId is { } id ? UndoRequest(id) : null, []);
                 }
                 finally
@@ -1103,7 +1103,7 @@ public sealed class RingService : IRingService
         }
         catch (Exception ex) when (ex is not OutOfMemoryException)
         {
-            _log?.Warning(LogArea, $"A ring audit record could not be written ({ex.GetType().Name}).");
+            _log?.Warning(LogArea, $"A ring audit record could not be written ({ex.GetType().Name}).", ex);
             written = new AuditWrite(false, "the append failed. The log has the details.");
         }
         return written.Succeeded ? "" : $" The audit record could not be written: {written.Message}";

@@ -176,7 +176,7 @@ public sealed partial class DeploymentOptionsViewModel(DeploymentShared shared) 
         catch (Exception ex)
         {
             TemplateMessage = ex is DeploymentServiceException d ? d.Message : TemplateDeleteFailed;
-            Services.Log.Warning(DeploymentShared.LogArea, $"A template could not be deleted ({ex.GetType().Name}).");
+            Services.Log.Warning(DeploymentShared.LogArea, $"A template could not be deleted ({ex.GetType().Name}).", ex);
             return;
         }
         Services.Log.Info(DeploymentShared.LogArea, "Deleted a user template.");
@@ -199,7 +199,7 @@ public sealed partial class DeploymentOptionsViewModel(DeploymentShared shared) 
         catch (Exception ex)
         {
             editor.ShowMessage(ex is DeploymentServiceException d ? d.Message : DeploymentFormViewModel.TemplateSaveFailed);
-            Services.Log.Warning(DeploymentShared.LogArea, $"A template could not be saved ({ex.GetType().Name}).");
+            Services.Log.Warning(DeploymentShared.LogArea, $"A template could not be saved ({ex.GetType().Name}).", ex);
             return false;
         }
         Services.Log.Info(DeploymentShared.LogArea, "Saved a user template.");

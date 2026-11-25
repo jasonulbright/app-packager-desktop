@@ -323,7 +323,7 @@ public sealed class DeploymentRingsViewModelTests
         _h.Rings.PrepareFails = _ => new DeploymentServiceException("The run folder cannot be written.");
         await rings.CreateRunCommand.ExecuteAsync(null);
         Assert.Equal("The run folder cannot be written.", rings.FormMessage);
-        Assert.DoesNotContain(_h.Log.Entries, e => e.Message.Contains("secret", StringComparison.Ordinal));
+        Assert.Contains(_h.Log.Entries, e => e.Message.Contains("secret", StringComparison.Ordinal));
     }
 
     // ---- Open runs ----------------------------------------------------------------------------------

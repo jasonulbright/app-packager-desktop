@@ -277,7 +277,7 @@ public sealed class DetectionTesterViewModelEdgeTests
         await viewModel.ImportManifestCommand.ExecuteAsync(null);
         Assert.Equal("Import failed", viewModel.ResultHeadline);
         Assert.Equal("The file could not be read as a stage manifest.", viewModel.ResultSummary);
-        Assert.All(_h.Log.Entries, e => Assert.DoesNotContain("secret-path-text", e.Message));
+        Assert.Contains(_h.Log.Entries, e => e.Message.Contains("secret-path-text"));
         Assert.Contains(_h.Log.Entries, e => e.Message.Contains("FormatException"));
     }
 
@@ -293,7 +293,7 @@ public sealed class DetectionTesterViewModelEdgeTests
         Assert.Equal("The history could not be read.", viewModel.StatusMessage);
         Assert.Empty(viewModel.History);
         Assert.Contains(_h.Log.Entries, e => e.Message.Contains(failure.Name));
-        Assert.All(_h.Log.Entries, e => Assert.DoesNotContain("hidden-detail", e.Message));
+        Assert.Contains(_h.Log.Entries, e => e.Message.Contains("hidden-detail"));
     }
 
     [Theory]
@@ -310,7 +310,7 @@ public sealed class DetectionTesterViewModelEdgeTests
         Assert.Equal("The test result could not be saved to the history.", viewModel.StatusMessage);
         Assert.Single(viewModel.History);
         Assert.Contains(_h.Log.Entries, e => e.Message.Contains(failure.Name));
-        Assert.All(_h.Log.Entries, e => Assert.DoesNotContain("hidden-detail", e.Message));
+        Assert.Contains(_h.Log.Entries, e => e.Message.Contains("hidden-detail"));
     }
 
     [Theory]
@@ -325,7 +325,7 @@ public sealed class DetectionTesterViewModelEdgeTests
         await viewModel.ClearHistoryCommand.ExecuteAsync(null);
         Assert.Equal("The history could not be cleared.", viewModel.StatusMessage);
         Assert.Single(viewModel.History);
-        Assert.All(_h.Log.Entries, e => Assert.DoesNotContain("hidden-detail", e.Message));
+        Assert.Contains(_h.Log.Entries, e => e.Message.Contains("hidden-detail"));
     }
 
     [Fact]
@@ -337,7 +337,7 @@ public sealed class DetectionTesterViewModelEdgeTests
         await viewModel.ExportHtmlCommand.ExecuteAsync(null);
         Assert.Equal("The HTML report could not be written.", viewModel.StatusMessage);
         Assert.Empty(_h.Prompts.OpenedFolders);
-        Assert.All(_h.Log.Entries, e => Assert.DoesNotContain("hidden-detail", e.Message));
+        Assert.Contains(_h.Log.Entries, e => e.Message.Contains("hidden-detail"));
     }
 
     [Fact]
@@ -349,7 +349,7 @@ public sealed class DetectionTesterViewModelEdgeTests
         Assert.Equal("The installed applications could not be read.", viewModel.ApplicationStatus);
         Assert.False(viewModel.IsLoadingApplications);
         Assert.Contains(_h.Log.Entries, e => e.Message.Contains("FormatException"));
-        Assert.All(_h.Log.Entries, e => Assert.DoesNotContain("hidden-detail", e.Message));
+        Assert.Contains(_h.Log.Entries, e => e.Message.Contains("hidden-detail"));
     }
 
     [Fact]

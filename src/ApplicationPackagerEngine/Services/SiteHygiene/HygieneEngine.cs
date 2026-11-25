@@ -38,7 +38,7 @@ internal static class HygieneEngine
             }
             catch (Exception ex) when (ex is not OutOfMemoryException)
             {
-                log?.Warning(SiteHygieneService.LogArea, $"The check family {string.Join(", ", family.CheckIds)} failed ({ex.GetType().Name}): {ex.Message}");
+                log?.Warning(SiteHygieneService.LogArea, $"The check family {string.Join(", ", family.CheckIds)} failed ({ex.GetType().Name}): {ex.Message}", ex);
                 foreach (var id in family.CheckIds) states[id] = (HygieneCheckStates.Failed, $"The check stopped with an error ({ex.GetType().Name}). Its findings are missing; the failure is a defect worth reporting.");
             }
         }

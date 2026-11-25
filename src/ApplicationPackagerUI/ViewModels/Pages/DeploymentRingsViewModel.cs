@@ -183,7 +183,7 @@ public sealed partial class DeploymentRingsViewModel : DeploymentTabViewModel
         {
             if (mine != _objectGeneration || generation != Shared.Generation) return;
             Shared.StatusMessage = DeploymentShared.PlainMessage(ex, ObjectsFailedText);
-            Services.Log.Warning(DeploymentShared.LogArea, $"Rings: the objects could not be read ({DeploymentShared.FailureName(ex)}).");
+            Services.Log.Warning(DeploymentShared.LogArea, $"Rings: the objects could not be read ({DeploymentShared.FailureName(ex)}).", ex);
         }
         finally
         {
@@ -215,7 +215,7 @@ public sealed partial class DeploymentRingsViewModel : DeploymentTabViewModel
         {
             if (mine != _programGeneration || generation != Shared.Generation) return;
             FormMessage = DeploymentShared.PlainMessage(ex, DeploymentFormViewModel.DetailsFailed);
-            Services.Log.Warning(DeploymentShared.LogArea, $"Rings: the programs could not be read ({DeploymentShared.FailureName(ex)}).");
+            Services.Log.Warning(DeploymentShared.LogArea, $"Rings: the programs could not be read ({DeploymentShared.FailureName(ex)}).", ex);
         }
     }
 
@@ -346,7 +346,7 @@ public sealed partial class DeploymentRingsViewModel : DeploymentTabViewModel
         }
         catch (Exception ex)
         {
-            Services.Log.Warning(DeploymentShared.LogArea, $"Rings: the plans could not be read after a refused save ({ex.GetType().Name}).");
+            Services.Log.Warning(DeploymentShared.LogArea, $"Rings: the plans could not be read after a refused save ({ex.GetType().Name}).", ex);
             return false;
         }
     }
@@ -367,7 +367,7 @@ public sealed partial class DeploymentRingsViewModel : DeploymentTabViewModel
                 DeploymentServiceException d => SecretMask.Apply(d.Message),
                 _ => PlanSaveFailed
             });
-            Services.Log.Warning(DeploymentShared.LogArea, $"Rings: a plan could not be saved ({ex.GetType().Name}).");
+            Services.Log.Warning(DeploymentShared.LogArea, $"Rings: a plan could not be saved ({ex.GetType().Name}).", ex);
             return false;
         }
         if (saved is null)
@@ -385,7 +385,7 @@ public sealed partial class DeploymentRingsViewModel : DeploymentTabViewModel
             catch (Exception ex)
             {
                 oldKept = original.Name;
-                Services.Log.Warning(DeploymentShared.LogArea, $"Rings: the plan under its old name could not be deleted ({ex.GetType().Name}).");
+                Services.Log.Warning(DeploymentShared.LogArea, $"Rings: the plan under its old name could not be deleted ({ex.GetType().Name}).", ex);
             }
         }
         _planName = saved.Name;
@@ -413,7 +413,7 @@ public sealed partial class DeploymentRingsViewModel : DeploymentTabViewModel
         catch (Exception ex)
         {
             PlansMessage = ex is DeploymentServiceException d ? SecretMask.Apply(d.Message) : PlanDeleteFailed;
-            Services.Log.Warning(DeploymentShared.LogArea, $"Rings: a plan could not be deleted ({ex.GetType().Name}).");
+            Services.Log.Warning(DeploymentShared.LogArea, $"Rings: a plan could not be deleted ({ex.GetType().Name}).", ex);
             return;
         }
         Services.Log.Info(DeploymentShared.LogArea, "Rings: deleted a user plan.");

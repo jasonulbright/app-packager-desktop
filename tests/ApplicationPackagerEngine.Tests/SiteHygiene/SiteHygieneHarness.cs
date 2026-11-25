@@ -10,7 +10,7 @@ internal sealed class SiteHygieneHarness : IDisposable
     public string Folder { get; } = Path.Combine(Path.GetTempPath(), "apkg-sh-" + Guid.NewGuid().ToString("N"));
     public StubHygieneSite Site { get; }
     public HygieneAuditLog Audit { get; }
-    public SiteHygieneService Service { get; private set; }
+    public SiteHygieneService Service { get; set; }
     public List<HygieneOutcome> Reports { get; } = [];
     public List<string> Progress { get; } = [];
     public List<TimeSpan> Delays { get; } = [];

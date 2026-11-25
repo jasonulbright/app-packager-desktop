@@ -88,7 +88,7 @@ The result of an object is **Done**, **Unchanged**, **Failed** or **Skipped**. *
 | Change application | Sets the `AutoInstall` option of an application to true. This creates a new revision of the application. |
 | Change maintenance task | Turns on a site maintenance task. |
 | Run deployment rule | Runs an auto deployment rule. |
-| Remove supersedence | Removes the supersedence rules of an application that point at an application that was deleted. It edits the application definition with the serializer of the console and refuses to write when anything but those rules would change. The change makes one new revision of the application. The plan has the check box **Also delete the old revisions this fix creates**, on at the start. The plan lists each application with its deployment types and the reference that goes. No file of the removed data is written. |
+| Remove supersedence | Removes the supersedence rules of an application that point at an application that was deleted. It edits the application definition with the serializer of the console and refuses to write when anything but those rules would change. The change makes one new revision of the application. The plan has the check box **Also delete the old revisions this fix creates**, on at the start. The plan lists each application with its deployment types and the reference that goes. No file of the removed data is written. A retired application is reinstated for a moment, changed and retired again, because the site ignores a change of a retired application; this does not run for a retired application that has a deployment, and the result says so. |
 | Remove retired relation | Removes the supersedence rule or the dependency of an application on a retired application (SUP-04, DEP-04) with the supported cmdlets. The change makes a new revision; the plan has the same check box. |
 | Remove retired application rules | Removes the supersedence rules and dependencies of a retired application toward active applications (APP-07). The site ignores a change of a retired application, so the fix reinstates the application, removes the rule and retires it again, and it does not run for a retired application that has a deployment. The plan has the same check box. |
 
@@ -101,6 +101,8 @@ The checks that assign each fix are in [Site Hygiene checks](../reference/site-h
 - A run takes at most 100 deletes or 200 changes. A plan is valid for 15 minutes and runs once. The plan is tied to the site and the provider. If the connection changes before you confirm, the service refuses the run.
 - The page writes a **Started** audit record before the first change. If the log cannot be written, the page changes nothing. Each run ends with one **Finished** record. If that record cannot be written, the result says so and names the log.
 - The page never runs script text. It runs the typed operation. A test checks that the PowerShell text of the plan is what the service runs.
+
+A delete that the site refuses names what blocks it: the applications that supersede or depend on the object, an old revision of one of them that still holds the rule (delete the old revisions first, check APP-05), the deployments and the task sequences. When a fix fails, the application log file holds the object name and identifier, the ConfigMgr call that failed, every exception with its type and message, and the blocker when it is known. The window shows the short reason only.
 
 ## Relationships, Summary and History
 

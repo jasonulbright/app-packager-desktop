@@ -143,7 +143,7 @@ public sealed partial class DeploymentHelperViewModel : ObservableObject
         catch (Exception ex)
         {
             saved = null;
-            Shared.Services.Log.Warning(DeploymentShared.LogArea, $"The page choices could not be read ({ex.GetType().Name}).");
+            Shared.Services.Log.Warning(DeploymentShared.LogArea, $"The page choices could not be read ({ex.GetType().Name}).", ex);
         }
         if (saved is not null)
         {
@@ -203,7 +203,7 @@ public sealed partial class DeploymentHelperViewModel : ObservableObject
             catch (Exception ex)
             {
                 saved = false;
-                Shared.Services.Log.Warning(DeploymentShared.LogArea, $"The page choices could not be saved ({ex.GetType().Name}).");
+                Shared.Services.Log.Warning(DeploymentShared.LogArea, $"The page choices could not be saved ({ex.GetType().Name}).", ex);
             }
             if (saved) _stored = choices;
             else Shared.Services.Log.Warning(DeploymentShared.LogArea, "The page choices were not saved.");

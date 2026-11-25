@@ -215,7 +215,7 @@ public sealed class SiteHygieneFixGuardTests
         var change = await PrepareAsync(h, HygieneFixKind.RemovePackage, EmptyPackage);
         h.Site.Fail("nullref:cmd:Remove-CMPackage");
         var outcome = await ApplyAsync(h, change);
-        Assert.Equal("ConfigMgr reported an error. The log has the kind of failure.", Assert.Single(outcome.Objects).Message);
+        Assert.Equal("ConfigMgr reported an error. The log has the details.", Assert.Single(outcome.Objects).Message);
     }
 
     [Fact]

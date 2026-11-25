@@ -49,7 +49,7 @@ public sealed partial class RingFolderOptionsViewModel(DeploymentShared shared) 
         try { return Shared.Services.Rings.ProbeFolders(); }
         catch (Exception ex)
         {
-            Shared.Services.Log.Warning(DeploymentShared.LogArea, $"Rings: the folders could not be checked ({DeploymentShared.FailureName(ex)}).");
+            Shared.Services.Log.Warning(DeploymentShared.LogArea, $"Rings: the folders could not be checked ({DeploymentShared.FailureName(ex)}).", ex);
             return null;
         }
     }

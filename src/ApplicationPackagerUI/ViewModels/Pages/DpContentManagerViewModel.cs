@@ -224,7 +224,7 @@ public sealed partial class DpContentManagerViewModel : ObservableObject
         _loadGeneration++;
         var visit = _visit;
         _visit = new CancellationTokenSource();
-        try { visit.Cancel(); } catch (AggregateException ex) { Services.Log.Warning(LogArea, $"A read did not stop cleanly ({ex.InnerException?.GetType().Name})."); }
+        try { visit.Cancel(); } catch (AggregateException ex) { Services.Log.Warning(LogArea, $"A read did not stop cleanly ({ex.InnerException?.GetType().Name}).", ex); }
         try { _loadCts?.Cancel(); } catch (ObjectDisposedException) { }
         foreach (var pending in _debounce.Values) pending.Cancel();
         _debounce.Clear();
@@ -314,7 +314,7 @@ public sealed partial class DpContentManagerViewModel : ObservableObject
         {
             if (!Current()) return;
             StatusMessage = PlainMessage(ex, LoadFailed);
-            Services.Log.Warning(LogArea, $"The DP content read failed ({FailureName(ex)}).");
+            Services.Log.Warning(LogArea, $"The DP content read failed ({FailureName(ex)}).", ex);
         }
         finally
         {
@@ -617,7 +617,7 @@ public sealed partial class DpContentManagerViewModel : ObservableObject
         catch (Exception ex)
         {
             saved = null;
-            Services.Log.Warning(LogArea, $"The page choices could not be read ({ex.GetType().Name}).");
+            Services.Log.Warning(LogArea, $"The page choices could not be read ({ex.GetType().Name}).", ex);
         }
         if (saved is not null)
         {
@@ -685,7 +685,7 @@ public sealed partial class DpContentManagerViewModel : ObservableObject
             catch (Exception ex)
             {
                 saved = false;
-                Services.Log.Warning(LogArea, $"The page choices could not be saved ({ex.GetType().Name}).");
+                Services.Log.Warning(LogArea, $"The page choices could not be saved ({ex.GetType().Name}).", ex);
             }
             if (saved) _stored = choices;
             else Services.Log.Warning(LogArea, "The page choices were not saved.");

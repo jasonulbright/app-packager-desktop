@@ -32,6 +32,9 @@ internal sealed class HygieneTable
     public int Total { get; set; }
     public string Failure { get; set; } = "";
 
+    /// <summary>The script's account of a failed read: the step, the exceptions of the chain and the error id. Empty when none was given.</summary>
+    public string Detail { get; set; } = "";
+
     /// <summary>A per-object set: the objects read; -1 for a bulk set.</summary>
     public int Done { get; set; } = -1;
 
@@ -75,10 +78,16 @@ internal sealed class HygieneSiteRead
     public int Queries { get; set; }
     public bool? StateRead { get; set; }
     public string StateFailure { get; set; } = "";
+
+    /// <summary>What the script says about a failed state read: the step, the exceptions and the error id. Empty when it reported none.</summary>
+    public string StateDetail { get; set; } = "";
     public List<(string Status, string Failure)> Applied { get; } = [];
 
     /// <summary>The note of each applied write, in the order of <see cref="Applied"/> (the old revisions of a supersedence fix); empty for none.</summary>
     public List<string> AppliedNotes { get; } = [];
+
+    /// <summary>The account of each failed write, in the order of <see cref="Applied"/>: the step that ran, every exception with its type and message, the error id; empty for a write that did not fail.</summary>
+    public List<string> AppliedDetails { get; } = [];
 
     /// <summary>True when the script found the session on another site or provider than the caller named, and did nothing.</summary>
     public bool OtherConnection { get; set; }
@@ -100,9 +109,10 @@ internal sealed class HygieneSiteRead
         foreach (var (k, v) in other.Coverage) Coverage[k] = v;
         if (other.SiteCode.Length > 0) SiteCode = other.SiteCode;
         Queries += other.Queries;
-        if (other.StateRead is not null) { StateRead = other.StateRead; StateFailure = other.StateFailure; }
+        if (other.StateRead is not null) { StateRead = other.StateRead; StateFailure = other.StateFailure; StateDetail = other.StateDetail; }
         Applied.AddRange(other.Applied);
         AppliedNotes.AddRange(other.AppliedNotes);
+        AppliedDetails.AddRange(other.AppliedDetails);
         OtherConnection |= other.OtherConnection;
     }
 
@@ -138,7 +148,8 @@ internal sealed class HygieneSiteRead
                             _ => HygieneSetStates.Failed
                         },
                         Total = I(e, "Total"),
-                        Failure = S(e, "Failure")
+                        Failure = S(e, "Failure"),
+                        Detail = S(e, "Detail")
                     };
                     if (pending.Remove(set, out var rows)) table.Rows.AddRange(rows);
                     if (e.TryGetProperty("Shown", out var shown)
@@ -159,10 +170,12 @@ internal sealed class HygieneSiteRead
                 case "StateRead":
                     read.StateRead = B(e, "Read");
                     read.StateFailure = S(e, "Failure");
+                    read.StateDetail = S(e, "Detail");
                     break;
                 case "Applied":
                     read.Applied.Add((S(e, "Status"), S(e, "Failure")));
                     read.AppliedNotes.Add(S(e, "Note"));
+                    read.AppliedDetails.Add(S(e, "Detail"));
                     break;
                 case "Connection":
                     if (!B(e, "Same")) read.OtherConnection = true;

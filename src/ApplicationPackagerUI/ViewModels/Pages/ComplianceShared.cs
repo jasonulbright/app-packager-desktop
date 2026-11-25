@@ -124,7 +124,7 @@ public sealed partial class ComplianceShared(CompliancePageServices services) : 
             try { return (IReadOnlyList<CollectionRow>?)await Services.Collections.ListCollectionsAsync(CancellationToken.None); }
             catch (Exception ex)
             {
-                Services.Log.Warning(LogArea, $"The device collections could not be read ({FailureName(ex)}).");
+                Services.Log.Warning(LogArea, $"The device collections could not be read ({FailureName(ex)}).", ex);
                 throw;
             }
         });
@@ -245,7 +245,7 @@ public sealed partial class ComplianceShared(CompliancePageServices services) : 
                         prepared.Add(ready!);
                         continue;
                     }
-                    Services.Log.Warning(LogArea, $"The state before a write could not be read ({FailureName(failure)}).");
+                    Services.Log.Warning(LogArea, $"The state before a write could not be read ({FailureName(failure)}).", failure);
                     var reason = PlainMessage(failure, PrepareFailed);
                     failed.Add(CompliancePlanEntry.Skip(new ChangePlanItem("Skip", describe(request), reason), reason));
                 }
@@ -296,7 +296,7 @@ public sealed partial class ComplianceShared(CompliancePageServices services) : 
         try { await Services.Writer.Running; }
         catch (Exception ex)
         {
-            Services.Log.Warning(LogArea, $"A run that continued in the background failed ({FailureName(ex)}).");
+            Services.Log.Warning(LogArea, $"A run that continued in the background failed ({FailureName(ex)}).", ex);
         }
         finally
         {

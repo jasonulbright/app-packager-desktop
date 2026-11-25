@@ -737,7 +737,7 @@ public sealed class ComplianceViewModelTests
         harness.Service.ListFailure = new InvalidOperationException("raw provider text 0x80041001");
         var viewModel = await LiveAsync(harness);
         Assert.Equal(ComplianceLiveViewModel.ReadFailedText, viewModel.Shared.StatusMessage);
-        Assert.DoesNotContain(harness.Log.Entries.Select(e => e.Message), l => l.Contains("raw provider text", StringComparison.Ordinal));
+        Assert.Contains(harness.Log.Entries.Select(e => e.Message), l => l.Contains("raw provider text", StringComparison.Ordinal));
     }
 
     [Fact]

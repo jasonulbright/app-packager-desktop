@@ -618,7 +618,7 @@ public sealed partial class CollectionService : ICollectionService
                 }
                 catch (Exception ex)
                 {
-                    _log?.Warning(LogArea, $"{change.Kind} stopped with an unexpected error: {ex.GetType().Name}.");
+                    _log?.Warning(LogArea, $"{change.Kind} stopped with an unexpected error: {ex.GetType().Name}.", ex);
                     outcome = Fail(change, $"The change to {Target(change)} stopped with an unexpected error. Refresh the list to see the current state. The log has the details.");
                 }
                 if (outcome.Message.StartsWith(SkippedPrefix, StringComparison.Ordinal)) skipped++;
@@ -1356,7 +1356,7 @@ public sealed partial class CollectionService : ICollectionService
         }
         catch (JsonException ex)
         {
-            _log?.Warning(LogArea, $"ConfigMgr returned output that could not be read ({ex.GetType().Name}).");
+            _log?.Warning(LogArea, $"ConfigMgr returned output that could not be read ({ex.GetType().Name}).", ex);
             throw new CollectionServiceException(UnreadableMessage);
         }
     }

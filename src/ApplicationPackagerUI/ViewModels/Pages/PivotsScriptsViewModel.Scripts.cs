@@ -164,7 +164,7 @@ public sealed partial class PivotsScriptsViewModel
         {
             if (generation != Generation || mine != _detailGeneration) return;
             _detailProblem = PlainMessage(ex, ScriptReadFailed);
-            Services.Log.Warning(LogArea, $"A site script could not be read ({FailureName(ex)}).");
+            Services.Log.Warning(LogArea, $"A site script could not be read ({FailureName(ex)}).", ex);
         }
         finally
         {
@@ -259,7 +259,7 @@ public sealed partial class PivotsScriptsViewModel
         {
             if (generation != Generation || mine != _scriptsGeneration) return;
             StatusMessage = PlainMessage(ex, ScriptsFailed);
-            Services.Log.Warning(LogArea, $"The site scripts could not be read ({FailureName(ex)}).");
+            Services.Log.Warning(LogArea, $"The site scripts could not be read ({FailureName(ex)}).", ex);
         }
         finally
         {
@@ -310,7 +310,7 @@ public sealed partial class PivotsScriptsViewModel
         {
             if (generation != Generation || mine != _libraryGeneration) return;
             StatusMessage = PlainMessage(ex, LibraryFailed);
-            Services.Log.Warning(LogArea, $"The library could not be read ({ex.GetType().Name}).");
+            Services.Log.Warning(LogArea, $"The library could not be read ({ex.GetType().Name}).", ex);
         }
     }
 
@@ -419,7 +419,7 @@ public sealed partial class PivotsScriptsViewModel
         {
             if (generation != Generation) return;
             CheckResult = PlainMessage(ex, CheckFailed);
-            Services.Log.Warning(LogArea, $"The syntax check failed ({FailureName(ex)}).");
+            Services.Log.Warning(LogArea, $"The syntax check failed ({FailureName(ex)}).", ex);
         }
     }
 }

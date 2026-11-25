@@ -350,7 +350,7 @@ public sealed partial class DeploymentService : IDeploymentService
                 }
                 catch (Exception ex) when (ex is not OutOfMemoryException)
                 {
-                    _log?.Warning(LogArea, $"{change.Kind} stopped with an unexpected error: {ex.GetType().Name}.");
+                    _log?.Warning(LogArea, $"{change.Kind} stopped with an unexpected error: {ex.GetType().Name}.", ex);
                     outcome = Fail(change, "The change stopped with an unexpected error. Refresh the lists to see the current state. The log has the details.");
                 }
                 _log?.Info(LogArea, $"{change.Kind}: {(outcome.Succeeded ? "succeeded" : "not applied")}{(outcome.UndoChange is null ? "" : ", with undo")}.");
@@ -392,7 +392,7 @@ public sealed partial class DeploymentService : IDeploymentService
         }
         catch (JsonException ex)
         {
-            _log?.Warning(LogArea, $"ConfigMgr returned output that could not be read ({ex.GetType().Name}).");
+            _log?.Warning(LogArea, $"ConfigMgr returned output that could not be read ({ex.GetType().Name}).", ex);
             throw new DeploymentServiceException("ConfigMgr returned data that could not be read. The log has the details.");
         }
     }

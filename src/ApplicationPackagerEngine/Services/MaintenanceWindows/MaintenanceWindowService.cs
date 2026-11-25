@@ -192,7 +192,7 @@ public sealed class MaintenanceWindowService : IMaintenanceWindowService
                 }
                 catch (Exception ex)
                 {
-                    _log?.Warning(LogArea, $"{change.Kind} stopped with an unexpected error: {SecretMask.Apply($"{ex.GetType().Name}: {ex.Message}", [])}");
+                    _log?.Warning(LogArea, $"{change.Kind} stopped with an unexpected error: {SecretMask.Apply($"{ex.GetType().Name}: {ex.Message}", [])}", ex);
                     var collection = string.IsNullOrWhiteSpace(change.CollectionName) ? change.CollectionId : change.CollectionName;
                     var name = change.Before?.WindowName ?? (string.IsNullOrWhiteSpace(change.WindowName) ? change.After?.WindowName ?? "" : change.WindowName);
                     outcome = Fail(change,
@@ -514,7 +514,7 @@ public sealed class MaintenanceWindowService : IMaintenanceWindowService
         }
         catch (System.Text.Json.JsonException ex)
         {
-            _log?.Warning(LogArea, $"{change.Kind} returned output that could not be read ({ex.GetType().Name}).");
+            _log?.Warning(LogArea, $"{change.Kind} returned output that could not be read ({ex.GetType().Name}).", ex);
             result = null;
         }
 
@@ -675,7 +675,7 @@ public sealed class MaintenanceWindowService : IMaintenanceWindowService
         }
         catch (System.Text.Json.JsonException ex)
         {
-            _log?.Warning(LogArea, $"The maintenance window list could not be read ({ex.GetType().Name}).");
+            _log?.Warning(LogArea, $"The maintenance window list could not be read ({ex.GetType().Name}).", ex);
             throw new MaintenanceWindowException("The maintenance windows could not be read from ConfigMgr. The log has the details.");
         }
     }
