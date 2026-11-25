@@ -28,14 +28,14 @@ public static class PublishAllState
     }
 
     /// <summary>
-    /// The scope line of the Packages page: the systems that Publish All reaches and where that comes from. One function for the page and, later,
+    /// The scope line of the Packages page: the systems that Publish All reaches (the page tooltip says that they come from Settings, Systems in Use). One function for the page and, later,
     /// the review window, so the two never disagree.
     /// </summary>
     public static string ScopeText(SystemsInUse? systems)
     {
         var set = new DestinationSet(systems?.ConfigMgr ?? false, systems?.Wsus ?? false, systems?.Intune ?? false);
         return set.Any
-            ? "Publish All scope: " + set.Describe() + " (Settings, Systems in Use)"
-            : "Publish All scope: no system in use (Settings, Systems in Use)";
+            ? "Publish All: " + set.Describe()
+            : "Publish All: no system in use";
     }
 }

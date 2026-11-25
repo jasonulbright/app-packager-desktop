@@ -15,6 +15,7 @@
             <ResourceDictionary.MergedDictionaries>
                 <ResourceDictionary Source="/ApplicationPackagerUI;component/Views/Styles/Density.xaml" />
                 <ResourceDictionary Source="/ApplicationPackagerUI;component/Views/Styles/SelectableRows.xaml" />
+                <ResourceDictionary Source="/ApplicationPackagerUI;component/Views/Styles/Typography.xaml" />
             </ResourceDictionary.MergedDictionaries>
             <helpers:StatusCategoryConverter x:Key="StatusCategoryConverter" />
         <helpers:EnumEqualsConverter x:Key="EnumEquals" />
@@ -249,7 +250,12 @@
         </Grid>
 
 
-        <ui:DataGrid Grid.Row="4"
+        <Grid Grid.Row="4">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition x:Name="DetailPaneColumn" Width="320" />
+            </Grid.ColumnDefinitions>
+        <ui:DataGrid Grid.Column="0"
                   x:Name="PackagerGrid"
                   ItemsSource="{Binding FilteredPackagers}"
                   AutoGenerateColumns="False"
@@ -481,6 +487,36 @@
                                     Visibility="Collapsed" />
             </DataGrid.Columns>
         </ui:DataGrid>
+
+            <!-- The detail pane of the focused row (overhaul V1, phase 4): closes with the button in its header, opens with the button in the corner of the grid. -->
+            <ui:Button x:Name="btnDetailPane" Grid.Column="0" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,4,12,0" Visibility="Collapsed"
+                       Content="Details" Icon="{ui:SymbolIcon PanelRight24}" Click="DetailOpen_Click" Appearance="Transparent"
+                       AutomationProperties.AutomationId="btnDetailPaneOpen" ToolTip="Open the detail pane of the selected application." />
+            <Border x:Name="DetailPane" Grid.Column="1" Margin="8,0,0,0" Padding="12" BorderThickness="1"
+                    BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}" Background="{DynamicResource SurfacePageBrush}" CornerRadius="8"
+                    AutomationProperties.AutomationId="pnlDetailPane" AutomationProperties.Name="Application details">
+                <DockPanel>
+                    <DockPanel DockPanel.Dock="Top" Margin="0,0,0,8">
+                        <ui:Button DockPanel.Dock="Right" Content="Close" Icon="{ui:SymbolIcon Dismiss24}" Click="DetailClose_Click" Appearance="Transparent"
+                                   AutomationProperties.AutomationId="btnDetailPaneClose" ToolTip="Close the detail pane." />
+                        <TextBlock Text="{Binding DetailPackager.Application, FallbackValue='No application selected'}" Style="{StaticResource CardTitleText}" TextTrimming="CharacterEllipsis"
+                                   VerticalAlignment="Center" AutomationProperties.AutomationId="txtDetailTitle" />
+                    </DockPanel>
+                    <ui:Button DockPanel.Dock="Bottom" Content="Open in Workbench" Icon="{ui:SymbolIcon Wrench24}" Click="DetailOpenWorkbench_Click" HorizontalAlignment="Stretch" Margin="0,8,0,0"
+                               AutomationProperties.AutomationId="btnDetailWorkbench" ToolTip="Open the Application Workbench on the selected application." />
+                    <ItemsControl ItemsSource="{Binding DetailLines}" Focusable="False" IsTabStop="False" AutomationProperties.AutomationId="lstDetailLines">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <StackPanel Margin="0,0,0,8">
+                                    <TextBlock Text="{Binding Label}" Style="{StaticResource CaptionText}" />
+                                    <TextBlock Text="{Binding Text}" FontSize="14" TextWrapping="Wrap" Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
+                                </StackPanel>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </DockPanel>
+            </Border>
+        </Grid>
 
         <StackPanel Grid.Row="5" Orientation="Horizontal" Margin="0,4,0,4">
             <ui:Button Content="Select Update Available"

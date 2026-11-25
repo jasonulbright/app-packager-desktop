@@ -134,7 +134,7 @@ public sealed class TableauDownloadFallbackTests : IDisposable
     {
         var port = Random.Shared.Next(20000, 40000);
         _listener = new HttpListener();
-        _listener.Prefixes.Add($"http://localhost:{port}/");
+        _listener.Prefixes.Add($"http://127.0.0.1:{port}/");
         _listener.Start();
         // The installer is a real PE file with version information: this test assembly's own engine DLL.
         var installer = File.ReadAllBytes(typeof(StagingService).Assembly.Location);
@@ -144,25 +144,35 @@ public sealed class TableauDownloadFallbackTests : IDisposable
             {
                 HttpListenerContext ctx;
                 try { ctx = await _listener.GetContextAsync(); } catch { break; }
-                var path = ctx.Request.Url!.AbsolutePath;
-                lock (_requests) _requests.Add(path);
-                try
+                // Each request has its own task: a client that keeps one connection open or asks twice at once must not wait for the one before it.
+                var context = ctx;
+                _ = Task.Run(async () =>
                 {
-                    if (path.StartsWith("/forbidden/", StringComparison.Ordinal)) ctx.Response.StatusCode = 403;
-                    else if (path.StartsWith("/signin/", StringComparison.Ordinal))
+                    var path = context.Request.Url!.AbsolutePath;
+                    lock (_requests) _requests.Add(path);
+                    try
                     {
-                        ctx.Response.ContentType = "text/html";
-                        var page = "<html><body>Sign in</body></html>"u8.ToArray();
-                        await ctx.Response.OutputStream.WriteAsync(page);
+                        if (path.StartsWith("/forbidden/", StringComparison.Ordinal)) { context.Response.StatusCode = 403; context.Response.ContentLength64 = 0; }
+                        else if (path.StartsWith("/signin/", StringComparison.Ordinal))
+                        {
+                            context.Response.ContentType = "text/html";
+                            var page = "<html><body>Sign in</body></html>"u8.ToArray();
+                            context.Response.ContentLength64 = page.Length;
+                            await context.Response.OutputStream.WriteAsync(page);
+                        }
+                        else if (path.StartsWith("/good/", StringComparison.Ordinal))
+                        {
+                            context.Response.ContentLength64 = installer.Length;
+                            await context.Response.OutputStream.WriteAsync(installer);
+                        }
+                        else { context.Response.StatusCode = 404; context.Response.ContentLength64 = 0; }
+                        context.Response.Close();
                     }
-                    else if (path.StartsWith("/good/", StringComparison.Ordinal)) await ctx.Response.OutputStream.WriteAsync(installer);
-                    else ctx.Response.StatusCode = 404;
-                    ctx.Response.Close();
-                }
-                catch { try { ctx.Response.Abort(); } catch { } }
+                    catch { try { context.Response.Abort(); } catch { } }
+                });
             }
         });
-        return $"http://localhost:{port}";
+        return $"http://127.0.0.1:{port}";
     }
 
     private static AppDefinition LocalDefinition(string first, string? second)

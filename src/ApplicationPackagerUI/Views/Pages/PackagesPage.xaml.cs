@@ -28,6 +28,9 @@ public partial class PackagesPage
         Loaded += (_, _) =>
         {
             Focus();
+            // A narrow window starts with the pane closed; the saved choice is not changed.
+            _narrow = ActualWidth > 0 && ActualWidth + NavigationWidth < DetailPaneMinimumWindowWidth;
+            ApplyPane();
             UpdateToolbarMode();
         };
         SizeChanged += (_, _) => UpdateToolbarMode();
@@ -230,8 +233,43 @@ public partial class PackagesPage
 
     private void ContextMenu_EditApplication(object sender, RoutedEventArgs e) => OpenWorkbenchForSelection();
 
-    private void PackagerGrid_SelectionChanged(object sender, SelectionChangedEventArgs e) =>
+    private void PackagerGrid_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
         btnOperationHistory.IsEnabled = GetSelectedPackager() is not null;
+        if (DataContext is PackagesViewModel viewModel) viewModel.DetailPackager = GetSelectedPackager();
+    }
+
+    /// <summary>Below this window width the pane starts closed; the saved choice is kept.</summary>
+    public const double DetailPaneMinimumWindowWidth = 1100;
+
+    private const double NavigationWidth = 230;
+    private bool _narrow;
+
+    /// <summary>Opens or closes the pane: the column width and the visibility of its content, so a closed pane leaves the tab order.</summary>
+    private void ApplyPane()
+    {
+        var open = ((PackagesViewModel)DataContext!).IsDetailPaneOpen && !_narrow;
+        DetailPaneColumn.Width = new GridLength(open ? 320 : 0);
+        DetailPane.Visibility = open ? Visibility.Visible : Visibility.Collapsed;
+        btnDetailPane.Visibility = open ? Visibility.Collapsed : Visibility.Visible;
+    }
+
+    private void DetailOpenWorkbench_Click(object sender, RoutedEventArgs e) => OpenWorkbenchForSelection();
+
+    /// <summary>Closing the pane returns the keyboard focus to the button that opens it (R-21).</summary>
+    private void DetailClose_Click(object sender, RoutedEventArgs e)
+    {
+        ((PackagesViewModel)DataContext!).IsDetailPaneOpen = false;
+        ApplyPane();
+        btnDetailPane.Focus();
+    }
+
+    private void DetailOpen_Click(object sender, RoutedEventArgs e)
+    {
+        _narrow = false;
+        ((PackagesViewModel)DataContext!).IsDetailPaneOpen = true;
+        ApplyPane();
+    }
 
     private Views.Windows.CatalogWindow? _catalog;
 

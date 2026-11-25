@@ -82,6 +82,9 @@ public sealed class AppSettings
     /// <summary>The headers of the Packages grid columns that the operator hid with the Columns menu. Empty shows every column, as before the menu existed.</summary>
     public string[] PackagesHiddenColumns { get; set; } = [];
 
+    /// <summary>The detail pane of the Packages page is open. The pane starts closed in a window narrower than 1100 whatever this says.</summary>
+    public bool PackagesDetailPaneOpen { get; set; } = true;
+
     /// <summary>Definition ids that Discover unmanaged software no longer offers. Disjoint from <see cref="DiscoveryEnabled"/>.</summary>
     public string[] DiscoveryDismissed { get; set; } = [];
 

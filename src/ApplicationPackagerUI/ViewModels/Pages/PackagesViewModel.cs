@@ -139,6 +139,7 @@ public partial class PackagesViewModel : ObservableObject
         WsusUpdatesCommand = new RelayCommand(OpenWsusUpdates, () => CanRunOperation() && IsWsusUpdatesAvailable);
         OneClickCommand = new AsyncRelayCommand(OneClickAsync, CanRunOperation);
         ImportFromUrlCommand = new RelayCommand(() => ImportFromUrlRequested?.Invoke(this, EventArgs.Empty), CanRunOperation);
+        _isDetailPaneOpen = _settingsService.Load().PackagesDetailPaneOpen;
         InitializeDiscovery(discovery, discoveryPrompt);
 
         RefreshPublishActionState();
@@ -340,7 +341,12 @@ public partial class PackagesViewModel : ObservableObject
 
     /// <summary>Show only the checked rows (the "Show selected" link of the selection line).</summary>
     [RelayCommand]
-    private void ShowSelected() => StatusTab = PackagesTabChoice.Selected;
+    private void ShowSelected()
+    {
+        // The search would hide some of the checked rows again, so it is cleared.
+        SearchText = "";
+        StatusTab = PackagesTabChoice.Selected;
+    }
 
     /// <summary>Uncheck every row, hidden ones included.</summary>
     [RelayCommand]
@@ -1399,6 +1405,55 @@ public partial class PackagesViewModel : ObservableObject
 
     /// <summary>The grid row the result panel of an add flow selects.</summary>
     [ObservableProperty] private PackagerInfo? _focusedPackager;
+
+    /// <summary>The row of the detail pane: the row that has the keyboard focus or the click in the grid.</summary>
+    [ObservableProperty] private PackagerInfo? _detailPackager;
+
+    /// <summary>"Staged 26.06" or "Not staged", read from the stage folder off the UI thread when the row changes.</summary>
+    [ObservableProperty] private string _detailStageText = PackagesDetail.NotStaged;
+
+    /// <summary>The lines of the detail pane.</summary>
+    public IReadOnlyList<DetailLine> DetailLines => DetailPackager is null ? [] : PackagesDetail.Lines(DetailPackager, DetailStageText);
+
+    /// <summary>The pane is open. The choice is saved.</summary>
+    [ObservableProperty] private bool _isDetailPaneOpen = true;
+
+    partial void OnIsDetailPaneOpenChanged(bool value)
+    {
+        if (_settingsService is null) return;
+        var settings = _settingsService.Load();
+        if (settings.PackagesDetailPaneOpen == value) return;
+        settings.PackagesDetailPaneOpen = value;
+        _settingsService.Save(settings);
+    }
+
+    partial void OnDetailPackagerChanged(PackagerInfo? value)
+    {
+        OnPropertyChanged(nameof(DetailLines));
+        if (value is null) { DetailStageText = PackagesDetail.NotStaged; return; }
+        var row = value;
+        // The stage folder is read off the UI thread; an answer for a row that is no longer shown is dropped.
+        _ = Task.Run(() =>
+        {
+            try
+            {
+                var manifest = _executionService?.ExistingStageManifest(row);
+                return PackagesDetail.StageText(manifest is not null, row.StagedVersion ?? PublishVersionOf(manifest));
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { return PackagesDetail.NotStaged; }
+        }).ContinueWith(t =>
+        {
+            if (!ReferenceEquals(DetailPackager, row)) return;
+            var text = t.IsCompletedSuccessfully ? t.Result : PackagesDetail.NotStaged;
+            var dispatcher = System.Windows.Application.Current?.Dispatcher;
+            if (dispatcher is null) { DetailStageText = text; OnPropertyChanged(nameof(DetailLines)); }
+            else dispatcher.BeginInvoke(() => { if (ReferenceEquals(DetailPackager, row)) { DetailStageText = text; OnPropertyChanged(nameof(DetailLines)); } });
+        });
+    }
+
+    /// <summary>The version folder name of a stage manifest path: the manifest sits in the folder of its version.</summary>
+    private static string? PublishVersionOf(string? manifestPath) =>
+        manifestPath is null ? null : System.IO.Path.GetFileName(System.IO.Path.GetDirectoryName(manifestPath));
 
     /// <summary>Loads the grid again, clears the search and selects the row of the definition.</summary>
     public async Task SelectDefinitionAsync(string definitionId)
