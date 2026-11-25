@@ -17,6 +17,8 @@ param(
   [string]$SourceRoot = 'C:\ContentShare\Applications',
   [string]$RecordDir = 'C:\guide\lab-test-cleanup',
   [string]$SiteCode = 'MCM',
+  [string[]]$StagePaths = @('C:	empp', 'C:	empp-0909'),   # packager staging folders (not AppData, not C:\APLab)
+  [int]$StageAgeDays = 2,                                          # only items older than this (a session may be using newer ones)
   [switch]$CleanRunFiles   # also delete the batch logs and the download folder (results.csv stays)
 )
 $ErrorActionPreference = 'Continue'
@@ -74,7 +76,17 @@ try {
     Get-ChildItem (Split-Path $ResultsCsv) -File | Where-Object { $_.Extension -in '.log', '.err' } | Remove-Item -Force -ErrorAction SilentlyContinue
     Remove-Item 'C:\guide\ap-dl\*' -Recurse -Force -ErrorAction SilentlyContinue
   }
+  $stageBytes = 0
+  foreach ($r in $StagePaths) {
+    if (-not (Test-Path -LiteralPath $r)) { continue }
+    foreach ($d in Get-ChildItem -LiteralPath $r -Force | Where-Object LastWriteTime -lt (Get-Date).AddDays(-$StageAgeDays)) {
+      $stageBytes += (Get-ChildItem -LiteralPath $d.FullName -Recurse -File -Force -ErrorAction SilentlyContinue | Measure-Object Length -Sum).Sum
+      if ($PSCmdlet.ShouldProcess($d.FullName, 'Remove staging item')) { Remove-Item -LiteralPath $d.FullName -Recurse -Force -ErrorAction SilentlyContinue }
+    }
+    if (-not (Get-ChildItem -LiteralPath $r -Force -ErrorAction SilentlyContinue) -and $PSCmdlet.ShouldProcess($r, 'Remove empty staging folder')) { Remove-Item -LiteralPath $r -Force -ErrorAction SilentlyContinue }
+  }
   [pscustomobject]@{
+    StageGB = [math]::Round($stageBytes / 1GB, 2)
     Listed = $names.Count; Removed = $ok; Failed = $fail; Left = $skipped.Count
     SourceFolders = $gone; SourceGB = [math]::Round($bytes / 1GB, 2); Record = $RecordDir
   }
