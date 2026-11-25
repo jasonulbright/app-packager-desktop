@@ -26,7 +26,7 @@ Discover reads application names and versions only. It reads no device name, no 
 
 The rights of each page are in [Permissions](../reference/permissions.md).
 
-The database views bypass the role-based access of ConfigMgr. The scan reads the inventory of all devices that are not marked obsolete or decommissioned, whatever scope your console role has.
+The database views bypass the role-based access of ConfigMgr. The scan reads the inventory of all devices, whatever scope your console role has.
 
 ## Steps
 
@@ -81,7 +81,7 @@ After **Enable selected** or **Enable all**, the log shows `<N> app(s) added to 
 ## How the match works
 
 - A definition names its Add/Remove Programs entry with `ArpName`. The value is one or more wildcard patterns, separated by ` | `. The value `none` means that the application has no stable entry. The optional `ArpVersion` and `ArpArch` fields narrow the match by version and by architecture. 299 of the 323 shipped definitions carry a pattern.
-- Discover reads these database views: `v_GS_ADD_REMOVE_PROGRAMS`, `v_GS_ADD_REMOVE_PROGRAMS_64`, `v_R_System`, `v_Applications` and `v_ConfigurationItems`. It reads two columns of the inventory, the display name and the version. It ignores obsolete and decommissioned clients.
+- Discover reads these database views: `v_GS_ADD_REMOVE_PROGRAMS`, `v_GS_ADD_REMOVE_PROGRAMS_64`, `v_Applications` and `v_ConfigurationItems`. It reads two columns of the inventory, the display name and the version.
 - Some applications share one name with a sibling: Citrix Workspace CR and LTSR, QGIS and QGIS LTR, NVIDIA GeForce and RTX Enterprise, and the Microsoft 365 Apps x64 and x86 editions with Project and Visio. Discover cannot tell which variant a client runs. It offers one application of each group and never offers its siblings.
 - An application counts as managed when a current ConfigMgr application title starts with its ConfigMgr name, and the rest is a version or a detail in parentheses. A title with another installer method (EXE or MSI) or another architecture does not count. **Check ConfigMgr** uses the same rule.
 - Discover offers an application only when it is hidden, not dismissed, has an `ArpName` other than `none`, and matches at least one inventory row (name, and version and architecture when the definition has them).
@@ -104,7 +104,7 @@ The SMS Provider for the site lookup comes from these places, in this order: **S
 - Discover sends no request to the internet. It connects to the SMS Provider (CIM over DCOM, then WinRM) and to the site database (SQL Server, Windows authentication, read-only).
 - Discover reads inventory that clients have reported. When the inventory has no rows, it reports `No inventory data`.
 - Discover offers one application of each sibling group. See above.
-- Discover reads the inventory of all devices that are not marked obsolete or decommissioned, not only the devices in your security scope. The result holds no device identity.
+- Discover reads the inventory of all devices, not only the devices in your security scope. The result holds no device identity.
 
 ## Troubleshooting
 

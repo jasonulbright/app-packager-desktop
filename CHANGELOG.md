@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- Fix Discover not selected and Discover all ending with "Invalid attempt to read when no data is present" at a production site. Discover now runs the query of the PowerShell app and reads the result the way that app does (one data adapter fills a data set), without the filter on obsolete and decommissioned devices. A failure names the step of the scan that failed and the number of rows read so far.
+
 ## [2026.1124.62] - 2026-11-24
 
 ### Added
