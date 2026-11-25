@@ -1137,8 +1137,13 @@ public partial class PackagesViewModel : ObservableObject
                     {
                         p.Status = rowStatus;
                         p.IsSelected = false;
-                        tally.RecordSuccess();
-                        if (result is not null) AddLogLine(PublishRunService.PackagedLine(result));
+                        // The ConfigMgr application the operator kept is a skip, whatever WSUS did: nothing was packaged for it.
+                        if (conflictKept) tally.RecordSkip();
+                        else
+                        {
+                            tally.RecordSuccess();
+                            if (result is not null) AddLogLine(PublishRunService.PackagedLine(result));
+                        }
                         if (wsusStep is not null) AddLogLine("WSUS publish: " + wsusStep.Message);
                     }
                     else
