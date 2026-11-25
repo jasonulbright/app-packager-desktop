@@ -128,7 +128,9 @@ public sealed class PackagesTabsTests
         Assert.Equal("2 selected, 1 outside this view", viewModel.SelectionText);
         Assert.True(viewModel.HasHiddenSelection);
 
+        viewModel.SearchText = "Bravo";
         viewModel.ShowSelectedCommand.Execute(null);
+        Assert.Equal("", viewModel.SearchText);
         Assert.Equal(PackagesTabChoice.Selected, viewModel.StatusTab);
         Assert.Equal(["a", "b"], viewModel.FilteredPackagers.Select(r => r.Uid));
         Assert.Equal("2 selected", viewModel.SelectionText);

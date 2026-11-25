@@ -7,11 +7,11 @@ namespace ApplicationPackagerEngine.Tests;
 public sealed class PackagesBatchBarTests
 {
     [Theory]
-    [InlineData(true, false, false, "Publish All scope: ConfigMgr (Settings, Systems in Use)")]
-    [InlineData(true, true, false, "Publish All scope: ConfigMgr and Intune (Settings, Systems in Use)")]
-    [InlineData(true, true, true, "Publish All scope: ConfigMgr, Intune and WSUS (Settings, Systems in Use)")]
-    [InlineData(false, false, true, "Publish All scope: WSUS (Settings, Systems in Use)")]
-    [InlineData(false, false, false, "Publish All scope: no system in use (Settings, Systems in Use)")]
+    [InlineData(true, false, false, "Publish All: ConfigMgr")]
+    [InlineData(true, true, false, "Publish All: ConfigMgr and Intune")]
+    [InlineData(true, true, true, "Publish All: ConfigMgr, Intune and WSUS")]
+    [InlineData(false, false, true, "Publish All: WSUS")]
+    [InlineData(false, false, false, "Publish All: no system in use")]
     public void TheScopeLineNamesTheSystemsOfSettings(bool configMgr, bool intune, bool wsus, string expected) =>
         Assert.Equal(expected, PublishAllState.ScopeText(new SystemsInUse { ConfigMgr = configMgr, Intune = intune, Wsus = wsus }));
 
