@@ -21,9 +21,8 @@
         <Style x:Key="StatusTab" TargetType="RadioButton">
             <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
             <Setter Property="Margin" Value="0,0,16,0" />
-            <Setter Property="Padding" Value="0,4,0,6" />
+            <Setter Property="Padding" Value="0,4,0,8" />
             <Setter Property="Cursor" Value="Hand" />
-            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="RadioButton">
