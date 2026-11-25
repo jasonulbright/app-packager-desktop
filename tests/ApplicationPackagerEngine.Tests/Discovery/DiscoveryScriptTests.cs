@@ -58,7 +58,7 @@ public sealed class DiscoveryScriptTests : IDisposable
         var targets = Regex.Matches(query, @"(?i)\b(?:from|join)\s+([\w\.\[\]]+)").Select(m => m.Groups[1].Value).Where(t => t != "(").ToList();
         Assert.NotEmpty(targets);
         Assert.All(targets, t => Assert.Matches(@"^(dbo\.)?v_", t));
-        Assert.Equal(["dbo.v_Applications", "dbo.v_ConfigurationItems", "dbo.v_GS_ADD_REMOVE_PROGRAMS", "dbo.v_GS_ADD_REMOVE_PROGRAMS_64", "dbo.v_R_System"],
+        Assert.Equal(["dbo.v_Applications", "dbo.v_ConfigurationItems", "dbo.v_GS_ADD_REMOVE_PROGRAMS", "dbo.v_GS_ADD_REMOVE_PROGRAMS_64"],
             targets.Distinct().Order(StringComparer.Ordinal));
         Assert.Contains("@Arch32", query);
         Assert.Contains("@Arch64", query);
@@ -82,18 +82,30 @@ public sealed class DiscoveryScriptTests : IDisposable
     }
 
     [Fact]
-    public void ObsoleteAndDecommissionedClientsAreExcludedFromEveryInventoryStatement()
+    public void TheInventoryQueryIsTheQueryOfThePowerShellApp()
     {
-        var statements = QueryText().Split(';').Where(s => Regex.IsMatch(s, "(?i)v_GS_ADD_REMOVE_PROGRAMS")).ToList();
-        Assert.Single(statements);
-        foreach (var statement in statements)
-        {
-            // The site filter reads v_R_System in a subquery; no client key is selected.
-            var joins = Regex.Matches(statement, @"(?i)FROM dbo\.v_R_System").Count;
-            Assert.Equal(2, joins);
-            Assert.Equal(joins, Regex.Matches(statement, @"(?i)ISNULL\(\w+\.Obsolete0, 0\) = 0").Count);
-            Assert.Equal(joins, Regex.Matches(statement, @"(?i)ISNULL\(\w+\.Decommissioned0, 0\) = 0").Count);
-        }
+        // Q-134: the query that returns the applications at the production site of the owner in the PowerShell app, without a
+        // site filter on v_R_System, and UNION ALL of the two views. The script removes the doubles itself.
+        var query = QueryText();
+        Assert.DoesNotContain("v_R_System", query);
+        Assert.Contains("UNION ALL", query);
+        Assert.Equal(3, Regex.Matches(query, @"(?i)SELECT DISTINCT").Count);
+        Assert.Equal(2, Regex.Matches(query, @"(?i)FROM dbo\.v_GS_ADD_REMOVE_PROGRAMS").Count);
+    }
+
+    [Fact]
+    public void TheInventoryIsReadFromADataSetAndNotFromADataReader()
+    {
+        // Q-134: a SqlDataReader read row by row ended in "Invalid attempt to read when no data is present" at a production site.
+        // The PowerShell app fills a DataSet with a SqlDataAdapter and reads that site without the error.
+        var text = InventoryText;
+        Assert.Contains("SqlDataAdapter", text);
+        Assert.Contains("$adapter.Fill($dataSet)", text);
+        Assert.DoesNotContain("ExecuteReader", text);
+        Assert.DoesNotContain(".Read()", text);
+        Assert.DoesNotContain(".NextResult()", text);
+        Assert.DoesNotContain("GetValue(", text);
+        Assert.DoesNotContain("IsDBNull(", text);
     }
 
     [Fact]
@@ -108,7 +120,7 @@ public sealed class DiscoveryScriptTests : IDisposable
         Assert.Contains("if ($Encrypt) { $builder['Encrypt'] = $true }", text);
         Assert.Contains("if ($Trust) { $builder['TrustServerCertificate'] = $true }", text);
         var final = text[text.IndexOf("    finally {", StringComparison.Ordinal)..];
-        Assert.Contains("$reader.Dispose()", final);
+        Assert.Contains("$adapter.Dispose()", final);
         Assert.Contains("$command.Dispose()", final);
         Assert.Contains("$connection.Dispose()", final);
     }
@@ -141,23 +153,25 @@ public sealed class DiscoveryScriptTests : IDisposable
         Assert.Contains("site.ps1:0", output);
     }
 
-    /// <summary>A stand-in data reader over three result sets, as the inventory query returns them.</summary>
-    private const string FakeReader = """
-        function New-FakeReader {
-            param([object[]]$Sets)
-            $reader = New-Object psobject -Property @{ Sets = $Sets; SetIndex = 0; RowIndex = -1 }
-            $reader | Add-Member ScriptMethod Read { $this.RowIndex++; return $this.RowIndex -lt @($this.Sets[$this.SetIndex]).Count }
-            $reader | Add-Member ScriptMethod NextResult { $this.SetIndex++; $this.RowIndex = -1; return $this.SetIndex -lt $this.Sets.Count }
-            $reader | Add-Member ScriptMethod IsDBNull { param($i) $v = @($this.Sets[$this.SetIndex])[$this.RowIndex][$i]; return ($null -eq $v -or $v -is [System.DBNull]) }
-            $reader | Add-Member ScriptMethod GetValue { param($i) return @($this.Sets[$this.SetIndex])[$this.RowIndex][$i] }
-            return $reader
+    /// <summary>A real DataSet with one table per set, as the data adapter fills it from the inventory query.</summary>
+    private const string FakeDataSet = """
+        function New-FakeDataSet {
+            param([object[]]$Sets, [int[]]$Widths)
+            $dataSet = New-Object System.Data.DataSet
+            for ($i = 0; $i -lt $Sets.Count; $i++) {
+                $table = New-Object System.Data.DataTable ('Table' + $i)
+                for ($c = 0; $c -lt $Widths[$i]; $c++) { [void]$table.Columns.Add((New-Object System.Data.DataColumn ('C' + $c), ([object]))) }
+                foreach ($row in @($Sets[$i])) { [void]$table.Rows.Add([object[]]$row) }
+                $dataSet.Tables.Add($table)
+            }
+            return ,$dataSet
         }
         """;
 
     [Fact]
     public void TheInventoryOutputCarriesNoClientDataAndParsesIntoTheSnapshot()
     {
-        var script = InventoryText + Environment.NewLine + FakeReader + Environment.NewLine + """
+        var script = InventoryText + Environment.NewLine + FakeDataSet + Environment.NewLine + """
             $rows = @(
                 ,@('7-Zip 26.03 (x64)', '26.03', 'x64')
                 ,@('7-Zip 26.03 (x64)', '26.03', 'x64')
@@ -165,7 +179,7 @@ public sealed class DiscoveryScriptTests : IDisposable
                 ,@("Caf$([char]0x00e9) `"Pro`" \ tool", [System.DBNull]::Value, 'x86')
             )
             $apps = @(@(,'Git 2.56.0 (x64)'), @(,'CMTrace Open'))
-            Write-DiscoveryInventory -Reader (New-FakeReader -Sets @(,$rows + ,$apps))
+            Write-DiscoveryInventory -DataSet (New-FakeDataSet -Sets @(,$rows + ,$apps) -Widths 3,1)
             [Console]::Out.WriteLine('{"t":"end"}')
             """;
         var output = RunPowerShell(script);
@@ -193,7 +207,7 @@ public sealed class DiscoveryScriptTests : IDisposable
             """;
         var output = RunPowerShell(script).Trim();
         Assert.Equal("{\"t\":\"error\",\"stage\":\"sql\",\"numbers\":[],\"sspi\":true,\"anonymous\":true,\"types\":[\"MethodInvocationException\",\"Exception\"],"
-                     + "\"detail\":\"Login failed for user 'NT AUTHORITY\\\\ANONYMOUS LOGON'. Cannot generate SSPI context. CONTOSO\\\\jdoe\"}", output);
+                     + "\"detail\":\"Login failed for user 'NT AUTHORITY\\\\ANONYMOUS LOGON'. Cannot generate SSPI context. CONTOSO\\\\jdoe\",\"step\":\"\",\"rows\":-1}", output);
     }
 
     [Fact]
@@ -230,17 +244,54 @@ public sealed class DiscoveryScriptTests : IDisposable
     [Fact]
     public void AnInventoryRowWhoseNameEndsInALineBreakKeepsItsRow()
     {
-        var script = InventoryText + Environment.NewLine + FakeReader + Environment.NewLine + """
+        var script = InventoryText + Environment.NewLine + FakeDataSet + Environment.NewLine + """
             $rows = @(
                 ,@("Tool`n", '1.0', 'x64')
                 ,@("Tool`r`n", '1.0', 'x64')
             )
             $apps = @()
-            Write-DiscoveryInventory -Reader (New-FakeReader -Sets @(,$rows + ,$apps))
+            Write-DiscoveryInventory -DataSet (New-FakeDataSet -Sets @(,$rows + ,$apps) -Widths 3,1)
             [Console]::Out.WriteLine('{"t":"end"}')
             """;
         var snapshot = DiscoveryService.ParseInventory(RunPowerShell(script), new DiscoveryDatabaseTarget("s", "d"), 30);
         Assert.Equal(["Tool\n", "Tool\r\n"], snapshot.Rows.Select(r => r.DisplayName));
+    }
+
+    [Fact]
+    public void AnEmptyInventoryAndNullCellsAreReadWithoutAnError()
+    {
+        var script = InventoryText + Environment.NewLine + FakeDataSet + Environment.NewLine + """
+            $rows = @(
+                ,@([System.DBNull]::Value, [System.DBNull]::Value, 'x64')
+                ,@('Tool', [System.DBNull]::Value, [System.DBNull]::Value)
+            )
+            Write-DiscoveryInventory -DataSet (New-FakeDataSet -Sets @(,$rows + ,@()) -Widths 3,1)
+            Write-DiscoveryInventory -DataSet (New-FakeDataSet -Sets @(,@() + ,@()) -Widths 3,1)
+            [Console]::Out.WriteLine('{"t":"end"}')
+            """;
+        var output = RunPowerShell(script);
+        var lines = output.Split('\n', StringSplitOptions.RemoveEmptyEntries).Select(l => l.TrimEnd()).ToList();
+        Assert.Equal(2, lines.Count(l => l.StartsWith("{\"t\":\"row\"", StringComparison.Ordinal)));
+        Assert.Equal(2, lines.Count(l => l == "{\"t\":\"summary\"}"));
+        Assert.DoesNotContain("\"t\":\"error\"", output);
+    }
+
+    [Fact]
+    public void ADataSetWithOneTableIsAnErrorThatNamesTheStepAndTheRowCount()
+    {
+        var script = InventoryText + Environment.NewLine + FakeDataSet + Environment.NewLine + """
+            try { Write-DiscoveryInventory -DataSet (New-FakeDataSet -Sets @(,@(,@('A','1','x64'))) -Widths 3) }
+            catch { Write-DiscoveryError -Exception $_.Exception -Step 'read the inventory rows' -RowCount 1 }
+            """;
+        var line = RunPowerShell(script).Trim();
+        using var json = JsonDocument.Parse(line);
+        Assert.Equal("read the inventory rows", json.RootElement.GetProperty("step").GetString());
+        Assert.Equal(1, json.RootElement.GetProperty("rows").GetInt32());
+        Assert.Contains("instead of two", json.RootElement.GetProperty("detail").GetString());
+        var failure = Assert.Throws<DiscoveryException>(() =>
+            DiscoveryService.ParseInventory(line + "\n{\"t\":\"end\"}", new DiscoveryDatabaseTarget("sql01", "CM_MCM"), 30));
+        Assert.Contains("Server sql01, database CM_MCM.", failure.Message);
+        Assert.EndsWith("Step: read the inventory rows, 1 rows read.", failure.Message);
     }
 
     private const string FakeCim = """

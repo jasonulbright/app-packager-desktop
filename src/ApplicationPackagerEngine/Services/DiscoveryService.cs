@@ -298,10 +298,14 @@ public sealed partial class DiscoveryService : IDiscoveryService
             foreach (var n in numberArray.EnumerateArray())
                 if (n.TryGetInt32(out var value)) numbers.Add(value);
         var detail = OneLine(Text(line, "detail"));
-        if (types.Count == 0 && detail.Length == 0) return advice;
+        // The step of the script that failed and the rows it had read: where a failure such as a read error happened.
+        var step = OneLine(Text(line, "step"));
+        var rowCount = line.TryGetProperty("rows", out var rowsElement) && rowsElement.TryGetInt32(out var rowsRead) && rowsRead >= 0 ? rowsRead : -1;
+        var where = step.Length > 0 ? $" Step: {step}" + (rowCount >= 0 ? $", {rowCount.ToString(CultureInfo.InvariantCulture)} rows read." : ".") : "";
+        if (types.Count == 0 && detail.Length == 0) return advice + where;
         var errorType = types.Count > 0 ? types[^1] : "error";
         var codes = numbers.Count > 0 ? " " + string.Join(",", numbers.Select(n => n.ToString(CultureInfo.InvariantCulture))) : "";
-        return $"{advice} Server {target.Server}, database {target.Database}. Error: {errorType}{codes}{(detail.Length > 0 ? ": " + detail : "")}";
+        return $"{advice} Server {target.Server}, database {target.Database}. Error: {errorType}{codes}{(detail.Length > 0 ? ": " + detail : "")}{where}";
     }
 
     private static string SqlAdvice(JsonElement line, DiscoveryDatabaseTarget target, int timeout)
