@@ -98,9 +98,9 @@ public sealed class SiteFooterTests
         Assert.Equal("Normal", (string?)footer.Attribute("FontStyle"));
         // The color is a theme brush, so the two themes differ only in color.
         Assert.StartsWith("{DynamicResource ", (string?)footer.Attribute("Foreground"));
-        // The footer is the last row of the window grid.
+        // The footer is the last row of the window grid: title bar, context strip (overhaul V1, phase 2), navigation, footer.
         var row = (string?)footer.Ancestors(Presentation + "Border").First().Attribute("Grid.Row");
-        Assert.Equal("2", row);
+        Assert.Equal("3", row);
     }
 
     private static bool NamesTheSite(string? text) =>
