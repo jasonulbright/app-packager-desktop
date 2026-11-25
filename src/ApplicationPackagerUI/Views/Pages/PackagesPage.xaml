@@ -17,6 +17,34 @@
                 <ResourceDictionary Source="/ApplicationPackagerUI;component/Views/Styles/SelectableRows.xaml" />
             </ResourceDictionary.MergedDictionaries>
             <helpers:StatusCategoryConverter x:Key="StatusCategoryConverter" />
+        <helpers:EnumEqualsConverter x:Key="EnumEquals" />
+        <Style x:Key="StatusTab" TargetType="RadioButton">
+            <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
+            <Setter Property="Margin" Value="0,0,16,0" />
+            <Setter Property="Padding" Value="0,4,0,6" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="RadioButton">
+                        <Border x:Name="Cue" Background="Transparent" BorderThickness="0,0,0,2" BorderBrush="Transparent" Padding="{TemplateBinding Padding}">
+                            <TextBlock x:Name="Label" Text="{TemplateBinding Content}" FontSize="14" Foreground="{TemplateBinding Foreground}" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="Cue" Property="BorderBrush" Value="{DynamicResource AccentFillColorDefaultBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Label" Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsKeyboardFocused" Value="True">
+                                <Setter TargetName="Cue" Property="BorderBrush" Value="{DynamicResource AccentFillColorDefaultBrush}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
             <Style x:Key="TrimCell" TargetType="TextBlock" BasedOn="{StaticResource DensityTextCell}">
                 <Setter Property="TextTrimming" Value="CharacterEllipsis" />
                 <Setter Property="ToolTip" Value="{Binding Text, RelativeSource={RelativeSource Self}}" />
@@ -44,6 +72,7 @@
 
     <Grid Margin="24,8,24,16" Background="Transparent" AllowDrop="True">
         <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
@@ -206,7 +235,28 @@
             </WrapPanel>
         </WrapPanel>
 
-        <Grid Grid.Row="2" Margin="0,0,0,8">
+        <!-- The status tabs of the V1 workspace (overhaul V1, phase 3): the grid shows every application or one status. The counts are over every
+             application, not over the search. The cue is the primary text with an accent underline, never bold. -->
+        <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,0,0,8" AutomationProperties.AutomationId="pnlStatusTabs" AutomationProperties.Name="Status tabs">
+            <RadioButton GroupName="StatusTabs" Style="{StaticResource StatusTab}" Content="{Binding TabAllText}"
+                         IsChecked="{Binding StatusTab, Converter={StaticResource EnumEquals}, ConverterParameter=All}"
+                         AutomationProperties.AutomationId="tabStatusAll" AutomationProperties.Name="{Binding TabAllText}"
+                         ToolTip="Show every application." />
+            <RadioButton GroupName="StatusTabs" Style="{StaticResource StatusTab}" Content="{Binding TabUpdateText}"
+                         IsChecked="{Binding StatusTab, Converter={StaticResource EnumEquals}, ConverterParameter=Update}"
+                         AutomationProperties.AutomationId="tabStatusUpdate" AutomationProperties.Name="{Binding TabUpdateText}"
+                         ToolTip="Show the applications whose status says that an update is available." />
+            <RadioButton GroupName="StatusTabs" Style="{StaticResource StatusTab}" Content="{Binding TabNotFoundText}"
+                         IsChecked="{Binding StatusTab, Converter={StaticResource EnumEquals}, ConverterParameter=NotFound}"
+                         AutomationProperties.AutomationId="tabStatusNotFound" AutomationProperties.Name="{Binding TabNotFoundText}"
+                         ToolTip="Show the applications that the last Check ConfigMgr did not find on the site." />
+            <RadioButton GroupName="StatusTabs" Style="{StaticResource StatusTab}" Content="{Binding TabNotCheckedText}"
+                         IsChecked="{Binding StatusTab, Converter={StaticResource EnumEquals}, ConverterParameter=NotChecked}"
+                         AutomationProperties.AutomationId="tabStatusNotChecked" AutomationProperties.Name="{Binding TabNotCheckedText}"
+                         ToolTip="Show the applications that no check has compared with the site yet." />
+        </StackPanel>
+
+        <Grid Grid.Row="3" Margin="0,0,0,8">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
@@ -227,7 +277,7 @@
         </Grid>
 
 
-        <ui:DataGrid Grid.Row="3"
+        <ui:DataGrid Grid.Row="4"
                   x:Name="PackagerGrid"
                   ItemsSource="{Binding FilteredPackagers}"
                   AutoGenerateColumns="False"
@@ -460,7 +510,7 @@
             </DataGrid.Columns>
         </ui:DataGrid>
 
-        <StackPanel Grid.Row="4" Orientation="Horizontal" Margin="0,4,0,4">
+        <StackPanel Grid.Row="5" Orientation="Horizontal" Margin="0,4,0,4">
             <ui:Button Content="Select Update Available"
                        Icon="{ui:SymbolIcon CheckboxChecked24}"
                        Command="{Binding SelectUpdateAvailableCommand}"
@@ -481,9 +531,19 @@
             <CheckBox Content="Show debug columns"
                       IsChecked="{Binding ShowDebugColumns}"
                       VerticalAlignment="Center" ToolTip="Show the CMName, Script, Max EPSS, NVD updated and CVEs Checked (UTC) columns." />
+            <TextBlock Text="{Binding SelectionText}" Margin="12,0,8,0" VerticalAlignment="Center" FontSize="14"
+                       Foreground="{DynamicResource TextFillColorPrimaryBrush}"
+                       AutomationProperties.AutomationId="txtSelectionCount" AutomationProperties.LiveSetting="Polite"
+                       ToolTip="The checked applications. Stage and Publish All act on all of them, also on those that the search or the tab hides." />
+            <ui:Button Content="Show selected" Command="{Binding ShowSelectedCommand}" Appearance="Transparent" Margin="0,0,8,0"
+                       Visibility="{Binding HasHiddenSelection, Converter={StaticResource BooleanToVisibilityConverter}}"
+                       AutomationProperties.AutomationId="btnShowSelected" ToolTip="Show only the checked applications, so that you see the ones that the search or the tab hides." />
+            <ui:Button Content="Clear selection" Command="{Binding ClearSelectionCommand}" Appearance="Transparent"
+                       Visibility="{Binding HasSelection, Converter={StaticResource BooleanToVisibilityConverter}}"
+                       AutomationProperties.AutomationId="btnClearSelection" ToolTip="Uncheck every application, also those that the search or the tab hides." />
         </StackPanel>
 
-        <TextBox Grid.Row="5"
+        <TextBox Grid.Row="6"
                  Text="{Binding LogText, Mode=OneWay}"
                  IsReadOnly="True"
                  TextWrapping="NoWrap"
@@ -497,7 +557,7 @@
                  Foreground="{DynamicResource TextFillColorSecondaryBrush}"
                  TextChanged="LogTextBox_TextChanged" />
 
-        <Grid Grid.Row="6" Margin="0,4,0,0">
+        <Grid Grid.Row="7" Margin="0,4,0,0">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="8" />

@@ -233,32 +233,115 @@ public partial class PackagesViewModel : ObservableObject
     private IEnumerable<PackagerInfo> SelectedPackagers =>
         Packagers.Where(p => p.IsSelected && p.IsRunnable);
 
-    /// <summary>The checked rows. A run acts on all of them, hidden by the search or not.</summary>
-    public int SelectedCount => SelectionCounts.Of(Packagers, FilteredPackagers).Selected;
+    /// <summary>The checked rows. A run acts on all of them, hidden by the search or the tab or not.</summary>
+    public int SelectedCount => SelectionCounts.Of(Packagers ?? [], FilteredPackagers ?? []).Selected;
 
-    /// <summary>The checked rows that the current search hides.</summary>
-    public int HiddenSelectedCount => SelectionCounts.Of(Packagers, FilteredPackagers).Hidden;
+    /// <summary>The checked rows that the current search or tab hides.</summary>
+    public int HiddenSelectedCount => SelectionCounts.Of(Packagers ?? [], FilteredPackagers ?? []).Hidden;
 
     /// <summary>The row counts of the status tabs, over every row.</summary>
-    public PackagesTabCounts TabCounts => PackagesTab.Count(Packagers);
+    public PackagesTabCounts TabCounts => PackagesTab.Count(Packagers ?? []);
+
+    public string TabAllText => $"All {TabCounts.All}";
+    public string TabUpdateText => $"Updates available {TabCounts.Update}";
+    public string TabNotFoundText => $"Not found in ConfigMgr {TabCounts.NotFound}";
+    public string TabNotCheckedText => $"Not checked {TabCounts.NotChecked}";
+
+    /// <summary>"12 selected" and, when the view hides some of them, "12 selected, 4 outside this view". A run acts on all of them.</summary>
+    public string SelectionText
+    {
+        get
+        {
+            var (selected, hidden) = SelectionCounts.Of(Packagers ?? [], FilteredPackagers ?? []);
+            return hidden > 0 ? $"{selected} selected, {hidden} outside this view" : $"{selected} selected";
+        }
+    }
+
+    public bool HasHiddenSelection => HiddenSelectedCount > 0;
+    public bool HasSelection => SelectedCount > 0;
+
+    /// <summary>The tab of the grid. A change filters the grid in place: the sort and the scroll position stay.</summary>
+    [ObservableProperty] private PackagesTabChoice _statusTab = PackagesTabChoice.All;
+
+    partial void OnStatusTabChanged(PackagesTabChoice value) => ApplyFilter();
 
     partial void OnSearchTextChanged(string value) => ApplyFilter();
 
-    private void ApplyFilter()
+    private bool _countsPending;
+
+    /// <summary>
+    /// A row changed its check, status or ConfigMgr version. The counts and the tab are refreshed once for a burst of changes (a Check run
+    /// changes every row), on the next dispatcher turn.
+    /// </summary>
+    private void OnRowChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {
-        if (string.IsNullOrWhiteSpace(SearchText))
-        {
-            FilteredPackagers = new ObservableCollection<PackagerInfo>(Packagers);
-        }
-        else
-        {
-            var term = SearchText;
-            FilteredPackagers = new ObservableCollection<PackagerInfo>(
-                Packagers.Where(p => PackagerSearch.Matches(p, term)));
-        }
-        StatusText = string.IsNullOrWhiteSpace(SearchText)
+        if (e.PropertyName is not (nameof(PackagerInfo.Status) or nameof(PackagerInfo.CurrentVersion) or nameof(PackagerInfo.IsSelected))) return;
+        if (_countsPending) return;
+        _countsPending = true;
+        var dispatcher = System.Windows.Application.Current?.Dispatcher;
+        if (dispatcher is null) RefreshCounts();
+        else dispatcher.BeginInvoke(RefreshCounts, System.Windows.Threading.DispatcherPriority.Background);
+    }
+
+    /// <summary>Raises the change of every count and keeps the grid on its tab: a row that left the tab leaves the grid without a reload.</summary>
+    public void RefreshCounts()
+    {
+        _countsPending = false;
+        if (StatusTab != PackagesTabChoice.All) ApplyFilter();
+        else RaiseCountChanges();
+    }
+
+    private void RaiseCountChanges()
+    {
+        OnPropertyChanged(nameof(TabCounts));
+        OnPropertyChanged(nameof(TabAllText));
+        OnPropertyChanged(nameof(TabUpdateText));
+        OnPropertyChanged(nameof(TabNotFoundText));
+        OnPropertyChanged(nameof(TabNotCheckedText));
+        OnPropertyChanged(nameof(SelectedCount));
+        OnPropertyChanged(nameof(HiddenSelectedCount));
+        OnPropertyChanged(nameof(SelectionText));
+        OnPropertyChanged(nameof(HasHiddenSelection));
+        OnPropertyChanged(nameof(HasSelection));
+    }
+
+    private ObservableCollection<PackagerInfo>? _watchedRows;
+
+    /// <summary>Follows the rows of the current list for the counts; the rows of the old list are let go.</summary>
+    private void WatchRows()
+    {
+        if (_watchedRows is not null) foreach (var row in _watchedRows) row.PropertyChanged -= OnRowChanged;
+        _watchedRows = Packagers;
+        foreach (var row in _watchedRows) row.PropertyChanged += OnRowChanged;
+    }
+
+    /// <summary>Show only the checked rows (the "Show selected" link of the selection line).</summary>
+    [RelayCommand]
+    private void ShowSelected() => StatusTab = PackagesTabChoice.Selected;
+
+    /// <summary>Uncheck every row, hidden ones included.</summary>
+    [RelayCommand]
+    private void ClearSelection()
+    {
+        foreach (var row in Packagers) row.IsSelected = false;
+        if (StatusTab == PackagesTabChoice.Selected) StatusTab = PackagesTabChoice.All;
+        OnPropertyChanged(nameof(HeaderSelection));
+    }
+
+    /// <param name="replace">True after a load: the grid gets a new list. Otherwise the list changes in place, so the sort and the scroll stay.</param>
+    private void ApplyFilter(bool replace = false)
+    {
+        var term = SearchText;
+        var tab = StatusTab;
+        var wanted = Packagers
+            .Where(p => (string.IsNullOrWhiteSpace(term) || PackagerSearch.Matches(p, term)) && PackagesTab.Matches(tab, p))
+            .ToList();
+        if (replace || FilteredPackagers is null) FilteredPackagers = new ObservableCollection<PackagerInfo>(wanted);
+        else ListSync.Sync(FilteredPackagers, wanted);
+        StatusText = string.IsNullOrWhiteSpace(term) && tab == PackagesTabChoice.All
             ? $"Loaded {Packagers.Count} packager(s). Ready."
             : $"Showing {FilteredPackagers.Count} of {Packagers.Count} packager(s).";
+        RaiseCountChanges();
     }
 
     /// <summary>One click on the header check box: none, every visible row, updates only, none.</summary>
@@ -480,8 +563,9 @@ public partial class PackagesViewModel : ObservableObject
         if (results.Count == 0)
         {
             Packagers = [];
+            WatchRows();
             SearchText = "";
-            ApplyFilter();
+            ApplyFilter(replace: true);
             StatusText = load.StatusText ?? "";
             if (load.LogLine is not null) AddLogLine(load.LogLine);
             return;
@@ -502,8 +586,9 @@ public partial class PackagesViewModel : ObservableObject
         }
 
         Packagers = new ObservableCollection<PackagerInfo>(results);
+        WatchRows();
         SearchText = "";
-        ApplyFilter();
+        ApplyFilter(replace: true);
 
         _ = TestMecmConnectionAsync();
     }
@@ -1501,7 +1586,7 @@ public partial class PackagesViewModel : ObservableObject
         };
 
         Packagers.Add(row);
-        ApplyFilter();
+        ApplyFilter(replace: true);
     }
 
     private void SaveDroppedInstallerAsDefinition(
