@@ -38,6 +38,20 @@ function Wait-Idle($w, [int]$Seconds) {
         Start-Sleep 2
     }
 }
+# Publish All, then the Application Already Exists dialog is answered with Skip each time it shows, until the run ends. A line is printed for each answer.
+function Publish-And-Answer($w, [int]$Seconds) {
+    Real-Click (Find-El $w 'btnPublishAll')
+    Start-Sleep 8
+    $deadline = (Get-Date).AddSeconds($Seconds)
+    $beat = Get-Date
+    while ((Get-Date) -lt $deadline) {
+        $skip = Find-El $w -Name 'Skip' -ControlType 'Button' -Timeout 2
+        if ($skip) { 'The Application Already Exists dialog shows: Skip.'; Real-Click $skip; Start-Sleep 3 }
+        if (-not (Find-El $w 'btnCancelOperation' -Timeout 1)) { break }
+        if (((Get-Date) - $beat).TotalSeconds -ge 30) { "waiting: $(Status-Text $w)"; $beat = Get-Date }
+        Start-Sleep 2
+    }
+}
 function Step([string]$Theme, [string]$Id, [scriptblock]$Body) { try { & $Body } catch { "FAIL $Theme ${Id}: $($_.Exception.Message)" } }
 function Other-Windows { @(Get-ApdWindows | Where-Object { $_.Current.Name -notmatch '^App Packager' }) }
 function Click-ByName($Scope, [string[]]$Names) {
@@ -99,8 +113,7 @@ foreach ($theme in $Themes) {
             "status after Stage: $(Status-Text $w)"
             Set-ElText (Find-El $w 'txtAppPackagerComment') 'Overhaul V1 lab check'
             Check-Row $w $Application
-            Real-Click (Find-El $w 'btnPublishAll')
-            Wait-Idle $w 600
+            Publish-And-Answer $w 600
             $dlg = Other-Windows | Select-Object -First 1
             if ($dlg) { $null = Click-ByName $dlg @('Continue', 'OK', 'Yes'); Wait-Idle $w 600 }
             "status after Publish All (ConfigMgr and WSUS): $(Status-Text $w)"
@@ -117,13 +130,9 @@ foreach ($theme in $Themes) {
             $w.SetFocus()
             Set-ElText (Find-El $w 'txtAppPackagerComment') 'Overhaul V1 lab check'
             Check-Row $w $Application
-            Real-Click (Find-El $w 'btnPublishAll')
-            Start-Sleep 25
+            Publish-And-Answer $w 240
             Move-MouseAway
             Shot $theme 'publish-all-existing'
-            $skip = Find-El $w -Name 'Skip' -ControlType 'Button' -Timeout 5
-            if ($skip) { Real-Click $skip; 'Skip answered the Application Already Exists dialog.' } else { 'No Skip button found.' }
-            Wait-Idle $w 120
             "status after the second Publish All: $(Status-Text $w)"
             Log-Lines $data 'kept|already holds|APP_PACKAGER_CONFLICT|Overwriting'
         }
