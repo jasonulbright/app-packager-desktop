@@ -81,6 +81,35 @@ foreach ($theme in $Themes) {
             $tree = Find-El $null 'nav_systems' -Timeout 5
             "Connections button opens Settings: $([bool]$tree)"
         }
+        Step $theme 'site-switch' {
+            # A second site: Add site makes it active; the strip must follow (site, host, states); switching back restores the first site.
+            $null = Click-Nav 'App Packager'
+            Start-Sleep 2
+            Real-Click (Find-El $null 'btnSiteSwitcher' -Timeout 5)
+            Start-Sleep 1
+            Real-Click (Find-El $null 'miAddSite' -Timeout 5)
+            Start-Sleep 2
+            $dlg = Find-El $null 'txtAddSiteCode' -Timeout 8
+            if (-not $dlg) { throw 'the Add site window did not open' }
+            Set-ElText $dlg 'PS1'
+            Set-ElText (Find-El $null 'txtAddSiteProvider' -Timeout 5) 'ps1.contoso.com'
+            Real-Click (Find-El $null 'btnAddSiteAccept' -Timeout 5)
+            Start-Sleep 5
+            "strip name after Add site PS1: $(Strip-Name)"
+            Move-MouseAway
+            Shot $theme 'strip-site-ps1'
+            Real-Click (Find-El $null 'btnSiteSwitcher' -Timeout 5)
+            Start-Sleep 1
+            $items = @(foreach ($w in (Get-ApdWindows)) { $w.FindAll([System.Windows.Automation.TreeScope]::Descendants, (New-Object System.Windows.Automation.PropertyCondition ([System.Windows.Automation.AutomationElement]::ControlTypeProperty), ([System.Windows.Automation.ControlType]::MenuItem))) })
+            "site menu: " + (($items | ForEach-Object { $_.Current.AutomationId + '=' + $_.Current.Name }) -join ' | ')
+            $mcm = $items | Where-Object { $_.Current.AutomationId -like 'miSite*' -and $_.Current.Name -match 'MCM' } | Select-Object -First 1
+            if (-not $mcm) { throw 'no MCM entry in the site menu' }
+            Real-Click $mcm
+            Start-Sleep 6
+            "strip name after switch back to MCM: $(Strip-Name)"
+            Move-MouseAway
+            Shot $theme 'strip-site-mcm'
+        }
     }
     finally { Stop-Apd }
 }

@@ -12,6 +12,16 @@ public enum PackagesTabKind
     NotChecked
 }
 
+/// <summary>The tab the grid shows: every row, one status tab, or the checked rows (the "Show selected" link of the selection line).</summary>
+public enum PackagesTabChoice
+{
+    All,
+    Update,
+    NotFound,
+    NotChecked,
+    Selected
+}
+
 /// <summary>The row counts of the status tabs.</summary>
 public sealed record PackagesTabCounts(int All, int Update, int NotFound, int NotChecked)
 {
@@ -47,6 +57,16 @@ public static class PackagesTab
     /// <summary>True when the row is on the tab; every row is on All.</summary>
     public static bool Contains(PackagesTabKind? tab, PackagerInfo row) => tab is null || Of(row) == tab;
 
+    /// <summary>True when the row is on the chosen tab. Every row is on All; Selected holds the checked rows.</summary>
+    public static bool Matches(PackagesTabChoice choice, PackagerInfo row) => choice switch
+    {
+        PackagesTabChoice.All => true,
+        PackagesTabChoice.Update => Of(row) == PackagesTabKind.Update,
+        PackagesTabChoice.NotFound => Of(row) == PackagesTabKind.NotFound,
+        PackagesTabChoice.NotChecked => Of(row) == PackagesTabKind.NotChecked,
+        _ => row.IsSelected
+    };
+
     public static PackagesTabCounts Count(IEnumerable<PackagerInfo> rows)
     {
         int all = 0, update = 0, notFound = 0, notChecked = 0;
@@ -79,4 +99,14 @@ public static class SelectionCounts
         }
         return (selected, hidden);
     }
+}
+
+/// <summary>A two-way converter for a group of RadioButtons over one enum property: the button is checked when the property equals its parameter.</summary>
+public sealed class EnumEqualsConverter : System.Windows.Data.IValueConverter
+{
+    public object Convert(object? value, Type targetType, object? parameter, System.Globalization.CultureInfo culture) =>
+        value is not null && parameter is not null && string.Equals(value.ToString(), parameter.ToString(), StringComparison.Ordinal);
+
+    public object ConvertBack(object? value, Type targetType, object? parameter, System.Globalization.CultureInfo culture) =>
+        value is true && parameter is not null ? Enum.Parse(targetType, parameter.ToString()!) : System.Windows.Data.Binding.DoNothing;
 }
