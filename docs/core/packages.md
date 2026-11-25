@@ -43,7 +43,7 @@ Check Latest does not download the installer. It runs the version source that th
 1. Check the rows you want.
 2. Select **Check ConfigMgr**.
 3. View the **Current (ConfigMgr)** column and the **Status** column.
-4. To check only the rows that have an update, select **Select Update Available**. This button checks every row whose status starts with **Update available** and clears all other rows.
+4. To check only the rows that have an update, select **Select Update Available**. This button checks every visible row whose status starts with **Update available** and clears all other rows. The header check box then shows a dot. It writes a line to the log.
 
 Check ConfigMgr uses the **CMName** of the definition to find the application. An application counts as found when a current ConfigMgr application title starts with the CMName and the rest of the title is a version or a detail in parentheses. A title with another installer method (EXE or MSI) or another architecture does not count.
 
@@ -149,7 +149,7 @@ The full list is in [Settings reference](../reference/settings.md).
 ## Limits
 
 - Check Latest and Check ConfigMgr process the rows one after the other, in grid order. They do not run in parallel.
-- A row that the search box hides stays checked. An operation still includes it. Ctrl+A and the header check box act on all rows, also on hidden rows.
+- A row that the search box hides stays checked. An operation still includes it. Ctrl+A, the header check box and Select Update Available act on the rows the search box shows, and clear the rows it hides.
 - Check ConfigMgr stops a query for one application after 60 seconds. The log shows `query timed out after 60s`.
 - App Packager Desktop does not check for a new version of itself. Select **Releases** under Settings, About to open the releases page.
 - The toolbar is one row. It shows the label of each button while the labels fit in that row. When they do not fit, the toolbar shows the icons only. The tooltip of each button then names the button.

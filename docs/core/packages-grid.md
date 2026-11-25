@@ -18,7 +18,7 @@ Select a column header to sort the grid. The first column stays in place when th
 
 | Column | Content | Shown |
 |---|---|---|
-| (check box) | Marks the row for the next operation. The header check box checks or clears all rows. | Always |
+| (check box) | Marks the row for the next operation. The header check box cycles each time you select it: it checks every visible row, then shows a dot and checks only the rows that have an update, then clears all rows. Each step writes a line to the log. | Always |
 | **Application** | Name of the application. | Always |
 | **Vendor** | Vendor name. | Always |
 | **Current (ConfigMgr)** | Version in ConfigMgr from the last **Check ConfigMgr**. After a reload, the last stored version. | Always |
