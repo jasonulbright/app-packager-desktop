@@ -575,7 +575,7 @@ public partial class PackagesViewModel : ObservableObject
 
                 var p = targets[i];
                 ProgressCurrent = i + 1;
-                StatusText = $"{logPrefix}: {ProgressCurrent} of {ProgressTotal} — {p.Application}";
+                StatusText = ApplicationPackagerEngine.Models.RunProgress.Running("Check Latest", ProgressCurrent, ProgressTotal, p.Application);
                 p.Status = "Checking latest...";
                 AddLogLine($"Latest: {p.Application} ({p.Script})");
                 var operationId = Guid.NewGuid().ToString("N");
@@ -675,7 +675,7 @@ public partial class PackagesViewModel : ObservableObject
 
         IsOperationRunning = true;
         _operationCts = new CancellationTokenSource();
-        StatusText = "Querying ConfigMgr...";
+        StatusText = ApplicationPackagerEngine.Models.RunProgress.Starting("Check ConfigMgr", selected.Count);
         var tally = new PackagingRunTally();
 
         try
@@ -684,6 +684,7 @@ public partial class PackagesViewModel : ObservableObject
             {
                 if (_operationCts.IsCancellationRequested) { tally.MarkCancelled(); break; }
 
+                StatusText = ApplicationPackagerEngine.Models.RunProgress.Running("Check ConfigMgr", selected.IndexOf(p) + 1, selected.Count, p.Application);
                 p.Status = "Querying ConfigMgr...";
                 AddLogLine($"ConfigMgr: {p.Application}");
                 var operationId = Guid.NewGuid().ToString("N");
@@ -831,7 +832,7 @@ public partial class PackagesViewModel : ObservableObject
 
                 var p = selected[i];
                 ProgressCurrent = i + 1;
-                StatusText = $"Staging: {ProgressCurrent} of {ProgressTotal} — {p.Application}";
+                StatusText = ApplicationPackagerEngine.Models.RunProgress.Running("Staging", ProgressCurrent, ProgressTotal, p.Application);
                 p.Status = "Staging...";
                 AddLogLine($"Stage: {p.Application} ({p.Script})");
 
@@ -1029,7 +1030,7 @@ public partial class PackagesViewModel : ObservableObject
 
                 var p = selected[i];
                 ProgressCurrent = i + 1;
-                StatusText = $"Packaging: {ProgressCurrent} of {ProgressTotal} — {p.Application}";
+                StatusText = ApplicationPackagerEngine.Models.RunProgress.Running("Packaging", ProgressCurrent, ProgressTotal, p.Application);
                 p.Status = "Packaging...";
                 AddLogLine($"Package: {p.Application} ({p.Script})");
 
