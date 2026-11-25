@@ -15,6 +15,7 @@
             <ResourceDictionary.MergedDictionaries>
                 <ResourceDictionary Source="/ApplicationPackagerUI;component/Views/Styles/Density.xaml" />
                 <ResourceDictionary Source="/ApplicationPackagerUI;component/Views/Styles/SelectableRows.xaml" />
+                <ResourceDictionary Source="/ApplicationPackagerUI;component/Views/Styles/Typography.xaml" />
             </ResourceDictionary.MergedDictionaries>
             <helpers:StatusCategoryConverter x:Key="StatusCategoryConverter" />
         <helpers:EnumEqualsConverter x:Key="EnumEquals" />
