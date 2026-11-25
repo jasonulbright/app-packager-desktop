@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## [2026.1125.63] - 2026-11-25
 
 ### Fixed
 
