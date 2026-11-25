@@ -9,6 +9,8 @@ $ErrorActionPreference = 'Stop'
 # read row by row ended in "Invalid attempt to read when no data is present" at a production site (Q-134).
 $script:DiscoveryStep = 'start'
 $script:DiscoveryRowCount = -1
+$script:DiscoveryTable = -1
+$script:DiscoveryColumn = -1
 
 $DiscoveryInventoryQuery = @'
 SET NOCOUNT ON;
@@ -64,10 +66,14 @@ function Write-DiscoveryInventory {
     $seen = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::Ordinal)
     $rows = New-Object System.Collections.Generic.List[string]
     $script:DiscoveryRowCount = 0
+    $script:DiscoveryTable = 0
     foreach ($row in $DataSet.Tables[0].Rows) {
         $script:DiscoveryRowCount++
+        $script:DiscoveryColumn = 0
         $name = [string](Get-DiscoveryCell $row 0)
+        $script:DiscoveryColumn = 1
         $version = [string](Get-DiscoveryCell $row 1)
+        $script:DiscoveryColumn = 2
         $architecture = [string](Get-DiscoveryCell $row 2)
         $key = $name + [char]0 + $version + [char]0 + $architecture
         if (-not $seen.Add($key)) { continue }
@@ -77,7 +83,11 @@ function Write-DiscoveryInventory {
 
     $script:DiscoveryStep = 'read the application names'
     $applications = New-Object System.Collections.Generic.List[string]
+    $script:DiscoveryTable = 1
+    $script:DiscoveryRowCount = 0
     foreach ($row in $DataSet.Tables[1].Rows) {
+        $script:DiscoveryRowCount++
+        $script:DiscoveryColumn = 0
         $title = Get-DiscoveryCell $row 0
         if ($null -ne $title -and ([string]$title).Trim()) { $applications.Add([string]$title) }
     }
@@ -90,31 +100,32 @@ function Write-DiscoveryInventory {
 
 function ConvertTo-DiscoveryDetail {
     # One line, ASCII only, at most 300 characters: the text of an exception for the status line and the log.
-    param([AllowNull()][string]$Text)
+    param([AllowNull()][string]$Text, [int]$Limit = 300)
     if ($null -eq $Text) { return '' }
     $clean = ($Text -replace '[
 	]+', ' ') -replace '[^ -~]', '?'
     $clean = $clean.Trim()
-    if ($clean.Length -gt 300) { $clean = $clean.Substring(0, 300) }
+    if ($clean.Length -gt $Limit) { $clean = $clean.Substring(0, $Limit) }
     return $clean
 }
 
 function Write-DiscoveryError {
     # The error numbers, two message flags, the exception type names and the text of the innermost exception leave the process.
     # The text names the cause (for example the certificate chain of the SQL Server is not trusted); it never holds inventory.
-    param([System.Exception]$Exception, [string]$Step = '', [int]$RowCount = -1)
+    param([System.Exception]$Exception, [string]$Step = '', [int]$RowCount = -1, [int]$Table = -1, [int]$Column = -1)
     $numbers = New-Object System.Collections.Generic.List[int]
     $types = New-Object System.Collections.Generic.List[string]
     $sspi = $false
     $anonymous = $false
     $detail = ''
+    $chain = New-Object System.Collections.Generic.List[string]
     $current = $Exception
     while ($null -ne $current) {
         $text = [string]$current.Message
         if ($text -match 'SSPI') { $sspi = $true }
         if ($text -match 'ANONYMOUS LOGON') { $anonymous = $true }
         $types.Add($current.GetType().Name)
-        if ($text.Trim()) { $detail = $text }
+        if ($text.Trim()) { $detail = $text; $chain.Add($current.GetType().Name + ': ' + $text) }
         if ($current -is [System.Data.SqlClient.SqlException]) {
             foreach ($e in $current.Errors) { $numbers.Add([int]$e.Number) }
             if ($numbers.Count -eq 0) { $numbers.Add([int]$current.Number) }
@@ -125,7 +136,8 @@ function Write-DiscoveryError {
     $typeJson = ($types | ForEach-Object { ConvertTo-DiscoveryJsonString $_ }) -join ','
     [Console]::Out.WriteLine('{"t":"error","stage":"sql","numbers":[' + ($numbers -join ',') + '],"sspi":' + (& $flag $sspi) + ',"anonymous":' + (& $flag $anonymous) +
         ',"types":[' + $typeJson + '],"detail":' + (ConvertTo-DiscoveryJsonString (ConvertTo-DiscoveryDetail $detail)) +
-        ',"step":' + (ConvertTo-DiscoveryJsonString $Step) + ',"rows":' + $RowCount + '}')
+        ',"step":' + (ConvertTo-DiscoveryJsonString $Step) + ',"rows":' + $RowCount +
+        ',"table":' + $Table + ',"column":' + $Column + ',"chain":' + (ConvertTo-DiscoveryJsonString (ConvertTo-DiscoveryDetail ($chain -join ' | ') 900)) + '}')
 }
 
 function Invoke-DiscoveryInventory {
@@ -177,7 +189,7 @@ function Invoke-DiscoveryInventory {
         }
     }
     catch {
-        Write-DiscoveryError -Exception $_.Exception -Step $script:DiscoveryStep -RowCount $script:DiscoveryRowCount
+        Write-DiscoveryError -Exception $_.Exception -Step $script:DiscoveryStep -RowCount $script:DiscoveryRowCount -Table $script:DiscoveryTable -Column $script:DiscoveryColumn
     }
     finally {
         if ($null -ne $adapter) { $adapter.Dispose() }

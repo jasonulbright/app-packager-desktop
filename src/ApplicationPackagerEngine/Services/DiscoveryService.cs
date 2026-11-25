@@ -160,10 +160,10 @@ public sealed partial class DiscoveryService : IDiscoveryService
     }
 
     /// <summary>One line of at most 300 characters: the text of an exception or of standard error for a message.</summary>
-    public static string OneLine(string? text)
+    public static string OneLine(string? text, int limit = 300)
     {
         var line = Regex.Replace(text ?? "", @"\s+", " ").Trim();
-        return line.Length > 300 ? line[..300] : line;
+        return line.Length > limit ? line[..limit] : line;
     }
 
     private async Task<(bool Found, string Server, string Database, string Reason, bool Failed)> ReadSiteDefinitionAsync(string provider, string code, CancellationToken ct)
@@ -301,7 +301,15 @@ public sealed partial class DiscoveryService : IDiscoveryService
         // The step of the script that failed and the rows it had read: where a failure such as a read error happened.
         var step = OneLine(Text(line, "step"));
         var rowCount = line.TryGetProperty("rows", out var rowsElement) && rowsElement.TryGetInt32(out var rowsRead) && rowsRead >= 0 ? rowsRead : -1;
-        var where = step.Length > 0 ? $" Step: {step}" + (rowCount >= 0 ? $", {rowCount.ToString(CultureInfo.InvariantCulture)} rows read." : ".") : "";
+        var rowText = rowCount >= 0 ? $", {rowCount.ToString(CultureInfo.InvariantCulture)} rows read" : "";
+        // The table and the column index of the cell that was read when it failed (a data set read).
+        var table = line.TryGetProperty("table", out var tableElement) && tableElement.TryGetInt32(out var tableIndex) && tableIndex >= 0 ? tableIndex : -1;
+        var column = line.TryGetProperty("column", out var columnElement) && columnElement.TryGetInt32(out var columnIndex) && columnIndex >= 0 ? columnIndex : -1;
+        var cellText = table >= 0 && column >= 0 ? $", table {table.ToString(CultureInfo.InvariantCulture)}, column {column.ToString(CultureInfo.InvariantCulture)}" : "";
+        var where = step.Length > 0 ? $" Step: {step}{rowText}{cellText}." : "";
+        // Every exception of the chain with its type: the whole text, not only the innermost one.
+        var chain = OneLine(Text(line, "chain"), 900);
+        if (chain.Length > detail.Length + 2 && step.Length > 0) where += $" Exceptions: {chain}";
         if (types.Count == 0 && detail.Length == 0) return advice + where;
         var errorType = types.Count > 0 ? types[^1] : "error";
         var codes = numbers.Count > 0 ? " " + string.Join(",", numbers.Select(n => n.ToString(CultureInfo.InvariantCulture))) : "";
