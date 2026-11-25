@@ -15,6 +15,7 @@ public sealed class SiteStateService
     private readonly Func<bool> _consoleFound;
     private ConfigMgrConnectionState _connection = ConfigMgrConnectionState.Unknown;
     private ContextStripState _current;
+    private readonly object _gate = new();
 
     /// <param name="load">Reads the saved settings.</param>
     /// <param name="consoleFound">True when the ConfigMgr console is installed on this computer.</param>
@@ -30,7 +31,7 @@ public sealed class SiteStateService
         onSiteChanged?.Invoke(() =>
         {
             // A connection test belongs to one site.
-            _connection = ConfigMgrConnectionState.Unknown;
+            lock (_gate) _connection = ConfigMgrConnectionState.Unknown;
             Refresh();
         });
     }
@@ -46,18 +47,34 @@ public sealed class SiteStateService
     /// <summary>The Packages page writes the result of its connection test here.</summary>
     public void SetConfigMgrConnection(ConfigMgrConnectionState connection)
     {
-        if (_connection == connection) return;
-        _connection = connection;
+        lock (_gate)
+        {
+            if (_connection == connection) return;
+            _connection = connection;
+        }
         Refresh();
     }
 
-    /// <summary>Reads the settings again. A change of the state raises <see cref="Changed"/>.</summary>
+    /// <summary>
+    /// Reads the settings again. A change of the state raises <see cref="Changed"/>. A new site code or a new host drops the result of the last
+    /// connection test: that test was of the old host.
+    /// </summary>
     public void Refresh()
     {
-        var next = Read();
-        if (Same(next, _current)) return;
-        _current = next;
-        Changed?.Invoke();
+        bool changed;
+        lock (_gate)
+        {
+            var next = Read();
+            if (next.SiteCode != _current.SiteCode || next.Host != _current.Host)
+            {
+                _connection = ConfigMgrConnectionState.Unknown;
+                next = Read();
+            }
+            changed = !Same(next, _current);
+            if (changed) _current = next;
+        }
+        // The handlers run outside the lock: a view may read Current from one of them.
+        if (changed) Changed?.Invoke();
     }
 
     private static bool Same(ContextStripState a, ContextStripState b) =>

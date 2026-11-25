@@ -132,6 +132,44 @@ public sealed class ContextStripTests
     }
 
     [Fact]
+    public void ANewHostDropsTheConnectionTestOfTheOldHost()
+    {
+        var current = Settings();
+        Action? saved = null;
+        var service = new SiteStateService(() => current, () => true, handler => saved = handler);
+        service.SetConfigMgrConnection(ConfigMgrConnectionState.Connected);
+
+        // Turning a system off and on again keeps the test: the host did not change.
+        current = Settings(configMgr: false);
+        saved!();
+        current = Settings();
+        saved();
+        Assert.Equal(SystemState.Connected, service.Current.For("ConfigMgr").State);
+
+        current = Settings(host: "cm02.contoso.com");
+        saved();
+        Assert.Equal("cm02.contoso.com", service.Current.HostText);
+        Assert.Equal(SystemState.Ready, service.Current.For("ConfigMgr").State);
+        Assert.Equal(ConfigMgrConnectionState.Unknown, service.ConfigMgr);
+    }
+
+    [Fact]
+    public void TheViewModelOfTheStripFollowsASavedSettingWithoutAWindow()
+    {
+        var current = Settings();
+        Action? saved = null;
+        var service = new SiteStateService(() => current, () => true, handler => saved = handler);
+        var viewModel = new ContextStripViewModel(service);
+        Assert.Equal("WSUS off", viewModel.Systems[2].Text);
+
+        current = Settings(wsus: true);
+        saved!();
+
+        Assert.Equal("WSUS not configured", viewModel.Systems[2].Text);
+        Assert.Equal("Site MCM, cm01.contoso.com, ConfigMgr enabled, Intune off, WSUS not configured", viewModel.AutomationName);
+    }
+
+    [Fact]
     public void TheConnectionTestOfThePackagesPageReachesTheStrip()
     {
         var service = new SiteStateService(() => Settings(), () => true);
@@ -188,7 +226,6 @@ public sealed class ContextStripTests
             Assert.Equal("Site MCM, cm01.contoso.com, ConfigMgr connected, Intune not configured, WSUS off", peer.GetName());
             Assert.True(strip.ActualHeight >= 40 && strip.ActualHeight <= 64, $"The strip is {strip.ActualHeight} high.");
 
-            // A saved setting changes the strip without a restart.
             Assert.NotNull(RenderKit.ById<Wpf.Ui.Controls.Button>(strip, "btnContextConnections"));
         });
     }
