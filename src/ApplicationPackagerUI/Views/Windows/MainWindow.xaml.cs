@@ -25,14 +25,15 @@ public partial class MainWindow : IDialogHostWindow
         ISnackbarService snackbarService,
         IContentDialogService contentDialogService,
         SidebarService sidebarService,
-        ContextStripViewModel contextStrip)
+        ContextStripViewModel? contextStrip = null)
     {
         _serviceProvider = serviceProvider;
         _snackbarService = snackbarService;
         DataContext = viewModel;
 
         InitializeComponent();
-        ContextStripHost.DataContext = contextStrip;
+        // A host that builds the window without the strip state (a test) shows an empty strip.
+        ContextStripHost.DataContext = contextStrip ?? new ContextStripViewModel();
 
         navigationService.SetNavigationControl(RootNavigation);
         snackbarService.SetSnackbarPresenter(SnackbarPresenter);
