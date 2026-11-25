@@ -159,7 +159,7 @@ try {
         "INFO status after Check Latest: $(Status-Text $w)"
 
         $w = Main-Window
-        Real-Click (Find-El $w 'btnPublishConfigMgr')
+        Real-Click (Find-El $w 'btnPublishAll')
         $logFile = Join-Path (Split-Path (Get-ChildItem $data -Recurse -Filter settings.json | Select-Object -First 1).FullName) 'SRLPackr\packr.log'
         $answered = $false; $finished = $false
         $deadline = (Get-Date).AddSeconds(420)

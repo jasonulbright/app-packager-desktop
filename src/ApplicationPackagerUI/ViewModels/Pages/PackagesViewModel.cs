@@ -172,6 +172,7 @@ public partial class PackagesViewModel : ObservableObject
         IsPublishWsusAvailable = state.WsusEnabled;
         PublishWsusToolTip = state.WsusToolTip;
         (IsPublishAllAvailable, PublishAllToolTip, _publishAllTarget) = PublishAllState.For(readiness);
+        PublishScopeText = PublishAllState.ScopeText(readiness.Systems);
         IsWsusUpdatesAvailable = state.WsusUpdatesEnabled;
         WsusUpdatesToolTip = state.WsusUpdatesToolTip;
         _skipMecmPreflight = state.SkipMecmPreflight;
@@ -255,6 +256,28 @@ public partial class PackagesViewModel : ObservableObject
             var (selected, hidden) = SelectionCounts.Of(Packagers ?? [], FilteredPackagers ?? []);
             return hidden > 0 ? $"{selected} selected, {hidden} outside this view" : $"{selected} selected";
         }
+    }
+
+    /// <summary>"Publish All scope: ConfigMgr and WSUS (Settings, Systems in Use)".</summary>
+    [ObservableProperty] private string _publishScopeText = "";
+
+    /// <summary>The headers of the columns that the operator hid (Columns menu), as saved.</summary>
+    public IReadOnlySet<string> HiddenColumns => PackagesColumns.Clean(_settingsService?.Load().PackagesHiddenColumns);
+
+    /// <summary>Shows or hides one column and saves the choice.</summary>
+    public void SetColumnVisible(string header, bool visible)
+    {
+        var settings = _settingsService.Load();
+        settings.PackagesHiddenColumns = PackagesColumns.With(settings.PackagesHiddenColumns, header, visible);
+        _settingsService.Save(settings);
+    }
+
+    /// <summary>Shows every column again.</summary>
+    public void ResetColumns()
+    {
+        var settings = _settingsService.Load();
+        settings.PackagesHiddenColumns = [];
+        _settingsService.Save(settings);
     }
 
     public bool HasHiddenSelection => HiddenSelectedCount > 0;

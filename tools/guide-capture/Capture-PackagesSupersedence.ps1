@@ -149,7 +149,7 @@ try {
 
     # Publish to ConfigMgr for the checked applications.
     $w = Main-Window
-    Real-Click (Find-El $w 'btnPublishConfigMgr')
+    Real-Click (Find-El $w 'btnPublishAll')
     $prompts = 0
     $deadline = (Get-Date).AddSeconds(420)
     $finished = $false

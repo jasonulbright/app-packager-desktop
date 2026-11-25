@@ -56,7 +56,7 @@ foreach ($theme in $Themes) {
     $staging = Join-Path $data (Join-Path 'Users' (Join-Path $sid 'Staging'))
     New-Item -ItemType Directory -Force $staging | Out-Null
     & icacls $staging /inheritance:r /grant:r "${env:USERNAME}:(OI)(CI)F" '*S-1-5-32-544:(OI)(CI)F' '*S-1-5-18:(OI)(CI)F' | Out-Null
-    $settings = @{ FileShareRoot = $FileShareRoot; DownloadRoot = $staging; Systems = @{ ConfigMgr = $true; Intune = $false; Wsus = $true }
+    $settings = @{ FileShareRoot = $FileShareRoot; DownloadRoot = $staging; Systems = @{ ConfigMgr = $true; Intune = $false; Wsus = $false }
         Sidebar = @{ Order = @(); Hidden = @('site-hygiene') }
         OneClick = @{ Action = 'Report'; TrackedApplications = @('fa505d1415214f14', 'c078c933ebd84276', 'a2f7b815dc6e4903') } }
     $null = Start-Apd $exe $data $theme $settings
@@ -99,7 +99,7 @@ foreach ($theme in $Themes) {
         }
         Step $theme 'core-publish-configmgr-log' {
             Set-ElText (Find-El $w 'txtAppPackagerComment') 'Guide capture'
-            Real-Click (Find-El $w 'btnPublishConfigMgr')
+            Real-Click (Find-El $w 'btnPublishAll')
             Wait-Idle $w 420
             $dlg = Other-Windows | Select-Object -First 1
             if ($dlg) { Show-Other; $null = Click-ByName $dlg @('Continue', 'OK', 'Yes'); Wait-Idle $w 420 }
@@ -110,7 +110,7 @@ foreach ($theme in $Themes) {
         Step $theme 'core-packages-conflict-dialog' {
             # The application of the first publish is on the site now: a second publish of the same version asks what to do. Skip answers it: nothing changes.
             Check-Row $w $Application
-            Real-Click (Find-El $w 'btnPublishConfigMgr')
+            Real-Click (Find-El $w 'btnPublishAll')
             Start-Sleep 20
             Move-MouseAway
             Shot $theme 'core-packages-conflict-dialog'

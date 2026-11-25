@@ -26,4 +26,16 @@ public static class PublishAllState
         if (blocked.Count == 0) return state;
         return (false, "Publish All: " + string.Join(" ", blocked.Select(b => b.Destination + ": " + b.Reason)), state.Target);
     }
+
+    /// <summary>
+    /// The scope line of the Packages page: the systems that Publish All reaches and where that comes from. One function for the page and, later,
+    /// the review window, so the two never disagree.
+    /// </summary>
+    public static string ScopeText(SystemsInUse? systems)
+    {
+        var set = new DestinationSet(systems?.ConfigMgr ?? false, systems?.Wsus ?? false, systems?.Intune ?? false);
+        return set.Any
+            ? "Publish All scope: " + set.Describe() + " (Settings, Systems in Use)"
+            : "Publish All scope: no system in use (Settings, Systems in Use)";
+    }
 }

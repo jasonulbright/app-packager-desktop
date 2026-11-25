@@ -22,6 +22,7 @@ public partial class PackagesPage
         viewModel.ImportFromUrlRequested += (_, _) => ShowImportFromUrl(viewModel);
         ColIntune.Visibility = viewModel.ShowIntuneColumn ? Visibility.Visible : Visibility.Collapsed;
         ColSource.Visibility = viewModel.ShowSourceColumn ? Visibility.Visible : Visibility.Collapsed;
+        ApplySavedColumns();
 
         PreviewKeyDown += OnPageKeyDown;
         Loaded += (_, _) =>
@@ -144,6 +145,36 @@ public partial class PackagesPage
         vm.CycleSelectionCommand.Execute(null);
         if (sender is System.Windows.Controls.CheckBox cb) cb.IsChecked = vm.HeaderSelection;
         e.Handled = true;
+    }
+
+    /// <summary>Hides the columns that the operator hid with the Columns menu; the others keep their own rule.</summary>
+    private void ApplySavedColumns()
+    {
+        var hidden = ((PackagesViewModel)DataContext!).HiddenColumns;
+        foreach (var column in PackagerGrid.Columns)
+            if (column.Header is string header && Helpers.PackagesColumns.Toggleable.Contains(header))
+                column.Visibility = hidden.Contains(header) ? Visibility.Collapsed : Visibility.Visible;
+    }
+
+    /// <summary>The Columns menu: one check item for each column that may be hidden, and Reset columns. Each choice is saved at once.</summary>
+    private void Columns_Click(object sender, RoutedEventArgs e)
+    {
+        var viewModel = (PackagesViewModel)DataContext!;
+        var menu = new System.Windows.Controls.ContextMenu { PlacementTarget = (UIElement)sender, Placement = System.Windows.Controls.Primitives.PlacementMode.Top };
+        var hidden = viewModel.HiddenColumns;
+        foreach (var header in Helpers.PackagesColumns.Toggleable)
+        {
+            var item = new System.Windows.Controls.MenuItem { Header = header, IsCheckable = true, IsChecked = !hidden.Contains(header), StaysOpenOnClick = true };
+            System.Windows.Automation.AutomationProperties.SetAutomationId(item, "miColumn" + new string(header.Where(char.IsLetterOrDigit).ToArray()));
+            item.Click += (_, _) => { viewModel.SetColumnVisible(header, item.IsChecked); ApplySavedColumns(); };
+            menu.Items.Add(item);
+        }
+        menu.Items.Add(new System.Windows.Controls.Separator());
+        var reset = new System.Windows.Controls.MenuItem { Header = "Reset columns" };
+        System.Windows.Automation.AutomationProperties.SetAutomationId(reset, "miColumnsReset");
+        reset.Click += (_, _) => { viewModel.ResetColumns(); ApplySavedColumns(); };
+        menu.Items.Add(reset);
+        menu.IsOpen = true;
     }
 
     private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
