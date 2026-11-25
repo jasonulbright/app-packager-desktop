@@ -134,7 +134,7 @@ public sealed class TableauDownloadFallbackTests : IDisposable
     {
         var port = Random.Shared.Next(20000, 40000);
         _listener = new HttpListener();
-        _listener.Prefixes.Add($"http://localhost:{port}/");
+        _listener.Prefixes.Add($"http://127.0.0.1:{port}/");
         _listener.Start();
         // The installer is a real PE file with version information: this test assembly's own engine DLL.
         var installer = File.ReadAllBytes(typeof(StagingService).Assembly.Location);
@@ -155,14 +155,18 @@ public sealed class TableauDownloadFallbackTests : IDisposable
                         var page = "<html><body>Sign in</body></html>"u8.ToArray();
                         await ctx.Response.OutputStream.WriteAsync(page);
                     }
-                    else if (path.StartsWith("/good/", StringComparison.Ordinal)) await ctx.Response.OutputStream.WriteAsync(installer);
+                    else if (path.StartsWith("/good/", StringComparison.Ordinal))
+                    {
+                        ctx.Response.ContentLength64 = installer.Length;
+                        await ctx.Response.OutputStream.WriteAsync(installer);
+                    }
                     else ctx.Response.StatusCode = 404;
                     ctx.Response.Close();
                 }
                 catch { try { ctx.Response.Abort(); } catch { } }
             }
         });
-        return $"http://localhost:{port}";
+        return $"http://127.0.0.1:{port}";
     }
 
     private static AppDefinition LocalDefinition(string first, string? second)
