@@ -15,7 +15,7 @@ public partial class PublishReviewViewModel : ObservableObject
     {
         Plan = plan;
         _comment = comment ?? "";
-        Rows = plan.Rows.Select(r => new PublishReviewRow(r.App.Application, r.App.Version.Length > 0 ? r.App.Version : "version not checked",
+        Rows = plan.Rows.Select(r => new PublishReviewRow(r.App.Application, r.App.Version.Length > 0 ? r.App.Version : "Not checked",
             r.App.Hidden ? "Outside the view" : "", r.Cells.Select(c => c.Text).ToList())).ToList();
     }
 

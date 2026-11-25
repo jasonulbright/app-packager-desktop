@@ -53,7 +53,7 @@
                   AutomationProperties.AutomationId="gridReviewMatrix" AutomationProperties.Name="Publish review matrix">
             <DataGrid.Columns>
                 <DataGridTextColumn Header="Application" Binding="{Binding Application}" Width="2*" MinWidth="160" />
-                <DataGridTextColumn Header="Version" Binding="{Binding Version}" Width="130" MinWidth="110" />
+                <DataGridTextColumn Header="Version" Binding="{Binding Version}" Width="160" MinWidth="140" />
                 <DataGridTextColumn Header="Checked" Binding="{Binding Checked}" Width="140" MinWidth="110" />
             </DataGrid.Columns>
         </DataGrid>
