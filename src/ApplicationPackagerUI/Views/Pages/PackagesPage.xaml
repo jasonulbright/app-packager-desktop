@@ -53,7 +53,7 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <controls:PageHeader Grid.Row="0" Title="App Packager" Icon="Box24" TitleAutomationId="txtAppPackagerTitle">
+        <controls:PageHeader Grid.Row="0" Title="App Packager" Icon="Box24" Compact="True" TitleAutomationId="txtAppPackagerTitle">
             <controls:PageHeader.Actions>
                 <StackPanel Orientation="Horizontal">
                 <ui:Button

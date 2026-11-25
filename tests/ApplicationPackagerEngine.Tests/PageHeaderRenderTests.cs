@@ -198,8 +198,11 @@ public sealed class PageHeaderRenderTests : IDisposable
         public override string ToString() => $"top {Top:0.#}, left {Left:0.#}, title top {TitleTop:0.#}, title left {TitleLeft:0.#}, gap to content {Gap:0.#}";
 
         public bool SameAs(HeaderPlace other) =>
-            Math.Abs(Top - other.Top) < 0.5 && Math.Abs(Left - other.Left) < 0.5 && Math.Abs(TitleTop - other.TitleTop) < 0.5
-            && Math.Abs(TitleLeft - other.TitleLeft) < 0.5 && Math.Abs(Gap - other.Gap) < 0.5;
+            SameFrame(other) && Math.Abs(TitleTop - other.TitleTop) < 0.5 && Math.Abs(TitleLeft - other.TitleLeft) < 0.5;
+
+        /// <summary>The header starts at the same place and leaves the same gap to the content; the title inside may differ (the plain title has no card around it).</summary>
+        public bool SameFrame(HeaderPlace other) =>
+            Math.Abs(Top - other.Top) < 0.5 && Math.Abs(Left - other.Left) < 0.5 && Math.Abs(Gap - other.Gap) < 0.5;
     }
 
     /// <summary>Positions are relative to the area under the window title bar; the gap runs from the header to the first visible sibling below it.</summary>
@@ -258,9 +261,12 @@ public sealed class PageHeaderRenderTests : IDisposable
             finally { window.Close(); }
         });
 
-        var reference = places["App Packager"];
-        var differing = places.Where(p => !p.Value.SameAs(reference)).Select(p => $"{p.Key}: {p.Value}").ToList();
-        Assert.True(differing.Count == 0, $"{theme}: App Packager has {reference}. Different: {string.Join("; ", differing)}.");
+        // App Packager has the plain title of the V1 workspace (overhaul V1, phase 2): no card, so its title sits at the left edge of the header. It keeps the
+        // place of the header and the gap to the content, like every other page.
+        var reference = places["Add from web"];
+        var differing = places.Where(p => p.Key != "App Packager" && !p.Value.SameAs(reference)).Select(p => $"{p.Key}: {p.Value}").ToList();
+        Assert.True(differing.Count == 0, $"{theme}: Add from web has {reference}. Different: {string.Join("; ", differing)}.");
+        Assert.True(places["App Packager"].SameFrame(reference), $"{theme}: App Packager has {places["App Packager"]}; the frame of the other pages is {reference}.");
     }
 
     [Theory]

@@ -4,6 +4,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
     xmlns:pages="clr-namespace:ApplicationPackagerUI.Views.Pages"
+    xmlns:controls="clr-namespace:ApplicationPackagerUI.Controls"
     Title="App Packager Desktop"
     Width="1200"
     Height="800"
@@ -17,6 +18,7 @@
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
@@ -26,9 +28,12 @@
             Grid.Row="0"
             Title="App Packager Desktop" />
 
+        <!-- The context strip (overhaul V1, phase 2): the site, the host and the state of each system, on every page. -->
+        <controls:ContextStrip x:Name="ContextStripHost" Grid.Row="1" />
+
         <ui:NavigationView
             x:Name="RootNavigation"
-            Grid.Row="1"
+            Grid.Row="2"
             PaneDisplayMode="Left"
             IsPaneOpen="True"
             IsBackButtonVisible="Collapsed"
@@ -52,7 +57,7 @@
 
         <!-- The footer of every ConfigMgr tool of the suite: the site code and the site server, lower right, one font, size and style in both themes (only the color follows the theme).
              Here it is also the site switcher: a click lists the known sites and Add site. The site code and the server are edited in Settings. -->
-        <Border Grid.Row="2" BorderThickness="0,1,0,0" BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}" Padding="16,2">
+        <Border Grid.Row="3" BorderThickness="0,1,0,0" BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}" Padding="16,2">
             <ui:Button x:Name="btnSiteSwitcher" HorizontalAlignment="Right" Appearance="Transparent" Padding="8,2" Click="SiteSwitcher_Click"
                        AutomationProperties.AutomationId="btnSiteSwitcher" AutomationProperties.Name="{Binding FooterText, StringFormat=Site switcher. {0}}"
                        ToolTip="The active site. Select it to switch to another site or to add a site. Each site keeps its own settings and data. The site cannot change while a run is active.">
@@ -65,6 +70,6 @@
             </ui:Button>
         </Border>
 
-        <ui:ContentDialogHost x:Name="RootContentDialog" Grid.Row="0" Grid.RowSpan="3" />
+        <ui:ContentDialogHost x:Name="RootContentDialog" Grid.Row="0" Grid.RowSpan="4" />
     </Grid>
 </ui:FluentWindow>

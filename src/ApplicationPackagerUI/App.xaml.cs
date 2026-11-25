@@ -62,6 +62,14 @@ public partial class App : Application
                 services.AddSingleton<IChangePlanDialogs, ChangePlanDialogs>();
 
                 services.AddSingleton<SiteManager>();
+                services.AddSingleton(sp =>
+                {
+                    var settings = sp.GetRequiredService<SettingsService>();
+                    var sites = sp.GetRequiredService<SiteManager>();
+                    return new SiteStateService(settings.Load, ApplicationPackagerEngine.Services.ConfigMgrConsole.IsInstalled,
+                        refresh => settings.OperatorSaved += _ => refresh(), refresh => sites.Changed += refresh);
+                });
+                services.AddSingleton<ContextStripViewModel>();
                 services.AddTransient<AddSiteWindow>();
                 services.AddTransient<ApplicationPackagerUI.ViewModels.Windows.AddSiteViewModel>();
                 services.AddSingleton<MainWindow>();
