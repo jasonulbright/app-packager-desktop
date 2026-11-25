@@ -14,6 +14,7 @@
 - Make the header check box of the Packages grid cycle as in the PowerShell app: every visible row, only the rows with an update (shown as the indeterminate state), then none. Each step writes a line to the log.
 - Make Select Update Available select only the visible rows, clear all others, and write a log line.
 - Find the ConfigMgr application that the installer names (PuTTY, Azure PowerShell, Intune Debug Toolkit) with Check ConfigMgr, and log how it matched.
+- Pick the plain installer title before a third-party build when Check ConfigMgr finds several applications (PowerShell 7-x64 before PowerShell 7 Devolutions).
 
 ### Fixed
 

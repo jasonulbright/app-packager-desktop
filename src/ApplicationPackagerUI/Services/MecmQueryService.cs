@@ -54,6 +54,24 @@ public class MecmQueryService(SettingsService settingsService)
             Write-Output 'ERROR:SITE_DRIVE_FAILED'; exit 4
         }
         """ + "\n" + MecmApplicationTitleRule.PowerShellFunctions + "\n" + """
+        function Get-MecmTitleExtraWordCount {
+            param([string]$CMName, [string]$Title)
+            $lead = $CMName.Trim()
+            if (-not $Title.StartsWith($lead, [System.StringComparison]::OrdinalIgnoreCase)) { return 0 }
+            $inner = '^(x64|x86|arm64|amd64|32-bit|64-bit|exe|msi|v?\d+([.\-+_]\w+)*|[a-z]{2}-[a-z]{2}|latest)$'
+            $extra = 0
+            foreach ($m in [regex]::Matches($Title.Substring($lead.Length), '\([^)]*\)|\S+')) {
+                $t = $m.Value
+                if ($t -match '^\((.*)\)$') {
+                    $words = @($Matches[1] -split '[\s,+/]+' | Where-Object { $_ })
+                    if (@($words | Where-Object { $_ -notmatch $inner }).Count -gt 0) { $extra++ }
+                    continue
+                }
+                if ($t -match '^-?(x64|x86|arm64|amd64|latest)?$' -or $t -match '^-?v?\d+([.\-+_]\w+)*$') { continue }
+                $extra++
+            }
+            return $extra
+        }
         $tier = 'rule'
         try {
             $apps = @(Get-CMApplication -Name $CMName -ErrorAction Stop)
@@ -98,29 +116,15 @@ public class MecmQueryService(SettingsService settingsService)
         }
         $exact = $apps | Where-Object { $_.LocalizedDisplayName -eq $CMName -or $_.Name -eq $CMName }
         if ($exact -and @($exact).Count -gt 0) { $chosen = @($exact)[0] }
-        elseif ($tier -in 'prefix','arp') {
-            # Best fit: the title with the fewest words after CMName that are not release details; then the newest version.
-            $lead = ([string]$CMName).Trim()
+        else {
+            # Best fit: the title with the fewest words after CMName that are not release details ("PowerShell 7-x64" before
+            # "PowerShell 7 (Devolutions)"); then the newest version. The PowerShell app picks the same way.
             $scored = @($apps | ForEach-Object {
                     $title = if ($_.LocalizedDisplayName) { [string]$_.LocalizedDisplayName } else { [string]$_.Name }
-                    $tail = if ($title.StartsWith($lead, [System.StringComparison]::OrdinalIgnoreCase)) { $title.Substring($lead.Length) } else { '' }
-                    $rest = @([regex]::Matches($tail, '\([^)]*\)|\S+') | ForEach-Object { $_.Value })
-                    $extra = @($rest | Where-Object { $_ -ne '-' -and $_ -notmatch '^(\([^)]*\)|v?\d+([.\-+_]\w+)*|x64|x86|arm64|amd64|latest)$' }).Count
                     $ver = try { [version]([string]$_.SoftwareVersion -replace '^(\d+)$', '$1.0') } catch { [version]'0.0' }
-                    [pscustomobject]@{ App = $_; Extra = $extra; Ver = $ver }
+                    [pscustomobject]@{ App = $_; Title = $title; Extra = (Get-MecmTitleExtraWordCount -CMName $CMName -Title $title); Ver = $ver }
                 })
-            $chosen = ($scored | Sort-Object @{ Expression = 'Extra'; Descending = $false }, @{ Expression = 'Ver'; Descending = $true } | Select-Object -First 1).App
-        }
-        else {
-            $parsable = @(); $nonParsable = @()
-            foreach ($a in $apps) {
-                try { $null = [version]([string]$a.SoftwareVersion -replace '^(\d+)$', '$1.0'); $parsable += $a } catch { $nonParsable += $a }
-            }
-            if ($parsable.Count -gt 0) {
-                $chosen = $parsable | Sort-Object { [version]([string]$_.SoftwareVersion -replace '^(\d+)$', '$1.0') } -Descending | Select-Object -First 1
-            } else {
-                $chosen = $nonParsable | Sort-Object Name -Descending | Select-Object -First 1
-            }
+            $chosen = ($scored | Sort-Object @{ Expression = 'Extra'; Descending = $false }, @{ Expression = 'Ver'; Descending = $true }, @{ Expression = 'Title'; Descending = $true } | Select-Object -First 1).App
         }
         $note = ''
         if ($tier -in 'prefix','arp') {

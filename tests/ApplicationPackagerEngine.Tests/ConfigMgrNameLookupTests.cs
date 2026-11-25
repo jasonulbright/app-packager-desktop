@@ -174,6 +174,10 @@ public sealed class ConfigMgrNameLookupTests : IDisposable
         Assert.Equal("NOT_FOUND", LookupWithArp("Azure PowerShell", "Microsoft Azure PowerShell - *", ("Microsoft Azure CLI", "2.0")));
 
     [Fact]
+    public void ThePlainTitleOfTheInstallerIsPickedBeforeAThirdPartyBuildEvenWhenTheOtherIsNewer() =>
+        Assert.Equal("FOUND|PowerShell 7-x64|7.6.1|2", Lookup("PowerShell 7", ("PowerShell 7 (Devolutions)", "7.6.2"), ("PowerShell 7-x64", "7.6.1")));
+
+    [Fact]
     public void TheLastTierNeverMatchesInTheMiddleOfAWord() =>
         Assert.Equal("NOT_FOUND", Lookup("Git", ("GitHub Desktop", "3.4"), ("Digit Tool", "1.0")));
 }
