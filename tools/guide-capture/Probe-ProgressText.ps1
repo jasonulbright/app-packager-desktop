@@ -47,12 +47,7 @@ function Wait-Line($w, [string]$Pattern, [int]$Seconds) {
     $null
 }
 
-function Select-All($w, [bool]$On) {
-    $all = Find-El $w 'SelectAllCheckBox' -Timeout 10
-    $t = $all.GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern)
-    if (($t.Current.ToggleState -eq 'On') -ne $On) { Real-Click $all }
-    if ($On -and $t.Current.ToggleState -ne 'On') { Real-Click $all }
-}
+function Select-All($w, [bool]$On) { Set-HeaderCheck $w $(if ($On) { 'On' } else { 'Off' }) }
 
 # Starts the action, waits for its running line, then cancels it and waits for its cancelled line.
 function Prove-Counted($w, [string]$Theme, [string]$Id, [string]$Button, [string]$RunningPattern, [string]$CancelledPattern) {
@@ -107,7 +102,7 @@ foreach ($theme in $Themes) {
             Start-Sleep 2
             $boxes = @((Find-El $w 'PackagerGrid').FindAll([System.Windows.Automation.TreeScope]::Descendants,
                 (New-Object System.Windows.Automation.PropertyCondition ([System.Windows.Automation.AutomationElement]::ControlTypeProperty), ([System.Windows.Automation.ControlType]::CheckBox))) |
-                Where-Object { $_.Current.AutomationId -ne 'SelectAllCheckBox' })
+                Where-Object { $_.Current.AutomationId -ne 'chkSelectAllPackages' })
             if ($boxes.Count -lt 1) { throw 'The grid has no row for 7-Zip.' }
             if ($boxes[0].GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern).Current.ToggleState -ne 'On') { Real-Click $boxes[0] }
             Set-ElText (Find-El $w 'txtAppPackagerSearch') ''
