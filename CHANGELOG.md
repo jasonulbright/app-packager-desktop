@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## [2026.1124.62] - 2026-11-24
 
 ### Added
 
@@ -11,6 +11,7 @@
 - Show N of M in the status line while Check ConfigMgr runs.
 - Show the same N of M line for One Click, with the cancelled line of the other runs.
 - Show how many changes are done of the plan while a change plan runs, and when it is cancelled.
+- Show the application titles and ConfigMgr names of the PowerShell app for every application.
 - Make the header check box of the Packages grid cycle as in the PowerShell app: every visible row, only the rows with an update (shown as the indeterminate state), then none. Each step writes a line to the log.
 - Make Select Update Available select only the visible rows, clear all others, and write a log line.
 - Find the ConfigMgr application that the installer names (PuTTY, Azure PowerShell, Intune Debug Toolkit) with Check ConfigMgr, and log how it matched.

@@ -36,7 +36,7 @@ function Check-Row($w, [string]$Name) {
     $grid = Find-El $w 'PackagerGrid'
     $box = $grid.FindAll([System.Windows.Automation.TreeScope]::Descendants,
         (New-Object System.Windows.Automation.PropertyCondition ([System.Windows.Automation.AutomationElement]::ControlTypeProperty), ([System.Windows.Automation.ControlType]::CheckBox))) |
-        Where-Object { $_.Current.AutomationId -ne 'SelectAllCheckBox' } | Select-Object -First 1
+        Where-Object { $_.Current.AutomationId -ne 'chkSelectAllPackages' } | Select-Object -First 1
     if (-not $box) { throw "The grid has no row for '$Name'." }
     if ($box.GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern).Current.ToggleState -ne 'On') { Real-Click $box }
     Search-Grid $w ''

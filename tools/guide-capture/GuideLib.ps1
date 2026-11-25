@@ -209,3 +209,12 @@ function Pick-First([string]$ScopeId, [int]$Index = 0, [double]$Timeout = 20) {
     } while ((Get-Date) -lt $deadline)
     throw "$ScopeId has no row number $Index"
 }
+
+# The header check box of the Packages grid cycles through three states (every visible row, the rows with an update, none): clicks until it shows the wanted state ('On' or 'Off').
+function Set-HeaderCheck($Window, [string]$State) {
+    $box = Find-El $Window 'chkSelectAllPackages' -Timeout 10
+    if (-not $box) { throw 'The grid has no header check box.' }
+    $toggle = $box.GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern)
+    for ($i = 0; $i -lt 4 -and "$($toggle.Current.ToggleState)" -ne $State; $i++) { Click-El $box; Start-Sleep -Milliseconds 800 }
+    if ("$($toggle.Current.ToggleState)" -ne $State) { throw "The header check box did not reach the state $State." }
+}

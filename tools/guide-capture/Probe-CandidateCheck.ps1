@@ -59,17 +59,15 @@ function Check-Row($w, [string]$Name) {
     $grid = Find-El $w 'PackagerGrid'
     $box = $grid.FindAll([System.Windows.Automation.TreeScope]::Descendants,
         (New-Object System.Windows.Automation.PropertyCondition ([System.Windows.Automation.AutomationElement]::ControlTypeProperty), ([System.Windows.Automation.ControlType]::CheckBox))) |
-        Where-Object { $_.Current.AutomationId -ne 'SelectAllCheckBox' } | Select-Object -First 1
+        Where-Object { $_.Current.AutomationId -ne 'chkSelectAllPackages' } | Select-Object -First 1
     if (-not $box) { throw "The grid has no row for '$Name'." }
     if ($box.GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern).Current.ToggleState -ne 'On') { Real-Click $box }
     Set-ElText (Find-El $w 'txtAppPackagerSearch') ''
     Start-Sleep 1
 }
 function Uncheck-All($w) {
-    $all = Find-El $w 'SelectAllCheckBox' -Timeout 5
-    if (-not $all) { return }
-    $t = $all.GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern)
-    if ($t.Current.ToggleState -eq 'On') { Real-Click $all }
+    if (-not (Find-El $w 'chkSelectAllPackages' -Timeout 5)) { return }
+    Set-HeaderCheck $w 'Off'
 }
 
 $crashDir = Join-Path $env:LOCALAPPDATA 'AppPackagerData'
@@ -132,8 +130,7 @@ foreach ($theme in $Themes) {
         }
         Run-Check "$theme-05" {
             $w = Main-Window
-            $all = Find-El $w 'SelectAllCheckBox' -Timeout 5
-            Real-Click $all
+            Set-HeaderCheck $w 'On'
             Real-Click (Find-El $w -Name 'Check Latest' -ControlType 'Button' -Timeout 5)
             Start-Sleep 6
             $cancel = Find-El $w 'btnCancelOperation' -Timeout 10

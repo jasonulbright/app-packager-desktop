@@ -147,7 +147,7 @@ try {
         Click-El $cell; Start-Sleep 1
         $grid = Find-El $w 'PackagerGrid'
         foreach ($box in $grid.FindAll([System.Windows.Automation.TreeScope]::Descendants, (New-Object System.Windows.Automation.PropertyCondition ([System.Windows.Automation.AutomationElement]::ControlTypeProperty), ([System.Windows.Automation.ControlType]::CheckBox)))) {
-            if ($box.Current.AutomationId -eq 'SelectAllCheckBox') { continue }
+            if ($box.Current.AutomationId -eq 'chkSelectAllPackages') { continue }
             if ($box.GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern).Current.ToggleState -ne 'On') { Real-Click $box }
         }
         Set-ElText (Find-El $w 'txtAppPackagerSearch') ''

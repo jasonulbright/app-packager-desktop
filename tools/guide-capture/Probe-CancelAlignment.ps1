@@ -174,11 +174,9 @@ foreach ($theme in $Themes) {
         }
         Run-Check "$theme-packages-idle" { Measure-PageButtons $theme 'Packages' }
         Run-Check "$theme-packages" {
-            $all = Find-El $w 'SelectAllCheckBox' -Timeout 10
-            if ($all) { Real-Click $all }
+            Set-HeaderCheck $w 'On'
             Measure-Busy $theme 'Packages Cancel (Check Latest)' { Real-Click (Find-El $w -Name 'Check Latest' -ControlType 'Button' -Timeout 5) } 'btnCancelOperation' 30
-            $all = Find-El $w 'SelectAllCheckBox' -Timeout 5
-            if ($all -and $all.GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern).Current.ToggleState -eq 'On') { Real-Click $all }
+            Set-HeaderCheck $w 'Off'
         }
         Run-Check "$theme-hygiene" {
             $null = Click-Nav 'Site Hygiene'; Start-Sleep 4
