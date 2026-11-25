@@ -1,0 +1,81 @@
+<ui:FluentWindow
+    x:Class="ApplicationPackagerUI.Views.Windows.PublishReviewWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+    Title="Review publish"
+    Width="1190" Height="540"
+    MinWidth="900" MinHeight="420"
+    WindowStartupLocation="CenterOwner"
+    ExtendsContentIntoTitleBar="True"
+    WindowBackdropType="None">
+
+    <Window.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="/ApplicationPackagerUI;component/Views/Styles/Typography.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+            <Style x:Key="ShowWhenText" TargetType="TextBlock">
+                <Style.Triggers>
+                    <DataTrigger Binding="{Binding RelativeSource={RelativeSource Self}, Path=Text}" Value="">
+                        <Setter Property="Visibility" Value="Collapsed" />
+                    </DataTrigger>
+                </Style.Triggers>
+            </Style>
+        </ResourceDictionary>
+    </Window.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <ui:TitleBar Grid.Row="0" Title="Review publish" ShowMinimize="False" />
+
+        <StackPanel Grid.Row="1" Margin="16,0,16,8">
+            <TextBlock Text="Review publish" Style="{StaticResource SectionTitle}" AutomationProperties.HeadingLevel="Level1" />
+            <TextBlock Text="{Binding CountsText}" Margin="0,4,0,0" FontSize="14" Foreground="{DynamicResource TextFillColorPrimaryBrush}"
+                       AutomationProperties.AutomationId="txtReviewCounts" AutomationProperties.LiveSetting="Polite" />
+            <TextBlock Text="{Binding ScopeText}" Style="{StaticResource CaptionText}" Margin="0,2,0,0" AutomationProperties.AutomationId="txtReviewScope" />
+            <TextBlock Text="{Binding HiddenText}" Style="{StaticResource ShowWhenText}" FontSize="14" Margin="0,4,0,0" TextWrapping="Wrap"
+                       Foreground="{DynamicResource TextFillColorPrimaryBrush}" AutomationProperties.AutomationId="txtReviewHidden" />
+            <TextBlock Text="{Binding BlockedText}" Style="{StaticResource ShowWhenText}" FontSize="14" Margin="0,4,0,0" TextWrapping="Wrap"
+                       Foreground="{DynamicResource StatusWarningBrush}" AutomationProperties.AutomationId="txtReviewBlocked" AutomationProperties.LiveSetting="Assertive" />
+        </StackPanel>
+
+        <!-- The matrix: one row for each checked application, one column for each system in use (the system columns are added in code). -->
+        <DataGrid x:Name="Matrix" Grid.Row="2" Margin="16,0,16,8" ItemsSource="{Binding Rows}" AutoGenerateColumns="False" IsReadOnly="True"
+                  CanUserAddRows="False" HeadersVisibility="Column" GridLinesVisibility="Horizontal"
+                  AutomationProperties.AutomationId="gridReviewMatrix" AutomationProperties.Name="Publish review matrix">
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="Application" Binding="{Binding Application}" Width="2*" MinWidth="160" />
+                <DataGridTextColumn Header="Version" Binding="{Binding Version}" Width="130" MinWidth="110" />
+                <DataGridTextColumn Header="Checked" Binding="{Binding Checked}" Width="140" MinWidth="110" />
+            </DataGrid.Columns>
+        </DataGrid>
+
+        <StackPanel Grid.Row="3" Margin="16,0,16,8">
+            <TextBlock Text="Administrative comment" Style="{StaticResource CaptionText}" Margin="0,0,0,4" />
+            <ui:TextBox x:Name="txtReviewComment" Text="{Binding Comment, UpdateSourceTrigger=PropertyChanged}"
+                        PlaceholderText="A work order or a note. It goes into the ConfigMgr application description."
+                        AutomationProperties.Name="Administrative comment" AutomationProperties.AutomationId="txtReviewComment"
+                        ToolTip="The comment that the run writes to each published application. It may stay empty." />
+        </StackPanel>
+
+        <Border Grid.Row="4" BorderThickness="0,1,0,0" BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}" Padding="16,8">
+            <DockPanel>
+                <WrapPanel DockPanel.Dock="Right">
+                    <ui:Button Content="Back" MinWidth="100" Margin="0,0,8,0" IsCancel="True" Command="{Binding BackCommand}" AutomationProperties.AutomationId="btnReviewBack"
+                               ToolTip="Close the review. Nothing is published and the checks stay as they are." />
+                    <ui:Button Content="{Binding ConfirmText}" Appearance="Primary" MinWidth="170" IsDefault="True" Command="{Binding AcceptCommand}"
+                               AutomationProperties.AutomationId="btnReviewConfirm" ToolTip="Start the publish run for the applications and systems listed here." />
+                </WrapPanel>
+                <TextBlock Text="Planned from the last check. A system answers again when the run reaches it." Style="{StaticResource CaptionText}" VerticalAlignment="Center" />
+            </DockPanel>
+        </Border>
+    </Grid>
+</ui:FluentWindow>

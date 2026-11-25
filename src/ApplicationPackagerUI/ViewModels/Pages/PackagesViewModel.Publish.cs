@@ -31,6 +31,10 @@ public partial class PackagesViewModel : IOneClickRunner, IPublishActionHost
     private Task StartPublishRunAsync(string target) =>
         target == PublishRunTargets.WsusOnly ? PublishWsusRunAsync() : PackageAsync(null, target, null);
 
+    /// <summary>Publish All: the review window first, then the run. A WSUS-only target keeps its own run.</summary>
+    private Task PublishAllAsync() =>
+        _publishAllTarget == PublishRunTargets.WsusOnly ? PublishWsusRunAsync() : PackageAsync(null, _publishAllTarget, null, review: true);
+
     /// <summary>
     /// A WSUS-bound action needs a server and the administration API. Checked on the UI
     /// thread before anything stages, so a missing API never fails every application
