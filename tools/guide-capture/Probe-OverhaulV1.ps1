@@ -115,6 +115,7 @@ foreach ($theme in $Themes) {
             $null = Start-Apd $exe $data $theme $settings
             $w = Main-Window
             $w.SetFocus()
+            Set-ElText (Find-El $w 'txtAppPackagerComment') 'Overhaul V1 lab check'
             Check-Row $w $Application
             Real-Click (Find-El $w 'btnPublishAll')
             Start-Sleep 25
@@ -124,7 +125,7 @@ foreach ($theme in $Themes) {
             if ($skip) { Real-Click $skip; 'Skip answered the Application Already Exists dialog.' } else { 'No Skip button found.' }
             Wait-Idle $w 120
             "status after the second Publish All: $(Status-Text $w)"
-            Log-Lines $data 'kept|exists|Existing'
+            Log-Lines $data 'kept|already holds|APP_PACKAGER_CONFLICT|Overwriting'
         }
     }
     finally { Stop-Apd }
