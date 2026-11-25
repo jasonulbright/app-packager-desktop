@@ -305,7 +305,7 @@
                                 <DockPanel Margin="0,0,0,4">
                                     <ui:Button DockPanel.Dock="Right" Content="Cancel" Command="{Binding Wsus.CancelCommand}" Margin="8,0,0,0" VerticalAlignment="Center"
                                                Visibility="{Binding Wsus.Busy, Converter={StaticResource BooleanToVisibilityConverter}}"
-                                               AutomationProperties.AutomationId="btnWsusCancel"
+                                               AutomationProperties.AutomationId="btnWsusCancel" Style="{StaticResource CancelSlot}"
                                                ToolTip="Cancels the WSUS operation that is running." />
                                     <ui:Button DockPanel.Dock="Right" Content="Test connection" Command="{Binding Wsus.TestConnectionCommand}" Margin="8,0,0,0"
                                                VerticalAlignment="Center" AutomationProperties.AutomationId="btnWsusTest" ToolTipService.ShowOnDisabled="True"

@@ -121,7 +121,7 @@
                            ToolTip="Opens the folder with the reports of earlier runs." AutomationProperties.AutomationId="btnHistory" />
                 <ui:Button x:Name="btnCancelRun" DockPanel.Dock="Right" Content="Cancel" Icon="{ui:SymbolIcon Dismiss24}" Appearance="Danger" MinWidth="90" Margin="0,0,8,0"
                            Command="{Binding CancelCommand}" Visibility="{Binding IsRunning, Converter={StaticResource BoolToVisibility}}"
-                           AutomationProperties.AutomationId="btnCancelRun" />
+                           AutomationProperties.AutomationId="btnCancelRun" Style="{StaticResource CancelSlot}" />
                 <StackPanel Orientation="Horizontal">
                     <ui:Button x:Name="btnRun" Content="Run" Icon="{ui:SymbolIcon Play24}" Appearance="Primary" MinWidth="110" Margin="0,0,8,0"
                                Command="{Binding RunCommand}" ToolTip="Runs One Click for the included applications and destinations. The button is disabled while a run is active or when no application is included."

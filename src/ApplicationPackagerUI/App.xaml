@@ -11,6 +11,10 @@
                 <ui:ControlsDictionary />
                 <ResourceDictionary Source="/ApplicationPackagerUI;component/Views/Styles/ButtonText.xaml" />
                 <ResourceDictionary Source="/ApplicationPackagerUI;component/Views/Styles/ToolTips.xaml" />
+                <ResourceDictionary Source="/ApplicationPackagerUI;component/Views/Styles/Spacing.xaml" />
+                <ResourceDictionary Source="/ApplicationPackagerUI;component/Views/Styles/Glyphs.xaml" />
+                <ResourceDictionary Source="/ApplicationPackagerUI;component/Views/Styles/CancelSlot.xaml" />
+                <ResourceDictionary Source="/ApplicationPackagerUI;component/Views/Styles/Typography.xaml" />
                 <ResourceDictionary Source="/ApplicationPackagerUI;component/Views/Styles/Palette.Dark.xaml" />
             </ResourceDictionary.MergedDictionaries>
         </ResourceDictionary>
