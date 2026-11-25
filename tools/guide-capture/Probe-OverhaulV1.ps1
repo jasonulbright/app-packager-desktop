@@ -17,7 +17,8 @@ param(
     [string]$AppFolder = $PSScriptRoot,
     [string]$Application = '7-Zip',
     [string]$FileShareRoot = '\\cm01.contoso.com\ContentShare$',
-    [string]$WsusServer = 'cm01.contoso.com'
+    [string]$WsusServer = 'cm01.contoso.com',
+    [switch]$NoWsus
 )
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'ApdUiDriver.ps1')
@@ -79,7 +80,7 @@ foreach ($theme in $Themes) {
     $staging = Join-Path $data (Join-Path 'Users' (Join-Path $sid 'Staging'))
     New-Item -ItemType Directory -Force $staging | Out-Null
     & icacls $staging /inheritance:r /grant:r "${env:USERNAME}:(OI)(CI)F" '*S-1-5-32-544:(OI)(CI)F' '*S-1-5-18:(OI)(CI)F' | Out-Null
-    $settings = @{ FileShareRoot = $FileShareRoot; DownloadRoot = $staging; Systems = @{ ConfigMgr = $true; Intune = $false; Wsus = $true }
+    $settings = @{ FileShareRoot = $FileShareRoot; DownloadRoot = $staging; Systems = @{ ConfigMgr = $true; Intune = $false; Wsus = (-not $NoWsus) }
         Wsus = @{ ServerName = $WsusServer; PortNumber = 8530; UseSsl = $false } }
     $null = Start-Apd $exe $data $theme $settings
     try {
