@@ -147,7 +147,8 @@ public sealed class ButtonAlignmentTests
     {
         var path = Path.Combine(CatalogServiceTests.RepositoryRoot(), "src", "ApplicationPackagerUI", "Views", "Styles", "ButtonText.xaml");
         XNamespace presentation = "http://schemas.microsoft.com/winfx/2006/xaml/presentation";
-        var style = XDocument.Load(path).Descendants(presentation + "Style").Single(s => (string?)s.Attribute("TargetType") == "ui:Button");
+        var style = XDocument.Load(path).Descendants(presentation + "Style")
+            .Single(s => (string?)s.Attribute("TargetType") == "ui:Button" && s.Attribute(XNamespace.Get("http://schemas.microsoft.com/winfx/2006/xaml") + "Key") is null);  // the keyed CancelSlot style sits in the same file (overhaul V1, Q-126)
 
         Assert.Equal("True", (string?)style.Elements(presentation + "Setter").Single(s => (string?)s.Attribute("Property") == "UseLayoutRounding")!.Attribute("Value"));
     }

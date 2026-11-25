@@ -19,6 +19,13 @@
         <Setter Property="MinHeight" Value="32" />
         <Setter Property="UseLayoutRounding" Value="True" />
     </Style>
+    <!-- The Cancel button of a run (overhaul V1, Q-126, Q-125). One width and one danger look on every page, on top of the size of the style above, so the button
+         takes the same height as the buttons beside it. The host row sets the margin and keeps the room while the button is hidden: a hidden Cancel uses
+         Visibility="Hidden" or a fixed column, never Collapsed, so the row does not shift when a run starts. A render test draws it in a row with a neighbor. -->
+    <Style x:Key="CancelSlot" TargetType="ui:Button" BasedOn="{StaticResource {x:Type ui:Button}}">
+        <Setter Property="Appearance" Value="Danger" />
+        <Setter Property="MinWidth" Value="90" />
+    </Style>
     <Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
         <Setter Property="FontWeight" Value="SemiBold" />
         <Setter Property="Padding" Value="12,4" />

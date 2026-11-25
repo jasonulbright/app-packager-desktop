@@ -4,10 +4,14 @@ on:
   push:
     branches:
       - main
+      - overhaul/v1
     # A push that changes only guide images (docs/images) skips the long build and test job. Markdown files are not skipped:
     # tests read README.md and docs/*.md (definition counts, ASCII, guide coverage, notices).
     paths-ignore:
       - 'docs/images/**'
+  pull_request:
+    branches:
+      - overhaul/v1
   workflow_dispatch:
     inputs:
       filter:

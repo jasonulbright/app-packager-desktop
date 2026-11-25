@@ -1,0 +1,21 @@
+<ResourceDictionary
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml">
+
+    <!-- The glyph table of the V1 workspace (overhaul V1, Q-126, gap G-05): one glyph for one action name, on every button of the
+         interface. A button of an action reads its glyph here: Icon="{ui:SymbolIcon Play24}" holds the value of the key
+         Glyph.OneClick, and a test compares the two. The key is Glyph. and the label with no spaces. The value of a glyph that
+         is already in use is the value in use, so no button changes by this file. -->
+    <ui:SymbolRegular x:Key="Glyph.OneClick">Play24</ui:SymbolRegular>
+    <ui:SymbolRegular x:Key="Glyph.Check">CheckmarkCircle24</ui:SymbolRegular>
+    <ui:SymbolRegular x:Key="Glyph.CheckLatest">ArrowDownload24</ui:SymbolRegular>
+    <ui:SymbolRegular x:Key="Glyph.CheckConfigMgr">Search24</ui:SymbolRegular>
+    <ui:SymbolRegular x:Key="Glyph.CheckCves">ShieldError24</ui:SymbolRegular>
+    <ui:SymbolRegular x:Key="Glyph.Stage">ArrowCircleDown24</ui:SymbolRegular>
+    <ui:SymbolRegular x:Key="Glyph.PublishAll">ArrowCircleUp24</ui:SymbolRegular>
+    <ui:SymbolRegular x:Key="Glyph.Columns">TableSettings24</ui:SymbolRegular>
+    <ui:SymbolRegular x:Key="Glyph.More">MoreHorizontal24</ui:SymbolRegular>
+    <ui:SymbolRegular x:Key="Glyph.AddOrImport">Add24</ui:SymbolRegular>
+    <ui:SymbolRegular x:Key="Glyph.OpenInWorkbench">Wrench24</ui:SymbolRegular>
+</ResourceDictionary>

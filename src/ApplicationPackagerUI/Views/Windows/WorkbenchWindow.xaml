@@ -945,7 +945,7 @@
                 <ui:Button x:Name="btnSave" Content="Save" Icon="{ui:SymbolIcon Save24}" Style="{StaticResource WbFooterButton}" Command="{Binding SaveCommand}" ToolTip="Save this profile. The packager default profile asks for a name and is saved as a new profile." />
                 <ui:Button x:Name="btnSaveAs" Content="Save as..." Icon="{ui:SymbolIcon Save24}" Style="{StaticResource WbFooterButton}" Command="{Binding SaveAsCommand}" ToolTip="Save a copy of this profile under a new name." />
                 <ui:Button x:Name="btnValidate" Content="Validate" Icon="{ui:SymbolIcon CheckmarkCircle24}" Style="{StaticResource WbFooterButton}" Command="{Binding ValidateCommand}" ToolTip="Check this profile and show the findings on the Review page. Nothing runs." />
-                <ui:Button x:Name="btnStage" Content="Stage" Icon="{ui:SymbolIcon ArrowDownload24}" Style="{StaticResource WbFooterButton}" Command="{Binding StageCommand}" ToolTip="Stage this application with the saved profile. Unsaved edits are saved or discarded first, and blocking findings stop the run." />
+                <ui:Button x:Name="btnStage" Content="Stage" Icon="{ui:SymbolIcon ArrowCircleDown24}" Style="{StaticResource WbFooterButton}" Command="{Binding StageCommand}" ToolTip="Stage this application with the saved profile. Unsaved edits are saved or discarded first, and blocking findings stop the run." />
                 <TextBlock Text="Publish to:" FontSize="14" VerticalAlignment="Center" Margin="8,0,8,0"
                            Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
                 <ui:Button x:Name="btnPublishMecm" Content="ConfigMgr" Icon="{ui:SymbolIcon CloudArrowUp24}" Appearance="Primary" Style="{StaticResource WbFooterButton}"

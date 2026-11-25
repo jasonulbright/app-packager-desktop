@@ -1,0 +1,82 @@
+using ApplicationPackagerUI.Models;
+using ApplicationPackagerUI.Services;
+
+namespace ApplicationPackagerUI.Helpers;
+
+/// <summary>The status tabs of the Packages grid. Other is a row that counts under All only.</summary>
+public enum PackagesTabKind
+{
+    Other,
+    Update,
+    NotFound,
+    NotChecked
+}
+
+/// <summary>The row counts of the status tabs.</summary>
+public sealed record PackagesTabCounts(int All, int Update, int NotFound, int NotChecked)
+{
+    public static readonly PackagesTabCounts Empty = new(0, 0, 0, 0);
+}
+
+/// <summary>
+/// Which status tab a row belongs to. Update is "Update available" with or without a CVE count;
+/// NotFound is the status Check ConfigMgr writes; NotChecked is a row with no ConfigMgr version
+/// whose status says nothing was compared yet. Every other status (running, staged, errors) is
+/// on the All tab only.
+/// </summary>
+public static class PackagesTab
+{
+    public const string NotFoundStatus = "Not found in ConfigMgr";
+
+    /// <summary>The statuses of a row that no check has compared yet.</summary>
+    private static readonly HashSet<string> UncheckedStatuses = new(StringComparer.Ordinal)
+    {
+        "", "Ready", "Cached", "Latest retrieved"
+    };
+
+    public static PackagesTabKind Of(string? status, string? currentVersion)
+    {
+        if (CveRowState.IsUpdateAvailable(status)) return PackagesTabKind.Update;
+        if (status == NotFoundStatus) return PackagesTabKind.NotFound;
+        if (string.IsNullOrEmpty(currentVersion) && UncheckedStatuses.Contains(status ?? "")) return PackagesTabKind.NotChecked;
+        return PackagesTabKind.Other;
+    }
+
+    public static PackagesTabKind Of(PackagerInfo row) => Of(row.Status, row.CurrentVersion);
+
+    /// <summary>True when the row is on the tab; every row is on All.</summary>
+    public static bool Contains(PackagesTabKind? tab, PackagerInfo row) => tab is null || Of(row) == tab;
+
+    public static PackagesTabCounts Count(IEnumerable<PackagerInfo> rows)
+    {
+        int all = 0, update = 0, notFound = 0, notChecked = 0;
+        foreach (var row in rows)
+        {
+            all++;
+            switch (Of(row))
+            {
+                case PackagesTabKind.Update: update++; break;
+                case PackagesTabKind.NotFound: notFound++; break;
+                case PackagesTabKind.NotChecked: notChecked++; break;
+            }
+        }
+        return new PackagesTabCounts(all, update, notFound, notChecked);
+    }
+}
+
+/// <summary>How many rows are checked, and how many of those the current view hides.</summary>
+public static class SelectionCounts
+{
+    public static (int Selected, int Hidden) Of(IEnumerable<PackagerInfo> all, IEnumerable<PackagerInfo> visible)
+    {
+        var shown = new HashSet<PackagerInfo>(visible);
+        int selected = 0, hidden = 0;
+        foreach (var row in all)
+        {
+            if (!row.IsSelected) continue;
+            selected++;
+            if (!shown.Contains(row)) hidden++;
+        }
+        return (selected, hidden);
+    }
+}

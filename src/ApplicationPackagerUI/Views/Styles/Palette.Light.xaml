@@ -37,4 +37,15 @@
     <SolidColorBrush x:Key="CardBorderBrush" Color="{StaticResource BorderStrongColor}" />
     <SolidColorBrush x:Key="ControlElevationBorderBrush" Color="{StaticResource BorderStrongColor}" />
     <SolidColorBrush x:Key="TextControlElevationBorderBrush" Color="{StaticResource BorderStrongColor}" />
+
+    <!-- The three surfaces of the V1 workspace (overhaul V1, Q-126). Base is the window and the sidebar, Page is the card and the
+         control surface of a page, Sub is the hover, notice and disabled fill. Base is the darker shade of the less important
+         surface and Page the lighter shade of the important one, in both themes (R-07, R-08). The fill of Sub is the quiet
+         fill: darker than Page in the light theme, lighter in the dark theme. Text 4.5 to 1 and borders 3 to 1 hold on all three. -->
+    <Color x:Key="SurfaceBaseColor">#F4F5F6</Color>
+    <Color x:Key="SurfacePageColor">#FFFFFF</Color>
+    <Color x:Key="SurfaceSubColor">#EBEDF0</Color>
+    <SolidColorBrush x:Key="SurfaceBaseBrush" Color="{StaticResource SurfaceBaseColor}" />
+    <SolidColorBrush x:Key="SurfacePageBrush" Color="{StaticResource SurfacePageColor}" />
+    <SolidColorBrush x:Key="SurfaceSubBrush" Color="{StaticResource SurfaceSubColor}" />
 </ResourceDictionary>

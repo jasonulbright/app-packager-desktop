@@ -13,4 +13,17 @@ public static class PublishAllState
             return (false, "Publish All: no system is in use. Turn on ConfigMgr, Intune or WSUS in Settings, Systems in Use.", "");
         return (true, "Publish the checked applications to " + set.Describe() + " in one run. The systems are the ones in Settings, Systems in Use.", set.ToTargetName());
     }
+
+    /// <summary>
+    /// The state with readiness: a system that is in use and not ready blocks the button, and the tooltip names
+    /// each blocked system with its reason. The run never publishes to a smaller set than Settings names.
+    /// </summary>
+    public static (bool Enabled, string ToolTip, string Target) For(PublishReadiness readiness)
+    {
+        var state = For(readiness.Systems);
+        if (!state.Enabled) return state;
+        var blocked = PublishActionState.BlockedDestinations(state.Target, readiness);
+        if (blocked.Count == 0) return state;
+        return (false, "Publish All: " + string.Join(" ", blocked.Select(b => b.Destination + ": " + b.Reason)), state.Target);
+    }
 }

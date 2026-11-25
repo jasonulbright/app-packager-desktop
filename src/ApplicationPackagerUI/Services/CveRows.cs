@@ -15,6 +15,13 @@ public static class CveRowState
     public static bool IsUpdateAvailable(string? status) =>
         status is not null && status.StartsWith(UpdateAvailable, StringComparison.Ordinal);
 
+    /// <summary>
+    /// True when the stored ConfigMgr observation is a completed check that found no application:
+    /// an observation time with no version. Only a found or not found check completes an observation.
+    /// </summary>
+    public static bool IsStoredNotFound(InventoryEnvironmentState? state) =>
+        state is { LatestObservedAt: not null } && string.IsNullOrEmpty(state.LatestObservedVersion);
+
     public static void Apply(PackagerInfo row, VulnerabilityGridCells cells) => row.SetCveCells(cells);
 
     /// <summary>The update status of the row, with the count of the cells when they carry one.</summary>
