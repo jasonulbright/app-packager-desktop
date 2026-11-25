@@ -45,7 +45,11 @@ public partial class PackagesViewModel : ObservableObject
     [ObservableProperty] private string _statusText = "Ready.";
     [ObservableProperty] private bool _isOperationRunning;
     [ObservableProperty] private bool _showDebugColumns;
-    [ObservableProperty] private bool _isAllSelected;
+    /// <summary>The bulk selection cycle behind the header check box (same rules as the PowerShell app).</summary>
+    private readonly SelectionCycle _selection = new();
+
+    /// <summary>Header check box: checked = all visible rows, indeterminate = updates only, unchecked = none.</summary>
+    public bool? HeaderSelection => _selection.HeaderCheck;
     [ObservableProperty] private int _progressCurrent;
     [ObservableProperty] private int _progressTotal;
     [ObservableProperty] private bool _showProgress;
@@ -235,20 +239,28 @@ public partial class PackagesViewModel : ObservableObject
             : $"Showing {FilteredPackagers.Count} of {Packagers.Count} packager(s).";
     }
 
+    /// <summary>One click on the header check box: none, every visible row, updates only, none.</summary>
+    [RelayCommand]
+    private void CycleSelection()
+    {
+        _selection.Advance(Packagers, FilteredPackagers, AddLogLine);
+        OnPropertyChanged(nameof(HeaderSelection));
+    }
+
+    /// <summary>Ctrl+A: every visible row, or clear when every visible row is already the bulk selection.</summary>
     [RelayCommand]
     private void ToggleSelectAll()
     {
-        var newState = !IsAllSelected;
-        foreach (var p in Packagers)
-            if (p.IsRunnable) p.IsSelected = newState;
-        IsAllSelected = newState;
+        if (_selection.State == SelectionCycleState.All) _selection.Clear(Packagers, AddLogLine);
+        else _selection.SelectAllVisible(Packagers, FilteredPackagers, AddLogLine);
+        OnPropertyChanged(nameof(HeaderSelection));
     }
 
     [RelayCommand]
     private void SelectUpdateAvailable()
     {
-        foreach (var p in Packagers)
-            p.IsSelected = p.IsRunnable && CveRowState.IsUpdateAvailable(p.Status);
+        _selection.SelectUpdates(Packagers, FilteredPackagers, AddLogLine);
+        OnPropertyChanged(nameof(HeaderSelection));
     }
 
     [RelayCommand]
@@ -575,7 +587,7 @@ public partial class PackagesViewModel : ObservableObject
 
                 var p = targets[i];
                 ProgressCurrent = i + 1;
-                StatusText = $"{logPrefix}: {ProgressCurrent} of {ProgressTotal} — {p.Application}";
+                StatusText = ApplicationPackagerEngine.Models.RunProgress.Running("Check Latest", ProgressCurrent, ProgressTotal, p.Application);
                 p.Status = "Checking latest...";
                 AddLogLine($"Latest: {p.Application} ({p.Script})");
                 var operationId = Guid.NewGuid().ToString("N");
@@ -675,7 +687,7 @@ public partial class PackagesViewModel : ObservableObject
 
         IsOperationRunning = true;
         _operationCts = new CancellationTokenSource();
-        StatusText = "Querying ConfigMgr...";
+        StatusText = ApplicationPackagerEngine.Models.RunProgress.Starting("Check ConfigMgr", selected.Count);
         var tally = new PackagingRunTally();
 
         try
@@ -684,6 +696,7 @@ public partial class PackagesViewModel : ObservableObject
             {
                 if (_operationCts.IsCancellationRequested) { tally.MarkCancelled(); break; }
 
+                StatusText = ApplicationPackagerEngine.Models.RunProgress.Running("Check ConfigMgr", selected.IndexOf(p) + 1, selected.Count, p.Application);
                 p.Status = "Querying ConfigMgr...";
                 AddLogLine($"ConfigMgr: {p.Application}");
                 var operationId = Guid.NewGuid().ToString("N");
@@ -832,7 +845,7 @@ public partial class PackagesViewModel : ObservableObject
 
                 var p = selected[i];
                 ProgressCurrent = i + 1;
-                StatusText = $"Staging: {ProgressCurrent} of {ProgressTotal} — {p.Application}";
+                StatusText = ApplicationPackagerEngine.Models.RunProgress.Running("Staging", ProgressCurrent, ProgressTotal, p.Application);
                 p.Status = "Staging...";
                 AddLogLine($"Stage: {p.Application} ({p.Script})");
 
@@ -1030,7 +1043,7 @@ public partial class PackagesViewModel : ObservableObject
 
                 var p = selected[i];
                 ProgressCurrent = i + 1;
-                StatusText = $"Packaging: {ProgressCurrent} of {ProgressTotal} — {p.Application}";
+                StatusText = ApplicationPackagerEngine.Models.RunProgress.Running("Packaging", ProgressCurrent, ProgressTotal, p.Application);
                 p.Status = "Packaging...";
                 AddLogLine($"Package: {p.Application} ({p.Script})");
 

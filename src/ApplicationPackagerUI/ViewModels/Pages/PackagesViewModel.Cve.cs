@@ -99,7 +99,7 @@ public partial class PackagesViewModel
                 var row = rows[i];
                 ProgressCurrent = i + 1;
                 Volatile.Write(ref lookupsLeft, rows.Count - i);
-                StatusText = $"CVEs: {ProgressCurrent} of {ProgressTotal} — {row.Application}";
+                StatusText = ApplicationPackagerEngine.Models.RunProgress.Running("CVEs", ProgressCurrent, ProgressTotal, row.Application);
                 Volatile.Write(ref stepText, StatusText);
                 AddLogLine($"CVEs: {row.Application} ({row.Script})");
                 try

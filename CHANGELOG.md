@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- Show N of M in the status line while Check ConfigMgr runs.
+- Show the same N of M line for One Click, with the cancelled line of the other runs.
+- Show how many changes are done of the plan while a change plan runs, and when it is cancelled.
+- Make the header check box of the Packages grid cycle as in the PowerShell app: every visible row, only the rows with an update (shown as the indeterminate state), then none. Each step writes a line to the log.
+- Make Select Update Available select only the visible rows, clear all others, and write a log line.
+
 ## [2026.1124.61] - 2026-11-24
 
 ### Fixed

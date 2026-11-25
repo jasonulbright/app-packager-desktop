@@ -245,7 +245,7 @@ public sealed class ChangePlanTests
         await run;
 
         Assert.Equal(ChangePlanStage.Done, vm.Stage);
-        Assert.Equal("The run was cancelled. Changes made before the cancel stay in place.", vm.ResultText);
+        Assert.Equal("Cancelled: 0 of 2 changes done. The run was cancelled. Changes made before the cancel stay in place.", vm.ResultText);
         Assert.True(vm.CanClose);
     }
 
@@ -332,6 +332,31 @@ public sealed class ChangePlanTests
     }
 
     [Fact]
+    public async Task ARunShowsHowManyChangesAreDoneOfTheWholePlan()
+    {
+        var seen = new List<string>();
+        var reported = new TaskCompletionSource();
+        var release = new TaskCompletionSource();
+        var vm = new ChangePlanViewModel(FivePlan(), async (c, progress, ct) =>
+        {
+            progress.Report(new ChangePlanItemResult(c.Plan.Items[0], true, "Removed."));
+            progress.Report(new ChangePlanItemResult(c.Plan.Items[1], true, "Removed."));
+            reported.SetResult();
+            await release.Task;
+            return AllSucceeded(c);
+        });
+        vm.PropertyChanged += (_, e) => { if (e.PropertyName == nameof(ChangePlanViewModel.ResultText)) seen.Add(vm.ResultText); };
+        var run = vm.ConfirmCommand.ExecuteAsync(null);
+        await reported.Task;
+        await Task.Delay(50);
+        release.SetResult();
+        await run;
+
+        Assert.Contains("Running: 0 of 5 changes done.", seen);
+        Assert.Contains("Running: 2 of 5 changes done.", seen);
+    }
+
+    [Fact]
     public async Task ACancelledRunKeepsTheOutcomesReportedBeforeTheCancel()
     {
         var reported = new TaskCompletionSource();
@@ -353,7 +378,7 @@ public sealed class ChangePlanTests
         Assert.Equal(["Changed", "Failed", "Failed", "Failed", "Failed"], result.Items.Select(i => i.OutcomeText));
         Assert.Equal("Not found.", result.Items[1].Message);
         Assert.All(result.Items.Skip(2), i => Assert.Equal(ChangePlanViewModel.CancelledReason, i.Message));
-        Assert.Equal(ChangePlanViewModel.CancelledText + " Before the cancel: 1 changed, 1 failed.", vm.ResultText);
+        Assert.Equal("Cancelled: 2 of 5 changes done. " + ChangePlanViewModel.CancelledText + " Before the cancel: 1 changed, 1 failed.", vm.ResultText);
         Assert.Equal(5, vm.ResultRows.Count);
     }
 

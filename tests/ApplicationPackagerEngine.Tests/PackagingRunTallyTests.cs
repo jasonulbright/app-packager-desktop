@@ -235,6 +235,6 @@ public class PackagingRunTallyTests
         Assert.Contains("\"checked\", \"Check Latest\")", all);
         Assert.Contains("\"checked\", \"Check ConfigMgr\")", all);
         Assert.Contains("\"checked\", \"Check CVEs\")", all);
-        Assert.Contains("One Click cancelled: {done} of {items.Count}", all);
+        Assert.Contains("RunProgress.Cancelled(\"One Click\", done, items.Count", all);
     }
 }
