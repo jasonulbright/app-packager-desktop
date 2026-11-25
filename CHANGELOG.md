@@ -1,5 +1,11 @@
 # Changelog
 
+## [2026.1125.64] - 2026-11-25
+
+### Fixed
+
+- Name the cell that a failed Discover read, in the status line and the log: the step, the table, the row and column index, and every exception of the chain with its type.
+
 ## [2026.1125.63] - 2026-11-25
 
 ### Fixed

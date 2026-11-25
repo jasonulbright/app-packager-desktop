@@ -206,8 +206,20 @@ public sealed class DiscoveryScriptTests : IDisposable
             Write-DiscoveryError -Exception (New-Object System.Management.Automation.MethodInvocationException 'Exception calling "Open"', $inner)
             """;
         var output = RunPowerShell(script).Trim();
-        Assert.Equal("{\"t\":\"error\",\"stage\":\"sql\",\"numbers\":[],\"sspi\":true,\"anonymous\":true,\"types\":[\"MethodInvocationException\",\"Exception\"],"
-                     + "\"detail\":\"Login failed for user 'NT AUTHORITY\\\\ANONYMOUS LOGON'. Cannot generate SSPI context. CONTOSO\\\\jdoe\",\"step\":\"\",\"rows\":-1}", output);
+        using var json = JsonDocument.Parse(output);
+        var root = json.RootElement;
+        Assert.Equal("error", root.GetProperty("t").GetString());
+        Assert.Equal("sql", root.GetProperty("stage").GetString());
+        Assert.True(root.GetProperty("sspi").GetBoolean());
+        Assert.True(root.GetProperty("anonymous").GetBoolean());
+        Assert.Equal(["MethodInvocationException", "Exception"], root.GetProperty("types").EnumerateArray().Select(e => e.GetString()));
+        Assert.Equal(@"Login failed for user 'NT AUTHORITY\ANONYMOUS LOGON'. Cannot generate SSPI context. CONTOSO\jdoe", root.GetProperty("detail").GetString());
+        Assert.Equal("", root.GetProperty("step").GetString());
+        Assert.Equal(-1, root.GetProperty("rows").GetInt32());
+        Assert.Equal(-1, root.GetProperty("table").GetInt32());
+        Assert.Equal(-1, root.GetProperty("column").GetInt32());
+        Assert.Equal(@"MethodInvocationException: Exception calling ""Open"" | Exception: Login failed for user 'NT AUTHORITY\ANONYMOUS LOGON'. Cannot generate SSPI context. CONTOSO\jdoe",
+            root.GetProperty("chain").GetString());
     }
 
     [Fact]
@@ -291,7 +303,31 @@ public sealed class DiscoveryScriptTests : IDisposable
         var failure = Assert.Throws<DiscoveryException>(() =>
             DiscoveryService.ParseInventory(line + "\n{\"t\":\"end\"}", new DiscoveryDatabaseTarget("sql01", "CM_MCM"), 30));
         Assert.Contains("Server sql01, database CM_MCM.", failure.Message);
-        Assert.EndsWith("Step: read the inventory rows, 1 rows read.", failure.Message);
+        Assert.Contains("Step: read the inventory rows, 1 rows read.", failure.Message);
+    }
+
+    [Fact]
+    public void AReadFailureNamesTheTableTheRowAndTheColumnAndEveryExceptionOfTheChain()
+    {
+        // Q-134: a cell read that throws: the failure names the cell, so a read error at a site shows where.
+        var script = InventoryText + Environment.NewLine + FakeDataSet + Environment.NewLine + """
+            function Get-DiscoveryCell { param($Row, [int]$Index) if ($Index -eq 1) { throw (New-Object System.InvalidOperationException 'Invalid attempt to read when no data is present.') }; return $Row[$Index] }
+            $t0 = @(,@('A','1','x64'))
+            $t1 = @(,@('B'))
+            $ds = New-FakeDataSet -Sets @(,$t0 + ,$t1) -Widths 3,1
+            try { Write-DiscoveryInventory -DataSet $ds }
+            catch { Write-DiscoveryError -Exception $_.Exception -Step 'read the inventory rows' -RowCount $script:DiscoveryRowCount -Table $script:DiscoveryTable -Column $script:DiscoveryColumn }
+            """;
+        var line = RunPowerShell(script).Trim();
+        using var json = JsonDocument.Parse(line);
+        Assert.Equal(0, json.RootElement.GetProperty("table").GetInt32());
+        Assert.Equal(1, json.RootElement.GetProperty("column").GetInt32());
+        Assert.Equal(1, json.RootElement.GetProperty("rows").GetInt32());
+        Assert.StartsWith("InvalidOperationException: Invalid attempt to read when no data is present.", json.RootElement.GetProperty("chain").GetString());
+        var failure = Assert.Throws<DiscoveryException>(() =>
+            DiscoveryService.ParseInventory(line + "\n{\"t\":\"end\"}", new DiscoveryDatabaseTarget("sql01", "CM_MCM"), 30));
+        Assert.Contains("Step: read the inventory rows, 1 rows read, table 0, column 1.", failure.Message);
+        Assert.Contains("Exceptions: ", failure.Message);
     }
 
     private const string FakeCim = """
