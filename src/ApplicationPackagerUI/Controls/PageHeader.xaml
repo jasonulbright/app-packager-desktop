@@ -14,7 +14,7 @@
 
     <!-- The header band: a card surface with a border that passes 3 to 1 on the window, the page icon at the left,
          then the title, the description and the status line. -->
-    <Border Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
+    <Border x:Name="Band" Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
             BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
             BorderThickness="1" CornerRadius="8" Padding="12,8">
         <Grid>

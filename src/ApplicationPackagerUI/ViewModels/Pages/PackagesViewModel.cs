@@ -25,6 +25,7 @@ public partial class PackagesViewModel : ObservableObject
     private readonly ApplicationPackagerEngine.Services.Wsus.IWsusPublisher _wsusPublisher;
     private readonly IPublishDialogs _publishDialogs;
     private readonly PublishRunService _publishRuns;
+    private readonly SiteStateService _siteState;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(ShowSourceColumn))]
@@ -108,8 +109,10 @@ public partial class PackagesViewModel : ObservableObject
         ApplicationInventoryProjection inventoryProjection,
         ApplicationPackagerEngine.Services.IDiscoveryService discovery,
         IDiscoveryPrompt discoveryPrompt,
-        IAddFileRoute addFileRoute)
+        IAddFileRoute addFileRoute,
+        SiteStateService siteState)
     {
+        _siteState = siteState;
         AddFileRoute = addFileRoute;
         _publishRuns = publishRuns;
         _dropAnalysisService = dropAnalysisService;
@@ -217,6 +220,15 @@ public partial class PackagesViewModel : ObservableObject
         ApplicationPackagerEngine.Services.SiteRunGuard.Set(this, value ? "a check, Stage or publish run is active" : null);
         NotifyActionCommands();
     }
+
+    /// <summary>The connection test of this page goes to the shared state, so the strip on every page shows it.</summary>
+    partial void OnMecmConnectionStatusChanged(string value) => _siteState.SetConfigMgrConnection(value switch
+    {
+        "Connected" => ConfigMgrConnectionState.Connected,
+        "Failed" => ConfigMgrConnectionState.Failed,
+        "Testing..." => ConfigMgrConnectionState.Testing,
+        _ => ConfigMgrConnectionState.Unknown
+    });
 
     private IEnumerable<PackagerInfo> SelectedPackagers =>
         Packagers.Where(p => p.IsSelected && p.IsRunnable);

@@ -32,6 +32,10 @@ public partial class PageHeader
         DependencyProperty.Register(nameof(Icon), typeof(SymbolRegular), typeof(PageHeader),
             new PropertyMetadata(SymbolRegular.Empty, (d, _) => ((PageHeader)d).UpdateParts()));
 
+    public static readonly DependencyProperty CompactProperty =
+        DependencyProperty.Register(nameof(Compact), typeof(bool), typeof(PageHeader),
+            new PropertyMetadata(false, (d, _) => ((PageHeader)d).UpdateParts()));
+
     public static readonly DependencyProperty TitleAutomationIdProperty =
         DependencyProperty.Register(nameof(TitleAutomationId), typeof(string), typeof(PageHeader),
             new PropertyMetadata("txtPageTitle", (d, e) => AutomationProperties.SetAutomationId(((PageHeader)d).TitleText, (string)e.NewValue)));
@@ -75,6 +79,16 @@ public partial class PageHeader
         set => SetValue(ActionsProperty, value);
     }
 
+    /// <summary>
+    /// The plain page title of the V1 workspace (overhaul V1, phase 2): the title at 28 with the actions beside it, with no card, no
+    /// icon, no description and no status line. Not the width-driven <see cref="IsCompact"/>, which only trims the description.
+    /// </summary>
+    public bool Compact
+    {
+        get => (bool)GetValue(CompactProperty);
+        set => SetValue(CompactProperty, value);
+    }
+
     /// <summary>The page icon at the left of the title. Empty shows no icon.</summary>
     public SymbolRegular Icon
     {
@@ -105,9 +119,25 @@ public partial class PageHeader
     private void UpdateParts()
     {
         if (DescriptionText is null || IconHost is null) return;
-        DescriptionText.Visibility = string.IsNullOrWhiteSpace(Description) ? Visibility.Collapsed : Visibility.Visible;
-        IconHost.Visibility = Icon == SymbolRegular.Empty ? Visibility.Collapsed : Visibility.Visible;
-        StatusText.Visibility = string.IsNullOrWhiteSpace(Status) ? Visibility.Collapsed : Visibility.Visible;
+        var plain = Compact;
+        DescriptionText.Visibility = plain || string.IsNullOrWhiteSpace(Description) ? Visibility.Collapsed : Visibility.Visible;
+        IconHost.Visibility = plain || Icon == SymbolRegular.Empty ? Visibility.Collapsed : Visibility.Visible;
+        StatusText.Visibility = plain || string.IsNullOrWhiteSpace(Status) ? Visibility.Collapsed : Visibility.Visible;
+        // The plain title has no card: no fill, no border, no padding.
+        if (plain)
+        {
+            Band.Background = System.Windows.Media.Brushes.Transparent;
+            Band.BorderThickness = new Thickness(0);
+            Band.Padding = new Thickness(0);
+            TitleText.SetResourceReference(System.Windows.Controls.TextBlock.StyleProperty, "PageTitleLarge");
+        }
+        else
+        {
+            Band.SetResourceReference(System.Windows.Controls.Border.BackgroundProperty, "CardBackgroundFillColorDefaultBrush");
+            Band.BorderThickness = new Thickness(1);
+            Band.Padding = new Thickness(12, 8, 12, 8);
+            TitleText.SetResourceReference(System.Windows.Controls.TextBlock.StyleProperty, "PageTitle");
+        }
         ActionsPresenter.Visibility = Actions is null ? Visibility.Collapsed : Visibility.Visible;
         var compact = IsCompact;
         DescriptionText.TextWrapping = compact ? TextWrapping.NoWrap : TextWrapping.Wrap;

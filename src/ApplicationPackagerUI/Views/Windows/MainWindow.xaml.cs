@@ -24,13 +24,15 @@ public partial class MainWindow : IDialogHostWindow
         IServiceProvider serviceProvider,
         ISnackbarService snackbarService,
         IContentDialogService contentDialogService,
-        SidebarService sidebarService)
+        SidebarService sidebarService,
+        ContextStripViewModel contextStrip)
     {
         _serviceProvider = serviceProvider;
         _snackbarService = snackbarService;
         DataContext = viewModel;
 
         InitializeComponent();
+        ContextStripHost.DataContext = contextStrip;
 
         navigationService.SetNavigationControl(RootNavigation);
         snackbarService.SetSnackbarPresenter(SnackbarPresenter);
@@ -44,6 +46,9 @@ public partial class MainWindow : IDialogHostWindow
     }
 
     public Wpf.Ui.Controls.NavigationView GetNavigation() => RootNavigation;
+
+    /// <summary>Opens the Settings page, where the site, the host and the systems in use are set (the "Connections" button of the strip).</summary>
+    public void OpenConnections() => RootNavigation.Navigate(typeof(Views.Pages.SettingsPage));
 
     /// <summary>Opens the Application Workbench on an application, or on the first one listed.</summary>
     public void OpenWorkbench(string? applicationId)
