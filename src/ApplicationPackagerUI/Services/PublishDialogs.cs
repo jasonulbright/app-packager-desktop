@@ -50,6 +50,15 @@ public sealed class PublishDialogs(IWsusAdminClient wsusClient, IChangePlanDialo
 
     public ChangePlanOutcome ShowChangePlan(ChangePlan plan, ChangePlanRun run, ChangePlanRun? undo = null) => changePlans.Show(plan, run, undo);
 
+    public bool ShowPublishReview(PublishReviewViewModel viewModel)
+    {
+        new PublishReviewWindow(viewModel) { Owner = Owner() }.ShowDialog();
+        return viewModel.Accepted;
+    }
+
+    public void ShowPublishResults(PublishResultsViewModel viewModel) =>
+        new PublishResultsWindow(viewModel) { Owner = Owner() }.ShowDialog();
+
     public void ShowOneClickPlan(OneClickPlanViewModel viewModel)
     {
         var window = new OneClickPlanWindow(viewModel, PackagesViewModel.OneClickReportFolder) { Owner = Owner() };

@@ -78,6 +78,28 @@ foreach ($theme in $Themes) {
             Shot $theme 'packages-tab-update'
             Real-Click (Find-El $null 'tabStatusAll' -Timeout 3)
         }
+        Step $theme 'detail-pane' {
+            $null = Find-El $w 'txtAppPackagerSearch'
+            Set-ElText (Find-El $w 'txtAppPackagerSearch') '7-Zip'
+            Start-Sleep 2
+            $g = Find-El $w 'PackagerGrid'
+            $row = $g.FindFirst([System.Windows.Automation.TreeScope]::Descendants, (New-Object System.Windows.Automation.PropertyCondition ([System.Windows.Automation.AutomationElement]::ControlTypeProperty), ([System.Windows.Automation.ControlType]::DataItem)))
+            if (-not $row) { throw 'no grid row' }
+            Real-Click $row
+            Start-Sleep 3
+            Names 'txtDetailTitle'
+            $texts = foreach ($want in 'Vendor', 'Status', 'ConfigMgr version', 'Latest version', 'CVEs', 'Stage', 'Not staged', 'Not known') { "$want=$([bool](Find-El $w -Name $want -Timeout 1))" }
+            "detail texts found: $($texts -join ', ')"
+            Move-MouseAway
+            Shot $theme 'packages-detail-pane'
+            Real-Click (Find-El $null 'btnDetailPaneClose' -Timeout 3)
+            Start-Sleep 1
+            "pane title present after Close: $([bool](Find-El $null 'txtDetailTitle' -Timeout 1)); open button present: $([bool](Find-El $null 'btnDetailPaneOpen' -Timeout 2))"
+            Real-Click (Find-El $null 'btnDetailPaneOpen' -Timeout 3)
+            Start-Sleep 1
+            "pane title present after Open: $([bool](Find-El $null 'txtDetailTitle' -Timeout 2))"
+            Set-ElText (Find-El $w 'txtAppPackagerSearch') ''
+        }
         Step $theme 'columns-menu' {
             "headers before: $(Header-Names $w)"
             Real-Click (Find-El $null 'btnColumns' -Timeout 3)

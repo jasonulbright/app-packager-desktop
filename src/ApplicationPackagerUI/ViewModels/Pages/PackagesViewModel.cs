@@ -7,6 +7,7 @@ using ApplicationPackagerUI.Controls;
 using ApplicationPackagerUI.Helpers;
 using ApplicationPackagerUI.Models;
 using ApplicationPackagerUI.Services;
+using ApplicationPackagerUI.ViewModels.Windows;
 
 namespace ApplicationPackagerUI.ViewModels.Pages;
 
@@ -135,7 +136,7 @@ public partial class PackagesViewModel : ObservableObject
         PublishConfigMgrCommand = new AsyncRelayCommand(() => StartPublishRunAsync(PublishRunTargets.ConfigMgr), () => CanRunOperation() && IsPublishConfigMgrAvailable);
         PublishIntuneCommand = new AsyncRelayCommand(() => StartPublishRunAsync(PublishRunTargets.IntuneOnly), () => CanRunOperation() && IsPublishIntuneAvailable);
         PublishWsusCommand = new AsyncRelayCommand(() => StartPublishRunAsync(PublishRunTargets.WsusOnly), () => CanRunOperation() && IsPublishWsusAvailable);
-        PublishAllCommand = new AsyncRelayCommand(() => StartPublishRunAsync(_publishAllTarget), () => CanRunOperation() && IsPublishAllAvailable);
+        PublishAllCommand = new AsyncRelayCommand(PublishAllAsync, () => CanRunOperation() && IsPublishAllAvailable);
         WsusUpdatesCommand = new RelayCommand(OpenWsusUpdates, () => CanRunOperation() && IsWsusUpdatesAvailable);
         OneClickCommand = new AsyncRelayCommand(OneClickAsync, CanRunOperation);
         ImportFromUrlCommand = new RelayCommand(() => ImportFromUrlRequested?.Invoke(this, EventArgs.Empty), CanRunOperation);
@@ -1098,7 +1099,7 @@ public partial class PackagesViewModel : ObservableObject
     /// <summary>
     /// Packages the selection, or the given rows, for one publish target: ConfigMgr or Intune only.
     /// </summary>
-    private async Task PackageAsync(IReadOnlyList<PackagerInfo>? rows, string? targetOverride, RunSnapshot? snapshot)
+    private async Task PackageAsync(IReadOnlyList<PackagerInfo>? rows, string? targetOverride, RunSnapshot? snapshot, bool review = false)
     {
         // The comment and review dialogs await the operator; the flag is raised before them
         // so no other operation starts while they are open.
@@ -1108,11 +1109,11 @@ public partial class PackagesViewModel : ObservableObject
             return;
         }
         IsOperationRunning = true;
-        try { await PackageCoreAsync(rows, targetOverride, snapshot); }
+        try { await PackageCoreAsync(rows, targetOverride, snapshot, review); }
         finally { IsOperationRunning = false; }
     }
 
-    private async Task PackageCoreAsync(IReadOnlyList<PackagerInfo>? rows, string? targetOverride, RunSnapshot? snapshot)
+    private async Task PackageCoreAsync(IReadOnlyList<PackagerInfo>? rows, string? targetOverride, RunSnapshot? snapshot, bool review = false)
     {
         var settings = _settingsService.Load();
         var target = targetOverride ?? PublishRunTargets.ConfigMgr;
@@ -1133,7 +1134,25 @@ public partial class PackagesViewModel : ObservableObject
         // A target with WSUS needs the server and the administration API before anything stages.
         if (DeploymentTargets.PublishesToWsus(target) && !ConfirmWsusPrerequisites(settings, "Publish")) return;
 
-        if (string.IsNullOrWhiteSpace(Comment))
+        var selected = rows?.ToList() ?? SelectedPackagers.ToList();
+        if (selected.Count == 0) { ShowNoneSelected("Package"); return; }
+
+        if (review)
+        {
+            // The review lists every checked application, the ones that the view hides too, and takes the comment of the run.
+            var shown = new HashSet<PackagerInfo>(FilteredPackagers);
+            var plan = PublishPlanner.Plan(
+                selected.Select(p => new PublishPlanApp(p.Uid, p.Application, p.LatestVersion ?? "", !shown.Contains(p))),
+                settings.Systems, ReadinessOf(settings));
+            var reviewModel = new PublishReviewViewModel(plan, Comment);
+            if (!_publishDialogs.ShowPublishReview(reviewModel))
+            {
+                AddLogLine("Publish review: closed with Back. Nothing was published.");
+                return;
+            }
+            Comment = reviewModel.Comment;
+        }
+        else if (string.IsNullOrWhiteSpace(Comment))
         {
             var dialog = new ContentDialog
             {
@@ -1148,8 +1167,6 @@ public partial class PackagesViewModel : ObservableObject
                 return;
         }
 
-        var selected = rows?.ToList() ?? SelectedPackagers.ToList();
-        if (selected.Count == 0) { ShowNoneSelected("Package"); return; }
         selected = ConfirmLocalSourceFolders(selected);
         if (selected.Count == 0) return;
         // What this publish does and does not do, before anything starts.
@@ -1176,6 +1193,7 @@ public partial class PackagesViewModel : ObservableObject
 
 
         var tally = new ApplicationPackagerEngine.Models.PackagingRunTally();
+        var rowResults = new List<(string Application, PublishRowResult Result)>();
 
         try
         {
@@ -1232,6 +1250,7 @@ public partial class PackagesViewModel : ObservableObject
                     var run = await PublishRowRunner.RunAsync(p.Uid, p.LatestVersion ?? "", target, PackageRowAsync,
                         () => _publishRuns.PublishWsusRowAsync(p, snapshot, AddLogLine, token),
                         AddLogLine, token, () => conflictStop);
+                    rowResults.Add((p.Application, run.Result));
                     var result = run.Package;
                     var wsusStep = run.WsusStep;
 
@@ -1332,6 +1351,10 @@ public partial class PackagesViewModel : ObservableObject
             _operationCts?.Dispose();
             _operationCts = null;
         }
+
+        // The results window after a run that went through the review: one cell for each application and system, from the facts of the run.
+        if (review && rowResults.Count > 0)
+            _publishDialogs.ShowPublishResults(new PublishResultsViewModel(rowResults, tally.Cancelled));
     }
 
     /// <summary>Operator answer to one existing-application conflict.</summary>

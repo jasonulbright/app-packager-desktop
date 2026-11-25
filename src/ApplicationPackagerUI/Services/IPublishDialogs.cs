@@ -14,6 +14,12 @@ public interface IPublishDialogs
     /// <summary>Opens the One Click plan window; it stays open while its run proceeds.</summary>
     void ShowOneClickPlan(OneClickPlanViewModel viewModel);
 
+    /// <summary>Opens the publish review (modal). True when the operator pressed the confirm button; the comment is on the view model.</summary>
+    bool ShowPublishReview(PublishReviewViewModel viewModel);
+
+    /// <summary>Opens the publish results (modal) after a run.</summary>
+    void ShowPublishResults(PublishResultsViewModel viewModel);
+
     /// <summary>Opens the change plan window for a plan; the run starts only after the operator confirms it.</summary>
     ChangePlanOutcome ShowChangePlan(ChangePlan plan, ChangePlanRun run, ChangePlanRun? undo = null);
 }
