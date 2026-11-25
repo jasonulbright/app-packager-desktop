@@ -29,8 +29,8 @@ public sealed class BoldTextRuleTests
 
         foreach (var target in new[] { "ui:Button", "Button" })
         {
-            var style = Assert.Single(styles, s => (string?)s.Attribute("TargetType") == target);
-            Assert.Null(style.Attribute(Xaml + "Key"));
+            // The keyed CancelSlot style (overhaul V1, Q-126) is based on this one; the style of the app is the one with no key.
+            var style = Assert.Single(styles, s => (string?)s.Attribute("TargetType") == target && s.Attribute(Xaml + "Key") is null);
             Assert.Contains(style.Elements(Presentation + "Setter"), s => (string?)s.Attribute("Property") == "FontWeight" && IsBold((string?)s.Attribute("Value")));
         }
     }
