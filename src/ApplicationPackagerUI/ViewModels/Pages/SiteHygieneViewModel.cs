@@ -486,7 +486,7 @@ public sealed partial class SiteHygieneViewModel : ObservableObject
                 return;
             }
             StatusMessage = PlainMessage(ex, ScanFailed);
-            Services.Log.Warning(LogArea, $"The scan failed ({FailureName(ex)}).");
+            Services.Log.Warning(LogArea, $"The scan failed ({FailureName(ex)}).", ex);
         }
         finally
         {
@@ -501,7 +501,7 @@ public sealed partial class SiteHygieneViewModel : ObservableObject
         try { await Task.Run(() => Services.ScanStore.Save(result)); }
         catch (Exception ex)
         {
-            Services.Log.Warning(LogArea, $"The scan result could not be stored ({ex.GetType().Name}).");
+            Services.Log.Warning(LogArea, $"The scan result could not be stored ({ex.GetType().Name}).", ex);
             StatusMessage += " The result could not be stored as the last scan, so the next start shows no stored result.";
         }
     }
@@ -512,7 +512,7 @@ public sealed partial class SiteHygieneViewModel : ObservableObject
         try { return Services.ScanStore.Load() is { } last && last.IsFor(siteCode, provider) ? last : null; }
         catch (Exception ex)
         {
-            Services.Log.Warning(LogArea, $"The last scan could not be read ({ex.GetType().Name}).");
+            Services.Log.Warning(LogArea, $"The last scan could not be read ({ex.GetType().Name}).", ex);
             return null;
         }
     }
@@ -547,7 +547,7 @@ public sealed partial class SiteHygieneViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            Services.Log.Warning(LogArea, $"The suppressions could not be read ({ex.GetType().Name}).");
+            Services.Log.Warning(LogArea, $"The suppressions could not be read ({ex.GetType().Name}).", ex);
         }
         return map;
     }
@@ -572,7 +572,7 @@ public sealed partial class SiteHygieneViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            Services.Log.Warning(LogArea, $"The stored scan could not be read ({ex.GetType().Name}).");
+            Services.Log.Warning(LogArea, $"The stored scan could not be read ({ex.GetType().Name}).", ex);
             return;
         }
         // A scan of this session that ended or still runs is newer than the stored result.
@@ -845,7 +845,7 @@ public sealed partial class SiteHygieneViewModel : ObservableObject
         catch (Exception ex)
         {
             saved = null;
-            Services.Log.Warning(LogArea, $"The page choices could not be read ({ex.GetType().Name}).");
+            Services.Log.Warning(LogArea, $"The page choices could not be read ({ex.GetType().Name}).", ex);
         }
         if (saved is not null)
         {
@@ -933,7 +933,7 @@ public sealed partial class SiteHygieneViewModel : ObservableObject
             catch (Exception ex)
             {
                 saved = false;
-                Services.Log.Warning(LogArea, $"The page choices could not be saved ({ex.GetType().Name}).");
+                Services.Log.Warning(LogArea, $"The page choices could not be saved ({ex.GetType().Name}).", ex);
             }
             if (saved) _stored = choices;
             else Services.Log.Warning(LogArea, "The page choices were not saved.");

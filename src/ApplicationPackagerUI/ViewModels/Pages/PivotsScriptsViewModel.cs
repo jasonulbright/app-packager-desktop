@@ -152,7 +152,7 @@ public sealed partial class PivotsScriptsViewModel : ObservableObject
         Generation++;
         var visit = _visit;
         _visit = new CancellationTokenSource();
-        try { visit.Cancel(); } catch (AggregateException ex) { Services.Log.Warning(LogArea, $"A read did not stop cleanly ({ex.InnerException?.GetType().Name})."); }
+        try { visit.Cancel(); } catch (AggregateException ex) { Services.Log.Warning(LogArea, $"A read did not stop cleanly ({ex.InnerException?.GetType().Name}).", ex); }
         foreach (var pending in _debounce.Values) pending.Cancel();
         _debounce.Clear();
         StatusMessage = "";
@@ -218,7 +218,7 @@ public sealed partial class PivotsScriptsViewModel : ObservableObject
         catch (Exception ex)
         {
             saved = null;
-            Services.Log.Warning(LogArea, $"The page choices could not be read ({ex.GetType().Name}).");
+            Services.Log.Warning(LogArea, $"The page choices could not be read ({ex.GetType().Name}).", ex);
         }
         if (saved is not null)
         {
@@ -269,7 +269,7 @@ public sealed partial class PivotsScriptsViewModel : ObservableObject
             catch (Exception ex)
             {
                 saved = false;
-                Services.Log.Warning(LogArea, $"The page choices could not be saved ({ex.GetType().Name}).");
+                Services.Log.Warning(LogArea, $"The page choices could not be saved ({ex.GetType().Name}).", ex);
             }
             if (saved) _stored = choices;
             else Services.Log.Warning(LogArea, "The page choices were not saved.");

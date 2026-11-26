@@ -42,7 +42,7 @@ public partial class InstallerAnalysisPage : INavigationAware
         try { await _viewModel.DropAsync(paths); }
         catch (Exception ex)
         {
-            _log?.Warning(InstallerAnalysisViewModel.LogArea, $"A drop could not be handled ({ex.GetType().Name}).");
+            _log?.Warning(InstallerAnalysisViewModel.LogArea, $"A drop could not be handled ({ex.GetType().Name}).", ex);
         }
     }
 

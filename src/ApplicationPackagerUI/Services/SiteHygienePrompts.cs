@@ -88,7 +88,7 @@ public sealed class SiteHygieneDialogs : ISiteHygieneDialogs
         }
         catch (Exception ex) when (ex is Win32Exception or IOException or UnauthorizedAccessException or InvalidOperationException)
         {
-            _log?.Warning(SiteHygieneService.LogArea, $"The alerts log could not be opened ({ex.GetType().Name}).");
+            _log?.Warning(SiteHygieneService.LogArea, $"The alerts log could not be opened ({ex.GetType().Name}).", ex);
             return false;
         }
     }

@@ -130,7 +130,7 @@ public sealed class AlertLog(string? path = null, IAppLog? log = null) : IAlertL
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {
-                log?.Warning(SiteHygieneService.LogArea, $"The alerts log could not be written ({ex.GetType().Name}).");
+                log?.Warning(SiteHygieneService.LogArea, $"The alerts log could not be written ({ex.GetType().Name}).", ex);
                 return false;
             }
         }

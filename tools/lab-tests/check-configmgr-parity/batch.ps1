@@ -1,3 +1,4 @@
+param([switch]$KeepForChecks)   # default: remove what the run created at the end (cleanup.ps1). Use -KeepForChecks when the Check ConfigMgr steps follow, then run cleanup.ps1 yourself.
 $names = Get-ChildItem C:\guide\ps-run\Packagers -Filter package-*.ps1 | % { $_.BaseName -replace '^package-','' } | Sort-Object
 $skip = '^(m365|vs20|ssms|windowsadk|windowspeaddon|sqlserver|msvcruntimes$|dotnet10both$)'
 $out='C:\guide\ps-batch'; New-Item -ItemType Directory $out -Force | Out-Null
@@ -19,3 +20,4 @@ foreach($n in $names){
   Remove-Item "C:\guide\ap-dl\*" -Recurse -Force -ErrorAction SilentlyContinue
 }
 'DONE' | Set-Content "$out\done.flag"
+if(-not $KeepForChecks){ & (Join-Path $PSScriptRoot 'cleanup.ps1') -CleanRunFiles }

@@ -506,6 +506,6 @@ public sealed class PivotsRunTests
         h.Site.Fail("query:SMS_CombinedDeviceResources");
         var ex = await Assert.ThrowsAsync<PivotsServiceException>(() => h.ResolveAsync(RunTargetKind.Device, "CLIENT01"));
         Assert.DoesNotContain(Secret, ex.Message);
-        Assert.Contains("The log has the kind of failure", ex.Message);
+        Assert.Contains("The log has the details", ex.Message);
     }
 }

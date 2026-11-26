@@ -25,8 +25,8 @@ public sealed partial class SiteHygieneService
         var failed = bad.Where(s => !read.Tables.TryGetValue(s, out var t) || t.State != HygieneSetStates.Cut).ToList();
         if (failed.Count > 0)
         {
-            _log?.Warning(LogArea, $"The relationship read failed for {failed.Count} sets.");
-            throw new HygieneServiceException("The application relationships could not be read from ConfigMgr: the read of " + string.Join(", ", failed.Select(Label)) + " failed. Try again; the log has the kind of failure.");
+            _log?.Warning(LogArea, $"The relationship read failed for {failed.Count} sets: {string.Join(", ", failed.Select(s => s + " (" + (read.Tables.TryGetValue(s, out var t) ? (t.Failure.Length > 0 ? t.Failure : "no status") : "not returned") + ")"))}. The detail of each failed set is in the lines above.");
+            throw new HygieneServiceException("The application relationships could not be read from ConfigMgr: the read of " + string.Join(", ", failed.Select(Label)) + " failed. Try again; the log has the details.");
         }
         var inventory = HygieneChecks.Inventory(read);
         if (bad.Count > 0)

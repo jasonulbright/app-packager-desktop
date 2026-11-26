@@ -128,7 +128,7 @@ internal static class ChainedJsonlFile
         }
         catch (Exception ex) when (ex is not OutOfMemoryException)
         {
-            log?.Warning(logArea, $"An audit record could not be written ({ex.GetType().Name}).");
+            log?.Warning(logArea, $"An audit record could not be written ({ex.GetType().Name}).", ex);
             return new AuditWrite(false, $"The audit record could not be written to {path}. Check that the folder can be reached and has free space.");
         }
     }

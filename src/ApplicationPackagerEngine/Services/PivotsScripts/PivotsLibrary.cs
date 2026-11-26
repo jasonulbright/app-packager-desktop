@@ -77,7 +77,7 @@ public sealed class PivotsLibrary(IAppLog? log = null) : IPivotsLibrary
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Security.SecurityException)
         {
-            log?.Warning(LogArea, $"The library folder could not be read ({ex.GetType().Name}).");
+            log?.Warning(LogArea, $"The library folder could not be read ({ex.GetType().Name}).", ex);
         }
         return found;
     }

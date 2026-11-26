@@ -1,5 +1,28 @@
 # Changelog
 
+## [2026.1125.65] - 2026-11-25
+
+### Fixed
+
+- Fix SUP-01 failing on every application with a wrong console serializer refusal.
+- Remove a broken supersedence rule of a retired application: the fix reinstates it, edits it, retires it again.
+- Name the exact reason when a retired application with a deployment keeps its broken supersedence rule.
+- Name the applications, old revisions, deployments and task sequences that block a delete in Site Hygiene.
+- Write the full failure to the log file when a Site Hygiene fix fails: object, step, exceptions.
+- Write every exception of the chain to the log where a message says the log has the details.
+
+## [2026.1125.64] - 2026-11-25
+
+### Fixed
+
+- Name the cell that a failed Discover read, in the status line and the log: the step, the table, the row and column index, and every exception of the chain with its type.
+
+## [2026.1125.63] - 2026-11-25
+
+### Fixed
+
+- Fix Discover not selected and Discover all ending with "Invalid attempt to read when no data is present" at a production site. Discover now runs the query of the PowerShell app and reads the result the way that app does (one data adapter fills a data set), without the filter on obsolete and decommissioned devices. A failure names the step of the scan that failed and the number of rows read so far.
+
 ## [2026.1124.62] - 2026-11-24
 
 ### Added

@@ -110,7 +110,7 @@ public sealed class RingRunStore
         }
         catch (Exception ex) when (RingPlanStore.IsStorageFailure(ex))
         {
-            _log?.Warning(LogArea, $"The ring runs folder could not be listed ({ex.GetType().Name}).");
+            _log?.Warning(LogArea, $"The ring runs folder could not be listed ({ex.GetType().Name}).", ex);
             throw new DeploymentServiceException("The ring runs folder could not be read. Check that it can be reached.", DeploymentFailureKind.Storage);
         }
         var runs = new List<RingRun>();
@@ -209,7 +209,7 @@ public sealed class RingRunStore
         }
         catch (Exception ex) when (RingPlanStore.IsStorageFailure(ex) && ex is not DeploymentServiceException)
         {
-            _log?.Warning(LogArea, $"A ring run file could not be read ({ex.GetType().Name}).");
+            _log?.Warning(LogArea, $"A ring run file could not be read ({ex.GetType().Name}).", ex);
             throw new DeploymentServiceException("the file could not be read.", DeploymentFailureKind.Storage);
         }
         JsonObject o;
@@ -412,7 +412,7 @@ public sealed class RingRunStore
         }
         catch (Exception ex) when (RingPlanStore.IsStorageFailure(ex))
         {
-            _log?.Warning(LogArea, $"A ring run lock could not be made ({ex.GetType().Name}).");
+            _log?.Warning(LogArea, $"A ring run lock could not be made ({ex.GetType().Name}).", ex);
             throw new DeploymentServiceException($"The lock file {path} could not be made, so the run was not changed. Check that the runs folder can be written.", DeploymentFailureKind.Storage);
         }
         try
@@ -496,7 +496,7 @@ public sealed class RingRunStore
         }
         catch (Exception ex) when (RingPlanStore.IsStorageFailure(ex))
         {
-            _log?.Warning(LogArea, $"A ring run file could not be written ({ex.GetType().Name}).");
+            _log?.Warning(LogArea, $"A ring run file could not be written ({ex.GetType().Name}).", ex);
             throw new DeploymentServiceException("The run file could not be written. Check that the ring runs folder can be written.", DeploymentFailureKind.Storage);
         }
         throw new DeploymentServiceException("No free run file name was found. Close or move old runs.", DeploymentFailureKind.Storage);
@@ -547,7 +547,7 @@ public sealed class RingRunStore
         }
         catch (Exception ex) when (RingPlanStore.IsStorageFailure(ex))
         {
-            _log?.Warning(LogArea, $"A ring run file could not be saved ({ex.GetType().Name}).");
+            _log?.Warning(LogArea, $"A ring run file could not be saved ({ex.GetType().Name}).", ex);
             throw new DeploymentServiceException("The run file could not be saved. Check that the ring runs folder can be written.", DeploymentFailureKind.Storage);
         }
         return ReadFile(path, closedFolder).Run;
@@ -583,7 +583,7 @@ public sealed class RingRunStore
         }
         catch (Exception ex) when (RingPlanStore.IsStorageFailure(ex))
         {
-            _log?.Warning(LogArea, $"A ring run could not be moved to the closed folder ({ex.GetType().Name}).");
+            _log?.Warning(LogArea, $"A ring run could not be moved to the closed folder ({ex.GetType().Name}).", ex);
             throw new DeploymentServiceException("The run is marked closed but could not be moved to the closed folder. Check that the ring runs folder can be written.", DeploymentFailureKind.Storage);
         }
         throw new DeploymentServiceException("No free name was found in the closed folder.", DeploymentFailureKind.Storage);

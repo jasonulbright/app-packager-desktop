@@ -234,7 +234,7 @@ public sealed partial class DeploymentRingsViewModel
         {
             if (mine != _expandGeneration || generation != Shared.Generation) return;
             ValidationMessage = DeploymentShared.PlainMessage(ex, ExpandFailed);
-            Services.Log.Warning(DeploymentShared.LogArea, $"Rings: the rings could not be expanded ({DeploymentShared.FailureName(ex)}).");
+            Services.Log.Warning(DeploymentShared.LogArea, $"Rings: the rings could not be expanded ({DeploymentShared.FailureName(ex)}).", ex);
         }
         finally
         {
@@ -365,7 +365,7 @@ public sealed partial class DeploymentRingsViewModel
         {
             if (mine != _validationGeneration || generation != Shared.Generation) return;
             ValidationMessage = DeploymentShared.PlainMessage(ex, ValidateFailed);
-            Services.Log.Warning(DeploymentShared.LogArea, $"Rings: the checks could not run ({DeploymentShared.FailureName(ex)}).");
+            Services.Log.Warning(DeploymentShared.LogArea, $"Rings: the checks could not run ({DeploymentShared.FailureName(ex)}).", ex);
         }
         finally
         {
@@ -442,7 +442,7 @@ public sealed partial class DeploymentRingsViewModel
             catch (OperationCanceledException) when (visit.IsCancellationRequested) { return null; }
             catch (Exception ex)
             {
-                Services.Log.Warning(DeploymentShared.LogArea, $"Rings: the state before a write could not be read ({DeploymentShared.FailureName(ex)}).");
+                Services.Log.Warning(DeploymentShared.LogArea, $"Rings: the state before a write could not be read ({DeploymentShared.FailureName(ex)}).", ex);
                 if (generation == Shared.Generation) Refuse(DeploymentShared.PlainMessage(ex, DeploymentShared.PrepareFailed));
                 return null;
             }
@@ -481,7 +481,7 @@ public sealed partial class DeploymentRingsViewModel
         try { await Services.RingWriter.Running; }
         catch (Exception ex)
         {
-            Services.Log.Warning(DeploymentShared.LogArea, $"Rings: a run that continued in the background failed ({DeploymentShared.FailureName(ex)}).");
+            Services.Log.Warning(DeploymentShared.LogArea, $"Rings: a run that continued in the background failed ({DeploymentShared.FailureName(ex)}).", ex);
         }
         finally
         {

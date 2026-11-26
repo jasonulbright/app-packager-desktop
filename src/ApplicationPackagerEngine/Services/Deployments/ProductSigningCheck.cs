@@ -75,7 +75,7 @@ public sealed class ProductSigningCheck(
         }
         catch (Exception ex) when (ex is not OutOfMemoryException)
         {
-            log?.Warning(DeploymentService.LogArea, $"The inventory could not be read ({ex.GetType().Name}).");
+            log?.Warning(DeploymentService.LogArea, $"The inventory could not be read ({ex.GetType().Name}).", ex);
             throw new DeploymentServiceException("The list of applications this product packaged could not be read, so the signing rule cannot be checked.");
         }
     }
@@ -175,7 +175,7 @@ public sealed class ProductSigningCheck(
         }
         catch (Exception ex) when (ex is not OutOfMemoryException)
         {
-            log?.Warning(DeploymentService.LogArea, $"A packaged application could not be linked to its ConfigMgr identity ({ex.GetType().Name}).");
+            log?.Warning(DeploymentService.LogArea, $"A packaged application could not be linked to its ConfigMgr identity ({ex.GetType().Name}).", ex);
         }
     }
 
@@ -193,7 +193,7 @@ public sealed class ProductSigningCheck(
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Text.Json.JsonException)
         {
-            log?.Warning(DeploymentService.LogArea, $"A stage manifest could not be read ({ex.GetType().Name}).");
+            log?.Warning(DeploymentService.LogArea, $"A stage manifest could not be read ({ex.GetType().Name}).", ex);
             return null;
         }
     }

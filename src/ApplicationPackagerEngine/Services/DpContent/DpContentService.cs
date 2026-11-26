@@ -113,7 +113,7 @@ public sealed partial class DpContentService : IDpContentService
         {
             _log?.Warning(LogArea, $"A DP content command failed in the ConfigMgr session: {ex.Failure}.");
             throw new DpContentServiceException(ex.Failure == ConfigMgrFailure.ScriptFailed
-                ? "The DP content data could not be read from ConfigMgr. The log has the kind of failure."
+                ? "The DP content data could not be read from ConfigMgr. The log has the details."
                 : ComplianceService.SessionProblem(ex.Failure).Replace(ComplianceService.AccessHint, AccessHint, StringComparison.Ordinal));
         }
     }
@@ -126,7 +126,7 @@ public sealed partial class DpContentService : IDpContentService
         }
         catch (Exception ex) when (ex is JsonException or InvalidOperationException or FormatException)
         {
-            _log?.Warning(LogArea, $"ConfigMgr returned DP content data that could not be read ({ex.GetType().Name}).");
+            _log?.Warning(LogArea, $"ConfigMgr returned DP content data that could not be read ({ex.GetType().Name}).", ex);
             throw new DpContentServiceException("ConfigMgr returned data that could not be read. The log has the details.");
         }
     }

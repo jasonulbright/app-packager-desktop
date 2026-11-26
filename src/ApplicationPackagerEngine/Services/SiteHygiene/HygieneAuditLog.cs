@@ -107,7 +107,7 @@ public sealed class HygieneAuditLog : IHygieneAuditLog
         }
         catch (Exception ex) when (ex is JsonException or NotSupportedException or InvalidOperationException)
         {
-            _log?.Warning(LogArea, $"An audit record could not be written ({ex.GetType().Name}).");
+            _log?.Warning(LogArea, $"An audit record could not be written ({ex.GetType().Name}).", ex);
             return new AuditWrite(false, "The audit record could not be built. Nothing was written.");
         }
         lock (_gate)
@@ -185,7 +185,7 @@ public sealed class HygieneAuditLog : IHygieneAuditLog
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            _log?.Warning(LogArea, $"The Site Hygiene audit log could not be read ({ex.GetType().Name}).");
+            _log?.Warning(LogArea, $"The Site Hygiene audit log could not be read ({ex.GetType().Name}).", ex);
             throw new HygieneServiceException($"The Site Hygiene audit log could not be read: {path}. Check that the folder can be reached.");
         }
         var records = new List<HygieneAuditRecord>();

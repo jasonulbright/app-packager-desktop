@@ -65,7 +65,7 @@ public sealed partial class SiteHygieneService
     {
         var keys = findings.SelectMany(f => HygieneFixRules.StateKeys(kind, f)).Where(k => k.Length > 0).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
         var read = await RunAsync(new ConfigMgrParameters { { "Operation", "State" }, { "Kind", kind.ToString() }, { "Keys", keys }, { "MaxObjects", MaxObjects } }, connection, ct).ConfigureAwait(false);
-        if (read.StateRead != true) throw new HygieneServiceException("ConfigMgr did not return the current state of the objects. Try again; the log has the kind of failure.");
+        if (read.StateRead != true) throw new HygieneServiceException("ConfigMgr did not return the current state of the objects. Try again; the log has the details.");
         return read;
     }
 
@@ -197,6 +197,7 @@ public sealed partial class SiteHygieneService
         {
             lines.Add("Each change removes only the supersedence rules of one application that point at the deleted application, and makes one new revision of the application.");
             lines.Add("Set-CMApplicationSupersedence -RemoveSupersedence is not used: it needs the superseded application and its deployment type, which a deleted application no longer has. The fix edits the application document with the serializer of the console. It refuses to write when the serializer is not the one of the console or when the edited document differs from the original in anything but those rules, and it reads the application again afterwards. It writes no file of the removed data.");
+            lines.Add("A retired application cannot be changed: the site keeps its old document and returns no error. For a retired application the fix reinstates it (Resume-CMApplication), edits it and retires it again (Suspend-CMApplication), also when the change fails. It does not run for a retired application that has a deployment: delete the deployment first (check APP-02).");
             lines.Add("With the check box on, the fix then deletes the older revisions of exactly the applications that it changed, so that check APP-05 does not report them. A revision that another object still uses stays, and the result says so.");
         }
         if (kind == HygieneFixKind.ClearRetiredRelation)

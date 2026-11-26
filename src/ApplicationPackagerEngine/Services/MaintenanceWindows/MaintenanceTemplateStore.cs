@@ -84,7 +84,7 @@ public sealed partial class MaintenanceTemplateStore : IMaintenanceTemplateStore
             }
             catch (Exception ex) when (IsStorageFailure(ex))
             {
-                _log?.Warning(LogArea, $"A template could not be saved ({ex.GetType().Name}).");
+                _log?.Warning(LogArea, $"A template could not be saved ({ex.GetType().Name}).", ex);
                 throw new MaintenanceWindowException("The template could not be saved. The log has the details.");
             }
         }
@@ -104,7 +104,7 @@ public sealed partial class MaintenanceTemplateStore : IMaintenanceTemplateStore
             }
             catch (Exception ex) when (IsStorageFailure(ex))
             {
-                _log?.Warning(LogArea, $"A template could not be deleted ({ex.GetType().Name}).");
+                _log?.Warning(LogArea, $"A template could not be deleted ({ex.GetType().Name}).", ex);
                 throw new MaintenanceWindowException("The template could not be deleted. The log has the details.");
             }
         }
@@ -148,7 +148,7 @@ public sealed partial class MaintenanceTemplateStore : IMaintenanceTemplateStore
         }
         catch (Exception ex) when (IsStorageFailure(ex))
         {
-            _log?.Warning(LogArea, $"The templates folder could not be read ({ex.GetType().Name}).");
+            _log?.Warning(LogArea, $"The templates folder could not be read ({ex.GetType().Name}).", ex);
             return result;
         }
 
@@ -169,7 +169,7 @@ public sealed partial class MaintenanceTemplateStore : IMaintenanceTemplateStore
             }
             catch (Exception ex) when (ex is JsonException or NotSupportedException || IsStorageFailure(ex))
             {
-                _log?.Warning(LogArea, $"A user template file could not be read and is skipped ({ex.GetType().Name}).");
+                _log?.Warning(LogArea, $"A user template file could not be read and is skipped ({ex.GetType().Name}).", ex);
             }
         }
         return result;

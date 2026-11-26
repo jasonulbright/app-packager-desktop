@@ -251,7 +251,7 @@ public sealed class LiveServiceTests
         Assert.True(content.Failed);
         Assert.Empty(content.Rows);
         Assert.All(content.Counts.Values.Values, v => Assert.Null(v));
-        Assert.Equal("The read of Content failed. The log has the kind of failure.", content.Message);
+        Assert.Equal("The read of Content failed. The log has the details.", content.Message);
         Assert.DoesNotContain("SECRET", content.Message);
         Assert.All(snapshot.Views.Where(v => v.Key != LiveView.Content), v => Assert.True(v.Value.Complete));
         var row = snapshot.ToMetricRow();
@@ -298,7 +298,7 @@ public sealed class LiveServiceTests
 
     [Theory]
     [InlineData(ConfigMgrFailure.Timeout, "ConfigMgr did not answer in time. Try again.")]
-    [InlineData(ConfigMgrFailure.ScriptFailed, "The read of Deployments failed. The log has the kind of failure.")]
+    [InlineData(ConfigMgrFailure.ScriptFailed, "The read of Deployments failed. The log has the details.")]
     [InlineData(ConfigMgrFailure.ModuleNotFound, "The ConfigurationManager PowerShell module was not found. Install the Configuration Manager console on this computer.")]
     public async Task ASessionFailureFailsEachProviderViewWithAPlainMessage(ConfigMgrFailure failure, string message)
     {
@@ -676,7 +676,7 @@ public sealed class LiveServiceTests
         var lines = text.Split("\r\n", StringSplitOptions.RemoveEmptyEntries);
         Assert.Equal("Site Hygiene Live summary, 2026-10-25 10:29:06", lines[0]);
         Assert.Equal("Deployments: 9 deployments, 0 with errors, compliance 58.3 %.", lines[1]);
-        Assert.Equal("Content: the read failed. The read of Content failed. The log has the kind of failure.", lines[2]);
+        Assert.Equal("Content: the read failed. The read of Content failed. The log has the details.", lines[2]);
         Assert.Equal("Distribution Points: 1 distribution point, 0 critical, 0 warning.", lines[3]);
         Assert.StartsWith("Client Health: not read. " + LiveText.SqlNotSetUp, lines[4]);
         Assert.StartsWith("Inactive Devices: not read.", lines[5]);

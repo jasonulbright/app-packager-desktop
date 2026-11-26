@@ -349,7 +349,7 @@ public sealed class SiteHygienePageRealServiceTests
         Assert.Equal(2, plan.Items.Count);
         Assert.Equal(["Done", "Failed"], vm.LastResults.Select(r => r.OutcomeText));
         Assert.Equal("Deleted. The site no longer lists the object.", vm.LastResults[0].Message);
-        Assert.Equal("ConfigMgr reported an error. The log has the kind of failure.", vm.LastResults[1].Message);
+        Assert.Equal("ConfigMgr reported an error. The log has the details.", vm.LastResults[1].Message);
         Assert.Equal(plan.Items.Select(i => i.Target), vm.LastResults.Select(r => r.Item.Target));
         Assert.Contains(vm.FindingRows, r => r.Key == row.Key);
         Assert.EndsWith(": 1 done, 1 failed.", vm.ResultSummary);

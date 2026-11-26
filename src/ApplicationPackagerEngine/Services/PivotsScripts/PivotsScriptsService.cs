@@ -151,7 +151,7 @@ public sealed partial class PivotsScriptsService : IPivotsScriptsService
     /// <summary>The plain message of a session failure. A script failure carries the site's own text, which is masked by the session.</summary>
     internal static string SessionMessage(ConfigMgrSessionException ex, string? rights) => ex.Failure switch
     {
-        ConfigMgrFailure.ScriptFailed => KnownRefusal(ex.Message) ?? "ConfigMgr refused the request. The log has the kind of failure." + (rights is null ? "" : " " + rights),
+        ConfigMgrFailure.ScriptFailed => KnownRefusal(ex.Message) ?? "ConfigMgr refused the request. The log has the details." + (rights is null ? "" : " " + rights),
         ConfigMgrFailure.AccessDenied => "ConfigMgr refused access. " + (rights ?? ScriptRights),
         _ => ComplianceService.SessionProblem(ex.Failure)
     };

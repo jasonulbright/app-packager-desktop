@@ -100,7 +100,7 @@ public sealed partial class DpContentManagerViewModel
         {
             if (generation != Generation || mine != _historyGeneration) return;
             StatusMessage = HistoryReadFailed;
-            Services.Log.Warning(LogArea, $"The audit log read failed ({ex.GetType().Name}).");
+            Services.Log.Warning(LogArea, $"The audit log read failed ({ex.GetType().Name}).", ex);
         }
         finally
         {

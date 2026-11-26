@@ -50,7 +50,7 @@ The CVE requests use https. No other process than the window or `AppPackagerBuil
 
 ## SQL views that Discover and Site Hygiene Live read
 
-- Discover: `v_GS_ADD_REMOVE_PROGRAMS`, `v_GS_ADD_REMOVE_PROGRAMS_64`, `v_R_System`, `v_Applications`, `v_ConfigurationItems`.
+- Discover: `v_GS_ADD_REMOVE_PROGRAMS`, `v_GS_ADD_REMOVE_PROGRAMS_64`, `v_Applications`, `v_ConfigurationItems`.
 - Site Hygiene Live: `v_CH_ClientSummary`, `v_R_System`.
 
 Discover sends no request to the internet.

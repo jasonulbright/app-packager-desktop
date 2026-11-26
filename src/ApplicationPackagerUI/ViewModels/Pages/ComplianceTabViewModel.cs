@@ -91,7 +91,7 @@ public abstract partial class ComplianceTabViewModel(ComplianceShared shared) : 
         {
             if (generation != Shared.Generation || mine != _loadGeneration) return;
             Shared.StatusMessage = ComplianceShared.PlainMessage(ex, ReadFailed);
-            Services.Log.Warning(ComplianceShared.LogArea, $"{GetType().Name.Replace("ViewModel", "", StringComparison.Ordinal)}: a read failed ({ComplianceShared.FailureName(ex)}).");
+            Services.Log.Warning(ComplianceShared.LogArea, $"{GetType().Name.Replace("ViewModel", "", StringComparison.Ordinal)}: a read failed ({ComplianceShared.FailureName(ex)}).", ex);
         }
         finally
         {

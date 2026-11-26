@@ -308,7 +308,7 @@ public partial class InstallerAnalysisViewModel : ObservableObject
         try { await Task.Run(() => _services.Sandbox.Release(session)); }
         catch (Exception ex)
         {
-            _services.Log.Warning(LogArea, $"The analysis session could not be removed ({ex.GetType().Name}).");
+            _services.Log.Warning(LogArea, $"The analysis session could not be removed ({ex.GetType().Name}).", ex);
         }
     }
 
@@ -518,7 +518,7 @@ public partial class InstallerAnalysisViewModel : ObservableObject
         if (report is null)
         {
             StatusMessage = PlainMessage(failure, FailedMessage);
-            _services.Log.Warning(LogArea, $"Analysis failed: {subject} error={failure?.GetType().Name}.");
+            _services.Log.Warning(LogArea, $"Analysis failed: {subject} error={failure?.GetType().Name}.", failure);
             return null;
         }
         _services.Log.Info(LogArea,
@@ -858,7 +858,7 @@ public partial class InstallerAnalysisViewModel : ObservableObject
         {
             frame.PayloadMessage = PlainMessage(ex, "The payload could not be listed. The log has the details.");
             frame.PayloadLeftOutReason = ex switch { SevenZipNotFoundException => SevenZipNotFoundReason, PayloadNotListedException => ex.Message.TrimEnd('.'), _ => null };
-            _services.Log.Warning(LogArea, $"The payload could not be listed ({ex.GetType().Name}).");
+            _services.Log.Warning(LogArea, $"The payload could not be listed ({ex.GetType().Name}).", ex);
         }
         finally
         {
@@ -898,7 +898,7 @@ public partial class InstallerAnalysisViewModel : ObservableObject
         catch (Exception ex)
         {
             frame.RegistryMessage = PlainMessage(ex, "The registry settings could not be read. The log has the details.");
-            _services.Log.Warning(LogArea, $"The registry settings could not be read ({ex.GetType().Name}).");
+            _services.Log.Warning(LogArea, $"The registry settings could not be read ({ex.GetType().Name}).", ex);
         }
         finally
         {
@@ -939,7 +939,7 @@ public partial class InstallerAnalysisViewModel : ObservableObject
         catch (Exception ex)
         {
             frame.StringsMessage = PlainMessage(ex, "The strings could not be read. The log has the details.");
-            _services.Log.Warning(LogArea, $"The strings could not be read ({ex.GetType().Name}).");
+            _services.Log.Warning(LogArea, $"The strings could not be read ({ex.GetType().Name}).", ex);
         }
         finally
         {
@@ -995,7 +995,7 @@ public partial class InstallerAnalysisViewModel : ObservableObject
                 try { InstallerAnalysisSessions.MarkOwner(session); }
                 catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
                 {
-                    _services.Log.Warning(LogArea, $"The analysis session owner could not be written ({ex.GetType().Name}).");
+                    _services.Log.Warning(LogArea, $"The analysis session owner could not be written ({ex.GetType().Name}).", ex);
                 }
                 return session;
             });
@@ -1004,7 +1004,7 @@ public partial class InstallerAnalysisViewModel : ObservableObject
         {
             if (!operation.Cancel.IsCancellationRequested && _frames.Contains(frame))
                 StatusMessage = "The temporary analysis folder could not be created. The log has the details.";
-            _services.Log.Warning(LogArea, $"The analysis session could not be created ({ex.GetType().Name}).");
+            _services.Log.Warning(LogArea, $"The analysis session could not be created ({ex.GetType().Name}).", ex);
             return null;
         }
         if (operation.Cancel.IsCancellationRequested || !_frames.Contains(frame))
@@ -1055,7 +1055,7 @@ public partial class InstallerAnalysisViewModel : ObservableObject
         if (extracted is null)
         {
             StatusMessage = PlainMessage(failure, ExtractFailedMessage);
-            _services.Log.Warning(LogArea, $"An entry could not be extracted ({failure?.GetType().Name}).");
+            _services.Log.Warning(LogArea, $"An entry could not be extracted ({failure?.GetType().Name}).", failure);
             return null;
         }
         frame.Extracted[entry.Path] = extracted;
@@ -1165,7 +1165,7 @@ public partial class InstallerAnalysisViewModel : ObservableObject
         else if (hash is null)
         {
             StatusMessage = PlainMessage(failure, "The SHA-256 could not be computed. The log has the details.");
-            _services.Log.Warning(LogArea, $"The SHA-256 could not be computed ({failure?.GetType().Name}).");
+            _services.Log.Warning(LogArea, $"The SHA-256 could not be computed ({failure?.GetType().Name}).", failure);
         }
         else
         {
@@ -1223,7 +1223,7 @@ public partial class InstallerAnalysisViewModel : ObservableObject
         else if (result is null)
         {
             StatusMessage = PlainMessage(failure, ExtractFailedMessage) + PartialText(partial);
-            _services.Log.Warning(LogArea, $"An inner installer could not be copied ({failure?.GetType().Name}).");
+            _services.Log.Warning(LogArea, $"An inner installer could not be copied ({failure?.GetType().Name}).", failure);
         }
         else if (result.Files == 0)
         {
@@ -1268,7 +1268,7 @@ public partial class InstallerAnalysisViewModel : ObservableObject
         else if (result is null)
         {
             StatusMessage = PlainMessage(failure, PayloadExtractFailedMessage) + PartialText(partial);
-            _services.Log.Warning(LogArea, $"The payload could not be extracted ({failure?.GetType().Name}).");
+            _services.Log.Warning(LogArea, $"The payload could not be extracted ({failure?.GetType().Name}).", failure);
         }
         else if (result.Files == 0)
         {
@@ -1401,7 +1401,7 @@ public partial class InstallerAnalysisViewModel : ObservableObject
         catch (Exception ex)
         {
             StatusMessage = "The summary could not be built. The log has the details.";
-            _services.Log.Warning(LogArea, $"The summary could not be built ({ex.GetType().Name}).");
+            _services.Log.Warning(LogArea, $"The summary could not be built ({ex.GetType().Name}).", ex);
             return;
         }
         Copy(text, "Copied the summary.");
@@ -1417,7 +1417,7 @@ public partial class InstallerAnalysisViewModel : ObservableObject
         catch (Exception ex)
         {
             StatusMessage = "The JSON could not be built. The log has the details.";
-            _services.Log.Warning(LogArea, $"The JSON could not be built ({ex.GetType().Name}).");
+            _services.Log.Warning(LogArea, $"The JSON could not be built ({ex.GetType().Name}).", ex);
             return;
         }
         Copy(text, "Copied the JSON digest.");
@@ -1476,7 +1476,7 @@ public partial class InstallerAnalysisViewModel : ObservableObject
         if (path is null)
         {
             StatusMessage = PlainMessage(failure, $"The {format} report could not be written. The log has the details.");
-            _services.Log.Warning(LogArea, $"The {format} report could not be written ({failure?.GetType().Name}).");
+            _services.Log.Warning(LogArea, $"The {format} report could not be written ({failure?.GetType().Name}).", failure);
             return;
         }
         LastReportFolder = Path.GetDirectoryName(path);
@@ -1512,7 +1512,7 @@ public partial class InstallerAnalysisViewModel : ObservableObject
         catch (Exception ex)
         {
             saved = null;
-            _services.Log.Warning(LogArea, $"The page choices could not be read ({ex.GetType().Name}).");
+            _services.Log.Warning(LogArea, $"The page choices could not be read ({ex.GetType().Name}).", ex);
         }
         if (saved is null)
         {
@@ -1578,7 +1578,7 @@ public partial class InstallerAnalysisViewModel : ObservableObject
             catch (Exception ex)
             {
                 _storedChoices = null;
-                _services.Log.Warning(LogArea, $"The page choices could not be saved ({ex.GetType().Name}).");
+                _services.Log.Warning(LogArea, $"The page choices could not be saved ({ex.GetType().Name}).", ex);
             }
         }
         finally { _saveLock.Release(); }

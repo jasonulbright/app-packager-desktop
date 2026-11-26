@@ -4,21 +4,24 @@ $ErrorActionPreference = 'Stop'
 # The site database views are outside ConfigMgr role-based administration. Output carries
 # distinct application names, versions and inventory views. It carries no ResourceID, no machine
 # name and no client count: discovery is application discovery, not asset tracking.
+# The query and the way it is read are those of the PowerShell app (AppPackagerDiscovery): one
+# SqlDataAdapter fills a DataSet, and the rows are read from the tables. A SqlDataReader that is
+# read row by row ended in "Invalid attempt to read when no data is present" at a production site (Q-134).
+$script:DiscoveryStep = 'start'
+$script:DiscoveryRowCount = -1
+$script:DiscoveryTable = -1
+$script:DiscoveryColumn = -1
 
 $DiscoveryInventoryQuery = @'
 SET NOCOUNT ON;
 
-SELECT DISTINCT arp.DisplayName0 AS DisplayName, arp.Version0 AS Version, @Arch32 AS Architecture
-FROM dbo.v_GS_ADD_REMOVE_PROGRAMS AS arp
-WHERE arp.DisplayName0 IS NOT NULL AND arp.DisplayName0 <> N''
-  AND arp.ResourceID IN (SELECT sys.ResourceID FROM dbo.v_R_System AS sys
-                         WHERE ISNULL(sys.Obsolete0, 0) = 0 AND ISNULL(sys.Decommissioned0, 0) = 0)
-UNION
-SELECT DISTINCT arp64.DisplayName0, arp64.Version0, @Arch64
-FROM dbo.v_GS_ADD_REMOVE_PROGRAMS_64 AS arp64
-WHERE arp64.DisplayName0 IS NOT NULL AND arp64.DisplayName0 <> N''
-  AND arp64.ResourceID IN (SELECT sys64.ResourceID FROM dbo.v_R_System AS sys64
-                           WHERE ISNULL(sys64.Obsolete0, 0) = 0 AND ISNULL(sys64.Decommissioned0, 0) = 0);
+SELECT DISTINCT DisplayName0 AS DisplayName, Version0 AS Version, @Arch32 AS Architecture
+FROM dbo.v_GS_ADD_REMOVE_PROGRAMS
+WHERE DisplayName0 IS NOT NULL AND DisplayName0 <> N''
+UNION ALL
+SELECT DISTINCT DisplayName0, Version0, @Arch64
+FROM dbo.v_GS_ADD_REMOVE_PROGRAMS_64
+WHERE DisplayName0 IS NOT NULL AND DisplayName0 <> N'';
 
 SELECT DISTINCT app.DisplayName
 FROM dbo.v_Applications AS app
@@ -47,36 +50,47 @@ function ConvertTo-DiscoveryJsonString {
 }
 
 function Get-DiscoveryCell {
-    param($Reader, [int]$Index)
-    if ($Reader.IsDBNull($Index)) { return $null }
-    return $Reader.GetValue($Index)
+    param($Row, [int]$Index)
+    $value = $Row[$Index]
+    if ($null -eq $value -or $value -is [System.DBNull]) { return $null }
+    return $value
 }
 
 function Write-DiscoveryInventory {
-    # Reads the two result sets of the inventory query and writes one JSON object per
-    # line. Nothing is written until every result set is read, so a failure mid-read
-    # leaves no partial rows.
-    param($Reader)
+    # Reads the two tables of the inventory DataSet and writes one JSON object per line.
+    # Nothing is written until every table is read, so a failure mid-read leaves no partial rows.
+    param([System.Data.DataSet]$DataSet)
+    if ($DataSet.Tables.Count -lt 2) {
+        throw (New-Object System.InvalidOperationException ('The inventory query returned ' + $DataSet.Tables.Count + ' result set(s) instead of two.'))
+    }
     $seen = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::Ordinal)
     $rows = New-Object System.Collections.Generic.List[string]
-    while ($Reader.Read()) {
-        $name = [string](Get-DiscoveryCell $Reader 0)
-        $version = [string](Get-DiscoveryCell $Reader 1)
-        $architecture = [string](Get-DiscoveryCell $Reader 2)
+    $script:DiscoveryRowCount = 0
+    $script:DiscoveryTable = 0
+    foreach ($row in $DataSet.Tables[0].Rows) {
+        $script:DiscoveryRowCount++
+        $script:DiscoveryColumn = 0
+        $name = [string](Get-DiscoveryCell $row 0)
+        $script:DiscoveryColumn = 1
+        $version = [string](Get-DiscoveryCell $row 1)
+        $script:DiscoveryColumn = 2
+        $architecture = [string](Get-DiscoveryCell $row 2)
         $key = $name + [char]0 + $version + [char]0 + $architecture
         if (-not $seen.Add($key)) { continue }
         $rows.Add('{"t":"row","n":' + (ConvertTo-DiscoveryJsonString $name) + ',"v":' + (ConvertTo-DiscoveryJsonString $version) +
                   ',"a":' + (ConvertTo-DiscoveryJsonString $architecture) + '}')
     }
 
+    $script:DiscoveryStep = 'read the application names'
     $applications = New-Object System.Collections.Generic.List[string]
-    if ($Reader.NextResult()) {
-        while ($Reader.Read()) {
-            $title = Get-DiscoveryCell $Reader 0
-            if ($null -ne $title -and ([string]$title).Trim()) { $applications.Add([string]$title) }
-        }
+    $script:DiscoveryTable = 1
+    $script:DiscoveryRowCount = 0
+    foreach ($row in $DataSet.Tables[1].Rows) {
+        $script:DiscoveryRowCount++
+        $script:DiscoveryColumn = 0
+        $title = Get-DiscoveryCell $row 0
+        if ($null -ne $title -and ([string]$title).Trim()) { $applications.Add([string]$title) }
     }
-    else { throw (New-Object System.InvalidOperationException 'The inventory query returned fewer than two result sets.') }
 
     $out = [Console]::Out
     foreach ($row in $rows) { $out.WriteLine($row) }
@@ -86,31 +100,32 @@ function Write-DiscoveryInventory {
 
 function ConvertTo-DiscoveryDetail {
     # One line, ASCII only, at most 300 characters: the text of an exception for the status line and the log.
-    param([AllowNull()][string]$Text)
+    param([AllowNull()][string]$Text, [int]$Limit = 300)
     if ($null -eq $Text) { return '' }
     $clean = ($Text -replace '[
 	]+', ' ') -replace '[^ -~]', '?'
     $clean = $clean.Trim()
-    if ($clean.Length -gt 300) { $clean = $clean.Substring(0, 300) }
+    if ($clean.Length -gt $Limit) { $clean = $clean.Substring(0, $Limit) }
     return $clean
 }
 
 function Write-DiscoveryError {
     # The error numbers, two message flags, the exception type names and the text of the innermost exception leave the process.
     # The text names the cause (for example the certificate chain of the SQL Server is not trusted); it never holds inventory.
-    param([System.Exception]$Exception)
+    param([System.Exception]$Exception, [string]$Step = '', [int]$RowCount = -1, [int]$Table = -1, [int]$Column = -1)
     $numbers = New-Object System.Collections.Generic.List[int]
     $types = New-Object System.Collections.Generic.List[string]
     $sspi = $false
     $anonymous = $false
     $detail = ''
+    $chain = New-Object System.Collections.Generic.List[string]
     $current = $Exception
     while ($null -ne $current) {
         $text = [string]$current.Message
         if ($text -match 'SSPI') { $sspi = $true }
         if ($text -match 'ANONYMOUS LOGON') { $anonymous = $true }
         $types.Add($current.GetType().Name)
-        if ($text.Trim()) { $detail = $text }
+        if ($text.Trim()) { $detail = $text; $chain.Add($current.GetType().Name + ': ' + $text) }
         if ($current -is [System.Data.SqlClient.SqlException]) {
             foreach ($e in $current.Errors) { $numbers.Add([int]$e.Number) }
             if ($numbers.Count -eq 0) { $numbers.Add([int]$current.Number) }
@@ -120,15 +135,18 @@ function Write-DiscoveryError {
     $flag = { param($b) if ($b) { 'true' } else { 'false' } }
     $typeJson = ($types | ForEach-Object { ConvertTo-DiscoveryJsonString $_ }) -join ','
     [Console]::Out.WriteLine('{"t":"error","stage":"sql","numbers":[' + ($numbers -join ',') + '],"sspi":' + (& $flag $sspi) + ',"anonymous":' + (& $flag $anonymous) +
-        ',"types":[' + $typeJson + '],"detail":' + (ConvertTo-DiscoveryJsonString (ConvertTo-DiscoveryDetail $detail)) + '}')
+        ',"types":[' + $typeJson + '],"detail":' + (ConvertTo-DiscoveryJsonString (ConvertTo-DiscoveryDetail $detail)) +
+        ',"step":' + (ConvertTo-DiscoveryJsonString $Step) + ',"rows":' + $RowCount +
+        ',"table":' + $Table + ',"column":' + $Column + ',"chain":' + (ConvertTo-DiscoveryJsonString (ConvertTo-DiscoveryDetail ($chain -join ' | ') 900)) + '}')
 }
 
 function Invoke-DiscoveryInventory {
     param([string]$Server, [string]$Database, [int]$ConnectTimeout, [int]$CommandTimeout, [bool]$Encrypt = $false, [bool]$Trust = $false, [bool]$TestOnly = $false)
     $connection = $null
     $command = $null
-    $reader = $null
+    $adapter = $null
     try {
+        $script:DiscoveryStep = 'build the connection'
         # The builder is an IDictionary: PowerShell resolves $builder.DataSource as a
         # dictionary key, which the builder rejects. Keywords go through the indexer.
         $builder = New-Object System.Data.SqlClient.SqlConnectionStringBuilder
@@ -142,13 +160,16 @@ function Invoke-DiscoveryInventory {
         if ($Encrypt) { $builder['Encrypt'] = $true }
         if ($Trust) { $builder['TrustServerCertificate'] = $true }
         $connection = New-Object System.Data.SqlClient.SqlConnection $builder.ConnectionString
+        $script:DiscoveryStep = 'open the connection'
         $connection.Open()
+        $script:DiscoveryStep = 'prepare the command'
         $command = $connection.CreateCommand()
-        $command.CommandText = if ($TestOnly) { 'SELECT TOP (1) ResourceID FROM dbo.v_R_System' } else { $DiscoveryInventoryQuery }
+        $command.CommandText = if ($TestOnly) { 'SELECT TOP (1) DisplayName0 FROM dbo.v_GS_ADD_REMOVE_PROGRAMS' } else { $DiscoveryInventoryQuery }
         $command.CommandType = [System.Data.CommandType]::Text
         $command.CommandTimeout = [Math]::Max(1, $CommandTimeout)
         if ($TestOnly) {
             $command.CommandTimeout = [Math]::Max(1, [Math]::Min($CommandTimeout, 60))
+            $script:DiscoveryStep = 'test the connection'
             [void]$command.ExecuteScalar()
             [Console]::Out.WriteLine('{"t":"summary"}')
         }
@@ -159,15 +180,19 @@ function Invoke-DiscoveryInventory {
             $arch64.Value = 'x64'
             $objectType = $command.Parameters.Add('@AppObjectType', [System.Data.SqlDbType]::Int)
             $objectType.Value = 31
-            $reader = $command.ExecuteReader()
-            Write-DiscoveryInventory -Reader $reader
+            $script:DiscoveryStep = 'run the query'
+            $adapter = New-Object System.Data.SqlClient.SqlDataAdapter $command
+            $dataSet = New-Object System.Data.DataSet
+            [void]$adapter.Fill($dataSet)
+            $script:DiscoveryStep = 'read the inventory rows'
+            Write-DiscoveryInventory -DataSet $dataSet
         }
     }
     catch {
-        Write-DiscoveryError -Exception $_.Exception
+        Write-DiscoveryError -Exception $_.Exception -Step $script:DiscoveryStep -RowCount $script:DiscoveryRowCount -Table $script:DiscoveryTable -Column $script:DiscoveryColumn
     }
     finally {
-        if ($null -ne $reader) { $reader.Dispose() }
+        if ($null -ne $adapter) { $adapter.Dispose() }
         if ($null -ne $command) { $command.Dispose() }
         if ($null -ne $connection) { $connection.Dispose() }
     }

@@ -427,7 +427,7 @@ public sealed partial class DeploymentFormViewModel : DeploymentTabViewModel
         {
             if (mine != _objectGeneration || generation != Shared.Generation) return;
             Shared.StatusMessage = DeploymentShared.PlainMessage(ex, ReadFailedText);
-            Services.Log.Warning(DeploymentShared.LogArea, $"The objects could not be read ({DeploymentShared.FailureName(ex)}).");
+            Services.Log.Warning(DeploymentShared.LogArea, $"The objects could not be read ({DeploymentShared.FailureName(ex)}).", ex);
         }
         finally
         {
@@ -519,7 +519,7 @@ public sealed partial class DeploymentFormViewModel : DeploymentTabViewModel
         {
             if (mine != _detailGeneration || generation != Shared.Generation) return;
             SetDpMessage(DeploymentShared.PlainMessage(ex, DetailsFailed), action: false);
-            Services.Log.Warning(DeploymentShared.LogArea, $"The DP groups or programs could not be read ({DeploymentShared.FailureName(ex)}).");
+            Services.Log.Warning(DeploymentShared.LogArea, $"The DP groups or programs could not be read ({DeploymentShared.FailureName(ex)}).", ex);
         }
         finally
         {
@@ -757,7 +757,7 @@ public sealed partial class DeploymentFormViewModel : DeploymentTabViewModel
         {
             if (mine != _validationGeneration || generation != Shared.Generation) return;
             ValidationMessage = DeploymentShared.PlainMessage(ex, ValidateFailed);
-            Services.Log.Warning(DeploymentShared.LogArea, $"The checks could not run ({DeploymentShared.FailureName(ex)}).");
+            Services.Log.Warning(DeploymentShared.LogArea, $"The checks could not run ({DeploymentShared.FailureName(ex)}).", ex);
         }
         finally
         {
@@ -899,7 +899,7 @@ public sealed partial class DeploymentFormViewModel : DeploymentTabViewModel
         catch (Exception ex)
         {
             prompt.ShowMessage(ex is DeploymentServiceException d ? d.Message : TemplateSaveFailed);
-            Services.Log.Warning(DeploymentShared.LogArea, $"A template could not be saved ({ex.GetType().Name}).");
+            Services.Log.Warning(DeploymentShared.LogArea, $"A template could not be saved ({ex.GetType().Name}).", ex);
             return false;
         }
         _templateId = template.Id;

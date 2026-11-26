@@ -42,4 +42,13 @@ public static class AppLogExtensions
     public static void Info(this IAppLog log, string area, string message) => log.Write(AppLogLevel.Info, area, message);
     public static void Warning(this IAppLog log, string area, string message) => log.Write(AppLogLevel.Warning, area, message);
     public static void Error(this IAppLog log, string area, string message) => log.Write(AppLogLevel.Error, area, message);
+
+    /// <summary>A warning with the full detail of the exception: every exception of the chain with its type and message, and the first stack frames.</summary>
+    public static void Warning(this IAppLog log, string area, string message, Exception? ex) => log.Write(AppLogLevel.Warning, area, message + " " + ExceptionText.Describe(ex));
+
+    /// <summary>An error with the full detail of the exception.</summary>
+    public static void Error(this IAppLog log, string area, string message, Exception? ex) => log.Write(AppLogLevel.Error, area, message + " " + ExceptionText.Describe(ex));
+
+    /// <summary>A line of information with the full detail of the exception.</summary>
+    public static void Info(this IAppLog log, string area, string message, Exception? ex) => log.Write(AppLogLevel.Info, area, message + " " + ExceptionText.Describe(ex));
 }

@@ -145,12 +145,12 @@ public sealed partial class SiteHygieneService : ISiteHygieneService
             }
             catch (ConfigMgrSessionException ex) when (ex.Failure is ConfigMgrFailure.ScriptFailed or ConfigMgrFailure.Timeout or ConfigMgrFailure.ProcessDied or ConfigMgrFailure.Unexpected)
             {
-                _log?.Warning(LogArea, $"The read of {set} failed in the ConfigMgr session: {ex.Failure}.");
+                _log?.Warning(LogArea, $"The read of {set} failed in the ConfigMgr session ({ex.Failure}).", ex);
                 data.Tables[set] = new HygieneTable(set, []) { State = HygieneSetStates.Failed, Failure = ex.Failure.ToString() };
             }
             catch (ConfigMgrSessionException ex)
             {
-                _log?.Warning(LogArea, $"The scan stopped: the ConfigMgr session failed ({ex.Failure}).");
+                _log?.Warning(LogArea, $"The scan stopped: the ConfigMgr session failed ({ex.Failure}).", ex);
                 throw new HygieneServiceException(ComplianceService.SessionProblem(ex.Failure).Replace(ComplianceService.AccessHint, AccessHint, StringComparison.Ordinal));
             }
             if (!data.Tables.ContainsKey(set)) data.Tables[set] = new HygieneTable(set, []) { State = HygieneSetStates.Failed, Failure = "no-status" };
@@ -333,11 +333,13 @@ public sealed partial class SiteHygieneService : ISiteHygieneService
     {
         try
         {
-            return HygieneSiteRead.Parse(output.Output);
+            var read = HygieneSiteRead.Parse(output.Output);
+            LogFailedReads(read);
+            return read;
         }
         catch (Exception ex) when (ex is JsonException or InvalidOperationException or FormatException)
         {
-            _log?.Warning(LogArea, $"ConfigMgr returned Site Hygiene data that could not be read ({ex.GetType().Name}): {ex.Message}");
+            _log?.Warning(LogArea, $"ConfigMgr returned Site Hygiene data that could not be read ({ex.GetType().Name}): {ex.Message}", ex);
             throw new HygieneServiceException("ConfigMgr returned data that could not be read. The log has the details.");
         }
     }
@@ -357,11 +359,23 @@ public sealed partial class SiteHygieneService : ISiteHygieneService
         }
         catch (ConfigMgrSessionException ex)
         {
-            _log?.Warning(LogArea, $"A Site Hygiene command failed in the ConfigMgr session: {ex.Failure}.");
+            _log?.Warning(LogArea, $"A Site Hygiene command failed in the ConfigMgr session ({ex.Failure}).", ex);
             throw new HygieneServiceException(ex.Failure == ConfigMgrFailure.ScriptFailed
-                ? "The Site Hygiene data could not be read from ConfigMgr. The log has the kind of failure."
+                ? "The Site Hygiene data could not be read from ConfigMgr. The log has the details."
                 : ComplianceService.SessionProblem(ex.Failure).Replace(ComplianceService.AccessHint, AccessHint, StringComparison.Ordinal));
         }
+    }
+
+    /// <summary>
+    /// A set or a state read that the script could not finish: the log gets the kind of failure and the script's own account (the step, every
+    /// exception with its type and message, the error id), so a message that says "the log has the details" is true.
+    /// </summary>
+    private void LogFailedReads(HygieneSiteRead read)
+    {
+        foreach (var table in read.Tables.Values.Where(t => t.State == HygieneSetStates.Failed))
+            _log?.Warning(LogArea, $"The read of {table.Name} failed in the ConfigMgr call (kind {(table.Failure.Length > 0 ? table.Failure : "none")}). {(table.Detail.Length > 0 ? table.Detail : "The script gave no further detail.")}");
+        if (read.StateRead == false)
+            _log?.Warning(LogArea, $"The state read of a fix failed in the ConfigMgr call (kind {(read.StateFailure.Length > 0 ? read.StateFailure : "none")}). {(read.StateDetail.Length > 0 ? read.StateDetail : "The script gave no further detail.")}");
     }
 
     /// <summary>The local time of the clock the service runs on.</summary>

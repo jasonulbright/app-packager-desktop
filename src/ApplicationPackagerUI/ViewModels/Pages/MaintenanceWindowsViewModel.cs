@@ -310,7 +310,7 @@ public sealed partial class MaintenanceWindowsViewModel : ObservableObject
         catch (Exception ex)
         {
             saved = null;
-            _services.Log.Warning(LogArea, $"The page choices could not be read ({ex.GetType().Name}).");
+            _services.Log.Warning(LogArea, $"The page choices could not be read ({ex.GetType().Name}).", ex);
         }
         if (saved is null) return;
         _applyingPreferences = true;
@@ -373,7 +373,7 @@ public sealed partial class MaintenanceWindowsViewModel : ObservableObject
             catch (Exception ex)
             {
                 _storedChoices = null;
-                _services.Log.Warning(LogArea, $"The page choices could not be saved ({ex.GetType().Name}).");
+                _services.Log.Warning(LogArea, $"The page choices could not be saved ({ex.GetType().Name}).", ex);
             }
         }
         finally { _saveLock.Release(); }
@@ -437,7 +437,7 @@ public sealed partial class MaintenanceWindowsViewModel : ObservableObject
         catch (Exception ex)
         {
             connection = PlainMessage(ex, LoadFailed);
-            if (generation == _generation) _services.Log.Warning(LogArea, $"The maintenance windows could not be read ({FailureName(ex)}).");
+            if (generation == _generation) _services.Log.Warning(LogArea, $"The maintenance windows could not be read ({FailureName(ex)}).", ex);
         }
         finally
         {
@@ -639,7 +639,7 @@ public sealed partial class MaintenanceWindowsViewModel : ObservableObject
         catch (Exception ex)
         {
             StatusMessage = "The templates could not be read. The log has the details.";
-            _services.Log.Warning(LogArea, $"The templates could not be read ({ex.GetType().Name}).");
+            _services.Log.Warning(LogArea, $"The templates could not be read ({ex.GetType().Name}).", ex);
         }
     }
 
@@ -720,7 +720,7 @@ public sealed partial class MaintenanceWindowsViewModel : ObservableObject
                         prepared.Add(ready!);
                         continue;
                     }
-                    _services.Log.Warning(LogArea, $"The state before a write could not be read ({FailureName(failure)}).");
+                    _services.Log.Warning(LogArea, $"The state before a write could not be read ({FailureName(failure)}).", failure);
                     var reason = PlainMessage(failure, PrepareFailed);
                     skips.Add(MaintenancePlanEntry.Skip(new ChangePlanItem("Skip", MaintenanceWindowsText.Target(request.CollectionName, request.WindowName), reason), reason));
                 }
@@ -776,7 +776,7 @@ public sealed partial class MaintenanceWindowsViewModel : ObservableObject
         try { await _services.Writer.Running; }
         catch (Exception ex)
         {
-            _services.Log.Warning(LogArea, $"A run that continued in the background failed ({FailureName(ex)}).");
+            _services.Log.Warning(LogArea, $"A run that continued in the background failed ({FailureName(ex)}).", ex);
         }
         finally
         {
@@ -1187,7 +1187,7 @@ public sealed partial class MaintenanceWindowsViewModel : ObservableObject
         {
             var message = ex is MaintenanceWindowException m ? SecretMask.Apply(m.Message) : TemplateSaveFailed;
             editor.ShowMessage(message);
-            _services.Log.Warning(LogArea, $"A template could not be saved ({ex.GetType().Name}).");
+            _services.Log.Warning(LogArea, $"A template could not be saved ({ex.GetType().Name}).", ex);
             return false;
         }
         _services.Log.Info(LogArea, "Saved a user template.");
@@ -1209,7 +1209,7 @@ public sealed partial class MaintenanceWindowsViewModel : ObservableObject
         catch (Exception ex)
         {
             StatusMessage = ex is MaintenanceWindowException m ? SecretMask.Apply(m.Message) : TemplateDeleteFailed;
-            _services.Log.Warning(LogArea, $"A template could not be deleted ({ex.GetType().Name}).");
+            _services.Log.Warning(LogArea, $"A template could not be deleted ({ex.GetType().Name}).", ex);
             return;
         }
         _services.Log.Info(LogArea, "Deleted a user template.");
@@ -1239,7 +1239,7 @@ public sealed partial class MaintenanceWindowsViewModel : ObservableObject
         catch (Exception ex)
         {
             StatusMessage = ex is MaintenanceWindowException m ? SecretMask.Apply(m.Message) : ReportFailed(format);
-            _services.Log.Warning(LogArea, $"The {format} report could not be written ({ex.GetType().Name}).");
+            _services.Log.Warning(LogArea, $"The {format} report could not be written ({ex.GetType().Name}).", ex);
             return;
         }
         StatusMessage = $"Saved the {format} report to {path}.";
