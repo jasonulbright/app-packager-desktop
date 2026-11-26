@@ -121,7 +121,7 @@ namespace ApdLab
             return handle;
         }
 
-        public static JobProcess Start(string commandLine, string standardOutput, string standardError)
+        public static JobProcess Start(string commandLine, string standardOutput, string standardError, string directory)
         {
             IntPtr job = CreateJobObject(IntPtr.Zero, null); // no name: the job belongs to this process alone
             if (job == IntPtr.Zero) throw new Win32Exception(Marshal.GetLastWin32Error());
@@ -141,7 +141,7 @@ namespace ApdLab
                 startup.hStdOutput = output;
                 startup.hStdError = error;
                 // CREATE_SUSPENDED | CREATE_NO_WINDOW: the child gets a console of its own, so no console event is shared with the caller.
-                if (!CreateProcess(null, new StringBuilder(commandLine), IntPtr.Zero, IntPtr.Zero, true, 0x4 | 0x08000000, IntPtr.Zero, null, ref startup, out information))
+                if (!CreateProcess(null, new StringBuilder(commandLine), IntPtr.Zero, IntPtr.Zero, true, 0x4 | 0x08000000, IntPtr.Zero, directory, ref startup, out information))
                     throw new Win32Exception(Marshal.GetLastWin32Error());
                 if (!AssignProcessToJobObject(job, information.hProcess)) throw new Win32Exception(Marshal.GetLastWin32Error());
                 var process = System.Diagnostics.Process.GetProcessById(information.dwProcessId);
@@ -186,7 +186,8 @@ function Start-JobProcess {
     $commandLine = (@("`"$FilePath`"") + $ArgumentList) -join ' '
     $out = if ($StandardOutput) { $StandardOutput } else { [NullString]::Value }
     $err = if ($StandardError) { $StandardError } else { [NullString]::Value }
-    [ApdLab.JobProcess]::Start($commandLine, $out, $err)
+    # The child starts in the current folder of PowerShell; the folder of the process itself does not follow Set-Location.
+    [ApdLab.JobProcess]::Start($commandLine, $out, $err, (Get-Location).ProviderPath)
 }
 
 # Stops every member of the job that still runs, then closes the job. Safe to call again, and for a process that has ended.

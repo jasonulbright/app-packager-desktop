@@ -22,6 +22,9 @@ param(
 )
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'ProcessJob.ps1')
+# Full paths, so that the listing and each group read the same build whatever the current folder is.
+$Root = (Resolve-Path -LiteralPath $Root).ProviderPath
+if (Test-Path -LiteralPath $DotNet) { $DotNet = (Resolve-Path -LiteralPath $DotNet).ProviderPath }
 $env:DOTNET_ROOT = Split-Path $DotNet
 $env:DOTNET_NOLOGO = '1'
 $env:DOTNET_CLI_TELEMETRY_OPTOUT = '1'
@@ -84,6 +87,7 @@ while ($queue.Count -gt 0) {
     # Closing the job also ends a helper that a test left running, and an error or Ctrl+C leaves no test process behind.
     finally { Stop-JobProcess $run }
     $counters = $null
+    $ran = $false
     if (-not $stopped -and (Test-Path -LiteralPath $trx)) {
         [xml]$x = Get-Content -LiteralPath $trx -Raw
         $counters = $x.TestRun.ResultSummary.Counters
@@ -91,6 +95,7 @@ while ($queue.Count -gt 0) {
         $aborted = @(Select-String -LiteralPath $log, "$log.err" -Pattern 'Test Run Aborted|test run was aborted|host process crashed|inactivity time of').Count -gt 0
         $seen = New-Object System.Collections.Generic.HashSet[string]
         foreach ($r in @($x.TestRun.Results.UnitTestResult)) { $null = $seen.Add((([string]$r.testName) -split '\(')[0]) }
+        $ran = $seen.Count -gt 0
         $missing = @($slice | ForEach-Object { $methodsByClass[$_] } | Where-Object { -not $seen.Contains($_) })
         if ($aborted -or $missing.Count -gt 0) {
             "slice $n is not complete (aborted: $aborted, tests without a result: $($missing.Count)$(if ($missing.Count) { ', first ' + $missing[0] }))"
@@ -99,7 +104,8 @@ while ($queue.Count -gt 0) {
             $counters = $null
         }
     }
-    if ($counters) { $emptyInARow = 0 } else { $emptyInARow++ }
+    # Only groups in which no test ran count toward the stop; an incomplete group with results is progress.
+    if ($counters -or $ran) { $emptyInARow = 0 } else { $emptyInARow++ }
     if ($emptyInARow -ge 8) { throw "Eight groups in a row gave no result. The last log: $((Get-Content -LiteralPath $log -Tail 8) -join ' | ') $((Get-Content -LiteralPath "$log.err" -Tail 4) -join ' | ')" }
     if (-not $counters) {
         if ($slice.Count -gt 1) {
