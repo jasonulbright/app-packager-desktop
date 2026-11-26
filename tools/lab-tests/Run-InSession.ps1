@@ -109,6 +109,8 @@ try {
 catch { Set-Content "$Dir\failure" ($_ | Out-String) }
 finally { Set-Content "$Dir\done" 'done' }
 '@
+    # From here the run folder can hold the only copy of the results. It stays until the output and the results are on this computer.
+    $keepRunFolder = $true
     Invoke-Command $session {
         param($d, $commandText, $wrapText, $user, $task, $sessionId, $minutes, $quiet)
         Expand-Archive -LiteralPath "$d\app.zip" -DestinationPath "$d\app" -Force
@@ -150,6 +152,7 @@ finally { Set-Content "$Dir\done" 'done' }
     if ($result.Err.Trim()) { $text += "`r`nSTDERR:`r`n$($result.Err)" }
     if ($failure) { $text += "`r`nFAIL: $failure" }
     Set-Content -LiteralPath $OutFile -Value $text -Encoding UTF8
+    $copied = $true
     if ($ResultFolder) {
         $null = New-Item -ItemType Directory -Force $ResultFolder
         try {
@@ -158,11 +161,15 @@ finally { Set-Content "$Dir\done" 'done' }
             }
         }
         catch {
-            # The only copy of the results stays on the lab computer.
-            $keepRunFolder = $true
-            $failure = "The results were not copied back; they stay in $dest\out. $($_.Exception.Message)"
+            $copied = $false
+            $note = "The results were not copied back. $($_.Exception.Message)"
+            $failure = if ($failure) { "$failure`r`n$note" } else { $note }
+            Add-Content -LiteralPath $OutFile -Value "FAIL: $note" -Encoding UTF8
         }
     }
+    # Without a result folder, results in the out folder of the run have no copy here, so the folder stays.
+    elseif (Invoke-Command $session { param($d) [bool](Get-ChildItem -LiteralPath "$d\out" -Force | Select-Object -First 1) } -ArgumentList $dest) { $copied = $false }
+    if ($copied) { $keepRunFolder = $false }
 }
 finally {
     Remove-Item -LiteralPath $zip -Force -ErrorAction SilentlyContinue
@@ -189,5 +196,6 @@ finally {
         }
     }
     Remove-PSSession $session -ErrorAction SilentlyContinue
+    if ($keepRunFolder) { Write-Warning "The run folder stays on ${Target}: $dest. Remove it when its results are not needed." }
 }
 if ($failure) { Write-Warning $failure; exit 1 }
