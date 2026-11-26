@@ -33,6 +33,8 @@ param(
     [string]$OneClickApp = 'WinSCP',
     [string]$Collection = 'Zone 13',
     [string[]]$Only = @(),
+    # For a client without the WSUS administration console: the grid step publishes to ConfigMgr only.
+    [switch]$GridWithoutWsus,
     [ValidateSet('Light', 'Dark')][string]$Theme = 'Light',
     [string]$FileShareRoot = '\\cm01.contoso.com\ContentShare$',
     [string]$WsusServer = 'cm01.contoso.com',
@@ -583,7 +585,8 @@ function Invoke-StageFromGrid([string]$Data, [string]$FullName) {
 
 $steps['grid-publish'] = {
     $data = New-StepData 'grid-publish'
-    Start-StepApp $data (New-Settings $data $true)
+    Start-StepApp $data (New-Settings $data (-not $GridWithoutWsus))
+    $systems = if ($GridWithoutWsus) { @('ConfigMgr') } else { @('ConfigMgr', 'WSUS') }
     Say "  scope: $(Get-Text 'txtPublishScope')"
     $full = Select-OnlyApplication $GridApp
     Invoke-StageFromGrid $data $full
@@ -594,11 +597,11 @@ $steps['grid-publish'] = {
     Require 'Publish All is enabled' ($publish -and $publish.Current.IsEnabled) "help: $($publish.Current.HelpText)"
     $mark = Get-LogMark $data
     try {
-        $ok = Invoke-GuardedPublish { Click-Id 'btnPublishAll' } $full @('ConfigMgr', 'WSUS')
+        $ok = Invoke-GuardedPublish { Click-Id 'btnPublishAll' } $full $systems
     }
     finally { $record = Write-Record $data $mark $full $script:ReviewVersion }
     Check 'the log says that this run created the ConfigMgr application' $record.Created "title '$($record.Title)', content '$($record.ContentPath)'"
-    Check 'the log says that this run published the WSUS update' ($record.Wsus -match '\(published\)') "wsus '$($record.Wsus)'"
+    if (-not $GridWithoutWsus) { Check 'the log says that this run published the WSUS update' ($record.Wsus -match '\(published\)') "wsus '$($record.Wsus)'" }
     Snap 'grid-after'
 }
 
