@@ -483,7 +483,7 @@ public sealed class ConfigMgrSessionHostTests
         await using var _ = host;
         var failure = await Assert.ThrowsAsync<ConfigMgrSessionException>(() => host.InvokeAsync(Script));
         Assert.Equal(ConfigMgrFailure.InvalidSiteCode, failure.Failure);
-        Assert.Contains("Settings, ConfigMgr", failure.Message);
+        Assert.Contains("Settings, ConfigMgr.", failure.Message);
         Assert.Empty(factory.Started);
     }
 
