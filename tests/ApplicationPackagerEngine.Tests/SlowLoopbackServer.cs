@@ -19,8 +19,12 @@ internal sealed class SlowLoopbackServer : IDisposable
 
     public string Url { get; }
 
-    public SlowLoopbackServer(string? completeBody = null, bool truncateResponse = false)
+    private readonly bool _stall;
+
+    /// <param name="stall">Send the headers and one block, then nothing, with the connection open.</param>
+    public SlowLoopbackServer(string? completeBody = null, bool truncateResponse = false, bool stall = false)
     {
+        _stall = stall;
         _listener = new TcpListener(IPAddress.Loopback, 0);
         _listener.Start();
         var port = ((IPEndPoint)_listener.LocalEndpoint).Port;
@@ -68,6 +72,7 @@ internal sealed class SlowLoopbackServer : IDisposable
                 await stream.WriteAsync(block, _stop.Token);
                 await stream.FlushAsync(_stop.Token);
                 _sending.TrySetResult();
+                if (_stall) await Task.Delay(Timeout.Infinite, _stop.Token);
                 await Task.Delay(35, _stop.Token);
             }
         }

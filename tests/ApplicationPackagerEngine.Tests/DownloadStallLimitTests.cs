@@ -1,0 +1,31 @@
+using System.Diagnostics;
+using ApplicationPackagerEngine.Services;
+
+namespace ApplicationPackagerEngine.Tests;
+
+/// <summary>A server that stops sending must not hold a download: curl ends a transfer with no data after the stall limit.</summary>
+public sealed class DownloadStallLimitTests : IDisposable
+{
+    private readonly string _dir = Path.Combine(Path.GetTempPath(), "apd-stall-" + Guid.NewGuid().ToString("N"));
+
+    public DownloadStallLimitTests() => Directory.CreateDirectory(_dir);
+
+    public void Dispose() => TestCleanup.DeleteDirectory(_dir);
+
+    [Fact]
+    public async Task ATransferThatStopsSendingFailsAndLeavesNoFile()
+    {
+        using var server = new SlowLoopbackServer(stall: true);
+        var file = Path.Combine(_dir, "payload.bin");
+        // Without the stall limit the download never ends, so the token is what stops the test then.
+        using var guard = new CancellationTokenSource(TimeSpan.FromSeconds(90));
+        var clock = Stopwatch.StartNew();
+
+        var error = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            new DownloadService(stallSeconds: 3).DownloadAsync(server.Url, file, retryCount: 0, ct: guard.Token));
+
+        Assert.StartsWith("Download failed after 1 attempts:", error.Message);
+        Assert.False(guard.IsCancellationRequested, $"the download ended only after {clock.Elapsed}");
+        Assert.Empty(Directory.GetFiles(_dir));
+    }
+}

@@ -13,6 +13,20 @@ namespace ApplicationPackagerEngine.Services;
 /// </summary>
 public sealed class DownloadService
 {
+    /// <summary>The time with no data after which a download counts as stalled.</summary>
+    private const int DefaultStallSeconds = 60;
+
+    private readonly string[] _stallArguments;
+
+    /// <param name="stallSeconds">The time with no data after which curl ends a transfer; the attempt then fails and can run again.</param>
+    public DownloadService(int stallSeconds = DefaultStallSeconds)
+    {
+        // curl has no time bound of its own: a server that stops sending would hold the download for ever. A whole-transfer limit
+        // would cut a large installer on a slow link, so the bound is on a transfer that receives less than one byte in each second.
+        var seconds = stallSeconds.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        _stallArguments = ["--connect-timeout", seconds, "--speed-limit", "1", "--speed-time", seconds];
+    }
+
     public async Task DownloadAsync(
         string url, string outFile,
         int retryCount = 1, int retryDelaySec = 5,
@@ -64,7 +78,7 @@ public sealed class DownloadService
             try
             {
                 using var process = CurlProcess.Start(
-                    ["-L", "--fail", "--silent", "--show-error", .. headerArguments, "-o", partFile], url);
+                    ["-L", "--fail", "--silent", "--show-error", .. _stallArguments, .. headerArguments, "-o", partFile], url);
 
                 // Read without the caller's token: an abandoned read leaves the child
                 // blocked on a full pipe, and terminating it is what ends the stream.
@@ -147,7 +161,7 @@ public sealed class DownloadService
                 ct.ThrowIfCancellationRequested();
                 onProgress?.Invoke($"Downloading: {Path.GetFileName(outFile)} from {current.Host}");
                 // No -L: the program follows the redirect. The status and the redirect address come back on standard output.
-                List<string> options = ["--fail-with-body", "--silent", "--show-error", "--max-redirs", "0", "--write-out", "%{http_code}|%header{location}", .. headerArguments, "-o", partFile];
+                List<string> options = ["--fail-with-body", "--silent", "--show-error", "--max-redirs", "0", "--write-out", "%{http_code}|%header{location}", .. _stallArguments, .. headerArguments, "-o", partFile];
                 using var process = sendCredential && credential.Entry.Matches(current)
                     ? CurlProcess.StartWithConfig(options, current.AbsoluteUri, FeedPayloadCredentials.ConfigFor(credential))
                     : CurlProcess.Start(options, current.AbsoluteUri);
