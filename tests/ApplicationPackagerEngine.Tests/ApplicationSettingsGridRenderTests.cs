@@ -64,6 +64,7 @@ public sealed class ApplicationSettingsGridRenderTests
         typeof(SettingsViewModel).GetField("<VisibleColumnIds>k__BackingField", instance)!.SetValue(viewModel, Chosen.ToHashSet(StringComparer.Ordinal));
         typeof(SettingsPage).GetField("_viewModel", instance)!.SetValue(page, viewModel);
         typeof(SettingsPage).GetMethod("BuildApplicationColumns", instance)!.Invoke(page, null);
+        typeof(SettingsPage).GetMethod("TrackApplicationColumnGrips", instance)!.Invoke(page, null);
         page.SelectPage("supersedence");
         return page;
     }
@@ -96,6 +97,45 @@ public sealed class ApplicationSettingsGridRenderTests
         Assert.True(narrow.Count == 0, "Too narrow: " + string.Join("; ", narrow));
         var scroller = Descendants(grid).OfType<ScrollViewer>().First();
         Assert.True(scroller.ScrollableWidth > 1, $"The grid does not scroll sideways: viewport {scroller.ViewportWidth:0}, extent {scroller.ExtentWidth:0}.");
+    });
+
+    [Fact]
+    public void AGripWidensNarrowsAndFitsAColumnOfTheScrollingGrid() => WithPage(ApplicationTheme.Light, 1690, (window, grid) =>
+    {
+        DataGridColumn Column(string header) => grid.Columns.Single(c => c.Header as string == header);
+        string Widths() => string.Join("; ", grid.Columns.Select(c => $"{c.Header} {c.ActualWidth:0.##} (min {c.MinWidth:0.##}, {c.Width.UnitType})"));
+        void Shows(string header, double width)
+        {
+            Settle(window);
+            Assert.True(Math.Abs(Column(header).ActualWidth - width) < 1, $"{header} should be {width:0} px: {Widths()}");
+        }
+        void Drag(string header, double change) => ColumnGripKit.Drag(window, grid, Column(header), change);
+        var scope = Column("Install scope").ActualWidth;
+
+        // The grid scrolls, so no other column has width to give.
+        Drag("Vendor", 80);
+        Shows("Vendor", 200);
+        Drag("Vendor", -110);
+        Shows("Vendor", 90);
+        Assert.True(Column("Application").Width.IsStar, Widths());
+        Shows("Install scope", scope);
+
+        Drag("Install scope", -500);
+        Shows("Install scope", 40);
+        Drag("Check", -30);
+        Shows("Check", 56);
+
+        // The Application column can be narrower than its first minimum.
+        Drag("Application", -60);
+        Shows("Application", 160);
+
+        Drag("Vendor", 160);
+        Shows("Vendor", 250);
+        ColumnGripKit.DoubleClick(window, grid, Column("Vendor"));
+        var vendor = Column("Vendor");
+        Assert.True(vendor.ActualWidth is > 40 and < 160, Widths());
+        Assert.True(vendor.Width.IsAbsolute && Math.Abs(vendor.MinWidth - vendor.ActualWidth) < 0.5, Widths());
+        Shows("Install scope", 40);
     });
 
     [Theory]

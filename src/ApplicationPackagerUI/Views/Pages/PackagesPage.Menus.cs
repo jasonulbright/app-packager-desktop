@@ -4,7 +4,7 @@ using System.Windows.Automation;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Data;
-using DataGridColumnHeader = System.Windows.Controls.Primitives.DataGridColumnHeader;
+using System.Windows.Input;
 using ApplicationPackagerUI.Helpers;
 using ApplicationPackagerUI.ViewModels.Pages;
 using Wpf.Ui.Controls;
@@ -145,6 +145,7 @@ public partial class PackagesPage
         // A resize ends with the release of the thumb in the column header.
         PackagerGrid.AddHandler(Thumb.DragStartedEvent, new DragStartedEventHandler(OnGridThumbPressed), true);
         PackagerGrid.AddHandler(Thumb.DragCompletedEvent, new DragCompletedEventHandler(OnGridThumbReleased), true);
+        PackagerGrid.AddHandler(UIElement.PreviewMouseLeftButtonDownEvent, new MouseButtonEventHandler(OnGridMouseDown), true);
         // The grid sorts after this event, so the save waits for it.
         PackagerGrid.Sorting += (_, _) => Dispatcher.BeginInvoke(SaveColumnLayout);
         // A new list (a load) drops the sort of the grid, so the saved sort is applied again.
@@ -154,19 +155,9 @@ public partial class PackagesPage
 
     private (DataGridColumn Column, double Width)? _pressed;
 
-    /// <summary>The column that a grip of a column header sizes; null for any other thumb, such as the one of a scroll bar.</summary>
-    private DataGridColumn? SizedColumn(object? source)
-    {
-        if (source is not Thumb thumb || FindAncestor<DataGridColumnHeader>(thumb) is not { Column: { } column }) return null;
-        // The left grip of a header sizes the column that stands before it.
-        return thumb.Name != "PART_LeftHeaderGripper" ? column
-            : PackagerGrid.Columns.Where(c => c.Visibility == Visibility.Visible && c.DisplayIndex < column.DisplayIndex)
-                .OrderByDescending(c => c.DisplayIndex).FirstOrDefault() ?? column;
-    }
-
     private void OnGridThumbPressed(object sender, DragStartedEventArgs e)
     {
-        _pressed = SizedColumn(e.OriginalSource) is { } column ? (column, column.ActualWidth) : null;
+        _pressed = ColumnGrips.SizedColumn(PackagerGrid, e.OriginalSource) is { } column ? (column, column.ActualWidth) : null;
         if (_pressed is { } pressed) Release(pressed.Column);
     }
 
@@ -175,7 +166,7 @@ public partial class PackagesPage
     {
         var pressed = _pressed;
         _pressed = null;
-        if (SizedColumn(e.OriginalSource) is not { } column || pressed is not { } start || !ReferenceEquals(start.Column, column)) return;
+        if (ColumnGrips.SizedColumn(PackagerGrid, e.OriginalSource) is not { } column || pressed is not { } start || !ReferenceEquals(start.Column, column)) return;
         if (Math.Abs(column.ActualWidth - start.Width) < 0.5)
         {
             Hold(column);
@@ -183,6 +174,22 @@ public partial class PackagesPage
         }
         MarkResized(column);
         SaveColumnLayout();
+    }
+
+    /// <summary>
+    /// A double click on a grip fits the column to its content, which can be narrower than the width that the operator set. The second press of a
+    /// double click starts no drag, so the held MinWidth ends here. The fitted width is then a width that the operator set.
+    /// </summary>
+    private void OnGridMouseDown(object sender, MouseButtonEventArgs e)
+    {
+        if (e.ClickCount != 2 || ColumnGrips.SizedColumn(PackagerGrid, e.OriginalSource) is not { } column || !_movable.Contains(column)) return;
+        Release(column);
+        _userSized.Remove(column);
+        ColumnGrips.AfterFit(PackagerGrid, column, () =>
+        {
+            MarkResized(column);
+            SaveColumnLayout();
+        });
     }
 
     /// <summary>Keeps the width that the column shows as the width that the operator set.</summary>

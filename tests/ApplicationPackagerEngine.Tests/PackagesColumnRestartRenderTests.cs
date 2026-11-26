@@ -2,7 +2,6 @@ using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Controls.Primitives;
 using ApplicationPackagerEngine.Services;
 using ApplicationPackagerUI.Models;
 using ApplicationPackagerUI.Services;
@@ -11,7 +10,6 @@ using ApplicationPackagerUI.Views.Pages;
 using Wpf.Ui.Appearance;
 using static ApplicationPackagerEngine.Tests.Compliance.RenderKit;
 using DataGrid = System.Windows.Controls.DataGrid;
-using DataGridColumnHeader = System.Windows.Controls.Primitives.DataGridColumnHeader;
 
 namespace ApplicationPackagerEngine.Tests;
 
@@ -51,18 +49,9 @@ public sealed class PackagesColumnRestartRenderTests : IDisposable
             Settle(Window);
         }
 
-        /// <summary>Drags the right grip of a column header: the events that the grip raises for a mouse drag.</summary>
-        public void Drag(string header, double change)
-        {
-            var column = Column(header);
-            var cell = Descendants(Grid).OfType<DataGridColumnHeader>().Single(h => ReferenceEquals(h.Column, column));
-            var grip = Descendants(cell).OfType<Thumb>().Single(t => t.Name == "PART_RightHeaderGripper");
-            grip.RaiseEvent(new DragStartedEventArgs(0, 0) { RoutedEvent = Thumb.DragStartedEvent });
-            grip.RaiseEvent(new DragDeltaEventArgs(change, 0) { RoutedEvent = Thumb.DragDeltaEvent });
-            Settle(Window);
-            grip.RaiseEvent(new DragCompletedEventArgs(change, 0, false) { RoutedEvent = Thumb.DragCompletedEvent });
-            Settle(Window);
-        }
+        public void Drag(string header, double change) => ColumnGripKit.Drag(Window, Grid, Column(header), change);
+
+        public void DoubleClick(string header) => ColumnGripKit.DoubleClick(Window, Grid, Column(header));
     }
 
     private static PackagesViewModel ViewModel(SettingsService settings)
@@ -148,6 +137,29 @@ public sealed class PackagesColumnRestartRenderTests : IDisposable
             Assert.Equal(new DataGridLength(140).Value, vendor.Width.Value);
             Assert.Equal(100, vendor.MinWidth);
         });
+    });
+
+    [Fact]
+    public void ADoubleClickOnTheGripFitsASizedColumnAndTheFittedWidthIsKept() => InApplication(() =>
+    {
+        var settings = new SettingsService();
+        double fitted = 0;
+        Run(settings, shown => shown.Drag("Vendor", 60));
+
+        // The width of the column is held now, as it is after a restart.
+        Run(settings, shown =>
+        {
+            var vendor = shown.Column("Vendor");
+            var sized = vendor.ActualWidth;
+            shown.DoubleClick("Vendor");
+            fitted = vendor.ActualWidth;
+            var report = $"Sized {sized:0.##}, saved {Saved(settings)}: {shown.Widths()}";
+            Assert.True(fitted < sized - 40, report);
+            Assert.True(vendor.Width.IsAbsolute, report);
+            Assert.True(Math.Abs(settings.Load().PackagesGridLayout!.Columns.Single(c => c.Id == "Vendor").Width - fitted) < 0.5, report);
+        });
+
+        Run(settings, shown => Assert.True(Math.Abs(shown.Column("Vendor").ActualWidth - fitted) < 0.5, shown.Widths()));
     });
 
     [Fact]
