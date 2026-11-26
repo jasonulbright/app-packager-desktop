@@ -312,25 +312,31 @@ public sealed class DeploymentHelperRenderTests
             new(new DeployableObject(Type: type, Id: "LAB00001", Name: name, Version: version, Program: "", PackagedByProduct: false));
         static DeploymentCollectionRow Collection(string id, string name, int members, bool builtIn = false) =>
             new(new CollectionRow(id, name, "", "", "", members, builtIn, "Periodic", "", 0, 0, 0, 0));
-        var line = DeploymentReviewSummaryConverter.Summary;
+        static string Line(DeploymentObjectRow? obj, string? program, DeploymentCollectionRow? collection, bool required) =>
+            DeploymentReviewSummaryConverter.Summary(obj, program, collection, required);
         var workstations = Collection("LAB00010", "All Workstations", 2);
 
         // A name that holds its version shows it once.
-        Assert.Equal("7-Zip 26.06 (x64 edition) \u2192 All Workstations \u00b7 Available \u00b7 2 members",
-            line(Object(DeploymentObjectType.Application, "7-Zip 26.06 (x64 edition)", "26.06"), null, workstations, false));
-        Assert.Equal("7-Zip 26.04 \u2192 Pilot \u00b7 Required \u00b7 1 member",
-            line(Object(DeploymentObjectType.Application, "7-Zip", "26.04"), null, Collection("LAB00011", "Pilot", 1), true));
-        Assert.Equal("Office Tools 16.0 (program Install) \u2192 All Workstations \u00b7 Available \u00b7 2 members",
-            line(Object(DeploymentObjectType.Package, "Office Tools", "16.0"), "Install", workstations, false));
-        Assert.Equal("2026-10 Cumulative Updates \u2192 All Workstations \u00b7 Required \u00b7 2 members",
-            line(Object(DeploymentObjectType.SoftwareUpdateGroup, "2026-10 Cumulative Updates", ""), null, workstations, true));
+        Assert.Equal("7-Zip 26.06 (x64 edition) \u2192 All Workstations \u00b7 Available \u00b7 2 members at the last read",
+            Line(Object(DeploymentObjectType.Application, "7-Zip 26.06 (x64 edition)", "26.06"), null, workstations, false));
+        Assert.Equal("7-Zip 26.04 \u2192 Pilot \u00b7 Required \u00b7 1 member at the last read",
+            Line(Object(DeploymentObjectType.Application, "7-Zip", "26.04"), null, Collection("LAB00011", "Pilot", 1), true));
+        Assert.Equal("Office Tools 16.0 (program Install) \u2192 All Workstations \u00b7 Available \u00b7 2 members at the last read",
+            Line(Object(DeploymentObjectType.Package, "Office Tools", "16.0"), "Install", workstations, false));
+        Assert.Equal("2026-10 Cumulative Updates \u2192 All Workstations \u00b7 Required \u00b7 2 members at the last read",
+            Line(Object(DeploymentObjectType.SoftwareUpdateGroup, "2026-10 Cumulative Updates", ""), null, workstations, true));
+
+        // The values of a prepare replace the names and the count of the lists, with no words about the last read.
+        var read = new DeploymentReadValues(Object(DeploymentObjectType.Application, "7-Zip", "26.07").Object, new DeploymentCollection("LAB00010", "All Workstations (new)", "", 41));
+        Assert.Equal("7-Zip 26.07 \u2192 All Workstations (new) \u00b7 Available \u00b7 41 members",
+            DeploymentReviewSummaryConverter.Summary(Object(DeploymentObjectType.Application, "7-Zip", "26.04"), null, workstations, false, read));
 
         // A missing or refused choice is named in place of a deployment.
         var app = Object(DeploymentObjectType.Application, "7-Zip", "26.04");
-        Assert.Equal(DeploymentFormViewModel.PickObject, line(null, null, workstations, false));
-        Assert.Equal(DeploymentFormViewModel.PickCollection, line(app, null, null, false));
-        Assert.Equal(DeploymentFormViewModel.PickProgram, line(Object(DeploymentObjectType.Package, "Office Tools", "16.0"), null, workstations, false));
-        Assert.Equal(DeploymentFormViewModel.BuiltInRefused, line(app, null, Collection("SMS00001", "All Systems", 5, builtIn: true), false));
+        Assert.Equal(DeploymentFormViewModel.PickObject, Line(null, null, workstations, false));
+        Assert.Equal(DeploymentFormViewModel.PickCollection, Line(app, null, null, false));
+        Assert.Equal(DeploymentFormViewModel.PickProgram, Line(Object(DeploymentObjectType.Package, "Office Tools", "16.0"), null, workstations, false));
+        Assert.Equal(DeploymentFormViewModel.BuiltInRefused, Line(app, null, Collection("SMS00001", "All Systems", 5, builtIn: true), false));
     }
 
     [Theory]
@@ -347,10 +353,63 @@ public sealed class DeploymentHelperRenderTests
             Assert.Equal(DeploymentFormViewModel.PickCollection, ReviewText(page));
             form.SelectedCollection = form.Collections.Single(c => c.CollectionId == "LAB00010");
             Settle(window);
-            Assert.Equal("7-Zip 26.04 \u2192 Pilot Workstations \u00b7 Available \u00b7 3 members", ReviewText(page));
+            Assert.Equal("7-Zip 26.04 \u2192 Pilot Workstations \u00b7 Available \u00b7 3 members at the last read", ReviewText(page));
             form.IsRequired = true;
             Settle(window);
-            Assert.Equal("7-Zip 26.04 \u2192 Pilot Workstations \u00b7 Required \u00b7 3 members", ReviewText(page));
+            Assert.Equal("7-Zip 26.04 \u2192 Pilot Workstations \u00b7 Required \u00b7 3 members at the last read", ReviewText(page));
+        });
+    }
+
+    [Theory]
+    [InlineData(ApplicationTheme.Light)]
+    [InlineData(ApplicationTheme.Dark)]
+    public void TheReviewSummaryShowsTheMemberCountThatThePrepareRead(ApplicationTheme theme)
+    {
+        WithPage(theme, (window, page, viewModel, harness) =>
+        {
+            const string Listed = "7-Zip 26.04 \u2192 Pilot Workstations \u00b7 Available \u00b7 3 members at the last read";
+            const string Prepared = "7-Zip 26.04 \u2192 Pilot Workstations \u00b7 Available \u00b7 40 members";
+            var form = viewModel.Deploy;
+            void Pick(string collectionId)
+            {
+                form.SelectedCollection = form.Collections.Single(c => c.CollectionId == collectionId);
+                Settle(window);
+            }
+            form.SelectedObject = form.Objects.Single(o => o.Object.Id == harness.SevenZip.Id);
+            Pick("LAB00010");
+            StaTestHelper.PumpUntil(() => !form.IsLoadingDetails);
+            Assert.Equal(Listed, ReviewText(page));
+
+            harness.Service.MemberCounts["LAB00010"] = 40;
+            Run(form.ValidateCommand.ExecuteAsync(null));
+            Settle(window);
+            Assert.Equal(Prepared, ReviewText(page));
+            Assert.Equal(3, form.SelectedCollection!.MemberCount);
+
+            // A change of the form drops the checks and keeps what ConfigMgr answered.
+            form.IsRequired = true;
+            form.IsRequired = false;
+            Settle(window);
+            Assert.Empty(form.Checks);
+            Assert.Equal(Prepared, ReviewText(page));
+
+            // Another selection drops it.
+            Pick("LAB00011");
+            Pick("LAB00010");
+            Assert.Equal(Listed, ReviewText(page));
+
+            // Deploy prepares too; a plan that is not confirmed keeps the values it read.
+            harness.Plans.Confirm = false;
+            Run(form.DeployCommand.ExecuteAsync(null));
+            Settle(window);
+            Assert.Empty(harness.Service.Deployments);
+            Assert.Equal(Prepared, ReviewText(page));
+
+            // A new read of the lists replaces the values of the prepare.
+            Run(form.RefreshCommand.ExecuteAsync(null));
+            Settle(window);
+            Assert.Null(form.PreparedCreate);
+            Assert.EndsWith("3 members at the last read", ReviewText(page));
         });
     }
 

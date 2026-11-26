@@ -121,11 +121,14 @@ public partial class DeploymentHelperPage : INavigationAware
 
 /// <summary>
 /// The "Deployment to review" line of the Deploy tab: the object, the collection, the purpose and the member count of the form. While a
-/// choice is missing or refused, the line says which one. The values are the object, the program, the collection and Required.
+/// choice is missing or refused, the line says which one. The values are the object, the program, the collection, Required and the
+/// values of the last prepare. Without a prepare, the names come from the lists and the line says that the count is from the last read.
 /// </summary>
 public sealed class DeploymentReviewSummaryConverter : IMultiValueConverter
 {
-    public static string Summary(DeploymentObjectRow? obj, string? program, DeploymentCollectionRow? collection, bool required)
+    public const string LastRead = " at the last read";
+
+    public static string Summary(DeploymentObjectRow? obj, string? program, DeploymentCollectionRow? collection, bool required, DeploymentReadValues? read = null)
     {
         if (obj is null) return DeploymentFormViewModel.PickObject;
         var type = obj.Object.Type;
@@ -134,16 +137,18 @@ public sealed class DeploymentReviewSummaryConverter : IMultiValueConverter
         if (collection.IsBuiltIn) return DeploymentFormViewModel.BuiltInRefused;
 
         // Many application names already hold the version; a software update group has a count of updates in place of a version.
-        var name = obj.Name;
-        var version = type == DeploymentObjectType.SoftwareUpdateGroup ? "" : obj.Object.Version;
+        var current = read?.Object ?? obj.Object;
+        var name = current.Name;
+        var version = type == DeploymentObjectType.SoftwareUpdateGroup ? "" : current.Version;
         if (version.Length > 0 && !name.Contains(version, StringComparison.OrdinalIgnoreCase)) name += " " + version;
         if (type == DeploymentObjectType.Package) name += $" (program {program})";
         var purpose = required ? DeploymentText.Required : DeploymentText.Available;
-        return $"{name} \u2192 {collection.Name} \u00b7 {purpose} \u00b7 {DeploymentText.Count(collection.MemberCount, "member")}";
+        var members = DeploymentText.Count(read?.Collection.MemberCount ?? collection.MemberCount, "member") + (read is null ? LastRead : "");
+        return $"{name} \u2192 {read?.Collection.Name ?? collection.Name} \u00b7 {purpose} \u00b7 {members}";
     }
 
     public object Convert(object[] values, Type targetType, object parameter, CultureInfo culture) =>
-        Summary(values[0] as DeploymentObjectRow, values[1] as string, values[2] as DeploymentCollectionRow, values[3] is true);
+        Summary(values[0] as DeploymentObjectRow, values[1] as string, values[2] as DeploymentCollectionRow, values[3] is true, values[4] as DeploymentReadValues);
 
     public object[] ConvertBack(object value, Type[] targetTypes, object parameter, CultureInfo culture) => throw new NotSupportedException();
 }

@@ -469,6 +469,7 @@
                                         <Binding Path="SelectedProgram" />
                                         <Binding Path="SelectedCollection" />
                                         <Binding Path="IsRequired" />
+                                        <Binding Path="PreparedCreate" />
                                     </MultiBinding>
                                 </TextBlock.Text>
                             </TextBlock>

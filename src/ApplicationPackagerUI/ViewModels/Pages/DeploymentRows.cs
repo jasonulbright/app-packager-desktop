@@ -30,6 +30,9 @@ public sealed class DeploymentCollectionRow(CollectionRow row)
     public override string ToString() => $"{Name} ({CollectionId})";
 }
 
+/// <summary>The object and the collection of a create as a prepare read them from ConfigMgr.</summary>
+public sealed record DeploymentReadValues(DeployableObject Object, DeploymentCollection Collection);
+
 /// <summary>A distribution point group with its content status for the selected object; checked groups get the content.</summary>
 public sealed partial class DpGroupRow(DpGroupInfo info) : ObservableObject
 {
