@@ -26,8 +26,9 @@ public static class SharedDownloadCache
     }
 
     /// <summary>curl options for the conditional refresh of a cached file into a side file; the URL is added by <see cref="CurlProcess"/>.</summary>
-    public static IReadOnlyList<string> RefreshArguments(string cachedPath, string refreshPath, IReadOnlyList<string>? headers = null, long? maxBytes = null) =>
-        ["-L", "--fail", "--silent", "--show-error", .. CurlHeaders.Arguments(headers),
+    public static IReadOnlyList<string> RefreshArguments(string cachedPath, string refreshPath, IReadOnlyList<string>? headers = null, long? maxBytes = null,
+        IReadOnlyList<string>? stallOptions = null) =>
+        ["-L", "--fail", "--silent", "--show-error", .. stallOptions ?? DownloadService.StallArguments(), .. CurlHeaders.Arguments(headers),
             .. maxBytes is { } limit ? ["--max-filesize", limit.ToString(System.Globalization.CultureInfo.InvariantCulture)] : (string[])[],
             "-R", "-z", cachedPath, "-o", refreshPath];
 
@@ -63,7 +64,7 @@ public static class SharedDownloadCache
             onProgress?.Invoke("Cached download present; refreshing only if newer.");
             var refresh = $"{cached}.{Guid.NewGuid():N}.refresh";
             (bool succeeded, string error, int exitCode) result;
-            try { result = await RunCurlAsync(RefreshArguments(cached, refresh, headers, maxBytes), url, ct, refresh, maxBytes); }
+            try { result = await RunCurlAsync(RefreshArguments(cached, refresh, headers, maxBytes, downloads.StallOptions), url, ct, refresh, maxBytes); }
             catch (DownloadTooLargeException)
             {
                 FileVersionScraper.ApplyRefresh(cached, refresh, requestSucceeded: false);

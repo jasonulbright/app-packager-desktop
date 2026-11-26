@@ -28,4 +28,22 @@ public sealed class DownloadStallLimitTests : IDisposable
         Assert.False(guard.IsCancellationRequested, $"the download ended only after {clock.Elapsed}");
         Assert.Empty(Directory.GetFiles(_dir));
     }
+
+    [Fact]
+    public async Task ARefreshOfACachedDownloadThatStopsSendingEndsAndKeepsTheCachedFile()
+    {
+        using var server = new SlowLoopbackServer(stall: true);
+        var cache = Path.Combine(_dir, "cache");
+        var target = Path.Combine(_dir, "payload.bin");
+        Directory.CreateDirectory(cache);
+        var cached = Path.Combine(cache, SharedDownloadCache.Key(server.Url, "payload.bin"));
+        File.WriteAllText(cached, "cached");
+        File.SetLastWriteTimeUtc(cached, new DateTime(2020, 1, 1, 0, 0, 0, DateTimeKind.Utc));
+        using var guard = new CancellationTokenSource(TimeSpan.FromSeconds(90));
+
+        await SharedDownloadCache.FetchAsync(new DownloadService(stallSeconds: 3), server.Url, target, cache, ct: guard.Token);
+
+        Assert.False(guard.IsCancellationRequested, "the refresh did not end by itself");
+        Assert.Equal("cached", File.ReadAllText(target));
+    }
 }

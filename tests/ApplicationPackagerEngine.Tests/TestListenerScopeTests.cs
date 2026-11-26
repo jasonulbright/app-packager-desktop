@@ -11,7 +11,10 @@ public sealed class TestListenerScopeTests
 {
     private static readonly (string What, Regex Pattern)[] Wide =
     [
-        ("TcpListener.Create listens on all addresses", new Regex(@"TcpListener\s*\.\s*Create\s*\(")),
+        ("TcpListener.Create listens on all addresses", new Regex(@"TcpListener\]?\s*(\.|::)\s*Create\s*\(", RegexOptions.IgnoreCase)),
+        ("a PowerShell TcpListener with no loopback address", new Regex(@"New-Object\s+[\w.]*TcpListener(?![^
+]*Loopback)", RegexOptions.IgnoreCase)),
+        ("a PowerShell TcpListener with an address that is not the loopback address", new Regex(@"TcpListener\]::new\s*\((?!\s*\[?(System\.Net\.)?IPAddress\]?\s*::\s*(IPv6)?Loopback)", RegexOptions.IgnoreCase)),
         ("an any-address", new Regex(@"IPAddress\s*(\.|\]::)\s*(IPv6)?Any\b")),
         ("a TcpListener with an address that is not the loopback address",
             new Regex(@"(new\s+(System\.Net\.Sockets\.)?TcpListener\s*\(|TcpListener\]::new\s*\()(?!\s*(\[?(System\.Net\.)?IPAddress\]?\s*(\.|::)\s*(IPv6)?Loopback\b))")),
