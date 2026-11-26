@@ -110,6 +110,8 @@ public partial class SettingsPage
             {
                 Header = column.Header,
                 Width = column.Width,
+                // The grid has a star column, so without a minimum it narrows the other columns instead of scrolling sideways.
+                MinWidth = column.Width,
                 SortMemberPath = $"Cells[{column.Id}]",
                 CellStyle = CellStyleOf(column),
                 CellTemplate = new DataTemplate { VisualTree = cell }
@@ -120,7 +122,9 @@ public partial class SettingsPage
     /// <summary>The style of a grid cell with the help of its field. The cell keeps the focus when its control is disabled.</summary>
     private Style? CellStyleOf(ApplicationColumn column)
     {
-        if (TryFindResource(typeof(System.Windows.Controls.DataGridCell)) is not Style basis) return null;
+        // The cell style of the theme, which the other cells of the grid have. A lookup by the DataGridCell type finds the style of the system:
+        // its selected cell is light in each theme.
+        if ((dgApplications.CellStyle ?? TryFindResource("DefaultDataGridCellStyle") as Style) is not { } basis) return null;
         var style = new Style(typeof(System.Windows.Controls.DataGridCell), basis);
         style.Setters.Add(new Setter(System.Windows.Automation.AutomationProperties.HelpTextProperty, new Binding($"Tips[{column.Id}]")));
         return style;
