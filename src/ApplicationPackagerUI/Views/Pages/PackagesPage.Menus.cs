@@ -128,6 +128,7 @@ public partial class PackagesPage
 
         PackagerGrid.ColumnReordered += (_, _) => SaveColumnLayout();
         // A resize ends with the release of the thumb in the column header.
+        PackagerGrid.AddHandler(Thumb.DragStartedEvent, new DragStartedEventHandler(OnGridThumbPressed), true);
         PackagerGrid.AddHandler(Thumb.DragCompletedEvent, new DragCompletedEventHandler(OnGridThumbReleased), true);
         // The grid sorts after this event, so the save waits for it.
         PackagerGrid.Sorting += (_, _) => Dispatcher.BeginInvoke(SaveColumnLayout);
@@ -136,14 +137,28 @@ public partial class PackagesPage
             .AddValueChanged(PackagerGrid, (_, _) => Dispatcher.BeginInvoke(() => ApplySort(((PackagesViewModel)DataContext!).ColumnLayout)));
     }
 
-    /// <summary>A released thumb of a column header ends a resize. A scroll bar thumb is not a header thumb and saves nothing.</summary>
+    private (DataGridColumn Column, double Width)? _pressed;
+
+    /// <summary>The column that a grip of a column header sizes; null for any other thumb, such as the one of a scroll bar.</summary>
+    private DataGridColumn? SizedColumn(object? source)
+    {
+        if (source is not Thumb thumb || FindAncestor<DataGridColumnHeader>(thumb) is not { Column: { } column }) return null;
+        // The left grip of a header sizes the column that stands before it.
+        return thumb.Name != "PART_LeftHeaderGripper" ? column
+            : PackagerGrid.Columns.Where(c => c.Visibility == Visibility.Visible && c.DisplayIndex < column.DisplayIndex)
+                .OrderByDescending(c => c.DisplayIndex).FirstOrDefault() ?? column;
+    }
+
+    private void OnGridThumbPressed(object sender, DragStartedEventArgs e) =>
+        _pressed = SizedColumn(e.OriginalSource) is { } column ? (column, column.ActualWidth) : null;
+
+    /// <summary>A released header grip ends a resize. A click on a grip that moved nothing is not one: the column keeps its star width.</summary>
     private void OnGridThumbReleased(object sender, DragCompletedEventArgs e)
     {
-        if (e.OriginalSource is not Thumb thumb || FindAncestor<DataGridColumnHeader>(thumb) is not { Column: { } column }) return;
-        // The left grip of a header sizes the column that stands before it.
-        if (thumb.Name == "PART_LeftHeaderGripper")
-            column = PackagerGrid.Columns.Where(c => c.Visibility == Visibility.Visible && c.DisplayIndex < column.DisplayIndex)
-                .OrderByDescending(c => c.DisplayIndex).FirstOrDefault() ?? column;
+        var pressed = _pressed;
+        _pressed = null;
+        if (SizedColumn(e.OriginalSource) is not { } column || pressed is not { } start || !ReferenceEquals(start.Column, column)) return;
+        if (Math.Abs(column.ActualWidth - start.Width) < 0.5) return;
         MarkResized(column);
         SaveColumnLayout();
     }

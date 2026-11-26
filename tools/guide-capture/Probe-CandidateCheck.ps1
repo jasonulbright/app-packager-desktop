@@ -89,15 +89,16 @@ foreach ($theme in $Themes) {
             Check "$theme-01 the app version is $ExpectedVersion" ($v -like "$ExpectedVersion*") "version: $v"
         }
         Run-Check "$theme-02" {
+            # The tab row holds One Click and Check; the batch bar under the grid holds Stage and Publish All.
             $order = 'One Click', 'Check', 'Stage', 'Publish All'
             $rects = foreach ($n in $order) { $b = Find-El $w -Name $n -ControlType 'Button' -Timeout 5; if ($b) { $b.Current.BoundingRectangle } else { $null } }
             $missing = @($order | Where-Object { $true }) | Where-Object { $i = [array]::IndexOf($order, $_); -not $rects[$i] }
             Check "$theme-02a every toolbar button shows" (-not $missing) ("missing: " + ($missing -join ', '))
-            $present = @($rects | Where-Object { $_ })
-            $oneRow = ($present | ForEach-Object { [int]$_.Y } | Sort-Object -Unique).Count -le 1 -or (($present | Measure-Object -Property Y -Maximum).Maximum - ($present | Measure-Object -Property Y -Minimum).Minimum) -lt 8
-            Check "$theme-02b the toolbar is one row" $oneRow 'the buttons are on more than one line'
-            $xs = @($present | ForEach-Object { $_.X })
-            Check "$theme-02c the toolbar is in the owner order" ((($xs | Sort-Object) -join ',') -eq ($xs -join ',')) ($xs -join ',')
+            if (-not $missing) {
+                $sameRow = { param($x, $y) [math]::Abs($x.Y - $y.Y) -lt 8 }
+                Check "$theme-02b One Click and Check share a row, Stage and Publish All share a row below it" ((& $sameRow $rects[0] $rects[1]) -and (& $sameRow $rects[2] $rects[3]) -and ($rects[0].Y -lt $rects[2].Y)) (($rects | ForEach-Object { "$([int]$_.X),$([int]$_.Y)" }) -join ' ')
+                Check "$theme-02c each row is in the owner order" (($rects[0].X -lt $rects[1].X) -and ($rects[2].X -lt $rects[3].X)) (($rects | ForEach-Object { [int]$_.X }) -join ',')
+            }
             Check "$theme-02d Cancel is hidden at idle" ($null -eq (Find-El $w 'btnCancelOperation' -Timeout 2)) 'Cancel shows with no run'
             Check-Shot $theme 'toolbar'
         }
