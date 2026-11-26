@@ -56,13 +56,10 @@ public partial class MainWindow : IDialogHostWindow
     {
         var packages = _serviceProvider.GetRequiredService<ViewModels.Pages.PackagesViewModel>();
         if (packages.IsOperationRunning) return;
-        var settings = _serviceProvider.GetRequiredService<SettingsService>();
-        var wasDue = FirstRunDecision.IsWizardDue(settings.Load().FirstRunCompleted);
         var setup = _serviceProvider.GetRequiredService<SetupWindow>();
         setup.Owner = this;
         var saved = setup.ShowDialog() == true;
-        var dontShowAgain = !saved && wasDue && !FirstRunDecision.IsWizardDue(settings.Load().FirstRunCompleted);
-        packages.OnSetupClosed(saved, dontShowAgain);
+        packages.OnSetupClosed(saved, setup.ViewModel.StopsTheChecklist(saved));
     }
 
     /// <summary>Opens the Application Workbench on an application, or on the first one listed.</summary>

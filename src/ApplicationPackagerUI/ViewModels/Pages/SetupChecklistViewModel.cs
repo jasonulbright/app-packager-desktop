@@ -59,6 +59,13 @@ public static class SetupChecklistRules
     public static string? LauncherSite() =>
         Environment.GetEnvironmentVariable(SettingsService.LauncherSiteCodeVariable)?.Trim() is { Length: > 0 } code ? code : null;
 
+    /// <summary>
+    /// True when the site code is the example of a new settings file: none was saved, the suite launcher supplies none, and the install is new
+    /// (the first run is due, or it got the checklist, also a dismissed one). Any other install uses its site code.
+    /// </summary>
+    public static bool IsExampleSite(AppSettings s) =>
+        s.SiteCodeSaved != true && LauncherSite() is null && (FirstRunDecision.IsWizardDue(s.FirstRunCompleted) || s.SetupChecklist is not null);
+
     /// <summary>The four steps in their order: systems, site connection, content folders, discovery.</summary>
     public static IReadOnlyList<SetupStepResult> Steps(AppSettings settings, ConfigMgrConnectionState connection, DiscoveryScanRecord? record) =>
         [SystemsStep(settings), SiteStep(settings, connection), FoldersStep(settings), DiscoveryStep(settings, record)];
@@ -306,7 +313,8 @@ public sealed partial class SetupChecklistViewModel : ObservableObject
     public void Dismiss()
     {
         var settings = _settings.Load();
-        settings.SetupChecklist = SetupChecklistRules.Dismissed;
+        // An install that never got the checklist stays without one.
+        if (settings.SetupChecklist is not null) settings.SetupChecklist = SetupChecklistRules.Dismissed;
         settings.FirstRunCompleted = true;
         Store(settings);
         OpenedByUser = false;

@@ -88,11 +88,13 @@
                         <ui:TextBox Text="{Binding FileShareRoot, UpdateSourceTrigger=PropertyChanged}"
                                     PlaceholderText="\\fileserver\sccm$" Margin="0,0,0,12"
                                     ToolTip="Enter the UNC path of the content share where the app stores application content for ConfigMgr." />
-
-                        <TextBlock Text="Download Root" Style="{StaticResource FieldLabel}" />
-                        <ui:TextBox Text="{Binding DownloadRoot, UpdateSourceTrigger=PropertyChanged}" ToolTip="{Binding DownloadRoot}"
-                                    PlaceholderText="C:\temp\ap" Margin="0,0,0,12" />
                     </StackPanel>
+
+                    <!-- Every system stages installers, so this field is not part of the ConfigMgr fields. -->
+                    <TextBlock Text="Download Root" Style="{StaticResource FieldLabel}" />
+                    <ui:TextBox Text="{Binding DownloadRoot, UpdateSourceTrigger=PropertyChanged}" ToolTip="{Binding DownloadRoot}"
+                                PlaceholderText="C:\temp\ap" Margin="0,0,0,12" AutomationProperties.AutomationId="txtSetupDownloadRoot"
+                                AutomationProperties.Name="Download Root" />
 
                     <StackPanel Visibility="{Binding ShowIntuneFields, Converter={StaticResource BooleanToVisibilityConverter}}">
                         <TextBlock Text="Intune" FontSize="14" Margin="0,0,0,8"
@@ -147,7 +149,7 @@
             <DockPanel>
                 <CheckBox DockPanel.Dock="Left" Content="Don't show this again"
                           IsChecked="{Binding DontShowAgain}" VerticalAlignment="Center"
-                          ToolTip="Select to stop opening the setup checklist of a new install when you select Skip. Nothing is configured." />
+                          ToolTip="Select to stop opening the setup checklist when you select Skip. Nothing is configured." />
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                     <ui:Button Content="Back" Icon="{ui:SymbolIcon ArrowLeft24}" Command="{Binding BackCommand}" Margin="0,0,8,0"
                                ToolTip="Returns to the selection of systems."

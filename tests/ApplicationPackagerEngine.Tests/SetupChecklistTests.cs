@@ -11,6 +11,7 @@ using ApplicationPackagerUI.Services;
 using ApplicationPackagerUI.ViewModels.Pages;
 using ApplicationPackagerUI.ViewModels.Windows;
 using ApplicationPackagerUI.Views.Pages;
+using ApplicationPackagerUI.Views.Windows;
 using Wpf.Ui.Appearance;
 using ButtonBase = System.Windows.Controls.Primitives.ButtonBase;
 using DataGrid = System.Windows.Controls.DataGrid;
@@ -329,6 +330,127 @@ public sealed class SetupChecklistTests : IDisposable
         new SetupWindowViewModel(new SettingsService(), host, host).SaveCommand.Execute(null);
 
         Assert.Equal(before, new SettingsService().Load().OneClick.DefaultDestinations);
+    }
+
+    [Fact]
+    public void SetupOpenedAgainBeforeTheFirstRunIsCompletedKeepsTheDestinationsSavedInSettings()
+    {
+        using var scope = SiteContext.Scope(null, _root);
+        File.WriteAllText(SettingsService.SettingsPath,
+            """{ "FirstRunCompleted": false, "Systems": { "ConfigMgr": false, "Intune": true, "Wsus": false }, "OneClick": { "DefaultDestinations": { "ConfigMgr": false, "Wsus": false, "Intune": false } } }""");
+        var host = new Host();
+        var before = new SettingsService().Load().OneClick.DefaultDestinations;
+
+        new SetupWindowViewModel(new SettingsService(), host, host).SaveCommand.Execute(null);
+
+        Assert.Equal(before, new SettingsService().Load().OneClick.DefaultDestinations);
+
+        // A change of the systems sets the destinations to the new systems.
+        new SetupWindowViewModel(new SettingsService(), host, host) { UseWsus = true }.SaveCommand.Execute(null);
+        Assert.Equal(new DestinationSet(false, true, true), new SettingsService().Load().OneClick.DefaultDestinations);
+    }
+
+    [Fact]
+    public void SetupWithNoStoredDestinationSetsOneFromTheSystemsAlsoAfterTheFirstRun()
+    {
+        using var scope = SiteContext.Scope(null, _root);
+        File.WriteAllText(SettingsService.SettingsPath, """{ "FirstRunCompleted": true, "Systems": { "ConfigMgr": false, "Intune": true, "Wsus": false } }""");
+        var host = new Host();
+
+        new SetupWindowViewModel(new SettingsService(), host, host).SaveCommand.Execute(null);
+
+        Assert.Equal(new DestinationSet(false, false, true), new SettingsService().Load().OneClick.DefaultDestinations);
+    }
+
+    [Fact]
+    public void DontShowThisAgainWithSkipStopsAChecklistThatOutlivedASavedSetup()
+    {
+        using var scope = SiteContext.Scope(null, _root);
+        // A saved setup completed the first run; the checklist is still in progress.
+        File.WriteAllText(SettingsService.SettingsPath, """{ "FirstRunCompleted": true, "SetupChecklist": "Open" }""");
+        var service = new SettingsService();
+        var checklist = Checklist(service);
+        checklist.Refresh();
+        Assert.True(checklist.IsDue);
+        var host = new Host();
+        var setup = new SetupWindowViewModel(service, host, host) { DontShowAgain = true };
+        setup.SkipCommand.Execute(null);
+
+        Assert.True(setup.StopsTheChecklist(saved: false));
+        Assert.False(setup.StopsTheChecklist(saved: true));
+        Assert.False(new SetupWindowViewModel(service, host, host).StopsTheChecklist(saved: false));
+
+        checklist.Dismiss();
+        Assert.False(checklist.IsDue);
+        Assert.Equal(SetupChecklistRules.Dismissed, service.Load().SetupChecklist);
+    }
+
+    [Fact]
+    public void DismissLeavesAnInstallWithoutAChecklistWithoutOne()
+    {
+        using var scope = SiteContext.Scope(null, _root);
+        File.WriteAllText(SettingsService.SettingsPath, """{ "FirstRunCompleted": true }""");
+        var service = new SettingsService();
+        Checklist(service).Dismiss();
+        Assert.Null(service.Load().SetupChecklist);
+    }
+
+    [Theory]
+    [InlineData(false, null, false, true)]
+    [InlineData(true, "Dismissed", false, true)]
+    [InlineData(true, "Open", false, true)]
+    [InlineData(true, "Done", false, true)]
+    // An install that never got the checklist tests its site code as before.
+    [InlineData(true, null, false, false)]
+    [InlineData(false, "Open", true, false)]
+    public void ASiteCodeThatWasNeverSavedIsAnExampleOnANewInstallOnly(bool firstRunCompleted, string? checklist, bool saved, bool example) =>
+        Assert.Equal(example, SetupChecklistRules.IsExampleSite(new AppSettings { FirstRunCompleted = firstRunCompleted, SetupChecklist = checklist, SiteCodeSaved = saved }));
+
+    [Fact]
+    public void ADismissedNewInstallStillHasAnExampleSiteAndALauncherSiteIsNot()
+    {
+        using var scope = SiteContext.Scope(null, _root);
+        var service = new SettingsService();
+        var checklist = Checklist(service);
+        checklist.Refresh();
+        checklist.Dismiss();
+        Assert.True(SetupChecklistRules.IsExampleSite(service.Load()));
+
+        Environment.SetEnvironmentVariable(SettingsService.LauncherSiteCodeVariable, "P01");
+        Assert.False(SetupChecklistRules.IsExampleSite(service.Load()));
+    }
+
+    [Fact]
+    public void SetupWithoutConfigMgrSavesTheDownloadRoot()
+    {
+        using var scope = SiteContext.Scope(null, _root);
+        var host = new Host();
+        var folder = Path.Combine(_root, "stage");
+
+        new SetupWindowViewModel(new SettingsService(), host, host) { UseConfigMgr = false, UseIntune = true, DownloadRoot = $" {folder} " }.SaveCommand.Execute(null);
+
+        Assert.Equal(folder, new SettingsService().Load().DownloadRoot);
+    }
+
+    [Theory]
+    [InlineData(ApplicationTheme.Light)]
+    [InlineData(ApplicationTheme.Dark)]
+    public void TheDownloadRootFieldShowsInSetupWithoutConfigMgr(ApplicationTheme theme)
+    {
+        RenderKit.WithApplication(theme, () =>
+        {
+            using var scope = SiteContext.Scope(null, _root);
+            var host = new Host();
+            var viewModel = new SetupWindowViewModel(new SettingsService(), host, host) { UseConfigMgr = false, UseIntune = true, CurrentStep = 2 };
+            var window = new SetupWindow(viewModel);
+            RenderKit.Show(window);
+            try
+            {
+                RenderKit.Settle(window);
+                Assert.True(RenderKit.ById<FrameworkElement>((FrameworkElement)window.Content, "txtSetupDownloadRoot").IsVisible);
+            }
+            finally { window.Close(); }
+        });
     }
 
     [Fact]

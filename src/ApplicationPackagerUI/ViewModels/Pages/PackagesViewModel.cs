@@ -162,8 +162,8 @@ public partial class PackagesViewModel : ObservableObject
     }
 
     /// <summary>
-    /// The Setup window closed. A saved setup can name another site, so the connection is tested again. Skip with "Don't show this again" on a
-    /// new install also stops the checklist.
+    /// The Setup window closed. A saved setup can name another site, so the connection is tested again. Skip with "Don't show this again"
+    /// also stops the checklist.
     /// </summary>
     public void OnSetupClosed(bool saved, bool dontShowAgain)
     {
@@ -725,10 +725,8 @@ public partial class PackagesViewModel : ObservableObject
             return;
         }
 
-        // The site code of a new install is an example until one is saved: no test, so a new user gets no error for a site that was never entered.
-        var exampleSite = FirstRunDecision.IsWizardDue(settings.FirstRunCompleted) && settings.SiteCodeSaved != true
-                          && SetupChecklistRules.LauncherSite() is null;
-        if (string.IsNullOrWhiteSpace(settings.SiteCode) || exampleSite)
+        // No test of an example site code, so a new user gets no error for a site that was never entered.
+        if (string.IsNullOrWhiteSpace(settings.SiteCode) || SetupChecklistRules.IsExampleSite(settings))
         {
             MecmConnectionStatus = "Not configured";
             AddLogLine("ConfigMgr: Site code not configured. Open Settings.");

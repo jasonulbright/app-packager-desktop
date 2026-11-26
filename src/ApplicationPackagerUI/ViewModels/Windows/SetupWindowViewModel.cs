@@ -128,8 +128,9 @@ public partial class SetupWindowViewModel : ObservableObject
     {
         var s = _settingsService.Load();
         var before = s.Systems ?? new SystemsInUse();
-        // Setup can open again later. The saved One Click destinations change only on the first setup or when the systems change.
-        var resetDestinations = FirstRunDecision.IsWizardDue(s.FirstRunCompleted)
+        // Setup can open again, also before the first run is completed, and One Click runs unattended: a saved default destination changes
+        // only when the systems change.
+        var resetDestinations = s.OneClick.DefaultDestinations is null
                                 || (before.ConfigMgr, before.Intune, before.Wsus) != (UseConfigMgr, UseIntune, UseWsus);
 
         s.Systems = new SystemsInUse { ConfigMgr = UseConfigMgr, Intune = UseIntune, Wsus = UseWsus };
@@ -138,13 +139,15 @@ public partial class SetupWindowViewModel : ObservableObject
             s.SiteCode = SiteCode.Trim();
             s.ProviderMachine = ProviderMachine.Trim();
             s.FileShareRoot = FileShareRoot.Trim();
-            s.DownloadRoot = DownloadRoot.Trim();
         }
         else
         {
             // The built-in default would otherwise persist as a site code the operator never entered.
             s.SiteCode = "";
         }
+
+        // Every system stages installers, so the field shows, and is saved, with or without ConfigMgr.
+        s.DownloadRoot = DownloadRoot.Trim();
 
         if (UseIntune)
         {
@@ -188,9 +191,12 @@ public partial class SetupWindowViewModel : ObservableObject
         CloseRequested?.Invoke(this, true);
     }
 
+    /// <summary>True when the window closed without a save and with "Don't show this again" checked: the setup checklist stops too.</summary>
+    public bool StopsTheChecklist(bool saved) => !saved && DontShowAgain;
+
     /// <summary>
-    /// Skip saves nothing. With "Don't show this again" checked it marks the first run as completed, which also
-    /// stops the setup checklist of a new install.
+    /// Skip saves nothing. With "Don't show this again" checked it marks the first run as completed and stops the
+    /// setup checklist.
     /// </summary>
     [RelayCommand]
     private void Skip()
