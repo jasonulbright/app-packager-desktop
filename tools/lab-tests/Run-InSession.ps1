@@ -121,7 +121,10 @@ finally { Set-Content "$Dir\done" 'done' }
         $principal = New-ScheduledTaskPrincipal -UserId $user -LogonType Interactive -RunLevel Highest
         $settings = New-ScheduledTaskSettingsSet -ExecutionTimeLimit (New-TimeSpan -Minutes ($minutes + 10))
         $null = Register-ScheduledTask -TaskName $task -Action $action -Principal $principal -Settings $settings -Force
-        Start-ScheduledTask -TaskName $task
+        # A user with two sessions gets an interactive task in either of them. RunEx with the flag TASK_RUN_USE_SESSION_ID (4) names the session.
+        $service = New-Object -ComObject Schedule.Service
+        $service.Connect()
+        $null = $service.GetFolder('\').GetTask($task).RunEx($null, 4, [int]$sessionId, $null)
     } -ArgumentList $dest, $commandText, $wrapText, $LogonUser, $task, $SessionId, $Minutes, $QuietMinutes
 
     $end = (Get-Date).AddMinutes($Minutes + 5)
@@ -134,7 +137,10 @@ finally { Set-Content "$Dir\done" 'done' }
             if (([string](Get-Content C:\guide\capture.lock -Raw -ErrorAction SilentlyContinue)).Trim() -eq $value) { (Get-Item C:\guide\capture.lock).LastWriteTime = Get-Date }
             [pscustomobject]@{ Done = (Test-Path "$d\done"); Started = (Test-Path "$d\started") }
         } -ArgumentList $dest, $token
-        if (-not $state.Started -and -not $state.Done -and (Get-Date) -ge $startBy) { $failure = 'The task did not start in 3 minutes.'; break }
+        if (-not $state.Started -and -not $state.Done -and (Get-Date) -ge $startBy) {
+            $failure = "The task did not start in 3 minutes. Task result: $(Invoke-Command $session { param($name) (Get-ScheduledTaskInfo -TaskName $name).LastTaskResult } -ArgumentList $task)"
+            break
+        }
     } while (-not $state.Done -and (Get-Date) -lt $end)
     if (-not $state.Done -and -not $failure) { $failure = 'The run did not report an end in time.' }
 
@@ -147,9 +153,11 @@ finally { Set-Content "$Dir\done" 'done' }
             Started = [string](Get-Content "$d\started" -Raw -ErrorAction SilentlyContinue)
         }
     } -ArgumentList $dest
-    if ($result.Failure) { $failure = $result.Failure.Trim() }
-    $text = "RUN $leaf $($result.Started.Trim())`r`n$($result.Out)"
-    if ($result.Err.Trim()) { $text += "`r`nSTDERR:`r`n$($result.Err)" }
+    # A missing file gives a null value here, so each value is made a string before it is used.
+    $reported = "$($result.Failure)".Trim()
+    if ($reported) { $failure = $reported }
+    $text = "RUN $leaf $("$($result.Started)".Trim())`r`n$($result.Out)"
+    if ("$($result.Err)".Trim()) { $text += "`r`nSTDERR:`r`n$($result.Err)" }
     if ($failure) { $text += "`r`nFAIL: $failure" }
     Set-Content -LiteralPath $OutFile -Value $text -Encoding UTF8
     $copied = $true
