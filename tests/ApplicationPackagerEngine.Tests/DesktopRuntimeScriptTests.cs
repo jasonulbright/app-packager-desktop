@@ -158,7 +158,7 @@ public sealed class DesktopRuntimeScriptTests
     [Fact]
     public async Task ADownloadFromAnAddressThatIsNotAnHttpsAddressOfMicrosoftSavesNothing()
     {
-        var probe = System.Net.Sockets.TcpListener.Create(0);
+        var probe = new System.Net.Sockets.TcpListener(System.Net.IPAddress.Loopback, 0);
         probe.Start();
         var number = ((System.Net.IPEndPoint)probe.LocalEndpoint).Port;
         probe.Stop();
