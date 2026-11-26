@@ -290,7 +290,8 @@ public sealed class PublishReviewTests
                 Assert.True(RenderKit.ById<TextBlock>(window, "txtReviewBlocked").IsVisible);
                 Assert.True(RenderKit.ById<TextBlock>(window, "txtReviewHidden").IsVisible);
                 Assert.True(RenderKit.ById<ButtonBase>(window, "btnReviewBack").IsEnabled);
-                Assert.Equal("2 applications, 2 systems: 4 publishes are planned.", RenderKit.ById<TextBlock>(window, "txtReviewCounts").Text);
+                // A blocked cell is not a planned publish, so only the ConfigMgr cells count.
+                Assert.Equal("2 applications, 2 systems: 2 publishes are planned.", RenderKit.ById<TextBlock>(window, "txtReviewCounts").Text);
             }
             finally { window.Close(); }
         });
