@@ -21,12 +21,12 @@
             </Style>
             <Style x:Key="WizardField" TargetType="ui:TextBox" BasedOn="{StaticResource {x:Type ui:TextBox}}">
                 <Setter Property="Margin" Value="0,0,0,12" />
-                <Setter Property="AutomationProperties.HelpText" Value="{Binding ToolTip, RelativeSource={RelativeSource Self}}" />
+                <Setter Property="AutomationProperties.HelpText" Value="{Binding ToolTip, RelativeSource={RelativeSource Self}, Converter={x:Static helpers:ToolTipTextConverter.Instance}}" />
             </Style>
             <Style x:Key="WizardCombo" TargetType="ComboBox" BasedOn="{StaticResource {x:Type ComboBox}}">
                 <Setter Property="Margin" Value="0,0,0,12" />
                 <Setter Property="HorizontalAlignment" Value="Stretch" />
-                <Setter Property="AutomationProperties.HelpText" Value="{Binding ToolTip, RelativeSource={RelativeSource Self}}" />
+                <Setter Property="AutomationProperties.HelpText" Value="{Binding ToolTip, RelativeSource={RelativeSource Self}, Converter={x:Static helpers:ToolTipTextConverter.Instance}}" />
             </Style>
             <Style x:Key="FieldMarker" TargetType="TextBlock" BasedOn="{StaticResource AddNote}">
                 <Setter Property="Margin" Value="8,0,0,12" />
@@ -59,7 +59,10 @@
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="220" />
                 <ColumnDefinition Width="16" />
-                <ColumnDefinition Width="*" MaxWidth="840" />
+                <ColumnDefinition Width="1000*" MaxWidth="840" />
+                <!-- Takes the width that the form leaves. Without it the columns do not fill the grid, and layout rounding then adds a pixel
+                     to each of them, so the form would be 841 wide. -->
+                <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
             <Grid.RowDefinitions>
                 <RowDefinition Height="*" />

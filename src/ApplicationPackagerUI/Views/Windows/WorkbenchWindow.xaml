@@ -49,12 +49,12 @@
             <Setter Property="Margin" Value="0,0,0,8" />
             <Setter Property="ClearButtonEnabled" Value="False" />
             <Setter Property="VerticalContentAlignment" Value="Center" />
-            <Setter Property="AutomationProperties.HelpText" Value="{Binding ToolTip, RelativeSource={RelativeSource Self}}" />
+            <Setter Property="AutomationProperties.HelpText" Value="{Binding ToolTip, RelativeSource={RelativeSource Self}, Converter={x:Static helpers:ToolTipTextConverter.Instance}}" />
         </Style>
         <Style x:Key="WbCombo" TargetType="ComboBox" BasedOn="{StaticResource {x:Type ComboBox}}">
             <Setter Property="Margin" Value="0,0,0,8" />
             <Setter Property="HorizontalAlignment" Value="Stretch" />
-            <Setter Property="AutomationProperties.HelpText" Value="{Binding ToolTip, RelativeSource={RelativeSource Self}}" />
+            <Setter Property="AutomationProperties.HelpText" Value="{Binding ToolTip, RelativeSource={RelativeSource Self}, Converter={x:Static helpers:ToolTipTextConverter.Instance}}" />
         </Style>
         <Style x:Key="WbInlineButton" TargetType="ui:Button" BasedOn="{StaticResource {x:Type ui:Button}}">
             <Setter Property="MinWidth" Value="90" />
@@ -75,7 +75,7 @@
             <Setter Property="VerticalScrollBarVisibility" Value="Auto" />
             <Setter Property="HorizontalScrollBarVisibility" Value="Auto" />
             <Setter Property="Padding" Value="4,4" />
-            <Setter Property="AutomationProperties.HelpText" Value="{Binding ToolTip, RelativeSource={RelativeSource Self}}" />
+            <Setter Property="AutomationProperties.HelpText" Value="{Binding ToolTip, RelativeSource={RelativeSource Self}, Converter={x:Static helpers:ToolTipTextConverter.Instance}}" />
         </Style>
         <Style x:Key="WbGutter" TargetType="TextBox" BasedOn="{StaticResource WbCode}">
             <Setter Property="IsReadOnly" Value="True" />
@@ -445,7 +445,7 @@
                             <TextBlock DockPanel.Dock="Left" x:Name="lblScriptCaption" Text="{Binding ScriptCaption}" Style="{StaticResource WbHeading}"
                                        Margin="0,0,12,0" VerticalAlignment="Center" />
                             <StackPanel DockPanel.Dock="Right" x:Name="pnlFind" Orientation="Horizontal" Visibility="Collapsed">
-                                <ui:TextBox x:Name="txtFind" AutomationProperties.Name="Find in script" AutomationProperties.HelpText="{Binding ToolTip, RelativeSource={RelativeSource Self}}" Width="180" Margin="0,0,4,0" PlaceholderText="Find" KeyDown="FindBox_KeyDown" ToolTip="Enter the text to find in the script you are editing. The search ignores case." />
+                                <ui:TextBox x:Name="txtFind" AutomationProperties.Name="Find in script" AutomationProperties.HelpText="{Binding ToolTip, RelativeSource={RelativeSource Self}, Converter={x:Static helpers:ToolTipTextConverter.Instance}}" Width="180" Margin="0,0,4,0" PlaceholderText="Find" KeyDown="FindBox_KeyDown" ToolTip="Enter the text to find in the script you are editing. The search ignores case." />
                                 <ui:Button x:Name="btnFindNext" Content="Next" MinWidth="70" Margin="0,0,4,0" Click="FindNext_Click" ToolTip="Select the next match for the find text in the script." />
                                 <ui:Button x:Name="btnFindClose" Content="Close" MinWidth="70" Click="FindClose_Click" />
                             </StackPanel>
@@ -660,7 +660,7 @@
                         <DockPanel Grid.Row="1" Margin="0,0,0,4">
                             <TextBlock DockPanel.Dock="Left" Text="Requirement operations" Style="{StaticResource WbHeading}" Margin="0,0,12,0" VerticalAlignment="Center" />
                             <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" HorizontalAlignment="Right">
-                                <ComboBox x:Name="cboReqTemplate" AutomationProperties.Name="Site condition" AutomationProperties.HelpText="{Binding ToolTip, RelativeSource={RelativeSource Self}}" Width="200" Margin="0,0,8,8"
+                                <ComboBox x:Name="cboReqTemplate" AutomationProperties.Name="Site condition" AutomationProperties.HelpText="{Binding ToolTip, RelativeSource={RelativeSource Self}, Converter={x:Static helpers:ToolTipTextConverter.Instance}}" Width="200" Margin="0,0,8,8"
                                           ItemsSource="{Binding RequirementTemplates}" SelectedItem="{Binding SelectedRequirementTemplate}"
                                           ToolTip="Site conditions, named below; a rule attaches one to this application." />
                                 <ui:Button x:Name="btnReqAdd" Content="Add" Icon="{ui:SymbolIcon Add24}" Style="{StaticResource WbInlineButton}" MinWidth="70" Command="{Binding AddRequirementCommand}" ToolTip="Add a requirement operation for the selected site condition." />

@@ -68,6 +68,25 @@ public sealed class WorkbenchPublishAllTests
         Assert.Contains(nameof(WorkbenchWindowViewModel.ValidationLine), changed);
     }
 
+    [Fact]
+    public void AHelpTextFromATooltipIsAlwaysAText()
+    {
+        var converter = ApplicationPackagerUI.Helpers.ToolTipTextConverter.Instance;
+        object Convert(object? value) => converter.Convert(value, typeof(string), null, System.Globalization.CultureInfo.InvariantCulture);
+        Assert.Equal("Enter the key.", Convert("Enter the key."));
+        Assert.Equal("", Convert(null));
+        Assert.Equal("", Convert(new object()));
+
+        // A style applies before a field sets its tooltip, so each such binding needs the converter.
+        var root = Path.Combine(ApplicationPackagerEngine.Tests.Compliance.CatalogServiceTests.RepositoryRoot(), "src", "ApplicationPackagerUI");
+        var bare = Directory.EnumerateFiles(root, "*.xaml", SearchOption.AllDirectories)
+            .SelectMany(file => File.ReadLines(file).Where(line => line.Contains("AutomationProperties.HelpText", StringComparison.Ordinal)
+                    && line.Contains("{Binding ToolTip, RelativeSource={RelativeSource Self}}", StringComparison.Ordinal))
+                .Select(line => Path.GetFileName(file) + ": " + line.Trim()))
+            .ToList();
+        Assert.True(bare.Count == 0, "Help text from a tooltip without the converter: " + string.Join("; ", bare));
+    }
+
     private static readonly string[] Fields =
     [
         "txtDisplayName", "txtPublisher", "txtDescription", "cboTitleMode", "txtProfileName", "cboScriptTarget", "cboInstallMode",
