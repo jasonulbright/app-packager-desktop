@@ -125,10 +125,11 @@ public sealed class LabSuiteProcessJobTests : IDisposable
     [Theory]
     [InlineData("Run-LabSuite.ps1")]
     [InlineData("ProcessJob.ps1")]
+    [InlineData("Run-InSession.ps1")]
     public void TheLabScriptsHaveNoOtherWayToStopAProcess(string name)
     {
         var script = File.ReadAllText(LabFile(name));
-        foreach (var forbidden in new[] { "Stop-Process", "taskkill", "ParentProcessId", ".Kill(", "OpenProcess", "Win32_Process" })
+        foreach (var forbidden in new[] { "Stop-Process", "taskkill", "ParentProcessId", ".Kill(", "OpenProcess", "Win32_Process", "tsdiscon", "Restart-Computer", "logoff.exe" })
             Assert.DoesNotContain(forbidden, script, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotMatch(@"(?m)^\s*(kill|spps)\s", script);
         Assert.Contains("JobProcess", script);
