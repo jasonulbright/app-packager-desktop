@@ -1,44 +1,47 @@
 using System.Runtime.CompilerServices;
-using System.Windows;
 using System.Windows.Automation;
+using System.Windows.Controls;
 using ApplicationPackagerUI.ViewModels.Pages;
 using ApplicationPackagerUI.Views.Pages;
 using Wpf.Ui.Appearance;
 using static ApplicationPackagerEngine.Tests.Compliance.RenderKit;
+using MenuItem = System.Windows.Controls.MenuItem;
+using ContextMenu = System.Windows.Controls.ContextMenu;
 
 namespace ApplicationPackagerEngine.Tests;
 
-/// <summary>The Export Check Results button of the Packages page, in a real window in both themes.</summary>
+/// <summary>The menus of the Packages page (overhaul V1, phase 3c), built on a real page in both themes.</summary>
 [Collection(ProcessEnvironmentCollection.Name)]
 public sealed class PackagesExportCheckResultsButtonTests
 {
+    private static List<string> Ids(ContextMenu menu) => menu.Items.OfType<MenuItem>().Select(AutomationProperties.GetAutomationId).ToList();
+
     [Theory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
-    public void TheButtonIsShownBelowTheGridWithATooltip(ApplicationTheme theme)
+    public void TheMenusHoldTheCommandsThatLeftTheToolbarWithTheirTooltips(ApplicationTheme theme)
     {
         WithApplication(theme, () =>
         {
-            System.Windows.Application.Current.Resources["BooleanToVisibilityConverter"] = new System.Windows.Controls.BooleanToVisibilityConverter();
+            System.Windows.Application.Current.Resources["BooleanToVisibilityConverter"] = new BooleanToVisibilityConverter();
             var viewModel = (PackagesViewModel)RuntimeHelpers.GetUninitializedObject(typeof(PackagesViewModel));
+            viewModel.CheckMecmToolTip = "Set the site code in Settings to check ConfigMgr.";
             var page = new PackagesPage(viewModel);
-            var window = new Window { Width = 1440 - 48, Height = 900 - 48, WindowStyle = WindowStyle.None, Content = page };
-            Show(window);
-            try
-            {
-                Settle(window);
-                var button = Descendants(page).OfType<FrameworkElement>()
-                    .Single(e => AutomationProperties.GetAutomationId(e) == "btnExportCheckResults");
-                Assert.True(button.IsVisible);
-                Assert.True(button.ActualWidth > 40 && button.ActualHeight > 16);
-                var tip = Convert.ToString(button.ToolTip);
-                Assert.Contains("Check ConfigMgr", tip);
-                Assert.Contains("only those with an update available", tip);
-                var grid = (FrameworkElement)page.FindName("PackagerGrid");
-                Assert.True(button.TranslatePoint(new System.Windows.Point(0, 0), page).Y > grid.TranslatePoint(new System.Windows.Point(0, 0), page).Y + grid.ActualHeight - 1,
-                    "The button is not below the grid.");
-            }
-            finally { window.Close(); }
+
+            Assert.Equal(["miCheckLatest", "miCheckConfigMgr", "miCheckCves"], Ids(page.BuildCheckMenu()));
+            var site = page.BuildCheckMenu().Items.OfType<MenuItem>().ElementAt(1);
+            Assert.Equal(viewModel.CheckMecmToolTip, site.ToolTip);
+            Assert.True(ToolTipService.GetShowOnDisabled(site), "A disabled check keeps its reason.");
+
+            var more = page.BuildMoreMenu();
+            Assert.Equal(["miCveReport", "miOperationHistory", "miExportCheckResults", "miShowDebugColumns"], Ids(more));
+            var items = more.Items.OfType<MenuItem>().ToList();
+            Assert.False(items[1].IsEnabled, "Operation history needs a selected row.");
+            var export = Convert.ToString(items[2].ToolTip);
+            Assert.Contains("Check ConfigMgr", export);
+            Assert.Contains("only those with an update available", export);
+
+            Assert.Equal(["miAddFromWeb", "miAddFromFile", "miConvertFromCm", "miImportFromUrl"], Ids(page.BuildAddOrImportMenu()));
         });
     }
 }

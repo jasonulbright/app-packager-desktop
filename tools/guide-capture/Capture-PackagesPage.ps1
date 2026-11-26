@@ -68,9 +68,9 @@ foreach ($theme in $Themes) {
             }
             Set-ElText (Find-El $w 'txtAppPackagerSearch') ''
             Start-Sleep 1
-            Real-Click (Find-El $w -Name 'Check Latest' -ControlType 'Button' -Timeout 5)
+            Open-ApdMenuItem $w 'btnCheckMenu' 'miCheckLatest'
             Wait-Idle $w 240
-            Real-Click (Find-El $w -Name 'Check ConfigMgr' -ControlType 'Button' -Timeout 5)
+            Open-ApdMenuItem $w 'btnCheckMenu' 'miCheckConfigMgr'
             Wait-Idle $w 240
             "status: $(Status-Text $w)"
         }
@@ -97,10 +97,13 @@ foreach ($theme in $Themes) {
             if (-not (Test-Path -LiteralPath $resultFile)) { throw "no result file at $resultFile" }
             "result file: $((Get-Content -LiteralPath $resultFile | Measure-Object).Count) lines"
             Get-Content -LiteralPath $resultFile -TotalCount 4
-            $b = Find-El $w 'btnExportCheckResults'
+            Click-El (Find-El $w 'btnMore' -Timeout 5)
+            Start-Sleep -Milliseconds 600
+            $b = Find-El $null 'miExportCheckResults' -Timeout 5
             if (-not $b -or -not $b.Current.IsEnabled) { throw 'Export Check Results is missing or disabled' }
             Move-MouseAway
             Shot $theme 'core-packages-export-check-results'
+            [System.Windows.Forms.SendKeys]::SendWait('{ESC}')
         }
         Step $theme 'core-packages-buttons-disabled' {
             $b = Find-El $w 'btnPublishIntune'
@@ -112,7 +115,7 @@ foreach ($theme in $Themes) {
             Move-MouseAway
         }
         Step $theme 'core-packages-cve-columns' {
-            Real-Click (Find-El $w 'btnCheckCves')
+            Open-ApdMenuItem $w 'btnCheckMenu' 'miCheckCves'
             Wait-Idle $w 180
             "status after Check CVEs: $(Status-Text $w)"
             Move-MouseAway
@@ -120,7 +123,7 @@ foreach ($theme in $Themes) {
         }
         Step $theme 'core-packages-operation-history' {
             # The window is not in the UI Automation tree of the app, so the shot is cut at its place: the window opens centered over the page of the work area.
-            Real-Click (Find-El $w 'btnOperationHistory')
+            Open-ApdMenuItem $w 'btnMore' 'miOperationHistory'
             Start-Sleep 4
             Move-MouseAway
             Save-Shot (Join-Path $Run (Join-Path 'images' (Join-Path $theme.ToLower() 'core-packages-operation-history.png'))) -Rect @(370, 136, 1181, 760)

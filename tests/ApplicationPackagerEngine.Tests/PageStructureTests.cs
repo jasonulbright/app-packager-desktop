@@ -137,45 +137,22 @@ public sealed class PageStructureTests
         Assert.Equal(Column("TitleText"), Column("StatusText"));
     }
 
-    // The App Packager toolbar (Q-102): one row in the owner order, each child of the wrap panel is a group, a separator ends every group but the last,
-    // so a narrow window wraps by group and a row never starts with a separator.
+    // The App Packager actions (overhaul V1, phase 3c): the tab row has One Click and the Check menu, the batch bar has Cancel, Stage and Publish All.
+    // The checks, the reports and the ways to add an application are menus, so the page has no toolbar row.
     [Fact]
-    public void TheAppPackagerToolbarHasTheOwnerOrderAndWrapsByGroup()
+    public void TheAppPackagerActionsAreInTheTabRowAndTheBatchBar()
     {
         var doc = Xaml("Views", "Pages", "PackagesPage.xaml");
-        var toolbar = doc.Descendants().Single(e => e.Name.LocalName == "WrapPanel" && Attr(e, "{http://schemas.microsoft.com/winfx/2006/xaml}Name") == "AppPackagerToolbar");
-        var groups = toolbar.Elements().Where(e => e.Name.LocalName != "WrapPanel.Resources").ToList();
-        Assert.Equal(4, groups.Count);
-        Assert.All(groups, g => Assert.Equal("WrapPanel", g.Name.LocalName));
-        Assert.All(groups, g => Assert.Equal("Horizontal", Attr(g, "Orientation")));
-        var names = groups.Select(g => g.Elements().Where(e => e.Name.LocalName == "Button" && Attr(e, "Content") != "Cancel").Select(b => Attr(b, "Content")).ToArray()).ToList();
-        Assert.Equal(new[] { "One Click" }, names[0]);
-        Assert.Equal(new[] { "Check Latest", "Check ConfigMgr", "Check CVEs" }, names[1]);
-        Assert.Equal(new[] { "Stage", "Publish All" }, names[2]);
-        // The per-system publish buttons are gone (D-47, overhaul V1 phase 3): Publish All reaches the systems of Settings, Systems in Use.
-        Assert.Equal(new[] { "CVE Report", "Ops History" }, names[3]);
-        Assert.All(groups.Take(3), g => Assert.Equal("Border", g.Elements().Last().Name.LocalName));
-        Assert.DoesNotContain(groups.Last().Elements(), e => e.Name.LocalName == "Border");
-        // The buttons that the owner design removed from the toolbar.
-        var all = toolbar.Descendants().Where(e => e.Name.LocalName == "Button").Select(b => Attr(b, "Content")).ToList();
-        Assert.DoesNotContain("Discover unmanaged software", all);
-        Assert.DoesNotContain("Supersedence", all);
-        Assert.DoesNotContain("WSUS Updates", all);
-        Assert.DoesNotContain("Publish to ConfigMgr", all);
-        Assert.DoesNotContain("Publish to Intune", all);
-        Assert.DoesNotContain("Publish to WSUS", all);
-    }
-
-    // Every toolbar button, Cancel included, has the same margin and does not stretch, so Cancel has the height and the baseline of its neighbours when the row wraps.
-    [Fact]
-    public void EveryAppPackagerToolbarButtonHasTheSameMarginAndDoesNotStretch()
-    {
-        var doc = Xaml("Views", "Pages", "PackagesPage.xaml");
-        var toolbar = doc.Descendants().Single(e => e.Name.LocalName == "WrapPanel" && Attr(e, "{http://schemas.microsoft.com/winfx/2006/xaml}Name") == "AppPackagerToolbar");
-        var buttons = toolbar.Descendants().Where(e => e.Name.LocalName == "Button").ToList();
-        Assert.Contains(buttons, b => Attr(b, "Content") == "Cancel");
-        Assert.All(buttons, b => Assert.Equal("0,0,4,8", Attr(b, "Margin")));
-        Assert.Equal("Top", Attr(buttons.Single(b => Attr(b, "Content") == "Cancel"), "VerticalAlignment"));
+        string[] Buttons(string name) => doc.Descendants()
+            .Single(e => Attr(e, "{http://schemas.microsoft.com/winfx/2006/xaml}Name") == name)
+            .Descendants().Where(e => e.Name.LocalName == "Button").Select(b => Attr(b, "Content")).ToArray();
+        Assert.Equal(new[] { "One Click", "Check" }, Buttons("AppPackagerToolbar"));
+        Assert.Equal(new[] { "Cancel", "Stage", "Publish All" }, Buttons("BatchActions"));
+        // The per-system publish buttons are gone (D-47), and so are the buttons that moved into a menu.
+        var all = doc.Descendants().Where(e => e.Name.LocalName == "Button").Select(b => Attr(b, "Content")).ToList();
+        foreach (var gone in new[] { "Check Latest", "Check ConfigMgr", "Check CVEs", "CVE Report", "Ops History", "Export Check Results", "Import From URL",
+                     "Convert from ConfigMgr", "Discover unmanaged software", "Supersedence", "WSUS Updates", "Publish to ConfigMgr", "Publish to Intune", "Publish to WSUS" })
+            Assert.DoesNotContain(gone, all);
     }
 
     private static IReadOnlyList<XElement> ToolbarGroups(XDocument doc, string key, string value) =>

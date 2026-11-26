@@ -75,7 +75,7 @@ foreach ($theme in $Themes) {
         }
         Step $theme 'checks' {
             Check-Row $w $Application
-            Real-Click (Find-El $w -Name 'Check Latest' -ControlType 'Button' -Timeout 5)
+            Open-ApdMenuItem $w 'btnCheckMenu' 'miCheckLatest'
             Wait-Idle $w 240
             "status: $(Status-Text $w)"
         }

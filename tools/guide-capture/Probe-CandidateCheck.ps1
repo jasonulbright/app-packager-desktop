@@ -115,11 +115,11 @@ foreach ($theme in $Themes) {
         Run-Check "$theme-04" {
             $w = Main-Window
             Check-Row $w $Product
-            Real-Click (Find-El $w -Name 'Check Latest' -ControlType 'Button' -Timeout 5)
+            Open-ApdMenuItem $w 'btnCheckMenu' 'miCheckLatest'
             Wait-Idle $w 180
             $s1 = Status-Text $w
             Check "$theme-04a Check Latest ends with its finished line in the log" ((Session-Log $data) -match 'Check Latest finished: \d+ of 1 product') "status: '$s1'"
-            Real-Click (Find-El $w -Name 'Check ConfigMgr' -ControlType 'Button' -Timeout 5)
+            Open-ApdMenuItem $w 'btnCheckMenu' 'miCheckConfigMgr'
             Wait-Idle $w 240
             $s2 = Status-Text $w
             Check "$theme-04b Check ConfigMgr ends with its finished line and its status line" ((Session-Log $data) -match 'Check ConfigMgr finished: \d+ of 1 product' -and $s2 -match 'ConfigMgr query complete\. 1 of 1 checked\.') "status: '$s2'"
@@ -131,7 +131,7 @@ foreach ($theme in $Themes) {
         Run-Check "$theme-05" {
             $w = Main-Window
             Set-HeaderCheck $w 'On'
-            Real-Click (Find-El $w -Name 'Check Latest' -ControlType 'Button' -Timeout 5)
+            Open-ApdMenuItem $w 'btnCheckMenu' 'miCheckLatest'
             Start-Sleep 6
             $cancel = Find-El $w 'btnCancelOperation' -Timeout 10
             Check "$theme-05a Cancel shows while a run is active" ($null -ne $cancel) 'no Cancel button'

@@ -167,3 +167,13 @@ function Get-FooterRect {
     $r = $e.Current.BoundingRectangle
     [int[]]@([int]$r.X, [int]$r.Y, [int]$r.Width, [int]$r.Height)
 }
+
+# The checks, the reports and the ways to add an application are menu items since the V1 overhaul (phase 3c): open the menu, then click the item.
+function Open-ApdMenuItem($Window, [string]$Menu, [string]$Item) {
+    Click-El (Find-El $Window $Menu -Timeout 5)
+    Start-Sleep -Milliseconds 600
+    $found = Find-El $null $Item -Timeout 5
+    if (-not $found) { throw "The menu $Menu shows no item $Item." }
+    Click-El $found
+    Start-Sleep -Milliseconds 800
+}

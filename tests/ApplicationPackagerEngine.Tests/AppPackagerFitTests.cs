@@ -106,21 +106,17 @@ public sealed class AppPackagerFitTests
                 }
                 PageChromeKit.AssertNothingClipped(toolbar, where);
 
-                // The buttons have the compact size, and the icon-only mode is a row of uniform squares.
-                var compact = (string?)toolbar.Tag == "Compact";
                 var buttons = Descendants(toolbar).OfType<ButtonBase>().Where(b => b.IsVisible).ToList();
                 Assert.NotEmpty(buttons);
-                if (compact)
+                Assert.All(buttons, b => Assert.True(b.ActualHeight <= CompactButtonHeight + 0.5,
+                    $"{where}: {AutomationProperties.GetAutomationId(b)} is {b.ActualHeight:0.#} px high; the compact size is {CompactButtonHeight} px."));
+                var batch = ById<FrameworkElement>(page, "pnlBatchActions");
+                foreach (var button in Descendants(batch).OfType<ButtonBase>().Where(b => b.IsVisible))
                 {
-                    Assert.All(buttons, b => Assert.True(Math.Abs(b.ActualWidth - b.ActualHeight) < 0.5 && Math.Abs(b.ActualWidth - CompactButtonHeight) < 0.5,
-                        $"{where}: {AutomationProperties.GetAutomationId(b)} is {b.ActualWidth:0.#} x {b.ActualHeight:0.#}; an icon button is a {CompactButtonHeight} px square."));
-                    Assert.All(buttons, b => Assert.False(string.IsNullOrWhiteSpace(b.ToolTip?.ToString()), $"{where}: an icon button has no tooltip."));
+                    var right = button.TransformToAncestor(window).TransformBounds(new Rect(button.RenderSize)).Right;
+                    Assert.True(right <= window.ActualWidth + 0.5, $"{where}: {AutomationProperties.GetAutomationId(button)} ends at {right:0} px of {window.ActualWidth:0} px.");
                 }
-                else
-                {
-                    Assert.All(buttons, b => Assert.True(b.ActualHeight <= CompactButtonHeight + 0.5,
-                        $"{where}: {AutomationProperties.GetAutomationId(b)} is {b.ActualHeight:0.#} px high; the compact size is {CompactButtonHeight} px."));
-                }
+                PageChromeKit.AssertNothingClipped(batch, where);
                 // Q-102: the toolbar is one row at every size of this list. It shows the labels where they fit in that row and the icons only where they do not.
                 Assert.True(ToolbarLines(toolbar) == 1, $"{where}: the toolbar uses {ToolbarLines(toolbar)} lines.");
 
@@ -166,20 +162,16 @@ public sealed class AppPackagerFitTests
             {
                 Settle(window);
                 var where = $"App Packager {theme} {width}x{height}, run active";
-                var toolbar = ById<FrameworkElement>(page, "pnlAppPackagerToolbar");
+                var toolbar = ById<FrameworkElement>(page, "pnlBatchActions");
                 Pixels(window, toolbar, $"app-packager-running-{theme}-{width}");
                 var buttons = Descendants(toolbar).OfType<ButtonBase>().Where(b => b.IsVisible).ToList();
                 var cancel = buttons.Single(b => AutomationProperties.GetAutomationId(b) == "btnCancelOperation");
-                var history = buttons.Single(b => AutomationProperties.GetAutomationId(b) == "btnOperationHistory");
+                var publish = buttons.Single(b => AutomationProperties.GetAutomationId(b) == "btnPublishAll");
                 Point Top(FrameworkElement e) => e.TransformToAncestor(toolbar).Transform(new Point(0, 0));
-                Assert.True(Math.Abs(cancel.ActualHeight - history.ActualHeight) < 0.5, $"{where}: Cancel is {cancel.ActualHeight:0.#} px high, Operation history {history.ActualHeight:0.#}.");
-                Assert.True(Math.Abs(cancel.ActualWidth - history.ActualWidth) < 0.5 || (string?)toolbar.Tag != "Compact", $"{where}: an icon button is a square.");
-                // The row of Cancel: every button whose top is within 1 px of it shares its height; the buttons of that row have one top.
-                var row = buttons.Where(b => Math.Abs(Top(b).Y - Top(cancel).Y) < 1).ToList();
-                Assert.Contains(history, row);
-                // Q-98: at a normal width the toolbar does not wrap while a run is active (every button has the top of Cancel).
-                if (width >= 1269) Assert.True(row.Count == buttons.Count, $"{where}: the toolbar wraps ({row.Count} of {buttons.Count} buttons on the row of Cancel).");
-                Assert.All(row, b => Assert.True(Math.Abs(b.ActualHeight - cancel.ActualHeight) < 0.5, $"{where}: {AutomationProperties.GetAutomationId(b)} is {b.ActualHeight:0.#} px high."));
+                Assert.True(Math.Abs(cancel.ActualHeight - publish.ActualHeight) < 0.5, $"{where}: Cancel is {cancel.ActualHeight:0.#} px high, Publish All {publish.ActualHeight:0.#}.");
+                // Cancel, Stage and Publish All stay on one line while a run is active.
+                Assert.All(buttons, b => Assert.True(Math.Abs(Top(b).Y - Top(cancel).Y) < 1, $"{where}: {AutomationProperties.GetAutomationId(b)} is not on the line of Cancel."));
+                Assert.All(buttons, b => Assert.True(Math.Abs(b.ActualHeight - cancel.ActualHeight) < 0.5, $"{where}: {AutomationProperties.GetAutomationId(b)} is {b.ActualHeight:0.#} px high."));
             }
             finally { window.Close(); }
         });

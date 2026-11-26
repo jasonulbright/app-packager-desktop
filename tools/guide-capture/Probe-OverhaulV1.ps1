@@ -106,7 +106,7 @@ foreach ($theme in $Themes) {
             $tip = (Find-El $w 'btnPublishAll').Current.HelpText
             "Publish All enabled: $((Find-El $w 'btnPublishAll').Current.IsEnabled); tooltip: $tip"
             Check-Row $w $Application
-            Real-Click (Find-El $w -Name 'Check Latest' -ControlType 'Button' -Timeout 5)
+            Open-ApdMenuItem $w 'btnCheckMenu' 'miCheckLatest'
             Wait-Idle $w 240
             Real-Click (Find-El $w -Name 'Stage' -ControlType 'Button' -Timeout 5)
             Wait-Idle $w 420

@@ -88,7 +88,7 @@ foreach ($theme in $Themes) {
         }
         Run-Check "$theme-cves" {
             # The lab has no route to the NVD, so the CVE check can end before a running line shows: its finished line counts the set too.
-            Real-Click (Find-El $w -Name 'Check CVEs' -ControlType 'Button' -Timeout 5)
+            Open-ApdMenuItem $w 'btnCheckMenu' 'miCheckCves'
             $line = Wait-Line $w '^(CVEs: \d+ of \d+|CVE check (complete|cancelled).*\d+ of \d+)' 120
             Check "$theme check-cves line shows N of M" ($null -ne $line) "lines: $((Status-Lines $w) -join ' | ')"
             "INFO cves line: '$line'"
@@ -106,7 +106,7 @@ foreach ($theme in $Themes) {
             if ($boxes.Count -lt 1) { throw 'The grid has no row for 7-Zip.' }
             if ($boxes[0].GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern).Current.ToggleState -ne 'On') { Real-Click $boxes[0] }
             Set-ElText (Find-El $w 'txtAppPackagerSearch') ''
-            Real-Click (Find-El $w -Name 'Check ConfigMgr' -ControlType 'Button' -Timeout 5)
+            Open-ApdMenuItem $w 'btnCheckMenu' 'miCheckConfigMgr'
             $end = Wait-Line $w '^ConfigMgr query complete\. 1 of 1 checked\.$' 240
             Check "$theme configmgr finished line shows N of M" ($null -ne $end) "lines: $((Status-Lines $w) -join ' | ')"
             Shot $theme 'check-configmgr-finished'

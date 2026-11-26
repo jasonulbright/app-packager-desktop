@@ -82,6 +82,9 @@ public sealed class AppSettings
     /// <summary>The headers of the Packages grid columns that the operator hid with the Columns menu. Empty shows every column, as before the menu existed.</summary>
     public string[] PackagesHiddenColumns { get; set; } = [];
 
+    /// <summary>The order, the widths and the sort of the Packages grid. Null until the operator changes one of them.</summary>
+    public ApplicationPackagerUI.Helpers.PackagesColumnLayout? PackagesGridLayout { get; set; }
+
     /// <summary>The detail pane of the Packages page is open. The pane starts closed in a window narrower than 1100 whatever this says.</summary>
     public bool PackagesDetailPaneOpen { get; set; } = true;
 

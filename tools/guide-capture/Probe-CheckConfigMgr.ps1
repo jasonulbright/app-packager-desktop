@@ -64,7 +64,7 @@ try {
         if (-not $p) { throw "No packager '$id' in the golden file." }
         Check-Row $w $p.App
     }
-    Real-Click (Find-El $w -Name 'Check ConfigMgr' -ControlType 'Button' -Timeout 5)
+    Open-ApdMenuItem $w 'btnCheckMenu' 'miCheckConfigMgr'
     Wait-Idle $w 900
     foreach ($id in $Packagers) {
         $p = $golden | Where-Object { $_.Packager -eq $id -or $_.Definition -eq $id } | Select-Object -First 1
