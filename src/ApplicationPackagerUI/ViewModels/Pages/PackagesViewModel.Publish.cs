@@ -234,6 +234,8 @@ public partial class PackagesViewModel : IOneClickRunner, IPublishActionHost
             Force = settings.OneClick.ForceOnLaunch,
             OnExisting = settings.OneClick.OnExisting,
             Comment = Comment.Trim(),
+            SiteText = string.IsNullOrWhiteSpace(settings.SiteCode) ? "" : "ConfigMgr site " + settings.SiteCode.Trim(),
+            SystemsText = SystemsLine(settings.Systems),
             ReportFolder = OneClickReportFolder,
             ConfirmLocalSources = selected => ConfirmLocalSourceFolders(selected.ToList()),
             Log = AddLogLine
@@ -241,6 +243,15 @@ public partial class PackagesViewModel : IOneClickRunner, IPublishActionHost
         AddLogLine($"One Click: the checks are done, the plan opens for {rows.Count} application(s).");
         _publishDialogs.ShowOneClickPlan(new OneClickPlanViewModel(context, this));
         return;
+    }
+
+    /// <summary>"In use: ConfigMgr. Not in use: Intune, WSUS." from Settings, Systems in Use.</summary>
+    public static string SystemsLine(SystemsInUse? systems)
+    {
+        (string Name, bool On)[] all = [("ConfigMgr", systems?.ConfigMgr ?? false), ("Intune", systems?.Intune ?? false), ("WSUS", systems?.Wsus ?? false)];
+        var on = string.Join(", ", all.Where(s => s.On).Select(s => s.Name));
+        var off = string.Join(", ", all.Where(s => !s.On).Select(s => s.Name));
+        return "In use: " + (on.Length > 0 ? on : "none") + "." + (off.Length > 0 ? " Not in use: " + off + "." : "");
     }
 
     /// <summary>

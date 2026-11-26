@@ -1,0 +1,51 @@
+<ui:FluentWindow
+    x:Class="ApplicationPackagerUI.Views.Windows.OneClickHistoryWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+    Title="One Click run history"
+    Width="900" Height="480"
+    MinWidth="640" MinHeight="320"
+    WindowStartupLocation="CenterOwner"
+    ExtendsContentIntoTitleBar="True"
+    WindowBackdropType="None">
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <ui:TitleBar Grid.Row="0" Title="One Click run history" ShowMinimize="False" />
+
+        <TextBlock x:Name="txtHistorySummary" Grid.Row="1" Margin="16,4,16,8" FontSize="14" TextWrapping="Wrap"
+                   Foreground="{DynamicResource TextFillColorPrimaryBrush}" AutomationProperties.AutomationId="txtHistorySummary" />
+
+        <DataGrid x:Name="gridHistory" Grid.Row="2" Margin="16,0,16,8" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False"
+                  HeadersVisibility="Column" RowHeaderWidth="0" SelectionMode="Single" GridLinesVisibility="Horizontal"
+                  AutomationProperties.AutomationId="gridRunHistory" AutomationProperties.Name="Earlier One Click runs"
+                  SelectionChanged="History_SelectionChanged">
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="Started" Binding="{Binding Started, StringFormat=yyyy-MM-dd HH:mm}" Width="160" />
+                <DataGridTextColumn Header="Action" Binding="{Binding Action}" Width="*" MinWidth="160" />
+                <DataGridTextColumn Header="Applications" Binding="{Binding Applications}" Width="120" />
+                <DataGridTextColumn Header="Published" Binding="{Binding Published}" Width="100" />
+                <DataGridTextColumn Header="Failed" Binding="{Binding Failed}" Width="90" />
+            </DataGrid.Columns>
+        </DataGrid>
+
+        <Border Grid.Row="3" BorderThickness="0,1,0,0" BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}" Padding="16,8">
+            <DockPanel LastChildFill="False">
+                <ui:Button x:Name="btnHistoryClose" DockPanel.Dock="Right" Content="Close" MinWidth="90" IsCancel="True" Click="Close_Click"
+                           AutomationProperties.AutomationId="btnHistoryClose" />
+                <ui:Button x:Name="btnHistoryOpen" DockPanel.Dock="Right" Content="Open report" Icon="{ui:SymbolIcon Open24}" MinWidth="110" Margin="0,0,8,0"
+                           IsDefault="True" IsEnabled="False" Click="Open_Click" AutomationProperties.AutomationId="btnHistoryOpen"
+                           ToolTip="Opens the report of the selected run." />
+                <ui:Button x:Name="btnHistoryFolder" DockPanel.Dock="Left" Content="Open report folder" Click="Folder_Click"
+                           AutomationProperties.AutomationId="btnHistoryFolder" ToolTip="Opens the folder with the report files." />
+            </DockPanel>
+        </Border>
+    </Grid>
+</ui:FluentWindow>

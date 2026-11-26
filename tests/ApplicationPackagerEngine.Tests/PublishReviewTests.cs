@@ -249,7 +249,7 @@ public sealed class PublishReviewTests
         Assert.Equal("Publish completed with issues", model.Headline);
         Assert.Equal(["Published", "Failed at content upload"], model.Rows[0].Cells);
         Assert.Equal(
-            "Notepad++ reached ConfigMgr. It did not reach Intune (Failed at content upload). What reached a system stays published.",
+            "Notepad++ reached ConfigMgr. Intune has the application, and a later step failed (Failed at content upload). What reached a system stays published.",
             Assert.Single(model.Notices));
         Assert.Contains("Notepad++, Intune: upload failed", model.Details);
     }
@@ -264,6 +264,14 @@ public sealed class PublishReviewTests
         var cells = Enumerable.Range(0, published).Select(i => Cell("ConfigMgr", PublishDestinationKind.Published)).ToArray();
         var rows = published == 0 ? new List<(string, PublishRowResult)>() : cells.Select((c, i) => ("App" + i, Row("u" + i, c))).ToList();
         Assert.Equal(expected, new PublishResultsViewModel(rows, cancelled).Headline);
+    }
+
+    [Fact]
+    public void ANoticeNeverSaysThatAStoppedPublishDidNotHappen()
+    {
+        var notice = PublishResultsViewModel.PartialNotice("App", Row("a", Cell("ConfigMgr", PublishDestinationKind.Published),
+            Cell("Intune", PublishDestinationKind.Failed, "cancel"), Cell("WSUS", PublishDestinationKind.NotSupported)));
+        Assert.Equal("App reached ConfigMgr. It did not reach WSUS (Not supported). The state in Intune is not known. Check the system. What reached a system stays published.", notice);
     }
 
     // The windows

@@ -157,7 +157,12 @@ public sealed class OneClickRowRunner(IOneClickExecution execution, ISettingsRea
         var buildKey = plan is null ? "" : OneClickHistory.BuildKey(plan.ProfileId, plan.ProfileRevision, settings.ScriptSigning.PolicyDigest);
         var decision = OneClickPlanner.Decide(action, item.Destinations.Names, entry, latest, p.CurrentVersion, options.Force, versionChanged, buildStale,
             staged: entry?.LastStaged is not null, item.NotReady, buildKey);
-        foreach (var (destination, cell) in decision.GuardResults) item.SetResult(destination, cell);
+        foreach (var (destination, cell) in decision.GuardResults)
+        {
+            item.SetResult(destination, cell);
+            item.Cells.Add(new(destination, cell.StartsWith("not supported", StringComparison.OrdinalIgnoreCase)
+                ? PublishDestinationKind.NotSupported : PublishDestinationKind.Skipped, "", cell));
+        }
 
         var reasons = decision.SkipReasons.ToList();
 
@@ -225,6 +230,9 @@ public sealed class OneClickRowRunner(IOneClickExecution execution, ISettingsRea
             var ok = false;
             var present = false;
             var destinationOutcome = InventoryOutcome.Failed;
+            // The cell of what the destination answered, set as soon as it answers: a later error must not hide a publish that happened.
+            PublishDestinationResult? answered = null;
+            var intune = false;
             try
             {
                 switch (destination)
@@ -234,6 +242,7 @@ public sealed class OneClickRowRunner(IOneClickExecution execution, ISettingsRea
                         var onExisting = OneClickOnExisting.Normalize(options.OnExisting) == OneClickOnExisting.Overwrite
                             ? OnExistingBehavior.Overwrite : OnExistingBehavior.Skip;
                         var result = await execution.PackageAsync(p, options.Comment, stepLog, onExisting, snapshot, PublishRunTargets.ConfigMgr, ct);
+                        answered = PublishDestinationResult.FromConfigMgr(result);
                         id = ApplicationName(result.StdOut);
                         if (result.Conflict is { } conflict)
                         {
@@ -274,6 +283,7 @@ public sealed class OneClickRowRunner(IOneClickExecution execution, ISettingsRea
                     case OneClickDestinations.Wsus:
                     {
                         var step = await execution.PublishWsusAsync(p, stage, snapshot, stepLog, ct);
+                        answered = PublishDestinationResult.FromWsus(step);
                         log("WSUS publish: " + step.Message);
                         var mapped = OneClickPlanner.WsusResult(step);
                         (cell, detail, id, ok, present) = (mapped.Cell, mapped.Detail, mapped.Id, mapped.Ok, mapped.AlreadyPresent);
@@ -291,6 +301,9 @@ public sealed class OneClickRowRunner(IOneClickExecution execution, ISettingsRea
                     default:
                     {
                         var result = await execution.PackageAsync(p, options.Comment, stepLog, OnExistingBehavior.Skip, snapshot, PublishRunTargets.IntuneOnly, ct);
+                        // The Intune cell keeps what the publish said: a supersedence that was not applied, or a destination that cannot take it.
+                        answered = PublishDestinationResult.FromIntune(result);
+                        intune = true;
                         IntuneNotes?.Invoke(p, result);
                         if (result.ExitCode == 0)
                         {
@@ -311,12 +324,21 @@ public sealed class OneClickRowRunner(IOneClickExecution execution, ISettingsRea
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested)
             {
+                item.Cells.Add(answered ?? new(destination, PublishDestinationKind.Failed, "cancel", "The run stopped during this publish. Check the system."));
                 RecordDestination(p, identity, settings, destination, latest, id, InventoryOutcome.Cancelled,
                     detail.Length == 0 ? "Publish cancelled." : detail, snapshot.BuildId, operationId);
                 StopCanceled(item, p, publishedTo);
                 throw;
             }
+            catch (Exception ex) when (ex is not OutOfMemoryException)
+            {
+                item.Cells.Add(answered ?? new(destination, PublishDestinationKind.Failed, "error", "The publish ended with an error. Check the system. " + ex.Message));
+                throw;
+            }
 
+            // The cell is added before the history write, which can fail on its own.
+            item.Cells.Add(intune && answered is not null ? answered
+                : ResultCell(destination, destinationOutcome, detail.Length > 0 ? detail : cell, id));
             RecordDestination(p, identity, settings, destination, latest, id, destinationOutcome, detail, snapshot.BuildId, operationId, ciId, modelName);
             item.SetResult(destination, cell, id, detail);
             if (ok)
@@ -339,6 +361,17 @@ public sealed class OneClickRowRunner(IOneClickExecution execution, ISettingsRea
             inventory.CompleteOperation(operationId, outcome, DateTimeOffset.UtcNow, item.Reason);
         }
     }
+
+    /// <summary>The results cell of one destination, from the outcome that the history records.</summary>
+    public static PublishDestinationResult ResultCell(string destination, InventoryOutcome outcome, string message, string id) => outcome switch
+    {
+        InventoryOutcome.Succeeded or InventoryOutcome.AlreadyPresent => new(destination, PublishDestinationKind.Published, "", message, id),
+        InventoryOutcome.PublishedSupersedenceNotApplied => new(destination, PublishDestinationKind.Published, "", message, id) { Warning = true },
+        InventoryOutcome.Partial => new(destination, PublishDestinationKind.Failed, "content", message, id),
+        InventoryOutcome.Skipped or InventoryOutcome.Cancelled => new(destination, PublishDestinationKind.Skipped, "", message, id),
+        InventoryOutcome.Refused => new(destination, PublishDestinationKind.NotSupported, "", message, id),
+        _ => new(destination, PublishDestinationKind.Failed, "", message, id)
+    };
 
     /// <summary>Ends a canceled row with what it published; throws the cancellation.</summary>
     private static void StopCanceled(OneClickPlanItem item, PackagerInfo row, IReadOnlyList<string> publishedTo)

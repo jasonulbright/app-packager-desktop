@@ -22,7 +22,25 @@ public partial class OneClickPlanWindow : ApplicationPackagerUI.Services.IDialog
         InitializeComponent();
         viewModel.PropertyChanged += OnViewModelChanged;
         Closing += OnClosing;
+        // The dialog opens after the run has left its running state, so it does not run inside the run command.
+        viewModel.ResultsReady += (_, _) => Dispatcher.BeginInvoke(ShowResults);
         ApplyColumns();
+    }
+
+    private void ShowResults()
+    {
+        if (!IsVisible || !_viewModel.HasResults) return;
+        new PublishResultsWindow(_viewModel.BuildResults()) { Owner = this }.ShowDialog();
+    }
+
+    private void Results_Click(object sender, RoutedEventArgs e) => ShowResults();
+
+    private void ReviewFailed_Click(object sender, RoutedEventArgs e)
+    {
+        if (_viewModel.FirstFailed is not { } row) return;
+        gridPlan.SelectedItem = row;
+        gridPlan.ScrollIntoView(row);
+        gridPlan.Focus();
     }
 
     private void OnViewModelChanged(object? sender, PropertyChangedEventArgs e)
@@ -42,7 +60,7 @@ public partial class OneClickPlanWindow : ApplicationPackagerUI.Services.IDialog
         var run = _viewModel.IsRunView;
         static Visibility Show(bool value) => value ? Visibility.Visible : Visibility.Collapsed;
         colMecm.Visibility = colWsus.Visibility = colIntune.Visibility = Show(!run);
-        colLast.Visibility = colPlanned.Visibility = Show(!run);
+        colLast.Visibility = colPlanned.Visibility = colSource.Visibility = Show(!run);
         colStep.Visibility = Show(run);
         colResultMecm.Visibility = Show(run && _viewModel.ShowResultConfigMgr);
         colResultWsus.Visibility = Show(run && _viewModel.ShowResultWsus);
@@ -68,13 +86,6 @@ public partial class OneClickPlanWindow : ApplicationPackagerUI.Services.IDialog
         catch (Exception ex) when (ex is Win32Exception or InvalidOperationException) { }
     }
 
-    private void History_Click(object sender, RoutedEventArgs e)
-    {
-        try
-        {
-            Directory.CreateDirectory(_reportFolder);
-            Process.Start(new ProcessStartInfo("explorer.exe", $"\"{_reportFolder}\""));
-        }
-        catch (Exception ex) when (ex is Win32Exception or IOException or UnauthorizedAccessException) { }
-    }
+    private void History_Click(object sender, RoutedEventArgs e) =>
+        new OneClickHistoryWindow(_reportFolder) { Owner = this }.ShowDialog();
 }

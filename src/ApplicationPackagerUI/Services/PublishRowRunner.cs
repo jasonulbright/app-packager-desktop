@@ -63,8 +63,9 @@ public static class PublishRowRunner
             catch (Exception ex) when (ex is not OutOfMemoryException)
             {
                 log($"ERROR: {ex.Message}");
-                if (set.ConfigMgr) cells.Add(new(OneClickDestinations.ConfigMgr, PublishDestinationKind.Failed, "", ex.Message));
-                if (set.Intune) cells.Add(new(OneClickDestinations.Intune, PublishDestinationKind.Failed, "", ex.Message));
+                // The call may have written before it threw, so the step says that the state is not known.
+                if (set.ConfigMgr) cells.Add(new(OneClickDestinations.ConfigMgr, PublishDestinationKind.Failed, "error", ex.Message));
+                if (set.Intune) cells.Add(new(OneClickDestinations.Intune, PublishDestinationKind.Failed, "error", ex.Message));
             }
         }
 
@@ -88,7 +89,7 @@ public static class PublishRowRunner
             catch (Exception ex) when (ex is not OutOfMemoryException)
             {
                 log($"ERROR: {ex.Message}");
-                cells.Add(new(OneClickDestinations.Wsus, PublishDestinationKind.Failed, "", ex.Message));
+                cells.Add(new(OneClickDestinations.Wsus, PublishDestinationKind.Failed, "error", ex.Message));
             }
         }
 

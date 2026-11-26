@@ -36,6 +36,12 @@ public partial class OneClickPlanItem : ObservableObject
     [ObservableProperty] private string _resultWsus = "";
     [ObservableProperty] private string _resultIntune = "";
 
+    /// <summary>Where the destination boxes of this row come from: the saved selection of the application, the default, or a change for this run.</summary>
+    [ObservableProperty] private string _sourceText = "";
+
+    /// <summary>One cell for each destination that the run reached or refused, for the results window.</summary>
+    public List<PublishDestinationResult> Cells { get; } = [];
+
     /// <summary>True once the operator changed Include; a replan then keeps the operator's value.</summary>
     public bool IncludeTouched { get; set; }
 
