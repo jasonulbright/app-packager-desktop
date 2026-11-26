@@ -93,9 +93,17 @@
                 <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
             <DockPanel Grid.Column="0" Margin="0,0,0,8">
+            <ui:TextBox x:Name="txtSettingsSearch" DockPanel.Dock="Top" Margin="0,0,0,8" PlaceholderText="Search settings"
+                        TextChanged="SearchBox_TextChanged" PreviewKeyDown="SearchBox_PreviewKeyDown"
+                        AutomationProperties.AutomationId="txtSettingsSearch" AutomationProperties.Name="Search settings"
+                        ToolTip="Type the name of a setting; Enter opens the first match." />
+            <TextBlock x:Name="txtSettingsSearchCount" DockPanel.Dock="Top" Visibility="Collapsed" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,4"
+                       Foreground="{DynamicResource TextFillColorSecondaryBrush}" AutomationProperties.AutomationId="txtSettingsSearchCount"
+                       AutomationProperties.LiveSetting="Polite" />
             <TextBlock x:Name="txtUnsavedChanges" DockPanel.Dock="Bottom" Text="{Binding UnsavedChangesText}" FontSize="12" TextWrapping="Wrap" Margin="0,8,0,0"
                        Foreground="{DynamicResource TextFillColorSecondaryBrush}" AutomationProperties.AutomationId="txtUnsavedChanges"
                        AutomationProperties.LiveSetting="Polite" />
+            <Grid>
             <TreeView x:Name="OptionsTree" AutomationProperties.AutomationId="tvOptions" ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                       SelectedItemChanged="OptionsTree_SelectedItemChanged">
                 <TreeViewItem Header="General" ToolTip="Holds the theme, the update check, your company name and the import from the PowerShell app." Tag="general" IsSelected="True" AutomationProperties.AutomationId="nav_general" />
@@ -115,8 +123,8 @@
                     <TreeViewItem Header="Application Settings" ToolTip="Holds the version rules, the supersedence mode and the architecture, install scope and version in the title of each Application." Tag="supersedence" AutomationProperties.AutomationId="nav_supersedence" />
                 </TreeViewItem>
                 <TreeViewItem Header="Applications" ToolTip="Holds the settings of individual applications and installers." IsExpanded="True" AutomationProperties.AutomationId="nav_applications">
-                    <TreeViewItem Header="Citrix Workspace App" ToolTip="Holds the store, installation, plugin and component switches for the Citrix Workspace app installer." Tag="citrix" AutomationProperties.AutomationId="nav_citrix" />
-                    <TreeViewItem Header="Citrix Updates and Policy" ToolTip="Holds the update, telemetry, store policy and HDX switches for the Citrix Workspace app installer." Tag="citrixpolicy" AutomationProperties.AutomationId="nav_citrixpolicy" />
+                    <TreeViewItem Header="Citrix Workspace App" ToolTip="Holds the store, installation, plugin and component switches for the Citrix Workspace app installer." Tag="citrix" AutomationProperties.AutomationId="nav_citrix" helpers:SettingsSearchHints.Keywords="store installation plugins components addlocal" />
+                    <TreeViewItem Header="Citrix Updates and Policy" ToolTip="Holds the update, telemetry, store policy and HDX switches for the Citrix Workspace app installer." Tag="citrixpolicy" AutomationProperties.AutomationId="nav_citrixpolicy" helpers:SettingsSearchHints.Keywords="citrix workspace update telemetry store policy hdx" />
                     <TreeViewItem Header="M365 Apps" ToolTip="Holds the update channel for the M365 Apps, Project and Visio packagers." Tag="m365" AutomationProperties.AutomationId="nav_m365" />
                     <TreeViewItem Header="Install Parameters" ToolTip="Holds the installer switches and choices that are saved for each application." Tag="installparams" AutomationProperties.AutomationId="nav_installparams" />
                     <TreeViewItem Header="Local Installer Sources" ToolTip="Holds the folders that supply installers that a script cannot download." Tag="localsources" AutomationProperties.AutomationId="nav_localsources" />
@@ -132,6 +140,12 @@
                 <TreeViewItem Header="Tools" ToolTip="Shows the status of the helper tools and downloads the Win32 Content Prep Tool and the icon pack." Tag="tools" AutomationProperties.AutomationId="nav_tools" />
                 <TreeViewItem Header="About" ToolTip="Shows what the app does and opens the releases page." Tag="about" AutomationProperties.AutomationId="nav_about" />
             </TreeView>
+            <ListBox x:Name="lstSettingsSearch" Visibility="Collapsed" Background="Transparent" BorderThickness="0"
+                     ScrollViewer.HorizontalScrollBarVisibility="Disabled" KeyboardNavigation.TabNavigation="Once"
+                     PreviewKeyDown="SearchList_PreviewKeyDown" PreviewMouseLeftButtonUp="SearchList_MouseUp"
+                     AutomationProperties.AutomationId="lstSettingsSearch" AutomationProperties.Name="Search results"
+                     ToolTip="Select a search result to open the setting." />
+            </Grid>
             </DockPanel>
 
             <GridSplitter x:Name="NavigationSplitter" Grid.Column="1" Width="16" HorizontalAlignment="Center" VerticalAlignment="Stretch"
@@ -145,18 +159,18 @@
 
                     <TextBlock Text="Appearance" Style="{StaticResource SubHeader}" />
                                 <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-                                    <RadioButton Content="Dark Theme" Margin="0,0,16,0"
+                                    <RadioButton Content="Dark Theme" helpers:SettingsSearchHints.Keywords="appearance" Margin="0,0,16,0"
                                                  IsChecked="{Binding CurrentTheme, Converter={StaticResource EnumToBooleanConverter}, ConverterParameter=Dark}"
                                                  Command="{Binding ChangeThemeCommand}" CommandParameter="Dark"
                                                  ToolTip="Switches the app to the dark theme." />
-                                    <RadioButton Content="Light Theme"
+                                    <RadioButton Content="Light Theme" helpers:SettingsSearchHints.Keywords="appearance"
                                                  IsChecked="{Binding CurrentTheme, Converter={StaticResource EnumToBooleanConverter}, ConverterParameter=Light}"
                                                  Command="{Binding ChangeThemeCommand}" CommandParameter="Light"
                                                  ToolTip="Switches the app to the light theme." />
                                 </StackPanel>
 
                     <TextBlock Text="Updates" Style="{StaticResource SubHeader}" />
-                                <CheckBox Content="Check for a new version when the app starts" IsChecked="{Binding CheckForUpdatesAtStartup}"
+                                <CheckBox Content="Check for a new version when the app starts" helpers:SettingsSearchHints.Keywords="update release startup" IsChecked="{Binding CheckForUpdatesAtStartup}"
                                           AutomationProperties.AutomationId="chkCheckForUpdatesAtStartup"
                                           ToolTip="Asks GitHub for the latest release. No sign-in and no data from this computer are sent. A newer version opens the update window; nothing installs until you confirm. Save Settings stores this choice." />
                                 <ui:Button Content="Check for updates" Icon="{ui:SymbolIcon ArrowSync24}" Margin="0,8,0,8"
@@ -260,14 +274,14 @@
                                 </Grid.ColumnDefinitions>
                                 <StackPanel Grid.Column="0">
                                     <TextBlock Text="Site Code" Style="{StaticResource FieldLabel}" />
-                                    <ui:TextBox Text="{Binding SiteCode, UpdateSourceTrigger=PropertyChanged}"
+                                    <ui:TextBox Text="{Binding SiteCode, UpdateSourceTrigger=PropertyChanged}" helpers:SettingsSearchHints.Keywords="site switch sites"
                                                 PlaceholderText="MCM" MaxLength="5" Width="120" HorizontalAlignment="Left"
                                                 Margin="0,0,0,8" AutomationProperties.Name="Site Code"
                                                 ToolTip="Enter the site code of your ConfigMgr site. Up to five characters." />
                                 </StackPanel>
                                 <StackPanel Grid.Column="2" MaxWidth="480" HorizontalAlignment="Stretch">
                                     <TextBlock Text="Site Server / SMS Provider Host" Style="{StaticResource FieldLabel}" TextWrapping="Wrap" />
-                                    <ui:TextBox Text="{Binding ProviderMachine, UpdateSourceTrigger=PropertyChanged}"
+                                    <ui:TextBox Text="{Binding ProviderMachine, UpdateSourceTrigger=PropertyChanged}" helpers:SettingsSearchHints.Keywords="smsprovider provider site server"
                                                 PlaceholderText="cm01.contoso.com" Margin="0,0,0,4" AutomationProperties.Name="Site Server / SMS Provider Host"
                                                 AutomationProperties.HelpText="Leave empty only when this computer is the SMS Provider."
                                                 ToolTip="Host the generated CMSite drive connects to. Leave empty to use the local computer, which only reaches the site when this computer is itself the SMS Provider." />
@@ -275,7 +289,7 @@
                                 </StackPanel>
                             </Grid>
                             <TextBlock Text="File Share Root (UNC)" Style="{StaticResource FieldLabel}" />
-                            <ui:TextBox ToolTip="{Binding FileShareRoot}" Text="{Binding FileShareRoot, UpdateSourceTrigger=PropertyChanged}"
+                            <ui:TextBox ToolTip="{Binding FileShareRoot}" Text="{Binding FileShareRoot, UpdateSourceTrigger=PropertyChanged}" helpers:SettingsSearchHints.Keywords="content share unc"
                                         PlaceholderText="\\fileserver\sccm$" Margin="0,0,0,4" HorizontalAlignment="Stretch"
                                         AutomationProperties.AutomationId="txtFileShareRoot" AutomationProperties.Name="File Share Root" />
                         </StackPanel>
@@ -294,7 +308,7 @@
                                 </Grid.ColumnDefinitions>
                                 <StackPanel Grid.Column="0">
                                     <TextBlock Text="Discovery SQL Server" Style="{StaticResource FieldLabel}" />
-                                    <ui:TextBox Text="{Binding Discovery.SqlServer, UpdateSourceTrigger=PropertyChanged}"
+                                    <ui:TextBox Text="{Binding Discovery.SqlServer, UpdateSourceTrigger=PropertyChanged}" helpers:SettingsSearchHints.Keywords="discover unmanaged software sql instance port"
                                                 PlaceholderText="Server of the site" MaxLength="200" Margin="0,0,0,4"
                                                 AutomationProperties.AutomationId="txtDiscoverySqlServer" AutomationProperties.Name="Discovery SQL Server"
                                                 AutomationProperties.HelpText="Leave empty to use the SQL Server of the site, read from the SMS Provider."
@@ -303,7 +317,7 @@
                                 </StackPanel>
                                 <StackPanel Grid.Column="2">
                                     <TextBlock Text="Discovery Database" Style="{StaticResource FieldLabel}" />
-                                    <ui:TextBox Text="{Binding Discovery.SqlDatabase, UpdateSourceTrigger=PropertyChanged}"
+                                    <ui:TextBox Text="{Binding Discovery.SqlDatabase, UpdateSourceTrigger=PropertyChanged}" helpers:SettingsSearchHints.Keywords="discover unmanaged software sql cm_ database name"
                                                 PlaceholderText="CM_ and the site code" MaxLength="128" Margin="0,0,0,4"
                                                 AutomationProperties.AutomationId="txtDiscoverySqlDatabase" AutomationProperties.Name="Discovery Database"
                                                 AutomationProperties.HelpText="Leave empty to use the database of the site."
@@ -312,16 +326,16 @@
                                 </StackPanel>
                             </Grid>
                             <WrapPanel>
-                                <CheckBox Content="Encrypt the connection" IsChecked="{Binding Discovery.EncryptConnection}" Margin="0,0,24,4"
+                                <CheckBox Content="Encrypt the connection" helpers:SettingsSearchHints.Keywords="discovery sql" IsChecked="{Binding Discovery.EncryptConnection}" Margin="0,0,24,4"
                                           AutomationProperties.AutomationId="chkDiscoveryEncrypt"
                                           ToolTip="Ask SQL Server for an encrypted connection (Encrypt=True). Leave it cleared to keep the default of the SQL client. Stored for this site." />
-                                <CheckBox Content="Trust server certificate" IsChecked="{Binding Discovery.TrustServerCertificate}" Margin="0,0,0,4"
+                                <CheckBox Content="Trust server certificate" helpers:SettingsSearchHints.Keywords="discovery sql" IsChecked="{Binding Discovery.TrustServerCertificate}" Margin="0,0,0,4"
                                           AutomationProperties.AutomationId="chkDiscoveryTrustCertificate"
                                           ToolTip="Do not validate the certificate chain of the SQL Server (TrustServerCertificate=True). Select it when the SQL Server certificate is self-signed or issued by an authority that this computer does not trust. The connection stays encrypted. The same option as in Site Hygiene, Live. Stored for this site." />
                             </WrapPanel>
                             <TextBlock Text="The server accepts a name, name,port or name\instance, for example cm01.contoso.com,1433 or cm01.contoso.com\SCCM." Style="{StaticResource FieldHint}" />
                             <WrapPanel>
-                                <ui:Button Content="Test connection" Command="{Binding TestDiscoveryConnectionCommand}" Margin="0,0,8,8"
+                                <ui:Button Content="Test connection" Command="{Binding TestDiscoveryConnectionCommand}" helpers:SettingsSearchHints.Keywords="discovery sql discover" Margin="0,0,8,8"
                                            AutomationProperties.AutomationId="btnDiscoveryTestConnection"
                                            ToolTip="Connect to the site database with the values on this page (not yet saved) and read one row of the inventory views. Shows the result or the exact error below these buttons." />
                                 <ui:Button Content="Discover not selected" Command="{Binding DiscoverNotSelectedCommand}" Margin="0,0,8,8"
@@ -334,13 +348,13 @@
                             <TextBlock Text="{Binding DiscoverStatus}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,8"
                                        AutomationProperties.AutomationId="txtDiscoverStatus" AutomationProperties.Name="{Binding DiscoverStatus}"
                                        Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
-                            <TextBlock Text="Not offered by Discover" Style="{StaticResource FieldLabel}" />
+                            <TextBlock Text="Not offered by Discover" Style="{StaticResource FieldLabel}" helpers:SettingsSearchHints.Keywords="discover unmanaged dismissed clear list" />
                             <StackPanel Orientation="Horizontal">
                                 <TextBlock Text="{Binding Discovery.DismissedSummary}" VerticalAlignment="Center" Margin="0,0,12,0"
                                            AutomationProperties.AutomationId="txtDiscoveryDismissed"
                                            Foreground="{DynamicResource TextFillColorPrimaryBrush}"
                                            ToolTip="Apps that Discover unmanaged software leaves out after Don't ask again for selected." />
-                                <ui:Button Content="Clear list" Command="{Binding Discovery.ClearDismissedCommand}"
+                                <ui:Button Content="Clear list" helpers:SettingsSearchHints.Exclude="True" Command="{Binding Discovery.ClearDismissedCommand}"
                                            AutomationProperties.AutomationId="btnClearDiscoveryDismissed"
                                            ToolTip="Offer these apps again in later discoveries. Takes effect on Save." />
                             </StackPanel>
@@ -353,7 +367,7 @@
                             <StackPanel>
                                 <TextBlock Text="Change which systems appear in the publish plan in Systems in Use." Margin="0,0,0,8" TextWrapping="Wrap"
                                            Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
-                                <ui:Button Content="Open Systems in Use" Click="OpenSystemsInUse_Click" HorizontalAlignment="Left" AutomationProperties.AutomationId="btnOpenSystemsInUse"
+                                <ui:Button Content="Open Systems in Use" helpers:SettingsSearchHints.Exclude="True" Click="OpenSystemsInUse_Click" HorizontalAlignment="Left" AutomationProperties.AutomationId="btnOpenSystemsInUse"
                                            ToolTip="Opens the page Systems in Use." />
                             </StackPanel>
                         </DockPanel>
@@ -368,23 +382,23 @@
 
                                 <TextBlock Text="Server" Style="{StaticResource SubHeader}" />
                                 <TextBlock Text="WSUS server" Style="{StaticResource FieldLabel}" />
-                                <ui:TextBox Width="360" HorizontalAlignment="Left" Text="{Binding Wsus.ServerName, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="wsus01.contoso.com" Margin="0,0,0,8"
+                                <ui:TextBox Width="360" HorizontalAlignment="Left" Text="{Binding Wsus.ServerName, UpdateSourceTrigger=PropertyChanged}" helpers:SettingsSearchHints.Keywords="wsus server" PlaceholderText="wsus01.contoso.com" Margin="0,0,0,8"
                                             AutomationProperties.Name="WSUS server" AutomationProperties.AutomationId="txtWsusServer"
                                             ToolTip="Host name of the WSUS server. With ConfigMgr, the WSUS server of the top-level software update point." />
                                 <TextBlock Text="Port" Style="{StaticResource FieldLabel}" />
                                 <DockPanel Margin="0,0,0,4">
-                                    <ui:Button DockPanel.Dock="Right" Content="Cancel" Command="{Binding Wsus.CancelCommand}" Margin="8,0,0,0" VerticalAlignment="Center"
+                                    <ui:Button DockPanel.Dock="Right" Content="Cancel" helpers:SettingsSearchHints.Exclude="True" Command="{Binding Wsus.CancelCommand}" Margin="8,0,0,0" VerticalAlignment="Center"
                                                Visibility="{Binding Wsus.Busy, Converter={StaticResource BooleanToVisibilityConverter}}"
                                                AutomationProperties.AutomationId="btnWsusCancel" Style="{StaticResource CancelSlot}"
                                                ToolTip="Cancels the WSUS operation that is running." />
-                                    <ui:Button DockPanel.Dock="Right" Content="Test connection" Command="{Binding Wsus.TestConnectionCommand}" Margin="8,0,0,0"
+                                    <ui:Button DockPanel.Dock="Right" Content="Test connection" Command="{Binding Wsus.TestConnectionCommand}" helpers:SettingsSearchHints.Keywords="wsus server" Margin="8,0,0,0"
                                                VerticalAlignment="Center" AutomationProperties.AutomationId="btnWsusTest" ToolTipService.ShowOnDisabled="True"
                                                ToolTip="Connects with the values in the boxes and reads the server version, the account role and the signing certificate." />
                                     <StackPanel Orientation="Horizontal">
-                                        <ui:TextBox Text="{Binding Wsus.Port, UpdateSourceTrigger=PropertyChanged}" Width="100" MaxLength="5"
+                                        <ui:TextBox Text="{Binding Wsus.Port, UpdateSourceTrigger=PropertyChanged}" helpers:SettingsSearchHints.Keywords="wsus port 8530 8531" Width="100" MaxLength="5"
                                                     AutomationProperties.Name="WSUS port" AutomationProperties.AutomationId="txtWsusPort"
                                                     ToolTip="8530 for HTTP and 8531 for HTTPS on a default WSUS install." />
-                                        <CheckBox Content="Use SSL" IsChecked="{Binding Wsus.UseSsl}" Margin="16,0,0,0" VerticalAlignment="Center"
+                                        <CheckBox Content="Use SSL" helpers:SettingsSearchHints.Keywords="wsus https tls" IsChecked="{Binding Wsus.UseSsl}" Margin="16,0,0,0" VerticalAlignment="Center"
                                                   AutomationProperties.AutomationId="chkWsusSsl" ToolTip="Connect to the WSUS administration API over HTTPS." />
                                     </StackPanel>
                                 </DockPanel>
@@ -395,13 +409,13 @@
                                 <TextBlock Text="{Binding Wsus.CertificateText}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,8"
                                            AutomationProperties.AutomationId="txtWsusCert" Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
                                 <WrapPanel Margin="0,0,0,8">
-                                    <ui:Button Content="Create self-signed..." Command="{Binding Wsus.CreateSelfSignedCommand}" Margin="0,0,8,4"
+                                    <ui:Button Content="Create self-signed..." helpers:SettingsSearchHints.Keywords="wsus signing certificate" Command="{Binding Wsus.CreateSelfSignedCommand}" Margin="0,0,8,4"
                                                AutomationProperties.AutomationId="btnWsusCertCreate" ToolTipService.ShowOnDisabled="True"
                                                ToolTip="Has the WSUS server create and use a self-signed signing certificate." />
-                                    <ui:Button Content="Import PFX..." Command="{Binding Wsus.ImportPfxCommand}" Margin="0,0,8,4"
+                                    <ui:Button Content="Import PFX..." helpers:SettingsSearchHints.Keywords="wsus signing certificate" Command="{Binding Wsus.ImportPfxCommand}" Margin="0,0,8,4"
                                                AutomationProperties.AutomationId="btnWsusCertImport" ToolTipService.ShowOnDisabled="True"
                                                ToolTip="Sets a code-signing certificate with its private key from a PFX file, for example one issued by your PKI." />
-                                    <ui:Button Content="Export certificate..." Command="{Binding Wsus.ExportCertificateCommand}" Margin="0,0,8,4"
+                                    <ui:Button Content="Export certificate..." helpers:SettingsSearchHints.Keywords="wsus signing certificate" Command="{Binding Wsus.ExportCertificateCommand}" Margin="0,0,8,4"
                                                AutomationProperties.AutomationId="btnWsusCertExport" ToolTipService.ShowOnDisabled="True"
                                                ToolTip="Saves the public signing certificate (.cer) for distribution to clients by Group Policy." />
                                 </WrapPanel>
@@ -420,14 +434,14 @@
                                           ToolTip="WSUS classification of every published update. With ConfigMgr, the software update point must synchronize it." />
                                 <TextBlock Text="Approve for group" Style="{StaticResource FieldLabel}" />
                                 <DockPanel Margin="0,0,0,8">
-                                    <ui:Button DockPanel.Dock="Right" Content="Load groups" Command="{Binding Wsus.LoadGroupsCommand}" Margin="8,0,0,0"
+                                    <ui:Button DockPanel.Dock="Right" Content="Load groups" helpers:SettingsSearchHints.Exclude="True" Command="{Binding Wsus.LoadGroupsCommand}" Margin="8,0,0,0"
                                                VerticalAlignment="Center" AutomationProperties.AutomationId="btnWsusGroups" ToolTipService.ShowOnDisabled="True"
                                                ToolTip="Lists the computer groups of the server in the box." />
-                                    <ComboBox IsEditable="True" ItemsSource="{Binding Wsus.Groups}" Text="{Binding Wsus.ApprovalGroup, UpdateSourceTrigger=PropertyChanged}"
+                                    <ComboBox IsEditable="True" ItemsSource="{Binding Wsus.Groups}" helpers:SettingsSearchHints.Keywords="wsus computer group approval load groups" Text="{Binding Wsus.ApprovalGroup, UpdateSourceTrigger=PropertyChanged}"
                                               AutomationProperties.Name="Approve for group" AutomationProperties.AutomationId="cboWsusGroup"
                                               ToolTip="Computer group the update is approved for right after it publishes. Leave empty to approve later from WSUS Updates (sidebar): the WSUS console does not list locally published updates." />
                                 </DockPanel>
-                                <CheckBox Content="Decline earlier versions of the same application after publishing" IsChecked="{Binding Wsus.DeclineSuperseded}" Margin="0,0,0,8"
+                                <CheckBox Content="Decline earlier versions of the same application after publishing" helpers:SettingsSearchHints.Keywords="wsus decline superseded supersedence" IsChecked="{Binding Wsus.DeclineSuperseded}" Margin="0,0,0,8"
                                           AutomationProperties.AutomationId="chkWsusDecline"
                                           ToolTip="Declines the AppPackager updates of the same application that have a lower version. Approving one again reverses it." />
                 </StackPanel>
@@ -440,17 +454,17 @@
                                            Foreground="{DynamicResource TextFillColorTertiaryBrush}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,8" />
 
                                 <TextBlock Text="Tenant ID" Style="{StaticResource FieldLabel}" />
-                                <ui:TextBox Width="360" HorizontalAlignment="Left" Text="{Binding IntuneTenantId, UpdateSourceTrigger=PropertyChanged}"
+                                <ui:TextBox Width="360" HorizontalAlignment="Left" Text="{Binding IntuneTenantId, UpdateSourceTrigger=PropertyChanged}" helpers:SettingsSearchHints.Keywords="entra azure"
                                             PlaceholderText="contoso.onmicrosoft.com or a GUID" Margin="0,0,0,8"
                                             ToolTip="Enter the tenant ID or the primary domain of your Microsoft Entra tenant. The app uses it to sign in to Microsoft Graph." />
 
                                 <TextBlock Text="Client ID" Style="{StaticResource FieldLabel}" />
-                                <ui:TextBox Width="360" HorizontalAlignment="Left" Text="{Binding IntuneClientId, UpdateSourceTrigger=PropertyChanged}"
+                                <ui:TextBox Width="360" HorizontalAlignment="Left" Text="{Binding IntuneClientId, UpdateSourceTrigger=PropertyChanged}" helpers:SettingsSearchHints.Keywords="app registration graph"
                                             PlaceholderText="App registration (client) ID" Margin="0,0,0,8"
                                             ToolTip="Enter the application (client) ID of the Entra app registration that publishes to Intune." />
 
                                 <TextBlock Text="Minimum Windows release" Style="{StaticResource FieldLabel}" />
-                                <ComboBox ItemsSource="{Binding IntuneWindowsReleaseChoices}"
+                                <ComboBox ItemsSource="{Binding IntuneWindowsReleaseChoices}" helpers:SettingsSearchHints.Keywords="minimum supported windows release"
                                           SelectedItem="{Binding IntuneMinimumWindowsRelease}"
                                           Width="240" HorizontalAlignment="Left" Margin="0,0,0,4"
                                           AutomationProperties.Name="Minimum Windows release" AutomationProperties.AutomationId="cboIntuneMinimumWindowsRelease"
@@ -459,7 +473,7 @@
                                            Foreground="{DynamicResource TextFillColorTertiaryBrush}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,8" />
 
                                 <TextBlock Text="Client Secret" Style="{StaticResource FieldLabel}" />
-                                <ui:PasswordBox Width="360" HorizontalAlignment="Left" Password="{Binding IntuneClientSecret, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                <ui:PasswordBox Width="360" HorizontalAlignment="Left" Password="{Binding IntuneClientSecret, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" helpers:SettingsSearchHints.Keywords="dpapi"
                                                 PlaceholderText="{Binding IntuneSecretHint}" Margin="0,0,0,4"
                                                 ToolTip="Enter the client secret of the app registration. Save Settings stores it encrypted for the current Windows user. Leave it empty to keep the saved secret." />
                                 <TextBlock Text="Stored encrypted for the current Windows user. Leave empty to keep the saved secret."
@@ -477,7 +491,7 @@
                                 <DockPanel Margin="0,0,0,8">
                                     <ui:Button DockPanel.Dock="Right" Content="Refresh"
                                                Icon="{ui:SymbolIcon ArrowSync24}"
-                                               Command="{Binding RefreshGitHubApiStatusCommand}"
+                                               Command="{Binding RefreshGitHubApiStatusCommand}" helpers:SettingsSearchHints.Title="GitHub API status" helpers:SettingsSearchHints.Keywords="authentication token rate limit refresh"
                                                IsEnabled="{Binding GitHubApiIdle}"
                                                Margin="8,0,0,0" VerticalAlignment="Center"
                                                ToolTip="Asks api.github.com for the request quota of the credentials that the app uses and shows it here." />
@@ -487,7 +501,7 @@
                                 </DockPanel>
 
                                 <TextBlock Text="GitHub token" Style="{StaticResource FieldLabel}" />
-                                <ui:PasswordBox Width="360" HorizontalAlignment="Left" Password="{Binding GitHubToken, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                <ui:PasswordBox Width="360" HorizontalAlignment="Left" Password="{Binding GitHubToken, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" helpers:SettingsSearchHints.Keywords="github key personal access token pat"
                                                 PlaceholderText="{Binding GitHubTokenHint}" Margin="0,0,0,4"
                                                 AutomationProperties.AutomationId="pwdGitHubToken"
                                                 ToolTip="Enter a GitHub personal access token to override the token of the environment or the GitHub CLI. Save Settings stores it encrypted for the current Windows user. Leave it empty to keep the saved token." />
@@ -495,7 +509,7 @@
                                            Foreground="{DynamicResource TextFillColorTertiaryBrush}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,8" />
                                 <CheckBox Content="Remove the saved token on Save"
                                           IsChecked="{Binding RemoveGitHubToken}"
-                                          IsEnabled="{Binding HasStoredGitHubToken}"
+                                          IsEnabled="{Binding HasStoredGitHubToken}" helpers:SettingsSearchHints.Unavailable="The box is disabled when no token is saved."
                                           Margin="0,0,0,8"
                                           AutomationProperties.AutomationId="chkRemoveGitHubToken"
                                           ToolTip="Select to delete the saved token when you select Save Settings. The box is disabled when no token is saved." />
@@ -505,7 +519,7 @@
                 <StackPanel Margin="0,0,0,8" MaxWidth="960" HorizontalAlignment="Left">
                     <TextBlock Text="Folders" Style="{StaticResource SectionHeader}" />
                                 <TextBlock Text="Content Layout" Style="{StaticResource FieldLabel}" />
-                                <ComboBox SelectedValue="{Binding ContentLayout}"
+                                <ComboBox SelectedValue="{Binding ContentLayout}" helpers:SettingsSearchHints.Keywords="share folder structure"
                                           SelectedValuePath="Tag"
                                           Width="320" HorizontalAlignment="Left" Margin="0,0,0,8"
                                           ToolTip="Folder shape under the share's Applications folder. Nested keeps one folder per vendor and application with a version folder inside; Flat puts every version in one level named Vendor-App-Version.">
@@ -516,9 +530,9 @@
                                 <TextBlock Text="Download Root (local staging)" Style="{StaticResource FieldLabel}" />
                                 <DockPanel Margin="0,0,0,8" Width="480" HorizontalAlignment="Left">
                                     <ui:Button DockPanel.Dock="Right" Content="Browse"
-                                               Command="{Binding BrowseDownloadRootCommand}" Margin="8,0,0,0"
+                                               Command="{Binding BrowseDownloadRootCommand}" helpers:SettingsSearchHints.Exclude="True" Margin="8,0,0,0"
                                                ToolTip="Select the Download Root folder." />
-                                    <ui:TextBox Text="{Binding DownloadRoot, UpdateSourceTrigger=PropertyChanged}" ToolTip="{Binding DownloadRoot}"
+                                    <ui:TextBox Text="{Binding DownloadRoot, UpdateSourceTrigger=PropertyChanged}" ToolTip="{Binding DownloadRoot}" helpers:SettingsSearchHints.Keywords="stage download folder browse"
                                                 PlaceholderText="C:\temp\ap" />
                                 </DockPanel>
                     <TextBlock Text="{Binding StagingWarning}" TextWrapping="Wrap" Margin="0,0,0,8"
@@ -526,15 +540,15 @@
                                Foreground="{DynamicResource SystemFillColorCautionBrush}"
                                AutomationProperties.AutomationId="txtStagingWarning" />
                     <WrapPanel Margin="0,0,0,8" Visibility="{Binding ShowStagingWarning, Converter={StaticResource BooleanToVisibilityConverter}}">
-                        <ui:Button Content="Create a safe folder" Command="{Binding CreateSafeStagingFolderCommand}" Margin="0,0,8,4"
+                        <ui:Button Content="Create a safe folder" Command="{Binding CreateSafeStagingFolderCommand}" helpers:SettingsSearchHints.Keywords="staging download root folder" Margin="0,0,8,4"
                                    AutomationProperties.AutomationId="btnStagingSafeFolder"
                                    ToolTip="Makes the staging folder in your data folder, which only your account and administrators can write, and puts it in the box." />
-                        <ui:Button Content="Allow this folder anyway..." Command="{Binding AllowStagingFolderCommand}" Margin="0,0,8,4"
+                        <ui:Button Content="Allow this folder anyway..." Command="{Binding AllowStagingFolderCommand}" helpers:SettingsSearchHints.Keywords="staging download root folder" Margin="0,0,8,4"
                                    AutomationProperties.AutomationId="btnStagingAllow"
                                    ToolTip="Asks you to accept the risk for this folder. The allowance ends when the folder or its access list changes." />
                     </WrapPanel>
                     <DockPanel Margin="0,0,0,8" Visibility="{Binding ShowStagingAllowed, Converter={StaticResource BooleanToVisibilityConverter}}">
-                        <ui:Button DockPanel.Dock="Right" Content="End the allowance" Command="{Binding RemoveStagingAllowanceCommand}" Margin="8,0,0,0"
+                        <ui:Button DockPanel.Dock="Right" Content="End the allowance" Command="{Binding RemoveStagingAllowanceCommand}" helpers:SettingsSearchHints.Keywords="staging download root folder" Margin="8,0,0,0"
                                    AutomationProperties.AutomationId="btnStagingRevoke"
                                    ToolTip="Ends the allowance for the folder in the box. Staging there is blocked again." />
                         <TextBlock Text="{Binding StagingAllowedText}" TextWrapping="Wrap" VerticalAlignment="Center"
@@ -544,9 +558,9 @@
                                 <TextBlock Text="Packagers Folder (leave empty for auto-detect)" Style="{StaticResource FieldLabel}" />
                                 <DockPanel Margin="0,0,0,8" Width="480" HorizontalAlignment="Left">
                                     <ui:Button DockPanel.Dock="Right" Content="Browse"
-                                               Command="{Binding BrowsePackagersRootCommand}" Margin="8,0,0,0"
+                                               Command="{Binding BrowsePackagersRootCommand}" helpers:SettingsSearchHints.Exclude="True" Margin="8,0,0,0"
                                                ToolTip="Select the Packagers folder." />
-                                    <ui:TextBox ToolTip="{Binding PackagersRoot}" Text="{Binding PackagersRoot, UpdateSourceTrigger=PropertyChanged}"
+                                    <ui:TextBox ToolTip="{Binding PackagersRoot}" Text="{Binding PackagersRoot, UpdateSourceTrigger=PropertyChanged}" helpers:SettingsSearchHints.Keywords="catalog browse"
                                                 PlaceholderText="Auto-detect" />
                                 </DockPanel>
                 </StackPanel>
@@ -608,7 +622,7 @@
                                 <CheckBox Content="Include version in application name" IsChecked="{Binding TitleOptions.IncludeVersionInTitle}" Margin="0,0,0,4"
                                           ToolTip="Adds the version to every application name, creating one ConfigMgr application per release. A per-application choice in the Workbench overrides this. Existing applications are not renamed." />
                                 <CheckBox Content="Remove version from application name" IsChecked="{Binding TitleOptions.RemoveVersionFromTitle}"
-                                          IsEnabled="{Binding TitleOptions.RemoveVersionFromTitleAvailable}" Margin="0,0,0,4"
+                                          IsEnabled="{Binding TitleOptions.RemoveVersionFromTitleAvailable}" helpers:SettingsSearchHints.Unavailable="Available while the version is not added to the name." Margin="0,0,0,4"
                                           ToolTip="Strips the release version from a vendor product name that carries it (7-Zip 26.03, Slido 2.3.1, Tableau 2026.2). Available while the version is not added to the name. A per-application choice in the Workbench overrides this." />
 
                                 <CheckBox Content="Add the architecture to application names" IsChecked="{Binding TitleOptions.AppendArchitectureToTitle}" Margin="0,0,0,8"
@@ -626,26 +640,26 @@
                                           ToolTip="Runs Start-CMContentDistribution for the new application against the group below. A group that already holds the content is treated as done." />
 
                                 <TextBlock Text="Distribution point group" Style="{StaticResource FieldLabel}" />
-                                <ui:TextBox Text="{Binding DpGroupName, UpdateSourceTrigger=PropertyChanged}"
-                                            IsEnabled="{Binding AutoDistribute}"
+                                <ui:TextBox Text="{Binding DpGroupName, UpdateSourceTrigger=PropertyChanged}" helpers:SettingsSearchHints.Keywords="dp group"
+                                            IsEnabled="{Binding AutoDistribute}" helpers:SettingsSearchHints.Unavailable="The box is available when Distribute content after Package is selected."
                                             PlaceholderText="All DPs" Width="320" HorizontalAlignment="Left" Margin="0,0,0,8"
                                             ToolTip="Name of the distribution point group that receives the content. The box is available when Distribute content after Package is selected." />
 
                                 <CheckBox Content="Deploy to a test collection after distribution" IsChecked="{Binding DeployToTestCollection}"
-                                          IsEnabled="{Binding TestDeploymentAvailable}" Margin="0,0,0,8"
+                                          IsEnabled="{Binding TestDeploymentAvailable}" helpers:SettingsSearchHints.Unavailable="Content goes to a distribution point group first; the test deployment is created only after that distribution is targeted." Margin="0,0,0,8"
                                           ToolTip="Creates an Available deployment, effective immediately, to the collection below. An existing deployment is treated as done." />
 
                                 <TextBlock Text="Test collection" Style="{StaticResource FieldLabel}" />
                                 <CheckBox Content="Use a user collection" IsChecked="{Binding TestCollectionIsUser}"
-                                          IsEnabled="{Binding TestDeploymentAvailable}" Margin="0,0,0,8"
+                                          IsEnabled="{Binding TestDeploymentAvailable}" helpers:SettingsSearchHints.Unavailable="Content goes to a distribution point group first; the test deployment is created only after that distribution is targeted." Margin="0,0,0,8"
                                           ToolTip="Select to target users. When cleared, the test deployment targets a device collection. This does not change the application's install context." />
                                 <ui:TextBox Text="{Binding TestCollectionName, UpdateSourceTrigger=PropertyChanged}"
-                                            IsEnabled="{Binding TestDeploymentAvailable}"
+                                            IsEnabled="{Binding TestDeploymentAvailable}" helpers:SettingsSearchHints.Unavailable="Content goes to a distribution point group first; the test deployment is created only after that distribution is targeted."
                                             PlaceholderText="Application pilot collection" Width="320" HorizontalAlignment="Left" Margin="0,0,0,8"
                                             ToolTip="Enter the name of the collection that receives the test deployment." />
 
                                 <CheckBox Content="Create the collection if it does not exist" IsChecked="{Binding CreateTestCollectionIfMissing}"
-                                          IsEnabled="{Binding TestDeploymentAvailable}" Margin="0,0,0,8"
+                                          IsEnabled="{Binding TestDeploymentAvailable}" helpers:SettingsSearchHints.Unavailable="Content goes to a distribution point group first; the test deployment is created only after that distribution is targeted." Margin="0,0,0,8"
                                           ToolTip="A missing collection starts empty, limited to All Users for a user collection or All Systems for a device collection. Add pilot members in ConfigMgr." />
                 </StackPanel>
             </ScrollViewer>
@@ -674,7 +688,7 @@
                                 </Grid.ColumnDefinitions>
                                 <StackPanel Grid.Column="0">
                                     <TextBlock Text="Version rule, ConfigMgr" Style="{StaticResource FieldLabel}" TextWrapping="Wrap" />
-                                    <ComboBox ItemsSource="{Binding VersionRuleChoices}" SelectedItem="{Binding ConfigMgrVersionRule}"
+                                    <ComboBox ItemsSource="{Binding VersionRuleChoices}" SelectedItem="{Binding ConfigMgrVersionRule}" helpers:SettingsSearchHints.Keywords="detection operator equals greater"
                                               HorizontalAlignment="Stretch" Margin="0,0,0,4"
                                               AutomationProperties.Name="Version rule, ConfigMgr" AutomationProperties.AutomationId="cboConfigMgrVersionRule"
                                               AutomationProperties.HelpText="Minimum is this version or newer. Exact is this version only. The rule applies to the detection of the new version. Older applications do not change."
@@ -683,7 +697,7 @@
                                 </StackPanel>
                                 <StackPanel Grid.Column="2">
                                     <TextBlock Text="Version rule, Intune" Style="{StaticResource FieldLabel}" TextWrapping="Wrap" />
-                                    <ComboBox ItemsSource="{Binding VersionRuleChoices}" SelectedItem="{Binding IntuneVersionRule}"
+                                    <ComboBox ItemsSource="{Binding VersionRuleChoices}" SelectedItem="{Binding IntuneVersionRule}" helpers:SettingsSearchHints.Keywords="detection operator equals greater"
                                               HorizontalAlignment="Stretch" Margin="0,0,0,4"
                                               AutomationProperties.Name="Version rule, Intune" AutomationProperties.AutomationId="cboIntuneVersionRule"
                                               AutomationProperties.HelpText="Applies to the detection of the new Intune app."
@@ -692,7 +706,7 @@
                                 </StackPanel>
                                 <StackPanel Grid.Column="4">
                                     <TextBlock Text="Supersedence mode, ConfigMgr" Style="{StaticResource FieldLabel}" TextWrapping="Wrap" />
-                                    <ComboBox ItemsSource="{Binding SupersedenceModeChoices}" SelectedItem="{Binding SupersedenceMode}"
+                                    <ComboBox ItemsSource="{Binding SupersedenceModeChoices}" helpers:SettingsSearchHints.Keywords="replace uninstall older version" SelectedItem="{Binding SupersedenceMode}"
                                               HorizontalAlignment="Stretch" Margin="0,0,0,4"
                                               AutomationProperties.Name="Supersedence mode, ConfigMgr" AutomationProperties.AutomationId="cboSupersedenceMode"
                                               AutomationProperties.HelpText="With supersedence on, the version is in the title of the application, so the new and the older version are separate applications."
@@ -732,28 +746,28 @@
                                     <ComboBox ItemsSource="{Binding BulkScopes}" SelectedItem="{Binding BulkScope}" Width="180" Margin="0,0,8,8"
                                               AutomationProperties.Name="Applications to set" AutomationProperties.AutomationId="cboBulkScope"
                                               ToolTip="Checked applications are the rows with a check mark. Filtered applications are the rows that the search box shows. All applications are every row of the list." />
-                                    <ui:Button Content="Apply" Command="{Binding ApplyBulkNowCommand}" Margin="0,0,4,8" AutomationProperties.AutomationId="btnBulkApply"
+                                    <ui:Button Content="Apply" Command="{Binding ApplyBulkNowCommand}" helpers:SettingsSearchHints.Exclude="True" Margin="0,0,4,8" AutomationProperties.AutomationId="btnBulkApply"
                                                ToolTip="Writes the selected value into the selected column for the selected applications." />
-                                    <ui:Button Content="Reset all overrides" Command="{Binding ResetAllApplicationsCommand}" Margin="0,0,16,8" AutomationProperties.AutomationId="btnBulkNone"
+                                    <ui:Button Content="Reset all overrides" Command="{Binding ResetAllApplicationsCommand}" helpers:SettingsSearchHints.Exclude="True" Margin="0,0,16,8" AutomationProperties.AutomationId="btnBulkNone"
                                                ToolTip="Clears every choice of every application, so each follows its default: Off, Minimum, the packager defaults and no One Click." />
                                 </WrapPanel>
                                 <WrapPanel Margin="0,0,0,0">
                                     <ui:TextBox Text="{Binding ApplicationFilter, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="Search applications" Width="220" Margin="0,0,8,8"
                                                 AutomationProperties.AutomationId="txtApplicationFilter"
                                                 ToolTip="Type part of an application name or of a vendor name. The grid shows the matching applications, and Filtered applications means these rows." />
-                                    <ui:Button Content="Check all" Command="{Binding CheckAllApplicationsCommand}" CommandParameter="True" Margin="0,0,4,8" AutomationProperties.AutomationId="btnCheckAll"
+                                    <ui:Button Content="Check all" Command="{Binding CheckAllApplicationsCommand}" helpers:SettingsSearchHints.Exclude="True" CommandParameter="True" Margin="0,0,4,8" AutomationProperties.AutomationId="btnCheckAll"
                                                ToolTip="Checks every application that the grid shows." />
-                                    <ui:Button Content="Check none" Command="{Binding CheckAllApplicationsCommand}" CommandParameter="False" Margin="0,0,16,8" AutomationProperties.AutomationId="btnCheckNone"
+                                    <ui:Button Content="Check none" Command="{Binding CheckAllApplicationsCommand}" helpers:SettingsSearchHints.Exclude="True" CommandParameter="False" Margin="0,0,16,8" AutomationProperties.AutomationId="btnCheckNone"
                                                ToolTip="Clears the check box of every application that the grid shows." />
                                     <ui:Button x:Name="btnColumns" Content="Columns" Click="Columns_Click" Margin="0,0,4,8" AutomationProperties.AutomationId="btnColumns"
                                                ToolTip="Choose which settings the grid shows as columns." />
-                                    <ui:Button Content="Refresh list" Icon="{ui:SymbolIcon ArrowSync24}" Command="{Binding RefreshSupersedenceRowsCommand}" Margin="0,0,8,8"
+                                    <ui:Button Content="Refresh list" Icon="{ui:SymbolIcon ArrowSync24}" Command="{Binding RefreshSupersedenceRowsCommand}" helpers:SettingsSearchHints.Exclude="True" Margin="0,0,8,8"
                                                ToolTip="Rebuilds the list from the applications the App Packager page shows." />
                                     <TextBlock VerticalAlignment="Center" Margin="0,0,0,8" Foreground="{DynamicResource TextFillColorSecondaryBrush}" AutomationProperties.AutomationId="txtCheckedCount">
                                         <Run Text="{Binding SupersedenceSelectedCount, Mode=OneWay}" /><Run Text=" checked" />
                                     </TextBlock>
                                 </WrapPanel>
-                                <DataGrid x:Name="dgApplications" ItemsSource="{Binding SupersedenceRows}" AutoGenerateColumns="False" CanUserAddRows="False"
+                                <DataGrid x:Name="dgApplications" helpers:SettingsSearchHints.Title="Application Overrides" helpers:SettingsSearchHints.Keywords="by application grid bulk edit check all none reset all overrides refresh list" ItemsSource="{Binding SupersedenceRows}" AutoGenerateColumns="False" CanUserAddRows="False"
                                           CanUserDeleteRows="False" HeadersVisibility="Column" RowHeaderWidth="0" BorderThickness="1"
                                           BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}" GridLinesVisibility="Horizontal"
                                           Height="240" Margin="0,0,0,8" GotKeyboardFocus="Applications_GotKeyboardFocus" IsTextSearchEnabled="True" TextSearch.TextPath="Application"
@@ -986,7 +1000,7 @@
                                 </Grid>
 
                                 <DockPanel Margin="0,0,0,8">
-                                    <ui:Button DockPanel.Dock="Left" Content="Preview" Command="{Binding PreviewCwaCommand}" VerticalAlignment="Top"
+                                    <ui:Button DockPanel.Dock="Left" Content="Preview" Command="{Binding PreviewCwaCommand}" helpers:SettingsSearchHints.Keywords="command line arguments citrix" VerticalAlignment="Top"
                                                ToolTip="Shows the Current Release and LTSR install arguments these choices produce." />
                                     <TextBlock Text="{Binding CwaPreview}" Margin="12,0,0,0" TextWrapping="Wrap" FontFamily="Consolas"
                                                Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
@@ -999,7 +1013,7 @@
                                 <TextBlock Text="Update channel for M365 Apps, Project, and Visio packagers."
                                            Foreground="{DynamicResource TextFillColorSecondaryBrush}" Margin="0,0,0,8" />
 
-                                <ComboBox SelectedValue="{Binding M365Channel}"
+                                <ComboBox SelectedValue="{Binding M365Channel}" helpers:SettingsSearchHints.Title="Channel" helpers:SettingsSearchHints.Keywords="update channel office microsoft 365" AutomationProperties.Name="Channel"
                                           SelectedValuePath="Tag"
                                           Width="320" HorizontalAlignment="Left" Margin="0,0,0,8"
                                           ToolTip="Update channel that the M365 Apps, Project and Visio packagers use.">
@@ -1015,7 +1029,7 @@
                                 <TextBlock Text="Install Parameters" Style="{StaticResource SectionHeader}" />
                                 <TextBlock Text="Switches and choices each installer takes, saved per application. Stage starts from these values: the review dialog shows them first unless it is skipped, in which case they apply as they are."
                                            Foreground="{DynamicResource TextFillColorSecondaryBrush}" Margin="0,0,0,8" TextWrapping="Wrap" />
-                                <CheckBox Content="Skip the review dialog before staging and use the saved values" IsChecked="{Binding SkipConfigReview}" Margin="0,0,0,8"
+                                <CheckBox Content="Skip the review dialog before staging and use the saved values" helpers:SettingsSearchHints.Keywords="install options configuration review stage prompt" IsChecked="{Binding SkipConfigReview}" Margin="0,0,0,8"
                                           ToolTip="Applications marked for review in their definition still show the dialog." />
                                 <TextBlock Text="{Binding InstallParameterSummary}" Foreground="{DynamicResource TextFillColorTertiaryBrush}" FontSize="12" Margin="0,0,0,8" />
                 </StackPanel>
@@ -1107,7 +1121,7 @@
                                     </StackPanel>
                                     <StackPanel Grid.Column="2">
                                         <TextBlock Text="Default cadence (days)" Style="{StaticResource FieldLabel}" />
-                                        <ui:NumberBox Value="{Binding OneClickCadenceDays, Mode=TwoWay}"
+                                        <ui:NumberBox Value="{Binding OneClickCadenceDays, Mode=TwoWay}" helpers:SettingsSearchHints.Keywords="days check fresh"
                                                       Minimum="1" Maximum="365" SmallChange="1" LargeChange="7"
                                                       SpinButtonPlacementMode="Compact" Width="140" HorizontalAlignment="Left"
                                                       ToolTip="Days a version check stays fresh. A Report only run skips a tracked application checked more recently than this." />
@@ -1118,7 +1132,7 @@
                                           AutomationProperties.AutomationId="chkOneClickForce"
                                           ToolTip="The plan opens with Force set: the cadence, the refusal memory and the already-published guard are ignored." />
 
-                                <TextBlock Text="Default destinations" Style="{StaticResource FieldLabel}" />
+                                <TextBlock Text="Default destinations" Style="{StaticResource FieldLabel}" helpers:SettingsSearchHints.Keywords="configmgr wsus intune" />
                                 <StackPanel Orientation="Horizontal" Margin="0,0,0,8"
                                             ToolTip="The destinations of every tracked app that has no selection of its own in the grid.">
                                     <CheckBox Content="ConfigMgr" IsChecked="{Binding OneClickDefaultConfigMgr}" Margin="0,0,24,0" AutomationProperties.AutomationId="chkOneClickMecm"
@@ -1138,19 +1152,19 @@
                                 </ComboBox>
 
                                 <DockPanel Margin="0,0,0,8">
-                                    <ui:Button DockPanel.Dock="Right" Content="Track none" Command="{Binding TrackNoneOneClickCommand}" Margin="8,0,0,0"
+                                    <ui:Button DockPanel.Dock="Right" Content="Track none" Command="{Binding TrackNoneOneClickCommand}" helpers:SettingsSearchHints.Exclude="True" Margin="8,0,0,0"
                                                ToolTip="Clears the Track box of every application in the list." />
-                                    <ui:Button DockPanel.Dock="Right" Content="Track all" Command="{Binding TrackAllOneClickCommand}" Margin="8,0,0,0"
+                                    <ui:Button DockPanel.Dock="Right" Content="Track all" Command="{Binding TrackAllOneClickCommand}" helpers:SettingsSearchHints.Exclude="True" Margin="8,0,0,0"
                                                ToolTip="Selects the Track box of every application in the list." />
                                     <ui:Button DockPanel.Dock="Right" Content="Refresh list" Icon="{ui:SymbolIcon ArrowSync24}"
-                                               Command="{Binding RefreshOneClickRowsCommand}" Margin="8,0,0,0"
+                                               Command="{Binding RefreshOneClickRowsCommand}" helpers:SettingsSearchHints.Exclude="True" Margin="8,0,0,0"
                                                ToolTip="Rebuilds the list from the applications the App Packager page shows." />
                                     <TextBlock VerticalAlignment="Center" Foreground="{DynamicResource TextFillColorSecondaryBrush}">
                                         <Run Text="{Binding OneClickTrackedCount, Mode=OneWay}" /><Run Text=" tracked" />
                                     </TextBlock>
                                 </DockPanel>
 
-                                <DataGrid ItemsSource="{Binding OneClickRows}" AutoGenerateColumns="False" CanUserAddRows="False"
+                                <DataGrid ItemsSource="{Binding OneClickRows}" helpers:SettingsSearchHints.Title="Tracked applications" helpers:SettingsSearchHints.Keywords="track all none refresh list cadence grid" AutoGenerateColumns="False" CanUserAddRows="False"
                                           CanUserDeleteRows="False" HeadersVisibility="Column" RowHeaderWidth="0" BorderThickness="1"
                                           BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}" GridLinesVisibility="Horizontal"
                                           Height="280" Margin="0,0,0,8" IsTextSearchEnabled="True" TextSearch.TextPath="Application"
@@ -1220,7 +1234,7 @@
                                            Foreground="{DynamicResource TextFillColorTertiaryBrush}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,8" />
                                 <CheckBox Content="Remove the saved key on Save"
                                           IsChecked="{Binding RemoveNvdApiKey}"
-                                          IsEnabled="{Binding HasStoredNvdApiKey}"
+                                          IsEnabled="{Binding HasStoredNvdApiKey}" helpers:SettingsSearchHints.Unavailable="The box is disabled when no key is saved."
                                           Margin="0,0,0,8"
                                           AutomationProperties.AutomationId="chkRemoveNvdApiKey"
                                           ToolTip="Select to delete the saved key when you select Save Settings. The box is disabled when no key is saved." />
@@ -1265,9 +1279,9 @@
                                 <TextBlock Text="Certificate" Style="{StaticResource FieldLabel}" />
                                 <DockPanel Margin="0,0,0,4">
                                     <ui:Button DockPanel.Dock="Right" Content="Refresh" Icon="{ui:SymbolIcon ArrowSync24}"
-                                               Command="{Binding Signing.RefreshCertificatesCommand}" Margin="8,0,0,0" VerticalAlignment="Center"
+                                               Command="{Binding Signing.RefreshCertificatesCommand}" helpers:SettingsSearchHints.Exclude="True" Margin="8,0,0,0" VerticalAlignment="Center"
                                                ToolTip="Reads the certificate store again and keeps the selected certificate when it is still listed." />
-                                    <ComboBox ItemsSource="{Binding Signing.Certificates}" SelectedItem="{Binding Signing.SelectedCertificate}"
+                                    <ComboBox ItemsSource="{Binding Signing.Certificates}" helpers:SettingsSearchHints.Keywords="thumbprint" SelectedItem="{Binding Signing.SelectedCertificate}"
                                               DisplayMemberPath="Label" AutomationProperties.Name="Certificate" AutomationProperties.AutomationId="SigningCertificate"
                                               ToolTip="Selected by thumbprint. A renewed certificate is a new thumbprint and needs reselecting here." />
                                 </DockPanel>
@@ -1295,19 +1309,19 @@
                 <StackPanel Margin="0,0,0,8" MaxWidth="960" HorizontalAlignment="Left">
                                 <TextBlock Text="Tools" Style="{StaticResource SectionHeader}" />
 
-                                <TextBlock Text="Configuration Manager console" Style="{StaticResource FieldLabel}" />
+                                <TextBlock Text="Configuration Manager console" Style="{StaticResource FieldLabel}" helpers:SettingsSearchHints.Keywords="configmgr adminui" />
                                 <TextBlock Text="{Binding ConsoleStatus}" Foreground="{DynamicResource TextFillColorSecondaryBrush}"
                                            TextWrapping="Wrap" Margin="0,0,0,8" />
 
-                                <TextBlock Text="7-Zip command line" Style="{StaticResource FieldLabel}" />
+                                <TextBlock Text="7-Zip command line" Style="{StaticResource FieldLabel}" helpers:SettingsSearchHints.Keywords="7z" />
                                 <TextBlock Text="{Binding SevenZipStatus}" Foreground="{DynamicResource TextFillColorSecondaryBrush}"
                                            TextWrapping="Wrap" Margin="0,0,0,8" />
 
-                                <TextBlock Text="Win32 Content Prep Tool" Style="{StaticResource FieldLabel}" />
+                                <TextBlock Text="Win32 Content Prep Tool" Style="{StaticResource FieldLabel}" helpers:SettingsSearchHints.Keywords="intunewin intunewinapputil download" />
                                 <DockPanel Margin="0,0,0,8">
                                     <ui:Button DockPanel.Dock="Right" Content="Download"
                                                Icon="{ui:SymbolIcon ArrowDownload24}"
-                                               Command="{Binding DownloadContentPrepCommand}"
+                                               Command="{Binding DownloadContentPrepCommand}" helpers:SettingsSearchHints.Exclude="True"
                                                IsEnabled="{Binding ContentPrepIdle}"
                                                Margin="8,0,0,0" VerticalAlignment="Center"
                                                ToolTip="Fetches IntuneWinAppUtil.exe from its Microsoft repository and checks its publisher signature before use." />
@@ -1323,13 +1337,13 @@
                                 <DockPanel Margin="0,0,0,8">
                                     <ui:Button DockPanel.Dock="Right" Content="Install from file..."
                                                Icon="{ui:SymbolIcon FolderOpen24}"
-                                               Command="{Binding InstallIconPackFromFileCommand}"
+                                               Command="{Binding InstallIconPackFromFileCommand}" helpers:SettingsSearchHints.Keywords="packager icon pack icons"
                                                IsEnabled="{Binding IconPackIdle}"
                                                Margin="8,0,0,0" VerticalAlignment="Center"
                                                ToolTip="Installs the icon pack from a zip file that you select. Use it when your proxy blocks the download." />
                                     <ui:Button DockPanel.Dock="Right" Content="Download icon pack"
                                                Icon="{ui:SymbolIcon ArrowDownload24}"
-                                               Command="{Binding DownloadIconPackCommand}"
+                                               Command="{Binding DownloadIconPackCommand}" helpers:SettingsSearchHints.Keywords="packager icons"
                                                IsEnabled="{Binding IconPackIdle}"
                                                Margin="8,0,0,0" VerticalAlignment="Center"
                                                ToolTip="Downloads the icon pack from its release and installs it." />
@@ -1345,7 +1359,7 @@
                                 <DockPanel Margin="0,0,0,8">
                                     <ui:Button DockPanel.Dock="Right" Content="Releases"
                                                Icon="{ui:SymbolIcon Open24}"
-                                               Command="{Binding OpenReleasesCommand}"
+                                               Command="{Binding OpenReleasesCommand}" helpers:SettingsSearchHints.Keywords="version release update"
                                                Margin="8,0,0,0" VerticalAlignment="Center"
                                                ToolTip="Opens the releases page of the app on GitHub in your browser." />
                                     <StackPanel>

@@ -102,6 +102,7 @@ public partial class InstallerSettingsPanel : UserControl
                 {
                     var list = CreateLocaleList(param, current);
                     if (!string.IsNullOrEmpty(param.Tooltip)) list.ToolTip = param.Tooltip;
+                    Helpers.SettingsSearchHints.SetKey(list, param.Key);
                     var block = new StackPanel { Margin = new Thickness(0, 4, 0, 4) };
                     label.Margin = new Thickness(0, 0, 0, 4);
                     row.Children.Remove(label);
@@ -121,6 +122,9 @@ public partial class InstallerSettingsPanel : UserControl
                 };
 
                 control.HorizontalAlignment = HorizontalAlignment.Right;
+                // The settings search finds the control by its parameter; a screen reader reads its label.
+                Helpers.SettingsSearchHints.SetKey(control, param.Key);
+                System.Windows.Automation.AutomationProperties.SetName(control, param.Label);
                 if (!string.IsNullOrEmpty(param.Tooltip))
                     control.ToolTip = param.Tooltip;
                 DockPanel.SetDock(control, Dock.Right);
