@@ -28,6 +28,23 @@ The theme choice **Dark Theme** or **Light Theme** is at the top of the page. Th
 
 ## Options and settings of this page
 
+### Search settings
+
+The box **Search settings** is above the list of pages. It finds pages and the fields on every page.
+
+1. Type one or more words. The results show in place of the list of pages. Each result shows the name of the page or field, and then the path of its page, for example `Use SSL   -   Connections > WSUS`.
+2. To open a result, select it with the mouse. You can also press **Enter** in the box to open the first result. Or press the **Down** arrow, use the arrow keys, and press **Enter**.
+3. The page opens and scrolls to the field. The keyboard focus goes to the field. A result that is a page puts the focus on that page in the list. The text stays in the box. Press **Enter** or the **Down** arrow in the box to list the results again. If you hold **Enter** down, the repeat does not press the control that gets the focus.
+4. Press **Esc** to clear the box and show the list of pages again.
+
+A result must contain every word that you type, in its name, its path or its search words. The search words include names that you know from other places, for example `dpapi` for **Client Secret**. The search does not read tooltips. A name that is equal to your text comes first. Next are names that start with your first word, then names that contain it. The box shows at most 40 results. A line below the box states the number of results. When nothing matches, the list shows `No setting found.`
+
+A field that another setting disables or hides still shows in the results. When the app has a text that says why, the result shows it. Such a field cannot take the focus. The page scrolls to it, and the focus goes to the field before it. When there is no such field, the focus goes to the page in the list. A result puts the focus on a button only when the result is that button.
+
+The grid **Application Overrides** is one result. The name of any of its columns finds it, also a column that the grid does not show. Select **Columns** to show that column. The grid **Tracked applications** of the One Click page is also one result. Each row of **Sidebar**, **Install Parameters**, **Local Installer Sources** and **Packager Files** is its own result. The path of an install parameter ends with the name of the application.
+
+A search changes no setting.
+
 ### Sidebar
 
 Each entry has a check box, a **Move up** button and a **Move down** button. **Reset sidebar** restores the default order and shows every entry. These changes apply at once. **Save Settings** is not necessary. The entries are in two groups, the first group and **TOOLS**. An entry moves only inside its group. **App Packager** stays first and cannot be hidden.
