@@ -410,6 +410,8 @@ $steps['first-start'] = {
     $scan = Find-El $null 'btnSetupScan' -Timeout 10
     Require 'the checklist offers the first scan' ($scan -and $scan.Current.IsEnabled) "button '$(if ($scan) { $scan.Current.Name })'"
     $mark = Get-LogMark $data
+    # The scan step can stand below the visible part of the checklist; the focus scrolls it into view.
+    $scan.SetFocus(); Start-Sleep -Seconds 1
     Real-Click $scan
     $script:ScanPrompt = $false
     $done = Wait-Until {
@@ -426,6 +428,11 @@ $steps['first-start'] = {
     $found = @($scanLines | Where-Object { $_ -cmatch '^Discovered \d+ apps?\.$' })
     # "no change." is the line that Not now writes.
     $other = @($scanLines | Where-Object { $_ -cne 'reading hardware inventory from the ConfigMgr site database.' -and $_ -cne 'no change.' -and $_ -cnotmatch '^Discovered \d+ apps?\.$' })
+    $noSite = @($other | Where-Object { $_ -match '^The SQL Server for site \w+ is not known \(no SMS Provider is configured\)\. Enter the SQL Server name in Settings, ConfigMgr\.$' })
+    if (-not $script:ScanPrompt -and -not $found.Count -and $noSite.Count -eq 1 -and $other.Count -eq 1) {
+        Check 'the first scan with no site configured stops and names the missing setting' ($done -and $read) "line: '$($noSite[0])'; checklist now '$(Get-Text 'txtSetupProgress')'"
+        Snap 'after-scan'; return
+    }
     $result = if ($script:ScanPrompt) { $found.Count -eq 1 -and $found[0] -cmatch '^Discovered [1-9]' } else { $found.Count -eq 1 -and $found[0] -ceq 'Discovered 0 apps.' }
     Check 'the first scan ends with the discovery prompt or with the result of a scan that found no app' ($done -and $read -and $result -and $other.Count -eq 0) `
         "prompt shown: $($script:ScanPrompt); result line: '$($found -join ' / ')'; other lines: '$($other -join ' / ')'; checklist now '$(Get-Text 'txtSetupProgress')'"
@@ -648,7 +655,7 @@ $steps['one-click'] = {
     $settings = New-Settings $data $false
     # The id of the definition of the tracked application, from the definitions of the installed app.
     $definitions = @(Get-ChildItem -LiteralPath (Join-Path $AppFolder 'Definitions') -Filter *.json -File |
-        ForEach-Object { Get-Content -LiteralPath $_.FullName -Raw | ConvertFrom-Json } | Where-Object { $_.Application -match (Get-NamePattern $OneClickApp) })
+        ForEach-Object { try { Get-Content -LiteralPath $_.FullName -Raw | ConvertFrom-Json } catch { $null = $_ } } | Where-Object { $_.Application -match (Get-NamePattern $OneClickApp) })
     Require 'one definition has the name of the One Click application' ($definitions.Count -eq 1) "$($definitions.Count) definition(s)"
     $full = [string]$definitions[0].Application
     $settings.OneClick = @{ Action = 'StageAndPackage'; TrackedApplications = @([string]$definitions[0].Id); DefaultDestinations = @{ ConfigMgr = $true; WSUS = $false; Intune = $false } }
