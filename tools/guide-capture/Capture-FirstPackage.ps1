@@ -167,7 +167,6 @@ foreach ($theme in $Themes) {
             Check-Row $w $Search
             Open-ApdMenuItem $w 'btnCheckMenu' 'miCheckLatest'
             Wait-Idle $w 240
-            # A publish to WSUS only has no review.
             Real-Click (Need-El 'btnPublishAll')
             Complete-ApdPublish $w 600
             $deadline = (Get-Date).AddSeconds(240)

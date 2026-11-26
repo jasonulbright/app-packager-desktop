@@ -17,27 +17,11 @@ namespace ApplicationPackagerUI.ViewModels.Pages;
 /// </summary>
 public partial class PackagesViewModel : IOneClickRunner, IPublishActionHost
 {
-    public static string PublishLabel(string target) => target switch
-    {
-        PublishRunTargets.IntuneOnly => "Publish to Intune",
-        PublishRunTargets.WsusOnly => "Publish to WSUS",
-        _ => "Publish to ConfigMgr"
-    };
-
     /// <summary>The grid status of a ConfigMgr or Intune run row.</summary>
     private static string RowStatus(string target, int exitCode) => PublishRunService.RowStatus(target, exitCode);
 
-    /// <summary>One publish run for the checked rows with the button's own destination; the saved deployment target plays no part.</summary>
-    private Task StartPublishRunAsync(string target) =>
-        target == PublishRunTargets.WsusOnly ? PublishWsusRunAsync() : PackageAsync(null, target, null);
-
-    /// <summary>Publish All: the review window first, then the run. A WSUS-only target keeps its own run.</summary>
-    private Task PublishAllAsync()
-    {
-        // The target comes from the stored settings of this moment, the same ones the review reads: a cached target could name other systems.
-        var target = PublishAllState.For(ReadinessOf(_settingsService.Load())).Target;
-        return target == PublishRunTargets.WsusOnly ? PublishWsusRunAsync() : PackageAsync(null, target, null, review: true);
-    }
+    /// <summary>Publish All: the review window first, then the run.</summary>
+    private Task PublishAllAsync() => PackageAsync(null, null);
 
     /// <summary>
     /// A WSUS-bound action needs a server and the administration API. Checked on the UI
@@ -77,92 +61,6 @@ public partial class PackagesViewModel : IOneClickRunner, IPublishActionHost
         var api = WsusApiProbe.Probe();
         if (!api.Available) AddLogLine($"WSUS Updates is unavailable: {api.Reason}");
         _publishDialogs.ShowWsusUpdates(settings.Wsus);
-    }
-
-    /// <summary>
-    /// Publish to WSUS: each checked row is staged when it has no stage of its latest
-    /// version, then published through the WSUS publish service. A refusal leaves the
-    /// row at "not supported: &lt;codes&gt;"; the log and the status tooltip carry the full text.
-    /// </summary>
-    private async Task PublishWsusRunAsync(IReadOnlyList<PackagerInfo>? rows = null, RunSnapshot? workbenchSnapshot = null)
-    {
-        var settings = _settingsService.Load();
-        const string label = "Publish to WSUS";
-        if (PublishRunService.RunGate(PublishRunTargets.WsusOnly, settings) is { } blocked)
-        {
-            AddLogLine($"{label} blocked: {blocked}");
-            StatusText = "WSUS server required.";
-            return;
-        }
-        if (!ConfirmWsusPrerequisites(settings, "Publish")) return;
-
-        var selected = rows?.ToList() ?? SelectedPackagers.ToList();
-        if (selected.Count == 0) { ShowNoneSelected(label); return; }
-        selected = ConfirmLocalSourceFolders(selected);
-        if (selected.Count == 0) return;
-        foreach (var sentence in ApplicationPackagerEngine.Services.PublishPreflight.Lines(DeploymentTargets.WsusOnly))
-            AddLogLine("Before publish: " + sentence);
-
-        IsOperationRunning = true;
-        ShowProgress = true;
-        ProgressCurrent = 0;
-        ProgressTotal = selected.Count;
-        _operationCts = new CancellationTokenSource();
-        StatusText = "Publishing selected applications to WSUS...";
-        var tally = new PackagingRunTally();
-
-        try
-        {
-            for (var i = 0; i < selected.Count; i++)
-            {
-                if (_operationCts.IsCancellationRequested) { tally.MarkCancelled(); break; }
-                var p = selected[i];
-                ProgressCurrent = i + 1;
-                StatusText = ApplicationPackagerEngine.Models.RunProgress.Running("Publishing to WSUS", ProgressCurrent, ProgressTotal, p.Application);
-                AddLogLine($"Publish to WSUS: {p.Application} ({p.Script})");
-
-                try
-                {
-                    var run = await _publishRuns.PublishWsusRowAsync(p, workbenchSnapshot, AddLogLine, _operationCts.Token);
-                    if (run.StageFailed)
-                    {
-                        if (tally.RecordInterruptedOrFailed(_operationCts.Token)) { p.Status = "Cancelled"; break; }
-                        p.Status = "Publish error";
-                        AddLogLine($"Stage FAILED (exit {run.Stage.ExitCode})");
-                        LogStdErr(run.Stage.StdErr);
-                        continue;
-                    }
-
-                    var outcome = run.Outcome!;
-                    if (outcome.Kind == PublishRowOutcomeKind.Success) { tally.RecordSuccess(); p.IsSelected = false; }
-                    else if (outcome.Kind == PublishRowOutcomeKind.NotSupported) tally.RecordSkip();
-                    else tally.RecordFailure();
-                }
-                catch (OperationCanceledException ex)
-                {
-                    if (tally.RecordInterruptedOrFailed(_operationCts.Token)) { p.Status = "Cancelled"; break; }
-                    p.Status = "Publish error";
-                    AddLogLine($"ERROR: {ex.Message}");
-                }
-                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException
-                                           or ArgumentException or System.Text.Json.JsonException)
-                {
-                    p.Status = "Publish error";
-                    tally.RecordFailure();
-                    AddLogLine($"ERROR: {ex.Message}");
-                }
-            }
-
-            tally.Finish(_operationCts.Token);
-            StatusText = RunEndLine(tally, "Publish to WSUS", ProgressTotal, "published");
-        }
-        finally
-        {
-            ShowProgress = false;
-            IsOperationRunning = false;
-            _operationCts?.Dispose();
-            _operationCts = null;
-        }
     }
 
     /// <summary>The folder of the One Click run reports.</summary>

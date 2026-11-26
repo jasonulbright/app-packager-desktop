@@ -40,6 +40,16 @@ public partial class PublishReviewViewModel : ObservableObject
 
     public string ScopeText => "Systems: " + (Plan.Systems.Count == 0 ? "none in use" : string.Join(", ", Plan.Systems)) + " (Settings, Systems in Use)";
 
+    /// <summary>What is read again before the first write, and what the run does when a destination already has the application.</summary>
+    public string PlanNoteText => Plan.Systems.Contains(OneClickDestinations.ConfigMgr)
+        ? "Planned from the last check. ConfigMgr is read again when you confirm. If an application exists, the run asks."
+        : "Planned from the last check. The settings and the versions are read again when you confirm."
+          + (Plan.Systems.Contains(OneClickDestinations.Wsus)
+              ? " The publish does not change an update that WSUS already has for a version. It refuses a stage that differs from it." : "");
+
+    /// <summary>ConfigMgr and Intune write the comment to the application. WSUS does not.</summary>
+    public bool HasComment => Plan.Systems.Contains(OneClickDestinations.ConfigMgr) || Plan.Systems.Contains(OneClickDestinations.Intune);
+
     /// <summary>Why the run cannot start: each system that is in use and not ready, with its reason. Empty when it can start.</summary>
     public string BlockedText => string.Join(" ", Plan.Blocked.Select(b => b.Destination + ": " + b.Reason));
 

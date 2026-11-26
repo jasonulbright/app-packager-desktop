@@ -162,8 +162,7 @@ public partial class PackagesViewModel
         {
             EndByoOperation();
         }
-        await RouteWorkbenchPublishAsync(target,
-            () => PublishWsusRunAsync([row!], snapshot), review => PackageAsync([row!], target, snapshot, review));
+        await PackageAsync([row!], snapshot);
     }
 
     /// <summary>The token of the Workbench stage in progress.</summary>

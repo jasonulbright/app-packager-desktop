@@ -61,6 +61,15 @@
         </DataGrid>
 
         <StackPanel Grid.Row="3" Margin="16,0,16,8">
+            <StackPanel.Style>
+                <Style TargetType="StackPanel">
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding HasComment}" Value="False">
+                            <Setter Property="Visibility" Value="Collapsed" />
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </StackPanel.Style>
             <TextBlock Text="Administrative comment" Style="{StaticResource CaptionText}" Margin="0,0,0,4" />
             <ui:TextBox x:Name="txtReviewComment" Text="{Binding Comment, UpdateSourceTrigger=PropertyChanged}"
                         PlaceholderText="A work order or a note. It goes into the ConfigMgr application description."
@@ -76,7 +85,8 @@
                     <ui:Button Content="{Binding ConfirmText}" Appearance="Primary" MinWidth="170" IsDefault="True" Command="{Binding AcceptCommand}"
                                AutomationProperties.AutomationId="btnReviewConfirm" ToolTip="Start the publish run for the applications and systems listed here." />
                 </WrapPanel>
-                <TextBlock Text="Planned from the last check. ConfigMgr is read again when you confirm. If an application exists, the run asks." Style="{StaticResource CaptionText}" VerticalAlignment="Center" />
+                <TextBlock Text="{Binding PlanNoteText}" Style="{StaticResource CaptionText}" TextWrapping="Wrap" Margin="0,0,16,0" VerticalAlignment="Center"
+                           AutomationProperties.AutomationId="txtReviewPlanNote" />
             </DockPanel>
         </Border>
     </Grid>

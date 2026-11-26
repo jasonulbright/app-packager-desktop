@@ -39,20 +39,8 @@ public sealed class WorkbenchPublishAllTests
 
         viewModel.ApplyPublishState(Readiness(configMgr: false, intune: false, wsus: true));
         Assert.True(viewModel.PublishAllCommand.CanExecute(null));
-        Assert.EndsWith("A publish to WSUS only has no review. It starts at once.", viewModel.PublishAllToolTip);
-    }
-
-    [Fact]
-    public async Task EveryTargetOfAWorkbenchPublishRunsWithTheReviewAndWsusOnlyKeepsItsOwnRun()
-    {
-        foreach (var target in DeploymentTargets.Names)
-        {
-            var calls = new List<string>();
-            await PackagesViewModel.RouteWorkbenchPublishAsync(target,
-                () => { calls.Add("wsus run"); return Task.CompletedTask; },
-                review => { calls.Add("package run, review " + review); return Task.CompletedTask; });
-            Assert.Equal(target == DeploymentTargets.WsusOnly ? ["wsus run"] : ["package run, review True"], calls);
-        }
+        Assert.Equal("Publish the selected build to WSUS (Settings, Systems in Use). The publish review opens before anything is published.",
+            viewModel.PublishAllToolTip);
     }
 
     [Fact]

@@ -83,11 +83,11 @@ The review comes from the last check. When you confirm, the app reads again: the
 
 The window **Publish results** shows a headline: `N publishes completed`, `Publish completed with issues`, `Nothing was published` or `Publish was cancelled`. It shows the counts **Published**, **Failed** and **Skipped**. The grid has one row for each application and one column for each system. A cell reads `Published`, `Published, supersedence not applied`, `Failed`, `Failed at <step>`, `Failed, state not known`, `Stopped, state not known`, `Skipped`, `Not supported`, `Blocked` or `Not run`. A system that fails does not stop the next system of the run. For an application that reached one system and not another, a notice says what the run did. What reached a system stays published. When a state is not known, check that system. The lines below the grid give the message of each cell that needs one.
 
-A failed row stays checked. Select **Done** to close the window. The grid keeps its filter and its sort.
+Select **Done** to close the window. The grid keeps its filter and its sort.
 
 ### A publish to WSUS only
 
-When WSUS is the only system in use, **Publish All** has no review window and no results window. The run starts at once. Review the result in the **Status** column and in the log. See [WSUS publishing](wsus-publishing.md).
+When WSUS is the only system in use, **Publish All** opens the same review window and the same results window. The review has one column, **WSUS**. It has no **Administrative comment** box, because WSUS does not get the comment. When you confirm, the app reads the settings and the versions again. The read does not connect to the WSUS server. The publish itself checks the update that the server has for this version. A row that WSUS cannot take stays checked. A row that fails also stays checked. See [WSUS publishing](wsus-publishing.md).
 
 ## What Stage does
 

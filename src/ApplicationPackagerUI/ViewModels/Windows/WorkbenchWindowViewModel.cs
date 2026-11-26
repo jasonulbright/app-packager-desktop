@@ -1137,9 +1137,7 @@ public partial class WorkbenchWindowViewModel : ObservableObject
         CanPublishAll = state.Enabled;
         PublishAllToolTip = !state.Enabled ? state.ToolTip
             : "Publish the selected build to " + DestinationSet.FromTarget(state.Target).Describe() + " (Settings, Systems in Use). "
-              + (state.Target == RunTargets.WsusOnly
-                  ? "A publish to WSUS only has no review. It starts at once."
-                  : "The publish review opens before anything is published.");
+              + "The publish review opens before anything is published.";
     }
 
     [RelayCommand(CanExecute = nameof(CanPublishAll))]
