@@ -31,6 +31,17 @@
         <ui:TitleBar Grid.Row="0" Title="Publish results" ShowMinimize="False" />
 
         <StackPanel Grid.Row="1" Margin="16,0,16,8">
+            <TextBlock Text="{Binding SiteLine}" FontSize="12" Foreground="{DynamicResource TextFillColorSecondaryBrush}" AutomationProperties.AutomationId="txtResultsSite">
+                <TextBlock.Style>
+                    <Style TargetType="TextBlock">
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding SiteLine}" Value="">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </TextBlock.Style>
+            </TextBlock>
             <TextBlock Text="{Binding Headline}" Style="{StaticResource SectionTitle}" AutomationProperties.HeadingLevel="Level1"
                        AutomationProperties.AutomationId="txtResultsHeadline" AutomationProperties.LiveSetting="Polite" />
             <StackPanel Orientation="Horizontal" Margin="0,8,0,0">

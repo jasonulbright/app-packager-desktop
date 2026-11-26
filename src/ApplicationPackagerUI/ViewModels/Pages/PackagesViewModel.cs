@@ -134,6 +134,8 @@ public partial class PackagesViewModel : ObservableObject
         WsusUpdatesCommand = new RelayCommand(OpenWsusUpdates, () => CanRunOperation() && IsWsusUpdatesAvailable);
         OneClickCommand = new AsyncRelayCommand(OneClickAsync, CanRunOperation);
         ImportFromUrlCommand = new RelayCommand(() => ImportFromUrlRequested?.Invoke(this, EventArgs.Empty), CanRunOperation);
+        // Before the checklist stores anything: the choice of columns depends on whether this is a new install.
+        MigrateColumns();
         _isDetailPaneOpen = _settingsService.Load().PackagesDetailPaneOpen;
         _detailPaneWidth = _settingsService.Load().PackagesDetailPaneWidth;
         InitializeDiscovery(discovery, discoveryPrompt);
@@ -193,7 +195,7 @@ public partial class PackagesViewModel : ObservableObject
         IsPublishWsusAvailable = state.WsusEnabled;
         PublishWsusToolTip = state.WsusToolTip;
         (IsPublishAllAvailable, PublishAllToolTip, _publishAllTarget) = PublishAllState.For(readiness);
-        PublishScopeText = PublishAllState.ScopeText(readiness.Systems);
+        PublishScopeText = "Publish All: " + ScopeText.For(ScopeText.SetOf(readiness.Systems), ScopeSource.SystemsInUse, readiness.SiteCode);
         IsWsusUpdatesAvailable = state.WsusUpdatesEnabled;
         WsusUpdatesToolTip = state.WsusUpdatesToolTip;
         _skipMecmPreflight = state.SkipMecmPreflight;
@@ -281,15 +283,34 @@ public partial class PackagesViewModel : ObservableObject
     /// <summary>"Publish All scope: ConfigMgr and WSUS (Settings, Systems in Use)".</summary>
     [ObservableProperty] private string _publishScopeText = "";
 
-    /// <summary>The headers of the columns that the operator hid (Columns menu), as saved.</summary>
-    public IReadOnlySet<string> HiddenColumns => PackagesColumns.Clean(_settingsService?.Load().PackagesHiddenColumns);
+    /// <summary>The columns that the Columns menu shows, as saved.</summary>
+    public IReadOnlyList<string> ShownColumns => PackagesColumns.Shown(_settingsService?.Load().PackagesShownColumns);
 
     /// <summary>Shows or hides one column and saves the choice.</summary>
     public void SetColumnVisible(string header, bool visible)
     {
         var settings = _settingsService.Load();
-        settings.PackagesHiddenColumns = PackagesColumns.With(settings.PackagesHiddenColumns, header, visible);
+        settings.PackagesShownColumns = PackagesColumns.With(settings.PackagesShownColumns, header, visible);
         _settingsService.Save(settings);
+    }
+
+    /// <summary>The Compact view entry: the columns of a new install. The order, the widths and the sort stay.</summary>
+    public void ShowCompactColumns()
+    {
+        var settings = _settingsService.Load();
+        settings.PackagesShownColumns = PackagesColumns.Compact.ToArray();
+        _settingsService.Save(settings);
+    }
+
+    /// <summary>The first start with this setting stores which columns this install shows.</summary>
+    private void MigrateColumns()
+    {
+        var settings = _settingsService.Load();
+        // An unreadable file gives defaults, which look like a new install; nothing is stored over it.
+        if (_settingsService.IsFileUnreadable) return;
+        if (!PackagesColumns.Migrate(settings, FirstRunDecision.IsWizardDue(settings.FirstRunCompleted))) return;
+        try { _settingsService.Save(settings); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
     }
 
     /// <summary>The saved order, widths and sort of the grid; null when the operator changed none.</summary>
@@ -303,11 +324,11 @@ public partial class PackagesViewModel : ObservableObject
         _settingsService.Save(settings);
     }
 
-    /// <summary>Shows every column again, in the order and with the widths of the page, with no sort.</summary>
+    /// <summary>The default of a new install: the compact columns, in the order and with the widths of the page, with no sort.</summary>
     public void ResetColumns()
     {
         var settings = _settingsService.Load();
-        settings.PackagesHiddenColumns = [];
+        settings.PackagesShownColumns = PackagesColumns.Compact.ToArray();
         settings.PackagesGridLayout = null;
         _settingsService.Save(settings);
     }
@@ -1534,6 +1555,7 @@ public partial class PackagesViewModel : ObservableObject
         return new PublishPlanApp(p.Uid, p.Application, sealedVersion ?? PackagerExecutionService.PublishVersion(p), hidden)
         {
             Site = site,
+            CheckedAt = p.LastChecked,
             ConfigMgrSteps = string.Join(", ", steps),
             IntuneNotSupported = script ? "a PS1 packager publishes to ConfigMgr only" : "",
             WsusNotSupported = p.WsusNotSupported ?? ""

@@ -1,4 +1,5 @@
 using ApplicationPackagerEngine.Models;
+using ScopeSource = ApplicationPackagerEngine.Models.ScopeSource;
 
 namespace ApplicationPackagerUI.ViewModels.Windows;
 
@@ -40,14 +41,35 @@ public partial class PublishReviewViewModel : ObservableObject
 
     public string ScopeText => Plan.RetryDestination.Length > 0
         ? $"Retry of a failed destination: {Plan.RetryDestination} only."
-        : "Systems: " + (Plan.Systems.Count == 0 ? "none in use" : string.Join(", ", Plan.Systems)) + " (Settings, Systems in Use)";
+        : "Publish All: " + ApplicationPackagerEngine.Models.ScopeText.For(
+            new DestinationSet(Plan.Systems.Contains(OneClickDestinations.ConfigMgr), Plan.Systems.Contains(OneClickDestinations.Wsus),
+                Plan.Systems.Contains(OneClickDestinations.Intune)), ScopeSource.SystemsInUse, Plan.SiteCode);
+
+    public string HeadingText => $"Review {Plan.Rows.Count} {(Plan.Rows.Count == 1 ? "application" : "applications")}";
+
+    /// <summary>The site line of the window, as the footer of the main window writes it; empty when the plan has no site.</summary>
+    public string SiteLine => Plan.Site.Length == 0 ? "" : SiteFooter.Format(Plan.SiteCode, Plan.Provider);
+
+    /// <summary>"Planned from the last check at 2026-11-26 14:05." The oldest check of the listed applications is the one named.</summary>
+    public string LastCheckText
+    {
+        get
+        {
+            var times = Plan.Rows.Select(r => r.App.CheckedAt).ToList();
+            var unknown = times.Count(t => t is null);
+            if (unknown == times.Count) return "Planned from the last check. No check time is stored.";
+            var oldest = times.Where(t => t is not null).Min()!.Value.ToString("yyyy-MM-dd HH:mm", System.Globalization.CultureInfo.InvariantCulture);
+            var text = times.Distinct().Count() == 1 ? $"Planned from the last check at {oldest}." : $"Planned from the last check at {oldest} (the oldest of the listed checks).";
+            return unknown == 0 ? text : $"{text} No check time is stored for {unknown} {(unknown == 1 ? "application" : "applications")}.";
+        }
+    }
 
     /// <summary>What is read again before the first write, and what the run does when a destination already has the application.</summary>
     public string PlanNoteText => Plan.RetryDestination == OneClickDestinations.ConfigMgr
-        ? "ConfigMgr is read again when you confirm. The retry does not replace an application. It publishes nothing when ConfigMgr has this version."
+        ? LastCheckText + " ConfigMgr is read again when you confirm. The retry does not replace an application. It publishes nothing when ConfigMgr has this version."
         : Plan.Systems.Contains(OneClickDestinations.ConfigMgr)
-        ? "Planned from the last check. ConfigMgr is read again when you confirm. If an application exists, the run asks."
-        : "Planned from the last check. The settings and the versions are read again when you confirm."
+        ? LastCheckText + " ConfigMgr is read again when you confirm. If an application exists, the run asks."
+        : LastCheckText + " The settings and the versions are read again when you confirm."
           + (Plan.Systems.Contains(OneClickDestinations.Wsus)
               ? " The publish does not change an update that WSUS already has for a version. It refuses a stage that differs from it." : "");
 

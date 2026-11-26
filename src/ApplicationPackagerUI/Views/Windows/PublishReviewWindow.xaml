@@ -37,7 +37,10 @@
         <ui:TitleBar Grid.Row="0" Title="Review Publish All" ShowMinimize="False" />
 
         <StackPanel Grid.Row="1" Margin="16,0,16,8">
-            <TextBlock Text="Review Publish All" Style="{StaticResource SectionTitle}" AutomationProperties.HeadingLevel="Level1" />
+            <TextBlock Text="{Binding SiteLine}" Style="{StaticResource ShowWhenText}" FontSize="12" Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                       AutomationProperties.AutomationId="txtReviewSite" />
+            <TextBlock Text="{Binding HeadingText}" FontSize="20" FontWeight="SemiBold" Foreground="{DynamicResource TextFillColorPrimaryBrush}"
+                       AutomationProperties.HeadingLevel="Level1" AutomationProperties.AutomationId="txtReviewHeading" />
             <TextBlock Text="{Binding CountsText}" Margin="0,4,0,0" FontSize="14" Foreground="{DynamicResource TextFillColorPrimaryBrush}"
                        AutomationProperties.AutomationId="txtReviewCounts" AutomationProperties.LiveSetting="Polite" />
             <TextBlock Text="{Binding ScopeText}" Style="{StaticResource CaptionText}" Margin="0,2,0,0" AutomationProperties.AutomationId="txtReviewScope" />

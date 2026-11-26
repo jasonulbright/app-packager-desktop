@@ -282,8 +282,9 @@ function Test-Review([string]$FullName, [string[]]$Systems) {
     Say "  review: counts='$counts' scope='$scope' changed='$changed' blocked='$blocked'"
     foreach ($r in $rows) { Say "  review row: $($r.Cells -join ' | ')" }
     $confirm = Find-El $null 'btnReviewConfirm' -Timeout 3
-    $wantScope = "Systems: $($Systems -join ', ') (Settings, Systems in Use)"
-    $one = $rows.Count -eq 1 -and @($rows[0].Cells).Count -ge 1 -and $rows[0].Cells[0] -ceq $FullName -and $counts -like '1 application, *' -and $scope -ceq $wantScope
+    # "Publish All: ConfigMgr and WSUS - Site MCM - from Settings, Systems in Use" (the parts are joined by a middle dot).
+    $names = if (@($Systems).Count -gt 1) { (@($Systems)[0..(@($Systems).Count - 2)] -join ', ') + ' and ' + @($Systems)[-1] } else { @($Systems)[0] }
+    $one = $rows.Count -eq 1 -and @($rows[0].Cells).Count -ge 1 -and $rows[0].Cells[0] -ceq $FullName -and $counts -like '1 application, *' -and $scope -clike "Publish All: $names *from Settings, Systems in Use"
     # "ConfigMgr has ...": the site holds an application. "ConfigMgr was not read": nothing proves that it holds none.
     $known = $rows.Count -eq 1 -and (($rows[0].Cells -join ' ') -match 'ConfigMgr has|ConfigMgr was not read')
     if ($one) { $script:ReviewVersion = [string]$rows[0].Cells[1] }

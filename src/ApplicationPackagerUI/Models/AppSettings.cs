@@ -79,8 +79,11 @@ public sealed class AppSettings
 
     public string[] HiddenApplications { get; set; } = [];
 
-    /// <summary>The headers of the Packages grid columns that the operator hid with the Columns menu. Empty shows every column, as before the menu existed.</summary>
+    /// <summary>The columns that a file from before <see cref="PackagesShownColumns"/> hid. It is read once and then left empty.</summary>
     public string[] PackagesHiddenColumns { get; set; } = [];
+
+    /// <summary>The columns of the Packages grid that the Columns menu shows. Null until the first start stored the choice.</summary>
+    public string[]? PackagesShownColumns { get; set; }
 
     /// <summary>The order, the widths and the sort of the Packages grid. Null until the operator changes one of them.</summary>
     public ApplicationPackagerUI.Helpers.PackagesColumnLayout? PackagesGridLayout { get; set; }

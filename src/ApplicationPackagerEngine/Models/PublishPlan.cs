@@ -31,6 +31,9 @@ public sealed record PublishPlanApp(string Uid, string Application, string Versi
     /// <summary>The steps that the ConfigMgr run takes after it creates the application: distribution, test deployment, supersedence. Empty when none.</summary>
     public string ConfigMgrSteps { get; init; } = "";
 
+    /// <summary>When the version of this application was last checked; null when no check time is stored.</summary>
+    public DateTime? CheckedAt { get; init; }
+
     /// <summary>Why Intune cannot take this application; empty when it can.</summary>
     public string IntuneNotSupported { get; init; } = "";
 
@@ -70,6 +73,10 @@ public sealed record PublishPlan(IReadOnlyList<string> Systems, IReadOnlyList<Pu
 
     /// <summary>The ConfigMgr site and provider the plan writes to; empty when the plan was not given one.</summary>
     public string Site { get; init; } = "";
+
+    public string SiteCode => Site.Split('|')[0];
+
+    public string Provider => Site.Contains('|') ? Site[(Site.IndexOf('|') + 1)..] : "";
 
     /// <summary>The one destination of a retry; empty for a publish to every system in use.</summary>
     public string RetryDestination { get; init; } = "";

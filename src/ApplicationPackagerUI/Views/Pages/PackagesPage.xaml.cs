@@ -20,8 +20,6 @@ public partial class PackagesPage
 
         viewModel.PropertyChanged += OnViewModelPropertyChanged;
         viewModel.ImportFromUrlRequested += (_, _) => ShowImportFromUrl(viewModel);
-        ColIntune.Visibility = viewModel.ShowIntuneColumn ? Visibility.Visible : Visibility.Collapsed;
-        ColSource.Visibility = viewModel.ShowSourceColumn ? Visibility.Visible : Visibility.Collapsed;
         ApplySavedColumns();
         InitializeColumnLayout();
 
@@ -120,13 +118,23 @@ public partial class PackagesPage
         e.Handled = true;
     }
 
-    /// <summary>Hides the columns that the operator hid with the Columns menu; the others keep their own rule.</summary>
+    /// <summary>
+    /// Shows the columns that the Columns menu chose. Source and Intune also need data, and the debug columns also show while Show debug
+    /// columns is on.
+    /// </summary>
     private void ApplySavedColumns()
     {
-        var hidden = ((PackagesViewModel)DataContext!).HiddenColumns;
+        var viewModel = (PackagesViewModel)DataContext!;
+        var shown = viewModel.ShownColumns;
         foreach (var column in PackagerGrid.Columns)
-            if (column.Header is string header && Helpers.PackagesColumns.Toggleable.Contains(header))
-                column.Visibility = hidden.Contains(header) ? Visibility.Collapsed : Visibility.Visible;
+        {
+            if (column.Header is not string header || !Helpers.PackagesColumns.Toggleable.Contains(header)) continue;
+            var visible = shown.Contains(header);
+            if (header == "Source") visible &= viewModel.ShowSourceColumn;
+            if (header == "Intune") visible &= viewModel.ShowIntuneColumn;
+            if (viewModel.ShowDebugColumns && Helpers.PackagesColumns.Debug.Contains(header)) visible = true;
+            column.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
+        }
     }
 
     /// <summary>The Columns menu: one check item for each column that may be hidden, and Reset columns. Each choice is saved at once.</summary>
@@ -134,15 +142,21 @@ public partial class PackagesPage
     {
         var viewModel = (PackagesViewModel)DataContext!;
         var menu = new System.Windows.Controls.ContextMenu { PlacementTarget = (UIElement)sender, Placement = System.Windows.Controls.Primitives.PlacementMode.Top };
-        var hidden = viewModel.HiddenColumns;
+        var shown = viewModel.ShownColumns;
         foreach (var header in Helpers.PackagesColumns.Toggleable)
         {
-            var item = new System.Windows.Controls.MenuItem { Header = header, IsCheckable = true, IsChecked = !hidden.Contains(header), StaysOpenOnClick = true };
+            var item = new System.Windows.Controls.MenuItem { Header = header, IsCheckable = true, IsChecked = shown.Contains(header), StaysOpenOnClick = true };
+            if (header is "Source" or "Intune")
+                item.ToolTip = header == "Source" ? "Shows while an application has an imported source." : "Shows while Intune is in Settings, Systems in Use.";
             System.Windows.Automation.AutomationProperties.SetAutomationId(item, "miColumn" + new string(header.Where(char.IsLetterOrDigit).ToArray()));
             item.Click += (_, _) => { viewModel.SetColumnVisible(header, item.IsChecked); ApplySavedColumns(); };
             menu.Items.Add(item);
         }
         menu.Items.Add(new System.Windows.Controls.Separator());
+        var compact = new System.Windows.Controls.MenuItem { Header = "Compact view", ToolTip = "Show ConfigMgr version, Latest, Status and CVE check only." };
+        System.Windows.Automation.AutomationProperties.SetAutomationId(compact, "miColumnsCompact");
+        compact.Click += (_, _) => { viewModel.ShowCompactColumns(); ApplySavedColumns(); };
+        menu.Items.Add(compact);
         var reset = new System.Windows.Controls.MenuItem { Header = "Reset columns" };
         System.Windows.Automation.AutomationProperties.SetAutomationId(reset, "miColumnsReset");
         reset.Click += (_, _) => { viewModel.ResetColumns(); ApplySavedColumns(); ResetColumnLayout(); };
@@ -154,24 +168,9 @@ public partial class PackagesPage
     {
         if (e.PropertyName == nameof(PackagesViewModel.HeaderSelection))
             SelectAllCheckBox.IsChecked = ((PackagesViewModel)DataContext!).HeaderSelection;
-        if (e.PropertyName == nameof(PackagesViewModel.ShowDebugColumns))
-        {
-            var show = ((PackagesViewModel)DataContext!).ShowDebugColumns;
-            var vis = show ? Visibility.Visible : Visibility.Collapsed;
-            ColCMName.Visibility = vis;
-            ColScript.Visibility = vis;
-            ColCveEpss.Visibility = vis;
-            ColCveUpdated.Visibility = vis;
-            ColCveChecked.Visibility = vis;
-        }
-        else if (e.PropertyName == nameof(PackagesViewModel.ShowSourceColumn))
-        {
-            ColSource.Visibility = ((PackagesViewModel)DataContext!).ShowSourceColumn ? Visibility.Visible : Visibility.Collapsed;
-        }
-        else if (e.PropertyName == nameof(PackagesViewModel.ShowIntuneColumn))
-        {
-            ColIntune.Visibility = ((PackagesViewModel)DataContext!).ShowIntuneColumn ? Visibility.Visible : Visibility.Collapsed;
-        }
+        if (e.PropertyName is nameof(PackagesViewModel.ShowDebugColumns) or nameof(PackagesViewModel.ShowSourceColumn)
+            or nameof(PackagesViewModel.ShowIntuneColumn))
+            ApplySavedColumns();
         else if (e.PropertyName == nameof(PackagesViewModel.FocusedPackager) && ((PackagesViewModel)DataContext!).FocusedPackager is { } row)
         {
             PackagerGrid.SelectedItem = row;

@@ -238,7 +238,7 @@ public partial class OneClickPlanViewModel : ObservableObject
             {
                 var (set, source) = OneClickPlanner.DestinationsFor(saved, item.Key);
                 var changed = set.ConfigMgr != item.ConfigMgr || set.Wsus != item.Wsus || set.Intune != item.Intune;
-                item.SourceText = changed ? "Changed for this run" : source == "Row" ? "Saved for this application" : "Default";
+                item.SourceText = ApplicationPackagerEngine.Models.ScopeText.Cell(changed ? ScopeSource.ChangedForRun : source == "Row" ? ScopeSource.SavedForApplication : ScopeSource.Default);
             }
             bool Included(OneClickPlanRow r) => byKey.TryGetValue(r.Key, out var i) && i.Include;
             var summary = OneClickPlanner.Summarize(plan, settings, _context.Action, Included);

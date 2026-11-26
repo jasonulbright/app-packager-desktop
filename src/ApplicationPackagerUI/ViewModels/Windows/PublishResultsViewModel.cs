@@ -52,6 +52,9 @@ public sealed class PublishResultsViewModel
     /// <summary>One entry for each failed destination: a retry, or the reason why there is none.</summary>
     public IReadOnlyList<PublishRetryOffer> Retries { get; }
 
+    /// <summary>The site line of the window; empty when the caller gave none.</summary>
+    public string SiteLine { get; init; } = "";
+
     /// <summary>Why the retry that the operator asked for did not run; empty when none was refused.</summary>
     public string RetryNote { get; init; } = "";
 

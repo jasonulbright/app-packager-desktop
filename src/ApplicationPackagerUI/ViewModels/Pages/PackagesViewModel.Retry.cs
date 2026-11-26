@@ -24,7 +24,12 @@ public partial class PackagesViewModel
         var note = "";
         while (true)
         {
-            var results = new PublishResultsViewModel(rows, cancelled, systems, offerRetry: true) { RetryNote = note };
+            var settings = _settingsService.Load();
+            var results = new PublishResultsViewModel(rows, cancelled, systems, offerRetry: true)
+            {
+                RetryNote = note,
+                SiteLine = SiteFooter.Format(settings.SiteCode, settings.ProviderMachine)
+            };
             _publishDialogs.ShowPublishResults(results);
             if (results.RequestedRetry is not { } asked) return;
 

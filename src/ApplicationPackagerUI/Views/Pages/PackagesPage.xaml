@@ -286,7 +286,7 @@
                 <DataGridTextColumn Header="Vendor" Binding="{Binding Vendor}" Width="140" MinWidth="100" IsReadOnly="True" ElementStyle="{StaticResource TrimCell}" />
                 <DataGridTextColumn x:Name="ColSource" Header="Source" Binding="{Binding SourceLabel}" Width="170" MinWidth="90" IsReadOnly="True" ElementStyle="{StaticResource TrimCell}"
                                     Visibility="Collapsed" />
-                <DataGridTextColumn Header="Current (ConfigMgr)" Binding="{Binding CurrentVersion}" Width="176" MinWidth="176" IsReadOnly="True" />
+                <DataGridTextColumn Header="ConfigMgr version" Binding="{Binding CurrentVersion}" Width="156" MinWidth="156" IsReadOnly="True" />
                 <DataGridTextColumn Header="Latest" Binding="{Binding LatestVersion}" Width="120" MinWidth="110" IsReadOnly="True" />
 
                 <DataGridTemplateColumn Header="Status" Width="250" MinWidth="170" SortMemberPath="Status">
@@ -348,6 +348,10 @@
                         </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
+
+                <!-- One text for the CVE state of the row; the five CVE columns behind it are in the Columns menu. -->
+                <DataGridTextColumn Header="CVE check" Binding="{Binding CveCheckText}" SortMemberPath="CveCountSort" Width="150" MinWidth="110" IsReadOnly="True"
+                                    ElementStyle="{StaticResource TrimCell}" />
 
                 <DataGridTemplateColumn Header="CVEs" Width="120" MinWidth="90" SortMemberPath="CveCountSort" IsReadOnly="True">
                     <DataGridTemplateColumn.CellTemplate>
