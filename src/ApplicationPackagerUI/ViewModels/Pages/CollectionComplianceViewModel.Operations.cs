@@ -126,7 +126,7 @@ public sealed partial class CollectionComplianceViewModel
         catch (Exception ex)
         {
             problem = PlainMessage(ex, DetailFailed);
-            if (generation == _detailGeneration) _services.Log.Warning(LogArea, $"The details of a collection could not be read ({FailureName(ex)}).");
+            if (generation == _detailGeneration) _services.Log.Warning(LogArea, $"The details of a collection could not be read ({FailureName(ex)}).", ex);
         }
         finally
         {
@@ -428,7 +428,7 @@ public sealed partial class CollectionComplianceViewModel
         catch (Exception ex)
         {
             prompt.ShowMessage(PlainMessage(ex, LookupFailed));
-            _services.Log.Warning(LogArea, $"The device names could not be looked up ({FailureName(ex)}).");
+            _services.Log.Warning(LogArea, $"The device names could not be looked up ({FailureName(ex)}).", ex);
             return false;
         }
         if (!result.IsValid)
@@ -717,7 +717,7 @@ public sealed partial class CollectionComplianceViewModel
             if (generation == _wqlGeneration)
             {
                 WqlMessage = PlainMessage(ex, DetailFailed);
-                _services.Log.Warning(LogArea, $"The rules of a collection could not be read ({FailureName(ex)}).");
+                _services.Log.Warning(LogArea, $"The rules of a collection could not be read ({FailureName(ex)}).", ex);
             }
         }
         finally
@@ -787,7 +787,7 @@ public sealed partial class CollectionComplianceViewModel
         catch (Exception ex)
         {
             WqlMessage = PlainMessage(ex, WqlFailed);
-            _services.Log.Warning(LogArea, $"A query could not be checked ({FailureName(ex)}).");
+            _services.Log.Warning(LogArea, $"A query could not be checked ({FailureName(ex)}).", ex);
         }
     }
 
@@ -832,7 +832,7 @@ public sealed partial class CollectionComplianceViewModel
         catch (Exception ex)
         {
             if (generation == _generation) WqlMessage = PlainMessage(ex, WqlFailed);
-            _services.Log.Warning(LogArea, $"A query preview failed ({FailureName(ex)}).");
+            _services.Log.Warning(LogArea, $"A query preview failed ({FailureName(ex)}).", ex);
         }
         finally
         {
@@ -991,7 +991,7 @@ public sealed partial class CollectionComplianceViewModel
         catch (Exception ex)
         {
             TemplatesMessage = "The templates could not be read. The log has the details.";
-            _services.Log.Warning(LogArea, $"The templates could not be read ({ex.GetType().Name}).");
+            _services.Log.Warning(LogArea, $"The templates could not be read ({ex.GetType().Name}).", ex);
         }
     }
 
@@ -1140,7 +1140,7 @@ public sealed partial class CollectionComplianceViewModel
         catch (Exception ex)
         {
             problem = PlainMessage(ex, QueriesFailed);
-            _services.Log.Warning(LogArea, $"The saved queries could not be read ({FailureName(ex)}).");
+            _services.Log.Warning(LogArea, $"The saved queries could not be read ({FailureName(ex)}).", ex);
         }
         if (generation != _generation) return;
         QueriesMessage = problem;

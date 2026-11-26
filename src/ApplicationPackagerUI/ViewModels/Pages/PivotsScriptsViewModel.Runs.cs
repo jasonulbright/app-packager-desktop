@@ -170,7 +170,7 @@ public sealed partial class PivotsScriptsViewModel
             catch (OperationCanceledException) when (visit.IsCancellationRequested) { return; }
             catch (Exception ex)
             {
-                Services.Log.Warning(LogArea, $"The state before an action could not be read ({FailureName(ex)}).");
+                Services.Log.Warning(LogArea, $"The state before an action could not be read ({FailureName(ex)}).", ex);
                 if (generation == Generation) StatusMessage = PlainMessage(ex, PrepareFailed);
                 return;
             }
@@ -217,7 +217,7 @@ public sealed partial class PivotsScriptsViewModel
         try { await Services.Writer.Running; }
         catch (Exception ex)
         {
-            Services.Log.Warning(LogArea, $"An action that continued in the background failed ({FailureName(ex)}).");
+            Services.Log.Warning(LogArea, $"An action that continued in the background failed ({FailureName(ex)}).", ex);
         }
         finally
         {

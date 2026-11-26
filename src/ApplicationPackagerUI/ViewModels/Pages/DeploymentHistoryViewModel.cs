@@ -179,7 +179,7 @@ public sealed partial class DeploymentHistoryViewModel(DeploymentShared shared) 
         catch (Exception ex)
         {
             Shared.StatusMessage = ex is DeploymentServiceException d ? SecretMask.Apply(d.Message) : ReportFailed(format);
-            Services.Log.Warning(DeploymentShared.LogArea, $"The {format} report could not be written ({ex.GetType().Name}).");
+            Services.Log.Warning(DeploymentShared.LogArea, $"The {format} report could not be written ({ex.GetType().Name}).", ex);
             return;
         }
         Shared.StatusMessage = $"Saved the {format} report to {path}: {DeploymentText.Count(rows.Count, "record")}, the rows the filters show." + (IsCapped ? " " + CappedNote : "");
@@ -247,7 +247,7 @@ public sealed partial class DeploymentHistoryViewModel(DeploymentShared shared) 
         }
         catch (Exception ex)
         {
-            Services.Log.Warning(DeploymentShared.LogArea, $"The update count of a group could not be read ({DeploymentShared.FailureName(ex)}).");
+            Services.Log.Warning(DeploymentShared.LogArea, $"The update count of a group could not be read ({DeploymentShared.FailureName(ex)}).", ex);
             return 0;
         }
     }

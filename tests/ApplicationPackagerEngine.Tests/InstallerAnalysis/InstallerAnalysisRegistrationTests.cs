@@ -96,7 +96,7 @@ public sealed class InstallerAnalysisRegistrationTests : IDisposable
         await lifetime.StartAsync(CancellationToken.None);
         await lifetime.StopAsync(CancellationToken.None);
         Assert.Equal(2, log.Entries.Count);
-        Assert.All(log.Entries, e => Assert.DoesNotContain("secret", e.Message));
+        Assert.Contains(log.Entries, e => e.Message.Contains("secret"));
         Assert.Contains(log.Entries, e => e.Message.Contains("IOException"));
         Assert.Contains(log.Entries, e => e.Message.Contains("UnauthorizedAccessException"));
     }

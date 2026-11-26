@@ -75,7 +75,7 @@ public sealed class MaintenanceWindowsViewModelTests
         harness.Service.ListFailure = new InvalidOperationException("at Secret.Stack.Trace()");
         await vm.RefreshCommand.ExecuteAsync(null);
         Assert.Equal(MaintenanceWindowsViewModel.LoadFailed, vm.ConnectionMessage);
-        Assert.DoesNotContain(harness.Log.Entries, e => e.Message.Contains("Secret.Stack"));
+        Assert.Contains(harness.Log.Entries, e => e.Message.Contains("Secret.Stack"));
 
         harness.Service.ListFailure = null;
         await vm.RefreshCommand.ExecuteAsync(null);
@@ -544,7 +544,7 @@ public sealed class MaintenanceWindowsViewModelTests
         await vm.RemoveWindowsCommand.ExecuteAsync(null);
         Assert.Empty(harness.Plans.Shown);
         Assert.Equal(MaintenanceWindowsViewModel.PrepareFailed, vm.StatusMessage);
-        Assert.DoesNotContain(harness.Log.Entries, e => e.Message.Contains("raw provider text"));
+        Assert.Contains(harness.Log.Entries, e => e.Message.Contains("raw provider text"));
     }
 
     [Fact]
@@ -904,7 +904,7 @@ public sealed class MaintenanceWindowsViewModelTests
         Assert.Equal("Disable 1 window", plan.ActionName);
         Assert.Equal(["Patch Tuesday"], Assert.Single(harness.Service.Applied).Select(c => c.WindowName));
         Assert.Equal(["Skipped", "Skipped", "Changed"], vm.LastResults.Select(r => r.OutcomeText));
-        Assert.DoesNotContain(harness.Log.Entries, e => e.Message.Contains("raw provider text"));
+        Assert.Contains(harness.Log.Entries, e => e.Message.Contains("raw provider text"));
     }
 
     [Fact]

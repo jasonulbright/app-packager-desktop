@@ -144,7 +144,7 @@ public sealed class MetricsHistoryStore : IMetricsHistoryStore
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {
-                _log?.Warning(SiteHygieneService.LogArea, $"The metrics history could not be written ({ex.GetType().Name}); the refresh was not recorded.");
+                _log?.Warning(SiteHygieneService.LogArea, $"The metrics history could not be written ({ex.GetType().Name}); the refresh was not recorded.", ex);
             }
         }
     }
@@ -211,7 +211,7 @@ public sealed class MetricsHistoryStore : IMetricsHistoryStore
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
             DeleteTemporaryFile(temp);
-            _log?.Warning(SiteHygieneService.LogArea, $"The metrics history could not be pruned ({ex.GetType().Name}).");
+            _log?.Warning(SiteHygieneService.LogArea, $"The metrics history could not be pruned ({ex.GetType().Name}).", ex);
         }
     }
 
@@ -243,7 +243,7 @@ public sealed class MetricsHistoryStore : IMetricsHistoryStore
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {
-                _log?.Warning(SiteHygieneService.LogArea, $"The imported metrics history could not be written ({ex.GetType().Name}).");
+                _log?.Warning(SiteHygieneService.LogArea, $"The imported metrics history could not be written ({ex.GetType().Name}).", ex);
                 return false;
             }
             finally
@@ -258,7 +258,7 @@ public sealed class MetricsHistoryStore : IMetricsHistoryStore
         try { File.Delete(path); }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            _log?.Warning(SiteHygieneService.LogArea, $"A temporary metrics history file could not be deleted ({ex.GetType().Name}).");
+            _log?.Warning(SiteHygieneService.LogArea, $"A temporary metrics history file could not be deleted ({ex.GetType().Name}).", ex);
         }
     }
 
@@ -392,7 +392,7 @@ public sealed class MetricsHistoryStore : IMetricsHistoryStore
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException)
         {
-            _log?.Warning(SiteHygieneService.LogArea, $"The metrics history could not be read ({ex.GetType().Name}).");
+            _log?.Warning(SiteHygieneService.LogArea, $"The metrics history could not be read ({ex.GetType().Name}).", ex);
             return ([], 0);
         }
     }

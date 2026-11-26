@@ -322,7 +322,7 @@ public sealed class SiteHygieneRunBindingTests
         Assert.Equal([HygieneResults.Done, HygieneResults.Failed], r.Targets.Select(t => t.Result));
         Assert.Equal(change.Targets, r.Targets.Select(t => t.Target));
         Assert.Equal("Deleted. The site no longer lists the object.", r.Targets[0].Message);
-        Assert.Equal("ConfigMgr reported an error. The log has the kind of failure.", r.Targets[1].Message);
+        Assert.Equal("ConfigMgr reported an error. The log has the details.", r.Targets[1].Message);
         Assert.StartsWith("1 of 2 objects deleted (1 done, 1 failed). First object not done: ", r.Message);
         Assert.Contains(change.Targets[1].ObjectKey, r.Message);
         var finished = h.Audit.Read(10).Last();

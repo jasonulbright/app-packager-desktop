@@ -111,7 +111,7 @@ public sealed partial class RingPlanStore
             catch (Exception ex) when (IsStorageFailure(ex))
             {
                 FolderReadFailed = true;
-                _log?.Warning(LogArea, $"The ring plans folder could not be read ({ex.GetType().Name}).");
+                _log?.Warning(LogArea, $"The ring plans folder could not be read ({ex.GetType().Name}).", ex);
                 Message = "The ring plans folder could not be read. The log has the details.";
                 return [];
             }
@@ -173,7 +173,7 @@ public sealed partial class RingPlanStore
             }
             catch (Exception ex) when (IsStorageFailure(ex))
             {
-                _log?.Warning(LogArea, $"A ring plan could not be saved ({ex.GetType().Name}).");
+                _log?.Warning(LogArea, $"A ring plan could not be saved ({ex.GetType().Name}).", ex);
                 throw new DeploymentServiceException("The plan could not be saved. Check that the ring plans folder can be written.", DeploymentFailureKind.Storage);
             }
         }
@@ -200,7 +200,7 @@ public sealed partial class RingPlanStore
             }
             catch (Exception ex) when (IsStorageFailure(ex))
             {
-                _log?.Warning(LogArea, $"A ring plan could not be deleted ({ex.GetType().Name}).");
+                _log?.Warning(LogArea, $"A ring plan could not be deleted ({ex.GetType().Name}).", ex);
                 throw new DeploymentServiceException("The plan could not be deleted. Check that the ring plans folder can be written.", DeploymentFailureKind.Storage);
             }
         }
@@ -264,7 +264,7 @@ public sealed partial class RingPlanStore
         }
         catch (Exception ex) when (IsStorageFailure(ex))
         {
-            _log?.Warning(LogArea, $"A ring plan file could not be read ({ex.GetType().Name}).");
+            _log?.Warning(LogArea, $"A ring plan file could not be read ({ex.GetType().Name}).", ex);
             return (null, "the file could not be read.");
         }
     }

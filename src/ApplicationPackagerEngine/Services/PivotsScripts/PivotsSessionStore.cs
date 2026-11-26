@@ -54,7 +54,7 @@ public sealed partial class PivotsSessionStore(string? folder = null, IAppLog? l
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            log?.Warning(LogArea, $"A session file could not be written ({ex.GetType().Name}).");
+            log?.Warning(LogArea, $"A session file could not be written ({ex.GetType().Name}).", ex);
             throw new PivotsServiceException("The session could not be saved before the run, so nothing was sent. Check that the sessions folder can be written: " + Folder);
         }
     }
@@ -75,7 +75,7 @@ public sealed partial class PivotsSessionStore(string? folder = null, IAppLog? l
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            log?.Warning(LogArea, $"A session file could not be updated ({ex.GetType().Name}).");
+            log?.Warning(LogArea, $"A session file could not be updated ({ex.GetType().Name}).", ex);
             throw new PivotsServiceException("The results could not be saved in the session file. Check that the sessions folder can be written.");
         }
         finally
@@ -152,7 +152,7 @@ public sealed partial class PivotsSessionStore(string? folder = null, IAppLog? l
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException or NotSupportedException)
         {
-            log?.Warning(LogArea, $"A session file could not be read ({ex.GetType().Name}).");
+            log?.Warning(LogArea, $"A session file could not be read ({ex.GetType().Name}).", ex);
             return null;
         }
     }
@@ -179,7 +179,7 @@ public sealed partial class PivotsSessionStore(string? folder = null, IAppLog? l
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            log?.Warning(LogArea, $"A session file of an earlier version could not be written again without its hashes ({ex.GetType().Name}).");
+            log?.Warning(LogArea, $"A session file of an earlier version could not be written again without its hashes ({ex.GetType().Name}).", ex);
         }
         finally
         {

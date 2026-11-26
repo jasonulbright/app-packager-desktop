@@ -130,7 +130,7 @@ public sealed class InstallerAnalysisSandboxLifetime(IAnalysisSandbox sandbox, I
         try { action(); }
         catch (Exception ex)
         {
-            log.Warning(InstallerAnalysisViewModel.LogArea, $"{what} ({ex.GetType().Name}).");
+            log.Warning(InstallerAnalysisViewModel.LogArea, $"{what} ({ex.GetType().Name}).", ex);
         }
     }
 }

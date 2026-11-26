@@ -140,7 +140,7 @@ public sealed partial class DeploymentShared(DeploymentPageServices services) : 
         IsActive = false;
         var visit = _visit;
         _visit = new CancellationTokenSource();
-        try { visit.Cancel(); } catch (AggregateException ex) { Services.Log.Warning(LogArea, $"A read did not stop cleanly ({ex.InnerException?.GetType().Name})."); }
+        try { visit.Cancel(); } catch (AggregateException ex) { Services.Log.Warning(LogArea, $"A read did not stop cleanly ({ex.InnerException?.GetType().Name}).", ex); }
         StatusMessage = "";
         ConnectionMessage = "";
         LastResults.Clear();
@@ -217,7 +217,7 @@ public sealed partial class DeploymentShared(DeploymentPageServices services) : 
                 }
                 catch (Exception ex)
                 {
-                    Services.Log.Warning(LogArea, $"The state before a write could not be read ({FailureName(ex)}).");
+                    Services.Log.Warning(LogArea, $"The state before a write could not be read ({FailureName(ex)}).", ex);
                     if (generation == Generation) Refuse(PlainMessage(ex, PrepareFailed));
                     return null;
                 }
@@ -258,7 +258,7 @@ public sealed partial class DeploymentShared(DeploymentPageServices services) : 
         try { await Services.Writer.Running; }
         catch (Exception ex)
         {
-            Services.Log.Warning(LogArea, $"A run that continued in the background failed ({FailureName(ex)}).");
+            Services.Log.Warning(LogArea, $"A run that continued in the background failed ({FailureName(ex)}).", ex);
         }
         finally
         {

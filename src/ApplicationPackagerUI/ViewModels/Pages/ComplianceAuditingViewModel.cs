@@ -156,7 +156,7 @@ public sealed partial class ComplianceAuditingViewModel(ComplianceShared shared)
         catch (Exception ex)
         {
             Shared.StatusMessage = ex is ComplianceServiceException c ? SecretMask.Apply(c.Message) : ReportFailed(format);
-            Services.Log.Warning(ComplianceShared.LogArea, $"The {format} report could not be written ({ex.GetType().Name}).");
+            Services.Log.Warning(ComplianceShared.LogArea, $"The {format} report could not be written ({ex.GetType().Name}).", ex);
             return;
         }
         Shared.StatusMessage = $"Saved the {format} report to {path}: {ComplianceText.Count(drift.Count, "drift row")} and "

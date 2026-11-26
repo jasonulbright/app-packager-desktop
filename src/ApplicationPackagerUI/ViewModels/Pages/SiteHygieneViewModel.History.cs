@@ -89,7 +89,7 @@ public sealed partial class SiteHygieneViewModel
         {
             if (mine != _historyGeneration) return;
             StatusMessage = PlainMessage(ex, HistoryReadFailed);
-            Services.Log.Warning(LogArea, $"The audit log read failed ({ex.GetType().Name}).");
+            Services.Log.Warning(LogArea, $"The audit log read failed ({ex.GetType().Name}).", ex);
         }
         finally
         {

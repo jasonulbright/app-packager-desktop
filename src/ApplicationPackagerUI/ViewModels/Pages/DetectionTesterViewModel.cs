@@ -242,7 +242,7 @@ public partial class DetectionTesterViewModel : ObservableObject
         catch (Exception ex)
         {
             saved = null;
-            _services.Log.Warning(LogArea, $"The page choices could not be read ({ex.GetType().Name}).");
+            _services.Log.Warning(LogArea, $"The page choices could not be read ({ex.GetType().Name}).", ex);
         }
         if (saved is null) return;
         _applyingPreferences = true;
@@ -268,9 +268,12 @@ public partial class DetectionTesterViewModel : ObservableObject
         catch (Exception ex)
         {
             StatusMessage = ex is DetectionFolderRefusedException ? ex.Message : "The history could not be read.";
-            _services.Log.Warning(LogArea, $"The history could not be read ({ex.GetType().Name}).");
+            _services.Log.Warning(LogArea, $"The history could not be read ({ex.GetType().Name}).", ex);
         }
     }
+
+    private static bool QuotesAScript(string? type) =>
+        type is not null && (type.Contains("Script", StringComparison.OrdinalIgnoreCase) || type.Contains("Compound", StringComparison.OrdinalIgnoreCase));
 
     private bool CanRun() => !IsRunning;
 
@@ -319,7 +322,9 @@ public partial class DetectionTesterViewModel : ObservableObject
         if (result is null)
         {
             ShowOutcome(DetectionTesterResultState.Error, "Error", "The test could not run. The log has the details.");
-            _services.Log.Error(LogArea, $"Test failed: kind={detection.Type} error={failure?.GetType().Name}.");
+            // The error of a script detection can quote the script, which can hold a password, so only its type is logged. Every other kind logs the whole exception.
+            if (QuotesAScript(Convert.ToString(detection.Type, System.Globalization.CultureInfo.InvariantCulture))) _services.Log.Error(LogArea, $"Test failed: kind={detection.Type} error={failure?.GetType().FullName}. The error text of a script test is not logged because it can quote the script.");
+            else _services.Log.Error(LogArea, $"Test failed: kind={detection.Type}.", failure);
             return;
         }
 
@@ -374,7 +379,7 @@ public partial class DetectionTesterViewModel : ObservableObject
         catch (Exception ex)
         {
             StatusMessage = ex is DetectionFolderRefusedException ? ex.Message : "The test result could not be saved to the history.";
-            _services.Log.Warning(LogArea, $"The history could not be saved ({ex.GetType().Name}).");
+            _services.Log.Warning(LogArea, $"The history could not be saved ({ex.GetType().Name}).", ex);
         }
     }
 
@@ -405,7 +410,7 @@ public partial class DetectionTesterViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            _services.Log.Warning(LogArea, $"The page choices could not be saved ({ex.GetType().Name}).");
+            _services.Log.Warning(LogArea, $"The page choices could not be saved ({ex.GetType().Name}).", ex);
         }
         finally
         {
@@ -494,7 +499,7 @@ public partial class DetectionTesterViewModel : ObservableObject
         catch (Exception ex)
         {
             ShowOutcome(DetectionTesterResultState.Invalid, "Import failed", "The file could not be read as a stage manifest.");
-            _services.Log.Warning(LogArea, $"Import failed ({ex.GetType().Name}).");
+            _services.Log.Warning(LogArea, $"Import failed ({ex.GetType().Name}).", ex);
             return;
         }
         if (manifest is null)
@@ -664,7 +669,7 @@ public partial class DetectionTesterViewModel : ObservableObject
         catch (Exception ex)
         {
             StatusMessage = ex is DetectionFolderRefusedException ? ex.Message : $"The {format} report could not be written.";
-            _services.Log.Warning(LogArea, $"The {format} report could not be written ({ex.GetType().Name}).");
+            _services.Log.Warning(LogArea, $"The {format} report could not be written ({ex.GetType().Name}).", ex);
             return;
         }
         StatusMessage = $"Saved the {format} report to {path}.";
@@ -684,7 +689,7 @@ public partial class DetectionTesterViewModel : ObservableObject
         catch (Exception ex)
         {
             StatusMessage = ex is DetectionFolderRefusedException ? ex.Message : "The history could not be cleared.";
-            _services.Log.Warning(LogArea, $"The history could not be cleared ({ex.GetType().Name}).");
+            _services.Log.Warning(LogArea, $"The history could not be cleared ({ex.GetType().Name}).", ex);
             return;
         }
         History.Clear();
@@ -732,7 +737,7 @@ public partial class DetectionTesterViewModel : ObservableObject
             applications = [];
             status = "The installed applications could not be read.";
             if (generation == _applicationsGeneration)
-                _services.Log.Warning(LogArea, $"The installed applications could not be read ({ex.GetType().Name}).");
+                _services.Log.Warning(LogArea, $"The installed applications could not be read ({ex.GetType().Name}).", ex);
         }
         if (generation != _applicationsGeneration) return;
         _allApplications = applications;

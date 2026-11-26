@@ -115,7 +115,7 @@ public sealed partial class ComplianceViewModel : ObservableObject
         catch (Exception ex)
         {
             saved = null;
-            Shared.Services.Log.Warning(ComplianceShared.LogArea, $"The section choices could not be read ({ex.GetType().Name}).");
+            Shared.Services.Log.Warning(ComplianceShared.LogArea, $"The section choices could not be read ({ex.GetType().Name}).", ex);
         }
         if (saved is null) return;
         _applying = true;
@@ -162,7 +162,7 @@ public sealed partial class ComplianceViewModel : ObservableObject
             catch (Exception ex)
             {
                 _stored = null;
-                Shared.Services.Log.Warning(ComplianceShared.LogArea, $"The section choices could not be saved ({ex.GetType().Name}).");
+                Shared.Services.Log.Warning(ComplianceShared.LogArea, $"The section choices could not be saved ({ex.GetType().Name}).", ex);
             }
         }
         finally { _saveLock.Release(); }

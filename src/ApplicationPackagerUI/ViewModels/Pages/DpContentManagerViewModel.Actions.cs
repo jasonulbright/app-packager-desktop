@@ -204,7 +204,7 @@ public sealed partial class DpContentManagerViewModel
             catch (OperationCanceledException) when (visit.IsCancellationRequested) { return; }
             catch (Exception ex)
             {
-                Services.Log.Warning(LogArea, $"The state before a write could not be read ({FailureName(ex)}).");
+                Services.Log.Warning(LogArea, $"The state before a write could not be read ({FailureName(ex)}).", ex);
                 if (generation == Generation) StatusMessage = PlainMessage(ex, PrepareFailed);
                 return;
             }
@@ -245,7 +245,7 @@ public sealed partial class DpContentManagerViewModel
         try { await Services.Writer.Running; }
         catch (Exception ex)
         {
-            Services.Log.Warning(LogArea, $"A run that continued in the background failed ({FailureName(ex)}).");
+            Services.Log.Warning(LogArea, $"A run that continued in the background failed ({FailureName(ex)}).", ex);
         }
         finally
         {
@@ -382,7 +382,7 @@ public sealed partial class DpContentManagerViewModel
         catch (Exception ex)
         {
             StatusMessage = ReportFailed(format);
-            Services.Log.Warning(LogArea, $"The {format} report could not be written ({ex.GetType().Name}).");
+            Services.Log.Warning(LogArea, $"The {format} report could not be written ({ex.GetType().Name}).", ex);
             return;
         }
         StatusMessage = $"Saved the {format} report to {path}: {DpContentLabels.Count(report.Rows.Count, "row")}." + (report.Filter.Length > 0 ? " Filter: " + report.Filter : " No filter.") + (report.Note is { } note ? " " + note : "");

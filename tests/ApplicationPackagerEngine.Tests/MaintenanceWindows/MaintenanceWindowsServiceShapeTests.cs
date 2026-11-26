@@ -151,7 +151,7 @@ public sealed class MaintenanceWindowsServiceShapeTests
         harness.Reports.Failure = new IOException(@"Access to C:\Users\someone\AppData is denied.");
         await vm.ExportHtmlCommand.ExecuteAsync(null);
         Assert.Equal("The HTML report could not be written. The log has the details.", vm.StatusMessage);
-        Assert.DoesNotContain(harness.Log.Entries, e => e.Message.Contains("someone"));
+        Assert.Contains(harness.Log.Entries, e => e.Message.Contains("someone"));
         Assert.Empty(harness.Prompts.OpenedFolders);
     }
 

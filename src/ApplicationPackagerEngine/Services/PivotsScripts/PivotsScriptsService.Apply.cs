@@ -108,8 +108,8 @@ public sealed partial class PivotsScriptsService
         }
         catch (Exception ex) when (ex is not OutOfMemoryException)
         {
-            _log?.Warning(LogArea, $"{change.Kind} stopped with an unexpected error: {ex.GetType().Name}.");
-            outcome = new PivotsOutcome(change, false, "The action stopped with an unexpected error. Refresh to see the current state. The log has the kind of failure.", null, [], true, null);
+            _log?.Warning(LogArea, $"{change.Kind} stopped with an unexpected error: {ex.GetType().Name}.", ex);
+            outcome = new PivotsOutcome(change, false, "The action stopped with an unexpected error. Refresh to see the current state. The log has the details.", null, [], true, null);
         }
         progress.Report(outcome);
         return outcome;
@@ -319,7 +319,7 @@ public sealed partial class PivotsScriptsService
             }
             catch (Exception ex) when (ex is not OutOfMemoryException)
             {
-                _log?.Warning(LogArea, $"{change.Kind} stopped after its Started audit record with an unexpected error: {ex.GetType().Name}.");
+                _log?.Warning(LogArea, $"{change.Kind} stopped after its Started audit record with an unexpected error: {ex.GetType().Name}.", ex);
                 return Unknown(change, runId, targets.Description, sendTo, textHash, session, operation, run, finished ? null : append);
             }
         }
@@ -705,7 +705,7 @@ public sealed partial class PivotsScriptsService
             {
                 lastError = "The site returned a status answer that could not be read.";
                 refusals = 0;
-                _log?.Warning(LogArea, $"A status answer could not be read ({ex.GetType().Name}); the wait goes on.");
+                _log?.Warning(LogArea, $"A status answer could not be read ({ex.GetType().Name}); the wait goes on.", ex);
             }
             if (run.Results.Values.All(r => r.IsFinal) && run.FullRetry.Count == 0) return End(stopped: false, lastError);
             if (_utcNow() >= deadline) return End(stopped: false, lastError, timedOut: true);

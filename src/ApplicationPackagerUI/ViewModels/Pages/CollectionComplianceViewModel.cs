@@ -311,7 +311,7 @@ public sealed partial class CollectionComplianceViewModel : ObservableObject
         catch (Exception ex)
         {
             saved = null;
-            _services.Log.Warning(LogArea, $"The page choices could not be read ({ex.GetType().Name}).");
+            _services.Log.Warning(LogArea, $"The page choices could not be read ({ex.GetType().Name}).", ex);
         }
         if (saved is null) return;
         _applyingPreferences = true;
@@ -379,7 +379,7 @@ public sealed partial class CollectionComplianceViewModel : ObservableObject
             catch (Exception ex)
             {
                 _storedChoices = null;
-                _services.Log.Warning(LogArea, $"The page choices could not be saved ({ex.GetType().Name}).");
+                _services.Log.Warning(LogArea, $"The page choices could not be saved ({ex.GetType().Name}).", ex);
             }
         }
         finally { _saveLock.Release(); }
@@ -442,7 +442,7 @@ public sealed partial class CollectionComplianceViewModel : ObservableObject
         catch (Exception ex)
         {
             connection = PlainMessage(ex, LoadFailed);
-            if (IsCurrentList(generation, listGeneration)) _services.Log.Warning(LogArea, $"The collections could not be read ({FailureName(ex)}).");
+            if (IsCurrentList(generation, listGeneration)) _services.Log.Warning(LogArea, $"The collections could not be read ({FailureName(ex)}).", ex);
         }
         finally
         {
@@ -625,7 +625,7 @@ public sealed partial class CollectionComplianceViewModel : ObservableObject
         {
             if (!IsCurrentList(generation, listGeneration)) return;
             StatusMessage = PlainMessage(ex, LoadFailed);
-            _services.Log.Warning(LogArea, $"A collection could not be opened by ID ({FailureName(ex)}).");
+            _services.Log.Warning(LogArea, $"A collection could not be opened by ID ({FailureName(ex)}).", ex);
             return;
         }
         finally
@@ -676,7 +676,7 @@ public sealed partial class CollectionComplianceViewModel : ObservableObject
             if (generation != _generation) return;
             ConnectionMessage = PlainMessage(ex, ConnectFailed);
             StatusMessage = "";
-            _services.Log.Warning(LogArea, $"The connection test failed ({FailureName(ex)}).");
+            _services.Log.Warning(LogArea, $"The connection test failed ({FailureName(ex)}).", ex);
             return;
         }
         finally
@@ -711,7 +711,7 @@ public sealed partial class CollectionComplianceViewModel : ObservableObject
         catch (Exception ex)
         {
             StatusMessage = ex is CollectionServiceException c ? SecretMask.Apply(c.Message) : ReportFailed(format);
-            _services.Log.Warning(LogArea, $"The {format} report could not be written ({ex.GetType().Name}).");
+            _services.Log.Warning(LogArea, $"The {format} report could not be written ({ex.GetType().Name}).", ex);
             return;
         }
         StatusMessage = $"Saved the {format} report to {path}.";
@@ -776,7 +776,7 @@ public sealed partial class CollectionComplianceViewModel : ObservableObject
                         prepared.Add(ready!);
                         continue;
                     }
-                    _services.Log.Warning(LogArea, $"The state before a write could not be read ({FailureName(failure)}).");
+                    _services.Log.Warning(LogArea, $"The state before a write could not be read ({FailureName(failure)}).", failure);
                     var reason = PlainMessage(failure, PrepareFailed);
                     failed.Add(CollectionPlanEntry.Skip(new ChangePlanItem("Skip", CollectionText(request.CollectionId, request.CollectionName), reason), reason));
                 }
@@ -833,7 +833,7 @@ public sealed partial class CollectionComplianceViewModel : ObservableObject
         try { await _services.Writer.Running; }
         catch (Exception ex)
         {
-            _services.Log.Warning(LogArea, $"A run that continued in the background failed ({FailureName(ex)}).");
+            _services.Log.Warning(LogArea, $"A run that continued in the background failed ({FailureName(ex)}).", ex);
         }
         finally
         {
@@ -908,7 +908,7 @@ public sealed partial class CollectionComplianceViewModel : ObservableObject
             }
             catch (Exception ex)
             {
-                _services.Log.Warning(LogArea, $"The collection could not be read again ({FailureName(ex)}).");
+                _services.Log.Warning(LogArea, $"The collection could not be read again ({FailureName(ex)}).", ex);
             }
         }
         else await LoadAsync();

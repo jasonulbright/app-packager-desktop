@@ -83,7 +83,7 @@ public sealed class QueryTemplateStore : IQueryTemplateStore
         catch (Exception ex) when (IsStorageFailure(ex))
         {
             skipped.Add("the user templates folder could not be read");
-            _log?.Warning(LogArea, $"The user query templates folder could not be read ({ex.GetType().Name}).");
+            _log?.Warning(LogArea, $"The user query templates folder could not be read ({ex.GetType().Name}).", ex);
             return result;
         }
 
@@ -117,7 +117,7 @@ public sealed class QueryTemplateStore : IQueryTemplateStore
             catch (Exception ex) when (IsStorageFailure(ex))
             {
                 skipped.Add($"{name} (could not be read)");
-                _log?.Warning(LogArea, $"A user query template file could not be read ({ex.GetType().Name}).");
+                _log?.Warning(LogArea, $"A user query template file could not be read ({ex.GetType().Name}).", ex);
             }
         }
         return result;

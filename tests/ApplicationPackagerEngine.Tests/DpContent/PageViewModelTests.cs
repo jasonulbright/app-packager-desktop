@@ -114,13 +114,13 @@ public sealed class PageViewModelTests
     }
 
     [Fact]
-    public async Task ALoadFailureShowsAPlainMessageWithoutTheExceptionText()
+    public async Task ALoadFailureShowsAPlainMessageAndLogsTheException()
     {
         var h = new DpContentPageHarness();
         h.Service.LoadFailure = new InvalidOperationException(@"WMI said: \\DP01\secret failed");
         var vm = await h.OpenAsync();
         Assert.Equal(VM.LoadFailed, vm.StatusMessage);
-        Assert.DoesNotContain(h.Log.Entries, e => e.Message.Contains("secret", StringComparison.Ordinal));
+        Assert.Contains(h.Log.Entries, e => e.Message.Contains("secret", StringComparison.Ordinal));
     }
 
     [Fact]

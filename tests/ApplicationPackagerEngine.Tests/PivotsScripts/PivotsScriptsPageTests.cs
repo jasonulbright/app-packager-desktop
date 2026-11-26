@@ -474,7 +474,7 @@ public sealed class PivotsScriptsPageTests
         await vm.RunPivotCommand.ExecuteAsync(null);
         Assert.Equal(VM.PrepareFailed, vm.StatusMessage);
         Assert.Empty(h.Plans.Shown);
-        Assert.DoesNotContain(h.Log.Entries, e => e.Message.Contains("secret", StringComparison.Ordinal));
+        Assert.Contains(h.Log.Entries, e => e.Message.Contains("secret", StringComparison.Ordinal));
     }
 
     [Fact]

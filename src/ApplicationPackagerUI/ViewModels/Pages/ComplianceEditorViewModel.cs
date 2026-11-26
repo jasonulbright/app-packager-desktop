@@ -146,7 +146,7 @@ public sealed partial class ComplianceEditorViewModel : ComplianceTabViewModel
         {
             if (mine != _settingsGeneration || generation != Shared.Generation) return;
             SettingsMessage = ComplianceShared.PlainMessage(ex, SettingsFailed);
-            Services.Log.Warning(ComplianceShared.LogArea, $"The settings of a configuration item could not be read ({ComplianceShared.FailureName(ex)}).");
+            Services.Log.Warning(ComplianceShared.LogArea, $"The settings of a configuration item could not be read ({ComplianceShared.FailureName(ex)}).", ex);
         }
         finally
         {

@@ -151,7 +151,7 @@ public sealed partial class SiteHygieneViewModel
         try { settings = await Task.Run(Services.LoadSettings); }
         catch (Exception ex)
         {
-            Services.Log.Warning(LogArea, $"The SQL settings could not be read ({ex.GetType().Name}).");
+            Services.Log.Warning(LogArea, $"The SQL settings could not be read ({ex.GetType().Name}).", ex);
             return;
         }
         if (SqlEdited) return;
@@ -253,7 +253,7 @@ public sealed partial class SiteHygieneViewModel
         catch (Exception ex)
         {
             saved = false;
-            Services.Log.Warning(LogArea, $"The Live options could not be saved ({ex.GetType().Name}).");
+            Services.Log.Warning(LogArea, $"The Live options could not be saved ({ex.GetType().Name}).", ex);
         }
         if (saved)
         {
@@ -271,7 +271,7 @@ public sealed partial class SiteHygieneViewModel
         try { settings = await Task.Run(Services.LoadSettings); }
         catch (Exception ex)
         {
-            Services.Log.Warning(LogArea, $"The Live options could not be read after the import ({ex.GetType().Name}).");
+            Services.Log.Warning(LogArea, $"The Live options could not be read after the import ({ex.GetType().Name}).", ex);
             return;
         }
         LoadStoredLive(settings);
@@ -294,7 +294,7 @@ public sealed partial class SiteHygieneViewModel
         catch (Exception ex)
         {
             SqlTestResult = "The SQL test did not end. The log has the details.";
-            Services.Log.Warning(LogArea, $"The SQL test failed ({ex.GetType().Name}).");
+            Services.Log.Warning(LogArea, $"The SQL test failed ({ex.GetType().Name}).", ex);
         }
         finally { IsTestingSql = false; }
     }
@@ -316,7 +316,7 @@ public sealed partial class SiteHygieneViewModel
         }
         catch (Exception ex)
         {
-            Services.Log.Warning(LogArea, $"The Health Dashboard folder could not be checked ({ex.GetType().Name}).");
+            Services.Log.Warning(LogArea, $"The Health Dashboard folder could not be checked ({ex.GetType().Name}).", ex);
             return;
         }
         if (ImportOfferDismissed) return;
@@ -358,7 +358,7 @@ public sealed partial class SiteHygieneViewModel
             try { plan = await Task.Run(live.Import.Plan); }
             catch (Exception ex)
             {
-                Services.Log.Warning(LogArea, $"The Health Dashboard plan failed ({ex.GetType().Name}).");
+                Services.Log.Warning(LogArea, $"The Health Dashboard plan failed ({ex.GetType().Name}).", ex);
                 StatusMessage = ImportPlanFailed;
                 return;
             }
@@ -385,7 +385,7 @@ public sealed partial class SiteHygieneViewModel
             try { result = await Task.Run(() => live.Import.Apply(plan)); }
             catch (Exception ex)
             {
-                Services.Log.Warning(LogArea, $"The Health Dashboard import failed ({ex.GetType().Name}).");
+                Services.Log.Warning(LogArea, $"The Health Dashboard import failed ({ex.GetType().Name}).", ex);
                 StatusMessage = ImportFailed;
                 return;
             }

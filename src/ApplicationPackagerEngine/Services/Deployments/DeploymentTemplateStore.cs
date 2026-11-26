@@ -78,7 +78,7 @@ public sealed partial class DeploymentTemplateStore : IDeploymentTemplateStore
             }
             catch (Exception ex) when (IsStorageFailure(ex))
             {
-                _log?.Warning(LogArea, $"The templates folder could not be read ({ex.GetType().Name}).");
+                _log?.Warning(LogArea, $"The templates folder could not be read ({ex.GetType().Name}).", ex);
                 Message = "The templates folder could not be read. The log has the details.";
                 return [];
             }
@@ -93,7 +93,7 @@ public sealed partial class DeploymentTemplateStore : IDeploymentTemplateStore
             catch (Exception ex) when (IsStorageFailure(ex))
             {
                 Message = "The templates folder could not be read. The log has the details.";
-                _log?.Warning(LogArea, $"The templates folder could not be listed ({ex.GetType().Name}).");
+                _log?.Warning(LogArea, $"The templates folder could not be listed ({ex.GetType().Name}).", ex);
                 return [];
             }
             foreach (var file in files.Order(StringComparer.OrdinalIgnoreCase))
@@ -142,7 +142,7 @@ public sealed partial class DeploymentTemplateStore : IDeploymentTemplateStore
             }
             catch (Exception ex) when (IsStorageFailure(ex))
             {
-                _log?.Warning(LogArea, $"A template could not be saved ({ex.GetType().Name}).");
+                _log?.Warning(LogArea, $"A template could not be saved ({ex.GetType().Name}).", ex);
                 throw new DeploymentServiceException("The template could not be saved. The log has the details.");
             }
         }
@@ -162,7 +162,7 @@ public sealed partial class DeploymentTemplateStore : IDeploymentTemplateStore
             }
             catch (Exception ex) when (IsStorageFailure(ex))
             {
-                _log?.Warning(LogArea, $"A template could not be deleted ({ex.GetType().Name}).");
+                _log?.Warning(LogArea, $"A template could not be deleted ({ex.GetType().Name}).", ex);
                 throw new DeploymentServiceException("The template could not be deleted. The log has the details.");
             }
         }
@@ -232,7 +232,7 @@ public sealed partial class DeploymentTemplateStore : IDeploymentTemplateStore
         }
         catch (Exception ex) when (ex is JsonException or FormatException or InvalidOperationException || IsStorageFailure(ex))
         {
-            _log?.Warning(LogArea, $"A template file could not be read ({ex.GetType().Name}).");
+            _log?.Warning(LogArea, $"A template file could not be read ({ex.GetType().Name}).", ex);
             return null;
         }
     }

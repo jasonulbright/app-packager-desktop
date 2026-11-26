@@ -147,7 +147,7 @@ public sealed class SiteHygieneFixSafetyTests
         var outcome = await ApplyAsync(h, change);
         var r = Assert.Single(outcome.Objects);
         Assert.Equal(HygieneResults.Failed, r.Result);
-        Assert.Equal("ConfigMgr reported an error. The log has the kind of failure.", r.Message);
+        Assert.Equal("ConfigMgr reported an error. The log has the details.", r.Message);
         Assert.DoesNotContain("SECRET", outcome.Message);
         Assert.Equal("Failed", h.Audit.Read(10).Last().Result);
 

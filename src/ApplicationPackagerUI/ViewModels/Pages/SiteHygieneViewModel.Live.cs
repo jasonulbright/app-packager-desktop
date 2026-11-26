@@ -342,7 +342,7 @@ public sealed partial class SiteHygieneViewModel
                 return null;
             }
             StatusMessage = PlainMessage(ex, RefreshFailed);
-            Services.Log.Warning(LogArea, $"The Live refresh failed ({FailureName(ex)}).");
+            Services.Log.Warning(LogArea, $"The Live refresh failed ({FailureName(ex)}).", ex);
             return false;
         }
         finally
@@ -372,13 +372,13 @@ public sealed partial class SiteHygieneViewModel
         catch (Exception ex)
         {
             note += HistoryWriteFailed;
-            Services.Log.Warning(LogArea, $"The metrics history line could not be written ({ex.GetType().Name}).");
+            Services.Log.Warning(LogArea, $"The metrics history line could not be written ({ex.GetType().Name}).", ex);
         }
         IReadOnlyList<AlertEvent> events;
         try { events = live.Alerts.Evaluate(snapshot, alerts); }
         catch (Exception ex)
         {
-            Services.Log.Warning(LogArea, $"The alerts could not be evaluated ({ex.GetType().Name}).");
+            Services.Log.Warning(LogArea, $"The alerts could not be evaluated ({ex.GetType().Name}).", ex);
             return ([], note);
         }
         if (!alerts.Enabled) return ([], note);
@@ -392,7 +392,7 @@ public sealed partial class SiteHygieneViewModel
             catch (Exception ex)
             {
                 logged = false;
-                Services.Log.Warning(LogArea, $"An alert could not be written to the alerts log ({ex.GetType().Name}).");
+                Services.Log.Warning(LogArea, $"An alert could not be written to the alerts log ({ex.GetType().Name}).", ex);
             }
         }
         return (events, logged ? note : note + AlertLogFailed);
@@ -663,7 +663,7 @@ public sealed partial class SiteHygieneViewModel
         catch (Exception ex)
         {
             StatusMessage = ReportFailed(format);
-            Services.Log.Warning(LogArea, $"The Live {format} report could not be written ({ex.GetType().Name}).");
+            Services.Log.Warning(LogArea, $"The Live {format} report could not be written ({ex.GetType().Name}).", ex);
             return;
         }
         StatusMessage = $"Saved the {format} report to {path}: {SiteHygieneLabels.Count(report.Rows.Count, "row")}." + (report.Filter.Length > 0 ? " Filter: " + report.Filter : " No filter.")

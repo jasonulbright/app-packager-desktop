@@ -1,5 +1,16 @@
 # Changelog
 
+## [2026.1125.65] - 2026-11-25
+
+### Fixed
+
+- Fix SUP-01 failing on every application with a wrong console serializer refusal.
+- Remove a broken supersedence rule of a retired application: the fix reinstates it, edits it, retires it again.
+- Name the exact reason when a retired application with a deployment keeps its broken supersedence rule.
+- Name the applications, old revisions, deployments and task sequences that block a delete in Site Hygiene.
+- Write the full failure to the log file when a Site Hygiene fix fails: object, step, exceptions.
+- Write every exception of the chain to the log where a message says the log has the details.
+
 ## [2026.1125.64] - 2026-11-25
 
 ### Fixed

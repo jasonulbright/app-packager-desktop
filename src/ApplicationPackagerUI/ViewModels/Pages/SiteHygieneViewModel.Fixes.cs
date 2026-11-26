@@ -207,7 +207,7 @@ public sealed partial class SiteHygieneViewModel
             try { prepared = await Task.Run(() => Services.Hygiene.PrepareAsync(request, CancellationToken.None)); }
             catch (Exception ex)
             {
-                Services.Log.Warning(LogArea, $"The check before a fix failed ({FailureName(ex)}).");
+                Services.Log.Warning(LogArea, $"The check before a fix failed ({FailureName(ex)}).", ex);
                 StatusMessage = PlainMessage(ex, PrepareFailed);
                 return;
             }
@@ -252,7 +252,7 @@ public sealed partial class SiteHygieneViewModel
         try { await Services.Writer.Running; }
         catch (Exception ex)
         {
-            Services.Log.Warning(LogArea, $"A fix that continued in the background failed ({FailureName(ex)}).");
+            Services.Log.Warning(LogArea, $"A fix that continued in the background failed ({FailureName(ex)}).", ex);
         }
         finally
         {
@@ -356,7 +356,7 @@ public sealed partial class SiteHygieneViewModel
         Services.Log.Info(LogArea, $"{action}: {count} of {rows.Count} findings.");
         if (failure is not null)
         {
-            Services.Log.Warning(LogArea, $"{action} stopped ({failure.GetType().Name}).");
+            Services.Log.Warning(LogArea, $"{action} stopped ({failure.GetType().Name}).", failure);
             StatusMessage = PlainMessage(failure, SuppressFailed) + " No suppression was changed.";
             return;
         }
@@ -479,7 +479,7 @@ public sealed partial class SiteHygieneViewModel
         catch (Exception ex)
         {
             StatusMessage = ex is HygieneServiceException ? PlainMessage(ex, ReportFailed(format)) : ReportFailed(format);
-            Services.Log.Warning(LogArea, $"The {format} report could not be written ({ex.GetType().Name}).");
+            Services.Log.Warning(LogArea, $"The {format} report could not be written ({ex.GetType().Name}).", ex);
             return;
         }
         StatusMessage = $"Saved the {format} report to {path}: {SiteHygieneLabels.Count(report.Rows.Count, "row")}." + (report.Filter.Length > 0 ? " Filter: " + report.Filter : " No filter.")

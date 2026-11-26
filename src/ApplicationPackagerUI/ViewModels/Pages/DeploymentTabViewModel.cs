@@ -97,7 +97,7 @@ public abstract partial class DeploymentTabViewModel(DeploymentShared shared) : 
         {
             if (generation != Shared.Generation || mine != _loadGeneration) return;
             Shared.StatusMessage = DeploymentShared.PlainMessage(ex, ReadFailed);
-            Services.Log.Warning(DeploymentShared.LogArea, $"{GetType().Name.Replace("ViewModel", "", StringComparison.Ordinal)}: a read failed ({DeploymentShared.FailureName(ex)}).");
+            Services.Log.Warning(DeploymentShared.LogArea, $"{GetType().Name.Replace("ViewModel", "", StringComparison.Ordinal)}: a read failed ({DeploymentShared.FailureName(ex)}).", ex);
         }
         finally
         {

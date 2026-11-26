@@ -107,7 +107,7 @@ public sealed partial class SiteHygieneViewModel
         {
             if (mine != _relationsGeneration) return;
             StatusMessage = PlainMessage(ex, RelationsFailed);
-            Services.Log.Warning(LogArea, $"The relationship read failed ({FailureName(ex)}).");
+            Services.Log.Warning(LogArea, $"The relationship read failed ({FailureName(ex)}).", ex);
         }
         finally
         {

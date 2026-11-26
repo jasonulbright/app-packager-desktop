@@ -26,8 +26,8 @@ public sealed partial class DpContentService
                 }
                 catch (Exception ex) when (ex is not OutOfMemoryException)
                 {
-                    _log?.Warning(LogArea, $"{change.Kind} stopped with an unexpected error: {ex.GetType().Name}.");
-                    outcome = new DpContentOutcome(change, false, "The change stopped with an unexpected error. Refresh the list to see the current state. The log has the kind of failure.",
+                    _log?.Warning(LogArea, $"{change.Kind} stopped with an unexpected error: {ex.GetType().Name}.", ex);
+                    outcome = new DpContentOutcome(change, false, "The change stopped with an unexpected error. Refresh the list to see the current state. The log has the details.",
                         change.Pairs.Select(p => new DpContentPairOutcome(p, DpContentResults.Failed, "The result is not known: the change stopped with an unexpected error.", null)).ToList(), null);
                 }
             }
@@ -45,7 +45,7 @@ public sealed partial class DpContentService
         }
         catch (Exception ex) when (ex is not OutOfMemoryException)
         {
-            _log?.Warning(LogArea, $"A progress report failed ({ex.GetType().Name}).");
+            _log?.Warning(LogArea, $"A progress report failed ({ex.GetType().Name}).", ex);
         }
     }
 
@@ -286,7 +286,7 @@ public sealed partial class DpContentService
         "no-dp" => "The distribution point is not in the site's list of distribution points.",
         "unsupported" => "This content type cannot be distributed from this page.",
         "invalid" => "The pair is not valid.",
-        _ => "ConfigMgr reported an error. The log has the kind of failure."
+        _ => "ConfigMgr reported an error. The log has the details."
     };
 
     private static DpContentAuditPair AuditPair(PairRow p, string result) =>

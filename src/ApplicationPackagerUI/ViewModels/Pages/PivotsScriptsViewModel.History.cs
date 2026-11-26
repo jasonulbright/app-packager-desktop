@@ -109,13 +109,13 @@ public sealed partial class PivotsScriptsViewModel
                 catch (Exception ex)
                 {
                     auditProblem = PlainMessage(ex, HistoryReadFailed);
-                    Services.Log.Warning(LogArea, $"The audit log read failed ({ex.GetType().Name}).");
+                    Services.Log.Warning(LogArea, $"The audit log read failed ({ex.GetType().Name}).", ex);
                 }
                 try { sessions = Services.Sessions.List(MaxSessions + 1); }
                 catch (Exception ex)
                 {
                     sessionProblem = PlainMessage(ex, SessionsReadFailed);
-                    Services.Log.Warning(LogArea, $"The saved sessions could not be listed ({ex.GetType().Name}).");
+                    Services.Log.Warning(LogArea, $"The saved sessions could not be listed ({ex.GetType().Name}).", ex);
                 }
             }, visit);
             if (generation != Generation || mine != _historyGeneration) return;
@@ -201,7 +201,7 @@ public sealed partial class PivotsScriptsViewModel
         catch (Exception ex)
         {
             if (generation == Generation) StatusMessage = PlainMessage(ex, SessionGone);
-            Services.Log.Warning(LogArea, $"A saved session could not be read ({ex.GetType().Name}).");
+            Services.Log.Warning(LogArea, $"A saved session could not be read ({ex.GetType().Name}).", ex);
             return;
         }
         if (generation != Generation) return;
@@ -255,7 +255,7 @@ public sealed partial class PivotsScriptsViewModel
         try { Services.Service.EndWaitsAtExit(); }
         catch (Exception ex) when (ex is PivotsServiceException or IOException or UnauthorizedAccessException or InvalidOperationException)
         {
-            Services.Log.Warning(LogArea, $"The Finished record of a run could not be written at exit ({ex.GetType().Name}).");
+            Services.Log.Warning(LogArea, $"The Finished record of a run could not be written at exit ({ex.GetType().Name}).", ex);
         }
         try { _waitCts?.Cancel(); } catch (ObjectDisposedException) { }
     }
@@ -320,7 +320,7 @@ public sealed partial class PivotsScriptsViewModel
         catch (Exception ex)
         {
             if (generation == Generation) ConnectionResult = PlainMessage(ex, ConnectionFailed);
-            Services.Log.Warning(LogArea, $"The connection test failed ({FailureName(ex)}).");
+            Services.Log.Warning(LogArea, $"The connection test failed ({FailureName(ex)}).", ex);
         }
         finally
         {
