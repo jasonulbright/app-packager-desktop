@@ -47,7 +47,7 @@ The rights of each destination are in [Permissions](../reference/permissions.md)
 1. Select **App Packager** in the sidebar.
 2. Optional: enter text in **Administrative Comments**. The plan window starts with this text.
 3. Select **One Click** at the right of the status tabs. One Click runs **Check Latest**, **Check ConfigMgr** and **Check CVEs** on every tracked application. Then the **One Click** window opens with the checked versions. Select **Cancel** during a check to stop before the plan opens. The window does not stop your work in the main window.
-4. View the header, the steps of the saved action, the systems, the summary line, the action line, the scope line and the grid. A line that starts with `Not ready:` names a destination that cannot take a publish.
+4. View the header, the steps of the saved action, the systems, the summary line, the action line, the scope line and the grid. A line that starts with `Not ready:` names a destination that cannot take a publish. To change the saved action, select **One Click settings** at the right of the action line. The plan window closes and **Settings** opens on the page **One Click**. Save the change, then select **One Click** again. The button is disabled while a run is active.
 5. Optional: change the text in **Administrative comment**. A publish uses this text. It does not change the box on the App Packager page.
 6. Optional: clear **Include** for a row, or change the destination boxes of a row. These changes apply to this run only.
 7. Optional: select **Plan only** to write the plan as a report without a run.
@@ -72,7 +72,7 @@ After a run, **Run** and **Plan only** stay disabled in that window. Close the w
 The heading is **Review One Click plan**. The lines under it show:
 
 - The number of applications that are included and not included, and the ConfigMgr site when a site is set, for example `2 applications included, 1 not included. ConfigMgr site <code>.`
-- The steps of the saved action, for example `Check Latest, then Check ConfigMgr, then Check CVEs, then Stage, then Publish`. To change the action, change it in Settings, One Click.
+- The steps of the saved action, for example `Check Latest, then Check ConfigMgr, then Check CVEs, then Stage, then Publish`. To change the action, select **One Click settings**.
 - The systems, for example `In use: ConfigMgr. Not in use: Intune, WSUS.`
 - The summary, action and scope lines.
 

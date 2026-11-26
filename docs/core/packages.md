@@ -116,7 +116,9 @@ The app saves the hidden columns, the column order, the column widths that you s
 
 ### The detail pane
 
-Select a row. The pane at the right of the grid shows the application name, **Vendor**, **Status**, **ConfigMgr version**, **Latest version**, **CVEs** and **Stage**. **Stage** reads `Checking the stage folder`, `Not staged`, `Staged` or `Staged <version>`. **Open in Workbench** opens the [Workbench](workbench.md) for the row. **Close** closes the pane, and the button **Details** in the corner of the grid opens it again. The app saves this choice. In a window narrower than 1100 pixels, the pane starts closed. The setup checklist takes the place of the pane while it is open.
+Select a row. The pane at the right of the grid shows the application name, **Vendor**, **Status**, **ConfigMgr version**, **Latest version**, **CVEs** and **Stage**. **Stage** reads `Checking the stage folder`, `Not staged`, `Staged` or `Staged <version>`. **Open in Workbench** opens the [Workbench](workbench.md) for the row. **More actions** opens the same menu as a right-click on the row. See [Row context menu](packages-grid.md#row-context-menu). **Close** closes the pane, and the button **Details** in the corner of the grid opens it again. The app saves this choice. In a window narrower than 1100 pixels, the pane starts closed. The setup checklist takes the place of the pane while it is open.
+
+To change the width of the pane, drag the line between the grid and the pane. From the keyboard, press Tab until the focus is on that line, then press the left or right arrow key. The app saves the width. The pane is from 260 to 640 pixels wide, and the grid keeps room for its first columns.
 
 The detail pane follows the selected row. **Stage** and **Publish All** act on the checked rows.
 

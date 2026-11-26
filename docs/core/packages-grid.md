@@ -76,7 +76,7 @@ A WSUS run that follows a ConfigMgr publish adds a suffix such as `, WSUS not su
 
 ## Row context menu
 
-A right-click selects the row and opens the menu.
+A right-click selects the row and opens the menu. The button **More actions** in the detail pane opens the same menu for the row of the pane.
 
 | Entry | Effect |
 |---|---|

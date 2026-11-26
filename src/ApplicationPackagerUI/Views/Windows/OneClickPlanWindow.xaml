@@ -49,7 +49,15 @@
             <TextBlock x:Name="txtPlanSummary" Text="{Binding SummaryText}" FontSize="14" TextWrapping="Wrap"
                        AutomationProperties.AutomationId="txtPlanSummary"
                        Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
-            <TextBlock x:Name="txtPlanAction" Text="{Binding ActionText}" Style="{StaticResource PlanLine}" AutomationProperties.AutomationId="txtPlanAction" />
+            <!-- The action is a saved setting, so the window shows it as text and gives the way to the page that changes it. -->
+            <DockPanel>
+                <ui:Button x:Name="btnOneClickSettings" DockPanel.Dock="Right" Content="One Click settings" Icon="{ui:SymbolIcon Settings24}"
+                           Padding="8,2" Margin="12,0,0,0" VerticalAlignment="Center" Click="Settings_Click" IsEnabled="{Binding CanClose}"
+                           AutomationProperties.AutomationId="btnOneClickSettings"
+                           ToolTip="Closes this plan and opens Settings, One Click, where the action, the destinations and the tracked applications are saved. Select One Click again to plan with the saved values. The button is off while a run is active." />
+                <TextBlock x:Name="txtPlanAction" Text="{Binding ActionText}" Style="{StaticResource PlanLine}" Margin="0" VerticalAlignment="Center"
+                           AutomationProperties.AutomationId="txtPlanAction" />
+            </DockPanel>
             <TextBlock x:Name="txtPlanScope" Text="{Binding ScopeText}" Style="{StaticResource PlanLine}" AutomationProperties.AutomationId="txtPlanScope"
                        Visibility="{Binding HasScope, Converter={StaticResource BoolToVisibility}}" />
             <TextBlock x:Name="txtPlanBlocking" Text="{Binding BlockingText}" Style="{StaticResource PlanLine}" AutomationProperties.AutomationId="txtPlanBlocking"

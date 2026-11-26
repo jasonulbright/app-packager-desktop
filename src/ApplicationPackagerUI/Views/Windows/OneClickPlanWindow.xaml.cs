@@ -33,6 +33,19 @@ public partial class OneClickPlanWindow : ApplicationPackagerUI.Services.IDialog
         new PublishResultsWindow(_viewModel.BuildResults()) { Owner = this }.ShowDialog();
     }
 
+    /// <summary>Opens Settings on the One Click page after this window closed; null uses the main window.</summary>
+    public Action? OpenOneClickSettings { get; set; }
+
+    private void Settings_Click(object sender, RoutedEventArgs e)
+    {
+        if (_viewModel.IsRunning) return;
+        var main = Owner as MainWindow ?? System.Windows.Application.Current?.MainWindow as MainWindow;
+        var open = OpenOneClickSettings ?? (() => main?.OpenSettingsPage("oneclick"));
+        // This window is owned by the main window and stays above it, so it closes first. Its plan holds the action it was opened with.
+        Close();
+        open();
+    }
+
     private void Results_Click(object sender, RoutedEventArgs e) => ShowResults();
 
     private void ReviewFailed_Click(object sender, RoutedEventArgs e)

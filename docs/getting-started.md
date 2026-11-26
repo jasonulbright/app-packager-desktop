@@ -49,6 +49,8 @@ The panel shows the progress, for example `1 of 4 complete`, and four steps. Eac
 | **Set content folders** | **Download Root** is set and, with ConfigMgr in use, **File Share Root** is set to a value other than the example `\\fileserver\sccm$`. | **Open Setup** |
 | **Discover unmanaged software** | A scan of the active site ran, or you skipped it. `Not needed` when ConfigMgr is not in use. | **Scan Site Inventory** or **Scan Again**, **Skip Scan** |
 
+In a page at least 1400 pixels wide, the panel also takes the height of the batch bar and the log pane, so the four steps show without scrolling in a maximized window on a 1920 x 1080 display. In a smaller window, the steps scroll. The buttons below the steps always show.
+
 - **Skip for Now** closes the panel until the next start. The strip above the status tabs then shows while the checklist has work. When the checklist has no work left, the button reads **Close**.
 - **Do Not Show Again** stops the checklist from opening at the start. It changes no other setting.
 - To open the checklist again, select **More**, then **Setup checklist**.
