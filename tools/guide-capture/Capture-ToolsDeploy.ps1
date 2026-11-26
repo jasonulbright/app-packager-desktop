@@ -26,6 +26,8 @@ $exe = Join-Path $AppFolder 'ApplicationPackagerUI.exe'
 
 function Real-Click($El) { Click-El $El; Start-Sleep -Milliseconds 800 }
 function Tab([string]$Id) { Real-Click (Need-El $Id); Start-Sleep 2 }
+# A radio button is set with its pattern, so it does not matter where on the page it stands.
+function Pick-Radio([string]$Id) { (Need-El $Id).GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Select() }
 function Combo-Plan([string]$Name) { Select-Combo (Need-El 'cboRingPlan') "*$Name*" }
 function Wait-Window([string]$Id, [double]$Seconds = 30) { $e = Wait-El $Id $Seconds; if (-not $e) { throw "the window with $Id did not open" }; Start-Sleep 2; $e }
 function Cancel-Plan { $c = Find-El $null 'btnChangePlanCancel' -Timeout 5; if ($c) { Real-Click $c; Start-Sleep 2 } }
@@ -68,7 +70,7 @@ foreach ($theme in $Themes) {
         Step 'tools-deployment-helper-plan-required' {
             Set-ElText (Need-El 'txtObjectFilter') $Application; Start-Sleep 2; $null = Pick-First 'dgObjects'
             Set-ElText (Need-El 'txtCollectionFilter') $EmptyCollection; Start-Sleep 2; $null = Pick-First 'dgCollections'
-            Real-Click (Need-El 'rbRequired'); Start-Sleep 1
+            Pick-Radio 'rbRequired'; Start-Sleep 1
             Invoke-El (Need-El 'btnValidate'); Start-Sleep 1; Start-Sleep 8
             Invoke-El (Need-El 'btnDeploy'); Start-Sleep 1
             $null = Wait-Window 'btnChangePlanCancel' 60
@@ -76,7 +78,7 @@ foreach ($theme in $Themes) {
             Cancel-Plan
         }
         Step 'tools-deployment-helper-distribute-create' {
-            Real-Click (Need-El 'rbAvailable'); Start-Sleep 1
+            Pick-Radio 'rbAvailable'; Start-Sleep 1
             # The distribution point groups of the Content card: check the first group and the box that distributes first.
             $boxes = @((Need-El 'dgDpGroups').FindAll($script:TS::Descendants, (New-Object System.Windows.Automation.PropertyCondition ($script:AE::ControlTypeProperty), ([System.Windows.Automation.ControlType]::CheckBox))) | Where-Object { -not $_.Current.IsOffscreen })
             if ($boxes) { Set-Check $boxes[0] $true }
@@ -91,7 +93,7 @@ foreach ($theme in $Themes) {
         }
         # A real Available deployment of the application to the empty collection: the History tab then holds its create record. The Undo of the Deploy tab removes it again.
         Step 'tools-deployment-helper-history' {
-            Real-Click (Need-El 'rbAvailable'); Start-Sleep 1
+            Pick-Radio 'rbAvailable'; Start-Sleep 1
             Invoke-El (Need-El 'btnValidate'); Start-Sleep 1; Start-Sleep 8
             Invoke-El (Need-El 'btnDeploy'); Start-Sleep 1
             $null = Wait-Window 'btnChangePlanCancel' 60

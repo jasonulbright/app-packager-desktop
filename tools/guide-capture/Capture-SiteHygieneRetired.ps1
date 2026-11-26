@@ -7,7 +7,7 @@
 .DESCRIPTION
     Run it in the interactive session of the lab user under the capture lock (Run-VisibleProbe.ps1 takes it), from the folder of the published app with ApdUiDriver.ps1:
         Run-VisibleProbe.ps1 -Worktree <published folder with both scripts> -ProbeArgs "& .\Capture-SiteHygieneRetired.ps1 -Theme Light"
-    The images are C:\guide\apdq89-out\<theme>\<id>.png. The status bar, which names the site server, is painted over in each image.
+    The images are <Run>\images\<theme>\<id>.png. The status bar, which names the site server, is painted over in each image.
 
     What the site must hold first (throw-away applications of the lab, made and removed by the person who runs the check; the run removes nothing else):
       ZZQ89 Retired2 (retired) supersedes ZZQ89 Active2, ZZQ89 Active supersedes ZZQ89 Old, and a task sequence installs the retired ZZQ89 Retired, which ZZQ89 Active depends on.
@@ -15,14 +15,16 @@
 #>
 param(
     [ValidateSet('Light', 'Dark')][string]$Theme = 'Light',
-    [switch]$SkipFixes
+    [switch]$SkipFixes,
+    [string]$Run = (Join-Path $PSScriptRoot 'out'),
+    [string]$AppFolder = $PSScriptRoot
 )
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'ApdUiDriver.ps1')
 
-$exe = Join-Path $PSScriptRoot 'ApplicationPackagerUI.exe'
-$data = Join-Path 'C:\guide\apdq89-data' $Theme
-$out = Join-Path 'C:\guide\apdq89-out' $Theme.ToLower()
+$exe = Join-Path $AppFolder 'ApplicationPackagerUI.exe'
+$data = Join-Path $Run "data-$Theme"
+$out = Join-Path $Run (Join-Path 'images' $Theme.ToLower())
 Remove-Item $data -Recurse -Force -ErrorAction SilentlyContinue
 New-Item -ItemType Directory -Force $out | Out-Null
 # The output of a run that stops with an error is not returned by the runner, so the run keeps its own transcript.
@@ -100,7 +102,7 @@ try {
     $w = Get-ApdWindows | Where-Object { $_.Current.Name -match 'App Packager' } | Select-Object -First 1
     $w.SetFocus()
     # The sidebar entry of Site Hygiene.
-    Click-El (Find-El $null -Name 'Site Hygiene' -Timeout 20)
+    if (-not (Click-Nav 'Site Hygiene' 20)) { throw 'The sidebar has no Site Hygiene entry.' }
     Start-Sleep -Seconds 4
     $scan = Find-El $null 'btnHygieneScan' -Timeout 20
     'scan button found: ' + [bool]$scan

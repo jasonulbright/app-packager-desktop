@@ -6,25 +6,26 @@
 .DESCRIPTION
     Run it in the interactive session of the lab user under the capture lock, from the folder of the published app (like Capture-ApdPages.ps1):
         Run-VisibleProbe.ps1 -Worktree <published folder with this script> -ProbeArgs "& .\Capture-Scenarios.ps1 -Scenario InstallerAnalysis"
-    The images are C:\guide\apdcap-out\<theme>\<id>.png. An image whose body has no more content than an empty page is not kept: the run says REFUSED for it (the guard
+    The images are <Run>\images\<theme>\<id>.png. An image whose body has no more content than an empty page is not kept: the run says REFUSED for it (the guard
     that stops a capture run from replacing a guide image with an empty page; the test GuideImageContentTests checks the committed images the same way).
-    The clicks use the positions of the page at 100 percent on the work area of 1920 x 1032; the tabs of Deployment Helper are found by automation id.
+    The sidebar entries are found by name and the tabs and buttons by automation id, so no click depends on a position.
 #>
 param(
     [Parameter(Mandatory)][ValidateSet('InstallerAnalysis', 'SiteHygiene', 'LivePages', 'SettingsScroll')][string]$Scenario,
-    [string[]]$Themes = @('Light', 'Dark')
+    [string[]]$Themes = @('Light', 'Dark'),
+    [string]$Run = (Join-Path $PSScriptRoot 'out'),
+    [string]$AppFolder = $PSScriptRoot
 )
-Add-Type -AssemblyName System.Drawing, System.Windows.Forms
-Add-Type -TypeDefinition 'using System; using System.Runtime.InteropServices; public static class W { [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr h, int c); [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr h); [DllImport("user32.dll")] public static extern bool SetProcessDPIAware(); [DllImport("user32.dll")] public static extern void mouse_event(uint f, uint x, uint y, uint d, UIntPtr e); }'
-[void][W]::SetProcessDPIAware()
+$ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'ApdUiDriver.ps1')
-$out = 'C:\guide\apdcap-out'
-New-Item -ItemType Directory -Force $out | Out-Null
+$exe = Join-Path $AppFolder 'ApplicationPackagerUI.exe'
 
-function Click($x, $y) {
-    [System.Windows.Forms.Cursor]::Position = New-Object System.Drawing.Point $x, $y
-    Start-Sleep -Milliseconds 300
-    [W]::mouse_event(2, 0, 0, 0, [UIntPtr]::Zero); [W]::mouse_event(4, 0, 0, 0, [UIntPtr]::Zero)
+# Clicks the tab with this automation id; $false when the page does not show it in time.
+function Open-Tab([string]$Id, [double]$Timeout = 20) {
+    $el = Find-El $null $Id -Timeout $Timeout
+    if (-not $el) { return $false }
+    Click-El $el
+    $true
 }
 
 # The share of the pixels of the body of the window (right of the sidebar, below the header and the toolbars) that differ from the most common color.
@@ -49,94 +50,98 @@ function Shot($path, [double]$minimumInk = 0.01) {
 }
 
 foreach ($theme in $Themes) {
-    $root = Join-Path 'C:\guide\apdcap-data' $theme
-    Remove-Item $root -Recurse -Force -ErrorAction SilentlyContinue
-    $sid = [Security.Principal.WindowsIdentity]::GetCurrent().User.Value
-    $userRoot = Join-Path $root (Join-Path 'Users' $sid)
-    New-Item -ItemType Directory -Force $userRoot | Out-Null
-    Set-Content -LiteralPath (Join-Path $userRoot 'settings.json') -Value ('{"Theme":"' + $theme + '","FirstRunCompleted":true,"SiteCode":"MCM","ProviderMachine":"cm01.contoso.com","UseConfigMgr":true}') -Encoding Ascii
-    $env:APP_PACKAGER_DATA_ROOT = $root
-    $p = Start-Process -FilePath (Join-Path $PSScriptRoot 'ApplicationPackagerUI.exe') -PassThru
-    $script:App = $p
-    $deadline = (Get-Date).AddSeconds(40)
-    while ((Get-Date) -lt $deadline -and $p.MainWindowHandle -eq 0) { Start-Sleep -Milliseconds 500; $p.Refresh() }
-    if ($p.MainWindowHandle -eq 0) { "FAIL $theme : no main window"; Stop-Process -Id $p.Id -Force; continue }
-    [void][W]::ShowWindow($p.MainWindowHandle, 3)
-    [void][W]::SetForegroundWindow($p.MainWindowHandle)
-    Start-Sleep -Seconds 4
-    $dir = Join-Path $out $theme.ToLower()
-    New-Item -ItemType Directory -Force $dir | Out-Null
+    $data = Join-Path $Run "data-$theme"
+    Remove-Item $data -Recurse -Force -ErrorAction SilentlyContinue
+    try { $null = Start-Apd $exe $data $theme } catch { "FAIL $theme : $($_.Exception.Message)"; continue }
+    try {
+        $dir = Join-Path $Run (Join-Path 'images' $theme.ToLower())
+        New-Item -ItemType Directory -Force $dir | Out-Null
 
-    if ($Scenario -eq 'InstallerAnalysis') {
-        # A sample installer: the largest MSI of the Windows installer cache, copied so that nothing locks it.
-        $sample = Get-ChildItem C:\Windows\Installer -Filter *.msi -ErrorAction SilentlyContinue | Sort-Object Length -Descending | Select-Object -First 1
-        if (-not $sample) { 'FAIL no MSI in C:\Windows\Installer'; Stop-Process -Id $p.Id -Force; continue }
-        New-Item -ItemType Directory -Force 'C:\guide\apdcap-sample' | Out-Null
-        $copy = Copy-Item $sample.FullName 'C:\guide\apdcap-sample\sample.msi' -PassThru -Force
-        $null = Click-Nav 'Installer Analysis'; Start-Sleep -Seconds 3
-        Click 900 157; Start-Sleep -Milliseconds 500
-        [System.Windows.Forms.SendKeys]::SendWait($copy.FullName.Replace('+', '{+}').Replace('^', '{^}').Replace('%', '{%}').Replace('~', '{~}') + '{ENTER}')
-        Start-Sleep -Seconds 12
-        $tabs = [ordered]@{
-            'tools-installer-analysis-overview' = 288; 'tools-installer-analysis-msi-properties' = 376; 'tools-installer-analysis-payload' = 459
-            'tools-installer-analysis-inner' = 542; 'tools-installer-analysis-file-browser' = 638; 'tools-installer-analysis-registry' = 741; 'tools-installer-analysis-strings' = 827
-        }
-        foreach ($id in $tabs.Keys) {
-            Click $tabs[$id] 243; Start-Sleep -Seconds 3
-            [System.Windows.Forms.Cursor]::Position = New-Object System.Drawing.Point 1000, 1060
-            Start-Sleep -Milliseconds 400
-            Shot (Join-Path $dir ($id + '.png'))
-        }
-    }
-    if ($Scenario -eq 'SiteHygiene') {
-        # Scan reads the site (CM01); the findings and the other tabs are shown after it.
-        $null = Click-Nav 'Site Hygiene'; Start-Sleep -Seconds 4
-        Click 291 154
-        Start-Sleep -Seconds 150
-        [System.Windows.Forms.Cursor]::Position = New-Object System.Drawing.Point 1000, 1060
-        Shot (Join-Path $dir 'tools-site-hygiene-findings.png')
-        $tabs = [ordered]@{ 'tools-site-hygiene-relationships' = 366; 'tools-site-hygiene-summary' = 488; 'tools-site-hygiene-history' = 553; 'tools-site-hygiene-options' = 613 }
-        foreach ($id in $tabs.Keys) {
-            Click $tabs[$id] 237; Start-Sleep -Seconds 5
-            [System.Windows.Forms.Cursor]::Position = New-Object System.Drawing.Point 1000, 1060
-            Start-Sleep -Milliseconds 400
-            Shot (Join-Path $dir ($id + '.png'))
-        }
-    }
-    if ($Scenario -eq 'LivePages') {
-        # Pages that read the lab site when they open: (sidebar y, wait, then the tabs: id, x, y; a null x is the page as it opens; a text x is the
-        # automation id of the tab).
-        $pages = @(
-            @{ Nav = 'Maintenance Windows'; Wait = 12; Tabs = @(@('tools-maintenance-windows-list', $null, 0), @('tools-maintenance-windows-coverage', 360, 155), @('tools-maintenance-windows-templates', 434, 155)) }
-            @{ Nav = 'Collection and Compliance'; Wait = 15; Tabs = @(@('tools-collections-list', $null, 0), @('tools-collections-wql', 377, 155), @('tools-collections-templates', 457, 155), @('tools-collections-site-queries', 539, 155)) }
-            @{ Nav = 'Deployment Helper'; Wait = 15; Tabs = @(@('tools-deployment-helper-deploy', $null, 0), @('tools-deployment-helper-history', 'tabHistory', 0), @('tools-deployment-helper-options', 'tabOptions', 0)) }
-            @{ Nav = 'DP Content Manager'; Wait = 15; Tabs = @(@('tools-dp-content-dps', $null, 0), @('tools-dp-content-content', 322, 219), @('tools-dp-content-issues', 399, 219), @('tools-dp-content-history', 475, 219)) }
-        )
-        foreach ($page in $pages) {
-            $null = Click-Nav $page.Nav; Start-Sleep -Seconds $page.Wait
-            foreach ($tab in $page.Tabs) {
-                if ($tab[1] -is [string]) {
-                    $el = Find-El $null $tab[1]
-                    if (-not $el) { "REFUSED $($tab[0]).png: no tab $($tab[1])"; continue }
-                    Click-El $el; Start-Sleep -Seconds 6
-                }
-                elseif ($null -ne $tab[1]) { Click $tab[1] $tab[2]; Start-Sleep -Seconds 6 }
-                [System.Windows.Forms.Cursor]::Position = New-Object System.Drawing.Point 1000, 1060
-                Start-Sleep -Milliseconds 400
-                Shot (Join-Path $dir ($tab[0] + '.png'))
+        if ($Scenario -eq 'InstallerAnalysis') {
+            # A sample installer: the largest MSI of the Windows installer cache, copied so that nothing locks it.
+            $sample = Get-ChildItem C:\Windows\Installer -Filter *.msi -ErrorAction SilentlyContinue | Sort-Object Length -Descending | Select-Object -First 1
+            if (-not $sample) { 'FAIL no MSI in C:\Windows\Installer'; continue }
+            New-Item -ItemType Directory -Force (Join-Path $Run 'sample') | Out-Null
+            $copy = Copy-Item $sample.FullName (Join-Path $Run 'sample\sample.msi') -PassThru -Force
+            if (-not (Click-Nav 'Installer Analysis')) { "FAIL $theme : the sidebar has no Installer Analysis entry"; continue }
+            Start-Sleep -Seconds 3
+            $open = Find-El $null 'btnOpenInstaller' -Timeout 15
+            if (-not $open) { "FAIL $theme : no btnOpenInstaller"; continue }
+            Click-El $open
+            Start-Sleep -Seconds 2
+            [System.Windows.Forms.SendKeys]::SendWait($copy.FullName.Replace('+', '{+}').Replace('^', '{^}').Replace('%', '{%}').Replace('~', '{~}') + '{ENTER}')
+            Start-Sleep -Seconds 12
+            $tabs = [ordered]@{
+                'tools-installer-analysis-overview' = 'tabOverview'; 'tools-installer-analysis-msi-properties' = 'tabMsiProperties'; 'tools-installer-analysis-payload' = 'tabPayload'
+                'tools-installer-analysis-inner' = 'tabInnerInstallers'; 'tools-installer-analysis-file-browser' = 'tabFileBrowser'
+                'tools-installer-analysis-registry' = 'tabRegistry'; 'tools-installer-analysis-strings' = 'tabStrings'
+            }
+            foreach ($id in $tabs.Keys) {
+                # The guide image of the Inner Installers tab shows a bundle with its breadcrumb; Capture-Tools makes it.
+                if ($id -eq 'tools-installer-analysis-inner') { continue }
+                if (-not (Open-Tab $tabs[$id])) { "REFUSED $id.png: no tab $($tabs[$id])"; continue }
+                Start-Sleep -Seconds 3
+                Move-MouseAway
+                Shot (Join-Path $dir ($id + '.png'))
             }
         }
-    }    if ($Scenario -eq 'SettingsScroll') {
-        # The Settings page from the top, one screen at a time (the wheel scrolls three lines of 40 px for each notch at 100 percent).
-        $null = Click-Nav 'Settings'; Start-Sleep -Seconds 5
-        [System.Windows.Forms.Cursor]::Position = New-Object System.Drawing.Point 1000, 600
-        for ($i = 0; $i -lt 30; $i++) {
-            Shot (Join-Path $dir ('settings-scroll-{0:00}.png' -f $i))
-            for ($n = 0; $n -lt 18; $n++) { [W]::mouse_event(0x0800, 0, 0, [uint32]4294966576, [UIntPtr]::Zero); Start-Sleep -Milliseconds 120 }
-            Start-Sleep -Milliseconds 500
+        if ($Scenario -eq 'SiteHygiene') {
+            # Scan reads the site (CM01); the findings and the other tabs are shown after it.
+            if (-not (Click-Nav 'Site Hygiene')) { "FAIL $theme : the sidebar has no Site Hygiene entry"; continue }
+            Start-Sleep -Seconds 4
+            $scan = Find-El $null 'btnHygieneScan' -Timeout 20
+            if (-not $scan) { "FAIL $theme : no btnHygieneScan"; continue }
+            Click-El $scan
+            $deadline = (Get-Date).AddMinutes(8)
+            do {
+                Start-Sleep -Seconds 5
+                $summary = Find-El $null 'txtHygieneSummary' -Timeout 1
+                $text = if ($summary) { $summary.Current.Name } else { '' }
+            } while ((Get-Date) -lt $deadline -and $text -notmatch 'finding')
+            "scan: $text"
+            if ($text -notmatch 'finding') { "FAIL $theme : the scan did not end"; continue }
+            Start-Sleep -Seconds 3
+            Move-MouseAway
+            Shot (Join-Path $dir 'tools-site-hygiene-findings.png')
+            $tabs = [ordered]@{ 'tools-site-hygiene-relationships' = 'tabHygieneRelations'; 'tools-site-hygiene-summary' = 'tabHygieneSummary'; 'tools-site-hygiene-history' = 'tabHygieneHistory'; 'tools-site-hygiene-options' = 'tabHygieneOptions' }
+            foreach ($id in $tabs.Keys) {
+                if (-not (Open-Tab $tabs[$id])) { "REFUSED $id.png: no tab $($tabs[$id])"; continue }
+                Start-Sleep -Seconds 5
+                Move-MouseAway
+                Shot (Join-Path $dir ($id + '.png'))
+            }
+        }
+        if ($Scenario -eq 'LivePages') {
+            # Pages that read the lab site when they open: (sidebar name, wait, then the tabs: image id, automation id of the tab; $null is the page as it opens).
+            $pages = @(
+                @{ Nav = 'Maintenance Windows'; Wait = 12; Tabs = @(@('tools-maintenance-windows-list', $null), @('tools-maintenance-windows-coverage', 'tabCoverage'), @('tools-maintenance-windows-templates', 'tabTemplates')) }
+                @{ Nav = 'Collection and Compliance'; Wait = 15; Tabs = @(@('tools-collections-list', $null), @('tools-collections-wql', 'tabWqlEditor'), @('tools-collections-templates', 'tabTemplates'), @('tools-collections-site-queries', 'tabSiteQueries')) }
+                @{ Nav = 'Deployment Helper'; Wait = 15; Tabs = @(@('tools-deployment-helper-deploy', $null), @('tools-deployment-helper-history', 'tabHistory'), @('tools-deployment-helper-options', 'tabOptions')) }
+                @{ Nav = 'DP Content Manager'; Wait = 15; Tabs = @(@('tools-dp-content-dps', $null), @('tools-dp-content-content', 'tabContent'), @('tools-dp-content-issues', 'tabIssues'), @('tools-dp-content-history', 'tabDpHistory')) }
+            )
+            foreach ($page in $pages) {
+                if (-not (Click-Nav $page.Nav)) { "FAIL $theme : the sidebar has no $($page.Nav) entry"; continue }
+                Start-Sleep -Seconds $page.Wait
+                foreach ($tab in $page.Tabs) {
+                    if ($tab[1]) {
+                        if (-not (Open-Tab $tab[1])) { "REFUSED $($tab[0]).png: no tab $($tab[1])"; continue }
+                        Start-Sleep -Seconds 6
+                    }
+                    Move-MouseAway
+                    Shot (Join-Path $dir ($tab[0] + '.png'))
+                }
+            }
+        }
+        if ($Scenario -eq 'SettingsScroll') {
+            # The page that Settings opens, from the top, one screen at a time (the wheel scrolls three lines of 40 px for each notch at 100 percent).
+            $null = Click-Nav 'Settings'; Start-Sleep -Seconds 5
+            [System.Windows.Forms.Cursor]::Position = New-Object System.Drawing.Point 1000, 600
+            for ($i = 0; $i -lt 30; $i++) {
+                Shot (Join-Path $dir ('settings-scroll-{0:00}.png' -f $i))
+                for ($n = 0; $n -lt 18; $n++) { [ApdW]::mouse_event(0x0800, 0, 0, [uint32]4294966576, [UIntPtr]::Zero); Start-Sleep -Milliseconds 120 }
+                Start-Sleep -Milliseconds 500
+            }
         }
     }
-    Stop-Process -Id $p.Id -Force
-    Start-Sleep -Seconds 2
+    finally { Stop-Apd }
 }
-Remove-Item 'C:\guide\apdcap-sample' -Recurse -Force -ErrorAction SilentlyContinue

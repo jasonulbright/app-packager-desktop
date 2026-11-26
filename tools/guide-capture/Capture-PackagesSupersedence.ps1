@@ -64,10 +64,7 @@ function Check-Row($w, [string]$Name) {
     if (-not $cell) { throw "The grid has no row named '$Name'." }
     Click-El $cell; Start-Sleep 1
     $grid = Find-El $w 'PackagerGrid'
-    $boxes = $grid.FindAll([System.Windows.Automation.TreeScope]::Descendants,
-        (New-Object System.Windows.Automation.PropertyCondition ([System.Windows.Automation.AutomationElement]::ControlTypeProperty), ([System.Windows.Automation.ControlType]::CheckBox)))
-    foreach ($box in $boxes) {
-        if ($box.Current.AutomationId -eq 'SelectAllCheckBox') { continue }
+    foreach ($box in (Get-ApdRowBoxes $grid)) {
         $toggle = $box.GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern)
         if ($toggle.Current.ToggleState -ne 'On') { Real-Click $box }
     }
@@ -107,7 +104,7 @@ try {
 
     # The mode of an application is a setting of Settings, Supersedence (the toolbar has no button for it): check the rows of the applications in the grid, give them
     # Replace with the button of the checked applications, save, and go back to the App Packager page.
-    Real-Click (Find-El $w -Name 'Settings' -ControlType 'DataItem' -Timeout 5)
+    if (-not (Click-Nav 'Settings')) { throw 'The sidebar has no Settings entry.' }
     Start-Sleep 3
     Real-Click (Find-El $w 'nav_supersedence' -Timeout 10)
     Start-Sleep 2
@@ -138,9 +135,9 @@ try {
     Move-MouseAway
     Start-Sleep 1
     Shot 'tools-settings-supersedence'
-    Real-Click (Find-El $w -Name 'Save Settings' -ControlType 'Button' -Timeout 5)
+    Real-Click (Find-El $w 'btnSaveSettings' -Timeout 5)
     Start-Sleep 2
-    Real-Click (Find-El $w -Name 'App Packager' -ControlType 'DataItem' -Timeout 5)
+    if (-not (Click-Nav 'App Packager')) { throw 'The sidebar has no App Packager entry.' }
     Start-Sleep 3
     $settingsFile = (Get-ChildItem $data -Recurse -Filter settings.json | Select-Object -First 1).FullName
     $saved = Get-Content $settingsFile -Raw | ConvertFrom-Json
@@ -155,6 +152,13 @@ try {
     $finished = $false
     $logFile = Join-Path (Split-Path (Get-ChildItem $data -Recurse -Filter settings.json | Select-Object -First 1).FullName) 'SRLPackr\packr.log'
     while ((Get-Date) -lt $deadline -and -not $finished) {
+        # Publish All opens the review first, and again when ConfigMgr, read again, differs from the plan.
+        $review = Find-El $null 'btnReviewConfirm' -Timeout 1
+        if ($review -and -not $review.Current.IsOffscreen) {
+            if (-not $review.Current.IsEnabled) { Shot 'timeout'; throw 'The publish review cannot run.' }
+            'publish review: confirm'
+            Real-Click $review; Start-Sleep 3; continue
+        }
         $yes = Find-El $null 'btnSupersedeYes' -Timeout 2
         if ($yes) {
             $prompts++
@@ -189,6 +193,9 @@ try {
         Start-Sleep 3
     }
     if (-not $finished) { Shot 'timeout'; Get-ElList (Main-Window) 80; throw 'The publish did not finish in time.' }
+    # The results window of the run covers the log: close it before the image.
+    $done = Find-El $null 'btnResultsDone' -Timeout 20
+    if ($done) { Real-Click $done }
     Start-Sleep 3
     Move-MouseAway
     "confirmation windows shown: $prompts"

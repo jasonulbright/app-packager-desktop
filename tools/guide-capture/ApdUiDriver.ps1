@@ -45,6 +45,7 @@ function Save-Shot([string]$Path, [int[]]$Rect, [switch]$MaskFooter) {
 
 # Writes settings.json for the isolated data folder and starts the app maximized. Returns the process.
 function Start-Apd([string]$Exe, [string]$DataRoot, [string]$Theme, [hashtable]$Settings = @{}, [string[]]$Arguments = @()) {
+    if (-not (Test-Path -LiteralPath $Exe)) { throw "no app at $Exe (give -AppFolder)" }
     $sid = [Security.Principal.WindowsIdentity]::GetCurrent().User.Value
     $userRoot = Join-Path $DataRoot (Join-Path 'Users' $sid)
     New-Item -ItemType Directory -Force $userRoot | Out-Null
@@ -60,11 +61,11 @@ function Start-Apd([string]$Exe, [string]$DataRoot, [string]$Theme, [hashtable]$
         Expand-Archive -LiteralPath $pack -DestinationPath $icons -Force
     }
     $env:APP_PACKAGER_DATA_ROOT = $DataRoot
-    $env:DOTNET_ROOT = 'C:\tools\dotnet'
+    if (Test-Path -LiteralPath 'C:\tools\dotnet') { $env:DOTNET_ROOT = 'C:\tools\dotnet' }
     $p = if ($Arguments) { Start-Process -FilePath $Exe -ArgumentList $Arguments -PassThru } else { Start-Process -FilePath $Exe -PassThru }
     $deadline = (Get-Date).AddSeconds(45)
     while ((Get-Date) -lt $deadline -and $p.MainWindowHandle -eq 0) { Start-Sleep -Milliseconds 500; $p.Refresh() }
-    if ($p.MainWindowHandle -eq 0) { Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue; throw 'no main window' }
+    if ($p.MainWindowHandle -eq 0) { Stop-ApdProcess $p; throw 'no main window' }
     [void][ApdW]::ShowWindow($p.MainWindowHandle, 3)
     [void][ApdW]::SetForegroundWindow($p.MainWindowHandle)
     Start-Sleep -Seconds 4
@@ -72,8 +73,14 @@ function Start-Apd([string]$Exe, [string]$DataRoot, [string]$Theme, [hashtable]$
     $p
 }
 
+# Ends a process that this run started, through the handle that Start-Process returned. Never stops a process by name or by id.
+function Stop-ApdProcess([System.Diagnostics.Process]$Process) {
+    if (-not $Process -or $Process.HasExited) { return }
+    try { $Process.Kill(); $null = $Process.WaitForExit(10000) } catch { Write-Warning "the process did not end: $($_.Exception.Message)" }
+}
+
 function Stop-Apd {
-    if ($script:App -and -not $script:App.HasExited) { Stop-Process -Id $script:App.Id -Force -ErrorAction SilentlyContinue; Start-Sleep -Seconds 2 }
+    if ($script:App -and -not $script:App.HasExited) { Stop-ApdProcess $script:App; Start-Sleep -Seconds 2 }
     $script:App = $null
 }
 
@@ -170,10 +177,75 @@ function Get-FooterRect {
 
 # The checks, the reports and the ways to add an application are menu items since the V1 overhaul (phase 3c): open the menu, then click the item.
 function Open-ApdMenuItem($Window, [string]$Menu, [string]$Item) {
-    Click-El (Find-El $Window $Menu -Timeout 5)
+    $button = Find-El $Window $Menu -Timeout 5
+    if (-not $button) { throw "There is no menu button $Menu." }
+    Click-El $button
     Start-Sleep -Milliseconds 600
     $found = Find-El $null $Item -Timeout 5
     if (-not $found) { throw "The menu $Menu shows no item $Item." }
+    if (-not $found.Current.IsEnabled) { [System.Windows.Forms.SendKeys]::SendWait('{ESC}'); throw "The item $Item of the menu $Menu is disabled." }
     Click-El $found
     Start-Sleep -Milliseconds 800
+}
+
+# The check boxes of the rows of the Packages grid, without the check box of the header.
+function Get-ApdRowBoxes($Grid) {
+    $c = New-Object System.Windows.Automation.PropertyCondition ($script:AE::ControlTypeProperty), ([System.Windows.Automation.ControlType]::CheckBox)
+    @($Grid.FindAll($script:TS::Descendants, $c) | Where-Object { $_.Current.AutomationId -notin 'chkSelectAllPackages', 'SelectAllCheckBox' })
+}
+
+# True while a run of the App Packager page is active. Cancel shows only then: it keeps its room, hidden, while no run is active.
+function Test-ApdBusy($Window) {
+    $c = Find-El $Window 'btnCancelOperation' -Timeout 1
+    [bool]($c -and -not $c.Current.IsOffscreen)
+}
+
+# Follows a run after Publish All until it ends, and writes what it answered. A target with ConfigMgr or Intune opens the review first (it opens again
+# when ConfigMgr, read again, differs from the plan) and the results window after the run; a publish to WSUS only has neither. The run counts as active
+# while the review is open. -OnConflict Skip answers the Application Already Exists dialog with Skip; Return leaves it open and returns.
+function Complete-ApdPublish($Window, [int]$Seconds = 420, [ValidateSet('Skip', 'Return')][string]$OnConflict = 'Skip') {
+    Start-Sleep -Seconds 3
+    $reviews = 0
+    $idle = 0
+    $deadline = (Get-Date).AddSeconds($Seconds)
+    while ((Get-Date) -lt $deadline) {
+        $confirm = Find-El $null 'btnReviewConfirm' -Timeout 1
+        if ($confirm -and -not $confirm.Current.IsOffscreen) {
+            if (-not $confirm.Current.IsEnabled) {
+                $blocked = Find-El $null 'txtReviewBlocked' -Timeout 1
+                $why = if ($blocked) { $blocked.Current.Name } else { '(no text)' }
+                $back = Find-El $null 'btnReviewBack' -Timeout 2
+                if ($back) { Click-El $back; Start-Sleep -Seconds 1 }
+                throw "The publish review cannot run: $why"
+            }
+            if (++$reviews -gt 3) { throw 'The publish review opened more than three times.' }
+            $counts = Find-El $null 'txtReviewCounts' -Timeout 1
+            "publish review $($reviews): $(if ($counts) { $counts.Current.Name })"
+            Click-El $confirm; Start-Sleep -Seconds 3
+            $idle = 0
+            continue
+        }
+        $done = Find-El $null 'btnResultsDone' -Timeout 1
+        if ($done -and -not $done.Current.IsOffscreen) {
+            $headline = Find-El $null 'txtResultsHeadline' -Timeout 1
+            "publish results: $(if ($headline) { $headline.Current.Name })"
+            Click-El $done; Start-Sleep -Seconds 2
+            return
+        }
+        $skip = Find-El $Window -Name 'Skip' -ControlType 'Button' -Timeout 0.1
+        if ($skip -and -not $skip.Current.IsOffscreen) {
+            if ($OnConflict -eq 'Return') { 'the Application Already Exists dialog is open'; return }
+            'the Application Already Exists dialog: Skip'
+            Click-El $skip; Start-Sleep -Seconds 3
+            $idle = 0
+            continue
+        }
+        foreach ($name in 'Continue', 'OK', 'Yes') {
+            $b = Find-El $Window -Name $name -ControlType 'Button' -Timeout 0.1
+            if ($b -and -not $b.Current.IsOffscreen -and $b.Current.IsEnabled) { "a dialog: $name"; Click-El $b; Start-Sleep -Seconds 2; $idle = 0; break }
+        }
+        if (Test-ApdBusy $Window) { $idle = 0 } elseif (++$idle -ge 3) { return }
+        Start-Sleep -Seconds 1
+    }
+    throw "The publish run did not end in $Seconds seconds."
 }

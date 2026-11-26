@@ -11,7 +11,8 @@
 #>
 param(
     [string]$OutDir = (Join-Path $PSScriptRoot 'out'),
-    [string[]]$Themes = @('Light', 'Dark')
+    [string[]]$Themes = @('Light', 'Dark'),
+    [string]$AppFolder = $PSScriptRoot
 )
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'ApdUiDriver.ps1')
@@ -82,7 +83,7 @@ function Check-Row($Grid, [string]$Name) {
 foreach ($theme in $Themes) {
     $data = Join-Path $OutDir "data-$theme"
     Remove-Item $data -Recurse -Force -ErrorAction SilentlyContinue
-    $null = Start-Apd (Join-Path $PSScriptRoot 'ApplicationPackagerUI.exe') $data $theme @{}
+    $null = Start-Apd (Join-Path $AppFolder 'ApplicationPackagerUI.exe') $data $theme @{}
     try {
         $w = @(Get-ApdWindows)[0]
         if (-not (Click-Nav 'Settings')) { throw 'The sidebar has no Settings entry.' }

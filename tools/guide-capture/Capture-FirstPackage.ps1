@@ -29,14 +29,13 @@ $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'GuideLib.ps1')
 Initialize-Run $Run
 $exe = Join-Path $AppFolder 'ApplicationPackagerUI.exe'
-$ctCheck = [System.Windows.Automation.ControlType]::CheckBox
 
 function Real-Click($El) { Click-El $El; Start-Sleep -Milliseconds 800 }
 function Status-Text($w) { $e = Find-El $w 'StatusLabel' -Timeout 2; if ($e) { $e.Current.Name } else { '' } }
 function Wait-Idle($w, [int]$Seconds) {
     Start-Sleep 4
     $deadline = (Get-Date).AddSeconds($Seconds)
-    while ((Get-Date) -lt $deadline -and (Find-El $w 'btnCancelOperation' -Timeout 1)) { Start-Sleep 2 }
+    while ((Get-Date) -lt $deadline -and (Test-ApdBusy $w)) { Start-Sleep 2 }
 }
 function Other-Windows { @(Get-ApdWindows | Where-Object { $_.Current.Name -notmatch '^App Packager' -and $_.Current.Name -ne 'Workbench' }) }
 function Answer-Dialogs($w, [int]$Seconds) {
@@ -52,8 +51,7 @@ function Check-Row($w, [string]$Name) {
     Set-ElText (Find-El $w 'txtAppPackagerSearch') $Name
     Start-Sleep 2
     $grid = Find-El $w 'PackagerGrid'
-    $box = $grid.FindAll($script:TS::Descendants, (New-Object System.Windows.Automation.PropertyCondition ($script:AE::ControlTypeProperty), $ctCheck)) |
-        Where-Object { $_.Current.AutomationId -ne 'SelectAllCheckBox' } | Select-Object -First 1
+    $box = Get-ApdRowBoxes $grid | Select-Object -First 1
     if ($box -and $box.GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern).Current.ToggleState -ne 'On') { Real-Click $box }
 }
 
@@ -83,16 +81,13 @@ foreach ($theme in $Themes) {
             Check-Row $w $Search
             Open-ApdMenuItem $w 'btnCheckMenu' 'miCheckLatest'
             Wait-Idle $w 240
-            Real-Click (Find-El $w -Name 'Stage' -ControlType 'Button' -Timeout 5)
+            Real-Click (Find-El $w 'btnStage' -Timeout 5)
             Wait-Idle $w 420
             Answer-Dialogs $w 300
             "status after Stage: $(Status-Text $w)"
             Set-ElText (Find-El $w 'txtAppPackagerComment') 'Guide capture'
             Real-Click (Need-El 'btnPublishAll')
-            $confirm = Find-El $null 'btnReviewConfirm' -Timeout 15
-            if ($confirm) { Real-Click $confirm }
-            Wait-Idle $w 420
-            Answer-Dialogs $w 420
+            Complete-ApdPublish $w 600
             "status after Publish: $(Status-Text $w)"
             Check-Row $w $Search
             Open-ApdMenuItem $w 'btnCheckMenu' 'miCheckConfigMgr'
@@ -112,8 +107,7 @@ foreach ($theme in $Themes) {
             Wait-Idle $w 240
             # A publish to WSUS only has no review.
             Real-Click (Need-El 'btnPublishAll')
-            Wait-Idle $w 420
-            Answer-Dialogs $w 420
+            Complete-ApdPublish $w 600
             $deadline = (Get-Date).AddSeconds(240)
             do { Start-Sleep 4; $st = (Get-ElList (Find-El $w 'PackagerGrid') 200) -join ' ' } while ((Get-Date) -lt $deadline -and $st -notmatch 'Published|Already on the server|Publish error|not supported')
             "status after WSUS publish: $(Status-Text $w)"
@@ -131,7 +125,11 @@ foreach ($theme in $Themes) {
         }
         Step 'core-wsus-catalog-import' {
             if (-not $ImportIds) { throw 'no update ids given (-ImportIds)' }
-            Real-Click (Need-El 'btnCatalog')
+            # The App Packager page has a button with the same id: take the one of the WSUS Updates window.
+            $wsus = Need-El 'gridUpdates'
+            while ($wsus -and $wsus.Current.ControlType -ne [System.Windows.Automation.ControlType]::Window) { $wsus = [System.Windows.Automation.TreeWalker]::ControlViewWalker.GetParent($wsus) }
+            if (-not $wsus) { throw 'the WSUS Updates window was not found' }
+            Real-Click (Find-El $wsus 'btnCatalog' -Timeout 5)
             $box = Need-El 'txtInput'
             Set-ElText $box ($ImportIds -join "`r`n")
             Start-Sleep 1

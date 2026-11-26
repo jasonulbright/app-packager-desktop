@@ -29,7 +29,7 @@ function Status-Text($w) { $e = Find-El $w 'StatusLabel' -Timeout 2; if ($e) { $
 function Wait-Idle($w, [int]$Seconds) {
     Start-Sleep 4
     $deadline = (Get-Date).AddSeconds($Seconds)
-    while ((Get-Date) -lt $deadline -and (Find-El $w 'btnCancelOperation' -Timeout 1)) { Start-Sleep 2 }
+    while ((Get-Date) -lt $deadline -and (Test-ApdBusy $w)) { Start-Sleep 2 }
 }
 function Step([string]$Theme, [string]$Id, [scriptblock]$Body) { try { & $Body } catch { "FAIL $Theme ${Id}: $($_.Exception.Message)" } }
 # The windows of the app other than the main window, with their names.
@@ -43,9 +43,7 @@ function Check-Row($w, [string]$Name) {
     Set-ElText (Find-El $w 'txtAppPackagerSearch') $Name
     Start-Sleep 2
     $grid = Find-El $w 'PackagerGrid'
-    $box = $grid.FindAll([System.Windows.Automation.TreeScope]::Descendants,
-        (New-Object System.Windows.Automation.PropertyCondition ([System.Windows.Automation.AutomationElement]::ControlTypeProperty), ([System.Windows.Automation.ControlType]::CheckBox))) |
-        Where-Object { $_.Current.AutomationId -ne 'SelectAllCheckBox' } | Select-Object -First 1
+    $box = Get-ApdRowBoxes $grid | Select-Object -First 1
     if ($box -and $box.GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern).Current.ToggleState -ne 'On') { Real-Click $box }
     Set-ElText (Find-El $w 'txtAppPackagerSearch') ''
     Start-Sleep 1
@@ -89,7 +87,7 @@ foreach ($theme in $Themes) {
             Start-Sleep 3
         }
         Step $theme 'core-stage-result-log' {
-            Real-Click (Find-El $w -Name 'Stage' -ControlType 'Button' -Timeout 5)
+            Real-Click (Find-El $w 'btnStage' -Timeout 5)
             Wait-Idle $w 420
             # A second dialog (the allowance of the staging folder, a signature note) is answered with the first button that continues.
             foreach ($i in 1..3) { $dlg = Other-Windows | Select-Object -First 1; if ($dlg) { Show-Other; try { $null = Click-ByName $dlg @('Continue', 'OK', 'Yes'); Wait-Idle $w 300 } catch { break } } }
@@ -100,9 +98,7 @@ foreach ($theme in $Themes) {
         Step $theme 'core-publish-configmgr-log' {
             Set-ElText (Find-El $w 'txtAppPackagerComment') 'Guide capture'
             Real-Click (Find-El $w 'btnPublishAll')
-            Wait-Idle $w 420
-            $dlg = Other-Windows | Select-Object -First 1
-            if ($dlg) { Show-Other; $null = Click-ByName $dlg @('Continue', 'OK', 'Yes'); Wait-Idle $w 420 }
+            Complete-ApdPublish $w 600
             "status after Publish: $(Status-Text $w)"
             Move-MouseAway
             Shot $theme 'core-publish-configmgr-log'
@@ -111,14 +107,16 @@ foreach ($theme in $Themes) {
             # The application of the first publish is on the site now: a second publish of the same version asks what to do. Skip answers it: nothing changes.
             Check-Row $w $Application
             Real-Click (Find-El $w 'btnPublishAll')
-            Start-Sleep 20
+            # The review opens first (and again when ConfigMgr differs from the plan); the dialog comes during the run.
+            Complete-ApdPublish $w 420 -OnConflict Return
+            if (-not (Find-El $w -Name 'Skip' -ControlType 'Button' -Timeout 5)) { throw 'The Application Already Exists dialog did not open.' }
+            Start-Sleep 2
             Move-MouseAway
             Shot $theme 'core-packages-conflict-dialog'
             # The Application Already Exists dialog is a dialog inside the main window: Skip keeps the application as it is.
             $skip = Find-El $w -Name 'Skip' -ControlType 'Button' -Timeout 5
-            if ($skip) { Real-Click $skip } else { 'No Skip button found: the dialog stays open and the run ends the app.' }
-            Start-Sleep 5
-            if (Find-El $w 'btnCancelOperation' -Timeout 2) { Real-Click (Find-El $w 'btnCancelOperation'); Start-Sleep 3 }
+            if ($skip) { Real-Click $skip; Complete-ApdPublish $w 300 } else { 'No Skip button found: the dialog stays open and the run ends the app.' }
+            if (Test-ApdBusy $w) { Real-Click (Find-El $w 'btnCancelOperation'); Start-Sleep 3 }
         }
     }
     finally { Stop-Apd }

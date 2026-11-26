@@ -87,7 +87,7 @@ try {
     [void][ApdRect]::GetWindowRect($p.MainWindowHandle, [ref]$r)
     "console window: $($r.L),$($r.T) $($r.Rt - $r.L)x$($r.B - $r.T)"
     foreach ($theme in $Themes) { $script:GuideTheme = $theme; Shot 'core-cli-help' @($r.L, $r.T, ($r.Rt - $r.L), ($r.B - $r.T)) }
-    Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue
+    Stop-ApdProcess $p
 }
 finally {
     if ($had) { foreach ($n in 'FaceName', 'FontSize', 'FontFamily', 'WindowSize', 'ScreenBufferSize', 'WindowPosition') { if ($null -ne $old.$n) { Set-ItemProperty $key -Name $n -Value $old.$n } else { Remove-ItemProperty $key -Name $n -ErrorAction SilentlyContinue } } }
