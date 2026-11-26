@@ -57,6 +57,12 @@ public sealed record OneClickApp(string Key, string Application, string Vendor, 
     /// with '|'; empty when WSUS can take it or the application declares nothing.
     /// </summary>
     public string WsusNotSupported { get; init; } = "";
+
+    /// <summary>
+    /// The version of the local installer that the stage will take; null when the stage downloads. The plan shows it and the run
+    /// publishes it, while <see cref="LatestVersion"/> still decides whether an update is available.
+    /// </summary>
+    public string? StageVersion { get; init; }
 }
 
 /// <summary>Whether a destination can take a publish, and why not.</summary>

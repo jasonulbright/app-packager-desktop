@@ -151,6 +151,38 @@ public sealed class ReviewedVersionPublishTests : IDisposable
         Assert.Contains("reviewed no version", result.StdErr);
     }
 
+    [Fact]
+    public void TheVersionOfARowThatStagesALocalInstallerIsTheVersionOfTheFile()
+    {
+        var folder = _t.NewFolder("local-source");
+        var installer = Path.Combine(folder, "tool-setup.exe");
+        File.Copy(typeof(StagingService).Assembly.Location, installer);
+        var version = LocalSourceResolver.ReadVersion(installer);
+        AppDefinition Definition(string mode) => new()
+        {
+            Id = "tool", Application = "Tool", InstallerType = "EXE",
+            LocalSource = new LocalSourceConfig { Mode = mode, Filter = "tool-*.exe" }
+        };
+
+        Assert.Equal(version, StagingService.LocalStageVersion(Definition("Required"), folder));
+        // An optional local source wins when a folder is set, and the download runs otherwise.
+        Assert.Equal(version, StagingService.LocalStageVersion(Definition("Optional"), folder));
+        Assert.Null(StagingService.LocalStageVersion(Definition("Optional"), null));
+        Assert.Null(StagingService.LocalStageVersion(Definition("Required"), null));
+        Assert.Null(StagingService.LocalStageVersion(new AppDefinition { Id = "web", Application = "Web" }, folder));
+
+        // The publish review of such a row shows the version of the file, not the website version.
+        var definitionPath = Path.Combine(_t.NewFolder("definitions"), "tool.json");
+        File.WriteAllText(definitionPath, System.Text.Json.JsonSerializer.Serialize(Definition("Required")));
+        var settings = new SettingsService();
+        var stored = settings.Load();
+        stored.LocalSourceFolders["tool"] = folder;
+        settings.SaveOperatorEdit(stored);
+        var row = new PackagerInfo { Uid = "tool", Application = "Tool", IsJsonDefined = true, DefinitionPath = definitionPath, LatestVersion = "999.0" };
+        Assert.Equal(version, Execution().RunVersion(row));
+        Assert.Equal("999.0", PackagerExecutionService.PublishVersion(row));
+    }
+
     [Theory]
     [InlineData(null, "9", true)]
     [InlineData("1.0", "1.0", true)]

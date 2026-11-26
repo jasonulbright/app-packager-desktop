@@ -125,7 +125,7 @@ public partial class PackagesViewModel : IOneClickRunner, IPublishActionHost
         var context = new OneClickPlanContext
         {
             Apps = rows.Select(p => (new OneClickApp(p.Uid, p.Application, p.Vendor, p.LatestVersion, p.CurrentVersion)
-                { WsusNotSupported = p.WsusNotSupported }, (PackagerInfo?)p)).ToList(),
+                { WsusNotSupported = p.WsusNotSupported, StageVersion = _executionService.LocalStageVersion(p) }, (PackagerInfo?)p)).ToList(),
             Settings = () => OneClickSettingsMap.PlanSettings(_settingsService.Load(), consoleFound),
             History = history,
             Action = action,

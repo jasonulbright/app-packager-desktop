@@ -18,6 +18,8 @@ public interface IOneClickExecution
 {
     Task<string?> GetLatestVersionAsync(PackagerInfo row, CancellationToken ct);
     string VersionSource(PackagerInfo row);
+    /// <summary>The version of the local installer that the stage will take; null when the stage downloads.</summary>
+    string? LocalStageVersion(PackagerInfo row);
     PackagerExecutionService.OneClickBuildPlan? ResolveBuildPlan(PackagerInfo row);
     string? StagedManifestPath(PackagerInfo row, PackagerExecutionResult stage, RunSnapshot? snapshot);
     RunSnapshot? CreateRowSnapshot(PackagerInfo row, PackagerExecutionService.OneClickBuildPlan plan, string target, out string? refusal);
@@ -34,6 +36,8 @@ public sealed class OneClickExecution(PackagerExecutionService execution, IWsusP
     public Task<string?> GetLatestVersionAsync(PackagerInfo row, CancellationToken ct) => execution.GetLatestVersionAsync(row, ct);
 
     public string VersionSource(PackagerInfo row) => execution.VersionSource(row);
+
+    public string? LocalStageVersion(PackagerInfo row) => execution.LocalStageVersion(row);
 
     public PackagerExecutionService.OneClickBuildPlan? ResolveBuildPlan(PackagerInfo row) => execution.ResolveBuildPlan(row);
 
@@ -142,7 +146,11 @@ public sealed class OneClickRowRunner(IOneClickExecution execution, ISettingsRea
                 InventoryOutcome.Succeeded, checkedAt, operationId));
             p.LatestVersion = latest;
             p.LastChecked = checkedAt.LocalDateTime;
-            item.Version = latest;
+            // The version that the stage will hold: the local installer's when the stage takes one, else the vendor's. The vendor
+            // version still decides whether there is an update.
+            var local = execution.LocalStageVersion(p);
+            var toPublish = local ?? latest;
+            item.Version = toPublish;
             log("Latest: " + latest);
             VersionChecked?.Invoke();
             var versionChanged = lastKnown.Length == 0 || !string.Equals(lastKnown, latest, StringComparison.OrdinalIgnoreCase);
@@ -179,9 +187,10 @@ public sealed class OneClickRowRunner(IOneClickExecution execution, ISettingsRea
             log($"One Click: {p.Application} {latest} restages: the last build differs in version, profile revision or signing policy. No destination takes a publish of it.");
 
         var publishes = action == OneClickActionNames.StageAndPackage && decision.PublishTo.Count > 0;
-        if (publishes && ReviewedVersion.Refusal(planned, latest) is not null)
+        if (publishes && ReviewedVersion.Refusal(planned, toPublish) is not null)
         {
-            var changed = $"the plan showed {(planned.Length > 0 ? planned : "no version")} and the check now reads {latest}; open One Click again and review the plan";
+            var found = local is null ? $"the check now reads {latest}" : $"the installer source folder now holds {local}";
+            var changed = $"the plan showed {(planned.Length > 0 ? planned : "no version")} and {found}; open One Click again and review the plan";
             p.Status = CveRowState.UpdateStatus(p);
             log($"One Click: {p.Application} is not published: {changed}.");
             Finish(item, OneClickOutcomes.Skipped, changed);
@@ -220,7 +229,7 @@ public sealed class OneClickRowRunner(IOneClickExecution execution, ISettingsRea
             Finish(item, OneClickOutcomes.Failed, "stage failed");
             return;
         }
-        if (publishes && StagedVersionRefusal(p, stage, snapshot, latest) is { } otherVersion)
+        if (publishes && StagedVersionRefusal(p, stage, snapshot, toPublish) is { } otherVersion)
         {
             p.Status = "Publish error";
             log($"One Click: {p.Application}: {otherVersion}");

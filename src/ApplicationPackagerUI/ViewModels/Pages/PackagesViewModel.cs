@@ -1624,10 +1624,12 @@ public partial class PackagesViewModel : ObservableObject
                 != ApplicationPackagerEngine.Services.Supersedence.SupersedenceMode.Off)
                 steps.Add("apply supersedence");
         }
-        var version = sealedVersion ?? PackagerExecutionService.PublishVersion(p);
+        var version = sealedVersion ?? VersionOf(p);
         // A view model that a test builds without its constructor has no history.
         var build = _inventoryProjection is null ? null : _executionService.ResolveBuildPlan(p);
-        var history = _inventoryProjection?.Entry(p, settings, build);
+        // The records of a row that stages a local installer can name the website version of a One Click run, so they skip nothing there.
+        var fromFile = version != PackagerExecutionService.PublishVersion(p) && p.IsJsonDefined;
+        var history = fromFile ? null : _inventoryProjection?.Entry(p, settings, build);
         var stale = build is not null && ApplicationPackagerEngine.Services.Workbench.BuildRecords.IsCurrent(build.DataRoot, build.ApplicationId,
             build.ProfileId, version, build.ProfileRevision, settings.ScriptSigning.PolicyDigest) == false;
         return new PublishPlanApp(p.Uid, p.Application, version, hidden)
@@ -1644,6 +1646,10 @@ public partial class PackagesViewModel : ObservableObject
             WsusNotSupported = p.WsusNotSupported ?? ""
         };
     }
+
+    /// <summary>The version that a publish of the row uses: of the local installer when the stage takes one.</summary>
+    private string VersionOf(PackagerInfo p) =>
+        p.IsJsonDefined ? _executionService.RunVersion(p) : PackagerExecutionService.PublishVersion(p);
 
     /// <summary>
     /// The read before the first write (overhaul V1, phase 5b): the systems and their readiness from the stored settings, the version of each

@@ -60,6 +60,11 @@ public sealed class OneClickRowRunnerTests : IDisposable
 
         public string VersionSource(PackagerInfo row) => "test-feed";
 
+        /// <summary>The version of the local installer that the stage takes; null for a stage that downloads.</summary>
+        public string? LocalVersion { get; set; }
+
+        public string? LocalStageVersion(PackagerInfo row) => LocalVersion;
+
         public PackagerExecutionService.OneClickBuildPlan? ResolveBuildPlan(PackagerInfo row) => new(root, "catalog:widget", "default", 0);
 
         /// <summary>The version in the manifest of the stage; null for a stage that exposes no manifest.</summary>
@@ -592,6 +597,35 @@ public sealed class OneClickRowRunnerTests : IDisposable
         Assert.Empty(execution.Calls);
         Assert.Equal(OneClickOutcomes.Skipped, item.Outcome);
         Assert.Equal($"the plan showed {(planned.Length > 0 ? planned : "no version")} and the check now reads 2.0; open One Click again and review the plan", item.Reason);
+    }
+
+    [Theory]
+    [InlineData("1.9")]
+    [InlineData("2.0.0.0")]
+    public async Task ALocalInstallerRowPublishesTheVersionOfItsFileWhileTheVendorVersionDecidesTheUpdate(string file)
+    {
+        var execution = new FakeExecution(Path.Combine(_root, "workbench")) { Latest = "2.0", LocalVersion = file, StagedVersion = file };
+        var item = Item(true, false, false, planned: file);
+
+        await Runner(execution).RunAsync(item, Publish, CancellationToken.None);
+
+        Assert.Equal(["Stage", "Package"], execution.Calls.Select(c => c.Step));
+        Assert.Equal(OneClickOutcomes.Published, item.Outcome);
+        Assert.Equal(file, item.Version);
+        Assert.Equal("2.0", item.Row!.LatestVersion);
+        Assert.Equal("2.0", Stored().LatestVersion);
+    }
+
+    [Fact]
+    public async Task ALocalInstallerThatChangedAfterThePlanIsNotPublished()
+    {
+        var execution = new FakeExecution(Path.Combine(_root, "workbench")) { Latest = "2.0", LocalVersion = "2.0.0.1" };
+        var item = Item(true, false, false, planned: "1.9");
+
+        await Runner(execution).RunAsync(item, Publish, CancellationToken.None);
+
+        Assert.Empty(execution.Calls);
+        Assert.Equal("the plan showed 1.9 and the installer source folder now holds 2.0.0.1; open One Click again and review the plan", item.Reason);
     }
 
     [Fact]

@@ -74,7 +74,7 @@ The server signs each update with its signing certificate. Use one of these butt
 1. Select **App Packager** in the sidebar.
 2. Check the applications to publish.
 3. Select **Publish All**. **Publish All** publishes to every system that is on in Settings, Systems in Use. The **Review Publish All** window opens first, also when WSUS is the only system in use. See [Publish All](stage-and-publish.md#publish-all).
-4. View the **Status** column of each row and the log pane.
+4. View the **Status** column of each row and the log.
 
 The run stages an application first when it has no stage of its latest version. The run then checks the staged build against the rules of WSUS and publishes it.
 

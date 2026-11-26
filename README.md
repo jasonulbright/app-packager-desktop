@@ -116,7 +116,7 @@ App Packager Desktop is the C# counterpart of [app-packager](https://github.com/
 
 ## Support
 
-Open an issue in the [GitHub repository](https://github.com/jasonulbright/app-packager-desktop/issues) for a defect or a question. Include the version from **Settings**, **About** and the lines from the log pane. The release notes are in [CHANGELOG.md](CHANGELOG.md).
+Open an issue in the [GitHub repository](https://github.com/jasonulbright/app-packager-desktop/issues) for a defect or a question. Include the version from **Settings**, **About** and the lines from the log. The release notes are in [CHANGELOG.md](CHANGELOG.md).
 
 ## Security
 

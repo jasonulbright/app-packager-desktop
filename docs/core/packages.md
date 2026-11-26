@@ -2,7 +2,7 @@
 
 ## What it does
 
-The App Packager page lists every application that App Packager Desktop can package. It is the first entry in the sidebar, it cannot be hidden or moved, and it is the start page. You check rows in the grid, select a button, and read the result in the **Status** column and in the log pane. The header has the button **Catalog**, which opens the [Catalog](applications.md) window, and the menu **Add or import**.
+The App Packager page lists every application that App Packager Desktop can package. It is the first entry in the sidebar, it cannot be hidden or moved, and it is the start page. You check rows in the grid, select a button, and read the result in the **Status** column and in the log. The header has the button **Catalog**, which opens the [Catalog](applications.md) window, and the menu **Add or import**.
 
 This page covers the page layout, the version checks, the menus and the buttons. The columns, the status values, the context menu and the **Operation history** window are in [App Packager grid reference](packages-grid.md).
 
@@ -32,10 +32,10 @@ This page covers the page layout, the version checks, the menus and the buttons.
 | Header | The title, **Catalog** and **Add or import**. |
 | Setup strip | Shows only while the setup checklist has work and its panel is closed. See [Getting started](../getting-started.md#the-setup-checklist). |
 | Status tabs | **All**, **Updates available**, **Not found in ConfigMgr** and **Not checked**, each with a count. **One Click** and the menu **Check** are at the right. |
-| Search row | The **Search applications...** box, the **Administrative Comments** box, **Columns** and **More**. |
+| Search row | The **Search applications...** box, **Columns** and **More**. |
 | Grid and detail pane | The applications. The pane at the right shows the selected row. |
 | Selection line and batch bar | The number of checked applications, the selection buttons, the **Publish All** scope, **Stage** and **Publish All**. **Cancel** shows here while an operation runs. |
-| Log pane and status line | See [App Packager grid reference](packages-grid.md#log-pane). |
+| Log line and status line | The newest log line with **Operation history** and **Logs**, then the status line. See [App Packager grid reference](packages-grid.md#log). |
 
 ## The context strip
 
@@ -57,21 +57,21 @@ The button **Connections** at the right opens **Settings**. The strip has no box
 ### Check the vendor versions
 
 1. Select **App Packager** in the sidebar.
-2. Select the check box of each application you want to check. To select all rows that the grid shows, press Ctrl+A.
+2. Select the check box of each application you want to check. To check every row that the grid shows, press Ctrl+A. A checked row that the view hides stays checked.
 3. Select **Check**, then **Check Latest**.
 4. View the **Latest** column. The status of a row that succeeded is **Latest retrieved**.
-5. If a row shows **Error**, read the log pane. The log line starts with `ERROR:`.
+5. If a row shows **Error**, read the log. The log line starts with `ERROR:`.
 
 Check Latest does not download the installer. It runs the version source that the definition names. See [Definitions](definitions.md).
 
-![The App Packager grid after Check Latest and Check ConfigMgr, with the log pane and the status line](../images/core-packages-list.png)
+![The App Packager grid after Check Latest and Check ConfigMgr, with the log and the status line](../images/core-packages-list.png)
 
 ### Check the version in ConfigMgr
 
 1. Check the rows you want.
 2. Select **Check**, then **Check ConfigMgr**.
-3. View the **Current (ConfigMgr)** column and the **Status** column.
-4. To check only the rows that have an update, select **Select Update Available** in the batch bar. This button checks every visible row whose status starts with **Update available** and clears all other rows. The header check box then shows a dot. It writes a line to the log.
+3. View the **ConfigMgr version** column and the **Status** column.
+4. To check only the rows that have an update, select **Select Update Available** in the batch bar. This button checks every visible row whose status starts with **Update available** and unchecks the other visible rows. A checked row that the view hides stays checked. The header check box then shows a dot. It writes a line to the log.
 
 Check ConfigMgr uses the **CMName** of the definition to find the application. An application counts as found when a current ConfigMgr application title starts with the CMName and the rest of the title is a version or a detail in parentheses. A title with another installer method (EXE or MSI) or another architecture does not count.
 
@@ -109,10 +109,10 @@ The number on a tab counts every application, also the rows that the search box 
 ### Choose the columns
 
 1. Select **Columns**.
-2. Clear or select **Vendor**, **Current (ConfigMgr)**, **Latest**, **CVEs**, **Max CVSS**, **KEV**, **In latest** or **Newest CVE**. Every one of these columns shows at first.
-3. To restore every column, the first order, the first widths and no sort, select **Reset columns**.
+2. Clear or select a column. A new installation shows **ConfigMgr version**, **Latest**, **Status** and **CVE check**. **Source** shows only while an application has an imported source, and **Intune** only while Intune is in use. **Compact view** shows the columns of a new installation.
+3. To restore the columns, the order and the widths of a new installation, with no sort, select **Reset columns**.
 
-The app saves the hidden columns, the column order, the column widths that you set and the sort. The check box column and the icon column do not move. **Application** and **Status** have no entry in the menu and always show.
+The app saves the choice of columns, the column order, the column widths that you set and the sort. The check box column and the icon column do not move. **Application** has no entry in the menu and always shows. At the first start after an upgrade, the grid keeps the columns that it showed before.
 
 ### The detail pane
 
@@ -120,13 +120,17 @@ Select a row. The pane at the right of the grid shows the application name, **Ve
 
 To change the width of the pane, drag the line between the grid and the pane. From the keyboard, press Tab until the focus is on that line, then press the left or right arrow key. The app saves the width. The pane is from 260 to 640 pixels wide, and the grid keeps room for its first columns.
 
-The detail pane follows the selected row. **Stage** and **Publish All** act on the checked rows.
+Under **Status**, the pane shows the symbol of the status class. For **Not found in ConfigMgr**, the line **Not found check** says when the check ran. The line **Publishing** names the systems that **Publish All** reaches, the site, and the systems that are off. **Change Systems in Use** opens that page of Settings.
+
+The detail pane follows the selected row. **Stage** and **Publish All** act on the checked rows, and the batch bar says so.
+
+When you close the publish review with **Back**, or the publish results, the grid keeps the selected row and the scroll position, and the focus goes to **Publish All**.
 
 ### Reload the list
 
-1. Select the page, for example an empty part of the log pane or a cell of the grid. Press F5. The key works only while the keyboard focus is on the page. After you select **App Packager** in the sidebar, the focus can stay in the sidebar.
-2. The grid reads the definitions again. The reload clears the search box, the check boxes and the statuses. The selected status tab stays.
-3. The columns **Current (ConfigMgr)** and **Latest** fill again with the last stored values. A row with a stored vendor version shows the status **Cached**. A row that the last completed **Check ConfigMgr** did not find shows **Not found in ConfigMgr** again. A stored update shows **Update available** again.
+1. Select the page, for example an empty part of the log or a cell of the grid. Press F5. The key works only while the keyboard focus is on the page. After you select **App Packager** in the sidebar, the focus can stay in the sidebar.
+2. The grid reads the definitions again. The reload clears the search box and the statuses. The selected status tab stays. A checked application stays checked. When a checked application is not in the new list, the status line and the log name it.
+3. The columns **ConfigMgr version** and **Latest** fill again with the last stored values. A row with a stored vendor version shows the status **Cached**. A row that the last completed **Check ConfigMgr** did not find shows **Not found in ConfigMgr** again. A stored update shows **Update available** again.
 
 Press F5 after you change a file in the user definitions folder. After a save, the result panel of [Add from web](add-app.md) and of [Add from file](add-from-file.md) loads the grid again and selects the new row for you.
 
@@ -155,12 +159,14 @@ The **Cancel** button shows only while an operation runs. Its place in the batch
 | **One Click** | Right of the tabs | Runs the three checks on the tracked applications and opens the One Click plan. | [One Click](one-click.md) |
 | **Check** | Right of the tabs | Menu with **Check Latest**, **Check ConfigMgr** and **Check CVEs**. | This page, [CVE lookup](cve-lookup.md) |
 | **Search applications...** | Search row | Filters the grid. | This page |
-| **Administrative Comments** | Search row | Text for the comment field of the ConfigMgr application description. The publish review and the One Click plan window start with this text. The box can stay empty. | [Stage and publish](stage-and-publish.md) |
 | **Columns** | Search row | Chooses the columns. | [App Packager grid reference](packages-grid.md) |
 | **More** | Search row | Menu. See the table below. | This page |
 | **Details** | Grid | Opens the detail pane. It shows while the pane is closed. | This page |
 | **Show selected**, **Clear selection** | Batch bar | Act on the checked rows. | This page |
-| **Select Update Available** | Batch bar | Checks the rows with an update. | This page |
+| **Select Update Available** | Batch bar | Checks the visible rows with an update. | This page |
+| **Operation history** | Under the grid | Shows the recorded operations of the selected row. Disabled with no selected row. | [App Packager grid reference](packages-grid.md#operation-history-window) |
+| **Logs** | Under the grid | Opens the log of the session. The line beside the button is the newest log line. | [App Packager grid reference](packages-grid.md#log) |
+| **Change Systems in Use** | Detail pane | Opens Settings, Systems in Use. | [Settings](settings-page.md) |
 | Scope text | Batch bar | `Publish All: ConfigMgr and WSUS`, with the systems of Settings, Systems in Use, or `Publish All: no system in use`. | [Stage and publish](stage-and-publish.md) |
 | **Stage** | Batch bar | Downloads and prepares the content of the checked applications. | [Stage and publish](stage-and-publish.md) |
 | **Publish All** | Batch bar | Publishes the checked applications to every system that is on in Settings, Systems in Use (ConfigMgr, Intune, WSUS), in one run. A review opens first. | [Stage and publish](stage-and-publish.md) |
@@ -210,7 +216,8 @@ The tooltip of a disabled **Check ConfigMgr** entry starts with `Check ConfigMgr
 
 | Key | Effect |
 |---|---|
-| Ctrl+A | Checks every row that the grid shows, or clears all rows. |
+| Ctrl+A | Checks every row that the grid shows, or unchecks them when all are checked. A checked row that the view hides stays checked. |
+| Tab, Ctrl+Tab in the grid | Leaves the grid for the detail pane, or for the batch bar when the pane is closed. With Shift, goes back to the search row. The arrow keys move between the cells. |
 | F5 | Reloads the list. |
 | Esc | Cancels the running operation. |
 | Ctrl+E | Exports the shown rows to a CSV file. |
@@ -232,7 +239,7 @@ The full list is in [Settings reference](../reference/settings.md).
 ## Limits
 
 - Check Latest and Check ConfigMgr process the rows one after the other, in grid order. They do not run in parallel.
-- A row that the search box hides stays checked. An operation still includes it. Ctrl+A, the header check box and Select Update Available act on the rows the search box shows, and clear the rows it hides.
+- A row that the search box hides stays checked. An operation still includes it. Ctrl+A, the header check box and Select Update Available change only the rows that the grid shows.
 - Check ConfigMgr stops a query for one application after 60 seconds. The log shows `query timed out after 60s`.
 - The update check at start and the button **Check for updates** are not on this page. They are on the **General** page of Settings. See [Updates](updates.md).
 - The window opens at 1200 by 800 and cannot be smaller than 900 by 600. The supported minimum size is 1024 by 720. A smaller size can work and is not supported.

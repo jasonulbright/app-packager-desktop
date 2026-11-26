@@ -103,7 +103,7 @@ public partial class PackagesViewModel
         string? VersionRefusal()
         {
             if (build.ReadBuild?.Invoke().Failure is { } gone) return gone;
-            var now = build.ReadBuild?.Invoke().Version ?? build.SealedVersion ?? PackagerExecutionService.PublishVersion(p);
+            var now = build.ReadBuild?.Invoke().Version ?? build.SealedVersion ?? VersionOf(p);
             return string.Equals(now, version, StringComparison.Ordinal) ? null
                 : $"The failed publish was of version {version}, and the version is now {(now.Length > 0 ? now : "unknown")}. Use Publish All to review it.";
         }

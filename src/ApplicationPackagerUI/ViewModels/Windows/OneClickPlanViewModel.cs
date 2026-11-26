@@ -200,7 +200,7 @@ public partial class OneClickPlanViewModel : ObservableObject
             {
                 if (existing.TryGetValue(p.Key, out var item))
                 {
-                    item.Version = p.Version;
+                    item.Version = ShownVersion(p);
                     item.Planned = p.Planned;
                     item.Reason = p.Reason;
                     item.LastPublished = p.LastPublishedText;
@@ -215,7 +215,7 @@ public partial class OneClickPlanViewModel : ObservableObject
                     Application = p.Application,
                     Vendor = p.Vendor,
                     Row = _apps.TryGetValue(p.Key, out var app) ? app.Row : null,
-                    Version = p.Version,
+                    Version = ShownVersion(p),
                     PriorKnownVersion = _context.History.TryGetValue(p.Key, out var prior) ? prior.LastKnownVersion : null,
                     ConfigMgr = p.Destinations.ConfigMgr,
                     Wsus = p.Destinations.Wsus,
@@ -259,6 +259,10 @@ public partial class OneClickPlanViewModel : ObservableObject
             _refreshing = false;
         }
     }
+
+    /// <summary>The version that the run would publish: of the local installer when the stage takes one.</summary>
+    private string ShownVersion(OneClickPlanRow row) =>
+        _apps.TryGetValue(row.Key, out var app) && app.App.StageVersion is { } local ? local : row.Version;
 
     /// <summary>Writes the report of the included rows: the plan before a run, the outcomes after it.</summary>
     public (string MarkdownPath, string JsonPath) WriteReport(DateTime ended, bool canceled, string label = "One Click report")

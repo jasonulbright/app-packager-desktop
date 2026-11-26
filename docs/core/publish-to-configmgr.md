@@ -24,7 +24,7 @@ A publish to ConfigMgr takes the staged content of each checked application to a
 
 1. Open the **App Packager** page.
 2. Stage the applications that you want to publish.
-3. Optional: type a work order or a note in **Administrative Comments**. The app stores it as the description of the ConfigMgr application.
+3. Optional: type a work order or a note in **Administrative comment** in the review that **Publish All** opens. The app stores it as the description of the ConfigMgr application.
 4. Check the rows to publish.
 5. Select **Publish All**. **Publish All** publishes to every system that is on in Settings, Systems in Use. To publish to ConfigMgr only, select **ConfigMgr** only there.
 6. Review the **Review Publish All** window. You can change the **Administrative comment**. Select **Publish N applications**. The app reads ConfigMgr again, and it opens the review again when the plan changed. See [Publish All](stage-and-publish.md#publish-all).
@@ -168,7 +168,7 @@ See [Settings reference](../reference/settings.md).
 | `The SMS Provider <name> denied access. The account needs a ConfigMgr security role for site <code>.` | Your account has no role on the site. | Ask the ConfigMgr administrator for a role. |
 | `The CMSite drive for site <code> on <provider> could not connect. Check the site code and the SMS Provider in Settings, ConfigMgr.` | The site code or the provider name is wrong. | Correct the values in Settings. |
 | `Distribution failed: <reason>` or `Test deployment failed: <reason>` (log), and `ConfigMgr application created, but a step after it failed: <step> to '<target>' failed: <reason>` (run result, exit code 1) | A Post Packaging step failed. The application exists, but clients cannot install it. The inventory shows the ConfigMgr destination as Partial. | Fix the cause. Then distribute the content or deploy the application in the ConfigMgr console, or publish again with Overwrite. A publish with Skip finds the application and does not run the Post Packaging steps again. In One Click, the version counts as published, so a new run skips it: select Force together with Existing ConfigMgr app = Overwrite, or use the console. |
-| `Search query parameter 'LocalizedDisplayName' supports wildcards and -DisableWildcardHandling is defined. Search will only return exact matches.` (three times for each publish run) | The ConfigMgr cmdlet writes this warning into the log pane. It does not mean that the publish failed. | None. The message is a warning of the cmdlet. |
+| `Search query parameter 'LocalizedDisplayName' supports wildcards and -DisableWildcardHandling is defined. Search will only return exact matches.` (three times for each publish run) | The ConfigMgr cmdlet writes this warning into the log. It does not mean that the publish failed. | None. The message is a warning of the cmdlet. |
 
 See [Error messages](../reference/error-messages.md) and [Troubleshooting](../troubleshooting.md).
 

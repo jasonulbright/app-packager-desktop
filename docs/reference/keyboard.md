@@ -18,7 +18,8 @@ None. A shortcut works only in the context that the table names.
 
 | Key | Context | Effect |
 |---|---|---|
-| Ctrl+A | **App Packager** page | Checks every row that the grid shows, or clears all rows. In a text box, Ctrl+A selects the text. |
+| Ctrl+A | **App Packager** page | Checks every row that the grid shows, or unchecks them when all are checked. A checked row that the view hides stays checked. In a text box, Ctrl+A selects the text. |
+| Tab, Ctrl+Tab | Grid of the **App Packager** page | Leaves the grid for the detail pane or the batch bar. With Shift, goes back to the search row. The arrow keys move between the cells. |
 | F5 | **App Packager** page, while the keyboard focus is on the page | Reloads the application list. |
 | Esc | **App Packager** page, while an operation runs | Cancels the operation. |
 | Left, Right | The line between the grid and the detail pane on the **App Packager** page, when it has focus | Changes the width of the detail pane. The width is saved. |
@@ -28,7 +29,8 @@ None. A shortcut works only in the context that the table names.
 | Ctrl+F | **Workbench** window | Shows the Find box. |
 | Enter | Find box of the **Workbench** | Finds the next match. |
 | Ctrl+Tab, Ctrl+Shift+Tab | Script editor of **Detection Tester** | Leaves the editor. The hint text is "Press Ctrl+Tab to leave the editor." |
-| Tab | Editors of **Pivots and Scripts** | Types a tab. |
+| Tab, Shift+Tab | Editors of **Pivots and Scripts**, with the text not changed in this visit | Leaves the editor. |
+| Tab | Editors of **Pivots and Scripts**, after a change of the text | Types a tab. |
 | Ctrl+Tab, Ctrl+Shift+Tab | Editors of **Pivots and Scripts** | Leaves the editor. |
 | Esc, then Tab or Shift+Tab | Editors of **Pivots and Scripts** | Leaves the editor. |
 | Ctrl+Space | Editors of **Pivots and Scripts** | Shows the starter list at the caret. |

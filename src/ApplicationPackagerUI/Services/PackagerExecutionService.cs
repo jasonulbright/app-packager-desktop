@@ -308,6 +308,31 @@ public class PackagerExecutionService(
         : !string.IsNullOrWhiteSpace(packager.LatestVersion) ? packager.LatestVersion
         : packager.StagedVersion ?? "";
 
+    /// <summary>The version of the local installer that a stage of the row would take; null when the stage downloads.</summary>
+    public string? LocalStageVersion(IPackagerExecutionRequest packager)
+    {
+        if (!packager.IsJsonDefined || packager.DefinitionPath is null) return null;
+        try
+        {
+            var def = LoadDefinition(packager.DefinitionPath, packager.DefinitionOrigin);
+            var folder = settingsService.Load().LocalSourceFolders.TryGetValue(def.Id, out var set) ? set : null;
+            return StagingService.LocalStageVersion(def, folder);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException or InvalidOperationException or ArgumentException)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// The version that a publish of the row uses and that the review shows: the version a local installer staged under in this session,
+    /// else the version of the local installer that a stage would take, else <see cref="PublishVersion"/>. The website version of the row
+    /// still decides whether an update is available.
+    /// </summary>
+    public string RunVersion(IPackagerExecutionRequest packager) =>
+        !string.IsNullOrWhiteSpace(packager.LocalSourceStagedVersion) ? packager.LocalSourceStagedVersion
+        : LocalStageVersion(packager) ?? PublishVersion(packager);
+
     /// <summary>
     /// The stage a publish may reuse without staging: the manifest of the
     /// <see cref="PublishVersion"/> folder, and for a build sealed under a profile only while
@@ -326,7 +351,7 @@ public class PackagerExecutionService(
             var source = ProfileSource.Resolve(WorkbenchStoreOrNull(null), def.Id, ApplicationIds.RunOrigin(def.SourceOrigin));
             if (source.Failure is not null) return null;
             var appRoot = StageFolder.Under(ProfileContentScope.LocalDownloadRoot(settings.DownloadRoot, source.ActiveProfileId), def);
-            var version = PublishVersion(packager);
+            var version = RunVersion(packager);
             if (version.Length == 0) return null;
             var path = Path.Combine(appRoot, version, "stage-manifest.json");
             if (!File.Exists(path)) return null;
@@ -737,7 +762,7 @@ public class PackagerExecutionService(
             // With a latest version known, only its stage publishes, or the stage a local
             // installer made in this session: an older staged version published as the
             // latest would carry the wrong release to every endpoint.
-            var version = PublishVersion(packager);
+            var version = RunVersion(packager);
             var manifestPath = Path.Combine(appRoot, version, "stage-manifest.json");
             // A snapshot build packages exactly the stage that carries its BuildId, or nothing.
             if (snapshot is not null)
@@ -1071,7 +1096,7 @@ public class PackagerExecutionService(
                 }
                 else
                 {
-                    manifestPath = Path.Combine(appRoot, PublishVersion(packager), "stage-manifest.json");
+                    manifestPath = Path.Combine(appRoot, RunVersion(packager), "stage-manifest.json");
                     if (!File.Exists(manifestPath) && !string.IsNullOrWhiteSpace(packager.StagedVersion))
                         manifestPath = Path.Combine(appRoot, packager.StagedVersion, "stage-manifest.json");
                 }

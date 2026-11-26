@@ -261,6 +261,21 @@ public sealed class StagingService
     }
 
     /// <summary>
+    /// The version that a stage takes from a local installer, when the stage will use one: the definition has a local source that is
+    /// required, or its folder is set. Such a stage carries the version of that file, which can differ from the version the vendor
+    /// publishes. Null when the stage downloads, and when the file cannot be read (the stage then refuses with the reason).
+    /// </summary>
+    public static string? LocalStageVersion(AppDefinition def, string? localSourceFolder)
+    {
+        // The ODT and layout stages return before the local installer is looked at.
+        if (def.LocalSource is not { } source || def.BootstrapperLayout is not null
+            || def.InstallerType.Equals("ODT", StringComparison.OrdinalIgnoreCase)) return null;
+        if (!source.IsRequired && string.IsNullOrWhiteSpace(localSourceFolder)) return null;
+        try { return LocalSourceResolver.ReadVersion(LocalSourceResolver.Resolve(localSourceFolder, source, def.Application)); }
+        catch (Exception ex) when (ex is InvalidOperationException or IOException or UnauthorizedAccessException or ArgumentException) { return null; }
+    }
+
+    /// <summary>
     /// Resolves the download URL, using DownloadUrlQuery if available (single API call for both version and URL).
     /// </summary>
     private async Task<string?> ResolveDownloadUrlFromApiAsync(VersionScraperConfig config, CancellationToken ct)

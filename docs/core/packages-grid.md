@@ -2,7 +2,7 @@
 
 ## What it does
 
-This page describes the parts of the [App Packager page](packages.md): the grid columns, the **Status** values, the row context menu, the log pane, the status line, the **Operation history** window and the dialogs that the page opens.
+This page describes the parts of the [App Packager page](packages.md): the grid columns, the **Status** values, the row context menu, the log, the status line, the **Operation history** window and the dialogs that the page opens.
 
 ## When to use it
 
@@ -14,27 +14,28 @@ None. Some entries need the settings that [App Packager page](packages.md) names
 
 ## Grid columns
 
-Select a column header to sort the grid. Drag a column header to move the column, or drag its edge to change its width. The first column stays in place when the grid scrolls sideways. The app saves the column order, the widths that you set and the sort. The menu **Columns** hides and shows **Vendor**, **Current (ConfigMgr)**, **Latest**, **CVEs**, **Max CVSS**, **KEV**, **In latest** and **Newest CVE**. **Reset columns** restores the first layout.
+Select a column header to sort the grid. Drag a column header to move the column, or drag its edge to change its width. The first column stays in place when the grid scrolls sideways. The app saves the column order, the widths that you set and the sort. The menu **Columns** hides and shows every column except the check box, the icon and **Application**. A new installation shows **ConfigMgr version**, **Latest**, **Status** and **CVE check**. An installation from an earlier version keeps the columns that it showed. **Compact view** shows the columns of a new installation and keeps your order, widths and sort. **Reset columns** shows the columns of a new installation, in the first order, with the first widths and no sort.
 
 | Column | Content | Shown |
 |---|---|---|
-| (check box) | Marks the row for the next operation. The header check box cycles each time you select it: it checks every visible row, then shows a dot and checks only the rows that have an update, then clears all rows. Each step writes a line to the log. | Always |
+| (check box) | Marks the row for the next operation. The header check box cycles each time you select it: it checks every visible row, then shows a dot and leaves only the visible rows that have an update checked, then unchecks the visible rows. A checked row that the view hides stays checked. Each step writes a line to the log. | Always |
 | **Application** | Name of the application. | Always |
-| **Vendor** | Vendor name. | Until **Columns** hides it |
-| **Current (ConfigMgr)** | Version in ConfigMgr from the last **Check ConfigMgr**. After a reload, the last stored version. | Until **Columns** hides it |
-| **Latest** | Vendor version from the last **Check Latest**. After a reload, the last stored version. | Until **Columns** hides it |
-| **Status** | Result of the last operation on the row. A tooltip can hold more text. | Always |
-| **CVEs** | Number of CVEs, or `CPE missing`, `Error` or `No update`. Select the cell to open the CVE list with links. | Until **Columns** hides it |
-| **Max CVSS** | Highest CVSS score of the CVEs. | Until **Columns** hides it |
-| **KEV** | `Yes` when at least one CVE is in the CISA KEV catalog. | Until **Columns** hides it |
-| **In latest** | `N of M`: the number of CVEs that NVD places at the latest version, out of all CVEs. | Until **Columns** hides it |
-| **Newest CVE** | Publication of the newest CVE. | Until **Columns** hides it |
-| **Max EPSS** | Highest EPSS value. | **More**, **Show debug columns** |
-| **NVD updated** | Time of the last NVD update. | **More**, **Show debug columns** |
-| **CVEs Checked (UTC)** | Time of the CVE lookup, in UTC. | **More**, **Show debug columns** |
-| **CMName** | Name that **Check ConfigMgr** uses to find the application. | **More**, **Show debug columns** |
-| **Script** | File name of the definition, or of the PS1 packager. | **More**, **Show debug columns** |
-| **Intune** | Outcome of the Intune build and publish in the last publish run. | **Intune** is selected under Systems in Use |
+| **Vendor** | Vendor name. | **Columns** |
+| **ConfigMgr version** | Version in ConfigMgr from the last **Check ConfigMgr**. After a reload, the last stored version. | New installations, **Columns** |
+| **Latest** | Vendor version from the last **Check Latest**. After a reload, the last stored version. | New installations, **Columns** |
+| **Status** | Result of the last operation on the row. A tooltip can hold more text. | New installations, **Columns** |
+| **CVE check** | The CVE state in one text: `<N> found`, `Not checked`, `CPE missing`, `No site version`, or the reason why the last lookup gave no number. | New installations, **Columns** |
+| **CVEs** | Number of CVEs, or `CPE missing`, `Error` or `No update`. Select the cell to open the CVE list with links. | **Columns** |
+| **Max CVSS** | Highest CVSS score of the CVEs. | **Columns** |
+| **KEV** | `Yes` when at least one CVE is in the CISA KEV catalog. | **Columns** |
+| **In latest** | `N of M`: the number of CVEs that NVD places at the latest version, out of all CVEs. | **Columns** |
+| **Newest CVE** | Publication of the newest CVE. | **Columns** |
+| **Max EPSS** | Highest EPSS value. | **Columns**, or **More**, **Show debug columns** |
+| **NVD updated** | Time of the last NVD update. | **Columns**, or **More**, **Show debug columns** |
+| **CVEs Checked (UTC)** | Time of the CVE lookup, in UTC. | **Columns**, or **More**, **Show debug columns** |
+| **CMName** | Name that **Check ConfigMgr** uses to find the application. | **Columns**, or **More**, **Show debug columns** |
+| **Script** | File name of the definition, or of the PS1 packager. | **Columns**, or **More**, **Show debug columns** |
+| **Intune** | Outcome of the Intune build and publish in the last publish run. | **Columns**, while Intune is selected under Systems in Use |
 
 The columns **CVEs**, **Max CVSS**, **In latest** and **Max EPSS** sort by number. The CVE columns are explained in [CVE lookup](cve-lookup.md).
 
@@ -60,10 +61,10 @@ The color of the status text follows the value. Green: **Staged**, **Packaged**,
 | **Update available** | The ConfigMgr version is older than the vendor version. After a CVE lookup the text is `Update available (N CVEs, M in KEV)`. |
 | **ConfigMgr version retrieved** | ConfigMgr has the application, and no vendor version is known. |
 | **Not found in ConfigMgr** | ConfigMgr answered, and the application is not there. |
-| **Error** | **Check Latest** found no version or failed, or **Check ConfigMgr** failed. The log pane holds the reason. |
+| **Error** | **Check Latest** found no version or failed, or **Check ConfigMgr** failed. The log holds the reason. |
 | **Cancelled** | You cancelled the operation while the row was working. |
 | **Staging...**, **Staged** | **Stage** is working, or **Stage** succeeded. |
-| **Stage error** | **Stage** ended with an exit code other than 0. The row is unchecked. |
+| **Stage error** | **Stage** ended with an exit code other than 0. The row stays checked. |
 | **Skipped** | The row was left out. The reason is a canceled **Configure** dialog, an existing application that you kept, or a local source folder that you did not choose. |
 | **Packaging...**, **Packaged** | A **Publish All** run with ConfigMgr in use is working, or it succeeded. |
 | **Package error** | The ConfigMgr publish ended with an exit code other than 0. |
@@ -97,7 +98,7 @@ A double-click on the check box or on a column header does not open the Workbenc
 
 ## Check ConfigMgr result file
 
-Each **Check ConfigMgr** run writes the result to two files in the legacy data folder, `%LOCALAPPDATA%\SRLPackr` by default: `CheckConfigMgrResult.csv` and `CheckConfigMgrResult.json`. The next run overwrites them. The log pane shows the path. The files hold one row for each application the run checked, except a row that ended in **Error** or **Cancelled**, or that has no vendor version. The Update rollout view of [Deployment Helper](../tools/deployment-helper.md) reads the file to list the applications that are behind. The PowerShell App Packager writes the same format.
+Each **Check ConfigMgr** run writes the result to two files in the legacy data folder, `%LOCALAPPDATA%\SRLPackr` by default: `CheckConfigMgrResult.csv` and `CheckConfigMgrResult.json`. The next run overwrites them. The log shows the path. The files hold one row for each application the run checked, except a row that ended in **Error** or **Cancelled**, or that has no vendor version. The Update rollout view of [Deployment Helper](../tools/deployment-helper.md) reads the file to list the applications that are behind. The PowerShell App Packager writes the same format.
 
 **More**, **Export Check Results...** saves the result of the last run to a file that you choose. The entry is disabled until a **Check ConfigMgr** run ends. The **Save as type** list in the dialog chooses the format and the filter: CSV or JSON, all checked applications or only the applications with an update available.
 
@@ -116,11 +117,11 @@ The CSV is UTF-8 with a byte order mark. Every field is in quotes. The columns:
 | **Source** | `APD` here, `AppPackager` in the PowerShell app. |
 | **CheckedAtUtc** | The end of the run, `yyyy-MM-ddTHH:mm:ssZ`. |
 
-## Log pane
+## Log
 
-The pane under the grid is read only. Each line starts with the date and the time. The pane scrolls to the newest line.
+The line under the grid shows the newest log line. The button **Operation history** beside it opens the history of the selected row. The button **Logs** opens the window **Log**. The window shows the newest 2000 lines of the session; the log files hold every line. Each line starts with the date and the time. The window scrolls to a new line while no line is selected. **Copy** copies the selected lines, or every line. **Open Log Folder** opens the folder of the log files.
 
-- At the start, the pane shows `Session log: <path>` and the source of the list. The source line is `Loading the shipped definitions (no PS1 packagers folder configured).` or `Loading packagers from: <folder>`.
+- At the start, the log shows `Session log: <path>` and the source of the list. The source line is `Loading the shipped definitions (no PS1 packagers folder configured).` or `Loading packagers from: <folder>`.
 - The log is also written to two files in the `Logs` folder of the legacy data folder, `%LOCALAPPDATA%\SRLPackr` by default: one file per session named `packr-<yyyyMMdd>-<HHmmss>.log`, and one rolling file `packr.log` in the legacy data folder. App Packager Desktop keeps the newest 30 session files.
 - The log files of the child runs of Stage and Publish are in the `Logs` folder of the **Download Root**.
 
@@ -128,9 +129,9 @@ The paths with a data root override are in [Data folders](../reference/data-fold
 
 ## Status line
 
-The line under the log pane has three parts.
+The bottom line of the page has three parts.
 
-- The text `● ConfigMgr` shows the state of the ConfigMgr connection by color. Green: connected. Red: the connection failed. Amber: the test is running. Gray: **Site Code** is empty. The default color shows when **ConfigMgr** is not in use. The log pane gives the text of the state, for example `ConfigMgr: Connected to site <code>`.
+- The text `● ConfigMgr` shows the state of the ConfigMgr connection by color. Green: connected. Red: the connection failed. Amber: the test is running. Gray: **Site Code** is empty. The default color shows when **ConfigMgr** is not in use. The log gives the text of the state, for example `ConfigMgr: Connected to site <code>`.
 - The middle text shows the progress, for example `Latest check: 2 of 10 — <application>`, or the result of the run.
 - The progress bar shows while an operation runs.
 
@@ -190,7 +191,7 @@ The dialog shows when the definition has install parameters and one of two condi
 
 ## Limits
 
-- The columns **CVEs** to **Newest CVE** describe one pair of versions. When the **Current (ConfigMgr)** value or the **Latest** value of a row changes, the CVE cells of that row clear.
+- The columns **CVEs** to **Newest CVE** describe one pair of versions. When the **ConfigMgr version** value or the **Latest** value of a row changes, the CVE cells of that row clear.
 - The version lookup of a PS1 packager ends after 30 seconds.
 - A row that [Add from file](add-from-file.md) made has no version source. **Check Latest** shows the version that you reviewed and sends no request.
 

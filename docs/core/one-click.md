@@ -45,10 +45,10 @@ The rights of each destination are in [Permissions](../reference/permissions.md)
 ### Plan and run
 
 1. Select **App Packager** in the sidebar.
-2. Optional: enter text in **Administrative Comments**. The plan window starts with this text.
+2. Optional: select the applications that you want to view in the grid. The plan does not depend on the checks of the grid.
 3. Select **One Click** at the right of the status tabs. One Click runs **Check Latest**, **Check ConfigMgr** and **Check CVEs** on every tracked application. Then the **One Click** window opens with the checked versions. Select **Cancel** during a check to stop before the plan opens. The window does not stop your work in the main window.
 4. View the header, the steps of the saved action, the systems, the summary line, the action line, the scope line and the grid. A line that starts with `Not ready:` names a destination that cannot take a publish. To change the saved action, select **One Click settings** at the right of the action line. The plan window closes and **Settings** opens on the page **One Click**. Save the change, then select **One Click** again. The button is disabled while a run is active.
-5. Optional: change the text in **Administrative comment**. A publish uses this text. It does not change the box on the App Packager page.
+5. Optional: enter text in **Administrative comment**. A publish uses this text. The box starts with the comment of your last confirmed publish review in this session. For a row that the run writes, **Change details** shows what the run creates in each system.
 6. Optional: clear **Include** for a row, or change the destination boxes of a row. These changes apply to this run only.
 7. Optional: select **Plan only** to write the plan as a report without a run.
 8. Select **Run**.
