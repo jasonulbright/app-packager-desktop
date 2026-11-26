@@ -41,7 +41,10 @@ public sealed class PublishRunService(PackagerExecutionService executionService,
     /// consumes; without one, the row's existing stage of its latest version is used, and
     /// the row is staged when it has none. A failed stage returns before the publish.
     /// </summary>
-    public async Task<WsusRowRun> PublishWsusRowAsync(PackagerInfo p, RunSnapshot? workbenchSnapshot, Action<string> log, CancellationToken ct)
+    /// <param name="reviewedVersion">The version that the publish review showed. A stage of another version is not published. Null for a run
+    /// with no review (the command line).</param>
+    public async Task<WsusRowRun> PublishWsusRowAsync(PackagerInfo p, RunSnapshot? workbenchSnapshot, string? reviewedVersion,
+        Action<string> log, CancellationToken ct)
     {
         PackagerExecutionResult stage;
         if (workbenchSnapshot is not null)
@@ -62,8 +65,12 @@ public sealed class PublishRunService(PackagerExecutionService executionService,
             if (stage.ExitCode != 0) return new WsusRowRun(stage, null, null);
         }
 
-        p.Status = "Publishing to WSUS...";
-        var step = await executionService.PublishWsusAsync(p, stage, workbenchSnapshot, wsusPublisher, line => log($"  {line}"), ct);
+        // Compared with the stage that the publish would read, whether it was found or made just now.
+        var refusal = executionService.ReviewedStageRefusal(p, stage, workbenchSnapshot, reviewedVersion);
+        if (refusal is null) p.Status = "Publishing to WSUS...";
+        var step = refusal is not null
+            ? new WsusStepResult(WsusStepStatus.Failed, refusal, [], [])
+            : await executionService.PublishWsusAsync(p, stage, workbenchSnapshot, wsusPublisher, line => log($"  {line}"), ct);
         var outcome = PublishRowOutcome.For(PublishRunTargets.WsusOnly, 0, wsus: step);
         p.Status = outcome.Status;
         p.StatusDetail = outcome.Detail.Length > 0 ? outcome.Detail : null;

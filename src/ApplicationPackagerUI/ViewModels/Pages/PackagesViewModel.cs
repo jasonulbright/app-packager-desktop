@@ -1287,6 +1287,8 @@ public partial class PackagesViewModel : ObservableObject
                 try
                 {
                     var token = _operationCts.Token;
+                    // The version that the confirmed review showed for this application. No other version is published.
+                    var reviewed = confirmedPlan.Rows.First(r => r.App.Uid == p.Uid).App.Version;
                     var conflictStop = false;
                     var conflictKept = false;
 
@@ -1296,7 +1298,7 @@ public partial class PackagesViewModel : ObservableObject
                         ThrowIfBuildIsGone();
                         var packaged = await _executionService.PackageAsync(
                             p, Comment, line => AddLogLine($"  {line}"), token,
-                            targetOverride: packageTarget, snapshot: snapshot);
+                            targetOverride: packageTarget, snapshot: snapshot, reviewedVersion: reviewed);
                         if (packaged.Conflict is null) return packaged;
 
                         var answer = runConflictAnswer ?? await AskExistingConflictAsync(packaged.Conflict);
@@ -1324,7 +1326,7 @@ public partial class PackagesViewModel : ObservableObject
                             return await _executionService.PackageAsync(
                                 p, Comment, line => AddLogLine($"  {line}"), token,
                                 ApplicationPackagerEngine.Services.OnExistingBehavior.Overwrite,
-                                snapshot, packageTarget);
+                                snapshot, packageTarget, reviewedVersion: reviewed);
                         }
 
                         conflictKept = true;
@@ -1333,7 +1335,7 @@ public partial class PackagesViewModel : ObservableObject
                     }
 
                     // Each destination of the target runs once; one that fails does not stop the next.
-                    var version = sealedVersion ?? PackagerExecutionService.PublishVersion(p);
+                    var version = reviewed;
                     var cells = new List<PublishDestinationResult>();
                     PublishRowRun run;
                     try
@@ -1342,7 +1344,7 @@ public partial class PackagesViewModel : ObservableObject
                             () =>
                             {
                                 ThrowIfBuildIsGone();
-                                return _publishRuns.PublishWsusRowAsync(p, snapshot, AddLogLine, token);
+                                return _publishRuns.PublishWsusRowAsync(p, snapshot, reviewed, AddLogLine, token);
                             },
                             AddLogLine, token, () => conflictStop, cells);
                     }

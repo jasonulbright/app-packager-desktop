@@ -100,6 +100,10 @@ The retry opens **Review Publish All** for this application and this system only
 
 After the retry, the results open again. The cell shows the result of the retry. When the retry did not run, the window gives the reason. The results of a **One Click** run have no retry.
 
+### Only the reviewed version is published
+
+A publish uses the version that the review shows. A stage can hold another version, for example when the vendor released a version after the last check, or when a local installer has another file version. The app then publishes nothing for that cell, and the message reads `Staged <version>, reviewed <version>; check the version and review again. Nothing was published.` An application with no version in the review is not published. Select **Check**, then **Check Latest**, and use **Publish All** again. A PS1 packager publishes through its own script. For it, the app compares the version of the row before the script runs. The app cannot compare what the script then publishes. The command line has no review, so it does not compare.
+
 ### A publish to WSUS only
 
 When WSUS is the only system in use, **Publish All** opens the same review window and the same results window. The review has one column, **WSUS**. It has no **Administrative comment** box, because WSUS does not get the comment. When you confirm, the app reads the settings and the versions again. The read does not connect to the WSUS server. The publish itself checks the update that the server has for this version. A row that WSUS cannot take stays checked. A row that fails also stays checked. See [WSUS publishing](wsus-publishing.md).

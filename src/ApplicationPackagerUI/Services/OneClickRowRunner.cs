@@ -92,6 +92,8 @@ public sealed class OneClickRowRunner(IOneClickExecution execution, ISettingsRea
             var action = OneClickActionNames.Normalize(options.Action);
             var stepLog = (string line) => log($"  {line}");
 
+            // The version that the plan window showed. The run publishes that version or nothing.
+            var planned = item.Version;
             item.Step = "checking " + p.Application;
             p.Status = "Checking latest...";
             log($"One Click: {p.Application} ({p.Script})");
@@ -176,6 +178,16 @@ public sealed class OneClickRowRunner(IOneClickExecution execution, ISettingsRea
         if (buildStale && !versionChanged && decision.PublishTo.Count == 0)
             log($"One Click: {p.Application} {latest} restages: the last build differs in version, profile revision or signing policy. No destination takes a publish of it.");
 
+        var publishes = action == OneClickActionNames.StageAndPackage && decision.PublishTo.Count > 0;
+        if (publishes && ReviewedVersion.Refusal(planned, latest) is not null)
+        {
+            var changed = $"the plan showed {(planned.Length > 0 ? planned : "no version")} and the check now reads {latest}; open One Click again and review the plan";
+            p.Status = CveRowState.UpdateStatus(p);
+            log($"One Click: {p.Application} is not published: {changed}.");
+            Finish(item, OneClickOutcomes.Skipped, changed);
+            return;
+        }
+
         // One run snapshot serves the stage and every publish of this row.
         if (plan is null)
         {
@@ -206,6 +218,13 @@ public sealed class OneClickRowRunner(IOneClickExecution execution, ISettingsRea
             log($"Stage FAILED (exit {stage.ExitCode})");
             StdErr?.Invoke(stage.StdErr);
             Finish(item, OneClickOutcomes.Failed, "stage failed");
+            return;
+        }
+        if (publishes && StagedVersionRefusal(p, stage, snapshot, latest) is { } otherVersion)
+        {
+            p.Status = "Publish error";
+            log($"One Click: {p.Application}: {otherVersion}");
+            Finish(item, OneClickOutcomes.Failed, otherVersion);
             return;
         }
         p.Status = "Staged";
@@ -359,6 +378,17 @@ public sealed class OneClickRowRunner(IOneClickExecution execution, ISettingsRea
         {
             var outcome = InventoryOperationOutcome(item, ct.IsCancellationRequested);
             inventory.CompleteOperation(operationId, outcome, DateTimeOffset.UtcNow, item.Reason);
+        }
+    }
+
+    /// <summary>Why the stage is not the version that the run decided to publish; null when it is, or when no manifest exists (the publish then refuses).</summary>
+    private string? StagedVersionRefusal(PackagerInfo row, PackagerExecutionResult stage, RunSnapshot snapshot, string version)
+    {
+        if (execution.StagedManifestPath(row, stage, snapshot) is not { } path || !File.Exists(path)) return null;
+        try { return ReviewedVersion.Refusal(version, new ManifestService().Read(path).SoftwareVersion); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException or InvalidOperationException)
+        {
+            return $"The stage manifest {path} cannot be read, so its version cannot be compared: {ex.Message} Nothing was published.";
         }
     }
 

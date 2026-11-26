@@ -443,7 +443,8 @@ public sealed class BuildRunner(
         WsusRowRun run;
         try
         {
-            run = await publishRuns.PublishWsusRowAsync(row, snapshot, output.Info, ct);
+            // The command line has no publish review, so no version is compared.
+            run = await publishRuns.PublishWsusRowAsync(row, snapshot, null, output.Info, ct);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException
                                    or ArgumentException or JsonException)

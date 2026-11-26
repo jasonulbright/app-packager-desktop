@@ -163,7 +163,7 @@ The **Cancel** button shows only while an operation runs. Its place in the batch
 | **Select Update Available** | Batch bar | Checks the rows with an update. | This page |
 | Scope text | Batch bar | `Publish All: ConfigMgr and WSUS`, with the systems of Settings, Systems in Use, or `Publish All: no system in use`. | [Stage and publish](stage-and-publish.md) |
 | **Stage** | Batch bar | Downloads and prepares the content of the checked applications. | [Stage and publish](stage-and-publish.md) |
-| **Publish All** | Batch bar | Publishes the checked applications to every system that is on in Settings, Systems in Use (ConfigMgr, Intune, WSUS), in one run. A review opens first, except for a publish to WSUS only. | [Stage and publish](stage-and-publish.md) |
+| **Publish All** | Batch bar | Publishes the checked applications to every system that is on in Settings, Systems in Use (ConfigMgr, Intune, WSUS), in one run. A review opens first. | [Stage and publish](stage-and-publish.md) |
 | **Cancel** | Batch bar | Stops the running operation. | This page |
 
 There is one publish button. To publish to one system only, select only that system under Settings, Systems in Use, and select **Save Settings**.

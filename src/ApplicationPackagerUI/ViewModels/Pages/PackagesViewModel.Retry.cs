@@ -125,14 +125,14 @@ public partial class PackagesViewModel
                     ThrowIfBuildIsGone();
                     // Skip keeps an existing application. A retry has no Overwrite answer.
                     var result = await _executionService.PackageAsync(p, Comment, line => AddLogLine($"  {line}"), token,
-                        ApplicationPackagerEngine.Services.OnExistingBehavior.Skip, build.Snapshot, packageTarget);
+                        ApplicationPackagerEngine.Services.OnExistingBehavior.Skip, build.Snapshot, packageTarget, reviewedVersion: version);
                     if (result.ExitCode != 0) LogStdErr(result.StdErr);
                     return result;
                 },
                 () =>
                 {
                     ThrowIfBuildIsGone();
-                    return _publishRuns.PublishWsusRowAsync(p, build.Snapshot, AddLogLine, token);
+                    return _publishRuns.PublishWsusRowAsync(p, build.Snapshot, version, AddLogLine, token);
                 },
                 AddLogLine, token, null, cells);
         }

@@ -163,7 +163,7 @@ App Packager Desktop stores the history in the SQLite file `history.db` in the l
 
 ### Publish review and publish results
 
-**Publish All** opens the window **Review Publish All** before a run, and the window **Publish results** after it. A publish to WSUS only has neither window. [Stage and publish](stage-and-publish.md#publish-all) describes both.
+**Publish All** opens the window **Review Publish All** before a run, and the window **Publish results** after it, also for a publish to WSUS only. [Stage and publish](stage-and-publish.md#publish-all) describes both.
 
 ### Application Already Exists
 

@@ -284,6 +284,21 @@ public class PackagerExecutionService(
     }
 
     /// <summary>
+    /// Why the stage that a publish would use is not the reviewed version, or null. A stage with no readable manifest has no version. When no
+    /// manifest exists at all, the publish refuses with its own text, so this returns null.
+    /// </summary>
+    public string? ReviewedStageRefusal(IPackagerExecutionRequest packager, PackagerExecutionResult stage, RunSnapshot? snapshot, string? reviewedVersion)
+    {
+        if (reviewedVersion is null) return null;
+        if (StagedManifestPath(packager, stage, snapshot) is not { } path) return null;
+        try { return ReviewedVersion.Refusal(reviewedVersion, new ManifestService().Read(path).SoftwareVersion); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException or InvalidOperationException)
+        {
+            return $"The stage manifest {path} cannot be read, so its version cannot be compared with the reviewed version: {ex.Message} Nothing was published.";
+        }
+    }
+
+    /// <summary>
     /// The version folder a publish of the row uses: the version a local installer staged
     /// under in this session, else the latest version, else the last staged version. An
     /// older staged version is never published in place of a known latest version.
@@ -651,12 +666,13 @@ public class PackagerExecutionService(
     public async Task<PackagerExecutionResult> PackageAsync(
         IPackagerExecutionRequest packager, string comment, Action<string>? onOutputLine = null,
         CancellationToken ct = default, OnExistingBehavior onExisting = OnExistingBehavior.Skip,
-        RunSnapshot? snapshot = null, string? targetOverride = null, string? operationId = null, bool recordInventory = true)
+        RunSnapshot? snapshot = null, string? targetOverride = null, string? operationId = null, bool recordInventory = true,
+        string? reviewedVersion = null)
     {
         if (NotAPublishTargetRefusal(targetOverride) is { } notATarget) return notATarget;
         if (!recordInventory)
             return await PackageCoreAsync(packager, comment, onOutputLine, ct, onExisting, snapshot,
-                DeploymentTargets.Normalize(targetOverride ?? DeploymentTargets.Mecm));
+                DeploymentTargets.Normalize(targetOverride ?? DeploymentTargets.Mecm), reviewedVersion);
 
         var target = DeploymentTargets.Normalize(targetOverride ?? DeploymentTargets.Mecm);
         var ownsOperation = operationId is null;
@@ -671,7 +687,7 @@ public class PackagerExecutionService(
         try
         {
             ct.ThrowIfCancellationRequested();
-            var result = await PackageCoreAsync(packager, comment, onOutputLine, ct, onExisting, snapshot, target);
+            var result = await PackageCoreAsync(packager, comment, onOutputLine, ct, onExisting, snapshot, target, reviewedVersion);
             PersistPackageOutcomes(packager, snapshot, target, result, operationId, startedAt, onOutputLine);
             outcome = result.Conflict is not null && result.ExitCode == 0 ? InventoryOutcome.Skipped
                 : result.ExitCode == 0 ? InventoryOutcome.Succeeded
@@ -702,11 +718,11 @@ public class PackagerExecutionService(
 
     private async Task<PackagerExecutionResult> PackageCoreAsync(
         IPackagerExecutionRequest packager, string comment, Action<string>? onOutputLine,
-        CancellationToken ct, OnExistingBehavior onExisting, RunSnapshot? snapshot, string target)
+        CancellationToken ct, OnExistingBehavior onExisting, RunSnapshot? snapshot, string target, string? reviewedVersion)
     {
         if (WsusTargetRefusal(target) is { } wsusRefusal) return wsusRefusal;
         if (packager.StagedManifestPath is not null)
-            return await PackageStagedManifestAsync(packager.StagedManifestPath, comment, onOutputLine, ct, onExisting, snapshot, target);
+            return await PackageStagedManifestAsync(packager.StagedManifestPath, comment, onOutputLine, ct, onExisting, snapshot, target, reviewedVersion);
 
         var settings = settingsService.Load();
 
@@ -749,6 +765,8 @@ public class PackagerExecutionService(
             var manifest = manifestService.Read(manifestPath);
             if (StageFolder.IdentityRefusal(def, manifest.ApplicationId) is { } identityRefusal)
                 return new PackagerExecutionResult { ExitCode = 1, StdErr = identityRefusal };
+            if (ReviewedVersion.Refusal(reviewedVersion, manifest.SoftwareVersion) is { } versionRefusal)
+                return new PackagerExecutionResult { ExitCode = 1, StdErr = versionRefusal };
 
             var conflicts = new ConflictWatch();
             void Report(string line)
@@ -896,6 +914,9 @@ public class PackagerExecutionService(
         if (DeploymentTargets.PublishesToIntune(target))
             onOutputLine?.Invoke("Intune publishing applies to JSON-defined apps; this PS1 packager runs the ConfigMgr flow only.");
 
+        // A PS1 packager publishes through its own script, so only the version of the row can be compared before it runs.
+        if (ReviewedVersion.Refusal(reviewedVersion, PublishVersion(packager)) is { } rowRefusal)
+            return new PackagerExecutionResult { ExitCode = 1, StdErr = rowRefusal };
         if (StagedContentRefusal(settings.DownloadRoot, withParent: false) is { } rootRefusal)
             return new PackagerExecutionResult { ExitCode = 1, StdErr = rootRefusal };
         var bridge = PrepareChildBridge(packager, settings, onOutputLine, out var refusal, snapshot, target);
@@ -1228,7 +1249,7 @@ public class PackagerExecutionService(
     public async Task<PackagerExecutionResult> PackageStagedManifestAsync(
         string manifestPath, string comment, Action<string>? onOutputLine = null,
         CancellationToken ct = default, OnExistingBehavior onExisting = OnExistingBehavior.Skip,
-        RunSnapshot? snapshot = null, string? target = null)
+        RunSnapshot? snapshot = null, string? target = null, string? reviewedVersion = null)
     {
         if (NotAPublishTargetRefusal(target) is { } notATarget) return notATarget;
         target = DeploymentTargets.Normalize(target ?? DeploymentTargets.Mecm);
@@ -1241,6 +1262,8 @@ public class PackagerExecutionService(
         if (StagedContentRefusal(stagedContentPath) is { } contentRefusal)
             return new PackagerExecutionResult { ExitCode = 1, StdErr = contentRefusal };
         var manifest = new ManifestService().Read(manifestPath);
+        if (ReviewedVersion.Refusal(reviewedVersion, manifest.SoftwareVersion) is { } versionRefusal)
+            return new PackagerExecutionResult { ExitCode = 1, StdErr = versionRefusal };
         var signingPolicy = StageFinalizer.EffectivePolicy(snapshot, settings.ScriptSigning);
         // The same title settings as a definition: the global include or remove version, and the mode of the manifest.
         var applicationTitle = RunApplicationTitle(manifest, null, settings, null, CommandLineSupersedence);

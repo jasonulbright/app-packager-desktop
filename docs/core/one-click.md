@@ -107,6 +107,7 @@ When the plan has rows of that kind, the summary line ends with `, <N> supersede
 - When the vendor reports an older version than the one seen before, the row gets the status `Vendor older than last seen` and the outcome `Skipped`.
 - **Report only** ends with the outcome `Checked`. The reason is `update available` or `up to date`.
 - **Stage** and **Stage and Publish** stage the application with the saved install parameters. They show no review dialog.
+- **Stage and Publish** publishes the version that the plan shows, or nothing. When the check in the run reads another version, or the plan shows no version, the row is skipped. When the stage holds another version, the row fails. Open **One Click** again and review the plan.
 - A row publishes only to the destinations it has selected. When it has more than one, the order is ConfigMgr, then WSUS, then Intune.
 - When a destination refuses an application, One Click remembers the refusal until the version changes.
 - When the ConfigMgr application was created but the content distribution or the test deployment failed, the row is Failed and the inventory shows the ConfigMgr destination as Partial. The application exists, so the version counts as published and the next run skips it. To run the steps again, select **Force** together with **Existing ConfigMgr app** set to Overwrite, or distribute the content in the ConfigMgr console.

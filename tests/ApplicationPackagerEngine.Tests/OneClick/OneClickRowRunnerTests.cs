@@ -62,7 +62,17 @@ public sealed class OneClickRowRunnerTests : IDisposable
 
         public PackagerExecutionService.OneClickBuildPlan? ResolveBuildPlan(PackagerInfo row) => new(root, "catalog:widget", "default", 0);
 
-        public string? StagedManifestPath(PackagerInfo row, PackagerExecutionResult stage, RunSnapshot? snapshot) => null;
+        /// <summary>The version in the manifest of the stage; null for a stage that exposes no manifest.</summary>
+        public string? StagedVersion { get; set; }
+
+        public string? StagedManifestPath(PackagerInfo row, PackagerExecutionResult stage, RunSnapshot? snapshot)
+        {
+            if (StagedVersion is null) return null;
+            var folder = Directory.CreateDirectory(Path.Combine(root, "stage", StagedVersion)).FullName;
+            var path = Path.Combine(folder, "stage-manifest.json");
+            new ManifestService().Write(path, new StageManifest { AppName = "Widget", SoftwareVersion = StagedVersion });
+            return path;
+        }
 
         public RunSnapshot? CreateRowSnapshot(PackagerInfo row, PackagerExecutionService.OneClickBuildPlan plan, string target, out string? refusal)
         {
@@ -100,8 +110,11 @@ public sealed class OneClickRowRunnerTests : IDisposable
         return new OneClickRowRunner(execution, new SettingsService(), inventory, new ApplicationInventoryProjection(inventory), _log.Add);
     }
 
-    private static OneClickPlanItem Item(bool configMgr, bool wsus, bool intune, IReadOnlyDictionary<string, string>? notReady = null, string? priorKnownVersion = null) => new()
+    private static OneClickPlanItem Item(bool configMgr, bool wsus, bool intune, IReadOnlyDictionary<string, string>? notReady = null, string? priorKnownVersion = null,
+        string planned = "2.0") => new()
     {
+        // The version that the plan window showed.
+        Version = planned,
         PriorKnownVersion = priorKnownVersion,
         Key = "widget",
         Application = "Widget",
@@ -317,7 +330,7 @@ public sealed class OneClickRowRunnerTests : IDisposable
             Latest = "3.0",
             Wsus = new(WsusStepStatus.Refused, "not supported: CustomInstall. text", ["CustomInstall"], [])
         };
-        var item = Item(false, true, false);
+        var item = Item(false, true, false, planned: "3.0");
         await Runner(refusing).RunAsync(item, Publish, CancellationToken.None);
         Assert.Equal("3.0", Stored().NotSupported["WSUS"].Version);
         Assert.Equal(OneClickOutcomes.NotSupported, item.Outcome);
@@ -430,7 +443,7 @@ public sealed class OneClickRowRunnerTests : IDisposable
     public async Task ForcePublishesOverASiteVersionNewerThanTheVendorVersion()
     {
         var execution = new FakeExecution(Path.Combine(_root, "workbench")) { Latest = "6.5.7" };
-        var item = Item(true, false, false);
+        var item = Item(true, false, false, planned: "6.5.7");
         item.Row!.CurrentVersion = "99.0";
 
         await Runner(execution).RunAsync(item, Publish with { Force = true }, CancellationToken.None);
@@ -558,12 +571,41 @@ public sealed class OneClickRowRunnerTests : IDisposable
     {
         SeedEarlierRun();
         var execution = new FakeExecution(Path.Combine(_root, "workbench")) { Latest = "1.9" };
-        var item = Item(true, false, false);
+        var item = Item(true, false, false, planned: "1.9");
 
         await Runner(execution).RunAsync(item, Publish with { Force = true }, CancellationToken.None);
 
         Assert.Equal(["Stage", "Package"], execution.Calls.Select(c => c.Step));
         Assert.Equal("1.9", Stored().LatestVersion);
+    }
+
+    [Theory]
+    [InlineData("1.5")]
+    [InlineData("")]
+    public async Task ARunPublishesNothingWhenTheCheckReadsAnotherVersionThanThePlanShowed(string planned)
+    {
+        var execution = new FakeExecution(Path.Combine(_root, "workbench"));
+        var item = Item(true, true, true, planned: planned);
+
+        await Runner(execution).RunAsync(item, Publish, CancellationToken.None);
+
+        Assert.Empty(execution.Calls);
+        Assert.Equal(OneClickOutcomes.Skipped, item.Outcome);
+        Assert.Equal($"the plan showed {(planned.Length > 0 ? planned : "no version")} and the check now reads 2.0; open One Click again and review the plan", item.Reason);
+    }
+
+    [Fact]
+    public async Task ARunPublishesNothingWhenTheStageHoldsANewerVersion()
+    {
+        var execution = new FakeExecution(Path.Combine(_root, "workbench")) { StagedVersion = "2.1" };
+        var item = Item(true, true, true);
+
+        await Runner(execution).RunAsync(item, Publish, CancellationToken.None);
+
+        Assert.Equal(["Stage"], execution.Calls.Select(c => c.Step));
+        Assert.Equal(OneClickOutcomes.Failed, item.Outcome);
+        Assert.Equal("Staged 2.1, reviewed 2.0; check the version and review again. Nothing was published.", item.Reason);
+        Assert.DoesNotContain("ConfigMgr", Stored().Published.Keys);
     }
 
     [Fact]
