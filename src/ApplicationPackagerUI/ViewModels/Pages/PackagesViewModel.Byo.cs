@@ -162,8 +162,8 @@ public partial class PackagesViewModel
         {
             EndByoOperation();
         }
-        if (target == PublishRunTargets.WsusOnly) await PublishWsusRunAsync([row!], snapshot);
-        else await PackageAsync([row!], target, snapshot);
+        await RouteWorkbenchPublishAsync(target,
+            () => PublishWsusRunAsync([row!], snapshot), review => PackageAsync([row!], target, snapshot, review));
     }
 
     /// <summary>The token of the Workbench stage in progress.</summary>

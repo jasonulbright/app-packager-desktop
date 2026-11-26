@@ -136,6 +136,18 @@ public sealed class Phase0EngineTruthTests
     }
 
     [Fact]
+    public async Task AThrownWsusStepIsAWsusFailureEvenWithoutAWsusRun()
+    {
+        var run = await PublishRowRunner.RunAsync("uid-1", "1", PublishRunTargets.ConfigMgrAndWsus,
+            _ => Task.FromResult(Ok(PublishRunTargets.ConfigMgr)),
+            () => throw new InvalidOperationException("the build is gone"), _ => { }, default);
+        Assert.Null(run.Wsus);
+        Assert.True(run.WsusFailed);
+        Assert.Equal("the build is gone", run.Result.For("WSUS")!.Message);
+        Assert.False((await Run(PublishRunTargets.ConfigMgrAndWsus, new Calls())).WsusFailed);
+    }
+
+    [Fact]
     public async Task ACancelledRunStopsBeforeWsus()
     {
         using var cts = new CancellationTokenSource();

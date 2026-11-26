@@ -259,6 +259,43 @@ public sealed class MainGridProfileStageTests : IDisposable
     }
 
     [Fact]
+    public async Task TheIntuneReviewFollowsTheBuildOfTheRunAndFailsWhenItCannotReadIt()
+    {
+        using var server = ProfileStageFixture.Server();
+        var profile = _t.NewProfile(ProfileStageFixture.ApplicationId, "Pilot Ring");
+        var row = Row(server);
+        var staged = await Service().StageAsync(row);
+        Assert.Equal(0, staged.ExitCode);
+        var manifest = new ManifestService().Read(staged.OutLogPath!);
+        var build = new RunSnapshot
+        {
+            ApplicationId = ProfileStageFixture.ApplicationId, ProfileId = profile.ProfileId, BuildId = manifest.BuildId!, DataRoot = _t.Store.DataRoot
+        };
+        // The grid row names another version: the review of a run with a build does not read the folder of that version.
+        row.LatestVersion = "9.9.9";
+
+        var review = Service().ReviewIntuneCompatibility(row, build);
+
+        Assert.Null(review.Failure);
+        Assert.NotNull(review.Findings);
+        Assert.Equal((manifest.SoftwareVersion, manifest.BuildId), (review.Version, review.BuildId));
+
+        var gone = new RunSnapshot
+        {
+            ApplicationId = build.ApplicationId, ProfileId = profile.ProfileId, BuildId = "20200101-000000-deadbeef", DataRoot = _t.Store.DataRoot
+        };
+        var failed = Service().ReviewIntuneCompatibility(row, gone);
+        Assert.Null(failed.Findings);
+        Assert.Contains("20200101-000000-deadbeef", failed.Failure);
+
+        // Without a build to follow, a row with no stage of its version has nothing to review.
+        row.StagedVersion = null;
+        var grid = Service().ReviewIntuneCompatibility(row);
+        Assert.Null(grid.Findings);
+        Assert.Null(grid.Failure);
+    }
+
+    [Fact]
     public async Task TheDefaultProfileStagesWithoutASnapshotAndWritesTodaysManifest()
     {
         using var server = ProfileStageFixture.Server();

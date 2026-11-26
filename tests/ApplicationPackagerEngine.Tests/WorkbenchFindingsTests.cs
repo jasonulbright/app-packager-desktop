@@ -1,4 +1,5 @@
 using System.Text.Json.Nodes;
+using ApplicationPackagerEngine.Models;
 using ApplicationPackagerEngine.Models.Workbench;
 using ApplicationPackagerEngine.Services.Workbench;
 
@@ -101,6 +102,30 @@ public sealed class WorkbenchFindingsTests
         Assert.Equal("Needs review", WorkbenchFindings.Chips([new WorkbenchFinding("Review", "REQ-INTUNE", "x")], true).Intune);
         Assert.Equal(new WorkbenchChipState("Needs review", "Needs review", "Ready"),
             WorkbenchFindings.Chips([new WorkbenchFinding("Blocking", "SOURCE-PATH", "x")], true));
+    }
+
+    [Fact]
+    public void ACombinedPublish_IsStoppedByTheDetectionAndTheSplitThatIntuneCannotTake()
+    {
+        WorkbenchFinding[] findings =
+        [
+            new("Blocking", "DETECT-INTUNE-COMPOUND", "grouped"),
+            new("Blocking", "VARIANT-INTUNE", "split"),
+            new("Blocking", "OTHER-INTUNE", "other")
+        ];
+        string[] Codes(string target, StageManifest? sealedManifest = null) =>
+            WorkbenchFindings.BlockingFor(findings, target, sealedManifest).Select(f => f.Code).ToArray();
+        var split = new StageManifest { DeploymentTypes = [new StageDeploymentType { NameSuffix = "x64" }] };
+
+        foreach (var target in new[] { RunTargets.MecmAndIntune, RunTargets.MecmAndIntuneAndWsus })
+        {
+            Assert.Equal(["DETECT-INTUNE-COMPOUND", "VARIANT-INTUNE"], Codes(target));
+            Assert.Equal(["DETECT-INTUNE-COMPOUND", "VARIANT-INTUNE"], Codes(target, new StageManifest()));
+            Assert.Equal(["DETECT-INTUNE-COMPOUND"], Codes(target, split));
+        }
+        Assert.Empty(Codes(RunTargets.Mecm));
+        Assert.Empty(Codes(RunTargets.MecmAndWsus));
+        Assert.Equal(3, Codes(RunTargets.IntuneOnly, split).Length);
     }
 
     [Fact]

@@ -333,6 +333,24 @@ public sealed class AddFlowRenderTests : IDisposable
                     Assert.True(next.IsDefault, $"{stepWhere}: the forward button is not the default button.");
                     AssertNothingClipped(page, stepWhere);
                     AssertAutomationNames(page, stepWhere);
+
+                    // The step list names the current step, one only, and the form keeps its maximum width.
+                    var stepNames = Descendants(Id<StepList>(page, "lstAddWebSteps")).OfType<TextBlock>()
+                        .Select(AutomationProperties.GetName).Where(n => n.StartsWith("Step ", StringComparison.Ordinal)).ToList();
+                    Assert.Equal(AddAppViewModel.StepCount, stepNames.Count);
+                    var current = Assert.Single(stepNames, n => n.EndsWith(", current step", StringComparison.Ordinal));
+                    Assert.StartsWith($"Step {step} of {AddAppViewModel.StepCount}: ", current);
+                    var form = Id<ScrollViewer>(page, "scrollAddWeb");
+                    Assert.True(form.ActualWidth <= 840.5, $"{stepWhere}: the form is {form.ActualWidth:0} px wide.");
+                    if (step == 1)
+                    {
+                        foreach (var id in new[] { "txtAddWebVendor", "txtAddWebName", "txtAddWebCmName", "cboAddWebArchitecture", "txtAddWebVendorUrl" })
+                        {
+                            var field = Id<Control>(page, id);
+                            Assert.False(string.IsNullOrWhiteSpace(AutomationProperties.GetHelpText(field)), $"{stepWhere}: {id} has no help text.");
+                        }
+                        Assert.Equal("Next · Version source", Id<Wpf.Ui.Controls.Button>(page, "btnAddWebNext").Content);
+                    }
                     if (step < AddAppViewModel.StepCount) viewModel.NextStepCommand.Execute(null);
                 }
 

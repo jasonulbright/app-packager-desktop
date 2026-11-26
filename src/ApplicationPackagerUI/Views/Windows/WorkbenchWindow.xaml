@@ -4,6 +4,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
     xmlns:helpers="clr-namespace:ApplicationPackagerUI.Helpers"
+    xmlns:controls="clr-namespace:ApplicationPackagerUI.Controls"
     Title="Workbench"
     Width="1280" Height="820"
     MinWidth="1024" MinHeight="700"
@@ -48,10 +49,12 @@
             <Setter Property="Margin" Value="0,0,0,8" />
             <Setter Property="ClearButtonEnabled" Value="False" />
             <Setter Property="VerticalContentAlignment" Value="Center" />
+            <Setter Property="AutomationProperties.HelpText" Value="{Binding ToolTip, RelativeSource={RelativeSource Self}, Converter={x:Static helpers:ToolTipTextConverter.Instance}}" />
         </Style>
         <Style x:Key="WbCombo" TargetType="ComboBox" BasedOn="{StaticResource {x:Type ComboBox}}">
             <Setter Property="Margin" Value="0,0,0,8" />
             <Setter Property="HorizontalAlignment" Value="Stretch" />
+            <Setter Property="AutomationProperties.HelpText" Value="{Binding ToolTip, RelativeSource={RelativeSource Self}, Converter={x:Static helpers:ToolTipTextConverter.Instance}}" />
         </Style>
         <Style x:Key="WbInlineButton" TargetType="ui:Button" BasedOn="{StaticResource {x:Type ui:Button}}">
             <Setter Property="MinWidth" Value="90" />
@@ -72,6 +75,7 @@
             <Setter Property="VerticalScrollBarVisibility" Value="Auto" />
             <Setter Property="HorizontalScrollBarVisibility" Value="Auto" />
             <Setter Property="Padding" Value="4,4" />
+            <Setter Property="AutomationProperties.HelpText" Value="{Binding ToolTip, RelativeSource={RelativeSource Self}, Converter={x:Static helpers:ToolTipTextConverter.Instance}}" />
         </Style>
         <Style x:Key="WbGutter" TargetType="TextBox" BasedOn="{StaticResource WbCode}">
             <Setter Property="IsReadOnly" Value="True" />
@@ -84,13 +88,6 @@
             <Setter Property="HorizontalScrollBarVisibility" Value="Hidden" />
             <Setter Property="Background" Value="Transparent" />
             <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
-        </Style>
-        <Style x:Key="WbChip" TargetType="Border">
-            <Setter Property="BorderBrush" Value="{DynamicResource ControlStrokeColorDefaultBrush}" />
-            <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="CornerRadius" Value="4" />
-            <Setter Property="Padding" Value="8,3" />
-            <Setter Property="Margin" Value="0,0,8,0" />
         </Style>
         <Style x:Key="WbDiagnostics" TargetType="ListBox">
             <Setter Property="FontFamily" Value="Cascadia Code, Consolas, Courier New" />
@@ -149,14 +146,14 @@
             </Grid.ColumnDefinitions>
 
             <TextBlock Grid.Column="0" Text="Application" Style="{StaticResource WbLabel}" Margin="0,0,8,0" />
-            <ComboBox Grid.Column="1" x:Name="cboApplication" IsEditable="True" IsTextSearchEnabled="True"
+            <ComboBox Grid.Column="1" x:Name="cboApplication" AutomationProperties.Name="Application" AutomationProperties.HelpText="The application that the Workbench edits." IsEditable="True" IsTextSearchEnabled="True"
                       StaysOpenOnEdit="True" Margin="0,0,12,0"
                       ItemsSource="{Binding Applications}" SelectedItem="{Binding SelectedApplication}"
                       DisplayMemberPath="DisplayLabel" TextSearch.TextPath="DisplayLabel"
                       ToolTip="{Binding SelectedApplication.DisplayLabel}" />
 
             <TextBlock Grid.Column="2" Text="Profile" Style="{StaticResource WbLabel}" Margin="0,0,8,0" />
-            <ComboBox Grid.Column="3" x:Name="cboProfile" Margin="0,0,8,0"
+            <ComboBox Grid.Column="3" x:Name="cboProfile" AutomationProperties.Name="Profile" AutomationProperties.HelpText="The profile of the application that the Workbench edits. Save as... makes a new profile." Margin="0,0,8,0"
                       ItemsSource="{Binding Profiles}" SelectedItem="{Binding SelectedProfile}" DisplayMemberPath="Name"
                       ToolTip="{Binding SelectedProfile.Name}" />
             <StackPanel Grid.Column="4" Orientation="Horizontal">
@@ -180,21 +177,22 @@
                        Margin="12,0,12,0" ToolTip="Where this application definition comes from." />
 
             <TextBlock Grid.Column="7" Text="Build" Style="{StaticResource WbLabel}" Margin="0,0,8,0" />
-            <ComboBox Grid.Column="8" x:Name="cboBuild" ItemsSource="{Binding Builds}" SelectedItem="{Binding SelectedBuild}"
+            <ComboBox Grid.Column="8" x:Name="cboBuild" AutomationProperties.Name="Build" AutomationProperties.HelpText="Sealed builds for this application and profile. A publish uses the selected build." ItemsSource="{Binding Builds}" SelectedItem="{Binding SelectedBuild}"
                       ToolTip="Sealed builds for this application and profile. Package consumes the selected build." />
         </Grid>
 
         <Border Grid.Row="2" Background="{DynamicResource ControlStrokeColorDefaultBrush}" />
 
-        <Grid Grid.Row="3">
+        <Grid Grid.Row="3" x:Name="gridBody" SizeChanged="Body_SizeChanged">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="210" />
                 <ColumnDefinition Width="1" />
                 <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
 
-            <ListBox Grid.Column="0" x:Name="lstSections" BorderThickness="0" Padding="0,8,0,0" Background="Transparent"
-                     ItemsSource="{Binding Sections}" SelectedIndex="{Binding SelectedSectionIndex}">
+            <ListBox Grid.Column="0" x:Name="lstSections" AutomationProperties.Name="Sections" BorderThickness="0" Padding="0,8,0,0" Background="Transparent"
+                     ItemsSource="{Binding Sections}" SelectedIndex="{Binding SelectedSectionIndex}" SelectionChanged="Sections_SelectionChanged">
                 <ListBox.ItemContainerStyle>
                     <Style TargetType="ListBoxItem">
                         <Setter Property="FontSize" Value="14" />
@@ -229,7 +227,7 @@
 
             <Border Grid.Column="1" Background="{DynamicResource ControlStrokeColorDefaultBrush}" />
 
-            <Grid Grid.Column="2" Margin="16,12,16,8">
+            <Grid Grid.Column="2" x:Name="gridEditor" Margin="16,12,16,8">
 
                 <ScrollViewer x:Name="pnlApplication" VerticalScrollBarVisibility="Auto"
                               Visibility="{Binding SelectedSectionIndex, Converter={StaticResource SectionVisibility}, ConverterParameter=0}">
@@ -248,58 +246,76 @@
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="Auto" />
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="Auto" />
                             <RowDefinition Height="*" />
                         </Grid.RowDefinitions>
 
                         <TextBlock Grid.Row="0" Grid.Column="0" Text="Display name" Style="{StaticResource WbLabel}" />
-                        <ui:TextBox Grid.Row="0" Grid.Column="1" x:Name="txtDisplayName" Style="{StaticResource WbField}"
-                                    Text="{Binding DisplayName, UpdateSourceTrigger=PropertyChanged}" ToolTip="Enter the display name for this application." />
+                        <ui:TextBox Grid.Row="0" Grid.Column="1" x:Name="txtDisplayName" AutomationProperties.Name="Display name" Style="{StaticResource WbField}"
+                                    Text="{Binding DisplayName, UpdateSourceTrigger=PropertyChanged}" ToolTip="Enter the display name for this application.">
+                            <AutomationProperties.HelpText>
+                                <MultiBinding StringFormat="{}{0}. {1}">
+                                    <Binding Path="DisplayNameSource" />
+                                    <Binding Path="ToolTip" RelativeSource="{RelativeSource Self}" />
+                                </MultiBinding>
+                            </AutomationProperties.HelpText>
+                        </ui:TextBox>
                         <TextBlock Grid.Row="0" Grid.Column="2" x:Name="lblDisplayNameSrc" Text="{Binding DisplayNameSource}" Style="{StaticResource WbSource}" />
                         <ui:Button Grid.Row="0" Grid.Column="3" x:Name="btnDisplayNameReset" Content="Reset" Style="{StaticResource WbInlineButton}"
                                    Command="{Binding ResetFieldCommand}" CommandParameter="Application.DisplayName" ToolTip="Remove your override and use the display name from the packager definition." />
 
                         <TextBlock Grid.Row="1" Grid.Column="0" Text="Publisher" Style="{StaticResource WbLabel}" />
-                        <ui:TextBox Grid.Row="1" Grid.Column="1" x:Name="txtPublisher" Style="{StaticResource WbField}"
-                                    Text="{Binding Publisher, UpdateSourceTrigger=PropertyChanged}" ToolTip="Enter the publisher name for this application." />
+                        <ui:TextBox Grid.Row="1" Grid.Column="1" x:Name="txtPublisher" AutomationProperties.Name="Publisher" Style="{StaticResource WbField}"
+                                    Text="{Binding Publisher, UpdateSourceTrigger=PropertyChanged}" ToolTip="Enter the publisher name for this application.">
+                            <AutomationProperties.HelpText>
+                                <MultiBinding StringFormat="{}{0}. {1}">
+                                    <Binding Path="PublisherSource" />
+                                    <Binding Path="ToolTip" RelativeSource="{RelativeSource Self}" />
+                                </MultiBinding>
+                            </AutomationProperties.HelpText>
+                        </ui:TextBox>
                         <TextBlock Grid.Row="1" Grid.Column="2" x:Name="lblPublisherSrc" Text="{Binding PublisherSource}" Style="{StaticResource WbSource}" />
                         <ui:Button Grid.Row="1" Grid.Column="3" x:Name="btnPublisherReset" Content="Reset" Style="{StaticResource WbInlineButton}"
                                    Command="{Binding ResetFieldCommand}" CommandParameter="Application.Publisher" ToolTip="Remove your override and use the publisher from the packager definition." />
 
                         <TextBlock Grid.Row="2" Grid.Column="0" Text="Description" Style="{StaticResource WbLabel}" VerticalAlignment="Top" Margin="0,4,12,8" />
-                        <ui:TextBox Grid.Row="2" Grid.Column="1" x:Name="txtDescription" Height="72" Margin="0,0,0,8"
+                        <ui:TextBox Grid.Row="2" Grid.Column="1" x:Name="txtDescription" AutomationProperties.Name="Description" Height="72" Margin="0,0,0,8"
                                     AcceptsReturn="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" VerticalContentAlignment="Top"
                                     ClearButtonEnabled="False"
-                                    Text="{Binding Description, UpdateSourceTrigger=PropertyChanged}" ToolTip="Enter the description for this application." />
+                                    Text="{Binding Description, UpdateSourceTrigger=PropertyChanged}" ToolTip="Enter the description for this application.">
+                            <AutomationProperties.HelpText>
+                                <MultiBinding StringFormat="{}{0}. {1}">
+                                    <Binding Path="DescriptionSource" />
+                                    <Binding Path="ToolTip" RelativeSource="{RelativeSource Self}" />
+                                </MultiBinding>
+                            </AutomationProperties.HelpText>
+                        </ui:TextBox>
                         <TextBlock Grid.Row="2" Grid.Column="2" x:Name="lblDescriptionSrc" Text="{Binding DescriptionSource}" Style="{StaticResource WbSource}"
                                    VerticalAlignment="Top" Margin="8,8,8,8" />
                         <ui:Button Grid.Row="2" Grid.Column="3" x:Name="btnDescriptionReset" Content="Reset" Style="{StaticResource WbInlineButton}"
                                    VerticalAlignment="Top" Command="{Binding ResetFieldCommand}" CommandParameter="Application.Description" ToolTip="Remove your override and use the description from the packager definition." />
 
                         <TextBlock Grid.Row="3" Grid.Column="0" Text="Application title" Style="{StaticResource WbLabel}" />
-                        <ComboBox Grid.Row="3" Grid.Column="1" x:Name="cboTitleMode" Style="{StaticResource WbCombo}"
+                        <ComboBox Grid.Row="3" Grid.Column="1" x:Name="cboTitleMode" AutomationProperties.Name="Application title" Style="{StaticResource WbCombo}"
                                   ItemsSource="{Binding TitleModeOptions}" SelectedItem="{Binding TitleMode}"
                                   AutomationProperties.AutomationId="cboTitleMode"
-                                  ToolTip="Versioned titles create one ConfigMgr application per release; a perpetual title updates the same application." />
+                                  ToolTip="Versioned titles create one ConfigMgr application per release; a perpetual title updates the same application.">
+                            <AutomationProperties.HelpText>
+                                <MultiBinding StringFormat="{}{0}. {1}">
+                                    <Binding Path="TitleModeSource" />
+                                    <Binding Path="ToolTip" RelativeSource="{RelativeSource Self}" />
+                                </MultiBinding>
+                            </AutomationProperties.HelpText>
+                        </ComboBox>
                         <TextBlock Grid.Row="3" Grid.Column="2" x:Name="lblTitleModeSrc" Text="{Binding TitleModeSource}" Style="{StaticResource WbSource}" />
                         <ui:Button Grid.Row="3" Grid.Column="3" x:Name="btnTitleModeReset" Content="Reset" Style="{StaticResource WbInlineButton}"
                                    Command="{Binding ResetFieldCommand}" CommandParameter="Application.TitleMode" ToolTip="Remove your override and use the application title mode from the packager definition." />
 
                         <TextBlock Grid.Row="4" Grid.Column="0" Text="Profile name" Style="{StaticResource WbLabel}" />
-                        <ui:TextBox Grid.Row="4" Grid.Column="1" x:Name="txtProfileName" Style="{StaticResource WbField}"
+                        <ui:TextBox Grid.Row="4" Grid.Column="1" x:Name="txtProfileName" AutomationProperties.Name="Profile name" Style="{StaticResource WbField}"
                                     Text="{Binding ProfileName, UpdateSourceTrigger=PropertyChanged}" ToolTip="Enter the name that identifies this profile in the profile list." />
 
-                        <TextBlock Grid.Row="5" Grid.Column="0" Text="Stable identity" Style="{StaticResource WbLabel}" VerticalAlignment="Top" />
-                        <TextBlock Grid.Row="5" Grid.Column="1" Grid.ColumnSpan="3" x:Name="txtIdentity" Text="{Binding IdentityText}"
-                                   Style="{StaticResource WbNote}" />
-
-                        <TextBlock Grid.Row="6" Grid.Column="0" Text="Source provenance" Style="{StaticResource WbLabel}" VerticalAlignment="Top" />
-                        <TextBlock Grid.Row="6" Grid.Column="1" Grid.ColumnSpan="3" x:Name="txtProvenance" Text="{Binding ProvenanceText}"
-                                   Style="{StaticResource WbNote}" />
-
-                        <TextBlock Grid.Row="7" Grid.Column="0" Text="Icon" Style="{StaticResource WbLabel}" VerticalAlignment="Top" Margin="0,4,12,8" />
-                        <Grid Grid.Row="7" Grid.Column="1" Grid.ColumnSpan="3" Margin="0,0,0,8">
+                        <TextBlock Grid.Row="5" Grid.Column="0" Text="Icon" Style="{StaticResource WbLabel}" VerticalAlignment="Top" Margin="0,4,12,8" />
+                        <Grid Grid.Row="5" Grid.Column="1" Grid.ColumnSpan="3" Margin="0,0,0,8">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto" />
                                 <ColumnDefinition Width="*" />
@@ -323,14 +339,14 @@
                             </StackPanel>
                         </Grid>
 
-                        <TextBlock Grid.Row="8" Grid.Column="0" Grid.ColumnSpan="4" x:Name="txtAppNote" Style="{StaticResource WbNote}" Margin="0,8,0,0"
+                        <TextBlock Grid.Row="6" Grid.Column="0" Grid.ColumnSpan="4" x:Name="txtAppNote" Style="{StaticResource WbNote}" Margin="0,8,0,0"
                                    Text="The displayed title is separate from the stable identity: renaming a profile never renames an existing site application, and the output folder keeps the packager name." />
 
-                        <StackPanel Grid.Row="9" Grid.Column="0" Grid.ColumnSpan="4" x:Name="pnlByoSource" Margin="0,4,0,0"
+                        <StackPanel Grid.Row="7" Grid.Column="0" Grid.ColumnSpan="4" x:Name="pnlByoSource" Margin="0,4,0,0"
                                     Visibility="{Binding IsByo, Converter={StaticResource BoolToVisibility}}">
                             <TextBlock Text="Installer source" Style="{StaticResource WbHeading}" />
                             <TextBlock x:Name="txtByoSource" Text="{Binding ByoSourceText}" Style="{StaticResource WbNote}" />
-                            <DataGrid x:Name="gridByoSources" Style="{StaticResource WbGrid}" ItemsSource="{Binding ByoSources}"
+                            <DataGrid x:Name="gridByoSources" AutomationProperties.Name="Installer source revisions" Style="{StaticResource WbGrid}" ItemsSource="{Binding ByoSources}"
                                       IsReadOnly="True" MaxHeight="190" Margin="0,0,0,8">
                                 <DataGrid.Columns>
                                     <DataGridTextColumn Header="Revision" Width="90" Binding="{Binding Revision}" />
@@ -370,11 +386,11 @@
                             <ColumnDefinition Width="*" />
                         </Grid.ColumnDefinitions>
                         <TextBlock Grid.Column="0" Text="Editing" Style="{StaticResource WbLabel}" />
-                        <ComboBox Grid.Column="1" x:Name="cboScriptTarget" Style="{StaticResource WbCombo}"
+                        <ComboBox Grid.Column="1" x:Name="cboScriptTarget" AutomationProperties.Name="Editing" Style="{StaticResource WbCombo}"
                                   ItemsSource="{Binding ScriptTargetOptions}" SelectedItem="{Binding ScriptTarget}"
                                   ToolTip="Install and uninstall are configured independently." />
                         <TextBlock Grid.Column="2" Text="Mode" Style="{StaticResource WbLabel}" Margin="16,0,12,8" />
-                        <ComboBox Grid.Column="3" x:Name="cboInstallMode" Style="{StaticResource WbCombo}"
+                        <ComboBox Grid.Column="3" x:Name="cboInstallMode" AutomationProperties.Name="Mode" Style="{StaticResource WbCombo}"
                                   ItemsSource="{Binding InstallModeOptions}" SelectedItem="{Binding InstallModeDisplay}"
                                   ToolTip="Generated keeps the packager wrapper. Extend generated runs before/after hooks around it as separate processes. Custom replaces the entry command entirely." />
                         <TextBlock Grid.Column="4" x:Name="lblInstallModeSrc" Text="{Binding InstallModeSource}" Style="{StaticResource WbSource}" />
@@ -396,21 +412,21 @@
                             <RowDefinition Height="Auto" />
                         </Grid.RowDefinitions>
                         <TextBlock Grid.Row="0" Grid.Column="0" Text="Effective command" Style="{StaticResource WbLabel}" />
-                        <ui:TextBox Grid.Row="0" Grid.Column="1" Grid.ColumnSpan="3" x:Name="txtEffectiveCommand" Style="{StaticResource WbField}"
+                        <ui:TextBox Grid.Row="0" Grid.Column="1" Grid.ColumnSpan="3" x:Name="txtEffectiveCommand" AutomationProperties.Name="Effective command" Style="{StaticResource WbField}"
                                     FontFamily="Cascadia Code, Consolas, Courier New" IsReadOnly="True"
                                     Text="{Binding EffectiveCommand, Mode=OneWay}"
                                     ToolTip="The entry command the build writes for this target. Needs staging until the packager resolves its installer." />
                         <TextBlock Grid.Row="0" Grid.Column="4" Grid.ColumnSpan="2" x:Name="lblCommandSrc" Text="{Binding CommandSource}" Style="{StaticResource WbSource}" />
 
                         <TextBlock Grid.Row="1" Grid.Column="0" Text="Return codes" Style="{StaticResource WbLabel}" />
-                        <ui:TextBox Grid.Row="1" Grid.Column="1" x:Name="txtReturnCodes" Style="{StaticResource WbField}"
+                        <ui:TextBox Grid.Row="1" Grid.Column="1" x:Name="txtReturnCodes" AutomationProperties.Name="Return codes" Style="{StaticResource WbField}"
                                     Text="{Binding ReturnCodes, UpdateSourceTrigger=PropertyChanged}"
                                     PlaceholderText="inherit (for example 0,3010=SoftReboot,1641=HardReboot)" ToolTip="Enter return codes separated by commas, for example 0,3010=SoftReboot. Leave the box empty to inherit the packager codes." />
                         <TextBlock Grid.Row="1" Grid.Column="2" Text="Reboot" Style="{StaticResource WbLabel}" Margin="12,0,12,8" />
-                        <ComboBox Grid.Row="1" Grid.Column="3" x:Name="cboRebootPolicy" Style="{StaticResource WbCombo}"
+                        <ComboBox Grid.Row="1" Grid.Column="3" x:Name="cboRebootPolicy" AutomationProperties.Name="Reboot" Style="{StaticResource WbCombo}"
                                   ItemsSource="{Binding RebootPolicyOptions}" SelectedItem="{Binding RebootPolicy}" ToolTip="Select the restart behavior for the target you are editing. Inherit uses the packager value." />
                         <TextBlock Grid.Row="1" Grid.Column="4" Text="Working dir" Style="{StaticResource WbLabel}" Margin="12,0,12,8" />
-                        <ui:TextBox Grid.Row="1" Grid.Column="5" x:Name="txtWorkingDirectory" Style="{StaticResource WbField}"
+                        <ui:TextBox Grid.Row="1" Grid.Column="5" x:Name="txtWorkingDirectory" AutomationProperties.Name="Working directory" Style="{StaticResource WbField}"
                                     Text="{Binding WorkingDirectory, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="inherit" ToolTip="Enter the working directory for the command. Leave the box empty to inherit the packager value." />
                     </Grid>
 
@@ -429,7 +445,7 @@
                             <TextBlock DockPanel.Dock="Left" x:Name="lblScriptCaption" Text="{Binding ScriptCaption}" Style="{StaticResource WbHeading}"
                                        Margin="0,0,12,0" VerticalAlignment="Center" />
                             <StackPanel DockPanel.Dock="Right" x:Name="pnlFind" Orientation="Horizontal" Visibility="Collapsed">
-                                <ui:TextBox x:Name="txtFind" Width="180" Margin="0,0,4,0" PlaceholderText="Find" KeyDown="FindBox_KeyDown" ToolTip="Enter the text to find in the script you are editing. The search ignores case." />
+                                <ui:TextBox x:Name="txtFind" AutomationProperties.Name="Find in script" AutomationProperties.HelpText="{Binding ToolTip, RelativeSource={RelativeSource Self}, Converter={x:Static helpers:ToolTipTextConverter.Instance}}" Width="180" Margin="0,0,4,0" PlaceholderText="Find" KeyDown="FindBox_KeyDown" ToolTip="Enter the text to find in the script you are editing. The search ignores case." />
                                 <ui:Button x:Name="btnFindNext" Content="Next" MinWidth="70" Margin="0,0,4,0" Click="FindNext_Click" ToolTip="Select the next match for the find text in the script." />
                                 <ui:Button x:Name="btnFindClose" Content="Close" MinWidth="70" Click="FindClose_Click" />
                             </StackPanel>
@@ -439,7 +455,7 @@
                                 BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}">
                             <DockPanel>
                                 <TextBox DockPanel.Dock="Left" x:Name="txtScriptGutter" Style="{StaticResource WbGutter}" Text="{Binding ScriptGutter, Mode=OneWay}" />
-                                <TextBox x:Name="txtScript" Style="{StaticResource WbCode}" BorderThickness="0"
+                                <TextBox x:Name="txtScript" AutomationProperties.Name="Script" Style="{StaticResource WbCode}" BorderThickness="0"
                                          IsReadOnly="{Binding IsScriptReadOnly}"
                                          Text="{Binding ScriptText, UpdateSourceTrigger=PropertyChanged}"
                                          ScrollViewer.ScrollChanged="Script_ScrollChanged" ToolTip="Edit the PowerShell script for the target you are editing. Parse results appear under Parse diagnostics." />
@@ -456,10 +472,10 @@
                                 <RowDefinition Height="Auto" />
                             </Grid.RowDefinitions>
                             <TextBlock Grid.Row="0" Text="Before" Style="{StaticResource WbNote}" Margin="0,0,0,3" />
-                            <TextBox Grid.Row="1" x:Name="txtHookBefore" Style="{StaticResource WbCode}" Margin="0,0,0,8"
+                            <TextBox Grid.Row="1" x:Name="txtHookBefore" AutomationProperties.Name="Before hook" Style="{StaticResource WbCode}" Margin="0,0,0,8"
                                      IsEnabled="{Binding HooksEnabled}" Text="{Binding HookBefore, UpdateSourceTrigger=PropertyChanged}" ToolTip="Enter the PowerShell that runs before the generated step. Available when the mode is Extend generated." />
                             <TextBlock Grid.Row="2" Text="After" Style="{StaticResource WbNote}" Margin="0,0,0,3" />
-                            <TextBox Grid.Row="3" x:Name="txtHookAfter" Style="{StaticResource WbCode}" Margin="0,0,0,4"
+                            <TextBox Grid.Row="3" x:Name="txtHookAfter" AutomationProperties.Name="After hook" Style="{StaticResource WbCode}" Margin="0,0,0,4"
                                      IsEnabled="{Binding HooksEnabled}" Text="{Binding HookAfter, UpdateSourceTrigger=PropertyChanged}" ToolTip="Enter the PowerShell that runs after the generated step. Available when the mode is Extend generated." />
                             <CheckBox Grid.Row="4" x:Name="chkAfterOnFailure" IsEnabled="{Binding HooksEnabled}"
                                       IsChecked="{Binding AfterRunsOnFailure}" ToolTip="Run the After hook even when the generated step fails.">
@@ -495,11 +511,11 @@
                             <ColumnDefinition Width="*" />
                         </Grid.ColumnDefinitions>
                         <TextBlock Grid.Column="0" Text="Detection" Style="{StaticResource WbLabel}" />
-                        <ComboBox Grid.Column="1" x:Name="cboDetectionMode" Style="{StaticResource WbCombo}"
+                        <ComboBox Grid.Column="1" x:Name="cboDetectionMode" AutomationProperties.Name="Detection" Style="{StaticResource WbCombo}"
                                   ItemsSource="{Binding DetectionModeOptions}" SelectedItem="{Binding DetectionMode}"
                                   ToolTip="Inherit uses the packager's validated native rule. Custom takes ownership of the whole rule." />
                         <TextBlock Grid.Column="2" Text="Type" Style="{StaticResource WbLabel}" Margin="16,0,12,8" />
-                        <ComboBox Grid.Column="3" x:Name="cboDetectionType" Style="{StaticResource WbCombo}" IsEnabled="{Binding IsDetectionCustom}"
+                        <ComboBox Grid.Column="3" x:Name="cboDetectionType" AutomationProperties.Name="Detection type" Style="{StaticResource WbCombo}" IsEnabled="{Binding IsDetectionCustom}"
                                   ItemsSource="{Binding DetectionTypeOptions}" SelectedItem="{Binding DetectionType}" ToolTip="Select the type of detection rule. Available when Detection is Custom." />
                         <TextBlock Grid.Column="4" x:Name="lblDetectionSrc" Text="{Binding DetectionSource}" Style="{StaticResource WbSource}" />
                         <ui:Button Grid.Column="5" x:Name="btnDetectionReset" Content="Reset section" Style="{StaticResource WbInlineButton}"
@@ -530,43 +546,43 @@
                                 </Grid.RowDefinitions>
 
                                 <TextBlock Grid.Row="0" Grid.Column="0" Text="Registry hive" Style="{StaticResource WbLabel}" />
-                                <ComboBox Grid.Row="0" Grid.Column="1" x:Name="cboDetHive" Style="{StaticResource WbCombo}"
+                                <ComboBox Grid.Row="0" Grid.Column="1" x:Name="cboDetHive" AutomationProperties.Name="Registry hive" Style="{StaticResource WbCombo}"
                                           ItemsSource="{Binding HiveOptions}" SelectedItem="{Binding DetHive}" ToolTip="Select the registry hive to read." />
                                 <TextBlock Grid.Row="0" Grid.Column="2" Text="Registry view" Style="{StaticResource WbLabel}" Margin="12,0,12,8" />
-                                <ComboBox Grid.Row="0" Grid.Column="3" x:Name="cboDetView" Style="{StaticResource WbCombo}"
+                                <ComboBox Grid.Row="0" Grid.Column="3" x:Name="cboDetView" AutomationProperties.Name="Registry view" Style="{StaticResource WbCombo}"
                                           ItemsSource="{Binding ViewOptions}" SelectedItem="{Binding DetView}" ToolTip="Select whether to read the 64-bit or the 32-bit registry view." />
 
                                 <TextBlock Grid.Row="1" Grid.Column="0" Text="Key" Style="{StaticResource WbLabel}" />
-                                <ui:TextBox Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="3" x:Name="txtDetKey" Style="{StaticResource WbField}"
+                                <ui:TextBox Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="3" x:Name="txtDetKey" AutomationProperties.Name="Registry key" Style="{StaticResource WbField}"
                                             FontFamily="Cascadia Code, Consolas, Courier New" Text="{Binding DetKey, UpdateSourceTrigger=PropertyChanged}" ToolTip="Enter the registry key path to check." />
 
                                 <TextBlock Grid.Row="2" Grid.Column="0" Text="Value name" Style="{StaticResource WbLabel}" />
-                                <ui:TextBox Grid.Row="2" Grid.Column="1" x:Name="txtDetValueName" Style="{StaticResource WbField}"
+                                <ui:TextBox Grid.Row="2" Grid.Column="1" x:Name="txtDetValueName" AutomationProperties.Name="Value name" Style="{StaticResource WbField}"
                                             FontFamily="Cascadia Code, Consolas, Courier New" Text="{Binding DetValueName, UpdateSourceTrigger=PropertyChanged}" ToolTip="Enter the name of the registry value to check." />
                                 <TextBlock Grid.Row="2" Grid.Column="2" Text="Operator" Style="{StaticResource WbLabel}" Margin="12,0,12,8" />
-                                <ComboBox Grid.Row="2" Grid.Column="3" x:Name="cboDetOperator" Style="{StaticResource WbCombo}"
+                                <ComboBox Grid.Row="2" Grid.Column="3" x:Name="cboDetOperator" AutomationProperties.Name="Operator" Style="{StaticResource WbCombo}"
                                           ItemsSource="{Binding OperatorOptions}" SelectedItem="{Binding DetOperator}" ToolTip="Select how to compare the registry value with the expected value." />
 
                                 <TextBlock Grid.Row="3" Grid.Column="0" Text="Expected value" Style="{StaticResource WbLabel}" />
-                                <ui:TextBox Grid.Row="3" Grid.Column="1" x:Name="txtDetExpected" Style="{StaticResource WbField}"
+                                <ui:TextBox Grid.Row="3" Grid.Column="1" x:Name="txtDetExpected" AutomationProperties.Name="Expected value" Style="{StaticResource WbField}"
                                             FontFamily="Cascadia Code, Consolas, Courier New" Text="{Binding DetExpected, UpdateSourceTrigger=PropertyChanged}" ToolTip="Enter the value to compare with." />
                                 <TextBlock Grid.Row="3" Grid.Column="2" Text="Version binding" Style="{StaticResource WbLabel}" Margin="12,0,12,8" />
-                                <ComboBox Grid.Row="3" Grid.Column="3" x:Name="cboDetVersionBinding" Style="{StaticResource WbCombo}"
+                                <ComboBox Grid.Row="3" Grid.Column="3" x:Name="cboDetVersionBinding" AutomationProperties.Name="Version binding" Style="{StaticResource WbCombo}"
                                           ItemsSource="{Binding VersionBindingOptions}" SelectedItem="{Binding DetVersionBinding}"
                                           ToolTip="Follows staged version updates the expected value at every build; Pinned keeps the literal value. Vendor version strings do not all compare as numeric versions." />
 
                                 <TextBlock Grid.Row="4" Grid.Column="0" Text="File path" Style="{StaticResource WbLabel}" />
-                                <ui:TextBox Grid.Row="4" Grid.Column="1" x:Name="txtDetFilePath" Style="{StaticResource WbField}"
+                                <ui:TextBox Grid.Row="4" Grid.Column="1" x:Name="txtDetFilePath" AutomationProperties.Name="File path" Style="{StaticResource WbField}"
                                             FontFamily="Cascadia Code, Consolas, Courier New" Text="{Binding DetFilePath, UpdateSourceTrigger=PropertyChanged}" ToolTip="Enter the folder that contains the file." />
                                 <TextBlock Grid.Row="4" Grid.Column="2" Text="File name" Style="{StaticResource WbLabel}" Margin="12,0,12,8" />
-                                <ui:TextBox Grid.Row="4" Grid.Column="3" x:Name="txtDetFileName" Style="{StaticResource WbField}"
+                                <ui:TextBox Grid.Row="4" Grid.Column="3" x:Name="txtDetFileName" AutomationProperties.Name="File name" Style="{StaticResource WbField}"
                                             FontFamily="Cascadia Code, Consolas, Courier New" Text="{Binding DetFileName, UpdateSourceTrigger=PropertyChanged}" ToolTip="Enter the name of the file to check." />
 
                                 <TextBlock Grid.Row="5" Grid.Column="0" Text="File property" Style="{StaticResource WbLabel}" />
-                                <ComboBox Grid.Row="5" Grid.Column="1" x:Name="cboDetFileProperty" Style="{StaticResource WbCombo}"
+                                <ComboBox Grid.Row="5" Grid.Column="1" x:Name="cboDetFileProperty" AutomationProperties.Name="File property" Style="{StaticResource WbCombo}"
                                           ItemsSource="{Binding FilePropertyOptions}" SelectedItem="{Binding DetFileProperty}" ToolTip="Select the file property to check." />
                                 <TextBlock Grid.Row="5" Grid.Column="2" Text="Clause logic" Style="{StaticResource WbLabel}" Margin="12,0,12,8" />
-                                <ComboBox Grid.Row="5" Grid.Column="3" x:Name="cboDetLogic" Style="{StaticResource WbCombo}"
+                                <ComboBox Grid.Row="5" Grid.Column="3" x:Name="cboDetLogic" AutomationProperties.Name="Clause logic" Style="{StaticResource WbCombo}"
                                           ItemsSource="{Binding LogicOptions}" SelectedItem="{Binding DetLogic}"
                                           ToolTip="The existing schema supports flat AND, flat OR, and two groups. Nested expressions are not flattened silently." />
 
@@ -578,7 +594,7 @@
                                     </StackPanel>
                                 </DockPanel>
 
-                                <DataGrid Grid.Row="7" Grid.Column="0" Grid.ColumnSpan="4" x:Name="dgDetClauses" MinHeight="140" Style="{StaticResource WbGrid}"
+                                <DataGrid Grid.Row="7" Grid.Column="0" Grid.ColumnSpan="4" x:Name="dgDetClauses" AutomationProperties.Name="Detection clauses" MinHeight="140" Style="{StaticResource WbGrid}"
                                           ItemsSource="{Binding Clauses}" SelectedItem="{Binding SelectedClause}">
                                     <DataGrid.Columns>
                                         <DataGridTextColumn Header="Group" Width="70" Binding="{Binding Group, UpdateSourceTrigger=PropertyChanged}" />
@@ -604,7 +620,7 @@
                             <Border Grid.Row="1" BorderThickness="1" CornerRadius="4" BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}">
                                 <DockPanel>
                                     <TextBox DockPanel.Dock="Left" x:Name="txtDetectGutter" Style="{StaticResource WbGutter}" Text="{Binding DetectGutter, Mode=OneWay}" />
-                                    <TextBox x:Name="txtDetectScript" Style="{StaticResource WbCode}" BorderThickness="0"
+                                    <TextBox x:Name="txtDetectScript" AutomationProperties.Name="Detection script" Style="{StaticResource WbCode}" BorderThickness="0"
                                              IsEnabled="{Binding IsDetectionCustom}"
                                              Text="{Binding DetectScript, UpdateSourceTrigger=PropertyChanged}"
                                              ScrollViewer.ScrollChanged="DetectScript_ScrollChanged" ToolTip="Edit the PowerShell detection script. Exit code 0 with output on STDOUT means installed." />
@@ -644,7 +660,7 @@
                         <DockPanel Grid.Row="1" Margin="0,0,0,4">
                             <TextBlock DockPanel.Dock="Left" Text="Requirement operations" Style="{StaticResource WbHeading}" Margin="0,0,12,0" VerticalAlignment="Center" />
                             <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" HorizontalAlignment="Right">
-                                <ComboBox x:Name="cboReqTemplate" Width="200" Margin="0,0,8,8"
+                                <ComboBox x:Name="cboReqTemplate" AutomationProperties.Name="Site condition" AutomationProperties.HelpText="{Binding ToolTip, RelativeSource={RelativeSource Self}, Converter={x:Static helpers:ToolTipTextConverter.Instance}}" Width="200" Margin="0,0,8,8"
                                           ItemsSource="{Binding RequirementTemplates}" SelectedItem="{Binding SelectedRequirementTemplate}"
                                           ToolTip="Site conditions, named below; a rule attaches one to this application." />
                                 <ui:Button x:Name="btnReqAdd" Content="Add" Icon="{ui:SymbolIcon Add24}" Style="{StaticResource WbInlineButton}" MinWidth="70" Command="{Binding AddRequirementCommand}" ToolTip="Add a requirement operation for the selected site condition." />
@@ -653,7 +669,7 @@
                             </StackPanel>
                         </DockPanel>
 
-                        <DataGrid Grid.Row="2" x:Name="dgRequirements" Style="{StaticResource WbGrid}" MinHeight="120" MaxHeight="220"
+                        <DataGrid Grid.Row="2" x:Name="dgRequirements" AutomationProperties.Name="Requirement operations" Style="{StaticResource WbGrid}" MinHeight="120" MaxHeight="220"
                                   ItemsSource="{Binding Requirements}" SelectedItem="{Binding SelectedRequirement}">
                             <DataGrid.Columns>
                                 <DataGridTextColumn Header="Operation" Width="100" Binding="{Binding Op}" IsReadOnly="True" />
@@ -678,18 +694,18 @@
                                 <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
                             <TextBlock Grid.Column="0" Text="Variant split" Style="{StaticResource WbLabel}" />
-                            <ComboBox Grid.Column="1" x:Name="cboVariantSplit" Style="{StaticResource WbCombo}"
+                            <ComboBox Grid.Column="1" x:Name="cboVariantSplit" AutomationProperties.Name="Variant split" Style="{StaticResource WbCombo}"
                                       ItemsSource="{Binding VariantSplitOptions}" SelectedItem="{Binding VariantSplit}" IsEnabled="{Binding VariantSplitEnabled}"
                                       ToolTip="Stage one application with several deployment types. Offered only where the packager declares support." />
                             <TextBlock Grid.Column="2" Text="Install for" Style="{StaticResource WbLabel}" Margin="16,0,12,8" />
-                            <ComboBox Grid.Column="3" x:Name="cboInstallForMode" Style="{StaticResource WbCombo}"
+                            <ComboBox Grid.Column="3" x:Name="cboInstallForMode" AutomationProperties.Name="Install for" Style="{StaticResource WbCombo}"
                                       ItemsSource="{Binding InstallForOptions}" SelectedItem="{Binding InstallFor}" IsEnabled="{Binding InstallForEnabled}"
                                       ToolTip="System installs for all users; User installs for the signed-in user. Arguments, uninstall command, detection hive and view follow this choice." />
                             <TextBlock Grid.Column="4" x:Name="lblVariantSrc" Text="{Binding VariantSource}" Style="{StaticResource WbSource}" />
                             <ui:Button Grid.Column="5" x:Name="btnInstallForReset" Content="Reset" Style="{StaticResource WbInlineButton}" HorizontalAlignment="Left"
                                        Command="{Binding ResetFieldCommand}" CommandParameter="InstallMode" ToolTip="Remove your override and use the Install for value from the packager definition." />
                             <TextBlock Grid.Row="1" Grid.Column="0" Text="Installer type" Style="{StaticResource WbLabel}" />
-                            <ComboBox Grid.Row="1" Grid.Column="1" x:Name="cboInstallerType" Style="{StaticResource WbCombo}"
+                            <ComboBox Grid.Row="1" Grid.Column="1" x:Name="cboInstallerType" AutomationProperties.Name="Installer type" Style="{StaticResource WbCombo}"
                                       ItemsSource="{Binding InstallerTypeOptions}" SelectedItem="{Binding InstallerType}" IsEnabled="{Binding InstallerTypeEnabled}"
                                       ToolTip="EXE or MSI. The application stages with that installer, its own silent switches and its own detection. Offered only where the vendor ships both types." />
                             <TextBlock Grid.Row="1" Grid.Column="4" x:Name="lblInstallerTypeSrc" Text="{Binding InstallerTypeSource}" Style="{StaticResource WbSource}" />
@@ -699,7 +715,7 @@
 
                         <TextBlock Grid.Row="4" Text="Variant overrides" Style="{StaticResource WbHeading}" />
 
-                        <DataGrid Grid.Row="5" x:Name="dgVariants" Style="{StaticResource WbGrid}" MinHeight="90" MaxHeight="180"
+                        <DataGrid Grid.Row="5" x:Name="dgVariants" AutomationProperties.Name="Variant overrides" Style="{StaticResource WbGrid}" MinHeight="90" MaxHeight="180"
                                   ItemsSource="{Binding Variants}">
                             <DataGrid.Columns>
                                 <DataGridTextColumn Header="Variant" Width="150" Binding="{Binding Suffix}" IsReadOnly="True" />
@@ -725,19 +741,19 @@
                                 <RowDefinition Height="Auto" />
                             </Grid.RowDefinitions>
                             <TextBlock Grid.Row="0" Grid.Column="0" Text="CPU architecture condition" Style="{StaticResource WbLabel}" />
-                            <ui:TextBox Grid.Row="0" Grid.Column="1" x:Name="txtSiteArchGc" Style="{StaticResource WbField}"
+                            <ui:TextBox Grid.Row="0" Grid.Column="1" x:Name="txtSiteArchGc" AutomationProperties.Name="CPU architecture condition" Style="{StaticResource WbField}"
                                         IsEnabled="{Binding HasArchTemplate}" Text="{Binding SiteArchGc}" LostFocus="SiteCondition_LostFocus"
                                         ToolTip="Site global condition name for the WQL query on Win32_Processor.Architecture (9 = x64, 12 = ARM64)" />
                             <TextBlock Grid.Row="1" Grid.Column="0" Text="OS language condition" Style="{StaticResource WbLabel}" />
-                            <ui:TextBox Grid.Row="1" Grid.Column="1" x:Name="txtSiteLangGc" Style="{StaticResource WbField}"
+                            <ui:TextBox Grid.Row="1" Grid.Column="1" x:Name="txtSiteLangGc" AutomationProperties.Name="OS language condition" Style="{StaticResource WbField}"
                                         IsEnabled="{Binding HasLangTemplate}" Text="{Binding SiteLangGc}" LostFocus="SiteCondition_LostFocus"
                                         ToolTip="Name of the built-in Operating System Language site condition. Must already exist on the site." />
                             <TextBlock Grid.Row="2" Grid.Column="0" Text="VPN condition" Style="{StaticResource WbLabel}" />
-                            <ui:TextBox Grid.Row="2" Grid.Column="1" x:Name="txtSiteVpnGc" Style="{StaticResource WbField}"
+                            <ui:TextBox Grid.Row="2" Grid.Column="1" x:Name="txtSiteVpnGc" AutomationProperties.Name="VPN condition" Style="{StaticResource WbField}"
                                         IsEnabled="{Binding HasVpnTemplate}" Text="{Binding SiteVpnGc}" LostFocus="SiteCondition_LostFocus"
                                         ToolTip="Site global condition name for the script that reports whether a VPN adapter is active" />
                             <TextBlock Grid.Row="3" Grid.Column="0" Text="VPN adapter patterns" Style="{StaticResource WbLabel}" />
-                            <ui:TextBox Grid.Row="3" Grid.Column="1" x:Name="txtSiteVpnPatterns" Style="{StaticResource WbField}"
+                            <ui:TextBox Grid.Row="3" Grid.Column="1" x:Name="txtSiteVpnPatterns" AutomationProperties.Name="VPN adapter patterns" Style="{StaticResource WbField}"
                                         IsEnabled="{Binding HasVpnTemplate}" Text="{Binding SiteVpnPatterns}" LostFocus="SiteCondition_LostFocus"
                                         ToolTip="Comma-separated adapter description substrings that identify a VPN client. Applied when the condition is next created; an existing site condition keeps its script." />
                         </Grid>
@@ -771,7 +787,7 @@
 
                         <CheckBox Grid.Row="1" Grid.Column="0" x:Name="chkEstimatedDefault" Margin="0,0,12,8" VerticalAlignment="Center"
                                   Content="Use default estimated install duration" IsChecked="{Binding EstimatedUseDefault}" ToolTip="Use the estimated install duration from the packager definition. Clear the check box to enter your own value." />
-                        <ui:TextBox Grid.Row="1" Grid.Column="1" x:Name="txtEstimatedMinutes" Style="{StaticResource WbField}"
+                        <ui:TextBox Grid.Row="1" Grid.Column="1" x:Name="txtEstimatedMinutes" AutomationProperties.Name="Estimated install duration in minutes" Style="{StaticResource WbField}"
                                     IsEnabled="{Binding EstimatedUseDefault, Converter={StaticResource InverseBool}}"
                                     Text="{Binding EstimatedMinutes, UpdateSourceTrigger=PropertyChanged}" ToolTip="Enter the estimated install duration in minutes." />
                         <TextBlock Grid.Row="1" Grid.Column="2" Text="minutes" Style="{StaticResource WbLabel}" Margin="8,0,12,8" />
@@ -779,7 +795,7 @@
 
                         <CheckBox Grid.Row="2" Grid.Column="0" x:Name="chkMaximumDefault" Margin="0,0,12,8" VerticalAlignment="Center"
                                   Content="Use default maximum runtime" IsChecked="{Binding MaximumUseDefault}" ToolTip="Use the maximum runtime from the packager definition. Clear the check box to enter your own value." />
-                        <ui:TextBox Grid.Row="2" Grid.Column="1" x:Name="txtMaximumMinutes" Style="{StaticResource WbField}"
+                        <ui:TextBox Grid.Row="2" Grid.Column="1" x:Name="txtMaximumMinutes" AutomationProperties.Name="Maximum allowed runtime in minutes" Style="{StaticResource WbField}"
                                     IsEnabled="{Binding MaximumUseDefault, Converter={StaticResource InverseBool}}"
                                     Text="{Binding MaximumMinutes, UpdateSourceTrigger=PropertyChanged}" ToolTip="Enter the maximum allowed runtime in minutes." />
                         <TextBlock Grid.Row="2" Grid.Column="2" Text="minutes" Style="{StaticResource WbLabel}" Margin="8,0,12,8" />
@@ -791,20 +807,20 @@
                         <TextBlock Grid.Row="4" Grid.ColumnSpan="4" Text="Execution" Style="{StaticResource WbHeading}" />
 
                         <TextBlock Grid.Row="5" Grid.Column="0" Text="Install context" Style="{StaticResource WbLabel}" />
-                        <ComboBox Grid.Row="5" Grid.Column="1" Grid.ColumnSpan="2" x:Name="cboExecContext" Style="{StaticResource WbCombo}"
+                        <ComboBox Grid.Row="5" Grid.Column="1" Grid.ColumnSpan="2" x:Name="cboExecContext" AutomationProperties.Name="Install context" Style="{StaticResource WbCombo}"
                                   ItemsSource="{Binding ExecContextOptions}" SelectedItem="{Binding ExecContext}" ToolTip="Select whether the installation runs as System or as the user." />
                         <TextBlock Grid.Row="5" Grid.Column="3" x:Name="lblExecContextSrc" Text="{Binding ExecContextSource}" Style="{StaticResource WbSource}" HorizontalAlignment="Left" />
 
                         <TextBlock Grid.Row="6" Grid.Column="0" Text="Logon requirement" Style="{StaticResource WbLabel}" />
-                        <ComboBox Grid.Row="6" Grid.Column="1" Grid.ColumnSpan="3" x:Name="cboExecLogon" Style="{StaticResource WbCombo}" HorizontalAlignment="Left" MinWidth="300"
+                        <ComboBox Grid.Row="6" Grid.Column="1" Grid.ColumnSpan="3" x:Name="cboExecLogon" AutomationProperties.Name="Logon requirement" Style="{StaticResource WbCombo}" HorizontalAlignment="Left" MinWidth="300"
                                   ItemsSource="{Binding ExecLogonOptions}" SelectedItem="{Binding ExecLogon}" ToolTip="Select whether the installation runs when a user is signed in, when no user is signed in, or either way." />
 
                         <TextBlock Grid.Row="7" Grid.Column="0" Text="User interaction" Style="{StaticResource WbLabel}" />
-                        <ComboBox Grid.Row="7" Grid.Column="1" Grid.ColumnSpan="2" x:Name="cboExecInteraction" Style="{StaticResource WbCombo}"
+                        <ComboBox Grid.Row="7" Grid.Column="1" Grid.ColumnSpan="2" x:Name="cboExecInteraction" AutomationProperties.Name="User interaction" Style="{StaticResource WbCombo}"
                                   ItemsSource="{Binding ExecInteractionOptions}" SelectedItem="{Binding ExecInteraction}" ToolTip="Select how the installation window appears on the device." />
 
                         <TextBlock Grid.Row="8" Grid.Column="0" Text="Script host" Style="{StaticResource WbLabel}" />
-                        <ComboBox Grid.Row="8" Grid.Column="1" Grid.ColumnSpan="2" x:Name="cboExecScriptHost" Style="{StaticResource WbCombo}"
+                        <ComboBox Grid.Row="8" Grid.Column="1" Grid.ColumnSpan="2" x:Name="cboExecScriptHost" AutomationProperties.Name="Script host" Style="{StaticResource WbCombo}"
                                   ItemsSource="{Binding ExecScriptHostOptions}" SelectedItem="{Binding ExecScriptHost}"
                                   ToolTip="Detection and requirement scripts run in the host selected here; Intune maps this to the 32-bit flag." />
                         <ui:Button Grid.Row="8" Grid.Column="3" x:Name="btnTimingReset" Content="Reset section" Style="{StaticResource WbInlineButton}"
@@ -834,7 +850,7 @@
                         </StackPanel>
                     </DockPanel>
 
-                    <DataGrid Grid.Row="2" x:Name="dgSourceFiles" Style="{StaticResource WbGrid}"
+                    <DataGrid Grid.Row="2" x:Name="dgSourceFiles" AutomationProperties.Name="Custom source files" Style="{StaticResource WbGrid}"
                               ItemsSource="{Binding SourceFiles}" SelectedItem="{Binding SelectedSourceFile}">
                         <DataGrid.Columns>
                             <DataGridTextColumn Header="Source" Width="*" MinWidth="120" Binding="{Binding Provenance}" IsReadOnly="True" />
@@ -864,7 +880,7 @@
                     </Grid.RowDefinitions>
 
                     <TextBlock Grid.Row="0" Grid.Column="0" Text="Default versus custom" Style="{StaticResource WbHeading}" Margin="0,0,0,4" />
-                    <DataGrid Grid.Row="1" Grid.Column="0" x:Name="dgDiff" Style="{StaticResource WbGrid}" IsReadOnly="True" ItemsSource="{Binding DiffRows}">
+                    <DataGrid Grid.Row="1" Grid.Column="0" x:Name="dgDiff" AutomationProperties.Name="Default versus custom" Style="{StaticResource WbGrid}" IsReadOnly="True" ItemsSource="{Binding DiffRows}">
                         <DataGrid.Columns>
                             <DataGridTextColumn Header="Field" Width="190" Binding="{Binding Field}" />
                             <DataGridTextColumn Header="Default" Width="*" MinWidth="120" Binding="{Binding Default}" />
@@ -873,7 +889,7 @@
                     </DataGrid>
 
                     <TextBlock Grid.Row="0" Grid.Column="2" Text="Compatibility findings" Style="{StaticResource WbHeading}" Margin="0,0,0,4" />
-                    <DataGrid Grid.Row="1" Grid.Column="2" x:Name="dgFindings" Style="{StaticResource WbGrid}" IsReadOnly="True" ItemsSource="{Binding Findings}">
+                    <DataGrid Grid.Row="1" Grid.Column="2" x:Name="dgFindings" AutomationProperties.Name="Compatibility findings" Style="{StaticResource WbGrid}" IsReadOnly="True" ItemsSource="{Binding Findings}">
                         <DataGrid.Columns>
                             <DataGridTextColumn Header="Severity" Width="80" Binding="{Binding Severity}" />
                             <DataGridTextColumn Header="Code" Width="150" Binding="{Binding Code}" />
@@ -888,12 +904,12 @@
                     </DataGrid>
 
                     <TextBlock Grid.Row="2" Grid.Column="0" Text="Resolved plan" Style="{StaticResource WbHeading}" />
-                    <TextBox Grid.Row="3" Grid.Column="0" x:Name="txtResolvedPlan" Style="{StaticResource WbCode}" IsReadOnly="True" TextWrapping="Wrap"
+                    <TextBox Grid.Row="3" Grid.Column="0" x:Name="txtResolvedPlan" AutomationProperties.Name="Resolved plan" Style="{StaticResource WbCode}" IsReadOnly="True" TextWrapping="Wrap"
                              BorderThickness="1" BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}"
                              Text="{Binding ResolvedPlan, Mode=OneWay}" />
 
                     <TextBlock Grid.Row="2" Grid.Column="2" Text="Prior builds" Style="{StaticResource WbHeading}" />
-                    <DataGrid Grid.Row="3" Grid.Column="2" x:Name="dgBuilds" Style="{StaticResource WbGrid}" IsReadOnly="True" ItemsSource="{Binding PriorBuilds}">
+                    <DataGrid Grid.Row="3" Grid.Column="2" x:Name="dgBuilds" AutomationProperties.Name="Prior builds" Style="{StaticResource WbGrid}" IsReadOnly="True" ItemsSource="{Binding PriorBuilds}">
                         <DataGrid.Columns>
                             <DataGridTextColumn Header="Build id" Width="210" Binding="{Binding BuildId}" />
                             <DataGridTextColumn Header="Version" Width="80" Binding="{Binding Version}" />
@@ -910,52 +926,46 @@
                     </DataGrid>
                 </Grid>
             </Grid>
+
+            <controls:WorkbenchSidePanel Grid.Column="3" x:Name="pnlSidePanel" Width="270" Margin="0,12,16,8" Visibility="Collapsed" />
         </Grid>
 
         <Border Grid.Row="4" Background="{DynamicResource ControlStrokeColorDefaultBrush}" />
 
         <Grid Grid.Row="5" Margin="16,8,16,12">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="*" />
-            </Grid.ColumnDefinitions>
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
 
-            <StackPanel Grid.Row="0" Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
-                <Border Style="{StaticResource WbChip}">
-                    <TextBlock x:Name="chipContent" FontSize="12" Text="{Binding ChipContent}" />
-                </Border>
-                <Border Style="{StaticResource WbChip}">
-                    <TextBlock x:Name="chipMecm" FontSize="12" Text="{Binding ChipConfigMgr}" />
-                </Border>
-                <Border Style="{StaticResource WbChip}">
-                    <TextBlock x:Name="chipIntune" FontSize="12" Text="{Binding ChipIntune}" />
-                </Border>
-            </StackPanel>
-            <TextBlock Grid.Row="0" Grid.Column="1" x:Name="txtSaveState" FontSize="12" TextWrapping="Wrap" VerticalAlignment="Center" Margin="8,0,0,0"
-                       Foreground="{DynamicResource TextFillColorSecondaryBrush}" Text="{Binding SaveStateText}" />
+            <!-- The validation line stands in for the side panel while the panel is closed. -->
+            <DockPanel Grid.Row="0">
+                <TextBlock DockPanel.Dock="Left" x:Name="txtValidationLine" FontSize="12" VerticalAlignment="Center" Margin="0,0,16,0"
+                           Foreground="{DynamicResource TextFillColorPrimaryBrush}" Text="{Binding ValidationLine}" />
+                <TextBlock x:Name="txtSaveState" FontSize="12" TextWrapping="Wrap" VerticalAlignment="Center"
+                           Foreground="{DynamicResource TextFillColorSecondaryBrush}" Text="{Binding SaveStateText}" />
+            </DockPanel>
 
-            <StackPanel Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,8,0,0">
+            <DockPanel Grid.Row="1" Margin="0,8,0,0" LastChildFill="False">
+                <StackPanel DockPanel.Dock="Left" Orientation="Horizontal">
                 <ui:Button x:Name="btnUseDefaults" Content="Use defaults" Style="{StaticResource WbFooterButton}" MinWidth="106"
                            Command="{Binding UseDefaultsCommand}"
                            ToolTip="Clear every override in this profile and inherit the packager defaults." />
                 <ui:Button x:Name="btnSave" Content="Save" Icon="{ui:SymbolIcon Save24}" Style="{StaticResource WbFooterButton}" Command="{Binding SaveCommand}" ToolTip="Save this profile. The packager default profile asks for a name and is saved as a new profile." />
                 <ui:Button x:Name="btnSaveAs" Content="Save as..." Icon="{ui:SymbolIcon Save24}" Style="{StaticResource WbFooterButton}" Command="{Binding SaveAsCommand}" ToolTip="Save a copy of this profile under a new name." />
+                <ToggleButton x:Name="btnDetails" Content="Details" MinWidth="96" Click="Details_Click" Visibility="Collapsed"
+                              ToolTip="Show the identity, the source and the validation results in place of the editor."
+                              AutomationProperties.AutomationId="btnWorkbenchDetails" />
+                </StackPanel>
+                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
                 <ui:Button x:Name="btnValidate" Content="Validate" Icon="{ui:SymbolIcon CheckmarkCircle24}" Style="{StaticResource WbFooterButton}" Command="{Binding ValidateCommand}" ToolTip="Check this profile and show the findings on the Review page. Nothing runs." />
                 <ui:Button x:Name="btnStage" Content="Stage" Icon="{ui:SymbolIcon ArrowCircleDown24}" Style="{StaticResource WbFooterButton}" Command="{Binding StageCommand}" ToolTip="Stage this application with the saved profile. Unsaved edits are saved or discarded first, and blocking findings stop the run." />
-                <TextBlock Text="Publish to:" FontSize="14" VerticalAlignment="Center" Margin="8,0,8,0"
-                           Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
-                <ui:Button x:Name="btnPublishMecm" Content="ConfigMgr" Icon="{ui:SymbolIcon CloudArrowUp24}" Appearance="Primary" Style="{StaticResource WbFooterButton}"
-                           Command="{Binding PublishConfigMgrCommand}" ToolTip="{Binding PublishConfigMgrToolTip}" ToolTipService.ShowOnDisabled="True" />
-                <ui:Button x:Name="btnPublishIntune" Content="Intune" Icon="{ui:SymbolIcon CloudArrowUp24}" Appearance="Primary" Style="{StaticResource WbFooterButton}"
-                           Command="{Binding PublishIntuneCommand}" ToolTip="{Binding PublishIntuneToolTip}" ToolTipService.ShowOnDisabled="True" />
-                <ui:Button x:Name="btnPublishWsus" Content="WSUS" Icon="{ui:SymbolIcon CloudArrowUp24}" Appearance="Primary" Style="{StaticResource WbFooterButton}" Margin="0"
-                           Command="{Binding PublishWsusCommand}" ToolTip="{Binding PublishWsusToolTip}" ToolTipService.ShowOnDisabled="True"
-                           AutomationProperties.AutomationId="btnPublishWsus" />
-            </StackPanel>
+                <ui:Button x:Name="btnPublishAll" Content="Publish All" Icon="{ui:SymbolIcon ArrowCircleUp24}" Appearance="Primary"
+                           Style="{StaticResource WbFooterButton}" Margin="0"
+                           Command="{Binding PublishAllCommand}" ToolTip="{Binding PublishAllToolTip}" ToolTipService.ShowOnDisabled="True"
+                           AutomationProperties.AutomationId="btnWorkbenchPublishAll" />
+                </StackPanel>
+            </DockPanel>
         </Grid>
 
         <ui:ContentDialogHost x:Name="WorkbenchDialogHost" Grid.Row="0" Grid.RowSpan="6" />

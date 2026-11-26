@@ -123,13 +123,23 @@ public static class WorkbenchFindings
 
     /// <summary>
     /// The findings that stop a run: every Blocking finding for a publish to Intune without ConfigMgr,
-    /// and the Blocking findings outside the Intune codes for any other target.
+    /// and the Blocking findings outside the Intune codes for any other target. A target that also
+    /// publishes to Intune is stopped by the grouped or OR detection that Intune cannot express, and by
+    /// a variant split unless <paramref name="sealedManifest"/> carries its deployment types, which the
+    /// Intune publish then judges itself.
     /// </summary>
-    public static IReadOnlyList<WorkbenchFinding> BlockingFor(IEnumerable<WorkbenchFinding> findings, string target) =>
-        findings.Where(f => f.Severity == WorkbenchFinding.Blocking
-                            && (Models.DeploymentTargets.PublishesToIntune(target) && Models.DeploymentTargets.SkipsMecm(target)
-                                || !f.Code.Contains("INTUNE", StringComparison.OrdinalIgnoreCase)))
-                .ToList();
+    public static IReadOnlyList<WorkbenchFinding> BlockingFor(IEnumerable<WorkbenchFinding> findings, string target,
+        Models.StageManifest? sealedManifest = null)
+    {
+        var intune = Models.DeploymentTargets.PublishesToIntune(target);
+        var intuneWithoutConfigMgr = intune && Models.DeploymentTargets.SkipsMecm(target);
+        var split = sealedManifest?.DeploymentTypes?.Any() == true;
+        return findings.Where(f => f.Severity == WorkbenchFinding.Blocking
+                                   && (intuneWithoutConfigMgr
+                                       || !f.Code.Contains("INTUNE", StringComparison.OrdinalIgnoreCase)
+                                       || intune && (f.Code == "DETECT-INTUNE-COMPOUND" || f.Code == "VARIANT-INTUNE" && !split)))
+                       .ToList();
+    }
 
     private static int Minutes(WorkbenchMember member, int inherited)
     {

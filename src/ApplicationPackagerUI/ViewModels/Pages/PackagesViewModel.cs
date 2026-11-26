@@ -973,6 +973,13 @@ public partial class PackagesViewModel : ObservableObject
     private async Task StageAsync() => await RunStageAsync();
 
     /// <summary>
+    /// The route of a Workbench publish, the same as Publish All of the page: a WSUS-only target keeps the WSUS run, and every other target
+    /// runs the package path with the publish review.
+    /// </summary>
+    public static Task RouteWorkbenchPublishAsync(string target, Func<Task> wsusOnlyRun, Func<bool, Task> packageRun) =>
+        target == PublishRunTargets.WsusOnly ? wsusOnlyRun() : packageRun(true);
+
+    /// <summary>
     /// Stages or packages one row for the Application Workbench through the same per-row
     /// flow the buttons use, with the workbench's run snapshot and, for a publish, its target.
     /// The grid selection is left as it is.
@@ -986,8 +993,9 @@ public partial class PackagesViewModel : ObservableObject
         }
         var profileName = ApplicationPackagerEngine.Services.Workbench.WorkbenchJson.AsText(snapshot.Profile["Name"]) ?? snapshot.ProfileId;
         AddLogLine($"Workbench {(package ? "Package" : "Stage")}: {row.Application} (profile {profileName}, revision {snapshot.ProfileRevision}, build {snapshot.BuildId})");
-        if (package && target == PublishRunTargets.WsusOnly) await PublishWsusRunAsync([row], snapshot);
-        else if (package) await PackageAsync([row], target, snapshot);
+        if (package)
+            await RouteWorkbenchPublishAsync(target ?? PublishRunTargets.ConfigMgr,
+                () => PublishWsusRunAsync([row], snapshot), review => PackageAsync([row], target, snapshot, review));
         else await RunStageAsync([row], snapshot);
     }
 
@@ -1140,7 +1148,12 @@ public partial class PackagesViewModel : ObservableObject
             return;
         }
         IsOperationRunning = true;
-        try { await PackageCoreAsync(rows, targetOverride, snapshot, review); }
+        try
+        {
+            // The Workbench starts this run while it closes. The run yields first, so the review window opens after the Workbench is gone.
+            if (review && rows is not null) await Task.Yield();
+            await PackageCoreAsync(rows, targetOverride, snapshot, review);
+        }
         finally { IsOperationRunning = false; }
     }
 
@@ -1170,14 +1183,52 @@ public partial class PackagesViewModel : ObservableObject
         if (selected.Count == 0) { ShowNoneSelected("Package"); return; }
 
         PublishPlan? confirmedPlan = null;
+        // A Workbench run publishes one build: the sealed build of its snapshot, or the stage at the manifest path of a bring-your-own row.
+        // The review and the results name the version of that build, and the build is read again before each write.
+        string? sealedVersion = null;
+        string? pinnedBuildId = null;
+        Func<(string Version, string? Failure)>? readBuild = null;
+        // True when the build of the run is gone; the log then says why, and the run publishes nothing more.
+        bool BuildIsGone()
+        {
+            if (readBuild?.Invoke().Failure is not { } failure) return false;
+            AddLogLine("Publish cancelled. " + failure);
+            StatusText = "Publish cancelled. Nothing was published.";
+            return true;
+        }
+        void ThrowIfBuildIsGone()
+        {
+            if (readBuild?.Invoke().Failure is { } failure) throw new InvalidOperationException(failure);
+        }
         if (review)
         {
+            if (rows is not null && selected is [var workbenchRow])
+            {
+                if (workbenchRow.StagedManifestPath is { } stagedPath)
+                {
+                    pinnedBuildId = WorkbenchRunSnapshots.StageAt(stagedPath, snapshot?.BuildId).BuildId;
+                    var expected = snapshot?.BuildId ?? pinnedBuildId;
+                    readBuild = () =>
+                    {
+                        var stage = WorkbenchRunSnapshots.StageAt(stagedPath, expected);
+                        return (stage.Version, stage.Failure);
+                    };
+                }
+                else if (snapshot is not null)
+                {
+                    readBuild = () => WorkbenchRunSnapshots.SealedVersion(snapshot);
+                }
+                if (BuildIsGone()) return;
+                sealedVersion = readBuild?.Invoke().Version;
+            }
+
             // The review lists every checked application, the ones that the view hides too, and takes the comment of the run.
-            var shown = new HashSet<PackagerInfo>(FilteredPackagers);
+            // The rows of a Workbench run are named by the caller, so none of them is hidden.
+            var shown = new HashSet<PackagerInfo>(rows ?? FilteredPackagers);
             var plan = BuildPlan(selected.Select(p => PlanApp(p, settings, !shown.Contains(p),
-                    string.IsNullOrEmpty(p.CurrentVersion) ? ConfigMgrFact.None : ConfigMgrFact.Found(p.CurrentVersion))).ToList(), settings);
+                    string.IsNullOrEmpty(p.CurrentVersion) ? ConfigMgrFact.None : ConfigMgrFact.Found(p.CurrentVersion), sealedVersion)).ToList(), settings);
             var confirmed = await PublishReviewGate.ConfirmAsync(plan, Comment, _publishDialogs.ShowPublishReview,
-                shownPlan => RereadPlanAsync(shownPlan, selected), AddLogLine);
+                shownPlan => RereadPlanAsync(shownPlan, selected, readBuild), AddLogLine);
             if (confirmed is null)
             {
                 StatusText = "Publish cancelled. Nothing was published.";
@@ -1218,12 +1269,14 @@ public partial class PackagesViewModel : ObservableObject
         // What this publish does and does not do, before anything starts.
         foreach (var sentence in ApplicationPackagerEngine.Services.PublishPreflight.Lines(target))
             AddLogLine("Before publish: " + sentence);
-        if (DeploymentTargets.PublishesToIntune(target) && !await ReviewIntuneCompatibilityAsync(selected, target))
+        if (DeploymentTargets.PublishesToIntune(target) && !await ReviewIntuneCompatibilityAsync(selected, target, snapshot, pinnedBuildId))
         {
             AddLogLine("Intune review: run cancelled.");
             if (confirmedPlan is not null) StatusText = "Publish cancelled. Nothing was published.";
             return;
         }
+        // The dialogs above wait for the operator, so the build is read once more before the first write.
+        if (BuildIsGone()) return;
 
         IsOperationRunning = true;
         ShowProgress = true;
@@ -1263,6 +1316,7 @@ public partial class PackagesViewModel : ObservableObject
                     // ConfigMgr and Intune run through one package call. An existing application asks here.
                     async Task<PackagerExecutionResult> PackageRowAsync(string packageTarget)
                     {
+                        ThrowIfBuildIsGone();
                         var packaged = await _executionService.PackageAsync(
                             p, Comment, line => AddLogLine($"  {line}"), token,
                             targetOverride: packageTarget, snapshot: snapshot);
@@ -1281,6 +1335,14 @@ public partial class PackagesViewModel : ObservableObject
 
                         if (answer.Behavior == ConflictAnswer.Overwrite)
                         {
+                            // The conflict question waits for the operator. The first call may already have published to Intune, so its
+                            // result stays: a throw here would report that publish as failed.
+                            if (readBuild?.Invoke().Failure is { } gone)
+                            {
+                                conflictKept = true;
+                                AddLogLine($"Overwrite skipped: {gone} The existing application is kept: {packaged.Conflict.ApplicationName} v{packaged.Conflict.Version}");
+                                return packaged;
+                            }
                             AddLogLine($"Overwriting existing: {packaged.Conflict.ApplicationName} v{packaged.Conflict.Version}");
                             return await _executionService.PackageAsync(
                                 p, Comment, line => AddLogLine($"  {line}"), token,
@@ -1294,13 +1356,17 @@ public partial class PackagesViewModel : ObservableObject
                     }
 
                     // Each destination of the target runs once; one that fails does not stop the next.
-                    var version = PackagerExecutionService.PublishVersion(p);
+                    var version = sealedVersion ?? PackagerExecutionService.PublishVersion(p);
                     var cells = new List<PublishDestinationResult>();
                     PublishRowRun run;
                     try
                     {
                         run = await PublishRowRunner.RunAsync(p.Uid, version, target, PackageRowAsync,
-                            () => _publishRuns.PublishWsusRowAsync(p, snapshot, AddLogLine, token),
+                            () =>
+                            {
+                                ThrowIfBuildIsGone();
+                                return _publishRuns.PublishWsusRowAsync(p, snapshot, AddLogLine, token);
+                            },
                             AddLogLine, token, () => conflictStop, cells);
                     }
                     finally
@@ -1318,7 +1384,7 @@ public partial class PackagesViewModel : ObservableObject
                         break;
                     }
 
-                    if (conflictKept && run.Wsus is null)
+                    if (conflictKept && run.Wsus is null && !run.WsusFailed)
                     {
                         p.Status = "Skipped";
                         p.IsSelected = false;
@@ -1329,9 +1395,9 @@ public partial class PackagesViewModel : ObservableObject
                     // A package call that threw has no result; its cells carry the error and the row failed.
                     var packageThrew = result is null && PublishRowRunner.PackageTarget(target) is not null;
                     var packageExit = packageThrew ? 1 : result?.ExitCode ?? 0;
-                    var wsusFailed = run.Wsus is not null && (wsusStep is null || wsusStep.Status == WsusStepStatus.Failed);
+                    var wsusFailed = run.WsusFailed;
                     var rowStatus = run.Wsus is null
-                        ? RowStatus(target, packageExit)
+                        ? RowStatus(target, wsusFailed ? 1 : packageExit)
                         : PublishRowOutcome.For(target, packageExit, conflictKept ? PackageRunEnd.Skipped : PackageRunEnd.Completed, wsusStep).Status;
 
                     if (packageExit == 0 && !wsusFailed)
@@ -1363,7 +1429,7 @@ public partial class PackagesViewModel : ObservableObject
                                 if (result is not null) LogStdErr(result.StdErr);
                             }
                             if (wsusFailed)
-                                AddLogLine("WSUS publish FAILED: " + (wsusStep?.Message ?? run.Wsus!.Stage.StdErr.Trim()));
+                                AddLogLine("WSUS publish FAILED: " + (wsusStep?.Message ?? run.Result.For(OneClickDestinations.Wsus)?.Message));
                         }
 
                         // Notes stand either way: a partially completed target may already
@@ -1427,7 +1493,7 @@ public partial class PackagesViewModel : ObservableObject
         PublishPlanner.Plan(apps, settings.Systems, ReadinessOf(settings)) with { Site = (settings.SiteCode ?? "").Trim() + "|" + (settings.ProviderMachine ?? "").Trim() };
 
     /// <summary>One application of the publish plan: the version the run publishes, what ConfigMgr does afterward, and what each system cannot take.</summary>
-    private PublishPlanApp PlanApp(PackagerInfo p, AppSettings settings, bool hidden, ConfigMgrFact site)
+    private PublishPlanApp PlanApp(PackagerInfo p, AppSettings settings, bool hidden, ConfigMgrFact site, string? sealedVersion = null)
     {
         var script = !p.IsJsonDefined && p.StagedManifestPath is null;
         var steps = new List<string>();
@@ -1446,7 +1512,7 @@ public partial class PackagesViewModel : ObservableObject
                 != ApplicationPackagerEngine.Services.Supersedence.SupersedenceMode.Off)
                 steps.Add("apply supersedence");
         }
-        return new PublishPlanApp(p.Uid, p.Application, PackagerExecutionService.PublishVersion(p), hidden)
+        return new PublishPlanApp(p.Uid, p.Application, sealedVersion ?? PackagerExecutionService.PublishVersion(p), hidden)
         {
             Site = site,
             ConfigMgrSteps = string.Join(", ", steps),
@@ -1459,11 +1525,25 @@ public partial class PackagesViewModel : ObservableObject
     /// The read before the first write (overhaul V1, phase 5b): the systems and their readiness from the stored settings, the version of each
     /// application, and the ConfigMgr application of each one. One site query for each application when ConfigMgr is in the plan. Null when cancelled.
     /// </summary>
-    private async Task<PublishPlan?> RereadPlanAsync(PublishPlan shown, IReadOnlyList<PackagerInfo> selected)
+    private async Task<PublishPlan?> RereadPlanAsync(PublishPlan shown, IReadOnlyList<PackagerInfo> selected,
+        Func<(string Version, string? Failure)>? readBuild)
     {
+        // A later stage into the same folder replaces a build. The run does not start for a build that is gone.
+        string? sealedVersion = null;
+        if (readBuild is not null)
+        {
+            var (version, failure) = readBuild();
+            if (failure is not null)
+            {
+                AddLogLine("Publish cancelled. " + failure);
+                return null;
+            }
+            sealedVersion = version;
+        }
+
         var settings = _settingsService.Load();
         var byUid = selected.ToDictionary(p => p.Uid, StringComparer.Ordinal);
-        var apps = shown.Rows.Select(r => PlanApp(byUid[r.App.Uid], settings, r.App.Hidden, r.App.Site)).ToList();
+        var apps = shown.Rows.Select(r => PlanApp(byUid[r.App.Uid], settings, r.App.Hidden, r.App.Site, sealedVersion)).ToList();
         var unread = BuildPlan(apps, settings);
         // A plan that cannot run, or has no ConfigMgr, keeps the ConfigMgr facts it was shown with.
         if (!unread.CanRun || !unread.Systems.Contains(OneClickDestinations.ConfigMgr)) return unread;
@@ -1501,7 +1581,7 @@ public partial class PackagesViewModel : ObservableObject
             // The queries take time, and a Settings save during them must show. So the plan is built from the settings after the last query,
             // with the facts that were read. A change of the site makes the plan differ, and the next confirm reads the new site.
             var after = _settingsService.Load();
-            return BuildPlan(apps.Select(a => PlanApp(byUid[a.Uid], after, a.Hidden, a.Site)).ToList(), after);
+            return BuildPlan(apps.Select(a => PlanApp(byUid[a.Uid], after, a.Hidden, a.Site, sealedVersion)).ToList(), after);
         }
         finally
         {
@@ -1956,20 +2036,27 @@ public partial class PackagesViewModel : ObservableObject
     /// and, when any finding blocks or needs a decision, in a dialog. A blocked application is
     /// refused by its own publish; Cancel stops the whole run. One Click logs and continues.
     /// </summary>
-    private async Task<bool> ReviewIntuneCompatibilityAsync(List<PackagerInfo> selected, string target)
+    private async Task<bool> ReviewIntuneCompatibilityAsync(List<PackagerInfo> selected, string target,
+        ApplicationPackagerEngine.Models.Workbench.RunSnapshot? snapshot, string? expectedBuildId)
     {
         var lines = new List<string>();
         var acceptable = new List<string>();
         foreach (var p in selected)
         {
-            var findings = _executionService.ReviewIntuneCompatibility(p);
-            if (findings is null) continue;
-            foreach (var f in findings)
+            var stage = _executionService.ReviewIntuneCompatibility(p, snapshot, expectedBuildId);
+            if (stage.Failure is not null)
+            {
+                AddLogLine($"Intune review: the build of {p.Application} cannot be read. {stage.Failure}");
+                return false;
+            }
+            if (stage.Findings is null) continue;
+            var reviewed = ReviewedStageName(p.Application, stage.Version, stage.BuildId);
+            foreach (var f in stage.Findings)
             {
                 if (f.CanAcceptDrop) acceptable.Add(f.DropKey!);
-                AddLogLine($"{p.Application}: {ApplicationPackagerEngine.Services.IntuneCompatibilityFindings.LogLine(f)}");
+                AddLogLine($"{reviewed}: {ApplicationPackagerEngine.Services.IntuneCompatibilityFindings.LogLine(f)}");
                 if (f.Severity != ApplicationPackagerEngine.Services.IntuneCompatibilityFindings.Info)
-                    lines.Add($"{p.Application}: [{f.Severity}] {f.Code} - {f.Message}");
+                    lines.Add($"{reviewed}: [{f.Severity}] {f.Code} - {f.Message}");
             }
         }
         if (lines.Count == 0) return true;
@@ -2014,6 +2101,10 @@ public partial class PackagesViewModel : ObservableObject
         }
         return answer == ContentDialogResult.Primary;
     }
+
+    /// <summary>The name of a reviewed stage in the Intune review: the application, the version and the build id.</summary>
+    public static string ReviewedStageName(string application, string version, string buildId) =>
+        application + (version.Length > 0 ? " " + version : "") + (buildId.Length > 0 ? " (build " + buildId + ")" : "");
 
     private void ShowNoneSelected(string operation)
     {

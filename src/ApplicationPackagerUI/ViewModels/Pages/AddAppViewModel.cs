@@ -42,6 +42,8 @@ public partial class AddAppViewModel : ObservableObject
     [ObservableProperty] private bool _canGoBack;
     [ObservableProperty] private bool _canGoNext = true;
     [ObservableProperty] private bool _canSave;
+    [ObservableProperty] private string _stepCountText = CountText(1);
+    [ObservableProperty] private string _nextText = NextLabel(1);
 
     [ObservableProperty] private string _vendor = "";
     [ObservableProperty] private string _applicationName = "";
@@ -124,7 +126,16 @@ public partial class AddAppViewModel : ObservableObject
         RefreshDetectionWarning();
     }
 
+    /// <summary>The steps of the step list. One of them is the current step.</summary>
+    public IReadOnlyList<WizardStep> Steps { get; } =
+        StepTitles.Select((title, i) => new WizardStep(i + 1, title, StepCount) { IsCurrent = i == 0 }).ToList();
+
     private static string Title(int step) => $"Step {step} of {StepCount}: {StepTitles[step - 1]}";
+
+    private static string CountText(int step) => $"Step {step} of {StepCount}";
+
+    /// <summary>The forward button names the step that it opens. The last step has no forward button.</summary>
+    private static string NextLabel(int step) => step < StepCount ? $"Next · {StepTitles[step]}" : "Next";
 
     private static string Marker(Evidence? evidence) => evidence is { } e ? EvidenceMarkers.Text(e) : "";
 
@@ -177,6 +188,9 @@ public partial class AddAppViewModel : ObservableObject
         CanGoNext = CurrentStep < StepCount;
         CanSave = CurrentStep == ReviewStep;
         StepTitle = Title(CurrentStep);
+        StepCountText = CountText(CurrentStep);
+        NextText = NextLabel(CurrentStep);
+        foreach (var step in Steps) step.IsCurrent = step.Number == CurrentStep;
         if (CurrentStep == ReviewStep) BuildReviewSummary();
     }
 
