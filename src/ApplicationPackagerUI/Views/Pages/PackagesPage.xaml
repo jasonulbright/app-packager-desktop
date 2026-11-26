@@ -215,63 +215,9 @@
                   MouseDoubleClick="PackagerGrid_MouseDoubleClick"
                   ContextMenuOpening="PackagerGrid_ContextMenuOpening">
 
+            <!-- The items come from RowActions when the menu opens; the More actions menu of the detail pane shows the same ones. -->
             <DataGrid.ContextMenu>
-                <ContextMenu Opened="PackagerMenu_Opened">
-                    <MenuItem Header="View operation history..." Click="ContextMenu_ViewHistory">
-                        <MenuItem.Icon>
-                            <ui:SymbolIcon Symbol="TextBulletListSquare24" />
-                        </MenuItem.Icon>
-                    </MenuItem>
-                    <Separator />
-                    <MenuItem Header="Edit application..." Click="ContextMenu_EditApplication">
-                        <MenuItem.Icon>
-                            <ui:SymbolIcon Symbol="Edit24" />
-                        </MenuItem.Icon>
-                    </MenuItem>
-                    <Separator />
-                    <MenuItem Header="Open Log Folder" Click="ContextMenu_OpenLogFolder">
-                        <MenuItem.Icon>
-                            <ui:SymbolIcon Symbol="DocumentText24" />
-                        </MenuItem.Icon>
-                    </MenuItem>
-                    <MenuItem Header="Open Staged Folder" Click="ContextMenu_OpenStagedFolder">
-                        <MenuItem.Icon>
-                            <ui:SymbolIcon Symbol="FolderOpen24" />
-                        </MenuItem.Icon>
-                    </MenuItem>
-                    <MenuItem Header="Open Network Share" Click="ContextMenu_OpenNetworkShare">
-                        <MenuItem.Icon>
-                            <ui:SymbolIcon Symbol="FolderLink24" />
-                        </MenuItem.Icon>
-                    </MenuItem>
-                    <Separator />
-                    <MenuItem Header="Copy Latest Version" Click="ContextMenu_CopyLatestVersion">
-                        <MenuItem.Icon>
-                            <ui:SymbolIcon Symbol="Copy24" />
-                        </MenuItem.Icon>
-                    </MenuItem>
-                    <MenuItem Header="Open Vendor URL" Click="ContextMenu_OpenVendorUrl">
-                        <MenuItem.Icon>
-                            <ui:SymbolIcon Symbol="Link24" />
-                        </MenuItem.Icon>
-                    </MenuItem>
-                    <Separator />
-                    <MenuItem x:Name="MenuShowCves" Header="Show CVEs..." Click="ContextMenu_ShowCves">
-                        <MenuItem.Icon>
-                            <ui:SymbolIcon Symbol="ShieldError24" />
-                        </MenuItem.Icon>
-                    </MenuItem>
-                    <MenuItem x:Name="MenuOpenCveSources" Header="Open CVE Sources">
-                        <MenuItem.Icon>
-                            <ui:SymbolIcon Symbol="Globe24" />
-                        </MenuItem.Icon>
-                    </MenuItem>
-                    <MenuItem x:Name="MenuCopyCveIds" Header="Copy CVE IDs" Click="ContextMenu_CopyCveIds">
-                        <MenuItem.Icon>
-                            <ui:SymbolIcon Symbol="Copy24" />
-                        </MenuItem.Icon>
-                    </MenuItem>
-                </ContextMenu>
+                <ContextMenu Opened="PackagerMenu_Opened" />
             </DataGrid.ContextMenu>
 
             <DataGrid.Columns>
@@ -451,8 +397,23 @@
                         <TextBlock Text="{Binding DetailPackager.Application, FallbackValue='No application selected'}" Style="{StaticResource CardTitleText}" TextTrimming="CharacterEllipsis"
                                    VerticalAlignment="Center" AutomationProperties.AutomationId="txtDetailTitle" />
                     </DockPanel>
-                    <ui:Button DockPanel.Dock="Bottom" Content="Open in Workbench" Icon="{ui:SymbolIcon Wrench24}" Click="DetailOpenWorkbench_Click" HorizontalAlignment="Stretch" Margin="0,8,0,0"
-                               AutomationProperties.AutomationId="btnDetailWorkbench" ToolTip="Open the Application Workbench on the selected application." />
+                    <StackPanel DockPanel.Dock="Bottom" Margin="0,8,0,0">
+                        <ui:Button Content="Open in Workbench" Icon="{ui:SymbolIcon Wrench24}" Click="DetailOpenWorkbench_Click" HorizontalAlignment="Stretch"
+                                   AutomationProperties.AutomationId="btnDetailWorkbench" ToolTip="Open the Application Workbench on the selected application." />
+                        <ui:Button x:Name="btnDetailMoreActions" Content="More actions" Icon="{ui:SymbolIcon MoreHorizontal24}" Click="DetailMoreActions_Click"
+                                   HorizontalAlignment="Stretch" Margin="0,8,0,0" AutomationProperties.AutomationId="btnDetailMoreActions"
+                                   ToolTip="The same actions as the menu of the grid row: history, folders, version, vendor page and CVEs.">
+                            <ui:Button.Style>
+                                <Style TargetType="ui:Button" BasedOn="{StaticResource {x:Type ui:Button}}">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding DetailPackager}" Value="{x:Null}">
+                                            <Setter Property="IsEnabled" Value="False" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </ui:Button.Style>
+                        </ui:Button>
+                    </StackPanel>
                     <ItemsControl ItemsSource="{Binding DetailLines}" Focusable="False" IsTabStop="False" AutomationProperties.AutomationId="lstDetailLines">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>

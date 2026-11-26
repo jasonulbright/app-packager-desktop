@@ -194,14 +194,13 @@ public partial class PackagesPage
     /// <summary>The grid row the operator last selected, for the Application Workbench entry point.</summary>
     public PackagerInfo? SelectedPackager => GetSelectedPackager();
 
-    private void OpenWorkbenchForSelection()
+    private void OpenWorkbenchForSelection() => OpenWorkbench(GetSelectedPackager());
+
+    private void OpenWorkbench(PackagerInfo? p)
     {
-        var p = GetSelectedPackager();
         if (Window.GetWindow(this) is Views.Windows.MainWindow main)
             main.OpenWorkbench(p is null ? null : WorkbenchApplicationCatalog.ApplicationIdFor(p));
     }
-
-    private void ContextMenu_EditApplication(object sender, RoutedEventArgs e) => OpenWorkbenchForSelection();
 
     private void PackagerGrid_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
@@ -384,14 +383,13 @@ public partial class PackagesPage
         _convertFromCm.Show();
     }
 
-    private void ViewHistory_Click(object sender, RoutedEventArgs e) => OpenHistoryForSelection();
-
-    private void ContextMenu_ViewHistory(object sender, RoutedEventArgs e) => OpenHistoryForSelection();
-
-    private void OpenHistoryForSelection()
+    private void ViewHistory_Click(object sender, RoutedEventArgs e)
     {
-        if (GetSelectedPackager() is not { } packager) return;
+        if (GetSelectedPackager() is { } packager) OpenHistory(packager);
+    }
 
+    private void OpenHistory(PackagerInfo packager)
+    {
         var inventory = App.Services.GetRequiredService<ApplicationPackagerEngine.Services.ApplicationInventoryService>();
         var history = new Views.Windows.OperationHistoryWindow(packager, inventory)
         {
@@ -436,7 +434,46 @@ public partial class PackagesPage
         return node as T;
     }
 
-    private void ContextMenu_OpenLogFolder(object sender, RoutedEventArgs e)
+    /// <summary>Fills the context menu of the grid for the selected row each time it opens.</summary>
+    private void PackagerMenu_Opened(object sender, RoutedEventArgs e)
+    {
+        if (sender is System.Windows.Controls.ContextMenu menu) FillRowMenu(menu, GetSelectedPackager());
+    }
+
+    private void FillRowMenu(System.Windows.Controls.ContextMenu menu, PackagerInfo? row) =>
+        Helpers.RowActions.Fill(menu, row, RunRowAction, PackagesViewModel.CveSourceLinks, url => Packages.OpenExternalLink(url));
+
+    /// <summary>The More actions menu of the detail pane, for the row that the pane shows.</summary>
+    public System.Windows.Controls.ContextMenu BuildRowActionsMenu()
+    {
+        var menu = new System.Windows.Controls.ContextMenu();
+        FillRowMenu(menu, ((PackagesViewModel)DataContext!).DetailPackager);
+        return menu;
+    }
+
+    private void DetailMoreActions_Click(object sender, RoutedEventArgs e) => Open(sender, BuildRowActionsMenu());
+
+    private async void RunRowAction(Helpers.RowActionKind kind, PackagerInfo row)
+    {
+        switch (kind)
+        {
+            case Helpers.RowActionKind.History: OpenHistory(row); break;
+            case Helpers.RowActionKind.EditApplication: OpenWorkbench(row); break;
+            case Helpers.RowActionKind.OpenLogFolder: OpenLogFolder(); break;
+            case Helpers.RowActionKind.OpenStagedFolder: OpenStagedFolder(row); break;
+            case Helpers.RowActionKind.OpenNetworkShare: OpenNetworkShare(); break;
+            case Helpers.RowActionKind.CopyLatestVersion:
+                if (!string.IsNullOrEmpty(row.LatestVersion)) Clipboard.SetText(row.LatestVersion);
+                break;
+            case Helpers.RowActionKind.OpenVendorUrl:
+                if (!string.IsNullOrEmpty(row.VendorUrl)) Process.Start(new ProcessStartInfo(row.VendorUrl) { UseShellExecute = true });
+                break;
+            case Helpers.RowActionKind.ShowCves: await OpenCveWindowAsync(row); break;
+            case Helpers.RowActionKind.CopyCveIds: await CopyCveIdsAsync(row); break;
+        }
+    }
+
+    private static void OpenLogFolder()
     {
         var settings = App.Services.GetRequiredService<SettingsService>().Load();
         var logDir = Path.Combine(settings.DownloadRoot, "Logs");
@@ -444,16 +481,13 @@ public partial class PackagesPage
             Process.Start(new ProcessStartInfo("explorer.exe", logDir));
     }
 
-    private void ContextMenu_OpenStagedFolder(object sender, RoutedEventArgs e)
+    private static void OpenStagedFolder(PackagerInfo row)
     {
-        var p = GetSelectedPackager();
-        if (p is null) return;
-
         var settings = App.Services.GetRequiredService<SettingsService>().Load();
         var dlRoot = settings.DownloadRoot;
         if (!Directory.Exists(dlRoot)) return;
 
-        var baseName = Path.GetFileNameWithoutExtension(p.Script)
+        var baseName = Path.GetFileNameWithoutExtension(row.Script)
             .Replace("package-", "", StringComparison.OrdinalIgnoreCase);
 
         var candidates = Directory.GetDirectories(dlRoot)
@@ -464,24 +498,10 @@ public partial class PackagesPage
         Process.Start(new ProcessStartInfo("explorer.exe", target));
     }
 
-    private void ContextMenu_OpenNetworkShare(object sender, RoutedEventArgs e)
+    private static void OpenNetworkShare()
     {
         var settings = App.Services.GetRequiredService<SettingsService>().Load();
         if (!string.IsNullOrEmpty(settings.FileShareRoot))
             Process.Start(new ProcessStartInfo("explorer.exe", settings.FileShareRoot));
-    }
-
-    private void ContextMenu_CopyLatestVersion(object sender, RoutedEventArgs e)
-    {
-        var p = GetSelectedPackager();
-        if (p is not null && !string.IsNullOrEmpty(p.LatestVersion))
-            Clipboard.SetText(p.LatestVersion);
-    }
-
-    private void ContextMenu_OpenVendorUrl(object sender, RoutedEventArgs e)
-    {
-        var p = GetSelectedPackager();
-        if (p is not null && !string.IsNullOrEmpty(p.VendorUrl))
-            Process.Start(new ProcessStartInfo(p.VendorUrl) { UseShellExecute = true });
     }
 }
