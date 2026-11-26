@@ -738,7 +738,7 @@ function Select-DeployRow([string]$FilterId, [string]$GridId, [string]$Text, [st
     # The list of a site can still load when the filter is typed, so the row is waited for.
     $deadline = (Get-Date).AddSeconds(120)
     do {
-        $rows = @(Get-GridRows $GridId 30 | Where-Object { @(Get-RowCells $_) -match $Pattern })
+        $rows = @(Get-GridRows $GridId 30 | Where-Object { (Get-RowCells $_) -match $Pattern })
         if ($rows.Count -ne 1) { Start-Sleep -Seconds 5 }
     } while ($rows.Count -ne 1 -and (Get-Date) -lt $deadline)
     if ($rows.Count -ne 1) { foreach ($r in @(Get-GridRows $GridId 30)) { Say "  row seen: $((Get-RowCells $r) -join ' | ')" } }
