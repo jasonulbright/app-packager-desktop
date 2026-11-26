@@ -79,6 +79,7 @@ try {
     Set-ItemProperty $key -Name ScreenBufferSize -Type DWord -Value 0x012C012C
     Set-ItemProperty $key -Name WindowPosition -Type DWord -Value 0x00000000
     $p = Start-Process cmd.exe -ArgumentList '/k', ('"' + $cli + '" --help') -PassThru
+    Add-ApdOwnedProcess $p
     Start-Sleep 6
     # The shot is the console window only: its rectangle, so that nothing of the desktop shows.
     if (-not ('ApdRect' -as [type])) { Add-Type -TypeDefinition 'using System; using System.Runtime.InteropServices; public static class ApdRect { [StructLayout(LayoutKind.Sequential)] public struct R { public int L, T, Rt, B; } [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr h, out R r); }' }

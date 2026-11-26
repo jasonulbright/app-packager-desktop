@@ -68,7 +68,7 @@ foreach ($theme in $Themes) {
             $show = Find-El $null -Name 'Show tool' -Timeout 3
             if ($show) { [System.Windows.Forms.Cursor]::Position = Get-ElCenter $show; Start-Sleep -Seconds 2 }
             Shot $theme 'start-sidebar-context-menu'
-            [System.Windows.Forms.SendKeys]::SendWait('{ESC}{ESC}')
+            Send-ApdKeys '{ESC}{ESC}'
             Start-Sleep 1
         }
         Step $theme 'checks' {
@@ -83,7 +83,7 @@ foreach ($theme in $Themes) {
             Start-Sleep 10
             Move-MouseAway
             Shot $theme 'core-one-click-plan'
-            [System.Windows.Forms.SendKeys]::SendWait('%{F4}')
+            if (-not (Close-ApdWindow 'One Click')) { Send-ApdKeys '%{F4}' }
             Start-Sleep 3
         }
         Step $theme 'core-stage-result-log' {

@@ -71,7 +71,7 @@ foreach ($theme in $Themes) {
         Step 'tools-pivots-results' {
             $null = Scroll-ToId 'txtResultHeader'
             # Two more notches of the wheel: the result rows come into view under the header.
-            for ($i = 0; $i -lt 6; $i++) { [ApdW]::mouse_event(0x0800, 0, 0, [uint32]4294967176, [UIntPtr]::Zero); Start-Sleep -Milliseconds 400 }
+            for ($i = 0; $i -lt 6; $i++) { Send-ApdWheel ([uint32]4294967176); Start-Sleep -Milliseconds 400 }
             Start-Sleep 2
             Shot 'tools-pivots-results'
         }

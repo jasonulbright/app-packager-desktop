@@ -47,7 +47,7 @@ foreach ($theme in $Themes) {
             [System.Windows.Forms.Cursor]::Position = New-Object System.Drawing.Point ([int]$item.Current.BoundingRectangle.X + 20), ([int]$item.Current.BoundingRectangle.Y + 5)
             Start-Sleep 1
             Shot $theme 'core-packages-context-menu'
-            [System.Windows.Forms.SendKeys]::SendWait('{ESC}{ESC}')
+            Send-ApdKeys '{ESC}{ESC}'
             Start-Sleep 1
         }
     }

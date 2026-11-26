@@ -69,7 +69,7 @@ foreach ($theme in $Themes) {
             if (-not $open) { "FAIL $theme : no btnOpenInstaller"; continue }
             Click-El $open
             Start-Sleep -Seconds 2
-            [System.Windows.Forms.SendKeys]::SendWait($copy.FullName.Replace('+', '{+}').Replace('^', '{^}').Replace('%', '{%}').Replace('~', '{~}') + '{ENTER}')
+            Send-ApdKeys ($copy.FullName.Replace('+', '{+}').Replace('^', '{^}').Replace('%', '{%}').Replace('~', '{~}') + '{ENTER}')
             Start-Sleep -Seconds 12
             $tabs = [ordered]@{
                 'tools-installer-analysis-overview' = 'tabOverview'; 'tools-installer-analysis-msi-properties' = 'tabMsiProperties'; 'tools-installer-analysis-payload' = 'tabPayload'
@@ -138,7 +138,7 @@ foreach ($theme in $Themes) {
             [System.Windows.Forms.Cursor]::Position = New-Object System.Drawing.Point 1000, 600
             for ($i = 0; $i -lt 30; $i++) {
                 Shot (Join-Path $dir ('settings-scroll-{0:00}.png' -f $i))
-                for ($n = 0; $n -lt 18; $n++) { [ApdW]::mouse_event(0x0800, 0, 0, [uint32]4294966576, [UIntPtr]::Zero); Start-Sleep -Milliseconds 120 }
+                for ($n = 0; $n -lt 18; $n++) { Send-ApdWheel ([uint32]4294966576); Start-Sleep -Milliseconds 120 }
                 Start-Sleep -Milliseconds 500
             }
         }

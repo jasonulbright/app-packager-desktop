@@ -40,7 +40,7 @@ foreach ($theme in $Themes) {
                 Save-Shot (Join-Path $Run (Join-Path 'images' (Join-Path $theme.ToLower() ($guide[$name] + '.png'))))
                 "OK $theme $($guide[$name])"
             }
-            if ($page -eq 'Workbench') { [System.Windows.Forms.SendKeys]::SendWait('%{F4}'); Start-Sleep -Seconds 2 }
+            if ($page -eq 'Workbench') { if (-not (Close-ApdWindow 'Workbench')) { "FAIL $theme : the Workbench window did not close" } }
         }
     }
     finally { Stop-Apd }

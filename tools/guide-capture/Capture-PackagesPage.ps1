@@ -84,7 +84,7 @@ foreach ($theme in $Themes) {
             for ($i = 0; $i -lt 40; $i++) {
                 $row = Find-El $w -Name 'Audacity (x64)' -Timeout 1
                 if ($row -and -not $row.Current.IsOffscreen -and $row.Current.BoundingRectangle.Y -lt 600) { break }
-                [ApdW]::mouse_event(0x0800, 0, 0, [uint32]4294967176, [UIntPtr]::Zero); Start-Sleep -Milliseconds 300
+                Send-ApdWheel ([uint32]4294967176); Start-Sleep -Milliseconds 300
             }
             Move-MouseAway
             Shot $theme 'core-packages-select-update'
@@ -101,7 +101,7 @@ foreach ($theme in $Themes) {
             if (-not $b -or -not $b.Current.IsEnabled) { throw 'Export Check Results is missing or disabled' }
             Move-MouseAway
             Shot $theme 'core-packages-export-check-results'
-            [System.Windows.Forms.SendKeys]::SendWait('{ESC}')
+            Send-ApdKeys '{ESC}'
         }
         Step $theme 'core-packages-buttons-disabled' {
             # WSUS is in use and has no server in this run, so Publish All is disabled and its tooltip names the reason.
@@ -135,7 +135,7 @@ foreach ($theme in $Themes) {
             Move-MouseAway
             Save-Shot (Join-Path $Run (Join-Path 'images' (Join-Path $theme.ToLower() 'core-packages-operation-history.png'))) -Rect @(370, 136, 1181, 760)
             "OK $theme core-packages-operation-history"
-            [System.Windows.Forms.SendKeys]::SendWait('%{F4}')
+            if (-not (Close-ApdWindow 'Operation history*')) { Send-ApdKeys '%{F4}' }
             Start-Sleep 2
         }
         Step $theme 'core-packages-review-dialog' {

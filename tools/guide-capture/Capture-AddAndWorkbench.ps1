@@ -128,9 +128,9 @@ foreach ($theme in $Themes) {
             Step 'core-workbench-bundle-menu' {
                 Click-El (Need-El 'btnBundle'); Start-Sleep 1
                 Shot 'core-workbench-bundle-menu'
-                [System.Windows.Forms.SendKeys]::SendWait('{ESC}'); Start-Sleep 1
+                Send-ApdKeys '{ESC}'; Start-Sleep 1
             }
-            Close-Front
+            if (-not (Close-ApdWindow 'Workbench')) { 'The Workbench window did not close.' }
         }
     }
     finally { Stop-Apd }

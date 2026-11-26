@@ -107,13 +107,10 @@ function Set-Check($El, [bool]$On) {
     if (($t.Current.ToggleState -eq 'On') -ne $On) { $t.Toggle(); Start-Sleep -Milliseconds 500 }
 }
 
-# Closes the window that is in front (Alt+F4); the app stays.
-function Close-Front { [System.Windows.Forms.SendKeys]::SendWait('%{F4}'); Start-Sleep -Seconds 2 }
-
 # Types a path into the common file dialog that is open and confirms it.
 function Send-DialogPath([string]$Path) {
     Start-Sleep -Seconds 2
-    [System.Windows.Forms.SendKeys]::SendWait($Path.Replace('+', '{+}').Replace('^', '{^}').Replace('%', '{%}').Replace('~', '{~}') + '{ENTER}')
+    Send-ApdKeys ($Path.Replace('+', '{+}').Replace('^', '{^}').Replace('%', '{%}').Replace('~', '{~}') + '{ENTER}')
     Start-Sleep -Seconds 2
 }
 
@@ -139,7 +136,7 @@ function Scroll-ToId([string]$Id, [int]$X = 1000, [int]$Y = 600, [int]$Max = 40)
             $r = $e.Current.BoundingRectangle
             if (-not $e.Current.IsOffscreen -and $r.Y -gt 180 -and ($r.Y + $r.Height) -lt 900) { return $e }
         }
-        [ApdW]::mouse_event(0x0800, 0, 0, [uint32]4294967176, [UIntPtr]::Zero); Start-Sleep -Milliseconds 400
+        Send-ApdWheel ([uint32]4294967176); Start-Sleep -Milliseconds 400
     }
     throw "the element $Id did not come into view"
 }

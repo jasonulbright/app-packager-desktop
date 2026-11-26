@@ -14,10 +14,53 @@ Add-Type -AssemblyName System.Drawing, System.Windows.Forms, UIAutomationClient,
 if (-not ('ApdW' -as [type])) {
     Add-Type -TypeDefinition 'using System; using System.Runtime.InteropServices; public static class ApdW { [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr h, int c); [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr h); [DllImport("user32.dll")] public static extern bool SetProcessDPIAware(); [DllImport("user32.dll")] public static extern void mouse_event(uint f, uint x, uint y, uint d, UIntPtr e); }'
 }
+if (-not ('ApdOwn' -as [type])) {
+    Add-Type -TypeDefinition 'using System; using System.Runtime.InteropServices; public static class ApdOwn { [StructLayout(LayoutKind.Sequential)] public struct PT { public int X; public int Y; } [DllImport("user32.dll")] static extern IntPtr GetForegroundWindow(); [DllImport("user32.dll")] static extern IntPtr WindowFromPoint(PT p); [DllImport("user32.dll")] static extern bool GetCursorPos(out PT p); [DllImport("user32.dll")] static extern uint GetWindowThreadProcessId(IntPtr h, out uint id); static int Owner(IntPtr h) { uint id = 0; if (h != IntPtr.Zero) { GetWindowThreadProcessId(h, out id); } return (int)id; } public static int ForegroundProcessId() { return Owner(GetForegroundWindow()); } public static int ProcessIdAtCursor() { PT p; if (!GetCursorPos(out p)) { return 0; } return Owner(WindowFromPoint(p)); } }'
+}
 [void][ApdW]::SetProcessDPIAware()
 $script:AE = [System.Windows.Automation.AutomationElement]
 $script:TS = [System.Windows.Automation.TreeScope]
 $script:App = $null
+# The processes that this run started and still holds a handle for. The person who is signed in may have windows open: key and mouse input goes only to
+# a window of one of these processes.
+$script:ApdOwned = New-Object System.Collections.Generic.List[System.Diagnostics.Process]
+
+function Add-ApdOwnedProcess([System.Diagnostics.Process]$Process) {
+    $null = $Process.Handle
+    $script:ApdOwned.Add($Process)
+}
+
+# True when the process id belongs to a process of this run that has not ended.
+function Test-ApdOwnedId([int]$Id) {
+    foreach ($p in $script:ApdOwned) { if (-not $p.HasExited -and $p.Id -eq $Id) { return $true } }
+    $false
+}
+
+# Throws unless the window in front belongs to this run.
+function Assert-ApdForeground([string]$What) {
+    $id = [ApdOwn]::ForegroundProcessId()
+    if (-not (Test-ApdOwnedId $id)) { throw "$What was not sent: the window in front belongs to process $id, which this run did not start." }
+}
+
+# Throws unless the window under the mouse pointer belongs to this run.
+function Assert-ApdPointer([string]$What) {
+    $id = [ApdOwn]::ProcessIdAtCursor()
+    if (-not (Test-ApdOwnedId $id)) { throw "$What was not sent: the window under the pointer belongs to process $id, which this run did not start." }
+}
+
+# The one way to send keys. SendKeys goes to the window in front, so that window must belong to this run.
+function Send-ApdKeys([string]$Keys) {
+    Assert-ApdForeground 'The keys'
+    [System.Windows.Forms.SendKeys]::SendWait($Keys)
+}
+
+# The one way to turn the mouse wheel (at the place of the pointer). Windows sends the wheel to the window under the pointer or to the one in front,
+# by a setting of the user, so both must belong to this run.
+function Send-ApdWheel([uint32]$Delta) {
+    Assert-ApdPointer 'The wheel'
+    Assert-ApdForeground 'The wheel'
+    [ApdW]::mouse_event(0x0800, 0, 0, $Delta, [UIntPtr]::Zero)
+}
 
 function Get-ApdScreen { [System.Windows.Forms.Screen]::PrimaryScreen.WorkingArea }
 
@@ -63,6 +106,7 @@ function Start-Apd([string]$Exe, [string]$DataRoot, [string]$Theme, [hashtable]$
     $env:APP_PACKAGER_DATA_ROOT = $DataRoot
     if (Test-Path -LiteralPath 'C:\tools\dotnet') { $env:DOTNET_ROOT = 'C:\tools\dotnet' }
     $p = if ($Arguments) { Start-Process -FilePath $Exe -ArgumentList $Arguments -PassThru } else { Start-Process -FilePath $Exe -PassThru }
+    Add-ApdOwnedProcess $p
     $deadline = (Get-Date).AddSeconds(45)
     while ((Get-Date) -lt $deadline -and $p.MainWindowHandle -eq 0) { Start-Sleep -Milliseconds 500; $p.Refresh() }
     if ($p.MainWindowHandle -eq 0) { Stop-ApdProcess $p; throw 'no main window' }
@@ -86,6 +130,7 @@ function Stop-Apd {
 
 # The top-level windows of the app (the main window, and the windows that it opened; a pop-up menu is one of them).
 function Get-ApdWindows {
+    if (-not $script:App -or $script:App.HasExited) { return @() }
     $c = New-Object System.Windows.Automation.PropertyCondition ($script:AE::ProcessIdProperty), $script:App.Id
     @($script:AE::RootElement.FindAll($script:TS::Children, $c))
 }
@@ -136,11 +181,33 @@ function Get-ElCenter($El) {
 function Click-At($Point, [switch]$Right) {
     [System.Windows.Forms.Cursor]::Position = $Point
     Start-Sleep -Milliseconds 300
+    Assert-ApdPointer "The click at $($Point.X),$($Point.Y)"
     if ($Right) { [ApdW]::mouse_event(8, 0, 0, 0, [UIntPtr]::Zero); [ApdW]::mouse_event(16, 0, 0, 0, [UIntPtr]::Zero) }
     else { [ApdW]::mouse_event(2, 0, 0, 0, [UIntPtr]::Zero); [ApdW]::mouse_event(4, 0, 0, 0, [UIntPtr]::Zero) }
 }
 
 function Click-El($El, [switch]$Right) { Click-At (Get-ElCenter $El) -Right:$Right }
+
+# The window of the app (the main window, or a window that it opened) whose title matches (-like), or $null.
+function Find-ApdWindow([string]$Like) {
+    $isWindow = New-Object System.Windows.Automation.PropertyCondition ($script:AE::ControlTypeProperty), ([System.Windows.Automation.ControlType]::Window)
+    foreach ($top in @(Get-ApdWindows)) {
+        if ($top.Current.Name -like $Like) { return $top }
+        foreach ($n in $top.FindAll($script:TS::Descendants, $isWindow)) { if ($n.Current.Name -like $Like) { return $n } }
+    }
+    $null
+}
+
+# Closes a window of the app through its own UI Automation element; no key is sent. $false when the app shows no such window or it cannot be closed so.
+function Close-ApdWindow([string]$Like) {
+    $w = Find-ApdWindow $Like
+    if (-not $w -or -not (Test-ApdOwnedId $w.Current.ProcessId)) { return $false }
+    $p = $null
+    if (-not $w.TryGetCurrentPattern([System.Windows.Automation.WindowPattern]::Pattern, [ref]$p)) { return $false }
+    $p.Close()
+    Start-Sleep -Seconds 2
+    $true
+}
 
 # A list of the elements below a scope that have a name or an automation id, for finding the right control: type, id, name, position.
 function Get-ElList($Scope, [int]$Max = 150) {
@@ -183,7 +250,7 @@ function Open-ApdMenuItem($Window, [string]$Menu, [string]$Item) {
     Start-Sleep -Milliseconds 600
     $found = Find-El $null $Item -Timeout 5
     if (-not $found) { throw "The menu $Menu shows no item $Item." }
-    if (-not $found.Current.IsEnabled) { [System.Windows.Forms.SendKeys]::SendWait('{ESC}'); throw "The item $Item of the menu $Menu is disabled." }
+    if (-not $found.Current.IsEnabled) { Send-ApdKeys '{ESC}'; throw "The item $Item of the menu $Menu is disabled." }
     Click-El $found
     Start-Sleep -Milliseconds 800
 }

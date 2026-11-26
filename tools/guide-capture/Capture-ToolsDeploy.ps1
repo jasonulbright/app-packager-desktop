@@ -154,7 +154,7 @@ foreach ($theme in $Themes) {
             # The run list is below the form and the result of the plan: scroll it into view, select the open run, then show the run and its rings.
             # The page scrolls above the pinned action bar; the run list is the last card, so scroll to the end of the page.
             [System.Windows.Forms.Cursor]::Position = New-Object System.Drawing.Point 1000, 400
-            for ($i = 0; $i -lt 40; $i++) { [ApdW]::mouse_event(0x0800, 0, 0, [uint32]4294967176, [UIntPtr]::Zero); Start-Sleep -Milliseconds 150 }
+            for ($i = 0; $i -lt 40; $i++) { Send-ApdWheel ([uint32]4294967176); Start-Sleep -Milliseconds 150 }
             Start-Sleep 2
             try { $null = Pick-First 'dgRingRuns' 0 15 } catch { "no run row to select: $($_.Exception.Message)" }
             Start-Sleep 2

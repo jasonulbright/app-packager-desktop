@@ -59,9 +59,9 @@ function Choose-Item($Combo, [string]$Text) {
         $places = @(foreach ($w2 in (Get-ApdWindows)) { foreach ($li in $w2.FindAll([System.Windows.Automation.TreeScope]::Descendants, $listItems)) { $b2 = $li.Current.BoundingRectangle; if ([Math]::Abs($b2.X - $left) -lt 2 -and $b2.Width -gt 0) { [pscustomobject]@{ Name = $li.Current.Name; Y = $b2.Y } } } }) | Sort-Object Y -Unique
         $index = [Array]::IndexOf(@($places | ForEach-Object { $_.Name }), $Text)
         if ($index -lt 0) { throw "The list has no place for the entry '$Text'." }
-        [System.Windows.Forms.SendKeys]::SendWait('{HOME}')
-        if ($index -gt 0) { [System.Windows.Forms.SendKeys]::SendWait('{DOWN ' + $index + '}') }
-        [System.Windows.Forms.SendKeys]::SendWait('{ENTER}')
+        Send-ApdKeys '{HOME}'
+        if ($index -gt 0) { Send-ApdKeys ('{DOWN ' + $index + '}') }
+        Send-ApdKeys '{ENTER}'
     }
     else { Click-El $entry }
     Start-Sleep -Milliseconds 700
@@ -107,7 +107,7 @@ foreach ($theme in $Themes) {
         $item = Find-El $null $null 'Installer type' 'MenuItem' -Timeout 5
         Check ($null -ne $item) "$theme the column chooser lists Installer type"
         if ($item) { Click-El $item; Start-Sleep -Milliseconds 700 }
-        [System.Windows.Forms.SendKeys]::SendWait('{ESC}'); Start-Sleep -Milliseconds 700
+        Send-ApdKeys '{ESC}'; Start-Sleep -Milliseconds 700
         $row = Find-GridRow $grid '7-Zip'
         $cell = $row.FindFirst([System.Windows.Automation.TreeScope]::Descendants, (New-Object System.Windows.Automation.PropertyCondition ([System.Windows.Automation.AutomationElement]::NameProperty), 'Installer type of the application'))
         if (-not $cell) { throw 'The row of 7-Zip has no installer type cell.' }
@@ -129,7 +129,7 @@ foreach ($theme in $Themes) {
         $item = Find-El $null $null 'In One Click' 'MenuItem' -Timeout 5
         Check ($null -ne $item) "$theme the column chooser lists In One Click"
         if ($item) { Click-El $item; Start-Sleep -Milliseconds 700 }
-        [System.Windows.Forms.SendKeys]::SendWait('{ESC}'); Start-Sleep -Milliseconds 700
+        Send-ApdKeys '{ESC}'; Start-Sleep -Milliseconds 700
         Check ($null -ne (Find-El $w $null 'One Click inclusion of the application' 'ComboBox' -Timeout 5)) "$theme the grid shows the One Click column after it is chosen"
 
         # A Workbench profile field: show the reboot column with the chooser, set it for 7-Zip in its row.
@@ -137,7 +137,7 @@ foreach ($theme in $Themes) {
         $item = Find-El $null $null 'Reboot after install' 'MenuItem' -Timeout 5
         Check ($null -ne $item) "$theme the column chooser lists Reboot after install"
         if ($item) { Click-El $item; Start-Sleep -Milliseconds 700 }
-        [System.Windows.Forms.SendKeys]::SendWait('{ESC}'); Start-Sleep -Milliseconds 700
+        Send-ApdKeys '{ESC}'; Start-Sleep -Milliseconds 700
         $row7 = Find-GridRow $grid '7-Zip'
         try { $row7.GetCurrentPattern([System.Windows.Automation.ScrollItemPattern]::Pattern).ScrollIntoView(); Start-Sleep -Milliseconds 700 } catch { $null = $_ }
         $gs = $grid.GetCurrentPattern([System.Windows.Automation.ScrollPattern]::Pattern)
@@ -155,7 +155,7 @@ foreach ($theme in $Themes) {
             $mi = Find-El $null $null $name 'MenuItem' -Timeout 5
             Check ($null -ne $mi) "$theme the column chooser lists $name"
             if ($mi) { Click-El $mi; Start-Sleep -Milliseconds 600 }
-            [System.Windows.Forms.SendKeys]::SendWait('{ESC}'); Start-Sleep -Milliseconds 600
+            Send-ApdKeys '{ESC}'; Start-Sleep -Milliseconds 600
         }
         $gs0 = $grid.GetCurrentPattern([System.Windows.Automation.ScrollPattern]::Pattern)
         $gs0.SetScrollPercent(100, [System.Windows.Automation.ScrollPattern]::NoScroll); Start-Sleep -Milliseconds 900
@@ -166,13 +166,13 @@ foreach ($theme in $Themes) {
         # Filtered scope: type in the search box (real keys), set the Network column for the filtered applications only.
         $box = Find-El $w 'txtApplicationFilter' -Timeout 5
         Click-El $box; Start-Sleep -Milliseconds 500
-        [System.Windows.Forms.SendKeys]::SendWait('Bitwarden'); Start-Sleep -Seconds 1
+        Send-ApdKeys 'Bitwarden'; Start-Sleep -Seconds 1
         Choose-Item (Find-El $w 'cboBulkColumn' -Timeout 5) 'Network'
         Choose-Item (Find-El $w 'cboBulkValue' -Timeout 5) 'VPN only'
         Choose-Item (Find-El $w 'cboBulkScope' -Timeout 5) 'Filtered applications'
         Click-El (Find-El $w 'btnBulkApply' -Timeout 5); Start-Sleep -Milliseconds 800
         # The filter stays for the image: the changed row and nothing else; clear it afterwards so the rows around it show.
-        Click-El $box; [System.Windows.Forms.SendKeys]::SendWait('^a{BACKSPACE}'); Start-Sleep -Seconds 1
+        Click-El $box; Send-ApdKeys '^a{BACKSPACE}'; Start-Sleep -Seconds 1
 
         # Scroll to the rows around Bitwarden for the image: the changed row and its neighbours.
         $near = Find-GridRow $grid 'BleachBit'

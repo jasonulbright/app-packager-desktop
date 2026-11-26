@@ -8,6 +8,7 @@
         Run-VisibleProbe.ps1 -Worktree <published folder with these scripts> -ProbeArgs "& .\Capture-CoreWindows.ps1 -Run C:\guide\apd-pending\core"
     The images are <Run>\images\<theme>\<id>.png. Nothing is written to the site: the checks read, Convert only previews, Discover only reads the site database.
     A step that fails says FAIL for its image and the run goes on. The lab needs internet access for Check Latest and for the CVE lookup.
+    The run leaves the browser of the CVE report open, and input to the app is refused while the browser is in front: run one theme at a time (-Themes).
 #>
 param(
     [Parameter(Mandatory)][string]$Run,
@@ -124,9 +125,10 @@ foreach ($theme in $Themes) {
             Real-Click (Need-El 'btnCveExport')
             Start-Sleep 12
             Shot 'core-cve-report-html'
-            [System.Windows.Forms.SendKeys]::SendWait('%{F4}'); Start-Sleep 2
+            # The browser is left as it is: it can hold windows of the person who is signed in. The CVEs window closes through its button element,
+            # which sends no input.
             $c = Find-El $null 'btnCveClose' -Timeout 3
-            if ($c) { Real-Click $c }
+            if ($c) { Invoke-El $c; Start-Sleep 2 }
         }
     }
     finally { Stop-Apd }

@@ -58,7 +58,7 @@ foreach ($theme in $Themes) {
             Send-DialogPath $other
             Start-Sleep 6
             Shot 'core-byo-replacement'
-            [System.Windows.Forms.SendKeys]::SendWait('{ESC}'); Start-Sleep 2
+            Send-ApdKeys '{ESC}'; Start-Sleep 2
         }
     }
     finally { Stop-Apd }

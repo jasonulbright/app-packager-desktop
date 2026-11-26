@@ -41,7 +41,7 @@ function Get-MenuItem([string]$Name) {
         Open-SiteMenu
         $e = Find-El $null -Name $Name -ControlType 'MenuItem' -Timeout 6
         if ($e) { return $e }
-        [System.Windows.Forms.SendKeys]::SendWait('{ESC}'); Start-Sleep 2
+        Send-ApdKeys '{ESC}'; Start-Sleep 2
     }
     Save-Shot (Join-Path $Run 'menu-missing.png')
     $names = @(Get-ApdWindows | ForEach-Object { $_.Current.Name + '/' + $_.Current.ClassName })

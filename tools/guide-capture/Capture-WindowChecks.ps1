@@ -78,14 +78,14 @@ foreach ($theme in $Themes) {
             if ($cw) { $texts.Add("== convert $theme"); Get-ElList $cw 80 | ForEach-Object { $texts.Add($_) } }
             Move-MouseAway
             Shot $theme 'convert-window' '1920'
-            [System.Windows.Forms.SendKeys]::SendWait('{ESC}'); Start-Sleep -Seconds 2
-            if (Get-ApdWindows | Where-Object { $_.Current.Name -notmatch '^App Packager' }) { [System.Windows.Forms.SendKeys]::SendWait('%{F4}'); Start-Sleep -Seconds 2 }
+            Send-ApdKeys '{ESC}'; Start-Sleep -Seconds 2
+            $null = Close-ApdWindow 'Convert from ConfigMgr'
         }
         Step $theme 'workbench-window' {
             # The Workbench entry of the sidebar opens the Workbench window over the page.
             Nav 'Workbench'
             Show-Both $theme 'workbench' $p
-            if (Get-ApdWindows | Where-Object { $_.Current.Name -match 'Workbench' }) { [System.Windows.Forms.SendKeys]::SendWait('%{F4}') }
+            $null = Close-ApdWindow 'Workbench'
             Start-Sleep -Seconds 2
         }
     }

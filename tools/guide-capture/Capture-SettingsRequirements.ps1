@@ -41,7 +41,7 @@ function Show-Column($Window, [string]$Header) {
     $item = Find-El $null $null $Header 'MenuItem' -Timeout 5
     Check ($null -ne $item) "the column chooser lists $Header"
     if ($item) { Click-El $item; Start-Sleep -Milliseconds 700 }
-    [System.Windows.Forms.SendKeys]::SendWait('{ESC}'); Start-Sleep -Milliseconds 700
+    Send-ApdKeys '{ESC}'; Start-Sleep -Milliseconds 700
 }
 
 # Types a text into the cell of a row with real keys: click the cell, select its text, type, and leave the cell with Tab so that the value commits.
@@ -57,10 +57,10 @@ function Type-Cell($Grid, [string]$Row, [string]$CellName, [string]$Text) {
     if (-not $cell) { throw "The row of '$Row' has no cell '$CellName'." }
     try { $cell.GetCurrentPattern([System.Windows.Automation.ScrollItemPattern]::Pattern).ScrollIntoView(); Start-Sleep -Milliseconds 500 } catch { $null = $_ }
     Click-El $cell; Start-Sleep -Milliseconds 400
-    [System.Windows.Forms.SendKeys]::SendWait('^a'); Start-Sleep -Milliseconds 200
-    if ($Text.Length -eq 0) { [System.Windows.Forms.SendKeys]::SendWait('{BACKSPACE}') } else { [System.Windows.Forms.SendKeys]::SendWait($Text) }
+    Send-ApdKeys '^a'; Start-Sleep -Milliseconds 200
+    if ($Text.Length -eq 0) { Send-ApdKeys '{BACKSPACE}' } else { Send-ApdKeys $Text }
     Start-Sleep -Milliseconds 300
-    [System.Windows.Forms.SendKeys]::SendWait('{TAB}'); Start-Sleep -Milliseconds 800
+    Send-ApdKeys '{TAB}'; Start-Sleep -Milliseconds 800
     $Grid.GetCurrentPattern([System.Windows.Automation.ScrollPattern]::Pattern).SetScrollPercent(100, [System.Windows.Automation.ScrollPattern]::NoScroll); Start-Sleep -Milliseconds 600
     $again = (Find-GridRow $Grid $Row).FindFirst([System.Windows.Automation.TreeScope]::Descendants, (New-Object System.Windows.Automation.PropertyCondition ([System.Windows.Automation.AutomationElement]::NameProperty), $CellName))
     try { $again.GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern).Current.Value } catch { '' }
