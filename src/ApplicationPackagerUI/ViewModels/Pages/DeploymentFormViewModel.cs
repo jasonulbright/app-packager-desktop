@@ -132,6 +132,12 @@ public sealed partial class DeploymentFormViewModel : DeploymentTabViewModel
     [NotifyCanExecuteChangedFor(nameof(DistributeCommand), nameof(RefreshDpGroupsCommand))]
     private DeploymentObjectRow? _selectedObject;
 
+    /// <summary>
+    /// The object and the collection as the last prepare of a create read them from ConfigMgr; null until a prepare reads the
+    /// collection. It lasts until the selected object or collection changes or the lists are read again. The rows of the lists stay as read.
+    /// </summary>
+    [ObservableProperty] private DeploymentReadValues? _preparedCreate;
+
     [ObservableProperty] private DeploymentCollectionRow? _selectedCollection;
     [ObservableProperty] private string? _selectedProgram;
 
@@ -252,6 +258,7 @@ public sealed partial class DeploymentFormViewModel : DeploymentTabViewModel
 
     partial void OnSelectedObjectChanged(DeploymentObjectRow? value)
     {
+        PreparedCreate = null;
         FormChanged();
         Programs.Clear();
         SelectedProgram = null;
@@ -262,6 +269,7 @@ public sealed partial class DeploymentFormViewModel : DeploymentTabViewModel
 
     partial void OnSelectedCollectionChanged(DeploymentCollectionRow? value)
     {
+        PreparedCreate = null;
         FormChanged();
         CollectionMessage = value is { IsBuiltIn: true } ? BuiltInRefused : "";
     }
@@ -373,6 +381,7 @@ public sealed partial class DeploymentFormViewModel : DeploymentTabViewModel
         var templateMessage = Services.Templates.Message;
         return () =>
         {
+            PreparedCreate = null;
             ShowTemplates(templates, templateMessage);
             _collections = collections;
             ApplyCollectionFilter();
@@ -404,6 +413,7 @@ public sealed partial class DeploymentFormViewModel : DeploymentTabViewModel
             var objects = await Task.Run(() => Services.Deployments.ListObjectsAsync(type, cts.Token), cts.Token);
             cts.Token.ThrowIfCancellationRequested();
             if (mine != _objectGeneration || generation != Shared.Generation || type != Type) return;
+            PreparedCreate = null;
             _objects = objects;
             ObjectListNote = ListNote(objects);
             ApplyObjectFilter();
@@ -690,6 +700,12 @@ public sealed partial class DeploymentFormViewModel : DeploymentTabViewModel
     /// <summary>Lists every check the service reported, the five first; a failed or unknown check blocks, a warning does not.</summary>
     private void ShowChecks(DeploymentChange prepared)
     {
+        // A prepare that did not read the collection returns the values of the list; they are not a new read.
+        if (prepared is { Object: { } readObject, Collection: { } readCollection }
+            && prepared.Checks.Any(c => c.Name == DeploymentCheckNames.CollectionValid && c.Result == DeploymentText.Pass))
+            PreparedCreate = new DeploymentReadValues(readObject, readCollection);
+        else if (PreparedCreate is not { OutOfDate: true })
+            PreparedCreate = null;
         Checks.Clear();
         var type = prepared.Object?.Type;
         foreach (var check in DeploymentText.Ordered(prepared.Checks))
@@ -782,6 +798,9 @@ public sealed partial class DeploymentFormViewModel : DeploymentTabViewModel
     {
         _validationGeneration++;
         IsValidating = false;
+        // The refusal shows that the values of the last check are wrong. The list values are older still, so the mark covers both.
+        if (SelectedObject is { } obj && SelectedCollection is { } collection)
+            PreparedCreate = (PreparedCreate ?? new DeploymentReadValues(obj.Object, collection.ToCollection())) with { OutOfDate = true };
         Checks.Clear();
         ValidationMessage = StalePlanText;
         FormMessage = StalePlanText;

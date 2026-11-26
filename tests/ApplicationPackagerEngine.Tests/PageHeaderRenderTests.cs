@@ -261,12 +261,13 @@ public sealed class PageHeaderRenderTests : IDisposable
             finally { window.Close(); }
         });
 
-        // App Packager has the plain title of the V1 workspace (overhaul V1, phase 2): no card, so its title sits at the left edge of the header. It keeps the
-        // place of the header and the gap to the content, like every other page.
+        // The pages of the V1 workspace have the plain title (overhaul V1, phases 2 and 7c): no card, so the title sits at the left edge of the header. They
+        // keep the place of the header and the gap to the content, like every other page.
+        string[] plain = ["App Packager", "Deployment Helper"];
         var reference = places["Add from web"];
-        var differing = places.Where(p => p.Key != "App Packager" && !p.Value.SameAs(reference)).Select(p => $"{p.Key}: {p.Value}").ToList();
+        var differing = places.Where(p => !plain.Contains(p.Key) && !p.Value.SameAs(reference)).Select(p => $"{p.Key}: {p.Value}").ToList();
         Assert.True(differing.Count == 0, $"{theme}: Add from web has {reference}. Different: {string.Join("; ", differing)}.");
-        Assert.True(places["App Packager"].SameFrame(reference), $"{theme}: App Packager has {places["App Packager"]}; the frame of the other pages is {reference}.");
+        Assert.All(plain, name => Assert.True(places[name].SameFrame(reference), $"{theme}: {name} has {places[name]}; the frame of the other pages is {reference}."));
     }
 
     [Theory]

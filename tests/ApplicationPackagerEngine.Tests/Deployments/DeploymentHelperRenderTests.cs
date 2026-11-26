@@ -220,7 +220,7 @@ public sealed class DeploymentHelperRenderTests
                 "chkRebootOutside", "txtRequiredOnlyNote", "dgDpGroups", "btnDistribute", "chkDistributeFirst", "dgChecks");
             Check(DeploymentHelperViewModel.HistoryTab, "scrollHistoryTab", "txtHistoryFilter", "btnHistoryCancel", "btnHistoryFolder", "btnRemoveDeployment", "dgHistory");
             Check(DeploymentHelperViewModel.OptionsTab, "scrollOptionsTab", "btnOptionsRefresh", "btnOptionsCancel", "txtAuditLogPath", "btnCheckAuditLog", "btnDeleteTemplate", "dgTemplates", "txtConnection");
-            var header = ById<FrameworkElement>(page, "txtDeploymentIntro");
+            var header = ById<FrameworkElement>(page, "txtDeploymentTitle");
             Assert.True(header.TransformToAncestor(window).TransformBounds(new Rect(header.RenderSize)).Right <= window.ActualWidth + 0.5);
         }, width, height);
     }
@@ -301,6 +301,220 @@ public sealed class DeploymentHelperRenderTests
             Assert.Same(viewModel.History.CancelLoadCommand, ById<System.Windows.Controls.Primitives.ButtonBase>(page, "btnHistoryCancel").Command);
             Assert.True(ById<FrameworkElement>(page, "txtHistoryCap").Visibility != Visibility.Visible);
         });
+    }
+
+    private static string ReviewText(DeploymentHelperPage page) => ById<TextBlock>(page, "txtDeploymentReview").Text;
+
+    [Fact]
+    public void TheReviewSummaryNamesTheObjectTheCollectionThePurposeAndTheMembers()
+    {
+        static DeploymentObjectRow Object(DeploymentObjectType type, string name, string version) =>
+            new(new DeployableObject(Type: type, Id: "LAB00001", Name: name, Version: version, Program: "", PackagedByProduct: false));
+        static DeploymentCollectionRow Collection(string id, string name, int members, bool builtIn = false) =>
+            new(new CollectionRow(id, name, "", "", "", members, builtIn, "Periodic", "", 0, 0, 0, 0));
+        static string Line(DeploymentObjectRow? obj, string? program, DeploymentCollectionRow? collection, bool required) =>
+            DeploymentReviewSummaryConverter.Summary(obj, program, collection, required);
+        var workstations = Collection("LAB00010", "All Workstations", 2);
+
+        // A name that holds its version shows it once.
+        Assert.Equal("7-Zip 26.06 (x64 edition) \u2192 All Workstations \u00b7 Available \u00b7 2 members at the last read",
+            Line(Object(DeploymentObjectType.Application, "7-Zip 26.06 (x64 edition)", "26.06"), null, workstations, false));
+        Assert.Equal("7-Zip 26.04 \u2192 Pilot \u00b7 Required \u00b7 1 member at the last read",
+            Line(Object(DeploymentObjectType.Application, "7-Zip", "26.04"), null, Collection("LAB00011", "Pilot", 1), true));
+        Assert.Equal("Office Tools 16.0 (program Install) \u2192 All Workstations \u00b7 Available \u00b7 2 members at the last read",
+            Line(Object(DeploymentObjectType.Package, "Office Tools", "16.0"), "Install", workstations, false));
+        Assert.Equal("2026-10 Cumulative Updates \u2192 All Workstations \u00b7 Required \u00b7 2 members at the last read",
+            Line(Object(DeploymentObjectType.SoftwareUpdateGroup, "2026-10 Cumulative Updates", ""), null, workstations, true));
+
+        // The values of a prepare replace the names and the count of the lists, and the count is the count of the last check.
+        var read = new DeploymentReadValues(Object(DeploymentObjectType.Application, "7-Zip", "26.07").Object, new DeploymentCollection("LAB00010", "All Workstations (new)", "", 41));
+        Assert.Equal("7-Zip 26.07 \u2192 All Workstations (new) \u00b7 Available \u00b7 41 members at the last check",
+            DeploymentReviewSummaryConverter.Summary(Object(DeploymentObjectType.Application, "7-Zip", "26.04"), null, workstations, false, read));
+        Assert.Equal("7-Zip 26.07 \u2192 All Workstations (new) \u00b7 Available \u00b7 changed, select Validate again",
+            DeploymentReviewSummaryConverter.Summary(Object(DeploymentObjectType.Application, "7-Zip", "26.04"), null, workstations, false, read with { OutOfDate = true }));
+
+        // A missing or refused choice is named in place of a deployment.
+        var app = Object(DeploymentObjectType.Application, "7-Zip", "26.04");
+        Assert.Equal(DeploymentFormViewModel.PickObject, Line(null, null, workstations, false));
+        Assert.Equal(DeploymentFormViewModel.PickCollection, Line(app, null, null, false));
+        Assert.Equal(DeploymentFormViewModel.PickProgram, Line(Object(DeploymentObjectType.Package, "Office Tools", "16.0"), null, workstations, false));
+        Assert.Equal(DeploymentFormViewModel.BuiltInRefused, Line(app, null, Collection("SMS00001", "All Systems", 5, builtIn: true), false));
+    }
+
+    [Theory]
+    [InlineData(ApplicationTheme.Light)]
+    [InlineData(ApplicationTheme.Dark)]
+    public void TheReviewSummaryFollowsTheForm(ApplicationTheme theme)
+    {
+        WithPage(theme, (window, page, viewModel, harness) =>
+        {
+            var form = viewModel.Deploy;
+            Assert.Equal(DeploymentFormViewModel.PickObject, ReviewText(page));
+            form.SelectedObject = form.Objects.Single(o => o.Object.Id == harness.SevenZip.Id);
+            Settle(window);
+            Assert.Equal(DeploymentFormViewModel.PickCollection, ReviewText(page));
+            form.SelectedCollection = form.Collections.Single(c => c.CollectionId == "LAB00010");
+            Settle(window);
+            Assert.Equal("7-Zip 26.04 \u2192 Pilot Workstations \u00b7 Available \u00b7 3 members at the last read", ReviewText(page));
+            form.IsRequired = true;
+            Settle(window);
+            Assert.Equal("7-Zip 26.04 \u2192 Pilot Workstations \u00b7 Required \u00b7 3 members at the last read", ReviewText(page));
+        });
+    }
+
+    [Theory]
+    [InlineData(ApplicationTheme.Light)]
+    [InlineData(ApplicationTheme.Dark)]
+    public void TheReviewSummaryShowsTheMemberCountThatThePrepareRead(ApplicationTheme theme)
+    {
+        WithPage(theme, (window, page, viewModel, harness) =>
+        {
+            const string Listed = "7-Zip 26.04 \u2192 Pilot Workstations \u00b7 Available \u00b7 3 members at the last read";
+            const string Prepared = "7-Zip 26.04 \u2192 Pilot Workstations \u00b7 Available \u00b7 40 members at the last check";
+            var form = viewModel.Deploy;
+            void Pick(string collectionId)
+            {
+                form.SelectedCollection = form.Collections.Single(c => c.CollectionId == collectionId);
+                Settle(window);
+            }
+            form.SelectedObject = form.Objects.Single(o => o.Object.Id == harness.SevenZip.Id);
+            Pick("LAB00010");
+            StaTestHelper.PumpUntil(() => !form.IsLoadingDetails);
+            Assert.Equal(Listed, ReviewText(page));
+
+            harness.Service.MemberCounts["LAB00010"] = 40;
+            Run(form.ValidateCommand.ExecuteAsync(null));
+            Settle(window);
+            Assert.Equal(Prepared, ReviewText(page));
+            Assert.Equal(3, form.SelectedCollection!.MemberCount);
+
+            // A change of the form drops the checks and keeps what ConfigMgr answered.
+            form.IsRequired = true;
+            form.IsRequired = false;
+            Settle(window);
+            Assert.Empty(form.Checks);
+            Assert.Equal(Prepared, ReviewText(page));
+
+            // Another selection drops it.
+            Pick("LAB00011");
+            Pick("LAB00010");
+            Assert.Equal(Listed, ReviewText(page));
+
+            // Deploy prepares too; a plan that is not confirmed keeps the values it read.
+            harness.Plans.Confirm = false;
+            Run(form.DeployCommand.ExecuteAsync(null));
+            Settle(window);
+            Assert.Empty(harness.Service.Deployments);
+            Assert.Equal(Prepared, ReviewText(page));
+
+            // A new read of the lists replaces the values of the prepare.
+            Run(form.RefreshCommand.ExecuteAsync(null));
+            Settle(window);
+            Assert.Null(form.PreparedCreate);
+            Assert.EndsWith("3 members at the last read", ReviewText(page));
+        });
+    }
+
+    [Theory]
+    [InlineData(ApplicationTheme.Light)]
+    [InlineData(ApplicationTheme.Dark)]
+    public void AfterAStalePlanRefusalTheReviewSummaryShowsNoCountAndAsksForValidate(ApplicationTheme theme)
+    {
+        WithPage(theme, (window, page, viewModel, harness) =>
+        {
+            const string Stale = "7-Zip 26.04 \u2192 Pilot Workstations \u00b7 Available \u00b7 changed, select Validate again";
+            var form = viewModel.Deploy;
+            form.SelectedObject = form.Objects.Single(o => o.Object.Id == harness.SevenZip.Id);
+            form.SelectedCollection = form.Collections.Single(c => c.CollectionId == "LAB00010");
+            StaTestHelper.PumpUntil(() => !form.IsLoadingDetails);
+            Settle(window);
+
+            harness.Service.MemberCounts["LAB00010"] = 40;
+            harness.Service.Fail = _ => DeploymentFormViewModel.StalePlanMarker + ". The collection changed.";
+            Run(form.DeployCommand.ExecuteAsync(null));
+            StaTestHelper.PumpUntil(() => !form.IsLoadingDetails);
+            Settle(window);
+            Assert.Equal(DeploymentFormViewModel.StalePlanText, form.FormMessage);
+            Assert.Equal(Stale, ReviewText(page));
+
+            // The next check reads the current state, and the line shows its count.
+            harness.Service.Fail = null;
+            harness.Service.MemberCounts["LAB00010"] = 41;
+            Run(form.ValidateCommand.ExecuteAsync(null));
+            Settle(window);
+            Assert.Equal("7-Zip 26.04 \u2192 Pilot Workstations \u00b7 Available \u00b7 41 members at the last check", ReviewText(page));
+        });
+    }
+
+    private static Rect Bounds(Window window, FrameworkElement element) => element.TransformToAncestor(window).TransformBounds(new Rect(element.RenderSize));
+
+    [Theory]
+    [InlineData(ApplicationTheme.Light)]
+    [InlineData(ApplicationTheme.Dark)]
+    public void At1024By720TheCardsStackAndTheSummaryAndTheFooterStayInView(ApplicationTheme theme)
+    {
+        WithPage(theme, (window, page, viewModel, harness) =>
+        {
+            Fill(window, viewModel, harness);
+            Assert.False(page.PickersSideBySide);
+            Assert.False(page.CardsSideBySide);
+            var settings = ById<FrameworkElement>(page, "pnlSettings");
+            var content = ById<FrameworkElement>(page, "pnlDistribution");
+            Assert.True(Bounds(window, content).Top >= Bounds(window, settings).Bottom - 0.5, "The content card does not stand under the schedule card.");
+            foreach (var id in new[] { "txtDeploymentReview", "btnViewChecks", "btnValidate", "btnDeploy" })
+                AssertPinned(window, page, id, $"1024x720 {theme} {id}");
+        }, 1024 - NavigationPaneWidth, 720 - 48);
+    }
+
+    [Theory]
+    [InlineData(ApplicationTheme.Light)]
+    [InlineData(ApplicationTheme.Dark)]
+    public void AtTheDesignSizeTheScheduleAndContentCardsStandSideBySide(ApplicationTheme theme)
+    {
+        WithPage(theme, (window, page, viewModel, harness) =>
+        {
+            Fill(window, viewModel, harness);
+            Assert.True(page.PickersSideBySide);
+            Assert.True(page.CardsSideBySide);
+            var settings = ById<FrameworkElement>(page, "pnlSettings");
+            var content = ById<FrameworkElement>(page, "pnlDistribution");
+            Assert.Equal(Bounds(window, settings).Top, Bounds(window, content).Top, 0.5);
+            Assert.True(Bounds(window, content).Left >= Bounds(window, settings).Right - 0.5, "The cards overlap.");
+            AssertNoSidewaysScroll(ById<DataGrid>(page, "dgDpGroups"), "dgDpGroups");
+            AssertCheckBoxTextFits(window, page, "page at 1920x1032");
+
+            // A software update group has no content card, so the schedule card takes the whole width.
+            viewModel.Deploy.TypeIndex = (int)DeploymentObjectType.SoftwareUpdateGroup;
+            Settle(window);
+            Assert.False(page.CardsSideBySide);
+            Assert.NotEqual(Visibility.Visible, content.Visibility);
+            Assert.True(settings.ActualWidth > Bounds(window, ById<FrameworkElement>(page, "pnlObjects")).Width * 1.5, "The schedule card keeps half the width.");
+
+            viewModel.Deploy.TypeIndex = (int)DeploymentObjectType.Application;
+            Settle(window);
+            Assert.True(page.CardsSideBySide);
+        }, 1920 - NavigationPaneWidth, 1032 - 48);
+    }
+
+    [Theory]
+    [InlineData(ApplicationTheme.Light)]
+    [InlineData(ApplicationTheme.Dark)]
+    public void ViewValidationChecksBringsTheChecksIntoView(ApplicationTheme theme)
+    {
+        WithPage(theme, (window, page, viewModel, harness) =>
+        {
+            Fill(window, viewModel, harness);
+            var scroller = ById<ScrollViewer>(page, "scrollDeployTab");
+            scroller.ScrollToTop();
+            Settle(window);
+            var button = ById<Button>(page, "btnViewChecks");
+            button.RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent));
+            Settle(window);
+            var grid = ById<DataGrid>(page, "dgChecks");
+            var top = grid.TransformToAncestor(scroller).Transform(new System.Windows.Point(0, 0)).Y;
+            Assert.True(top >= -0.5 && top < scroller.ViewportHeight, $"The checks start {top:0} px into a {scroller.ViewportHeight:0} px viewport.");
+            Assert.True(grid.IsKeyboardFocusWithin, "The keyboard is not on the checks.");
+        }, 1024 - NavigationPaneWidth, 720 - 48);
     }
 
     private static T? Ancestor<T>(DependencyObject? element) where T : DependencyObject

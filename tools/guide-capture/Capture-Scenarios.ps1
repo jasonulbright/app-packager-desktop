@@ -8,7 +8,7 @@
         Run-VisibleProbe.ps1 -Worktree <published folder with this script> -ProbeArgs "& .\Capture-Scenarios.ps1 -Scenario InstallerAnalysis"
     The images are C:\guide\apdcap-out\<theme>\<id>.png. An image whose body has no more content than an empty page is not kept: the run says REFUSED for it (the guard
     that stops a capture run from replacing a guide image with an empty page; the test GuideImageContentTests checks the committed images the same way).
-    The clicks use the positions of the page at 100 percent on the work area of 1920 x 1032.
+    The clicks use the positions of the page at 100 percent on the work area of 1920 x 1032; the tabs of Deployment Helper are found by automation id.
 #>
 param(
     [Parameter(Mandatory)][ValidateSet('InstallerAnalysis', 'SiteHygiene', 'LivePages', 'SettingsScroll')][string]$Scenario,
@@ -104,17 +104,23 @@ foreach ($theme in $Themes) {
         }
     }
     if ($Scenario -eq 'LivePages') {
-        # Pages that read the lab site when they open: (sidebar y, wait, then the tabs: id, x, y; a null x is the page as it opens).
+        # Pages that read the lab site when they open: (sidebar y, wait, then the tabs: id, x, y; a null x is the page as it opens; a text x is the
+        # automation id of the tab).
         $pages = @(
             @{ Nav = 'Maintenance Windows'; Wait = 12; Tabs = @(@('tools-maintenance-windows-list', $null, 0), @('tools-maintenance-windows-coverage', 360, 155), @('tools-maintenance-windows-templates', 434, 155)) }
             @{ Nav = 'Collection and Compliance'; Wait = 15; Tabs = @(@('tools-collections-list', $null, 0), @('tools-collections-wql', 377, 155), @('tools-collections-templates', 457, 155), @('tools-collections-site-queries', 539, 155)) }
-            @{ Nav = 'Deployment Helper'; Wait = 15; Tabs = @(@('tools-deployment-helper-deploy', $null, 0), @('tools-deployment-helper-history', 388, 155), @('tools-deployment-helper-options', 447, 155)) }
+            @{ Nav = 'Deployment Helper'; Wait = 15; Tabs = @(@('tools-deployment-helper-deploy', $null, 0), @('tools-deployment-helper-history', 'tabHistory', 0), @('tools-deployment-helper-options', 'tabOptions', 0)) }
             @{ Nav = 'DP Content Manager'; Wait = 15; Tabs = @(@('tools-dp-content-dps', $null, 0), @('tools-dp-content-content', 322, 219), @('tools-dp-content-issues', 399, 219), @('tools-dp-content-history', 475, 219)) }
         )
         foreach ($page in $pages) {
             $null = Click-Nav $page.Nav; Start-Sleep -Seconds $page.Wait
             foreach ($tab in $page.Tabs) {
-                if ($null -ne $tab[1]) { Click $tab[1] $tab[2]; Start-Sleep -Seconds 6 }
+                if ($tab[1] -is [string]) {
+                    $el = Find-El $null $tab[1]
+                    if (-not $el) { "REFUSED $($tab[0]).png: no tab $($tab[1])"; continue }
+                    Click-El $el; Start-Sleep -Seconds 6
+                }
+                elseif ($null -ne $tab[1]) { Click $tab[1] $tab[2]; Start-Sleep -Seconds 6 }
                 [System.Windows.Forms.Cursor]::Position = New-Object System.Drawing.Point 1000, 1060
                 Start-Sleep -Milliseconds 400
                 Shot (Join-Path $dir ($tab[0] + '.png'))
