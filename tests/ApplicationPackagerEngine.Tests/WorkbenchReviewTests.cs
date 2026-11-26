@@ -103,6 +103,29 @@ public sealed class WorkbenchReviewTests : IDisposable
     }
 
     [Fact]
+    public void ThePublishReviewOfAWorkbenchRun_NamesTheVersionOfTheSealedBuildNotTheNewestOne()
+    {
+        RunSnapshot Seal(string buildId, string version)
+        {
+            var stage = _t.NewFolder();
+            _t.NewFile(Path.Combine(stage, "stage-manifest.json"), $$"""{"SchemaVersion":4,"BuildId":"{{buildId}}","SoftwareVersion":"{{version}}"}""");
+            ApplicationPackagerEngine.Services.Workbench.BuildRecords.Write(_t.Store.DataRoot, stage,
+                new StageManifest { AppName = "Review App", SoftwareVersion = version, BuildId = buildId, ApplicationId = App, ProfileId = "p1" });
+            return new RunSnapshot { ApplicationId = App, ProfileId = "p1", BuildId = buildId, DataRoot = _t.Store.DataRoot };
+        }
+        var older = Seal("20260101-000000-aaaaaaaa", "1.0.0");
+        var newer = Seal("20260102-000000-bbbbbbbb", "2.0.0");
+
+        Assert.Equal(("1.0.0", (string?)null), ApplicationPackagerUI.Services.WorkbenchRunSnapshots.SealedVersion(older));
+        Assert.Equal(("2.0.0", (string?)null), ApplicationPackagerUI.Services.WorkbenchRunSnapshots.SealedVersion(newer));
+
+        var gone = new RunSnapshot { ApplicationId = App, ProfileId = "p1", BuildId = "20200101-000000-deadbeef", DataRoot = _t.Store.DataRoot };
+        var (version, failure) = ApplicationPackagerUI.Services.WorkbenchRunSnapshots.SealedVersion(gone);
+        Assert.Equal("", version);
+        Assert.StartsWith("The sealed build 20200101-000000-deadbeef cannot be read:", failure);
+    }
+
+    [Fact]
     public void ABridgeForAnExistingSnapshot_UsesThatSnapshotsProfileNotTheActiveOne()
     {
         var active = _t.NewProfile(App, "Active");

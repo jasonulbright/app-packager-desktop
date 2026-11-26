@@ -54,6 +54,38 @@ public partial class WorkbenchWindow : IWorkbenchPrompts
         });
     }
 
+    /// <summary>From this content width the side panel is docked beside the editor. A narrower window shows it in place of the editor.</summary>
+    public const double SidePanelDockWidth = 1200;
+
+    private void Body_SizeChanged(object sender, SizeChangedEventArgs e) => ApplySidePanel();
+
+    private void Details_Click(object sender, RoutedEventArgs e) => ApplySidePanel();
+
+    // A section that the operator selects shows its editor again.
+    private void Sections_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (btnDetails is not { IsChecked: true }) return;
+        btnDetails.IsChecked = false;
+        ApplySidePanel();
+    }
+
+    /// <summary>
+    /// A wide window docks the panel. A narrow window has the Details button: the panel then takes the place of the editor, so no control is
+    /// clipped and no focused control is covered. While the panel is closed, the footer shows the validation line.
+    /// </summary>
+    private void ApplySidePanel()
+    {
+        var docked = gridBody.ActualWidth >= SidePanelDockWidth;
+        var replacing = !docked && btnDetails.IsChecked == true;
+        btnDetails.Visibility = docked ? Visibility.Collapsed : Visibility.Visible;
+        pnlSidePanel.Visibility = docked || replacing ? Visibility.Visible : Visibility.Collapsed;
+        Grid.SetColumn(pnlSidePanel, docked ? 3 : 2);
+        pnlSidePanel.Width = docked ? 270 : double.NaN;
+        pnlSidePanel.Margin = docked ? new Thickness(0, 12, 16, 8) : new Thickness(16, 12, 16, 8);
+        gridEditor.Visibility = replacing ? Visibility.Collapsed : Visibility.Visible;
+        txtValidationLine.Visibility = docked || replacing ? Visibility.Collapsed : Visibility.Visible;
+    }
+
     private void OnPreviewKeyDown(object sender, KeyEventArgs e)
     {
         if (e.Key == Key.F && Keyboard.Modifiers == ModifierKeys.Control)

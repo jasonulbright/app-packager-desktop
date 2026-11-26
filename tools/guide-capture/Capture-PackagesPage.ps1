@@ -106,7 +106,8 @@ foreach ($theme in $Themes) {
             [System.Windows.Forms.SendKeys]::SendWait('{ESC}')
         }
         Step $theme 'core-packages-buttons-disabled' {
-            $b = Find-El $w 'btnPublishIntune'
+            # WSUS is in use and has no server in this run, so Publish All is disabled and its tooltip names the reason.
+            $b = Find-El $w 'btnPublishAll'
             [System.Windows.Forms.Cursor]::Position = Get-ElCenter $b
             Start-Sleep -Milliseconds 400
             [System.Windows.Forms.Cursor]::Position = New-Object System.Drawing.Point ((Get-ElCenter $b).X + 2), ((Get-ElCenter $b).Y + 2)

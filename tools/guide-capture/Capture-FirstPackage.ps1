@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    The lab capture run of the first package and of the WSUS views (decision D-21): Stage and Publish to ConfigMgr of one application, the grid after Check ConfigMgr, Publish to WSUS,
+    The lab capture run of the first package and of the WSUS views (decision D-21): Stage and Publish All to ConfigMgr of one application, the grid after Check ConfigMgr, Publish All to WSUS,
     the WSUS Updates window and the Catalog Import window. The real app is driven with UI Automation, one theme after the other.
 
 .DESCRIPTION
@@ -74,7 +74,8 @@ function Remove-SiteApplication {
 }
 
 foreach ($theme in $Themes) {
-    $data = Start-RunApp $exe $theme @{ FileShareRoot = $FileShareRoot; Systems = @{ ConfigMgr = $true; Intune = $false; Wsus = $true }; Wsus = @{ ServerName = $Server; PortNumber = 8530 } }
+    # Publish All publishes to every system in use, so the ConfigMgr part and the WSUS part run in two starts of the app with one system each.
+    $data = Start-RunApp $exe $theme @{ FileShareRoot = $FileShareRoot; Systems = @{ ConfigMgr = $true; Intune = $false; Wsus = $false } }
     try {
         $w = Main-Window
         Step 'start-first-package-end-to-end' {
@@ -88,6 +89,8 @@ foreach ($theme in $Themes) {
             "status after Stage: $(Status-Text $w)"
             Set-ElText (Find-El $w 'txtAppPackagerComment') 'Guide capture'
             Real-Click (Need-El 'btnPublishAll')
+            $confirm = Find-El $null 'btnReviewConfirm' -Timeout 15
+            if ($confirm) { Real-Click $confirm }
             Wait-Idle $w 420
             Answer-Dialogs $w 420
             "status after Publish: $(Status-Text $w)"
@@ -98,9 +101,17 @@ foreach ($theme in $Themes) {
             Start-Sleep 2
             Shot 'start-first-package-end-to-end'
         }
+        # The same data folder is not kept: the WSUS publish stages the application again.
+        Stop-Apd
+        $data = Start-RunApp $exe $theme @{ FileShareRoot = $FileShareRoot; Systems = @{ ConfigMgr = $false; Intune = $false; Wsus = $true }; Wsus = @{ ServerName = $Server; PortNumber = 8530 } }
+        $w = Main-Window
         Step 'core-publish-wsus-row' {
+            $null = Click-Nav 'App Packager'; Start-Sleep 5
             Check-Row $w $Search
-            Real-Click (Need-El 'btnPublishWsus')
+            Open-ApdMenuItem $w 'btnCheckMenu' 'miCheckLatest'
+            Wait-Idle $w 240
+            # A publish to WSUS only has no review.
+            Real-Click (Need-El 'btnPublishAll')
             Wait-Idle $w 420
             Answer-Dialogs $w 420
             $deadline = (Get-Date).AddSeconds(240)

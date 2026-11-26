@@ -50,11 +50,13 @@
         <Setter Property="Margin" Value="0,0,0,8" />
         <Setter Property="ClearButtonEnabled" Value="False" />
         <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="AutomationProperties.HelpText" Value="{Binding ToolTip, RelativeSource={RelativeSource Self}}" />
     </Style>
 
     <Style x:Key="AddCombo" TargetType="ComboBox" BasedOn="{StaticResource {x:Type ComboBox}}">
         <Setter Property="Margin" Value="0,0,0,8" />
         <Setter Property="HorizontalAlignment" Value="Stretch" />
+        <Setter Property="AutomationProperties.HelpText" Value="{Binding ToolTip, RelativeSource={RelativeSource Self}}" />
     </Style>
 
     <Style x:Key="AddButton" TargetType="ui:Button" BasedOn="{StaticResource {x:Type ui:Button}}">

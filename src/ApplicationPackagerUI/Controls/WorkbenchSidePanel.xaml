@@ -1,0 +1,60 @@
+<UserControl
+    x:Class="ApplicationPackagerUI.Controls.WorkbenchSidePanel"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Focusable="False"
+    IsTabStop="False"
+    AutomationProperties.AutomationId="pnlSidePanel"
+    AutomationProperties.Name="Identity, source and validation">
+
+    <UserControl.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="/ApplicationPackagerUI;component/Views/Styles/Typography.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+            <Style x:Key="SideValue" TargetType="TextBlock">
+                <Setter Property="FontSize" Value="14" />
+                <Setter Property="TextWrapping" Value="Wrap" />
+                <Setter Property="Margin" Value="0,4,0,12" />
+                <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
+            </Style>
+            <Style x:Key="SideResult" TargetType="Border">
+                <Setter Property="BorderBrush" Value="{DynamicResource ControlStrokeColorDefaultBrush}" />
+                <Setter Property="BorderThickness" Value="1" />
+                <Setter Property="CornerRadius" Value="4" />
+                <Setter Property="Padding" Value="8,4" />
+                <Setter Property="Margin" Value="0,8,0,0" />
+            </Style>
+        </ResourceDictionary>
+    </UserControl.Resources>
+
+    <!-- Read-only facts of the open application and the results of the last validation. The window docks this panel at the right of the editor, or
+         shows it in place of the editor when the window is narrow. -->
+    <Border BorderThickness="1" CornerRadius="8" BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}">
+        <ScrollViewer VerticalScrollBarVisibility="Auto" Focusable="False">
+            <StackPanel Margin="12">
+                <TextBlock Text="Identity and source" Style="{StaticResource CardTitleText}" Margin="0,0,0,12" />
+                <TextBlock Text="Stable identity" Style="{StaticResource CaptionText}" />
+                <TextBlock x:Name="txtIdentity" Text="{Binding IdentityText}" Style="{StaticResource SideValue}" />
+                <TextBlock Text="Source provenance" Style="{StaticResource CaptionText}" />
+                <TextBlock x:Name="txtProvenance" Text="{Binding ProvenanceText}" Style="{StaticResource SideValue}" />
+
+                <Border Height="1" Margin="0,4,0,16" Background="{DynamicResource ControlStrokeColorDefaultBrush}" />
+
+                <TextBlock Text="Validation" Style="{StaticResource CardTitleText}" />
+                <Border Style="{StaticResource SideResult}">
+                    <TextBlock x:Name="chipContent" FontSize="12" TextWrapping="Wrap" Text="{Binding ChipContent}"
+                               Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
+                </Border>
+                <Border Style="{StaticResource SideResult}">
+                    <TextBlock x:Name="chipMecm" FontSize="12" TextWrapping="Wrap" Text="{Binding ChipConfigMgr}"
+                               Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
+                </Border>
+                <Border Style="{StaticResource SideResult}">
+                    <TextBlock x:Name="chipIntune" FontSize="12" TextWrapping="Wrap" Text="{Binding ChipIntune}"
+                               Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
+                </Border>
+            </StackPanel>
+        </ScrollViewer>
+    </Border>
+</UserControl>

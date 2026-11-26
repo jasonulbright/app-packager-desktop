@@ -973,6 +973,13 @@ public partial class PackagesViewModel : ObservableObject
     private async Task StageAsync() => await RunStageAsync();
 
     /// <summary>
+    /// The route of a Workbench publish, the same as Publish All of the page: a WSUS-only target keeps the WSUS run, and every other target
+    /// runs the package path with the publish review.
+    /// </summary>
+    public static Task RouteWorkbenchPublishAsync(string target, Func<Task> wsusOnlyRun, Func<bool, Task> packageRun) =>
+        target == PublishRunTargets.WsusOnly ? wsusOnlyRun() : packageRun(true);
+
+    /// <summary>
     /// Stages or packages one row for the Application Workbench through the same per-row
     /// flow the buttons use, with the workbench's run snapshot and, for a publish, its target.
     /// The grid selection is left as it is.
@@ -986,8 +993,9 @@ public partial class PackagesViewModel : ObservableObject
         }
         var profileName = ApplicationPackagerEngine.Services.Workbench.WorkbenchJson.AsText(snapshot.Profile["Name"]) ?? snapshot.ProfileId;
         AddLogLine($"Workbench {(package ? "Package" : "Stage")}: {row.Application} (profile {profileName}, revision {snapshot.ProfileRevision}, build {snapshot.BuildId})");
-        if (package && target == PublishRunTargets.WsusOnly) await PublishWsusRunAsync([row], snapshot);
-        else if (package) await PackageAsync([row], target, snapshot);
+        if (package)
+            await RouteWorkbenchPublishAsync(target ?? PublishRunTargets.ConfigMgr,
+                () => PublishWsusRunAsync([row], snapshot), review => PackageAsync([row], target, snapshot, review));
         else await RunStageAsync([row], snapshot);
     }
 
@@ -1140,7 +1148,12 @@ public partial class PackagesViewModel : ObservableObject
             return;
         }
         IsOperationRunning = true;
-        try { await PackageCoreAsync(rows, targetOverride, snapshot, review); }
+        try
+        {
+            // The Workbench starts this run while it closes. The run yields first, so the review window opens after the Workbench is gone.
+            if (review && rows is not null) await Task.Yield();
+            await PackageCoreAsync(rows, targetOverride, snapshot, review);
+        }
         finally { IsOperationRunning = false; }
     }
 
@@ -1170,14 +1183,30 @@ public partial class PackagesViewModel : ObservableObject
         if (selected.Count == 0) { ShowNoneSelected("Package"); return; }
 
         PublishPlan? confirmedPlan = null;
+        // A Workbench run publishes the sealed build of its snapshot, so the review and the results name the version of that build.
+        // A bring-your-own row carries its stage manifest and its version.
+        string? sealedVersion = null;
         if (review)
         {
+            if (snapshot is not null && selected is [{ StagedManifestPath: null }])
+            {
+                var (version, failure) = WorkbenchRunSnapshots.SealedVersion(snapshot);
+                if (failure is not null)
+                {
+                    AddLogLine("Publish cancelled. " + failure);
+                    StatusText = "Publish cancelled. Nothing was published.";
+                    return;
+                }
+                sealedVersion = version;
+            }
+
             // The review lists every checked application, the ones that the view hides too, and takes the comment of the run.
-            var shown = new HashSet<PackagerInfo>(FilteredPackagers);
+            // The rows of a Workbench run are named by the caller, so none of them is hidden.
+            var shown = new HashSet<PackagerInfo>(rows ?? FilteredPackagers);
             var plan = BuildPlan(selected.Select(p => PlanApp(p, settings, !shown.Contains(p),
-                    string.IsNullOrEmpty(p.CurrentVersion) ? ConfigMgrFact.None : ConfigMgrFact.Found(p.CurrentVersion))).ToList(), settings);
+                    string.IsNullOrEmpty(p.CurrentVersion) ? ConfigMgrFact.None : ConfigMgrFact.Found(p.CurrentVersion), sealedVersion)).ToList(), settings);
             var confirmed = await PublishReviewGate.ConfirmAsync(plan, Comment, _publishDialogs.ShowPublishReview,
-                shownPlan => RereadPlanAsync(shownPlan, selected), AddLogLine);
+                shownPlan => RereadPlanAsync(shownPlan, selected, sealedVersion is null ? null : snapshot), AddLogLine);
             if (confirmed is null)
             {
                 StatusText = "Publish cancelled. Nothing was published.";
@@ -1294,7 +1323,7 @@ public partial class PackagesViewModel : ObservableObject
                     }
 
                     // Each destination of the target runs once; one that fails does not stop the next.
-                    var version = PackagerExecutionService.PublishVersion(p);
+                    var version = sealedVersion ?? PackagerExecutionService.PublishVersion(p);
                     var cells = new List<PublishDestinationResult>();
                     PublishRowRun run;
                     try
@@ -1427,7 +1456,7 @@ public partial class PackagesViewModel : ObservableObject
         PublishPlanner.Plan(apps, settings.Systems, ReadinessOf(settings)) with { Site = (settings.SiteCode ?? "").Trim() + "|" + (settings.ProviderMachine ?? "").Trim() };
 
     /// <summary>One application of the publish plan: the version the run publishes, what ConfigMgr does afterward, and what each system cannot take.</summary>
-    private PublishPlanApp PlanApp(PackagerInfo p, AppSettings settings, bool hidden, ConfigMgrFact site)
+    private PublishPlanApp PlanApp(PackagerInfo p, AppSettings settings, bool hidden, ConfigMgrFact site, string? sealedVersion = null)
     {
         var script = !p.IsJsonDefined && p.StagedManifestPath is null;
         var steps = new List<string>();
@@ -1446,7 +1475,7 @@ public partial class PackagesViewModel : ObservableObject
                 != ApplicationPackagerEngine.Services.Supersedence.SupersedenceMode.Off)
                 steps.Add("apply supersedence");
         }
-        return new PublishPlanApp(p.Uid, p.Application, PackagerExecutionService.PublishVersion(p), hidden)
+        return new PublishPlanApp(p.Uid, p.Application, sealedVersion ?? PackagerExecutionService.PublishVersion(p), hidden)
         {
             Site = site,
             ConfigMgrSteps = string.Join(", ", steps),
@@ -1459,11 +1488,24 @@ public partial class PackagesViewModel : ObservableObject
     /// The read before the first write (overhaul V1, phase 5b): the systems and their readiness from the stored settings, the version of each
     /// application, and the ConfigMgr application of each one. One site query for each application when ConfigMgr is in the plan. Null when cancelled.
     /// </summary>
-    private async Task<PublishPlan?> RereadPlanAsync(PublishPlan shown, IReadOnlyList<PackagerInfo> selected)
+    private async Task<PublishPlan?> RereadPlanAsync(PublishPlan shown, IReadOnlyList<PackagerInfo> selected, RunSnapshot? sealedBuild)
     {
+        // A later stage into the same folder replaces a sealed build. The run does not start for a build that is gone.
+        string? sealedVersion = null;
+        if (sealedBuild is not null)
+        {
+            var (version, failure) = WorkbenchRunSnapshots.SealedVersion(sealedBuild);
+            if (failure is not null)
+            {
+                AddLogLine("Publish cancelled. " + failure);
+                return null;
+            }
+            sealedVersion = version;
+        }
+
         var settings = _settingsService.Load();
         var byUid = selected.ToDictionary(p => p.Uid, StringComparer.Ordinal);
-        var apps = shown.Rows.Select(r => PlanApp(byUid[r.App.Uid], settings, r.App.Hidden, r.App.Site)).ToList();
+        var apps = shown.Rows.Select(r => PlanApp(byUid[r.App.Uid], settings, r.App.Hidden, r.App.Site, sealedVersion)).ToList();
         var unread = BuildPlan(apps, settings);
         // A plan that cannot run, or has no ConfigMgr, keeps the ConfigMgr facts it was shown with.
         if (!unread.CanRun || !unread.Systems.Contains(OneClickDestinations.ConfigMgr)) return unread;
@@ -1501,7 +1543,7 @@ public partial class PackagesViewModel : ObservableObject
             // The queries take time, and a Settings save during them must show. So the plan is built from the settings after the last query,
             // with the facts that were read. A change of the site makes the plan differ, and the next confirm reads the new site.
             var after = _settingsService.Load();
-            return BuildPlan(apps.Select(a => PlanApp(byUid[a.Uid], after, a.Hidden, a.Site)).ToList(), after);
+            return BuildPlan(apps.Select(a => PlanApp(byUid[a.Uid], after, a.Hidden, a.Site, sealedVersion)).ToList(), after);
         }
         finally
         {

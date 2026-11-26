@@ -11,7 +11,7 @@
   "rules": [
     {
       "ids": ["core-add-app-*"],
-      "sources": ["src/ApplicationPackagerUI/Views/Pages/AddAppPage*", "src/ApplicationPackagerUI/ViewModels/Pages/AddApp*", "src/ApplicationPackagerUI/ViewModels/Pages/AddProposals.cs", "src/ApplicationPackagerUI/ViewModels/Pages/AddResultViewModel.cs", "src/ApplicationPackagerUI/Controls/AddResultPanel*", "src/ApplicationPackagerUI/Controls/InstallerSettingsPanel*", "src/ApplicationPackagerUI/Controls/DetectionEditorPanel*", "src/ApplicationPackagerUI/Services/AddFlowServices.cs"]
+      "sources": ["src/ApplicationPackagerUI/Views/Pages/AddAppPage*", "src/ApplicationPackagerUI/ViewModels/Pages/AddApp*", "src/ApplicationPackagerUI/ViewModels/Pages/WizardStep.cs", "src/ApplicationPackagerUI/Controls/StepList*", "src/ApplicationPackagerUI/ViewModels/Pages/AddProposals.cs", "src/ApplicationPackagerUI/ViewModels/Pages/AddResultViewModel.cs", "src/ApplicationPackagerUI/Controls/AddResultPanel*", "src/ApplicationPackagerUI/Controls/InstallerSettingsPanel*", "src/ApplicationPackagerUI/Controls/DetectionEditorPanel*", "src/ApplicationPackagerUI/Services/AddFlowServices.cs"]
     },
     {
       "ids": ["core-add-file-*"],
@@ -79,7 +79,7 @@
     },
     {
       "ids": ["core-workbench-*"],
-      "sources": ["src/ApplicationPackagerUI/Views/Windows/WorkbenchWindow*", "src/ApplicationPackagerUI/ViewModels/Windows/WorkbenchWindowViewModel*", "src/ApplicationPackagerUI/Helpers/WorkbenchConverters.cs", "src/ApplicationPackagerUI/Controls/InstallerSettingsPanel*", "src/ApplicationPackagerUI/Controls/DetectionEditorPanel*", "src/ApplicationPackagerUI/Controls/OpenDefinitionPanel*", "src/ApplicationPackagerUI/ViewModels/Pages/DetectionEditorViewModel.cs", "src/ApplicationPackagerUI/Services/Workbench*.cs"]
+      "sources": ["src/ApplicationPackagerUI/Views/Windows/WorkbenchWindow*", "src/ApplicationPackagerUI/ViewModels/Windows/WorkbenchWindowViewModel*", "src/ApplicationPackagerUI/Controls/WorkbenchSidePanel*", "src/ApplicationPackagerUI/Helpers/WorkbenchConverters.cs", "src/ApplicationPackagerUI/Controls/InstallerSettingsPanel*", "src/ApplicationPackagerUI/Controls/DetectionEditorPanel*", "src/ApplicationPackagerUI/Controls/OpenDefinitionPanel*", "src/ApplicationPackagerUI/ViewModels/Pages/DetectionEditorViewModel.cs", "src/ApplicationPackagerUI/Services/Workbench*.cs"]
     },
     {
       "ids": ["core-wsus-*"],

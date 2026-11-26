@@ -19,7 +19,10 @@ public sealed partial class HardCodedColorScanTests
         Path.Combine("Views", "Styles", "Glyphs.xaml"),
         Path.Combine("Views", "Styles", "ButtonText.xaml"),
         Path.Combine("Views", "Styles", "Typography.xaml"),
-        Path.Combine("Views", "Windows", "OneClickPlanWindow.xaml")
+        Path.Combine("Views", "Windows", "OneClickPlanWindow.xaml"),
+        Path.Combine("Controls", "WorkbenchSidePanel.xaml"),
+        Path.Combine("Controls", "StepList.xaml"),
+        Path.Combine("Views", "Pages", "AddAppPage.xaml")
     ];
 
     [Fact]

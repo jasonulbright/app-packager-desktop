@@ -1,3 +1,4 @@
+using System.IO;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using ApplicationPackagerEngine.Models;
@@ -28,6 +29,23 @@ public static class WorkbenchRunSnapshots
             PackagerScriptPath = packagerScriptPath,
             DownloadRoot = WorkbenchPaths.GetProfileDownloadRoot(settings.DownloadRoot, profileId)
         }, new ScriptSigningCertificateGate());
+
+    /// <summary>
+    /// The version of the sealed build that the snapshot names, read from its stage manifest, or why it cannot be read. The publish review of a
+    /// Workbench run names this version, because the run publishes that build and not the latest version of the grid row.
+    /// </summary>
+    public static (string Version, string? Failure) SealedVersion(RunSnapshot snapshot)
+    {
+        try
+        {
+            var build = ByoStaging.SealedBuild(WorkbenchStore.Open(snapshot.DataRoot), snapshot.ApplicationId, snapshot.ProfileId, snapshot.BuildId);
+            return (build.Manifest.SoftwareVersion ?? "", null);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException or ArgumentException or JsonException)
+        {
+            return ("", $"The sealed build {snapshot.BuildId} cannot be read: {ex.Message}");
+        }
+    }
 
     /// <summary>The run row of one staged BYO build: Package reads its stage manifest directly.</summary>
     public static PackagerInfo ByoRow(StageManifest manifest, DroppedInstallerAnalysis analysis, string manifestPath, string applicationId) =>

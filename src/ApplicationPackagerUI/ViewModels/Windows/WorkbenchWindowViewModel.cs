@@ -180,16 +180,19 @@ public partial class WorkbenchWindowViewModel : ObservableObject
     [ObservableProperty] private string _resolvedPlan = "";
     public ObservableCollection<PriorBuildRow> PriorBuilds { get; } = [];
 
-    [ObservableProperty] private string _chipContent = "Content build: Not validated";
-    [ObservableProperty] private string _chipConfigMgr = "ConfigMgr: Not validated";
-    [ObservableProperty] private string _chipIntune = "Intune: Not validated";
+    [ObservableProperty] [NotifyPropertyChangedFor(nameof(ValidationLine))] private string _chipContent = "Content build: Not validated";
+    [ObservableProperty] [NotifyPropertyChangedFor(nameof(ValidationLine))] private string _chipConfigMgr = "ConfigMgr: Not validated";
+    [ObservableProperty] [NotifyPropertyChangedFor(nameof(ValidationLine))] private string _chipIntune = "Intune: Not validated";
     [ObservableProperty] private string _saveStateText = CleanText;
+
+    /// <summary>The three validation results in one line, for the footer while the side panel is closed.</summary>
+    public string ValidationLine => $"{ChipContent} · {ChipConfigMgr} · {ChipIntune}";
 
     /// <summary>Lists the applications and opens the preselected one, or the first.</summary>
     public async Task InitializeAsync(string? preselectApplicationId = null)
     {
         _settings = _settingsService.Load();
-        ApplyPublishState(ApplicationPackagerEngine.Models.PublishActionState.For(Pages.PackagesViewModel.ReadinessOf(_settings)));
+        ApplyPublishState(Pages.PackagesViewModel.ReadinessOf(_settings));
         _store = WorkbenchStore.Open();
         var applications = await _catalog.LoadAsync(_store);
         if (applications.Count == 0)
@@ -1123,33 +1126,36 @@ public partial class WorkbenchWindowViewModel : ObservableObject
     [RelayCommand]
     private Task StageAsync() => RunAsync(WorkbenchBuildOperation.Stage, null);
 
-    // Footer publish buttons: enabled by the same readiness rule as the Packages page buttons.
-    [ObservableProperty] [NotifyCanExecuteChangedFor(nameof(PublishConfigMgrCommand))] private bool _canPublishConfigMgr = true;
-    [ObservableProperty] [NotifyCanExecuteChangedFor(nameof(PublishIntuneCommand))] private bool _canPublishIntune = true;
-    [ObservableProperty] [NotifyCanExecuteChangedFor(nameof(PublishWsusCommand))] private bool _canPublishWsus = true;
-    [ObservableProperty] private string _publishConfigMgrToolTip = "Build a ConfigMgr Application from the selected build";
-    [ObservableProperty] private string _publishIntuneToolTip = "Stage this profile, build its .intunewin, and publish it to Intune";
-    [ObservableProperty] private string _publishWsusToolTip = "Stage this profile and publish its installer to WSUS";
+    // The one publish button of the footer (D-47): the same enabled state and systems as Publish All of the App Packager page.
+    [ObservableProperty] [NotifyCanExecuteChangedFor(nameof(PublishAllCommand))] private bool _canPublishAll = true;
+    [ObservableProperty] private string _publishAllToolTip = "Publish the selected build to the systems in Settings, Systems in Use.";
 
-    /// <summary>Applies the publish readiness of the stored settings to the footer buttons.</summary>
-    public void ApplyPublishState(ApplicationPackagerEngine.Models.PublishActionState state)
+    /// <summary>Applies the publish readiness of the stored settings to the footer button.</summary>
+    public void ApplyPublishState(PublishReadiness readiness)
     {
-        CanPublishConfigMgr = state.MecmEnabled;
-        CanPublishIntune = state.IntuneEnabled;
-        CanPublishWsus = state.WsusEnabled;
-        PublishConfigMgrToolTip = state.MecmEnabled ? "Build a ConfigMgr Application from the selected build" : state.MecmToolTip;
-        PublishIntuneToolTip = state.IntuneEnabled ? "Stage this profile, build its .intunewin, and publish it to Intune" : state.IntuneToolTip;
-        PublishWsusToolTip = state.WsusEnabled ? "Stage this profile and publish its installer to WSUS" : state.WsusToolTip;
+        var state = PublishAllState.For(readiness);
+        CanPublishAll = state.Enabled;
+        PublishAllToolTip = !state.Enabled ? state.ToolTip
+            : "Publish the selected build to " + DestinationSet.FromTarget(state.Target).Describe() + " (Settings, Systems in Use). "
+              + (state.Target == RunTargets.WsusOnly
+                  ? "A publish to WSUS only has no review. It starts at once."
+                  : "The publish review opens before anything is published.");
     }
 
-    [RelayCommand(CanExecute = nameof(CanPublishConfigMgr))]
-    private Task PublishConfigMgrAsync() => RunAsync(WorkbenchBuildOperation.Package, RunTargets.Mecm);
-
-    [RelayCommand(CanExecute = nameof(CanPublishIntune))]
-    private Task PublishIntuneAsync() => RunAsync(WorkbenchBuildOperation.Package, RunTargets.IntuneOnly);
-
-    [RelayCommand(CanExecute = nameof(CanPublishWsus))]
-    private Task PublishWsusAsync() => RunAsync(WorkbenchBuildOperation.Package, RunTargets.WsusOnly);
+    [RelayCommand(CanExecute = nameof(CanPublishAll))]
+    private async Task PublishAllAsync()
+    {
+        // The systems come from the stored settings of this moment, the same ones the review reads.
+        var readiness = Pages.PackagesViewModel.ReadinessOf(_settingsService.Load());
+        var state = PublishAllState.For(readiness);
+        if (!state.Enabled)
+        {
+            ApplyPublishState(readiness);
+            if (Prompts is not null) await Prompts.InfoAsync("Publish All", state.ToolTip);
+            return;
+        }
+        await RunAsync(WorkbenchBuildOperation.Package, state.Target);
+    }
 
     /// <summary>
     /// A run uses the saved profile: unsaved edits are saved or discarded first, blocking
@@ -1159,7 +1165,10 @@ public partial class WorkbenchWindowViewModel : ObservableObject
     {
         if (_session is null || Prompts is null || SelectedApplication is null) return;
         var title = operation == WorkbenchBuildOperation.Stage ? "Stage" : "Publish";
+        var chosenBuild = SelectedBuild;
         if (_session.IsDirty && !await ConfirmDiscardAsync("Save the profile before this run? A run uses the saved profile revision.")) return;
+        // A save loads the build list again and selects the newest build. The publish keeps the build that the operator chose.
+        if (Builds.Contains(chosenBuild)) SelectedBuild = chosenBuild;
 
         var target = WorkbenchBuildLauncher.TargetFor(operation, publishTarget, _settingsService.Load().Intune.DeploymentTarget);
         var blocking = WorkbenchFindings.BlockingFor(await RunValidationAsync(), target);
