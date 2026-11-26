@@ -80,6 +80,10 @@ public partial class OneClickPlanViewModel : ObservableObject
     /// <summary>"2 applications included, 1 not included. ConfigMgr site MCM."</summary>
     [ObservableProperty] private string _headerText = "";
 
+    private string HeaderLine(int included, int total) =>
+        $"{included} {(included == 1 ? "application" : "applications")} included, {total - included} not included."
+        + (_context.SiteText.Length > 0 ? " " + _context.SiteText + "." : "");
+
     /// <summary>The steps of the saved action, in order.</summary>
     public string FlowText => Flow(_context.Action);
 
@@ -239,9 +243,7 @@ public partial class OneClickPlanViewModel : ObservableObject
             bool Included(OneClickPlanRow r) => byKey.TryGetValue(r.Key, out var i) && i.Include;
             var summary = OneClickPlanner.Summarize(plan, settings, _context.Action, Included);
             SummaryText = summary.Line;
-            var included = plan.Count(Included);
-            HeaderText = $"{included} {(included == 1 ? "application" : "applications")} included, {plan.Count - included} not included."
-                + (_context.SiteText.Length > 0 ? " " + _context.SiteText + "." : "");
+            HeaderText = HeaderLine(plan.Count(Included), plan.Count);
             ActionText = OneClickPlanner.ActionLine(_context.Action, _context.OnExisting);
             ScopeText = OneClickPlanner.ScopeLine(plan.Where(Included), settings.Scope);
             BlockingText = summary.Blocking.Count > 0 ? "Not ready: " + string.Join("; ", summary.Blocking) : "";
@@ -321,6 +323,7 @@ public partial class OneClickPlanViewModel : ObservableObject
             }
             finally { _refreshing = false; }
             included = Rows.Where(r => r.Include).ToList();
+            HeaderText = HeaderLine(included.Count, Rows.Count);
             if (included.Count == 0)
             {
                 SummaryText = "Nothing to run.";
@@ -379,6 +382,12 @@ public partial class OneClickPlanViewModel : ObservableObject
             r.Outcome = notStarted ? OneClickOutcomes.Skipped : OneClickOutcomes.Failed;
             r.Reason = notStarted ? "run stopped before this application: " + stopped : "run stopped during this application: " + stopped;
         }
+
+        // An application that failed before a destination was tried (the check or the stage) counts as failed for that destination.
+        if (OneClickActionNames.Normalize(_context.Action) == OneClickActionNames.StageAndPackage)
+            foreach (var r in included.Where(r => r.Outcome == OneClickOutcomes.Failed))
+                foreach (var d in OneClickDestinations.All.Where(d => r.Destinations.Has(d) && r.Cells.All(c => c.Destination != d)))
+                    r.Cells.Add(new(d, PublishDestinationKind.Failed, "", "Not published: " + r.Reason));
 
         var paths = WriteReport(_context.Clock(), canceled);
         var published = Rows.Count(r => r.Outcome == OneClickOutcomes.Published);

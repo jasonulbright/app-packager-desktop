@@ -18,12 +18,30 @@ public partial class OneClickHistoryWindow
         InitializeComponent();
         IReadOnlyList<OneClickReportSummary> runs = [];
         var failure = "";
-        try { runs = OneClickReportWriter.List(folder); }
+        // "Plan only" writes a report with the same name pattern; it is not a run.
+        try { runs = OneClickReportWriter.List(folder).Where(r => !IsPlanOnly(r)).ToList(); }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { failure = ex.Message; }
         gridHistory.ItemsSource = runs;
         txtHistorySummary.Text = failure.Length > 0 ? "The report folder cannot be read: " + failure
             : runs.Count == 0 ? "No One Click run wrote a report yet."
             : $"{runs.Count} {(runs.Count == 1 ? "run" : "runs")}, newest first.";
+    }
+
+    /// <summary>True when every application of the report is only planned.</summary>
+    public static bool IsPlanOnly(OneClickReportSummary run)
+    {
+        try
+        {
+            using var document = System.Text.Json.JsonDocument.Parse(File.ReadAllText(run.JsonPath));
+            var outcomes = document.RootElement.GetProperty("Applications").EnumerateArray()
+                .Select(a => a.GetProperty("Outcome").GetString()).ToList();
+            return outcomes.Count > 0 && outcomes.All(o => o == OneClickOutcomes.Planned);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Text.Json.JsonException
+                                   or KeyNotFoundException or InvalidOperationException)
+        {
+            return false;
+        }
     }
 
     private void History_SelectionChanged(object sender, SelectionChangedEventArgs e) =>

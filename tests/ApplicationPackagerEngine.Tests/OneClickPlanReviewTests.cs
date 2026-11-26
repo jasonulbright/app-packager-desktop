@@ -103,6 +103,29 @@ public sealed class OneClickPlanReviewTests : IDisposable
         Assert.Equal("Publish completed with issues", results.Headline);
     }
 
+    [Fact]
+    public async Task AnApplicationThatFailsBeforeItsPublishCountsAsFailed()
+    {
+        var model = Model(new FakeRunner(rows =>
+        {
+            foreach (var row in rows)
+            {
+                row.Outcome = OneClickOutcomes.Failed;
+                row.Reason = "stage failed";
+            }
+        }));
+        foreach (var row in model.Rows) row.Include = true;
+
+        await model.RunCommand.ExecuteAsync(null);
+
+        Assert.True(model.HasResults);
+        var results = model.BuildResults();
+        Assert.Equal(0, results.Published);
+        // Alpha has ConfigMgr; Bravo has ConfigMgr and WSUS.
+        Assert.Equal(3, results.Failed);
+        Assert.Contains(results.Details, d => d.EndsWith("Not published: stage failed", StringComparison.Ordinal));
+    }
+
     [Theory]
     [InlineData(InventoryOutcome.Succeeded, "Published")]
     [InlineData(InventoryOutcome.AlreadyPresent, "Published")]

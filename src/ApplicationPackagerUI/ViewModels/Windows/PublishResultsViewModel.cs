@@ -65,9 +65,17 @@ public sealed class PublishResultsViewModel
     public static string PartialNotice(string application, PublishRowResult result)
     {
         var reached = result.Destinations.Where(d => d.Kind == PublishDestinationKind.Published).Select(d => d.Destination).ToList();
-        var missed = result.Destinations.Where(d => d.Kind != PublishDestinationKind.Published)
-            .Select(d => $"{d.Destination} ({d.Text})").ToList();
-        return $"{application} reached {Join(reached)}. It did not reach {Join(missed)}. What reached a system stays published.";
+        var other = result.Destinations.Where(d => d.Kind != PublishDestinationKind.Published).ToList();
+        // A stopped or broken publish may have written; a failed content step leaves the application there. Neither is "did not reach".
+        static bool Unknown(PublishDestinationResult d) => d.Kind == PublishDestinationKind.Failed && d.Step is "cancel" or "error";
+        static bool Created(PublishDestinationResult d) => d.Kind == PublishDestinationKind.Failed && d.Step is "content" or "content upload";
+        var parts = new List<string> { $"{application} reached {Join(reached)}." };
+        var missed = other.Where(d => !Unknown(d) && !Created(d)).Select(d => $"{d.Destination} ({d.Text})").ToList();
+        if (missed.Count > 0) parts.Add($"It did not reach {Join(missed)}.");
+        parts.AddRange(other.Where(Created).Select(d => $"{d.Destination} has the application, and a later step failed ({d.Text})."));
+        parts.AddRange(other.Where(Unknown).Select(d => $"The state in {d.Destination} is not known. Check the system."));
+        parts.Add("What reached a system stays published.");
+        return string.Join(" ", parts);
     }
 
     private static string Join(IReadOnlyList<string> items) =>
