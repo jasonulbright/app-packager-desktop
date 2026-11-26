@@ -26,6 +26,7 @@ public partial class SettingsPage
         InitializeComponent();
         SelectPage(s_lastPage);
         BuildApplicationColumns();
+        TrackApplicationColumnGrips();
         TrackInput();
         CollectionViewSource.GetDefaultView(_viewModel.SupersedenceRows).Filter = o => o is Models.SupersedenceRow r && _viewModel.MatchesFilter(r);
         _viewModel.FilterChanged += () => CollectionViewSource.GetDefaultView(_viewModel.SupersedenceRows).Refresh();
@@ -110,6 +111,8 @@ public partial class SettingsPage
             {
                 Header = column.Header,
                 Width = column.Width,
+                // The grid has a star column, so without a minimum it narrows the other columns instead of scrolling sideways.
+                MinWidth = column.Width,
                 SortMemberPath = $"Cells[{column.Id}]",
                 CellStyle = CellStyleOf(column),
                 CellTemplate = new DataTemplate { VisualTree = cell }
@@ -117,10 +120,63 @@ public partial class SettingsPage
         }
     }
 
+    // Each column has its width as MinWidth, so the grid scrolls sideways and does not narrow it. A grip of the operator lowers that minimum
+    // down to this floor. The floor of the Check column keeps its box whole.
+    private const double NarrowestColumn = 40;
+    private const double NarrowestCheckColumn = 56;
+
+    private double FloorOf(DataGridColumn column) => ReferenceEquals(column, dgApplications.Columns[0]) ? NarrowestCheckColumn : NarrowestColumn;
+
+    private (DataGridColumn Column, double Width, double MinWidth)? _pressedColumn;
+    private (DataGridColumn Column, DataGridLength Width)? _pinnedStar;
+
+    private void TrackApplicationColumnGrips()
+    {
+        dgApplications.AddHandler(System.Windows.Controls.Primitives.Thumb.DragStartedEvent,
+            new System.Windows.Controls.Primitives.DragStartedEventHandler(OnColumnGripPressed), true);
+        dgApplications.AddHandler(System.Windows.Controls.Primitives.Thumb.DragCompletedEvent,
+            new System.Windows.Controls.Primitives.DragCompletedEventHandler(OnColumnGripReleased), true);
+        dgApplications.AddHandler(UIElement.PreviewMouseLeftButtonDownEvent, new System.Windows.Input.MouseButtonEventHandler(OnColumnGripMouseDown), true);
+    }
+
+    private void OnColumnGripPressed(object sender, System.Windows.Controls.Primitives.DragStartedEventArgs e)
+    {
+        if (Helpers.ColumnGrips.SizedColumn(dgApplications, e.OriginalSource) is not { } column) return;
+        // While a grid has a star column, a column grows only by the width that other columns can give. Here none can give any, so the star
+        // column is a pixel column until the release.
+        if (dgApplications.Columns.FirstOrDefault(c => c.Width.IsStar) is { } star)
+        {
+            _pinnedStar = (star, star.Width);
+            star.Width = new DataGridLength(star.ActualWidth);
+        }
+        _pressedColumn = (column, column.ActualWidth, column.MinWidth);
+        column.MinWidth = FloorOf(column);
+    }
+
+    private void OnColumnGripReleased(object sender, System.Windows.Controls.Primitives.DragCompletedEventArgs e)
+    {
+        if (_pressedColumn is not { } pressed) return;
+        _pressedColumn = null;
+        pressed.Column.MinWidth = Math.Abs(pressed.Column.ActualWidth - pressed.Width) < 0.5 ? pressed.MinWidth : pressed.Column.ActualWidth;
+        if (_pinnedStar is not { } star) return;
+        _pinnedStar = null;
+        star.Column.Width = star.Width;
+    }
+
+    /// <summary>A double click on a grip fits the column to its content. The second press starts no drag, so the MinWidth is lowered here.</summary>
+    private void OnColumnGripMouseDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
+    {
+        if (e.ClickCount != 2 || Helpers.ColumnGrips.SizedColumn(dgApplications, e.OriginalSource) is not { } column) return;
+        column.MinWidth = FloorOf(column);
+        Helpers.ColumnGrips.AfterFit(dgApplications, column, () => column.MinWidth = column.Width.Value);
+    }
+
     /// <summary>The style of a grid cell with the help of its field. The cell keeps the focus when its control is disabled.</summary>
     private Style? CellStyleOf(ApplicationColumn column)
     {
-        if (TryFindResource(typeof(System.Windows.Controls.DataGridCell)) is not Style basis) return null;
+        // The cell style of the theme, which the other cells of the grid have. A lookup by the DataGridCell type finds the style of the system:
+        // its selected cell is light in each theme.
+        if ((dgApplications.CellStyle ?? TryFindResource("DefaultDataGridCellStyle") as Style) is not { } basis) return null;
         var style = new Style(typeof(System.Windows.Controls.DataGridCell), basis);
         style.Setters.Add(new Setter(System.Windows.Automation.AutomationProperties.HelpTextProperty, new Binding($"Tips[{column.Id}]")));
         return style;

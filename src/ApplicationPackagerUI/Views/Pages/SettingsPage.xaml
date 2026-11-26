@@ -760,7 +760,7 @@
                                           HorizontalScrollBarVisibility="Auto"
                                           AutomationProperties.AutomationId="dgSupersedenceApps">
                                     <DataGrid.Columns>
-                                        <DataGridTemplateColumn Header="Check" Width="56">
+                                        <DataGridTemplateColumn Header="Check" Width="56" MinWidth="56">
                                             <DataGridTemplateColumn.CellTemplate>
                                                 <DataTemplate>
                                                     <CheckBox IsChecked="{Binding IsSelected, UpdateSourceTrigger=PropertyChanged}" HorizontalAlignment="Center"
@@ -769,7 +769,7 @@
                                             </DataGridTemplateColumn.CellTemplate>
                                         </DataGridTemplateColumn>
                                         <DataGridTextColumn Header="Application" Width="*" MinWidth="220" Binding="{Binding Application}" IsReadOnly="True" />
-                                        <DataGridTextColumn Header="Vendor" Width="120" Binding="{Binding Vendor}" IsReadOnly="True" />
+                                        <DataGridTextColumn Header="Vendor" Width="120" MinWidth="120" Binding="{Binding Vendor}" IsReadOnly="True" />
                                     </DataGrid.Columns>
                                 </DataGrid>
                                 <TextBlock x:Name="txtFieldHelp" Style="{StaticResource FieldHint}" Margin="0" MinHeight="32"
