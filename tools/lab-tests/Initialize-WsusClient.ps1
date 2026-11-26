@@ -55,7 +55,7 @@ try {
     foreach ($file in (Join-Path $PSScriptRoot 'Install-WsusConsole.ps1'), (Join-Path $PSScriptRoot 'Test-WsusPublishing.ps1'), $adapter) {
         Copy-Item $file $folder -ToSession $session
     }
-    Invoke-ClientTask -ScriptLine "'$folder\Install-WsusConsole.ps1' -TimeoutMinutes 40" -Minutes 45
+    Invoke-ClientTask -ScriptLine "'$folder\Install-WsusConsole.ps1' -TimeoutMinutes 40" -Minutes 60
     Invoke-ClientTask -ScriptLine "'$folder\Test-WsusPublishing.ps1' -ServerName '$ServerName' -PortNumber $PortNumber" -Credential $LabCredential -Minutes 15
 }
 finally {

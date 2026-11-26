@@ -75,7 +75,8 @@ try {
         if ($source -eq 'Windows Server Update Service') { throw 'The client still takes its updates from WSUS.' }
     }
     $job = Start-Job { param($n) Add-WindowsCapability -Online -Name $n | Out-String } -ArgumentList $name
-    if (-not (Wait-Job $job -Timeout ($TimeoutMinutes * 60))) { Stop-Job $job; throw "The install did not end in $TimeoutMinutes minutes." }
+    # No Stop-Job on a timeout: it waits for a job in a servicing call, and the policy restore must not wait. The job ends with this process.
+    if (-not (Wait-Job $job -Timeout ($TimeoutMinutes * 60))) { throw "The install did not end in $TimeoutMinutes minutes." }
     Receive-Job $job
 }
 finally {

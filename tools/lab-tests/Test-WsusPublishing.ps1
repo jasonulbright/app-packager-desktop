@@ -48,6 +48,7 @@ $work = Join-Path $env:TEMP "wsus-proof-$($id.ToString('N'))"
 $source = Join-Path $work 'content'
 $null = New-Item -ItemType Directory -Force $source
 $publishAttempted = $false
+$removed = @()
 try {
     # Any small executable serves as the payload: no rule lets a computer run it.
     Copy-Item (Join-Path $env:SystemRoot 'System32\whoami.exe') (Join-Path $source 'probe.exe')
@@ -77,8 +78,11 @@ try {
 finally {
     if ($publishAttempted) {
         $removal = Invoke-WsusSetStateOperation -Request ([pscustomobject]@{ Settings = $settings; Action = 'Remove'; PackageIds = @($id.ToString()) })
-        foreach ($entry in $removal.Results) { "Removed: found=$($entry.Found) ok=$($entry.Ok) $($entry.Message) $($entry.FolderError)" }
+        $removed = @($removal.Results)
+        foreach ($entry in $removed) { "Removed: found=$($entry.Found) ok=$($entry.Ok) $($entry.Message) $($entry.FolderError)" }
     }
     Remove-Item $work -Recurse -Force -ErrorAction SilentlyContinue
 }
+# The removal reports a failure in its result and does not throw.
+Assert-True ($removed.Count -eq 1 -and $removed[0].Found -and $removed[0].Ok -and -not $removed[0].FolderError) "The test update $id was not removed completely from the server."
 'PASS: this computer can publish to the lab WSUS server.'
