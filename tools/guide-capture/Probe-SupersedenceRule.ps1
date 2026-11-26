@@ -15,7 +15,10 @@
       6. after the publish reads the new application back: the operators of the version clauses of its detection, and the relation to the older application;
          the older application must have the same revision and the same XML hash as before;
       7. removes both applications and the content folder of the new one (also when a step fails).
-    Lines are PASS, FAIL or INFO. The run ends with "RULE-FAILS=<n>". It creates nothing outside the site objects named above and the run folder.
+    Lines are PASS, FAIL or INFO. The run ends with "RULE-FAILS=<n>". It creates nothing outside the site objects named above, their content and the run folder.
+    Cleanup removes only what this run created and can prove it created: the older application by the CI_ID and ModelName that its creation returned,
+    the new application only when the log of the run says that the publish created it and the ModelName of the log is the one on the site, and a content
+    folder of that application only when the share did not hold it before the publish. Anything else stays, and a line starting with LEFT names it.
 #>
 param(
     [Parameter(Mandatory)][string]$Run,
@@ -77,7 +80,35 @@ function Get-Relations($Digest) {
     $names
 }
 
-$newName = $null; $oldName = $null; $contentDirs = @()
+# What the run created, and what it needs to prove that. A record is set only after the creation succeeded.
+$newName = $null; $oldName = $null; $oldRecord = $null; $newRecord = $null; $published = $false; $shareBefore = $null; $logFile = $null
+$shareRoot = $FileShareRoot.TrimEnd('\')
+$shareDepth = 5
+
+# The record of the new application from the log of the run: only when the log says that the publish created it, and the site shows an application of
+# that title whose ModelName is the one the publish printed. Every save gives a new CI_ID; the ModelName stays.
+function Get-NewRecord {
+    if (-not $published -or -not $logFile -or -not (Test-Path -LiteralPath $logFile)) { return $null }
+    $log = Get-Content -LiteralPath $logFile -Raw
+    if ($log -notmatch 'Creating application\.\.\.' -or $log -notmatch 'Application created successfully') { return $null }
+    $models = @([regex]::Matches($log, 'Final ModelName: (ScopeId_[A-Za-z0-9-]+/Application_[A-Za-z0-9-]+)') | ForEach-Object { $_.Groups[1].Value } | Select-Object -Unique)
+    if ($models.Count -ne 1) { return $null }
+    $found = @(Get-CMApplication -Fast -Name $newName -ErrorAction Stop | Where-Object { $_.LocalizedDisplayName -ceq $newName -and [string]$_.ModelName -ceq $models[0] })
+    if ($found.Count -ne 1) { return $null }
+    @{ CiId = [int]$found[0].CI_ID; ModelName = $models[0]; Name = $newName }
+}
+
+# Removes the application of a record, found by its CI_ID, when its name and ModelName are still the recorded ones. $true when it was removed.
+function Remove-Recorded($Record) {
+    $app = Get-CMApplication -Id $Record.CiId -ErrorAction Stop
+    if (-not $app -or [string]$app.ModelName -cne $Record.ModelName -or $app.LocalizedDisplayName -cne $Record.Name) {
+        Write-Host "LEFT application '$($Record.Name)' (recorded CI_ID $($Record.CiId)): the site does not show it under that id with the same name and ModelName."
+        return $false
+    }
+    Remove-CMApplication -InputObject $app -Force -ErrorAction Stop
+    Write-Host "INFO removed '$($Record.Name)' (CI_ID $($Record.CiId))"
+    $true
+}
 try {
     # ---- 1. stage
     $ErrorActionPreference = 'Continue'
@@ -101,9 +132,13 @@ try {
     # ---- 2. the older application (throw-away)
     if (Get-AppDigest $newName) { throw "A site application named '$newName' already exists. The run does not touch it." }
     if (Get-AppDigest $oldName) { throw "A site application named '$oldName' already exists. The run does not touch it." }
-    $null = New-CMApplication -Name $oldName -Publisher $publisher -SoftwareVersion $OlderVersion
+    $made = New-CMApplication -Name $oldName -Publisher $publisher -SoftwareVersion $OlderVersion -ErrorAction Stop
+    $oldRecord = @{ CiId = [int]$made.CI_ID; ModelName = [string]$made.ModelName; Name = $oldName }
     $null = Add-CMScriptDeploymentType -ApplicationName $oldName -DeploymentTypeName 'ZZAPD old' -InstallCommand 'cmd.exe /c exit 0' -ScriptLanguage PowerShell -ScriptText 'Write-Output 1' `
         -InstallationBehaviorType InstallForSystem -LogonRequirementType WhetherOrNotUserLoggedOn -ErrorAction Stop
+    # The new deployment type made a new revision with a new CI_ID: record that one, for the same ModelName only.
+    $now = @(Get-CMApplication -Fast -Name $oldName -ErrorAction Stop | Where-Object { [string]$_.ModelName -ceq $oldRecord.ModelName })
+    if ($now.Count -eq 1) { $oldRecord.CiId = [int]$now[0].CI_ID }
     $oldBefore = Get-AppDigest $oldName
     Check 'rule-02 the older application exists on the site' ($null -ne $oldBefore) 'not created'
     "INFO older '$oldName' revision $($oldBefore.CIVersion) hash $($oldBefore.Hash.Substring(0, 12))"
@@ -158,7 +193,14 @@ try {
         while ((Get-Date) -lt $deadline -and (Status-Text $w) -match 'Check|Checking') { Start-Sleep 2 }
         "INFO status after Check Latest: $(Status-Text $w)"
 
+        # The folders of the content share before the publish: only a folder that is not in this list can be one that this run made. When the share
+        # cannot be listed, the run removes no folder. The location is the site drive, so the share is named with its provider.
+        try {
+            $shareBefore = New-Object 'System.Collections.Generic.HashSet[string]' ([StringComparer]::OrdinalIgnoreCase)
+            foreach ($d in (Get-ChildItem -LiteralPath "FileSystem::$shareRoot" -Directory -Recurse -Depth $shareDepth -ErrorAction Stop)) { $null = $shareBefore.Add($d.FullName.TrimEnd('\')) }
+        } catch { $shareBefore = $null; "INFO the content share could not be listed, so no content folder will be removed: $($_.Exception.Message)" }
         $w = Main-Window
+        $published = $true
         Real-Click (Find-El $w 'btnPublishAll')
         $logFile = Join-Path (Split-Path (Get-ChildItem $data -Recurse -Filter settings.json | Select-Object -First 1).FullName) 'SRLPackr\packr.log'
         $answered = $false; $finished = $false
@@ -177,8 +219,8 @@ try {
                 Start-Sleep 2
                 continue
             }
-            $primary = Find-El $null 'PrimaryButton' -Timeout 1
-            if ($primary) { 'INFO a dialog with a primary button is open'; Real-Click $primary; Start-Sleep 2; continue }
+            # Application Already Exists is answered with Skip and fails the run; another dialog is clicked only when its title is expected.
+            Resolve-ApdContentDialog (Main-Window) @('No Comment Provided')
             $text = Get-Content $logFile -Raw -ErrorAction SilentlyContinue
             if ($text -match '(?m)^\S+ \S+  Packaged\.' -or $text -match 'Package FAILED' -or $text -match 'declined at the confirmation|cancelled|Cancelled') { $finished = $true }
             Start-Sleep 3
@@ -209,18 +251,32 @@ try {
     }
     $oldAfter = Get-AppDigest $oldName
     Check 'rule-09 the older application is unchanged (same revision and hash)' ($oldAfter.CIVersion -eq $oldBefore.CIVersion -and $oldAfter.Hash -eq $oldBefore.Hash) "revision $($oldBefore.CIVersion) -> $($oldAfter.CIVersion)"
-    if ($after) { foreach ($dt in $after.DeploymentTypes) { $x = [xml]$dt.SDMPackageXML; foreach ($n in $x.SelectNodes("//*[local-name()='Location']")) { if ($n.InnerText -like '\\*') { $contentDirs += $n.InnerText } } } }
 }
 finally {
-    # ---- 7. cleanup: the new application first (it supersedes the older one), then the older one, then the content folder
-    try { if ($newName -and (Get-AppDigest $newName)) { Remove-CMApplication -Name $newName -Force -ErrorAction Stop; "INFO removed '$newName'" } } catch { "FAIL cleanup of '$newName': $($_.Exception.Message)"; $script:Fails++ }
-    try { if ($oldName -and (Get-AppDigest $oldName)) { Remove-CMApplication -Name $oldName -Force -ErrorAction Stop; "INFO removed '$oldName'" } } catch { "FAIL cleanup of '$oldName': $($_.Exception.Message)"; $script:Fails++ }
-    foreach ($d in ($contentDirs | Select-Object -Unique)) {
-        $leaf = $d.TrimEnd('\')
-        if ($leaf -like "$FileShareRoot*" -and (Test-Path -LiteralPath $leaf)) { Remove-Item -LiteralPath $leaf -Recurse -Force -ErrorAction SilentlyContinue; "INFO removed content folder $leaf" }
+    # ---- 7. cleanup: the new application first (it supersedes the older one), then the older one, then the content folders of the new one
+    $contentDirs = @(); $newRemoved = $false
+    try {
+        $newRecord = Get-NewRecord
+        if ($newRecord) {
+            $made = Get-AppDigest $newName
+            if ($made) { foreach ($dt in $made.DeploymentTypes) { $x = [xml]$dt.SDMPackageXML; foreach ($n in $x.SelectNodes("//*[local-name()='Location']")) { if ($n.InnerText -like '\\*') { $contentDirs += $n.InnerText.TrimEnd('\') } } } }
+            $newRemoved = Remove-Recorded $newRecord
+        }
+        elseif ($published) { $script:Fails++; "LEFT: the log and the site do not prove that this run created '$newName'. Nothing of that name and no content folder was removed; check the site." }
+    } catch { "FAIL cleanup of '$newName': $($_.Exception.Message)"; $script:Fails++ }
+    try { if ($oldRecord) { $null = Remove-Recorded $oldRecord } } catch { "FAIL cleanup of '$oldName': $($_.Exception.Message)"; $script:Fails++ }
+    foreach ($leaf in @($contentDirs | Select-Object -Unique)) {
+        $inside = $leaf.StartsWith("$shareRoot\", [StringComparison]::OrdinalIgnoreCase)
+        $parts = if ($inside) { @($leaf.Substring($shareRoot.Length + 1) -split '\\') } else { @() }
+        $isNew = $newRemoved -and $inside -and $null -ne $shareBefore -and $parts.Count -ge 1 -and $parts.Count -le ($shareDepth + 1) -and
+            @($parts | Where-Object { $_ -in '', '.', '..' }).Count -eq 0 -and -not $shareBefore.Contains($leaf)
+        if (-not $isNew) { "LEFT content folder $leaf : this run cannot prove that it made it"; continue }
+        try {
+            if (Test-Path -LiteralPath "FileSystem::$leaf") { Remove-Item -LiteralPath "FileSystem::$leaf" -Recurse -Force -ErrorAction Stop; "INFO removed content folder $leaf" }
+        } catch { "LEFT content folder $leaf : $($_.Exception.Message)" }
     }
-    $left = @(Get-CMApplication -Fast | Where-Object { $_.LocalizedDisplayName -in @($newName, $oldName) })
-    Check 'rule-10 no test application is left on the site' ($left.Count -eq 0) ($left.LocalizedDisplayName -join ', ')
+    $left = @(foreach ($r in @($newRecord, $oldRecord)) { if ($r) { Get-CMApplication -Fast -Name $r.Name | Where-Object { [string]$_.ModelName -ceq $r.ModelName } } })
+    Check 'rule-10 no application that this run created is left on the site' ($left.Count -eq 0) ($left.LocalizedDisplayName -join ', ')
     Set-Location $home0
 }
 "RULE-FAILS=$script:Fails"

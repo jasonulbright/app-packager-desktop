@@ -15,7 +15,7 @@ if (-not ('ApdW' -as [type])) {
     Add-Type -TypeDefinition 'using System; using System.Runtime.InteropServices; public static class ApdW { [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr h, int c); [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr h); [DllImport("user32.dll")] public static extern bool SetProcessDPIAware(); [DllImport("user32.dll")] public static extern void mouse_event(uint f, uint x, uint y, uint d, UIntPtr e); }'
 }
 if (-not ('ApdOwn' -as [type])) {
-    Add-Type -TypeDefinition 'using System; using System.Runtime.InteropServices; public static class ApdOwn { [StructLayout(LayoutKind.Sequential)] public struct PT { public int X; public int Y; } [DllImport("user32.dll")] static extern IntPtr GetForegroundWindow(); [DllImport("user32.dll")] static extern IntPtr WindowFromPoint(PT p); [DllImport("user32.dll")] static extern bool GetCursorPos(out PT p); [DllImport("user32.dll")] static extern uint GetWindowThreadProcessId(IntPtr h, out uint id); static int Owner(IntPtr h) { uint id = 0; if (h != IntPtr.Zero) { GetWindowThreadProcessId(h, out id); } return (int)id; } public static int ForegroundProcessId() { return Owner(GetForegroundWindow()); } public static int ProcessIdAtCursor() { PT p; if (!GetCursorPos(out p)) { return 0; } return Owner(WindowFromPoint(p)); } }'
+    Add-Type -TypeDefinition 'using System; using System.Runtime.InteropServices; public static class ApdOwn { [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern int GetWindowTextW(IntPtr h, System.Text.StringBuilder s, int max); public static string ForegroundTitle() { System.Text.StringBuilder s = new System.Text.StringBuilder(512); GetWindowTextW(GetForegroundWindow(), s, s.Capacity); return s.ToString(); } [StructLayout(LayoutKind.Sequential)] public struct PT { public int X; public int Y; } [DllImport("user32.dll")] static extern IntPtr GetForegroundWindow(); [DllImport("user32.dll")] static extern IntPtr WindowFromPoint(PT p); [DllImport("user32.dll")] static extern bool GetCursorPos(out PT p); [DllImport("user32.dll")] static extern uint GetWindowThreadProcessId(IntPtr h, out uint id); static int Owner(IntPtr h) { uint id = 0; if (h != IntPtr.Zero) { GetWindowThreadProcessId(h, out id); } return (int)id; } public static int ForegroundProcessId() { return Owner(GetForegroundWindow()); } public static int ProcessIdAtCursor() { PT p; if (!GetCursorPos(out p)) { return 0; } return Owner(WindowFromPoint(p)); } }'
 }
 [void][ApdW]::SetProcessDPIAware()
 $script:AE = [System.Windows.Automation.AutomationElement]
@@ -50,8 +50,18 @@ function Assert-ApdPointer([string]$What) {
 
 # The one way to send keys. SendKeys goes to the window in front, so that window must belong to this run.
 function Send-ApdKeys([string]$Keys) {
+    if ($Keys.Contains('%{F4}')) { throw 'Alt+F4 is sent only by Send-ApdCloseKey, which checks the title of the window in front.' }
     Assert-ApdForeground 'The keys'
     [System.Windows.Forms.SendKeys]::SendWait($Keys)
+}
+
+# The fallback for a window of the app that UI Automation does not list: Alt+F4, sent only when the window in front belongs to this run and its title
+# matches (-like) the title of the expected dialog. So it can not close the main window or a window of another program.
+function Send-ApdCloseKey([string]$Title) {
+    Assert-ApdForeground 'Alt+F4'
+    $front = [ApdOwn]::ForegroundTitle()
+    if ($front -notlike $Title) { throw "Alt+F4 was not sent: the window in front is '$front', not '$Title'." }
+    [System.Windows.Forms.SendKeys]::SendWait('%{F4}')
 }
 
 # The one way to turn the mouse wheel (at the place of the pointer). Windows sends the wheel to the window under the pointer or to the one in front,
@@ -81,6 +91,8 @@ function Save-Shot([string]$Path, [int[]]$Rect, [switch]$MaskFooter) {
         $brush.Dispose()
     }
     $g.Dispose()
+    # Bitmap.Save takes a relative path from the folder of the process, not from the location of PowerShell, so the path is made full first.
+    $Path = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($Path)
     New-Item -ItemType Directory -Force (Split-Path $Path) | Out-Null
     $bmp.Save($Path, [System.Drawing.Imaging.ImageFormat]::Png)
     $bmp.Dispose()
@@ -207,6 +219,24 @@ function Close-ApdWindow([string]$Like) {
     $p.Close()
     Start-Sleep -Seconds 2
     $true
+}
+
+# For a run whose publish must not meet an existing application: looks for a content dialog with a primary button. 'Application Already Exists' has
+# Overwrite as its primary button, so it is looked for first: Skip is clicked and the run fails. A primary button is clicked only in a dialog whose
+# title is one of -Expected; for any other dialog nothing is clicked and the run fails.
+function Resolve-ApdContentDialog($Window, [string[]]$Expected) {
+    $primary = Find-El $null 'PrimaryButton' -Timeout 1
+    if (Find-El $null -Name 'Application Already Exists' -Timeout 0.3) {
+        $skip = Find-El $Window -Name 'Skip' -ControlType 'Button' -Timeout 5
+        if (-not $skip) { throw 'The Application Already Exists dialog is open and shows no Skip button. Nothing was clicked.' }
+        Click-El $skip; Start-Sleep -Seconds 3
+        throw 'The site already holds the application. Skip was clicked: nothing was overwritten.'
+    }
+    if (-not $primary -or $primary.Current.IsOffscreen) { return }
+    foreach ($title in $Expected) {
+        if (Find-El $null -Name $title -Timeout 0.3) { "the dialog '$title': its primary button"; Click-El $primary; Start-Sleep -Seconds 2; return }
+    }
+    throw "A dialog with a primary button and a title that this run does not expect is open (expected: $($Expected -join ', ')). Nothing was clicked."
 }
 
 # A list of the elements below a scope that have a name or an automation id, for finding the right control: type, id, name, position.

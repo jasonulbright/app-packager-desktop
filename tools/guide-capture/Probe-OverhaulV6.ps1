@@ -28,7 +28,7 @@ function Main-Window { Get-ApdWindows | Where-Object { $_.Current.Name -match 'A
 function Real-Click($El) { Click-El $El; Start-Sleep -Milliseconds 800 }
 function Step([string]$Theme, [string]$Id, [scriptblock]$Body) { try { & $Body } catch { "FAIL $Theme ${Id}: $($_.Exception.Message)" } }
 function Names([string[]]$Ids) { foreach ($i in $Ids) { $e = Find-El $null $i -Timeout 4; "$i = " + $(if ($e) { $e.Current.Name } else { '(absent)' }) } }
-function Press-Escape { [System.Windows.Forms.SendKeys]::SendWait('{ESC}'); Start-Sleep -Milliseconds 700 }
+function Press-Escape { Send-ApdKeys '{ESC}'; Start-Sleep -Milliseconds 700 }
 function Wait-Idle($w, [int]$Seconds) {
     Start-Sleep 4
     $deadline = (Get-Date).AddSeconds($Seconds); $beat = Get-Date
@@ -92,12 +92,13 @@ foreach ($theme in $Themes) {
             # The saved action is Report, so One Click runs the checks only and the plan window writes nothing.
             Open-Page 'App Packager'
             Real-Click (Find-El $w 'btnOneClick' -Timeout 5)
-            $run = $null; $beat = Get-Date; $deadline = (Get-Date).AddMinutes(4)
-            while ((Get-Date) -lt $deadline -and -not $run) {
-                $run = Find-El $null 'btnPlanOnly' -Timeout 3
+            # PowerShell names have no case: a variable $run would hide the parameter $Run, also inside Shot, and every screenshot path would break.
+            $planButton = $null; $beat = Get-Date; $deadline = (Get-Date).AddMinutes(4)
+            while ((Get-Date) -lt $deadline -and -not $planButton) {
+                $planButton = Find-El $null 'btnPlanOnly' -Timeout 3
                 if (((Get-Date) - $beat).TotalSeconds -ge 30) { 'waiting'; $beat = Get-Date }
             }
-            if (-not $run) { throw 'the plan window did not open' }
+            if (-not $planButton) { throw 'the plan window did not open' }
             Names 'txtPlanHeader', 'txtPlanFlow', 'txtPlanSystems', 'txtPlanComment', 'btnHistory', 'btnRun', 'btnClose'
             Move-MouseAway
             Save-Shot (Join-Path $Run (Join-Path 'images' (Join-Path $theme.ToLower() 'one-click-plan.png')))
@@ -142,6 +143,7 @@ foreach ($theme in $Themes) {
             $close = Get-ApdWindows | Where-Object { $_.Current.Name -match 'Workbench' } | Select-Object -First 1
             if ($close) { $close.GetCurrentPattern([System.Windows.Automation.WindowPattern]::Pattern).Close(); Start-Sleep 2 }
         }
+        # The recheck runs in the first theme of -Themes only: it tests the flow, not the look, and one pass reads the site once.
         if (-not $Recheck -or $theme -ne $Themes[0]) { continue }
         Step $theme 'recheck' {
             Stop-Apd

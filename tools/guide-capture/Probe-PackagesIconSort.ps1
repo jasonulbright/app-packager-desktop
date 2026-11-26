@@ -77,7 +77,7 @@ function Get-Distance([int[]]$A, [int[]]$B) { $sum = 0; for ($i = 0; $i -lt $A.L
 function Wheel-Grid([int]$Notches) {
     $r = (Find-El $null 'PackagerGrid' -Timeout 5).Current.BoundingRectangle
     [System.Windows.Forms.Cursor]::Position = New-Object System.Drawing.Point ([int]($r.X + $r.Width / 2)), ([int]($r.Y + $r.Height / 2))
-    for ($i = 0; $i -lt [Math]::Abs($Notches); $i++) { [ApdW]::mouse_event(0x800, 0, 0, [BitConverter]::ToUInt32([BitConverter]::GetBytes([int]([Math]::Sign($Notches) * -120)), 0), [UIntPtr]::Zero); Start-Sleep -Milliseconds 40 }
+    for ($i = 0; $i -lt [Math]::Abs($Notches); $i++) { Send-ApdWheel ([BitConverter]::ToUInt32([BitConverter]::GetBytes([int]([Math]::Sign($Notches) * -120)), 0)); Start-Sleep -Milliseconds 40 }
     Start-Sleep -Milliseconds 600
 }
 function Test-GridIcons([string]$Label) {
@@ -143,9 +143,9 @@ foreach ($theme in $Themes) {
                 Test-GridIcons "$theme sort by $name $dir"
                 $gr = (Find-El $null 'PackagerGrid' -Timeout 5).Current.BoundingRectangle
                 [System.Windows.Forms.Cursor]::Position = New-Object System.Drawing.Point ([int]($gr.X + $gr.Width / 2)), ([int]($gr.Y + $gr.Height / 2))
-                [System.Windows.Forms.SendKeys]::SendWait('{PGDN}'); Start-Sleep -Milliseconds 700
+                Send-ApdKeys '{PGDN}'; Start-Sleep -Milliseconds 700
                 Test-GridIcons "$theme sort by $name $dir, scrolled"
-                [System.Windows.Forms.SendKeys]::SendWait('^{HOME}'); Start-Sleep -Milliseconds 500
+                Send-ApdKeys '^{HOME}'; Start-Sleep -Milliseconds 500
             }
         }
         # The path of a user: scroll with the wheel into the list, sort there, scroll on and back.

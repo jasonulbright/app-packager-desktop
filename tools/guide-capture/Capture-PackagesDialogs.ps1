@@ -83,7 +83,7 @@ foreach ($theme in $Themes) {
             Start-Sleep 10
             Move-MouseAway
             Shot $theme 'core-one-click-plan'
-            if (-not (Close-ApdWindow 'One Click')) { Send-ApdKeys '%{F4}' }
+            if (-not (Close-ApdWindow 'One Click')) { Send-ApdCloseKey 'One Click' }
             Start-Sleep 3
         }
         Step $theme 'core-stage-result-log' {

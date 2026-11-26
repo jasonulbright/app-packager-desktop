@@ -179,11 +179,8 @@ try {
             Start-Sleep 2
             continue
         }
-        $primary = Find-El $null 'PrimaryButton' -Timeout 1
-        if ($primary) {
-            'a dialog with a primary button is open: ' + ((Get-ElList (Main-Window) 400 | Where-Object { $_ -match 'Text' } | Select-Object -First 8) -join ' // ')
-            Real-Click $primary; Start-Sleep 2; continue
-        }
+        # Application Already Exists is answered with Skip and fails the run; another dialog is clicked only when its title is expected.
+        Resolve-ApdContentDialog (Main-Window) @('No Comment Provided')
         # The run ends when the session log says so (the status bar of the page keeps its own text).
         $text = Get-Content $logFile -Raw -ErrorAction SilentlyContinue
         $packaged = ([regex]::Matches($text, '(?m)^\S+ \S+  Packaged\.')).Count

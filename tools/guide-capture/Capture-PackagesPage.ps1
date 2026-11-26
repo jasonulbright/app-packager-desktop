@@ -135,7 +135,7 @@ foreach ($theme in $Themes) {
             Move-MouseAway
             Save-Shot (Join-Path $Run (Join-Path 'images' (Join-Path $theme.ToLower() 'core-packages-operation-history.png'))) -Rect @(370, 136, 1181, 760)
             "OK $theme core-packages-operation-history"
-            if (-not (Close-ApdWindow 'Operation history*')) { Send-ApdKeys '%{F4}' }
+            if (-not (Close-ApdWindow 'Operation history*')) { Send-ApdCloseKey 'Operation history*' }
             Start-Sleep 2
         }
         Step $theme 'core-packages-review-dialog' {

@@ -73,8 +73,8 @@ foreach ($theme in $Themes) {
             Check "$theme-02c the log shows the latest version of 7-Zip" ($log -match 'Latest version: \S+') 'no Latest version line'
             Check "$theme-02d the plan opened after the checks" ($log -match 'the checks are done, the plan opens for 1 application') 'no plan line'
             Check-Shot $theme 'one-click-plan'
-            [System.Windows.Forms.SendKeys]::SendWait('%{F4}')
-            Start-Sleep 3
+            if (-not (Close-ApdWindow 'One Click')) { throw 'The One Click window did not close.' }
+            Start-Sleep 1
         }
     }
     finally { Stop-Apd }
