@@ -735,7 +735,13 @@ $steps['one-click'] = {
 function Select-DeployRow([string]$FilterId, [string]$GridId, [string]$Text, [string]$Pattern) {
     Set-ElText (Need-El $FilterId) $Text
     Start-Sleep -Seconds 3
-    $rows = @(Get-GridRows $GridId 30 | Where-Object { @(Get-RowCells $_) -match $Pattern })
+    # The list of a site can still load when the filter is typed, so the row is waited for.
+    $deadline = (Get-Date).AddSeconds(120)
+    do {
+        $rows = @(Get-GridRows $GridId 30 | Where-Object { @(Get-RowCells $_) -match $Pattern })
+        if ($rows.Count -ne 1) { Start-Sleep -Seconds 5 }
+    } while ($rows.Count -ne 1 -and (Get-Date) -lt $deadline)
+    if ($rows.Count -ne 1) { foreach ($r in @(Get-GridRows $GridId 30)) { Say "  row seen: $((Get-RowCells $r) -join ' | ')" } }
     Require "$GridId has exactly one row for '$Text'" ($rows.Count -eq 1) "$($rows.Count) row(s)"
     Say "  selected: $((Get-RowCells $rows[0]) -join ' | ')"
     Click-El $rows[0]
