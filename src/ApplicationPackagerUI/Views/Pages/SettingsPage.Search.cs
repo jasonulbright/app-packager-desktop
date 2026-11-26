@@ -31,6 +31,7 @@ namespace ApplicationPackagerUI.Views.Pages;
 public partial class SettingsPage
 {
     private const int FocusAttempts = 20;
+    private bool _enterActedInSearch;
     private static readonly TimeSpan CardOpenTime = TimeSpan.FromMilliseconds(500);
 
     /// <summary>Every result that the search can give now.</summary>
@@ -278,21 +279,58 @@ public partial class SettingsPage
 
     private void SearchBox_PreviewKeyDown(object sender, KeyEventArgs e) => e.Handled = HandleSearchBoxKey(e.Key);
 
-    /// <summary>Enter opens the first result, Down goes to the results and Escape clears the box. False for a key that the box keeps.</summary>
+    private void Search_PreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        if (HandleRepeatedKey(e.Key, e.IsRepeat)) e.Handled = true;
+    }
+
+    /// <summary>
+    /// True for a repeat of the Enter key that acted in the search. The key is held while the focus moves to a control, and its repeat must
+    /// not press that control.
+    /// </summary>
+    public bool HandleRepeatedKey(Key key, bool isRepeat)
+    {
+        if (key != Key.Enter) return false;
+        if (!isRepeat) _enterActedInSearch = false;
+        return isRepeat && _enterActedInSearch;
+    }
+
+    /// <summary>
+    /// Enter opens the first result, Down goes to the results and Escape clears the box. When the results are closed and the box has text,
+    /// Enter and Down list them again. False for a key that the box keeps.
+    /// </summary>
     public bool HandleSearchBoxKey(Key key)
     {
-        var listed = lstSettingsSearch.Visibility == Visibility.Visible;
-        var first = listed ? lstSettingsSearch.Items.OfType<ListBoxItem>().FirstOrDefault(i => i.Tag is SettingsSearchEntry) : null;
-        if (key == Key.Enter && first is not null) OpenSearchResult((SettingsSearchEntry)first.Tag);
-        else if (key == Key.Down && first is not null)
+        if (key is Key.Enter or Key.Down && lstSettingsSearch.Visibility != Visibility.Visible && !string.IsNullOrWhiteSpace(txtSettingsSearch.Text))
         {
-            lstSettingsSearch.SelectedItem = first;
-            lstSettingsSearch.UpdateLayout();
-            first.Focus();
+            if (key == Key.Enter) _enterActedInSearch = true;
+            ShowSearchResults(txtSettingsSearch.Text);
+            if (key == Key.Down) FocusFirstResult();
+            return true;
         }
+
+        var first = FirstResult();
+        if (key == Key.Enter && first is not null)
+        {
+            _enterActedInSearch = true;
+            OpenSearchResult((SettingsSearchEntry)first.Tag);
+        }
+        else if (key == Key.Down && first is not null) FocusFirstResult();
         else if (key == Key.Escape && txtSettingsSearch.Text.Length > 0) txtSettingsSearch.Text = "";
         else return false;
         return true;
+    }
+
+    private ListBoxItem? FirstResult() => lstSettingsSearch.Visibility == Visibility.Visible
+        ? lstSettingsSearch.Items.OfType<ListBoxItem>().FirstOrDefault(i => i.Tag is SettingsSearchEntry)
+        : null;
+
+    private void FocusFirstResult()
+    {
+        if (FirstResult() is not { } first) return;
+        lstSettingsSearch.SelectedItem = first;
+        lstSettingsSearch.UpdateLayout();
+        first.Focus();
     }
 
     private void SearchList_PreviewKeyDown(object sender, KeyEventArgs e) => e.Handled = HandleSearchListKey(e.Key);
@@ -300,7 +338,11 @@ public partial class SettingsPage
     /// <summary>Enter opens the selected result; Escape clears the search and goes back to the box.</summary>
     public bool HandleSearchListKey(Key key)
     {
-        if (key == Key.Enter && lstSettingsSearch.SelectedItem is ListBoxItem { Tag: SettingsSearchEntry entry }) OpenSearchResult(entry);
+        if (key == Key.Enter && lstSettingsSearch.SelectedItem is ListBoxItem { Tag: SettingsSearchEntry entry })
+        {
+            _enterActedInSearch = true;
+            OpenSearchResult(entry);
+        }
         else if (key == Key.Escape)
         {
             txtSettingsSearch.Text = "";
@@ -342,7 +384,7 @@ public partial class SettingsPage
             if (IsHiddenOnPage(target, page) || !target.IsEnabled)
             {
                 // A disabled or hidden field takes no focus: the page scrolls to it and the focus goes to the field before it,
-                // which is where the setting that gates it is.
+                // which is where the setting that gates it is. With no such field, the focus goes to the page in the tree.
                 ShownAncestor(target, page).BringIntoView();
                 if (FocusableBefore(target, page) is { } before) before.Focus();
                 else Leaves(OptionsTree.Items).First(n => (string)n.Tag == entry.PageId).Focus();
@@ -377,14 +419,19 @@ public partial class SettingsPage
 
     private static bool TakesFocus(UIElement element) => element.Focusable && element.IsEnabled && element.IsVisible;
 
-    private static bool IsFieldOrButton(DependencyObject element) => IsField(element) || element is ButtonBase;
+    /// <summary>
+    /// True for a control that may take the focus in place of the result: a field. A button never does, so that a following Enter presses
+    /// no action that the person did not open.
+    /// </summary>
+    private static bool CanStandIn(FrameworkElement element) => IsField(element) && !GetExclude(element) && TakesFocus(element);
 
+    /// <summary>The control of the result itself, or the first field in the part of the page that the result names.</summary>
     private static FrameworkElement? FirstFocusable(FrameworkElement target) =>
-        IsFieldOrButton(target)
+        IsField(target) || target is ButtonBase
             ? TakesFocus(target) ? target : null
-            : VisualDescendants(target).OfType<FrameworkElement>().FirstOrDefault(e => IsFieldOrButton(e) && TakesFocus(e));
+            : VisualDescendants(target).OfType<FrameworkElement>().FirstOrDefault(CanStandIn);
 
-    /// <summary>The first field or button that belongs to a field name: the ones beside it in its panel, before the next name.</summary>
+    /// <summary>The first field that belongs to a field name: the ones beside it in its panel, before the next name.</summary>
     private FrameworkElement? FocusableAfter(TextBlock label)
     {
         if (label.Parent is not System.Windows.Controls.Panel panel) return null;
@@ -392,7 +439,7 @@ public partial class SettingsPage
         return panel.Children.OfType<FrameworkElement>().SkipWhile(e => !ReferenceEquals(e, label)).Skip(1)
             .TakeWhile(e => !(e is TextBlock t && names.Contains(t.Style)))
             .SelectMany(e => LogicalDescendants(e).OfType<FrameworkElement>().Prepend(e))
-            .FirstOrDefault(e => IsFieldOrButton(e) && TakesFocus(e));
+            .FirstOrDefault(CanStandIn);
     }
 
     private static FrameworkElement MakeFocusable(TextBlock label)
@@ -402,9 +449,20 @@ public partial class SettingsPage
         return label;
     }
 
-    private static FrameworkElement? FocusableBefore(FrameworkElement target, DependencyObject page) =>
-        LogicalDescendants(page).TakeWhile(e => !ReferenceEquals(e, target))
-            .OfType<FrameworkElement>().LastOrDefault(e => IsFieldOrButton(e) && TakesFocus(e));
+    /// <summary>
+    /// The last field before the target in the order of the page. Null when there is none, and when the walk does not reach the target: the
+    /// row of a list is not in the logical tree of the page.
+    /// </summary>
+    private static FrameworkElement? FocusableBefore(FrameworkElement target, DependencyObject page)
+    {
+        FrameworkElement? before = null;
+        foreach (var element in LogicalDescendants(page))
+        {
+            if (ReferenceEquals(element, target)) return before;
+            if (element is FrameworkElement candidate && CanStandIn(candidate)) before = candidate;
+        }
+        return null;
+    }
 
     private static FrameworkElement ShownAncestor(FrameworkElement target, FrameworkElement page)
     {

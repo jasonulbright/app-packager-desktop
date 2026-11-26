@@ -11,6 +11,8 @@ using ApplicationPackagerEngine.Services;
 using ApplicationPackagerEngine.Tests.AddFlow;
 using ApplicationPackagerEngine.Tests.Compliance;
 using ApplicationPackagerEngine.Tests.Wsus;
+using ApplicationPackagerUI.Controls;
+using ApplicationPackagerUI.Helpers;
 using ApplicationPackagerUI.Models;
 using ApplicationPackagerUI.Services;
 using ApplicationPackagerUI.ViewModels.Pages;
@@ -18,6 +20,7 @@ using ApplicationPackagerUI.Views.Pages;
 using CommunityToolkit.Mvvm.Input;
 using Wpf.Ui.Appearance;
 using static ApplicationPackagerEngine.Tests.Compliance.RenderKit;
+using ButtonBase = System.Windows.Controls.Primitives.ButtonBase;
 using CheckBox = System.Windows.Controls.CheckBox;
 using ComboBox = System.Windows.Controls.ComboBox;
 using DataGrid = System.Windows.Controls.DataGrid;
@@ -153,6 +156,11 @@ public sealed class SettingsSearchTests : IDisposable
         var index = host.Page.BuildSearchIndex();
         var missing = new List<string>();
         var checkedInputs = new Dictionary<string, int>();
+        // The parameters come from the definitions; with no card the walk of their page would prove nothing.
+        var groups = host.ViewModel.InstallParameterGroups.Count;
+        var parameters = host.ViewModel.InstallParameterGroups.Sum(g => g.Parameters.Count);
+        Assert.True(groups > 0 && parameters >= groups, "No definition gave an install parameter.");
+        Assert.Equal(parameters, index.Count(e => e.PageId == "installparams" && e.Locate is not null && e.Path.Split(" > ").Length == 3));
         foreach (var id in PageIds(host))
         {
             Assert.Contains(index, e => e.PageId == id && e.Locate is null);
@@ -162,6 +170,8 @@ public sealed class SettingsSearchTests : IDisposable
             foreach (var card in Descendants(page).OfType<Wpf.Ui.Controls.CardExpander>().ToList()) card.IsExpanded = true;
             Settle(host.Window);
             Settle(host.Window);
+            if (id == "installparams")
+                Assert.Equal(groups, Descendants(page).OfType<Wpf.Ui.Controls.CardExpander>().Count(c => c.Content is InstallerSettingsPanel));
 
             var targets = new HashSet<DependencyObject>();
             foreach (var entry in index.Where(e => e.PageId == id && e.Locate is not null))
@@ -180,6 +190,8 @@ public sealed class SettingsSearchTests : IDisposable
         }
 
         Assert.True(missing.Count == 0, "The settings search does not hold these:" + Environment.NewLine + string.Join(Environment.NewLine, missing));
+        // At least one input for each parameter, beside the check box of the page.
+        Assert.True(checkedInputs["installparams"] > parameters, $"The walk found {checkedInputs["installparams"]} inputs for {parameters} parameters.");
         // The walk reaches the pages that hold their fields in rows and in code.
         Assert.All(new[] { "sidebar", "configmgr", "wsus", "installparams", "localsources", "packagerfiles", "supersedence", "oneclick" },
             id => Assert.True(checkedInputs[id] > 0, id + " showed no input"));
@@ -357,6 +369,101 @@ public sealed class SettingsSearchTests : IDisposable
 
         host.ViewModel.RefreshDirtyState();
         Assert.False(host.ViewModel.HasUnsavedChanges, string.Join(", ", host.ViewModel.ChangedEntries()));
+    });
+
+    private static void Open(Host host, SettingsSearchEntry entry)
+    {
+        host.Box.Focus();
+        host.Page.OpenSearchResult(entry);
+        StaTestHelper.PumpUntil(() => Keyboard.FocusedElement is { } focus && !ReferenceEquals(focus, host.Box), TimeSpan.FromSeconds(15));
+    }
+
+    [Fact]
+    public void ThePinnedSidebarRowPutsTheFocusOnItsPageInTheTreeAndNotOnReset() => WithPage(ApplicationTheme.Light, host =>
+    {
+        var pinned = host.Page.BuildSearchIndex().First(e => e.PageId == "sidebar" && e.Locate is not null && e.Unavailable() is not null);
+
+        Open(host, pinned);
+
+        var focus = (DependencyObject)Keyboard.FocusedElement;
+        Assert.NotEqual("btnResetSidebar", AutomationProperties.GetAutomationId(focus));
+        Assert.Same(host.Tree.SelectedItem, focus);
+    });
+
+    [Fact]
+    public void NoResultPutsTheFocusOnAButtonThatIsNotTheResult() => WithPage(ApplicationTheme.Light, host =>
+    {
+        var wrong = new List<string>();
+        foreach (var entry in host.Page.BuildSearchIndex())
+        {
+            Open(host, entry);
+            var focus = (DependencyObject)Keyboard.FocusedElement;
+            var target = entry.Locate?.Invoke();
+            for (var current = focus; current is not null; current = LogicalTreeHelper.GetParent(current))
+                if (SettingsSearchHints.GetExclude(current))
+                    wrong.Add($"{entry.ResultText}: the focus is on a control that the search leaves out");
+            if (focus is ButtonBase and not ToggleButton && !ReferenceEquals(focus, target))
+                wrong.Add($"{entry.ResultText}: the focus is on the button '{(focus as ContentControl)?.Content}' '{AutomationProperties.GetName(focus)}'");
+        }
+
+        Assert.True(wrong.Count == 0, string.Join(Environment.NewLine, wrong));
+    });
+
+    [Theory]
+    [InlineData("win32 content", "Win32 Content Prep Tool")]
+    [InlineData("not offered", "Not offered by Discover")]
+    public void AFieldNameWhoseOnlyButtonTheSearchLeavesOutKeepsTheFocus(string query, string title) => WithPage(ApplicationTheme.Light, host =>
+    {
+        var entry = (SettingsSearchEntry)host.Search(query)[0].Tag;
+        Assert.Equal(title, entry.Title);
+
+        Open(host, entry);
+
+        Assert.Same(entry.Locate!(), Keyboard.FocusedElement);
+    });
+
+    [Fact]
+    public void ARepeatOfTheEnterKeyThatOpenedAResultPressesNothing() => WithPage(ApplicationTheme.Light, host =>
+    {
+        host.Search("reset sidebar");
+        Assert.False(host.Page.HandleRepeatedKey(Key.Enter, isRepeat: false));
+        Assert.True(host.Page.HandleSearchBoxKey(Key.Enter));
+        StaTestHelper.PumpUntil(() => Keyboard.FocusedElement is Wpf.Ui.Controls.Button b && AutomationProperties.GetAutomationId(b) == "btnResetSidebar",
+            TimeSpan.FromSeconds(15));
+
+        // The repeat of the held key goes through the page, which takes it before the focused button.
+        var button = (UIElement)Keyboard.FocusedElement;
+        var repeat = new System.Windows.Input.KeyEventArgs(Keyboard.PrimaryDevice, PresentationSource.FromVisual(button)!, 0, Key.Enter)
+        { RoutedEvent = Keyboard.PreviewKeyDownEvent };
+        typeof(System.Windows.Input.KeyEventArgs).GetMethod("SetRepeat", BindingFlags.NonPublic | BindingFlags.Instance)!.Invoke(repeat, [true]);
+        button.RaiseEvent(repeat);
+        Assert.True(repeat.Handled, "A repeat of Enter reaches the focused button.");
+
+        // A new press of the key is a press of the person.
+        Assert.False(host.Page.HandleRepeatedKey(Key.Enter, isRepeat: false));
+        Assert.False(host.Page.HandleRepeatedKey(Key.Enter, isRepeat: true));
+    });
+
+    [Fact]
+    public void EnterAndDownListTheResultsAgainAfterAResultOpened() => WithPage(ApplicationTheme.Light, host =>
+    {
+        var entry = (SettingsSearchEntry)host.Search("client secret")[0].Tag;
+        Open(host, entry);
+        Assert.False(host.Results.IsVisible);
+
+        host.Box.Focus();
+        Assert.True(host.Page.HandleSearchBoxKey(Key.Enter));
+        Settle(host.Window);
+        Assert.True(host.Results.IsVisible, "Enter does not list the results again.");
+        Assert.True(host.Box.IsKeyboardFocusWithin);
+        Assert.Equal("1 result", host.Count.Text);
+
+        Open(host, entry);
+        host.Box.Focus();
+        Assert.True(host.Page.HandleSearchBoxKey(Key.Down));
+        Settle(host.Window);
+        Assert.True(host.Results.IsVisible, "Down does not list the results again.");
+        Assert.Same(host.Results.Items[0], Keyboard.FocusedElement);
     });
 
     private static void AssertOpenedAndFocused(Host host, SettingsSearchEntry entry)
