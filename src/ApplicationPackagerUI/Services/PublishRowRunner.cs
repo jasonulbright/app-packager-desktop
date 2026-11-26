@@ -9,6 +9,9 @@ namespace ApplicationPackagerUI.Services;
 /// </summary>
 public sealed record PublishRowRun(PublishRowResult Result, PackagerExecutionResult? Package, WsusRowRun? Wsus)
 {
+    /// <summary>True when the WSUS destination failed, also when its step threw and left no WSUS run.</summary>
+    public bool WsusFailed => Result.For(OneClickDestinations.Wsus)?.Kind == PublishDestinationKind.Failed;
+
     /// <summary>The WSUS step, when it ran far enough to have one.</summary>
     public ApplicationPackagerEngine.Models.WsusStepResult? WsusStep => Wsus?.Step;
 }

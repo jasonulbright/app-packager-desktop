@@ -1384,7 +1384,7 @@ public partial class PackagesViewModel : ObservableObject
                         break;
                     }
 
-                    if (conflictKept && run.Wsus is null)
+                    if (conflictKept && run.Wsus is null && !run.WsusFailed)
                     {
                         p.Status = "Skipped";
                         p.IsSelected = false;
@@ -1395,9 +1395,9 @@ public partial class PackagesViewModel : ObservableObject
                     // A package call that threw has no result; its cells carry the error and the row failed.
                     var packageThrew = result is null && PublishRowRunner.PackageTarget(target) is not null;
                     var packageExit = packageThrew ? 1 : result?.ExitCode ?? 0;
-                    var wsusFailed = run.Wsus is not null && (wsusStep is null || wsusStep.Status == WsusStepStatus.Failed);
+                    var wsusFailed = run.WsusFailed;
                     var rowStatus = run.Wsus is null
-                        ? RowStatus(target, packageExit)
+                        ? RowStatus(target, wsusFailed ? 1 : packageExit)
                         : PublishRowOutcome.For(target, packageExit, conflictKept ? PackageRunEnd.Skipped : PackageRunEnd.Completed, wsusStep).Status;
 
                     if (packageExit == 0 && !wsusFailed)
@@ -1429,7 +1429,7 @@ public partial class PackagesViewModel : ObservableObject
                                 if (result is not null) LogStdErr(result.StdErr);
                             }
                             if (wsusFailed)
-                                AddLogLine("WSUS publish FAILED: " + (wsusStep?.Message ?? run.Wsus!.Stage.StdErr.Trim()));
+                                AddLogLine("WSUS publish FAILED: " + (wsusStep?.Message ?? run.Result.For(OneClickDestinations.Wsus)?.Message));
                         }
 
                         // Notes stand either way: a partially completed target may already
