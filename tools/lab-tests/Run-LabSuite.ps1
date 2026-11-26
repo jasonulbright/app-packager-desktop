@@ -94,7 +94,7 @@ while ($queue.Count -gt 0) {
         # A run that was aborted (a crash of the test host, a hang) still writes a result file with the tests it finished. Such a group is not complete.
         $aborted = @(Select-String -LiteralPath $log, "$log.err" -Pattern 'Test Run Aborted|test run was aborted|host process crashed|inactivity time of').Count -gt 0
         $seen = New-Object System.Collections.Generic.HashSet[string]
-        foreach ($r in @($x.TestRun.Results.UnitTestResult)) { $null = $seen.Add((([string]$r.testName) -split '\(')[0]) }
+        foreach ($r in @($x.TestRun.Results.UnitTestResult | Where-Object { $_ })) { $null = $seen.Add((([string]$r.testName) -split '\(')[0]) }
         $ran = $seen.Count -gt 0
         $missing = @($slice | ForEach-Object { $methodsByClass[$_] } | Where-Object { -not $seen.Contains($_) })
         if ($aborted -or $missing.Count -gt 0) {
