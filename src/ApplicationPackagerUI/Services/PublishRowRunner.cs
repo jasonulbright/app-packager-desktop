@@ -36,10 +36,12 @@ public static class PublishRowRunner
         string uid, string version, string target,
         Func<string, Task<PackagerExecutionResult>> package,
         Func<Task<WsusRowRun>> wsus,
-        Action<string> log, CancellationToken ct, Func<bool>? stopAfterPackage = null)
+        Action<string> log, CancellationToken ct, Func<bool>? stopAfterPackage = null, List<PublishDestinationResult>? collected = null)
     {
         var set = DestinationSet.FromTarget(target);
-        var cells = new List<PublishDestinationResult>();
+        // The caller keeps this list when a cancelled run throws, so what already reached a destination stays in the results.
+        var cells = collected ?? [];
+        const string stopped = "The run stopped during this publish. Check the system.";
         PackagerExecutionResult? packageResult = null;
         WsusRowRun? wsusRun = null;
 
@@ -51,7 +53,13 @@ public static class PublishRowRunner
                 if (set.ConfigMgr) cells.Add(PublishDestinationResult.FromConfigMgr(packageResult));
                 if (set.Intune) cells.Add(PublishDestinationResult.FromIntune(packageResult));
             }
-            catch (OperationCanceledException) { throw; }
+            // A cancellation that the operator did not ask for (a request that timed out) is a failure of this destination.
+            catch (OperationCanceledException) when (ct.IsCancellationRequested)
+            {
+                if (set.ConfigMgr) cells.Add(new(OneClickDestinations.ConfigMgr, PublishDestinationKind.Failed, "cancel", stopped));
+                if (set.Intune) cells.Add(new(OneClickDestinations.Intune, PublishDestinationKind.Failed, "cancel", stopped));
+                throw;
+            }
             catch (Exception ex) when (ex is not OutOfMemoryException)
             {
                 log($"ERROR: {ex.Message}");
@@ -72,7 +80,11 @@ public static class PublishRowRunner
                     ? PublishDestinationResult.FromWsus(step)
                     : new(OneClickDestinations.Wsus, PublishDestinationKind.Failed, "stage", wsusRun.Stage.StdErr.Trim(), null));
             }
-            catch (OperationCanceledException) { throw; }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested)
+            {
+                cells.Add(new(OneClickDestinations.Wsus, PublishDestinationKind.Failed, "cancel", stopped));
+                throw;
+            }
             catch (Exception ex) when (ex is not OutOfMemoryException)
             {
                 log($"ERROR: {ex.Message}");

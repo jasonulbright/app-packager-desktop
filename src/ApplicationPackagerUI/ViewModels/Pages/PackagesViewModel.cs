@@ -331,13 +331,32 @@ public partial class PackagesViewModel : ObservableObject
     }
 
     private ObservableCollection<PackagerInfo>? _watchedRows;
+    private readonly HashSet<PackagerInfo> _followedRows = [];
 
-    /// <summary>Follows the rows of the current list for the counts; the rows of the old list are let go.</summary>
+    /// <summary>Follows the current list and its rows for the counts, rows added later too; the old list and its rows are let go.</summary>
     private void WatchRows()
     {
-        if (_watchedRows is not null) foreach (var row in _watchedRows) row.PropertyChanged -= OnRowChanged;
+        if (_watchedRows is not null) _watchedRows.CollectionChanged -= OnRowsChanged;
         _watchedRows = Packagers;
-        foreach (var row in _watchedRows) row.PropertyChanged += OnRowChanged;
+        _watchedRows.CollectionChanged += OnRowsChanged;
+        FollowRows();
+    }
+
+    private void OnRowsChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
+    {
+        FollowRows();
+        RefreshCounts();
+    }
+
+    private void FollowRows()
+    {
+        var now = new HashSet<PackagerInfo>(_watchedRows!);
+        foreach (var row in _followedRows.Where(r => !now.Contains(r)).ToList())
+        {
+            row.PropertyChanged -= OnRowChanged;
+            _followedRows.Remove(row);
+        }
+        foreach (var row in now.Where(r => _followedRows.Add(r))) row.PropertyChanged += OnRowChanged;
     }
 
     /// <summary>Show only the checked rows (the "Show selected" link of the selection line).</summary>
@@ -1121,7 +1140,8 @@ public partial class PackagesViewModel : ObservableObject
 
         // The site gates apply only to a ConfigMgr run; an Intune-only run needs its
         // credentials instead, so a console-less workstation can still publish.
-        var blocked = PublishRunService.RunGate(target, settings);
+        // A run with a review is gated by the review itself, and its target is the one the confirmed plan lists.
+        var blocked = review ? null : PublishRunService.RunGate(target, settings);
 
         if (blocked is not null)
         {
@@ -1132,25 +1152,35 @@ public partial class PackagesViewModel : ObservableObject
         }
 
         // A target with WSUS needs the server and the administration API before anything stages.
-        if (DeploymentTargets.PublishesToWsus(target) && !ConfirmWsusPrerequisites(settings, "Publish")) return;
+        if (!review && DeploymentTargets.PublishesToWsus(target) && !ConfirmWsusPrerequisites(settings, "Publish")) return;
 
         var selected = rows?.ToList() ?? SelectedPackagers.ToList();
         if (selected.Count == 0) { ShowNoneSelected("Package"); return; }
 
+        PublishPlan? confirmedPlan = null;
         if (review)
         {
             // The review lists every checked application, the ones that the view hides too, and takes the comment of the run.
             var shown = new HashSet<PackagerInfo>(FilteredPackagers);
-            var plan = PublishPlanner.Plan(
-                selected.Select(p => new PublishPlanApp(p.Uid, p.Application, p.LatestVersion ?? "", !shown.Contains(p))),
-                settings.Systems, ReadinessOf(settings));
-            var reviewModel = new PublishReviewViewModel(plan, Comment);
-            if (!_publishDialogs.ShowPublishReview(reviewModel))
+            var plan = BuildPlan(selected.Select(p => PlanApp(p, settings, !shown.Contains(p),
+                    string.IsNullOrEmpty(p.CurrentVersion) ? ConfigMgrFact.None : ConfigMgrFact.Found(p.CurrentVersion))).ToList(), settings);
+            var confirmed = await PublishReviewGate.ConfirmAsync(plan, Comment, _publishDialogs.ShowPublishReview,
+                shownPlan => RereadPlanAsync(shownPlan, selected), AddLogLine);
+            if (confirmed is null)
             {
-                AddLogLine("Publish review: closed with Back. Nothing was published.");
+                StatusText = "Publish cancelled. Nothing was published.";
                 return;
             }
-            Comment = reviewModel.Comment;
+            Comment = confirmed.Comment;
+            confirmedPlan = confirmed.Plan;
+            // The run writes to the systems that the confirmed plan lists, with the settings that the last read used.
+            settings = _settingsService.Load();
+            target = new DestinationSet(
+                confirmedPlan.Systems.Contains(OneClickDestinations.ConfigMgr),
+                confirmedPlan.Systems.Contains(OneClickDestinations.Wsus),
+                confirmedPlan.Systems.Contains(OneClickDestinations.Intune)).ToTargetName();
+            label = PublishLabel(target);
+            if (DeploymentTargets.PublishesToWsus(target) && !ConfirmWsusPrerequisites(settings, "Publish")) return;
         }
         else if (string.IsNullOrWhiteSpace(Comment))
         {
@@ -1193,7 +1223,7 @@ public partial class PackagesViewModel : ObservableObject
 
 
         var tally = new ApplicationPackagerEngine.Models.PackagingRunTally();
-        var rowResults = new List<(string Application, PublishRowResult Result)>();
+        var rowResults = new List<(string Uid, string Application, PublishRowResult Result)>();
 
         try
         {
@@ -1247,10 +1277,19 @@ public partial class PackagesViewModel : ObservableObject
                     }
 
                     // Each destination of the target runs once; one that fails does not stop the next.
-                    var run = await PublishRowRunner.RunAsync(p.Uid, p.LatestVersion ?? "", target, PackageRowAsync,
-                        () => _publishRuns.PublishWsusRowAsync(p, snapshot, AddLogLine, token),
-                        AddLogLine, token, () => conflictStop);
-                    rowResults.Add((p.Application, run.Result));
+                    var version = PackagerExecutionService.PublishVersion(p);
+                    var cells = new List<PublishDestinationResult>();
+                    PublishRowRun run;
+                    try
+                    {
+                        run = await PublishRowRunner.RunAsync(p.Uid, version, target, PackageRowAsync,
+                            () => _publishRuns.PublishWsusRowAsync(p, snapshot, AddLogLine, token),
+                            AddLogLine, token, () => conflictStop, cells);
+                    }
+                    finally
+                    {
+                        rowResults.Add((p.Uid, p.Application, new PublishRowResult(p.Uid, version, cells)));
+                    }
                     var result = run.Package;
                     var wsusStep = run.WsusStep;
 
@@ -1353,8 +1392,106 @@ public partial class PackagesViewModel : ObservableObject
         }
 
         // The results window after a run that went through the review: one cell for each application and system, from the facts of the run.
-        if (review && rowResults.Count > 0)
-            _publishDialogs.ShowPublishResults(new PublishResultsViewModel(rowResults, tally.Cancelled));
+        if (confirmedPlan is not null && rowResults.Count > 0)
+        {
+            // Every application of the confirmed plan has a row; one that the run did not reach reads "Not run".
+            var all = confirmedPlan.Rows.Select(r =>
+            {
+                var done = rowResults.FindIndex(x => x.Uid == r.App.Uid);
+                return done >= 0
+                    ? (rowResults[done].Application, rowResults[done].Result)
+                    : (r.App.Application, new PublishRowResult(r.App.Uid, r.App.Version, []));
+            }).ToList();
+            _publishDialogs.ShowPublishResults(new PublishResultsViewModel(all, tally.Cancelled, confirmedPlan.Systems));
+        }
+    }
+
+    private static PublishPlan BuildPlan(IReadOnlyList<PublishPlanApp> apps, AppSettings settings) =>
+        PublishPlanner.Plan(apps, settings.Systems, ReadinessOf(settings)) with { Site = (settings.SiteCode ?? "").Trim() + "|" + (settings.ProviderMachine ?? "").Trim() };
+
+    /// <summary>One application of the publish plan: the version the run publishes, what ConfigMgr does afterward, and what each system cannot take.</summary>
+    private PublishPlanApp PlanApp(PackagerInfo p, AppSettings settings, bool hidden, ConfigMgrFact site)
+    {
+        var script = !p.IsJsonDefined && p.StagedManifestPath is null;
+        var steps = new List<string>();
+        if (!script)
+        {
+            var applicationId = _executionService.SupersedenceApplicationId(p);
+            var distribution = ContentDistributionResolver.For(settings, applicationId);
+            if (distribution.AutoDistribute && !string.IsNullOrWhiteSpace(distribution.DpGroupName))
+            {
+                steps.Add("distribute content to " + distribution.DpGroupName.Trim());
+                if (distribution.DeployToTestCollection && !string.IsNullOrWhiteSpace(distribution.TestCollectionName))
+                    steps.Add("deploy to " + distribution.TestCollectionName.Trim()
+                        + (distribution.CreateTestCollectionIfMissing ? " (the run creates the collection if it is missing)" : ""));
+            }
+            if (ApplicationPackagerEngine.Services.Supersedence.SupersedenceSettingsEditor.EffectiveMode(settings.Supersedence, applicationId)
+                != ApplicationPackagerEngine.Services.Supersedence.SupersedenceMode.Off)
+                steps.Add("apply supersedence");
+        }
+        return new PublishPlanApp(p.Uid, p.Application, PackagerExecutionService.PublishVersion(p), hidden)
+        {
+            Site = site,
+            ConfigMgrSteps = string.Join(", ", steps),
+            IntuneNotSupported = script ? "a PS1 packager publishes to ConfigMgr only" : "",
+            WsusNotSupported = p.WsusNotSupported ?? ""
+        };
+    }
+
+    /// <summary>
+    /// The read before the first write (overhaul V1, phase 5b): the systems and their readiness from the stored settings, the version of each
+    /// application, and the ConfigMgr application of each one. One site query for each application when ConfigMgr is in the plan. Null when cancelled.
+    /// </summary>
+    private async Task<PublishPlan?> RereadPlanAsync(PublishPlan shown, IReadOnlyList<PackagerInfo> selected)
+    {
+        var settings = _settingsService.Load();
+        var byUid = selected.ToDictionary(p => p.Uid, StringComparer.Ordinal);
+        var apps = shown.Rows.Select(r => PlanApp(byUid[r.App.Uid], settings, r.App.Hidden, r.App.Site)).ToList();
+        var unread = BuildPlan(apps, settings);
+        // A plan that cannot run, or has no ConfigMgr, keeps the ConfigMgr facts it was shown with.
+        if (!unread.CanRun || !unread.Systems.Contains(OneClickDestinations.ConfigMgr)) return unread;
+
+        _operationCts = new CancellationTokenSource();
+        var token = _operationCts.Token;
+        ShowProgress = true;
+        ProgressCurrent = 0;
+        ProgressTotal = apps.Count;
+        try
+        {
+            for (var i = 0; i < apps.Count; i++)
+            {
+                if (token.IsCancellationRequested) return null;
+                var p = byUid[apps[i].Uid];
+                ProgressCurrent = i + 1;
+                StatusText = ApplicationPackagerEngine.Models.RunProgress.Running("Reading ConfigMgr before publish", i + 1, apps.Count, p.Application);
+                ConfigMgrFact fact;
+                try
+                {
+                    var result = await _mecmQueryService.QueryVersionAsync(p.CMName, token, p.ArpName);
+                    fact = result.Failed ? ConfigMgrFact.Unreadable(result.FailureReason ?? "the query failed")
+                        : result.Found ? ConfigMgrFact.Found(result.SoftwareVersion ?? "")
+                        : ConfigMgrFact.None;
+                }
+                catch (OperationCanceledException) when (token.IsCancellationRequested) { return null; }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException
+                                           or System.ComponentModel.Win32Exception or OperationCanceledException)
+                {
+                    fact = ConfigMgrFact.Unreadable(ex.Message);
+                }
+                if (token.IsCancellationRequested) return null;
+                apps[i] = apps[i] with { Site = fact };
+            }
+            // The queries take time, and a Settings save during them must show. So the plan is built from the settings after the last query,
+            // with the facts that were read. A change of the site makes the plan differ, and the next confirm reads the new site.
+            var after = _settingsService.Load();
+            return BuildPlan(apps.Select(a => PlanApp(byUid[a.Uid], after, a.Hidden, a.Site)).ToList(), after);
+        }
+        finally
+        {
+            ShowProgress = false;
+            _operationCts?.Dispose();
+            _operationCts = null;
+        }
     }
 
     /// <summary>Operator answer to one existing-application conflict.</summary>
@@ -1450,27 +1587,52 @@ public partial class PackagesViewModel : ObservableObject
         _settingsService.Save(settings);
     }
 
-    partial void OnDetailPackagerChanged(PackagerInfo? value)
+    private int _stageRead;
+
+    partial void OnDetailPackagerChanged(PackagerInfo? oldValue, PackagerInfo? newValue)
     {
+        if (oldValue is not null) oldValue.PropertyChanged -= OnDetailRowChanged;
+        if (newValue is not null) newValue.PropertyChanged += OnDetailRowChanged;
+        // The stage text of the row that was shown before must not stand under the new row.
+        DetailStageText = newValue is null ? PackagesDetail.NotStaged : PackagesDetail.CheckingStage;
         OnPropertyChanged(nameof(DetailLines));
-        if (value is null) { DetailStageText = PackagesDetail.NotStaged; return; }
-        var row = value;
-        // The stage folder is read off the UI thread; an answer for a row that is no longer shown is dropped.
+        ReadDetailStage();
+    }
+
+    /// <summary>The pane follows its row: a check, a stage or a publish changes the lines while the focus stays.</summary>
+    private void OnDetailRowChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName is nameof(PackagerInfo.IsSelected)) return;
+        OnPropertyChanged(nameof(DetailLines));
+        if (e.PropertyName is nameof(PackagerInfo.Status) or nameof(PackagerInfo.StagedVersion) or nameof(PackagerInfo.LatestVersion)) ReadDetailStage();
+    }
+
+    /// <summary>Reads the stage folder of the shown row off the UI thread; only the answer of the newest read is shown.</summary>
+    private void ReadDetailStage()
+    {
+        var read = ++_stageRead;
+        if (DetailPackager is not { } row) return;
         _ = Task.Run(() =>
         {
             try
             {
                 var manifest = _executionService?.ExistingStageManifest(row);
-                return PackagesDetail.StageText(manifest is not null, row.StagedVersion ?? PublishVersionOf(manifest));
+                // A dropped installer keeps its manifest in a folder that is not named by the version.
+                var version = row.StagedManifestPath is null ? PublishVersionOf(manifest) : row.StagedVersion ?? row.LatestVersion;
+                return PackagesDetail.StageText(manifest is not null, version);
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { return PackagesDetail.NotStaged; }
         }).ContinueWith(t =>
         {
-            if (!ReferenceEquals(DetailPackager, row)) return;
-            var text = t.IsCompletedSuccessfully ? t.Result : PackagesDetail.NotStaged;
+            void Show()
+            {
+                if (read != _stageRead) return;
+                DetailStageText = t.IsCompletedSuccessfully ? t.Result : PackagesDetail.NotStaged;
+                OnPropertyChanged(nameof(DetailLines));
+            }
             var dispatcher = System.Windows.Application.Current?.Dispatcher;
-            if (dispatcher is null) { DetailStageText = text; OnPropertyChanged(nameof(DetailLines)); }
-            else dispatcher.BeginInvoke(() => { if (ReferenceEquals(DetailPackager, row)) { DetailStageText = text; OnPropertyChanged(nameof(DetailLines)); } });
+            if (dispatcher is null) Show();
+            else dispatcher.BeginInvoke(Show);
         });
     }
 

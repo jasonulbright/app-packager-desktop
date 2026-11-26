@@ -11,10 +11,11 @@ public sealed record PublishResultsRow(string Application, IReadOnlyList<string>
 /// </summary>
 public sealed class PublishResultsViewModel
 {
-    public PublishResultsViewModel(IReadOnlyList<(string Application, PublishRowResult Result)> rows, bool cancelled)
+    /// <param name="planned">The systems of the confirmed plan, so a system that no application reached still has its column.</param>
+    public PublishResultsViewModel(IReadOnlyList<(string Application, PublishRowResult Result)> rows, bool cancelled, IReadOnlyList<string>? planned = null)
     {
         Cancelled = cancelled;
-        Systems = rows.SelectMany(r => r.Result.Destinations.Select(d => d.Destination)).Distinct()
+        Systems = rows.SelectMany(r => r.Result.Destinations.Select(d => d.Destination)).Concat(planned ?? []).Distinct()
             .OrderBy(d => Array.IndexOf(new[] { OneClickDestinations.ConfigMgr, OneClickDestinations.Intune, OneClickDestinations.Wsus }, d)).ToList();
         Rows = rows.Select(r => new PublishResultsRow(r.Application,
             Systems.Select(s => r.Result.For(s)?.Text ?? "Not run").ToList())).ToList();
@@ -23,7 +24,8 @@ public sealed class PublishResultsViewModel
         Failed = cells.Count(c => c.Kind is PublishDestinationKind.Failed or PublishDestinationKind.Blocked or PublishDestinationKind.NotSupported);
         Skipped = cells.Count(c => c.Kind == PublishDestinationKind.Skipped);
         Notices = rows.Where(r => r.Result.Partial).Select(r => PartialNotice(r.Application, r.Result)).ToList();
-        Details = rows.SelectMany(r => r.Result.Destinations.Where(d => d.Kind != PublishDestinationKind.Published && d.Message.Length > 0)
+        Warnings = cells.Count(c => c.Warning);
+        Details = rows.SelectMany(r => r.Result.Destinations.Where(d => (d.Kind != PublishDestinationKind.Published || d.Warning) && d.Message.Length > 0)
             .Select(d => $"{r.Application}, {d.Destination}: {d.Message}")).ToList();
     }
 
@@ -39,6 +41,9 @@ public sealed class PublishResultsViewModel
 
     public int Skipped { get; }
 
+    /// <summary>Published cells whose supersedence was not applied.</summary>
+    public int Warnings { get; }
+
     /// <summary>One sentence for each application that reached one system and not another.</summary>
     public IReadOnlyList<string> Notices { get; }
 
@@ -48,7 +53,7 @@ public sealed class PublishResultsViewModel
     /// <summary>"3 publishes completed", "Publish completed with issues", "Publish was cancelled".</summary>
     public string Headline =>
         Cancelled ? "Publish was cancelled"
-        : Failed > 0 ? "Publish completed with issues"
+        : Failed > 0 || Warnings > 0 ? "Publish completed with issues"
         : Published == 0 ? "Nothing was published"
         : $"{Published} {(Published == 1 ? "publish" : "publishes")} completed";
 

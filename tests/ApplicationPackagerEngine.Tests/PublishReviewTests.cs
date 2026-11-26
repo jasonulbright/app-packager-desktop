@@ -2,6 +2,7 @@ using System.Windows;
 using System.Windows.Controls;
 using ApplicationPackagerEngine.Models;
 using ApplicationPackagerEngine.Tests.Compliance;
+using ApplicationPackagerUI.Services;
 using ApplicationPackagerUI.ViewModels.Windows;
 using ApplicationPackagerUI.Views.Windows;
 using Wpf.Ui.Appearance;
@@ -106,6 +107,125 @@ public sealed class PublishReviewTests
         Assert.False(model.Accepted);
     }
 
+    [Fact]
+    public void ASystemThatCannotTakeAnApplicationIsNotCountedAsAPublish()
+    {
+        var readiness = Ready(true, true, true);
+        var apps = Apps(1).Select(a => a with { IntuneNotSupported = "a PS1 packager publishes to ConfigMgr only", ConfigMgrSteps = "distribute content to DP Group" });
+        var plan = PublishPlanner.Plan(apps, readiness.Systems, readiness);
+        Assert.Equal(PublishCellKind.NotSupported, plan.Rows[0].Cells[1].Kind);
+        Assert.Equal("Not supported: a PS1 packager publishes to ConfigMgr only", plan.Rows[0].Cells[1].Text);
+        Assert.Equal(PublishPlan.ConfigMgrAction + ". Then: distribute content to DP Group", plan.Rows[0].Cells[0].Text);
+        Assert.Equal(2, plan.Writes);
+        Assert.True(plan.CanRun);
+
+        var intuneOnly = Ready(false, true, false);
+        Assert.False(PublishPlanner.Plan(apps, intuneOnly.Systems, intuneOnly).CanRun);
+        Assert.NotEqual(plan.Digest, PublishPlanner.Plan(apps.Select(a => a with { ConfigMgrSteps = "" }), readiness.Systems, readiness).Digest);
+    }
+
+    [Fact]
+    public void ASupersedenceThatWasNotAppliedShowsInTheResultsAndAnUnreachedSystemReadsNotRun()
+    {
+        var rows = new List<(string, PublishRowResult)>
+        {
+            ("Notepad++", Row("a", Cell("ConfigMgr", PublishDestinationKind.Published, "", "supersedence not applied: access denied") with { Warning = true })),
+            ("Audacity", Row("b"))
+        };
+        var model = new PublishResultsViewModel(rows, cancelled: false, ["ConfigMgr", "WSUS"]);
+        Assert.Equal("Publish completed with issues", model.Headline);
+        Assert.Equal(["Published, supersedence not applied", "Not run"], model.Rows[0].Cells);
+        Assert.Equal(["Not run", "Not run"], model.Rows[1].Cells);
+        Assert.Contains("Notepad++, ConfigMgr: supersedence not applied: access denied", model.Details);
+    }
+
+    // The read before the write (phase 5b)
+
+    private static PublishPlan SitePlan(params ConfigMgrFact[] facts)
+    {
+        var readiness = Ready(true, false, false);
+        return PublishPlanner.Plan(Apps(facts.Length).Select((a, i) => a with { Site = facts[i] }), readiness.Systems, readiness);
+    }
+
+    [Fact]
+    public void TheDigestChangesWhenAnApplicationAppearsInConfigMgrAndNotForTheWordsOfAFailedRead()
+    {
+        var planned = SitePlan(ConfigMgrFact.None);
+        Assert.Equal(planned.Digest, SitePlan(ConfigMgrFact.None).Digest);
+        Assert.NotEqual(planned.Digest, SitePlan(ConfigMgrFact.Found("1.1")).Digest);
+        Assert.NotEqual(SitePlan(ConfigMgrFact.Found("1.0")).Digest, SitePlan(ConfigMgrFact.Found("1.1")).Digest);
+        Assert.Equal(SitePlan(ConfigMgrFact.Unreadable("one")).Digest, SitePlan(ConfigMgrFact.Unreadable("two")).Digest);
+        Assert.Empty(PublishPlanner.Changes(planned, SitePlan(ConfigMgrFact.None)));
+        Assert.Equal("App1: ConfigMgr has version 1.1.", PublishPlanner.Changes(planned, SitePlan(ConfigMgrFact.Found("1.1")))["u1"]);
+        Assert.Equal("App1: ConfigMgr no longer has the application.", PublishPlanner.Changes(SitePlan(ConfigMgrFact.Found("1.1")), planned)["u1"]);
+    }
+
+    [Fact]
+    public void TheConfigMgrCellSaysWhatTheSiteHas()
+    {
+        Assert.Equal(PublishPlan.ConfigMgrAction + " (ConfigMgr has this version; if the title matches, the run asks before it replaces it)", SitePlan(ConfigMgrFact.Found("1.1")).Rows[0].Cells[0].Text);
+        Assert.Equal(PublishPlan.ConfigMgrAction + " (ConfigMgr has 0.9; if the title matches, the run asks before it replaces it)", SitePlan(ConfigMgrFact.Found("0.9")).Rows[0].Cells[0].Text);
+        var planned = SitePlan(ConfigMgrFact.None);
+        Assert.Equal("The ConfigMgr site or its provider changed.", PublishPlanner.Changes(planned with { Site = "MCM|cm01" }, planned with { Site = "PS1|cm01" })["site"]);
+        Assert.Equal(PublishPlan.ConfigMgrAction + " (ConfigMgr was not read)", SitePlan(ConfigMgrFact.Unreadable("x")).Rows[0].Cells[0].Text);
+    }
+
+    [Fact]
+    public async Task AnUnchangedReadConfirmsAtOnce()
+    {
+        var shows = new List<PublishReviewViewModel>();
+        var confirmed = await PublishReviewGate.ConfirmAsync(SitePlan(ConfigMgrFact.None), "WO-1",
+            m => { shows.Add(m); m.AcceptCommand.Execute(null); return m.Accepted; },
+            _ => Task.FromResult<PublishPlan?>(SitePlan(ConfigMgrFact.None)), _ => { });
+        Assert.NotNull(confirmed);
+        Assert.Equal("", Assert.Single(shows).ChangedText);
+    }
+
+    [Fact]
+    public async Task AChangedReadOpensTheReviewAgainWithTheRowMarkedAndBackPublishesNothing()
+    {
+        var shows = new List<PublishReviewViewModel>();
+        var log = new List<string>();
+        var confirmed = await PublishReviewGate.ConfirmAsync(SitePlan(ConfigMgrFact.None, ConfigMgrFact.None), "",
+            m =>
+            {
+                shows.Add(m);
+                if (shows.Count > 1) return false;
+                m.Comment = "WO-2";
+                m.AcceptCommand.Execute(null);
+                return true;
+            },
+            _ => Task.FromResult<PublishPlan?>(SitePlan(ConfigMgrFact.None, ConfigMgrFact.Found("1.2"))), log.Add);
+        Assert.Null(confirmed);
+        Assert.Equal(2, shows.Count);
+        Assert.Equal("WO-2", shows[1].Comment);
+        Assert.Equal(["", "Changed"], shows[1].Rows.Select(r => r.Checked));
+        Assert.Contains("App2: ConfigMgr has version 1.2.", shows[1].ChangedText);
+        Assert.StartsWith("Nothing was published.", shows[1].ChangedText);
+        Assert.Contains(log, l => l.Contains("Confirmed ") && l.Contains(", read "));
+    }
+
+    [Fact]
+    public async Task ASecondConfirmOfAnUnreadableSiteRuns()
+    {
+        var shows = 0;
+        var confirmed = await PublishReviewGate.ConfirmAsync(SitePlan(ConfigMgrFact.None), "",
+            m => { shows++; m.AcceptCommand.Execute(null); return true; },
+            _ => Task.FromResult<PublishPlan?>(SitePlan(ConfigMgrFact.Unreadable("no answer"))), _ => { });
+        Assert.NotNull(confirmed);
+        Assert.Equal(2, shows);
+    }
+
+    [Fact]
+    public async Task ACancelledReadPublishesNothing()
+    {
+        var log = new List<string>();
+        var confirmed = await PublishReviewGate.ConfirmAsync(SitePlan(ConfigMgrFact.None), "",
+            m => { m.AcceptCommand.Execute(null); return true; }, _ => Task.FromResult<PublishPlan?>(null), log.Add);
+        Assert.Null(confirmed);
+        Assert.Contains(log, l => l.Contains("was cancelled. Nothing was published."));
+    }
+
     // The results
 
     private static PublishRowResult Row(string uid, params PublishDestinationResult[] cells) => new(uid, "1.0", cells);
@@ -170,7 +290,8 @@ public sealed class PublishReviewTests
                 Assert.True(RenderKit.ById<TextBlock>(window, "txtReviewBlocked").IsVisible);
                 Assert.True(RenderKit.ById<TextBlock>(window, "txtReviewHidden").IsVisible);
                 Assert.True(RenderKit.ById<ButtonBase>(window, "btnReviewBack").IsEnabled);
-                Assert.Equal("2 applications, 2 systems: 4 publishes are planned.", RenderKit.ById<TextBlock>(window, "txtReviewCounts").Text);
+                // A blocked cell is not a planned publish, so only the ConfigMgr cells count.
+                Assert.Equal("2 applications, 2 systems: 2 publishes are planned.", RenderKit.ById<TextBlock>(window, "txtReviewCounts").Text);
             }
             finally { window.Close(); }
         });

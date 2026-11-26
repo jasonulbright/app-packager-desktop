@@ -41,6 +41,8 @@
             <TextBlock Text="{Binding CountsText}" Margin="0,4,0,0" FontSize="14" Foreground="{DynamicResource TextFillColorPrimaryBrush}"
                        AutomationProperties.AutomationId="txtReviewCounts" AutomationProperties.LiveSetting="Polite" />
             <TextBlock Text="{Binding ScopeText}" Style="{StaticResource CaptionText}" Margin="0,2,0,0" AutomationProperties.AutomationId="txtReviewScope" />
+            <TextBlock Text="{Binding ChangedText}" Style="{StaticResource ShowWhenText}" FontSize="14" Margin="0,4,0,0" TextWrapping="Wrap"
+                       Foreground="{DynamicResource StatusWarningBrush}" AutomationProperties.AutomationId="txtReviewChanged" AutomationProperties.LiveSetting="Assertive" />
             <TextBlock Text="{Binding HiddenText}" Style="{StaticResource ShowWhenText}" FontSize="14" Margin="0,4,0,0" TextWrapping="Wrap"
                        Foreground="{DynamicResource TextFillColorPrimaryBrush}" AutomationProperties.AutomationId="txtReviewHidden" />
             <TextBlock Text="{Binding BlockedText}" Style="{StaticResource ShowWhenText}" FontSize="14" Margin="0,4,0,0" TextWrapping="Wrap"
@@ -53,7 +55,7 @@
                   AutomationProperties.AutomationId="gridReviewMatrix" AutomationProperties.Name="Publish review matrix">
             <DataGrid.Columns>
                 <DataGridTextColumn Header="Application" Binding="{Binding Application}" Width="2*" MinWidth="160" />
-                <DataGridTextColumn Header="Version" Binding="{Binding Version}" Width="130" MinWidth="110" />
+                <DataGridTextColumn Header="Version" Binding="{Binding Version}" Width="160" MinWidth="140" />
                 <DataGridTextColumn Header="Checked" Binding="{Binding Checked}" Width="140" MinWidth="110" />
             </DataGrid.Columns>
         </DataGrid>
@@ -74,7 +76,7 @@
                     <ui:Button Content="{Binding ConfirmText}" Appearance="Primary" MinWidth="170" IsDefault="True" Command="{Binding AcceptCommand}"
                                AutomationProperties.AutomationId="btnReviewConfirm" ToolTip="Start the publish run for the applications and systems listed here." />
                 </WrapPanel>
-                <TextBlock Text="Planned from the last check. A system answers again when the run reaches it." Style="{StaticResource CaptionText}" VerticalAlignment="Center" />
+                <TextBlock Text="Planned from the last check. ConfigMgr is read again when you confirm. If an application exists, the run asks." Style="{StaticResource CaptionText}" VerticalAlignment="Center" />
             </DockPanel>
         </Border>
     </Grid>

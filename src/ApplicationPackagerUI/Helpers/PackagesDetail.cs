@@ -12,6 +12,7 @@ public sealed record DetailLine(string Label, string Text);
 public static class PackagesDetail
 {
     public const string NotStaged = "Not staged";
+    public const string CheckingStage = "Checking the stage folder";
 
     public static IReadOnlyList<DetailLine> Lines(PackagerInfo row, string stageText) =>
     [
