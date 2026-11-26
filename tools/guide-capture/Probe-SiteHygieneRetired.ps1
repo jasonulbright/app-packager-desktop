@@ -64,7 +64,15 @@ function Run-Plan([string]$Like, [string]$Id) {
     Click-El $cell
     Start-Sleep -Seconds 1
     Click-El (Find-El $null 'btnHygieneRunFix' -Timeout 10)
-    $confirm = Find-El $null 'btnChangePlanConfirm' -Timeout 180
+    $confirm = Find-El $null 'btnChangePlanConfirm' -Timeout 150
+    if (-not $confirm) {
+        # A slow lab client can swallow the first click: select the row again and press the button once more.
+        "RETRY   $Id : the plan window did not open yet"
+        $again = Find-Cell $Like 15
+        if ($again) { Click-El $again; Start-Sleep -Seconds 2 }
+        Invoke-El (Find-El $null 'btnHygieneRunFix' -Timeout 10)
+        $confirm = Find-El $null 'btnChangePlanConfirm' -Timeout 240
+    }
     if (-not $confirm) { throw "The plan window of $Id did not open." }
     Start-Sleep -Seconds 2
     foreach ($box in 'chkChangePlanExtra', 'chkChangePlanDestructive', 'chkChangePlanSecond') {
