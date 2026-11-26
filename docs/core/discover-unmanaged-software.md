@@ -118,10 +118,10 @@ A failure message names what was tried and what failed. A database error ends wi
 
 | Message | Cause | Fix |
 |---|---|---|
-| The button is disabled. The tooltip reads `ConfigMgr is not in use...` or `Set the site code, or the SQL server and database, in Settings, ConfigMgr Site Settings.` | ConfigMgr is not in use, or the site code and the SQL boxes are empty. | Fix the setting that the tooltip names. |
+| The button is disabled. The tooltip reads `ConfigMgr is not in use...` or `Set the site code, or the SQL server and database, in Settings, ConfigMgr.` | ConfigMgr is not in use, or the site code and the SQL boxes are empty. | Fix the setting that the tooltip names. |
 | `A site code or SQL overrides are required...` | No site code and no SQL override. | Enter a site code, or both SQL boxes. |
 | `The site code <x> is not three letters or digits...` | The site code is not three characters. | Correct the **Site Code**. |
-| `The SQL Server for site <x> is not known (<reason>). Enter the SQL Server name in Settings, ConfigMgr Site Settings.` | The provider did not return the site definition, or no provider is set. | Enter **Discovery SQL Server** and **Discovery Database**. |
+| `The SQL Server for site <x> is not known (<reason>). Enter the SQL Server name in Settings, ConfigMgr.` | The provider did not return the site definition, or no provider is set. | Enter **Discovery SQL Server** and **Discovery Database**. |
 | `Windows PowerShell could not run the scan (<type>: <text>)...` | `powershell.exe` is not available, or application control blocks it. | Install or repair Windows PowerShell 5.1. Allow it to start a script from the temporary folder. |
 | `The site database query on <s>, database <db>, did not finish (exit code <n>, <text>)...` | The script ended without a result: Constrained Language Mode, AppLocker or a missing component. | View the exit code and the text. Allow the script to run in Windows PowerShell 5.1. |
 | `...did not return the site definition: <reason>. Check that the provider name is the SMS Provider computer...` | DCOM and WinRM to the SMS Provider failed. | Enter the SMS Provider computer in **Site Server / SMS Provider Host**, or enter **Discovery SQL Server** and **Discovery Database**. |

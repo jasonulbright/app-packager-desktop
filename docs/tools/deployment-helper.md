@@ -137,7 +137,7 @@ For a package or task sequence, the page sends the UTC flag with the available t
 | Message | Cause | Fix |
 |---|---|---|
 | ConfigMgr is not in use. Select it under Systems in Use in Settings. | ConfigMgr is off in **Systems in Use**. | Select ConfigMgr in Settings. |
-| Set the site code in Settings, ConfigMgr Site Settings. | The site code is empty. | Enter the **Site Code**. |
+| Set the site code in Settings, ConfigMgr. | The site code is empty. | Enter the **Site Code**. |
 | Built-in collections cannot be chosen. Pick a device collection that was made at the site. | The collection ID starts with `SMS`. | Select another collection. |
 | A Required deployment installs on every device of the collection and needs its own confirmation, so nothing was created. | The plan was confirmed without the extra box. | Select the box in the plan. |
 | ... is now deployed to collection ... (deployment ID ...), so no duplicate was created. | The object is already deployed to the collection. | None. The page created nothing. |

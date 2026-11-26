@@ -33,7 +33,7 @@ Stage and publish runs of the Workbench use a saved profile. A run writes a buil
 6. Select **Validate**. The Workbench opens **Review & build** and shows the findings. Validation inspects the profile. It does not run anything.
 7. Select **Stage**. The Workbench closes and the App Packager page runs the stage.
 8. Open the Workbench again. Choose the new build in **Build**. A sealed build exists only after a **Stage** that you start in the Workbench. A **Stage** that you start with the button on the App Packager page creates no sealed build, and **Build** then shows `No sealed builds`.
-9. Select **Publish All**. It publishes the build that **Build** shows to the systems in Settings, Systems in Use. The Workbench closes. The **Review publish** window opens with this one application and the version of that build. Select **Publish 1 application**. See [Publish All](stage-and-publish.md#publish-all). When WSUS is the only system in use, there is no review, and the publish starts at once.
+9. Select **Publish All**. It publishes the build that **Build** shows to the systems in Settings, Systems in Use. The Workbench closes. The **Review Publish All** window opens with this one application and the version of that build. Select **Publish 1 application**. See [Publish All](stage-and-publish.md#publish-all). When WSUS is the only system in use, there is no review, and the publish starts at once.
 
 If you have unsaved edits when you start a run, the app asks `Save the profile before this run? A run uses the saved profile revision.` Select **Save**, **Discard** or **Cancel**.
 

@@ -27,7 +27,7 @@ A publish to ConfigMgr takes the staged content of each checked application to a
 3. Optional: type a work order or a note in **Administrative Comments**. The app stores it as the description of the ConfigMgr application.
 4. Check the rows to publish.
 5. Select **Publish All**. **Publish All** publishes to every system that is on in Settings, Systems in Use. To publish to ConfigMgr only, select **ConfigMgr** only there.
-6. Review the **Review publish** window. You can change the **Administrative comment**. Select **Publish N applications**. The app reads ConfigMgr again, and it opens the review again when the plan changed. See [Publish All](stage-and-publish.md#publish-all).
+6. Review the **Review Publish All** window. You can change the **Administrative comment**. Select **Publish N applications**. The app reads ConfigMgr again, and it opens the review again when the plan changed. See [Publish All](stage-and-publish.md#publish-all).
 7. If the dialog **Application Already Exists** opens, choose an action:
    - **Overwrite** updates the content and the deployment types. The application and its deployments stay.
    - **Skip** leaves the application unchanged. The row shows `Skipped`.
@@ -153,7 +153,7 @@ See [Settings reference](../reference/settings.md).
 
 | Message | Cause | Fix |
 |---|---|---|
-| Tooltip: `Publish All: ConfigMgr: Publish to ConfigMgr requires the ConfigMgr Console. Not detected on this workstation.` | The console module is not found. | Install the Configuration Manager console. |
+| Tooltip: `Publish All: ConfigMgr: The ConfigMgr Console is required. It is not detected on this workstation.` | The console module is not found. | Install the Configuration Manager console. |
 | Tooltip: `Publish All: ConfigMgr: SiteCode is required. Open Settings to configure.` | The site code is empty. | Enter the site code. |
 | The review and the results have no **ConfigMgr** column. | **ConfigMgr** is not selected. | Select it under **Systems in Use**. Select **Save Settings**. |
 | `This stage asks for the native MSIX deployment type of ConfigMgr, which App Packager no longer publishes. ...` | The manifest has the detection type `MSIX`: a stage from an older release, or a hand-written definition whose detection rule has the type `MSIX`. App Packager publishes an MSIX as a script deployment type. | Select **Stage** again. For a hand-written definition, change the detection rule to a registry key or a script rule first. |
@@ -166,7 +166,7 @@ See [Settings reference](../reference/settings.md).
 | `Network content verification failed: <list>` | The copy on the share does not match the manifest. | Check the share, then publish again. |
 | `The ConfigurationManager PowerShell module was not found. Install the Configuration Manager console on this computer.` | The module file is missing. | Install the console. |
 | `The SMS Provider <name> denied access. The account needs a ConfigMgr security role for site <code>.` | Your account has no role on the site. | Ask the ConfigMgr administrator for a role. |
-| `The CMSite drive for site <code> on <provider> could not connect. Check the site code and the SMS Provider in Settings, ConfigMgr Site Settings.` | The site code or the provider name is wrong. | Correct the values in Settings. |
+| `The CMSite drive for site <code> on <provider> could not connect. Check the site code and the SMS Provider in Settings, ConfigMgr.` | The site code or the provider name is wrong. | Correct the values in Settings. |
 | `Distribution failed: <reason>` or `Test deployment failed: <reason>` (log), and `ConfigMgr application created, but a step after it failed: <step> to '<target>' failed: <reason>` (run result, exit code 1) | A Post Packaging step failed. The application exists, but clients cannot install it. The inventory shows the ConfigMgr destination as Partial. | Fix the cause. Then distribute the content or deploy the application in the ConfigMgr console, or publish again with Overwrite. A publish with Skip finds the application and does not run the Post Packaging steps again. In One Click, the version counts as published, so a new run skips it: select Force together with Existing ConfigMgr app = Overwrite, or use the console. |
 | `Search query parameter 'LocalizedDisplayName' supports wildcards and -DisableWildcardHandling is defined. Search will only return exact matches.` (three times for each publish run) | The ConfigMgr cmdlet writes this warning into the log pane. It does not mean that the publish failed. | None. The message is a warning of the cmdlet. |
 

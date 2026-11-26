@@ -101,7 +101,7 @@ public sealed record DeploymentTargetActionState
             return new DeploymentTargetActionState
             {
                 CheckMecmEnabled = false,
-                CheckMecmToolTip = "To use Check ConfigMgr, select ConfigMgr under Default destinations in Settings, One Click Settings.",
+                CheckMecmToolTip = "To use Check ConfigMgr, select ConfigMgr under Default destinations in Settings, One Click.",
                 PackageLabel = "Publish",
                 PackageToolTip = published,
                 SkipMecmPreflight = true

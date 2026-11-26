@@ -73,7 +73,7 @@ The server signs each update with its signing certificate. Use one of these butt
 
 1. Select **App Packager** in the sidebar.
 2. Check the applications to publish.
-3. Select **Publish All**. **Publish All** publishes to every system that is on in Settings, Systems in Use. When WSUS is the only system in use, the run starts at once, with no review window and no results window. With another system in use too, the **Review publish** window opens first. See [Publish All](stage-and-publish.md#publish-all).
+3. Select **Publish All**. **Publish All** publishes to every system that is on in Settings, Systems in Use. When WSUS is the only system in use, the run starts at once, with no review window and no results window. With another system in use too, the **Review Publish All** window opens first. See [Publish All](stage-and-publish.md#publish-all).
 4. View the **Status** column of each row and the log pane.
 
 The run stages an application first when it has no stage of its latest version. The run then checks the staged build against the rules of WSUS and publishes it.
@@ -166,7 +166,7 @@ The command line publishes to WSUS with `--target WSUSOnly`, `--target IntuneAnd
 | Message | Cause | Fix |
 |---|---|---|
 | `The WSUS administration API is not installed on this computer. Install the WSUS console...` (also the dialog **WSUS API Required** and the status `WSUS administration API not installed.`) | `Microsoft.UpdateServices.Administration.dll` is not on this computer. | Install the RSAT WSUS tools, or on Windows Server `UpdateServices-UI`. |
-| `WSUS server required.` and `Publish requires a WSUS server. Open Settings, WSUS Publishing, to configure it.` | **WSUS server** is empty. | Enter the server in **Settings**, **WSUS**. |
+| `WSUS server required.` and `Publish requires a WSUS server. Open Settings, WSUS, to configure it.` | **WSUS server** is empty. | Enter the server in **Settings**, **WSUS**. |
 | `WSUS server name '<x>' is not a host name.` | The name has a scheme, a path or a character that a host name cannot have. | Enter the host name only. |
 | `Connecting to WSUS <server>:<port> failed: ...` | The server did not answer, or the console version does not match. | Install the WSUS console at the version of the server. For SSL, trust the server certificate and set `SchUseStrongCrypto` = 1 as the message shows. |
 | `Connecting to WSUS <server>:<port> failed: Request for principal permission failed.. The WSUS console on this computer must match the server version.` | The token of the account lacks the WSUS Administrators right. The lab saw this when the test ran without elevation, as a member of the local Administrators group. The hint about the console version is then not the cause, and the text has a double period. | Give the account the WSUS Administrators right, or start the app elevated for the test. Do not trust the hint about the console version in this case. |
@@ -175,7 +175,7 @@ The command line publishes to WSUS with `--target WSUSOnly`, `--target IntuneAnd
 | `The UpdateServicesPackages or WSUSContent share on the server is missing, not shared, or not writable.` | The server text says `CreateDirectory failed`. | Check the shares and their permissions. |
 | `The WSUS database did not answer in time...` | The server text says `timeout expired`. | Run WSUS database maintenance on the server: update statistics and rebuild the SUSDB indexes. Publish again. The lab saw this error after the indexes had become fragmented. |
 | `WSUS rejected the package: <server text>` | The server refused the package. The text can end with a hint. | Review the hint. A payload larger than the cab limit of the server needs a higher `LocalPublishingMaxCabSize` (at most 2047). |
-| `WSUS server <x> has no signing certificate. Create or import one...` | The server has no signing certificate. | Use **Create self-signed...** or **Import PFX...**. The message names the section "Options, WSUS Publishing". The page is **WSUS** in **Settings**. |
+| `WSUS server <x> has no signing certificate. Create or import one...` | The server has no signing certificate. | Use **Create self-signed...** or **Import PFX...** on the **WSUS** page of **Settings**. |
 | `The WSUS signing certificate <thumbprint> expired on <date>.` | The certificate expired. | Import a new certificate. Clients must then trust it. |
 | `WSUS did not create a self-signed certificate: ...` | The server does not create one without the registry value `EnableSelfSignedCertificates` = 1. | Import a code-signing certificate from your PKI with **Import PFX...**. |
 | `The update is declined on the server, so its approval and the decline of earlier versions were skipped` | The update on the server is declined. | Approve the update in [WSUS Updates](wsus-updates.md). |

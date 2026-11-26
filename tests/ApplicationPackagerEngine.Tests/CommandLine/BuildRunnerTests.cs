@@ -154,7 +154,7 @@ public sealed class BuildRunnerTests : IDisposable
         var result = await RunAsync("--application", "putty", "--stage", "--package", "--target", "IntuneAndWSUS");
 
         Assert.Equal(1, result.ExitCode);
-        Assert.Equal("No WSUS server: pass --wsus-server or set the server in Settings, WSUS Publishing.", Assert.Single(_output.Errors));
+        Assert.Equal("No WSUS server: pass --wsus-server or set the server in Settings, WSUS.", Assert.Single(_output.Errors));
         Assert.Empty(result.Phases);
         Assert.True(NothingStaged);
     }
@@ -172,7 +172,7 @@ public sealed class BuildRunnerTests : IDisposable
     {
         var result = await RunAsync("--application", "putty", "--package", "--target", "WSUSOnly");
         Assert.Equal(1, result.ExitCode);
-        Assert.Equal("No WSUS server: pass --wsus-server or set the server in Settings, WSUS Publishing.", Assert.Single(_output.Errors));
+        Assert.Equal("No WSUS server: pass --wsus-server or set the server in Settings, WSUS.", Assert.Single(_output.Errors));
         Assert.Null(result.Wsus);
         Assert.True(NothingStaged);
     }

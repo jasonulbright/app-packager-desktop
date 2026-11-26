@@ -17,7 +17,7 @@ A publish to Intune builds an `.intunewin` file from the staged content of each 
 - **Intune** selected under **Systems in Use** in Settings.
 - **Tenant ID**, **Client ID** and **Client Secret** set in Settings, Intune.
 - Access to `login.microsoftonline.com` and `graph.microsoft.com`. Graph returns the address of the Azure storage upload. The app uses that address at run time.
-- The Win32 Content Prep Tool (`IntuneWinAppUtil.exe`). The first Intune build downloads it. You can also select **Download** in Settings, Detected Tools. The app checks the SHA-256 of the pinned release (1.8.7) and the publisher signature of a file that it downloads, before it installs that file. A copy of the tool that is already in the Tools folder or on the PATH is used as it is and is not checked again.
+- The Win32 Content Prep Tool (`IntuneWinAppUtil.exe`). The first Intune build downloads it. You can also select **Download** in Settings, Tools. The app checks the SHA-256 of the pinned release (1.8.7) and the publisher signature of a file that it downloads, before it installs that file. A copy of the tool that is already in the Tools folder or on the PATH is used as it is and is not checked again.
 - Staged content for the application. See [Stage and publish](stage-and-publish.md).
 - No ConfigMgr settings. You can leave **ConfigMgr** cleared under **Systems in Use**.
 
@@ -30,7 +30,7 @@ A publish to Intune builds an `.intunewin` file from the staged content of each 
 5. Open the **App Packager** page.
 6. Stage the applications that you want to publish.
 7. Check the rows to publish.
-8. Select **Publish All**. **Publish All** publishes to every system in use. To publish to Intune only, select **Intune** only under **Systems in Use**. Review the **Review publish** window and select **Publish N applications**. See [Publish All](stage-and-publish.md#publish-all).
+8. Select **Publish All**. **Publish All** publishes to every system in use. To publish to Intune only, select **Intune** only under **Systems in Use**. Review the **Review Publish All** window and select **Publish N applications**. See [Publish All](stage-and-publish.md#publish-all).
 9. If the dialog **Intune review** opens, read the findings. Select **Continue** to publish. Select **Cancel** to stop the whole run.
 10. Watch the log. A successful row shows `Published`. The log shows `Intune publish: published (app id <id>)`.
 11. Review the **Publish results** window. Select **Done**.
@@ -162,7 +162,7 @@ See [Settings reference](../reference/settings.md).
 | `Publish requires Intune credentials. Open Settings, Intune, to configure Tenant ID, Client ID, and Client Secret.` | One of the three values is empty. | Enter the values and save. |
 | `Stage manifest not found: <path>. Run Stage for <application> <version> first.` | The application has no staged content. | Select **Stage**. |
 | `This application cannot be published to Intune: <code>: <message>` | A Blocking finding. | Find the code in the table above. Change the profile in the [Workbench](workbench.md) or publish to another destination. |
-| `build failed: <reason>` | The Content Prep Tool failed or could not be downloaded. | Review the reason. Select **Download** in Settings, Detected Tools. |
+| `build failed: <reason>` | The Content Prep Tool failed or could not be downloaded. | Review the reason. Select **Download** in Settings, Tools. |
 | `Multiple Intune apps carry the identity tag '<tag>' (ids: ...); resolve the duplicates before publishing.` | More than one app has the current tag. | Remove the duplicates in Intune. |
 | `Multiple Intune apps are named '<name>' and none carries this application's identity tag (ids: ...); rename or tag the intended app before publishing.` | More than one untagged app has the name. | Rename or tag the intended app in Intune. |
 | `Timed out waiting for the Azure storage upload URI.` | Graph did not return the storage address in time. | Publish again. |

@@ -38,7 +38,7 @@ None.
 
 **Configuration item (CI).** A ConfigMgr object that holds one or more settings. A baseline groups configuration items.
 
-**Content Prep Tool.** The Microsoft Win32 Content Prep Tool, `IntuneWinAppUtil.exe`. It builds the `.intunewin` file. **Settings**, **Detected Tools** shows if it is on this computer.
+**Content Prep Tool.** The Microsoft Win32 Content Prep Tool, `IntuneWinAppUtil.exe`. It builds the `.intunewin` file. **Settings**, **Tools** shows if it is on this computer.
 
 **CPE.** A product name for the CVE lookup. A definition names its product with the field `Cpe`.
 

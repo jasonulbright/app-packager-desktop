@@ -24,7 +24,7 @@ namespace ApplicationPackagerEngine.Services.ConfigMgrSession;
 public sealed partial class ConfigMgrSessionHost : IConfigMgrSession, IDisposable
 {
     public const string LogArea = "ConfigMgr";
-    internal const string SettingsLocation = "Settings, ConfigMgr Site Settings";
+    internal const string SettingsLocation = "Settings, ConfigMgr";
     public const int MaxRequestBytes = 1024 * 1024;
     public const string UnexpectedMessage = "The ConfigMgr session failed unexpectedly. The log has the details.";
 

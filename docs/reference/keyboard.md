@@ -45,7 +45,7 @@ In a dialog, Enter selects the default button and Esc selects the cancel button.
 
 | Window | Enter | Esc |
 |---|---|---|
-| **Review publish** | **Publish N applications** | **Back** |
+| **Review Publish All** | **Publish N applications** | **Back** |
 | **Publish results** | **Done** | **Done** |
 | **One Click run history** | **Open report** | **Close** |
 | **Discover unmanaged software** | **Enable selected** | **Not now** |

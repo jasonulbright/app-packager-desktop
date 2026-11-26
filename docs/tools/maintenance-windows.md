@@ -200,7 +200,7 @@ Grid columns: **Status**, **Collection**, **Window**, **Type**, **Recurrence**, 
 | Message | Cause | Fix |
 |---|---|---|
 | ConfigMgr is not in use. Select it under Systems in Use in Settings. | **ConfigMgr** is off in Settings. | Select **ConfigMgr** under **Systems in Use**. |
-| Set the site code in Settings, ConfigMgr Site Settings. | **Site Code** is empty. | Enter the site code. |
+| Set the site code in Settings, ConfigMgr. | **Site Code** is empty. | Enter the site code. |
 | The maintenance windows could not be read. The log has the details. | The read failed. | Check the site settings and the console on this computer, then select **Refresh**. |
 | The account needs a ConfigMgr security role with the Modify Collection Setting permission on the collection. | ConfigMgr denied the change. | Give the account a role with this permission. |
 | Refresh the list first. | The page has no data. | Select **Refresh**. |

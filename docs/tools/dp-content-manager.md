@@ -164,7 +164,7 @@ Every write adds records to `dp-content-audit.jsonl` in the `DpContent` folder o
 | Message | Cause | Fix |
 |---|---|---|
 | ConfigMgr is not in use. Select it under Systems in Use in Settings. | **ConfigMgr** is off in Settings. | Select **ConfigMgr** under **Systems in Use**. |
-| Set the site code in Settings, ConfigMgr Site Settings. | **Site Code** is empty. | Enter the site code. |
+| Set the site code in Settings, ConfigMgr. | **Site Code** is empty. | Enter the site code. |
 | The distribution point content could not be read. The log has the details. | The read failed. | Check the site settings, then select **Refresh**. |
 | The ConfigMgr console role needs read rights on distribution points and their content. | ConfigMgr denied the read. | Give the account a role with these rights. |
 | The distribution point content was not read. Select Refresh first. | The page has no data. | Select **Refresh**. |

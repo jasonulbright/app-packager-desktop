@@ -113,7 +113,7 @@ See [One Click](../core/one-click.md).
 | `Cadence (days)` (grid) | `OneClick.CadenceOverrides` | empty | The cadence per application. |
 | `ConfigMgr` / `WSUS` / `Intune` (grid) | `OneClick.Destinations` | empty | The destinations per application. Rows without an entry follow the default. A row with no box checked is skipped. |
 
-## Detected Tools
+## Tools
 
 This section shows the state of three tools. It stores no setting.
 
@@ -277,7 +277,7 @@ Each check box has three states: on, off and not set.
 | `Releases` | Opens `https://github.com/jasonulbright/app-packager-desktop/releases` in the browser. |
 | Version text | Shows `App Packager Desktop <version>` and "MIT License. Settings are stored under %LOCALAPPDATA%\AppPackager." The text does not follow an `APP_PACKAGER_DATA_ROOT` override. |
 
-The app does not check for a new version. Open `Releases` to see new versions.
+`Releases` is not the update check. The app checks for a new version at start when `Check for a new version when the app starts` is on, and when you select `Check for updates`. Both controls are on the `General` page. See [Updates](../core/updates.md).
 
 ## Setup window and setup checklist
 
@@ -292,7 +292,7 @@ The Setup window does not open by itself. Open it with `Open Setup` in the setup
 | `Don't show this again` | `FirstRunCompleted`, `SetupChecklist` | With `Skip`, marks the first run as completed and stops the setup checklist. |
 | `Back`, `Next`, `Skip`, `Save` | none | Move through the window, or save. |
 
-When you select no system, the window says "No system is selected. Save stores that, and the publish buttons stay disabled until a system is selected in Settings." The App Packager page has one publish button, `Publish All`.
+When you select no system, the window says "No system is selected. Save stores that, and Publish All stays disabled until a system is selected in Settings."
 
 ## Settings without a control
 

@@ -194,11 +194,11 @@ There is one publish button. To publish to one system only, select only that sys
 
 | Reason after the system name | Cause |
 |---|---|
-| `Publish to ConfigMgr requires the ConfigMgr Console. Not detected on this workstation.` | The ConfigMgr console is not installed on this computer. |
+| `The ConfigMgr Console is required. It is not detected on this workstation.` | The ConfigMgr console is not installed on this computer. |
 | `SiteCode is required. Open Settings to configure.` | **Site Code** is empty. |
 | `File Share Root is required. Open Settings to configure.` | **File Share Root (UNC)** is empty. |
 | `Publish requires Intune credentials. Open Settings, Intune, to configure Tenant ID, Client ID, and Client Secret.` | An Intune credential is missing. |
-| `Publish requires a WSUS server. Open Settings, WSUS Publishing, to configure it.` | The **WSUS server** box is empty. It is on the **WSUS** page of Settings. |
+| `Publish requires a WSUS server. Open Settings, WSUS, to configure it.` | The **WSUS server** box is empty. It is on the **WSUS** page of Settings. |
 
 The tooltip of a disabled **Check ConfigMgr** entry starts with `Check ConfigMgr:` and names the missing setting.
 
@@ -232,7 +232,7 @@ The full list is in [Settings reference](../reference/settings.md).
 - Check Latest and Check ConfigMgr process the rows one after the other, in grid order. They do not run in parallel.
 - A row that the search box hides stays checked. An operation still includes it. Ctrl+A, the header check box and Select Update Available act on the rows the search box shows, and clear the rows it hides.
 - Check ConfigMgr stops a query for one application after 60 seconds. The log shows `query timed out after 60s`.
-- App Packager Desktop does not check for a new version of itself. Select **Releases** under Settings, About to open the releases page.
+- The update check at start and the button **Check for updates** are not on this page. They are on the **General** page of Settings. See [Updates](updates.md).
 - The window opens at 1200 by 800 and cannot be smaller than 900 by 600. The supported minimum size is 1024 by 720. A smaller size can work and is not supported.
 - The grid scrolls sideways. A long application name ends with an ellipsis. The tooltip shows the full name.
 

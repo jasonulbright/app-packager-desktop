@@ -43,7 +43,7 @@ public sealed partial class PivotsScriptsViewModel : ObservableObject
     public const string LogArea = PivotsScriptsWriter.LogArea;
     public const string ReadCancelled = "The read was cancelled.";
     public const string AccessHint = " The ConfigMgr role needs the right the site names, such as Run CMPivot on the collection or Approve on SMS Scripts.";
-    public const string ProviderMessage = "Set the SMS Provider in Settings, ConfigMgr Site Settings. The page reaches the AdminService on the SMS Provider.";
+    public const string ProviderMessage = "Set the SMS Provider in Settings, ConfigMgr. The page reaches the AdminService on the SMS Provider.";
 
     private readonly SemaphoreSlim _saveLock = new(1, 1);
     private readonly Dictionary<string, CancellationTokenSource> _debounce = new(StringComparer.Ordinal);

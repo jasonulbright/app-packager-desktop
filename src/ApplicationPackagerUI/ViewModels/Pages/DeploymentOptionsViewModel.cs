@@ -62,7 +62,7 @@ public sealed partial class DeploymentOptionsViewModel(DeploymentShared shared) 
             ShowTemplates(templates, message);
             AuditLogPath = SavedAuditPath?.Invoke() ?? "";
             ShowProbe(probe, path);
-            ConnectionText = problem ?? $"Site code {settings.SiteCode}, SMS Provider {(settings.ProviderMachine.Length > 0 ? settings.ProviderMachine : "(this computer)")}. Change them in Settings, ConfigMgr Site Settings.";
+            ConnectionText = problem ?? $"Site code {settings.SiteCode}, SMS Provider {(settings.ProviderMachine.Length > 0 ? settings.ProviderMachine : "(this computer)")}. Change them in Settings, ConfigMgr.";
         });
     }
 

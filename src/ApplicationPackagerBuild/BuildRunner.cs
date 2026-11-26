@@ -268,7 +268,7 @@ public sealed class BuildRunner(
                     break;
                 default:
                     if (!settings.Wsus.IsConfigured)
-                        return "No WSUS server: pass --wsus-server or set the server in Settings, WSUS Publishing.";
+                        return "No WSUS server: pass --wsus-server or set the server in Settings, WSUS.";
                     try { settings.Wsus.Normalize(); }
                     catch (WsusSettingsException ex) { return ex.Message; }
                     var api = wsusProbe();

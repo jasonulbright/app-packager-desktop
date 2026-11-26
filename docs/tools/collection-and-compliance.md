@@ -14,7 +14,7 @@ Use the Collections tab to create, copy, edit, evaluate or remove device collect
 ## Requirements
 
 - ConfigMgr must be selected under Systems in Use in [Settings](../core/settings-page.md). If it is not, the page shows: "ConfigMgr is not in use. Select it under Systems in Use in Settings."
-- The `Site Code` and the `Site Server / SMS Provider Host` must be set in Settings, ConfigMgr. If the site code is empty, the page shows: "Set the site code in Settings, ConfigMgr Site Settings."
+- The `Site Code` and the `Site Server / SMS Provider Host` must be set in Settings, ConfigMgr. If the site code is empty, the page shows: "Set the site code in Settings, ConfigMgr."
 - The Configuration Manager console must be installed on this computer. The page uses its PowerShell module through Windows PowerShell 5.1.
 - The account that runs the application needs a ConfigMgr security role with "Read, Modify, Create and Delete on Collection and Query".
 - The code does not require an elevated application.
@@ -154,10 +154,10 @@ Each completed run adds one line to the operation history. The line holds counts
 | Message | Cause | Fix |
 |---|---|---|
 | ConfigMgr is not in use. Select it under Systems in Use in Settings. | ConfigMgr is off in Settings. | Select ConfigMgr under Systems in Use. |
-| Set the site code in Settings, ConfigMgr Site Settings. | The site code is empty. | Enter the `Site Code`. |
+| Set the site code in Settings, ConfigMgr. | The site code is empty. | Enter the `Site Code`. |
 | The ConfigurationManager PowerShell module was not found. Install the Configuration Manager console on this computer. | The console module is missing. | Install the Configuration Manager console. |
 | The SMS Provider <name> denied access. The account needs a ConfigMgr security role for site <code>. | The account has no role on the site. | Give the account a role with rights on collections and queries. The page adds: "The ConfigMgr console role needs collection and query rights." |
-| The CMSite drive for site <code> on <provider> could not connect. Check the site code and the SMS Provider in Settings, ConfigMgr Site Settings. | Wrong site code or provider name. | Correct the two settings. |
+| The CMSite drive for site <code> on <provider> could not connect. Check the site code and the SMS Provider in Settings, ConfigMgr. | Wrong site code or provider name. | Correct the two settings. |
 | The collections could not be read. The log has the details. | The read failed for a reason that the page does not name. | Review the log. Select `Refresh`. |
 | Enter a collection ID of eight characters, for example LAB00012. | The ID in the `Collection ID` box has the wrong form. | Enter an ID of eight characters. |
 | No collection with the ID <id> exists. | `Open by ID` found no collection. | Check the ID. |

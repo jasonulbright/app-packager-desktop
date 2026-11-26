@@ -227,7 +227,7 @@ public sealed class PublishTargetTests : IDisposable
 
         var wsus = await Service().PackageAsync(dropped, "", targetOverride: PublishRunTargets.WsusOnly);
         Assert.Equal(1, wsus.ExitCode);
-        Assert.Contains("Publish to WSUS", wsus.StdErr);
+        Assert.Contains("separate WSUS step", wsus.StdErr);
     }
 
     [Fact]
@@ -257,7 +257,7 @@ public sealed class PublishTargetTests : IDisposable
         {
             var wsus = await Service().PackageAsync(dropped, "", targetOverride: combination);
             Assert.Equal(1, wsus.ExitCode);
-            Assert.Contains("Publish to WSUS", wsus.StdErr);
+            Assert.Contains("separate WSUS step", wsus.StdErr);
             Assert.Null(wsus.ConfigMgrOutcome);
         }
     }

@@ -56,7 +56,7 @@ If you do not select any row, the page shows `No packagers selected.`
 2. Open the **App Packager** page.
 3. Select the check box of each application to publish. For ConfigMgr and Intune, stage the applications first. The WSUS part of a run stages an application that has no stage of its latest version.
 4. Optional: enter a work order or a note in **Administrative Comments**.
-5. Select **Publish All**. The window **Review publish** opens.
+5. Select **Publish All**. The window **Review Publish All** opens.
 6. Check the review. Select **Back** to close it. Nothing is published, and the checks stay.
 7. Select **Publish N applications**. The app reads ConfigMgr again before the first write.
 8. Answer the prompts that the run can show: a folder prompt, the **Intune review** dialog, the supersedence window and **Application Already Exists**.
@@ -81,7 +81,7 @@ The review comes from the last check. When you confirm, the app reads again: the
 
 ### The results
 
-The window **Publish results** shows a headline: `N publishes completed`, `Publish completed with issues`, `Nothing was published` or `Publish was cancelled`. It shows the counts **Published**, **Failed** and **Skipped**. The grid has one row for each application and one column for each system. A cell reads `Published`, `Published, supersedence not applied`, `Failed`, `Failed at <step>`, `Skipped`, `Not supported`, `Blocked` or `Not run`. A system that fails does not stop the next system of the run. For an application that reached one system and not another, a notice says what the run did. What reached a system stays published. When a state is not known, check that system. The lines below the grid give the message of each cell that needs one.
+The window **Publish results** shows a headline: `N publishes completed`, `Publish completed with issues`, `Nothing was published` or `Publish was cancelled`. It shows the counts **Published**, **Failed** and **Skipped**. The grid has one row for each application and one column for each system. A cell reads `Published`, `Published, supersedence not applied`, `Failed`, `Failed at <step>`, `Failed, state not known`, `Stopped, state not known`, `Skipped`, `Not supported`, `Blocked` or `Not run`. A system that fails does not stop the next system of the run. For an application that reached one system and not another, a notice says what the run did. What reached a system stays published. When a state is not known, check that system. The lines below the grid give the message of each cell that needs one.
 
 A failed row stays checked. Select **Done** to close the window. The grid keeps its filter and its sort.
 
@@ -136,7 +136,7 @@ See [Settings reference](../reference/settings.md) for defaults.
 
 - Stage does not publish anything. It changes no site, tenant or server.
 - The ConfigMgr and Intune parts of a publish use content that Stage already wrote. If the staged manifest is missing, the log shows `Stage manifest not found: <path>. Run Stage for <application> <version> first.` The WSUS part stages by itself when no stage of the latest version exists.
-- Stage never builds a `.intunewin` file, and never downloads the Content Prep Tool. The first Intune publish downloads it and builds the file. You can also select **Download** in Settings, Detected Tools.
+- Stage never builds a `.intunewin` file, and never downloads the Content Prep Tool. The first Intune publish downloads it and builds the file. You can also select **Download** in Settings, Tools.
 - The lab validated Stage and ConfigMgr publishing on a lab site with client computers.
 
 ## Troubleshooting

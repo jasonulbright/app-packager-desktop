@@ -143,7 +143,7 @@ The overrides and the defaults of this page are written on **Save Settings**. A 
 
 See [One Click](one-click.md). The page has **Action on update** (**Report only**, **Stage**, **Stage and Publish**; default **Report only**), **Default cadence (days)** (default 7), **Force on launch (ignore cadence)** (default cleared), **Default destinations** (**ConfigMgr**, **WSUS**, **Intune**), **Existing ConfigMgr app** (**Skip the application** or **Overwrite it**; default **Skip the application**), the buttons **Track none**, **Track all** and **Refresh list**, and a grid with the columns **Track**, **Application**, **Vendor**, **ConfigMgr**, **WSUS**, **Intune** and **Cadence (days)**.
 
-### Detected Tools
+### Tools
 
 | Item | Effect |
 |---|---|

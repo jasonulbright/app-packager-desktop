@@ -79,7 +79,7 @@ Notes about the Setup window:
 - The check box **Don't show this again** applies to **Skip**. It marks the first run as completed and stops the setup checklist from opening. No other setting changes.
 - When a site is active, **Site Code** is read only. Use the site switcher to add or change a site.
 - If you clear **ConfigMgr**, **Save** stores an empty site code.
-- If you select no system, the window shows this text: "No system is selected. Save stores that, and the publish buttons stay disabled until a system is selected in Settings."
+- If you select no system, the window shows this text: "No system is selected. Save stores that, and Publish All stays disabled until a system is selected in Settings."
 - When **Save** changes the systems in use, it makes each selected system a default destination of One Click. It does the same on a new installation that has no saved default destinations. The log pane of the **App Packager** page then shows a line that starts with "Setup complete." In other cases, **Save** keeps the saved One Click destinations.
 - After **Save**, the app tests the ConfigMgr connection again.
 - All Setup values are also on the **Settings** page. See [Settings page](core/settings-page.md).
@@ -107,7 +107,7 @@ The first start shows the Dark theme. To change it, open **Settings** and select
 4. Select **Check**, then **Check ConfigMgr**. The **Current (ConfigMgr)** column shows the version that the site holds. The **Status** column shows **Update available** when the site version is older than the vendor version. It shows **Not found in ConfigMgr** when the site has no application with that name.
 5. Select **Stage**. App Packager Desktop downloads the installer and prepares the content in the download root. The status shows **Staging...** and then **Staged**.
 6. If the dialog **Configure: <application>** opens, check the values. Select **Continue**. Select **Cancel** to skip the application.
-7. Select **Publish All**. With ConfigMgr as the only system in use, it publishes to ConfigMgr. Review the **Review publish** window and select **Publish 1 application**.
+7. Select **Publish All**. With ConfigMgr as the only system in use, it publishes to ConfigMgr. Review the **Review Publish All** window and select **Publish 1 application**.
 8. The status shows **Packaging...** and then **Packaged**. If the dialog **Application Already Exists** opens, select **Overwrite**, **Skip** or **Cancel remaining**.
 9. Review the **Publish results** window and select **Done**.
 10. Select **Check**, then **Check ConfigMgr** again. The status shows **Up to date** when the site version equals the vendor version.

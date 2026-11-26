@@ -28,18 +28,18 @@ A disabled **Publish All** button shows a tooltip. It starts with `Publish All:`
 | Message | Cause | Fix |
 |---|---|---|
 | ConfigMgr is not in use. Select it under Systems in Use in Settings. (The tooltip begins with the name of the control, for example "Check ConfigMgr:".) | The system is cleared under **Systems in Use**. The same text applies to Intune and WSUS with the system name. | Select the system under **Systems in Use** in **Settings**. Select **Save Settings**. |
-| Needs the ConfigMgr console on this computer. | The application did not find the Configuration Manager console. | Install the console. **Settings**, **Detected Tools** shows if the application finds it. |
-| Set the site code in Settings, ConfigMgr Site Settings. | **Site Code** is empty. | Enter the site code on the **ConfigMgr** page of Settings. |
+| Needs the ConfigMgr console on this computer. | The application did not find the Configuration Manager console. | Install the console. **Settings**, **Tools** shows if the application finds it. |
+| Set the site code in Settings, ConfigMgr. | **Site Code** is empty. | Enter the site code on the **ConfigMgr** page of Settings. |
 | Publish All: no system is in use. Turn on ConfigMgr, Intune or WSUS in Settings, Systems in Use. | No system is selected. | Select a system under **Systems in Use**. Select **Save Settings**. |
-| Set the WSUS server in Settings, WSUS Publishing. | WSUS is in use, and **WSUS server** is empty. | Enter the server name on the **WSUS** page of Settings. |
+| Set the WSUS server in Settings, WSUS. | WSUS is in use, and **WSUS server** is empty. | Enter the server name on the **WSUS** page of Settings. |
 
 ## Messages when a run starts
 
 | Message | Cause | Fix |
 |---|---|---|
 | Publish requires Intune credentials. Open Settings, Intune, to configure Tenant ID, Client ID, and Client Secret. | An Intune publish started without credentials. | Enter the credentials in **Settings**. |
-| Publish requires a WSUS server. Open Settings, WSUS Publishing, to configure it. | A WSUS publish started without a server name. | Enter the server in **Settings**. |
-| Publish to ConfigMgr requires the ConfigMgr Console. Not detected on this workstation. | The environment variable `SMS_ADMIN_UI_PATH` is missing, or the module file is missing. | Install the Configuration Manager console on this computer. |
+| Publish requires a WSUS server. Open Settings, WSUS, to configure it. | A WSUS publish started without a server name. | Enter the server in **Settings**. |
+| The ConfigMgr Console is required. It is not detected on this workstation. | The environment variable `SMS_ADMIN_UI_PATH` is missing, or the module file is missing. | Install the Configuration Manager console on this computer. |
 | SiteCode is required. Open Settings to configure. | The site code is empty. | Enter the site code. |
 | File Share Root is required. Open Settings to configure. | The share root is empty. | Enter the UNC path under **File Share Root (UNC)**. |
 | SiteCode is required. Open Settings. | **Check ConfigMgr** ran with an empty site code. | Enter the site code. |
@@ -61,7 +61,7 @@ A disabled **Publish All** button shows a tooltip. It starts with `Publish All:`
 | Could not connect to site `<code>`. Check Settings and ensure the Configuration Manager console is available. | The connection test failed when the list loaded. The log pane shows "ConfigMgr: Connection failed" and the reason. | Check **Site Code** and **Site Server / SMS Provider Host**. Check that the console is on this computer. |
 | The ConfigurationManager PowerShell module was not found. Install the Configuration Manager console on this computer. | The module file is missing. | Install the console. |
 | The SMS Provider `<p>` denied access. The account needs a ConfigMgr security role for site `<code>`. | The provider refused the account. | Give the account a ConfigMgr security role for the site. |
-| The CMSite drive for site `<code>` on `<provider>` could not connect. Check the site code and the SMS Provider in Settings, ConfigMgr Site Settings. | The CMSite drive did not connect. | Check **Site Code** and **Site Server / SMS Provider Host**. |
+| The CMSite drive for site `<code>` on `<provider>` could not connect. Check the site code and the SMS Provider in Settings, ConfigMgr. | The CMSite drive did not connect. | Check **Site Code** and **Site Server / SMS Provider Host**. |
 
 ## Settings file
 
@@ -73,9 +73,9 @@ A disabled **Publish All** button shows a tooltip. It starts with `Publish All:`
 
 | Message | Cause | Fix |
 |---|---|---|
-| A site code or SQL overrides are required. Set the site code, or the SQL server and database, in Settings, ConfigMgr Site Settings. | No site code and no SQL override. | Enter **Site Code**, or **Discovery SQL Server** and **Discovery Database**. |
-| The site code `<x>` is not three letters or digits. Correct it in Settings, ConfigMgr Site Settings. | The site code is not valid. | Correct **Site Code**. |
-| The SQL Server for site `<x>` is not known (`<reason>`). Enter the SQL Server name in Settings, ConfigMgr Site Settings. | The SMS Provider did not return the SQL Server name. | Enter **Discovery SQL Server**. |
+| A site code or SQL overrides are required. Set the site code, or the SQL server and database, in Settings, ConfigMgr. | No site code and no SQL override. | Enter **Site Code**, or **Discovery SQL Server** and **Discovery Database**. |
+| The site code `<x>` is not three letters or digits. Correct it in Settings, ConfigMgr. | The site code is not valid. | Correct **Site Code**. |
+| The SQL Server for site `<x>` is not known (`<reason>`). Enter the SQL Server name in Settings, ConfigMgr. | The SMS Provider did not return the SQL Server name. | Enter **Discovery SQL Server**. |
 | Windows PowerShell could not start. Discover needs Windows PowerShell 5.1 (powershell.exe). | `powershell.exe` is missing. | Install Windows PowerShell 5.1. |
 | SQL Server on `<s>` denied the Windows login. The account needs the db_datareader role on `<db>`. | The SQL login was refused. | Give the account the `db_datareader` role on the database. |
 | Windows authentication to SQL Server `<s>` failed. Run the app as a domain account on a domain-joined computer, and check the SQL Server service principal name. | Windows authentication failed. | Run the application as a domain account on a domain-joined computer. |

@@ -136,7 +136,7 @@
                         </StackPanel>
                     </StackPanel>
 
-                    <TextBlock Text="No system is selected. Save stores that, and the publish buttons stay disabled until a system is selected in Settings."
+                    <TextBlock Text="No system is selected. Save stores that, and Publish All stays disabled until a system is selected in Settings."
                                Style="{StaticResource HintText}"
                                Visibility="{Binding ShowNoFields, Converter={StaticResource BooleanToVisibilityConverter}}" />
                 </StackPanel>

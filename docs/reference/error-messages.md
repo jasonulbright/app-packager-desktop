@@ -65,7 +65,7 @@ These messages come from `AppPackagerBuild.exe`. See [Command-line build](../cor
 | <app> stages from a local installer folder, and no folder exists for it: pass --local-source-folder <folder>, or set the folder in Settings. | The definition has a local source and no folder is set. | Do as the message says. |
 | No definition or packager script for application '<id>' under <searched>. | The application ID is unknown. | The code names no fix. Check the ID. |
 | No sealed build of version '<v>' exists for this profile. Stage it first; Package consumes an exact build id, not the newest manifest on disk. | `--package --version` with no sealed build. | Stage the version first. |
-| No WSUS server: pass --wsus-server or set the server in Settings, WSUS Publishing. | A WSUS target has no server. | Do as the message says. |
+| No WSUS server: pass --wsus-server or set the server in Settings, WSUS. | A WSUS target has no server. | Do as the message says. |
 | WSUS publishing is unavailable: <reason> | The WSUS administration API was not found. | The code names no fix. The reason text comes from the probe. |
 | --estimated-minutes and --maximum-minutes do not apply to build <id>: its sealed manifest records ... Stage with them, or leave them out. | Run overrides were given for a package of a sealed build. | Do as the message says. |
 | Package refused: <reason> | A package run was refused. | The code names no fix. Review the reason. |
@@ -77,9 +77,9 @@ See [App Packager page](../core/packages.md) and [Stage and publish](../core/sta
 | Message | Where it appears | Cause | Fix |
 |---|---|---|---|
 | Publish requires Intune credentials. Open Settings, Intune, to configure Tenant ID, Client ID, and Client Secret. | App Packager page, at the start of a run | An Intune publish runs without credentials. | Do as the message says. |
-| Publish requires a WSUS server. Open Settings, WSUS Publishing, to configure it. | App Packager page, at the start of a run | A WSUS publish runs without a server. | Do as the message says. |
+| Publish requires a WSUS server. Open Settings, WSUS, to configure it. | App Packager page, at the start of a run | A WSUS publish runs without a server. | Do as the message says. |
 | 'x' is not a publish target; nothing was packaged. Valid names: ConfigMgr, ConfigMgrAndIntune, IntuneOnly, ConfigMgrAndWSUS, WSUSOnly, IntuneAndWSUS, ConfigMgrAndIntuneAndWSUS. | Package step | The target name is empty or not one of the seven publish names. It is never read as ConfigMgr. | Use a valid name. |
-| Publish to ConfigMgr requires the ConfigMgr Console. Not detected on this workstation. | App Packager page, at the start of a run, for a ConfigMgr publish only | The variable `SMS_ADMIN_UI_PATH` or the module file is missing. | Install the console. See Detected Tools in Settings. |
+| The ConfigMgr Console is required. It is not detected on this workstation. | App Packager page, at the start of a run, for a ConfigMgr publish only | The variable `SMS_ADMIN_UI_PATH` or the module file is missing. | Install the console. See Tools in Settings. |
 | SiteCode is required. Open Settings to configure. | App Packager page, at the start of a run | The site code is empty. | Do as the message says. |
 | File Share Root is required. Open Settings to configure. | App Packager page, at the start of a run | The share root is empty. | Do as the message says. |
 | Needs the ConfigMgr console on this computer. | Tooltip of `Check ConfigMgr` | The console was not found. | Install the console. |
@@ -101,8 +101,8 @@ See [App Packager page](../core/packages.md) and [Stage and publish](../core/sta
 | Message | Where it appears | Cause | Fix |
 |---|---|---|---|
 | Settings file could not be read: <path> (<reason>). Defaults are in use and nothing is written to that file until Settings is saved; that save first keeps the unreadable file as settings.json.unreadable-<timestamp>. | At start | `settings.json` is not valid or not readable. | Save the Settings page. The old file is kept. |
-| The Deployment Target 'x' in the settings file is not valid, so the app publishes to no destination. Valid names: ConfigMgr, ConfigMgrAndIntune, IntuneOnly, ConfigMgrAndWSUS, WSUSOnly, IntuneAndWSUS, ConfigMgrAndIntuneAndWSUS. Select destinations in Settings, One Click Settings. | At start | The stored value `Intune.DeploymentTarget` is not a valid name. | Select the default destinations in Settings, One Click Settings, and save. |
-| The Deployment Target in the settings file is empty. The app uses the default of that setting, ConfigMgr, until you select destinations in Settings, One Click Settings. | At start | The stored value is empty and no default destinations are saved. | Select the default destinations in Settings, One Click Settings, and save. |
+| The Deployment Target 'x' in the settings file is not valid, so the app publishes to no destination. Valid names: ConfigMgr, ConfigMgrAndIntune, IntuneOnly, ConfigMgrAndWSUS, WSUSOnly, IntuneAndWSUS, ConfigMgrAndIntuneAndWSUS. Select destinations in Settings, One Click. | At start | The stored value `Intune.DeploymentTarget` is not a valid name. | Select the default destinations in Settings, One Click, and save. |
+| The Deployment Target in the settings file is empty. The app uses the default of that setting, ConfigMgr, until you select destinations in Settings, One Click. | At start | The stored value is empty and no default destinations are saved. | Select the default destinations in Settings, One Click, and save. |
 | The staging folder changed from C:\temp\ap to <path>: other accounts can write under the old folder. Content staged earlier stays in the old folder; stage again before the next publish. | At start | The app moved the old default staging root. | Stage again. |
 | These settings carry run overrides for this process and are not written. | Command line | A save was tried in a run that has overrides. | None. This is by design. |
 | Staging folder '<f>' can be changed by other accounts (<list>). Use a folder that only your account and administrators can write, such as '<default>'. | Stage | The access list of the staging root is too wide. | Do as the message says. |
@@ -116,7 +116,7 @@ See [App Packager page](../core/packages.md) and [Stage and publish](../core/sta
 |---|---|---|
 | The ConfigurationManager PowerShell module was not found. Install the Configuration Manager console on this computer. | The module file is missing. | Do as the message says. |
 | The SMS Provider <p> denied access. The account needs a ConfigMgr security role for site <code>. | The provider denied access. A variant of the text exists for this computer. | Do as the message says. |
-| The CMSite drive for site <code> on <provider> could not connect. Check the site code and the SMS Provider in Settings, ConfigMgr Site Settings. | The drive did not connect. | Do as the message says. |
+| The CMSite drive for site <code> on <provider> could not connect. Check the site code and the SMS Provider in Settings, ConfigMgr. | The drive did not connect. | Do as the message says. |
 | The ConfigMgr command <name> did not finish within N seconds. The session was restarted. | The command time limit passed. The default limit is 5 minutes. | The code names no fix. |
 | The session did not connect to site <code> on <provider> within N seconds. | The connect limit passed. The default limit is 2 minutes. | The code names no fix. |
 
@@ -126,9 +126,9 @@ See [Discover unmanaged software](../core/discover-unmanaged-software.md).
 
 | Message | Cause | Fix |
 |---|---|---|
-| A site code or SQL overrides are required. Set the site code, or the SQL server and database, in Settings, ConfigMgr Site Settings. | No site code and no SQL override. | Do as the message says. |
-| The site code <x> is not three letters or digits. Correct it in Settings, ConfigMgr Site Settings. | The site code is not valid. | Do as the message says. |
-| The SQL Server for site <x> is not known (<reason>). Enter the SQL Server name in Settings, ConfigMgr Site Settings. | The provider did not return the site definition, or it has no definition for the code, or it has no SQL Server name. | Do as the message says. |
+| A site code or SQL overrides are required. Set the site code, or the SQL server and database, in Settings, ConfigMgr. | No site code and no SQL override. | Do as the message says. |
+| The site code <x> is not three letters or digits. Correct it in Settings, ConfigMgr. | The site code is not valid. | Do as the message says. |
+| The SQL Server for site <x> is not known (<reason>). Enter the SQL Server name in Settings, ConfigMgr. | The provider did not return the site definition, or it has no definition for the code, or it has no SQL Server name. | Do as the message says. |
 | The choice was saved, but the lists could not be refreshed. Select Catalog on the App Packager page to see them. | After **Enable selected**, **Enable all** or **Don't ask again for selected**, the grid or the Catalog could not reload. | Select **Catalog** on the App Packager page. |
 | Windows PowerShell could not start. Discover needs Windows PowerShell 5.1 (powershell.exe). | `powershell.exe` is missing. | Do as the message says. |
 | SQL Server on <s> denied the Windows login. The account needs the db_datareader role on <db>. | The SQL login was denied. | Do as the message says. |
@@ -145,7 +145,7 @@ See [WSUS publishing](../core/wsus-publishing.md).
 |---|---|---|
 | Connecting to WSUS <server>:<port> failed: <message>. <hint> | The connection failed. The hint says "The WSUS console on this computer must match the server version." or gives a TLS hint. | Follow the hint. |
 | The account must be a member of the WSUS Administrators group on the server. | The server answered "not a WSUS Administrator" or "Unauthorized". | Do as the message says. |
-| This computer must trust the WSUS signing certificate: import it into the Local Computer Trusted Publishers store, and into Trusted Root Certification Authorities when it is self-signed. Options, WSUS Publishing, Export certificate saves it. | The server answered "Verification of file signature failed". | Do as the message says. In the window, the button is `Export certificate...` in Settings, WSUS Publishing. |
+| This computer must trust the WSUS signing certificate: import it into the Local Computer Trusted Publishers store, and into Trusted Root Certification Authorities when it is self-signed. In Settings, WSUS, Export certificate... saves it. | The server answered "Verification of file signature failed". | Do as the message says. In the window, the button is `Export certificate...` in Settings, WSUS. |
 | The UpdateServicesPackages or WSUSContent share on the server is missing, not shared, or not writable. | The server answered "CreateDirectory failed". | Check the share. |
 | WSUS rejected the package: <server text> <hint> | The server refused the publish. Other hints cover signing, a SQL timeout, too many categories, the console version and the cab size. | Follow the hint. |
 | This application installs for the signed-in user. WSUS installs as SYSTEM, so a per-user installer would land in the wrong profile. | Refusal code PerUserInstall. | None. The app does not publish this application to WSUS. |

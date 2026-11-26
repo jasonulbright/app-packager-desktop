@@ -46,7 +46,7 @@ public sealed record PublishActionState
         var mecmReason =
             !systems.ConfigMgr ? "ConfigMgr is " + NotInUse
             : !readiness.ConsoleFound ? "Needs the ConfigMgr console on this computer."
-            : string.IsNullOrWhiteSpace(readiness.SiteCode) ? "Set the site code in Settings, ConfigMgr Site Settings."
+            : string.IsNullOrWhiteSpace(readiness.SiteCode) ? "Set the site code in Settings, ConfigMgr."
             : "";
 
         var intuneReady = systems.Intune && readiness.IntuneCredentialsSet;
@@ -56,7 +56,7 @@ public sealed record PublishActionState
 
         var wsusReady = systems.Wsus && readiness.WsusServerSet;
         var wsusReason = systems.Wsus
-            ? "Set the WSUS server in Settings, WSUS Publishing."
+            ? "Set the WSUS server in Settings, WSUS."
             : "WSUS is " + NotInUse;
 
         var mecmReady = mecmReason.Length == 0;
@@ -95,10 +95,10 @@ public sealed record PublishActionState
             case OneClickDestinations.Wsus:
                 return readiness.WsusServerSet
                     ? null
-                    : "Publish requires a WSUS server. Open Settings, WSUS Publishing, to configure it.";
+                    : "Publish requires a WSUS server. Open Settings, WSUS, to configure it.";
             default:
                 if (!readiness.ConsoleFound)
-                    return "Publish to ConfigMgr requires the ConfigMgr Console. Not detected on this workstation.";
+                    return "The ConfigMgr Console is required. It is not detected on this workstation.";
                 if (string.IsNullOrWhiteSpace(readiness.SiteCode))
                     return "SiteCode is required. Open Settings to configure.";
                 if (string.IsNullOrWhiteSpace(readiness.FileShareRoot))

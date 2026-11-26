@@ -160,7 +160,7 @@ public sealed class PublishSettingsContractTests : IDisposable
         Assert.Equal(("wsus01", 8531, true), (s.Wsus.ServerName, s.Wsus.PortNumber, s.Wsus.UseSsl));
         Assert.Equal(new DestinationSet(false, true, true), s.OneClick.DefaultDestinations);
         Assert.True(s.FirstRunCompleted);
-        Assert.Equal(["Setup complete. One Click publishes to Intune and WSUS; change it in Settings, One Click Settings."], host.Log);
+        Assert.Equal(["Setup complete. One Click publishes to Intune and WSUS; change it in Settings, One Click."], host.Log);
         Assert.Equal((1, 1), (host.Refreshes, host.Reloads));
     }
 
@@ -171,8 +171,8 @@ public sealed class PublishSettingsContractTests : IDisposable
         var setup = new SetupWindowViewModel(new SettingsService(), host, host) { UseConfigMgr = true, SiteCode = " PS1 " };
         setup.SaveCommand.Execute(null);
         Assert.Equal("PS1", (string?)Stored()["SiteCode"]);
-        Assert.Equal("Setup complete. One Click publishes to ConfigMgr; change it in Settings, One Click Settings.", host.Log[0]);
-        Assert.Equal("Setup complete. One Click publishes to no destination; change it in Settings, One Click Settings.",
+        Assert.Equal("Setup complete. One Click publishes to ConfigMgr; change it in Settings, One Click.", host.Log[0]);
+        Assert.Equal("Setup complete. One Click publishes to no destination; change it in Settings, One Click.",
             OneClickSettingsMap.SetupCompleteLine(new DestinationSet()));
     }
 

@@ -108,7 +108,7 @@
                            ToolTip="Close without a change. The next discovery offers these apps again." />
                 <ui:Button x:Name="btnDismiss" Content="_Don't ask again for selected" MinWidth="200"
                            Command="{Binding DismissSelectedCommand}" AutomationProperties.AutomationId="btnDismiss"
-                           ToolTip="Keep the checked apps hidden and leave them out of later discoveries. Clear the list in Settings, ConfigMgr Site Settings." />
+                           ToolTip="Keep the checked apps hidden and leave them out of later discoveries. Clear the list in Settings, ConfigMgr." />
             </WrapPanel>
         </Border>
     </Grid>

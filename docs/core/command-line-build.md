@@ -193,7 +193,7 @@ The run ends with the lines `Applications`, `Updates`, `LookedUp`, `FromCache`, 
 | `--estimated-minutes and --maximum-minutes do not apply to build <id>: ...` | Timing options with a package of a sealed build. | Stage with them, or leave them out. |
 | `No definition or packager script for application '<id>' under <paths>.` | The application id is unknown. | Check the id. |
 | `<application> stages from a local installer folder, and no folder exists for it: pass --local-source-folder <folder>, or set the folder in Settings.` | A definition needs a local installer. | Pass the folder. |
-| `No WSUS server: pass --wsus-server or set the server in Settings, WSUS Publishing.` | A WSUS target has no server. | Pass `--wsus-server`. |
+| `No WSUS server: pass --wsus-server or set the server in Settings, WSUS.` | A WSUS target has no server. | Pass `--wsus-server`. |
 | `Option '--webhook-url' takes an https URL.` | The webhook is not https. | Use https. |
 | `The monitor configuration is not valid JSON: <path>: <detail>` | `monitor-config.json` cannot be parsed. | Correct the file. |
 

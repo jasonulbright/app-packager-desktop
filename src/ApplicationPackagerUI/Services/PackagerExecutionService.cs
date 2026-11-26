@@ -967,7 +967,7 @@ public class PackagerExecutionService(
             ? new PackagerExecutionResult
             {
                 ExitCode = 1,
-                StdErr = $"Target {target} publishes to WSUS, which runs through Publish to WSUS; nothing was packaged."
+                StdErr = $"Target {target} publishes to WSUS, which runs as a separate WSUS step; nothing was packaged."
             }
             : null;
 

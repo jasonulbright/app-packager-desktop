@@ -580,7 +580,7 @@ public sealed class DiscoveryRunnerTests
         var outcome = await Runner(service, new InMemorySettings(Configured())).ScanAsync(CancellationToken.None);
         Assert.False(outcome.Ok);
         Assert.Contains("InvalidDataException: the inventory view returned a broken row", outcome.Message);
-        Assert.Contains("Settings, ConfigMgr Site Settings", outcome.Message);
+        Assert.Contains("Settings, ConfigMgr", outcome.Message);
     }
 
     [Fact]

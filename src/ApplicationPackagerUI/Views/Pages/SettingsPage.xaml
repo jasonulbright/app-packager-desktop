@@ -221,8 +221,8 @@
             <ScrollViewer x:Name="page_systems" Visibility="Collapsed" VerticalScrollBarVisibility="Auto">
                 <StackPanel Margin="0,0,0,8" MaxWidth="960" HorizontalAlignment="Left">
                                 <TextBlock Text="Systems in Use" Style="{StaticResource SectionHeader}"
-                                           ToolTip="The App Packager page has a publish button for each system. A system that is not in use keeps its buttons disabled." />
-                                <TextBlock Text="The App Packager page has a publish button for each system. A system that is not in use keeps its buttons disabled."
+                                           ToolTip="Publish All on the App Packager page publishes to each system in use. It does not publish to a system that is not in use." />
+                                <TextBlock Text="Publish All on the App Packager page publishes to each system in use. It does not publish to a system that is not in use."
                                            Foreground="{DynamicResource TextFillColorSecondaryBrush}" Margin="0,0,0,8" TextWrapping="Wrap" />
                                 <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
                                     <CheckBox Content="ConfigMgr" IsChecked="{Binding UseConfigMgr}" Margin="0,0,24,0"
@@ -364,7 +364,7 @@
                 <StackPanel Margin="0,0,0,8" MaxWidth="960" HorizontalAlignment="Left">
                                 <TextBlock Text="WSUS" Style="{StaticResource SectionHeader}" />
                                 <TextBlock Foreground="{DynamicResource TextFillColorSecondaryBrush}" Margin="0,0,0,8" TextWrapping="Wrap"
-                                           Text="Publish to WSUS publishes the installer of each checked app as a locally published update. The WSUS Updates entry of the sidebar lists and manages the published updates. This computer needs the WSUS console or RSAT WSUS tools at the server's version, an account in the WSUS Administrators group, and file-share access to the server. When this computer is not the WSUS server, it must also trust the signing certificate." />
+                                           Text="A publish to WSUS sends the installer of each checked app to the server as a locally published update. The WSUS Updates entry of the sidebar lists and manages the published updates. This computer needs the WSUS console or RSAT WSUS tools at the server's version, an account in the WSUS Administrators group, and file-share access to the server. When this computer is not the WSUS server, it must also trust the signing certificate." />
 
                                 <TextBlock Text="Server" Style="{StaticResource SubHeader}" />
                                 <TextBlock Text="WSUS server" Style="{StaticResource FieldLabel}" />
@@ -464,7 +464,7 @@
                                                 ToolTip="Enter the client secret of the app registration. Save Settings stores it encrypted for the current Windows user. Leave it empty to keep the saved secret." />
                                 <TextBlock Text="Stored encrypted for the current Windows user. Leave empty to keep the saved secret."
                                            Foreground="{DynamicResource TextFillColorTertiaryBrush}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,8" />
-                                <TextBlock Text="Only Publish to Intune builds the .intunewin; the first build downloads the Win32 Content Prep Tool when it is missing."
+                                <TextBlock Text="Only a publish to Intune builds the .intunewin; the first build downloads the Win32 Content Prep Tool when it is missing."
                                            Foreground="{DynamicResource TextFillColorTertiaryBrush}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,8" />
                 </StackPanel>
             </ScrollViewer>
@@ -1086,7 +1086,7 @@
             <ScrollViewer x:Name="page_oneclick" Visibility="Collapsed" VerticalScrollBarVisibility="Auto">
                 <StackPanel Margin="0,0,0,8" MaxWidth="960" HorizontalAlignment="Left">
                                 <TextBlock Text="One Click" Style="{StaticResource SectionHeader}" />
-                                <TextBlock Text="One Click opens a plan of the apps you track here, then runs Check (and optionally Stage / Publish) without further prompts. Each row publishes to its own destinations; a row with no box checked is skipped. Rows that keep the default follow it when the default changes. The publish buttons on the App Packager page choose their own destination per run."
+                                <TextBlock Text="One Click opens a plan of the apps you track here, then runs Check (and optionally Stage / Publish) without further prompts. Each row publishes to its own destinations; a row with no box checked is skipped. Rows that keep the default follow it when the default changes. Publish All on the App Packager page does not use these destinations. It publishes to the systems in Settings, Systems in Use."
                                            Foreground="{DynamicResource TextFillColorSecondaryBrush}" Margin="0,0,0,8" TextWrapping="Wrap" />
 
                                 <Grid Margin="0,0,0,8">
@@ -1351,7 +1351,7 @@
                                     <StackPanel>
                                         <TextBlock Foreground="{DynamicResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" Margin="0,0,0,4"
                                                    AutomationProperties.AutomationId="txtAboutDescription"
-                                                   Text="Automated application packaging for ConfigMgr, Intune and WSUS: vendor version checks, silent install wrappers, detection rules, and a publish button per destination." />
+                                                   Text="Automated application packaging for ConfigMgr, Intune and WSUS: vendor version checks, silent install wrappers, detection rules, and one Publish All run for the systems in use." />
                                         <TextBlock Foreground="{DynamicResource TextFillColorSecondaryBrush}" VerticalAlignment="Center" TextWrapping="Wrap">
                                             <Run Text="App Packager Desktop " /><Run Text="{Binding AppVersion, Mode=OneWay}" /><Run Text=" - MIT License. Settings are stored under %LOCALAPPDATA%\AppPackager." />
                                         </TextBlock>

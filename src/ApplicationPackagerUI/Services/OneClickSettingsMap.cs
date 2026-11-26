@@ -55,5 +55,5 @@ public static class OneClickSettingsMap
 
     /// <summary>The log line after Setup saves: every default destination, or none.</summary>
     public static string SetupCompleteLine(DestinationSet defaults) =>
-        $"Setup complete. One Click publishes to {defaults.Describe()}; change it in Settings, One Click Settings.";
+        $"Setup complete. One Click publishes to {defaults.Describe()}; change it in Settings, One Click.";
 }
