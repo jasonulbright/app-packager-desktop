@@ -11,7 +11,8 @@
 #>
 param(
     [string]$OutDir = (Join-Path $PSScriptRoot 'out'),
-    [string[]]$Themes = @('Light', 'Dark')
+    [string[]]$Themes = @('Light', 'Dark'),
+    [string]$AppFolder = $PSScriptRoot
 )
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'ApdUiDriver.ps1')
@@ -21,11 +22,19 @@ function Check([bool]$Condition, [string]$Text) {
     if ($Condition) { "OK   $Text" } else { $script:failures++; "FAIL $Text" }
 }
 
-function Find-GridRow($Grid, [string]$Name) {
+# Scrolls the grid to a percent (-1 leaves an axis where it is). SetScrollPercent throws for an axis that the grid cannot scroll, so such an axis is left out.
+function Set-GridScroll($Grid, [double]$Horizontal = -1, [double]$Vertical = -1) {
     $scroll = $Grid.GetCurrentPattern([System.Windows.Automation.ScrollPattern]::Pattern)
+    $none = [System.Windows.Automation.ScrollPattern]::NoScroll
+    $h = if ($Horizontal -ge 0 -and $scroll.Current.HorizontallyScrollable) { $Horizontal } else { $none }
+    $v = if ($Vertical -ge 0 -and $scroll.Current.VerticallyScrollable) { $Vertical } else { $none }
+    if ($h -ne $none -or $v -ne $none) { $scroll.SetScrollPercent($h, $v) }
+}
+
+function Find-GridRow($Grid, [string]$Name) {
     $items = New-Object System.Windows.Automation.PropertyCondition ([System.Windows.Automation.AutomationElement]::ControlTypeProperty), ([System.Windows.Automation.ControlType]::DataItem)
     foreach ($percent in @(0..50 | ForEach-Object { $_ * 2 })) {
-        $scroll.SetScrollPercent([System.Windows.Automation.ScrollPattern]::NoScroll, $percent)
+        Set-GridScroll $Grid -Vertical $percent
         Start-Sleep -Milliseconds 400
         foreach ($item in $Grid.FindAll([System.Windows.Automation.TreeScope]::Children, $items)) {
             if ($item.Current.Name -like "$Name*") { return $item }
@@ -40,7 +49,7 @@ function Show-Column($Window, [string]$Header) {
     $item = Find-El $null $null $Header 'MenuItem' -Timeout 5
     Check ($null -ne $item) "the column chooser lists $Header"
     if ($item) { Click-El $item; Start-Sleep -Milliseconds 700 }
-    [System.Windows.Forms.SendKeys]::SendWait('{ESC}'); Start-Sleep -Milliseconds 700
+    Send-ApdKeys '{ESC}'; Start-Sleep -Milliseconds 700
 }
 
 # Types a text into the cell of a row with real keys: click the cell, select its text, type, and leave the cell with Tab so that the value commits.
@@ -49,18 +58,18 @@ function Type-Cell($Grid, [string]$Row, [string]$CellName, [string]$Text) {
     if (-not $item) { throw "The grid has no row for '$Row'." }
     try { $item.GetCurrentPattern([System.Windows.Automation.ScrollItemPattern]::Pattern).ScrollIntoView(); Start-Sleep -Milliseconds 700 } catch { $null = $_ }
     # The requirement columns are the last ones: scroll the grid to its right edge so that the cells are on screen, then find the row again.
-    $Grid.GetCurrentPattern([System.Windows.Automation.ScrollPattern]::Pattern).SetScrollPercent(100, [System.Windows.Automation.ScrollPattern]::NoScroll); Start-Sleep -Milliseconds 800
+    Set-GridScroll $Grid -Horizontal 100; Start-Sleep -Milliseconds 800
     $item = Find-GridRow $Grid $Row
-    $Grid.GetCurrentPattern([System.Windows.Automation.ScrollPattern]::Pattern).SetScrollPercent(100, [System.Windows.Automation.ScrollPattern]::NoScroll); Start-Sleep -Milliseconds 800
+    Set-GridScroll $Grid -Horizontal 100; Start-Sleep -Milliseconds 800
     $cell = $item.FindFirst([System.Windows.Automation.TreeScope]::Descendants, (New-Object System.Windows.Automation.PropertyCondition ([System.Windows.Automation.AutomationElement]::NameProperty), $CellName))
     if (-not $cell) { throw "The row of '$Row' has no cell '$CellName'." }
     try { $cell.GetCurrentPattern([System.Windows.Automation.ScrollItemPattern]::Pattern).ScrollIntoView(); Start-Sleep -Milliseconds 500 } catch { $null = $_ }
     Click-El $cell; Start-Sleep -Milliseconds 400
-    [System.Windows.Forms.SendKeys]::SendWait('^a'); Start-Sleep -Milliseconds 200
-    if ($Text.Length -eq 0) { [System.Windows.Forms.SendKeys]::SendWait('{BACKSPACE}') } else { [System.Windows.Forms.SendKeys]::SendWait($Text) }
+    Send-ApdKeys '^a'; Start-Sleep -Milliseconds 200
+    if ($Text.Length -eq 0) { Send-ApdKeys '{BACKSPACE}' } else { Send-ApdKeys $Text }
     Start-Sleep -Milliseconds 300
-    [System.Windows.Forms.SendKeys]::SendWait('{TAB}'); Start-Sleep -Milliseconds 800
-    $Grid.GetCurrentPattern([System.Windows.Automation.ScrollPattern]::Pattern).SetScrollPercent(100, [System.Windows.Automation.ScrollPattern]::NoScroll); Start-Sleep -Milliseconds 600
+    Send-ApdKeys '{TAB}'; Start-Sleep -Milliseconds 800
+    Set-GridScroll $Grid -Horizontal 100; Start-Sleep -Milliseconds 600
     $again = (Find-GridRow $Grid $Row).FindFirst([System.Windows.Automation.TreeScope]::Descendants, (New-Object System.Windows.Automation.PropertyCondition ([System.Windows.Automation.AutomationElement]::NameProperty), $CellName))
     try { $again.GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern).Current.Value } catch { '' }
 }
@@ -77,7 +86,7 @@ function Get-RequirementOperations([string]$Data) {
 foreach ($theme in $Themes) {
     $data = Join-Path $OutDir "data-$theme"
     Remove-Item $data -Recurse -Force -ErrorAction SilentlyContinue
-    $null = Start-Apd (Join-Path $PSScriptRoot 'ApplicationPackagerUI.exe') $data $theme @{}
+    $null = Start-Apd (Join-Path $AppFolder 'ApplicationPackagerUI.exe') $data $theme @{}
     try {
         $w = @(Get-ApdWindows)[0]
         if (-not (Click-Nav 'Settings')) { throw 'The sidebar has no Settings entry.' }
@@ -87,9 +96,6 @@ foreach ($theme in $Themes) {
         if (-not $grid) { Save-Shot (Join-Path $OutDir 'debug.png'); Get-ElList $w 60; throw 'Settings, Application Settings has no grid of applications.' }
 
         foreach ($header in 'Free disk space (MB)', 'Memory (MB)', 'OS build (minimum)') { Show-Column $w $header }
-        # The grid scrolls to the right edge so that the three columns are in view.
-        $gs = $grid.GetCurrentPattern([System.Windows.Automation.ScrollPattern]::Pattern)
-
         $disk = 'Free disk space (MB) of the application'
         $memory = 'Memory (MB) of the application'
         $build = 'OS build (minimum) of the application'
@@ -110,6 +116,12 @@ foreach ($theme in $Themes) {
         $text = Type-Cell $grid '7-Zip' $build '19045'
         Check ($text -eq '19045') "$theme the cell OS build (minimum) takes 19045 (shows '$text')"
 
+        # The image must show the three columns readable. A grid that squeezes its columns instead of scrolling sideways fails here.
+        foreach ($header in 'Free disk space (MB)', 'Memory (MB)', 'OS build (minimum)') {
+            $head = Find-El $grid -Name $header -ControlType 'HeaderItem' -Timeout 3
+            $width = if ($head -and -not $head.Current.BoundingRectangle.IsEmpty) { [int]$head.Current.BoundingRectangle.Width } else { 0 }
+            Check ($width -ge 80) "$theme the column $header is wide enough to read (header width $width px)"
+        }
         Move-MouseAway
         Save-Shot (Join-Path $OutDir (Join-Path $theme.ToLower() 'settings-requirements.png')) -MaskFooter
         Click-El (Find-El $w $null 'Save Settings' 'Button' -Timeout 5); Start-Sleep -Seconds 3

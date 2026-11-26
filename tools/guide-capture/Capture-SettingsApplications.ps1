@@ -11,7 +11,8 @@
 #>
 param(
     [string]$OutDir = (Join-Path $PSScriptRoot 'out'),
-    [string[]]$Themes = @('Light', 'Dark')
+    [string[]]$Themes = @('Light', 'Dark'),
+    [string]$AppFolder = $PSScriptRoot
 )
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'ApdUiDriver.ps1')
@@ -58,9 +59,9 @@ function Choose-Item($Combo, [string]$Text) {
         $places = @(foreach ($w2 in (Get-ApdWindows)) { foreach ($li in $w2.FindAll([System.Windows.Automation.TreeScope]::Descendants, $listItems)) { $b2 = $li.Current.BoundingRectangle; if ([Math]::Abs($b2.X - $left) -lt 2 -and $b2.Width -gt 0) { [pscustomobject]@{ Name = $li.Current.Name; Y = $b2.Y } } } }) | Sort-Object Y -Unique
         $index = [Array]::IndexOf(@($places | ForEach-Object { $_.Name }), $Text)
         if ($index -lt 0) { throw "The list has no place for the entry '$Text'." }
-        [System.Windows.Forms.SendKeys]::SendWait('{HOME}')
-        if ($index -gt 0) { [System.Windows.Forms.SendKeys]::SendWait('{DOWN ' + $index + '}') }
-        [System.Windows.Forms.SendKeys]::SendWait('{ENTER}')
+        Send-ApdKeys '{HOME}'
+        if ($index -gt 0) { Send-ApdKeys ('{DOWN ' + $index + '}') }
+        Send-ApdKeys '{ENTER}'
     }
     else { Click-El $entry }
     Start-Sleep -Milliseconds 700
@@ -72,8 +73,15 @@ function Check-Row($Grid, [string]$Name) {
     try { $row.GetCurrentPattern([System.Windows.Automation.ScrollItemPattern]::Pattern).ScrollIntoView(); Start-Sleep -Milliseconds 700 } catch { $null = $_ }
     $cell = $row.FindFirst([System.Windows.Automation.TreeScope]::Children, (New-Object System.Windows.Automation.PropertyCondition ([System.Windows.Automation.AutomationElement]::NameProperty), ('Item: ' + $row.Current.Name + ', Column Display Index: 0')))
     if (-not $cell) { throw "The row of '$Name' has no check box cell." }
-    Click-El $cell
-    Start-Sleep -Milliseconds 700
+    # A click on a row that shows only in part selects it and scrolls the grid, so the box can stay empty. The box is read, and one more click follows.
+    $box = $cell.FindFirst([System.Windows.Automation.TreeScope]::Descendants, (New-Object System.Windows.Automation.PropertyCondition ([System.Windows.Automation.AutomationElement]::ControlTypeProperty), ([System.Windows.Automation.ControlType]::CheckBox)))
+    if (-not $box) { throw "The row of '$Name' has no check box." }
+    foreach ($attempt in 1, 2) {
+        if ($box.GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern).Current.ToggleState -eq 'On') { break }
+        Click-El $box
+        Start-Sleep -Milliseconds 700
+    }
+    if ($box.GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern).Current.ToggleState -ne 'On') { throw "Two clicks did not check the box of '$Name'." }
     $r = $row.Current.BoundingRectangle
     "     clicked the check box of '$Name' at {0},{1}; the page says: {2}" -f [int]$r.X, [int]$r.Y, (Find-El $null 'txtCheckedCount' -Timeout 2).Current.Name
     $row
@@ -82,7 +90,7 @@ function Check-Row($Grid, [string]$Name) {
 foreach ($theme in $Themes) {
     $data = Join-Path $OutDir "data-$theme"
     Remove-Item $data -Recurse -Force -ErrorAction SilentlyContinue
-    $null = Start-Apd (Join-Path $PSScriptRoot 'ApplicationPackagerUI.exe') $data $theme @{}
+    $null = Start-Apd (Join-Path $AppFolder 'ApplicationPackagerUI.exe') $data $theme @{}
     try {
         $w = @(Get-ApdWindows)[0]
         if (-not (Click-Nav 'Settings')) { throw 'The sidebar has no Settings entry.' }
@@ -106,7 +114,7 @@ foreach ($theme in $Themes) {
         $item = Find-El $null $null 'Installer type' 'MenuItem' -Timeout 5
         Check ($null -ne $item) "$theme the column chooser lists Installer type"
         if ($item) { Click-El $item; Start-Sleep -Milliseconds 700 }
-        [System.Windows.Forms.SendKeys]::SendWait('{ESC}'); Start-Sleep -Milliseconds 700
+        Send-ApdKeys '{ESC}'; Start-Sleep -Milliseconds 700
         $row = Find-GridRow $grid '7-Zip'
         $cell = $row.FindFirst([System.Windows.Automation.TreeScope]::Descendants, (New-Object System.Windows.Automation.PropertyCondition ([System.Windows.Automation.AutomationElement]::NameProperty), 'Installer type of the application'))
         if (-not $cell) { throw 'The row of 7-Zip has no installer type cell.' }
@@ -128,7 +136,7 @@ foreach ($theme in $Themes) {
         $item = Find-El $null $null 'In One Click' 'MenuItem' -Timeout 5
         Check ($null -ne $item) "$theme the column chooser lists In One Click"
         if ($item) { Click-El $item; Start-Sleep -Milliseconds 700 }
-        [System.Windows.Forms.SendKeys]::SendWait('{ESC}'); Start-Sleep -Milliseconds 700
+        Send-ApdKeys '{ESC}'; Start-Sleep -Milliseconds 700
         Check ($null -ne (Find-El $w $null 'One Click inclusion of the application' 'ComboBox' -Timeout 5)) "$theme the grid shows the One Click column after it is chosen"
 
         # A Workbench profile field: show the reboot column with the chooser, set it for 7-Zip in its row.
@@ -136,7 +144,7 @@ foreach ($theme in $Themes) {
         $item = Find-El $null $null 'Reboot after install' 'MenuItem' -Timeout 5
         Check ($null -ne $item) "$theme the column chooser lists Reboot after install"
         if ($item) { Click-El $item; Start-Sleep -Milliseconds 700 }
-        [System.Windows.Forms.SendKeys]::SendWait('{ESC}'); Start-Sleep -Milliseconds 700
+        Send-ApdKeys '{ESC}'; Start-Sleep -Milliseconds 700
         $row7 = Find-GridRow $grid '7-Zip'
         try { $row7.GetCurrentPattern([System.Windows.Automation.ScrollItemPattern]::Pattern).ScrollIntoView(); Start-Sleep -Milliseconds 700 } catch { $null = $_ }
         $gs = $grid.GetCurrentPattern([System.Windows.Automation.ScrollPattern]::Pattern)
@@ -154,7 +162,7 @@ foreach ($theme in $Themes) {
             $mi = Find-El $null $null $name 'MenuItem' -Timeout 5
             Check ($null -ne $mi) "$theme the column chooser lists $name"
             if ($mi) { Click-El $mi; Start-Sleep -Milliseconds 600 }
-            [System.Windows.Forms.SendKeys]::SendWait('{ESC}'); Start-Sleep -Milliseconds 600
+            Send-ApdKeys '{ESC}'; Start-Sleep -Milliseconds 600
         }
         $gs0 = $grid.GetCurrentPattern([System.Windows.Automation.ScrollPattern]::Pattern)
         $gs0.SetScrollPercent(100, [System.Windows.Automation.ScrollPattern]::NoScroll); Start-Sleep -Milliseconds 900
@@ -165,13 +173,13 @@ foreach ($theme in $Themes) {
         # Filtered scope: type in the search box (real keys), set the Network column for the filtered applications only.
         $box = Find-El $w 'txtApplicationFilter' -Timeout 5
         Click-El $box; Start-Sleep -Milliseconds 500
-        [System.Windows.Forms.SendKeys]::SendWait('Bitwarden'); Start-Sleep -Seconds 1
+        Send-ApdKeys 'Bitwarden'; Start-Sleep -Seconds 1
         Choose-Item (Find-El $w 'cboBulkColumn' -Timeout 5) 'Network'
         Choose-Item (Find-El $w 'cboBulkValue' -Timeout 5) 'VPN only'
         Choose-Item (Find-El $w 'cboBulkScope' -Timeout 5) 'Filtered applications'
         Click-El (Find-El $w 'btnBulkApply' -Timeout 5); Start-Sleep -Milliseconds 800
         # The filter stays for the image: the changed row and nothing else; clear it afterwards so the rows around it show.
-        Click-El $box; [System.Windows.Forms.SendKeys]::SendWait('^a{BACKSPACE}'); Start-Sleep -Seconds 1
+        Click-El $box; Send-ApdKeys '^a{BACKSPACE}'; Start-Sleep -Seconds 1
 
         # Scroll to the rows around Bitwarden for the image: the changed row and its neighbours.
         $near = Find-GridRow $grid 'BleachBit'

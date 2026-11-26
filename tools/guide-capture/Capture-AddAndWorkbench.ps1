@@ -105,13 +105,20 @@ foreach ($theme in $Themes) {
         # ---- Workbench: the sections of a catalog application over the App Packager page
         Step 'workbench' {
             $null = Click-Nav 'App Packager'; Start-Sleep 4
-            # The Workbench opens on the highlighted row of the grid: highlight the 7-Zip row.
-            $w = Main-Window
+            # The Workbench opens on the highlighted row of the grid, else on the first application: highlight the 7-Zip row.
             Set-ElText (Need-El 'txtAppPackagerSearch') '7-Zip'; Start-Sleep 2
-            Click-El (Find-El $w -Name '7-Zip (x64)' -Timeout 8); Start-Sleep 1
+            $null = Pick-Row 'PackagerGrid' '7-Zip'
             Set-ElText (Need-El 'txtAppPackagerSearch') ''; Start-Sleep 2
             $null = Click-Nav 'Workbench'; Start-Sleep 5
-            "workbench application: $((Need-El 'cboApplication').Current.Name) / $((Need-El 'PART_EditableTextBox').GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern).Current.Value)"
+            $box = Find-El (Need-El 'cboApplication') 'PART_EditableTextBox' -Timeout 10
+            if (-not $box) { throw 'the Workbench shows no application box' }
+            $shown = [string]$box.GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern).Current.Value
+            "workbench application: $shown"
+            # Every Workbench image shows this application, so a wrong one stops the step before the first image.
+            if ($shown -cne '7-Zip - 7-Zip') {
+                $null = Close-ApdWindow 'Workbench'
+                throw "the Workbench opened on '$shown', not on '7-Zip - 7-Zip'"
+            }
             Shot 'core-workbench-application'
             foreach ($pair in @(@('Install & uninstall', 'core-workbench-install'), @('Detection', 'core-workbench-detection'), @('Requirements & variants', 'core-workbench-requirements'),
                                 @('Timing & execution', 'core-workbench-timing'), @('Source files', 'core-workbench-source-files'))) {
@@ -128,9 +135,9 @@ foreach ($theme in $Themes) {
             Step 'core-workbench-bundle-menu' {
                 Click-El (Need-El 'btnBundle'); Start-Sleep 1
                 Shot 'core-workbench-bundle-menu'
-                [System.Windows.Forms.SendKeys]::SendWait('{ESC}'); Start-Sleep 1
+                Send-ApdKeys '{ESC}'; Start-Sleep 1
             }
-            Close-Front
+            if (-not (Close-ApdWindow 'Workbench')) { 'The Workbench window did not close.' }
         }
     }
     finally { Stop-Apd }

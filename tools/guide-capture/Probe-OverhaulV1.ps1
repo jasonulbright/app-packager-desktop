@@ -93,7 +93,7 @@ foreach ($theme in $Themes) {
                 Start-Sleep -Seconds 3
                 Move-MouseAway
                 Shot $theme ('page-' + (($page -replace '[^A-Za-z0-9]+', '-').ToLower()))
-                if ($page -eq 'Workbench') { [System.Windows.Forms.SendKeys]::SendWait('%{F4}'); Start-Sleep -Seconds 2 }
+                if ($page -eq 'Workbench') { if (-not (Close-ApdWindow 'Workbench')) { "FAIL $theme Workbench: the window did not close" } }
             }
             $null = Click-Nav 'App Packager'
             Start-Sleep 2

@@ -13,7 +13,7 @@ param(
     [string[]]$Themes = @('Light', 'Dark'),
     [string]$AppFolder = $PSScriptRoot,
     [string]$Application = '7-Zip',
-    [string]$FileShareRoot = '\cm01.contoso.com\ContentShare$'
+    [string]$FileShareRoot = '\\cm01.contoso.com\ContentShare$'
 )
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'ApdUiDriver.ps1')
@@ -36,18 +36,18 @@ foreach ($theme in $Themes) {
             Set-ElText (Find-El $w 'txtAppPackagerSearch') $Application
             Start-Sleep 2
             $grid = Find-El $w 'PackagerGrid'
-            $box = $grid.FindAll([System.Windows.Automation.TreeScope]::Descendants,
-                (New-Object System.Windows.Automation.PropertyCondition ([System.Windows.Automation.AutomationElement]::ControlTypeProperty), ([System.Windows.Automation.ControlType]::CheckBox))) |
-                Where-Object { $_.Current.AutomationId -ne 'SelectAllCheckBox' } | Select-Object -First 1
+            $box = Get-ApdRowBoxes $grid | Select-Object -First 1
             if ($box -and $box.GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern).Current.ToggleState -ne 'On') { Click-El $box; Start-Sleep 1 }
             $cell = Find-El $w -Name $Application -ControlType 'Custom' -Timeout 10
+            if (-not $cell) { $cell = Find-El $w -Name "$Application (x64)" -Timeout 5 }
+            if (-not $cell) { throw "The grid has no row named '$Application'." }
             Click-El $cell -Right; Start-Sleep 2
             $item = Find-El $null -Name 'Open Network Share' -Timeout 5
             if (-not $item) { throw 'The context menu did not open.' }
             [System.Windows.Forms.Cursor]::Position = New-Object System.Drawing.Point ([int]$item.Current.BoundingRectangle.X + 20), ([int]$item.Current.BoundingRectangle.Y + 5)
             Start-Sleep 1
             Shot $theme 'core-packages-context-menu'
-            [System.Windows.Forms.SendKeys]::SendWait('{ESC}{ESC}')
+            Send-ApdKeys '{ESC}{ESC}'
             Start-Sleep 1
         }
     }

@@ -134,10 +134,9 @@ foreach ($theme in $Themes) {
                 $w = Main-Window
                 $w.SetFocus()
                 Tab 'tabHygieneFindings'
-                Real-Click (Need-El 'btnHygieneScan')
-                $deadline = (Get-Date).AddMinutes(8)
-                do { Start-Sleep 5; $text = (Need-El 'txtHygieneSummary').Current.Name } while ((Get-Date) -lt $deadline -and $text -notmatch 'finding')
-                "scan: $text"
+                $result = Invoke-ApdHygieneScan { Real-Click (Need-El 'btnHygieneScan') }
+                "scan: $($result.Status) $($result.Summary)"
+                if (-not $result.Ended) { throw 'the scan did not end' }
                 Tab 'tabHygieneFindings'
             }
             $key = "ZZAPD Hygiene $theme"

@@ -45,7 +45,7 @@ foreach ($theme in $Themes) {
     try {
         Step 'core-byo-replacement' {
             # The drop dialog: confirm the predicted values, save as an application, open it in the Workbench.
-            $confirm = Wait-El 'ConfirmCheckBox' 6
+            $confirm = Wait-El 'DropReviewConfirm' 20
             if ($confirm) { Set-Check $confirm $true }
             Start-Sleep 2
             Invoke-El (Need-Name 'Save as Application' 'Button' 30)
@@ -58,7 +58,7 @@ foreach ($theme in $Themes) {
             Send-DialogPath $other
             Start-Sleep 6
             Shot 'core-byo-replacement'
-            [System.Windows.Forms.SendKeys]::SendWait('{ESC}'); Start-Sleep 2
+            Send-ApdKeys '{ESC}'; Start-Sleep 2
         }
     }
     finally { Stop-Apd }

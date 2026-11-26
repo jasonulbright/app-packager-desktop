@@ -8,11 +8,13 @@
     Make the throw-away objects first: tools\lab-tests\site-hygiene-retired\New-Fixture.ps1 on CM01 (prefix SHT2). Run under the capture lock from
     the folder of the published app with ApdUiDriver.ps1:
         Run-VisibleProbe.ps1 -Worktree <published folder with both scripts> -ProbeArgs "& .\Probe-SiteHygieneRetired.ps1"
-    The run changes only the objects whose name starts with the prefix. Remove them afterwards with Remove-Fixture.ps1.
+    The run changes only the objects whose name starts with the prefix: before each fix, the detail panel must show one selected finding whose object
+    name starts with "<prefix>-", else the fix is refused. Remove the objects afterwards with Remove-Fixture.ps1. The run deletes no folder: each run
+    has a new data folder under -Run.
     The last line is "PROBE-FAILS=<n>": the number of expectations that did not hold.
 #>
 param(
-    [string]$Prefix = 'SHT2',
+    [ValidateNotNullOrEmpty()][ValidatePattern('^[A-Za-z0-9][A-Za-z0-9_-]*$')][string]$Prefix = 'SHT2',
     [string]$Theme = 'Light',
     [string]$Run = 'C:\guide\runs\q136-window'
 )
@@ -20,8 +22,8 @@ $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'ApdUiDriver.ps1')
 
 $exe = Join-Path $PSScriptRoot 'ApplicationPackagerUI.exe'
-$data = Join-Path $Run 'data'
-Remove-Item $Run -Recurse -Force -ErrorAction SilentlyContinue
+# A data folder of this run only, so nothing has to be deleted first (-Run can name a folder that holds other things).
+$data = Join-Path $Run ('data-' + (Get-Date -Format 'yyyyMMdd-HHmmss') + '-' + [guid]::NewGuid().ToString('N').Substring(0, 6))
 New-Item -ItemType Directory -Force $Run | Out-Null
 Start-Transcript -Path (Join-Path $Run 'run.log') -Force | Out-Null
 $script:Fails = 0
@@ -46,14 +48,22 @@ function Show-Filter([string]$Text) {
     Start-Sleep -Seconds 3
 }
 function Scan {
-    Invoke-El (Find-El $null 'btnHygieneScan' -Timeout 20)
-    $deadline = (Get-Date).AddMinutes(8)
-    do {
-        Start-Sleep -Seconds 5
-        $summary = Find-El $null 'txtHygieneSummary' -Timeout 1
-        $text = if ($summary) { $summary.Current.Name } else { '' }
-    } while ((Get-Date) -lt $deadline -and $text -notmatch 'finding')
-    "scan: $text"
+    $result = Invoke-ApdHygieneScan { Invoke-El (Find-El $null 'btnHygieneScan' -Timeout 20) }
+    "scan: $($result.Status) $($result.Summary)"
+    # The findings that follow must be those of this scan: a scan that did not end stops the probe.
+    if (-not $result.Ended) { throw 'The scan did not end.' }
+}
+
+# True when exactly one finding is selected and the object name that the detail panel shows for it starts with "<prefix>-". The name of a relation
+# finding is "'from' -> 'to'": its first name is the application that the fix changes.
+function Test-OwnFinding {
+    $grid = Find-El $null 'dgFindings' -Timeout 5
+    if (-not $grid) { return $false }
+    $selected = @($grid.GetCurrentPattern([System.Windows.Automation.SelectionPattern]::Pattern).Current.GetSelection())
+    $detail = Find-El $null 'txtFindingDetailObject' -Timeout 5
+    $text = if ($detail) { $detail.Current.Name } else { '' }
+    Write-Host "selected rows: $($selected.Count); $text"
+    $selected.Count -eq 1 -and $text -cmatch ("^Object: [A-Za-z]+ '?" + [regex]::Escape($Prefix) + '-')
 }
 
 # Runs the plan window of the selected finding and returns the result text; $null when the finding is not in the grid.
@@ -63,6 +73,7 @@ function Run-Plan([string]$Like, [string]$Id) {
     if (-not $cell) { "NO ROW  $Id ($Like)"; return }
     Click-El $cell
     Start-Sleep -Seconds 1
+    if (-not (Test-OwnFinding)) { $script:Fails++; "REFUSED $Id : the selected finding is not one of an object that starts with $Prefix-"; return }
     Click-El (Find-El $null 'btnHygieneRunFix' -Timeout 10)
     $confirm = Find-El $null 'btnChangePlanConfirm' -Timeout 150
     if (-not $confirm) {
@@ -70,6 +81,7 @@ function Run-Plan([string]$Like, [string]$Id) {
         "RETRY   $Id : the plan window did not open yet"
         $again = Find-Cell $Like 15
         if ($again) { Click-El $again; Start-Sleep -Seconds 2 }
+        if (-not (Test-OwnFinding)) { $script:Fails++; "REFUSED $Id : the selected finding is not one of an object that starts with $Prefix-"; return }
         Invoke-El (Find-El $null 'btnHygieneRunFix' -Timeout 10)
         $confirm = Find-El $null 'btnChangePlanConfirm' -Timeout 240
     }

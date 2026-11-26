@@ -113,7 +113,7 @@ foreach ($theme in $Themes) {
             Open-SiteMenu
             $imp = Need-Name 'Import settings from another site...' 'MenuItem' 8
             Check 'e2e-02 with one site the Import entry is disabled' (-not $imp.Current.IsEnabled) 'the entry is enabled'
-            [System.Windows.Forms.SendKeys]::SendWait('{ESC}'); Start-Sleep 1
+            Send-ApdKeys '{ESC}'; Start-Sleep 1
         }
 
         # ---- Add site AB1 (new, empty)

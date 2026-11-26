@@ -106,7 +106,7 @@ foreach ($theme in $Themes) {
             Start-Sleep 1
             Real-Click (Find-El $null 'miColumnKEV' -Timeout 3)
             Start-Sleep 1
-            [System.Windows.Forms.SendKeys]::SendWait('{ESC}')
+            Send-ApdKeys '{ESC}'
             Start-Sleep 1
             "headers after hiding KEV: $(Header-Names $w)"
             Move-MouseAway

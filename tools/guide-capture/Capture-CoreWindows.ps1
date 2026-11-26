@@ -8,12 +8,13 @@
         Run-VisibleProbe.ps1 -Worktree <published folder with these scripts> -ProbeArgs "& .\Capture-CoreWindows.ps1 -Run C:\guide\apd-pending\core"
     The images are <Run>\images\<theme>\<id>.png. Nothing is written to the site: the checks read, Convert only previews, Discover only reads the site database.
     A step that fails says FAIL for its image and the run goes on. The lab needs internet access for Check Latest and for the CVE lookup.
+    The run leaves the browser of the CVE report open, and input to the app is refused while the browser is in front: run one theme at a time (-Themes).
 #>
 param(
     [Parameter(Mandatory)][string]$Run,
     [string[]]$Themes = @('Light', 'Dark'),
     [string]$AppFolder = $PSScriptRoot,
-    [string[]]$Checked = @('Mozilla Firefox (x64)', 'Audacity'),
+    [string[]]$Checked = @('Mozilla Firefox', 'Audacity'),
     [string]$FileShareRoot = '\\cm01.contoso.com\ContentShare$',
     [string]$ConvertApplication = 'Audacity 3.7.9'
 )
@@ -22,22 +23,21 @@ $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'GuideLib.ps1')
 Initialize-Run $Run
 $exe = Join-Path $AppFolder 'ApplicationPackagerUI.exe'
-$ctCheck = [System.Windows.Automation.ControlType]::CheckBox
 
 function Real-Click($El) { Click-El $El; Start-Sleep -Milliseconds 800 }
 function Status-Text($w) { $e = Find-El $w 'StatusLabel' -Timeout 2; if ($e) { $e.Current.Name } else { '' } }
 function Wait-Idle($w, [int]$Seconds) {
     Start-Sleep 4
     $deadline = (Get-Date).AddSeconds($Seconds)
-    while ((Get-Date) -lt $deadline -and (Find-El $w 'btnCancelOperation' -Timeout 1)) { Start-Sleep 2 }
+    while ((Get-Date) -lt $deadline -and (Test-ApdBusy $w)) { Start-Sleep 2 }
 }
 function Check-Row($w, [string]$Name) {
     Set-ElText (Find-El $w 'txtAppPackagerSearch') $Name
     Start-Sleep 2
     $grid = Find-El $w 'PackagerGrid'
-    $box = $grid.FindAll($script:TS::Descendants, (New-Object System.Windows.Automation.PropertyCondition ($script:AE::ControlTypeProperty), $ctCheck)) |
-        Where-Object { $_.Current.AutomationId -ne 'SelectAllCheckBox' } | Select-Object -First 1
-    if ($box -and $box.GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern).Current.ToggleState -ne 'On') { Real-Click $box }
+    $box = Get-ApdRowBoxes $grid | Select-Object -First 1
+    if (-not $box) { throw "The search '$Name' shows no row." }
+    if ($box.GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern).Current.ToggleState -ne 'On') { Real-Click $box }
     Set-ElText (Find-El $w 'txtAppPackagerSearch') ''
     Start-Sleep 1
 }
@@ -67,7 +67,8 @@ foreach ($theme in $Themes) {
         }
         # ---- The Convert from ConfigMgr window after a preview
         Step 'core-convert-window' {
-            Open-ApdMenuItem $w 'btnAddOrImport' 'miConvertFromCm'
+            $null = Click-Nav 'App Packager'; Start-Sleep 3
+            Open-ApdMenuItem (Main-Window) 'btnAddOrImport' 'miConvertFromCm'
             $name = Need-El 'txtCmApplicationName'
             Set-ElText $name $ConvertApplication
             Invoke-El (Need-El 'btnConvertPreview')
@@ -125,9 +126,10 @@ foreach ($theme in $Themes) {
             Real-Click (Need-El 'btnCveExport')
             Start-Sleep 12
             Shot 'core-cve-report-html'
-            [System.Windows.Forms.SendKeys]::SendWait('%{F4}'); Start-Sleep 2
+            # The browser is left as it is: it can hold windows of the person who is signed in. The CVEs window closes through its button element,
+            # which sends no input.
             $c = Find-El $null 'btnCveClose' -Timeout 3
-            if ($c) { Real-Click $c }
+            if ($c) { Invoke-El $c; Start-Sleep 2 }
         }
     }
     finally { Stop-Apd }

@@ -9,7 +9,8 @@
     The images are <OutDir>\<theme>\<id>.png. The run checks that the tree shows no horizontal scroll bar: it fails when the scroll bar of the tree is on screen.
 #>
 param(
-    [string[]]$Themes = @('Light'),
+    [string[]]$Themes = @('Light', 'Dark'),
+    [string]$AppFolder = $PSScriptRoot,
     [string]$OutDir = (Join-Path $PSScriptRoot 'out'),
     [string]$DataRoot = (Join-Path $PSScriptRoot 'data')
 )
@@ -36,14 +37,12 @@ foreach ($theme in $Themes) {
     $root = Join-Path $DataRoot $theme
     Remove-Item $root -Recurse -Force -ErrorAction SilentlyContinue
     $dir = Join-Path $OutDir $theme.ToLower()
-    $null = Start-Apd -Exe (Join-Path $PSScriptRoot 'ApplicationPackagerUI.exe') -DataRoot $root -Theme $theme
+    $null = Start-Apd -Exe (Join-Path $AppFolder 'ApplicationPackagerUI.exe') -DataRoot $root -Theme $theme
     try {
         $window = @(Get-ApdWindows)[0]
         $settings = Find-El $window 'tvOptions' '' '' 3
         if (-not $settings) {
-            [System.Windows.Forms.Cursor]::Position = New-Object System.Drawing.Point 110, 984
-            Start-Sleep -Milliseconds 300
-            [ApdW]::mouse_event(2, 0, 0, 0, [UIntPtr]::Zero); [ApdW]::mouse_event(4, 0, 0, 0, [UIntPtr]::Zero)
+            if (-not (Click-Nav 'Settings')) { throw 'The sidebar has no Settings entry.' }
             Start-Sleep -Seconds 4
         }
         $tree = Find-El $window 'tvOptions' '' '' 15
