@@ -16,7 +16,7 @@ The DP Content Manager page shows which content is on which distribution point (
 
 - ConfigMgr rights: a ConfigMgr security role with read rights on distribution points and content, and rights to distribute and remove content. A least-privilege role is not tested: all lab runs used a Full Administrator account.
 - Local rights: the Windows account that started the app. The ConfigMgr console module must be on this computer. The page uses it through Windows PowerShell 5.1.
-- Settings: select **ConfigMgr** under **Systems in Use** in Settings. Enter **Site Code** and **Site Server / SMS Provider Host** under **ConfigMgr Site Settings** in Settings.
+- Settings: select **ConfigMgr** under **Systems in Use** in Settings. Enter **Site Code** and **Site Server / SMS Provider Host** on the **ConfigMgr** page of Settings.
 - The audit log folder must be writable before a removal. A removal does not start when the log cannot be written.
 
 ## Steps
@@ -164,7 +164,7 @@ Every write adds records to `dp-content-audit.jsonl` in the `DpContent` folder o
 | Message | Cause | Fix |
 |---|---|---|
 | ConfigMgr is not in use. Select it under Systems in Use in Settings. | **ConfigMgr** is off in Settings. | Select **ConfigMgr** under **Systems in Use**. |
-| Set the site code in Settings, ConfigMgr Site Settings. | **Site Code** is empty. | Enter the site code. |
+| Set the site code in Settings, ConfigMgr. | **Site Code** is empty. | Enter the site code. |
 | The distribution point content could not be read. The log has the details. | The read failed. | Check the site settings, then select **Refresh**. |
 | The ConfigMgr console role needs read rights on distribution points and their content. | ConfigMgr denied the read. | Give the account a role with these rights. |
 | The distribution point content was not read. Select Refresh first. | The page has no data. | Select **Refresh**. |

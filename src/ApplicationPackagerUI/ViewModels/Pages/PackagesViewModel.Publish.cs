@@ -48,7 +48,7 @@ public partial class PackagesViewModel : IOneClickRunner, IPublishActionHost
     {
         if (!settings.Wsus.IsConfigured)
         {
-            AddLogLine($"{action} requires a WSUS server. Open Settings, WSUS Publishing, to configure it.");
+            AddLogLine($"{action} requires a WSUS server. Open Settings, WSUS, to configure it.");
             StatusText = "WSUS server required.";
             return false;
         }
@@ -70,7 +70,7 @@ public partial class PackagesViewModel : IOneClickRunner, IPublishActionHost
         var settings = _settingsService.Load();
         if (!settings.Wsus.IsConfigured)
         {
-            AddLogLine("WSUS Updates needs a WSUS server. Open Settings, WSUS Publishing, to configure it.");
+            AddLogLine("WSUS Updates needs a WSUS server. Open Settings, WSUS, to configure it.");
             StatusText = "WSUS server required.";
             return;
         }
@@ -194,10 +194,10 @@ public partial class PackagesViewModel : IOneClickRunner, IPublishActionHost
         var tracked = new HashSet<string>(settings.OneClick.TrackedApplications, StringComparer.OrdinalIgnoreCase);
         if (tracked.Count == 0)
         {
-            AddLogLine("No apps are tracked for One Click. Open Settings, One Click Settings, to configure.");
+            AddLogLine("No apps are tracked for One Click. Open Settings, One Click, to configure.");
             StatusText = "No apps tracked.";
             _publishDialogs.ShowMessage("One Click Not Configured",
-                "No apps are tracked yet.\n\nOpen Settings, One Click Settings, choose which applications to include, pick an action (Report only, Stage, or Stage and Publish) and the destinations, and save.");
+                "No apps are tracked yet.\n\nOpen Settings, One Click, choose which applications to include, pick an action (Report only, Stage, or Stage and Publish) and the destinations, and save.");
             return;
         }
         if (action != OneClickActions.Report && string.IsNullOrWhiteSpace(settings.DownloadRoot))

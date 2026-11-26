@@ -4,11 +4,11 @@ The Settings page holds the settings of App Packager Desktop. This page describe
 
 ## What it does
 
-The Settings page sets the systems in use, the connection details, the publish options and the signing policy. It stores them in `settings.json` in the data folder `%LOCALAPPDATA%\AppPackager`. The Sidebar section applies at once. Every other section is stored when you select **Save Settings**.
+The Settings page sets the systems in use, the connection details, the publish options and the signing policy. It stores them in `settings.json` in the data folder `%LOCALAPPDATA%\AppPackager`. The Sidebar page applies at once, and so does the **Columns** choice of the Application Settings page. Every other setting is stored when you select **Save Settings**.
 
 ## When to use it
 
-Use the page after the Setup window, or when a site, share, certificate or key changes. [reference/settings.md](../reference/settings.md) lists every setting with its default and storage key.
+Use the page to finish or change the setup, for example when a site, share, certificate or key changes. [reference/settings.md](../reference/settings.md) lists every setting with its default and storage key.
 
 ## Requirements
 
@@ -18,8 +18,9 @@ Use the page after the Setup window, or when a site, share, certificate or key c
 
 1. Select **Settings**, the last entry of the sidebar.
 2. Change the values in the sections below.
-3. Select **Save Settings** in the page header, at the top right. The snackbar shows "Settings saved."
-4. To discard unsaved edits, select **Discard changes** next to it. The button reloads every setting on the page from the saved settings.
+3. Review the line below the list of pages. It reads **Unsaved changes** when the page holds an edit that is not saved, and **No unsaved changes** when it holds none. A value that you change back reads as saved. When **Save Settings** cannot store a value as you typed it, for example a port that is not valid, the line keeps **Unsaved changes**.
+4. Select **Save Settings** in the page header, at the top right. The snackbar shows "Settings saved."
+5. To discard unsaved edits, select **Discard changes** next to it. The button reloads every setting on the page from the saved settings.
 
 ![The General page of Settings, with the tree of pages at the left](../images/core-settings-top.png)
 
@@ -48,30 +49,40 @@ Each entry has a check box, a **Move up** button and a **Move down** button. **R
 
 | Control | Default | Effect |
 |---|---|---|
-| **ConfigMgr** | Selected | Enables **Check ConfigMgr** and **Publish to ConfigMgr**. |
-| **Intune** | Cleared | Enables **Publish to Intune**. |
-| **WSUS** | Cleared | Enables **Publish to WSUS** and **Publish All** for WSUS and the **WSUS Updates** entry of the sidebar. |
+| **ConfigMgr** | Selected | Enables **Check ConfigMgr**. **Publish All** publishes to ConfigMgr. |
+| **Intune** | Cleared | **Publish All** publishes to Intune. |
+| **WSUS** | Cleared | **Publish All** publishes to WSUS. The **WSUS Updates** entry of the sidebar is for this system. |
 
-ConfigMgr is selected at first. The three systems are independent, and each one is optional. Clear **ConfigMgr** and select **Intune**, **WSUS** or both to publish with no ConfigMgr site, console or file share. A system that is not in use keeps its buttons disabled. A settings file that has no systems value infers Intune from a stored tenant ID and WSUS from a stored server name.
+ConfigMgr is selected at first. The three systems are independent, and each one is optional. Clear **ConfigMgr** and select **Intune**, **WSUS** or both to publish with no ConfigMgr site, console or file share. **Publish All** publishes to every system in use. It does not publish to a system that is not in use. It is disabled when no system is in use, or when a system in use is not ready. A settings file that has no systems value infers Intune from a stored tenant ID and WSUS from a stored server name.
 
-### ConfigMgr Site Settings
+### ConfigMgr
 
-The site fields (**Site Code**, **Site Server / SMS Provider Host**, **File Share Root (UNC)**) apply to ConfigMgr only. A run that does not publish to ConfigMgr does not read them. The settings of this section that name a site are kept for each site: see [Sites](sites.md). **Download Root (local staging)** and **Packagers Folder** are in this section, but they are not ConfigMgr settings: every destination uses them.
+The page heading is **ConfigMgr Connection**. A signal beside the heading shows the saved site and the last connection test, for example `Connected to Site <code>`, `Connection to Site <code> failed`, `Testing the connection to Site <code>`, `Site <code>: connection not tested`, `ConfigMgr not configured` or `ConfigMgr off`. The signal does not test the text that you type.
+
+The page has the groups **Site** and **Discover Unmanaged Software**. Below them, a note says `Change which systems appear in the publish plan in Systems in Use.` The button **Open Systems in Use** opens that page. These settings apply to ConfigMgr only. A run that does not publish to ConfigMgr does not read them. The settings of this page are kept for each site: see [Sites](sites.md).
 
 | Control | Default | Effect |
 |---|---|---|
 | **Site Code** | `MCM` | The site for every ConfigMgr step. Replace the default with your site code. This box shows the site code of the active site. Another code switches to that site when you save: see [Sites](sites.md). |
 | **Site Server / SMS Provider Host** | Empty | The host that the CMSite drive connects to. Empty means this computer. Leave it empty only when this computer is the SMS Provider. |
+| **File Share Root (UNC)** | `\\fileserver\sccm$` | The root of the content share. Content goes under `Applications`. |
 | **Discovery SQL Server** | Empty | The SQL Server instance of the site database. Empty means the value from the SMS Provider. Windows authentication only. |
 | **Discovery Database** | Empty | The database name. Empty means `CM_` and the site code. |
-| **Discover not selected**, **Discover all** | Not applicable | Scan the site inventory for applications that the catalog can package. **Discover not selected** scans only the applications that are cleared in the Catalog and were not dismissed. **Discover all** scans every application. A scan changes nothing until you choose in the prompt. After the first-run setup, the program asks if it must run **Discover not selected** to help you pick the applicable products. |
+| **Encrypt the connection**, **Trust server certificate**, **Test connection** | Cleared | The connection to the site database. See [Discover unmanaged software](discover-unmanaged-software.md). |
+| **Discover not selected**, **Discover all** | Not applicable | Scan the site inventory for applications that the catalog can package. **Discover not selected** scans only the applications that are cleared in the Catalog and were not dismissed. **Discover all** scans every application. A scan changes nothing until you choose in the prompt. The setup checklist also offers the scan. |
 | **Not offered by Discover**, **Clear list** | Empty list | Applications that Discover unmanaged software no longer offers. **Clear list** takes effect on **Save Settings**. |
-| **File Share Root (UNC)** | `\\fileserver\sccm$` | The root of the content share. Content goes under `Applications`. |
-| **Content Layout** | **Nested - Applications\Vendor\App\Version** | The other choice is **Flat - Applications\Vendor-App-Version**. |
-| **Download Root (local staging)**, **Browse** | `Staging` in the data folder | The local staging folder. The application refuses a folder that other accounts can write to. |
-| **Packagers Folder (leave empty for auto-detect)**, **Browse** | Empty | The folder of PS1 packagers. Empty means the `Packagers` folder next to the executable. |
 
 ![The ConfigMgr page of Settings](../images/core-settings-configmgr.png)
+
+### Folders
+
+Every destination uses **Download Root (local staging)** and **Packagers Folder**. They are not ConfigMgr settings.
+
+| Control | Default | Effect |
+|---|---|---|
+| **Content Layout** | **Nested - Applications\Vendor\App\Version** | The folder shape on the content share. The other choice is **Flat - Applications\Vendor-App-Version**. |
+| **Download Root (local staging)**, **Browse** | `Staging` in the data folder | The local staging folder. The application refuses a folder that other accounts can write to. |
+| **Packagers Folder (leave empty for auto-detect)**, **Browse** | Empty | The folder of PS1 packagers. Empty means the `Packagers` folder next to the executable. |
 
 ### Post Packaging
 
@@ -90,7 +101,7 @@ The controls for the test deployment are disabled until **Distribute content aft
 
 ### Application Settings
 
-This page holds the defaults for all applications, and one grid with the settings of each application. The grid replaces the Deployment Conditions page of earlier versions: it lists every application of the App Packager page, and every column is a setting that the package run uses.
+This page holds the defaults for all applications, and one grid with the settings of each application. The signal **Applies to new publishes** is beside the heading. The group **Defaults** holds the three default values, with a help text under each, and a warning: `Replace and uninstall needs the ConfigMgr version rule Exact. A publish with Minimum and Replace and uninstall is refused. Intune supersedence is not available.` The group **Application Overrides** holds the bulk row and the grid. The grid fills the height of the page. The grid replaces the Deployment Conditions page of earlier versions: it lists every application of the App Packager page, and every column is a setting that the package run uses.
 
 ![Settings, Application Settings: the grid with the bulk bar](../images/core-settings-application-settings.png)
 
@@ -99,7 +110,7 @@ This page holds the defaults for all applications, and one grid with the setting
 | **Version rule, ConfigMgr**, **Version rule, Intune** | **Minimum** | The operator of the version clause of the detection that is published. **Minimum** is this version or newer. **Exact** is this version only. See [Publish to ConfigMgr](publish-to-configmgr.md). |
 | **Supersedence mode, ConfigMgr** | **Off** | The default for every application: **Off**, **Replace** or **Replace and uninstall**. An application that has no setting of its own follows it. |
 
-The grid has one row for each application. **Columns** lists every setting that the grid can show; the first five are on at the start, and the others are one click away. A setting that does not apply to an application is greyed out, and its tooltip says why. It is never ignored without a sign.
+The grid has one row for each application. **Columns** lists every setting that the grid can show; the first five are on at the start, and the others are one click away. The app saves the column choice at once. **Save Settings** is not necessary for it. A setting that does not apply to an application is greyed out, and its tooltip says why. The line under the grid shows the help of the field that has the keyboard focus, or why it is unavailable. It is never ignored without a sign.
 
 | Column | Choices | Effect |
 |---|---|---|
@@ -124,15 +135,15 @@ The grid has one row for each application. **Columns** lists every setting that 
 | **Check interval (days)** | Number | How many days a fresh check stays valid. Empty uses the default interval. |
 | **Publish to ConfigMgr**, **Publish to Intune**, **Publish to WSUS** | **Follow the default**, **Yes**, **No** | The destinations of the application in One Click. **Follow the default** uses the One Click default destinations. WSUS is greyed out for an application that WSUS cannot publish. |
 
-The bulk bar sets one column for several applications. Choose the column, the value and the applications, then select **Apply**. The applications are the **Checked applications**, the **Filtered applications** (the rows that the search box shows: type part of a name or of a vendor) or **All applications**. The first value of a column returns the application to its default. **None: reset all** returns every column of every application to its default. **Check all**, **Check none** and **Refresh list** manage the list. An application that a setting does not apply to keeps its value when the bulk bar sets that column.
+**Bulk edit** sets one column for several applications. Choose the column, the value and the applications, then select **Apply**. The applications are the **Checked applications**, the **Filtered applications** (the rows that the search box shows: type part of a name or of a vendor) or **All applications**. The first value of a column returns the application to its default. **Reset all overrides** returns every column of every application to its default. **Check all**, **Check none** and **Refresh list** manage the list. An application that a setting does not apply to keeps its value when the bulk bar sets that column.
 
-The changes of this page are written on **Save Settings**. A package run reads the distribution point group and the test collection of the application first, and the settings of the Post Packaging page when the application has none. They are stored in the keys that the package run reads: `Supersedence.Mode`, `Supersedence.TitleOverrides` (the mode and the version rule of an application) `DeploymentConditions` (package source, install scope, version in title, network and network split of an application, keyed by the definition identifier), `CommandOverrides` (the install and uninstall commands) `DistributionOverrides` (the distribution point group and the test collection of an application), and the One Click keys (`OneClick.TrackedApplications`, `OneClick.CadenceOverrides`, `OneClick.Destinations`). A value that an earlier version stored still shows in its cell. The runtime, reboot and requirement columns write fields of the Workbench profile of the application, with the semantics of the Workbench: an empty value or **Inherit** removes the field so the next level supplies the value, and a value is a custom override. A requirement column writes one requirement operation (**Add**, applies to every deployment type) with the rule id `min-disk-space`, `min-memory` or `min-os-build`. An empty cell removes that operation. When the profile already has an operation with that rule id, the column changes its value and keeps its operation and its applies-to list. Every other operation of the profile stays as it is, also after the next Save Settings. The grid writes the profile that carries the saved conditions (named Migrated) and creates it when it is missing. It becomes the active profile only while the application is on the default profile. When an application uses another profile that you chose, the cell is greyed out and its tooltip names the profile: set the value in the Workbench. Detection, the other requirements and content distribution have no column, because each is a list of rules, not one value: edit them in the Workbench. Nothing here switches supersedence on by itself, and a package run still asks before it applies a supersedence. A Workbench profile that you made for an application outranks the grid for the package source, the install scope and the version in title of that application. See [Workbench](workbench.md).
+The overrides and the defaults of this page are written on **Save Settings**. A package run reads the distribution point group and the test collection of the application first, and the settings of the Post Packaging page when the application has none. They are stored in the keys that the package run reads: `Supersedence.Mode`, `Supersedence.TitleOverrides` (the mode and the version rule of an application) `DeploymentConditions` (package source, install scope, version in title, network and network split of an application, keyed by the definition identifier), `CommandOverrides` (the install and uninstall commands) `DistributionOverrides` (the distribution point group and the test collection of an application), and the One Click keys (`OneClick.TrackedApplications`, `OneClick.CadenceOverrides`, `OneClick.Destinations`). A value that an earlier version stored still shows in its cell. The runtime, reboot and requirement columns write fields of the Workbench profile of the application, with the semantics of the Workbench: an empty value or **Inherit** removes the field so the next level supplies the value, and a value is a custom override. A requirement column writes one requirement operation (**Add**, applies to every deployment type) with the rule id `min-disk-space`, `min-memory` or `min-os-build`. An empty cell removes that operation. When the profile already has an operation with that rule id, the column changes its value and keeps its operation and its applies-to list. Every other operation of the profile stays as it is, also after the next Save Settings. The grid writes the profile that carries the saved conditions (named Migrated) and creates it when it is missing. It becomes the active profile only while the application is on the default profile. When an application uses another profile that you chose, the cell is greyed out and its tooltip names the profile: set the value in the Workbench. Detection, the other requirements and content distribution have no column, because each is a list of rules, not one value: edit them in the Workbench. Nothing here switches supersedence on by itself, and a package run still asks before it applies a supersedence. A Workbench profile that you made for an application outranks the grid for the package source, the install scope and the version in title of that application. See [Workbench](workbench.md).
 
-### One Click Settings
+### One Click
 
-See [One Click](one-click.md). The section has **Action on update** (**Report only**, **Stage**, **Stage and Publish**; default **Report only**), **Default cadence (days)** (default 7), **Force on launch (ignore cadence)** (default cleared), **Default destinations** (**ConfigMgr**, **WSUS**, **Intune**), **Existing ConfigMgr app** (**Skip the application** or **Overwrite it**; default **Skip the application**), the buttons **Track none**, **Track all** and **Refresh list**, and a grid with the columns **Track**, **Application**, **Vendor**, **ConfigMgr**, **WSUS**, **Intune** and **Cadence (days)**.
+See [One Click](one-click.md). The page has **Action on update** (**Report only**, **Stage**, **Stage and Publish**; default **Report only**), **Default cadence (days)** (default 7), **Force on launch (ignore cadence)** (default cleared), **Default destinations** (**ConfigMgr**, **WSUS**, **Intune**), **Existing ConfigMgr app** (**Skip the application** or **Overwrite it**; default **Skip the application**), the buttons **Track none**, **Track all** and **Refresh list**, and a grid with the columns **Track**, **Application**, **Vendor**, **ConfigMgr**, **WSUS**, **Intune** and **Cadence (days)**.
 
-### Detected Tools
+### Tools
 
 | Item | Effect |
 |---|---|
@@ -162,7 +173,7 @@ See [One Click](one-click.md). The section has **Action on update** (**Report on
 
 ![The Intune page of Settings](../images/core-settings-intune-cve.png)
 
-### WSUS Publishing
+### WSUS
 
 | Control | Default | Effect |
 |---|---|---|
@@ -241,7 +252,7 @@ The section shows the application name, the version, and the text "MIT License. 
 
 - A settings file that cannot be read gives the defaults. Nothing is written to that file until you select **Save Settings**. The save first keeps the unreadable file as `settings.json.unreadable-<timestamp>`.
 - A staging root that is still the old default `C:\temp\ap` moves one time to the per-user folder. A notice states this.
-- The setting **Deployment Target** for Intune has no control. It stores the name of the target that matches **Default destinations** in **One Click Settings**, for example `IntuneAndWSUS`. The names are in the [command-line build](command-line-build.md#targets) table. If no default destination is selected, the setting keeps `ConfigMgr`, and the saved **Default destinations** decide what a run publishes to. A stored value that is empty takes the saved **Default destinations**. If none are saved, the app uses `ConfigMgr`, the default of this setting, and shows a notice. A value that is not a valid name publishes to no destination, and the log lists the valid names.
+- The setting **Deployment Target** for Intune has no control. It stores the name of the target that matches **Default destinations** on the **One Click** page, for example `IntuneAndWSUS`. The names are in the [command-line build](command-line-build.md#targets) table. If no default destination is selected, the setting keeps `ConfigMgr`, and the saved **Default destinations** decide what a run publishes to. A stored value that is empty takes the saved **Default destinations**. If none are saved, the app uses `ConfigMgr`, the default of this setting, and shows a notice. A value that is not a valid name publishes to no destination, and the log lists the valid names.
 
 ## Troubleshooting
 

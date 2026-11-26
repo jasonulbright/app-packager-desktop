@@ -295,7 +295,7 @@
                                     <Run Text="  SMS Provider:" />
                                     <Run Text="{Binding ProviderText, Mode=OneWay}" />
                                 </TextBlock>
-                                <TextBlock Text="Change the site code and the SMS Provider in Settings, ConfigMgr Site Settings. The page calls only the SMS Provider: its AdminService and the ConfigMgr session."
+                                <TextBlock Text="Change the site code and the SMS Provider in Settings, ConfigMgr. The page calls only the SMS Provider: its AdminService and the ConfigMgr session."
                                            Style="{StaticResource Note}" Margin="0,4,0,8" />
                                 <WrapPanel>
                                     <ui:Button Content="Test connection" Icon="{ui:SymbolIcon PlugConnected24}" Command="{Binding TestConnectionCommand}" Style="{StaticResource ToolButton}"

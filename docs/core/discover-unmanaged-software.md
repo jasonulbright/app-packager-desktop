@@ -4,7 +4,7 @@
 
 **Discover unmanaged software** finds applications that your clients have installed and that ConfigMgr does not manage. It reads the Add/Remove Programs inventory in the ConfigMgr site database. It offers an application when the inventory has its name (and its version, when the definition names one) and the site has no ConfigMgr application for it.
 
-An application that you accept appears in the App Packager grid. You can then use **Check Latest**, **Check ConfigMgr**, **Stage** and the publish buttons on it.
+An application that you accept appears in the App Packager grid. You can then use **Check Latest**, **Check ConfigMgr**, **Stage** and **Publish All** on it.
 
 Discover reads application names and versions only. It reads no device name, no device identifier, no device count and no publisher. It shows no count of devices.
 
@@ -17,7 +17,7 @@ Discover reads application names and versions only. It reads no device name, no 
 ## Requirements
 
 - ConfigMgr selected under **Systems in Use** in Settings.
-- A **Site Code** in **ConfigMgr Site Settings**, or both **Discovery SQL Server** and **Discovery Database**. The default Site Code is `MCM`. Save your own Site Code before you use Discover.
+- A **Site Code** in Settings, **ConfigMgr**, or both **Discovery SQL Server** and **Discovery Database**. The default Site Code is `MCM`. Save your own Site Code before you use Discover.
 - Windows PowerShell 5.1. Discover runs its query through `powershell.exe`.
 - A domain account on a domain-joined computer. A computer outside the domain cannot sign in to the database.
 - The role `db_datareader` on the site database `CM_<site code>` for that account. Discover uses Windows authentication only.
@@ -33,7 +33,7 @@ The database views bypass the role-based access of ConfigMgr. The scan reads the
 ### Set up Discover
 
 1. Select **Settings** in the sidebar.
-2. Go to **ConfigMgr Site Settings**.
+2. Select the page **ConfigMgr**. The heading is **ConfigMgr Connection**. The Discover fields are in the group **Discover Unmanaged Software**.
 3. Check **Site Code** and **Site Server / SMS Provider Host**.
 4. Optional: enter **Discovery SQL Server**. Enter the SQL Server instance of the site database, for example `sqlserver.example.com` or `server\instance`.
 5. Optional: enter **Discovery Database**, for example `CM_MCM`.
@@ -41,7 +41,7 @@ The database views bypass the role-based access of ConfigMgr. The scan reads the
 
 With both optional boxes empty, Discover reads the SQL Server name and the database name from the SMS Provider. It uses DCOM first and WinRM second. When you fill both boxes, Discover needs no site code and no provider. When a site code is missing, fill both boxes.
 
-![The ConfigMgr Site Settings section with the Discovery fields](../images/core-discover-settings.png)
+![The ConfigMgr page of Settings with the Discovery fields](../images/core-discover-settings.png)
 
 The **Discovery SQL Server** box takes `name`, `name,port` or `name\instance`. **Encrypt the connection** asks SQL Server for an encrypted connection. **Trust server certificate** accepts a certificate that this computer does not trust (self-signed, or issued by an unknown authority); it is the same option as in Site Hygiene, Live, and it is stored for the site. **Test connection** connects with the values on the page, reads one row of the inventory views and shows the result or the error under the buttons. When the **Discovery Database** box is empty, Discover reads the database name from the site definition, and uses `CM_<site code>` when the definition has none.
 
@@ -49,7 +49,7 @@ The **Discovery SQL Server** box takes `name`, `name,port` or `name\instance`. *
 
 1. Select **App Packager** in the sidebar. Select **Catalog**. Clear the check box of each application that Discover must consider. Select **Save**.
 2. Close the Catalog.
-3. Select **Settings**, then **ConfigMgr Site Settings**. Select **Discover not selected** to scan only the applications that you cleared in the Catalog and did not dismiss. Select **Discover all** to scan every application, also the applications that you selected or dismissed.
+3. Select **Settings**, then **ConfigMgr**. Select **Discover not selected** to scan only the applications that you cleared in the Catalog and did not dismiss. Select **Discover all** to scan every application, also the applications that you selected or dismissed.
 4. Wait for the scan. The text under the two buttons shows `Reading Add/Remove Programs inventory from the ConfigMgr site database...`. Select **Cancel** on the App Packager page to stop the scan.
 5. View the text under the buttons and the log. They show the number of applications that Discover found, for example `Discovered 3 apps.`, or the error that ended the scan.
 6. If Discover found applications, read the prompt. The prompt title is **Discover unmanaged software**. The text is `Discovered <N> apps. Enable console view?`.
@@ -70,10 +70,14 @@ When you select **Enable selected** or **Don't ask again for selected** and no r
 
 After **Enable selected** or **Enable all**, the log shows `<N> app(s) added to the grid. Show or hide them with Catalog on the App Packager page.` Enabling an application only shows its row. Select **Check ConfigMgr** to see its real state.
 
+### Scan from the setup checklist
+
+The step **Discover unmanaged software** of the [setup checklist](../getting-started.md#the-setup-checklist) runs the same scan. **Scan Site Inventory** (or **Scan Again**) reads the applications that the Catalog hides, or every application when the Catalog hides none. The prompt opens with every found application checked. You still select the button. The app keeps the time of the scan, the number of matched products and your choice for each site, in `discovery-scan.json`. **Skip Scan** completes the step for the site without a scan. The scan does not start by itself.
+
 ### Offer the dismissed applications again
 
 1. Select **Settings** in the sidebar.
-2. Go to **ConfigMgr Site Settings**.
+2. Select the page **ConfigMgr**.
 3. Read **Not offered by Discover**. It shows `<N> app(s)`.
 4. Select **Clear list**. The text changes to `0 app(s) after Save`.
 5. Select **Save Settings**.
@@ -114,10 +118,10 @@ A failure message names what was tried and what failed. A database error ends wi
 
 | Message | Cause | Fix |
 |---|---|---|
-| The button is disabled. The tooltip reads `ConfigMgr is not in use...` or `Set the site code, or the SQL server and database, in Settings, ConfigMgr Site Settings.` | ConfigMgr is not in use, or the site code and the SQL boxes are empty. | Fix the setting that the tooltip names. |
+| The button is disabled. The tooltip reads `ConfigMgr is not in use...` or `Set the site code, or the SQL server and database, in Settings, ConfigMgr.` | ConfigMgr is not in use, or the site code and the SQL boxes are empty. | Fix the setting that the tooltip names. |
 | `A site code or SQL overrides are required...` | No site code and no SQL override. | Enter a site code, or both SQL boxes. |
 | `The site code <x> is not three letters or digits...` | The site code is not three characters. | Correct the **Site Code**. |
-| `The SQL Server for site <x> is not known (<reason>). Enter the SQL Server name in Settings, ConfigMgr Site Settings.` | The provider did not return the site definition, or no provider is set. | Enter **Discovery SQL Server** and **Discovery Database**. |
+| `The SQL Server for site <x> is not known (<reason>). Enter the SQL Server name in Settings, ConfigMgr.` | The provider did not return the site definition, or no provider is set. | Enter **Discovery SQL Server** and **Discovery Database**. |
 | `Windows PowerShell could not run the scan (<type>: <text>)...` | `powershell.exe` is not available, or application control blocks it. | Install or repair Windows PowerShell 5.1. Allow it to start a script from the temporary folder. |
 | `The site database query on <s>, database <db>, did not finish (exit code <n>, <text>)...` | The script ended without a result: Constrained Language Mode, AppLocker or a missing component. | View the exit code and the text. Allow the script to run in Windows PowerShell 5.1. |
 | `...did not return the site definition: <reason>. Check that the provider name is the SMS Provider computer...` | DCOM and WinRM to the SMS Provider failed. | Enter the SMS Provider computer in **Site Server / SMS Provider Host**, or enter **Discovery SQL Server** and **Discovery Database**. |

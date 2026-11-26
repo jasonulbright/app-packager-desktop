@@ -22,7 +22,7 @@ public sealed partial class DiscoveryService : IDiscoveryService
     public const int ConnectTimeoutSeconds = 30;
     internal const string InventoryResource = "ApplicationPackagerEngine.Services.DiscoveryScripts.DiscoveryInventory.ps1";
     internal const string SiteDefinitionResource = "ApplicationPackagerEngine.Services.DiscoveryScripts.DiscoverySiteDefinition.ps1";
-    internal const string SettingsLocation = "Settings, ConfigMgr Site Settings";
+    internal const string SettingsLocation = "Settings, ConfigMgr";
 
     private static readonly int[] LoginErrors = [18452, 18456, 18470, 18486, 18487, 18488];
     private static readonly int[] DatabaseErrors = [911, 4060];
@@ -330,7 +330,7 @@ public sealed partial class DiscoveryService : IDiscoveryService
 
         var cause = Text(line, "detail");
         if (CertificateCause().IsMatch(cause) && !Has(DatabaseErrors) && !Has(LoginErrors))
-            return $"The connection to SQL Server {server} was refused during the TLS handshake: the certificate of the SQL Server is not trusted by this computer, or its name does not match {server}. Select Trust server certificate in Settings, ConfigMgr Site Settings, or install the certificate authority of the SQL Server on this computer, and use the name that the certificate has.";
+            return $"The connection to SQL Server {server} was refused during the TLS handshake: the certificate of the SQL Server is not trusted by this computer, or its name does not match {server}. Select Trust server certificate in Settings, ConfigMgr, or install the certificate authority of the SQL Server on this computer, and use the name that the certificate has.";
         if (Has(DatabaseErrors))
             return $"Database {database} does not exist on SQL Server {server}, or the Windows login cannot open it. Check the database name.";
         if (Has(LoginErrors))

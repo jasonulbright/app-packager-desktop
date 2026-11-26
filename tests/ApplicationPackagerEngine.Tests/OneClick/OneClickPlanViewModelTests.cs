@@ -84,7 +84,7 @@ public sealed class OneClickPlanViewModelTests : IDisposable
         Assert.False(vm.HasBlocking);
         Assert.True(vm.RunCommand.CanExecute(null));
         Assert.Equal("Action: check, stage and publish. Existing ConfigMgr application: skip.", vm.ActionText);
-        Assert.Equal("Include and the destination boxes apply to this run only; One Click Settings holds the saved values. Run asks nothing after it starts.", OneClickPlanViewModel.HintText);
+        Assert.Equal("Include and the destination boxes apply to this run only; Settings, One Click holds the saved values. Run asks nothing after it starts.", OneClickPlanViewModel.HintText);
     }
 
     [Fact]

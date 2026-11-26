@@ -14,33 +14,35 @@ None. Some entries need the settings that [App Packager page](packages.md) names
 
 ## Grid columns
 
-Select a column header to sort the grid. The first column stays in place when the grid scrolls sideways.
+Select a column header to sort the grid. Drag a column header to move the column, or drag its edge to change its width. The first column stays in place when the grid scrolls sideways. The app saves the column order, the widths that you set and the sort. The menu **Columns** hides and shows **Vendor**, **Current (ConfigMgr)**, **Latest**, **CVEs**, **Max CVSS**, **KEV**, **In latest** and **Newest CVE**. **Reset columns** restores the first layout.
 
 | Column | Content | Shown |
 |---|---|---|
 | (check box) | Marks the row for the next operation. The header check box cycles each time you select it: it checks every visible row, then shows a dot and checks only the rows that have an update, then clears all rows. Each step writes a line to the log. | Always |
 | **Application** | Name of the application. | Always |
-| **Vendor** | Vendor name. | Always |
-| **Current (ConfigMgr)** | Version in ConfigMgr from the last **Check ConfigMgr**. After a reload, the last stored version. | Always |
-| **Latest** | Vendor version from the last **Check Latest**. After a reload, the last stored version. | Always |
+| **Vendor** | Vendor name. | Until **Columns** hides it |
+| **Current (ConfigMgr)** | Version in ConfigMgr from the last **Check ConfigMgr**. After a reload, the last stored version. | Until **Columns** hides it |
+| **Latest** | Vendor version from the last **Check Latest**. After a reload, the last stored version. | Until **Columns** hides it |
 | **Status** | Result of the last operation on the row. A tooltip can hold more text. | Always |
-| **CVEs** | Number of CVEs, or `CPE missing`, `Error` or `No update`. Select the cell to open the CVE list with links. | Always |
-| **Max CVSS** | Highest CVSS score of the CVEs. | Always |
-| **KEV** | `Yes` when at least one CVE is in the CISA KEV catalog. | Always |
-| **In latest** | `N of M`: the number of CVEs that NVD places at the latest version, out of all CVEs. | Always |
-| **Newest CVE** | Publication of the newest CVE. | Always |
-| **Max EPSS** | Highest EPSS value. | **Show debug columns** |
-| **NVD updated** | Time of the last NVD update. | **Show debug columns** |
-| **CVEs Checked (UTC)** | Time of the CVE lookup, in UTC. | **Show debug columns** |
-| **CMName** | Name that **Check ConfigMgr** uses to find the application. | **Show debug columns** |
-| **Script** | File name of the definition, or of the PS1 packager. | **Show debug columns** |
+| **CVEs** | Number of CVEs, or `CPE missing`, `Error` or `No update`. Select the cell to open the CVE list with links. | Until **Columns** hides it |
+| **Max CVSS** | Highest CVSS score of the CVEs. | Until **Columns** hides it |
+| **KEV** | `Yes` when at least one CVE is in the CISA KEV catalog. | Until **Columns** hides it |
+| **In latest** | `N of M`: the number of CVEs that NVD places at the latest version, out of all CVEs. | Until **Columns** hides it |
+| **Newest CVE** | Publication of the newest CVE. | Until **Columns** hides it |
+| **Max EPSS** | Highest EPSS value. | **More**, **Show debug columns** |
+| **NVD updated** | Time of the last NVD update. | **More**, **Show debug columns** |
+| **CVEs Checked (UTC)** | Time of the CVE lookup, in UTC. | **More**, **Show debug columns** |
+| **CMName** | Name that **Check ConfigMgr** uses to find the application. | **More**, **Show debug columns** |
+| **Script** | File name of the definition, or of the PS1 packager. | **More**, **Show debug columns** |
 | **Intune** | Outcome of the Intune build and publish in the last publish run. | **Intune** is selected under Systems in Use |
 
 The columns **CVEs**, **Max CVSS**, **In latest** and **Max EPSS** sort by number. The CVE columns are explained in [CVE lookup](cve-lookup.md).
 
 ![The grid scrolled to the CVE columns](../images/core-packages-cve-columns.png)
 
-The check box in the first column and the highlighted row are two states. The check box marks a row for an operation. The highlighted row is the row you selected. **Ops History**, **Edit application...** and the other context menu entries act on the highlighted row.
+The check box in the first column and the highlighted row are two states. The check box marks a row for an operation. The highlighted row is the row you selected. The detail pane, **More**, **Operation history...**, **Edit application...** and the other context menu entries act on the highlighted row.
+
+The status tabs, the selection line and the detail pane are described in [App Packager page](packages.md).
 
 ## Status values
 
@@ -63,7 +65,7 @@ The color of the status text follows the value. Green: **Staged**, **Packaged**,
 | **Staging...**, **Staged** | **Stage** is working, or **Stage** succeeded. |
 | **Stage error** | **Stage** ended with an exit code other than 0. The row is unchecked. |
 | **Skipped** | The row was left out. The reason is a canceled **Configure** dialog, an existing application that you kept, or a local source folder that you did not choose. |
-| **Packaging...**, **Packaged** | **Publish to ConfigMgr** is working, or it succeeded. |
+| **Packaging...**, **Packaged** | A **Publish All** run with ConfigMgr in use is working, or it succeeded. |
 | **Package error** | The ConfigMgr publish ended with an exit code other than 0. |
 | **Published**, **Publish error** | The Intune-only publish succeeded, or the Intune-only or WSUS-only publish failed. A WSUS-only success reads **Published (updates only)**. |
 | **Published (updates only)**, **Already on the server (updates only)**, and the same with **, warning** | The WSUS publish succeeded, the WSUS update for this version existed already, or a follow-up step gave a warning. A WSUS update applies only where the detection finds an older version of the application, so WSUS cannot give a first install of it. |
@@ -79,7 +81,7 @@ A right-click selects the row and opens the menu.
 | Entry | Effect |
 |---|---|
 | **View operation history...** | Opens the **Operation history** window for the row. |
-| **Edit application...** | Opens the [Workbench](workbench.md) for the row. A double-click on a row does the same. The sidebar entry **Workbench** opens it for the highlighted row. |
+| **Edit application...** | Opens the [Workbench](workbench.md) for the row. A double-click on a row and **Open in Workbench** in the detail pane do the same. The sidebar entry **Workbench** opens it for the highlighted row. |
 | **Open Log Folder** | Opens the `Logs` folder in the **Download Root**. The folder holds the log files of the Stage and Publish runs. Nothing happens when the folder does not exist. |
 | **Open Staged Folder** | Opens the first folder in the **Download Root** whose name contains the file name of the definition without its extension. Opens the **Download Root** when no folder matches. |
 | **Open Network Share** | Opens the **File Share Root** in Explorer. |
@@ -97,9 +99,9 @@ A double-click on the check box or on a column header does not open the Workbenc
 
 Each **Check ConfigMgr** run writes the result to two files in the legacy data folder, `%LOCALAPPDATA%\SRLPackr` by default: `CheckConfigMgrResult.csv` and `CheckConfigMgrResult.json`. The next run overwrites them. The log pane shows the path. The files hold one row for each application the run checked, except a row that ended in **Error** or **Cancelled**, or that has no vendor version. The Update rollout view of [Deployment Helper](../tools/deployment-helper.md) reads the file to list the applications that are behind. The PowerShell App Packager writes the same format.
 
-**Export Check Results** saves the result of the last run to a file that you choose. The button is disabled until a **Check ConfigMgr** run ends. The **Save as type** list in the dialog chooses the format and the filter: CSV or JSON, all checked applications or only the applications with an update available.
+**More**, **Export Check Results...** saves the result of the last run to a file that you choose. The entry is disabled until a **Check ConfigMgr** run ends. The **Save as type** list in the dialog chooses the format and the filter: CSV or JSON, all checked applications or only the applications with an update available.
 
-![The Export Check Results button below the grid](../images/core-packages-export-check-results.png)
+![The Export Check Results command](../images/core-packages-export-check-results.png)
 
 The CSV is UTF-8 with a byte order mark. Every field is in quotes. The columns:
 
@@ -136,7 +138,7 @@ After the list loads, the page tests the ConfigMgr connection once. When **Confi
 
 ## Operation history window
 
-Select a row, then select **Ops History**. The button is disabled until a row is highlighted. The title bar shows `Operation history`. The window name, which the taskbar and screen readers use, is `Operation history — <application>`.
+Select a row, then select **More**, **Operation history...**, or right-click the row and select **View operation history...**. The **More** entry is disabled until a row is highlighted. The title bar shows `Operation history`. The window name, which the taskbar and screen readers use, is `Operation history — <application>`.
 
 The upper grid lists the latest 100 operations of the application, with local times. A new window selects the first operation.
 
@@ -158,6 +160,10 @@ App Packager Desktop stores the history in the SQLite file `history.db` in the l
 ![The Operation history window with an operation selected and its events](../images/core-packages-operation-history.png)
 
 ## Dialogs that the page opens
+
+### Publish review and publish results
+
+**Publish All** opens the window **Review Publish All** before a run, and the window **Publish results** after it. A publish to WSUS only has neither window. [Stage and publish](stage-and-publish.md#publish-all) describes both.
 
 ### Application Already Exists
 

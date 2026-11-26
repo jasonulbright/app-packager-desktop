@@ -373,7 +373,7 @@ public sealed class ConfigMgrSessionHostTests
     [InlineData("module", ConfigMgrFailure.ModuleNotFound,
         "The ConfigurationManager PowerShell module was not found. Install the Configuration Manager console on this computer.")]
     [InlineData("drive", ConfigMgrFailure.DriveNotConnected,
-        "The CMSite drive for site ABC on cm01.lab.test could not connect. Check the site code and the SMS Provider in Settings, ConfigMgr Site Settings.")]
+        "The CMSite drive for site ABC on cm01.lab.test could not connect. Check the site code and the SMS Provider in Settings, ConfigMgr.")]
     [InlineData("access", ConfigMgrFailure.AccessDenied,
         "The SMS Provider cm01.lab.test denied access. The account needs a ConfigMgr security role for site ABC.")]
     public async Task AConnectFailureHasAPlainMessageEndsTheProcessAndTheNextCommandTriesAgain(string kind, ConfigMgrFailure expected, string message)
@@ -483,7 +483,7 @@ public sealed class ConfigMgrSessionHostTests
         await using var _ = host;
         var failure = await Assert.ThrowsAsync<ConfigMgrSessionException>(() => host.InvokeAsync(Script));
         Assert.Equal(ConfigMgrFailure.InvalidSiteCode, failure.Failure);
-        Assert.Contains("Settings, ConfigMgr Site Settings", failure.Message);
+        Assert.Contains("Settings, ConfigMgr.", failure.Message);
         Assert.Empty(factory.Started);
     }
 

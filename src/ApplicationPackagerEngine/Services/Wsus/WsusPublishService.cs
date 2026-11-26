@@ -153,7 +153,7 @@ public sealed class WsusPublishService(IWsusAdapterRunner? runner = null, WsusRu
         {
             var certificate = WsusAdminClient.ReadCertificate(prepared["SigningCertificate"] as JsonObject)
                 ?? throw new WsusOperationException(WsusErrorKinds.NoCertificate,
-                    $"WSUS server {serverName} has no signing certificate. Create or import one in Options, WSUS Publishing.");
+                    $"WSUS server {serverName} has no signing certificate. Create or import one in Settings, WSUS.");
             if (certificate.IsExpired(_clock()))
                 throw new WsusOperationException(WsusErrorKinds.NoCertificate,
                     $"The WSUS signing certificate {certificate.Thumbprint} expired on {certificate.NotAfter.ToLocalTime().ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)}. Import a new one, then clients must trust it.");

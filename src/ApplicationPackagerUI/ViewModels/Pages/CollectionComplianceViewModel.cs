@@ -43,8 +43,8 @@ public sealed partial class CollectionComplianceViewModel : ObservableObject
     public const string AllCategories = "All categories";
 
     public const string NotInUseMessage = "ConfigMgr is not in use. Select it under Systems in Use in Settings.";
-    public const string SiteCodeMessage = "Set the site code in Settings, ConfigMgr Site Settings.";
-    public const string SiteHint = " Check the site code and the SMS Provider in Settings, ConfigMgr Site Settings.";
+    public const string SiteCodeMessage = "Set the site code in Settings, ConfigMgr.";
+    public const string SiteHint = " Check the site code and the SMS Provider in Settings, ConfigMgr.";
     public const string AccessHint = " The ConfigMgr console role needs collection and query rights.";
     public const string LoadFailed = "The collections could not be read. The log has the details.";
     public const string DetailFailed = "The details of the collection could not be read. The log has the details.";

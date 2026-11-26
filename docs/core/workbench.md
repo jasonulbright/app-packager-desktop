@@ -17,7 +17,7 @@ Stage and publish runs of the Workbench use a saved profile. A run writes a buil
 
 - No site, tenant or server is needed to edit a profile.
 - A run from the Workbench needs the settings of its target. See [Publish to ConfigMgr](publish-to-configmgr.md), [Publish to Intune](publish-to-intune.md) and [WSUS publishing](wsus-publishing.md).
-- A **Stage** run needs **Download Root (local staging)** in Settings.
+- A **Stage** run needs **Download Root (local staging)** in Settings, Folders.
 
 ## Steps: change an application and stage it
 
@@ -33,11 +33,13 @@ Stage and publish runs of the Workbench use a saved profile. A run writes a buil
 6. Select **Validate**. The Workbench opens **Review & build** and shows the findings. Validation inspects the profile. It does not run anything.
 7. Select **Stage**. The Workbench closes and the App Packager page runs the stage.
 8. Open the Workbench again. Choose the new build in **Build**. A sealed build exists only after a **Stage** that you start in the Workbench. A **Stage** that you start with the button on the App Packager page creates no sealed build, and **Build** then shows `No sealed builds`.
-9. Under **Publish to:**, select **ConfigMgr**, **Intune** or **WSUS**. The publish uses the build that **Build** shows.
+9. Select **Publish All**. It publishes the build that **Build** shows to the systems in Settings, Systems in Use. The Workbench closes. The **Review Publish All** window opens with this one application and the version of that build. Select **Publish 1 application**. See [Publish All](stage-and-publish.md#publish-all). When WSUS is the only system in use, there is no review, and the publish starts at once.
 
 If you have unsaved edits when you start a run, the app asks `Save the profile before this run? A run uses the saved profile revision.` Select **Save**, **Discard** or **Cancel**.
 
-If a finding of severity Blocking applies to the target, the dialog **Blocked** opens and the run does not start. If **Build** shows `No sealed builds` when you select a publish button, the dialog shows `No sealed build exists for this profile. Stage it first; Package consumes an exact build id, not the newest manifest on disk.`
+A save before the run keeps the build that you chose. When the saved profile does not have that build, for example after a save as a new profile, a message says that nothing was published.
+
+If a finding of severity Blocking applies to the run, the dialog **Blocked** opens and the run does not start. A Blocking finding that is only about Intune stops a publish to Intune without ConfigMgr. With ConfigMgr in the same publish, `DETECT-INTUNE-COMPOUND` also stops the run, and `VARIANT-INTUNE` stops it unless the sealed build holds the deployment types. A **Stage** with ConfigMgr in its target does not stop for an Intune finding. If **Build** shows `No sealed builds` when you select **Publish All**, the dialog shows `No sealed build exists for this profile. Stage it first; Package consumes an exact build id, not the newest manifest on disk.`
 
 ![The Application section of the Workbench](../images/core-workbench-application.png)
 
@@ -51,14 +53,24 @@ If a finding of severity Blocking applies to the target, the dialog **Blocked** 
 | **Rename** | Renames the selected custom profile. The packager default cannot be renamed. |
 | **Bundle** | Menu with **Export bundle...** and **Import bundle...**. |
 | **Build** | Sealed builds of the application and profile. A publish uses the selected build. |
-| `Content build`, `ConfigMgr`, `Intune` chips | Result of the last **Validate**: `Ready`, `Needs review`, `Unsupported` or `Not validated`. An Intune finding never changes the other two chips. |
+| **Details** | Shows in a narrow window only. It shows the side panel in place of the editor. Select a section to return to the editor. |
+| Validation line | Shows while the side panel is closed: the three validation results in one line. |
 | **Use defaults** | Clears every override in the profile. The dialog **Use Defaults** asks first. Saved builds stay. |
 | **Save**, **Save as...** | Writes the profile. The message reads `Saved "<name>" at revision <n>. Existing builds are now stale relative to this profile; nothing was deployed.` |
 | **Validate** | Shows the findings. |
 | **Stage** | Stages the application with the saved profile. |
-| **Publish to:** **ConfigMgr**, **Intune**, **WSUS** | Publishes the selected build. The tooltip of a disabled button names the missing setting. |
+| **Publish All** | Publishes the selected build to the systems in Settings, Systems in Use. It is disabled when no system is in use or a system in use is not ready. The tooltip gives the reason. |
 
 When the Workbench opens, it can find unsaved changes from an earlier session. The dialog **Recover Draft** asks `Unsaved changes to "<name>" were found from an earlier session. Recover them?`
+
+## The side panel
+
+The panel at the right of the editor has two parts. A wide window shows it. In a narrower window, select **Details** in the footer.
+
+| Part | Content |
+|---|---|
+| **Identity and source** | **Stable identity** and **Source provenance** of the application. |
+| **Validation** | The result of the last **Validate** for `Content build`, `ConfigMgr` and `Intune`: `Ready`, `Needs review`, `Unsupported` or `Not validated`. An Intune finding never changes the other two results. WSUS has no result. |
 
 ## Sections
 
@@ -66,7 +78,7 @@ The sections **Install & uninstall**, **Detection** and **Timing & execution** h
 
 ### Application
 
-Fields: **Display name**, **Publisher**, **Description**, **Application title**, **Profile name**, **Stable identity**, **Source provenance**, **Icon**.
+Fields: **Display name**, **Publisher**, **Description**, **Application title**, **Profile name**, **Icon**. **Stable identity** and **Source provenance** are in the side panel.
 
 - **Application title** offers `Packager default`, `Include version` and `No version`. A title with the version creates one ConfigMgr application for each release. A title without the version updates the same application.
 - **Icon** has **Choose file...**, **Reset** and **Remove**. **Remove** publishes no icon.
@@ -176,7 +188,7 @@ The Workbench data folder is `%LOCALAPPDATA%\AppPackager\Workbench`. It holds `a
 ## Limits
 
 - A run from the Workbench closes the Workbench window. The work then runs in the main window.
-- The lab validated that hooks and custom script text reach the client, and that a publish from the footer creates the application.
+- The lab validated that hooks and custom script text reach the client, and that a publish from the footer creates the application. That check used an earlier footer with one button for each system.
 - Intune publishing is tested against simulated Graph responses only.
 - **Effective command**, the inherited detection rule and the **Resolved plan** can show `(needs staging)` after a Workbench **Stage** that sealed a build. The sealed build is real. Choose it in **Build** to publish it.
 - The Workbench is a window that stops the main window while it is open.

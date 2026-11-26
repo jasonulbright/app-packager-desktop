@@ -107,7 +107,7 @@ The data of the sites is in `%LOCALAPPDATA%\AppPackagerData\sites\<site>\`, one 
 
 ## The first start of this version
 
-At the first start the app finds the site code that you saved in an earlier version. It copies the data of that site into `sites\<code>\`, checks the SHA-256 of each copy, and keeps the old files where they were. A copy that does not match stops the copy, and the old files stay in use. The footer then shows a message. The old files stay for at least one release. If you have not saved a site code yet, nothing is copied until you save one in the Setup window or in **Settings**.
+At the first start the app finds the site code that you saved in an earlier version. It copies the data of that site into `sites\<code>\`, checks the SHA-256 of each copy, and keeps the old files where they were. A copy that does not match stops the copy, and the old files stay in use. The footer then shows a message. The old files stay for at least one release. If you have not saved a site code yet, nothing is copied until you save one in the Setup window or in **Settings**. When a site is active, the **Site Code** box of the Setup window is read only.
 
 ## The command line
 

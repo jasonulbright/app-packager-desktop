@@ -13,7 +13,7 @@ The page has four tabs: **Deploy**, **Rings**, **History** and **Options**. This
 ## Requirements
 
 - The Configuration Manager console is on this computer. The page runs the console PowerShell module in Windows PowerShell 5.1.
-- **Systems in Use** in Settings includes ConfigMgr. The **Site Code** and the **Site Server / SMS Provider Host** are set in Settings, **ConfigMgr Site Settings**. See [Settings page](../core/settings-page.md).
+- **Systems in Use** in Settings includes ConfigMgr. The **Site Code** and the **Site Server / SMS Provider Host** are set in Settings, **ConfigMgr**. See [Settings page](../core/settings-page.md).
 - The ConfigMgr account has deployment rights for the object type, distribute content rights and read rights on collections. See [Permissions](../reference/permissions.md). The rights were not tested with a custom security role; the lab used a full administrator.
 - The audit log can be written. The **Options** tab shows this. A deployment is created only when the audit log can be written.
 - The page makes no network request other than the calls to the SMS Provider through the ConfigMgr session.
@@ -31,13 +31,19 @@ The page has four tabs: **Deploy**, **Rings**, **History** and **Options**. This
 9. Select the **User notification**. The list is shown for the types that have this setting.
 10. Set the options of the object type. See the table in [Options and settings](#options-and-settings).
 11. For an application, a package or a task sequence, check the distribution point groups in the **Content** card. Select **Refresh status** to read the content status again. For a software update group the page shows no **Content** card, because the console distributes update content.
-12. Select **Validate**. View the **Checks** grid. A check with the result Fail or Unknown blocks the deployment.
+12. Select **Validate**. Select **View validation checks** to scroll to the **Checks** list. A check with the result Fail or Unknown blocks the deployment.
 13. Select **Deploy**. The plan window opens. Review the plan.
 14. Select the extra confirmation box if the plan shows one. Select the action button of the plan.
 15. Review the result under the tabs. The result lists each change with **Result**, **Action**, **Object** and **Message**.
 16. Check the new deployment in the ConfigMgr console. The result panel names deployments that the page could not identify.
 
 ![The Deploy tab after Validate, with the checks and the result of an Undo](../images/tools-deployment-helper-deploy.png)
+
+## The page layout
+
+The **Deploy** tab shows the object types as a row of tabs, with the template controls, **Refresh** and **Cancel** beside it. Below are the object grid and the **Device collection** grid, side by side when the tab is wide enough. The cards **Schedule and options** and **Content** follow, also side by side in a wide tab, and then the **Checks** card.
+
+A line under the tab content stays in view at every scroll position. Its label is **Deployment to review**. It shows the object, the collection, the purpose and the member count of the collection, for example `<object> → <collection> · Required · 12 members at the last read`. After a check, the count reads `at the last check`. When the form changed after the check, the line reads `changed, select Validate again` in place of the count. While a choice is missing or refused, the line says which one. **View validation checks**, **Validate** and **Deploy** are beside and below this line.
 
 ## The plan
 
@@ -131,7 +137,7 @@ For a package or task sequence, the page sends the UTC flag with the available t
 | Message | Cause | Fix |
 |---|---|---|
 | ConfigMgr is not in use. Select it under Systems in Use in Settings. | ConfigMgr is off in **Systems in Use**. | Select ConfigMgr in Settings. |
-| Set the site code in Settings, ConfigMgr Site Settings. | The site code is empty. | Enter the **Site Code**. |
+| Set the site code in Settings, ConfigMgr. | The site code is empty. | Enter the **Site Code**. |
 | Built-in collections cannot be chosen. Pick a device collection that was made at the site. | The collection ID starts with `SMS`. | Select another collection. |
 | A Required deployment installs on every device of the collection and needs its own confirmation, so nothing was created. | The plan was confirmed without the extra box. | Select the box in the plan. |
 | ... is now deployed to collection ... (deployment ID ...), so no duplicate was created. | The object is already deployed to the collection. | None. The page created nothing. |

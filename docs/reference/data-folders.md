@@ -34,6 +34,7 @@ With a site active, the data of that site is in `Sites\<site>\`. `Sites` is the 
 | `Sites\<site>\deployments\rings\`, `rings\runs\`, `audit.jsonl` | Ring plans, ring runs and the Deployment Helper audit of the site. |
 | `Sites\<site>\hygiene\`, `dpcontent\`, `pivots\sessions\`, `maintenance\reports\`, `collections\reports\` | Site Hygiene stores, DP Content audit and reports, saved Pivots and Scripts runs, and the reports of Maintenance Windows and Collections. |
 | `Sites\<site>\imported-from.json`, `settings.json.before-import-<date>` | The log of the last import of settings from another site (source, date, SHA-256 of both settings files), and the copy of the settings file that a replace kept. See [Sites](../core/sites.md#import-settings-from-another-site). |
+| `Sites\<site>\state\discovery-scan.json` | The result of the Discover scan of the site for the setup checklist: the time, the number of matched products and the choice, or the skip. With no active site, the file is in the data root. |
 | `Sites\<site>\migration.json` | The list of files that the first start copied from the single-site layout, with their SHA-256. |
 
 The first start of this version copies the data of the saved site code into `Sites\<code>\` and keeps the old files in `Data` and `Legacy`. The old files stay for at least one release. A tool that is not listed here keeps its folder in `Data`.
@@ -106,11 +107,11 @@ See [Workbench](../core/workbench.md) and [Definitions](../core/definitions.md).
 | Location | Content |
 |---|---|
 | `<Packagers folder>\packager-preferences.json`, `citrix-workspace-switches.json` | Written for PS1 packagers. |
-| `<FileShareRoot>\Applications\<Vendor>\<App>\<Version>\` (layout `Nested`) or `<FileShareRoot>\Applications\<Vendor>-<App>-<Version>\` (layout `Flat`) | The content share for `Publish to ConfigMgr`. A ConfigMgr run writes only the content here. |
+| `<FileShareRoot>\Applications\<Vendor>\<App>\<Version>\` (layout `Nested`) or `<FileShareRoot>\Applications\<Vendor>-<App>-<Version>\` (layout `Flat`) | The content share for a publish to ConfigMgr. A ConfigMgr run writes only the content here. |
 | `%TEMP%\ap-cmsession-*.ps1`, `%TEMP%\apkg-hdr-*.txt`, `%TEMP%\appackager-sign-*`, and the WSUS adapter files `request.json` and `result.json` in a temporary folder | Short-lived files. |
 | `<DownloadRoot>\AddFromWeb\<8 characters>\` | The installer that step 4 of Add from web downloaded. The app deletes the folder when you save, when a new analysis starts, when an analysis fails and when you select **Done**. |
 | The folder where you chose the installer | The installer file of a definition from Add from file. The definition keeps the path, the SHA-256 and the version. The app does not copy or move the file. |
-| `%LOCALAPPDATA%\Update Services\SoftwareDistribution.log` | The WSUS administration API wrote this file in the user profile after the WSUS connection test (Settings, WSUS Publishing, Test connection) ran without elevation. The app does not manage this file. |
+| `%LOCALAPPDATA%\Update Services\SoftwareDistribution.log` | The WSUS administration API wrote this file in the user profile after the WSUS connection test (Settings, WSUS, Test connection) ran without elevation. The app does not manage this file. |
 | A path that you choose | CSV exports from the App Packager grid, the exported certificate (`.cer`), an imported PFX, the update ID text file. The app writes these only through Save and Open dialogs. |
 
 ## Related pages

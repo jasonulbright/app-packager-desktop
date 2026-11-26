@@ -23,9 +23,9 @@ Every call starts from a user action, except where the table says "background".
 | `github.com/microsoft/Microsoft-Win32-Content-Prep-Tool/raw/v1.8.7/IntuneWinAppUtil.exe` | Download of the Win32 Content Prep Tool from the tagged release 1.8.7. The app checks the pinned SHA-256 and the publisher signature. | User: `Download` in Settings, or the first Intune build | None |
 | `officecdn.microsoft.com` (`/pr/wsus/setup.exe`, `/pr/{channel guid}/Office/Data/v64.cab`) | The Office Deployment Tool and the version descriptor of Microsoft 365 | User | `M365Channel` |
 | `downloads.dell.com/catalog/CatalogPC.cab` | The Dell catalog scraper | User | The definition |
-| `login.microsoftonline.com` | Entra sign-in (token) for Intune publishing | User: Publish to Intune | `Intune.TenantId`, `Intune.ClientId`, `Intune.ClientSecretProtected` |
-| `graph.microsoft.com/v1.0` | Intune application and content upload calls | User: Publish to Intune | The same |
-| The Azure storage address that Graph returns at run time | The Intune content upload. The code has no fixed storage host. | User: Publish to Intune | The same |
+| `login.microsoftonline.com` | Entra sign-in (token) for Intune publishing | User: a publish to Intune | `Intune.TenantId`, `Intune.ClientId`, `Intune.ClientSecretProtected` |
+| `graph.microsoft.com/v1.0` | Intune application and content upload calls | User: a publish to Intune | The same |
+| The Azure storage address that Graph returns at run time | The Intune content upload. The code has no fixed storage host. | User: a publish to Intune | The same |
 | `services.nvd.nist.gov/rest/json/cves/2.0` | CVE query | User: Check CVEs, lookup after Check ConfigMgr, `--cve-report` | `Vulnerability.NvdApiKeyProtected`, `NVD_API_KEY`, `Vulnerability.LookupAfterCheckCm`, `Vulnerability.CacheTtlMinutes` |
 | `cvedb.shodan.io/cves` | CVE query when the NVD query failed | User | The same |
 | `api.first.org/data/v1/epss` | EPSS scores. One request for each 100 CVE IDs. | User | The same |
@@ -45,7 +45,7 @@ The CVE requests use https. No other process than the window or `AppPackagerBuil
 | The SQL Server of the site database (Windows authentication, read only) | Discover inventory. Site Hygiene Live Client Health and Inactive Devices. The `Test SQL` button. | User. Background for the Live auto-refresh. | `DiscoverySqlServer`, `DiscoverySqlDatabase`, `SiteHygieneLive.TrustSqlCertificate`, `SiteHygieneLive.RefreshMinutes` |
 | The WSUS server, port 8530 or 8531 (administration API), and its shares `UpdateServicesPackages` and `WSUSContent` | Publish, approve, decline, expire, remove, import | User | `Wsus.ServerName`, `Wsus.PortNumber`, `Wsus.UseSsl` |
 | File servers named by content source paths | The content source probe (Site Hygiene check APP-04). Off by default. At most 200 paths. | User | `SiteHygiene.ProbeContentSources` |
-| `FileShareRoot` (SMB) | Content copy for `Publish to ConfigMgr` | User | `FileShareRoot`, `ContentLayout` |
+| `FileShareRoot` (SMB) | Content copy for a publish to ConfigMgr | User | `FileShareRoot`, `ContentLayout` |
 | The audit and ring folders (UNC allowed) | Shared logs of Deployment Helper and Rings | User | `DeploymentHelper.AuditLogPath`, `RingsFolder`, `RunsFolder` |
 
 ## SQL views that Discover and Site Hygiene Live read

@@ -127,7 +127,7 @@ public class DiscoveryServiceTests
         runner.SiteOutput = siteOutput;
         var ex = await Assert.ThrowsAsync<DiscoveryException>(() => service.ScanAsync(Request(), CancellationToken.None));
         Assert.StartsWith($"The SQL Server for site MCM is not known ({reason}", ex.Message);
-        Assert.EndsWith("Enter the SQL Server name in Settings, ConfigMgr Site Settings.", ex.Message);
+        Assert.EndsWith("Enter the SQL Server name in Settings, ConfigMgr.", ex.Message);
     }
 
     [Fact]

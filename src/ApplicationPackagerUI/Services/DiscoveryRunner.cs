@@ -79,7 +79,7 @@ public sealed class DiscoveryRunner
         var overrides = !string.IsNullOrWhiteSpace(settings.DiscoverySqlServer) && !string.IsNullOrWhiteSpace(settings.DiscoverySqlDatabase);
         var reason = !configMgr ? "ConfigMgr is " + PublishActionState.NotInUse
             : string.IsNullOrWhiteSpace(settings.SiteCode) && !overrides
-                ? "Set the site code, or the SQL server and database, in Settings, ConfigMgr Site Settings."
+                ? "Set the site code, or the SQL server and database, in Settings, ConfigMgr."
                 : "";
         return reason.Length == 0
             ? (true, "Find hidden apps that hardware inventory shows installed on devices and that have no ConfigMgr application")
@@ -169,7 +169,7 @@ public sealed class DiscoveryRunner
         catch (Exception ex)
         {
             // The type and the text name the cause; "unexpected error" alone gave the user nothing to check.
-            return new DiscoveryScanOutcome(null, $"the query failed with an unexpected error ({ex.GetType().Name}: {DiscoveryService.OneLine(ex.Message)}). Nothing changed. Check the SQL server and database in Settings, ConfigMgr Site Settings, and that Windows PowerShell 5.1 can run.");
+            return new DiscoveryScanOutcome(null, $"the query failed with an unexpected error ({ex.GetType().Name}: {DiscoveryService.OneLine(ex.Message)}). Nothing changed. Check the SQL server and database in Settings, ConfigMgr, and that Windows PowerShell 5.1 can run.");
         }
     }
 
@@ -301,7 +301,7 @@ public sealed class DiscoveryRunner
                 var count = DiscoveryPreferences.Dismiss(settings, choice.Ids);
                 _save(settings);
                 return new DiscoveryApplyOutcome(true, false,
-                    LogPrefix + $"{count} app(s) will not be offered again. Clear the list in Settings, ConfigMgr Site Settings.",
+                    LogPrefix + $"{count} app(s) will not be offered again. Clear the list in Settings, ConfigMgr.",
                     $"{count} app(s) will not be offered again.");
             }
             default:

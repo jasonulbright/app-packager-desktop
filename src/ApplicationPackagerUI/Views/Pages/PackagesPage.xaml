@@ -151,7 +151,7 @@
                            Icon="{ui:SymbolIcon Play24}"
                            Command="{Binding OneClickCommand}"
                            AutomationProperties.AutomationId="btnOneClick"
-                           ToolTip="One Click check (and optionally Stage / Publish) against your tracked apps. Configure tracked apps, action, and destinations in Settings, One Click Settings." />
+                           ToolTip="One Click check (and optionally Stage / Publish) against your tracked apps. Configure tracked apps, action, and destinations in Settings, One Click." />
                 <ui:Button x:Name="btnCheckMenu"
                            Content="Check"
                            Icon="{ui:SymbolIcon CheckmarkCircle24}"

@@ -2,7 +2,7 @@
 
 This page lists every setting of App Packager Desktop. Each row gives the label that the window shows, the property name in `settings.json`, the default, and the effect.
 
-The Settings page is described in [Settings page](../core/settings-page.md). The first-run window is described in [Getting started](../getting-started.md).
+The Settings page is described in [Settings page](../core/settings-page.md). The setup checklist and the Setup window are described in [Getting started](../getting-started.md).
 
 ## How settings are stored
 
@@ -51,7 +51,7 @@ The default order is, in the first group: App Packager, Add from web, Add from f
 
 | UI label | Property | Default | Effect |
 |---|---|---|---|
-| `ConfigMgr` | `Systems.ConfigMgr` | on | A system that is not in use keeps its publish buttons disabled on the App Packager page. |
+| `ConfigMgr` | `Systems.ConfigMgr` | on | `Publish All` publishes to the systems in use. It does not publish to a system that is not in use. |
 | `Intune` | `Systems.Intune` | off | Same. |
 | `WSUS` | `Systems.Wsus` | off | Same. |
 
@@ -61,7 +61,9 @@ A `settings.json` file without `Systems` gets these values on load: ConfigMgr on
 
 With ConfigMgr off, the launch skips the ConfigMgr version query, and the CVE run uses an empty site code.
 
-## ConfigMgr Site Settings
+## ConfigMgr and Folders
+
+The site and Discover fields are on the page `ConfigMgr`. `Content Layout`, `Download Root` and `Packagers Folder` are on the page `Folders`.
 
 | UI label | Property | Default | Effect |
 |---|---|---|---|
@@ -84,7 +86,7 @@ The environment variables `SUITE_CM_SITECODE` and `SUITE_CM_PROVIDER` fill the s
 
 ## Post Packaging
 
-These settings apply to `Publish to ConfigMgr`. See [Stage and publish](../core/stage-and-publish.md).
+These settings apply to a publish to ConfigMgr. See [Stage and publish](../core/stage-and-publish.md).
 
 | UI label | Property | Default | Effect |
 |---|---|---|---|
@@ -95,7 +97,7 @@ These settings apply to `Publish to ConfigMgr`. See [Stage and publish](../core/
 | `Use a user collection` | `ContentDistribution.TestCollectionIsUser` | off | Uses a user collection instead of a device collection. It does not change the install context. |
 | `Create the collection if it does not exist` | `ContentDistribution.CreateTestCollectionIfMissing` | off | Creates an empty collection limited to All Users (`SMS00002`) or All Systems (`SMS00001`). |
 
-## One Click Settings
+## One Click
 
 See [One Click](../core/one-click.md).
 
@@ -111,7 +113,7 @@ See [One Click](../core/one-click.md).
 | `Cadence (days)` (grid) | `OneClick.CadenceOverrides` | empty | The cadence per application. |
 | `ConfigMgr` / `WSUS` / `Intune` (grid) | `OneClick.Destinations` | empty | The destinations per application. Rows without an entry follow the default. A row with no box checked is skipped. |
 
-## Detected Tools
+## Tools
 
 This section shows the state of three tools. It stores no setting.
 
@@ -163,7 +165,7 @@ See [CVE lookup](../core/cve-lookup.md).
 | `Look up CVEs after Check ConfigMgr` | `Vulnerability.LookupAfterCheckCm` | off | Runs the CVE lookup for the same rows after `Check ConfigMgr`. |
 | (none) | `Vulnerability.CacheTtlMinutes` | 360 | The number of minutes that a cached lookup answers. A Shodan result is used for 60 minutes. |
 
-## WSUS Publishing
+## WSUS
 
 See [WSUS publishing](../core/wsus-publishing.md).
 
@@ -199,7 +201,7 @@ See [Script signing](../core/script-signing.md).
 
 ## Deployment Type Defaults
 
-These values go to the ConfigMgr deployment type at `Publish to ConfigMgr`. See [Stage and publish](../core/stage-and-publish.md).
+These values go to the ConfigMgr deployment type at a publish to ConfigMgr. See [Stage and publish](../core/stage-and-publish.md).
 
 | UI label | Property | Default | Effect |
 |---|---|---|---|
@@ -275,28 +277,33 @@ Each check box has three states: on, off and not set.
 | `Releases` | Opens `https://github.com/jasonulbright/app-packager-desktop/releases` in the browser. |
 | Version text | Shows `App Packager Desktop <version>` and "MIT License. Settings are stored under %LOCALAPPDATA%\AppPackager." The text does not follow an `APP_PACKAGER_DATA_ROOT` override. |
 
-The app does not check for a new version. Open `Releases` to see new versions.
+`Releases` is not the update check. The app checks for a new version at start when `Check for a new version when the app starts` is on, and when you select `Check for updates`. Both controls are on the `General` page. See [Updates](../core/updates.md).
 
-## Setup window (first run)
+## Setup window and setup checklist
 
-The Setup window opens one time after the main window shows, when `FirstRunCompleted` is not true. A settings file that exists without this flag counts as completed.
+The Setup window does not open by itself. Open it with `Open Setup` in the setup checklist, or with `More`, `Setup...` on the App Packager page. The checklist opens by itself on a new installation, and later only for a site that has no scan record. See [Getting started](../getting-started.md#the-setup-checklist).
 
 | UI label | Property | Effect |
 |---|---|---|
 | `Systems in Use` (`ConfigMgr`, `Intune`, `WSUS`) | `Systems.*` | As in the Systems in Use section above. |
-| ConfigMgr: `Site Code`, `Site Server / SMS Provider`, `File Share Root`, `Download Root` | `SiteCode`, `ProviderMachine`, `FileShareRoot`, `DownloadRoot` | As in ConfigMgr Site Settings above. |
+| ConfigMgr: `Site Code`, `Site Server / SMS Provider`, `File Share Root`, `Download Root` | `SiteCode`, `ProviderMachine`, `FileShareRoot`, `DownloadRoot` | As in ConfigMgr and Folders above. `Download Root` shows for every choice of systems. `Site Code` is read only while a site is active. |
 | Intune: `Tenant ID`, `Client ID`, `Client Secret` | `Intune.*` | As in Intune above. |
-| WSUS: `WSUS server`, `Port`, `Use SSL` | `Wsus.*` | As in WSUS Publishing above. |
-| `Don't show this again` | `FirstRunCompleted` | Sets the flag to true. |
+| WSUS: `WSUS server`, `Port`, `Use SSL` | `Wsus.*` | As in WSUS above. |
+| `Don't show this again` | `FirstRunCompleted`, `SetupChecklist` | With `Skip`, marks the first run as completed and stops the setup checklist. |
 | `Back`, `Next`, `Skip`, `Save` | none | Move through the window, or save. |
 
-When you select no system, the window says "No system is selected. Save stores that, and the publish buttons stay disabled until a system is selected in Settings."
+When you select no system, the window says "No system is selected. Save stores that, and Publish All stays disabled until a system is selected in Settings."
 
 ## Settings without a control
 
 | Property | Default | Effect |
 |---|---|---|
 | `HiddenApplications` | empty | The IDs hidden in the App Packager grid. The `Save` button of the [Catalog](../core/applications.md) window sets it. |
+| `PackagesHiddenColumns` | empty list | The columns of the App Packager grid that `Columns` hides. |
+| `PackagesGridLayout` | not set | The column order, the column widths that you set and the sort of the App Packager grid. |
+| `PackagesDetailPaneOpen` | true | The detail pane of the App Packager page is open. |
+| `ApplicationSettingsColumns` | not set | The columns that the Application Settings grid shows. `Columns` saves it at once. |
+| `SetupChecklist` | not set | The state of the setup checklist: `Open`, `Done` or `Dismissed`. The app stores no state of a single step. |
 | `AppStates` | empty | Per application: last checked, latest version, current version, last staged, published per destination, not supported per destination. |
 | `WindowLeft`, `WindowTop`, `WindowWidth`, `WindowHeight`, `WindowMaximized`, `PaneOpen` | -1, -1, 1200, 800, off, on | The app saves the window state when the main window closes. The minimum window size is 900 x 600. The supported minimum is 1024 x 720. |
 | `FirstRunCompleted` | null | See the Setup window. |

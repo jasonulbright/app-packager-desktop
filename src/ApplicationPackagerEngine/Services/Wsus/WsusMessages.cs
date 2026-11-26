@@ -48,7 +48,7 @@ public static partial class WsusMessages
     {
         var text = message ?? "";
         if (Regex.IsMatch(text, "Verification of file signature failed", RegexOptions.IgnoreCase))
-            return "This computer must trust the WSUS signing certificate: import it into the Local Computer Trusted Publishers store, and into Trusted Root Certification Authorities when it is self-signed. Options, WSUS Publishing, Export certificate saves it.";
+            return "This computer must trust the WSUS signing certificate: import it into the Local Computer Trusted Publishers store, and into Trusted Root Certification Authorities when it is self-signed. In Settings, WSUS, Export certificate... saves it.";
         if (Regex.IsMatch(text, "not a WSUS Administrator|Unauthorized", RegexOptions.IgnoreCase))
             return "The account must be a member of the WSUS Administrators group on the server.";
         if (Regex.IsMatch(text, "CreateDirectory failed", RegexOptions.IgnoreCase))

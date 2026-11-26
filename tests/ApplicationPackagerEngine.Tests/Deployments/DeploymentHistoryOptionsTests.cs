@@ -140,7 +140,7 @@ public sealed class DeploymentHistoryOptionsTests
         Assert.False(options.ProbeWritable);
         Assert.Equal("The audit log cannot be written, so no deployment can be created. Another program holds the file.", options.ProbeText);
         Assert.Equal(3, options.Templates.Count);
-        Assert.Equal("Site code LAB, SMS Provider cm01.lab.local. Change them in Settings, ConfigMgr Site Settings.", options.ConnectionText);
+        Assert.Equal("Site code LAB, SMS Provider cm01.lab.local. Change them in Settings, ConfigMgr.", options.ConnectionText);
         Assert.Equal(0, _h.Service.ListCalls);
     }
 

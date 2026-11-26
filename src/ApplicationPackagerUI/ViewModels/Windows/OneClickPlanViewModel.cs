@@ -48,7 +48,7 @@ public sealed record OneClickPlanContext
 public partial class OneClickPlanViewModel : ObservableObject
 {
     public const string HintText =
-        "Include and the destination boxes apply to this run only; One Click Settings holds the saved values. Run asks nothing after it starts.";
+        "Include and the destination boxes apply to this run only; Settings, One Click holds the saved values. Run asks nothing after it starts.";
 
     private readonly OneClickPlanContext _context;
     private readonly IOneClickRunner _runner;

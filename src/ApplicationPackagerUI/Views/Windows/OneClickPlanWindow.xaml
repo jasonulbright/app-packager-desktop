@@ -56,7 +56,7 @@
                        Foreground="{DynamicResource SystemFillColorCriticalBrush}"
                        Visibility="{Binding HasBlocking, Converter={StaticResource BoolToVisibility}}" />
             <TextBlock x:Name="txtPlanHint" Style="{StaticResource PlanLine}" AutomationProperties.AutomationId="txtPlanHint"
-                       Text="Include and the destination boxes apply to this run only; One Click Settings holds the saved values. Run asks nothing after it starts." />
+                       Text="Include and the destination boxes apply to this run only; Settings, One Click holds the saved values. Run asks nothing after it starts." />
             <ui:TextBox Margin="0,8,0,0" MaxWidth="720" HorizontalAlignment="Left" Width="720"
                         Text="{Binding Comment, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="Administrative comment"
                         IsEnabled="{Binding CanPlanOnly}" AutomationProperties.Name="Administrative comment" AutomationProperties.AutomationId="txtPlanComment"

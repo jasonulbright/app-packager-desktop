@@ -134,8 +134,8 @@ Keyboard rules in the editors:
 | Message | Cause | Fix |
 |---|---|---|
 | ConfigMgr is not in use. Select it under Systems in Use in Settings. | **ConfigMgr** is off in Settings. | Select **ConfigMgr** under **Systems in Use**. |
-| Set the site code in Settings, ConfigMgr Site Settings. | **Site Code** is empty. | Enter the site code. |
-| Set the SMS Provider in Settings, ConfigMgr Site Settings. | **Site Server / SMS Provider Host** is empty. | Enter the provider name. |
+| Set the site code in Settings, ConfigMgr. | **Site Code** is empty. | Enter the site code. |
+| Set the SMS Provider in Settings, ConfigMgr. | **Site Server / SMS Provider Host** is empty. | Enter the provider name. |
 | Select Resolve first. A run goes only to resolved targets. | The target text or kind changed after the last **Resolve**. | Select **Resolve**. |
 | Type a collection, a device, a pattern or a list of names first. | The target box is empty. | Type a target. |
 | The targets resolve to no device. Nothing can be sent. | No device matches, or no match has a ConfigMgr client. | Check the target. |

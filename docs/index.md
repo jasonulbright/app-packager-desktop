@@ -4,15 +4,15 @@ App Packager Desktop packages third-party Windows applications and publishes the
 
 ## Start
 
-- [Getting started](getting-started.md): install, the Setup window, connect to a site, package one application.
+- [Getting started](getting-started.md): install, the setup checklist, the Setup window, connect to a site, package one application.
 
 ## Core
 
 The core is the packaging function of the application.
 
-- [App Packager page](core/packages.md): the grid, the toolbar buttons, Check Latest, Check ConfigMgr, the log pane and the keyboard.
+- [App Packager page](core/packages.md): the context strip, the status tabs, the grid, the menus, the batch bar, the detail pane and the keyboard.
 - [App Packager grid](core/packages-grid.md): the columns, the status values, the context menu and the keyboard in detail.
-- [Stage and publish](core/stage-and-publish.md): Stage, Publish to ConfigMgr, Publish to Intune and the targets.
+- [Stage and publish](core/stage-and-publish.md): Stage, Publish All with its review and results, and the targets.
 - [Publish to ConfigMgr](core/publish-to-configmgr.md): the steps, the content layout and the refusals.
 - [Publish to Intune](core/publish-to-intune.md): the steps, the targets and the outcomes.
 - [Catalog](core/applications.md): the window that shows or hides applications in the App Packager grid.
@@ -23,9 +23,9 @@ The core is the packaging function of the application.
 - [Workbench](core/workbench.md): sections, profiles, bundles and builds.
 - [Bring your own installer](core/bring-your-own-installer.md): existing bring-your-own applications, installer revisions and the Installer drop dialog.
 - [Script signing](core/script-signing.md): sign and require signatures for generated scripts.
-- [WSUS publishing](core/wsus-publishing.md): Publish to WSUS, refusal codes, WSUS Updates and Catalog Import.
+- [WSUS publishing](core/wsus-publishing.md): a publish to WSUS, refusal codes, WSUS Updates and Catalog Import.
 - [WSUS Updates and Catalog Import](core/wsus-updates.md): the update list, the catalog import and the certificate trust.
-- [One Click](core/one-click.md): settings, the plan window, the run and the report.
+- [One Click](core/one-click.md): settings, the plan window, the run, the run history and the report.
 - [Discover unmanaged software](core/discover-unmanaged-software.md): the prompt, the matching and the SQL access.
 - [Convert from ConfigMgr](core/convert-from-configmgr.md): turn a ConfigMgr application into Intune Win32 apps, with a preview, a content copy, a build and a publish.
 - [CVE lookup](core/cve-lookup.md): Check CVEs, the CVE window, CVE Report and the NVD key.

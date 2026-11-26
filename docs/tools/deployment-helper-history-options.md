@@ -83,7 +83,7 @@ Shipped templates cannot be changed. You can also create a template from the **D
 
 The **History** grid has these columns: **Time**, **Event**, **Result**, **Verified**, **Object**, **Deployment ID**, **Collection**, **Type**, **Purpose** and **Deadline**. The columns **Plan**, **Ring #**, **Ring** and **Run** show only when a loaded record carries a run ID.
 
-The **Event** list offers: All, Create, Distribute, Undo, Close run, Cancel ring and Abandon ring. The **Options** tab also shows a **Connection** card. It names the site code and the SMS Provider that the page uses. Change them in Settings, ConfigMgr Site Settings.
+The **Event** list offers: All, Create, Distribute, Undo, Close run, Cancel ring and Abandon ring. The **Options** tab also shows a **Connection** card. It names the site code and the SMS Provider that the page uses. Change them in Settings, ConfigMgr.
 
 The page saves the audit log path, the ring folders and the template choice in `settings.json`. The default files are in the `Deployments` folder of the data folder: `deployment-audit.jsonl` with a lock file, `Reports\deployment-history*` and `Templates\*.json`. The ring plans and runs are in `Deployments\Rings`. See [Data folders](../reference/data-folders.md) and [Settings reference](../reference/settings.md).
 
