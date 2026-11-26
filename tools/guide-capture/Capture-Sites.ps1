@@ -120,7 +120,7 @@ foreach ($theme in $Themes) {
         }
         Step 'core-site-footer' { Shot 'core-site-footer' }
 
-        # ---- The site menu (image) and the Settings values of AB1
+        # ---- The Settings values of AB1
         Open-Settings-ConfigMgr
         if ($isE2e) {
             $sql = Get-Text (Need-El 'txtDiscoverySqlServer')
@@ -129,11 +129,6 @@ foreach ($theme in $Themes) {
 
         # ---- 2. Add site CD2
         Open-SiteMenu
-        Step 'core-site-switcher-menu' {
-            $b = (Need-El 'btnSiteSwitcher').Current.BoundingRectangle
-            $scr = Get-ApdScreen
-            Shot 'core-site-switcher-menu' @([int]($scr.Width - 760), [int]($scr.Height - 400), 760, 400)
-        }
         $add = Need-Name 'Add site...' 'MenuItem' 8
         Real-Click $add
         $null = Wait-El 'txtAddSiteCode' 15
@@ -176,6 +171,14 @@ foreach ($theme in $Themes) {
         # ---- 4. Back to AB1
         Switch-To 'AB1 (cm.ab1.example.com)'
         $footer3 = Wait-Footer 'Site AB1*'
+        # The image of the site menu needs both sites, so it is made here and not before Add site.
+        Step 'core-site-switcher-menu' {
+            Open-SiteMenu
+            $null = Need-Name 'CD2 - Lab (cm.cd2.example.com)' 'MenuItem' 8
+            $scr = Get-ApdScreen
+            Shot 'core-site-switcher-menu' @([int]($scr.Width - 760), [int]($scr.Height - 400), 760, 400)
+            Send-ApdKeys '{ESC}'; Start-Sleep 1
+        }
         if ($isE2e) {
             Check 'e2e-12 footer shows AB1 after the switch back' ($footer3 -like 'Site AB1*cm.ab1.example.com') "footer: '$footer3'"
             Open-Settings-ConfigMgr

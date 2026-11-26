@@ -95,7 +95,8 @@ $settings = @{
 $zipGood = Join-Path $out 'site-AB1.zip'
 $zipHostile = Join-Path $out 'hostile.zip'
 $zipTamper = Join-Path $out 'tampered.zip'
-$app = Start-Apd $exe $data $theme $settings
+# Not $app: the driver is dot-sourced and variable names ignore case, so $app is the $script:App of the driver, and Stop-Apd empties it.
+$appProcess = Start-Apd $exe $data $theme $settings
 (Main-Window).SetFocus()
 try {
     $null = Wait-El 'btnSiteSwitcher' 30
@@ -188,6 +189,6 @@ finally { Stop-Apd }
 $secretHits = @(Get-ChildItem $sites -Recurse -File -ErrorAction SilentlyContinue | Where-Object { $_.Extension -ne '.db' -and $_.Name -notlike 'settings.json' } | Select-String -Pattern 'FAKE_TOKEN' -ErrorAction SilentlyContinue)
 $newSecret = @(Get-ChildItem (Join-Path $sites 'AB1~2') -Recurse -File -ErrorAction SilentlyContinue | Select-String -Pattern 'FAKE_TOKEN|Protected"' -ErrorAction SilentlyContinue)
 Check 'e2e-18 no secret reached the new site' ($newSecret.Count -eq 0) ('hits: ' + (($newSecret | Select-Object -First 3 | ForEach-Object { $_.Path }) -join ', '))
-$app.Refresh()
-Check 'e2e-19 the app is closed at the end' $app.HasExited 'the app that the run started still runs'
+$appProcess.Refresh()
+Check 'e2e-19 the app is closed at the end' $appProcess.HasExited 'the app that the run started still runs'
 "E2E-FAILS=$script:Fails"

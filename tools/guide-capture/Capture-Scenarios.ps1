@@ -91,15 +91,9 @@ foreach ($theme in $Themes) {
             Start-Sleep -Seconds 4
             $scan = Find-El $null 'btnHygieneScan' -Timeout 20
             if (-not $scan) { "FAIL $theme : no btnHygieneScan"; continue }
-            Click-El $scan
-            $deadline = (Get-Date).AddMinutes(8)
-            do {
-                Start-Sleep -Seconds 5
-                $summary = Find-El $null 'txtHygieneSummary' -Timeout 1
-                $text = if ($summary) { $summary.Current.Name } else { '' }
-            } while ((Get-Date) -lt $deadline -and $text -notmatch 'finding')
-            "scan: $text"
-            if ($text -notmatch 'finding') { "FAIL $theme : the scan did not end"; continue }
+            $result = Invoke-ApdHygieneScan { Click-El $scan }
+            "scan: $($result.Status) $($result.Summary)"
+            if (-not $result.Ended) { "FAIL $theme : the scan did not end"; continue }
             Start-Sleep -Seconds 3
             Move-MouseAway
             Shot (Join-Path $dir 'tools-site-hygiene-findings.png')
@@ -116,9 +110,12 @@ foreach ($theme in $Themes) {
             $pages = @(
                 @{ Nav = 'Maintenance Windows'; Wait = 12; Tabs = @(@('tools-maintenance-windows-list', $null), @('tools-maintenance-windows-coverage', 'tabCoverage'), @('tools-maintenance-windows-templates', 'tabTemplates')) }
                 @{ Nav = 'Collection and Compliance'; Wait = 15; Tabs = @(@('tools-collections-list', $null), @('tools-collections-wql', 'tabWqlEditor'), @('tools-collections-templates', 'tabTemplates'), @('tools-collections-site-queries', 'tabSiteQueries')) }
-                @{ Nav = 'Deployment Helper'; Wait = 15; Tabs = @(@('tools-deployment-helper-deploy', $null), @('tools-deployment-helper-history', 'tabHistory'), @('tools-deployment-helper-options', 'tabOptions')) }
-                @{ Nav = 'DP Content Manager'; Wait = 15; Tabs = @(@('tools-dp-content-dps', $null), @('tools-dp-content-content', 'tabContent'), @('tools-dp-content-issues', 'tabIssues'), @('tools-dp-content-history', 'tabDpHistory')) }
+                @{ Nav = 'Deployment Helper'; Wait = 15; Tabs = @(@('tools-deployment-helper-deploy', $null), @('tools-deployment-helper-options', 'tabOptions')) }
+                @{ Nav = 'DP Content Manager'; Wait = 15; Tabs = @(@('tools-dp-content-content', 'tabContent'), @('tools-dp-content-issues', 'tabIssues')) }
             )
+            # Three images are not made here. The two History tabs list the records of the data folder, and the data folder of this run is new, so they are empty until
+            # a run writes: Capture-ToolsDeploy.ps1 makes tools-deployment-helper-history and Capture-ToolsDp.ps1 makes tools-dp-content-history, each after a real
+            # change on the lab site. The DPs tab of the lab has one row and shows its content only for a selected row: Capture-Tools.ps1 makes tools-dp-content-dps.
             foreach ($page in $pages) {
                 if (-not (Click-Nav $page.Nav)) { "FAIL $theme : the sidebar has no $($page.Nav) entry"; continue }
                 Start-Sleep -Seconds $page.Wait
@@ -136,8 +133,16 @@ foreach ($theme in $Themes) {
             # The page that Settings opens, from the top, one screen at a time (the wheel scrolls three lines of 40 px for each notch at 100 percent).
             $null = Click-Nav 'Settings'; Start-Sleep -Seconds 5
             [System.Windows.Forms.Cursor]::Position = New-Object System.Drawing.Point 1000, 600
+            $previous = $null
             for ($i = 0; $i -lt 30; $i++) {
-                Shot (Join-Path $dir ('settings-scroll-{0:00}.png' -f $i))
+                $file = Join-Path $dir ('settings-scroll-{0:00}.png' -f $i)
+                Shot $file
+                if (Test-Path -LiteralPath $file) {
+                    $hash = (Get-FileHash -LiteralPath $file -Algorithm SHA256).Hash
+                    # The same picture again: the page is at its end, or it does not scroll.
+                    if ($hash -eq $previous) { Remove-Item -LiteralPath $file; "the page did not move after $i image(s)"; break }
+                    $previous = $hash
+                }
                 for ($n = 0; $n -lt 18; $n++) { Send-ApdWheel ([uint32]4294966576); Start-Sleep -Milliseconds 120 }
                 Start-Sleep -Milliseconds 500
             }

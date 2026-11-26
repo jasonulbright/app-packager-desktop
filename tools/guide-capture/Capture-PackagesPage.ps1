@@ -82,7 +82,7 @@ foreach ($theme in $Themes) {
             # The row with the update is below the visible rows: scroll the grid with the wheel until the row is on screen.
             [System.Windows.Forms.Cursor]::Position = New-Object System.Drawing.Point 1000, 500
             for ($i = 0; $i -lt 40; $i++) {
-                $row = Find-El $w -Name 'Audacity (x64)' -Timeout 1
+                $row = Find-El (Find-El $w 'PackagerGrid') -Name 'Audacity' -Timeout 1
                 if ($row -and -not $row.Current.IsOffscreen -and $row.Current.BoundingRectangle.Y -lt 600) { break }
                 Send-ApdWheel ([uint32]4294967176); Start-Sleep -Milliseconds 300
             }
@@ -124,8 +124,8 @@ foreach ($theme in $Themes) {
             # The menu item is enabled only with a selected row: select the 7-Zip row (it has the operation of the command-line stage).
             Set-ElText (Find-El $w 'txtAppPackagerSearch') '7-Zip'
             Start-Sleep 2
-            $cell = Find-El $w -Name '7-Zip (x64)' -Timeout 8
-            if (-not $cell) { throw 'The grid has no row 7-Zip (x64).' }
+            $cell = Find-El (Find-El $w 'PackagerGrid') -Name '7-Zip' -Timeout 8
+            if (-not $cell) { throw 'The grid has no row 7-Zip.' }
             Real-Click $cell
             Set-ElText (Find-El $w 'txtAppPackagerSearch') ''
             Start-Sleep 1

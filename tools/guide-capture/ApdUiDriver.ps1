@@ -198,7 +198,30 @@ function Click-At($Point, [switch]$Right) {
     else { [ApdW]::mouse_event(2, 0, 0, 0, [UIntPtr]::Zero); [ApdW]::mouse_event(4, 0, 0, 0, [UIntPtr]::Zero) }
 }
 
-function Click-El($El, [switch]$Right) { Click-At (Get-ElCenter $El) -Right:$Right }
+# A missing element has no rectangle, so its center would be the corner of the screen and the click would do nothing without a message.
+function Click-El($El, [switch]$Right) {
+    if (-not $El) { throw 'Click-El: there is no element to click.' }
+    Click-At (Get-ElCenter $El) -Right:$Right
+}
+
+# Starts a Site Hygiene scan with -Click and waits for its end. The page keeps the summary of an earlier scan while a scan runs, so the end is read from the
+# status line under the page: a scan clears it at its start and writes 'The scan ended: ...' at its end. A status that never changed and a Scan button that was
+# never disabled do not count, because the click can be lost.
+function Invoke-ApdHygieneScan([scriptblock]$Click, [int]$Minutes = 8) {
+    $readText = { param($Id) $e = Find-El $null $Id -Timeout 1; if ($e) { [string]$e.Current.Name } else { '' } }
+    $statusBefore = & $readText 'txtHygieneStatus'
+    & $Click
+    $sawStart = $false
+    $deadline = (Get-Date).AddMinutes($Minutes)
+    do {
+        Start-Sleep -Milliseconds 700
+        $status = & $readText 'txtHygieneStatus'
+        $button = Find-El $null 'btnHygieneScan' -Timeout 1
+        $idle = [bool]($button -and $button.Current.IsEnabled)
+        if ($status -cne $statusBefore -or ($button -and -not $idle)) { $sawStart = $true }
+    } while ((Get-Date) -lt $deadline -and -not ($sawStart -and $idle -and $status))
+    [pscustomobject]@{ Ended = [bool]($sawStart -and $idle -and $status -like 'The scan ended*'); Status = $status; Summary = (& $readText 'txtHygieneSummary') }
+}
 
 # The window of the app (the main window, or a window that it opened) whose title matches (-like), or $null.
 function Find-ApdWindow([string]$Like) {

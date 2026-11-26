@@ -48,14 +48,10 @@ function Show-Filter([string]$Text) {
     Start-Sleep -Seconds 3
 }
 function Scan {
-    Invoke-El (Find-El $null 'btnHygieneScan' -Timeout 20)
-    $deadline = (Get-Date).AddMinutes(8)
-    do {
-        Start-Sleep -Seconds 5
-        $summary = Find-El $null 'txtHygieneSummary' -Timeout 1
-        $text = if ($summary) { $summary.Current.Name } else { '' }
-    } while ((Get-Date) -lt $deadline -and $text -notmatch 'finding')
-    "scan: $text"
+    $result = Invoke-ApdHygieneScan { Invoke-El (Find-El $null 'btnHygieneScan' -Timeout 20) }
+    "scan: $($result.Status) $($result.Summary)"
+    # The findings that follow must be those of this scan: a scan that did not end stops the probe.
+    if (-not $result.Ended) { throw 'The scan did not end.' }
 }
 
 # True when exactly one finding is selected and the object name that the detail panel shows for it starts with "<prefix>-". The name of a relation

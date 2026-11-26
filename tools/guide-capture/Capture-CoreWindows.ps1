@@ -14,7 +14,7 @@ param(
     [Parameter(Mandatory)][string]$Run,
     [string[]]$Themes = @('Light', 'Dark'),
     [string]$AppFolder = $PSScriptRoot,
-    [string[]]$Checked = @('Mozilla Firefox (x64)', 'Audacity'),
+    [string[]]$Checked = @('Mozilla Firefox', 'Audacity'),
     [string]$FileShareRoot = '\\cm01.contoso.com\ContentShare$',
     [string]$ConvertApplication = 'Audacity 3.7.9'
 )
@@ -36,7 +36,8 @@ function Check-Row($w, [string]$Name) {
     Start-Sleep 2
     $grid = Find-El $w 'PackagerGrid'
     $box = Get-ApdRowBoxes $grid | Select-Object -First 1
-    if ($box -and $box.GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern).Current.ToggleState -ne 'On') { Real-Click $box }
+    if (-not $box) { throw "The search '$Name' shows no row." }
+    if ($box.GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern).Current.ToggleState -ne 'On') { Real-Click $box }
     Set-ElText (Find-El $w 'txtAppPackagerSearch') ''
     Start-Sleep 1
 }

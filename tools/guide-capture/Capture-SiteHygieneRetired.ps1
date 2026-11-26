@@ -107,14 +107,9 @@ try {
     $scan = Find-El $null 'btnHygieneScan' -Timeout 20
     'scan button found: ' + [bool]$scan
     if (-not $scan) { Get-ElList (Get-ApdWindows | Select-Object -First 1) 60 }
-    Invoke-El $scan
-    $deadline = (Get-Date).AddMinutes(8)
-    do {
-        Start-Sleep -Seconds 5
-        $summary = Find-El $null 'txtHygieneSummary' -Timeout 1
-        $text = if ($summary) { $summary.Current.Name } else { '' }
-    } while ((Get-Date) -lt $deadline -and $text -notmatch 'finding')
-    "scan: $text"
+    $result = Invoke-ApdHygieneScan { Invoke-El $scan }
+    "scan: $($result.Status) $($result.Summary)"
+    if (-not $result.Ended) { throw 'The scan did not end.' }
 
     # Show blockers for the retired application that a task sequence installs and that another application depends on.
     Show-Filter 'TSQ-05'
