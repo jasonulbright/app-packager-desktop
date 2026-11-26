@@ -75,13 +75,62 @@ public sealed class LabSuiteProcessJobTests : IDisposable
             Assert.Contains(expected, output);
     }
 
+    private const string OwnerScenario = """
+        param($Helper, $Dir)
+        $ErrorActionPreference = 'Stop'
+        . $Helper
+        $run = Start-JobProcess -FilePath powershell.exe -ArgumentList @('-NoProfile', '-NonInteractive', '-Command', 'Start-Sleep -Seconds 120')
+        Set-Content -LiteralPath (Join-Path $Dir 'member.txt') -Value $run.Process.Id
+        Start-Sleep -Seconds 120
+        """;
+
     [Fact]
-    public void TheSuiteScriptHasNoOtherWayToStopAProcess()
+    public async Task WhenTheOwnerOfARunEndsWindowsEndsTheMembers()
     {
-        var script = File.ReadAllText(LabFile("Run-LabSuite.ps1"));
-        foreach (var forbidden in new[] { "Stop-Process", "taskkill", "ParentProcessId", ".Kill(", "Terminate" })
+        var scenario = Path.Combine(_dir, "owner.ps1");
+        File.WriteAllText(scenario, OwnerScenario);
+        var start = new ProcessStartInfo("powershell.exe") { UseShellExecute = false, CreateNoWindow = true };
+        foreach (var a in new[] { "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", scenario, LabFile("ProcessJob.ps1"), _dir })
+            start.ArgumentList.Add(a);
+        WindowsPowerShellHost.ApplyLogonModulePath(start);
+        using var owner = Process.Start(start)!;
+        Process? member = null;
+        try
+        {
+            var file = Path.Combine(_dir, "member.txt");
+            var deadline = DateTime.UtcNow.AddSeconds(90);
+            var id = 0;
+            while (DateTime.UtcNow < deadline && id == 0)
+            {
+                await Task.Delay(300);
+                if (File.Exists(file))
+                    try { _ = int.TryParse(File.ReadAllText(file).Trim(), out id); } catch (IOException) { }
+            }
+            Assert.NotEqual(0, id);
+            member = Process.GetProcessById(id);
+            _ = member.Handle;
+
+            // The owner is ended with the handle of its own start; its finally blocks do not run.
+            owner.Kill();
+
+            Assert.True(member.WaitForExit(15_000), "the member of the job outlived the owner of the job");
+        }
+        finally
+        {
+            if (!owner.HasExited) owner.Kill();
+            member?.Dispose();
+        }
+    }
+
+    [Theory]
+    [InlineData("Run-LabSuite.ps1")]
+    [InlineData("ProcessJob.ps1")]
+    public void TheLabScriptsHaveNoOtherWayToStopAProcess(string name)
+    {
+        var script = File.ReadAllText(LabFile(name));
+        foreach (var forbidden in new[] { "Stop-Process", "taskkill", "ParentProcessId", ".Kill(", "OpenProcess", "Win32_Process" })
             Assert.DoesNotContain(forbidden, script, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("Start-JobProcess", script);
-        Assert.Contains("Stop-JobProcess", script);
+        Assert.DoesNotMatch(@"(?m)^\s*(kill|spps)\s", script);
+        Assert.Contains("JobProcess", script);
     }
 }

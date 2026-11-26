@@ -218,10 +218,21 @@ public sealed class DetectionScriptHostTests : IDisposable
         var job = new RecordingJob();
         using var cts = new CancellationTokenSource();
         Stopwatch? sinceDrain = null;
+        // The child is opened while it runs. A handle taken now names this child; its id could name another process later.
+        Process? started = null;
         var host = new WindowsPowerShellDetectionScriptHost(runFolder: RunFolder)
         {
             AssignJob = _ => job,
-            DrainStarted = () => { sinceDrain = Stopwatch.StartNew(); cts.Cancel(); }
+            DrainStarted = () =>
+            {
+                if (File.Exists(childIdFile) && int.TryParse(File.ReadAllText(childIdFile).Trim(), out var id))
+                {
+                    try { started = Process.GetProcessById(id); _ = started.Handle; }
+                    catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or System.ComponentModel.Win32Exception) { }
+                }
+                sinceDrain = Stopwatch.StartNew();
+                cts.Cancel();
+            }
         };
         try
         {
@@ -233,10 +244,12 @@ public sealed class DetectionScriptHostTests : IDisposable
         }
         finally
         {
-            if (File.Exists(childIdFile) && int.TryParse(File.ReadAllText(childIdFile).Trim(), out var childId))
+            // Only the process of the handle is ended; its ping ends by itself.
+            if (started is not null)
             {
-                try { using var child = Process.GetProcessById(childId); child.Kill(entireProcessTree: true); }
-                catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or System.ComponentModel.Win32Exception) { }
+                try { if (!started.HasExited) started.Kill(); }
+                catch (Exception ex) when (ex is InvalidOperationException or System.ComponentModel.Win32Exception) { }
+                started.Dispose();
             }
         }
     }

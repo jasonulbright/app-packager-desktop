@@ -25,15 +25,24 @@ $ErrorActionPreference = 'Stop'
 $env:DOTNET_ROOT = Split-Path $DotNet
 $env:DOTNET_NOLOGO = '1'
 $env:DOTNET_CLI_TELEMETRY_OPTOUT = '1'
+# The messages of an aborted run are matched by their English text.
+$env:DOTNET_CLI_UI_LANGUAGE = 'en'
 $dll = Join-Path $Root 'tests\ApplicationPackagerEngine.Tests\bin\Release\net10.0-windows\ApplicationPackagerEngine.Tests.dll'
 if (-not (Test-Path -LiteralPath $dll)) { throw "No test assembly at $dll" }
 New-Item -ItemType Directory -Force $Results | Out-Null
+$Results = (Resolve-Path -LiteralPath $Results).ProviderPath
+# A result file of an earlier run must never count for this one.
+if (@(Get-ChildItem -LiteralPath $Results -Filter 'slice-*' -File).Count -gt 0) { throw "The results folder holds the files of an earlier run: $Results" }
 
 $listed = & $DotNet vstest $dll --ListTests 2>&1 | ForEach-Object { "$_" }
-$classes = @($listed | Where-Object { $_ -match '^\s+ApplicationPackagerEngine\.Tests\.' } | ForEach-Object {
-        $name = ($_.Trim() -split '\(')[0]
-        $name.Substring(0, $name.LastIndexOf('.'))
-    } | Sort-Object -Unique)
+$methods = @($listed | Where-Object { $_ -match '^\s+ApplicationPackagerEngine\.Tests\.' } | ForEach-Object { ($_.Trim() -split '\(')[0] } | Sort-Object -Unique)
+$methodsByClass = @{}
+foreach ($method in $methods) {
+    $class = $method.Substring(0, $method.LastIndexOf('.'))
+    if (-not $methodsByClass.ContainsKey($class)) { $methodsByClass[$class] = New-Object System.Collections.Generic.List[string] }
+    $methodsByClass[$class].Add($method)
+}
+$classes = @($methodsByClass.Keys | Sort-Object)
 if ($classes.Count -eq 0) { throw "The test list is empty. First lines: $(($listed | Select-Object -First 5) -join ' | ')" }
 "classes: $($classes.Count)"
 
@@ -56,25 +65,39 @@ while ($queue.Count -gt 0) {
     $arguments = @('vstest', "`"$dll`"", "`"--TestCaseFilter:$filter`"", "`"--logger:trx;LogFileName=$trx`"", '--Blame:CollectHangDump;TestTimeout=8m;HangDumpType=none')
     # Each group runs in a job of its own: a stop reaches the test process and what it started, and nothing else.
     $run = Start-JobProcess -FilePath $DotNet -ArgumentList $arguments -StandardOutput $log -StandardError "$log.err"
-    $p = $run.Process
-    $stopped = $false; $beat = Get-Date; $started = Get-Date; $low = 0
-    while (-not $p.HasExited) {
-        Start-Sleep 3
-        $free = [int]((Get-CimInstance Win32_OperatingSystem).FreePhysicalMemory / 1024)
-        if ($free -lt $lowestFree) { $lowestFree = $free }
-        # A virtual machine with dynamic memory gets more within seconds, so one low reading does not stop the group.
-        if ($free -lt $MinimumFreeMB) { $low++ } else { $low = 0 }
-        if ($low -ge 5) { Stop-JobProcess $run; $stopped = $true; "slice $n stopped: free memory stayed under $MinimumFreeMB MB"; break }
-        if (((Get-Date) - $started).TotalMinutes -gt 25) { Stop-JobProcess $run; $stopped = $true; break }
-        if (((Get-Date) - $beat).TotalSeconds -ge 45) { "slice $n running, free $free MB"; $beat = Get-Date }
+    $stopped = $false
+    try {
+        $p = $run.Process
+        $beat = Get-Date; $started = Get-Date; $low = 0
+        while (-not $p.HasExited) {
+            Start-Sleep 3
+            $free = [int]((Get-CimInstance Win32_OperatingSystem).FreePhysicalMemory / 1024)
+            if ($free -lt $lowestFree) { $lowestFree = $free }
+            # A virtual machine with dynamic memory gets more within seconds, so one low reading does not stop the group.
+            if ($free -lt $MinimumFreeMB) { $low++ } else { $low = 0 }
+            if ($low -ge 5) { Stop-JobProcess $run; $stopped = $true; "slice $n stopped: free memory stayed under $MinimumFreeMB MB"; break }
+            if (((Get-Date) - $started).TotalMinutes -gt 25) { Stop-JobProcess $run; $stopped = $true; break }
+            if (((Get-Date) - $beat).TotalSeconds -ge 45) { "slice $n running, free $free MB"; $beat = Get-Date }
+        }
+        if (-not $stopped) { $p.WaitForExit() }
     }
-    if (-not $stopped) { $p.WaitForExit() }
-    # Closing the job also ends a helper that a test left running.
-    Stop-JobProcess $run
+    # Closing the job also ends a helper that a test left running, and an error or Ctrl+C leaves no test process behind.
+    finally { Stop-JobProcess $run }
     $counters = $null
     if (-not $stopped -and (Test-Path -LiteralPath $trx)) {
         [xml]$x = Get-Content -LiteralPath $trx -Raw
         $counters = $x.TestRun.ResultSummary.Counters
+        # A run that was aborted (a crash of the test host, a hang) still writes a result file with the tests it finished. Such a group is not complete.
+        $aborted = @(Select-String -LiteralPath $log, "$log.err" -Pattern 'Test Run Aborted|test run was aborted|host process crashed|inactivity time of').Count -gt 0
+        $seen = New-Object System.Collections.Generic.HashSet[string]
+        foreach ($r in @($x.TestRun.Results.UnitTestResult)) { $null = $seen.Add((([string]$r.testName) -split '\(')[0]) }
+        $missing = @($slice | ForEach-Object { $methodsByClass[$_] } | Where-Object { -not $seen.Contains($_) })
+        if ($aborted -or $missing.Count -gt 0) {
+            "slice $n is not complete (aborted: $aborted, tests without a result: $($missing.Count)$(if ($missing.Count) { ', first ' + $missing[0] }))"
+            # A failure in an incomplete group stays in the report, also when the group runs again.
+            foreach ($r in @($x.TestRun.Results.UnitTestResult | Where-Object { $_.outcome -eq 'Failed' })) { $failures.Add("$($r.testName) :: failed in an incomplete group") }
+            $counters = $null
+        }
     }
     if ($counters) { $emptyInARow = 0 } else { $emptyInARow++ }
     if ($emptyInARow -ge 8) { throw "Eight groups in a row gave no result. The last log: $((Get-Content -LiteralPath $log -Tail 8) -join ' | ') $((Get-Content -LiteralPath "$log.err" -Tail 4) -join ' | ')" }
