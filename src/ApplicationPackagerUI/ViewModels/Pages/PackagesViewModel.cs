@@ -1335,8 +1335,14 @@ public partial class PackagesViewModel : ObservableObject
 
                         if (answer.Behavior == ConflictAnswer.Overwrite)
                         {
-                            // The conflict question waits for the operator.
-                            ThrowIfBuildIsGone();
+                            // The conflict question waits for the operator. The first call may already have published to Intune, so its
+                            // result stays: a throw here would report that publish as failed.
+                            if (readBuild?.Invoke().Failure is { } gone)
+                            {
+                                conflictKept = true;
+                                AddLogLine($"Overwrite skipped: {gone} The existing application is kept: {packaged.Conflict.ApplicationName} v{packaged.Conflict.Version}");
+                                return packaged;
+                            }
                             AddLogLine($"Overwriting existing: {packaged.Conflict.ApplicationName} v{packaged.Conflict.Version}");
                             return await _executionService.PackageAsync(
                                 p, Comment, line => AddLogLine($"  {line}"), token,
