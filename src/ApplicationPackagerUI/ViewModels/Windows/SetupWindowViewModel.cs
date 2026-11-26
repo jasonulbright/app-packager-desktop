@@ -128,10 +128,11 @@ public partial class SetupWindowViewModel : ObservableObject
     {
         var s = _settingsService.Load();
         var before = s.Systems ?? new SystemsInUse();
-        // Setup can open again, also before the first run is completed, and One Click runs unattended: a saved default destination changes
-        // only when the systems change.
-        var resetDestinations = s.OneClick.DefaultDestinations is null
-                                || (before.ConfigMgr, before.Intune, before.Wsus) != (UseConfigMgr, UseIntune, UseWsus);
+        // Setup can open again, also before the first run is completed, and One Click runs unattended: a saved choice changes only when the
+        // systems change. With no stored default, One Click uses the deployment target, so that is a saved choice too after the first run.
+        var systemsChanged = (before.ConfigMgr, before.Intune, before.Wsus) != (UseConfigMgr, UseIntune, UseWsus);
+        var resetDestinations = systemsChanged
+                                || (s.OneClick.DefaultDestinations is null && FirstRunDecision.IsWizardDue(s.FirstRunCompleted));
 
         s.Systems = new SystemsInUse { ConfigMgr = UseConfigMgr, Intune = UseIntune, Wsus = UseWsus };
         if (UseConfigMgr)

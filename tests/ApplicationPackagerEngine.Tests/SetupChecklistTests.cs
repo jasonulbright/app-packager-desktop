@@ -350,16 +350,37 @@ public sealed class SetupChecklistTests : IDisposable
         Assert.Equal(new DestinationSet(false, true, true), new SettingsService().Load().OneClick.DefaultDestinations);
     }
 
+    /// <summary>The destinations that One Click uses: the stored default, else the deployment target.</summary>
+    private static DestinationSet Effective(AppSettings s) => s.OneClick.DefaultDestinations ?? DestinationSet.FromTarget(s.Intune.DeploymentTarget);
+
     [Fact]
-    public void SetupWithNoStoredDestinationSetsOneFromTheSystemsAlsoAfterTheFirstRun()
+    public void SetupWithNoStoredDestinationKeepsTheEffectiveDestinationsAfterTheFirstRun()
     {
         using var scope = SiteContext.Scope(null, _root);
         File.WriteAllText(SettingsService.SettingsPath, """{ "FirstRunCompleted": true, "Systems": { "ConfigMgr": false, "Intune": true, "Wsus": false } }""");
         var host = new Host();
+        var before = Effective(new SettingsService().Load());
 
         new SetupWindowViewModel(new SettingsService(), host, host).SaveCommand.Execute(null);
 
-        Assert.Equal(new DestinationSet(false, false, true), new SettingsService().Load().OneClick.DefaultDestinations);
+        Assert.Equal(before, Effective(new SettingsService().Load()));
+    }
+
+    [Fact]
+    public void SetupSavedUnchangedKeepsAConfigMgrOnlyTargetOfAnOlderFile()
+    {
+        using var scope = SiteContext.Scope(null, _root);
+        // No Systems and no One Click default: the tenant ID puts Intune in use, and the target alone says that One Click publishes to ConfigMgr.
+        File.WriteAllText(SettingsService.SettingsPath, """{ "Intune": { "DeploymentTarget": "ConfigMgr", "TenantId": "contoso" } }""");
+        var loaded = new SettingsService().Load();
+        Assert.True(loaded.Systems!.ConfigMgr && loaded.Systems.Intune);
+        var host = new Host();
+
+        new SetupWindowViewModel(new SettingsService(), host, host).SaveCommand.Execute(null);
+
+        var saved = new SettingsService().Load();
+        Assert.Equal(new DestinationSet(true, false, false), Effective(saved));
+        Assert.Equal(DeploymentTargets.Mecm, saved.Intune.DeploymentTarget);
     }
 
     [Fact]
