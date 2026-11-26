@@ -5,7 +5,7 @@ the PowerShell app and in App Packager Desktop. A title or search mismatch is a 
 
 Steps (run on the lab, never on the dev PC):
 
-1. CM01: copy the PowerShell app (`Packagers`, `Lib`, `start-apppackager.ps1`) to `C:\guide\ps-run`, `one.ps1`, `batch.ps1` and `cleanup.ps1` to `C:\guide\ps-batch`, and run `batch.ps1 -KeepForChecks`
+1. CM01: copy the PowerShell app (`Packagers`, `Lib`, `start-apppackager.ps1`) to `C:\guide\ps-run`, `one.ps1`, `batch.ps1`, `cleanup.ps1` and `tools\RemoteTestHarness\ProcessJob.ps1` of this repository to `C:\guide\ps-batch`, and run `batch.ps1 -KeepForChecks`
    (a scheduled task as SYSTEM works). It writes `C:\guide\ps-batch\results.csv`: packager, status (Created, Failed, Skipped), created name, version, reason.
    Packagers with a very large download or a combined packager are skipped (see `$skip` in `batch.ps1`); a failed stage is listed with its reason.
 2. PowerShell app check: call `Get-MecmCurrentVersionByCMName` of `start-apppackager.ps1` with the CMName of each created packager (AppPackagerDiscovery module loaded).

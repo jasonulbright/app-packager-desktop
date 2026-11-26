@@ -119,7 +119,9 @@ $evaluationPath = Join-Path $PSScriptRoot 'DetectionEvaluation.ps1'
 if (-not (Test-Path -LiteralPath $evaluationPath)) {
     throw "Detection evaluator not found beside the harness: $evaluationPath"
 }
-$evaluationSource = Get-Content -LiteralPath $evaluationPath -Raw
+# The job helper comes first: the evaluator and the install steps use it on the client.
+$evaluationSource = (Get-Content -LiteralPath (Join-Path $PSScriptRoot 'ProcessJob.ps1') -Raw) + "`r`n" +
+    (Get-Content -LiteralPath $evaluationPath -Raw)
 
 foreach ($defFile in $defs) {
     $def = Get-Content $defFile.FullName -Raw | ConvertFrom-Json
@@ -165,10 +167,9 @@ foreach ($defFile in $defs) {
 
             $sw = [System.Diagnostics.Stopwatch]::StartNew()
             $ps1 = Join-Path $contentPath 'install.ps1'
-            $proc = Start-Process powershell.exe -ArgumentList "-NoProfile -NonInteractive -ExecutionPolicy Bypass -File `"$ps1`"" `
-                -WorkingDirectory $contentPath -Wait -PassThru -NoNewWindow
+            Set-Location -LiteralPath $contentPath
+            $installExit = Invoke-JobTree -FilePath 'powershell.exe' -ArgumentList @('-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', "`"$ps1`"")
             $sw.Stop()
-            $installExit = $proc.ExitCode
             $results += @{ Phase = 'Install'; Result = $(if ($installExit -eq 0) {'PASS'} elseif ($installExit -eq 3010) {'PASS (reboot required)'} else {"FAIL (exit $installExit)"}); ExitCode = $installExit; Duration = $sw.ElapsedMilliseconds }
 
             if ($installExit -ne 0 -and $installExit -ne 3010) {
@@ -192,10 +193,8 @@ foreach ($defFile in $defs) {
             $unPs1 = Join-Path $contentPath 'uninstall.ps1'
             if (Test-Path $unPs1) {
                 $sw = [System.Diagnostics.Stopwatch]::StartNew()
-                $proc = Start-Process powershell.exe -ArgumentList "-NoProfile -NonInteractive -ExecutionPolicy Bypass -File `"$unPs1`"" `
-                    -WorkingDirectory $contentPath -Wait -PassThru -NoNewWindow
+                $unExit = Invoke-JobTree -FilePath 'powershell.exe' -ArgumentList @('-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', "`"$unPs1`"")
                 $sw.Stop()
-                $unExit = $proc.ExitCode
                 $results += @{ Phase = 'Uninstall'; Result = $(if ($unExit -eq 0) {'PASS'} elseif ($unExit -eq 3010) {'PASS (reboot required)'} else {"FAIL (exit $unExit)"}); ExitCode = $unExit; Duration = $sw.ElapsedMilliseconds }
 
                 # Clean check. Only a genuine not-detected is clean: a rule that could not
@@ -221,11 +220,6 @@ foreach ($defFile in $defs) {
             Remove-Job $job -Force
             "`"$appName`",`"Test`",`"TIMEOUT`",$($TimeoutSec * 1000)" | Out-File $ResultsPath -Append -Encoding UTF8
             $failed++
-            Invoke-Command -ComputerName $ComputerName -Credential $cred -ScriptBlock {
-                Get-Process -Name msiexec, cmd, powershell -ErrorAction SilentlyContinue |
-                    Where-Object { $_.StartTime -gt (Get-Date).AddMinutes(-10) } |
-                    Stop-Process -Force -ErrorAction SilentlyContinue
-            } -ErrorAction SilentlyContinue
             continue
         }
         $result = Receive-Job $job

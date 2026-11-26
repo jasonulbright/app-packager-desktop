@@ -8,6 +8,9 @@
 #
 # Dot-source this file; it defines functions and runs nothing.
 
+# On the lab client this file runs as text that follows the text of ProcessJob.ps1, so the functions are there already.
+if (-not (Get-Command Start-JobProcess -ErrorAction SilentlyContinue)) { . (Join-Path $PSScriptRoot 'ProcessJob.ps1') }
+
 $script:OrderingOperators = @('IsEquals', 'NotEquals', 'GreaterThan', 'GreaterEquals', 'LessThan', 'LessEquals')
 $script:StringOperators = @('BeginsWith', 'EndsWith', 'Contains')
 
@@ -235,31 +238,10 @@ function Get-DetectionVerdict {
 
 <#
 .SYNOPSIS
-    Terminates a timed-out detection script and whatever it started.
-.DESCRIPTION
-    The harness runs under Windows PowerShell, whose Process type carries Kill() with no
-    tree overload, so taskkill does the tree. Kill() is the fallback and the wait confirms
-    the process actually went away.
-#>
-function Stop-DetectionScriptProcess {
-    param([Parameter(Mandatory)][System.Diagnostics.Process]$Process)
-
-    try {
-        & taskkill.exe /T /F /PID $Process.Id 2>&1 | Out-Null
-    } catch { }
-
-    if (-not $Process.HasExited) {
-        try { $Process.Kill() } catch { }
-    }
-    try { [void]$Process.WaitForExit(10000) } catch { }
-}
-
-<#
-.SYNOPSIS
     Runs a detection script body and returns its exit code and stdout.
 .DESCRIPTION
-    Both output streams are read to completion before the wait, so a script that writes a
-    large amount of error output cannot fill a pipe and block. The wait is bounded.
+    The script runs in a job object (ProcessJob.ps1). The wait is bounded, and the end of
+    the run stops the members of the job and no other process.
 #>
 function Invoke-DetectionScript {
     param(
@@ -269,31 +251,26 @@ function Invoke-DetectionScript {
 
     $scriptFile = Join-Path $env:TEMP ("packr-detect-{0}.ps1" -f [guid]::NewGuid().ToString('N'))
     Set-Content -LiteralPath $scriptFile -Value $ScriptText -Encoding UTF8
-    $proc = $null
+    $outFile = "$scriptFile.out"
+    $errFile = "$scriptFile.err"
+    $run = $null
     try {
-        $psi = New-Object System.Diagnostics.ProcessStartInfo
-        $psi.FileName = 'powershell.exe'
-        $psi.Arguments = "-NoProfile -NonInteractive -ExecutionPolicy Bypass -File `"$scriptFile`""
-        $psi.RedirectStandardOutput = $true
-        $psi.RedirectStandardError = $true
-        $psi.UseShellExecute = $false
-        $psi.CreateNoWindow = $true
+        # Both streams go to files, so a script that writes a large amount of error output cannot fill a pipe and block.
+        $run = Start-JobProcess -FilePath 'powershell.exe' `
+            -ArgumentList @('-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', "`"$scriptFile`"") `
+            -StandardOutput $outFile -StandardError $errFile
 
-        $proc = [System.Diagnostics.Process]::Start($psi)
-        # Drained asynchronously: reading one stream to completion while the other fills
-        # its buffer is how this deadlocks.
-        $stdoutTask = $proc.StandardOutput.ReadToEndAsync()
-        $stderrTask = $proc.StandardError.ReadToEndAsync()
-
-        if (-not $proc.WaitForExit($TimeoutSeconds * 1000)) {
-            Stop-DetectionScriptProcess -Process $proc
+        if (-not $run.Process.WaitForExit($TimeoutSeconds * 1000)) {
             return @{ ExitCode = -1; StdOut = ''; TimedOut = $true }
         }
-        [void]$stderrTask.GetAwaiter().GetResult()
-        return @{ ExitCode = $proc.ExitCode; StdOut = $stdoutTask.GetAwaiter().GetResult(); TimedOut = $false }
+        $exitCode = $run.Process.ExitCode
+        # Ends what the script left running, so that the output file is complete.
+        Stop-JobProcess -Run $run
+        return @{ ExitCode = $exitCode; StdOut = (Read-RunOutput -Path $outFile); TimedOut = $false }
     }
     finally {
-        if ($proc) { $proc.Dispose() }
-        Remove-Item -LiteralPath $scriptFile -ErrorAction SilentlyContinue
+        # At the time limit and on an error: the script and everything that it started are the members of the job.
+        if ($run) { Stop-JobProcess -Run $run }
+        Remove-Item -LiteralPath $scriptFile, $outFile, $errFile -ErrorAction SilentlyContinue
     }
 }
