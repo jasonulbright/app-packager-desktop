@@ -100,7 +100,8 @@ public sealed class OneClickPlanReviewTests : IDisposable
         Assert.Equal("Bravo", model.FirstFailed!.Application);
         var results = model.BuildResults();
         Assert.Equal(1, results.Published);
-        Assert.Equal(1, results.Failed);
+        // Bravo failed at ConfigMgr, and its WSUS publish was never tried.
+        Assert.Equal(2, results.Failed);
         Assert.Equal("Publish completed with issues", results.Headline);
     }
 
