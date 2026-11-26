@@ -261,9 +261,9 @@ public sealed class PageHeaderRenderTests : IDisposable
             finally { window.Close(); }
         });
 
-        // The pages of the V1 workspace have the plain title (overhaul V1, phases 2 and 7c): no card, so the title sits at the left edge of the header. They
-        // keep the place of the header and the gap to the content, like every other page.
-        string[] plain = ["App Packager", "Deployment Helper"];
+        // The pages of the V1 workspace have the plain title (overhaul V1, phases 2, 7b and 7c): no card, so the title sits at the left edge of the header.
+        // They keep the place of the header and the gap to the content, like every other page.
+        string[] plain = ["App Packager", "Deployment Helper", "Settings"];
         var reference = places["Add from web"];
         var differing = places.Where(p => !plain.Contains(p.Key) && !p.Value.SameAs(reference)).Select(p => $"{p.Key}: {p.Value}").ToList();
         Assert.True(differing.Count == 0, $"{theme}: Add from web has {reference}. Different: {string.Join("; ", differing)}.");

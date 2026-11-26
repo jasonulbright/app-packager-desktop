@@ -188,7 +188,7 @@ public partial class SettingsViewModel : ObservableObject, ISettingsReload
     public IReadOnlyList<ApplicationColumn> ApplicationColumnList => ApplicationColumns.All;
 
     /// <summary>The ids of the columns that the grid shows.</summary>
-    public HashSet<string> VisibleColumnIds { get; } = new(ApplicationColumns.All.Where(c => c.DefaultVisible).Select(c => c.Id), StringComparer.Ordinal);
+    public HashSet<string> VisibleColumnIds { get; }
 
     /// <summary>The columns that a bulk action can set.</summary>
     public IReadOnlyList<string> BulkColumns => ApplicationColumns.All.Select(c => c.Header).ToList();
@@ -259,13 +259,22 @@ public partial class SettingsViewModel : ObservableObject, ISettingsReload
     partial void OnHasStoredIntuneSecretChanged(bool value) => OnPropertyChanged(nameof(IntuneSecretHint));
 
     private readonly SiteManager? _siteManager;
+    private readonly Func<Task<GitHubApiStatus>> _gitHubQuery;
+
+    /// <summary>Tells the App Packager page that the saved systems may have changed. A test replaces it.</summary>
+    public Action RefreshPublishState { get; set; }
 
     public SettingsViewModel(SettingsService settingsService, PackagerPreferencesService prefsSync, ISnackbarService snackbarService,
         PackagesViewModel packagesViewModel, PackagerDiscoveryService discoveryService,
         ApplicationPackagerEngine.Services.Wsus.IWsusAdminClient wsusClient, IWsusPrompts wsusPrompts, SidebarService sidebarService,
-        SiteManager? siteManager = null)
+        SiteManager? siteManager = null,
+        SiteStateService? siteState = null,
+        Func<Task<GitHubApiStatus>>? gitHubQuery = null)
     {
         _siteManager = siteManager;
+        _siteState = siteState;
+        _gitHubQuery = gitHubQuery ?? (() => GitHubApiStatusService.QueryAsync());
+        RefreshPublishState = () => packagesViewModel.RefreshPublishActionState();
         _settingsService = settingsService;
         Sidebar = new SidebarSettingsEditor(sidebarService);
         _prefsSync = prefsSync;
@@ -277,6 +286,10 @@ public partial class SettingsViewModel : ObservableObject, ISettingsReload
         };
         _discoveryService = discoveryService;
         Wsus = new WsusPublishingEditor(wsusClient, prompts: wsusPrompts);
+
+        VisibleColumnIds = ApplicationColumns.VisibleIds(settingsService.Load().ApplicationSettingsColumns);
+        TrackEditors();
+        TrackSiteState();
 
         prefsSync.MigrateFromPs1IfNeeded();
         LoadSettings();
@@ -315,6 +328,25 @@ public partial class SettingsViewModel : ObservableObject, ISettingsReload
             : $"{InstallParameterGroups.Count} applications carry install parameters.";
 
         LoadPathRows(definitions);
+        AdoptSection(InstallPrefix);
+        AdoptSection(PathPrefix);
+    }
+
+    /// <summary>Puts the saved install parameters back. A new group object makes its panel show the saved values again.</summary>
+    private void ReloadInstallParameters(AppSettings stored)
+    {
+        for (var i = 0; i < InstallParameterGroups.Count; i++)
+        {
+            var group = InstallParameterGroups[i];
+            InstallParameterGroups[i] = new InstallParameterGroup
+            {
+                DefinitionId = group.DefinitionId,
+                Application = group.Application,
+                Vendor = group.Vendor,
+                Parameters = group.Parameters,
+                Values = stored.InstallerSettingValues.TryGetValue(group.DefinitionId, out var values) ? new Dictionary<string, string>(values) : new()
+            };
+        }
     }
 
     /// <summary>The line under a Local Installer Sources row: the mode, the file name rule and what to put in the folder.</summary>
@@ -339,14 +371,14 @@ public partial class SettingsViewModel : ObservableObject, ISettingsReload
         foreach (var def in definitions.Where(d => d.LocalSource is not null)
                                        .OrderBy(d => d.Application, StringComparer.OrdinalIgnoreCase))
         {
-            LocalSourceRows.Add(new PathSettingRow
+            LocalSourceRows.Add(Tracked(new PathSettingRow
             {
                 Key = def.Id,
                 Label = def.Application,
                 Hint = LocalSourceRowHint(def.LocalSource!),
                 IsFolder = true,
                 Path = s.LocalSourceFolders.TryGetValue(def.Id, out var folder) ? folder : ""
-            });
+            }));
         }
 
         SideFileRows.Clear();
@@ -355,15 +387,21 @@ public partial class SettingsViewModel : ObservableObject, ISettingsReload
                                          .OrderBy(g => g.Key, StringComparer.OrdinalIgnoreCase))
         {
             var first = group.First();
-            SideFileRows.Add(new PathSettingRow
+            SideFileRows.Add(Tracked(new PathSettingRow
             {
                 Key = first.File.Key,
                 Label = $"{string.Join(", ", group.Select(x => x.Definition.Application).Distinct())} - {first.File.Label}",
                 Hint = $"Copied beside the installer as {first.File.FileName}. Stage refuses to run without it.",
                 FileFilter = $"{first.File.FileName}|{first.File.FileName}|All files (*.*)|*.*",
                 Path = s.SideFiles.TryGetValue(first.File.Key, out var file) ? file : ""
-            });
+            }));
         }
+    }
+
+    private PathSettingRow Tracked(PathSettingRow row)
+    {
+        row.PropertyChanged += (_, _) => RefreshDirtyState();
+        return row;
     }
 
     private static void SetOrRemove(Dictionary<string, string> map, string key, string? value)
@@ -524,7 +562,7 @@ public partial class SettingsViewModel : ObservableObject, ISettingsReload
             {
                 _gitHubRefreshQueued = false;
                 // The token is read before the first await of the query, and reading it can start the gh CLI: not on the UI thread.
-                var status = await Task.Run(() => GitHubApiStatusService.QueryAsync());
+                var status = await Task.Run(_gitHubQuery);
                 GitHubApiStatus = status.StatusText();
                 GitHubEffectiveSource = status.Source;
             }
@@ -727,12 +765,14 @@ public partial class SettingsViewModel : ObservableObject, ISettingsReload
         // A cell whose list changed reports a null selection: that is not an edit.
         if (row.Cells[columnId] is { } edited && column.NotApplicable(_work, row) is null) column.Set(_work, row, edited);
         RefreshCells(row);
+        RefreshDirtyState();
     }
 
     /// <summary>Applies the chosen value of the chosen column to the rows of the chosen scope. A row that the setting does not apply to keeps its value.</summary>
     private int ApplyBulk(IEnumerable<SupersedenceRow> rows)
     {
         if (ApplicationColumns.All.FirstOrDefault(c => c.Header == BulkColumn) is not { } column) return 0;
+        using var hold = HoldDirtyState();
         var changed = 0;
         foreach (var row in rows.ToList())
         {
@@ -768,6 +808,7 @@ public partial class SettingsViewModel : ObservableObject, ISettingsReload
     [RelayCommand]
     private void ResetAllApplications()
     {
+        using var hold = HoldDirtyState();
         foreach (var row in SupersedenceRows)
         {
             foreach (var column in ApplicationColumns.All)
@@ -784,7 +825,7 @@ public partial class SettingsViewModel : ObservableObject, ISettingsReload
             var store = ApplicationPackagerEngine.Services.Workbench.WorkbenchStore.Open();
             foreach (var (applicationId, fields) in _work.ProfilePending.ToList())
                 GridProfileFields.Write(store, applicationId, _work.ProfileDefinition[applicationId], fields);
-            _work.ProfilePending.Clear();
+            _work.ClearProfileEdits();
             _profileCache.Clear();
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Text.Json.JsonException or InvalidOperationException or ArgumentException)
@@ -794,10 +835,21 @@ public partial class SettingsViewModel : ObservableObject, ISettingsReload
         }
     }
 
-    /// <summary>Shows or hides one column of the grid (the column chooser).</summary>
+    /// <summary>Shows or hides one column of the grid (the column chooser). The choice is saved at once and is not part of Save Settings.</summary>
     public void SetColumnVisible(string id, bool visible)
     {
         if (visible) VisibleColumnIds.Add(id); else VisibleColumnIds.Remove(id);
+        try
+        {
+            var settings = _settingsService.Load();
+            settings.ApplicationSettingsColumns = ApplicationColumns.ToSave(VisibleColumnIds);
+            _settingsService.Save(settings);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException)
+        {
+            _snackbarService.Show("Settings", "The column choice was not saved. " + ex.Message, Wpf.Ui.Controls.ControlAppearance.Danger,
+                new SymbolIcon(SymbolRegular.ErrorCircle24), TimeSpan.FromSeconds(6));
+        }
     }
 
     partial void OnSupersedenceModeChanged(string value)
@@ -837,12 +889,15 @@ public partial class SettingsViewModel : ObservableObject, ISettingsReload
             row.PropertyChanged += (_, e) =>
             {
                 if (e.PropertyName == nameof(OneClickRow.Tracked)) OnPropertyChanged(nameof(OneClickTrackedCount));
+                RefreshDirtyState();
             };
             OneClickRows.Add(row);
         }
         _unlistedDestinations = oneClick.Destinations.Where(kv => !listed.Contains(kv.Key))
             .ToDictionary(kv => kv.Key, kv => kv.Value, StringComparer.OrdinalIgnoreCase);
         OnPropertyChanged(nameof(OneClickTrackedCount));
+        // The rows are the saved ones again.
+        AdoptSection(OneClickRowPrefix);
     }
 
     /// <summary>The One Click default destinations the boxes hold.</summary>
@@ -851,16 +906,28 @@ public partial class SettingsViewModel : ObservableObject, ISettingsReload
     [RelayCommand]
     private void TrackAllOneClick()
     {
+        using var hold = HoldDirtyState();
         foreach (var row in OneClickRows) row.Tracked = true;
     }
 
     [RelayCommand]
     private void TrackNoneOneClick()
     {
+        using var hold = HoldDirtyState();
         foreach (var row in OneClickRows) row.Tracked = false;
     }
 
     private void LoadSettings()
+    {
+        _loadingSettings = true;
+        try { ReadStoreIntoBuffer(); }
+        finally { _loadingSettings = false; }
+        _hasPendingEntry = false;
+        AdoptBaseline();
+        RefreshDirtyState();
+    }
+
+    private void ReadStoreIntoBuffer()
     {
         var s = _settingsService.Load();
 
@@ -907,6 +974,7 @@ public partial class SettingsViewModel : ObservableObject, ISettingsReload
         OneClickOnExisting = ApplicationPackagerEngine.Services.OneClick.OneClickOnExisting.Normalize(s.OneClick.OnExisting);
         RefreshOneClickRows();
         SkipConfigReview = s.SkipConfigReview;
+        ReloadInstallParameters(s);
 
         CwaSwitches = CompleteSwitches(s.CitrixSwitches);
         CwaPreview = "";
@@ -939,6 +1007,7 @@ public partial class SettingsViewModel : ObservableObject, ISettingsReload
         _work.DistributionTouched.Clear();
         _work.ConditionsTouched.Clear();
         _work.CommandsTouched.Clear();
+        _work.ClearProfileEdits();
         if (SupersedenceRows.Count > 0) RefreshSupersedenceRows();
         IntuneClientSecret = "";
         HasStoredIntuneSecret = !string.IsNullOrWhiteSpace(s.Intune.ClientSecretProtected);
@@ -960,6 +1029,8 @@ public partial class SettingsViewModel : ObservableObject, ISettingsReload
     private void SaveSettings()
     {
         var s = _settingsService.Load();
+        var clearDismissed = Discovery.ClearPending;
+        var dismissedCount = Discovery.DismissedCount;
         // A different site code is a different site: switch to it (or add it) first. The page then shows that site's values and nothing is
         // written into either site, so the values of the previous site cannot reach the new one.
         if (_siteManager is not null && ApplicationPackagerEngine.Services.SiteContext.IsActive
@@ -1035,7 +1106,9 @@ public partial class SettingsViewModel : ObservableObject, ISettingsReload
         // The Systems in Use check boxes derive the stored target. When they changed in this edit, their combination is also the One Click defaults.
         var fromSystems = new SystemsInUse { ConfigMgr = UseConfigMgr, Intune = UseIntune, Wsus = UseWsus };
         s.Intune.DeploymentTarget = fromSystems.ToTargetName();
-        if (_loadedSystems is not null && (_loadedSystems.ConfigMgr != UseConfigMgr || _loadedSystems.Intune != UseIntune || _loadedSystems.Wsus != UseWsus))
+        var systemsChanged = _loadedSystems is not null
+            && (_loadedSystems.ConfigMgr != UseConfigMgr || _loadedSystems.Intune != UseIntune || _loadedSystems.Wsus != UseWsus);
+        if (systemsChanged)
             s.OneClick.DefaultDestinations = DestinationSet.FromTarget(s.Intune.DeploymentTarget);
 
         s.CitrixSwitches = TrimSwitches(CwaSwitches);
@@ -1099,6 +1172,9 @@ public partial class SettingsViewModel : ObservableObject, ISettingsReload
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException or ArgumentException)
         {
+            // Nothing was written, so a pending Clear list stays pending.
+            Discovery.DismissedCount = dismissedCount;
+            Discovery.ClearPending = clearDismissed;
             _snackbarService.Show("Settings", "The settings were not saved. " + ex.Message, Wpf.Ui.Controls.ControlAppearance.Danger,
                 new SymbolIcon(SymbolRegular.ErrorCircle24), TimeSpan.FromSeconds(6));
             return;
@@ -1129,8 +1205,22 @@ public partial class SettingsViewModel : ObservableObject, ISettingsReload
             _ = RefreshGitHubApiStatusAsync();
         }
 
+        // The boxes and the rows show what the file now holds: new Systems in Use also set the One Click defaults.
+        _loadedSystems = new SystemsInUse { ConfigMgr = UseConfigMgr, Intune = UseIntune, Wsus = UseWsus };
+        if (systemsChanged && s.OneClick.DefaultDestinations is { } derived)
+        {
+            using var hold = HoldDirtyState();
+            OneClickDefaultConfigMgr = derived.ConfigMgr;
+            OneClickDefaultWsus = derived.Wsus;
+            OneClickDefaultIntune = derived.Intune;
+            RefreshOneClickRows();
+            if (SupersedenceRows.Count > 0) RefreshSupersedenceRows();
+        }
+        AdoptSavedBaseline(s);
+        RefreshDirtyState();
+
         ThemeApplier.Apply(s.Theme);
-        _packagesViewModel.RefreshPublishActionState();
+        RefreshPublishState();
         // ConfigMgr versions and compare results describe one site.
         if (SiteIdentity.Key(s.SiteCode, s.ProviderMachine) != siteBefore)
             PackagesViewModel.ClearSiteResults(_packagesViewModel.Packagers);

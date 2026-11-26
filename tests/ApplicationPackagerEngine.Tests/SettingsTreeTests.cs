@@ -77,7 +77,9 @@ public sealed class SettingsTreeTests
             var id = (string)leaf.Attribute("Tag")!;
             var root = page.Descendants().Single(e => (string?)e.Attribute(Xaml + "Name") == "page_" + id);
             var first = root.Descendants(Presentation + "TextBlock").First(t => ((string?)t.Attribute("Style"))?.Contains("SectionHeader") == true);
-            if ((string?)first.Attribute("Text") != (string)leaf.Attribute("Header")!)
+            // The ConfigMgr page names what it holds (overhaul V1, phase 7b); the list keeps the short name.
+            var expected = id == "configmgr" ? "ConfigMgr Connection" : (string)leaf.Attribute("Header")!;
+            if ((string?)first.Attribute("Text") != expected)
                 wrong.Add($"{id}: '{(string?)first.Attribute("Text")}' vs '{(string)leaf.Attribute("Header")!}'");
         }
 
