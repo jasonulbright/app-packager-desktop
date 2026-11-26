@@ -269,7 +269,7 @@ function Assert-NotOnSite([string]$Data, [string]$FullName) {
 function Read-Matrix([string]$GridId) {
     foreach ($row in @(Get-GridRows $GridId)) { [pscustomobject]@{ Cells = (Get-RowCells $row) } }
 }
-# True when the open review lists exactly the one application, for exactly these systems, and ConfigMgr has no application for it.
+# True when the open review lists exactly the one application, for exactly these systems, and shows no ConfigMgr application for it and no failed read.
 function Test-Review([string]$FullName, [string[]]$Systems) {
     Start-Sleep -Seconds 2
     $rows = @(Read-Matrix 'gridReviewMatrix')
@@ -282,7 +282,8 @@ function Test-Review([string]$FullName, [string[]]$Systems) {
     $confirm = Find-El $null 'btnReviewConfirm' -Timeout 3
     $wantScope = "Systems: $($Systems -join ', ') (Settings, Systems in Use)"
     $one = $rows.Count -eq 1 -and @($rows[0].Cells).Count -ge 1 -and $rows[0].Cells[0] -ceq $FullName -and $counts -like '1 application, *' -and $scope -ceq $wantScope
-    $known = $rows.Count -eq 1 -and (($rows[0].Cells -join ' ') -match 'ConfigMgr has')
+    # "ConfigMgr has ...": the site holds an application. "ConfigMgr was not read": nothing proves that it holds none.
+    $known = $rows.Count -eq 1 -and (($rows[0].Cells -join ' ') -match 'ConfigMgr has|ConfigMgr was not read')
     if ($one) { $script:ReviewVersion = [string]$rows[0].Cells[1] }
     $one -and -not $known -and $confirm -and $confirm.Current.IsEnabled
 }
@@ -404,7 +405,8 @@ $steps['first-start'] = {
     Invoke-CheckLatest $data $full
     Snap 'first-check'
 
-    # The first scan: the checklist offers it. It reads the inventory and ends with a prompt or with a message in the log; it changes nothing without a choice.
+    # The first scan: the checklist offers it. A scan that works logs "Discovered <n> apps." and opens the prompt when n is above 0. A failed scan logs its
+    # error under the same prefix, so every other line with that prefix fails the check. Without a choice in the prompt the scan changes nothing.
     $scan = Find-El $null 'btnSetupScan' -Timeout 10
     Require 'the checklist offers the first scan' ($scan -and $scan.Current.IsEnabled) "button '$(if ($scan) { $scan.Current.Name })'"
     $mark = Get-LogMark $data
@@ -412,13 +414,21 @@ $steps['first-start'] = {
     $script:ScanPrompt = $false
     $done = Wait-Until {
         if (Find-El $null 'btnNotNow' -Timeout 0.5) { $script:ScanPrompt = $true; return $true }
-        $lines = @((Get-LogSince $data $mark) -split "`r?`n" | Where-Object { $_ -match 'Discover unmanaged software: ' -and $_ -notmatch 'reading hardware inventory' })
+        # A line "Discovered <n>" with n above 0 comes just before the prompt, so it does not end the wait.
+        $lines = @((Get-LogSince $data $mark) -split "`r?`n" | Where-Object { $_ -match 'Discover unmanaged software: ' -and $_ -notmatch 'reading hardware inventory|Discovered [1-9]\d* apps?\.' })
         $lines.Count -gt 0 -and -not (Test-ApdBusy (Main-Window))
     } 700 'the first scan'
     if ($script:ScanPrompt) { Say "  discovery prompt: $(Get-Text 'txtDiscoverPrompt')"; Snap 'scan-prompt'; Click-Id 'btnNotNow' 5; Start-Sleep -Seconds 3 }
     $seg = Get-LogSince $data $mark
     Show-Log $seg 'Discover'
-    Check 'the first scan ends with a prompt or a message' ($done -and $seg -match 'reading hardware inventory from the ConfigMgr site database') "prompt shown: $($script:ScanPrompt); checklist now '$(Get-Text 'txtSetupProgress')'"
+    $scanLines = @($seg -split "`r?`n" | Where-Object { $_ -match 'Discover unmanaged software: ' } | ForEach-Object { ($_ -replace '^.*?Discover unmanaged software: ', '').Trim() })
+    $read = $scanLines -ccontains 'reading hardware inventory from the ConfigMgr site database.'
+    $found = @($scanLines | Where-Object { $_ -cmatch '^Discovered \d+ apps?\.$' })
+    # "no change." is the line that Not now writes.
+    $other = @($scanLines | Where-Object { $_ -cne 'reading hardware inventory from the ConfigMgr site database.' -and $_ -cne 'no change.' -and $_ -cnotmatch '^Discovered \d+ apps?\.$' })
+    $result = if ($script:ScanPrompt) { $found.Count -eq 1 -and $found[0] -cmatch '^Discovered [1-9]' } else { $found.Count -eq 1 -and $found[0] -ceq 'Discovered 0 apps.' }
+    Check 'the first scan ends with the discovery prompt or with the result of a scan that found no app' ($done -and $read -and $result -and $other.Count -eq 0) `
+        "prompt shown: $($script:ScanPrompt); result line: '$($found -join ' / ')'; other lines: '$($other -join ' / ')'; checklist now '$(Get-Text 'txtSetupProgress')'"
     Snap 'after-scan'
 }
 
