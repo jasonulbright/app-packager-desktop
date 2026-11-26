@@ -74,22 +74,15 @@ function Send-ApdWheel([uint32]$Delta) {
 
 function Get-ApdScreen { [System.Windows.Forms.Screen]::PrimaryScreen.WorkingArea }
 
-# Saves the work area (1920 x 1032 on the 1080p display) as a PNG; with -Rect (x, y, width, height) only that part. -MaskFooter paints over the text of the status bar
-# with the color next to it: the text names the site server, which a guide image must not show.
+# Saves the work area (1920 x 1032 on the 1080p display) as a PNG; with -Rect (x, y, width, height) only that part. The status bar shows the public names of
+# the lab, which are never masked. -MaskFooter is accepted for the scripts that pass it and changes nothing.
 function Save-Shot([string]$Path, [int[]]$Rect, [switch]$MaskFooter) {
-    $Mask = @()
-    if ($MaskFooter) { $f = Get-FooterRect; if ($f) { $Mask = @(,$f) } }
+    $null = $MaskFooter
     $b = Get-ApdScreen
     if (-not $Rect) { $Rect = @($b.X, $b.Y, $b.Width, $b.Height) }
     $bmp = New-Object System.Drawing.Bitmap $Rect[2], $Rect[3]
     $g = [System.Drawing.Graphics]::FromImage($bmp)
     $g.CopyFromScreen($Rect[0], $Rect[1], 0, 0, $bmp.Size)
-    foreach ($m in $Mask) {
-        $x = $m[0] - $Rect[0]; $y = $m[1] - $Rect[1]
-        $brush = New-Object System.Drawing.SolidBrush ($bmp.GetPixel([math]::Max(0, $x - 8), [math]::Max(0, $y + [int]($m[3] / 2))))
-        $g.FillRectangle($brush, $x - 2, $y - 1, $m[2] + 4, $m[3] + 2)
-        $brush.Dispose()
-    }
     $g.Dispose()
     # Bitmap.Save takes a relative path from the folder of the process, not from the location of PowerShell, so the path is made full first.
     $Path = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($Path)
