@@ -1,5 +1,31 @@
 # Changelog
 
+## [2026.1126.66] - 2026-11-26
+
+### Changed
+
+- Redesign the App Packager page: status tabs, one batch bar and a detail pane.
+- Show the site and the state of each system above every page.
+- Replace the three publish buttons per system with one Publish All button.
+- Move the checks, reports and import commands into the Check, More and Add or import menus.
+- Restyle One Click, the Workbench, Add from web, ConfigMgr settings, Application Settings and Deployment Helper.
+
+### Added
+
+- Add a publish review that lists every application and system before anything is written.
+- Add a second ConfigMgr read after you confirm; a changed plan opens the review again.
+- Add a results window that shows each application and system after a publish run.
+- Add a saved grid layout: columns, order, widths and sort.
+- Add a first-start checklist; open Setup at any time from More.
+- Add an unsaved-changes line to Settings and a list of earlier One Click runs.
+
+### Fixed
+
+- Publish to WSUS together with ConfigMgr or Intune in one run.
+- Keep every written system in the results when a publish run is cancelled or fails.
+- Check the selected sealed build again before a Workbench publish writes it.
+- Keep saved One Click destinations when you open Setup again.
+
 ## [2026.1125.65] - 2026-11-25
 
 ### Fixed
