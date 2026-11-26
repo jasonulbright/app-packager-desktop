@@ -152,6 +152,7 @@ public sealed class KeyboardAndNameTests
             {
                 Settle(window);
                 NavigationNames.Apply(navigation);
+                Assert.Contains(Descendants(navigation).OfType<ButtonBase>(), b => AutomationProperties.GetName(b) == NavigationNames.ToggleName);
                 var unnamed = Descendants(navigation).OfType<ButtonBase>().Where(b => b.IsVisible && b.Focusable)
                     .Where(b => string.IsNullOrWhiteSpace(UIElementAutomationPeer.CreatePeerForElement(b)?.GetName()))
                     .Select(b => b.GetType().Name + " '" + b.Name + "'").ToList();

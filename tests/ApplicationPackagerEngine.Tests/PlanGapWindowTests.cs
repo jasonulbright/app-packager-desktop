@@ -120,6 +120,14 @@ public sealed class PlanGapWindowTests
         {
             using var host = new PageHeaderRenderTests();
             var (page, _) = host.Create("Settings");
+            // This host builds the page without its constructor, so the step of the constructor runs here.
+            var root = (DependencyObject)((FrameworkElement)page).FindName("page_configmgr");
+            typeof(ApplicationPackagerUI.Views.Pages.SettingsPage)
+                .GetMethod("SetHelpFromToolTips", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!
+                .Invoke(page, [new[] { root }]);
+            var source = File.ReadAllText(Path.Combine(ApplicationPackagerEngine.Tests.Compliance.CatalogServiceTests.RepositoryRoot(),
+                "src", "ApplicationPackagerUI", "Views", "Pages", "SettingsPage.xaml.cs"));
+            Assert.Contains("SetHelpFromToolTips(page_configmgr, page_supersedence);", source);
             var missing = new List<string>();
             var fields = 0;
             void Walk(DependencyObject node)
@@ -135,7 +143,7 @@ public sealed class PlanGapWindowTests
                     Walk(child);
                 }
             }
-            Walk((DependencyObject)((FrameworkElement)page).FindName("page_configmgr"));
+            Walk(root);
 
             Assert.True(fields >= 5, $"Only {fields} fields were found on the ConfigMgr page.");
             Assert.True(missing.Count == 0, "Fields without a help text: " + string.Join(", ", missing));

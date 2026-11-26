@@ -144,7 +144,7 @@ public sealed class PublishRetryTests : IDisposable
         var build = Activator.CreateInstance(typeof(PackagesViewModel).GetNestedType("PublishRunBuild", BindingFlags.NonPublic)!,
             new List<PackagerInfo> { row }, null, null, null)!;
         return (Task)typeof(PackagesViewModel).GetMethod("ShowResultsAsync", BindingFlags.Instance | BindingFlags.NonPublic)!
-            .Invoke(viewModel, [rows, false, new[] { "ConfigMgr", "WSUS" }, build])!;
+            .Invoke(viewModel, [rows, false, new[] { "ConfigMgr", "WSUS" }, build, null])!;
     }
 
     private static PackagerInfo Row(string version) => new() { Uid = "a", Application = "Alpha", CMName = "Alpha", Vendor = "Contoso", LatestVersion = version };

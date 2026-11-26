@@ -5,19 +5,22 @@ using System.Windows.Media;
 
 namespace ApplicationPackagerUI.Helpers;
 
-/// <summary>The navigation control has a button with only a glyph, which shows or hides the labels of the sidebar. It gets a name here.</summary>
+/// <summary>The navigation control has buttons with only a glyph: one shows or hides the labels of the sidebar, one goes back. They get names here.</summary>
 public static class NavigationNames
 {
     public const string ToggleName = "Show or hide the sidebar labels";
 
-    /// <summary>Names each button of the navigation template that has no name and no text, and returns how many it named.</summary>
+    public const string BackName = "Back";
+
+    /// <summary>Names each glyph button of the navigation template that has no name, and returns how many it named.</summary>
     public static int Apply(DependencyObject navigation)
     {
         var named = 0;
         foreach (var button in Descendants(navigation).OfType<ButtonBase>())
         {
-            if (!IsToggle(button) || AutomationProperties.GetName(button).Length > 0) continue;
-            AutomationProperties.SetName(button, ToggleName);
+            var name = IsToggle(button) ? ToggleName : button.Name == "PART_BackButton" ? BackName : null;
+            if (name is null || AutomationProperties.GetName(button).Length > 0) continue;
+            AutomationProperties.SetName(button, name);
             named++;
         }
         return named;
