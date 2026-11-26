@@ -650,7 +650,8 @@
                 </StackPanel>
             </ScrollViewer>
             <ScrollViewer x:Name="page_supersedence" Visibility="Collapsed" VerticalScrollBarVisibility="Auto" ScrollChanged="Supersedence_ScrollChanged">
-                <StackPanel x:Name="pnlApplicationSettings" Margin="0,0,0,8">
+                <!-- Aligned to the top: a stretched panel in a scroll viewer is as tall as the view, and the height of the grid is computed from the height of this content. -->
+                <StackPanel x:Name="pnlApplicationSettings" Margin="0,0,0,8" VerticalAlignment="Top">
                     <DockPanel>
                         <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Margin="16,0,0,8" VerticalAlignment="Center">
                             <ui:SymbolIcon Symbol="Info24" FontSize="14" Margin="0,0,4,0" VerticalAlignment="Center" Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
@@ -716,7 +717,7 @@
                         <StackPanel>
                             <DockPanel>
                                 <TextBlock DockPanel.Dock="Right" Text="Save Settings to commit changes" Style="{StaticResource FieldHint}" Margin="16,0,0,8" VerticalAlignment="Center" />
-                                <TextBlock Text="Overrides by Application" Style="{StaticResource SubHeader}" />
+                                <TextBlock Text="Application Overrides" Style="{StaticResource SubHeader}" />
                             </DockPanel>
                                 <WrapPanel Margin="0,0,0,0" AutomationProperties.AutomationId="pnlSupersedenceBulk">
                                     <TextBlock Text="Bulk edit" VerticalAlignment="Center" Margin="0,0,8,8" />
