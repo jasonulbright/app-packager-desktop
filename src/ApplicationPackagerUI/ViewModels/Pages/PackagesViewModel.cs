@@ -1278,7 +1278,9 @@ public partial class PackagesViewModel : ObservableObject
 
                 var p = selected[i];
                 ProgressCurrent = i + 1;
-                StatusText = ApplicationPackagerEngine.Models.RunProgress.Running(wsusOnly ? "Publishing to WSUS" : "Packaging", ProgressCurrent, ProgressTotal, p.Application);
+                StatusText = wsusOnly
+                    ? ApplicationPackagerEngine.Models.RunProgress.Running("Publishing to WSUS", ProgressCurrent, ProgressTotal, p.Application)
+                    : ApplicationPackagerEngine.Models.RunProgress.Running("Packaging", ProgressCurrent, ProgressTotal, p.Application);
                 p.Status = wsusOnly ? "Publishing to WSUS..." : "Packaging...";
                 AddLogLine($"{(wsusOnly ? "Publish to WSUS" : "Package")}: {p.Application} ({p.Script})");
 
