@@ -27,6 +27,9 @@ public sealed record PublishDestinationResult(
     /// <summary>A published cell whose later step did not happen: the supersedence was not applied.</summary>
     public bool Warning { get; init; }
 
+    /// <summary>True when this run created the object; false when the destination had it already.</summary>
+    public bool Created { get; init; }
+
     /// <summary>The cell text: "Published", "Failed at content upload", "Skipped", "Not supported", "Blocked".</summary>
     public string Text => Kind switch
     {
@@ -53,8 +56,9 @@ public sealed record PublishDestinationResult(
             return new(name, PublishDestinationKind.Skipped, "", $"Existing application kept: {result.Conflict.ApplicationName} v{result.Conflict.Version}", result.Conflict.ApplicationName);
         return result.ConfigMgrOutcome switch
         {
-            InventoryOutcome.Succeeded or InventoryOutcome.AlreadyPresent => new(name, PublishDestinationKind.Published, "", detail, id),
-            InventoryOutcome.PublishedSupersedenceNotApplied => new(name, PublishDestinationKind.Published, "", detail, id) { Warning = true },
+            InventoryOutcome.Succeeded => new(name, PublishDestinationKind.Published, "", detail, id) { Created = true },
+            InventoryOutcome.AlreadyPresent => new(name, PublishDestinationKind.Published, "", detail, id),
+            InventoryOutcome.PublishedSupersedenceNotApplied => new(name, PublishDestinationKind.Published, "", detail, id) { Warning = true, Created = true },
             InventoryOutcome.Partial => new(name, PublishDestinationKind.Failed, "content", detail, id),
             InventoryOutcome.Skipped or InventoryOutcome.Cancelled => new(name, PublishDestinationKind.Skipped, "", detail, id),
             InventoryOutcome.Refused => new(name, PublishDestinationKind.NotSupported, "", detail, id),

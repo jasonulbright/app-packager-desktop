@@ -7,6 +7,12 @@ using ApplicationPackagerUI.ViewModels.Windows;
 
 namespace ApplicationPackagerUI.ViewModels.Pages;
 
+/// <summary>The end of a publish: the application to select, when the operator asked to review one.</summary>
+public sealed class PublishEndedEventArgs(PackagerInfo? review) : EventArgs
+{
+    public PackagerInfo? Review { get; } = review;
+}
+
 /// <summary>The results of a publish run, and the retry of a destination that failed.</summary>
 public partial class PackagesViewModel
 {
@@ -19,18 +25,29 @@ public partial class PackagesViewModel
     /// place of the failed one, or with the reason why it did not run.
     /// </summary>
     private async Task ShowResultsAsync(List<(string Application, PublishRowResult Result)> rows, bool cancelled,
-        IReadOnlyList<string> systems, PublishRunBuild build)
+        IReadOnlyList<string> systems, PublishRunBuild build, IReadOnlySet<string>? withoutDeployment = null)
     {
         var note = "";
         while (true)
         {
             var settings = _settingsService.Load();
+            var siteLine = SiteFooter.Format(settings.SiteCode, settings.ProviderMachine);
+            var report = WritePublishReport(rows, cancelled, systems, siteLine);
             var results = new PublishResultsViewModel(rows, cancelled, systems, offerRetry: true)
             {
                 RetryNote = note,
-                SiteLine = SiteFooter.Format(settings.SiteCode, settings.ProviderMachine)
+                SiteLine = siteLine,
+                ReportPath = report,
+                WithoutDeployment = withoutDeployment ?? new HashSet<string>(),
+                ShowLogs = owner => new Views.Windows.LogWindow(this) { Owner = owner }.ShowDialog(),
+                ShowHistory = _inventory is null ? null : (uid, owner) =>
+                {
+                    if (build.Rows.FirstOrDefault(p => p.Uid == uid) is { } packager)
+                        new Views.Windows.OperationHistoryWindow(packager, _inventory) { Owner = owner }.ShowDialog();
+                }
             };
             _publishDialogs.ShowPublishResults(results);
+            if (results.ReviewUid.Length > 0) _reviewAfterPublish = build.Rows.FirstOrDefault(p => p.Uid == results.ReviewUid);
             if (results.RequestedRetry is not { } asked) return;
 
             var index = rows.FindIndex(r => r.Result.Uid == asked.Uid);
@@ -45,8 +62,30 @@ public partial class PackagesViewModel
         }
     }
 
-    /// <summary>
-    /// One failed destination of one application again: the same version, through the publish review and its read before the write. A
+    private string WritePublishReport(IReadOnlyList<(string Application, PublishRowResult Result)> rows, bool cancelled,
+        IReadOnlyList<string> systems, string siteLine)
+    {
+        try
+        {
+            var path = ApplicationPackagerEngine.Services.PublishReportWriter.Write(PublishReportFolder, DateTime.Now, siteLine,
+                new PublishResultsViewModel(rows, cancelled, systems).Headline, cancelled, rows);
+            AddLogLine("Publish report: " + path);
+            return path;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            AddLogLine("The publish report was not written: " + ex.Message);
+            return "";
+        }
+    }
+
+    /// <summary>The folder of the Publish All run reports.</summary>
+    public static string PublishReportFolder => ApplicationPackagerEngine.Services.PublishReportWriter.Folder(LogDir);
+
+    /// <summary>The application that Review failed application asked for; the page selects it when the publish ends.</summary>
+    private PackagerInfo? _reviewAfterPublish;
+
+    /// <summary>One failed destination of one application again: the same version, through the publish review and its read before the write. A
     /// ConfigMgr retry writes nothing when ConfigMgr has the version or cannot be read, and it keeps an existing application without asking,
     /// so it never replaces one. Returns the new cell, or null and the reason why nothing ran.
     /// </summary>

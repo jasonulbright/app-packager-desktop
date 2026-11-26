@@ -110,7 +110,7 @@ public partial class OneClickPlanViewModel : ObservableObject
     /// <summary>The results of the finished run for the shared results window: one row for each included application.</summary>
     public PublishResultsViewModel BuildResults() => new(
         Rows.Where(r => r.Include).Select(r => (r.Application, new PublishRowResult(r.Key, r.Version, r.Cells.ToList()))).ToList(),
-        _runCanceled, _runSystems);
+        _runCanceled, _runSystems) { ReportPath = ReportPath };
 
     /// <summary>Raised after a run that has results, so the window can show them.</summary>
     public event EventHandler? ResultsReady;

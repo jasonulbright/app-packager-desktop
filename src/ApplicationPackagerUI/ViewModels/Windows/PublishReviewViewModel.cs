@@ -4,7 +4,13 @@ using ScopeSource = ApplicationPackagerEngine.Models.ScopeSource;
 namespace ApplicationPackagerUI.ViewModels.Windows;
 
 /// <summary>One row of the review grid: the application and one text for each system, in the order of <see cref="PublishPlan.Systems"/>.</summary>
-public sealed record PublishReviewRow(string Application, string Version, string Checked, IReadOnlyList<string> Cells);
+public sealed record PublishReviewRow(string Application, string Version, string Checked, IReadOnlyList<string> Cells)
+{
+    public IReadOnlyList<Wpf.Ui.Controls.SymbolRegular> Glyphs { get; init; } = [];
+
+    /// <summary>The name of each cell: the application, the system and the cell text.</summary>
+    public IReadOnlyList<string> Names { get; init; } = [];
+}
 
 /// <summary>
 /// The publish review window (overhaul V1, phase 5a): what Publish All will write for the checked applications, the comment of the run, and the
@@ -19,7 +25,17 @@ public partial class PublishReviewViewModel : ObservableObject
         _comment = comment ?? "";
         Rows = plan.Rows.Select(r => new PublishReviewRow(r.App.Application, r.App.Version.Length > 0 ? r.App.Version : "Not checked",
             string.Join(", ", new[] { Changes.ContainsKey(r.App.Uid) ? "Changed" : "", r.App.Hidden ? "Outside the view" : "" }.Where(t => t.Length > 0)),
-            r.Cells.Select(c => c.Text).ToList())).ToList();
+            r.Cells.Select(c => c.Text).ToList())
+        {
+            Glyphs = r.Cells.Select(c => c.Kind switch
+            {
+                PublishCellKind.Create => Wpf.Ui.Controls.SymbolRegular.ArrowCircleUp24,
+                PublishCellKind.Skip => Wpf.Ui.Controls.SymbolRegular.SubtractCircle24,
+                PublishCellKind.Blocked => Wpf.Ui.Controls.SymbolRegular.Warning24,
+                _ => Wpf.Ui.Controls.SymbolRegular.DismissCircle24
+            }).ToList(),
+            Names = r.Cells.Select(c => $"{r.App.Application}, {c.Destination}, {c.Text}").ToList()
+        }).ToList();
     }
 
     /// <summary>What differs from the review the operator confirmed before; empty on the first review.</summary>
@@ -75,6 +91,30 @@ public partial class PublishReviewViewModel : ObservableObject
 
     /// <summary>ConfigMgr and Intune write the comment to the application. WSUS does not.</summary>
     public bool HasComment => Plan.Systems.Contains(OneClickDestinations.ConfigMgr) || Plan.Systems.Contains(OneClickDestinations.Intune);
+
+    /// <summary>The prompts that can still open during the run. Each one still asks; the review does not answer it.</summary>
+    public string MayAskText
+    {
+        get
+        {
+            var asks = new List<string>();
+            bool Writes(string system) => Plan.Rows.Any(r => r.Cells.Any(c => c.Destination == system && c.Kind == PublishCellKind.Create));
+            if (Writes(OneClickDestinations.ConfigMgr))
+            {
+                if (Plan.RetryDestination.Length == 0) asks.Add("Application Already Exists, when ConfigMgr has an application with the same title (Overwrite, Skip or Cancel remaining)");
+                asks.Add("the supersedence confirmation, when supersedence is on and ConfigMgr has an older application");
+            }
+            if (Writes(OneClickDestinations.Intune)) asks.Add("Intune review, when a stage has a finding that needs a decision");
+            return asks.Count == 0 ? "" : "The run may ask: " + string.Join("; ", asks) + ".";
+        }
+    }
+
+    public IReadOnlyList<PublishCard> Cards => Plan.Cards;
+
+    public bool HasCards => Plan.Cards.Count > 0;
+
+    /// <summary>Says why the confirm button is off when every system of every application is skipped or cannot take it.</summary>
+    public string NothingText => Plan.Writes == 0 && Plan.Rows.Count > 0 ? "Nothing to publish: no listed system takes a publish of these applications." : "";
 
     /// <summary>Why the run cannot start: each system that is in use and not ready, with its reason. Empty when it can start.</summary>
     public string BlockedText => string.Join(" ", Plan.Blocked.Select(b => b.Destination + ": " + b.Reason));

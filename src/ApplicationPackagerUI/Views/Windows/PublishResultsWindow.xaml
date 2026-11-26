@@ -15,6 +15,15 @@
             <ResourceDictionary.MergedDictionaries>
                 <ResourceDictionary Source="/ApplicationPackagerUI;component/Views/Styles/Typography.xaml" />
             </ResourceDictionary.MergedDictionaries>
+            <BooleanToVisibilityConverter x:Key="ShowWhen" />
+            <Style x:Key="Tile" TargetType="Border">
+                <Setter Property="Padding" Value="12,8" />
+                <Setter Property="Margin" Value="0,0,8,0" />
+                <Setter Property="BorderThickness" Value="1" />
+                <Setter Property="CornerRadius" Value="8" />
+                <Setter Property="BorderBrush" Value="{DynamicResource ControlStrokeColorDefaultBrush}" />
+                <Setter Property="Background" Value="{DynamicResource SurfacePageBrush}" />
+            </Style>
         </ResourceDictionary>
     </Window.Resources>
 
@@ -44,11 +53,39 @@
             </TextBlock>
             <TextBlock Text="{Binding Headline}" Style="{StaticResource SectionTitle}" AutomationProperties.HeadingLevel="Level1"
                        AutomationProperties.AutomationId="txtResultsHeadline" AutomationProperties.LiveSetting="Polite" />
-            <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
-                <TextBlock Text="{Binding PublishedText}" FontSize="14" Margin="0,0,24,0" Foreground="{DynamicResource StatusSuccessBrush}" AutomationProperties.AutomationId="txtResultsPublished" />
-                <TextBlock Text="{Binding FailedText}" FontSize="14" Margin="0,0,24,0" Foreground="{DynamicResource StatusErrorBrush}" AutomationProperties.AutomationId="txtResultsFailed" />
-                <TextBlock Text="{Binding SkippedText}" FontSize="14" Foreground="{DynamicResource TextFillColorSecondaryBrush}" AutomationProperties.AutomationId="txtResultsSkipped" />
+            <!-- The three counts as tiles: a glyph, the word and the number, so no count is read by color alone. -->
+            <StackPanel Orientation="Horizontal" Margin="0,8,0,0" AutomationProperties.AutomationId="pnlResultTiles">
+                <Border Style="{StaticResource Tile}">
+                    <StackPanel Orientation="Horizontal">
+                        <ui:SymbolIcon Symbol="CheckmarkCircle24" FontSize="20" Margin="0,0,8,0" Foreground="{DynamicResource StatusSuccessBrush}" />
+                        <TextBlock Text="{Binding PublishedText}" FontSize="16" Foreground="{DynamicResource StatusSuccessBrush}" AutomationProperties.AutomationId="txtResultsPublished" />
+                    </StackPanel>
+                </Border>
+                <Border Style="{StaticResource Tile}">
+                    <StackPanel Orientation="Horizontal">
+                        <ui:SymbolIcon Symbol="DismissCircle24" FontSize="20" Margin="0,0,8,0" Foreground="{DynamicResource StatusErrorBrush}" />
+                        <TextBlock Text="{Binding FailedText}" FontSize="16" Foreground="{DynamicResource StatusErrorBrush}" AutomationProperties.AutomationId="txtResultsFailed" />
+                    </StackPanel>
+                </Border>
+                <Border Style="{StaticResource Tile}">
+                    <StackPanel Orientation="Horizontal">
+                        <ui:SymbolIcon Symbol="SubtractCircle24" FontSize="20" Margin="0,0,8,0" Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                        <TextBlock Text="{Binding SkippedText}" FontSize="16" Foreground="{DynamicResource TextFillColorSecondaryBrush}" AutomationProperties.AutomationId="txtResultsSkipped" />
+                    </StackPanel>
+                </Border>
             </StackPanel>
+            <TextBlock Text="{Binding DeploymentNotice}" FontSize="14" Margin="0,8,0,0" TextWrapping="Wrap" Foreground="{DynamicResource TextFillColorPrimaryBrush}"
+                       AutomationProperties.AutomationId="txtResultsDeployment">
+                <TextBlock.Style>
+                    <Style TargetType="TextBlock">
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding DeploymentNotice}" Value="">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </TextBlock.Style>
+            </TextBlock>
             <ItemsControl ItemsSource="{Binding Notices}" Margin="0,8,0,0" Focusable="False" IsTabStop="False" AutomationProperties.AutomationId="lstResultsNotices">
                 <ItemsControl.ItemTemplate>
                     <DataTemplate>
@@ -118,8 +155,20 @@
 
         <Border Grid.Row="5" BorderThickness="0,1,0,0" BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}" Padding="16,8">
             <DockPanel LastChildFill="False">
+                <ui:Button DockPanel.Dock="Left" x:Name="btnResultsHistory" Content="Operation history" Icon="{ui:SymbolIcon History24}" Margin="0,0,8,0"
+                           Click="History_Click" Visibility="{Binding HasHistory, Converter={StaticResource ShowWhen}}"
+                           AutomationProperties.AutomationId="btnResultsHistory" ToolTip="View the recorded operations of the application that is selected in the list. With no selection, the first failed one." />
+                <ui:Button DockPanel.Dock="Left" x:Name="btnResultsReport" Content="Open report" Icon="{ui:SymbolIcon Open24}" Margin="0,0,8,0"
+                           Click="Report_Click" Visibility="{Binding HasReport, Converter={StaticResource ShowWhen}}"
+                           AutomationProperties.AutomationId="btnResultsReport" ToolTip="Open the report of this run." />
+                <ui:Button DockPanel.Dock="Left" x:Name="btnResultsLogs" Content="Logs" Icon="{ui:SymbolIcon DocumentText24}" Margin="0,0,8,0"
+                           Click="Logs_Click" Visibility="{Binding HasLogs, Converter={StaticResource ShowWhen}}"
+                           AutomationProperties.AutomationId="btnResultsLogs" ToolTip="Open the log of this session." />
                 <ui:Button DockPanel.Dock="Right" Content="Done" Appearance="Primary" MinWidth="110" IsDefault="True" IsCancel="True" Click="Done_Click"
-                           AutomationProperties.AutomationId="btnResultsDone" ToolTip="Close the results. The grid keeps its filter, its sort and its place." />
+                           AutomationProperties.AutomationId="btnResultsDone" ToolTip="Close the results. The grid keeps its filter, its sort and its place." Margin="8,0,0,0" />
+                <ui:Button DockPanel.Dock="Right" x:Name="btnResultsReview" Content="Review failed application" Margin="0,0,0,0" Click="Review_Click"
+                           Visibility="{Binding HasFailure, Converter={StaticResource ShowWhen}}"
+                           AutomationProperties.AutomationId="btnResultsReview" ToolTip="Close the results and select the first failed application in the grid." />
             </DockPanel>
         </Border>
     </Grid>

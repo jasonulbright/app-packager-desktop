@@ -163,7 +163,7 @@ public sealed class PublishReviewTests
     [Fact]
     public void TheConfigMgrCellSaysWhatTheSiteHas()
     {
-        Assert.Equal(PublishPlan.ConfigMgrAction + " (ConfigMgr has this version; if the title matches, the run asks before it replaces it)", SitePlan(ConfigMgrFact.Found("1.1")).Rows[0].Cells[0].Text);
+        Assert.Equal("Skip: version already published", SitePlan(ConfigMgrFact.Found("1.1")).Rows[0].Cells[0].Text);
         Assert.Equal(PublishPlan.ConfigMgrAction + " (ConfigMgr has 0.9; if the title matches, the run asks before it replaces it)", SitePlan(ConfigMgrFact.Found("0.9")).Rows[0].Cells[0].Text);
         var planned = SitePlan(ConfigMgrFact.None);
         Assert.Equal("The ConfigMgr site or its provider changed.", PublishPlanner.Changes(planned with { Site = "MCM|cm01" }, planned with { Site = "PS1|cm01" })["site"]);

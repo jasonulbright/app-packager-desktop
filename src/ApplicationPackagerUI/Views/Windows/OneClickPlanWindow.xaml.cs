@@ -30,7 +30,9 @@ public partial class OneClickPlanWindow : ApplicationPackagerUI.Services.IDialog
     private void ShowResults()
     {
         if (!IsVisible || !_viewModel.HasResults) return;
-        new PublishResultsWindow(_viewModel.BuildResults()) { Owner = this }.ShowDialog();
+        var results = _viewModel.BuildResults();
+        new PublishResultsWindow(results) { Owner = this }.ShowDialog();
+        if (results.ReviewUid.Length > 0) ReviewFailed_Click(this, new RoutedEventArgs());
     }
 
     /// <summary>Opens Settings on the One Click page after this window closed; null uses the main window.</summary>

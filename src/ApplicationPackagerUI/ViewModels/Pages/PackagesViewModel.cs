@@ -1231,7 +1231,9 @@ public partial class PackagesViewModel : ObservableObject
         finally
         {
             IsOperationRunning = false;
-            PublishEnded?.Invoke(this, EventArgs.Empty);
+            var review = _reviewAfterPublish;
+            _reviewAfterPublish = null;
+            PublishEnded?.Invoke(this, new PublishEndedEventArgs(review));
         }
     }
 
@@ -1239,7 +1241,7 @@ public partial class PackagesViewModel : ObservableObject
     public event EventHandler? PublishStarting;
 
     /// <summary>The review closed with Back, or the run and its results ended; the page restores its place and the focus.</summary>
-    public event EventHandler? PublishEnded;
+    public event EventHandler<PublishEndedEventArgs>? PublishEnded;
 
     private async Task PackageCoreAsync(IReadOnlyList<PackagerInfo>? rows, RunSnapshot? snapshot)
     {
@@ -1318,7 +1320,10 @@ public partial class PackagesViewModel : ObservableObject
         // What this publish does and does not do, before anything starts.
         foreach (var sentence in ApplicationPackagerEngine.Services.PublishPreflight.Lines(target))
             AddLogLine("Before publish: " + sentence);
-        if (DeploymentTargets.PublishesToIntune(target) && !await ReviewIntuneCompatibilityAsync(selected, target, snapshot, pinnedBuildId))
+        // The Intune review covers the applications that this run publishes to Intune.
+        var toIntune = selected.Where(p => confirmedPlan.Rows.First(r => r.App.Uid == p.Uid).Cells
+            .Any(c => c.Destination == OneClickDestinations.Intune && c.Kind != PublishCellKind.Skip)).ToList();
+        if (toIntune.Count > 0 && !await ReviewIntuneCompatibilityAsync(toIntune, target, snapshot, pinnedBuildId))
         {
             AddLogLine("Intune review: run cancelled.");
             StatusText = "Publish cancelled. Nothing was published.";
@@ -1408,13 +1413,33 @@ public partial class PackagesViewModel : ObservableObject
                         return packaged;
                     }
 
-                    // Each destination of the target runs once; one that fails does not stop the next.
+                    // Each destination of the target runs once; one that fails does not stop the next. A system that the confirmed review
+                    // lists as Skip is not written: its cell says why.
                     var version = reviewed;
                     var cells = new List<PublishDestinationResult>();
+                    var planRow = confirmedPlan.Rows.First(r => r.App.Uid == p.Uid);
+                    var held = planRow.Cells.Where(c => c.Kind == PublishCellKind.Skip)
+                        .Select(c => PublishDestinationResult.NotAttempted(c.Destination, PublishDestinationKind.Skipped, c.Text)).ToList();
+                    var written = DestinationSet.FromTarget(target);
+                    written = new DestinationSet(written.ConfigMgr && held.All(h => h.Destination != OneClickDestinations.ConfigMgr),
+                        written.Wsus && held.All(h => h.Destination != OneClickDestinations.Wsus),
+                        written.Intune && held.All(h => h.Destination != OneClickDestinations.Intune));
+                    if (!written.Any)
+                    {
+                        rowResults.Add((p.Uid, p.Application, new PublishRowResult(p.Uid, version, held)));
+                        p.Status = "Skipped";
+                        p.IsSelected = false;
+                        tally.RecordSkip();
+                        AddLogLine("  Skipped: " + string.Join("; ", held.Select(h => h.Destination + ", " + h.Message)));
+                        continue;
+                    }
+                    foreach (var skip in held) AddLogLine($"  {skip.Destination}: {skip.Message}");
+                    var rowTarget = written.ToTargetName();
+                    var rowWsusOnly = rowTarget == PublishRunTargets.WsusOnly;
                     PublishRowRun run;
                     try
                     {
-                        run = await PublishRowRunner.RunAsync(p.Uid, version, target, PackageRowAsync,
+                        run = await PublishRowRunner.RunAsync(p.Uid, version, rowTarget, PackageRowAsync,
                             () =>
                             {
                                 ThrowIfBuildIsGone();
@@ -1424,7 +1449,7 @@ public partial class PackagesViewModel : ObservableObject
                     }
                     finally
                     {
-                        rowResults.Add((p.Uid, p.Application, new PublishRowResult(p.Uid, version, cells)));
+                        rowResults.Add((p.Uid, p.Application, new PublishRowResult(p.Uid, version, [.. cells, .. held])));
                     }
                     var result = run.Package;
                     var wsusStep = run.WsusStep;
@@ -1451,15 +1476,15 @@ public partial class PackagesViewModel : ObservableObject
                     }
 
                     // A package call that threw has no result; its cells carry the error and the row failed.
-                    var packageThrew = result is null && PublishRowRunner.PackageTarget(target) is not null;
+                    var packageThrew = result is null && PublishRowRunner.PackageTarget(rowTarget) is not null;
                     var packageExit = packageThrew ? 1 : result?.ExitCode ?? 0;
                     var wsusFailed = run.WsusFailed;
                     var rowStatus = run.Wsus is null
-                        ? RowStatus(target, wsusFailed ? 1 : packageExit)
-                        : PublishRowOutcome.For(target, packageExit, conflictKept ? PackageRunEnd.Skipped : PackageRunEnd.Completed, wsusStep).Status;
+                        ? RowStatus(rowTarget, wsusFailed ? 1 : packageExit)
+                        : PublishRowOutcome.For(rowTarget, packageExit, conflictKept ? PackageRunEnd.Skipped : PackageRunEnd.Completed, wsusStep).Status;
 
                     // WSUS alone cannot take this application: nothing reached a server, so the row is a skip and stays checked.
-                    if (wsusOnly && wsusStep?.Refused == true)
+                    if (rowWsusOnly && wsusStep?.Refused == true)
                     {
                         p.Status = rowStatus;
                         tally.RecordSkip();
@@ -1551,7 +1576,12 @@ public partial class PackagesViewModel : ObservableObject
                     ? (rowResults[done].Application, rowResults[done].Result)
                     : (r.App.Application, new PublishRowResult(r.App.Uid, r.App.Version, []));
             }).ToList();
-            await ShowResultsAsync(all, tally.Cancelled, confirmedPlan.Systems, new PublishRunBuild(selected, snapshot, sealedVersion, readBuild));
+            // Only a definition run says what it asked for: a PS1 packager can deploy by its own script.
+            var withoutDeployment = confirmedPlan.Rows.Where(r => r.App.IntuneNotSupported.Length == 0
+                    && !r.App.ConfigMgrSteps.Contains("deploy to ", StringComparison.Ordinal))
+                .Select(r => r.App.Uid).ToHashSet(StringComparer.Ordinal);
+            await ShowResultsAsync(all, tally.Cancelled, confirmedPlan.Systems, new PublishRunBuild(selected, snapshot, sealedVersion, readBuild),
+                withoutDeployment);
         }
     }
 
@@ -1566,11 +1596,12 @@ public partial class PackagesViewModel : ObservableObject
                 Intune = retry == OneClickDestinations.Intune && settings.Systems is { Intune: true },
                 Wsus = retry == OneClickDestinations.Wsus && settings.Systems is { Wsus: true }
             };
-        return PublishPlanner.Plan(apps, systems, ReadinessOf(settings)) with
+        var plan = PublishPlanner.Plan(apps, systems, ReadinessOf(settings), skips: retry.Length == 0) with
         {
             Site = (settings.SiteCode ?? "").Trim() + "|" + (settings.ProviderMachine ?? "").Trim(),
             RetryDestination = retry
         };
+        return plan with { Cards = PublishCards.For(plan, settings) };
     }
 
     /// <summary>One application of the publish plan: the version the run publishes, what ConfigMgr does afterward, and what each system cannot take.</summary>
@@ -1593,8 +1624,19 @@ public partial class PackagesViewModel : ObservableObject
                 != ApplicationPackagerEngine.Services.Supersedence.SupersedenceMode.Off)
                 steps.Add("apply supersedence");
         }
-        return new PublishPlanApp(p.Uid, p.Application, sealedVersion ?? PackagerExecutionService.PublishVersion(p), hidden)
+        var version = sealedVersion ?? PackagerExecutionService.PublishVersion(p);
+        // A view model that a test builds without its constructor has no history.
+        var build = _inventoryProjection is null ? null : _executionService.ResolveBuildPlan(p);
+        var history = _inventoryProjection?.Entry(p, settings, build);
+        var stale = build is not null && ApplicationPackagerEngine.Services.Workbench.BuildRecords.IsCurrent(build.DataRoot, build.ApplicationId,
+            build.ProfileId, version, build.ProfileRevision, settings.ScriptSigning.PolicyDigest) == false;
+        return new PublishPlanApp(p.Uid, p.Application, version, hidden)
         {
+            History = history,
+            BuildStale = stale,
+            BuildKey = build is null ? "" : ApplicationPackagerEngine.Services.OneClick.OneClickHistory.BuildKey(build.ProfileId, build.ProfileRevision,
+                settings.ScriptSigning.PolicyDigest),
+            Detection = PublishCards.DetectionOf(p),
             Site = site,
             CheckedAt = p.LastChecked,
             ConfigMgrSteps = string.Join(", ", steps),

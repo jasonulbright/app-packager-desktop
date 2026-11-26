@@ -13,14 +13,32 @@ public partial class PublishResultsWindow
         InitializeComponent();
         for (var i = 0; i < viewModel.Systems.Count; i++)
         {
-            Matrix.Columns.Add(new DataGridTextColumn
-            {
-                Header = viewModel.Systems[i],
-                Binding = new Binding($"Cells[{i}]"),
-                Width = new DataGridLength(1, DataGridLengthUnitType.Star),
-                MinWidth = 180
-            });
+            Matrix.Columns.Add(PublishMatrixColumns.For(viewModel.Systems[i], i, 180));
         }
+    }
+
+    private PublishResultsViewModel Results => (PublishResultsViewModel)DataContext;
+
+    private void History_Click(object sender, RoutedEventArgs e)
+    {
+        if ((Matrix.SelectedItem as PublishResultsRow ?? Results.FirstFailed ?? Results.Rows.FirstOrDefault()) is { } row)
+            Results.ShowHistory?.Invoke(row.Uid, this);
+    }
+
+    private void Report_Click(object sender, RoutedEventArgs e)
+    {
+        if (!System.IO.File.Exists(Results.ReportPath)) return;
+        try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(Results.ReportPath) { UseShellExecute = true }); }
+        catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or InvalidOperationException) { }
+    }
+
+    private void Logs_Click(object sender, RoutedEventArgs e) => Results.ShowLogs?.Invoke(this);
+
+    private void Review_Click(object sender, RoutedEventArgs e)
+    {
+        if (Results.FirstFailed is not { } row) return;
+        Results.RequestReview(row);
+        Close();
     }
 
     private void Retry_Click(object sender, RoutedEventArgs e)

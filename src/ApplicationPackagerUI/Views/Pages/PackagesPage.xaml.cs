@@ -22,7 +22,11 @@ public partial class PackagesPage
         viewModel.ImportFromUrlRequested += (_, _) => ShowImportFromUrl(viewModel);
         viewModel.PublishStarting += (_, _) => NoteGridPlace();
         // After the publish command ended, so Publish All is enabled again and can take the focus.
-        viewModel.PublishEnded += (_, _) => Dispatcher.BeginInvoke(RestoreGridPlace, System.Windows.Threading.DispatcherPriority.ContextIdle);
+        viewModel.PublishEnded += (_, e) => Dispatcher.BeginInvoke(() =>
+        {
+            RestoreGridPlace();
+            if (e.Review is { } row) ShowRow(row);
+        }, System.Windows.Threading.DispatcherPriority.ContextIdle);
         ApplySavedColumns();
         InitializeColumnLayout();
 
@@ -208,6 +212,20 @@ public partial class PackagesPage
         if (!IsVisible) return;
         if (btnPublishAll.IsEnabled) btnPublishAll.Focus();
         else PackagerGrid.Focus();
+    }
+
+    /// <summary>Selects a row and moves the focus to the grid, for Review failed application.</summary>
+    private void ShowRow(PackagerInfo row)
+    {
+        var viewModel = Packages;
+        if (!PackagerGrid.Items.Contains(row))
+        {
+            viewModel.SearchText = "";
+            viewModel.StatusTab = Helpers.PackagesTabChoice.All;
+        }
+        PackagerGrid.SelectedItem = row;
+        PackagerGrid.ScrollIntoView(row);
+        PackagerGrid.Focus();
     }
 
     private Views.Windows.LogWindow? _log;
