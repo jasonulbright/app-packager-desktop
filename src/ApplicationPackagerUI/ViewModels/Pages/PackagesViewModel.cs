@@ -194,6 +194,7 @@ public partial class PackagesViewModel : ObservableObject
         IsPublishWsusAvailable = state.WsusEnabled;
         PublishWsusToolTip = state.WsusToolTip;
         (IsPublishAllAvailable, PublishAllToolTip, _publishAllTarget) = PublishAllState.For(readiness);
+        DetailPublishingText = PackagesDetail.PublishingText(readiness.Systems, readiness.SiteCode);
         PublishScopeText = "Publish All: " + ScopeText.For(ScopeText.SetOf(readiness.Systems), ScopeSource.SystemsInUse, readiness.SiteCode);
         IsWsusUpdatesAvailable = state.WsusUpdatesEnabled;
         WsusUpdatesToolTip = state.WsusUpdatesToolTip;
@@ -281,6 +282,9 @@ public partial class PackagesViewModel : ObservableObject
 
     /// <summary>"Publish All scope: ConfigMgr and WSUS (Settings, Systems in Use)".</summary>
     [ObservableProperty] private string _publishScopeText = "";
+
+    /// <summary>The Publishing line of the detail pane: the systems that are on and off.</summary>
+    [ObservableProperty] private string _detailPublishingText = "";
 
     /// <summary>The columns that the Columns menu shows, as saved.</summary>
     public IReadOnlyList<string> ShownColumns => PackagesColumns.Shown(_settingsService?.Load().PackagesShownColumns);
@@ -711,6 +715,7 @@ public partial class PackagesViewModel : ObservableObject
             var observed = _inventoryProjection.Environment(p, settings);
             p.CurrentVersion = observed?.LatestObservedVersion ?? "";
             if (!string.IsNullOrEmpty(vendor?.LatestVersion)) p.Status = "Cached";
+            p.SiteCheckedAt = observed?.LatestObservedAt;
             // The last completed ConfigMgr check found no application: the tab count survives a restart.
             if (CveRowState.IsStoredNotFound(observed)) p.Status = PackagesTab.NotFoundStatus;
             ApplyStoredCveState(p, settings);
@@ -1005,6 +1010,7 @@ public partial class PackagesViewModel : ObservableObject
                     else
                     {
                         p.CurrentVersion = "";
+                        p.SiteCheckedAt = DateTimeOffset.Now;
                         p.Status = "Not found in ConfigMgr";
                         AddLogLine($"  Not found in ConfigMgr");
                     }
@@ -1214,6 +1220,7 @@ public partial class PackagesViewModel : ObservableObject
             AddLogLine("Package skipped: another operation is running.");
             return;
         }
+        PublishStarting?.Invoke(this, EventArgs.Empty);
         IsOperationRunning = true;
         try
         {
@@ -1221,8 +1228,18 @@ public partial class PackagesViewModel : ObservableObject
             if (rows is not null) await Task.Yield();
             await PackageCoreAsync(rows, snapshot);
         }
-        finally { IsOperationRunning = false; }
+        finally
+        {
+            IsOperationRunning = false;
+            PublishEnded?.Invoke(this, EventArgs.Empty);
+        }
     }
+
+    /// <summary>A publish is about to open its review; the page notes the focused row and the scroll position.</summary>
+    public event EventHandler? PublishStarting;
+
+    /// <summary>The review closed with Back, or the run and its results ended; the page restores its place and the focus.</summary>
+    public event EventHandler? PublishEnded;
 
     private async Task PackageCoreAsync(IReadOnlyList<PackagerInfo>? rows, RunSnapshot? snapshot)
     {
@@ -1268,7 +1285,8 @@ public partial class PackagesViewModel : ObservableObject
             sealedVersion = readBuild?.Invoke().Version;
         }
 
-        // The review lists every checked application, the ones that the view hides too, and takes the comment of the run.
+        // The review lists every checked application, the ones that the view hides too, and takes the comment of the run. It starts with the
+        // comment of the last confirmed review.
         // The rows of a Workbench run are named by the caller, so none of them is hidden.
         var shown = new HashSet<PackagerInfo>(rows ?? FilteredPackagers);
         var plan = BuildPlan(selected.Select(p => PlanApp(p, settings, !shown.Contains(p),

@@ -112,7 +112,6 @@ foreach ($theme in $Themes) {
             Wait-Idle $w 420
             foreach ($i in 1..3) { $dlg = Other-Windows | Select-Object -First 1; if ($dlg) { try { $null = Click-ByName $dlg @('Continue', 'OK', 'Yes'); Wait-Idle $w 300 } catch { break } } }
             "status after Stage: $(Status-Text $w)"
-            Set-ElText (Find-El $w 'txtAppPackagerComment') 'Overhaul V1 lab check'
             Check-Row $w $Application
             Publish-And-Answer $w 600
             $dlg = Other-Windows | Select-Object -First 1
@@ -129,7 +128,6 @@ foreach ($theme in $Themes) {
             $null = Start-Apd $exe $data $theme $settings
             $w = Main-Window
             $w.SetFocus()
-            Set-ElText (Find-El $w 'txtAppPackagerComment') 'Overhaul V1 lab check'
             Check-Row $w $Application
             Publish-And-Answer $w 240
             Move-MouseAway

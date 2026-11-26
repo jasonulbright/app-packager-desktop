@@ -591,7 +591,6 @@ $steps['grid-publish'] = {
     Say "  scope: $(Get-Text 'txtPublishScope')"
     $full = Select-OnlyApplication $GridApp
     Invoke-StageFromGrid $data $full
-    Set-ElText (Find-El (Main-Window) 'txtAppPackagerComment') 'Release end-to-end check'
     $count = Get-Text 'txtSelectionCount'
     Require 'exactly one application is checked before Publish All' ($count -ceq '1 selected') "txtSelectionCount='$count'"
     $publish = Find-El (Main-Window) 'btnPublishAll' -Timeout 10

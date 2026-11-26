@@ -13,6 +13,9 @@ public partial class PackagerInfo : ObservableObject, IPackagerExecutionRequest
     [ObservableProperty] private string? _statusDetail;
     [ObservableProperty] private DateTime? _lastChecked;
 
+    /// <summary>When the last completed Check ConfigMgr read this application, from this session or from the stored observation.</summary>
+    public DateTimeOffset? SiteCheckedAt { get; set; }
+
     partial void OnStatusChanged(string value) => StatusDetail = null;
 
     /// <summary>Intune build and publish outcome for the most recent Package run.</summary>

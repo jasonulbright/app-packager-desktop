@@ -1099,7 +1099,7 @@
                                         <TextBlock Text="Action on update" Style="{StaticResource FieldLabel}" />
                                         <ComboBox SelectedValue="{Binding OneClickAction}" SelectedValuePath="Tag" HorizontalAlignment="Stretch"
                                                   AutomationProperties.Name="Action on update" AutomationProperties.AutomationId="cboOneClickAction"
-                                                  ToolTip="Report only lists the newer versions. Stage downloads and prepares them. Stage and Publish also publishes each application to its destinations, using the comment on the App Packager page.">
+                                                  ToolTip="Report only lists the newer versions. Stage downloads and prepares them. Stage and Publish also publishes each application to its destinations, using the comment in the One Click plan window.">
                                             <ComboBoxItem Content="Report only" Tag="Report" />
                                             <ComboBoxItem Content="Stage" Tag="Stage" />
                                             <ComboBoxItem Content="Stage and Publish" Tag="StageAndPackage" />

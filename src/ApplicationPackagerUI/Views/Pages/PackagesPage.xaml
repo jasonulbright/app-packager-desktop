@@ -171,7 +171,6 @@
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
             <ui:TextBox Grid.Column="0"
                         Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
@@ -179,16 +178,9 @@
                         Icon="{ui:SymbolIcon Search24}"
                         AutomationProperties.AutomationId="txtAppPackagerSearch"
                         AutomationProperties.Name="Search applications" ToolTip="Enter part of an application name, vendor or CMName to show only the matching applications." />
-            <ui:TextBox Grid.Column="1"
-                        Text="{Binding Comment, UpdateSourceTrigger=PropertyChanged}"
-                        PlaceholderText="Administrative Comments"
-                        ToolTip="The comment that Publish writes to each published application."
-                        AutomationProperties.AutomationId="txtAppPackagerComment"
-                        AutomationProperties.Name="Administrative Comments"
-                        Width="280" Margin="8,0,0,0" />
-            <ui:Button Grid.Column="2" x:Name="btnColumns" Content="Columns" Icon="{ui:SymbolIcon TableSettings24}" Click="Columns_Click" Margin="8,0,0,0"
+            <ui:Button Grid.Column="1" x:Name="btnColumns" Content="Columns" Icon="{ui:SymbolIcon TableSettings24}" Click="Columns_Click" Margin="8,0,0,0"
                        AutomationProperties.AutomationId="btnColumns" ToolTip="Choose the columns of the grid. The columns, their order, their width and the sort are saved." />
-            <ui:Button Grid.Column="3" x:Name="btnMore" Content="More" Icon="{ui:SymbolIcon MoreHorizontal24}" Click="More_Click" Margin="8,0,0,0"
+            <ui:Button Grid.Column="2" x:Name="btnMore" Content="More" Icon="{ui:SymbolIcon MoreHorizontal24}" Click="More_Click" Margin="8,0,0,0"
                        AutomationProperties.AutomationId="btnMore" ToolTip="CVE report, operation history, export of the check results, the setup checklist, Setup and the debug columns." />
         </Grid>
 
@@ -422,16 +414,52 @@
                             </ui:Button.Style>
                         </ui:Button>
                     </StackPanel>
+                    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Focusable="False">
+                    <StackPanel>
                     <ItemsControl ItemsSource="{Binding DetailLines}" Focusable="False" IsTabStop="False" AutomationProperties.AutomationId="lstDetailLines">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
                                 <StackPanel Margin="0,0,0,8">
                                     <TextBlock Text="{Binding Label}" Style="{StaticResource CaptionText}" />
-                                    <TextBlock Text="{Binding Text}" FontSize="14" TextWrapping="Wrap" Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
+                                    <DockPanel>
+                                        <!-- The status has the glyph of its class beside the text, in the color of the text. -->
+                                        <ui:SymbolIcon DockPanel.Dock="Left" Symbol="{Binding Glyph}" FontSize="16" Margin="0,0,4,0" VerticalAlignment="Top"
+                                                       Foreground="{Binding Foreground, ElementName=LineText}"
+                                                       Visibility="{Binding HasGlyph, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                                       AutomationProperties.AutomationId="icoDetailStatus" />
+                                        <TextBlock x:Name="LineText" Text="{Binding Text}" FontSize="14" TextWrapping="Wrap">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding Category}" Value="Success">
+                                                            <Setter Property="Foreground" Value="{DynamicResource StatusSuccessBrush}" />
+                                                        </DataTrigger>
+                                                        <DataTrigger Binding="{Binding Category}" Value="Warning">
+                                                            <Setter Property="Foreground" Value="{DynamicResource StatusWarningBrush}" />
+                                                        </DataTrigger>
+                                                        <DataTrigger Binding="{Binding Category}" Value="Info">
+                                                            <Setter Property="Foreground" Value="{DynamicResource StatusInfoBrush}" />
+                                                        </DataTrigger>
+                                                        <DataTrigger Binding="{Binding Category}" Value="Error">
+                                                            <Setter Property="Foreground" Value="{DynamicResource StatusErrorBrush}" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+                                    </DockPanel>
                                 </StackPanel>
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
+                    <TextBlock Text="Publishing" Style="{StaticResource CaptionText}" />
+                    <TextBlock Text="{Binding DetailPublishingText}" FontSize="14" TextWrapping="Wrap" Foreground="{DynamicResource TextFillColorPrimaryBrush}"
+                               AutomationProperties.AutomationId="txtDetailPublishing" />
+                    <ui:Button Content="Change Systems in Use" Appearance="Transparent" Padding="0,4" HorizontalAlignment="Left" Click="DetailSystems_Click"
+                               AutomationProperties.AutomationId="btnDetailSystems" ToolTip="Open Settings, Systems in Use, to change the systems that Publish All reaches." />
+                    </StackPanel>
+                    </ScrollViewer>
                 </DockPanel>
             </Border>
 
@@ -495,6 +523,8 @@
                            AutomationProperties.AutomationId="btnSelectUpdates"
                            Appearance="Transparent"
                            Margin="0,0,12,0" ToolTip="Check every application whose status shows that an update is available." />
+                <TextBlock Text="Stage and Publish All act on the checked applications." VerticalAlignment="Center" FontSize="12" Margin="0,0,12,0"
+                           Foreground="{DynamicResource TextFillColorSecondaryBrush}" AutomationProperties.AutomationId="txtBatchNote" />
                 <TextBlock Text="{Binding PublishScopeText}" VerticalAlignment="Center" FontSize="14" Foreground="{DynamicResource TextFillColorSecondaryBrush}"
                            AutomationProperties.AutomationId="txtPublishScope"
                            ToolTip="Publish All reaches the systems that Settings, Systems in Use turns on. One run covers all of them." />

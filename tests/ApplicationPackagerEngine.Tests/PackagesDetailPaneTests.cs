@@ -43,6 +43,31 @@ public sealed class PackagesDetailPaneTests
         Assert.Equal("Staged 2.0", full["Stage"]);
     }
 
+    [Fact]
+    public void ANotFoundRowSaysWhenTheCheckRanAndTheStatusHasTheGlyphOfItsClass()
+    {
+        var now = new DateTimeOffset(2026, 11, 26, 12, 0, 0, TimeZoneInfo.Local.GetUtcOffset(new DateTime(2026, 11, 26)));
+        var row = new PackagerInfo { Uid = "a", Application = "Alpha", Status = "Not found in ConfigMgr", SiteCheckedAt = now.AddDays(-3) };
+
+        var lines = PackagesDetail.Lines(row, "", now);
+
+        Assert.Equal("Checked 3 days ago, 2026-11-23 12:00.", lines.Single(l => l.Label == "Not found check").Text);
+        Assert.Equal("Checked today, 2026-11-26 12:00.", PackagesDetail.Age(now, now));
+        Assert.Equal(Wpf.Ui.Controls.SymbolRegular.Info24, lines.Single(l => l.Label == "Status").Glyph);
+        Assert.False(lines.Single(l => l.Label == "Vendor").HasGlyph);
+        row.Status = "Ready";
+        Assert.DoesNotContain(PackagesDetail.Lines(row, "", now), l => l.Label == "Not found check");
+    }
+
+    [Theory]
+    [InlineData(true, false, false, "ConfigMgr \u00b7 Site MCM. Intune and WSUS are off.")]
+    [InlineData(true, true, false, "ConfigMgr and Intune \u00b7 Site MCM. WSUS is off.")]
+    [InlineData(true, true, true, "ConfigMgr, Intune and WSUS \u00b7 Site MCM.")]
+    [InlineData(false, false, false, "No system is in use.")]
+    public void ThePublishingLineNamesTheSystemsThatAreOnAndOff(bool configMgr, bool intune, bool wsus, string expected) =>
+        Assert.Equal(expected, PackagesDetail.PublishingText(
+            new ApplicationPackagerEngine.Models.SystemsInUse { ConfigMgr = configMgr, Intune = intune, Wsus = wsus }, "MCM"));
+
     [Theory]
     [InlineData(false, null, "Not staged")]
     [InlineData(true, null, "Staged")]

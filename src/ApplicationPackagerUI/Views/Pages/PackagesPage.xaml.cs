@@ -20,6 +20,9 @@ public partial class PackagesPage
 
         viewModel.PropertyChanged += OnViewModelPropertyChanged;
         viewModel.ImportFromUrlRequested += (_, _) => ShowImportFromUrl(viewModel);
+        viewModel.PublishStarting += (_, _) => NoteGridPlace();
+        // After the publish command ended, so Publish All is enabled again and can take the focus.
+        viewModel.PublishEnded += (_, _) => Dispatcher.BeginInvoke(RestoreGridPlace, System.Windows.Threading.DispatcherPriority.ContextIdle);
         ApplySavedColumns();
         InitializeColumnLayout();
 
@@ -174,6 +177,39 @@ public partial class PackagesPage
         }
     }
 
+    private (PackagerInfo? Row, double Offset)? _place;
+
+    private ScrollViewer? GridScroller() => Find<ScrollViewer>(PackagerGrid);
+
+    private static T? Find<T>(DependencyObject root) where T : DependencyObject
+    {
+        for (var i = 0; i < System.Windows.Media.VisualTreeHelper.GetChildrenCount(root); i++)
+        {
+            var child = System.Windows.Media.VisualTreeHelper.GetChild(root, i);
+            if (child is T found) return found;
+            if (Find<T>(child) is { } deeper) return deeper;
+        }
+        return null;
+    }
+
+    private void NoteGridPlace() => _place = (GetSelectedPackager(), GridScroller()?.VerticalOffset ?? 0);
+
+    /// <summary>
+    /// Puts the focused row and the scroll position back after the review or the results, and gives the keyboard focus to Publish All
+    /// (R-21). A row that left the filtered view is not brought back; the scroll position stays.
+    /// </summary>
+    private void RestoreGridPlace()
+    {
+        if (_place is not { } place) return;
+        _place = null;
+        if (place.Row is not null && PackagerGrid.Items.Contains(place.Row)) PackagerGrid.SelectedItem = place.Row;
+        GridScroller()?.ScrollToVerticalOffset(place.Offset);
+        UpdateLayout();
+        if (!IsVisible) return;
+        if (btnPublishAll.IsEnabled) btnPublishAll.Focus();
+        else PackagerGrid.Focus();
+    }
+
     private Views.Windows.LogWindow? _log;
 
     /// <summary>Opens the Logs window, or brings the open one to the front.</summary>
@@ -321,6 +357,9 @@ public partial class PackagesPage
         UpdateLayout();
         SetupPanel.MoveFocus(new TraversalRequest(FocusNavigationDirection.First));
     }
+
+    private void DetailSystems_Click(object sender, RoutedEventArgs e) =>
+        (Window.GetWindow(this) as Views.Windows.MainWindow)?.OpenSettingsPage("systems");
 
     private void DetailOpenWorkbench_Click(object sender, RoutedEventArgs e) => OpenWorkbenchForSelection();
 

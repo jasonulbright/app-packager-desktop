@@ -145,7 +145,6 @@ foreach ($theme in $Themes) {
             Wait-Idle $w 420
             Answer-Dialogs $w 300
             "status after Stage: $(Status-Text $w)"
-            Set-ElText (Find-El $w 'txtAppPackagerComment') 'Guide capture'
             Real-Click (Need-El 'btnPublishAll')
             Complete-ApdPublish $w 600
             "status after Publish: $(Status-Text $w)"
