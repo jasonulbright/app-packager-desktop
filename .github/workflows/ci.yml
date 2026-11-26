@@ -96,9 +96,18 @@ jobs:
           TEST_FILTER: ${{ inputs.filter }}
           APD_DETECTION_TESTER_DIR: ${{ github.workspace }}\detection-tester-ref
           APD_GUIDE_CAPTURE_DIR: ${{ runner.temp }}/guide-images
+          APD_MEASUREMENTS_FILE: ${{ runner.temp }}/measurements.txt
         run: |
           if ($env:TEST_FILTER) { dotnet test tests/ApplicationPackagerEngine.Tests/ApplicationPackagerEngine.Tests.csproj --configuration Release --filter $env:TEST_FILTER --blame --blame-hang-timeout 8m --blame-hang-dump-type mini }
           else { dotnet test tests/ApplicationPackagerEngine.Tests/ApplicationPackagerEngine.Tests.csproj --configuration Release --blame --blame-hang-timeout 8m --blame-hang-dump-type mini }
+
+      # The measured values that tests record, such as the row containers and the layout times of the Packages grid.
+      - name: Test measurements
+        if: always()
+        shell: pwsh
+        run: |
+          $file = Join-Path $env:RUNNER_TEMP 'measurements.txt'
+          if (Test-Path $file) { Get-Content $file } else { Write-Host 'No test recorded a measurement.' }
 
       - name: Guide images of the capture run
         if: always()
