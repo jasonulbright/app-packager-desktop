@@ -4,6 +4,7 @@ using System.Windows.Automation;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Data;
+using DataGridColumnHeader = System.Windows.Controls.Primitives.DataGridColumnHeader;
 using ApplicationPackagerUI.Helpers;
 using ApplicationPackagerUI.ViewModels.Pages;
 using Wpf.Ui.Controls;
@@ -110,6 +111,8 @@ public partial class PackagesPage
     private List<DataGridColumn> _movable = [];
     private readonly Dictionary<DataGridColumn, DataGridLength> _defaultWidths = [];
     private bool _applyingLayout;
+    // The columns whose width the operator set. A resized star column stays a star in WPF, so its width is read from what it shows.
+    private readonly HashSet<DataGridColumn> _userSized = [];
 
     private static string ColumnId(DataGridColumn column) => column.Header as string ?? "";
 
@@ -125,7 +128,7 @@ public partial class PackagesPage
 
         PackagerGrid.ColumnReordered += (_, _) => SaveColumnLayout();
         // A resize ends with the release of the thumb in the column header.
-        PackagerGrid.AddHandler(Thumb.DragCompletedEvent, new DragCompletedEventHandler((_, _) => SaveColumnLayout()), true);
+        PackagerGrid.AddHandler(Thumb.DragCompletedEvent, new DragCompletedEventHandler(OnGridThumbReleased), true);
         // The grid sorts after this event, so the save waits for it.
         PackagerGrid.Sorting += (_, _) => Dispatcher.BeginInvoke(SaveColumnLayout);
         // A new list (a load) drops the sort of the grid, so the saved sort is applied again.
@@ -133,9 +136,38 @@ public partial class PackagesPage
             .AddValueChanged(PackagerGrid, (_, _) => Dispatcher.BeginInvoke(() => ApplySort(((PackagesViewModel)DataContext!).ColumnLayout)));
     }
 
+    /// <summary>A released thumb of a column header ends a resize. A scroll bar thumb is not a header thumb and saves nothing.</summary>
+    private void OnGridThumbReleased(object sender, DragCompletedEventArgs e)
+    {
+        if (e.OriginalSource is not Thumb thumb || FindAncestor<DataGridColumnHeader>(thumb) is not { Column: { } column }) return;
+        // The left grip of a header sizes the column that stands before it.
+        if (thumb.Name == "PART_LeftHeaderGripper")
+            column = PackagerGrid.Columns.Where(c => c.Visibility == Visibility.Visible && c.DisplayIndex < column.DisplayIndex)
+                .OrderByDescending(c => c.DisplayIndex).FirstOrDefault() ?? column;
+        MarkResized(column);
+        SaveColumnLayout();
+    }
+
+    /// <summary>Keeps the width that the column shows as the width that the operator set.</summary>
+    public void MarkResized(DataGridColumn column)
+    {
+        if (_movable.Contains(column)) _userSized.Add(column);
+    }
+
+    /// <summary>A sort cannot change while a row is edited, so an open edit ends first.</summary>
+    private void EndGridEdit()
+    {
+        PackagerGrid.CommitEdit(DataGridEditingUnit.Cell, true);
+        PackagerGrid.CommitEdit(DataGridEditingUnit.Row, true);
+    }
+
     private void ApplyColumnLayout(PackagesColumnLayout? layout)
     {
+        EndGridEdit();
         _applyingLayout = true;
+        _userSized.Clear();
+        foreach (var column in _movable)
+            if (PackagesColumnLayout.WidthOf(layout, ColumnId(column)) is not null) _userSized.Add(column);
         try
         {
             var byId = _movable.ToDictionary(ColumnId, StringComparer.Ordinal);
@@ -170,7 +202,9 @@ public partial class PackagesPage
             Columns = _movable.OrderBy(c => c.DisplayIndex).Select(c => new PackagesColumnState
             {
                 Id = ColumnId(c),
-                Width = !c.Width.Equals(_defaultWidths[c]) && c.Width.IsAbsolute ? c.Width.Value : 0
+                Width = c.Width.IsAbsolute
+                    ? (_userSized.Contains(c) || !c.Width.Equals(_defaultWidths[c]) ? c.Width.Value : 0)
+                    : (_userSized.Contains(c) && c.ActualWidth > 0 ? c.ActualWidth : 0)
             }).ToList(),
             SortId = sorted is null ? "" : ColumnId(sorted),
             SortDescending = sorted?.SortDirection == ListSortDirection.Descending
@@ -179,6 +213,7 @@ public partial class PackagesPage
 
     private void ResetColumnLayout()
     {
+        EndGridEdit();
         _applyingLayout = true;
         try
         {

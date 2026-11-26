@@ -166,7 +166,7 @@ foreach ($theme in $Themes) {
         $w.SetFocus()
         Start-Sleep 3
         Run-Check "$theme-ref" {
-            foreach ($n in 'Check Latest', 'Check ConfigMgr', 'One Click', 'Stage') {
+            foreach ($n in 'Check', 'One Click', 'Stage') {
                 $b = Find-El $w -Name $n -ControlType 'Button' -Timeout 5
                 if (-not $b) { throw "no button $n" }
                 Report $theme (Measure-Button (Grab-Button $b $theme "idle $n"))

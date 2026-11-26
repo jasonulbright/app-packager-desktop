@@ -51,7 +51,7 @@ function Select-All($w, [bool]$On) { Set-HeaderCheck $w $(if ($On) { 'On' } else
 
 # Starts the action, waits for its running line, then cancels it and waits for its cancelled line.
 function Prove-Counted($w, [string]$Theme, [string]$Id, [string]$Button, [string]$RunningPattern, [string]$CancelledPattern) {
-    Real-Click (Find-El $w -Name $Button -ControlType 'Button' -Timeout 5)
+    Open-ApdMenuItem $w 'btnCheckMenu' $Button
     $running = Wait-Line $w $RunningPattern 90
     Check "$Theme $Id running line shows N of M" ($null -ne $running) "no line like $RunningPattern; lines: $((Status-Lines $w) -join ' | ')"
     "INFO running line: '$running'"
@@ -81,10 +81,10 @@ foreach ($theme in $Themes) {
         Start-Sleep 3
         Run-Check "$theme-latest" {
             Select-All $w $true
-            Prove-Counted $w $theme 'check-latest' 'Check Latest' '^Check Latest: \d+ of (\d{2,}|[2-9]) .{1,3} ' '^Check Latest cancelled: \d+ of \d+ products checked\.$'
+            Prove-Counted $w $theme 'check-latest' 'miCheckLatest' '^Check Latest: \d+ of (\d{2,}|[2-9]) .{1,3} ' '^Check Latest cancelled: \d+ of \d+ products checked\.$'
         }
         Run-Check "$theme-configmgr" {
-            Prove-Counted $w $theme 'check-configmgr' 'Check ConfigMgr' '^Check ConfigMgr: \d+ of (\d{2,}|[2-9])( .{1,3} |$)' '^Check ConfigMgr cancelled: \d+ of \d+ products checked\.$'
+            Prove-Counted $w $theme 'check-configmgr' 'miCheckConfigMgr' '^Check ConfigMgr: \d+ of (\d{2,}|[2-9])( .{1,3} |$)' '^Check ConfigMgr cancelled: \d+ of \d+ products checked\.$'
         }
         Run-Check "$theme-cves" {
             # The lab has no route to the NVD, so the CVE check can end before a running line shows: its finished line counts the set too.

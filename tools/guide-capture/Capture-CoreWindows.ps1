@@ -67,7 +67,7 @@ foreach ($theme in $Themes) {
         }
         # ---- The Convert from ConfigMgr window after a preview
         Step 'core-convert-window' {
-            Real-Click (Need-El 'btnConvertFromCm')
+            Open-ApdMenuItem $w 'btnAddOrImport' 'miConvertFromCm'
             $name = Need-El 'txtCmApplicationName'
             Set-ElText $name $ConvertApplication
             Invoke-El (Need-El 'btnConvertPreview')

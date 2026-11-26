@@ -75,7 +75,7 @@ foreach ($theme in $Themes) {
         }
         Step $theme 'convert-window' {
             Nav 129
-            Click-El (Find-El $null 'btnConvertFromCm' -Timeout 10)
+            Open-ApdMenuItem (Get-ApdWindows | Where-Object { $_.Current.Name -match 'App Packager' } | Select-Object -First 1) 'btnAddOrImport' 'miConvertFromCm'
             Start-Sleep -Seconds 4
             'windows: ' + ((Get-ApdWindows | ForEach-Object { $_.Current.Name }) -join ' | ')
             $cw = @(Get-ApdWindows | Where-Object { $_.Current.Name -notmatch '^App Packager' })[0]

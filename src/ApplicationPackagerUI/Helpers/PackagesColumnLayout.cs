@@ -21,7 +21,9 @@ public sealed class PackagesColumnLayout
 
     public bool SortDescending { get; set; }
 
-    public bool IsEmpty => Columns.Count == 0 && SortId.Length == 0;
+    // A settings file can hold null for the list or for an entry, so every reader goes through this.
+    private static IEnumerable<PackagesColumnState> Entries(PackagesColumnLayout? layout) =>
+        (layout?.Columns ?? []).Where(c => c?.Id is not null);
 
     /// <summary>
     /// The display order for the columns that the grid has: the saved ones in the saved order, then each column the saved layout does not name, at the
@@ -30,7 +32,7 @@ public sealed class PackagesColumnLayout
     public static IReadOnlyList<string> Order(IReadOnlyList<string> defaults, PackagesColumnLayout? saved)
     {
         var known = new HashSet<string>(defaults, StringComparer.Ordinal);
-        var order = (saved?.Columns ?? []).Select(c => c.Id).Where(known.Contains).Distinct(StringComparer.Ordinal).ToList();
+        var order = Entries(saved).Select(c => c.Id).Where(known.Contains).Distinct(StringComparer.Ordinal).ToList();
         for (var i = 0; i < defaults.Count; i++)
         {
             if (order.Contains(defaults[i])) continue;
@@ -49,7 +51,7 @@ public sealed class PackagesColumnLayout
     /// <summary>The saved width of a column, or null when it has none or the value is not a usable width.</summary>
     public static double? WidthOf(PackagesColumnLayout? saved, string id)
     {
-        var width = saved?.Columns.FirstOrDefault(c => string.Equals(c.Id, id, StringComparison.Ordinal))?.Width ?? 0;
+        var width = Entries(saved).FirstOrDefault(c => string.Equals(c.Id, id, StringComparison.Ordinal))?.Width ?? 0;
         return double.IsFinite(width) && width is > 0 and <= 4000 ? width : null;
     }
 }

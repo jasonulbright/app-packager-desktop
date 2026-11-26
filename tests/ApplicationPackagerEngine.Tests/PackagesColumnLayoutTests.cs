@@ -44,6 +44,16 @@ public sealed class PackagesColumnLayoutTests
         Assert.Null(PackagesColumnLayout.WidthOf(null, "a"));
     }
 
+    [Theory]
+    [InlineData("{\"Columns\":null}")]
+    [InlineData("{\"Columns\":[null,{\"Id\":null,\"Width\":90}]}")]
+    public void ADamagedLayoutKeepsTheOrderOfThePage(string json)
+    {
+        var layout = JsonSerializer.Deserialize<PackagesColumnLayout>(json)!;
+        Assert.Equal(Defaults, PackagesColumnLayout.Order(Defaults, layout));
+        Assert.Null(PackagesColumnLayout.WidthOf(layout, "Vendor"));
+    }
+
     [Fact]
     public void TheLayoutSurvivesTheSettingsFile()
     {

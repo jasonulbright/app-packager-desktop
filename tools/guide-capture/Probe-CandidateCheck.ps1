@@ -9,7 +9,7 @@
     The app comes from -AppFolder (the per-user install of the candidate installer). The run reads and changes nothing on the site: it checks a product with Check Latest and Check ConfigMgr and scans
     Site Hygiene (read only). Per theme:
       1. the file version of the app is the expected version;
-      2. the toolbar is one row in the order One Click, Check Latest, Check ConfigMgr, Check CVEs, Stage, Publish All, Publish to ConfigMgr, Publish to Intune, Publish to WSUS, CVE Report, Ops History;
+      2. the page has the buttons One Click, Check, Stage and Publish All, in that order from the top;
          Cancel shows only while a run is active;
       3. the sidebar has the entry WSUS Updates, and Settings, Application Settings opens its grid;
       4. Check Latest and Check ConfigMgr for one product end with their complete line and the buttons are enabled again;
@@ -89,7 +89,7 @@ foreach ($theme in $Themes) {
             Check "$theme-01 the app version is $ExpectedVersion" ($v -like "$ExpectedVersion*") "version: $v"
         }
         Run-Check "$theme-02" {
-            $order = 'One Click', 'Check Latest', 'Check ConfigMgr', 'Check CVEs', 'Stage', 'Publish All', 'Publish to ConfigMgr', 'Publish to Intune', 'Publish to WSUS', 'CVE Report', 'Ops History'
+            $order = 'One Click', 'Check', 'Stage', 'Publish All'
             $rects = foreach ($n in $order) { $b = Find-El $w -Name $n -ControlType 'Button' -Timeout 5; if ($b) { $b.Current.BoundingRectangle } else { $null } }
             $missing = @($order | Where-Object { $true }) | Where-Object { $i = [array]::IndexOf($order, $_); -not $rects[$i] }
             Check "$theme-02a every toolbar button shows" (-not $missing) ("missing: " + ($missing -join ', '))
@@ -123,8 +123,8 @@ foreach ($theme in $Themes) {
             Wait-Idle $w 240
             $s2 = Status-Text $w
             Check "$theme-04b Check ConfigMgr ends with its finished line and its status line" ((Session-Log $data) -match 'Check ConfigMgr finished: \d+ of 1 product' -and $s2 -match 'ConfigMgr query complete\. 1 of 1 checked\.') "status: '$s2'"
-            $cl = Find-El $w -Name 'Check Latest' -ControlType 'Button' -Timeout 5
-            Check "$theme-04c the buttons are enabled again" ($cl.Current.IsEnabled) 'Check Latest is disabled'
+            $cl = Find-El $w 'btnCheckMenu' -Timeout 5
+            Check "$theme-04c the buttons are enabled again" ($cl.Current.IsEnabled) 'the Check menu button is disabled'
             Check-Shot $theme 'checks'
             Uncheck-All $w
         }
@@ -145,8 +145,8 @@ foreach ($theme in $Themes) {
             Check "$theme-05b the status line and the log read Check Latest cancelled: N of M products checked." (($s -match '^Check Latest cancelled: \d+ of \d+ products? checked\.$') -and $logged) "status: '$s'; log: '$logged'"
             Start-Sleep 3
             Check "$theme-05c Cancel is hidden after the run" ($null -eq (Find-El $w 'btnCancelOperation' -Timeout 3)) 'Cancel still shows'
-            $cl = Find-El $w -Name 'Check Latest' -ControlType 'Button' -Timeout 5
-            Check "$theme-05d the buttons are enabled again" ($cl.Current.IsEnabled) 'Check Latest is disabled'
+            $cl = Find-El $w 'btnCheckMenu' -Timeout 5
+            Check "$theme-05d the buttons are enabled again" ($cl.Current.IsEnabled) 'the Check menu button is disabled'
             Check-Shot $theme 'cancelled'
             Uncheck-All $w
         }

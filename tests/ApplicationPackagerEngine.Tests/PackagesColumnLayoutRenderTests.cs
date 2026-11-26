@@ -38,10 +38,15 @@ public sealed class PackagesColumnLayoutRenderTests
                 vendor.DisplayIndex = application.DisplayIndex;
                 vendor.Width = new DataGridLength(222);
                 vendor.SortDirection = System.ComponentModel.ListSortDirection.Descending;
+                // A star column keeps its star after a resize, so the width it shows is the one that is kept.
+                application.Width = new DataGridLength(3, DataGridLengthUnitType.Star);
+                Settle(window);
+                page.MarkResized(application);
 
                 var after = page.ReadColumnLayout();
                 Assert.Equal(["Vendor", "Application"], after.Columns.Take(2).Select(c => c.Id));
                 Assert.Equal(222, after.Columns[0].Width);
+                Assert.Equal(application.ActualWidth, after.Columns[1].Width, 1);
                 Assert.Equal("Vendor", after.SortId);
                 Assert.True(after.SortDescending);
             }

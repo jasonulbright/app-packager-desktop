@@ -113,7 +113,7 @@ foreach ($theme in $Themes) {
         Run-Check "$theme-04" {
             $w = Main-Window
             foreach ($app in $ConvertApplications) {
-                Real-Click (Find-El $w 'btnConvertFromCm' -Timeout 10)
+                Open-ApdMenuItem $w 'btnAddOrImport' 'miConvertFromCm'
                 $name = Find-El $null 'txtCmApplicationName' -Timeout 10
                 Set-ElText $name $app
                 Invoke-El (Find-El $null 'btnConvertPreview' -Timeout 10)
