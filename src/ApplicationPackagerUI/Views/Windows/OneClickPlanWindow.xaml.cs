@@ -75,7 +75,7 @@ public partial class OneClickPlanWindow : ApplicationPackagerUI.Services.IDialog
         var run = _viewModel.IsRunView;
         static Visibility Show(bool value) => value ? Visibility.Visible : Visibility.Collapsed;
         colMecm.Visibility = colWsus.Visibility = colIntune.Visibility = Show(!run);
-        colLast.Visibility = colPlanned.Visibility = colSource.Visibility = Show(!run);
+        colLast.Visibility = colPlanned.Visibility = colSource.Visibility = colDetails.Visibility = Show(!run);
         colStep.Visibility = Show(run);
         colResultMecm.Visibility = Show(run && _viewModel.ShowResultConfigMgr);
         colResultWsus.Visibility = Show(run && _viewModel.ShowResultWsus);

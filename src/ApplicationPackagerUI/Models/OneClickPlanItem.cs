@@ -9,6 +9,21 @@ namespace ApplicationPackagerUI.Models;
 /// </summary>
 public partial class OneClickPlanItem : ObservableObject
 {
+    /// <summary>The operator opened the change details of the row.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(DetailsOpen))]
+    private bool _showDetails;
+
+    /// <summary>What this run creates in each destination, one line for each; empty when the plan writes nothing for the row.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasChangeDetails))]
+    [NotifyPropertyChangedFor(nameof(DetailsOpen))]
+    private string _changeDetails = "";
+
+    public bool HasChangeDetails => ChangeDetails.Length > 0;
+
+    public bool DetailsOpen => ShowDetails && HasChangeDetails;
+
     public required string Key { get; init; }
     public required string Application { get; init; }
     public string Vendor { get; init; } = "";

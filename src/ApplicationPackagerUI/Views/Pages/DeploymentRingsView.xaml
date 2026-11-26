@@ -181,7 +181,7 @@
                         <StackPanel Margin="0,0,16,8">
                             <TextBlock Text="Plan start" Style="{StaticResource FieldLabel}" />
                             <StackPanel Orientation="Horizontal">
-                                <DatePicker SelectedDate="{Binding PlanStartDate}" SelectedDateFormat="Short" ToolTip="{Binding PlanStartDateTip}" Width="150" Margin="0,0,8,0"
+                                <DatePicker helpers:TemplatePartNames.FromOwner="True" SelectedDate="{Binding PlanStartDate}" SelectedDateFormat="Short" ToolTip="{Binding PlanStartDateTip}" Width="150" Margin="0,0,8,0"
                                             AutomationProperties.Name="Plan start date" AutomationProperties.AutomationId="dpRingStart" />
                                 <ui:TextBox Text="{Binding PlanStartTimeText, UpdateSourceTrigger=PropertyChanged}" Width="90" PlaceholderText="08:00"
                                             ToolTip="Enter the time of day the plan starts, as hours and minutes, for example 08:00."

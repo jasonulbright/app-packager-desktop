@@ -241,6 +241,10 @@ public partial class OneClickPlanViewModel : ObservableObject
                 item.SourceText = ApplicationPackagerEngine.Models.ScopeText.Cell(changed ? ScopeSource.ChangedForRun : source == "Row" ? ScopeSource.SavedForApplication : ScopeSource.Default);
             }
             bool Included(OneClickPlanRow r) => byKey.TryGetValue(r.Key, out var i) && i.Include;
+            foreach (var planned in plan)
+                if (byKey.TryGetValue(planned.Key, out var row))
+                    row.ChangeDetails = string.Join(Environment.NewLine,
+                        planned.PublishTo.Select(d => d + ": " + OneClickPlanner.Scope(d, settings.Scope)));
             var summary = OneClickPlanner.Summarize(plan, settings, _context.Action, Included);
             SummaryText = summary.Line;
             HeaderText = HeaderLine(plan.Count(Included), plan.Count);

@@ -74,6 +74,22 @@
         <DataGrid Grid.Row="2" x:Name="gridPlan" ItemsSource="{Binding Rows}" AutoGenerateColumns="False" CanUserAddRows="False"
                   CanUserDeleteRows="False" HeadersVisibility="Column" RowHeaderWidth="0" SelectionMode="Single"
                   GridLinesVisibility="Horizontal" Margin="16,0,16,8" AutomationProperties.AutomationId="gridPlan">
+            <DataGrid.RowStyle>
+                <Style TargetType="DataGridRow" BasedOn="{StaticResource {x:Type DataGridRow}}">
+                    <Setter Property="DetailsVisibility" Value="Collapsed" />
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding DetailsOpen}" Value="True">
+                            <Setter Property="DetailsVisibility" Value="Visible" />
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </DataGrid.RowStyle>
+            <DataGrid.RowDetailsTemplate>
+                <DataTemplate>
+                    <TextBlock Text="{Binding ChangeDetails}" Margin="24,4,8,8" FontSize="12" TextWrapping="Wrap"
+                               Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
+                </DataTemplate>
+            </DataGrid.RowDetailsTemplate>
             <DataGrid.Columns>
                 <DataGridTemplateColumn x:Name="colInclude" Header="Include" Width="72">
                     <DataGridTemplateColumn.CellTemplate>
@@ -81,7 +97,7 @@
                             <CheckBox IsChecked="{Binding Include, UpdateSourceTrigger=PropertyChanged, Mode=TwoWay}"
                                       IsEnabled="{Binding DataContext.CanPlanOnly, RelativeSource={RelativeSource AncestorType=DataGrid}}"
                                       ToolTip="Include this application in this run. The choice applies to this run only. You cannot change it while a run is active."
-                                      AutomationProperties.Name="Include" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                      AutomationProperties.Name="{Binding Application, StringFormat=Include {0}}" HorizontalAlignment="Center" VerticalAlignment="Center" />
                         </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
@@ -93,7 +109,7 @@
                         <DataTemplate>
                             <CheckBox IsChecked="{Binding ConfigMgr, UpdateSourceTrigger=PropertyChanged, Mode=TwoWay}"
                                       ToolTip="Publish this application to ConfigMgr in this run."
-                                      AutomationProperties.Name="ConfigMgr" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                      AutomationProperties.Name="{Binding Application, StringFormat=ConfigMgr for {0}}" HorizontalAlignment="Center" VerticalAlignment="Center" />
                         </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
@@ -102,7 +118,7 @@
                         <DataTemplate>
                             <CheckBox IsChecked="{Binding Wsus, UpdateSourceTrigger=PropertyChanged, Mode=TwoWay}"
                                       ToolTip="Publish this application to WSUS in this run."
-                                      AutomationProperties.Name="WSUS" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                      AutomationProperties.Name="{Binding Application, StringFormat=WSUS for {0}}" HorizontalAlignment="Center" VerticalAlignment="Center" />
                         </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
@@ -111,7 +127,7 @@
                         <DataTemplate>
                             <CheckBox IsChecked="{Binding Intune, UpdateSourceTrigger=PropertyChanged, Mode=TwoWay}"
                                       ToolTip="Publish this application to Intune in this run."
-                                      AutomationProperties.Name="Intune" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                      AutomationProperties.Name="{Binding Application, StringFormat=Intune for {0}}" HorizontalAlignment="Center" VerticalAlignment="Center" />
                         </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
@@ -121,6 +137,16 @@
                                     ElementStyle="{StaticResource WrapCell}" />
                 <DataGridTextColumn x:Name="colPlanned" Header="Planned" Binding="{Binding Planned}" Width="240" IsReadOnly="True"
                                     ElementStyle="{StaticResource WrapCell}" />
+                <DataGridTemplateColumn x:Name="colDetails" Header="Changes" Width="128">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <ToggleButton Content="Change details" IsChecked="{Binding ShowDetails, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Padding="8,2"
+                                          Visibility="{Binding HasChangeDetails, Converter={StaticResource BoolToVisibility}}"
+                                          AutomationProperties.Name="{Binding Application, StringFormat=Change details for {0}}" AutomationProperties.AutomationId="btnChangeDetails"
+                                          ToolTip="Show what this run creates in each destination for the application." />
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
                 <DataGridTextColumn x:Name="colStep" Header="Step" Binding="{Binding Step}" Width="130" IsReadOnly="True" Visibility="Collapsed"
                                     ElementStyle="{StaticResource WrapCell}" />
                 <DataGridTextColumn x:Name="colResultMecm" Header="ConfigMgr result" Binding="{Binding ResultConfigMgr}" Width="1.2*" MinWidth="180"

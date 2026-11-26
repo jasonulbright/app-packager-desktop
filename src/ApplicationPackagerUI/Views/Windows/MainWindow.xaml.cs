@@ -42,6 +42,9 @@ public partial class MainWindow : IDialogHostWindow
         _sidebar = new SidebarPresenter(RootNavigation, sidebarService, item => item.Activate?.Invoke(_serviceProvider));
         sidebarService.Changed += OnSidebarChanged;
 
+        // The template of the navigation exists after the window loaded.
+        Loaded += (_, _) => Helpers.NavigationNames.Apply(RootNavigation);
+
         // Pages set CanContentScroll to False, which disables the NavigationView's
         // DynamicScrollViewer; DataGrid and ScrollViewer controls scroll on the mouse wheel themselves.
     }

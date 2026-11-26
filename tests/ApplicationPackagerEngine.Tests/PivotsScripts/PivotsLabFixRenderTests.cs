@@ -75,6 +75,13 @@ public sealed class PivotsLabFixRenderTests
 
             Keyboard.Focus(editor);
             Settle(window);
+            // An editor whose text did not change passes a Tab on: it is no keyboard trap.
+            Press(window, page, editor, Key.Tab);
+            Assert.NotEqual("txtQuery", FocusedId());
+
+            Keyboard.Focus(editor);
+            Settle(window);
+            editor.AppendText("x");
             Press(window, page, editor, Key.Tab);
             Assert.Equal("txtQuery", FocusedId());
 
@@ -92,6 +99,7 @@ public sealed class PivotsLabFixRenderTests
 
             Keyboard.Focus(editor);
             Settle(window);
+            editor.AppendText("y");
             Press(window, page, editor, Key.Escape);
             Press(window, page, editor, Key.A);
             Press(window, page, editor, Key.Tab);

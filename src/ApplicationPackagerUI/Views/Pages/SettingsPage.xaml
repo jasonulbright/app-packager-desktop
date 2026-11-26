@@ -291,7 +291,8 @@
                             <TextBlock Text="File Share Root (UNC)" Style="{StaticResource FieldLabel}" />
                             <ui:TextBox ToolTip="{Binding FileShareRoot}" Text="{Binding FileShareRoot, UpdateSourceTrigger=PropertyChanged}" helpers:SettingsSearchHints.Keywords="content share unc"
                                         PlaceholderText="\\fileserver\sccm$" Margin="0,0,0,4" HorizontalAlignment="Stretch"
-                                        AutomationProperties.AutomationId="txtFileShareRoot" AutomationProperties.Name="File Share Root" />
+                                        AutomationProperties.AutomationId="txtFileShareRoot" AutomationProperties.Name="File Share Root"
+                                        AutomationProperties.HelpText="The UNC share where the content of each application goes. The ConfigMgr site must reach it." />
                         </StackPanel>
                     </Border>
 
@@ -437,7 +438,7 @@
                                     <ui:Button DockPanel.Dock="Right" Content="Load groups" helpers:SettingsSearchHints.Exclude="True" Command="{Binding Wsus.LoadGroupsCommand}" Margin="8,0,0,0"
                                                VerticalAlignment="Center" AutomationProperties.AutomationId="btnWsusGroups" ToolTipService.ShowOnDisabled="True"
                                                ToolTip="Lists the computer groups of the server in the box." />
-                                    <ComboBox IsEditable="True" ItemsSource="{Binding Wsus.Groups}" helpers:SettingsSearchHints.Keywords="wsus computer group approval load groups" Text="{Binding Wsus.ApprovalGroup, UpdateSourceTrigger=PropertyChanged}"
+                                    <ComboBox helpers:TemplatePartNames.FromOwner="True" IsEditable="True" ItemsSource="{Binding Wsus.Groups}" helpers:SettingsSearchHints.Keywords="wsus computer group approval load groups" Text="{Binding Wsus.ApprovalGroup, UpdateSourceTrigger=PropertyChanged}"
                                               AutomationProperties.Name="Approve for group" AutomationProperties.AutomationId="cboWsusGroup"
                                               ToolTip="Computer group the update is approved for right after it publishes. Leave empty to approve later from WSUS Updates (sidebar): the WSUS console does not list locally published updates." />
                                 </DockPanel>
@@ -739,7 +740,7 @@
                                               AutomationProperties.Name="Column to set" AutomationProperties.AutomationId="cboBulkColumn"
                                               ToolTip="Select the column that the button sets for several applications at once." />
                                     <TextBlock Text="to" VerticalAlignment="Center" Margin="0,0,8,8" />
-                                    <ComboBox ItemsSource="{Binding BulkValues}" Text="{Binding BulkValue, UpdateSourceTrigger=PropertyChanged}" IsEditable="True" Width="200" Margin="0,0,8,8"
+                                    <ComboBox helpers:TemplatePartNames.FromOwner="True" ItemsSource="{Binding BulkValues}" Text="{Binding BulkValue, UpdateSourceTrigger=PropertyChanged}" IsEditable="True" Width="200" Margin="0,0,8,8"
                                               AutomationProperties.Name="Value to set" AutomationProperties.AutomationId="cboBulkValue"
                                               ToolTip="Select the value that the button writes, or type it for a column of text. The first value of a column returns the application to its default. An application that the setting does not apply to keeps its value." />
                                     <TextBlock Text="for" VerticalAlignment="Center" Margin="0,0,8,8" />

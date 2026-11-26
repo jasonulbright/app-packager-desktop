@@ -146,7 +146,7 @@
             </Grid.ColumnDefinitions>
 
             <TextBlock Grid.Column="0" Text="Application" Style="{StaticResource WbLabel}" Margin="0,0,8,0" />
-            <ComboBox Grid.Column="1" x:Name="cboApplication" AutomationProperties.Name="Application" AutomationProperties.HelpText="The application that the Workbench edits." IsEditable="True" IsTextSearchEnabled="True"
+            <ComboBox helpers:TemplatePartNames.FromOwner="True" Grid.Column="1" x:Name="cboApplication" AutomationProperties.Name="Application" AutomationProperties.HelpText="The application that the Workbench edits." IsEditable="True" IsTextSearchEnabled="True"
                       StaysOpenOnEdit="True" Margin="0,0,12,0"
                       ItemsSource="{Binding Applications}" SelectedItem="{Binding SelectedApplication}"
                       DisplayMemberPath="DisplayLabel" TextSearch.TextPath="DisplayLabel"

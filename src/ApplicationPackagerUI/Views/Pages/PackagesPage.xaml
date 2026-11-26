@@ -192,6 +192,8 @@
             </Grid.ColumnDefinitions>
         <ui:DataGrid Grid.Column="0"
                   x:Name="PackagerGrid"
+                  AutomationProperties.Name="Applications"
+                  PreviewKeyDown="PackagerGrid_PreviewKeyDown"
                   ItemsSource="{Binding FilteredPackagers}"
                   AutoGenerateColumns="False"
                   CanUserAddRows="False"
@@ -254,6 +256,7 @@
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
                             <CheckBox IsChecked="{Binding IsSelected, UpdateSourceTrigger=PropertyChanged}" MinWidth="0" MinHeight="0"
+                                      AutomationProperties.Name="{Binding Application, StringFormat=Include {0}}"
                                       IsEnabled="{Binding IsRunnable}"
                                       HorizontalAlignment="Center" ToolTip="Include this application in the run." />
                         </DataTemplate>
@@ -274,14 +277,14 @@
                 </DataGridTemplateColumn>
                 <!-- A grid narrower than its columns takes width from every column down to its MinWidth,
                      and only then scrolls. Each MinWidth holds the header text and the sort arrow. -->
-                <DataGridTextColumn Header="Application" Binding="{Binding Application}" Width="2*" MinWidth="160" IsReadOnly="True" ElementStyle="{StaticResource TrimCell}" />
+                <DataGridTextColumn Header="Application" Binding="{Binding Application}" Width="2*" MinWidth="130" IsReadOnly="True" ElementStyle="{StaticResource TrimCell}" />
                 <DataGridTextColumn Header="Vendor" Binding="{Binding Vendor}" Width="140" MinWidth="100" IsReadOnly="True" ElementStyle="{StaticResource TrimCell}" />
                 <DataGridTextColumn x:Name="ColSource" Header="Source" Binding="{Binding SourceLabel}" Width="170" MinWidth="90" IsReadOnly="True" ElementStyle="{StaticResource TrimCell}"
                                     Visibility="Collapsed" />
                 <DataGridTextColumn Header="ConfigMgr version" Binding="{Binding CurrentVersion}" Width="156" MinWidth="156" IsReadOnly="True" />
-                <DataGridTextColumn Header="Latest" Binding="{Binding LatestVersion}" Width="120" MinWidth="110" IsReadOnly="True" />
+                <DataGridTextColumn Header="Latest" Binding="{Binding LatestVersion}" Width="120" MinWidth="90" IsReadOnly="True" />
 
-                <DataGridTemplateColumn Header="Status" Width="250" MinWidth="170" SortMemberPath="Status">
+                <DataGridTemplateColumn Header="Status" Width="250" MinWidth="150" SortMemberPath="Status">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
                             <!-- Status by color and by icon: the icon shows the class for a user who cannot tell the colors apart. -->
@@ -342,7 +345,7 @@
                 </DataGridTemplateColumn>
 
                 <!-- One text for the CVE state of the row; the five CVE columns behind it are in the Columns menu. -->
-                <DataGridTextColumn Header="CVE check" Binding="{Binding CveCheckText}" SortMemberPath="CveCountSort" Width="150" MinWidth="110" IsReadOnly="True"
+                <DataGridTextColumn Header="CVE check" Binding="{Binding CveCheckText}" SortMemberPath="CveCountSort" Width="150" MinWidth="104" IsReadOnly="True"
                                     ElementStyle="{StaticResource TrimCell}" />
 
                 <DataGridTemplateColumn Header="CVEs" Width="120" MinWidth="90" SortMemberPath="CveCountSort" IsReadOnly="True">
@@ -351,7 +354,7 @@
                             <Button Style="{StaticResource CveCellButton}" Click="CveCell_Click"
                                     ToolTip="Open the CVE list with links for this application"
                                     AutomationProperties.AutomationId="btnCveCell"
-                                    AutomationProperties.Name="{Binding CveCount}" />
+                                    AutomationProperties.Name="{Binding CveCellName}" />
                         </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
@@ -517,7 +520,7 @@
                 <ui:Button Content="Clear selection" Command="{Binding ClearSelectionCommand}" Appearance="Transparent" Margin="0,0,8,0"
                            Visibility="{Binding HasSelection, Converter={StaticResource BooleanToVisibilityConverter}}"
                            AutomationProperties.AutomationId="btnClearSelection" ToolTip="Uncheck every application, also those that the search or the tab hides." />
-                <ui:Button Content="Select Update Available"
+                <ui:Button x:Name="SelectUpdatesButton" Content="Select Update Available"
                            Icon="{ui:SymbolIcon CheckboxChecked24}"
                            Command="{Binding SelectUpdateAvailableCommand}"
                            AutomationProperties.AutomationId="btnSelectUpdates"

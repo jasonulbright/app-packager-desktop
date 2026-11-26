@@ -261,6 +261,36 @@ public partial class PackagesPage
             main.OpenWorkbench(p is null ? null : WorkbenchApplicationCatalog.ApplicationIdFor(p));
     }
 
+    /// <summary>
+    /// Tab and Ctrl+Tab leave the grid: forward to the detail pane, else to the batch bar; back to the search row. The arrow keys move
+    /// between the cells. Without this, Tab walks every cell of every row, and Ctrl+Tab jumps past the pane and the batch bar.
+    /// </summary>
+    private void PackagerGrid_PreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.Tab || (Keyboard.Modifiers & ModifierKeys.Alt) != 0) return;
+        if (e.OriginalSource is System.Windows.Controls.Primitives.TextBoxBase) return;
+        e.Handled = LeaveGrid((Keyboard.Modifiers & ModifierKeys.Shift) != 0);
+    }
+
+    /// <summary>Moves the focus out of the grid. True when a control took it.</summary>
+    public bool LeaveGrid(bool back)
+    {
+        IEnumerable<UIElement> targets = back
+            ? [btnMore, btnColumns]
+            : [btnDetailPane, DetailSplitter, SetupPanel, btnStage, btnPublishAll, SelectUpdatesButton, btnLogs];
+        foreach (var target in targets)
+        {
+            if (!target.IsVisible || !target.IsEnabled) continue;
+            if (ReferenceEquals(target, SetupPanel))
+            {
+                if (SetupPanel.MoveFocus(new TraversalRequest(FocusNavigationDirection.First))) return true;
+                continue;
+            }
+            if (target.Focus()) return true;
+        }
+        return false;
+    }
+
     private void PackagerGrid_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (DataContext is PackagesViewModel viewModel) viewModel.DetailPackager = GetSelectedPackager();

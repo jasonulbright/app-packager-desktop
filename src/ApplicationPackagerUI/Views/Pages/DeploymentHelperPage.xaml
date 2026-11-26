@@ -320,7 +320,7 @@
                                         <StackPanel Margin="0,0,24,8">
                                             <TextBlock Text="Available" Style="{StaticResource FieldLabel}" />
                                             <StackPanel Orientation="Horizontal">
-                                                <DatePicker SelectedDate="{Binding AvailableDate}" SelectedDateFormat="Short" ToolTip="{Binding AvailableDateTip}" Width="150" Margin="0,0,8,0" AutomationProperties.Name="Available date"
+                                                <DatePicker helpers:TemplatePartNames.FromOwner="True" SelectedDate="{Binding AvailableDate}" SelectedDateFormat="Short" ToolTip="{Binding AvailableDateTip}" Width="150" Margin="0,0,8,0" AutomationProperties.Name="Available date"
                                                             AutomationProperties.AutomationId="dpAvailableDate" />
                                                 <ui:TextBox Text="{Binding AvailableTimeText, UpdateSourceTrigger=PropertyChanged}" Width="90" PlaceholderText="08:30"
                                                             AutomationProperties.Name="Available time" ToolTip="Enter the time of day the deployment becomes available, as hours and minutes, for example 08:30." AutomationProperties.AutomationId="txtAvailableTime" />
@@ -329,7 +329,7 @@
                                         <StackPanel Margin="0,0,24,8" Visibility="{Binding IsRequired, Converter={StaticResource BoolToVisibility}}">
                                             <TextBlock Text="Deadline" Style="{StaticResource FieldLabel}" />
                                             <StackPanel Orientation="Horizontal">
-                                                <DatePicker SelectedDate="{Binding DeadlineDate}" SelectedDateFormat="Short" ToolTip="{Binding DeadlineDateTip}" Width="150" Margin="0,0,8,0" AutomationProperties.Name="Deadline date"
+                                                <DatePicker helpers:TemplatePartNames.FromOwner="True" SelectedDate="{Binding DeadlineDate}" SelectedDateFormat="Short" ToolTip="{Binding DeadlineDateTip}" Width="150" Margin="0,0,8,0" AutomationProperties.Name="Deadline date"
                                                             AutomationProperties.AutomationId="dpDeadlineDate" />
                                                 <ui:TextBox Text="{Binding DeadlineTimeText, UpdateSourceTrigger=PropertyChanged}" Width="90" PlaceholderText="18:00"
                                                             AutomationProperties.Name="Deadline time" ToolTip="Enter the time of day of the deadline, as hours and minutes, for example 18:00." AutomationProperties.AutomationId="txtDeadlineTime" />

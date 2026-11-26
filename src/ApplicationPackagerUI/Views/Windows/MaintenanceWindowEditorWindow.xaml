@@ -2,6 +2,7 @@
     x:Class="ApplicationPackagerUI.Views.Windows.MaintenanceWindowEditorWindow"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:helpers="clr-namespace:ApplicationPackagerUI.Helpers"
     xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
     xmlns:vm="clr-namespace:ApplicationPackagerUI.ViewModels.Windows"
     Title="{Binding Title}"
@@ -117,7 +118,7 @@
                         </Grid.ColumnDefinitions>
                         <StackPanel Grid.Column="0">
                             <TextBlock Text="Start date" Style="{StaticResource EditorLabel}" />
-                            <DatePicker SelectedDate="{Binding StartDate}" SelectedDateFormat="Short" MinWidth="140" ToolTip="{Binding StartDateTip}" DisplayDateStart="{Binding FirstStartDate, Mode=OneTime}"
+                            <DatePicker helpers:TemplatePartNames.FromOwner="True" SelectedDate="{Binding StartDate}" SelectedDateFormat="Short" MinWidth="140" ToolTip="{Binding StartDateTip}" DisplayDateStart="{Binding FirstStartDate, Mode=OneTime}"
                                         DisplayDateEnd="{Binding LastStartDate, Mode=OneTime}"
                                         AutomationProperties.Name="Start date" AutomationProperties.AutomationId="dpStartDate" />
                         </StackPanel>

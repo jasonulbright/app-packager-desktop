@@ -20,7 +20,17 @@ public partial class PivotsScriptsPage : INavigationAware
         foreach (var (editor, words) in new[] { (txtQuery, PivotsScriptsViewModel.PivotWords), (txtDraft, PivotsScriptsViewModel.ScriptWords) })
         {
             editor.SelectionChanged += (_, _) => ShowCaret(editor);
-            editor.GotKeyboardFocus += (_, _) => ShowCaret(editor);
+            editor.GotKeyboardFocus += (_, _) =>
+            {
+                ShowCaret(editor);
+                // A new visit: Tab moves on until the text changes.
+                if (!ReferenceEquals(_edited, editor)) return;
+                _edited = null;
+            };
+            editor.TextChanged += (_, _) =>
+            {
+                if (editor.IsKeyboardFocused) _edited = editor;
+            };
             editor.LostKeyboardFocus += (_, _) =>
             {
                 _leaveArmed = null;
@@ -31,7 +41,10 @@ public partial class PivotsScriptsPage : INavigationAware
         }
     }
 
-    public const string EditorKeyHint = "Ctrl+Space shows the starter list. Tab types a tab. To leave the editor, press Ctrl+Tab, or press Esc and then Tab.";
+    public const string EditorKeyHint = "Ctrl+Space shows the starter list. Tab moves to the next control until you change the text. After a change, Tab types a tab; to leave then, press Ctrl+Tab, or press Esc and then Tab.";
+
+    /// <summary>The editor whose text changed while it had the focus: Tab types a tab there.</summary>
+    private TextBox? _edited;
 
     /// <summary>The modifier keys held during a key press; replaceable so a test can press Ctrl without a keyboard.</summary>
     public Func<ModifierKeys> ModifierSource { get; set; } = () => Keyboard.Modifiers;
@@ -47,13 +60,13 @@ public partial class PivotsScriptsPage : INavigationAware
     private (TextBox Editor, FocusNavigationDirection Direction)? _pendingExit;
 
     /// <summary>
-    /// The focus move for a key press in an editor, or null when the editor keeps the key. Tab types a
-    /// tab; Ctrl+Tab, or Tab right after Esc, leaves the editor. Ctrl+Tab otherwise reaches the
-    /// TabControl and switches to the next tab.
+    /// The focus move for a key press in an editor, or null when the editor keeps the key. Tab and Shift+Tab leave an editor whose text
+    /// did not change in this visit, so a Tab walk of the page passes it. After a change, Tab types a tab; Ctrl+Tab, or Tab right after
+    /// Esc, leaves the editor. Ctrl+Tab otherwise reaches the TabControl and switches to the next tab.
     /// </summary>
-    public static FocusNavigationDirection? EditorExit(Key key, ModifierKeys modifiers, bool afterEscape)
+    public static FocusNavigationDirection? EditorExit(Key key, ModifierKeys modifiers, bool afterEscape, bool unchanged = false)
     {
-        if (key != Key.Tab || ((modifiers & ModifierKeys.Control) == 0 && !afterEscape)) return null;
+        if (key != Key.Tab || ((modifiers & ModifierKeys.Control) == 0 && !afterEscape && !unchanged)) return null;
         return (modifiers & ModifierKeys.Shift) != 0 ? FocusNavigationDirection.Previous : FocusNavigationDirection.Next;
     }
 
@@ -84,7 +97,7 @@ public partial class PivotsScriptsPage : INavigationAware
             _leaveArmed = editor;
             return;
         }
-        if (EditorExit(e.Key, modifiers, afterEscape) is { } direction)
+        if (EditorExit(e.Key, modifiers, afterEscape, unchanged: !ReferenceEquals(_edited, editor)) is { } direction)
         {
             e.Handled = true;
             if ((modifiers & ModifierKeys.Control) != 0) _pendingExit = (editor, direction);

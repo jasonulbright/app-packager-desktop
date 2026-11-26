@@ -2,6 +2,7 @@
     x:Class="ApplicationPackagerUI.Views.Windows.WsusUpdatesWindow"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:helpers="clr-namespace:ApplicationPackagerUI.Helpers"
     xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
     Title="WSUS Updates"
     Width="1240" Height="620"
@@ -52,7 +53,7 @@
                            Command="{Binding CatalogImportCommand}" AutomationProperties.AutomationId="btnCatalog"
                            ToolTip="Import Microsoft updates that do not synchronize automatically, by catalog update ID or link." />
                 <StackPanel Orientation="Horizontal">
-                    <ComboBox x:Name="cboGroup" IsEditable="True" Width="200" Margin="0,0,8,0" VerticalAlignment="Center"
+                    <ComboBox helpers:TemplatePartNames.FromOwner="True" x:Name="cboGroup" IsEditable="True" Width="200" Margin="0,0,8,0" VerticalAlignment="Center"
                               ItemsSource="{Binding Groups}" Text="{Binding GroupText, UpdateSourceTrigger=PropertyChanged}"
                               AutomationProperties.Name="Computer group" AutomationProperties.AutomationId="cboGroup"
                               ToolTip="Computer group for Approve. The list loads from the server." />

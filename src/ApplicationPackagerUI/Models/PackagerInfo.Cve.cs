@@ -43,7 +43,14 @@ public partial class PackagerInfo
     /// </summary>
     public string CveCheckText => CveCheck.Text(CveCount, Cpe);
 
-    partial void OnCveCountChanged(string value) => OnPropertyChanged(nameof(CveCheckText));
+    partial void OnCveCountChanged(string value)
+    {
+        OnPropertyChanged(nameof(CveCheckText));
+        OnPropertyChanged(nameof(CveCellName));
+    }
+
+    /// <summary>The name of the CVE cell button: it names the application and the state, also before a lookup.</summary>
+    public string CveCellName => $"CVEs of {Application}: {CveCheckText}";
 
     public void SetCveCells(VulnerabilityGridCells cells)
     {
