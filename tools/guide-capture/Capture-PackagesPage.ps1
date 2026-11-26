@@ -91,8 +91,9 @@ foreach ($theme in $Themes) {
         }
         Step $theme 'core-packages-export-check-results' {
             # The Check ConfigMgr run of the 'checks' step wrote the result file in the data folder of the run; the button below the grid is enabled.
-            $resultFile = Join-Path $data (Join-Path 'Users' (Join-Path $sid (Join-Path 'SRLPackr' 'CheckConfigMgrResult.csv')))
-            if (-not (Test-Path -LiteralPath $resultFile)) { throw "no result file at $resultFile" }
+            # The file is in the results folder of the site (or in the single-site folder), so it is searched in the data folder of the run.
+            $resultFile = [string](Get-ChildItem -LiteralPath $data -Recurse -File -Filter 'CheckConfigMgrResult.csv' | Sort-Object LastWriteTime -Descending | Select-Object -First 1).FullName
+            if (-not $resultFile) { throw "no CheckConfigMgrResult.csv below $data" }
             "result file: $((Get-Content -LiteralPath $resultFile | Measure-Object).Count) lines"
             Get-Content -LiteralPath $resultFile -TotalCount 4
             Click-El (Find-El $w 'btnMore' -Timeout 5)
@@ -112,13 +113,6 @@ foreach ($theme in $Themes) {
             Start-Sleep -Seconds 2
             Shot $theme 'core-packages-buttons-disabled'
             Move-MouseAway
-        }
-        Step $theme 'core-packages-cve-columns' {
-            Open-ApdMenuItem $w 'btnCheckMenu' 'miCheckCves'
-            Wait-Idle $w 180
-            "status after Check CVEs: $(Status-Text $w)"
-            Move-MouseAway
-            Shot $theme 'core-packages-cve-columns'
         }
         Step $theme 'core-packages-operation-history' {
             # The menu item is enabled only with a selected row: select the 7-Zip row (it has the operation of the command-line stage).

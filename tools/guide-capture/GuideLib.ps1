@@ -114,14 +114,74 @@ function Send-DialogPath([string]$Path) {
     Start-Sleep -Seconds 2
 }
 
+# Copies user definitions of the folder definitions (beside this script) into the data folder of a run, before the app starts. The definitions are the
+# ZZAPD applications of the guide captures: each one is a copy of a shipped definition under a ZZAPD name, so everything that a run publishes carries that name.
+function Install-GuideDefinition([string]$DataRoot, [string[]]$Names) {
+    $target = Join-Path $DataRoot (Join-Path 'Users' (Join-Path $script:Sid 'Workbench\definitions'))
+    New-Item -ItemType Directory -Force $target | Out-Null
+    foreach ($name in $Names) {
+        $source = Join-Path $PSScriptRoot "definitions\$name.json"
+        if (-not (Test-Path -LiteralPath $source)) { throw "There is no guide definition $source." }
+        Copy-Item -LiteralPath $source -Destination $target -Force
+    }
+}
+
+# The rows of the open change plan as objects with Action, Object and Detail, read by column. The grid shows only the rows on screen, so it is read at
+# every scroll position. Throws when a cell cannot be read, or when the number of rows read differs from the number that the summary of the plan states.
+function Get-ChangePlanRows {
+    $grid = Need-El 'gridChangePlan' 30
+    $rows = [ordered]@{}
+    $isRow = New-Object System.Windows.Automation.PropertyCondition ($script:AE::ControlTypeProperty), ([System.Windows.Automation.ControlType]::DataItem)
+    $scroll = $null
+    $canScroll = $grid.TryGetCurrentPattern([System.Windows.Automation.ScrollPattern]::Pattern, [ref]$scroll) -and $scroll.Current.VerticallyScrollable
+    $positions = if ($canScroll) { @(0..20 | ForEach-Object { $_ * 5 }) } else { @(-1) }
+    foreach ($position in $positions) {
+        if ($position -ge 0) { $scroll.SetScrollPercent([System.Windows.Automation.ScrollPattern]::NoScroll, $position); Start-Sleep -Milliseconds 250 }
+        foreach ($row in $grid.FindAll($script:TS::Children, $isRow)) {
+            if ($row.Current.IsOffscreen) { continue }
+            $cells = @{}
+            foreach ($cell in $row.FindAll($script:TS::Children, [System.Windows.Automation.Condition]::TrueCondition)) {
+                if ($cell.Current.Name -notmatch 'Column Display Index: (\d)$') { continue }
+                $index = [int]$Matches[1]
+                $texts = @($cell.FindAll($script:TS::Descendants, (New-Object System.Windows.Automation.PropertyCondition ($script:AE::ControlTypeProperty), ([System.Windows.Automation.ControlType]::Text))) | ForEach-Object { $_.Current.Name })
+                $cells[$index] = ($texts -join ' ').Trim()
+            }
+            if (-not $cells[0] -or -not $cells[1]) { throw 'A row of the change plan has no readable Action or Object cell. Nothing was confirmed.' }
+            $rows["$($cells[0])`n$($cells[1])`n$($cells[2])"] = [pscustomobject]@{ Action = $cells[0]; Object = $cells[1]; Detail = [string]$cells[2] }
+        }
+    }
+    if ($canScroll) { $scroll.SetScrollPercent([System.Windows.Automation.ScrollPattern]::NoScroll, 0) }
+    $summary = [string](Need-El 'txtChangePlanSummary' 10).Current.Name
+    if ($summary -notmatch '^\s*(\d[\d,]*) change') { throw "The summary of the change plan states no number of changes: '$summary'. Nothing was confirmed." }
+    $stated = [int]($Matches[1] -replace ',', '')
+    if ($rows.Count -eq 0 -or $rows.Count -ne $stated) { throw "The plan states $stated change(s) and the run read $($rows.Count) row(s). Nothing was confirmed." }
+    @($rows.Values)
+}
+
+# Before a confirmation: the Object cell of every row matches -Must (an anchored pattern) and does not match -Never.
+function Assert-ChangePlanOnly([string]$Must, [string]$Never) {
+    foreach ($row in (Get-ChangePlanRows)) {
+        if ($row.Object -notmatch $Must) { throw "The object of a plan row does not match '$Must': $($row.Object). Nothing was confirmed." }
+        if ($Never -and $row.Object -match $Never) { throw "The object of a plan row matches '$Never': $($row.Object). Nothing was confirmed." }
+    }
+}
+
+# Before a delete or a removal: the Object cell of every row is exactly one of -Allowed.
+function Assert-ChangePlanObjects([string[]]$Allowed) {
+    foreach ($row in (Get-ChangePlanRows)) {
+        if ($Allowed -notcontains $row.Object) { throw "The object of a plan row is not an object of this run: '$($row.Object)' (allowed: $($Allowed -join '; ')). Nothing was confirmed." }
+    }
+}
+
 # Starts the app for a theme with the settings of the run; returns the data root.
-function Start-RunApp([string]$Exe, [string]$Theme, [hashtable]$Settings = @{}, [string[]]$Arguments = @()) {
+function Start-RunApp([string]$Exe, [string]$Theme, [hashtable]$Settings = @{}, [string[]]$Arguments = @(), [string[]]$Definitions = @()) {
     $script:GuideTheme = $Theme
     $data = Join-Path $script:GuideRun "data-$Theme"
     Remove-Item $data -Recurse -Force -ErrorAction SilentlyContinue
     $staging = New-RunStaging $data
     $all = @{ DownloadRoot = $staging }
     foreach ($k in $Settings.Keys) { $all[$k] = $Settings[$k] }
+    if ($Definitions) { Install-GuideDefinition $data $Definitions }
     $null = Start-Apd $Exe $data $Theme $all $Arguments
     (Main-Window).SetFocus()
     $data

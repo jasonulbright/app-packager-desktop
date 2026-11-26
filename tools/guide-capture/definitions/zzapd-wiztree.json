@@ -1,0 +1,37 @@
+{
+  "Schema": 1,
+  "Id": "zzapd00000000002",
+  "WsusSupport": "Yes",
+  "Vendor": "ZZAPD Lab",
+  "Application": "ZZAPD WizTree (x64)",
+  "CMName": "ZZAPD WizTree",
+  "Architecture": "x64",
+  "VendorUrl": "https://diskanalyzer.com/",
+  "ArpName": "none",
+  "InstallerType": "EXE",
+  "InstallerFramework": "InnoSetup",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "HttpRegex",
+    "Url": "https://diskanalyzer.com/download",
+    "Pattern": "href=\"files/wiztree_(\\d+(?:_\\d+)+)_setup\\.exe\"",
+    "VersionTransform": "replace:_:."
+  },
+  "DownloadUrl": "https://diskanalyzer.com/files/wiztree_{version}_setup.exe",
+  "InstallArgs": "/VERYSILENT /NORESTART",
+  "UninstallArgs": "/VERYSILENT /NORESTART",
+  "Detection": {
+    "Type": "File",
+    "FilePath": "C:\\Program Files\\WizTree",
+    "FileName": "WizTree64.exe",
+    "PropertyType": "Version",
+    "Operator": "GreaterEquals",
+    "Is64Bit": true
+  },
+  "RunningProcess": [
+    "WizTree",
+    "WizTree64"
+  ],
+  "AppName": "ZZAPD WizTree (x64) - {version}",
+  "IconSource": "Installer"
+}

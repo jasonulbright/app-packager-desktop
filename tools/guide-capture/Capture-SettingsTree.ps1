@@ -12,7 +12,11 @@ param(
     [string[]]$Themes = @('Light', 'Dark'),
     [string]$AppFolder = $PSScriptRoot,
     [string]$OutDir = (Join-Path $PSScriptRoot 'out'),
-    [string]$DataRoot = (Join-Path $PSScriptRoot 'data')
+    [string]$DataRoot = (Join-Path $PSScriptRoot 'data'),
+    # Only these image ids; empty takes all of them.
+    [string[]]$Only = @(),
+    # WSUS in use, with its page enabled (the image core-settings-wsus).
+    [switch]$WsusInUse
 )
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'ApdUiDriver.ps1')
@@ -37,7 +41,8 @@ foreach ($theme in $Themes) {
     $root = Join-Path $DataRoot $theme
     Remove-Item $root -Recurse -Force -ErrorAction SilentlyContinue
     $dir = Join-Path $OutDir $theme.ToLower()
-    $null = Start-Apd -Exe (Join-Path $AppFolder 'ApplicationPackagerUI.exe') -DataRoot $root -Theme $theme
+    $settings = if ($WsusInUse) { @{ Systems = @{ ConfigMgr = $true; Intune = $false; Wsus = $true } } } else { @{} }
+    $null = Start-Apd -Exe (Join-Path $AppFolder 'ApplicationPackagerUI.exe') -DataRoot $root -Theme $theme -Settings $settings
     try {
         $window = @(Get-ApdWindows)[0]
         $settings = Find-El $window 'tvOptions' '' '' 3
@@ -47,7 +52,7 @@ foreach ($theme in $Themes) {
         }
         $tree = Find-El $window 'tvOptions' '' '' 15
         if (-not $tree) { throw 'The tree of Settings did not open.' }
-        foreach ($id in $images.Keys) {
+        foreach ($id in @($images.Keys | Where-Object { -not $Only -or $Only -contains $_ })) {
             $item = Find-El $window $images[$id] '' '' 10
             if (-not $item) { throw ('The tree item {0} was not found.' -f $images[$id]) }
             Click-El $item

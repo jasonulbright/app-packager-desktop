@@ -15,6 +15,7 @@ param(
 )
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'ApdUiDriver.ps1')
+. (Join-Path $PSScriptRoot 'GuideLib.ps1')
 foreach ($theme in $Themes) {
     $data = Join-Path $OutDir "data-$theme"
     Remove-Item $data -Recurse -Force -ErrorAction SilentlyContinue
@@ -45,6 +46,7 @@ foreach ($theme in $Themes) {
         if (-not $cell) { throw "The row of '$name' has no check box cell." }
         Real-Click $cell
     }
+        Select-Combo (Find-El $w 'cboBulkColumn' -Timeout 5) 'Supersedence'
         Real-Click (Find-El $w 'cboBulkValue' -Timeout 5)
         Real-Click (Find-El $null $null 'Replace' 'ListItem' -Timeout 5)
         Real-Click (Find-El $w 'btnBulkApply' -Timeout 5)

@@ -316,7 +316,7 @@ function Test-ApdBusy($Window) {
 # Follows a run after Publish All until it ends, and writes what it answered. A target with ConfigMgr or Intune opens the review first (it opens again
 # when ConfigMgr, read again, differs from the plan) and the results window after the run; a publish to WSUS only has neither. The run counts as active
 # while the review is open. -OnConflict Skip answers the Application Already Exists dialog with Skip; Return leaves it open and returns.
-function Complete-ApdPublish($Window, [int]$Seconds = 420, [ValidateSet('Skip', 'Return')][string]$OnConflict = 'Skip') {
+function Complete-ApdPublish($Window, [int]$Seconds = 420, [ValidateSet('Skip', 'Return')][string]$OnConflict = 'Skip', [string[]]$Expected = @('No Comment Provided')) {
     Start-Sleep -Seconds 3
     $reviews = 0
     $idle = 0
@@ -353,10 +353,9 @@ function Complete-ApdPublish($Window, [int]$Seconds = 420, [ValidateSet('Skip', 
             $idle = 0
             continue
         }
-        foreach ($name in 'Continue', 'OK', 'Yes') {
-            $b = Find-El $Window -Name $name -ControlType 'Button' -Timeout 0.1
-            if ($b -and -not $b.Current.IsOffscreen -and $b.Current.IsEnabled) { "a dialog: $name"; Click-El $b; Start-Sleep -Seconds 2; $idle = 0; break }
-        }
+        # Any other content dialog with a primary button: clicked only when its title is one of -Expected, else the run fails and nothing is clicked.
+        $primary = Find-El $null 'PrimaryButton' -Timeout 0.1
+        if ($primary -and -not $primary.Current.IsOffscreen) { Resolve-ApdContentDialog $Window $Expected; $idle = 0; continue }
         if (Test-ApdBusy $Window) { $idle = 0 } elseif (++$idle -ge 3) { return }
         Start-Sleep -Seconds 1
     }

@@ -173,8 +173,16 @@ foreach ($theme in $Themes) {
         $footer3 = Wait-Footer 'Site AB1*'
         # The image of the site menu needs both sites, so it is made here and not before Add site.
         Step 'core-site-switcher-menu' {
-            Open-SiteMenu
-            $null = Need-Name 'CD2 - Lab (cm.cd2.example.com)' 'MenuItem' 8
+            $entry = $null
+            for ($try = 0; $try -lt 4 -and -not $entry; $try++) {
+                Start-Sleep 3
+                try { (Main-Window).SetFocus() } catch { $null = $_ }
+                Open-SiteMenu
+                $entry = Find-El $null -Name 'CD2 - Lab (cm.cd2.example.com)' -ControlType 'MenuItem' -Timeout 6
+                if (-not $entry) { Send-ApdKeys '{ESC}' }
+            }
+            if (-not $entry) { throw 'The site menu shows no entry of site CD2.' }
+            Start-Sleep 1
             $scr = Get-ApdScreen
             Shot 'core-site-switcher-menu' @([int]($scr.Width - 760), [int]($scr.Height - 400), 760, 400)
             Send-ApdKeys '{ESC}'; Start-Sleep 1

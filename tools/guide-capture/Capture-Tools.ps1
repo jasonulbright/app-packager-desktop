@@ -8,13 +8,15 @@
         Run-VisibleProbe.ps1 -Worktree <published folder with these scripts> -ProbeArgs "& .\Capture-Tools.ps1 -Run C:\guide\apd-pending\tools"
     The images are <Run>\images\<theme>\<id>.png. The run only reads the site and opens the plan, edit and apply dialogs. It closes each plan with Cancel, so nothing is written to the site.
     A step that fails says FAIL for its image, saves the screen under <Run>\fail and the run goes on.
+    The site must hold the collection -Collection with the monthly window -MaintenanceWindow (tools/guide-capture/lab-seed, part Collection) and, for the image of
+    the Site scripts tab, the script of part Script.
 #>
 param(
     [Parameter(Mandatory)][string]$Run,
     [string[]]$Themes = @('Light', 'Dark'),
     [string]$AppFolder = $PSScriptRoot,
-    [string]$Collection = 'Copy of All Workstations',
-    [string]$MaintenanceWindow = 'Zone 02 patch window'
+    [string]$Collection = 'ZZAPD Workstations',
+    [string]$MaintenanceWindow = 'ZZAPD monthly patch window'
 )
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'ApdUiDriver.ps1')
@@ -82,6 +84,8 @@ foreach ($theme in $Themes) {
         # ---- Collection and Compliance: collections
         Step 'tools-collections-editor' {
             $null = Click-Nav 'Collection and Compliance'; Start-Sleep 12
+            # Pick-Row takes only a row on screen, so the grid is filtered to the collection.
+            Set-ElText (Need-El 'txtCollectionFilter') $Collection; Start-Sleep 3
             $null = Pick-Row 'dgCollections' "*$Collection*"
             Real-Click (Need-El 'btnEditCollection')
             $null = Wait-Window 'btnCollectionSave'

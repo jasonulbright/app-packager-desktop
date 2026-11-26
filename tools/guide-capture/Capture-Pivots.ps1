@@ -4,25 +4,55 @@
     confirmation boxes, the results of the run on one device and the History tab with the saved run. The real app is driven with UI Automation, one theme after the other.
 
 .DESCRIPTION
-    Run it in the interactive session of the lab user under the capture lock (Run-VisibleProbe.ps1 takes it), from the folder of the published app:
-        Run-VisibleProbe.ps1 -Worktree <published folder with these scripts> -ProbeArgs "& .\Capture-Pivots.ps1 -Run C:\guide\apd-pending\pivots"
+    Run it in the interactive session of the lab user under the capture lock (Run-InSession.ps1 takes it), from the folder of the published app.
     The images are <Run>\images\<theme>\<id>.png.
-    What the site must hold first: the approved script $Script with one parameter, ServiceName, as a string with a default value (the caller creates it with New-CMScript, stores the
-    parameter definition with UpdateScript and approves it). The run only reads the status of one service on the device $Device; the script changes nothing.
+    The site must hold the approved script "ZZAPD Service status" with the string parameter ServiceName (tools/guide-capture/lab-seed, part Script), and a copy
+    of the record file of the seed script lies beside this script. The run reads the status of one service on CLIENT01; the script changes nothing.
+    The run stops before the app starts when the script on the site is not the recorded one, and stops when the first step fails. It confirms the plan only
+    when the plan runs that script, with the recorded GUID, on CLIENT01 only.
     A step that fails says FAIL for its image, saves the screen under <Run>\fail and the run goes on.
 #>
 param(
     [Parameter(Mandatory)][string]$Run,
     [string[]]$Themes = @('Light', 'Dark'),
     [string]$AppFolder = $PSScriptRoot,
-    [string]$Script = 'Guide - Service status',
-    [string]$Device = 'CLIENT01'
+    # The copy of the record file of the seed script: it holds the GUID of the script that the run may start.
+    [string]$RecordFile = (Join-Path $PSScriptRoot 'zzapd-records.local.json')
 )
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'ApdUiDriver.ps1')
 . (Join-Path $PSScriptRoot 'GuideLib.ps1')
+. (Join-Path $PSScriptRoot 'PublishCleanup.ps1')
 Initialize-Run $Run
 $exe = Join-Path $AppFolder 'ApplicationPackagerUI.exe'
+# The only script and the only device that this run may use.
+$Script = 'ZZAPD Service status'
+$Device = 'CLIENT01'
+$recorded = @(Read-GuideRecordCopy $RecordFile | Where-Object { $_.Type -eq 'Script' -and $_.Name -ceq $Script })
+if ($recorded.Count -ne 1) { throw "The record file must hold exactly one script '$Script'." }
+$guid = ([string]$recorded[0].Id).Trim('{}').ToUpperInvariant()
+Connect-GuideSite
+$onSite = @(Invoke-GuideSite { Get-CMScript -ScriptName $Script -Fast -ErrorAction Stop })
+if ($onSite.Count -ne 1 -or ([string]$onSite[0].ScriptGuid).Trim('{}').ToUpperInvariant() -ne $guid -or [int]$onSite[0].ApprovalState -ne 3) {
+    throw "The site must hold exactly one script '$Script', approved, with the recorded GUID $guid. The run does not start."
+}
+
+# Before the run is confirmed: one row, which runs the script on the device and on no other; the plan names the script with the recorded GUID.
+# The rows of this plan name the device only; the script and its GUID stand in the notes of the plan and in a confirmation box.
+function Assert-ScriptRunPlan {
+    $rows = @(Get-ChangePlanRows)
+    if ($rows.Count -ne 1 -or $rows[0].Action -cne 'Run script' -or $rows[0].Object -cnotmatch ('^' + $Device + ' \(ResourceID \d+\)$')) {
+        throw "The plan must hold one row that runs the script on $Device only: $(($rows | ForEach-Object { "$($_.Action) $($_.Object)" }) -join '; '). Nothing was confirmed."
+    }
+    $notes = [string](Need-El 'txtChangePlanNotes' 10).GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern).Current.Value
+    if ($notes -notmatch ('(?m)^Targets: Device ' + $Device + '\. 1 device\.')) { throw "The plan does not name the one target $Device. Nothing was confirmed." }
+    $named = [regex]::Matches($notes, '(?m)^Script: (.+?)\. Version \d+\. GUID \{?([0-9A-Fa-f-]{36})\}?\.')
+    if ($named.Count -ne 1 -or $named[0].Groups[1].Value -cne $Script -or $named[0].Groups[2].Value.ToUpperInvariant() -ne $guid) {
+        throw "The plan does not name the script '$Script' with the recorded GUID $guid. Nothing was confirmed."
+    }
+    $box = [string](Need-El 'chkChangePlanExtra' 5).Current.Name
+    if (-not $box.StartsWith("Run $Script version ", [StringComparison]::Ordinal)) { throw "The confirmation box names another run: '$box'. Nothing was confirmed." }
+}
 
 function Real-Click($El) { Click-El $El; Start-Sleep -Milliseconds 800 }
 function Tab([string]$Id) { Real-Click (Need-El $Id); Start-Sleep 2 }
@@ -32,6 +62,7 @@ foreach ($theme in $Themes) {
     $data = Start-RunApp $exe $theme @{ Systems = @{ ConfigMgr = $true; Intune = $false; Wsus = $false } }
     try {
         $null = Click-Nav 'Pivots and Scripts'; Start-Sleep 6
+        $script:PivotsReady = $false
         Step 'tools-pivots-script' {
             Tab 'tabScript'; Start-Sleep 2
             Select-Combo (Need-El 'cboTargetKind') '*Device*'
@@ -41,21 +72,26 @@ foreach ($theme in $Themes) {
             $null = Pick-Row 'dgApproved' "*$Script*"
             Start-Sleep 3
             Shot 'tools-pivots-script'
+            $script:PivotsReady = $true
         }
+        if (-not $script:PivotsReady) { throw 'The first step failed: the run stops, and no script is started.' }
         Step 'tools-pivots-plan-script' {
             Real-Click (Need-El 'btnParameters')
             $null = Wait-Window 'btnParametersOk'
             $edit = @((Need-El 'listParameters').FindAll($script:TS::Descendants, (New-Object System.Windows.Automation.PropertyCondition ($script:AE::ControlTypeProperty), ([System.Windows.Automation.ControlType]::Edit))) | Select-Object -First 1)
-            if ($edit) { Set-ElText $edit[0] 'Spooler' }
+            if (-not $edit) { throw 'The parameter window shows no value box. Nothing was run.' }
+            Set-ElText $edit[0] 'Spooler'
             Real-Click (Need-El 'btnParametersOk'); Start-Sleep 2
             Invoke-El (Need-El 'btnRunScript'); Start-Sleep 1
             $null = Wait-Window 'btnChangePlanConfirm' 90
+            Assert-ScriptRunPlan
             foreach ($box in 'chkChangePlanExtra', 'chkChangePlanSecond', 'chkChangePlanDestructive') {
                 $el = Find-El $null $box -Timeout 2
                 if ($el -and -not $el.Current.IsOffscreen) { Set-Check $el $true }
             }
             Start-Sleep 1
             Shot 'tools-pivots-plan-script'
+            Assert-ScriptRunPlan
             Real-Click (Need-El 'btnChangePlanConfirm')
             # The results come back on the page: the status line at the foot says "Run n ended" when the wait is over.
             $deadline = (Get-Date).AddSeconds(100)

@@ -2,31 +2,41 @@
 .SYNOPSIS
     The lab run of the supersedence redesign (Q-93): drives the real app on the lab client against the ConfigMgr site, one scenario and one theme at a time.
     It turns supersedence on for the applications in Settings, Supersedence (the grid and the buttons of the checked applications), publishes, answers the confirmation window (Yes, Skip, No, or Yes with
-    "Remember this answer" for two applications) and saves the guide images of the grid in Settings, the confirmation window and the locked title in the Workbench.
+    "Remember this answer" for two applications) and saves the guide images of the confirmation window and of the log.
 
 .DESCRIPTION
-    Run it in the interactive session of the lab user under the capture lock (Run-VisibleProbe.ps1 takes it), from the folder of the installed app or a copy
-    of this folder; every file lives inside one run folder:
-        .\Capture-PackagesSupersedence.ps1 -Run C:\guide\runs\apd-<timestamp> -Scenario Yes -Theme Light
-    The images are <Run>\images\<theme>\<id>.png. The status bar, which names the site server, is painted over in each image.
-
-    What the site must hold first (the run creates no older application and removes nothing):
-      - for each application of the scenario an older version with the title "<base title> - <older version>", the same publisher and one deployment type
-        (throw-away applications, made and removed by the person who runs the check). The run stages the applications with the command-line build.
-    The scenario writes the settings of the isolated data folder (the settings of the lab user stay as they are) and ends the app when it is done.
+    Run it in the interactive session of the lab user under the capture lock (Run-InSession.ps1 takes it), from the folder of the published app:
+        & .\Capture-PackagesSupersedence.ps1 -Run <work folder> -Scenario Yes -Theme Light -AppFolder $PWD
+    The images are <Run>\images\<theme>\<id>.png. The applications are the guide definitions zzapd-everything and zzapd-wiztree (the scenario Remember takes both).
+    The site must hold, for each application of the scenario, exactly one older version "<name> (x64) - <older version>" with the publisher ZZAPD Lab and one
+    deployment type (tools/guide-capture/lab-seed, part Supersedence). The run publishes the newer version, and at its end it removes that new application and its
+    new content folders, only as far as PublishCleanup.ps1 can prove that the run created them. The older version stays for the next scenario.
+    The guide image of the Settings grid comes from Capture-SettingsSupersedence.ps1.
 #>
 param(
     [Parameter(Mandatory)][string]$Run,
     [Parameter(Mandatory)][ValidateSet('Yes', 'Skip', 'No', 'Remember')][string]$Scenario,
     [ValidateSet('Light', 'Dark')][string]$Theme = 'Light',
     [string]$AppFolder = (Join-Path $env:LOCALAPPDATA 'Programs\App Packager Desktop'),
-    [string[]]$Applications = @('Everything'),
-    [hashtable]$ApplicationIds = @{ 'Everything' = 'catalog:67cc2246f034493e'; 'WizTree' = 'catalog:06915f526f2e443f' },
+    [string[]]$Applications = @('ZZAPD Everything'),
+    [hashtable]$ApplicationIds = @{ 'ZZAPD Everything' = 'zzapd00000000001'; 'ZZAPD WizTree' = 'zzapd00000000002' },
     [string]$FileShareRoot = '\\cm01.contoso.com\ContentShare$',
     [string]$OutRoot = (Join-Path $Run 'images')
 )
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'ApdUiDriver.ps1')
+. (Join-Path $PSScriptRoot 'GuideLib.ps1')
+. (Join-Path $PSScriptRoot 'PublishCleanup.ps1')
+if ($Scenario -eq 'Remember' -and $Applications.Count -lt 2) { $Applications = @('ZZAPD Everything', 'ZZAPD WizTree') }
+Connect-GuideSite
+$before = @(Get-GuideApplications)
+# The site holds one older version of each application (lab-seed, part Supersedence) and no other version.
+foreach ($name in $Applications) {
+    $found = @($before | Where-Object { $_.LocalizedDisplayName -like "$name (x64) - *" })
+    if ($found.Count -ne 1) { $found | ForEach-Object { "on the site before the run: $(Format-GuideApp $_)" }; throw "The site must hold exactly one older version of '$name' before the run; it holds $($found.Count). The run does not start." }
+}
+$beforeModels = @($before | ForEach-Object { [string]$_.ModelName })
+$beforeFolders = @(Get-GuideShareFolders $FileShareRoot)
 
 $exe = Join-Path $AppFolder 'ApplicationPackagerUI.exe'
 $cli = Join-Path $AppFolder 'AppPackagerBuild.exe'
@@ -72,6 +82,7 @@ function Check-Row($w, [string]$Name) {
 }
 
 # Stage the applications with the command-line build into the data folder (the grid finds the stage).
+Install-GuideDefinition $data @('zzapd-everything', 'zzapd-wiztree')
 foreach ($name in $Applications) {
     $ErrorActionPreference = 'Continue'
     $out = & $cli --application $ApplicationIds[$name] --stage --data-root $data --download-root $staging 2>&1 | Out-String
@@ -128,13 +139,12 @@ try {
         if (-not $cell) { throw "The row of '$name' has no check box cell." }
         Real-Click $cell
     }
-    # The bulk bar sets the column that is chosen (Supersedence at the start) to the chosen value for the checked applications: choose Replace, then press the button.
+    # The bulk bar sets the chosen column to the chosen value for the checked applications: choose the column Supersedence and the value Replace, then press the button.
+    Select-Combo (Find-El $w 'cboBulkColumn' -Timeout 5) 'Supersedence'
     Real-Click (Find-El $w 'cboBulkValue' -Timeout 5)
     Real-Click (Find-El $null $null 'Replace' 'ListItem' -Timeout 5)
     Real-Click (Find-El $w 'btnBulkApply' -Timeout 5)
-    Move-MouseAway
     Start-Sleep 1
-    Shot 'tools-settings-supersedence'
     Real-Click (Find-El $w 'btnSaveSettings' -Timeout 5)
     Start-Sleep 2
     if (-not (Click-Nav 'App Packager')) { throw 'The sidebar has no App Packager entry.' }
@@ -200,30 +210,9 @@ try {
     Get-Content $logFile | Where-Object { $_ -match 'Supersedence|Packaged|Package FAILED|Chain check|Application title|Version rule|declined|skipped|Before publish' } | ForEach-Object { if ($_.Length -gt 250) { $_.Substring(0, 250) } else { $_ } }
     '--- end ---'
     Shot 'core-packages-supersedence-log'
-
-    # The locked title in the Workbench and the Options page (once, with the Yes scenario).
-    if ($Scenario -eq 'Yes') {
-        $w = Main-Window
-        Set-ElText (Find-El $w 'txtAppPackagerSearch') $Applications[0]
-        Start-Sleep 2
-        $cell = Find-El $w -Name $Applications[0] -ControlType 'Custom' -Timeout 10
-        Click-El $cell -Right; Start-Sleep 2
-        $edit = Find-El ([System.Windows.Automation.AutomationElement]::RootElement) -Name 'Edit application...' -Timeout 5
-        if ($edit) {
-            Real-Click $edit; Start-Sleep 5
-            $combo = Find-El $null 'cboTitleMode' -Timeout 15
-            if ($combo) {
-                "Workbench title combo enabled: $($combo.Current.IsEnabled)"
-                Move-MouseAway
-                Shot 'core-workbench-title-locked'
-            } else { 'The Workbench has no title combo.' }
-            foreach ($win in (Get-ApdWindows | Where-Object { $_.Current.Name -match 'Workbench' })) {
-                try { $win.GetCurrentPattern([System.Windows.Automation.WindowPattern]::Pattern).Close() } catch { }
-            }
-            Start-Sleep 2
-        }
-    }
 }
 finally {
     Stop-Apd
+    try { Complete-GuideSiteCleanup $data $beforeModels $FileShareRoot $beforeFolders }
+    catch { "cleanup of the site failed, nothing more was removed: $($_.Exception.Message)" }
 }
