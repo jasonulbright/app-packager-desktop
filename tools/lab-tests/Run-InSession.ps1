@@ -4,8 +4,9 @@
 
 .DESCRIPTION
     Run it on the development computer. It takes the lock file C:\guide\capture.lock (owner|pid|start time; the file that every window run of the
-    lab uses), copies the folder into a run folder C:\guide\runs\<owner>-<time>\app, starts the command through a scheduled task with the interactive
-    logon of the lab user, streams the output, copies the output folder back, and removes the task, the run folder and its lock.
+    lab uses), copies the folder into a run folder C:\guide\runs\<owner>-<time>-<id>\app, starts the command through a scheduled task with the
+    interactive logon of the lab user, writes the output to -OutFile when the run ends, copies the output folder back, and removes the task, the
+    run folder and its lock. It fails when the command fails, ends with an exit code other than 0, or passes a time limit.
 
     The command runs in a job object (ProcessJob.ps1). When it ends, fails or passes a time limit, the job is closed and that ends what the command
     started, and nothing else. This script reads no process list and stops no process. It never signs out, locks, disconnects or restarts anything.
@@ -37,18 +38,22 @@ param(
 $ErrorActionPreference = 'Stop'
 . $CredentialScript
 $stamp = Get-Date -Format 'yyyyMMdd-HHmmss'
-$leaf = "$Owner-$stamp"
+$leaf = "$Owner-$stamp-$([guid]::NewGuid().ToString('N').Substring(0, 6))"
 $dest = "C:\guide\runs\$leaf"
 $task = "ApdRun-$leaf"
 $token = '{0}|{1}|{2}' -f $leaf, $PID, (Get-Date -Format s)
 $zip = Join-Path ([IO.Path]::GetTempPath()) "$leaf.zip"
 $helper = Join-Path $PSScriptRoot 'ProcessJob.ps1'
 $haveLock = $false
+$lockAttempted = $false
+$keepRunFolder = $false
 $failure = $null
 $session = New-PSSession -ComputerName $Target -Credential $LabCredential
 try {
     $deadline = (Get-Date).AddMinutes($LockWaitMinutes)
     while (-not $haveLock) {
+        # Set before the call: the lock can exist even when the answer of the call never arrives.
+        $lockAttempted = $true
         $haveLock = Invoke-Command $session {
             param($value)
             $null = New-Item -ItemType Directory -Force C:\guide
@@ -70,7 +75,8 @@ try {
     Copy-Item -LiteralPath $helper -Destination "$dest\ProcessJob.ps1" -ToSession $session
 
     # command.ps1 holds the command; wrap.ps1 runs it in a job and watches the time limits.
-    $commandText = "`$ErrorActionPreference = 'Continue'`r`n`$RunOutput = '$dest\out'`r`nSet-Location -LiteralPath '$dest\app'`r`n& { $Command } *>&1 | ForEach-Object { (`$_ | Out-String -Width 220).TrimEnd() }`r`n"
+    # The command stands on lines of its own, so a comment at its end hides nothing of the wrapper text. A terminating error ends with exit code 1.
+    $commandText = "`$ErrorActionPreference = 'Continue'`r`n`$RunOutput = '$dest\out'`r`nSet-Location -LiteralPath '$dest\app'`r`n`$global:LASTEXITCODE = 0`r`ntry {`r`n& {`r`n$Command`r`n} *>&1 | ForEach-Object { (`$_ | Out-String -Width 220).TrimEnd() }`r`n}`r`ncatch { (`$_ | Out-String); exit 1 }`r`nexit `$LASTEXITCODE`r`n"
     $wrapText = @'
 param([string]$Dir, [int]$Session, [int]$Minutes, [int]$Quiet)
 $out = "$Dir\out.txt"
@@ -83,13 +89,19 @@ try {
     Set-Content "$Dir\started" "session $mine"
     $run = Start-JobProcess -FilePath 'powershell.exe' -ArgumentList @('-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-STA', '-File', "`"$Dir\command.ps1`"") -StandardOutput $out -StandardError "$Dir\err.txt"
     try {
-        $start = Get-Date; $changed = Get-Date; $length = -1L
+        $start = Get-Date; $changed = Get-Date; $length = -1L; $limited = $false
         while (-not $run.Process.HasExited) {
             Start-Sleep -Seconds 5
-            $now = if (Test-Path -LiteralPath $out) { (Get-Item -LiteralPath $out).Length } else { 0 }
+            # The length is read through a handle: the size in the folder entry can stay old while the writer holds the file open.
+            $now = 0L
+            try { $stream = [IO.File]::Open($out, 'Open', 'Read', 'ReadWrite'); $now = $stream.Length; $stream.Close() } catch [IO.IOException] { }
             if ($now -ne $length) { $length = $now; $changed = Get-Date }
-            if (((Get-Date) - $start).TotalMinutes -ge $Minutes) { Set-Content "$Dir\failure" "the run did not finish in $Minutes minutes"; break }
-            if (((Get-Date) - $changed).TotalMinutes -ge $Quiet) { Set-Content "$Dir\failure" "no output for $Quiet minutes"; break }
+            if (((Get-Date) - $start).TotalMinutes -ge $Minutes) { Set-Content "$Dir\failure" "the run did not finish in $Minutes minutes"; $limited = $true; break }
+            if (((Get-Date) - $changed).TotalMinutes -ge $Quiet) { Set-Content "$Dir\failure" "no output for $Quiet minutes"; $limited = $true; break }
+        }
+        if (-not $limited) {
+            $run.Process.WaitForExit()
+            if ($run.Process.ExitCode -ne 0) { Set-Content "$Dir\failure" "the command ended with exit code $($run.Process.ExitCode)" }
         }
     }
     finally { Stop-JobProcess $run }
@@ -140,25 +152,42 @@ finally { Set-Content "$Dir\done" 'done' }
     Set-Content -LiteralPath $OutFile -Value $text -Encoding UTF8
     if ($ResultFolder) {
         $null = New-Item -ItemType Directory -Force $ResultFolder
-        Copy-Item -Path "$dest\out\*" -Destination $ResultFolder -FromSession $session -Recurse -Force -ErrorAction SilentlyContinue
+        try {
+            if (Invoke-Command $session { param($d) [bool](Get-ChildItem -LiteralPath "$d\out" -Force | Select-Object -First 1) } -ArgumentList $dest) {
+                Copy-Item -Path "$dest\out\*" -Destination $ResultFolder -FromSession $session -Recurse -Force -ErrorAction Stop
+            }
+        }
+        catch {
+            # The only copy of the results stays on the lab computer.
+            $keepRunFolder = $true
+            $failure = "The results were not copied back; they stay in $dest\out. $($_.Exception.Message)"
+        }
     }
 }
 finally {
     Remove-Item -LiteralPath $zip -Force -ErrorAction SilentlyContinue
-    if ($haveLock) {
-        try {
-            Invoke-Command $session {
-                param($d, $task, $value)
-                # Stopping the task ends the wrapper if it still runs; its job then closes and ends the members.
-                Stop-ScheduledTask -TaskName $task -ErrorAction SilentlyContinue
-                Unregister-ScheduledTask -TaskName $task -Confirm:$false -ErrorAction SilentlyContinue
-                Start-Sleep -Seconds 3
-                Remove-Item -LiteralPath $d -Recurse -Force -ErrorAction SilentlyContinue
-                if (([string](Get-Content C:\guide\capture.lock -Raw -ErrorAction SilentlyContinue)).Trim() -eq $value) { Remove-Item C:\guide\capture.lock -Force }
-                if (Test-Path -LiteralPath $d) { "LEFT: $d" }
-            } -ArgumentList $dest, $task, $token
-        } catch { Write-Warning "Cleanup failed: $($_.Exception.Message)" }
+    if ($lockAttempted) {
+        # Only items that carry the name or the text of this run are touched, so the cleanup is safe also when the lock was never taken.
+        $cleanup = {
+            param($d, $task, $value, $keep)
+            # Stopping the task ends the wrapper if it still runs; its job then closes and ends the members.
+            Stop-ScheduledTask -TaskName $task -ErrorAction SilentlyContinue
+            Unregister-ScheduledTask -TaskName $task -Confirm:$false -ErrorAction SilentlyContinue
+            Start-Sleep -Seconds 3
+            if (-not $keep) { Remove-Item -LiteralPath $d -Recurse -Force -ErrorAction SilentlyContinue }
+            if (([string](Get-Content C:\guide\capture.lock -Raw -ErrorAction SilentlyContinue)).Trim() -eq $value) { Remove-Item C:\guide\capture.lock -Force }
+            if (-not $keep -and (Test-Path -LiteralPath $d)) { "LEFT: $d" }
+        }
+        try { Invoke-Command $session $cleanup -ArgumentList $dest, $task, $token, $keepRunFolder }
+        catch {
+            # A broken session is replaced once.
+            try {
+                $again = New-PSSession -ComputerName $Target -Credential $LabCredential
+                try { Invoke-Command $again $cleanup -ArgumentList $dest, $task, $token, $keepRunFolder } finally { Remove-PSSession $again }
+            }
+            catch { Write-Warning "Cleanup failed: $($_.Exception.Message). Task $task, folder $dest, lock text $token." }
+        }
     }
-    Remove-PSSession $session
+    Remove-PSSession $session -ErrorAction SilentlyContinue
 }
 if ($failure) { Write-Warning $failure; exit 1 }
