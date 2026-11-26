@@ -123,10 +123,13 @@ public partial class DeploymentHelperPage : INavigationAware
 /// The "Deployment to review" line of the Deploy tab: the object, the collection, the purpose and the member count of the form. While a
 /// choice is missing or refused, the line says which one. The values are the object, the program, the collection, Required and the
 /// values of the last prepare. Without a prepare, the names come from the lists and the line says that the count is from the last read.
+/// With a prepare, the count is the count of the last check. Out-of-date values show no count; the line asks for Validate.
 /// </summary>
 public sealed class DeploymentReviewSummaryConverter : IMultiValueConverter
 {
     public const string LastRead = " at the last read";
+    public const string LastCheck = " at the last check";
+    public const string OutOfDate = "changed, select Validate again";
 
     public static string Summary(DeploymentObjectRow? obj, string? program, DeploymentCollectionRow? collection, bool required, DeploymentReadValues? read = null)
     {
@@ -143,7 +146,9 @@ public sealed class DeploymentReviewSummaryConverter : IMultiValueConverter
         if (version.Length > 0 && !name.Contains(version, StringComparison.OrdinalIgnoreCase)) name += " " + version;
         if (type == DeploymentObjectType.Package) name += $" (program {program})";
         var purpose = required ? DeploymentText.Required : DeploymentText.Available;
-        var members = DeploymentText.Count(read?.Collection.MemberCount ?? collection.MemberCount, "member") + (read is null ? LastRead : "");
+        var members = read is { OutOfDate: true }
+            ? OutOfDate
+            : DeploymentText.Count(read?.Collection.MemberCount ?? collection.MemberCount, "member") + (read is null ? LastRead : LastCheck);
         return $"{name} \u2192 {read?.Collection.Name ?? collection.Name} \u00b7 {purpose} \u00b7 {members}";
     }
 

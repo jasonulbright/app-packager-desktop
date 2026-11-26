@@ -326,10 +326,12 @@ public sealed class DeploymentHelperRenderTests
         Assert.Equal("2026-10 Cumulative Updates \u2192 All Workstations \u00b7 Required \u00b7 2 members at the last read",
             Line(Object(DeploymentObjectType.SoftwareUpdateGroup, "2026-10 Cumulative Updates", ""), null, workstations, true));
 
-        // The values of a prepare replace the names and the count of the lists, with no words about the last read.
+        // The values of a prepare replace the names and the count of the lists, and the count is the count of the last check.
         var read = new DeploymentReadValues(Object(DeploymentObjectType.Application, "7-Zip", "26.07").Object, new DeploymentCollection("LAB00010", "All Workstations (new)", "", 41));
-        Assert.Equal("7-Zip 26.07 \u2192 All Workstations (new) \u00b7 Available \u00b7 41 members",
+        Assert.Equal("7-Zip 26.07 \u2192 All Workstations (new) \u00b7 Available \u00b7 41 members at the last check",
             DeploymentReviewSummaryConverter.Summary(Object(DeploymentObjectType.Application, "7-Zip", "26.04"), null, workstations, false, read));
+        Assert.Equal("7-Zip 26.07 \u2192 All Workstations (new) \u00b7 Available \u00b7 changed, select Validate again",
+            DeploymentReviewSummaryConverter.Summary(Object(DeploymentObjectType.Application, "7-Zip", "26.04"), null, workstations, false, read with { OutOfDate = true }));
 
         // A missing or refused choice is named in place of a deployment.
         var app = Object(DeploymentObjectType.Application, "7-Zip", "26.04");
@@ -368,7 +370,7 @@ public sealed class DeploymentHelperRenderTests
         WithPage(theme, (window, page, viewModel, harness) =>
         {
             const string Listed = "7-Zip 26.04 \u2192 Pilot Workstations \u00b7 Available \u00b7 3 members at the last read";
-            const string Prepared = "7-Zip 26.04 \u2192 Pilot Workstations \u00b7 Available \u00b7 40 members";
+            const string Prepared = "7-Zip 26.04 \u2192 Pilot Workstations \u00b7 Available \u00b7 40 members at the last check";
             var form = viewModel.Deploy;
             void Pick(string collectionId)
             {
@@ -410,6 +412,37 @@ public sealed class DeploymentHelperRenderTests
             Settle(window);
             Assert.Null(form.PreparedCreate);
             Assert.EndsWith("3 members at the last read", ReviewText(page));
+        });
+    }
+
+    [Theory]
+    [InlineData(ApplicationTheme.Light)]
+    [InlineData(ApplicationTheme.Dark)]
+    public void AfterAStalePlanRefusalTheReviewSummaryShowsNoCountAndAsksForValidate(ApplicationTheme theme)
+    {
+        WithPage(theme, (window, page, viewModel, harness) =>
+        {
+            const string Stale = "7-Zip 26.04 \u2192 Pilot Workstations \u00b7 Available \u00b7 changed, select Validate again";
+            var form = viewModel.Deploy;
+            form.SelectedObject = form.Objects.Single(o => o.Object.Id == harness.SevenZip.Id);
+            form.SelectedCollection = form.Collections.Single(c => c.CollectionId == "LAB00010");
+            StaTestHelper.PumpUntil(() => !form.IsLoadingDetails);
+            Settle(window);
+
+            harness.Service.MemberCounts["LAB00010"] = 40;
+            harness.Service.Fail = _ => DeploymentFormViewModel.StalePlanMarker + ". The collection changed.";
+            Run(form.DeployCommand.ExecuteAsync(null));
+            StaTestHelper.PumpUntil(() => !form.IsLoadingDetails);
+            Settle(window);
+            Assert.Equal(DeploymentFormViewModel.StalePlanText, form.FormMessage);
+            Assert.Equal(Stale, ReviewText(page));
+
+            // The next check reads the current state, and the line shows its count.
+            harness.Service.Fail = null;
+            harness.Service.MemberCounts["LAB00010"] = 41;
+            Run(form.ValidateCommand.ExecuteAsync(null));
+            Settle(window);
+            Assert.Equal("7-Zip 26.04 \u2192 Pilot Workstations \u00b7 Available \u00b7 41 members at the last check", ReviewText(page));
         });
     }
 

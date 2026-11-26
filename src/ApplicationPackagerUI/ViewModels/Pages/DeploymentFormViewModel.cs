@@ -704,7 +704,7 @@ public sealed partial class DeploymentFormViewModel : DeploymentTabViewModel
         if (prepared is { Object: { } readObject, Collection: { } readCollection }
             && prepared.Checks.Any(c => c.Name == DeploymentCheckNames.CollectionValid && c.Result == DeploymentText.Pass))
             PreparedCreate = new DeploymentReadValues(readObject, readCollection);
-        else
+        else if (PreparedCreate is not { OutOfDate: true })
             PreparedCreate = null;
         Checks.Clear();
         var type = prepared.Object?.Type;
@@ -798,6 +798,9 @@ public sealed partial class DeploymentFormViewModel : DeploymentTabViewModel
     {
         _validationGeneration++;
         IsValidating = false;
+        // The refusal shows that the values of the last check are wrong. The list values are older still, so the mark covers both.
+        if (SelectedObject is { } obj && SelectedCollection is { } collection)
+            PreparedCreate = (PreparedCreate ?? new DeploymentReadValues(obj.Object, collection.ToCollection())) with { OutOfDate = true };
         Checks.Clear();
         ValidationMessage = StalePlanText;
         FormMessage = StalePlanText;
