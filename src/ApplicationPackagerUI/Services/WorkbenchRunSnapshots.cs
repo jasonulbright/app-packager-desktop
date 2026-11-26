@@ -47,6 +47,28 @@ public static class WorkbenchRunSnapshots
         }
     }
 
+    /// <summary>
+    /// The version and BuildId of the stage at a manifest path, for a run that publishes that path (a bring-your-own build). With an expected
+    /// BuildId, the manifest must still carry it: a later stage into the same folder is another build. A manifest without a BuildId cannot be
+    /// told from another one, so it is a failure too.
+    /// </summary>
+    public static (string Version, string BuildId, string? Failure) StageAt(string manifestPath, string? expectedBuildId)
+    {
+        try
+        {
+            var manifest = new ManifestService().Read(manifestPath);
+            var buildId = manifest.BuildId ?? "";
+            if (buildId.Length == 0) return ("", "", $"The stage manifest {manifestPath} carries no BuildId. Stage the application again.");
+            if (!string.IsNullOrWhiteSpace(expectedBuildId) && !string.Equals(buildId, expectedBuildId, StringComparison.OrdinalIgnoreCase))
+                return ("", "", $"The build {expectedBuildId} is gone: {manifestPath} now carries BuildId {buildId}.");
+            return (manifest.SoftwareVersion ?? "", buildId, null);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException or ArgumentException or JsonException)
+        {
+            return ("", "", $"The stage manifest {manifestPath} cannot be read: {ex.Message}");
+        }
+    }
+
     /// <summary>The run row of one staged BYO build: Package reads its stage manifest directly.</summary>
     public static PackagerInfo ByoRow(StageManifest manifest, DroppedInstallerAnalysis analysis, string manifestPath, string applicationId) =>
         ByoRow(manifest, manifestPath, applicationId, analysis.FileName, analysis.Path, analysis.Engine);

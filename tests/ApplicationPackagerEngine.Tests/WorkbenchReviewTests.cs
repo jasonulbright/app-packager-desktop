@@ -126,6 +126,37 @@ public sealed class WorkbenchReviewTests : IDisposable
     }
 
     [Fact]
+    public void ABringYourOwnBuildIsPinnedToTheBuildIdOfItsStageManifest()
+    {
+        var path = Path.Combine(_t.NewFolder(), "stage-manifest.json");
+        void Write(string buildId, string version) =>
+            _t.NewFile(path, $$"""{"SchemaVersion":4,"BuildId":"{{buildId}}","SoftwareVersion":"{{version}}"}""");
+        (string, string, string?) At(string? expected) => ApplicationPackagerUI.Services.WorkbenchRunSnapshots.StageAt(path, expected);
+
+        Write("20260101-000000-aaaaaaaa", "1.0.0");
+        Assert.Equal(("1.0.0", "20260101-000000-aaaaaaaa", (string?)null), At(null));
+        Assert.Equal(("1.0.0", "20260101-000000-aaaaaaaa", (string?)null), At("20260101-000000-aaaaaaaa"));
+
+        // A later stage into the same folder is another build, also with the same version.
+        Write("20260102-000000-bbbbbbbb", "1.0.0");
+        Assert.Contains("is gone", At("20260101-000000-aaaaaaaa").Item3);
+
+        Write("", "1.0.0");
+        Assert.Contains("carries no BuildId", At(null).Item3);
+        File.Delete(path);
+        Assert.Contains("cannot be read", At("20260101-000000-aaaaaaaa").Item3);
+    }
+
+    [Fact]
+    public void AChosenBuildThatTheSavedProfileDoesNotHaveIsLost()
+    {
+        var lost = ApplicationPackagerUI.ViewModels.Windows.WorkbenchWindowViewModel.ChosenBuildIsLost;
+        Assert.True(lost("20260101-000000-aaaaaaaa", ["No sealed builds"]));
+        Assert.False(lost("20260101-000000-aaaaaaaa", ["20260102-000000-bbbbbbbb", "20260101-000000-aaaaaaaa"]));
+        Assert.False(lost("No sealed builds", ["No sealed builds"]));
+    }
+
+    [Fact]
     public void ABridgeForAnExistingSnapshot_UsesThatSnapshotsProfileNotTheActiveOne()
     {
         var active = _t.NewProfile(App, "Active");

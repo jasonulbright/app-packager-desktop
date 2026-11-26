@@ -1021,10 +1021,18 @@ public class PackagerExecutionService(
     /// <summary>
     /// The Intune compatibility findings for the stage a Package run would publish, with
     /// the operator's variant split and requirement selections applied as the run applies
-    /// them. Null when the row has no readable staged manifest.
+    /// them, and the version and BuildId of that stage. Without a build to follow, a row
+    /// with no readable staged manifest has no findings. With a run snapshot or an
+    /// expected BuildId, the manifest is the one of that build, found as the package run
+    /// finds it, and a manifest that cannot be read is a failure that stops the run.
     /// </summary>
-    public IReadOnlyList<IntuneCompatibilityFinding>? ReviewIntuneCompatibility(IPackagerExecutionRequest packager)
+    public IntuneStageReview ReviewIntuneCompatibility(IPackagerExecutionRequest packager, RunSnapshot? snapshot = null,
+        string? expectedBuildId = null)
     {
+        var expected = expectedBuildId ?? snapshot?.BuildId;
+        // A PS1 packager publishes to ConfigMgr only and writes no manifest this layer reads, so it has nothing to review.
+        var follows = expected is not null && (packager.StagedManifestPath is not null || packager.IsJsonDefined);
+        IntuneStageReview Unread(string reason) => new(null, Failure: follows ? reason : null);
         try
         {
             string? manifestPath = packager.StagedManifestPath;
@@ -1034,26 +1042,38 @@ public class PackagerExecutionService(
             {
                 def = LoadDefinition(packager.DefinitionPath, packager.DefinitionOrigin);
                 var settings = settingsService.Load();
-                source = ProfileSource.Resolve(WorkbenchStoreOrNull(null), def.Id, ApplicationIds.RunOrigin(def.SourceOrigin));
-                var appRoot = StageFolder.Under(ProfileContentScope.LocalDownloadRoot(settings.DownloadRoot, source.ActiveProfileId), def);
-                manifestPath = Path.Combine(appRoot, PublishVersion(packager), "stage-manifest.json");
-                if (!File.Exists(manifestPath) && !string.IsNullOrWhiteSpace(packager.StagedVersion))
-                    manifestPath = Path.Combine(appRoot, packager.StagedVersion, "stage-manifest.json");
+                source = ProfileSource.Resolve(WorkbenchStoreOrNull(snapshot), def.Id, ApplicationIds.RunOrigin(def.SourceOrigin));
+                var appRoot = StageFolder.Under(ProfileContentScope.LocalDownloadRoot(settings.DownloadRoot, snapshot?.ProfileId ?? source.ActiveProfileId), def);
+                if (snapshot is not null)
+                {
+                    manifestPath = BuildRecords.ResolveStageManifestForBuild(snapshot.BuildId, appRoot).ManifestPath;
+                }
+                else
+                {
+                    manifestPath = Path.Combine(appRoot, PublishVersion(packager), "stage-manifest.json");
+                    if (!File.Exists(manifestPath) && !string.IsNullOrWhiteSpace(packager.StagedVersion))
+                        manifestPath = Path.Combine(appRoot, packager.StagedVersion, "stage-manifest.json");
+                }
             }
-            if (manifestPath is null || !File.Exists(manifestPath)) return null;
+            if (manifestPath is null || !File.Exists(manifestPath))
+                return Unread($"Stage manifest not found: {manifestPath ?? "no path"}.");
 
             var manifest = new ManifestService().Read(manifestPath);
+            if (follows && !string.Equals(manifest.BuildId, expected, StringComparison.OrdinalIgnoreCase))
+                return Unread($"stale build: '{manifestPath}' does not carry BuildId '{expected}'.");
+            IntuneStageReview Reviewed(IReadOnlyList<IntuneCompatibilityFinding> findings) =>
+                new(findings, manifest.SoftwareVersion ?? "", manifest.BuildId ?? "");
             if (def is null || source is null || !ProfileSource.LegacyMapsApplyTo(manifest, source))
-                return IntuneCompatibilityFindings.Build(manifest, null, ConditionTemplatesOrNull(), settingsService.Load().Intune.AcceptedRequirementDrops);
+                return Reviewed(IntuneCompatibilityFindings.Build(manifest, null, ConditionTemplatesOrNull(), settingsService.Load().Intune.AcceptedRequirementDrops));
             var conditions = deploymentConditionsService.GetConditions(def.Id);
             DeploymentConditionsService.ApplyVariantSplit(manifest, conditions, Path.GetDirectoryName(manifestPath)!,
                 definitionDeclaresOptionalArchitecturePayloads: def.PayloadVariants is { Length: > 0 });
-            return IntuneCompatibilityFindings.Build(manifest, DeploymentConditionsService.BuildRequirements(conditions),
-                ConditionTemplatesOrNull(), settingsService.Load().Intune.AcceptedRequirementDrops);
+            return Reviewed(IntuneCompatibilityFindings.Build(manifest, DeploymentConditionsService.BuildRequirements(conditions),
+                ConditionTemplatesOrNull(), settingsService.Load().Intune.AcceptedRequirementDrops));
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException or InvalidOperationException)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException or InvalidOperationException or ArgumentException)
         {
-            return null;
+            return Unread(ex.Message);
         }
     }
 
@@ -1787,3 +1807,10 @@ public class PackagerExecutionService(
         return def;
     }
 }
+
+/// <summary>
+/// The Intune review of one stage: its findings (null when there is nothing to review), the version and BuildId of the reviewed manifest, and
+/// why the build of the run could not be read. A failure stops the run.
+/// </summary>
+public sealed record IntuneStageReview(IReadOnlyList<ApplicationPackagerEngine.Services.IntuneCompatibilityFinding>? Findings,
+    string Version = "", string BuildId = "", string? Failure = null);

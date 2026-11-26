@@ -1169,9 +1169,19 @@ public partial class WorkbenchWindowViewModel : ObservableObject
         if (_session.IsDirty && !await ConfirmDiscardAsync("Save the profile before this run? A run uses the saved profile revision.")) return;
         // A save loads the build list again and selects the newest build. The publish keeps the build that the operator chose.
         if (Builds.Contains(chosenBuild)) SelectedBuild = chosenBuild;
+        else if (operation == WorkbenchBuildOperation.Package && ChosenBuildIsLost(chosenBuild, Builds))
+        {
+            // A save as a new profile has no builds. The run does not stage and publish a new build in place of the chosen one.
+            await Prompts.InfoAsync(title, LostBuildMessage(chosenBuild));
+            return;
+        }
 
         var target = WorkbenchBuildLauncher.TargetFor(operation, publishTarget, _settingsService.Load().Intune.DeploymentTarget);
-        var blocking = WorkbenchFindings.BlockingFor(await RunValidationAsync(), target);
+        var findings = await RunValidationAsync();
+        // A stage writes to no system, so with ConfigMgr in its target the Intune findings do not stop it.
+        var blocking = operation == WorkbenchBuildOperation.Package
+            ? WorkbenchFindings.BlockingFor(findings, target, SelectedStageManifest())
+            : WorkbenchFindings.BlockingFor(findings, DeploymentTargets.SkipsMecm(target) ? target : RunTargets.Mecm);
         if (blocking.Count > 0)
         {
             await Prompts.InfoAsync("Blocked", "This profile has blocking findings: " + blocking[0].Message);
@@ -1200,6 +1210,26 @@ public partial class WorkbenchWindowViewModel : ObservableObject
                 SelectedBuild == NoSealedBuilds ? null : SelectedBuild),
             () => CloseRequested?.Invoke(this, EventArgs.Empty));
         if (refusal is not null) await Prompts.InfoAsync(refusal.Title, refusal.Message);
+    }
+
+    /// <summary>True when the operator chose a sealed build and the build list no longer holds it.</summary>
+    public static bool ChosenBuildIsLost(string chosenBuild, IEnumerable<string> builds) =>
+        chosenBuild != NoSealedBuilds && !builds.Contains(chosenBuild);
+
+    public static string LostBuildMessage(string chosenBuild) =>
+        $"The build {chosenBuild} that you chose is not a build of the saved profile. Nothing was published. "
+        + "Stage the profile, or select a build, and then select Publish All again.";
+
+    /// <summary>The stage manifest of the selected sealed build; null when none is selected or it cannot be read.</summary>
+    private StageManifest? SelectedStageManifest()
+    {
+        if (_store is null || _session is null || SelectedBuild == NoSealedBuilds) return null;
+        try { return ByoStaging.SealedBuild(_store, _session.ApplicationId, _session.ProfileId, SelectedBuild).Manifest; }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException or ArgumentException
+                                   or System.Text.Json.JsonException)
+        {
+            return null;
+        }
     }
 
     /// <summary>True when the caller may leave the current profile: nothing unsaved, or Save or Discard chosen.</summary>
