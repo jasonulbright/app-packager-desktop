@@ -208,7 +208,7 @@ public sealed class HarnessProcessJobTests : IDisposable
     public void TheHarnessScriptsHaveNoOtherWayToStopAProcess(string name)
     {
         var script = File.ReadAllText(RepositoryFile(name.Split('/')));
-        foreach (var forbidden in new[] { "Stop-Process", "taskkill", "ParentProcessId", ".Kill(", "OpenProcess", "Win32_Process", "tsdiscon", "logoff.exe" })
+        foreach (var forbidden in new[] { "Stop-Process", "taskkill", "ParentProcessId", ".Kill(", "OpenProcess", "Win32_Process", "tsdiscon", "logoff.exe", "Restart-Computer", "Stop-Computer", "shutdown.exe" })
             Assert.DoesNotContain(forbidden, script, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotMatch(@"(?m)^\s*(kill|spps)\s", script);
     }

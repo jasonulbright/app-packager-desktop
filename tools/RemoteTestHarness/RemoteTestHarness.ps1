@@ -3,8 +3,8 @@
 .SYNOPSIS
     Installs, detects and uninstalls staged catalog definitions on a test machine through
     PowerShell remoting.
-    Runs on the controller. Reboots the test machine when a reboot is pending or an
-    installer exits 3010.
+    Runs on the controller. It never restarts the test machine: a restart ends every signed-in
+    session on it. When a restart is pending or an installer exits 3010, the run stops and says so.
 
 .PARAMETER ComputerName
     Test machine name. The machine must accept PowerShell remoting from the controller.
@@ -68,37 +68,6 @@ function Test-PendingReboot {
     }
 }
 
-function Invoke-RebootAndWait {
-    param([string]$Computer, [PSCredential]$Credential)
-    Write-Host "    REBOOTING $Computer..." -ForegroundColor Yellow
-    Invoke-Command -ComputerName $Computer -Credential $Credential -ScriptBlock { Restart-Computer -Force }
-    Start-Sleep -Seconds 15
-
-    $attempts = 0
-    while ($attempts -lt 12) {
-        if (-not (Test-Connection $Computer -Count 1 -Quiet -ErrorAction SilentlyContinue)) { break }
-        Start-Sleep -Seconds 5
-        $attempts++
-    }
-
-    Write-Host "    Waiting for $Computer to come back online..." -ForegroundColor Yellow
-    $attempts = 0
-    while ($attempts -lt 60) {
-        Start-Sleep -Seconds 10
-        try {
-            $result = Invoke-Command -ComputerName $Computer -Credential $Credential -ScriptBlock { $env:COMPUTERNAME } -ErrorAction Stop
-            if ($result) {
-                Write-Host "    $Computer is back online." -ForegroundColor Green
-                Start-Sleep -Seconds 10
-                return $true
-            }
-        } catch { }
-        $attempts++
-    }
-    Write-Host "    $Computer did not come back after 10 minutes!" -ForegroundColor Red
-    return $false
-}
-
 "App,Phase,Result,DurationMs" | Out-File $ResultsPath -Encoding UTF8
 
 $defs = Get-ChildItem $DefsDir -Filter '*.json' |
@@ -131,13 +100,10 @@ foreach ($defFile in $defs) {
     Write-Host "=== $appName ($fileName) ===" -ForegroundColor Cyan
 
     if (Test-PendingReboot -Computer $ComputerName -Credential $cred) {
-        Write-Host "  Pending reboot detected before install" -ForegroundColor Yellow
-        if (-not (Invoke-RebootAndWait -Computer $ComputerName -Credential $cred)) {
-            Write-Host "  SKIP: VM did not recover from reboot" -ForegroundColor Red
-            "$appName,Reboot,FAIL - VM not recoverable,0" | Out-File $ResultsPath -Append -Encoding UTF8
-            $failed++
-            continue
-        }
+        Write-Host "  STOP: a restart of $ComputerName is pending. The harness does not restart it." -ForegroundColor Red
+        "$appName,Reboot,FAIL - restart pending; the run stopped,0" | Out-File $ResultsPath -Append -Encoding UTF8
+        $failed++
+        break
     }
 
     # The job does not stage: content must already be staged under StagedRoot on the test machine.
@@ -245,9 +211,9 @@ foreach ($defFile in $defs) {
         if ($allPass) { $passed++ } else { $failed++ }
 
         if ($needsReboot) {
-            Write-Host "    Exit 3010 or reboot required" -ForegroundColor Yellow
-            "`"$appName`",`"Reboot`",`"Triggered`",0" | Out-File $ResultsPath -Append -Encoding UTF8
-            Invoke-RebootAndWait -Computer $ComputerName -Credential $cred | Out-Null
+            Write-Host "    STOP: exit 3010, a restart of $ComputerName is required. The harness does not restart it." -ForegroundColor Yellow
+            "`"$appName`",`"Reboot`",`"Required; the run stopped`",0" | Out-File $ResultsPath -Append -Encoding UTF8
+            break
         }
     }
     catch {

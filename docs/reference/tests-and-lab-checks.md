@@ -697,3 +697,5 @@ The icon of a button sat one pixel off the text of its label on some pages. The 
 `tools/RemoteTestHarness/ProcessJob.ps1` starts a process suspended, puts it into a job object and resumes it. The detection timeout, the install and uninstall steps of `RemoteTestHarness.ps1` and `check-configmgr-parity/batch.ps1` stop only the members of that job. They replace `taskkill /T`, a stop of each new `powershell`, `cmd` and `msiexec` process on the client, and a command-line match.
 
 `HarnessProcessJobTests` runs the real scripts in Windows PowerShell. It creates a process that records a harness process as its parent and is not in the job, which is the state after Windows uses an id again. That process stays alive after a stop and after a detection timeout. The tests also prove that an install step waits for each process that it started, and that the four scripts hold no other way to stop a process.
+
+`RemoteTestHarness.ps1` does not restart the lab client: a restart ends every signed-in session. When a restart is pending or an installer exits 3010, the run stops.
