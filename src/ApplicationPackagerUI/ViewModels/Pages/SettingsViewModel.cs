@@ -801,6 +801,7 @@ public partial class SettingsViewModel : ObservableObject, ISettingsReload
     private void CheckAllApplications(string? check)
     {
         var on = string.Equals(check, "True", StringComparison.OrdinalIgnoreCase);
+        using var hold = HoldDirtyState();
         foreach (var row in SupersedenceRows.Where(MatchesFilter)) row.IsSelected = on;
     }
 
@@ -1146,7 +1147,6 @@ public partial class SettingsViewModel : ObservableObject, ISettingsReload
             if (_work.Distribution.TryGetValue(id, out var own))
                 s.DistributionOverrides[id] = new ApplicationDistribution { DpGroupName = own.DpGroupName, TestCollectionName = own.TestCollectionName };
         }
-        _work.DistributionTouched.Clear();
         var conditionsChanged = _work.ConditionsTouched.Count > 0 || _work.CommandsTouched.Count > 0;
         var profileChanged = _work.ProfilePending.Count > 0;
         // An empty box keeps the stored secret; a typed value replaces it, DPAPI-protected for
@@ -1179,6 +1179,8 @@ public partial class SettingsViewModel : ObservableObject, ISettingsReload
                 new SymbolIcon(SymbolRegular.ErrorCircle24), TimeSpan.FromSeconds(6));
             return;
         }
+        // Only a write that succeeded ends the pending edits: a save that is tried again writes them.
+        _work.DistributionTouched.Clear();
         if (conditionsChanged)
         {
             _work.ConditionsTouched.Clear();

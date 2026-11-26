@@ -142,7 +142,8 @@ public sealed class SettingsUnsavedChangesTests : IDisposable
         ["SupersedenceMode"] = v => v.SupersedenceMode = "Replace",
         ["IntuneClientSecret"] = v => v.IntuneClientSecret = "test-value",
         ["NvdApiKey"] = v => v.NvdApiKey = "test-value",
-        ["GitHubToken"] = v => v.GitHubToken = "test-value"
+        ["GitHubToken"] = v => v.GitHubToken = "test-value",
+        ["LookupCvesAfterCheckMecm"] = v => v.LookupCvesAfterCheckMecm = !v.LookupCvesAfterCheckMecm
     };
 
     [Fact]
@@ -197,7 +198,7 @@ public sealed class SettingsUnsavedChangesTests : IDisposable
             // Fields of a section that one edit of the section covers.
             || path.StartsWith("Signing.") || path.StartsWith("TitleOptions.") || path.StartsWith("Wsus.")
             || path is "UseConfigMgr" or "UseWsus" or "OneClickDefaultConfigMgr" or "OneClickDefaultIntune" or "IntuneMinimumWindowsRelease"
-                or "LookupCvesAfterCheckMecm" or "ConfigMgr" or "Intune" or "Wsus";
+                or "ConfigMgr" or "Intune" or "Wsus";
 
         var missing = bound.Where(path => !notSettings.Contains(path) && !Covered(path)).ToList();
 
@@ -215,7 +216,6 @@ public sealed class SettingsUnsavedChangesTests : IDisposable
             ["OneClickDefaultConfigMgr"] = () => viewModel.OneClickDefaultConfigMgr = !viewModel.OneClickDefaultConfigMgr,
             ["OneClickDefaultIntune"] = () => viewModel.OneClickDefaultIntune = !viewModel.OneClickDefaultIntune,
             ["IntuneMinimumWindowsRelease"] = () => viewModel.IntuneMinimumWindowsRelease = ApplicationPackagerEngine.Services.IntuneWindowsReleases.Known.First(r => r != viewModel.IntuneMinimumWindowsRelease),
-            ["LookupCvesAfterCheckMecm"] = () => viewModel.LookupCvesAfterCheckMecm = !viewModel.LookupCvesAfterCheckMecm,
             ["Wsus.Classification"] = () => viewModel.Wsus.Classification = "SecurityUpdates",
             ["Signing.RequireDeployment"] = () => viewModel.Signing.RequireDeployment = !viewModel.Signing.RequireDeployment,
             ["Signing.TimestampRequired"] = () => viewModel.Signing.TimestampRequired = !viewModel.Signing.TimestampRequired
@@ -319,6 +319,77 @@ public sealed class SettingsUnsavedChangesTests : IDisposable
 
         AssertDirty(viewModel, "a save that failed");
         Assert.True(viewModel.Discovery.ClearPending);
+    });
+
+    /// <summary>
+    /// Reads the source: every property of the view model and every working copy of the grid that Save Settings puts into the file is
+    /// part of the buffer that the dirty line compares.
+    /// </summary>
+    [Fact]
+    public void EveryValueThatSaveSettingsWritesIsPartOfTheComparedBuffer()
+    {
+        var folder = Path.Combine(CatalogServiceTests.RepositoryRoot(), "src", "ApplicationPackagerUI", "ViewModels", "Pages");
+        static string Between(string text, string from, string to)
+        {
+            var start = text.IndexOf(from, StringComparison.Ordinal);
+            var end = start < 0 ? -1 : text.IndexOf(to, start, StringComparison.Ordinal);
+            Assert.True(end > start, $"The source no longer has the text from '{from}' to '{to}'.");
+            return text[start..end];
+        }
+
+        // The part of the save that builds what is written, and the capture of the buffer.
+        var save = Between(File.ReadAllText(Path.Combine(folder, "SettingsViewModel.cs")), "private void SaveSettings()", "_settingsService.SaveOperatorEdit(s);");
+        var capture = Between(File.ReadAllText(Path.Combine(folder, "SettingsViewModel.Unsaved.cs")),
+            "private Dictionary<string, string> CaptureEditBuffer()", "private static string Lines(");
+        static bool Names(string source, string name) => System.Text.RegularExpressions.Regex.IsMatch(source, $@"(?<![\w.]){name}\b");
+
+        var properties = typeof(SettingsViewModel).GetProperties(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance
+                | System.Reflection.BindingFlags.DeclaredOnly)
+            .Select(p => p.Name)
+            .Where(name => Names(save, name))
+            // The three boxes of the One Click defaults, which the save reads through one property.
+            .SelectMany(name => name == nameof(SettingsViewModel.OneClickDefaultDestinations)
+                ? new[] { "OneClickDefaultConfigMgr", "OneClickDefaultWsus", "OneClickDefaultIntune" }
+                : [name])
+            .Distinct()
+            .ToList();
+        Assert.True(properties.Count > 40, "The save names too few properties: " + string.Join(", ", properties));
+        var missing = properties.Where(name => !Names(capture, name)).ToList();
+
+        // The working copies of the grid; the Touched sets only say which of them the save writes.
+        var copies = System.Text.RegularExpressions.Regex.Matches(save, @"\b_work\.(\w+)").Select(m => m.Groups[1].Value)
+            .Where(name => !name.EndsWith("Touched", StringComparison.Ordinal))
+            .Select(name => name == "ProfilePending" ? "_work.ProfileEdits" : "_work." + name)
+            .Distinct();
+        missing.AddRange(copies.Where(name => !capture.Contains(name, StringComparison.Ordinal)));
+        if (save.Contains("_supersedenceWork", StringComparison.Ordinal) && !capture.Contains("_supersedenceWork", StringComparison.Ordinal))
+            missing.Add("_supersedenceWork");
+
+        Assert.True(missing.Count == 0, "Save Settings writes these, and the dirty line does not compare them: " + string.Join(", ", missing));
+    }
+
+    [Fact]
+    public void ADistributionOverrideSurvivesASaveThatFailedAndIsWrittenByTheNextOne() => OnSta(() =>
+    {
+        var (viewModel, service) = Create();
+        viewModel.SupersedenceRows.Add(new SupersedenceRow { Uid = "app1", ApplicationId = "catalog:app1", DefinitionId = "app1", Application = "Contoso One", Vendor = "Contoso" });
+        viewModel.BulkColumn = "Distribution point group";
+        viewModel.BulkValue = "Pilot DPs";
+        viewModel.BulkScope = "All applications";
+        viewModel.ApplyBulkNowCommand.Execute(null);
+        viewModel.SupersedenceRows.Clear();
+
+        // A reader that does not share delete access: the settings can be read and cannot be replaced.
+        using (new FileStream(SettingsService.SettingsPath, FileMode.Open, FileAccess.Read, FileShare.Read))
+            viewModel.SaveSettingsCommand.Execute(null);
+
+        AssertDirty(viewModel, "a save that failed");
+        Assert.Empty(service.Load().DistributionOverrides);
+
+        viewModel.SaveSettingsCommand.Execute(null);
+
+        AssertClean(viewModel, "the second save");
+        Assert.Equal("Pilot DPs", service.Load().DistributionOverrides["catalog:app1"].DpGroupName);
     });
 
     [Fact]

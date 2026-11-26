@@ -56,7 +56,10 @@ public partial class SettingsViewModel
     protected override void OnPropertyChanged(PropertyChangedEventArgs e)
     {
         base.OnPropertyChanged(e);
-        if (e.PropertyName is not (nameof(HasUnsavedChanges) or nameof(UnsavedChangesText))) RefreshDirtyState();
+        // The dirty line itself, and the search box, the bulk bar and the check marks of the grid, hold no setting.
+        if (e.PropertyName is not (nameof(HasUnsavedChanges) or nameof(UnsavedChangesText) or nameof(SupersedenceSelectedCount)
+            or nameof(ApplicationFilter) or nameof(BulkColumn) or nameof(BulkValue) or nameof(BulkScope) or nameof(BulkValues)))
+            RefreshDirtyState();
     }
 
     /// <summary>The editors of the sections raise their own change notices; the dirty line follows them too.</summary>
@@ -193,6 +196,7 @@ public partial class SettingsViewModel
         Put(nameof(IntuneMinimumWindowsRelease), IntuneMinimumWindowsRelease);
 
         Put(nameof(SkipConfigReview), SkipConfigReview);
+        Put(nameof(LookupCvesAfterCheckMecm), LookupCvesAfterCheckMecm);
         Put("citrix", JsonSerializer.Serialize(TrimSwitches(CwaSwitches)));
         foreach (var group in InstallParameterGroups)
         {
