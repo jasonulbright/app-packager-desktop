@@ -18,7 +18,7 @@ None. A shortcut works only in the context that the table names.
 
 | Key | Context | Effect |
 |---|---|---|
-| Ctrl+A | **App Packager** page | Checks or clears all rows. |
+| Ctrl+A | **App Packager** page | Checks every row that the grid shows, or clears all rows. In a text box, Ctrl+A selects the text. |
 | F5 | **App Packager** page, while the keyboard focus is on the page | Reloads the application list. |
 | Esc | **App Packager** page, while an operation runs | Cancels the operation. |
 | Ctrl+E | **App Packager** page | Exports the shown rows to a CSV file. The save dialog is titled **Export the App Packager grid to CSV**. The file name starts as `AppPackager-Export-yyyyMMdd.csv`. |
@@ -45,6 +45,9 @@ In a dialog, Enter selects the default button and Esc selects the cancel button.
 
 | Window | Enter | Esc |
 |---|---|---|
+| **Review publish** | **Publish N applications** | **Back** |
+| **Publish results** | **Done** | **Done** |
+| **One Click run history** | **Open report** | **Close** |
 | **Discover unmanaged software** | **Enable selected** | **Not now** |
 | Catalog deploy dialog of **Collection and Compliance** | **Show plan** | **Cancel** |
 | Collection editor of **Collection and Compliance** | **Show plan** | **Cancel** |

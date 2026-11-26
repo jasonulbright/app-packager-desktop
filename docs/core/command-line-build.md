@@ -14,7 +14,7 @@
 
 ## Requirements
 
-- The settings of the destinations that the target names, and only those. A run for Intune, for WSUS, or for both needs no ConfigMgr site, no ConfigMgr console and no file share. The run applies the same checks as the publish buttons. See [Stage and publish](stage-and-publish.md).
+- The settings of the destinations that the target names, and only those. A run for Intune, for WSUS, or for both needs no ConfigMgr site, no ConfigMgr console and no file share. The run applies the same checks as **Publish All**. See [Stage and publish](stage-and-publish.md).
 - **Download Root (local staging)** in Settings, or `--download-root`.
 - The application and the profile exist. Create a profile in the [Workbench](workbench.md).
 
@@ -83,7 +83,7 @@ Rules:
 - `--target ContentOnly` publishes to no destination. The output shows `Package skipped: target ContentOnly publishes to no destination.`
 - A target publishes to the destinations that its name lists and to no other. The order is ConfigMgr, then WSUS, then Intune. The run stops at the first destination that fails.
 - The Intune destination always uses `Skip`.
-- Every destination of the target is checked before anything stages, and a destination that the target does not name is not checked. The checks are the same as the checks of the publish buttons. The WSUS check also needs the WSUS administration API on this computer.
+- Every destination of the target is checked before anything stages, and a destination that the target does not name is not checked. The checks are the same as the checks of **Publish All**. The WSUS check also needs the WSUS administration API on this computer.
 
 ### Targets
 

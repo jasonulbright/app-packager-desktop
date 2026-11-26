@@ -83,7 +83,7 @@ Select the **Options** tab.
 | **Library folder** | Folder box, **Browse**, **Clear** | The query and script libraries show the built-in samples, then the files of this folder. Leave the box empty for the samples only. The default is no folder. |
 | **Result wait time** | List | The time in minutes that the page reads the results of a run. The list offers 1, 2, 5, 10, 15, 30 and 60. The default is 5. |
 
-The **Connection** section shows the site code and the provider. To change them, use Settings, **ConfigMgr Site Settings**.
+The **Connection** section shows the site code and the provider. To change them, use Settings, **ConfigMgr**.
 
 **Stop waiting** ends the wait sooner. The clients still run the request.
 

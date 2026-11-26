@@ -16,7 +16,7 @@ None.
 
 ## Terms
 
-**Application (ConfigMgr).** The object that App Packager Desktop creates in ConfigMgr when you select **Publish to ConfigMgr**. It has deployment types.
+**Application (ConfigMgr).** The object that App Packager Desktop creates in ConfigMgr when you publish to ConfigMgr. It has deployment types.
 
 **ARP.** Add/Remove Programs. A definition names its ARP entry with the field `ArpName`. Discover unmanaged software uses this entry to match an application.
 
@@ -52,7 +52,7 @@ None.
 
 **Deployment type.** A part of a ConfigMgr application. App Packager Desktop creates the deployment types when it publishes to ConfigMgr.
 
-**Destination.** A system that receives a published application: ConfigMgr, WSUS or Intune. **Default destinations** in **One Click Settings** sets the destinations of a tracked application.
+**Destination.** A system that receives a published application: ConfigMgr, WSUS or Intune. **Default destinations** on the **One Click** page of Settings sets the destinations of a tracked application.
 
 **Distribution point (DP).** A ConfigMgr server that holds content for clients. The DP Content Manager page lists distribution points and their content.
 
@@ -98,7 +98,7 @@ None.
 
 **Workbench.** The Workbench. It is the editor for one application, with profiles, bundles and builds. See [Workbench](../core/workbench.md).
 
-**WSUS.** Windows Server Update Services. **Publish to WSUS** publishes an installer as a locally published update.
+**WSUS.** Windows Server Update Services. A publish to WSUS publishes an installer as a locally published update.
 
 **`.intunewin`.** The package file that the Content Prep Tool builds for a Win32 app in Intune.
 

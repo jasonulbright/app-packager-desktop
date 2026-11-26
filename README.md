@@ -50,10 +50,10 @@ The .NET Windows Desktop Runtime 10.0.14 or newer (x64) must be on the computer.
 
 ## First run
 
-1. On the first start, the Setup window asks which systems you use: ConfigMgr, Intune, WSUS. It then asks only for the settings that those systems need. All settings are also on the **Settings** page.
-2. On the **App Packager** page, select one or more applications. Select **Check Latest** to read the current vendor version.
+1. The app starts on the **App Packager** page. On a new installation, a setup checklist opens beside the grid. Its steps are: choose the systems (ConfigMgr, Intune, WSUS), connect to your site, set the content folders and discover unmanaged software. **Open Setup** opens the Setup window, which asks only for the settings that your systems need. The Setup window does not open by itself. **More**, **Setup...** also opens it. All settings are also on the **Settings** page.
+2. On the **App Packager** page, select one or more applications. Select **Check**, then **Check Latest**, to read the current vendor version.
 3. Select **Stage** to download and prepare the content.
-4. Select **Publish to ConfigMgr**, **Publish to Intune** or **Publish to WSUS**. A button is disabled while its system is not set up. Its tooltip names the setting that is missing.
+4. Select **Publish All**. It publishes to the systems in Settings, Systems in Use. A review opens before the publish, and a results window after it. A publish to WSUS only has neither. The button is disabled while a system in use is not set up. Its tooltip names the reason.
 
 [Getting started](docs/getting-started.md) shows these steps in detail.
 
@@ -63,7 +63,7 @@ The sidebar lists the pages. The first group holds **App Packager**, **Add from 
 
 Packaging:
 
-- [App Packager page](docs/core/packages.md): the grid, the version checks, Stage and the publish buttons. The [grid reference](docs/core/packages-grid.md) lists the columns, the status values and the context menu.
+- [App Packager page](docs/core/packages.md): the grid, the status tabs, the version checks, Stage and Publish All. The [grid reference](docs/core/packages-grid.md) lists the columns, the status values and the context menu.
 - [Catalog](docs/core/applications.md): show or hide applications in the grid.
 - [Add from web](docs/core/add-app.md): a seven-step wizard that writes a definition with a version source, an installer analysis and a detection rule.
 - [Add from file](docs/core/add-from-file.md): analyzes an installer file (`.msi`, `.exe`, `.msp`, `.msix`, `.appx`, `.msixbundle`, `.appxbundle`) and saves it as a definition. Each proposed value shows its evidence level.

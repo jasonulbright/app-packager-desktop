@@ -21,17 +21,17 @@ None. Some fixes need rights on the ConfigMgr site or on the SQL Server of the s
 3. Do the fix.
 4. Select the grid on the **App Packager** page, then press F5 to reload the list and test the ConfigMgr connection again.
 
-## Publish buttons and settings
+## Publish All and settings
 
-A disabled publish button shows a tooltip that names the missing setting.
+A disabled **Publish All** button shows a tooltip. It starts with `Publish All:` and names each system in use that is not ready, with its reason. The reasons are the messages under [Messages when a run starts](#messages-when-a-run-starts). A disabled **Check ConfigMgr** entry and the **WSUS Updates** entry also name the missing setting.
 
 | Message | Cause | Fix |
 |---|---|---|
-| ConfigMgr is not in use. Select it under Systems in Use in Settings. (The tooltip begins with the name of the button, for example "Publish to ConfigMgr:".) | The system is cleared under **Systems in Use**. The same text applies to Intune and WSUS with the system name. | Select the system under **Systems in Use** in **Settings**. Select **Save Settings**. |
+| ConfigMgr is not in use. Select it under Systems in Use in Settings. (The tooltip begins with the name of the control, for example "Check ConfigMgr:".) | The system is cleared under **Systems in Use**. The same text applies to Intune and WSUS with the system name. | Select the system under **Systems in Use** in **Settings**. Select **Save Settings**. |
 | Needs the ConfigMgr console on this computer. | The application did not find the Configuration Manager console. | Install the console. **Settings**, **Detected Tools** shows if the application finds it. |
-| Set the site code in Settings, ConfigMgr Site Settings. | **Site Code** is empty. | Enter the site code. |
-| Publish to Intune: set Tenant ID, Client ID and Client Secret in Settings, Intune. | Intune is in use, and a credential is missing. | Enter the three values under **Intune**. |
-| Set the WSUS server in Settings, WSUS Publishing. | WSUS is in use, and **WSUS server** is empty. | Enter the server name under **WSUS Publishing**. |
+| Set the site code in Settings, ConfigMgr Site Settings. | **Site Code** is empty. | Enter the site code on the **ConfigMgr** page of Settings. |
+| Publish All: no system is in use. Turn on ConfigMgr, Intune or WSUS in Settings, Systems in Use. | No system is selected. | Select a system under **Systems in Use**. Select **Save Settings**. |
+| Set the WSUS server in Settings, WSUS Publishing. | WSUS is in use, and **WSUS server** is empty. | Enter the server name on the **WSUS** page of Settings. |
 
 ## Messages when a run starts
 

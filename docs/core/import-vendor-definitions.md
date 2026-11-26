@@ -1,12 +1,12 @@
 # Import vendor definitions from a URL
 
-A software vendor can publish a **feed**: a JSON document with application definitions in the definition format of this program. **Import From URL** (a button under the grid of the App Packager page) fetches such a document, shows everything that the import would do, and stores the definitions only after you confirm.
+A software vendor can publish a **feed**: a JSON document with application definitions in the definition format of this program. **Import From URL** (in the menu **Add or import** of the App Packager page) fetches such a document, shows everything that the import would do, and stores the definitions only after you confirm.
 
 Specification: [Import of vendor definitions from a URL](../specs/vendor-url-import.md). This page describes what is built: the anonymous import with a pinned digest or a pinned publisher. The unblock of a script or a command, the update of a feed and authenticated feeds are later steps.
 
 ## Steps
 
-1. Select **Import From URL**. The window opens.
+1. Select **Add or import**, then **Import From URL**. The window opens.
 2. Enter the HTTPS address of the feed. An address that is not HTTPS is refused. Optionally enter the SHA-256 of the document, which the vendor publishes on another channel (a pin).
 Or enter the **pinned publisher**: the subject and the issuer of the code-signing certificate of the vendor separated by `|` (for example `CN=Contoso Software, O=Contoso, C=US | CN=Contoso Code Signing CA`), or `key:` and the SHA-256 of its public key. The vendor publishes the detached signature next to the document: the same address with `.p7s` added. The program checks it for the exact bytes, the code-signing usage, the chain to a trusted root with the online revocation check, and that the signer is the pinned one. The state is then **Signed by pinned publisher**. An expired certificate counts only with a valid RFC 3161 time stamp. Any failure stops the import.
 3. Select **Fetch**. **Cancel Fetch** stops it. Nothing is written by a fetch.

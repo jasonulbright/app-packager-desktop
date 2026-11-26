@@ -16,7 +16,7 @@ The DP Content Manager page shows which content is on which distribution point (
 
 - ConfigMgr rights: a ConfigMgr security role with read rights on distribution points and content, and rights to distribute and remove content. A least-privilege role is not tested: all lab runs used a Full Administrator account.
 - Local rights: the Windows account that started the app. The ConfigMgr console module must be on this computer. The page uses it through Windows PowerShell 5.1.
-- Settings: select **ConfigMgr** under **Systems in Use** in Settings. Enter **Site Code** and **Site Server / SMS Provider Host** under **ConfigMgr Site Settings** in Settings.
+- Settings: select **ConfigMgr** under **Systems in Use** in Settings. Enter **Site Code** and **Site Server / SMS Provider Host** on the **ConfigMgr** page of Settings.
 - The audit log folder must be writable before a removal. A removal does not start when the log cannot be written.
 
 ## Steps

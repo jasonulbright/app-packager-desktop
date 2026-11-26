@@ -82,7 +82,7 @@ See [App Packager page](../core/packages.md) and [Stage and publish](../core/sta
 | Publish to ConfigMgr requires the ConfigMgr Console. Not detected on this workstation. | App Packager page, at the start of a run, for a ConfigMgr publish only | The variable `SMS_ADMIN_UI_PATH` or the module file is missing. | Install the console. See Detected Tools in Settings. |
 | SiteCode is required. Open Settings to configure. | App Packager page, at the start of a run | The site code is empty. | Do as the message says. |
 | File Share Root is required. Open Settings to configure. | App Packager page, at the start of a run | The share root is empty. | Do as the message says. |
-| Needs the ConfigMgr console on this computer. | Tooltip of `Check ConfigMgr` and `Publish to ConfigMgr` | The console was not found. | Install the console. |
+| Needs the ConfigMgr console on this computer. | Tooltip of `Check ConfigMgr` | The console was not found. | Install the console. |
 | <System> is not in use. Select it under Systems in Use in Settings. | Tooltip or message of a disabled button | The system is off in Systems in Use. | Select the system in Settings. |
 | Intune credentials are required. Open Settings and set Tenant ID, Client ID, and Client Secret. | App Packager page | A target publishes to Intune without credentials. | Do as the message says. |
 | No packagers selected. | App Packager page log | A button was pressed with no checked row. | Check at least one row. |

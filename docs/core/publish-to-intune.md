@@ -2,7 +2,7 @@
 
 ## What it does
 
-`Publish to Intune` builds an `.intunewin` file from the staged content of each checked application. It then publishes the file as a Win32 app through Microsoft Graph. The app does not create assignments. You assign the app in Intune.
+A publish to Intune builds an `.intunewin` file from the staged content of each checked application. It then publishes the file as a Win32 app through Microsoft Graph. The app does not create assignments. You assign the app in Intune.
 
 ## When to use it
 
@@ -30,14 +30,15 @@
 5. Open the **App Packager** page.
 6. Stage the applications that you want to publish.
 7. Check the rows to publish.
-8. Select **Publish to Intune**.
+8. Select **Publish All**. **Publish All** publishes to every system in use. To publish to Intune only, select **Intune** only under **Systems in Use**. Review the **Review publish** window and select **Publish N applications**. See [Publish All](stage-and-publish.md#publish-all).
 9. If the dialog **Intune review** opens, read the findings. Select **Continue** to publish. Select **Cancel** to stop the whole run.
 10. Watch the log. A successful row shows `Published`. The log shows `Intune publish: published (app id <id>)`.
-11. Open the Intune admin center and assign the app.
+11. Review the **Publish results** window. Select **Done**.
+12. Open the Intune admin center and assign the app.
 
 ![The Intune page of Settings](../images/core-settings-intune-cve.png)
 
-If the button is disabled, point at it. The tooltip reads `Publish to Intune: Intune is not in use. Select it under Systems in Use in Settings.` or `Publish to Intune: set Tenant ID, Client ID and Client Secret in Settings, Intune.`
+If **Publish All** is disabled, point at it. The tooltip names each system that is not ready. For Intune it reads `Intune: Publish requires Intune credentials. Open Settings, Intune, to configure Tenant ID, Client ID, and Client Secret.` after `Publish All:`.
 
 ## What the publish does
 
@@ -54,7 +55,7 @@ The Win32 app carries these values:
 | Value | Source |
 |---|---|
 | Display name | The application title. |
-| Description | The text of **Administrative Comments**. If the box is empty, the display name. |
+| Description | The administrative comment of the run. If it is empty, the display name. |
 | Publisher | The publisher of the staged manifest. |
 | Install and uninstall command | The commands of the staged manifest. |
 | Detection rules | The detection rule of the staged manifest. A PowerShell detection script sets `enforceSignatureCheck` when the detection script is signed or when a valid signature is required. A file detection keeps its property: `Version` (file version), `Size` (the definition gives bytes; the Intune rule compares the size in megabytes rounded down, so only a size that is a whole number of megabytes with the operator `GreaterEquals` or `LessThan` is published, and any other size or operator is refused), `DateModified` and `DateCreated` (the value needs a UTC offset and whole seconds, for example `2025-03-01T10:00:00Z`; the rule is sent in UTC) and `Existence`. A file property that the rule cannot carry is refused. It does not publish as "file exists". A registry value detection compares as an integer when its property type is an integer type (`Integer`, `Int`, `Int32`, `Int64`, `DWORD`, `QWORD`; the value must be an integer), with version semantics when it is `Version` (also for a version of one number), and as text or version from the format of the value when it is `String` or absent. `Existence` checks that the value exists. Any other registry property type is refused. |
@@ -142,7 +143,7 @@ A requirement that has no such form blocks the Intune publish before the first G
 | Client Secret | empty | Stored with DPAPI for the current Windows user. |
 | Win32 Content Prep Tool, **Download** | not downloaded | Downloads `IntuneWinAppUtil.exe` to the Tools folder. |
 
-The deployment target is not a setting that you edit. It stores the name of the target that matches the default destinations in Settings, One Click Settings, for example `IntuneAndWSUS`. See [One Click](one-click.md).
+The deployment target is not a setting that you edit. It stores the name of the target that matches the default destinations in Settings, One Click, for example `IntuneAndWSUS`. See [One Click](one-click.md).
 
 See [Settings reference](../reference/settings.md).
 

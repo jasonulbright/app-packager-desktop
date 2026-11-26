@@ -75,7 +75,7 @@ The window finds the IDs in the text. It imports each distinct ID once, in the o
 
 ## Options and settings
 
-The windows have no saved settings of their own. The group box starts with **Approve for group** from **Settings**, **WSUS Publishing**. The server comes from the same section.
+The windows have no saved settings of their own. The group box starts with **Approve for group** from **Settings**, **WSUS**. The server comes from the same page.
 
 | Control | Window | Effect |
 |---|---|---|

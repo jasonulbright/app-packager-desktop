@@ -25,8 +25,8 @@ The page needs no ConfigMgr site, no Intune tenant and no WSUS server.
 
 ## Steps
 
-1. Select **Add from web** in the sidebar. The page title shows the step, for example `Step 1 of 7: Basic information`.
-2. Complete step 1, **Basic information**. Select **Next**.
+1. Select **Add from web** in the sidebar, or select **Add or import**, then **Add from web**, on the App Packager page. The page header shows the step, for example `Step 1 of 7: Basic information`. A list at the left shows `Step 1 of 7` and the seven step names, and it marks the current step. You cannot select a step in the list. Use **Back** and the forward button.
+2. Complete step 1, **Basic information**. Select the forward button. Its label names the next step, for example `Next · Version source`. The steps below call it **Next**.
 3. Complete step 2, **Version source**. Select **Test Scrape**. Select **Next**.
 4. Complete step 3, **Download configuration**. Select **Next**.
 5. Do step 4, **Installer analysis**, or skip it. Select **Next**.
@@ -36,7 +36,7 @@ The page needs no ConfigMgr site, no Intune tenant and no WSUS server.
 9. Select **Save Definition**. The arrow on the button opens **Save and open in Workbench**.
 10. On the result panel, select **Open in Workbench**, **Stage now** or **Done**.
 
-The wizard does not check a step when you select **Next**. It checks the required fields when you select **Save Definition**. **Back** is disabled on step 1. **Next** is hidden on step 7. **Save Definition** shows on step 7 only.
+The wizard does not check a step when you select **Next**. It checks the required fields when you select **Save Definition**. **Back** is disabled on step 1. The forward button is hidden on step 7. **Save Definition** shows on step 7 only.
 
 ### Step 1: Basic information
 
@@ -44,7 +44,7 @@ The wizard does not check a step when you select **Next**. It checks the require
 |---|---|---|
 | **Vendor** | The publisher name, for example `Mozilla`. The name is used for the folder structure of the content share and for the Publisher field of the ConfigMgr application. Required. | Empty |
 | **Application name** | The full name with the bitness, for example `Mozilla Firefox (x64)`. The name is the main identifier in the UI and in the file name. Required. | Empty |
-| **ConfigMgr display name (optional)** | The name in the ConfigMgr console and in Software Center. | Empty. An empty field uses the **Application name**. |
+| **ConfigMgr display name (optional)** | The name in the ConfigMgr console and in Software Center. The text under the field says: `Leave this field empty to use the application name in ConfigMgr.` | Empty. An empty field uses the **Application name**. |
 | **Architecture** | `x64` or `x86`. | `x64` |
 | **Vendor URL** | The web site of the vendor. For reference only. The scraper does not use it. The context menu entry **Open Vendor URL** on the [App Packager page](packages.md) opens it. | Empty |
 

@@ -10,7 +10,7 @@ You set the tracked applications, the action and the default destinations once i
 
 - Use One Click to keep a fixed set of applications current with one operation.
 - Use the action **Report only** to find out which tracked applications have a new version. Nothing is staged or published.
-- Use the publish buttons of the [App Packager page](packages.md) to publish a single application or a one-time selection.
+- Use **Publish All** on the [App Packager page](packages.md) to publish a single application or a one-time selection.
 
 ## Requirements
 
@@ -31,7 +31,7 @@ The rights of each destination are in [Permissions](../reference/permissions.md)
 ### Set up One Click
 
 1. Select **Settings** in the sidebar.
-2. Go to the section **One Click Settings**.
+2. Select the page **One Click** (under **Updates and CVEs**).
 3. Select the **Action on update**: **Report only**, **Stage** or **Stage and Publish**.
 4. Check **Default destinations**: **ConfigMgr**, **WSUS** and **Intune**.
 5. Select **Existing ConfigMgr app**: **Skip the application** or **Overwrite it**.
@@ -40,27 +40,41 @@ The rights of each destination are in [Permissions](../reference/permissions.md)
 8. Optional: enter **Cadence (days)** for one row.
 9. Select **Save Settings**.
 
-![The One Click Settings section with tracked applications and their destinations](../images/core-one-click-settings.png)
+![The One Click page of Settings with tracked applications and their destinations](../images/core-one-click-settings.png)
 
 ### Plan and run
 
 1. Select **App Packager** in the sidebar.
-2. Optional: enter text in **Administrative Comments**. A publish to ConfigMgr uses this comment.
-3. Select **One Click**. One Click runs the whole chain on every tracked application: **Check Latest**, **Check ConfigMgr** and **Check CVEs** first, then the **One Click** window opens with the checked versions. **Run** stages and packages each application. Select **Cancel** during a check to stop before the plan opens.
-4. View the summary line, the action line, the scope line and the grid. A line that starts with `Not ready:` names a destination that cannot take a publish.
-5. Optional: clear **Include** for a row, or change the destination boxes of a row. These changes apply to this run only.
-6. Optional: select **Plan only** to write the plan as a report without a run.
-7. Select **Run**.
-8. Wait for the run. The summary line shows `Running: <N> application(s)`. Select **Cancel** to stop the run.
-9. Review the result columns. The summary line ends with `Complete: <N> published, <N> failed. Report: <file>`. When a row only applied supersedence, the line adds `, <N> superseded` before the report.
-10. Select **Open report** to open the report. Select **Run history** to open the folder of all reports.
-11. Select **Close**.
+2. Optional: enter text in **Administrative Comments**. The plan window starts with this text.
+3. Select **One Click** at the right of the status tabs. One Click runs **Check Latest**, **Check ConfigMgr** and **Check CVEs** on every tracked application. Then the **One Click** window opens with the checked versions. Select **Cancel** during a check to stop before the plan opens. The window does not stop your work in the main window.
+4. View the header, the steps of the saved action, the systems, the summary line, the action line, the scope line and the grid. A line that starts with `Not ready:` names a destination that cannot take a publish.
+5. Optional: change the text in **Administrative comment**. A publish uses this text. It does not change the box on the App Packager page.
+6. Optional: clear **Include** for a row, or change the destination boxes of a row. These changes apply to this run only.
+7. Optional: select **Plan only** to write the plan as a report without a run.
+8. Select **Run**.
+9. Wait for the run. The summary line shows `Running: <N> application(s)`. Select **Cancel** to stop the run.
+10. When a destination has a result, the window **Publish results** opens. Read it and select **Done**. **Results** in the plan window opens it again. See [The results](stage-and-publish.md#the-results).
+11. Review the result columns. The summary line ends with `Complete: <N> published, <N> failed. Report: <file>`. When a row only applied supersedence, the line adds `, <N> superseded` before the report.
+12. When an application failed, **Review failed application** selects the first one in the grid.
+13. Select **Open report** to open the report of this window. Select **Run history** to see the earlier runs.
+14. Select **Close**.
 
 ![The One Click plan window with three tracked applications](../images/core-one-click-plan.png)
 
 After a run, **Run** and **Plan only** stay disabled in that window. Close the window and open it again for the next run.
 
+### Run history
+
+**Run history** opens the window **One Click run history**. It lists the runs from the report files, the newest first, with the columns **Started**, **Action**, **Applications**, **Published** and **Failed**. A report from **Plan only** is not listed. Select a run, then **Open report**. **Open report folder** opens the folder of all report files. **Close** closes the window.
+
 ## What the plan shows
+
+The heading is **Review One Click plan**. The lines under it show:
+
+- The number of applications that are included and not included, and the ConfigMgr site when a site is set, for example `2 applications included, 1 not included. ConfigMgr site <code>.`
+- The steps of the saved action, for example `Check Latest, then Check ConfigMgr, then Check CVEs, then Stage, then Publish`. To change the action, change it in Settings, One Click.
+- The systems, for example `In use: ConfigMgr. Not in use: Intune, WSUS.`
+- The summary, action and scope lines.
 
 | Column | Content |
 |---|---|
@@ -68,10 +82,11 @@ After a run, **Run** and **Plan only** stay disabled in that window. Close the w
 | **Application**, **Version** | The application and the latest version that the app knows. |
 | **ConfigMgr**, **WSUS**, **Intune** | The destinations of the row for this run. |
 | **Last published** | The version last published to each destination, for example `ConfigMgr 26.03`. |
+| **Destinations from** | `Saved for this application`, `Default`, or `Changed for this run` when a box differs from the saved choice. |
 | **Planned** | The steps: `Check`, `Stage`, `Publish to <destinations>`, `Supersedence`, or `Skip`. `Supersedence` is the pass that applies a supersedence step that failed at an earlier publish. See Supersedence in a run. |
 | **Reason** | Why the plan leaves a row or a destination out. |
 
-During a run the columns change. The destination boxes, **Last published** and **Planned** give way to **Step** and one result column for each destination in use: **ConfigMgr result**, **WSUS result**, **Intune result**.
+During a run the columns change. The destination boxes, **Last published**, **Destinations from** and **Planned** give way to **Step** and one result column for each destination in use: **ConfigMgr result**, **WSUS result**, **Intune result**.
 
 The plan leaves a row or a destination out for these reasons:
 
@@ -135,7 +150,7 @@ The rollback text of each destination:
 
 ## Options and settings
 
-All settings are in **Settings**, **One Click Settings**. See [Settings](../reference/settings.md).
+All settings are in **Settings**, **One Click**. See [Settings](../reference/settings.md).
 
 | Control | Default | Effect |
 |---|---|---|
@@ -147,7 +162,7 @@ All settings are in **Settings**, **One Click Settings**. See [Settings](../refe
 | **Track** grid | no application | The tracked applications. |
 | **Cadence (days)** (row) | empty | Days for this application only. Empty uses the default cadence. |
 
-In the plan window, **Include** and the destination boxes apply to this run only.
+In the plan window, **Include**, the destination boxes, **Administrative comment** and the Force check box apply to this run only.
 
 ### Supersedence in a run
 
@@ -168,7 +183,7 @@ When the supersedence mode of **Settings**, **Application Settings** is not `Off
 
 - The lab validated the skip and republish rules on a lab site. A second run without a change skipped every application. A new profile revision made the next run stage the application again.
 - In the lab, a run with Force on sent every row to its destinations again. The ConfigMgr policy **Skip the application** and the state of the WSUS server still decided the result. Nothing new was published.
-- One Click publishes to Intune through the same service as **Publish to Intune**. Intune publishing is tested against simulated Graph responses only.
+- One Click publishes to Intune through the same service as **Publish All**. Intune publishing is tested against simulated Graph responses only.
 - The supersedence pass reads the identity of the application line from the manifest of the last stage. Without that manifest, the pass reports `stage-manifest.json not found`, and the version stays pending until you stage the application once.
 - The plan does not show a pending change of the Workbench profile. It can show `ConfigMgr: <version> already published` for a row that the run then stages again.
 - The lab did not verify a run with Force on that publishes to a real WSUS server.
@@ -177,7 +192,7 @@ When the supersedence mode of **Settings**, **Application Settings** is not `Off
 
 | Message | Cause | Fix |
 |---|---|---|
-| Dialog **One Click Not Configured**: `No apps are tracked yet.` | No application is tracked. | Track applications in **Settings**, **One Click Settings**. Select **Save Settings**. |
+| Dialog **One Click Not Configured**: `No apps are tracked yet.` | No application is tracked. | Track applications in **Settings**, **One Click**. Select **Save Settings**. |
 | `Download Root is required for action '<action>'. Open Settings.` | The action stages, and **Download Root** is empty. | Set **Download Root** in Settings. |
 | `No tracked apps are visible in the grid.` | The tracked applications are hidden in the [Catalog](applications.md). | Show the applications. |
 | `Not ready: <destination>: <reason> (<N> application(s) select it)` | A destination is not in use or not set up. | Set up the destination. See the table under Requirements. |

@@ -2,30 +2,30 @@
 
 ## What it does
 
-Stage downloads the installer of each checked application. It checks the file, writes the install and uninstall scripts, and records the result in a staged folder on this computer. A publish button then takes the staged content to a destination: ConfigMgr, Intune or WSUS. The three destinations are independent, and each is optional. You can publish to any one of them or to any combination. Publishing to ConfigMgr is not a requirement for Intune or WSUS.
+Stage downloads the installer of each checked application. It checks the file, writes the install and uninstall scripts, and records the result in a staged folder on this computer. **Publish All** then publishes the checked applications to the systems that are on in Settings, Systems in Use: ConfigMgr, Intune and WSUS. The three destinations are independent, and each is optional. You can publish to any one of them or to any combination. Publishing to ConfigMgr is not a requirement for Intune or WSUS.
 
 Each destination has its own page:
 
-| Destination | Button | Result | Page |
-|---|---|---|---|
-| ConfigMgr | `Publish to ConfigMgr` | An application with a deployment type, and the content on the file share | [Publish to ConfigMgr](publish-to-configmgr.md) |
-| Intune | `Publish to Intune` | A Win32 app in the Intune tenant | [Publish to Intune](publish-to-intune.md) |
-| WSUS | `Publish to WSUS` | A locally published update | [WSUS publishing](wsus-publishing.md) |
+| Destination | Result | Page |
+|---|---|---|
+| ConfigMgr | An application with a deployment type, and the content on the file share | [Publish to ConfigMgr](publish-to-configmgr.md) |
+| Intune | A Win32 app in the Intune tenant | [Publish to Intune](publish-to-intune.md) |
+| WSUS | A locally published update | [WSUS publishing](wsus-publishing.md) |
 
 The names of the destination combinations (for example `IntuneAndWSUS`) are in the [Targets](command-line-build.md#targets) table of the command-line build. That table lists the destinations of each name.
 
-The three buttons never create assignments or approvals on their own. Deployments to a test collection are an optional step of `Publish to ConfigMgr`.
+A publish never creates assignments or approvals on its own. An approval group for WSUS and a deployment to a test collection are optional settings.
 
 ## When to use it
 
 - Use **Stage** to prepare content, and to read the staged scripts before you publish.
-- Use a publish button to send the staged content to one destination.
+- Use **Publish All** to publish the checked applications. To publish to one destination only, select only that system under Settings, Systems in Use.
 - Use [One Click](one-click.md) to check, stage and publish many tracked applications in one run.
 - Use the [command-line build](command-line-build.md) to stage and publish without the window.
 
 ## Requirements
 
-- A folder in **Download Root (local staging)** (Settings, ConfigMgr Site Settings). The window shows this control in that section, but it is not a ConfigMgr setting: every destination uses it. Only your account and administrators can write to it.
+- A folder in **Download Root (local staging)** (Settings, Folders). Every destination uses it. Only your account and administrators can write to it.
 - Windows PowerShell 5.1.
 - Internet access to the vendor download hosts of the checked applications.
 - The settings that each destination you use needs, and no others. The destination pages list them. A publish to Intune or WSUS needs no ConfigMgr site.
@@ -37,7 +37,7 @@ The app does not need elevation. Do not run the app as administrator if you use 
 1. Open the **App Packager** page.
 2. Select the check box of each application to stage.
 3. Optional: select **Check Latest**. Stage reuses the version that **Check Latest** found and does not read the vendor again.
-4. Select **Stage**.
+4. Select **Stage** in the batch bar.
 5. If the dialog **Configure: `<application>`** opens, set the values and select **Continue**. Select **Cancel** to skip the application. The row then shows `Skipped`.
 6. If a folder prompt opens, choose the folder that holds the installer. The prompt appears for an application whose installer a script cannot download. If you cancel the prompt, the log shows `Skipped <application>: no installer source folder chosen.`
 7. Watch the row status. It changes from `Staging...` to `Staged`.
@@ -49,6 +49,45 @@ The app does not need elevation. Do not run the app as administrator if you use 
 ![The Install Parameters review dialog before Stage](../images/core-packages-review-dialog.png)
 
 If you do not select any row, the page shows `No packagers selected.`
+
+## Publish All
+
+1. Select the systems under Settings, Systems in Use, and select **Save Settings**.
+2. Open the **App Packager** page.
+3. Select the check box of each application to publish. For ConfigMgr and Intune, stage the applications first. The WSUS part of a run stages an application that has no stage of its latest version.
+4. Optional: enter a work order or a note in **Administrative Comments**.
+5. Select **Publish All**. The window **Review publish** opens.
+6. Check the review. Select **Back** to close it. Nothing is published, and the checks stay.
+7. Select **Publish N applications**. The app reads ConfigMgr again before the first write.
+8. Answer the prompts that the run can show: a folder prompt, the **Intune review** dialog, the supersedence window and **Application Already Exists**.
+9. Review the window **Publish results**. Select **Done**.
+
+### The review
+
+The review shows these parts:
+
+| Part | Content |
+|---|---|
+| Count line | For example `3 applications, 2 systems: 6 publishes are planned.` |
+| Systems line | `Systems: <names> (Settings, Systems in Use)` |
+| Hidden line | The number of checked applications that are outside the current view. The run publishes them too. |
+| Blocked line | Each system that is not ready, with its reason. The confirm button is then disabled. |
+| Grid | One row for each checked application. The columns are **Application**, **Version** (`Not checked` when no version is known), **Checked** and one column for each system. **Checked** reads `Changed`, `Outside the view`, both or nothing. |
+| **Administrative comment** | The text of **Administrative Comments**. You can change it here. The text goes back to the box on the page. It can stay empty. |
+
+A cell reads `Create application and deployment type`, `Create Win32 app` or `Create software update`. It reads `Blocked: <reason>` or `Not supported: <reason>` when the run writes nothing there. A ConfigMgr cell can add `Then:` with the steps after the application: distribution, test deployment or supersedence. When the last check found the application in ConfigMgr, the cell says which version ConfigMgr has, and that the run asks before it replaces an application with the same title.
+
+The review comes from the last check. When you confirm, the app reads again: the systems and their readiness, the version of each application and, with ConfigMgr in the plan, the ConfigMgr application of each application. When the plan differs, the review opens again. It starts with `Nothing was published. The plan changed after you confirmed it. Check it and confirm again.` and then gives each difference. The log shows the same differences. Nothing is published until a fresh read matches the plan that you confirmed.
+
+### The results
+
+The window **Publish results** shows a headline: `N publishes completed`, `Publish completed with issues`, `Nothing was published` or `Publish was cancelled`. It shows the counts **Published**, **Failed** and **Skipped**. The grid has one row for each application and one column for each system. A cell reads `Published`, `Published, supersedence not applied`, `Failed`, `Failed at <step>`, `Skipped`, `Not supported`, `Blocked` or `Not run`. A system that fails does not stop the next system of the run. For an application that reached one system and not another, a notice says what the run did. What reached a system stays published. When a state is not known, check that system. The lines below the grid give the message of each cell that needs one.
+
+A failed row stays checked. Select **Done** to close the window. The grid keeps its filter and its sort.
+
+### A publish to WSUS only
+
+When WSUS is the only system in use, **Publish All** has no review window and no results window. The run starts at once. Review the result in the **Status** column and in the log. See [WSUS publishing](wsus-publishing.md).
 
 ## What Stage does
 
@@ -96,7 +135,7 @@ See [Settings reference](../reference/settings.md) for defaults.
 ## Limits
 
 - Stage does not publish anything. It changes no site, tenant or server.
-- `Publish to ConfigMgr` and `Publish to Intune` on the App Packager page use content that Stage already wrote. If the staged manifest is missing, the log shows `Stage manifest not found: <path>. Run Stage for <application> <version> first.` `Publish to WSUS` stages by itself when no stage of the latest version exists.
+- The ConfigMgr and Intune parts of a publish use content that Stage already wrote. If the staged manifest is missing, the log shows `Stage manifest not found: <path>. Run Stage for <application> <version> first.` The WSUS part stages by itself when no stage of the latest version exists.
 - Stage never builds a `.intunewin` file, and never downloads the Content Prep Tool. The first Intune publish downloads it and builds the file. You can also select **Download** in Settings, Detected Tools.
 - The lab validated Stage and ConfigMgr publishing on a lab site with client computers.
 

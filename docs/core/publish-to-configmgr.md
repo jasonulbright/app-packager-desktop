@@ -2,7 +2,7 @@
 
 ## What it does
 
-`Publish to ConfigMgr` takes the staged content of each checked application to a Configuration Manager site. It copies the content to the file share, checks the copy, and creates the ConfigMgr application with its deployment types. Optionally it then distributes the content to a distribution point group and creates an Available deployment to a test collection.
+A publish to ConfigMgr takes the staged content of each checked application to a Configuration Manager site. It copies the content to the file share, checks the copy, and creates the ConfigMgr application with its deployment types. Optionally it then distributes the content to a distribution point group and creates an Available deployment to a test collection.
 
 ## When to use it
 
@@ -15,8 +15,8 @@
 - The Configuration Manager console on this computer. The app reads the module path from the `SMS_ADMIN_UI_PATH` environment variable.
 - Windows PowerShell 5.1.
 - **ConfigMgr** selected under **Systems in Use** in Settings.
-- **Site Code** and **Site Server / SMS Provider Host** set in Settings, ConfigMgr Site Settings.
-- **File Share Root (UNC)** set in Settings. Your account needs write access to the share.
+- **Site Code** and **Site Server / SMS Provider Host** set in Settings, ConfigMgr.
+- **File Share Root (UNC)** set in Settings, ConfigMgr. Your account needs write access to the share.
 - A ConfigMgr security role for the site that can create applications and deployment types. For the optional steps, the role also needs the rights to distribute content and to create deployments. The minimum role is not verified with a custom role. See [Permissions](../reference/permissions.md).
 - Staged content for the application. See [Stage and publish](stage-and-publish.md).
 
@@ -26,20 +26,21 @@
 2. Stage the applications that you want to publish.
 3. Optional: type a work order or a note in **Administrative Comments**. The app stores it as the description of the ConfigMgr application.
 4. Check the rows to publish.
-5. Select **Publish to ConfigMgr**.
-6. If the dialog **No Comment Provided** opens, select **Continue** to publish with an empty description. Select **Cancel** to go back.
+5. Select **Publish All**. **Publish All** publishes to every system that is on in Settings, Systems in Use. To publish to ConfigMgr only, select **ConfigMgr** only there.
+6. Review the **Review publish** window. You can change the **Administrative comment**. Select **Publish N applications**. The app reads ConfigMgr again, and it opens the review again when the plan changed. See [Publish All](stage-and-publish.md#publish-all).
 7. If the dialog **Application Already Exists** opens, choose an action:
    - **Overwrite** updates the content and the deployment types. The application and its deployments stay.
    - **Skip** leaves the application unchanged. The row shows `Skipped`.
    - **Cancel remaining** stops the rest of the run.
    - Select **Do this for all remaining conflicts in this run** to use the same answer for the next conflicts of this run.
 8. Watch the log. The row status changes from `Packaging...` to `Packaged`.
+9. Review the **Publish results** window. Select **Done**.
 
 ![The Application Already Exists dialog](../images/core-packages-conflict-dialog.png)
 
 ![The App Packager log after Publish to ConfigMgr](../images/core-publish-configmgr-log.png)
 
-A publish button is disabled while its system is not set up. Point at the button to read the tooltip. The tooltip names the setting that is missing.
+**Publish All** is disabled while a system in use is not set up. Point at the button to read the tooltip. The tooltip names each such system and the reason.
 
 ![A disabled publish button with its tooltip](../images/core-packages-buttons-disabled.png)
 
@@ -56,7 +57,7 @@ For each checked row, in this order:
 7. It connects to the site (`Connecting to ConfigMgr...`) and creates the application and its deployment types. The log shows `Packaged: <application name>`.
 8. It runs the Post Packaging steps that Settings turns on.
 
-A ConfigMgr-only run builds no `.intunewin` file and copies nothing besides the content to the share. Only `Publish to Intune` builds the file, whether or not the Content Prep Tool is on the computer.
+A ConfigMgr-only run builds no `.intunewin` file and copies nothing besides the content to the share. Only a publish to Intune builds the file, whether or not the Content Prep Tool is on the computer.
 
 The share folder depends on **Content Layout**:
 
@@ -73,7 +74,7 @@ Deployment types are created in the order of the definition. When the applicatio
 
 These steps are optional. Turn them on in Settings, Post Packaging.
 
-Supersedence is a setting of each application. It is **Off** for every application until you turn it on, for existing and new applications alike. Settings, Application Settings holds the default. The App Packager toolbar has no Supersedence button. Settings, Application Settings has a grid of all applications with the **Supersedence** column, and the bulk bar for the checked applications, for all applications and for none. See [Settings](settings-page.md). The version is part of the application title while supersedence is on for it: a run writes the version into the title whatever the title option says, because the new and the older version must be separate applications. Publishing into an existing application (a title without a version) is not changed.
+Supersedence is a setting of each application. It is **Off** for every application until you turn it on, for existing and new applications alike. Settings, Application Settings holds the default. The App Packager page has no Supersedence button. Settings, Application Settings has a grid of all applications with the **Supersedence** column, a **Bulk edit** row and the button **Reset all overrides**. See [Settings](settings-page.md). The version is part of the application title while supersedence is on for it: a run writes the version into the title whatever the title option says, because the new and the older version must be separate applications. Publishing into an existing application (a title without a version) is not changed.
 
 Settings, Application Settings holds the default for all applications:
 
@@ -146,18 +147,18 @@ See [Settings reference](../reference/settings.md).
 - The lab validated ConfigMgr packaging and deployment on a lab site with client computers.
 - The user-collection option and the handling of a failed publication have automated tests only. They are not validated against a live site.
 - All lab runs used a Full Administrator account. No run used a least-privilege role.
-- `Publish to ConfigMgr` does not stage. Stage first.
+- The ConfigMgr part of a publish does not stage. Stage first.
 
 ## Troubleshooting
 
 | Message | Cause | Fix |
 |---|---|---|
-| Tooltip: `Publish to ConfigMgr: Needs the ConfigMgr console on this computer.` | The console module is not found. | Install the Configuration Manager console. |
-| Tooltip: `Publish to ConfigMgr: Set the site code in Settings, ConfigMgr Site Settings.` | The site code is empty. | Enter the site code. |
-| Tooltip: `Publish to ConfigMgr: ConfigMgr is not in use. Select it under Systems in Use in Settings.` | **ConfigMgr** is not selected. | Select it under **Systems in Use**. |
+| Tooltip: `Publish All: ConfigMgr: Publish to ConfigMgr requires the ConfigMgr Console. Not detected on this workstation.` | The console module is not found. | Install the Configuration Manager console. |
+| Tooltip: `Publish All: ConfigMgr: SiteCode is required. Open Settings to configure.` | The site code is empty. | Enter the site code. |
+| The review and the results have no **ConfigMgr** column. | **ConfigMgr** is not selected. | Select it under **Systems in Use**. Select **Save Settings**. |
 | `This stage asks for the native MSIX deployment type of ConfigMgr, which App Packager no longer publishes. ...` | The manifest has the detection type `MSIX`: a stage from an older release, or a hand-written definition whose detection rule has the type `MSIX`. App Packager publishes an MSIX as a script deployment type. | Select **Stage** again. For a hand-written definition, change the detection rule to a registry key or a script rule first. |
 | `The application icon was not applied: <reason>` or `The application icon was not found: <path>` (in the detail of the ConfigMgr step in Operation History, and as `Application icon not applied` or `Application icon not found` in the log) | The application was created, but the site refused the icon or the icon file is not in the content folder. A missing icon does not stop the packaging, so the run counts as a success. | Check that the icon file is in the content folder and that the account can read it, then publish again with **Overwrite**, or set the icon in the console. |
-| `File Share Root is required. Open Settings to configure.` | The share root is empty. The check runs when the run starts. | Enter the share in Settings. |
+| `File Share Root is required. Open Settings to configure.` | The share root is empty. The tooltip of **Publish All** shows the reason, and the run checks it again. | Enter the share in Settings. |
 | `Stage manifest not found: <path>. Run Stage for <application> <version> first.` | The application has no staged content for the version. | Select **Stage**. |
 | `Content share not accessible: <path>` | The share is missing or your account cannot reach it. | Check the share path and your access. |
 | `Staged content does not match its manifest: <list>` | A staged file changed after Stage. | Stage again. |

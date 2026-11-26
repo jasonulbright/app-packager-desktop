@@ -15,7 +15,7 @@ The Maintenance Windows page shows, creates, edits, enables, disables and remove
 
 - ConfigMgr rights: a ConfigMgr security role with the Modify Collection Setting permission on the collection. A least-privilege role is not tested: all lab runs used a Full Administrator account.
 - Local rights: the Windows account that started the app. The page uses the ConfigMgr console module on this computer through Windows PowerShell 5.1.
-- Settings: select **ConfigMgr** under **Systems in Use** in Settings. Enter **Site Code** and **Site Server / SMS Provider Host** under **ConfigMgr Site Settings** in Settings. If **ConfigMgr** is off or the site code is empty, the page shows a message and reads nothing.
+- Settings: select **ConfigMgr** under **Systems in Use** in Settings. Enter **Site Code** and **Site Server / SMS Provider Host** on the **ConfigMgr** page of Settings. If **ConfigMgr** is off or the site code is empty, the page shows a message and reads nothing.
 
 ## Steps
 

@@ -24,7 +24,7 @@ BLUF: **Convert from ConfigMgr** reads one ConfigMgr application from the site a
 
 ## Requirements
 
-- A working site connection: the **Site Code** and the **Site Server / SMS Provider Host** in Settings, ConfigMgr Site Settings. The window reads the application through the same ConfigMgr session as the other pages. See [Permissions](../reference/permissions.md).
+- A working site connection: the **Site Code** and the **Site Server / SMS Provider Host** in Settings, ConfigMgr. The window reads the application through the same ConfigMgr session as the other pages. See [Permissions](../reference/permissions.md).
 - The exact name of the application, as the console shows it. A wildcard is not accepted. A name that matches no application, or more than one, is an error.
 - For the content copy: read access to the content source of each deployment type, and write access to the output folder.
 - To build the `.intunewin` files: the Win32 Content Prep Tool. The first build downloads it. See [Publish to Intune](publish-to-intune.md).
@@ -33,7 +33,7 @@ BLUF: **Convert from ConfigMgr** reads one ConfigMgr application from the site a
 ## Steps
 
 1. Select **App Packager** in the sidebar.
-2. Select **Convert from ConfigMgr** in the page header.
+2. Select **Add or import** in the page header, then **Convert from ConfigMgr**.
 3. Enter the application name in **Application name**.
 4. Check the **Output folder**. The default is the folder `CmImport` in your download folder. Each application gets its own folder inside it.
 5. Set the options (table below).

@@ -27,7 +27,7 @@ This page describes the bring-your-own applications that already exist, for exam
 2. Change the profile if you need to. See [Workbench](workbench.md).
 3. Select **Stage**. The Workbench stages the newest installer revision. The log shows `Stage: <name> <version> (source revision <n>, <file>)`.
 4. Choose the build in **Build**.
-5. Under **Publish to:**, select **ConfigMgr**, **Intune** or **WSUS**.
+5. Select **Publish All**. It publishes the selected build to the systems in Settings, Systems in Use. See [Workbench](workbench.md).
 
 A bring-your-own application has no row in the App Packager grid until a stage adds one.
 
@@ -60,7 +60,7 @@ The start argument `--analyze-drop <path>` opens the dialog **Installer drop** f
 
 | Button | Result |
 |---|---|
-| **Stage** | Stages the dropped installer. The row appears in the grid with the status `Staged`. Select the row and a publish button to continue. |
+| **Stage** | Stages the dropped installer. The row appears in the grid with the status `Staged`. Check the row and select **Publish All** to continue. |
 | **Save as definition** | Writes a JSON definition in the user definitions folder. The definition has no download address and no version scraper. The app never overwrites an existing definition. |
 | **Save as Application** | Keeps the installer as source revision 1 of a bring-your-own application. It stages and deploys nothing. The log shows `Saved as application <id>. It appears in the workbench with manual updates; nothing was staged or deployed.` The dialog **Saved** asks whether to open the application in the Workbench. |
 | **Cancel** | Closes the dialog. The log shows `Drop cancelled.` |

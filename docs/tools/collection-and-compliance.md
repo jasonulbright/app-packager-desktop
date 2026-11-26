@@ -14,7 +14,7 @@ Use the Collections tab to create, copy, edit, evaluate or remove device collect
 ## Requirements
 
 - ConfigMgr must be selected under Systems in Use in [Settings](../core/settings-page.md). If it is not, the page shows: "ConfigMgr is not in use. Select it under Systems in Use in Settings."
-- The `Site Code` and the `Site Server / SMS Provider Host` must be set in Settings, ConfigMgr Site Settings. If the site code is empty, the page shows: "Set the site code in Settings, ConfigMgr Site Settings."
+- The `Site Code` and the `Site Server / SMS Provider Host` must be set in Settings, ConfigMgr. If the site code is empty, the page shows: "Set the site code in Settings, ConfigMgr Site Settings."
 - The Configuration Manager console must be installed on this computer. The page uses its PowerShell module through Windows PowerShell 5.1.
 - The account that runs the application needs a ConfigMgr security role with "Read, Modify, Create and Delete on Collection and Query".
 - The code does not require an elevated application.
