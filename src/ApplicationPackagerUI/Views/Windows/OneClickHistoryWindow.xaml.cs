@@ -35,7 +35,8 @@ public partial class OneClickHistoryWindow
             using var document = System.Text.Json.JsonDocument.Parse(File.ReadAllText(run.JsonPath));
             var outcomes = document.RootElement.GetProperty("Applications").EnumerateArray()
                 .Select(a => a.GetProperty("Outcome").GetString()).ToList();
-            return outcomes.Count > 0 && outcomes.All(o => o == OneClickOutcomes.Planned);
+            // A run with nothing included writes no report, so an empty list comes from "Plan only" too.
+            return outcomes.All(o => o == OneClickOutcomes.Planned);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Text.Json.JsonException
                                    or KeyNotFoundException or InvalidOperationException)

@@ -31,7 +31,13 @@ public sealed record PublishDestinationResult(
     public string Text => Kind switch
     {
         PublishDestinationKind.Published => Warning ? "Published, supersedence not applied" : "Published",
-        PublishDestinationKind.Failed => Step.Length > 0 ? "Failed at " + Step : "Failed",
+        PublishDestinationKind.Failed => Step switch
+        {
+            "" => "Failed",
+            "cancel" => "Stopped, state not known",
+            "error" => "Failed, state not known",
+            _ => "Failed at " + Step
+        },
         PublishDestinationKind.Skipped => "Skipped",
         PublishDestinationKind.NotSupported => "Not supported",
         _ => "Blocked"
