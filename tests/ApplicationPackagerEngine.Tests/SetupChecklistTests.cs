@@ -484,6 +484,56 @@ public sealed class SetupChecklistTests : IDisposable
         Assert.Contains("public void OpenSetup()", source);
     }
 
+    /// <summary>The sizes of the fit test of the page: a new install keeps whole grid rows beside the panel and under the strip.</summary>
+    [Theory]
+    [MemberData(nameof(AppPackagerFitTests.Sizes), MemberType = typeof(AppPackagerFitTests))]
+    public void ANewInstallKeepsWholeGridRowsWithTheChecklistOpenAndWithTheStrip(ApplicationTheme theme, int width, int height)
+    {
+        File.WriteAllText(SettingsService.SettingsPath, "{ \"FirstRunCompleted\": false }");
+        RenderKit.WithApplication(theme, () =>
+        {
+            using var scope = SiteContext.Scope(null, _root);
+            var page = AppPackagerFitTests.Create(12, out var viewModel);
+            viewModel.Checklist = Checklist(new SettingsService());
+            viewModel.Checklist.Refresh();
+            // Create builds the page before the checklist exists, so the page is built again.
+            page = new PackagesPage(viewModel);
+            var window = new Window { Width = width - 230, Height = height - 48, WindowStyle = WindowStyle.None, Content = page };
+            RenderKit.Show(window);
+            try
+            {
+                RenderKit.Settle(window);
+                var grid = (DataGrid)page.FindName("PackagerGrid");
+                var strip = RenderKit.ById<Border>(page, "pnlSetupStrip");
+                var panel = RenderKit.ById<UserControl>(page, "pnlSetupChecklist");
+                var needed = height >= 1000 ? AppPackagerFitTests.MinimumWholeRows : 5;
+
+                void Check(string state)
+                {
+                    var whole = AppPackagerFitTests.WholeRows(grid);
+                    Assert.True(whole >= needed, $"{theme} {width}x{height}, {state}: the grid shows {whole} whole rows (needs {needed}) and is {grid.ActualHeight:0} px tall.");
+                }
+
+                // A window narrower than the pane limit starts with the strip; a wider one starts with the panel.
+                var narrow = width < PackagesPage.DetailPaneMinimumWindowWidth;
+                Assert.Equal(narrow, strip.IsVisible);
+                Assert.Equal(!narrow, panel.IsVisible);
+                Check("at the start");
+
+                if (!narrow)
+                {
+                    viewModel.Checklist.CloseCommand.Execute(null);
+                    RenderKit.Settle(window);
+                    Assert.True(strip.IsVisible);
+                    PageChromeKit.AssertNothingClipped(strip, $"setup strip {theme} {width}x{height}");
+                    Check("with the strip");
+                }
+                else PageChromeKit.AssertNothingClipped(strip, $"setup strip {theme} {width}x{height}");
+            }
+            finally { window.Close(); }
+        });
+    }
+
     [Theory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
@@ -532,6 +582,8 @@ public sealed class SetupChecklistTests : IDisposable
                 Assert.True(RenderKit.ById<Border>(page, "pnlDetailPane").IsVisible);
                 var open = RenderKit.ById<ButtonBase>(page, "btnOpenSetupChecklist");
                 Assert.True(open.IsVisible);
+                Assert.Equal("Connect a site to check for updates", RenderKit.ById<TextBlock>(page, "txtSetupStripTitle").Text);
+                Assert.Equal("1 of 4 complete.", RenderKit.ById<TextBlock>(page, "txtSetupStripText").Text);
 
                 open.RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent));
                 RenderKit.Settle(window);
