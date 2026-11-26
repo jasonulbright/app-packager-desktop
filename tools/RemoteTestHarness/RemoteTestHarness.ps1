@@ -3,8 +3,8 @@
 .SYNOPSIS
     Installs, detects and uninstalls staged catalog definitions on a test machine through
     PowerShell remoting.
-    Runs on the controller. Reboots the test machine when a reboot is pending or an
-    installer exits 3010.
+    Runs on the controller. It never restarts the test machine: a restart ends every signed-in
+    session on it. When a restart is pending or an installer exits 3010, the run stops and says so.
 
 .PARAMETER ComputerName
     Test machine name. The machine must accept PowerShell remoting from the controller.
@@ -68,37 +68,6 @@ function Test-PendingReboot {
     }
 }
 
-function Invoke-RebootAndWait {
-    param([string]$Computer, [PSCredential]$Credential)
-    Write-Host "    REBOOTING $Computer..." -ForegroundColor Yellow
-    Invoke-Command -ComputerName $Computer -Credential $Credential -ScriptBlock { Restart-Computer -Force }
-    Start-Sleep -Seconds 15
-
-    $attempts = 0
-    while ($attempts -lt 12) {
-        if (-not (Test-Connection $Computer -Count 1 -Quiet -ErrorAction SilentlyContinue)) { break }
-        Start-Sleep -Seconds 5
-        $attempts++
-    }
-
-    Write-Host "    Waiting for $Computer to come back online..." -ForegroundColor Yellow
-    $attempts = 0
-    while ($attempts -lt 60) {
-        Start-Sleep -Seconds 10
-        try {
-            $result = Invoke-Command -ComputerName $Computer -Credential $Credential -ScriptBlock { $env:COMPUTERNAME } -ErrorAction Stop
-            if ($result) {
-                Write-Host "    $Computer is back online." -ForegroundColor Green
-                Start-Sleep -Seconds 10
-                return $true
-            }
-        } catch { }
-        $attempts++
-    }
-    Write-Host "    $Computer did not come back after 10 minutes!" -ForegroundColor Red
-    return $false
-}
-
 "App,Phase,Result,DurationMs" | Out-File $ResultsPath -Encoding UTF8
 
 $defs = Get-ChildItem $DefsDir -Filter '*.json' |
@@ -119,7 +88,9 @@ $evaluationPath = Join-Path $PSScriptRoot 'DetectionEvaluation.ps1'
 if (-not (Test-Path -LiteralPath $evaluationPath)) {
     throw "Detection evaluator not found beside the harness: $evaluationPath"
 }
-$evaluationSource = Get-Content -LiteralPath $evaluationPath -Raw
+# The job helper comes first: the evaluator and the install steps use it on the client.
+$evaluationSource = (Get-Content -LiteralPath (Join-Path $PSScriptRoot 'ProcessJob.ps1') -Raw) + "`r`n" +
+    (Get-Content -LiteralPath $evaluationPath -Raw)
 
 foreach ($defFile in $defs) {
     $def = Get-Content $defFile.FullName -Raw | ConvertFrom-Json
@@ -129,13 +100,10 @@ foreach ($defFile in $defs) {
     Write-Host "=== $appName ($fileName) ===" -ForegroundColor Cyan
 
     if (Test-PendingReboot -Computer $ComputerName -Credential $cred) {
-        Write-Host "  Pending reboot detected before install" -ForegroundColor Yellow
-        if (-not (Invoke-RebootAndWait -Computer $ComputerName -Credential $cred)) {
-            Write-Host "  SKIP: VM did not recover from reboot" -ForegroundColor Red
-            "$appName,Reboot,FAIL - VM not recoverable,0" | Out-File $ResultsPath -Append -Encoding UTF8
-            $failed++
-            continue
-        }
+        Write-Host "  STOP: a restart of $ComputerName is pending. The harness does not restart it." -ForegroundColor Red
+        "$appName,Reboot,FAIL - restart pending; the run stopped,0" | Out-File $ResultsPath -Append -Encoding UTF8
+        $failed++
+        break
     }
 
     # The job does not stage: content must already be staged under StagedRoot on the test machine.
@@ -165,10 +133,9 @@ foreach ($defFile in $defs) {
 
             $sw = [System.Diagnostics.Stopwatch]::StartNew()
             $ps1 = Join-Path $contentPath 'install.ps1'
-            $proc = Start-Process powershell.exe -ArgumentList "-NoProfile -NonInteractive -ExecutionPolicy Bypass -File `"$ps1`"" `
-                -WorkingDirectory $contentPath -Wait -PassThru -NoNewWindow
+            Set-Location -LiteralPath $contentPath
+            $installExit = Invoke-JobTree -FilePath 'powershell.exe' -ArgumentList @('-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', "`"$ps1`"")
             $sw.Stop()
-            $installExit = $proc.ExitCode
             $results += @{ Phase = 'Install'; Result = $(if ($installExit -eq 0) {'PASS'} elseif ($installExit -eq 3010) {'PASS (reboot required)'} else {"FAIL (exit $installExit)"}); ExitCode = $installExit; Duration = $sw.ElapsedMilliseconds }
 
             if ($installExit -ne 0 -and $installExit -ne 3010) {
@@ -192,10 +159,8 @@ foreach ($defFile in $defs) {
             $unPs1 = Join-Path $contentPath 'uninstall.ps1'
             if (Test-Path $unPs1) {
                 $sw = [System.Diagnostics.Stopwatch]::StartNew()
-                $proc = Start-Process powershell.exe -ArgumentList "-NoProfile -NonInteractive -ExecutionPolicy Bypass -File `"$unPs1`"" `
-                    -WorkingDirectory $contentPath -Wait -PassThru -NoNewWindow
+                $unExit = Invoke-JobTree -FilePath 'powershell.exe' -ArgumentList @('-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', "`"$unPs1`"")
                 $sw.Stop()
-                $unExit = $proc.ExitCode
                 $results += @{ Phase = 'Uninstall'; Result = $(if ($unExit -eq 0) {'PASS'} elseif ($unExit -eq 3010) {'PASS (reboot required)'} else {"FAIL (exit $unExit)"}); ExitCode = $unExit; Duration = $sw.ElapsedMilliseconds }
 
                 # Clean check. Only a genuine not-detected is clean: a rule that could not
@@ -221,11 +186,6 @@ foreach ($defFile in $defs) {
             Remove-Job $job -Force
             "`"$appName`",`"Test`",`"TIMEOUT`",$($TimeoutSec * 1000)" | Out-File $ResultsPath -Append -Encoding UTF8
             $failed++
-            Invoke-Command -ComputerName $ComputerName -Credential $cred -ScriptBlock {
-                Get-Process -Name msiexec, cmd, powershell -ErrorAction SilentlyContinue |
-                    Where-Object { $_.StartTime -gt (Get-Date).AddMinutes(-10) } |
-                    Stop-Process -Force -ErrorAction SilentlyContinue
-            } -ErrorAction SilentlyContinue
             continue
         }
         $result = Receive-Job $job
@@ -251,9 +211,9 @@ foreach ($defFile in $defs) {
         if ($allPass) { $passed++ } else { $failed++ }
 
         if ($needsReboot) {
-            Write-Host "    Exit 3010 or reboot required" -ForegroundColor Yellow
-            "`"$appName`",`"Reboot`",`"Triggered`",0" | Out-File $ResultsPath -Append -Encoding UTF8
-            Invoke-RebootAndWait -Computer $ComputerName -Credential $cred | Out-Null
+            Write-Host "    STOP: exit 3010, a restart of $ComputerName is required. The harness does not restart it." -ForegroundColor Yellow
+            "`"$appName`",`"Reboot`",`"Required; the run stopped`",0" | Out-File $ResultsPath -Append -Encoding UTF8
+            break
         }
     }
     catch {

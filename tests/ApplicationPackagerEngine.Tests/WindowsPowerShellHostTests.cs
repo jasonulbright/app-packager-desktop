@@ -101,9 +101,18 @@ public class WindowsPowerShellHostTests
     {
         using var cts = new CancellationTokenSource();
         var pid = 0;
+        // Opened while the child runs: the handle names this child, also after Windows gives its id to another process.
+        System.Diagnostics.Process? child = null;
         var running = WindowsPowerShellHost.RunAsync(
             "Write-Output $PID\r\nStart-Sleep -Seconds 300\r\nexit 0",
-            line => { if (int.TryParse(line, out var id)) { pid = id; cts.Cancel(); } },
+            line =>
+            {
+                if (!int.TryParse(line, out var id)) return;
+                pid = id;
+                try { child = System.Diagnostics.Process.GetProcessById(id); _ = child.Handle; }
+                catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or System.ComponentModel.Win32Exception) { }
+                cts.Cancel();
+            },
             cts.Token, "ap-host-cancel");
 
         try
@@ -115,8 +124,11 @@ public class WindowsPowerShellHostTests
         }
         finally
         {
-            if (pid != 0 && IsRunning(pid))
-                try { System.Diagnostics.Process.GetProcessById(pid).Kill(true); } catch (Exception) { }
+            if (child is not null)
+            {
+                try { if (!child.HasExited) child.Kill(); } catch (Exception) { }
+                child.Dispose();
+            }
         }
     }
 
