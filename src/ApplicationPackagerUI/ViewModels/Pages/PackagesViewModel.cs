@@ -1162,13 +1162,15 @@ public partial class PackagesViewModel : ObservableObject
         {
             // The review lists every checked application, the ones that the view hides too, and takes the comment of the run.
             var shown = new HashSet<PackagerInfo>(FilteredPackagers);
-            var plan = PublishPlanner.Plan(
-                selected.Select(p => PlanApp(p, settings, !shown.Contains(p),
-                    string.IsNullOrEmpty(p.CurrentVersion) ? ConfigMgrFact.None : ConfigMgrFact.Found(p.CurrentVersion))),
-                settings.Systems, ReadinessOf(settings));
+            var plan = BuildPlan(selected.Select(p => PlanApp(p, settings, !shown.Contains(p),
+                    string.IsNullOrEmpty(p.CurrentVersion) ? ConfigMgrFact.None : ConfigMgrFact.Found(p.CurrentVersion))).ToList(), settings);
             var confirmed = await PublishReviewGate.ConfirmAsync(plan, Comment, _publishDialogs.ShowPublishReview,
                 shownPlan => RereadPlanAsync(shownPlan, selected), AddLogLine);
-            if (confirmed is null) return;
+            if (confirmed is null)
+            {
+                StatusText = "Publish cancelled. Nothing was published.";
+                return;
+            }
             Comment = confirmed.Comment;
             confirmedPlan = confirmed.Plan;
             // The run writes to the systems that the confirmed plan lists, with the settings that the last read used.
@@ -1404,6 +1406,9 @@ public partial class PackagesViewModel : ObservableObject
         }
     }
 
+    private static PublishPlan BuildPlan(IReadOnlyList<PublishPlanApp> apps, AppSettings settings) =>
+        PublishPlanner.Plan(apps, settings.Systems, ReadinessOf(settings)) with { Site = (settings.SiteCode ?? "").Trim() + "|" + (settings.ProviderMachine ?? "").Trim() };
+
     /// <summary>One application of the publish plan: the version the run publishes, what ConfigMgr does afterward, and what each system cannot take.</summary>
     private PublishPlanApp PlanApp(PackagerInfo p, AppSettings settings, bool hidden, ConfigMgrFact site)
     {
@@ -1440,10 +1445,9 @@ public partial class PackagesViewModel : ObservableObject
     private async Task<PublishPlan?> RereadPlanAsync(PublishPlan shown, IReadOnlyList<PackagerInfo> selected)
     {
         var settings = _settingsService.Load();
-        var readiness = ReadinessOf(settings);
         var byUid = selected.ToDictionary(p => p.Uid, StringComparer.Ordinal);
         var apps = shown.Rows.Select(r => PlanApp(byUid[r.App.Uid], settings, r.App.Hidden, r.App.Site)).ToList();
-        var unread = PublishPlanner.Plan(apps, settings.Systems, readiness);
+        var unread = BuildPlan(apps, settings);
         // A plan that cannot run, or has no ConfigMgr, keeps the ConfigMgr facts it was shown with.
         if (!unread.CanRun || !unread.Systems.Contains(OneClickDestinations.ConfigMgr)) return unread;
 
@@ -1477,7 +1481,10 @@ public partial class PackagesViewModel : ObservableObject
                 if (token.IsCancellationRequested) return null;
                 apps[i] = apps[i] with { Site = fact };
             }
-            return PublishPlanner.Plan(apps, settings.Systems, readiness);
+            // The queries take time, and a Settings save during them must show. So the plan is built from the settings after the last query,
+            // with the facts that were read. A change of the site makes the plan differ, and the next confirm reads the new site.
+            var after = _settingsService.Load();
+            return BuildPlan(apps.Select(a => PlanApp(byUid[a.Uid], after, a.Hidden, a.Site)).ToList(), after);
         }
         finally
         {

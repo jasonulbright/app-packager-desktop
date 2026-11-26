@@ -68,6 +68,9 @@ public sealed record PublishPlan(IReadOnlyList<string> Systems, IReadOnlyList<Pu
 
     public int HiddenCount => Rows.Count(r => r.App.Hidden);
 
+    /// <summary>The ConfigMgr site and provider the plan writes to; empty when the plan was not given one.</summary>
+    public string Site { get; init; } = "";
+
     /// <summary>
     /// A digest of what the run depends on: the systems, the blocked systems, and for each application its version and its ConfigMgr facts.
     /// The reason text of an unreadable fact is left out, because two failed reads of one fault can word it differently.
@@ -77,7 +80,7 @@ public sealed record PublishPlan(IReadOnlyList<string> Systems, IReadOnlyList<Pu
         get
         {
             var text = new StringBuilder();
-            text.Append(string.Join(",", Systems)).Append('\n');
+            text.Append(string.Join(",", Systems)).Append('\n').Append(Site).Append('\n');
             foreach (var b in Blocked) text.Append("blocked|").Append(b.Destination).Append('\n');
             foreach (var r in Rows.OrderBy(r => r.App.Uid, StringComparer.Ordinal))
                 text.Append(r.App.Uid).Append('|').Append(r.App.Version).Append('|').Append(r.App.Site.Kind).Append('|').Append(r.App.Site.Version)
@@ -127,11 +130,15 @@ public static class PublishPlanner
     private static string ConfigMgrText(PublishPlanApp app) =>
         app.ConfigMgrSteps.Length > 0 ? ConfigMgrCreate(app) + ". Then: " + app.ConfigMgrSteps : ConfigMgrCreate(app);
 
+    private static string Has(PublishPlanApp app) =>
+        app.Site.Version.Length == 0 ? "an application with no version"
+        : string.Equals(app.Site.Version, app.Version, StringComparison.OrdinalIgnoreCase) ? "this version"
+        : app.Site.Version;
+
     private static string ConfigMgrCreate(PublishPlanApp app) => app.Site.Kind switch
     {
-        ConfigMgrFactKind.Found when app.Site.Version.Length > 0 && string.Equals(app.Site.Version, app.Version, StringComparison.OrdinalIgnoreCase) =>
-            "ConfigMgr has this version: the run asks before it replaces it",
-        ConfigMgrFactKind.Found => PublishPlan.ConfigMgrAction + " (ConfigMgr has " + (app.Site.Version.Length > 0 ? app.Site.Version : "an application with no version") + ")",
+        // The run asks only when the title of the new application matches one on the site, and the title is known when the run stages. So the cell says "if".
+        ConfigMgrFactKind.Found => PublishPlan.ConfigMgrAction + " (ConfigMgr has " + Has(app) + "; if the title matches, the run asks before it replaces it)",
         ConfigMgrFactKind.Unreadable => PublishPlan.ConfigMgrAction + " (ConfigMgr was not read)",
         _ => PublishPlan.ConfigMgrAction
     };
@@ -146,6 +153,7 @@ public static class PublishPlanner
         if (shown.Digest == fresh.Digest) return changes;
         if (!shown.Systems.SequenceEqual(fresh.Systems) || !shown.Blocked.Select(b => b.Destination).SequenceEqual(fresh.Blocked.Select(b => b.Destination)))
             changes[""] = "The systems in use or their readiness changed.";
+        if (shown.Site != fresh.Site) changes["site"] = "The ConfigMgr site or its provider changed.";
         var before = shown.Rows.ToDictionary(r => r.App.Uid, r => r.App, StringComparer.Ordinal);
         foreach (var app in fresh.Rows.Select(r => r.App))
         {
