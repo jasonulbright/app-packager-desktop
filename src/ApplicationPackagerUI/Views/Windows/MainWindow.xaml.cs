@@ -51,6 +51,20 @@ public partial class MainWindow : IDialogHostWindow
     /// <summary>Opens the Settings page, where the site, the host and the systems in use are set (the "Connections" button of the strip).</summary>
     public void OpenConnections() => RootNavigation.Navigate(typeof(Views.Pages.SettingsPage));
 
+    /// <summary>Opens the Setup window (a step of the setup checklist, or More, Setup). It needs no stored setting.</summary>
+    public void OpenSetup()
+    {
+        var packages = _serviceProvider.GetRequiredService<ViewModels.Pages.PackagesViewModel>();
+        if (packages.IsOperationRunning) return;
+        var settings = _serviceProvider.GetRequiredService<SettingsService>();
+        var wasDue = FirstRunDecision.IsWizardDue(settings.Load().FirstRunCompleted);
+        var setup = _serviceProvider.GetRequiredService<SetupWindow>();
+        setup.Owner = this;
+        var saved = setup.ShowDialog() == true;
+        var dontShowAgain = !saved && wasDue && !FirstRunDecision.IsWizardDue(settings.Load().FirstRunCompleted);
+        packages.OnSetupClosed(saved, dontShowAgain);
+    }
+
     /// <summary>Opens the Application Workbench on an application, or on the first one listed.</summary>
     public void OpenWorkbench(string? applicationId)
     {
@@ -255,40 +269,15 @@ public partial class MainWindow : IDialogHostWindow
             WindowState = WindowState.Maximized;
         RootNavigation.IsPaneOpen = settings.PaneOpen;
 
-        // Setup opens once the main window has rendered: opened from Loaded, it shows over
-        // an empty frame and the main window paints only after Setup closes.
-        if (FirstRunDecision.IsWizardDue(settings.FirstRunCompleted))
+        // The grid shows first. Setup never opens by itself: the setup checklist of the App Packager page opens it.
+        // The update check runs in the background after the first render and never blocks the app.
+        void StartUpdateCheck(object? sender, EventArgs args)
         {
-            void ShowSetup(object? sender, EventArgs args)
-            {
-                ContentRendered -= ShowSetup;
-                var setup = _serviceProvider.GetRequiredService<SetupWindow>();
-                setup.Owner = this;
-                setup.ShowDialog();
-                // The first-run scan asks first. It helps the user pick the applicable products; nothing runs on a No.
-                if (setup.DialogResult == true)
-                {
-                    var packages = _serviceProvider.GetRequiredService<ViewModels.Pages.PackagesViewModel>();
-                    if (packages.IsDiscoverAvailable
-                        && System.Windows.MessageBox.Show(this,
-                            "Scan the ConfigMgr site inventory now? The scan helps you pick the products that apply to your site. You can run it later in Settings, ConfigMgr Site Settings (Discover not selected).",
-                            "Discover unmanaged software", System.Windows.MessageBoxButton.YesNo, System.Windows.MessageBoxImage.Question) == System.Windows.MessageBoxResult.Yes)
-                        _ = packages.RunFirstRunDiscoveryAsync();
-                }
-            }
-            ContentRendered += ShowSetup;
+            ContentRendered -= StartUpdateCheck;
+            if (_serviceProvider.GetService<UpdateCoordinator>() is { } updates) _ = updates.RunStartupCheckAsync(this);
+            _ = Services.IconPackStartup.RunAsync();
         }
-        else
-        {
-            // The check runs in the background after the first render and never blocks the app.
-            void StartUpdateCheck(object? sender, EventArgs args)
-            {
-                ContentRendered -= StartUpdateCheck;
-                if (_serviceProvider.GetService<UpdateCoordinator>() is { } updates) _ = updates.RunStartupCheckAsync(this);
-                _ = Services.IconPackStartup.RunAsync();
-            }
-            ContentRendered += StartUpdateCheck;
-        }
+        ContentRendered += StartUpdateCheck;
 
         Closing += (_, _) =>
         {

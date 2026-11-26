@@ -25,12 +25,18 @@ public partial class PackagesPage
         ApplySavedColumns();
         InitializeColumnLayout();
 
+        // The checklist has its own data context, set here: a view model without one (a test) shows neither the panel nor the strip.
+        SetupPanel.DataContext = viewModel.Checklist;
+        SetupStrip.DataContext = viewModel.Checklist;
+        if (viewModel.Checklist is { } checklist) checklist.StateChanged += ApplyPane;
+
         PreviewKeyDown += OnPageKeyDown;
         Loaded += (_, _) =>
         {
             Focus();
             // A narrow window starts with the pane closed; the saved choice is not changed.
             _narrow = ActualWidth > 0 && ActualWidth + NavigationWidth < DetailPaneMinimumWindowWidth;
+            _startedNarrow = _narrow;
             ApplyPane();
         };
     }
@@ -198,14 +204,43 @@ public partial class PackagesPage
 
     private const double NavigationWidth = 230;
     private bool _narrow;
+    private bool _startedNarrow;
 
-    /// <summary>Opens or closes the pane: the column width and the visibility of its content, so a closed pane leaves the tab order.</summary>
+    /// <summary>
+    /// Fills the right column: the setup checklist when it is open, else the detail pane. It sets the column width and the visibility of the
+    /// content, so closed content leaves the tab order. A window that started narrow shows the strip until the user opens the checklist.
+    /// </summary>
     private void ApplyPane()
     {
-        var open = ((PackagesViewModel)DataContext!).IsDetailPaneOpen && !_narrow;
-        DetailPaneColumn.Width = new GridLength(open ? 320 : 0);
+        var viewModel = (PackagesViewModel)DataContext!;
+        var checklist = viewModel.Checklist;
+        var showChecklist = checklist is { IsOpen: true } && (!_startedNarrow || checklist.OpenedByUser);
+        var open = !showChecklist && viewModel.IsDetailPaneOpen && !_narrow;
+        var checklistHadFocus = !showChecklist && SetupPanel.IsKeyboardFocusWithin;
+        DetailPaneColumn.Width = new GridLength(open || showChecklist ? 320 : 0);
         DetailPane.Visibility = open ? Visibility.Visible : Visibility.Collapsed;
-        btnDetailPane.Visibility = open ? Visibility.Collapsed : Visibility.Visible;
+        btnDetailPane.Visibility = open || showChecklist ? Visibility.Collapsed : Visibility.Visible;
+        SetupPanel.Visibility = showChecklist ? Visibility.Visible : Visibility.Collapsed;
+        SetupStrip.Visibility = !showChecklist && checklist is { IsDue: true } ? Visibility.Visible : Visibility.Collapsed;
+        // A closed checklist gives the keyboard focus to the button that opens it, or to the grid (R-21).
+        if (checklistHadFocus)
+        {
+            UpdateLayout();
+            if (SetupStrip.IsVisible) btnOpenSetupChecklist.Focus();
+            else PackagerGrid.Focus();
+        }
+    }
+
+    private void OpenChecklist_Click(object sender, RoutedEventArgs e) => ShowChecklist();
+
+    /// <summary>Opens the setup checklist and moves the keyboard focus into it.</summary>
+    private void ShowChecklist()
+    {
+        if (((PackagesViewModel)DataContext!).Checklist is not { } checklist) return;
+        checklist.Show();
+        ApplyPane();
+        UpdateLayout();
+        SetupPanel.MoveFocus(new TraversalRequest(FocusNavigationDirection.First));
     }
 
     private void DetailOpenWorkbench_Click(object sender, RoutedEventArgs e) => OpenWorkbenchForSelection();

@@ -5,7 +5,7 @@ using ApplicationPackagerUI.Services;
 namespace ApplicationPackagerUI.ViewModels.Windows;
 
 /// <summary>
-/// First-run setup. Step one picks the systems in use, step two shows the fields those
+/// The Setup window, opened from the setup checklist or from More, Setup. Step one picks the systems in use, step two shows the fields those
 /// systems need. Save writes through the same settings persistence the Settings page uses,
 /// so it applies without a restart, and every selected system becomes a default One Click
 /// destination.
@@ -40,6 +40,9 @@ public partial class SetupWindowViewModel : ObservableObject
     [ObservableProperty] private string _wsusServerName = "";
     [ObservableProperty] private string _wsusPort = WsusSettings.HttpPort.ToString(CultureInfo.InvariantCulture);
     [ObservableProperty] private bool _wsusUseSsl;
+
+    /// <summary>With a site active the site code is the code of its folder: only the site switcher changes it, and a save here would be ignored.</summary>
+    public bool SiteCodeLocked => ApplicationPackagerEngine.Services.SiteContext.IsActive;
 
     public bool ShowMecmFields => UseConfigMgr;
     public bool ShowIntuneFields => UseIntune;
@@ -124,6 +127,10 @@ public partial class SetupWindowViewModel : ObservableObject
     private void Save()
     {
         var s = _settingsService.Load();
+        var before = s.Systems ?? new SystemsInUse();
+        // Setup can open again later. The saved One Click destinations change only on the first setup or when the systems change.
+        var resetDestinations = FirstRunDecision.IsWizardDue(s.FirstRunCompleted)
+                                || (before.ConfigMgr, before.Intune, before.Wsus) != (UseConfigMgr, UseIntune, UseWsus);
 
         s.Systems = new SystemsInUse { ConfigMgr = UseConfigMgr, Intune = UseIntune, Wsus = UseWsus };
         if (UseConfigMgr)
@@ -161,8 +168,11 @@ public partial class SetupWindowViewModel : ObservableObject
         // One Click runs unattended: every selected system becomes a default destination;
         // the publish buttons choose per run.
         var defaults = new DestinationSet(UseConfigMgr, UseWsus, UseIntune);
-        s.OneClick.DefaultDestinations = defaults;
-        s.Intune.DeploymentTarget = DeploymentTargets.Normalize(defaults.ToTargetName());
+        if (resetDestinations)
+        {
+            s.OneClick.DefaultDestinations = defaults;
+            s.Intune.DeploymentTarget = DeploymentTargets.Normalize(defaults.ToTargetName());
+        }
 
         s.FirstRunCompleted = true;
         // An automatic save writes nothing over an unreadable file, and the wizard would show again at every launch.
@@ -173,14 +183,14 @@ public partial class SetupWindowViewModel : ObservableObject
 
         _settingsViewModel.ReloadFromStore();
         _packagesViewModel.RefreshPublishActionState();
-        _packagesViewModel.AppendLog(OneClickSettingsMap.SetupCompleteLine(defaults));
+        if (resetDestinations) _packagesViewModel.AppendLog(OneClickSettingsMap.SetupCompleteLine(defaults));
 
         CloseRequested?.Invoke(this, true);
     }
 
     /// <summary>
-    /// Skip leaves the wizard due next launch unless "Don't show this again" is checked, which
-    /// suppresses it without configuring anything.
+    /// Skip saves nothing. With "Don't show this again" checked it marks the first run as completed, which also
+    /// stops the setup checklist of a new install.
     /// </summary>
     [RelayCommand]
     private void Skip()

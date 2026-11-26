@@ -142,10 +142,34 @@ public partial class PackagesViewModel : ObservableObject
         ImportFromUrlCommand = new RelayCommand(() => ImportFromUrlRequested?.Invoke(this, EventArgs.Empty), CanRunOperation);
         _isDetailPaneOpen = _settingsService.Load().PackagesDetailPaneOpen;
         InitializeDiscovery(discovery, discoveryPrompt);
+        Checklist = new SetupChecklistViewModel(_settingsService, _scanStore, () => _siteState.ConfigMgr, () => IsOperationRunning,
+            RunChecklistDiscoveryAsync, TestMecmConnectionAsync);
+        _siteState.Changed += () => OnUiThread(() => Checklist?.Refresh());
 
         RefreshPublishActionState();
 
         _ = InitializeAsync();
+    }
+
+    /// <summary>The first-start checklist of this page. Null only in a view model that a test builds without its constructor.</summary>
+    public SetupChecklistViewModel? Checklist { get; set; }
+
+    private static void OnUiThread(Action action)
+    {
+        var dispatcher = System.Windows.Application.Current?.Dispatcher;
+        if (dispatcher is null || dispatcher.CheckAccess()) action();
+        else dispatcher.BeginInvoke(action);
+    }
+
+    /// <summary>
+    /// The Setup window closed. A saved setup can name another site, so the connection is tested again. Skip with "Don't show this again" on a
+    /// new install also stops the checklist.
+    /// </summary>
+    public void OnSetupClosed(bool saved, bool dontShowAgain)
+    {
+        if (dontShowAgain) Checklist?.Dismiss();
+        else Checklist?.Refresh();
+        if (saved) _ = TestMecmConnectionAsync();
     }
 
     /// <summary>The settings the publish buttons depend on, as stored now.</summary>
@@ -180,6 +204,7 @@ public partial class PackagesViewModel : ObservableObject
         _skipMecmPreflight = state.SkipMecmPreflight;
 
         NotifyActionCommands();
+        Checklist?.Refresh();
     }
 
     private void NotifyActionCommands()
@@ -222,6 +247,7 @@ public partial class PackagesViewModel : ObservableObject
         if (value) _cancelRequested = false;
         ApplicationPackagerEngine.Services.SiteRunGuard.Set(this, value ? "a check, Stage or publish run is active" : null);
         NotifyActionCommands();
+        Checklist?.RefreshBusy();
     }
 
     /// <summary>The connection test of this page goes to the shared state, so the strip on every page shows it.</summary>
@@ -651,6 +677,7 @@ public partial class PackagesViewModel : ObservableObject
         SearchText = "";
         ApplyFilter(replace: true);
 
+        Checklist?.Refresh();
         _ = TestMecmConnectionAsync();
     }
 
@@ -698,7 +725,10 @@ public partial class PackagesViewModel : ObservableObject
             return;
         }
 
-        if (string.IsNullOrWhiteSpace(settings.SiteCode))
+        // The site code of a new install is an example until one is saved: no test, so a new user gets no error for a site that was never entered.
+        var exampleSite = FirstRunDecision.IsWizardDue(settings.FirstRunCompleted) && settings.SiteCodeSaved != true
+                          && SetupChecklistRules.LauncherSite() is null;
+        if (string.IsNullOrWhiteSpace(settings.SiteCode) || exampleSite)
         {
             MecmConnectionStatus = "Not configured";
             AddLogLine("ConfigMgr: Site code not configured. Open Settings.");

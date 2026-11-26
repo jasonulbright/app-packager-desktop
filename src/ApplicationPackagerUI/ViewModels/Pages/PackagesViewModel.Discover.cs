@@ -25,8 +25,25 @@ public partial class PackagesViewModel
     public IAsyncRelayCommand DiscoverAllCommand =>
         _discoverAllCommand ??= new AsyncRelayCommand(() => DiscoverAsync(true), () => CanRunOperation() && IsDiscoverAvailable && _discoveryRunner is not null);
 
-    /// <summary>The first-run question: "Discover not selected" when the user agrees. The caller shows the question; nothing runs without a yes.</summary>
-    public Task RunFirstRunDiscoveryAsync() => IsDiscoverAvailable ? DiscoverAsync(false) : Task.CompletedTask;
+    /// <summary>
+    /// The scan step of the setup checklist. It reads the hidden products, or every product when the Catalog hides none, because a scan of no
+    /// product finds nothing. Every matched product is checked in the prompt; the user still chooses the button.
+    /// </summary>
+    public async Task RunChecklistDiscoveryAsync()
+    {
+        if (!IsDiscoverAvailable || !CanRunOperation()) return;
+        var allProducts = (_settingsService.Load().HiddenApplications?.Length ?? 0) == 0;
+        DiscoveryRunReport? report = null;
+        _checklistReport = r => report = r;
+        try { await DiscoverAsync(allProducts, preselect: true); }
+        finally { _checklistReport = null; }
+        // The checklist closes when this was its last step, so the status line keeps the result.
+        if (report is { } done)
+            StatusText = new DiscoveryScanRecord(DateTime.UtcNow, done.Matched, null, false).MatchedText + ". " + StatusText;
+    }
+
+    private Action<DiscoveryRunReport>? _checklistReport;
+    private readonly DiscoveryScanStore _scanStore = new();
 
     /// <summary>Raised after Discover changed the hidden, enabled or dismissed lists in the stored settings.</summary>
     public event EventHandler? HiddenApplicationsChanged;
@@ -41,6 +58,11 @@ public partial class PackagesViewModel
             ct => DiscoveryPackagerSource.LoadAsync(AddLogLineFromAnyThread, ct),
             DiscoveryRunner.ListCmSiteDrivesAsync,
             settingsUnreadable: () => _settingsService.IsFileUnreadable);
+        _discoveryRunner.ResultHook = report =>
+        {
+            _checklistReport?.Invoke(report);
+            _scanStore.Record(report);
+        };
     }
 
     /// <summary>Settings, Test connection: the result or the error goes to the status under the buttons and to the log.</summary>
@@ -68,7 +90,7 @@ public partial class PackagesViewModel
         catch (ObjectDisposedException) { }
     }
 
-    private async Task DiscoverAsync(bool allProducts)
+    private async Task DiscoverAsync(bool allProducts, bool preselect = false)
     {
         if (_discoveryRunner is null || _discoveryPrompt is null) return;
         DiscoverStatus = "";
@@ -78,7 +100,7 @@ public partial class PackagesViewModel
         try
         {
             await _discoveryRunner.RunAsync(
-                new ScanEndPrompt(this, _discoveryPrompt),
+                new ScanEndPrompt(this, _discoveryPrompt, preselect),
                 AddLogLine,
                 text => { StatusText = text; DiscoverStatus = text; },
                 () => LoadPackagersCommand.ExecuteAsync(null),
@@ -95,6 +117,7 @@ public partial class PackagesViewModel
         finally
         {
             EndDiscoveryOperation();
+            Checklist?.Refresh();
         }
     }
 
@@ -111,11 +134,13 @@ public partial class PackagesViewModel
     /// Ends the operation before the prompt opens, so the Cancel button no longer shows while
     /// the prompt waits and the grid reload that follows a choice is not refused as busy.
     /// </summary>
-    private sealed class ScanEndPrompt(PackagesViewModel owner, IDiscoveryPrompt inner) : IDiscoveryPrompt
+    private sealed class ScanEndPrompt(PackagesViewModel owner, IDiscoveryPrompt inner, bool preselect) : IDiscoveryPrompt
     {
         public ViewModels.Windows.DiscoveryChoice Show(ViewModels.Windows.DiscoveryDialogViewModel viewModel)
         {
             owner.EndDiscoveryOperation();
+            if (preselect)
+                foreach (var row in viewModel.Rows) row.Selected = true;
             return inner.Show(viewModel);
         }
     }

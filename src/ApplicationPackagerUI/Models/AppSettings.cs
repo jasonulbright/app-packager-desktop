@@ -222,6 +222,13 @@ public sealed class AppSettings
     /// an already-configured user never meets the setup window.
     /// </summary>
     public bool? FirstRunCompleted { get; set; }
+
+    /// <summary>
+    /// Where the first-start checklist is in its life: "Open", "Done" or "Dismissed". Null for an install that never got the checklist, which
+    /// includes every install that was set up before the checklist existed. The state of a step is never stored.
+    /// </summary>
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public string? SetupChecklist { get; set; }
 }
 
 public sealed class IntuneSettings
