@@ -30,6 +30,28 @@ public sealed class ApplicationWork
     /// <summary>The definition identifier of each application in <see cref="ProfilePending"/>.</summary>
     public Dictionary<string, string> ProfileDefinition { get; } = new(StringComparer.OrdinalIgnoreCase);
 
+    private readonly Dictionary<string, string> _profileOriginals = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>The pending profile fields that differ from the stored ones, as "application|field" and the new value.</summary>
+    public IEnumerable<KeyValuePair<string, string>> ProfileEdits()
+    {
+        foreach (var (applicationId, fields) in ProfilePending)
+            foreach (var (path, value) in fields)
+                if (ProfileText(value) != _profileOriginals.GetValueOrDefault(applicationId + "|" + path, ""))
+                    yield return new(applicationId + "|" + path, ProfileText(value));
+    }
+
+    /// <summary>Drops the pending profile fields: they were written, or the person discarded them.</summary>
+    public void ClearProfileEdits()
+    {
+        ProfilePending.Clear();
+        ProfileDefinition.Clear();
+        _profileOriginals.Clear();
+    }
+
+    /// <summary>An empty value and Inherit both mean that the field is not set.</summary>
+    private static string ProfileText(string value) => value == GridProfileFields.Inherit ? "" : value;
+
     /// <summary>The value of a profile field: the pending edit, else the stored one.</summary>
     public string ProfileValue(SupersedenceRow row, string path) =>
         ProfilePending.TryGetValue(row.ApplicationId, out var pending) && pending.TryGetValue(path, out var value) ? value : ProfileOf(row).Fields.GetValueOrDefault(path, "");
@@ -37,6 +59,7 @@ public sealed class ApplicationWork
     public bool SetProfileValue(SupersedenceRow row, string path, string value)
     {
         if (!GridProfileFields.IsValid(path, value)) return false;
+        _profileOriginals.TryAdd(row.ApplicationId + "|" + path, ProfileText(ProfileOf(row).Fields.GetValueOrDefault(path, "")));
         if (!ProfilePending.TryGetValue(row.ApplicationId, out var pending)) ProfilePending[row.ApplicationId] = pending = new(StringComparer.Ordinal);
         pending[path] = value;
         ProfileDefinition[row.ApplicationId] = row.DefinitionId;
@@ -94,6 +117,20 @@ public static class ApplicationColumns
     public static readonly IReadOnlyList<ApplicationColumn> All = Build();
 
     public static ApplicationColumn? Find(string? id) => All.FirstOrDefault(c => string.Equals(c.Id, id, StringComparison.Ordinal));
+
+    /// <summary>The columns that the grid shows: the saved choice, or the default columns when nothing is saved. An unknown id is dropped.</summary>
+    public static HashSet<string> VisibleIds(IEnumerable<string>? saved)
+    {
+        var chosen = saved?.ToHashSet(StringComparer.Ordinal);
+        return new HashSet<string>(All.Where(c => chosen?.Contains(c.Id) ?? c.DefaultVisible).Select(c => c.Id), StringComparer.Ordinal);
+    }
+
+    /// <summary>The saved form of the choice, in the order of the grid.</summary>
+    public static string[] ToSave(IReadOnlySet<string> visible) => All.Where(c => visible.Contains(c.Id)).Select(c => c.Id).ToArray();
+
+    /// <summary>The help of one cell: the application, the column, then the reason of a fixed field or what the column does.</summary>
+    public static string FieldHelp(SupersedenceRow row, ApplicationColumn column) =>
+        $"{row.Application}, {column.Header}: {row.Tips[column.Id] ?? column.Tooltip}";
 
     private static ApplicationColumn DestinationColumn(string id, string header, string system, Func<DestinationSet, bool> get, Action<DestinationSet, bool> set,
         Func<SupersedenceRow, string?> notApplicable) => new()

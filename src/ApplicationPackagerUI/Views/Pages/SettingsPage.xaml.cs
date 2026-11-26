@@ -26,6 +26,7 @@ public partial class SettingsPage
         InitializeComponent();
         SelectPage(s_lastPage);
         BuildApplicationColumns();
+        TrackInput();
         CollectionViewSource.GetDefaultView(_viewModel.SupersedenceRows).Filter = o => o is Models.SupersedenceRow r && _viewModel.MatchesFilter(r);
         _viewModel.FilterChanged += () => CollectionViewSource.GetDefaultView(_viewModel.SupersedenceRows).Refresh();
         // The view model is built before the application list finishes loading, so the
@@ -39,6 +40,8 @@ public partial class SettingsPage
                 _viewModel.RefreshSupersedenceRows();
         };
     }
+
+    private void OpenSystemsInUse_Click(object sender, RoutedEventArgs e) => SelectPage("systems");
 
     /// <summary>Shows one page of the Options tree and hides the others. An unknown id leaves the page as it is.</summary>
     public void SelectPage(string id)
@@ -92,6 +95,9 @@ public partial class SettingsPage
             cell.SetValue(System.Windows.Automation.AutomationProperties.NameProperty, column.AutomationName);
             cell.SetBinding(UIElement.IsEnabledProperty, new Binding($"Editable[{column.Id}]"));
             cell.SetBinding(FrameworkElement.ToolTipProperty, new Binding($"Tips[{column.Id}]"));
+            // A fixed field is disabled. Its reason still shows on hover, and a screen reader reads it as the help of the field and of its cell.
+            cell.SetValue(ToolTipService.ShowOnDisabledProperty, true);
+            cell.SetBinding(System.Windows.Automation.AutomationProperties.HelpTextProperty, new Binding($"Tips[{column.Id}]"));
             if (column.Choices is null)
                 cell.SetBinding(System.Windows.Controls.TextBox.TextProperty, new Binding($"Cells[{column.Id}]") { Mode = BindingMode.TwoWay, UpdateSourceTrigger = UpdateSourceTrigger.LostFocus });
             else
@@ -105,9 +111,44 @@ public partial class SettingsPage
                 Header = column.Header,
                 Width = column.Width,
                 SortMemberPath = $"Cells[{column.Id}]",
+                CellStyle = CellStyleOf(column),
                 CellTemplate = new DataTemplate { VisualTree = cell }
             });
         }
+    }
+
+    /// <summary>The style of a grid cell with the help of its field. The cell keeps the focus when its control is disabled.</summary>
+    private Style? CellStyleOf(ApplicationColumn column)
+    {
+        if (TryFindResource(typeof(System.Windows.Controls.DataGridCell)) is not Style basis) return null;
+        var style = new Style(typeof(System.Windows.Controls.DataGridCell), basis);
+        style.Setters.Add(new Setter(System.Windows.Automation.AutomationProperties.HelpTextProperty, new Binding($"Tips[{column.Id}]")));
+        return style;
+    }
+
+    /// <summary>The line under the grid says what the focused field does, or why it is unavailable, so the keyboard reaches what the tooltip says.</summary>
+    private void Applications_GotKeyboardFocus(object sender, System.Windows.Input.KeyboardFocusChangedEventArgs e)
+    {
+        for (var element = e.NewFocus as DependencyObject; element is not null; element = System.Windows.Media.VisualTreeHelper.GetParent(element))
+        {
+            if (element is not System.Windows.Controls.DataGridCell cell) continue;
+            if (cell.DataContext is Models.SupersedenceRow row && ApplicationColumns.All.FirstOrDefault(c => Equals(c.Header, cell.Column?.Header)) is { } column)
+                txtFieldHelp.Text = ApplicationColumns.FieldHelp(row, column);
+            return;
+        }
+    }
+
+    /// <summary>The smallest height of the application grid; a shorter window scrolls the page.</summary>
+    private const double MinimumGridHeight = 240;
+
+    /// <summary>The application grid takes the height that the rest of its page leaves, so the grid fills the page and keeps its own scrolling.</summary>
+    private void Supersedence_ScrollChanged(object sender, ScrollChangedEventArgs e)
+    {
+        // The grid has a scroll viewer of its own; only the changes of the page count.
+        if (!ReferenceEquals(e.OriginalSource, page_supersedence) || page_supersedence.ViewportHeight <= 0) return;
+        var rest = pnlApplicationSettings.ActualHeight + pnlApplicationSettings.Margin.Top + pnlApplicationSettings.Margin.Bottom - dgApplications.ActualHeight;
+        var height = Math.Max(MinimumGridHeight, Math.Floor(page_supersedence.ViewportHeight - rest));
+        if (Math.Abs(dgApplications.Height - height) >= 1) dgApplications.Height = height;
     }
 
     /// <summary>The column chooser: one check item for each setting of the registry.</summary>

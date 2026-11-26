@@ -85,6 +85,9 @@ public sealed class AppSettings
     /// <summary>The order, the widths and the sort of the Packages grid. Null until the operator changes one of them.</summary>
     public ApplicationPackagerUI.Helpers.PackagesColumnLayout? PackagesGridLayout { get; set; }
 
+    /// <summary>The ids of the columns that the Application Settings grid shows, from its Columns menu. Null shows the default columns.</summary>
+    public string[]? ApplicationSettingsColumns { get; set; }
+
     /// <summary>The detail pane of the Packages page is open. The pane starts closed in a window narrower than 1100 whatever this says.</summary>
     public bool PackagesDetailPaneOpen { get; set; } = true;
 
