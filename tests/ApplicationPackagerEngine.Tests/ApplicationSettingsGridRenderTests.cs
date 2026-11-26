@@ -101,7 +101,7 @@ public sealed class ApplicationSettingsGridRenderTests
     [Theory]
     [InlineData(ApplicationTheme.Dark)]
     [InlineData(ApplicationTheme.Light)]
-    public void EveryCellOfTheSelectedRowHasTheFillOfTheRowAndReadableText(ApplicationTheme theme) => WithPage(theme, 3400, (window, grid) =>
+    public void EveryCellOfTheSelectedRowHasTheFillOfTheRowAndReadableText(ApplicationTheme theme) => WithPage(theme, 1690, (window, grid) =>
     {
         grid.SelectedIndex = 0;
         Settle(window);
@@ -119,6 +119,8 @@ public sealed class ApplicationSettingsGridRenderTests
         var wrong = false;
         foreach (var column in grid.Columns.Where(c => c is DataGridTemplateColumn && c.Header as string != "Check"))
         {
+            grid.ScrollIntoView(grid.Items[0], column);
+            Settle(window);
             var cell = Cell(column);
             var fill = Fill(cell);
             var control = Descendants(cell).OfType<System.Windows.Controls.Control>().First(c => c is ComboBox or TextBox);
