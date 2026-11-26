@@ -76,9 +76,9 @@
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
-            <RowDefinition Height="3*" MinHeight="120" />
+            <RowDefinition Height="*" MinHeight="120" />
             <RowDefinition Height="Auto" />
-            <RowDefinition x:Name="LogRow" Height="*" MinHeight="72" MaxHeight="180" />
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
         <Grid.ColumnDefinitions>
@@ -501,19 +501,31 @@
             </WrapPanel>
         </DockPanel>
 
-        <TextBox x:Name="LogBox" Grid.Row="6" Grid.ColumnSpan="2"
-                 Text="{Binding LogText, Mode=OneWay}"
-                 IsReadOnly="True"
-                 TextWrapping="NoWrap"
-                 VerticalScrollBarVisibility="Auto"
-                 HorizontalScrollBarVisibility="Auto"
-                 FontFamily="Consolas"
-                 FontSize="12"
-                 BorderThickness="1"
-                 BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}"
-                 Background="{DynamicResource ControlFillColorDefaultBrush}"
-                 Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                 TextChanged="LogTextBox_TextChanged" />
+        <!-- The last line of the log under the grid, with the history of the selected application and the whole log (overhaul V1, section 2.7).
+             Progress and Cancel stay visible during a run: the status line below and the batch bar above. -->
+        <Border x:Name="LogBar" Grid.Row="6" Grid.ColumnSpan="2" BorderThickness="0,1,0,0" BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}" Padding="0,4,0,0"
+                AutomationProperties.AutomationId="pnlLogBar">
+            <DockPanel>
+                <ui:Button x:Name="btnLogs" DockPanel.Dock="Right" Content="Logs" Icon="{ui:SymbolIcon DocumentText24}" Margin="8,0,0,0" Click="Logs_Click"
+                           AutomationProperties.AutomationId="btnLogs" ToolTip="Open the log of this session." />
+                <ui:Button x:Name="btnOperationHistory" DockPanel.Dock="Right" Content="Operation history" Icon="{ui:SymbolIcon History24}" Margin="8,0,0,0"
+                           Click="ViewHistory_Click" AutomationProperties.AutomationId="btnOperationHistory" ToolTipService.ShowOnDisabled="True"
+                           ToolTip="View the recorded operations of the selected application. Select a row first.">
+                    <ui:Button.Style>
+                        <Style TargetType="ui:Button" BasedOn="{StaticResource {x:Type ui:Button}}">
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding DetailPackager}" Value="{x:Null}">
+                                    <Setter Property="IsEnabled" Value="False" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </ui:Button.Style>
+                </ui:Button>
+                <TextBlock Text="{Binding LastLogLine}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" FontFamily="Consolas" FontSize="12"
+                           Foreground="{DynamicResource TextFillColorSecondaryBrush}" ToolTip="{Binding LastLogLine}"
+                           AutomationProperties.AutomationId="txtLogSummary" />
+            </DockPanel>
+        </Border>
 
         <Grid Grid.Row="7" Grid.ColumnSpan="2" Margin="0,4,0,0">
             <Grid.ColumnDefinitions>

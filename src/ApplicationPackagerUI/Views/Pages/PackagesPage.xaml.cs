@@ -27,11 +27,7 @@ public partial class PackagesPage
         SetupPanel.DataContext = viewModel.Checklist;
         if (viewModel.Checklist is { } checklist) checklist.StateChanged += ApplyPane;
 
-        SizeChanged += (_, _) =>
-        {
-            ApplyLogRow();
-            PlaceChecklist();
-        };
+        SizeChanged += (_, _) => PlaceChecklist();
         WorkArea.SizeChanged += (_, e) =>
         {
             if (e.WidthChanged) FitDetailPane();
@@ -178,13 +174,23 @@ public partial class PackagesPage
         }
     }
 
-    private void LogTextBox_TextChanged(object sender, TextChangedEventArgs e)
+    private Views.Windows.LogWindow? _log;
+
+    /// <summary>Opens the Logs window, or brings the open one to the front.</summary>
+    private void Logs_Click(object sender, RoutedEventArgs e)
     {
-        if (sender is System.Windows.Controls.TextBox tb)
+        if (_log is { IsVisible: true })
         {
-            tb.CaretIndex = tb.Text.Length;
-            tb.ScrollToEnd();
+            _log.Activate();
+            return;
         }
+        _log = new Views.Windows.LogWindow(Packages) { Owner = Window.GetWindow(this) };
+        _log.Closed += (_, _) =>
+        {
+            _log = null;
+            btnLogs.Focus();
+        };
+        _log.Show();
     }
 
     private PackagerInfo? GetSelectedPackager() =>
@@ -213,22 +219,6 @@ public partial class PackagesPage
     private bool _narrow;
     private bool _startedNarrow;
 
-    /// <summary>Below this page height the log gives its room to the setup strip while the strip shows.</summary>
-    private const double ShortPageHeight = 800;
-
-    private const double ShortLogHeight = 40;
-
-    /// <summary>
-    /// The log row shares the height with the grid. In a short page with the setup strip it has a small fixed height, so the grid keeps its
-    /// whole rows.
-    /// </summary>
-    private void ApplyLogRow()
-    {
-        var small = SetupStrip.Visibility == Visibility.Visible && ActualHeight is > 0 and < ShortPageHeight;
-        LogRow.MinHeight = small ? ShortLogHeight : 72;
-        LogRow.Height = small ? new GridLength(ShortLogHeight) : new GridLength(1, GridUnitType.Star);
-    }
-
     /// <summary>
     /// Fills the right column: the setup checklist when it is open, else the detail pane. It sets the column width and the visibility of the
     /// content, so closed content leaves the tab order. A window that started narrow shows the strip until the user opens the checklist.
@@ -247,7 +237,6 @@ public partial class PackagesPage
         SetupPanel.Visibility = showChecklist ? Visibility.Visible : Visibility.Collapsed;
         SetupStrip.Visibility = !showChecklist && checklist is { IsDue: true } ? Visibility.Visible : Visibility.Collapsed;
         PlaceChecklist();
-        ApplyLogRow();
         // A closed checklist gives the keyboard focus to the button that opens it, or to the grid (R-21).
         if (checklistHadFocus)
         {
@@ -318,7 +307,7 @@ public partial class PackagesPage
         Grid.SetRowSpan(SetupPanel, wide ? 3 : 1);
         Grid.SetColumnSpan(WorkArea, shown ? 1 : 2);
         Grid.SetColumnSpan(BatchBar, wide ? 1 : 2);
-        Grid.SetColumnSpan(LogBox, wide ? 1 : 2);
+        Grid.SetColumnSpan(LogBar, wide ? 1 : 2);
     }
 
     private void OpenChecklist_Click(object sender, RoutedEventArgs e) => ShowChecklist();

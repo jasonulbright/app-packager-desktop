@@ -1,0 +1,51 @@
+<ui:FluentWindow
+    x:Class="ApplicationPackagerUI.Views.Windows.LogWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+    Title="Log"
+    Width="1100" Height="620"
+    MinWidth="640" MinHeight="360"
+    WindowStartupLocation="CenterOwner"
+    ExtendsContentIntoTitleBar="True"
+    WindowBackdropType="None">
+
+    <Window.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="/ApplicationPackagerUI;component/Views/Styles/Typography.xaml" />
+                <ResourceDictionary Source="/ApplicationPackagerUI;component/Views/Styles/SelectableRows.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </Window.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <ui:TitleBar Grid.Row="0" Title="Log" ShowMinimize="False" />
+
+        <TextBlock Grid.Row="1" x:Name="txtLogNote" Margin="16,0,16,8" Style="{StaticResource CaptionText}" TextWrapping="Wrap"
+                   AutomationProperties.AutomationId="txtLogNote" />
+
+        <ListBox Grid.Row="2" x:Name="lstLog" Margin="16,0,16,8" SelectionMode="Extended" FontFamily="Consolas" FontSize="12"
+                 VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling"
+                 ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                 AutomationProperties.AutomationId="lstLog" AutomationProperties.Name="Log lines" />
+
+        <Border Grid.Row="3" BorderThickness="0,1,0,0" BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}" Padding="16,8">
+            <DockPanel LastChildFill="False">
+                <ui:Button DockPanel.Dock="Right" Content="Close" MinWidth="100" IsCancel="True" Click="Close_Click"
+                           AutomationProperties.AutomationId="btnLogClose" ToolTip="Close the log window. The log is kept." />
+                <ui:Button DockPanel.Dock="Left" Content="Copy" Icon="{ui:SymbolIcon Copy24}" Margin="0,0,8,0" Click="Copy_Click"
+                           AutomationProperties.AutomationId="btnLogCopy" ToolTip="Copy the selected lines, or every line when none is selected." />
+                <ui:Button DockPanel.Dock="Left" Content="Open Log Folder" Icon="{ui:SymbolIcon FolderOpen24}" Click="OpenFolder_Click"
+                           AutomationProperties.AutomationId="btnLogFolder" ToolTip="Open the folder that holds the log files with every line." />
+            </DockPanel>
+        </Border>
+    </Grid>
+</ui:FluentWindow>

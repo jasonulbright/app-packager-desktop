@@ -44,7 +44,6 @@ public partial class PackagesViewModel : ObservableObject
     [ObservableProperty] private ObservableCollection<PackagerInfo> _filteredPackagers = [];
     [ObservableProperty] private string _searchText = "";
     [ObservableProperty] private string _comment = "";
-    [ObservableProperty] private string _logText = "";
     [ObservableProperty] private string _statusText = "Ready.";
     [ObservableProperty] private bool _isOperationRunning;
     [ObservableProperty] private bool _showDebugColumns;
@@ -619,13 +618,37 @@ public partial class PackagesViewModel : ObservableObject
 
     private static bool _logInitialized;
 
+    private OperationLog? _logLines;
+
+    /// <summary>The newest log lines, for the Logs window.</summary>
+    public OperationLog LogLines => _logLines ??= new OperationLog();
+
+    /// <summary>The newest log line, which the page shows under the grid.</summary>
+    public string LastLogLine => LogLines.Last;
+
+    /// <summary>The kept lines as one text. A set replaces them.</summary>
+    public string LogText
+    {
+        get => LogLines.Text;
+        set
+        {
+            LogLines.Clear();
+            foreach (var line in value.Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries)) LogLines.Append(line);
+            OnPropertyChanged(nameof(LastLogLine));
+        }
+    }
+
+    /// <summary>The file that holds every line of this session.</summary>
+    public static string SessionLogFile => SessionLogPath;
+
     /// <summary>Writes one line to the operation log for work that runs outside this page.</summary>
     public void AppendLog(string message) => AddLogLine(message);
 
     private void AddLogLine(string message)
     {
         var line = $"{DateTime.Now:yyyy-MM-dd HH:mm:ss}  {message}";
-        LogText = LogText.Length > 0 ? LogText + Environment.NewLine + line : line;
+        LogLines.Append(line);
+        OnPropertyChanged(nameof(LastLogLine));
 
         try
         {
