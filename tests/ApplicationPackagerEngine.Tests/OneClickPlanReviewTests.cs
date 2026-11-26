@@ -31,6 +31,7 @@ public sealed class OneClickPlanReviewTests : IDisposable
     {
         var settings = new OneClickPlanSettings
         {
+            Tracked = ["a", "b"],
             DefaultDestinations = new DestinationSet(true, false, false),
             Destinations = new Dictionary<string, DestinationSet> { ["b"] = new DestinationSet(true, true, false) }
         };
