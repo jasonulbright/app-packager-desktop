@@ -9,6 +9,7 @@
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
                 <ResourceDictionary Source="/ApplicationPackagerUI;component/Views/Styles/SelectableRows.xaml" />
+                <ResourceDictionary Source="/ApplicationPackagerUI;component/Views/Styles/Typography.xaml" />
             </ResourceDictionary.MergedDictionaries>
 
             <BooleanToVisibilityConverter x:Key="BoolToVisibility" />
@@ -19,10 +20,30 @@
                 <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
             </Style>
 
-            <Style x:Key="CardTitle" TargetType="TextBlock">
-                <Setter Property="FontSize" Value="14" />
+            <Style x:Key="CardTitle" TargetType="TextBlock" BasedOn="{StaticResource CardTitleText}">
                 <Setter Property="Margin" Value="0,0,0,8" />
-                <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
+            </Style>
+
+            <!-- The object type list reads as a row of tabs: the selected type has a tint and an accent underline. The text does not turn bold. -->
+            <Style x:Key="ObjectTypeTab" TargetType="ListBoxItem" BasedOn="{StaticResource SelectableListItem}">
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="ListBoxItem">
+                            <Border x:Name="Cue" Background="Transparent" BorderThickness="0,0,0,2" BorderBrush="Transparent" SnapsToDevicePixels="True">
+                                <ContentPresenter Margin="{TemplateBinding Padding}" VerticalAlignment="Center" />
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="Cue" Property="Background" Value="{DynamicResource ListViewItemBackgroundPointerOver}" />
+                                </Trigger>
+                                <Trigger Property="IsSelected" Value="True">
+                                    <Setter TargetName="Cue" Property="Background" Value="{DynamicResource SelectedRowBackground}" />
+                                    <Setter TargetName="Cue" Property="BorderBrush" Value="{DynamicResource AccentFillColorDefaultBrush}" />
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
             </Style>
 
             <Style x:Key="Note" TargetType="TextBlock">
@@ -108,7 +129,7 @@
                     <TextBlock Style="{StaticResource Note}" Margin="0,0,0,8"
                                Text="A run creates one ordinary deployment of the object for each ring of the plan. Expand shows the rings with their dates; a collection set here applies to this run only. Validate runs the checks; Create run shows the plan of every deployment first." />
                     <WrapPanel Margin="0,0,0,4">
-                        <ListBox ItemsSource="{Binding TypeNames}" SelectedIndex="{Binding TypeIndex}" ItemContainerStyle="{StaticResource SelectableListItem}"
+                        <ListBox ItemsSource="{Binding TypeNames}" SelectedIndex="{Binding TypeIndex}" ItemContainerStyle="{StaticResource ObjectTypeTab}"
                                  Margin="0,0,16,8" AutomationProperties.Name="Object type of the run" AutomationProperties.AutomationId="lstRingObjectType">
                             <ListBox.ItemsPanel>
                                 <ItemsPanelTemplate>

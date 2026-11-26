@@ -13,10 +13,12 @@
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
                 <ResourceDictionary Source="/ApplicationPackagerUI;component/Views/Styles/SelectableRows.xaml" />
+                <ResourceDictionary Source="/ApplicationPackagerUI;component/Views/Styles/Typography.xaml" />
             </ResourceDictionary.MergedDictionaries>
 
             <BooleanToVisibilityConverter x:Key="BoolToVisibility" />
             <helpers:BindingProxy x:Key="HistoryProxy" Data="{Binding History}" />
+            <views:DeploymentReviewSummaryConverter x:Key="ReviewSummary" />
 
             <Style x:Key="FieldLabel" TargetType="TextBlock">
                 <Setter Property="FontSize" Value="12" />
@@ -24,10 +26,30 @@
                 <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
             </Style>
 
-            <Style x:Key="CardTitle" TargetType="TextBlock">
-                <Setter Property="FontSize" Value="14" />
+            <Style x:Key="CardTitle" TargetType="TextBlock" BasedOn="{StaticResource CardTitleText}">
                 <Setter Property="Margin" Value="0,0,0,8" />
-                <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
+            </Style>
+
+            <!-- The object type list reads as a row of tabs: the selected type has a tint and an accent underline. The text does not turn bold. -->
+            <Style x:Key="ObjectTypeTab" TargetType="ListBoxItem" BasedOn="{StaticResource SelectableListItem}">
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="ListBoxItem">
+                            <Border x:Name="Cue" Background="Transparent" BorderThickness="0,0,0,2" BorderBrush="Transparent" SnapsToDevicePixels="True">
+                                <ContentPresenter Margin="{TemplateBinding Padding}" VerticalAlignment="Center" />
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="Cue" Property="Background" Value="{DynamicResource ListViewItemBackgroundPointerOver}" />
+                                </Trigger>
+                                <Trigger Property="IsSelected" Value="True">
+                                    <Setter TargetName="Cue" Property="Background" Value="{DynamicResource SelectedRowBackground}" />
+                                    <Setter TargetName="Cue" Property="BorderBrush" Value="{DynamicResource AccentFillColorDefaultBrush}" />
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
             </Style>
 
             <Style x:Key="Note" TargetType="TextBlock">
@@ -75,8 +97,8 @@
 
             <DataTemplate x:Key="TabHeaderTemplate">
                 <StackPanel>
-                    <TextBlock x:Name="TabHeaderText" Text="{Binding}" Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
-                    <Border x:Name="TabHeaderUnderline" Height="3" CornerRadius="1.5" Margin="0,4,0,0" Background="Transparent" />
+                    <TextBlock x:Name="TabHeaderText" Text="{Binding}" FontSize="14" Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                    <Border x:Name="TabHeaderUnderline" Height="2" Margin="0,4,0,0" Background="Transparent" />
                 </StackPanel>
                 <DataTemplate.Triggers>
                     <DataTrigger Binding="{Binding IsSelected, RelativeSource={RelativeSource AncestorType=TabItem}}" Value="True">
@@ -86,8 +108,26 @@
                 </DataTemplate.Triggers>
             </DataTemplate>
 
+            <!-- The flat tabs of the V1 workspace: no tab frame; the selected tab has a tint, the primary text color and an accent underline. -->
             <Style TargetType="TabItem" BasedOn="{StaticResource {x:Type TabItem}}">
                 <Setter Property="HeaderTemplate" Value="{StaticResource TabHeaderTemplate}" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="TabItem">
+                            <Border x:Name="Cue" Background="Transparent" Padding="12,4,12,0" Margin="0,0,4,0" SnapsToDevicePixels="True">
+                                <ContentPresenter ContentSource="Header" HorizontalAlignment="Center" VerticalAlignment="Center" RecognizesAccessKey="True" />
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="Cue" Property="Background" Value="{DynamicResource ListViewItemBackgroundPointerOver}" />
+                                </Trigger>
+                                <Trigger Property="IsSelected" Value="True">
+                                    <Setter TargetName="Cue" Property="Background" Value="{DynamicResource SelectedRowBackground}" />
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
             </Style>
 
             <Style x:Key="TrimmedCell" TargetType="TextBlock" BasedOn="{x:Static DataGridTextColumn.DefaultElementStyle}">
@@ -132,8 +172,7 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <controls:PageHeader Grid.Row="0" Title="Deployment Helper" Icon="Rocket24" TitleAutomationId="txtDeploymentTitle" DescriptionAutomationId="txtDeploymentIntro"
-                             Description="Creates deployments of an application, a package, a task sequence or a software update group to device collections, one at a time or in rings. Every write shows a plan first." />
+        <controls:PageHeader Grid.Row="0" Title="Deployment Helper" Icon="Rocket24" Compact="True" TitleAutomationId="txtDeploymentTitle" />
 
         <Border Grid.Row="1" Style="{StaticResource Caution}" Visibility="{Binding Shared.HasConnectionMessage, Converter={StaticResource BoolToVisibility}}"
                 AutomationProperties.AutomationId="pnlDeploymentConnection">
@@ -152,7 +191,7 @@
                               AutomationProperties.AutomationId="scrollDeployTab">
                     <StackPanel x:Name="pnlDeploy" SizeChanged="OnDeploySizeChanged">
                         <WrapPanel Margin="0,0,0,4">
-                            <ListBox ItemsSource="{Binding TypeNames}" SelectedIndex="{Binding TypeIndex}" ItemContainerStyle="{StaticResource SelectableListItem}"
+                            <ListBox ItemsSource="{Binding TypeNames}" SelectedIndex="{Binding TypeIndex}" ItemContainerStyle="{StaticResource ObjectTypeTab}"
                                      Margin="0,0,16,8" AutomationProperties.Name="Object type" AutomationProperties.AutomationId="lstObjectType">
                                 <ListBox.ItemsPanel>
                                     <ItemsPanelTemplate>
@@ -246,145 +285,158 @@
                             </Border>
                         </Grid>
 
-                        <Border Style="{StaticResource Card}" Margin="0,0,0,12" AutomationProperties.AutomationId="pnlSettings">
-                            <StackPanel>
-                                <TextBlock Text="Schedule and options" Style="{StaticResource CardTitle}" />
-                                <WrapPanel>
-                                    <StackPanel Margin="0,0,24,8">
-                                        <TextBlock Text="Purpose" Style="{StaticResource FieldLabel}" />
-                                        <StackPanel Orientation="Horizontal">
-                                            <RadioButton Content="Available" GroupName="DeploymentPurpose" IsChecked="{Binding IsAvailable}" Margin="0,0,16,0"
-                                                         ToolTip="Makes the deployment available: users install the software from Software Center when they choose." AutomationProperties.AutomationId="rbAvailable" />
-                                            <RadioButton Content="Required" GroupName="DeploymentPurpose" IsChecked="{Binding IsRequired}" ToolTip="Makes the deployment required: Configuration Manager installs the software at the deadline." AutomationProperties.AutomationId="rbRequired" />
+                        <!-- Stacked here; the code puts the two cards side by side when the tab is wide enough. -->
+                        <Grid x:Name="gridCards" Margin="0,0,0,12">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="16" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+                            <Border x:Name="pnlSettings" Grid.Row="0" Grid.ColumnSpan="3" Style="{StaticResource Card}" AutomationProperties.AutomationId="pnlSettings">
+                                <StackPanel>
+                                    <TextBlock Text="Schedule and options" Style="{StaticResource CardTitle}" />
+                                    <WrapPanel>
+                                        <StackPanel Margin="0,0,24,8">
+                                            <TextBlock Text="Purpose" Style="{StaticResource FieldLabel}" />
+                                            <StackPanel Orientation="Horizontal">
+                                                <RadioButton Content="Available" GroupName="DeploymentPurpose" IsChecked="{Binding IsAvailable}" Margin="0,0,16,0"
+                                                             ToolTip="Makes the deployment available: users install the software from Software Center when they choose." AutomationProperties.AutomationId="rbAvailable" />
+                                                <RadioButton Content="Required" GroupName="DeploymentPurpose" IsChecked="{Binding IsRequired}" ToolTip="Makes the deployment required: Configuration Manager installs the software at the deadline." AutomationProperties.AutomationId="rbRequired" />
+                                            </StackPanel>
                                         </StackPanel>
-                                    </StackPanel>
-                                    <StackPanel Margin="0,0,24,8">
-                                        <TextBlock Text="Time basis" Style="{StaticResource FieldLabel}" />
-                                        <StackPanel Orientation="Horizontal">
-                                            <RadioButton Content="Local time" GroupName="DeploymentTimeBasis" IsChecked="{Binding IsLocalTime}" Margin="0,0,16,0"
-                                                         ToolTip="Bases the available and deadline times on the local time of each device." AutomationProperties.AutomationId="rbLocalTime" />
-                                            <RadioButton Content="UTC" GroupName="DeploymentTimeBasis" IsChecked="{Binding UtcBasis}" ToolTip="Bases the available and deadline times on UTC, so every device uses the same moment." AutomationProperties.AutomationId="rbUtc" />
+                                        <StackPanel Margin="0,0,24,8">
+                                            <TextBlock Text="Time basis" Style="{StaticResource FieldLabel}" />
+                                            <StackPanel Orientation="Horizontal">
+                                                <RadioButton Content="Local time" GroupName="DeploymentTimeBasis" IsChecked="{Binding IsLocalTime}" Margin="0,0,16,0"
+                                                             ToolTip="Bases the available and deadline times on the local time of each device." AutomationProperties.AutomationId="rbLocalTime" />
+                                                <RadioButton Content="UTC" GroupName="DeploymentTimeBasis" IsChecked="{Binding UtcBasis}" ToolTip="Bases the available and deadline times on UTC, so every device uses the same moment." AutomationProperties.AutomationId="rbUtc" />
+                                            </StackPanel>
                                         </StackPanel>
-                                    </StackPanel>
-                                    <StackPanel Margin="0,0,24,8">
-                                        <TextBlock Text="Available" Style="{StaticResource FieldLabel}" />
-                                        <StackPanel Orientation="Horizontal">
-                                            <DatePicker SelectedDate="{Binding AvailableDate}" SelectedDateFormat="Short" ToolTip="{Binding AvailableDateTip}" Width="150" Margin="0,0,8,0" AutomationProperties.Name="Available date"
-                                                        AutomationProperties.AutomationId="dpAvailableDate" />
-                                            <ui:TextBox Text="{Binding AvailableTimeText, UpdateSourceTrigger=PropertyChanged}" Width="90" PlaceholderText="08:30"
-                                                        AutomationProperties.Name="Available time" ToolTip="Enter the time of day the deployment becomes available, as hours and minutes, for example 08:30." AutomationProperties.AutomationId="txtAvailableTime" />
+                                        <StackPanel Margin="0,0,24,8">
+                                            <TextBlock Text="Available" Style="{StaticResource FieldLabel}" />
+                                            <StackPanel Orientation="Horizontal">
+                                                <DatePicker SelectedDate="{Binding AvailableDate}" SelectedDateFormat="Short" ToolTip="{Binding AvailableDateTip}" Width="150" Margin="0,0,8,0" AutomationProperties.Name="Available date"
+                                                            AutomationProperties.AutomationId="dpAvailableDate" />
+                                                <ui:TextBox Text="{Binding AvailableTimeText, UpdateSourceTrigger=PropertyChanged}" Width="90" PlaceholderText="08:30"
+                                                            AutomationProperties.Name="Available time" ToolTip="Enter the time of day the deployment becomes available, as hours and minutes, for example 08:30." AutomationProperties.AutomationId="txtAvailableTime" />
+                                            </StackPanel>
                                         </StackPanel>
-                                    </StackPanel>
-                                    <StackPanel Margin="0,0,24,8" Visibility="{Binding IsRequired, Converter={StaticResource BoolToVisibility}}">
-                                        <TextBlock Text="Deadline" Style="{StaticResource FieldLabel}" />
-                                        <StackPanel Orientation="Horizontal">
-                                            <DatePicker SelectedDate="{Binding DeadlineDate}" SelectedDateFormat="Short" ToolTip="{Binding DeadlineDateTip}" Width="150" Margin="0,0,8,0" AutomationProperties.Name="Deadline date"
-                                                        AutomationProperties.AutomationId="dpDeadlineDate" />
-                                            <ui:TextBox Text="{Binding DeadlineTimeText, UpdateSourceTrigger=PropertyChanged}" Width="90" PlaceholderText="18:00"
-                                                        AutomationProperties.Name="Deadline time" ToolTip="Enter the time of day of the deadline, as hours and minutes, for example 18:00." AutomationProperties.AutomationId="txtDeadlineTime" />
+                                        <StackPanel Margin="0,0,24,8" Visibility="{Binding IsRequired, Converter={StaticResource BoolToVisibility}}">
+                                            <TextBlock Text="Deadline" Style="{StaticResource FieldLabel}" />
+                                            <StackPanel Orientation="Horizontal">
+                                                <DatePicker SelectedDate="{Binding DeadlineDate}" SelectedDateFormat="Short" ToolTip="{Binding DeadlineDateTip}" Width="150" Margin="0,0,8,0" AutomationProperties.Name="Deadline date"
+                                                            AutomationProperties.AutomationId="dpDeadlineDate" />
+                                                <ui:TextBox Text="{Binding DeadlineTimeText, UpdateSourceTrigger=PropertyChanged}" Width="90" PlaceholderText="18:00"
+                                                            AutomationProperties.Name="Deadline time" ToolTip="Enter the time of day of the deadline, as hours and minutes, for example 18:00." AutomationProperties.AutomationId="txtDeadlineTime" />
+                                            </StackPanel>
                                         </StackPanel>
-                                    </StackPanel>
-                                    <StackPanel Margin="0,0,24,8" Visibility="{Binding ShowNotification, Converter={StaticResource BoolToVisibility}}">
-                                        <TextBlock Text="User notification" Style="{StaticResource FieldLabel}" />
-                                        <ComboBox ItemsSource="{Binding Notifications}" SelectedItem="{Binding Notification}" DisplayMemberPath="Text" MinWidth="280"
-                                                  AutomationProperties.Name="User notification" ToolTip="Select whether the deployment shows in Software Center and which notifications users see. An Available deployment cannot hide all notifications." AutomationProperties.AutomationId="cboNotification" />
-                                    </StackPanel>
-                                </WrapPanel>
-                                <TextBlock Text="{Binding TimeBasisNote}" Style="{StaticResource Note}" Margin="0,0,0,8" AutomationProperties.AutomationId="txtTimeBasisNote" />
-                                <WrapPanel Margin="0,4,0,0">
-                                    <CheckBox Content="{x:Static pages:DeploymentText.ShowProgressLabel}" IsChecked="{Binding ShowProgress}" Style="{StaticResource Option}"
-                                              Visibility="{Binding IsTaskSequence, Converter={StaticResource BoolToVisibility}}" ToolTip="Shows the progress of the Task Sequence on the device while it runs." AutomationProperties.AutomationId="chkShowProgress" />
-                                    <CheckBox Content="{x:Static pages:DeploymentText.FallbackLabel}" IsChecked="{Binding AllowFallback}" Style="{StaticResource Option}"
-                                              Visibility="{Binding ShowAllowFallback, Converter={StaticResource BoolToVisibility}}" ToolTip="Lets devices that find no content in their own boundary group use distribution points from the default site boundary group." AutomationProperties.AutomationId="chkAllowFallback" />
-                                    <CheckBox Content="{x:Static pages:DeploymentText.FullScanLabel}" IsChecked="{Binding PostRebootScan}" Style="{StaticResource Option}"
-                                              Visibility="{Binding IsUpdateGroup, Converter={StaticResource BoolToVisibility}}" ToolTip="Makes devices run a full scan for software updates after the restart that follows the installation." AutomationProperties.AutomationId="chkPostRebootScan" />
-                                </WrapPanel>
-                                <WrapPanel Margin="0,4,0,0">
-                                    <StackPanel Margin="0,0,24,8" Visibility="{Binding IsPackage, Converter={StaticResource BoolToVisibility}}">
-                                        <TextBlock Text="Fast network" Style="{StaticResource FieldLabel}" />
-                                        <ComboBox ItemsSource="{Binding NetworkBehaviors}" SelectedItem="{Binding NetworkBehavior}" DisplayMemberPath="Text" MinWidth="300"
-                                                  AutomationProperties.Name="Fast network" ToolTip="Select how devices on a fast network get the content of the Package: download it and run locally, or run the program from the distribution point." AutomationProperties.AutomationId="cboNetwork" />
-                                    </StackPanel>
-                                    <StackPanel Margin="0,0,24,8" Visibility="{Binding IsPackage, Converter={StaticResource BoolToVisibility}}">
-                                        <TextBlock Text="Slow network" Style="{StaticResource FieldLabel}" />
-                                        <ComboBox ItemsSource="{Binding SlowNetworkBehaviors}" SelectedItem="{Binding SlowNetworkBehavior}" DisplayMemberPath="Text" MinWidth="300"
-                                                  AutomationProperties.Name="Slow network" ToolTip="Select how devices on a slow network get the content of the Package: do not run the program, or download the content and run locally." AutomationProperties.AutomationId="cboSlowNetwork" />
-                                    </StackPanel>
-                                    <StackPanel Margin="0,0,24,8" Visibility="{Binding IsTaskSequence, Converter={StaticResource BoolToVisibility}}">
-                                        <TextBlock Text="Available to" Style="{StaticResource FieldLabel}" />
-                                        <ComboBox ItemsSource="{Binding TaskSequenceAvailabilities}" SelectedItem="{Binding TaskSequenceAvailability}" DisplayMemberPath="Text" MinWidth="260"
-                                                  AutomationProperties.Name="Available to" ToolTip="Select which devices and boot media can see the Task Sequence deployment." AutomationProperties.AutomationId="cboTaskSequenceAvailability" />
-                                    </StackPanel>
-                                    <StackPanel Margin="0,0,24,8" Visibility="{Binding IsTaskSequence, Converter={StaticResource BoolToVisibility}}">
-                                        <TextBlock Text="Content" Style="{StaticResource FieldLabel}" />
-                                        <ComboBox ItemsSource="{Binding TaskSequenceContents}" SelectedItem="{Binding TaskSequenceContent}" DisplayMemberPath="Text" MinWidth="320"
-                                                  AutomationProperties.Name="Task sequence content" ToolTip="Select when devices download the content of the Task Sequence: when the Task Sequence needs it, or all before it starts." AutomationProperties.AutomationId="cboTaskSequenceContent" />
-                                    </StackPanel>
-                                </WrapPanel>
-                                <TextBlock Text="Required only" Style="{StaticResource FieldLabel}" Margin="0,4,0,4" />
-                                <TextBlock Text="{Binding RequiredOnlyNote}" Style="{StaticResource Note}" Margin="0,0,0,8" AutomationProperties.AutomationId="txtRequiredOnlyNote" />
-                                <WrapPanel IsEnabled="{Binding RequiredOnlyEnabled}" AutomationProperties.AutomationId="pnlRequiredOnly">
-                                    <CheckBox Content="{x:Static pages:DeploymentText.OverrideWindowLabel}" IsChecked="{Binding OverrideServiceWindow}" Style="{StaticResource Option}"
-                                              ToolTip="At the deadline, installs the software even when no maintenance window is open." AutomationProperties.AutomationId="chkOverrideWindow" />
-                                    <CheckBox Content="{x:Static pages:DeploymentText.RebootOutsideLabel}" IsChecked="{Binding RebootOutsideServiceWindow}" Style="{StaticResource Option}"
-                                              ToolTip="Lets devices restart after the installation even when no maintenance window is open." AutomationProperties.AutomationId="chkRebootOutside" />
-                                    <CheckBox Content="{x:Static pages:DeploymentText.MeteredLabel}" IsChecked="{Binding AllowMetered}" Style="{StaticResource Option}"
-                                              Visibility="{Binding ShowMetered, Converter={StaticResource BoolToVisibility}}" ToolTip="Lets devices on a metered connection download content after the installation deadline. This can cost extra." AutomationProperties.AutomationId="chkMetered" />
-                                    <CheckBox Content="{x:Static pages:DeploymentText.FallbackLabel}" IsChecked="{Binding FallbackToDp}" Style="{StaticResource Option}"
-                                              Visibility="{Binding IsUpdateGroup, Converter={StaticResource BoolToVisibility}}" ToolTip="Lets devices that find no software updates on a preferred distribution point use distribution points from the default site boundary group." AutomationProperties.AutomationId="chkFallbackToDp" />
-                                    <CheckBox Content="{x:Static pages:DeploymentText.MicrosoftUpdateLabel}" IsChecked="{Binding AllowMicrosoftUpdate}" Style="{StaticResource Option}"
-                                              Visibility="{Binding IsUpdateGroup, Converter={StaticResource BoolToVisibility}}" ToolTip="Lets devices download the software updates from Microsoft Update when no distribution point has them." AutomationProperties.AutomationId="chkMicrosoftUpdate" />
-                                    <CheckBox Content="{Binding SuppressRestartLabel}" IsChecked="{Binding SuppressRestart}" Style="{StaticResource Option}"
-                                              Visibility="{Binding IsUpdateGroup, Converter={StaticResource BoolToVisibility}}" ToolTip="Stops servers and workstations from restarting after the installation." AutomationProperties.AutomationId="chkSuppressRestart" />
-                                    <StackPanel Margin="0,0,24,8" Visibility="{Binding ShowRerun, Converter={StaticResource BoolToVisibility}}">
-                                        <TextBlock Text="Rerun behavior" Style="{StaticResource FieldLabel}" />
-                                        <ComboBox ItemsSource="{Binding RerunBehaviors}" SelectedItem="{Binding RerunBehavior}" DisplayMemberPath="Text" MinWidth="280"
-                                                  AutomationProperties.Name="Rerun behavior" ToolTip="Select when Configuration Manager reruns the program on a device that ran it before." AutomationProperties.AutomationId="cboRerun" />
-                                    </StackPanel>
-                                </WrapPanel>
-                            </StackPanel>
-                        </Border>
+                                        <StackPanel Margin="0,0,24,8" Visibility="{Binding ShowNotification, Converter={StaticResource BoolToVisibility}}">
+                                            <TextBlock Text="User notification" Style="{StaticResource FieldLabel}" />
+                                            <ComboBox ItemsSource="{Binding Notifications}" SelectedItem="{Binding Notification}" DisplayMemberPath="Text" MinWidth="280"
+                                                      AutomationProperties.Name="User notification" ToolTip="Select whether the deployment shows in Software Center and which notifications users see. An Available deployment cannot hide all notifications." AutomationProperties.AutomationId="cboNotification" />
+                                        </StackPanel>
+                                    </WrapPanel>
+                                    <TextBlock Text="{Binding TimeBasisNote}" Style="{StaticResource Note}" Margin="0,0,0,8" AutomationProperties.AutomationId="txtTimeBasisNote" />
+                                    <WrapPanel Margin="0,4,0,0">
+                                        <CheckBox Content="{x:Static pages:DeploymentText.ShowProgressLabel}" IsChecked="{Binding ShowProgress}" Style="{StaticResource Option}"
+                                                  Visibility="{Binding IsTaskSequence, Converter={StaticResource BoolToVisibility}}" ToolTip="Shows the progress of the Task Sequence on the device while it runs." AutomationProperties.AutomationId="chkShowProgress" />
+                                        <CheckBox Content="{x:Static pages:DeploymentText.FallbackLabel}" IsChecked="{Binding AllowFallback}" Style="{StaticResource Option}"
+                                                  Visibility="{Binding ShowAllowFallback, Converter={StaticResource BoolToVisibility}}" ToolTip="Lets devices that find no content in their own boundary group use distribution points from the default site boundary group." AutomationProperties.AutomationId="chkAllowFallback" />
+                                        <CheckBox Content="{x:Static pages:DeploymentText.FullScanLabel}" IsChecked="{Binding PostRebootScan}" Style="{StaticResource Option}"
+                                                  Visibility="{Binding IsUpdateGroup, Converter={StaticResource BoolToVisibility}}" ToolTip="Makes devices run a full scan for software updates after the restart that follows the installation." AutomationProperties.AutomationId="chkPostRebootScan" />
+                                    </WrapPanel>
+                                    <WrapPanel Margin="0,4,0,0">
+                                        <StackPanel Margin="0,0,24,8" Visibility="{Binding IsPackage, Converter={StaticResource BoolToVisibility}}">
+                                            <TextBlock Text="Fast network" Style="{StaticResource FieldLabel}" />
+                                            <ComboBox ItemsSource="{Binding NetworkBehaviors}" SelectedItem="{Binding NetworkBehavior}" DisplayMemberPath="Text" MinWidth="300"
+                                                      AutomationProperties.Name="Fast network" ToolTip="Select how devices on a fast network get the content of the Package: download it and run locally, or run the program from the distribution point." AutomationProperties.AutomationId="cboNetwork" />
+                                        </StackPanel>
+                                        <StackPanel Margin="0,0,24,8" Visibility="{Binding IsPackage, Converter={StaticResource BoolToVisibility}}">
+                                            <TextBlock Text="Slow network" Style="{StaticResource FieldLabel}" />
+                                            <ComboBox ItemsSource="{Binding SlowNetworkBehaviors}" SelectedItem="{Binding SlowNetworkBehavior}" DisplayMemberPath="Text" MinWidth="300"
+                                                      AutomationProperties.Name="Slow network" ToolTip="Select how devices on a slow network get the content of the Package: do not run the program, or download the content and run locally." AutomationProperties.AutomationId="cboSlowNetwork" />
+                                        </StackPanel>
+                                        <StackPanel Margin="0,0,24,8" Visibility="{Binding IsTaskSequence, Converter={StaticResource BoolToVisibility}}">
+                                            <TextBlock Text="Available to" Style="{StaticResource FieldLabel}" />
+                                            <ComboBox ItemsSource="{Binding TaskSequenceAvailabilities}" SelectedItem="{Binding TaskSequenceAvailability}" DisplayMemberPath="Text" MinWidth="260"
+                                                      AutomationProperties.Name="Available to" ToolTip="Select which devices and boot media can see the Task Sequence deployment." AutomationProperties.AutomationId="cboTaskSequenceAvailability" />
+                                        </StackPanel>
+                                        <StackPanel Margin="0,0,24,8" Visibility="{Binding IsTaskSequence, Converter={StaticResource BoolToVisibility}}">
+                                            <TextBlock Text="Content" Style="{StaticResource FieldLabel}" />
+                                            <ComboBox ItemsSource="{Binding TaskSequenceContents}" SelectedItem="{Binding TaskSequenceContent}" DisplayMemberPath="Text" MinWidth="320"
+                                                      AutomationProperties.Name="Task sequence content" ToolTip="Select when devices download the content of the Task Sequence: when the Task Sequence needs it, or all before it starts." AutomationProperties.AutomationId="cboTaskSequenceContent" />
+                                        </StackPanel>
+                                    </WrapPanel>
+                                    <TextBlock Text="Required only" Style="{StaticResource FieldLabel}" Margin="0,4,0,4" />
+                                    <TextBlock Text="{Binding RequiredOnlyNote}" Style="{StaticResource Note}" Margin="0,0,0,8" AutomationProperties.AutomationId="txtRequiredOnlyNote" />
+                                    <WrapPanel IsEnabled="{Binding RequiredOnlyEnabled}" AutomationProperties.AutomationId="pnlRequiredOnly">
+                                        <CheckBox Content="{x:Static pages:DeploymentText.OverrideWindowLabel}" IsChecked="{Binding OverrideServiceWindow}" Style="{StaticResource Option}"
+                                                  ToolTip="At the deadline, installs the software even when no maintenance window is open." AutomationProperties.AutomationId="chkOverrideWindow" />
+                                        <CheckBox Content="{x:Static pages:DeploymentText.RebootOutsideLabel}" IsChecked="{Binding RebootOutsideServiceWindow}" Style="{StaticResource Option}"
+                                                  ToolTip="Lets devices restart after the installation even when no maintenance window is open." AutomationProperties.AutomationId="chkRebootOutside" />
+                                        <CheckBox Content="{x:Static pages:DeploymentText.MeteredLabel}" IsChecked="{Binding AllowMetered}" Style="{StaticResource Option}"
+                                                  Visibility="{Binding ShowMetered, Converter={StaticResource BoolToVisibility}}" ToolTip="Lets devices on a metered connection download content after the installation deadline. This can cost extra." AutomationProperties.AutomationId="chkMetered" />
+                                        <CheckBox Content="{x:Static pages:DeploymentText.FallbackLabel}" IsChecked="{Binding FallbackToDp}" Style="{StaticResource Option}"
+                                                  Visibility="{Binding IsUpdateGroup, Converter={StaticResource BoolToVisibility}}" ToolTip="Lets devices that find no software updates on a preferred distribution point use distribution points from the default site boundary group." AutomationProperties.AutomationId="chkFallbackToDp" />
+                                        <CheckBox Content="{x:Static pages:DeploymentText.MicrosoftUpdateLabel}" IsChecked="{Binding AllowMicrosoftUpdate}" Style="{StaticResource Option}"
+                                                  Visibility="{Binding IsUpdateGroup, Converter={StaticResource BoolToVisibility}}" ToolTip="Lets devices download the software updates from Microsoft Update when no distribution point has them." AutomationProperties.AutomationId="chkMicrosoftUpdate" />
+                                        <CheckBox Content="{Binding SuppressRestartLabel}" IsChecked="{Binding SuppressRestart}" Style="{StaticResource Option}"
+                                                  Visibility="{Binding IsUpdateGroup, Converter={StaticResource BoolToVisibility}}" ToolTip="Stops servers and workstations from restarting after the installation." AutomationProperties.AutomationId="chkSuppressRestart" />
+                                        <StackPanel Margin="0,0,24,8" Visibility="{Binding ShowRerun, Converter={StaticResource BoolToVisibility}}">
+                                            <TextBlock Text="Rerun behavior" Style="{StaticResource FieldLabel}" />
+                                            <ComboBox ItemsSource="{Binding RerunBehaviors}" SelectedItem="{Binding RerunBehavior}" DisplayMemberPath="Text" MinWidth="280"
+                                                      AutomationProperties.Name="Rerun behavior" ToolTip="Select when Configuration Manager reruns the program on a device that ran it before." AutomationProperties.AutomationId="cboRerun" />
+                                        </StackPanel>
+                                    </WrapPanel>
+                                </StackPanel>
+                            </Border>
 
-                        <Border Style="{StaticResource Card}" Margin="0,0,0,12" AutomationProperties.AutomationId="pnlDistribution"
-                                Visibility="{Binding ShowContent, Converter={StaticResource BoolToVisibility}}">
-                            <StackPanel>
-                                <TextBlock Text="Content" Style="{StaticResource CardTitle}" />
-                                <TextBlock Text="Select an object to see the content status of each distribution point group. Check the groups that get the content."
-                                           Style="{StaticResource Note}" Margin="0,0,0,8" />
-                                <DataGrid x:Name="dgDpGroups" Style="{StaticResource GridBase}" ItemsSource="{Binding DpGroups}" MaxHeight="220" MinHeight="96"
-                                          AutomationProperties.AutomationId="dgDpGroups" AutomationProperties.Name="Distribution point groups">
-                                    <DataGrid.Columns>
-                                        <DataGridTemplateColumn Header="" Width="56" MinWidth="56">
-                                            <DataGridTemplateColumn.CellTemplate>
-                                                <DataTemplate>
-                                                    <!-- The default padding leaves the box less width than it draws, which cuts the box in half. -->
-                                                    <CheckBox IsChecked="{Binding IsChecked, UpdateSourceTrigger=PropertyChanged}" HorizontalAlignment="Center" MinWidth="0" Padding="0"
-                                                              ToolTip="Include this distribution point group when you distribute the content."
-                                                              AutomationProperties.Name="{Binding Name}" />
-                                                </DataTemplate>
-                                            </DataGridTemplateColumn.CellTemplate>
-                                        </DataGridTemplateColumn>
-                                        <DataGridTextColumn Header="Group" Binding="{Binding Name}" Width="2*" MinWidth="140" ElementStyle="{StaticResource TrimmedCell}" />
-                                        <DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="*" MinWidth="100" ElementStyle="{StaticResource StatusCell}" />
-                                        <DataGridTextColumn Header="Targeted" Binding="{Binding Targeted}" Width="96" MinWidth="96" ElementStyle="{StaticResource TrimmedCell}" />
-                                        <DataGridTextColumn Header="Success" Binding="{Binding Success}" Width="90" MinWidth="90" ElementStyle="{StaticResource TrimmedCell}" />
-                                        <DataGridTextColumn Header="In progress" Binding="{Binding InProgress}" Width="110" MinWidth="110" ElementStyle="{StaticResource TrimmedCell}" />
-                                        <DataGridTextColumn Header="Error" Binding="{Binding Error}" Width="80" MinWidth="80" ElementStyle="{StaticResource TrimmedCell}" />
-                                    </DataGrid.Columns>
-                                </DataGrid>
-                                <WrapPanel Margin="0,8,0,0">
-                                    <ui:Button Content="Refresh status" Icon="{ui:SymbolIcon ArrowSync24}" Command="{Binding RefreshDpGroupsCommand}" Style="{StaticResource ToolButton}"
-                                               ToolTip="Reads the content status of the selected object again." AutomationProperties.AutomationId="btnRefreshDpGroups" />
-                                    <ui:Button Content="Distribute content" Icon="{ui:SymbolIcon CloudArrowUp24}" Command="{Binding DistributeCommand}" Style="{StaticResource ToolButton}"
-                                               ToolTip="Shows a plan that sends the content to the checked groups." AutomationProperties.AutomationId="btnDistribute" />
-                                    <CheckBox Content="Distribute to the checked groups first when I deploy (the plan offers to create the deployment while the content distributes)"
-                                              IsChecked="{Binding DistributeFirst}" Style="{StaticResource Option}" AutomationProperties.AutomationId="chkDistributeFirst" />
-                                </WrapPanel>
-                                <TextBlock Text="{Binding DpMessage}" Style="{StaticResource Note}" AutomationProperties.AutomationId="txtDpMessage" AutomationProperties.LiveSetting="Polite" />
-                            </StackPanel>
-                        </Border>
+                            <Border x:Name="pnlDistribution" Grid.Row="2" Grid.ColumnSpan="3" Margin="0,12,0,0" Style="{StaticResource Card}" AutomationProperties.AutomationId="pnlDistribution"
+                                    Visibility="{Binding ShowContent, Converter={StaticResource BoolToVisibility}}">
+                                <StackPanel>
+                                    <TextBlock Text="Content" Style="{StaticResource CardTitle}" />
+                                    <TextBlock Text="Select an object to see the content status of each distribution point group. Check the groups that get the content."
+                                               Style="{StaticResource Note}" Margin="0,0,0,8" />
+                                    <DataGrid x:Name="dgDpGroups" Style="{StaticResource GridBase}" ItemsSource="{Binding DpGroups}" MaxHeight="220" MinHeight="96"
+                                              AutomationProperties.AutomationId="dgDpGroups" AutomationProperties.Name="Distribution point groups">
+                                        <DataGrid.Columns>
+                                            <DataGridTemplateColumn Header="" Width="56" MinWidth="56">
+                                                <DataGridTemplateColumn.CellTemplate>
+                                                    <DataTemplate>
+                                                        <!-- The default padding leaves the box less width than it draws, which cuts the box in half. -->
+                                                        <CheckBox IsChecked="{Binding IsChecked, UpdateSourceTrigger=PropertyChanged}" HorizontalAlignment="Center" MinWidth="0" Padding="0"
+                                                                  ToolTip="Include this distribution point group when you distribute the content."
+                                                                  AutomationProperties.Name="{Binding Name}" />
+                                                    </DataTemplate>
+                                                </DataGridTemplateColumn.CellTemplate>
+                                            </DataGridTemplateColumn>
+                                            <DataGridTextColumn Header="Group" Binding="{Binding Name}" Width="2*" MinWidth="140" ElementStyle="{StaticResource TrimmedCell}" />
+                                            <DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="*" MinWidth="100" ElementStyle="{StaticResource StatusCell}" />
+                                            <DataGridTextColumn Header="Targeted" Binding="{Binding Targeted}" Width="96" MinWidth="96" ElementStyle="{StaticResource TrimmedCell}" />
+                                            <DataGridTextColumn Header="Success" Binding="{Binding Success}" Width="90" MinWidth="90" ElementStyle="{StaticResource TrimmedCell}" />
+                                            <DataGridTextColumn Header="In progress" Binding="{Binding InProgress}" Width="110" MinWidth="110" ElementStyle="{StaticResource TrimmedCell}" />
+                                            <DataGridTextColumn Header="Error" Binding="{Binding Error}" Width="80" MinWidth="80" ElementStyle="{StaticResource TrimmedCell}" />
+                                        </DataGrid.Columns>
+                                    </DataGrid>
+                                    <WrapPanel Margin="0,8,0,0">
+                                        <ui:Button Content="Refresh status" Icon="{ui:SymbolIcon ArrowSync24}" Command="{Binding RefreshDpGroupsCommand}" Style="{StaticResource ToolButton}"
+                                                   ToolTip="Reads the content status of the selected object again." AutomationProperties.AutomationId="btnRefreshDpGroups" />
+                                        <ui:Button Content="Distribute content" Icon="{ui:SymbolIcon CloudArrowUp24}" Command="{Binding DistributeCommand}" Style="{StaticResource ToolButton}"
+                                                   ToolTip="Shows a plan that sends the content to the checked groups." AutomationProperties.AutomationId="btnDistribute" />
+                                        <CheckBox Content="Distribute to the checked groups first when I deploy (the plan offers to create the deployment while the content distributes)"
+                                                  IsChecked="{Binding DistributeFirst}" Style="{StaticResource Option}" AutomationProperties.AutomationId="chkDistributeFirst" />
+                                    </WrapPanel>
+                                    <TextBlock Text="{Binding DpMessage}" Style="{StaticResource Note}" AutomationProperties.AutomationId="txtDpMessage" AutomationProperties.LiveSetting="Polite" />
+                                </StackPanel>
+                            </Border>
+                        </Grid>
 
-                        <Border Style="{StaticResource Card}" Margin="0,0,0,12" AutomationProperties.AutomationId="pnlValidation">
+                        <Border x:Name="pnlValidation" Style="{StaticResource Card}" Margin="0,0,0,12" AutomationProperties.AutomationId="pnlValidation">
                             <StackPanel>
                                 <TextBlock Text="Checks" Style="{StaticResource CardTitle}" />
                                 <DataGrid x:Name="dgChecks" Style="{StaticResource GridBase}" ItemsSource="{Binding Checks}" MinHeight="96"
@@ -403,12 +455,32 @@
                         </Border>
                     </StackPanel>
                 </ScrollViewer>
-                <WrapPanel Grid.Row="1" Margin="0,8,0,0" AutomationProperties.AutomationId="pnlDeployActions">
-                    <ui:Button x:Name="btnValidate" Content="Validate" Icon="{ui:SymbolIcon CheckmarkCircle24}" Command="{Binding ValidateCommand}" Style="{StaticResource ToolButton}"
-                               ToolTip="Runs the checks and the schedule rules. Nothing is changed." AutomationProperties.AutomationId="btnValidate" />
-                    <ui:Button Content="Deploy" Appearance="Primary" Icon="{ui:SymbolIcon Rocket24}" Command="{Binding DeployCommand}" Style="{StaticResource ToolButton}"
-                               ToolTip="Shows the plan of the deployment. Nothing is changed before you confirm it." AutomationProperties.AutomationId="btnDeploy" />
-                </WrapPanel>
+                <StackPanel Grid.Row="1" Margin="0,8,0,0">
+                    <!-- What Deploy would create, beside the way to the checks. It stays in view at every scroll position. -->
+                    <DockPanel Margin="0,0,0,8">
+                        <ui:Button DockPanel.Dock="Right" Content="View validation checks" Icon="{ui:SymbolIcon CheckmarkCircle24}" Click="OnViewChecksClick" Margin="12,0,0,0" VerticalAlignment="Center"
+                                   ToolTip="Scrolls to the Checks list. Select Validate to fill it." AutomationProperties.AutomationId="btnViewChecks" />
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock Text="Deployment to review" Style="{StaticResource FieldLabel}" Margin="0" />
+                            <TextBlock TextWrapping="Wrap" Foreground="{DynamicResource TextFillColorPrimaryBrush}" AutomationProperties.AutomationId="txtDeploymentReview">
+                                <TextBlock.Text>
+                                    <MultiBinding Converter="{StaticResource ReviewSummary}">
+                                        <Binding Path="SelectedObject" />
+                                        <Binding Path="SelectedProgram" />
+                                        <Binding Path="SelectedCollection" />
+                                        <Binding Path="IsRequired" />
+                                    </MultiBinding>
+                                </TextBlock.Text>
+                            </TextBlock>
+                        </StackPanel>
+                    </DockPanel>
+                    <WrapPanel HorizontalAlignment="Right" AutomationProperties.AutomationId="pnlDeployActions">
+                        <ui:Button x:Name="btnValidate" Content="Validate" Icon="{ui:SymbolIcon CheckmarkCircle24}" Command="{Binding ValidateCommand}" Style="{StaticResource ToolButton}"
+                                   ToolTip="Runs the checks and the schedule rules. Nothing is changed." AutomationProperties.AutomationId="btnValidate" />
+                        <ui:Button Content="Deploy" Appearance="Primary" Icon="{ui:SymbolIcon Rocket24}" Command="{Binding DeployCommand}" Style="{StaticResource ToolButton}"
+                                   ToolTip="Shows the plan of the deployment. Nothing is changed before you confirm it." AutomationProperties.AutomationId="btnDeploy" />
+                    </WrapPanel>
+                </StackPanel>
                 </Grid>
             </TabItem>
 
