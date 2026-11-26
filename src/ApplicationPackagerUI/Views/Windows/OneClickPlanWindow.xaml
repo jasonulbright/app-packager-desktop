@@ -11,18 +11,23 @@
     WindowBackdropType="None">
 
     <ui:FluentWindow.Resources>
-        <BooleanToVisibilityConverter x:Key="BoolToVisibility" />
-        <Style x:Key="WrapCell" TargetType="TextBlock">
-            <Setter Property="TextWrapping" Value="Wrap" />
-            <Setter Property="VerticalAlignment" Value="Center" />
-            <Setter Property="Margin" Value="4,2" />
-        </Style>
-        <Style x:Key="PlanLine" TargetType="TextBlock">
-            <Setter Property="FontSize" Value="12" />
-            <Setter Property="TextWrapping" Value="Wrap" />
-            <Setter Property="Margin" Value="0,4,0,0" />
-            <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
-        </Style>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="/ApplicationPackagerUI;component/Views/Styles/Typography.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+            <BooleanToVisibilityConverter x:Key="BoolToVisibility" />
+            <Style x:Key="WrapCell" TargetType="TextBlock">
+                <Setter Property="TextWrapping" Value="Wrap" />
+                <Setter Property="VerticalAlignment" Value="Center" />
+                <Setter Property="Margin" Value="4,2" />
+            </Style>
+            <Style x:Key="PlanLine" TargetType="TextBlock">
+                <Setter Property="FontSize" Value="12" />
+                <Setter Property="TextWrapping" Value="Wrap" />
+                <Setter Property="Margin" Value="0,4,0,0" />
+                <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+            </Style>
+        </ResourceDictionary>
     </ui:FluentWindow.Resources>
 
     <Grid>
@@ -36,6 +41,11 @@
         <ui:TitleBar Grid.Row="0" Title="One Click" ShowMinimize="False" />
 
         <StackPanel Grid.Row="1" Margin="16,4,16,8">
+            <TextBlock Text="Review One Click plan" Style="{StaticResource SectionTitle}" AutomationProperties.HeadingLevel="Level1" />
+            <TextBlock Text="{Binding HeaderText}" Margin="0,4,0,0" FontSize="14" TextWrapping="Wrap" Foreground="{DynamicResource TextFillColorPrimaryBrush}"
+                       AutomationProperties.AutomationId="txtPlanHeader" />
+            <TextBlock Text="{Binding FlowText}" Style="{StaticResource PlanLine}" AutomationProperties.AutomationId="txtPlanFlow" />
+            <TextBlock Text="{Binding SystemsText}" Style="{StaticResource PlanLine}" AutomationProperties.AutomationId="txtPlanSystems" />
             <TextBlock x:Name="txtPlanSummary" Text="{Binding SummaryText}" FontSize="14" TextWrapping="Wrap"
                        AutomationProperties.AutomationId="txtPlanSummary"
                        Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
@@ -47,6 +57,10 @@
                        Visibility="{Binding HasBlocking, Converter={StaticResource BoolToVisibility}}" />
             <TextBlock x:Name="txtPlanHint" Style="{StaticResource PlanLine}" AutomationProperties.AutomationId="txtPlanHint"
                        Text="Include and the destination boxes apply to this run only; One Click Settings holds the saved values. Run asks nothing after it starts." />
+            <ui:TextBox Margin="0,8,0,0" MaxWidth="720" HorizontalAlignment="Left" Width="720"
+                        Text="{Binding Comment, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="Administrative comment"
+                        IsEnabled="{Binding CanPlanOnly}" AutomationProperties.Name="Administrative comment" AutomationProperties.AutomationId="txtPlanComment"
+                        ToolTip="The comment that the run writes to each published application. It may stay empty." />
         </StackPanel>
 
         <DataGrid Grid.Row="2" x:Name="gridPlan" ItemsSource="{Binding Rows}" AutoGenerateColumns="False" CanUserAddRows="False"
@@ -95,7 +109,9 @@
                 </DataGridTemplateColumn>
                 <DataGridTextColumn x:Name="colLast" Header="Last published" Binding="{Binding LastPublished}" Width="150" IsReadOnly="True"
                                     ElementStyle="{StaticResource WrapCell}" />
-                <DataGridTextColumn x:Name="colPlanned" Header="Planned" Binding="{Binding Planned}" Width="280" IsReadOnly="True"
+                <DataGridTextColumn x:Name="colSource" Header="Destinations from" Binding="{Binding SourceText}" Width="160" IsReadOnly="True"
+                                    ElementStyle="{StaticResource WrapCell}" />
+                <DataGridTextColumn x:Name="colPlanned" Header="Planned" Binding="{Binding Planned}" Width="240" IsReadOnly="True"
                                     ElementStyle="{StaticResource WrapCell}" />
                 <DataGridTextColumn x:Name="colStep" Header="Step" Binding="{Binding Step}" Width="130" IsReadOnly="True" Visibility="Collapsed"
                                     ElementStyle="{StaticResource WrapCell}" />
@@ -111,28 +127,37 @@
         </DataGrid>
 
         <Border Grid.Row="3" BorderThickness="0,1,0,0" BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}" Padding="16,8">
-            <DockPanel>
-                <ui:Button x:Name="btnClose" DockPanel.Dock="Right" Content="Close" MinWidth="90" Click="Close_Click"
-                           IsEnabled="{Binding CanClose}" AutomationProperties.AutomationId="btnClose" />
-                <ui:Button x:Name="btnOpenReport" DockPanel.Dock="Right" Content="Open report" Icon="{ui:SymbolIcon Open24}" MinWidth="110" Margin="0,0,8,0" Click="OpenReport_Click"
-                           IsEnabled="{Binding CanOpenReport}" ToolTip="Opens the latest report of this window. The button is available after a plan or a run wrote a report."
-                           AutomationProperties.AutomationId="btnOpenReport" />
-                <ui:Button x:Name="btnHistory" DockPanel.Dock="Right" Content="Run history" Icon="{ui:SymbolIcon History24}" MinWidth="110" Margin="0,0,8,0" Click="History_Click"
-                           ToolTip="Opens the folder with the reports of earlier runs." AutomationProperties.AutomationId="btnHistory" />
-                <ui:Button x:Name="btnCancelRun" DockPanel.Dock="Right" Content="Cancel" Icon="{ui:SymbolIcon Dismiss24}" Appearance="Danger" MinWidth="90" Margin="0,0,8,0"
-                           Command="{Binding CancelCommand}" Visibility="{Binding IsRunning, Converter={StaticResource BoolToVisibility}}"
-                           AutomationProperties.AutomationId="btnCancelRun" Style="{StaticResource CancelSlot}" />
-                <StackPanel Orientation="Horizontal">
+            <!-- The buttons that start or end the work stand at the right, Run before Close (R-13); the report commands stand apart at the left (R-14). -->
+            <DockPanel LastChildFill="False">
+                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                    <ui:Button x:Name="btnCancelRun" Content="Cancel" Icon="{ui:SymbolIcon Dismiss24}" Appearance="Danger" MinWidth="90" Margin="0,0,8,0"
+                               Command="{Binding CancelCommand}" Visibility="{Binding IsRunning, Converter={StaticResource BoolToVisibility}}"
+                               AutomationProperties.AutomationId="btnCancelRun" Style="{StaticResource CancelSlot}" />
+                    <ui:Button x:Name="btnPlanOnly" Content="Plan only" MinWidth="110" Margin="0,0,8,0"
+                               Command="{Binding PlanOnlyCommand}" ToolTip="Writes the plan as a report without running anything."
+                               AutomationProperties.AutomationId="btnPlanOnly" />
                     <ui:Button x:Name="btnRun" Content="Run" Icon="{ui:SymbolIcon Play24}" Appearance="Primary" MinWidth="110" Margin="0,0,8,0"
                                Command="{Binding RunCommand}" ToolTip="Runs One Click for the included applications and destinations. The button is disabled while a run is active or when no application is included."
                                AutomationProperties.AutomationId="btnRun" />
-                    <ui:Button x:Name="btnPlanOnly" Content="Plan only" MinWidth="110" Margin="0,0,16,0"
-                               Command="{Binding PlanOnlyCommand}" ToolTip="Writes the plan as a report without running anything."
-                               AutomationProperties.AutomationId="btnPlanOnly" />
+                    <ui:Button x:Name="btnClose" Content="Close" MinWidth="90" Click="Close_Click"
+                               IsEnabled="{Binding CanClose}" AutomationProperties.AutomationId="btnClose" />
+                </StackPanel>
+                <WrapPanel DockPanel.Dock="Left">
+                    <ui:Button x:Name="btnHistory" Content="Run history" Icon="{ui:SymbolIcon History24}" MinWidth="110" Margin="0,0,8,0" Click="History_Click"
+                               ToolTip="Lists the reports of earlier runs." AutomationProperties.AutomationId="btnHistory" />
+                    <ui:Button x:Name="btnOpenReport" Content="Open report" Icon="{ui:SymbolIcon Open24}" MinWidth="110" Margin="0,0,8,0" Click="OpenReport_Click"
+                               IsEnabled="{Binding CanOpenReport}" ToolTip="Opens the latest report of this window. The button is available after a plan or a run wrote a report."
+                               AutomationProperties.AutomationId="btnOpenReport" />
+                    <ui:Button x:Name="btnResults" Content="Results" Margin="0,0,8,0" Click="Results_Click"
+                               Visibility="{Binding HasResults, Converter={StaticResource BoolToVisibility}}"
+                               ToolTip="Shows the result of each application and system of the finished run." AutomationProperties.AutomationId="btnResults" />
+                    <ui:Button x:Name="btnReviewFailed" Content="Review failed application" Margin="0,0,16,0" Click="ReviewFailed_Click"
+                               Visibility="{Binding HasFailure, Converter={StaticResource BoolToVisibility}}"
+                               ToolTip="Selects the first application that failed in this run." AutomationProperties.AutomationId="btnReviewFailed" />
                     <CheckBox x:Name="chkForce" Content="Force: ignore the cadence and publish again" VerticalAlignment="Center"
                               IsChecked="{Binding Force}" IsEnabled="{Binding CanPlanOnly}" ToolTip="Ignores the publish cadence and publishes again, even when the application is not due. You cannot change it while a run is active."
                               AutomationProperties.AutomationId="chkForce" />
-                </StackPanel>
+                </WrapPanel>
             </DockPanel>
         </Border>
 

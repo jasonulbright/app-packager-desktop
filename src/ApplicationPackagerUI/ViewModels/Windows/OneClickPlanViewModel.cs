@@ -27,6 +27,10 @@ public sealed record OneClickPlanContext
     public bool Force { get; init; }
     public string OnExisting { get; init; } = OneClickOnExisting.Skip;
     public string Comment { get; init; } = "";
+    /// <summary>"ConfigMgr site MCM"; empty when no site is set.</summary>
+    public string SiteText { get; init; } = "";
+    /// <summary>"In use: ConfigMgr. Not in use: Intune, WSUS."</summary>
+    public string SystemsText { get; init; } = "";
     public required string ReportFolder { get; init; }
     public Func<DateTime> Clock { get; init; } = () => DateTime.Now;
     public string Operator { get; init; } = $"{Environment.UserDomainName}\\{Environment.UserName}";
@@ -69,6 +73,43 @@ public partial class OneClickPlanViewModel : ObservableObject
     [ObservableProperty] private string _reportPath = "";
 
     public string Action => _context.Action;
+
+    /// <summary>The comment that the run writes to each published application.</summary>
+    [ObservableProperty] private string _comment = "";
+
+    /// <summary>"2 applications included, 1 not included. ConfigMgr site MCM."</summary>
+    [ObservableProperty] private string _headerText = "";
+
+    /// <summary>The steps of the saved action, in order.</summary>
+    public string FlowText => Flow(_context.Action);
+
+    public string SystemsText => _context.SystemsText;
+
+    public static string Flow(string action) => OneClickActionNames.Normalize(action) switch
+    {
+        OneClickActionNames.Report => "Check Latest, then Check ConfigMgr, then Check CVEs",
+        OneClickActionNames.Stage => "Check Latest, then Check ConfigMgr, then Check CVEs, then Stage",
+        _ => "Check Latest, then Check ConfigMgr, then Check CVEs, then Stage, then Publish"
+    };
+
+    /// <summary>The first row of the run that failed; null when none did.</summary>
+    public OneClickPlanItem? FirstFailed => Rows.FirstOrDefault(r => r.Outcome == OneClickOutcomes.Failed || r.Cells.Any(c => c.Kind == PublishDestinationKind.Failed));
+
+    [ObservableProperty] private bool _hasFailure;
+
+    /// <summary>True when the finished run has a destination cell to show.</summary>
+    [ObservableProperty] private bool _hasResults;
+
+    private bool _runCanceled;
+    private List<string> _runSystems = [];
+
+    /// <summary>The results of the finished run for the shared results window: one row for each included application.</summary>
+    public PublishResultsViewModel BuildResults() => new(
+        Rows.Where(r => r.Include).Select(r => (r.Application, new PublishRowResult(r.Key, r.Version, r.Cells.ToList()))).ToList(),
+        _runCanceled, _runSystems);
+
+    /// <summary>Raised after a run that has results, so the window can show them.</summary>
+    public event EventHandler? ResultsReady;
     public bool HasScope => ScopeText.Length > 0;
     public bool HasBlocking => BlockingText.Length > 0;
     public bool CanRun => !IsRunning && !IsRunView && Rows.Any(r => r.Include);
@@ -84,6 +125,7 @@ public partial class OneClickPlanViewModel : ObservableObject
         _context = context;
         _runner = runner;
         _force = context.Force;
+        _comment = context.Comment;
         _apps = context.Apps.ToDictionary(a => a.App.Key, StringComparer.OrdinalIgnoreCase);
         Refresh();
     }
@@ -186,9 +228,20 @@ public partial class OneClickPlanViewModel : ObservableObject
             }
 
             var byKey = Rows.ToDictionary(r => r.Key, StringComparer.OrdinalIgnoreCase);
+            // The source is read from the saved settings: the run settings of this window give every row a selection of its own.
+            var saved = _context.Settings();
+            foreach (var item in Rows)
+            {
+                var (set, source) = OneClickPlanner.DestinationsFor(saved, item.Key);
+                var changed = set.ConfigMgr != item.ConfigMgr || set.Wsus != item.Wsus || set.Intune != item.Intune;
+                item.SourceText = changed ? "Changed for this run" : source == "Row" ? "Saved for this application" : "Default";
+            }
             bool Included(OneClickPlanRow r) => byKey.TryGetValue(r.Key, out var i) && i.Include;
             var summary = OneClickPlanner.Summarize(plan, settings, _context.Action, Included);
             SummaryText = summary.Line;
+            var included = plan.Count(Included);
+            HeaderText = $"{included} {(included == 1 ? "application" : "applications")} included, {plan.Count - included} not included."
+                + (_context.SiteText.Length > 0 ? " " + _context.SiteText + "." : "");
             ActionText = OneClickPlanner.ActionLine(_context.Action, _context.OnExisting);
             ScopeText = OneClickPlanner.ScopeLine(plan.Where(Included), settings.Scope);
             BlockingText = summary.Blocking.Count > 0 ? "Not ready: " + string.Join("; ", summary.Blocking) : "";
@@ -282,7 +335,12 @@ public partial class OneClickPlanViewModel : ObservableObject
         ShowResultConfigMgr = included.Any(r => r.ConfigMgr);
         ShowResultWsus = included.Any(r => r.Wsus);
         ShowResultIntune = included.Any(r => r.Intune);
-        foreach (var r in included) r.Step = "Pending";
+        foreach (var r in included)
+        {
+            r.Step = "Pending";
+            r.Cells.Clear();
+        }
+        _runSystems = OneClickDestinations.All.Where(d => included.Any(r => r.Destinations.Has(d))).ToList();
         SummaryText = $"Running: {included.Count} application(s)";
         _context.Log?.Invoke($"One Click: {included.Count} app(s), action={OneClickActionNames.Normalize(_context.Action)}{(Force ? ", force=on" : "")}");
 
@@ -291,7 +349,7 @@ public partial class OneClickPlanViewModel : ObservableObject
         string? stopped = null;
         try
         {
-            canceled = await _runner.RunAsync(included, new OneClickRunOptions(_context.Action, Force, _context.OnExisting, _context.Comment), _runCts.Token);
+            canceled = await _runner.RunAsync(included, new OneClickRunOptions(_context.Action, Force, _context.OnExisting, Comment.Trim()), _runCts.Token);
         }
         catch (OperationCanceledException)
         {
@@ -329,6 +387,10 @@ public partial class OneClickPlanViewModel : ObservableObject
         var label = stopped is not null ? $"Failed: {stopped}."
             : $"{(canceled ? "Canceled" : "Complete")}: {published} published, {failed} failed{(superseded > 0 ? $", {superseded} superseded" : "")}.";
         SummaryText = $"{label} Report: {Path.GetFileName(paths.MarkdownPath)}";
+        _runCanceled = canceled;
+        HasFailure = FirstFailed is not null;
+        HasResults = included.Any(r => r.Cells.Count > 0);
+        if (HasResults) ResultsReady?.Invoke(this, EventArgs.Empty);
     }
 
     [RelayCommand(CanExecute = nameof(IsRunning))]

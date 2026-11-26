@@ -157,7 +157,11 @@ public sealed class OneClickRowRunner(IOneClickExecution execution, ISettingsRea
         var buildKey = plan is null ? "" : OneClickHistory.BuildKey(plan.ProfileId, plan.ProfileRevision, settings.ScriptSigning.PolicyDigest);
         var decision = OneClickPlanner.Decide(action, item.Destinations.Names, entry, latest, p.CurrentVersion, options.Force, versionChanged, buildStale,
             staged: entry?.LastStaged is not null, item.NotReady, buildKey);
-        foreach (var (destination, cell) in decision.GuardResults) item.SetResult(destination, cell);
+        foreach (var (destination, cell) in decision.GuardResults)
+        {
+            item.SetResult(destination, cell);
+            item.Cells.Add(new(destination, PublishDestinationKind.Skipped, "", cell));
+        }
 
         var reasons = decision.SkipReasons.ToList();
 
@@ -313,12 +317,14 @@ public sealed class OneClickRowRunner(IOneClickExecution execution, ISettingsRea
             {
                 RecordDestination(p, identity, settings, destination, latest, id, InventoryOutcome.Cancelled,
                     detail.Length == 0 ? "Publish cancelled." : detail, snapshot.BuildId, operationId);
+                item.Cells.Add(new(destination, PublishDestinationKind.Failed, "cancel", "The run stopped during this publish. Check the system."));
                 StopCanceled(item, p, publishedTo);
                 throw;
             }
 
             RecordDestination(p, identity, settings, destination, latest, id, destinationOutcome, detail, snapshot.BuildId, operationId, ciId, modelName);
             item.SetResult(destination, cell, id, detail);
+            item.Cells.Add(ResultCell(destination, destinationOutcome, detail.Length > 0 ? detail : cell, id));
             if (ok)
             {
                 if (!present) published++;
@@ -339,6 +345,17 @@ public sealed class OneClickRowRunner(IOneClickExecution execution, ISettingsRea
             inventory.CompleteOperation(operationId, outcome, DateTimeOffset.UtcNow, item.Reason);
         }
     }
+
+    /// <summary>The results cell of one destination, from the outcome that the history records.</summary>
+    public static PublishDestinationResult ResultCell(string destination, InventoryOutcome outcome, string message, string id) => outcome switch
+    {
+        InventoryOutcome.Succeeded or InventoryOutcome.AlreadyPresent => new(destination, PublishDestinationKind.Published, "", message, id),
+        InventoryOutcome.PublishedSupersedenceNotApplied => new(destination, PublishDestinationKind.Published, "", message, id) { Warning = true },
+        InventoryOutcome.Partial => new(destination, PublishDestinationKind.Failed, "content", message, id),
+        InventoryOutcome.Skipped or InventoryOutcome.Cancelled => new(destination, PublishDestinationKind.Skipped, "", message, id),
+        InventoryOutcome.Refused => new(destination, PublishDestinationKind.NotSupported, "", message, id),
+        _ => new(destination, PublishDestinationKind.Failed, "", message, id)
+    };
 
     /// <summary>Ends a canceled row with what it published; throws the cancellation.</summary>
     private static void StopCanceled(OneClickPlanItem item, PackagerInfo row, IReadOnlyList<string> publishedTo)
