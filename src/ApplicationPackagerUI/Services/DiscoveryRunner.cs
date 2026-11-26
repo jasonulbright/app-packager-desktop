@@ -59,6 +59,12 @@ public sealed class DiscoveryRunner
 
     private readonly Func<bool> _settingsUnreadable;
 
+    /// <summary>
+    /// Runs after a scan of <see cref="RunAsync"/> returned a result, and again after the choice of the user was applied. The setup checklist
+    /// stores the result of the site with it. A failed or stopped scan does not run it.
+    /// </summary>
+    public Action<DiscoveryRunReport>? ResultHook { get; set; }
+
     public const string NotSavedMessage = "the settings could not be saved. Nothing changed.";
     public const string NoPromptMessage = "the prompt could not be shown. Nothing changed.";
     public const string NotRefreshedMessage = "the choice was saved, but the lists could not be refreshed. Select Catalog on the App Packager page to see them.";
@@ -202,6 +208,8 @@ public sealed class DiscoveryRunner
     {
         status("Reading Add/Remove Programs inventory from the ConfigMgr site database...");
         log(LogPrefix + "reading hardware inventory from the ConfigMgr site database.");
+        // The site that the scan reads, taken before the scan: the result belongs to it.
+        var site = ResultHook is null ? null : _load();
         var outcome = await ScanAsync(ct, allProducts);
         if (outcome.Result is not { } result)
         {
@@ -212,6 +220,15 @@ public sealed class DiscoveryRunner
 
         log(LogPrefix + result.StatusText);
         status(result.StatusText);
+
+        void Hook(DiscoveryAction? action)
+        {
+            if (site is null) return;
+            try { ResultHook?.Invoke(new DiscoveryRunReport(site.SiteCode, site.ProviderMachine, result.Candidates.Count, action)); }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { log(LogPrefix + "the scan record of the site could not be saved."); }
+        }
+
+        Hook(null);
         if (result.Candidates.Count == 0) return null;
 
         void Report(string message)
@@ -242,6 +259,7 @@ public sealed class DiscoveryRunner
             return choice;
         }
         log(applied.LogLine);
+        Hook(choice.Action);
         try
         {
             if (applied.GridChanged) await reloadGrid();

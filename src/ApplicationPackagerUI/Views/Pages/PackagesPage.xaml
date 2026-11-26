@@ -75,9 +75,10 @@
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="3*" MinHeight="120" />
             <RowDefinition Height="Auto" />
-            <RowDefinition Height="*" MinHeight="72" MaxHeight="180" />
+            <RowDefinition x:Name="LogRow" Height="*" MinHeight="72" MaxHeight="180" />
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
@@ -101,7 +102,26 @@
             </controls:PageHeader.Actions>
         </controls:PageHeader>
 
-        <Grid Grid.Row="1" Margin="0,0,0,8">
+        <!-- The first-start strip (overhaul V1, phase 7d): it shows while the setup checklist has work and its panel is closed. Its bindings
+             start at the page's view model: a data context set after the XAML loaded is too late for them. -->
+        <Border x:Name="SetupStrip" Grid.Row="1" Visibility="Collapsed" Margin="0,0,0,8" Padding="12,4" BorderThickness="1" CornerRadius="8"
+                BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}" Background="{DynamicResource SurfacePageBrush}"
+                AutomationProperties.AutomationId="pnlSetupStrip">
+            <DockPanel>
+                <ui:Button x:Name="btnOpenSetupChecklist" DockPanel.Dock="Right" Content="Open Setup Checklist" Icon="{ui:SymbolIcon ArrowRight24}" Click="OpenChecklist_Click"
+                           AutomationProperties.AutomationId="btnOpenSetupChecklist" ToolTip="Open the setup checklist beside the grid." />
+                <ui:SymbolIcon DockPanel.Dock="Left" Symbol="Info24" FontSize="16" Margin="0,0,8,0" VerticalAlignment="Center"
+                               Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
+                <WrapPanel VerticalAlignment="Center" Margin="0,0,8,0">
+                    <TextBlock Text="{Binding Checklist.StripTitle, FallbackValue=''}" FontSize="14" Margin="0,0,12,0" TextWrapping="Wrap" Foreground="{DynamicResource TextFillColorPrimaryBrush}"
+                               AutomationProperties.AutomationId="txtSetupStripTitle" />
+                    <TextBlock Text="{Binding Checklist.StripText, FallbackValue=''}" FontSize="14" Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                               AutomationProperties.AutomationId="txtSetupStripText" />
+                </WrapPanel>
+            </DockPanel>
+        </Border>
+
+        <Grid Grid.Row="2" Margin="0,0,0,8">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
@@ -142,7 +162,7 @@
             </StackPanel>
         </Grid>
 
-        <Grid Grid.Row="2" Margin="0,0,0,8">
+        <Grid Grid.Row="3" Margin="0,0,0,8">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
@@ -165,10 +185,10 @@
             <ui:Button Grid.Column="2" x:Name="btnColumns" Content="Columns" Icon="{ui:SymbolIcon TableSettings24}" Click="Columns_Click" Margin="8,0,0,0"
                        AutomationProperties.AutomationId="btnColumns" ToolTip="Choose the columns of the grid. The columns, their order, their width and the sort are saved." />
             <ui:Button Grid.Column="3" x:Name="btnMore" Content="More" Icon="{ui:SymbolIcon MoreHorizontal24}" Click="More_Click" Margin="8,0,0,0"
-                       AutomationProperties.AutomationId="btnMore" ToolTip="CVE report, operation history, export of the check results and the debug columns." />
+                       AutomationProperties.AutomationId="btnMore" ToolTip="CVE report, operation history, export of the check results, the setup checklist, Setup and the debug columns." />
         </Grid>
 
-        <Grid Grid.Row="3">
+        <Grid Grid.Row="4">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition x:Name="DetailPaneColumn" Width="320" />
@@ -434,10 +454,13 @@
                     </ItemsControl>
                 </DockPanel>
             </Border>
+
+            <!-- The setup checklist takes the place of the detail pane while it is open. -->
+            <controls:SetupChecklistPanel x:Name="SetupPanel" Grid.Column="1" Margin="8,0,0,0" Visibility="Collapsed" />
         </Grid>
 
         <!-- The batch bar (overhaul V1, phase 3): what is checked, where Publish All goes, and the actions on the checked applications. -->
-        <DockPanel Grid.Row="4" Margin="0,8,0,8" AutomationProperties.AutomationId="pnlBatchBar" AutomationProperties.Name="Batch actions">
+        <DockPanel Grid.Row="5" Margin="0,8,0,8" AutomationProperties.AutomationId="pnlBatchBar" AutomationProperties.Name="Batch actions">
             <StackPanel x:Name="BatchActions" DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Top" AutomationProperties.AutomationId="pnlBatchActions">
                 <!-- Cancel keeps its room while no run is active (Hidden, not Collapsed), so the bar does not change its layout when a run starts. -->
                 <Grid Margin="0,0,8,0">
@@ -497,7 +520,7 @@
             </WrapPanel>
         </DockPanel>
 
-        <TextBox Grid.Row="5"
+        <TextBox Grid.Row="6"
                  Text="{Binding LogText, Mode=OneWay}"
                  IsReadOnly="True"
                  TextWrapping="NoWrap"
@@ -511,7 +534,7 @@
                  Foreground="{DynamicResource TextFillColorSecondaryBrush}"
                  TextChanged="LogTextBox_TextChanged" />
 
-        <Grid Grid.Row="6" Margin="0,4,0,0">
+        <Grid Grid.Row="7" Margin="0,4,0,0">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="8" />

@@ -44,7 +44,7 @@
                 <StackPanel Visibility="{Binding CurrentStep, Converter={StaticResource StepVisibilityConverter}, ConverterParameter=1}">
                     <TextBlock Text="Welcome to App Packager Desktop" FontSize="20"
                                Foreground="{DynamicResource TextFillColorPrimaryBrush}" Margin="0,0,0,4" />
-                    <TextBlock Text="Select the systems you publish to, then fill in their settings. The App Packager page has a publish button for each system. Everything here can be changed later in Settings."
+                    <TextBlock Text="Select the systems you publish to, then fill in their settings. Publish All on the App Packager page publishes to the systems in use. Everything here can be changed later in Settings."
                                Style="{StaticResource HintText}" />
 
                     <TextBlock Text="Systems in Use" Style="{StaticResource FieldLabel}" />
@@ -76,8 +76,8 @@
                                    Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
                         <TextBlock Text="Site Code" Style="{StaticResource FieldLabel}" />
                         <ui:TextBox Text="{Binding SiteCode, UpdateSourceTrigger=PropertyChanged}"
-                                    PlaceholderText="MCM" Margin="0,0,0,12"
-                                    ToolTip="Enter the three-character site code of your ConfigMgr site." />
+                                    PlaceholderText="MCM" Margin="0,0,0,12" IsReadOnly="{Binding SiteCodeLocked, Mode=OneWay}"
+                                    ToolTip="Enter the three-character site code of your ConfigMgr site. When a site is active, use the site switcher at the lower right to add or change a site." />
 
                         <TextBlock Text="Site Server / SMS Provider" Style="{StaticResource FieldLabel}" />
                         <ui:TextBox Text="{Binding ProviderMachine, UpdateSourceTrigger=PropertyChanged}"
@@ -88,11 +88,13 @@
                         <ui:TextBox Text="{Binding FileShareRoot, UpdateSourceTrigger=PropertyChanged}"
                                     PlaceholderText="\\fileserver\sccm$" Margin="0,0,0,12"
                                     ToolTip="Enter the UNC path of the content share where the app stores application content for ConfigMgr." />
-
-                        <TextBlock Text="Download Root" Style="{StaticResource FieldLabel}" />
-                        <ui:TextBox Text="{Binding DownloadRoot, UpdateSourceTrigger=PropertyChanged}" ToolTip="{Binding DownloadRoot}"
-                                    PlaceholderText="C:\temp\ap" Margin="0,0,0,12" />
                     </StackPanel>
+
+                    <!-- Every system stages installers, so this field is not part of the ConfigMgr fields. -->
+                    <TextBlock Text="Download Root" Style="{StaticResource FieldLabel}" />
+                    <ui:TextBox Text="{Binding DownloadRoot, UpdateSourceTrigger=PropertyChanged}" ToolTip="{Binding DownloadRoot}"
+                                PlaceholderText="C:\temp\ap" Margin="0,0,0,12" AutomationProperties.AutomationId="txtSetupDownloadRoot"
+                                AutomationProperties.Name="Download Root" />
 
                     <StackPanel Visibility="{Binding ShowIntuneFields, Converter={StaticResource BooleanToVisibilityConverter}}">
                         <TextBlock Text="Intune" FontSize="14" Margin="0,0,0,8"
@@ -147,13 +149,13 @@
             <DockPanel>
                 <CheckBox DockPanel.Dock="Left" Content="Don't show this again"
                           IsChecked="{Binding DontShowAgain}" VerticalAlignment="Center"
-                          ToolTip="Select to stop showing this window at startup when you select Skip. Nothing is configured." />
+                          ToolTip="Select to stop opening the setup checklist when you select Skip. Nothing is configured." />
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                     <ui:Button Content="Back" Icon="{ui:SymbolIcon ArrowLeft24}" Command="{Binding BackCommand}" Margin="0,0,8,0"
                                ToolTip="Returns to the selection of systems."
                                Visibility="{Binding CurrentStep, Converter={StaticResource StepVisibilityConverter}, ConverterParameter=2}" />
                     <ui:Button Content="Skip" Command="{Binding SkipCommand}" Margin="0,0,8,0"
-                               ToolTip="Closes this window without saving. The window shows again at the next start unless you select Don't show this again." />
+                               ToolTip="Closes this window without saving." />
                     <ui:Button Content="Next" Icon="{ui:SymbolIcon ArrowRight24}" Appearance="Primary" Command="{Binding NextCommand}"
                                ToolTip="Continues to the connection details of the selected systems."
                                Visibility="{Binding CurrentStep, Converter={StaticResource StepVisibilityConverter}, ConverterParameter=1}" />

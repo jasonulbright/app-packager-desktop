@@ -73,6 +73,16 @@ public partial class PackagesPage
         menu.Items.Add(report);
         menu.Items.Add(history);
         menu.Items.Add(export);
+        var checklist = Item("Setup checklist", "miSetupChecklist", SymbolRegular.TaskListSquareLtr24, "Open the setup checklist beside the grid.");
+        checklist.IsEnabled = vm.Checklist is not null;
+        checklist.Click += (_, _) => ShowChecklist();
+        // Setup needs no stored setting, so it is always a way in. Only a run turns it off: a save during a run would change what the run reads.
+        var setup = Item("Setup...", "miSetup", SymbolRegular.Settings24, "Open the Setup window: the systems, the site and the content folders. It is off while a run is active.");
+        setup.IsEnabled = !vm.IsOperationRunning;
+        setup.Click += (_, _) => (Window.GetWindow(this) as Views.Windows.MainWindow)?.OpenSetup();
+        menu.Items.Add(new Separator());
+        menu.Items.Add(checklist);
+        menu.Items.Add(setup);
         menu.Items.Add(new Separator());
         menu.Items.Add(debug);
         return menu;

@@ -4,8 +4,11 @@ namespace ApplicationPackagerUI.Views.Windows;
 
 public partial class SetupWindow
 {
+    public SetupWindowViewModel ViewModel { get; }
+
     public SetupWindow(SetupWindowViewModel viewModel)
     {
+        ViewModel = viewModel;
         DataContext = viewModel;
         InitializeComponent();
 

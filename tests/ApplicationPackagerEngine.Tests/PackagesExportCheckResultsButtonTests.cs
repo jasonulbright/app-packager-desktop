@@ -34,7 +34,7 @@ public sealed class PackagesExportCheckResultsButtonTests
             Assert.True(ToolTipService.GetShowOnDisabled(site), "A disabled check keeps its reason.");
 
             var more = page.BuildMoreMenu();
-            Assert.Equal(["miCveReport", "miOperationHistory", "miExportCheckResults", "miShowDebugColumns"], Ids(more));
+            Assert.Equal(["miCveReport", "miOperationHistory", "miExportCheckResults", "miSetupChecklist", "miSetup", "miShowDebugColumns"], Ids(more));
             var items = more.Items.OfType<MenuItem>().ToList();
             Assert.False(items[1].IsEnabled, "Operation history needs a selected row.");
             var export = Convert.ToString(items[2].ToolTip);
