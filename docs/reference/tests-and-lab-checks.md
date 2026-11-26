@@ -701,3 +701,11 @@ The full suite in that session is `tools/lab-tests/Run-LabSuite.ps1`. The lab cl
 The first test run in a new run folder can open a Windows Firewall prompt for `testhost`. The prompt covers the desktop, and the capture scripts send no mouse input to it. Close it with Cancel. Windows keeps a firewall rule for each such path; remove the rules of a run folder that is gone.
 
 `tools/guide-capture/Probe-ReleaseE2E.ps1` is the release check of the installed app: first start, saved settings and bulk edit after a restart, the column layout after a restart, a publish from the grid, from the Workbench and from One Click, and the plan of Deployment Helper without a deployment. It removes nothing; it prints a `RECORD` line for each publish so that the caller removes what the run created. `-GridWithoutWsus` publishes from the grid to ConfigMgr only, for a client without the WSUS administration console.
+
+## Lab harness scripts stop only their own processes (Q-140)
+
+`tools/RemoteTestHarness/ProcessJob.ps1` starts a process suspended, puts it into a job object and resumes it. The detection timeout, the install and uninstall steps of `RemoteTestHarness.ps1` and `check-configmgr-parity/batch.ps1` stop only the members of that job. They replace `taskkill /T`, a stop of each new `powershell`, `cmd` and `msiexec` process on the client, and a command-line match.
+
+`HarnessProcessJobTests` runs the real scripts in Windows PowerShell. It creates a process that records a harness process as its parent and is not in the job, which is the state after Windows uses an id again. That process stays alive after a stop and after a detection timeout. The tests also prove that an install step waits for each process that it started, and that the four scripts hold no other way to stop a process.
+
+`RemoteTestHarness.ps1` does not restart the lab client: a restart ends every signed-in session. When a restart is pending or an installer exits 3010, the run stops.
