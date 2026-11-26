@@ -165,7 +165,7 @@ public class MecmQueryService(SettingsService settingsService)
         return startInfo;
     }
 
-    public async Task<MecmQueryResult> QueryVersionAsync(string cmName, CancellationToken ct = default, string? arpName = null)
+    public virtual async Task<MecmQueryResult> QueryVersionAsync(string cmName, CancellationToken ct = default, string? arpName = null)
     {
         var settings = settingsService.Load();
 

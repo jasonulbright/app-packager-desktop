@@ -147,6 +147,41 @@ public sealed class Phase0EngineTruthTests
     }
 
     [Fact]
+    public async Task ACancelledRunKeepsTheCellsOfWhatItAlreadyReached()
+    {
+        using var cts = new CancellationTokenSource();
+        var cells = new List<PublishDestinationResult>();
+        await Assert.ThrowsAsync<OperationCanceledException>(() => PublishRowRunner.RunAsync("uid-1", "1", PublishRunTargets.ConfigMgrAndWsus,
+            _ => { cts.Cancel(); return Task.FromResult(Ok(PublishRunTargets.ConfigMgr)); },
+            () => Task.FromResult(WsusOk()), _ => { }, cts.Token, null, cells));
+        Assert.Equal(["ConfigMgr"], cells.Select(c => c.Destination));
+        Assert.Equal(PublishDestinationKind.Published, cells[0].Kind);
+    }
+
+    [Fact]
+    public async Task ACancelInsideThePackageCallLeavesCellsThatSayTheStateIsNotKnown()
+    {
+        using var cts = new CancellationTokenSource();
+        var cells = new List<PublishDestinationResult>();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => PublishRowRunner.RunAsync("uid-1", "1", PublishRunTargets.ConfigMgrAndIntune,
+            _ => { cts.Cancel(); throw new OperationCanceledException(cts.Token); },
+            () => Task.FromResult(WsusOk()), _ => { }, cts.Token, null, cells));
+        Assert.Equal(["ConfigMgr", "Intune"], cells.Select(c => c.Destination));
+        Assert.All(cells, c => Assert.Contains("Check the system.", c.Message));
+    }
+
+    [Fact]
+    public async Task ATimeoutThatNobodyAskedForFailsTheCellsAndWsusStillRuns()
+    {
+        var calls = new Calls();
+        var run = await PublishRowRunner.RunAsync("uid-1", "1", PublishRunTargets.IntuneAndWsus,
+            _ => throw new TaskCanceledException("the request timed out"),
+            () => { calls.Wsus++; return Task.FromResult(WsusOk()); }, _ => { }, default);
+        Assert.Equal(PublishDestinationKind.Failed, run.Result.For("Intune")!.Kind);
+        Assert.Equal(1, calls.Wsus);
+    }
+
+    [Fact]
     public async Task ARunStoppedAfterThePackageStepSkipsWsusWithACell()
     {
         var calls = new Calls();

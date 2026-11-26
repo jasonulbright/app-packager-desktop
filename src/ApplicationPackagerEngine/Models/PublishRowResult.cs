@@ -24,10 +24,13 @@ public enum PublishDestinationKind
 public sealed record PublishDestinationResult(
     string Destination, PublishDestinationKind Kind, string Step, string Message, string? ObjectId = null)
 {
+    /// <summary>A published cell whose later step did not happen: the supersedence was not applied.</summary>
+    public bool Warning { get; init; }
+
     /// <summary>The cell text: "Published", "Failed at content upload", "Skipped", "Not supported", "Blocked".</summary>
     public string Text => Kind switch
     {
-        PublishDestinationKind.Published => "Published",
+        PublishDestinationKind.Published => Warning ? "Published, supersedence not applied" : "Published",
         PublishDestinationKind.Failed => Step.Length > 0 ? "Failed at " + Step : "Failed",
         PublishDestinationKind.Skipped => "Skipped",
         PublishDestinationKind.NotSupported => "Not supported",
@@ -44,8 +47,8 @@ public sealed record PublishDestinationResult(
             return new(name, PublishDestinationKind.Skipped, "", $"Existing application kept: {result.Conflict.ApplicationName} v{result.Conflict.Version}", result.Conflict.ApplicationName);
         return result.ConfigMgrOutcome switch
         {
-            InventoryOutcome.Succeeded or InventoryOutcome.AlreadyPresent or InventoryOutcome.PublishedSupersedenceNotApplied
-                => new(name, PublishDestinationKind.Published, "", detail, id),
+            InventoryOutcome.Succeeded or InventoryOutcome.AlreadyPresent => new(name, PublishDestinationKind.Published, "", detail, id),
+            InventoryOutcome.PublishedSupersedenceNotApplied => new(name, PublishDestinationKind.Published, "", detail, id) { Warning = true },
             InventoryOutcome.Partial => new(name, PublishDestinationKind.Failed, "content", detail, id),
             InventoryOutcome.Skipped or InventoryOutcome.Cancelled => new(name, PublishDestinationKind.Skipped, "", detail, id),
             InventoryOutcome.Refused => new(name, PublishDestinationKind.NotSupported, "", detail, id),
@@ -66,6 +69,7 @@ public sealed record PublishDestinationResult(
         return result.IntuneOutcome switch
         {
             InventoryOutcome.Succeeded or InventoryOutcome.AlreadyPresent => new(name, PublishDestinationKind.Published, "", detail, id),
+            InventoryOutcome.PublishedSupersedenceNotApplied => new(name, PublishDestinationKind.Published, "", detail, id) { Warning = true },
             InventoryOutcome.Partial => new(name, PublishDestinationKind.Failed, "content upload", detail, id),
             InventoryOutcome.Skipped or InventoryOutcome.Cancelled => new(name, PublishDestinationKind.Skipped, "", detail, id),
             InventoryOutcome.Refused => new(name, PublishDestinationKind.NotSupported, "", detail, id),

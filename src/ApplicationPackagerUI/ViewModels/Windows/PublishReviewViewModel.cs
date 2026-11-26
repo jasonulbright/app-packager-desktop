@@ -11,13 +11,22 @@ public sealed record PublishReviewRow(string Application, string Version, string
 /// </summary>
 public partial class PublishReviewViewModel : ObservableObject
 {
-    public PublishReviewViewModel(PublishPlan plan, string comment)
+    public PublishReviewViewModel(PublishPlan plan, string comment, IReadOnlyDictionary<string, string>? changes = null)
     {
         Plan = plan;
+        Changes = changes ?? new Dictionary<string, string>();
         _comment = comment ?? "";
         Rows = plan.Rows.Select(r => new PublishReviewRow(r.App.Application, r.App.Version.Length > 0 ? r.App.Version : "Not checked",
-            r.App.Hidden ? "Outside the view" : "", r.Cells.Select(c => c.Text).ToList())).ToList();
+            string.Join(", ", new[] { Changes.ContainsKey(r.App.Uid) ? "Changed" : "", r.App.Hidden ? "Outside the view" : "" }.Where(t => t.Length > 0)),
+            r.Cells.Select(c => c.Text).ToList())).ToList();
     }
+
+    /// <summary>What differs from the review the operator confirmed before; empty on the first review.</summary>
+    public IReadOnlyDictionary<string, string> Changes { get; }
+
+    /// <summary>Why this review opened again, with each difference; empty on the first review.</summary>
+    public string ChangedText => Changes.Count == 0 ? ""
+        : "Nothing was published. The plan changed after you confirmed it. Check it and confirm again. " + string.Join(" ", Changes.Values);
 
     public PublishPlan Plan { get; }
 
