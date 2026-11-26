@@ -36,37 +36,69 @@ public sealed class PackagesSelectionCycleTests
         var log = new List<string>();
         Assert.False(cycle.HeaderCheck);
 
-        cycle.Advance(rows, rows, log.Add);
+        cycle.Advance(rows, log.Add);
         Assert.True(cycle.HeaderCheck);
         Assert.Equal("abcd", Picked(rows));
 
-        cycle.Advance(rows, rows, log.Add);
+        cycle.Advance(rows, log.Add);
         Assert.Null(cycle.HeaderCheck);
         Assert.Equal("a-c-", Picked(rows));
 
-        cycle.Advance(rows, rows, log.Add);
+        cycle.Advance(rows, log.Add);
         Assert.False(cycle.HeaderCheck);
         Assert.Equal("----", Picked(rows));
 
-        cycle.Advance(rows, rows, log.Add);
+        cycle.Advance(rows, log.Add);
         Assert.True(cycle.HeaderCheck);
 
-        Assert.Equal(["Selected all visible rows.", "Selected rows with 'Update available' status.", "Deselected all rows.", "Selected all visible rows."], log);
+        Assert.Equal(["Selected all visible rows.", "Selected rows with 'Update available' status.", "Deselected the visible rows.", "Selected all visible rows."], log);
     }
 
     [Fact]
-    public void ABulkStepClearsEveryRowAndSelectsOnlyWhatTheFilterShows()
+    public void ABulkStepChangesTheVisibleRowsAndKeepsACheckThatTheFilterHides()
     {
         var rows = Rows();
         rows[3].IsSelected = true; // hidden by the filter
         var visible = rows.Take(3).ToList();
         var cycle = new SelectionCycle();
 
-        cycle.Advance(rows, visible, _ => { });
-        Assert.Equal("abc-", Picked(rows));
+        cycle.Advance(visible, _ => { });
+        Assert.Equal("abcd", Picked(rows));
 
-        cycle.Advance(rows, visible, _ => { });
-        Assert.Equal("a-c-", Picked(rows));
+        cycle.Advance(visible, _ => { });
+        Assert.Equal("a-cd", Picked(rows));
+
+        cycle.Advance(visible, _ => { });
+        Assert.Equal("---d", Picked(rows));
+    }
+
+    [Fact]
+    public void CtrlAClearsOnlyWhenEveryVisibleRowIsCheckedAndNeverUnchecksAHiddenRow()
+    {
+        var rows = Rows();
+        var vm = NewViewModel(rows);
+        rows[3].IsSelected = true;
+        vm.FilteredPackagers = new ObservableCollection<PackagerInfo>(rows.Take(2));
+
+        vm.ToggleSelectAllCommand.Execute(null);
+        Assert.Equal("ab-d", Picked(rows));
+        vm.ToggleSelectAllCommand.Execute(null);
+        Assert.Equal("---d", Picked(rows));
+    }
+
+    [Fact]
+    public void AReloadKeepsTheChecksByUidAndNamesTheCheckedRowsThatAreGone()
+    {
+        var before = Rows();
+        before[0].IsSelected = before[3].IsSelected = true;
+        var after = Rows().Take(3).Reverse().ToList();
+
+        var gone = SelectionKeeper.Restore(before, after);
+
+        Assert.Equal(["Delta"], gone);
+        Assert.Equal("--a", Picked(after));
+        Assert.Equal("1 checked application is no longer in the grid, so its check was dropped: Delta.", SelectionKeeper.GoneLine(gone));
+        Assert.StartsWith("2 checked applications are no longer in the grid, so their checks were dropped: ", SelectionKeeper.GoneLine(["A", "B"]));
     }
 
     [Fact]
@@ -75,7 +107,7 @@ public sealed class PackagesSelectionCycleTests
         var rows = Rows();
         var cycle = new SelectionCycle();
         var log = new List<string>();
-        cycle.Advance(rows, rows, log.Add);
+        cycle.Advance(rows, log.Add);
         rows[1].IsSelected = false; // a row click
         rows.Reverse();             // a sort
         Assert.True(cycle.HeaderCheck);
@@ -89,16 +121,16 @@ public sealed class PackagesSelectionCycleTests
         var rows = Rows();
         var cycle = new SelectionCycle();
         var log = new List<string>();
-        cycle.SelectUpdates(rows, rows, log.Add);
+        cycle.SelectUpdates(rows, log.Add);
         Assert.Null(cycle.HeaderCheck);
         Assert.Equal("a-c-", Picked(rows));
         Assert.Equal(["Selected rows with 'Update available' status."], log);
 
         // The next header click clears, as in the PowerShell app.
-        cycle.Advance(rows, rows, log.Add);
+        cycle.Advance(rows, log.Add);
         Assert.False(cycle.HeaderCheck);
         Assert.Equal("----", Picked(rows));
-        Assert.Equal("Deselected all rows.", log[^1]);
+        Assert.Equal("Deselected the visible rows.", log[^1]);
     }
 
     [Fact]
@@ -118,8 +150,28 @@ public sealed class PackagesSelectionCycleTests
         Assert.False(vm.HeaderSelection);
 
         var lines = vm.LogText.Split(Environment.NewLine).Select(l => l[(l.IndexOf("  ", StringComparison.Ordinal) + 2)..]).ToList();
-        Assert.Equal(["Selected all visible rows.", "Selected rows with 'Update available' status.", "Selected all visible rows.", "Deselected all rows."], lines);
+        Assert.Equal(["Selected all visible rows.", "Selected rows with 'Update available' status.", "Selected all visible rows.", "Deselected the visible rows."], lines);
         Assert.Equal(4, changed.Count(n => n == nameof(PackagesViewModel.HeaderSelection)));
+    }
+
+    [Theory]
+    [InlineData(true, "Staging 1 of 4: Alpha")]
+    [InlineData(false, "Stage finished.")]
+    public void ARowStatusChangeOnATabLeavesTheStatusLine(bool running, string line)
+    {
+        var rows = Rows();
+        var vm = NewViewModel(rows);
+        vm.StatusTab = ApplicationPackagerUI.Helpers.PackagesTabChoice.Update;
+        // The run state is set on the field: the property also tells the commands, which this view model does not have.
+        typeof(PackagesViewModel).GetField("_isOperationRunning", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!
+            .SetValue(vm, running);
+        vm.StatusText = line;
+
+        rows[0].Status = "Up to date";
+        vm.RefreshCounts();
+
+        Assert.Equal(line, vm.StatusText);
+        Assert.DoesNotContain(rows[0], vm.FilteredPackagers);
     }
 
     internal static PackagesViewModel NewViewModel(List<PackagerInfo> rows)

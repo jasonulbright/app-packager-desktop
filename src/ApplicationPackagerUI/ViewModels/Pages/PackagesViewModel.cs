@@ -342,7 +342,7 @@ public partial class PackagesViewModel : ObservableObject
     public void RefreshCounts()
     {
         _countsPending = false;
-        if (StatusTab != PackagesTabChoice.All) ApplyFilter();
+        if (StatusTab != PackagesTabChoice.All) ApplyFilter(announce: false);
         else RaiseCountChanges();
     }
 
@@ -408,7 +408,11 @@ public partial class PackagesViewModel : ObservableObject
     }
 
     /// <param name="replace">True after a load: the grid gets a new list. Otherwise the list changes in place, so the sort and the scroll stay.</param>
-    private void ApplyFilter(bool replace = false)
+    /// <param name="announce">
+    /// True when the operator changed the search or the tab, or after a load: the status line says what the grid shows. A refresh after a row
+    /// changed does not write the status line, and during a run the line stays the progress of the run.
+    /// </param>
+    private void ApplyFilter(bool replace = false, bool announce = true)
     {
         var term = SearchText;
         var tab = StatusTab;
@@ -417,7 +421,8 @@ public partial class PackagesViewModel : ObservableObject
             .ToList();
         if (replace || FilteredPackagers is null) FilteredPackagers = new ObservableCollection<PackagerInfo>(wanted);
         else ListSync.Sync(FilteredPackagers, wanted);
-        StatusText = string.IsNullOrWhiteSpace(term) && tab == PackagesTabChoice.All
+        if (announce && !IsOperationRunning)
+            StatusText = string.IsNullOrWhiteSpace(term) && tab == PackagesTabChoice.All
             ? $"Loaded {Packagers.Count} packager(s). Ready."
             : $"Showing {FilteredPackagers.Count} of {Packagers.Count} packager(s).";
         RaiseCountChanges();
@@ -427,7 +432,7 @@ public partial class PackagesViewModel : ObservableObject
     [RelayCommand]
     private void CycleSelection()
     {
-        _selection.Advance(Packagers, FilteredPackagers, AddLogLine);
+        _selection.Advance(FilteredPackagers, AddLogLine);
         OnPropertyChanged(nameof(HeaderSelection));
     }
 
@@ -435,15 +440,16 @@ public partial class PackagesViewModel : ObservableObject
     [RelayCommand]
     private void ToggleSelectAll()
     {
-        if (_selection.State == SelectionCycleState.All) _selection.Clear(Packagers, AddLogLine);
-        else _selection.SelectAllVisible(Packagers, FilteredPackagers, AddLogLine);
+        var visible = FilteredPackagers.Where(p => p.IsRunnable).ToList();
+        if (visible.Count > 0 && visible.All(p => p.IsSelected)) _selection.Clear(visible, AddLogLine);
+        else _selection.SelectAllVisible(FilteredPackagers, AddLogLine);
         OnPropertyChanged(nameof(HeaderSelection));
     }
 
     [RelayCommand]
     private void SelectUpdateAvailable()
     {
-        _selection.SelectUpdates(Packagers, FilteredPackagers, AddLogLine);
+        _selection.SelectUpdates(FilteredPackagers, AddLogLine);
         OnPropertyChanged(nameof(HeaderSelection));
     }
 
@@ -639,6 +645,7 @@ public partial class PackagesViewModel : ObservableObject
             : $"Loading packagers from: {root}");
         var load = await ReadGridAsync(() => _discoveryService.DiscoverAsync(), () => _discoveryService.DiscoverAllAsync());
         var results = load.Rows;
+        var gone = SelectionKeeper.Restore(Packagers ?? [], results);
         if (results.Count == 0)
         {
             Packagers = [];
@@ -647,6 +654,7 @@ public partial class PackagesViewModel : ObservableObject
             ApplyFilter(replace: true);
             StatusText = load.StatusText ?? "";
             if (load.LogLine is not null) AddLogLine(load.LogLine);
+            if (gone.Count > 0) AddLogLine(SelectionKeeper.GoneLine(gone));
             return;
         }
 
@@ -668,6 +676,11 @@ public partial class PackagesViewModel : ObservableObject
         WatchRows();
         SearchText = "";
         ApplyFilter(replace: true);
+        if (gone.Count > 0)
+        {
+            AddLogLine(SelectionKeeper.GoneLine(gone));
+            StatusText = SelectionKeeper.GoneLine(gone);
+        }
 
         Checklist?.Refresh();
         _ = TestMecmConnectionAsync();
@@ -1103,7 +1116,6 @@ public partial class PackagesViewModel : ObservableObject
                             break;
                         }
                         p.Status = "Stage error";
-                        p.IsSelected = false;
                         _stageFailures[p] = result.StdErr;
                         if (StagingRootGuard.IsBlockedText(result.StdErr)) stagingBlock = result.StdErr;
                         AddLogLine($"Stage FAILED (exit {result.ExitCode})");
@@ -1412,10 +1424,9 @@ public partial class PackagesViewModel : ObservableObject
                         // tells the two apart.
                         var stopped = tally.RecordInterruptedOrFailed(_operationCts.Token);
                         p.Status = stopped ? "Cancelled" : rowStatus;
+                        // A failed row stays checked, so the next run takes it again.
                         if (!stopped)
                         {
-                            // A row that WSUS alone failed stays checked for the next run.
-                            if (!wsusOnly) p.IsSelected = false;
                             if (packageExit != 0)
                             {
                                 AddLogLine($"Package FAILED (exit {packageExit})");

@@ -35,6 +35,8 @@ public partial class PackagesViewModel
             if (cell is null) continue;
             var cells = rows[index].Result.Destinations.Select(d => d.Destination == cell.Destination ? cell : d).ToList();
             rows[index] = (rows[index].Application, rows[index].Result with { Destinations = cells });
+            // The row stays checked while any of its systems failed.
+            row.IsSelected = cells.Any(c => c.Kind == PublishDestinationKind.Failed);
         }
     }
 
@@ -151,7 +153,6 @@ public partial class PackagesViewModel
         if (cell is null) return null;
         if (cell.Kind == PublishDestinationKind.Published)
         {
-            p.IsSelected = false;
             if (!wsus) p.Status = RowStatus(target, 0);
         }
         else if (cell.Step == "cancel") p.Status = "Cancelled";
