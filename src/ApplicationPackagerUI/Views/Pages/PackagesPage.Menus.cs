@@ -120,6 +120,7 @@ public partial class PackagesPage
 
     private List<DataGridColumn> _movable = [];
     private readonly Dictionary<DataGridColumn, DataGridLength> _defaultWidths = [];
+    private readonly Dictionary<DataGridColumn, double> _defaultMinWidths = [];
     private bool _applyingLayout;
     // The columns whose width the operator set. A resized star column stays a star in WPF, so its width is read from what it shows.
     private readonly HashSet<DataGridColumn> _userSized = [];
@@ -133,7 +134,11 @@ public partial class PackagesPage
     private void InitializeColumnLayout()
     {
         _movable = PackagerGrid.Columns.Where(c => ColumnId(c).Length > 0).ToList();
-        foreach (var column in _movable) _defaultWidths[column] = column.Width;
+        foreach (var column in _movable)
+        {
+            _defaultWidths[column] = column.Width;
+            _defaultMinWidths[column] = column.MinWidth;
+        }
         ApplyColumnLayout(((PackagesViewModel)DataContext!).ColumnLayout);
 
         PackagerGrid.ColumnReordered += (_, _) => SaveColumnLayout();
@@ -159,8 +164,11 @@ public partial class PackagesPage
                 .OrderByDescending(c => c.DisplayIndex).FirstOrDefault() ?? column;
     }
 
-    private void OnGridThumbPressed(object sender, DragStartedEventArgs e) =>
+    private void OnGridThumbPressed(object sender, DragStartedEventArgs e)
+    {
         _pressed = SizedColumn(e.OriginalSource) is { } column ? (column, column.ActualWidth) : null;
+        if (_pressed is { } pressed) Release(pressed.Column);
+    }
 
     /// <summary>A released header grip ends a resize. A click on a grip that moved nothing is not one: the column keeps its star width.</summary>
     private void OnGridThumbReleased(object sender, DragCompletedEventArgs e)
@@ -168,7 +176,11 @@ public partial class PackagesPage
         var pressed = _pressed;
         _pressed = null;
         if (SizedColumn(e.OriginalSource) is not { } column || pressed is not { } start || !ReferenceEquals(start.Column, column)) return;
-        if (Math.Abs(column.ActualWidth - start.Width) < 0.5) return;
+        if (Math.Abs(column.ActualWidth - start.Width) < 0.5)
+        {
+            Hold(column);
+            return;
+        }
         MarkResized(column);
         SaveColumnLayout();
     }
@@ -176,8 +188,30 @@ public partial class PackagesPage
     /// <summary>Keeps the width that the column shows as the width that the operator set.</summary>
     public void MarkResized(DataGridColumn column)
     {
-        if (_movable.Contains(column)) _userSized.Add(column);
+        if (!_movable.Contains(column)) return;
+        _userSized.Add(column);
+        Hold(column);
     }
+
+    // A grid narrower than its columns takes width from every column that is wider than its MinWidth. So a pixel width that the operator set is
+    // also the MinWidth of its column: the other columns give the width, and the saved width shows again after a restart. A column that is
+    // still a star keeps the MinWidth of the page.
+    private void Hold(DataGridColumn column)
+    {
+        if (_userSized.Contains(column) && column.Width.IsAbsolute) column.MinWidth = Math.Max(column.Width.Value, _defaultMinWidths[column]);
+    }
+
+    /// <summary>Gives a column the MinWidth of the page again, so a grip can make it narrower.</summary>
+    private void Release(DataGridColumn column)
+    {
+        if (_defaultMinWidths.TryGetValue(column, out var width)) column.MinWidth = width;
+    }
+
+    // A saved width equal to the pixel width of the page is not a choice of the operator.
+    private double? SavedWidth(PackagesColumnLayout? layout, DataGridColumn column) =>
+        PackagesColumnLayout.WidthOf(layout, ColumnId(column)) is { } width
+        && !(_defaultWidths[column].IsAbsolute && Math.Abs(width - _defaultWidths[column].Value) < 0.01)
+            ? width : null;
 
     /// <summary>A sort cannot change while a row is edited, so an open edit ends first.</summary>
     private void EndGridEdit()
@@ -192,7 +226,7 @@ public partial class PackagesPage
         _applyingLayout = true;
         _userSized.Clear();
         foreach (var column in _movable)
-            if (PackagesColumnLayout.WidthOf(layout, ColumnId(column)) is not null) _userSized.Add(column);
+            if (SavedWidth(layout, column) is not null) _userSized.Add(column);
         try
         {
             var byId = _movable.ToDictionary(ColumnId, StringComparer.Ordinal);
@@ -200,9 +234,13 @@ public partial class PackagesPage
             var first = PackagerGrid.Columns.Count - _movable.Count;
             for (var i = 0; i < order.Count; i++) byId[order[i]].DisplayIndex = first + i;
             foreach (var column in _movable)
-                column.Width = PackagesColumnLayout.WidthOf(layout, ColumnId(column)) is { } width
+            {
+                Release(column);
+                column.Width = SavedWidth(layout, column) is { } width
                     ? new DataGridLength(Math.Max(width, column.MinWidth))
                     : _defaultWidths[column];
+                Hold(column);
+            }
             ApplySort(layout);
         }
         finally { _applyingLayout = false; }
@@ -228,7 +266,8 @@ public partial class PackagesPage
             {
                 Id = ColumnId(c),
                 Width = c.Width.IsAbsolute
-                    ? (_userSized.Contains(c) || !c.Width.Equals(_defaultWidths[c]) ? c.Width.Value : 0)
+                    // DataGridLength equality includes the width on screen, so only the set value is compared.
+                    ? (_userSized.Contains(c) || !_defaultWidths[c].IsAbsolute || c.Width.Value != _defaultWidths[c].Value ? c.Width.Value : 0)
                     : (_userSized.Contains(c) && c.ActualWidth > 0 ? c.ActualWidth : 0)
             }).ToList(),
             SortId = sorted is null ? "" : ColumnId(sorted),
