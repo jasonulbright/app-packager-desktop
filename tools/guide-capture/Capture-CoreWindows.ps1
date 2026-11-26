@@ -67,7 +67,7 @@ foreach ($theme in $Themes) {
         }
         # ---- The Convert from ConfigMgr window after a preview
         Step 'core-convert-window' {
-            Real-Click (Need-El 'btnConvertFromCm')
+            Open-ApdMenuItem $w 'btnAddOrImport' 'miConvertFromCm'
             $name = Need-El 'txtCmApplicationName'
             Set-ElText $name $ConvertApplication
             Invoke-El (Need-El 'btnConvertPreview')
@@ -100,11 +100,11 @@ foreach ($theme in $Themes) {
             $null = Click-Nav 'App Packager'; Start-Sleep 4
             $w = Main-Window
             foreach ($name in $Checked) { Check-Row $w $name }
-            Real-Click (Find-El $w -Name 'Check Latest' -ControlType 'Button' -Timeout 5)
+            Open-ApdMenuItem $w 'btnCheckMenu' 'miCheckLatest'
             Wait-Idle $w 240
-            Real-Click (Find-El $w -Name 'Check ConfigMgr' -ControlType 'Button' -Timeout 5)
+            Open-ApdMenuItem $w 'btnCheckMenu' 'miCheckConfigMgr'
             Wait-Idle $w 240
-            Real-Click (Need-El 'btnCheckCves')
+            Open-ApdMenuItem $w 'btnCheckMenu' 'miCheckCves'
             Wait-Idle $w 600
             "status after Check CVEs: $(Status-Text $w)"
             # The CVE columns are at the right of the grid and show without scrolling at 1920 px; the search shows the row of the application that has CVEs.

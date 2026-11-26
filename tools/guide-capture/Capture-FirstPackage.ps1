@@ -80,7 +80,7 @@ foreach ($theme in $Themes) {
         Step 'start-first-package-end-to-end' {
             $null = Click-Nav 'App Packager'; Start-Sleep 5
             Check-Row $w $Search
-            Real-Click (Find-El $w -Name 'Check Latest' -ControlType 'Button' -Timeout 5)
+            Open-ApdMenuItem $w 'btnCheckMenu' 'miCheckLatest'
             Wait-Idle $w 240
             Real-Click (Find-El $w -Name 'Stage' -ControlType 'Button' -Timeout 5)
             Wait-Idle $w 420
@@ -92,7 +92,7 @@ foreach ($theme in $Themes) {
             Answer-Dialogs $w 420
             "status after Publish: $(Status-Text $w)"
             Check-Row $w $Search
-            Real-Click (Find-El $w -Name 'Check ConfigMgr' -ControlType 'Button' -Timeout 5)
+            Open-ApdMenuItem $w 'btnCheckMenu' 'miCheckConfigMgr'
             Wait-Idle $w 240
             Set-ElText (Find-El $w 'txtAppPackagerSearch') $Search
             Start-Sleep 2

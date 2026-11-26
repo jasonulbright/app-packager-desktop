@@ -99,7 +99,7 @@ try {
     Start-Sleep 1
 
     # The grid publishes the staged version that it knows, so Check Latest comes first (it reads the vendor version of the checked rows).
-    Real-Click (Find-El $w -Name 'Check Latest' -ControlType 'Button' -Timeout 5)
+    Open-ApdMenuItem $w 'btnCheckMenu' 'miCheckLatest'
     $latestDeadline = (Get-Date).AddSeconds(180)
     Start-Sleep 5
     while ((Get-Date) -lt $latestDeadline -and (Status-Text $w) -match 'Check|Checking') { Start-Sleep 2 }

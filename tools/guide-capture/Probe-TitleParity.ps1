@@ -97,7 +97,7 @@ foreach ($theme in $Themes) {
         Run-Check "$theme-03" {
             $w = Main-Window
             foreach ($id in $SiteApplications) { Check-Row $w (($golden | Where-Object { $_.Definition -eq $id }).App) }
-            Real-Click (Find-El $w -Name 'Check ConfigMgr' -ControlType 'Button' -Timeout 5)
+            Open-ApdMenuItem $w 'btnCheckMenu' 'miCheckConfigMgr'
             Wait-Idle $w 240
             $log = Session-Log $data
             Check "$theme-03a Check ConfigMgr ends with its finished line" ($log -match "Check ConfigMgr finished: \d+ of $($SiteApplications.Count) product") "log: $($log.Substring([Math]::Max(0, $log.Length - 400)))"
@@ -113,7 +113,7 @@ foreach ($theme in $Themes) {
         Run-Check "$theme-04" {
             $w = Main-Window
             foreach ($app in $ConvertApplications) {
-                Real-Click (Find-El $w 'btnConvertFromCm' -Timeout 10)
+                Open-ApdMenuItem $w 'btnAddOrImport' 'miConvertFromCm'
                 $name = Find-El $null 'txtCmApplicationName' -Timeout 10
                 Set-ElText $name $app
                 Invoke-El (Find-El $null 'btnConvertPreview' -Timeout 10)

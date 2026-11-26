@@ -152,7 +152,7 @@ try {
         }
         Set-ElText (Find-El $w 'txtAppPackagerSearch') ''
         Start-Sleep 1
-        Real-Click (Find-El $w -Name 'Check Latest' -ControlType 'Button' -Timeout 5)
+        Open-ApdMenuItem $w 'btnCheckMenu' 'miCheckLatest'
         Start-Sleep 5
         $deadline = (Get-Date).AddSeconds(180)
         while ((Get-Date) -lt $deadline -and (Status-Text $w) -match 'Check|Checking') { Start-Sleep 2 }

@@ -274,11 +274,23 @@ public partial class PackagesViewModel : ObservableObject
         _settingsService.Save(settings);
     }
 
-    /// <summary>Shows every column again.</summary>
+    /// <summary>The saved order, widths and sort of the grid; null when the operator changed none.</summary>
+    public PackagesColumnLayout? ColumnLayout => _settingsService?.Load().PackagesGridLayout;
+
+    public void SaveColumnLayout(PackagesColumnLayout layout)
+    {
+        if (_settingsService is null) return;
+        var settings = _settingsService.Load();
+        settings.PackagesGridLayout = layout;
+        _settingsService.Save(settings);
+    }
+
+    /// <summary>Shows every column again, in the order and with the widths of the page, with no sort.</summary>
     public void ResetColumns()
     {
         var settings = _settingsService.Load();
         settings.PackagesHiddenColumns = [];
+        settings.PackagesGridLayout = null;
         _settingsService.Save(settings);
     }
 
@@ -1198,13 +1210,18 @@ public partial class PackagesViewModel : ObservableObject
         }
 
         selected = ConfirmLocalSourceFolders(selected);
-        if (selected.Count == 0) return;
+        if (selected.Count == 0)
+        {
+            if (confirmedPlan is not null) StatusText = "Publish cancelled. Nothing was published.";
+            return;
+        }
         // What this publish does and does not do, before anything starts.
         foreach (var sentence in ApplicationPackagerEngine.Services.PublishPreflight.Lines(target))
             AddLogLine("Before publish: " + sentence);
         if (DeploymentTargets.PublishesToIntune(target) && !await ReviewIntuneCompatibilityAsync(selected, target))
         {
             AddLogLine("Intune review: run cancelled.");
+            if (confirmedPlan is not null) StatusText = "Publish cancelled. Nothing was published.";
             return;
         }
 

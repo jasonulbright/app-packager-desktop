@@ -75,7 +75,6 @@
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
             <RowDefinition Height="3*" MinHeight="120" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" MinHeight="72" MaxHeight="180" />
@@ -92,146 +91,62 @@
                            ToolTip="Show or hide applications in this grid."
                            AutomationProperties.AutomationId="btnCatalog" />
                 <ui:Button
-                           Content="Convert from ConfigMgr"
-                           Icon="{ui:SymbolIcon ArrowSwap24}"
+                           Content="Add or import"
+                           Icon="{ui:SymbolIcon Add24}"
                            Margin="8,0,0,0"
-                           Click="ConvertFromCm_Click"
-                           ToolTip="Convert a ConfigMgr application to Intune apps."
-                           AutomationProperties.AutomationId="btnConvertFromCm" />
+                           Click="AddOrImport_Click"
+                           ToolTip="Add an application from the web or from a file, convert a ConfigMgr application, or import vendor definitions."
+                           AutomationProperties.AutomationId="btnAddOrImport" />
             </StackPanel>
             </controls:PageHeader.Actions>
         </controls:PageHeader>
 
-        <WrapPanel Grid.Row="1" x:Name="AppPackagerToolbar" Margin="0" VerticalAlignment="Center" AutomationProperties.AutomationId="pnlAppPackagerToolbar">
-            <WrapPanel.Resources>
-                <!-- Tag "Compact" drops the labels; the tooltip then names the button. -->
-                <Style TargetType="ui:Button" BasedOn="{StaticResource {x:Type ui:Button}}">
-                    <Setter Property="ToolTip" Value="{Binding Content, RelativeSource={RelativeSource Self}}" />
-                    <Setter Property="Padding" Value="8,4,8,4" />
-                    <Setter Property="MinHeight" Value="32" />
-                    <Style.Triggers>
-                        <DataTrigger Binding="{Binding Tag, ElementName=AppPackagerToolbar}" Value="Compact">
-                            <Setter Property="Padding" Value="8,0,0,0" />
-                            <Setter Property="Width" Value="32" />
-                            <Setter Property="Height" Value="32" />
-                            <Setter Property="HorizontalContentAlignment" Value="Center" />
-                            <Setter Property="ContentTemplate">
-                                <Setter.Value>
-                                    <DataTemplate>
-                                        <Rectangle Width="0" Height="0" />
-                                    </DataTemplate>
-                                </Setter.Value>
-                            </Setter>
-                        </DataTrigger>
-                    </Style.Triggers>
-                </Style>
-            </WrapPanel.Resources>
-            <!-- One row, in the order of the owner design (Q-102): One Click | check | stage and publish all | publish per system | report and history. A separator ends each group but the last. -->
-            <WrapPanel Orientation="Horizontal" Margin="0">
-            <ui:Button Content="One Click"
-                       Icon="{ui:SymbolIcon Play24}"
-                       Command="{Binding OneClickCommand}"
-                       AutomationProperties.AutomationId="btnOneClick"
-                       ToolTip="One Click check (and optionally Stage / Publish) against your tracked apps. Configure tracked apps, action, and destinations in Settings, One Click Settings."
-                       Margin="0,0,4,8" />
-            <Border Width="1" Height="24" Margin="4,4,8,0" VerticalAlignment="Top" Background="{DynamicResource ControlStrokeColorDefaultBrush}" IsHitTestVisible="False" />
-            </WrapPanel>
-            <WrapPanel Orientation="Horizontal" Margin="0">
-            <ui:Button Content="Check Latest"
-                       Icon="{ui:SymbolIcon ArrowDownload24}"
-                       Command="{Binding CheckLatestCommand}"
-                       Margin="0,0,4,8" ToolTip="Look up the latest version of each checked application." />
-            <ui:Button Content="Check ConfigMgr"
-                       Icon="{ui:SymbolIcon Search24}"
-                       Command="{Binding CheckMecmCommand}"
-                       ToolTip="{Binding CheckMecmToolTip}"
-                       ToolTipService.ShowOnDisabled="True"
-                       Margin="0,0,4,8" />
-            <ui:Button Content="Check CVEs"
-                       Icon="{ui:SymbolIcon ShieldError24}"
-                       Command="{Binding CheckCvesCommand}"
-                       ToolTip="Look up the CVEs fixed by updating each checked application from its ConfigMgr version to the latest version. Needs both versions and a CPE."
-                       AutomationProperties.AutomationId="btnCheckCves"
-                       Margin="0,0,4,8" />
-            <Border Width="1" Height="24" Margin="4,4,8,0" VerticalAlignment="Top" Background="{DynamicResource ControlStrokeColorDefaultBrush}" IsHitTestVisible="False" />
-            </WrapPanel>
-            <WrapPanel Orientation="Horizontal" Margin="0">
-            <ui:Button Content="Stage"
-                       Icon="{ui:SymbolIcon ArrowCircleDown24}"
-                       Command="{Binding StageCommand}"
-                       Margin="0,0,4,8" ToolTip="Stage the installer content of each checked application." />
-            <ui:Button x:Name="btnPublishAll"
-                       Content="Publish All"
-                       Icon="{ui:SymbolIcon ArrowCircleUp24}"
-                       Command="{Binding PublishAllCommand}"
-                       ToolTip="{Binding PublishAllToolTip}"
-                       ToolTipService.ShowOnDisabled="True"
-                       AutomationProperties.AutomationId="btnPublishAll"
-                       Margin="0,0,4,8" />
-            <Border Width="1" Height="24" Margin="4,4,8,0" VerticalAlignment="Top" Background="{DynamicResource ControlStrokeColorDefaultBrush}" IsHitTestVisible="False" />
-            </WrapPanel>
-            <WrapPanel Orientation="Horizontal" Margin="0">
-            <ui:Button Content="CVE Report"
-                       Icon="{ui:SymbolIcon DocumentTable24}"
-                       Command="{Binding CveReportCommand}"
-                       ToolTip="Write the CVE report for the checked applications (all applications when none is checked) as HTML, CSV, XLSX, Markdown and JSON, then open the HTML page."
-                       AutomationProperties.AutomationId="btnCveReport"
-                       Margin="0,0,4,8" />
-            <ui:Button x:Name="btnOperationHistory"
-                       Content="Ops History"
-                       Icon="{ui:SymbolIcon TextBulletListSquare24}"
-                       Click="ViewHistory_Click"
-                       IsEnabled="False"
-                       ToolTip="View recorded operations for the selected application."
-                       AutomationProperties.AutomationId="btnOperationHistory"
-                       Margin="0,0,4,8" />
-            <!-- Cancel keeps its room while no run is active (Hidden, not Collapsed), so the toolbar does not change its layout when a run starts. -->
-            <Grid>
-                <Grid.Style>
-                    <Style TargetType="Grid">
-                        <Setter Property="Visibility" Value="Hidden" />
-                        <Style.Triggers>
-                            <DataTrigger Binding="{Binding IsOperationRunning}" Value="True">
-                                <Setter Property="Visibility" Value="Visible" />
-                            </DataTrigger>
-                        </Style.Triggers>
-                    </Style>
-                </Grid.Style>
-            <ui:Button Content="Cancel"
-                       Icon="{ui:SymbolIcon Dismiss24}"
-                       Appearance="Danger"
-                       Command="{Binding CancelOperationCommand}"
-                       AutomationProperties.AutomationId="btnCancelOperation"
-                       VerticalAlignment="Top"
-                       Margin="0,0,4,8" />
-            </Grid>
-            </WrapPanel>
-        </WrapPanel>
-
-        <!-- The status tabs of the V1 workspace (overhaul V1, phase 3): the grid shows every application or one status. The counts are over every
-             application, not over the search. The cue is the primary text with an accent underline, never bold. -->
-        <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,0,0,8" AutomationProperties.AutomationId="pnlStatusTabs" AutomationProperties.Name="Status tabs">
-            <RadioButton GroupName="StatusTabs" Style="{StaticResource StatusTab}" Content="{Binding TabAllText}"
-                         IsChecked="{Binding StatusTab, Converter={StaticResource EnumEquals}, ConverterParameter=All}"
-                         AutomationProperties.AutomationId="tabStatusAll" AutomationProperties.Name="{Binding TabAllText}"
-                         ToolTip="Show every application." />
-            <RadioButton GroupName="StatusTabs" Style="{StaticResource StatusTab}" Content="{Binding TabUpdateText}"
-                         IsChecked="{Binding StatusTab, Converter={StaticResource EnumEquals}, ConverterParameter=Update}"
-                         AutomationProperties.AutomationId="tabStatusUpdate" AutomationProperties.Name="{Binding TabUpdateText}"
-                         ToolTip="Show the applications whose status says that an update is available." />
-            <RadioButton GroupName="StatusTabs" Style="{StaticResource StatusTab}" Content="{Binding TabNotFoundText}"
-                         IsChecked="{Binding StatusTab, Converter={StaticResource EnumEquals}, ConverterParameter=NotFound}"
-                         AutomationProperties.AutomationId="tabStatusNotFound" AutomationProperties.Name="{Binding TabNotFoundText}"
-                         ToolTip="Show the applications that the last Check ConfigMgr did not find on the site." />
-            <RadioButton GroupName="StatusTabs" Style="{StaticResource StatusTab}" Content="{Binding TabNotCheckedText}"
-                         IsChecked="{Binding StatusTab, Converter={StaticResource EnumEquals}, ConverterParameter=NotChecked}"
-                         AutomationProperties.AutomationId="tabStatusNotChecked" AutomationProperties.Name="{Binding TabNotCheckedText}"
-                         ToolTip="Show the applications that no check has compared with the site yet." />
-        </StackPanel>
-
-        <Grid Grid.Row="3" Margin="0,0,0,8">
+        <Grid Grid.Row="1" Margin="0,0,0,8">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <!-- The status tabs of the V1 workspace (overhaul V1, phase 3): the grid shows every application or one status. The counts are over every
+                 application, not over the search. The cue is the primary text with an accent underline, never bold. -->
+            <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Bottom" AutomationProperties.AutomationId="pnlStatusTabs" AutomationProperties.Name="Status tabs">
+                <RadioButton GroupName="StatusTabs" Style="{StaticResource StatusTab}" Content="{Binding TabAllText}"
+                             IsChecked="{Binding StatusTab, Converter={StaticResource EnumEquals}, ConverterParameter=All}"
+                             AutomationProperties.AutomationId="tabStatusAll" AutomationProperties.Name="{Binding TabAllText}"
+                             ToolTip="Show every application." />
+                <RadioButton GroupName="StatusTabs" Style="{StaticResource StatusTab}" Content="{Binding TabUpdateText}"
+                             IsChecked="{Binding StatusTab, Converter={StaticResource EnumEquals}, ConverterParameter=Update}"
+                             AutomationProperties.AutomationId="tabStatusUpdate" AutomationProperties.Name="{Binding TabUpdateText}"
+                             ToolTip="Show the applications whose status says that an update is available." />
+                <RadioButton GroupName="StatusTabs" Style="{StaticResource StatusTab}" Content="{Binding TabNotFoundText}"
+                             IsChecked="{Binding StatusTab, Converter={StaticResource EnumEquals}, ConverterParameter=NotFound}"
+                             AutomationProperties.AutomationId="tabStatusNotFound" AutomationProperties.Name="{Binding TabNotFoundText}"
+                             ToolTip="Show the applications that the last Check ConfigMgr did not find on the site." />
+                <RadioButton GroupName="StatusTabs" Style="{StaticResource StatusTab}" Content="{Binding TabNotCheckedText}"
+                             IsChecked="{Binding StatusTab, Converter={StaticResource EnumEquals}, ConverterParameter=NotChecked}"
+                             AutomationProperties.AutomationId="tabStatusNotChecked" AutomationProperties.Name="{Binding TabNotCheckedText}"
+                             ToolTip="Show the applications that no check has compared with the site yet." />
+            </StackPanel>
+            <StackPanel x:Name="AppPackagerToolbar" Grid.Column="1" Orientation="Horizontal" Margin="8,0,0,0" AutomationProperties.AutomationId="pnlAppPackagerToolbar">
+                <ui:Button Content="One Click"
+                           Icon="{ui:SymbolIcon Play24}"
+                           Command="{Binding OneClickCommand}"
+                           AutomationProperties.AutomationId="btnOneClick"
+                           ToolTip="One Click check (and optionally Stage / Publish) against your tracked apps. Configure tracked apps, action, and destinations in Settings, One Click Settings." />
+                <ui:Button x:Name="btnCheckMenu"
+                           Content="Check"
+                           Icon="{ui:SymbolIcon CheckmarkCircle24}"
+                           Margin="8,0,0,0"
+                           Click="CheckMenu_Click"
+                           ToolTip="Check Latest, Check ConfigMgr or Check CVEs for the checked applications."
+                           AutomationProperties.AutomationId="btnCheckMenu" />
+            </StackPanel>
+        </Grid>
+
+        <Grid Grid.Row="2" Margin="0,0,0,8">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
             <ui:TextBox Grid.Column="0"
@@ -247,10 +162,13 @@
                         AutomationProperties.AutomationId="txtAppPackagerComment"
                         AutomationProperties.Name="Administrative Comments"
                         Width="280" Margin="8,0,0,0" />
+            <ui:Button Grid.Column="2" x:Name="btnColumns" Content="Columns" Icon="{ui:SymbolIcon TableSettings24}" Click="Columns_Click" Margin="8,0,0,0"
+                       AutomationProperties.AutomationId="btnColumns" ToolTip="Choose the columns of the grid. The columns, their order, their width and the sort are saved." />
+            <ui:Button Grid.Column="3" x:Name="btnMore" Content="More" Icon="{ui:SymbolIcon MoreHorizontal24}" Click="More_Click" Margin="8,0,0,0"
+                       AutomationProperties.AutomationId="btnMore" ToolTip="CVE report, operation history, export of the check results and the debug columns." />
         </Grid>
 
-
-        <Grid Grid.Row="4">
+        <Grid Grid.Row="3">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition x:Name="DetailPaneColumn" Width="320" />
@@ -518,45 +436,68 @@
             </Border>
         </Grid>
 
-        <StackPanel Grid.Row="5" Orientation="Horizontal" Margin="0,4,0,4">
-            <ui:Button Content="Select Update Available"
-                       Icon="{ui:SymbolIcon CheckboxChecked24}"
-                       Command="{Binding SelectUpdateAvailableCommand}"
-                       Appearance="Transparent"
-                       Margin="0,0,12,0" ToolTip="Check every application whose status shows that an update is available." />
-            <ui:Button Content="Export Check Results"
-                       Icon="{ui:SymbolIcon DocumentTable24}"
-                       Command="{Binding ExportCheckResultsCommand}"
-                       AutomationProperties.AutomationId="btnExportCheckResults"
-                       Appearance="Transparent"
-                       Margin="0,0,12,0" ToolTip="Saves the result of the last Check ConfigMgr run as a CSV or JSON file. The file type in the dialog chooses all checked applications or only those with an update available. Each run also writes CheckConfigMgrResult.csv in the SRLPackr data folder." />
-            <ui:Button Content="Import From URL"
-                       Icon="{ui:SymbolIcon ArrowDownload24}"
-                       Command="{Binding ImportFromUrlCommand}"
-                       AutomationProperties.AutomationId="btnImportFromUrl"
-                       Appearance="Transparent"
-                       Margin="0,0,12,0" ToolTip="Open the window that imports vendor definitions from a feed address." />
-            <CheckBox Content="Show debug columns"
-                      IsChecked="{Binding ShowDebugColumns}"
-                      VerticalAlignment="Center" ToolTip="Show the CMName, Script, Max EPSS, NVD updated and CVEs Checked (UTC) columns." />
-            <ui:Button x:Name="btnColumns" Content="Columns" Icon="{ui:SymbolIcon TableSettings24}" Click="Columns_Click" Appearance="Transparent" Margin="12,0,0,0"
-                       AutomationProperties.AutomationId="btnColumns" ToolTip="Choose the columns of the grid. The choice is saved." />
-            <TextBlock Text="{Binding SelectionText}" Margin="12,0,8,0" VerticalAlignment="Center" FontSize="14"
-                       Foreground="{DynamicResource TextFillColorPrimaryBrush}"
-                       AutomationProperties.AutomationId="txtSelectionCount" AutomationProperties.LiveSetting="Polite"
-                       ToolTip="The checked applications. Stage and Publish All act on all of them, also on those that the search or the tab hides." />
-            <ui:Button Content="Show selected" Command="{Binding ShowSelectedCommand}" Appearance="Transparent" Margin="0,0,8,0"
-                       Visibility="{Binding HasHiddenSelection, Converter={StaticResource BooleanToVisibilityConverter}}"
-                       AutomationProperties.AutomationId="btnShowSelected" ToolTip="Show only the checked applications, so that you see the ones that the search or the tab hides." />
-            <ui:Button Content="Clear selection" Command="{Binding ClearSelectionCommand}" Appearance="Transparent" Margin="0,0,12,0"
-                       Visibility="{Binding HasSelection, Converter={StaticResource BooleanToVisibilityConverter}}"
-                       AutomationProperties.AutomationId="btnClearSelection" ToolTip="Uncheck every application, also those that the search or the tab hides." />
-            <TextBlock Text="{Binding PublishScopeText}" VerticalAlignment="Center" FontSize="14" Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                       AutomationProperties.AutomationId="txtPublishScope"
-                       ToolTip="Publish All reaches the systems that Settings, Systems in Use turns on. One run covers all of them." />
-        </StackPanel>
+        <!-- The batch bar (overhaul V1, phase 3): what is checked, where Publish All goes, and the actions on the checked applications. -->
+        <DockPanel Grid.Row="4" Margin="0,8,0,8" AutomationProperties.AutomationId="pnlBatchBar" AutomationProperties.Name="Batch actions">
+            <StackPanel x:Name="BatchActions" DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Top" AutomationProperties.AutomationId="pnlBatchActions">
+                <!-- Cancel keeps its room while no run is active (Hidden, not Collapsed), so the bar does not change its layout when a run starts. -->
+                <Grid Margin="0,0,8,0">
+                    <Grid.Style>
+                        <Style TargetType="Grid">
+                            <Setter Property="Visibility" Value="Hidden" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsOperationRunning}" Value="True">
+                                    <Setter Property="Visibility" Value="Visible" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Grid.Style>
+                    <ui:Button Content="Cancel"
+                               Icon="{ui:SymbolIcon Dismiss24}"
+                               Appearance="Danger"
+                               Command="{Binding CancelOperationCommand}"
+                               AutomationProperties.AutomationId="btnCancelOperation"
+                               ToolTip="Stop the run that is active." />
+                </Grid>
+                <ui:Button x:Name="btnStage"
+                           Content="Stage"
+                           Icon="{ui:SymbolIcon ArrowCircleDown24}"
+                           Command="{Binding StageCommand}"
+                           AutomationProperties.AutomationId="btnStage"
+                           ToolTip="Stage the installer content of each checked application."
+                           Margin="0,0,8,0" />
+                <ui:Button x:Name="btnPublishAll"
+                           Content="Publish All"
+                           Icon="{ui:SymbolIcon ArrowCircleUp24}"
+                           Appearance="Primary"
+                           Command="{Binding PublishAllCommand}"
+                           ToolTip="{Binding PublishAllToolTip}"
+                           ToolTipService.ShowOnDisabled="True"
+                           AutomationProperties.AutomationId="btnPublishAll" />
+            </StackPanel>
+            <WrapPanel Margin="0,0,8,0" VerticalAlignment="Center">
+                <TextBlock Text="{Binding SelectionText}" Margin="0,0,8,0" VerticalAlignment="Center" FontSize="14"
+                           Foreground="{DynamicResource TextFillColorPrimaryBrush}"
+                           AutomationProperties.AutomationId="txtSelectionCount" AutomationProperties.LiveSetting="Polite"
+                           ToolTip="The checked applications. Stage and Publish All act on all of them, also on those that the search or the tab hides." />
+                <ui:Button Content="Show selected" Command="{Binding ShowSelectedCommand}" Appearance="Transparent" Margin="0,0,8,0"
+                           Visibility="{Binding HasHiddenSelection, Converter={StaticResource BooleanToVisibilityConverter}}"
+                           AutomationProperties.AutomationId="btnShowSelected" ToolTip="Show only the checked applications, so that you see the ones that the search or the tab hides." />
+                <ui:Button Content="Clear selection" Command="{Binding ClearSelectionCommand}" Appearance="Transparent" Margin="0,0,8,0"
+                           Visibility="{Binding HasSelection, Converter={StaticResource BooleanToVisibilityConverter}}"
+                           AutomationProperties.AutomationId="btnClearSelection" ToolTip="Uncheck every application, also those that the search or the tab hides." />
+                <ui:Button Content="Select Update Available"
+                           Icon="{ui:SymbolIcon CheckboxChecked24}"
+                           Command="{Binding SelectUpdateAvailableCommand}"
+                           AutomationProperties.AutomationId="btnSelectUpdates"
+                           Appearance="Transparent"
+                           Margin="0,0,12,0" ToolTip="Check every application whose status shows that an update is available." />
+                <TextBlock Text="{Binding PublishScopeText}" VerticalAlignment="Center" FontSize="14" Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                           AutomationProperties.AutomationId="txtPublishScope"
+                           ToolTip="Publish All reaches the systems that Settings, Systems in Use turns on. One run covers all of them." />
+            </WrapPanel>
+        </DockPanel>
 
-        <TextBox Grid.Row="6"
+        <TextBox Grid.Row="5"
                  Text="{Binding LogText, Mode=OneWay}"
                  IsReadOnly="True"
                  TextWrapping="NoWrap"
@@ -570,7 +511,7 @@
                  Foreground="{DynamicResource TextFillColorSecondaryBrush}"
                  TextChanged="LogTextBox_TextChanged" />
 
-        <Grid Grid.Row="7" Margin="0,4,0,0">
+        <Grid Grid.Row="6" Margin="0,4,0,0">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="8" />

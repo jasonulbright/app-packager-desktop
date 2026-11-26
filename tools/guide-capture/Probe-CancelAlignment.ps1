@@ -166,7 +166,7 @@ foreach ($theme in $Themes) {
         $w.SetFocus()
         Start-Sleep 3
         Run-Check "$theme-ref" {
-            foreach ($n in 'Check Latest', 'Check ConfigMgr', 'One Click', 'Stage') {
+            foreach ($n in 'Check', 'One Click', 'Stage') {
                 $b = Find-El $w -Name $n -ControlType 'Button' -Timeout 5
                 if (-not $b) { throw "no button $n" }
                 Report $theme (Measure-Button (Grab-Button $b $theme "idle $n"))
@@ -175,7 +175,7 @@ foreach ($theme in $Themes) {
         Run-Check "$theme-packages-idle" { Measure-PageButtons $theme 'Packages' }
         Run-Check "$theme-packages" {
             Set-HeaderCheck $w 'On'
-            Measure-Busy $theme 'Packages Cancel (Check Latest)' { Real-Click (Find-El $w -Name 'Check Latest' -ControlType 'Button' -Timeout 5) } 'btnCancelOperation' 30
+            Measure-Busy $theme 'Packages Cancel (Check Latest)' { Open-ApdMenuItem $w 'btnCheckMenu' 'miCheckLatest' } 'btnCancelOperation' 30
             Set-HeaderCheck $w 'Off'
         }
         Run-Check "$theme-hygiene" {
