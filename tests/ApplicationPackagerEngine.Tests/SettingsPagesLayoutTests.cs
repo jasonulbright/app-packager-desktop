@@ -145,6 +145,7 @@ public sealed class SettingsPagesLayoutTests
 
         Assert.Equal("{Binding UnsavedChangesText}", (string?)line.Attribute("Text"));
         Assert.Equal("Polite", (string?)line.Attribute("AutomationProperties.LiveSetting"));
-        Assert.Contains(line.Parent!.Elements(Presentation + "TreeView"), _ => true);
+        // The tree shares its place with the results of the settings search.
+        Assert.Contains(line.Parent!.Descendants(Presentation + "TreeView"), _ => true);
     }
 }
