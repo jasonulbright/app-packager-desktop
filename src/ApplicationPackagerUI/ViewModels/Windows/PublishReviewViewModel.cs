@@ -38,10 +38,14 @@ public partial class PublishReviewViewModel : ObservableObject
 
     public bool CanRun => Plan.CanRun;
 
-    public string ScopeText => "Systems: " + (Plan.Systems.Count == 0 ? "none in use" : string.Join(", ", Plan.Systems)) + " (Settings, Systems in Use)";
+    public string ScopeText => Plan.RetryDestination.Length > 0
+        ? $"Retry of a failed destination: {Plan.RetryDestination} only."
+        : "Systems: " + (Plan.Systems.Count == 0 ? "none in use" : string.Join(", ", Plan.Systems)) + " (Settings, Systems in Use)";
 
     /// <summary>What is read again before the first write, and what the run does when a destination already has the application.</summary>
-    public string PlanNoteText => Plan.Systems.Contains(OneClickDestinations.ConfigMgr)
+    public string PlanNoteText => Plan.RetryDestination == OneClickDestinations.ConfigMgr
+        ? "ConfigMgr is read again when you confirm. The retry does not replace an application. It publishes nothing when ConfigMgr has this version."
+        : Plan.Systems.Contains(OneClickDestinations.ConfigMgr)
         ? "Planned from the last check. ConfigMgr is read again when you confirm. If an application exists, the run asks."
         : "Planned from the last check. The settings and the versions are read again when you confirm."
           + (Plan.Systems.Contains(OneClickDestinations.Wsus)

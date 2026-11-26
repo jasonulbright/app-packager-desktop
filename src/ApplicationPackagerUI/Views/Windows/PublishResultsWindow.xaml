@@ -22,7 +22,8 @@
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
-            <RowDefinition Height="*" />
+            <RowDefinition Height="*" MinHeight="96" />
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
@@ -62,7 +63,49 @@
             </ItemsControl.ItemTemplate>
         </ItemsControl>
 
-        <Border Grid.Row="4" BorderThickness="0,1,0,0" BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}" Padding="16,8">
+        <!-- One entry for each failed destination: the retry button where the app can verify the destination, else what to verify by hand. -->
+        <StackPanel Grid.Row="4" Margin="16,0,16,8">
+            <TextBlock Text="{Binding RetryNote}" FontSize="14" TextWrapping="Wrap" Margin="0,0,0,4" Foreground="{DynamicResource StatusWarningBrush}"
+                       AutomationProperties.AutomationId="txtResultsRetryNote" AutomationProperties.LiveSetting="Assertive">
+                <TextBlock.Style>
+                    <Style TargetType="TextBlock">
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding RetryNote}" Value="">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </TextBlock.Style>
+            </TextBlock>
+            <ScrollViewer MaxHeight="128" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Focusable="False">
+                <ItemsControl ItemsSource="{Binding Retries}" Focusable="False" IsTabStop="False" AutomationProperties.AutomationId="lstResultsRetries">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <DockPanel Margin="0,0,0,4">
+                                <ui:Button DockPanel.Dock="Right" Content="Retry failed destination" Icon="{ui:SymbolIcon ArrowClockwise24}" Margin="8,0,0,0"
+                                           Click="Retry_Click" VerticalAlignment="Center"
+                                           AutomationProperties.AutomationId="btnResultsRetry" AutomationProperties.Name="{Binding ButtonName}"
+                                           ToolTip="Opens the publish review for this application and this system only. Nothing is published until you confirm.">
+                                    <ui:Button.Style>
+                                        <Style TargetType="ui:Button" BasedOn="{StaticResource {x:Type ui:Button}}">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding CanRetry}" Value="False">
+                                                    <Setter Property="Visibility" Value="Collapsed" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </ui:Button.Style>
+                                </ui:Button>
+                                <TextBlock Text="{Binding Text}" FontSize="14" TextWrapping="Wrap" VerticalAlignment="Center"
+                                           Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
+                            </DockPanel>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </ScrollViewer>
+        </StackPanel>
+
+        <Border Grid.Row="5" BorderThickness="0,1,0,0" BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}" Padding="16,8">
             <DockPanel LastChildFill="False">
                 <ui:Button DockPanel.Dock="Right" Content="Done" Appearance="Primary" MinWidth="110" IsDefault="True" IsCancel="True" Click="Done_Click"
                            AutomationProperties.AutomationId="btnResultsDone" ToolTip="Close the results. The grid keeps its filter, its sort and its place." />

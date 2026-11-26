@@ -1474,12 +1474,27 @@ public partial class PackagesViewModel : ObservableObject
                     ? (rowResults[done].Application, rowResults[done].Result)
                     : (r.App.Application, new PublishRowResult(r.App.Uid, r.App.Version, []));
             }).ToList();
-            _publishDialogs.ShowPublishResults(new PublishResultsViewModel(all, tally.Cancelled, confirmedPlan.Systems));
+            await ShowResultsAsync(all, tally.Cancelled, confirmedPlan.Systems, new PublishRunBuild(selected, snapshot, sealedVersion, readBuild));
         }
     }
 
-    private static PublishPlan BuildPlan(IReadOnlyList<PublishPlanApp> apps, AppSettings settings) =>
-        PublishPlanner.Plan(apps, settings.Systems, ReadinessOf(settings)) with { Site = (settings.SiteCode ?? "").Trim() + "|" + (settings.ProviderMachine ?? "").Trim() };
+    /// <param name="retry">The one destination of a retry; empty for a publish to every system in use.</param>
+    private static PublishPlan BuildPlan(IReadOnlyList<PublishPlanApp> apps, AppSettings settings, string retry = "")
+    {
+        var systems = settings.Systems;
+        if (retry.Length > 0)
+            systems = new SystemsInUse
+            {
+                ConfigMgr = retry == OneClickDestinations.ConfigMgr && settings.Systems is { ConfigMgr: true },
+                Intune = retry == OneClickDestinations.Intune && settings.Systems is { Intune: true },
+                Wsus = retry == OneClickDestinations.Wsus && settings.Systems is { Wsus: true }
+            };
+        return PublishPlanner.Plan(apps, systems, ReadinessOf(settings)) with
+        {
+            Site = (settings.SiteCode ?? "").Trim() + "|" + (settings.ProviderMachine ?? "").Trim(),
+            RetryDestination = retry
+        };
+    }
 
     /// <summary>One application of the publish plan: the version the run publishes, what ConfigMgr does afterward, and what each system cannot take.</summary>
     private PublishPlanApp PlanApp(PackagerInfo p, AppSettings settings, bool hidden, ConfigMgrFact site, string? sealedVersion = null)
@@ -1533,7 +1548,7 @@ public partial class PackagesViewModel : ObservableObject
         var settings = _settingsService.Load();
         var byUid = selected.ToDictionary(p => p.Uid, StringComparer.Ordinal);
         var apps = shown.Rows.Select(r => PlanApp(byUid[r.App.Uid], settings, r.App.Hidden, r.App.Site, sealedVersion)).ToList();
-        var unread = BuildPlan(apps, settings);
+        var unread = BuildPlan(apps, settings, shown.RetryDestination);
         // A plan that cannot run, or has no ConfigMgr, keeps the ConfigMgr facts it was shown with.
         if (!unread.CanRun || !unread.Systems.Contains(OneClickDestinations.ConfigMgr)) return unread;
 
@@ -1550,27 +1565,13 @@ public partial class PackagesViewModel : ObservableObject
                 var p = byUid[apps[i].Uid];
                 ProgressCurrent = i + 1;
                 StatusText = ApplicationPackagerEngine.Models.RunProgress.Running("Reading ConfigMgr before publish", i + 1, apps.Count, p.Application);
-                ConfigMgrFact fact;
-                try
-                {
-                    var result = await _mecmQueryService.QueryVersionAsync(p.CMName, token, p.ArpName);
-                    fact = result.Failed ? ConfigMgrFact.Unreadable(result.FailureReason ?? "the query failed")
-                        : result.Found ? ConfigMgrFact.Found(result.SoftwareVersion ?? "")
-                        : ConfigMgrFact.None;
-                }
-                catch (OperationCanceledException) when (token.IsCancellationRequested) { return null; }
-                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException
-                                           or System.ComponentModel.Win32Exception or OperationCanceledException)
-                {
-                    fact = ConfigMgrFact.Unreadable(ex.Message);
-                }
-                if (token.IsCancellationRequested) return null;
+                if (await ReadConfigMgrFactAsync(p, token) is not { } fact) return null;
                 apps[i] = apps[i] with { Site = fact };
             }
             // The queries take time, and a Settings save during them must show. So the plan is built from the settings after the last query,
             // with the facts that were read. A change of the site makes the plan differ, and the next confirm reads the new site.
             var after = _settingsService.Load();
-            return BuildPlan(apps.Select(a => PlanApp(byUid[a.Uid], after, a.Hidden, a.Site, sealedVersion)).ToList(), after);
+            return BuildPlan(apps.Select(a => PlanApp(byUid[a.Uid], after, a.Hidden, a.Site, sealedVersion)).ToList(), after, shown.RetryDestination);
         }
         finally
         {

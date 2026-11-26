@@ -23,5 +23,12 @@ public partial class PublishResultsWindow
         }
     }
 
+    private void Retry_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not FrameworkElement { DataContext: PublishRetryOffer offer }) return;
+        ((PublishResultsViewModel)DataContext).RequestRetry(offer);
+        Close();
+    }
+
     private void Done_Click(object sender, RoutedEventArgs e) => Close();
 }

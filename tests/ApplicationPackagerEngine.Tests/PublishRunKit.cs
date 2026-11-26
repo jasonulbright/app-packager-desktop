@@ -25,7 +25,14 @@ internal static class PublishRunKit
             return Answers.TryDequeue(out var answer) && answer(viewModel);
         }
 
-        public void ShowPublishResults(PublishResultsViewModel viewModel) => Results.Add(viewModel);
+        /// <summary>What the operator does in each results window, in order; a window past the last one is closed with Done.</summary>
+        public Queue<Action<PublishResultsViewModel>> ResultActions { get; } = new();
+
+        public void ShowPublishResults(PublishResultsViewModel viewModel)
+        {
+            Results.Add(viewModel);
+            if (ResultActions.TryDequeue(out var action)) action(viewModel);
+        }
         public void ShowMessage(string title, string message) => Messages.Add((title, message));
         public void ShowWsusUpdates(WsusSettings settings) => throw new InvalidOperationException("Not part of a publish.");
         public void ShowOneClickPlan(OneClickPlanViewModel viewModel) => throw new InvalidOperationException("Not part of a publish.");

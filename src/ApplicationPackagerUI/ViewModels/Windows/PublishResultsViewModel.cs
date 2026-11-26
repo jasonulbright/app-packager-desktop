@@ -6,14 +6,32 @@ namespace ApplicationPackagerUI.ViewModels.Windows;
 public sealed record PublishResultsRow(string Application, IReadOnlyList<string> Cells);
 
 /// <summary>
+/// What the results say about one failed destination. <see cref="CanRetry"/> is true where the app can verify what the destination holds.
+/// </summary>
+public sealed record PublishRetryOffer(string Uid, string Application, string Destination, bool CanRetry, string Advice)
+{
+    public string Text => $"{Application}, {Destination}: {Advice}";
+
+    /// <summary>The name of the retry button, which a screen reader reads: "Retry ConfigMgr for Notepad++".</summary>
+    public string ButtonName => $"Retry {Destination} for {Application}";
+}
+
+/// <summary>
 /// The publish results window (overhaul V1, phase 5a): one cell for each application and system, built from the per-destination results of the run, with
 /// counts and notices that say only what the run did. What reached a system stays published, and the window says so when a later system failed.
 /// </summary>
 public sealed class PublishResultsViewModel
 {
     /// <param name="planned">The systems of the confirmed plan, so a system that no application reached still has its column.</param>
-    public PublishResultsViewModel(IReadOnlyList<(string Application, PublishRowResult Result)> rows, bool cancelled, IReadOnlyList<string>? planned = null)
+    /// <param name="offerRetry">True for a run that can retry a failed destination from this window. A One Click run cannot.</param>
+    public PublishResultsViewModel(IReadOnlyList<(string Application, PublishRowResult Result)> rows, bool cancelled, IReadOnlyList<string>? planned = null,
+        bool offerRetry = false)
     {
+        Retries = offerRetry
+            ? rows.SelectMany(r => r.Result.Destinations.Select(d => (Cell: d, Advice: PublishRetry.For(d)))
+                .Where(x => x.Advice is not null)
+                .Select(x => new PublishRetryOffer(r.Result.Uid, r.Application, x.Cell.Destination, x.Advice!.CanRetry, x.Advice.Text))).ToList()
+            : [];
         Cancelled = cancelled;
         Systems = rows.SelectMany(r => r.Result.Destinations.Select(d => d.Destination)).Concat(planned ?? []).Distinct()
             .OrderBy(d => Array.IndexOf(new[] { OneClickDestinations.ConfigMgr, OneClickDestinations.Intune, OneClickDestinations.Wsus }, d)).ToList();
@@ -30,6 +48,20 @@ public sealed class PublishResultsViewModel
     }
 
     public bool Cancelled { get; }
+
+    /// <summary>One entry for each failed destination: a retry, or the reason why there is none.</summary>
+    public IReadOnlyList<PublishRetryOffer> Retries { get; }
+
+    /// <summary>Why the retry that the operator asked for did not run; empty when none was refused.</summary>
+    public string RetryNote { get; init; } = "";
+
+    /// <summary>The retry that the operator asked for; the caller runs it after the window closed.</summary>
+    public PublishRetryOffer? RequestedRetry { get; private set; }
+
+    public void RequestRetry(PublishRetryOffer offer)
+    {
+        if (offer.CanRetry && Retries.Contains(offer)) RequestedRetry = offer;
+    }
 
     public IReadOnlyList<string> Systems { get; }
 

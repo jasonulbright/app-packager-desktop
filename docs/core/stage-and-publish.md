@@ -85,6 +85,21 @@ The window **Publish results** shows a headline: `N publishes completed`, `Publi
 
 Select **Done** to close the window. The grid keeps its filter and its sort.
 
+### Retry a failed destination
+
+Below the grid, the results have one line for each cell that failed. A line for **ConfigMgr** or **WSUS** can have the button **Retry failed destination**. The button retries one system of one application.
+
+| Failed cell | What the window offers |
+|---|---|
+| **ConfigMgr** | The button. Before the retry, the app reads ConfigMgr. The retry publishes nothing when ConfigMgr has this version, or when ConfigMgr cannot be read. The retry does not replace an application. When ConfigMgr has an application with the same title, the app keeps it and the cell reads `Skipped`. |
+| **ConfigMgr**, `Failed at content` | No button. ConfigMgr has the application and a later step failed. Verify the application in ConfigMgr. |
+| **WSUS** | The button. The publish compares the stage with the update that WSUS has for this version. It does not change that update. It refuses a stage that differs. |
+| **Intune** | No button. The line reads `Verify in Intune before retrying.` The app cannot verify what a failed publish left in Intune. |
+
+The retry opens **Review Publish All** for this application and this system only. It reads the plan again when you confirm, as the first publish does. The retry publishes the same version as the failed publish. When the version is now different, the retry does not run. Use **Publish All** to review the new version.
+
+After the retry, the results open again. The cell shows the result of the retry. When the retry did not run, the window gives the reason. The results of a **One Click** run have no retry.
+
 ### A publish to WSUS only
 
 When WSUS is the only system in use, **Publish All** opens the same review window and the same results window. The review has one column, **WSUS**. It has no **Administrative comment** box, because WSUS does not get the comment. When you confirm, the app reads the settings and the versions again. The read does not connect to the WSUS server. The publish itself checks the update that the server has for this version. A row that WSUS cannot take stays checked. A row that fails also stays checked. See [WSUS publishing](wsus-publishing.md).

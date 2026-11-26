@@ -71,6 +71,9 @@ public sealed record PublishPlan(IReadOnlyList<string> Systems, IReadOnlyList<Pu
     /// <summary>The ConfigMgr site and provider the plan writes to; empty when the plan was not given one.</summary>
     public string Site { get; init; } = "";
 
+    /// <summary>The one destination of a retry; empty for a publish to every system in use.</summary>
+    public string RetryDestination { get; init; } = "";
+
     /// <summary>
     /// A digest of what the run depends on: the systems, the blocked systems, and for each application its version and its ConfigMgr facts.
     /// The reason text of an unreadable fact is left out, because two failed reads of one fault can word it differently.
