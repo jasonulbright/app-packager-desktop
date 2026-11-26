@@ -141,6 +141,7 @@ public partial class PackagesViewModel : ObservableObject
         OneClickCommand = new AsyncRelayCommand(OneClickAsync, CanRunOperation);
         ImportFromUrlCommand = new RelayCommand(() => ImportFromUrlRequested?.Invoke(this, EventArgs.Empty), CanRunOperation);
         _isDetailPaneOpen = _settingsService.Load().PackagesDetailPaneOpen;
+        _detailPaneWidth = _settingsService.Load().PackagesDetailPaneWidth;
         InitializeDiscovery(discovery, discoveryPrompt);
         Checklist = new SetupChecklistViewModel(_settingsService, _scanStore, () => _siteState.ConfigMgr, () => IsOperationRunning,
             RunChecklistDiscoveryAsync, TestMecmConnectionAsync);
@@ -1709,6 +1710,18 @@ public partial class PackagesViewModel : ObservableObject
         var settings = _settingsService.Load();
         if (settings.PackagesDetailPaneOpen == value) return;
         settings.PackagesDetailPaneOpen = value;
+        _settingsService.Save(settings);
+    }
+
+    /// <summary>The width of the open pane. The choice is saved.</summary>
+    [ObservableProperty] private double _detailPaneWidth = 320;
+
+    partial void OnDetailPaneWidthChanged(double value)
+    {
+        if (_settingsService is null) return;
+        var settings = _settingsService.Load();
+        if (Math.Abs(settings.PackagesDetailPaneWidth - value) < 0.5) return;
+        settings.PackagesDetailPaneWidth = value;
         _settingsService.Save(settings);
     }
 

@@ -1,7 +1,12 @@
 using System.Collections.ObjectModel;
+using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Windows;
+using System.Windows.Automation;
 using System.Windows.Controls;
+using System.Windows.Input;
+using ApplicationPackagerEngine.Services;
+using ApplicationPackagerUI.Services;
 using ApplicationPackagerEngine.Tests.Compliance;
 using ApplicationPackagerUI.Helpers;
 using ApplicationPackagerUI.Models;
@@ -10,6 +15,7 @@ using ApplicationPackagerUI.Views.Pages;
 using Wpf.Ui.Appearance;
 using Application = System.Windows.Application;
 using ButtonBase = System.Windows.Controls.Primitives.ButtonBase;
+using KeyEventArgs = System.Windows.Input.KeyEventArgs;
 
 namespace ApplicationPackagerEngine.Tests;
 
@@ -91,4 +97,106 @@ public sealed class PackagesDetailPaneTests
             finally { window.Close(); }
         });
     }
+
+    private static PackagesViewModel PaneViewModel(double savedWidth)
+    {
+        Application.Current.Resources["BooleanToVisibilityConverter"] = new BooleanToVisibilityConverter();
+        var viewModel = (PackagesViewModel)RuntimeHelpers.GetUninitializedObject(typeof(PackagesViewModel));
+        viewModel.Packagers = [];
+        viewModel.FilteredPackagers = [];
+        viewModel.IsDetailPaneOpen = true;
+        viewModel.DetailPaneWidth = savedWidth;
+        return viewModel;
+    }
+
+    private static void Press(GridSplitter splitter, Key key)
+    {
+        var source = PresentationSource.FromVisual(splitter)!;
+        splitter.RaiseEvent(new KeyEventArgs(Keyboard.PrimaryDevice, source, 0, key) { RoutedEvent = Keyboard.KeyDownEvent });
+        splitter.UpdateLayout();
+        splitter.RaiseEvent(new KeyEventArgs(Keyboard.PrimaryDevice, source, 0, key) { RoutedEvent = Keyboard.KeyUpEvent });
+    }
+
+    [Theory]
+    [InlineData(ApplicationTheme.Light)]
+    [InlineData(ApplicationTheme.Dark)]
+    public void TheSplitterChangesTheWidthWithTheKeyboardAndTheWidthIsSaved(ApplicationTheme theme)
+    {
+        var root = Path.Combine(Path.GetTempPath(), "apd-pane-" + Guid.NewGuid().ToString("N"));
+        var before = Environment.GetEnvironmentVariable(AppDataPaths.DataRootVariable);
+        Environment.SetEnvironmentVariable(AppDataPaths.DataRootVariable, root);
+        try
+        {
+            RenderKit.WithApplication(theme, () =>
+            {
+                using var scope = SiteContext.Scope(null, root);
+                Directory.CreateDirectory(AppDataPaths.Root);
+                var viewModel = PaneViewModel(400);
+                var settings = new SettingsService();
+                typeof(PackagesViewModel).GetField("_settingsService", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(viewModel, settings);
+                var page = new PackagesPage(viewModel);
+                var window = new Window { Width = 1690, Height = 900, WindowStyle = WindowStyle.None, Content = page };
+                RenderKit.Show(window);
+                try
+                {
+                    RenderKit.Settle(window);
+                    var pane = RenderKit.ById<Border>(page, "pnlDetailPane");
+                    var splitter = RenderKit.ById<GridSplitter>(page, "splDetailPane");
+                    Assert.Equal(400, pane.ActualWidth, 1.0);
+                    Assert.True(splitter.IsVisible && splitter.Focusable && splitter.IsTabStop, "The splitter cannot take the keyboard focus.");
+                    Assert.True(splitter.ActualWidth >= 4, $"The splitter is {splitter.ActualWidth:0.0} px wide; it is hard to grab.");
+                    Assert.Equal("Detail pane width", AutomationProperties.GetName(splitter));
+
+                    Press(splitter, Key.Left);
+                    RenderKit.Settle(window);
+                    Assert.Equal(416, pane.ActualWidth, 1.0);
+                    Assert.Equal(416, viewModel.DetailPaneWidth, 1.0);
+                    Assert.Equal(416, settings.Load().PackagesDetailPaneWidth, 1.0);
+
+                    RenderKit.ById<ButtonBase>(page, "btnDetailPaneClose").RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent));
+                    RenderKit.Settle(window);
+                    Assert.False(pane.IsVisible);
+                    Assert.False(splitter.IsVisible, "The splitter of a closed pane stays in the tab order.");
+
+                    RenderKit.ById<ButtonBase>(page, "btnDetailPaneOpen").RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent));
+                    RenderKit.Settle(window);
+                    Assert.Equal(416, pane.ActualWidth, 1.0);
+                }
+                finally { window.Close(); }
+            });
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable(AppDataPaths.DataRootVariable, before);
+            TestCleanup.DeleteDirectory(root);
+        }
+    }
+
+    [Fact]
+    public void ANarrowWindowLimitsThePaneAndKeepsTheSavedWidth()
+    {
+        RenderKit.WithApplication(ApplicationTheme.Light, () =>
+        {
+            var viewModel = PaneViewModel(640);
+            var page = new PackagesPage(viewModel);
+            var window = new Window { Width = 1024 - 230, Height = 720 - 48, WindowStyle = WindowStyle.None, Content = page };
+            RenderKit.Show(window);
+            try
+            {
+                RenderKit.Settle(window);
+                var pane = RenderKit.ById<Border>(page, "pnlDetailPane");
+                Assert.False(pane.IsVisible, "A narrow window starts with the pane open.");
+                RenderKit.ById<ButtonBase>(page, "btnDetailPaneOpen").RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent));
+                RenderKit.Settle(window);
+                var grid = (System.Windows.Controls.DataGrid)page.FindName("PackagerGrid");
+                Assert.InRange(pane.ActualWidth, PackagesPage.DetailPaneMinimumWidth - 0.5, 300);
+                Assert.True(grid.ActualWidth >= 440, $"The grid keeps {grid.ActualWidth:0} px beside the pane.");
+                Assert.Equal(640, viewModel.DetailPaneWidth);
+            }
+            finally { window.Close(); }
+        });
+    }
+
+    [Fact]
+    public void ANewSettingsFileHasTheDefaultPaneWidth() => Assert.Equal(320, new AppSettings().PackagesDetailPaneWidth);
 }

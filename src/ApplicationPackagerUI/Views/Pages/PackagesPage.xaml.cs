@@ -29,7 +29,15 @@ public partial class PackagesPage
         SetupPanel.DataContext = viewModel.Checklist;
         if (viewModel.Checklist is { } checklist) checklist.StateChanged += ApplyPane;
 
-        SizeChanged += (_, _) => ApplyLogRow();
+        SizeChanged += (_, _) =>
+        {
+            ApplyLogRow();
+            PlaceChecklist();
+        };
+        WorkArea.SizeChanged += (_, e) =>
+        {
+            if (e.WidthChanged) FitDetailPane();
+        };
 
         PreviewKeyDown += OnPageKeyDown;
         Loaded += (_, _) =>
@@ -234,11 +242,13 @@ public partial class PackagesPage
         var showChecklist = checklist is { IsOpen: true } && (!_startedNarrow || checklist.OpenedByUser);
         var open = !showChecklist && viewModel.IsDetailPaneOpen && !_narrow;
         var checklistHadFocus = !showChecklist && SetupPanel.IsKeyboardFocusWithin;
-        DetailPaneColumn.Width = new GridLength(open || showChecklist ? 320 : 0);
         DetailPane.Visibility = open ? Visibility.Visible : Visibility.Collapsed;
+        DetailSplitter.Visibility = open ? Visibility.Visible : Visibility.Collapsed;
+        FitDetailPane();
         btnDetailPane.Visibility = open || showChecklist ? Visibility.Collapsed : Visibility.Visible;
         SetupPanel.Visibility = showChecklist ? Visibility.Visible : Visibility.Collapsed;
         SetupStrip.Visibility = !showChecklist && checklist is { IsDue: true } ? Visibility.Visible : Visibility.Collapsed;
+        PlaceChecklist();
         ApplyLogRow();
         // A closed checklist gives the keyboard focus to the button that opens it, or to the grid (R-21).
         if (checklistHadFocus)
@@ -247,6 +257,70 @@ public partial class PackagesPage
             if (SetupStrip.IsVisible) btnOpenSetupChecklist.Focus();
             else PackagerGrid.Focus();
         }
+    }
+
+    /// <summary>The least and the most width of the open detail pane.</summary>
+    public const double DetailPaneMinimumWidth = 260, DetailPaneMaximumWidth = 640;
+
+    /// <summary>The width that the grid keeps beside the pane, for the select box, Application, version and Status columns.</summary>
+    private const double GridKeepsWidth = 480;
+
+    /// <summary>
+    /// Gives the pane column the saved width, limited to the room beside the grid. A closed pane has no width. The saved width stays when the
+    /// window is too narrow for it.
+    /// </summary>
+    private void FitDetailPane()
+    {
+        if (DetailPane.Visibility != Visibility.Visible)
+        {
+            DetailPaneColumn.MinWidth = 0;
+            DetailPaneColumn.MaxWidth = double.PositiveInfinity;
+            DetailPaneColumn.Width = new GridLength(0);
+            return;
+        }
+        var room = WorkArea.ActualWidth > 0 ? WorkArea.ActualWidth - GridKeepsWidth - DetailSplitter.Width : DetailPaneMaximumWidth;
+        var most = Math.Clamp(room, DetailPaneMinimumWidth, DetailPaneMaximumWidth);
+        // The limits of the column also hold during a drag of the splitter.
+        DetailPaneColumn.MinWidth = DetailPaneMinimumWidth;
+        DetailPaneColumn.MaxWidth = most;
+        DetailPaneColumn.Width = new GridLength(Math.Clamp(((PackagesViewModel)DataContext!).DetailPaneWidth, DetailPaneMinimumWidth, most));
+    }
+
+    private void DetailSplitter_DragCompleted(object sender, System.Windows.Controls.Primitives.DragCompletedEventArgs e)
+    {
+        if (!e.Canceled) SaveDetailPaneWidth();
+    }
+
+    /// <summary>The arrow keys move the splitter without a drag, so the release of one saves the width.</summary>
+    private void DetailSplitter_KeyUp(object sender, KeyEventArgs e)
+    {
+        if (e.Key is Key.Left or Key.Right) SaveDetailPaneWidth();
+    }
+
+    private void SaveDetailPaneWidth()
+    {
+        UpdateLayout();
+        if (DetailPaneColumn.ActualWidth > 0) ((PackagesViewModel)DataContext!).DetailPaneWidth = DetailPaneColumn.ActualWidth;
+    }
+
+    /// <summary>A page at least this wide gives the open checklist more room, so its four steps show without scrolling.</summary>
+    public const double WideChecklistPageWidth = 1400;
+
+    private const double ChecklistWidth = 320, WideChecklistWidth = 360;
+
+    /// <summary>
+    /// The checklist stands beside the grid. In a wide page it also stands beside the batch bar and the log, and it is wider. In a narrower
+    /// page the bar and the log keep the whole width, and the steps scroll.
+    /// </summary>
+    private void PlaceChecklist()
+    {
+        var shown = SetupPanel.Visibility == Visibility.Visible;
+        var wide = shown && ActualWidth >= WideChecklistPageWidth;
+        SetupPanel.Width = wide ? WideChecklistWidth : ChecklistWidth;
+        Grid.SetRowSpan(SetupPanel, wide ? 3 : 1);
+        Grid.SetColumnSpan(WorkArea, shown ? 1 : 2);
+        Grid.SetColumnSpan(BatchBar, wide ? 1 : 2);
+        Grid.SetColumnSpan(LogBox, wide ? 1 : 2);
     }
 
     private void OpenChecklist_Click(object sender, RoutedEventArgs e) => ShowChecklist();

@@ -81,8 +81,12 @@
             <RowDefinition x:Name="LogRow" Height="*" MinHeight="72" MaxHeight="180" />
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="Auto" />
+        </Grid.ColumnDefinitions>
 
-        <controls:PageHeader Grid.Row="0" Title="App Packager" Icon="Box24" Compact="True" TitleAutomationId="txtAppPackagerTitle">
+        <controls:PageHeader Grid.Row="0" Grid.ColumnSpan="2" Title="App Packager" Icon="Box24" Compact="True" TitleAutomationId="txtAppPackagerTitle">
             <controls:PageHeader.Actions>
                 <StackPanel Orientation="Horizontal">
                 <ui:Button
@@ -104,7 +108,7 @@
 
         <!-- The first-start strip (overhaul V1, phase 7d): it shows while the setup checklist has work and its panel is closed. Its bindings
              start at the page's view model: a data context set after the XAML loaded is too late for them. -->
-        <Border x:Name="SetupStrip" Grid.Row="1" Visibility="Collapsed" Margin="0,0,0,8" Padding="12,4" BorderThickness="1" CornerRadius="8"
+        <Border x:Name="SetupStrip" Grid.Row="1" Grid.ColumnSpan="2" Visibility="Collapsed" Margin="0,0,0,8" Padding="12,4" BorderThickness="1" CornerRadius="8"
                 BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}" Background="{DynamicResource SurfacePageBrush}"
                 AutomationProperties.AutomationId="pnlSetupStrip">
             <DockPanel>
@@ -121,7 +125,7 @@
             </DockPanel>
         </Border>
 
-        <Grid Grid.Row="2" Margin="0,0,0,8">
+        <Grid Grid.Row="2" Grid.ColumnSpan="2" Margin="0,0,0,8">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
@@ -162,7 +166,7 @@
             </StackPanel>
         </Grid>
 
-        <Grid Grid.Row="3" Margin="0,0,0,8">
+        <Grid Grid.Row="3" Grid.ColumnSpan="2" Margin="0,0,0,8">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
@@ -188,9 +192,10 @@
                        AutomationProperties.AutomationId="btnMore" ToolTip="CVE report, operation history, export of the check results, the setup checklist, Setup and the debug columns." />
         </Grid>
 
-        <Grid Grid.Row="4">
+        <Grid x:Name="WorkArea" Grid.Row="4" Grid.ColumnSpan="2">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="*" MinWidth="360" />
+                <ColumnDefinition Width="Auto" />
                 <ColumnDefinition x:Name="DetailPaneColumn" Width="320" />
             </Grid.ColumnDefinitions>
         <ui:DataGrid Grid.Column="0"
@@ -430,7 +435,13 @@
             <ui:Button x:Name="btnDetailPane" Grid.Column="0" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,4,12,0" Visibility="Collapsed"
                        Content="Details" Icon="{ui:SymbolIcon PanelRight24}" Click="DetailOpen_Click" Appearance="Transparent"
                        AutomationProperties.AutomationId="btnDetailPaneOpen" ToolTip="Open the detail pane of the selected application." />
-            <Border x:Name="DetailPane" Grid.Column="1" Margin="8,0,0,0" Padding="12" BorderThickness="1"
+            <GridSplitter x:Name="DetailSplitter" Grid.Column="1" Width="8" HorizontalAlignment="Center" VerticalAlignment="Stretch"
+                          ResizeDirection="Columns" ResizeBehavior="PreviousAndNext" Background="Transparent" KeyboardIncrement="16"
+                          Focusable="True" IsTabStop="True" Visibility="Collapsed"
+                          DragCompleted="DetailSplitter_DragCompleted" KeyUp="DetailSplitter_KeyUp"
+                          AutomationProperties.AutomationId="splDetailPane" AutomationProperties.Name="Detail pane width"
+                          ToolTip="Drag, or press the left and right arrow keys, to change the width of the detail pane. The width is saved." />
+            <Border x:Name="DetailPane" Grid.Column="2" Padding="12" BorderThickness="1"
                     BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}" Background="{DynamicResource SurfacePageBrush}" CornerRadius="8"
                     AutomationProperties.AutomationId="pnlDetailPane" AutomationProperties.Name="Application details">
                 <DockPanel>
@@ -455,12 +466,13 @@
                 </DockPanel>
             </Border>
 
-            <!-- The setup checklist takes the place of the detail pane while it is open. -->
-            <controls:SetupChecklistPanel x:Name="SetupPanel" Grid.Column="1" Margin="8,0,0,0" Visibility="Collapsed" />
         </Grid>
 
+        <!-- The setup checklist takes the place of the detail pane while it is open. In a wide page it also takes the height of the batch bar and the log. -->
+        <controls:SetupChecklistPanel x:Name="SetupPanel" Grid.Row="4" Grid.Column="1" Width="320" Margin="8,0,0,0" Visibility="Collapsed" />
+
         <!-- The batch bar (overhaul V1, phase 3): what is checked, where Publish All goes, and the actions on the checked applications. -->
-        <DockPanel Grid.Row="5" Margin="0,8,0,8" AutomationProperties.AutomationId="pnlBatchBar" AutomationProperties.Name="Batch actions">
+        <DockPanel x:Name="BatchBar" Grid.Row="5" Grid.ColumnSpan="2" Margin="0,8,0,8" AutomationProperties.AutomationId="pnlBatchBar" AutomationProperties.Name="Batch actions">
             <StackPanel x:Name="BatchActions" DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Top" AutomationProperties.AutomationId="pnlBatchActions">
                 <!-- Cancel keeps its room while no run is active (Hidden, not Collapsed), so the bar does not change its layout when a run starts. -->
                 <Grid Margin="0,0,8,0">
@@ -520,7 +532,7 @@
             </WrapPanel>
         </DockPanel>
 
-        <TextBox Grid.Row="6"
+        <TextBox x:Name="LogBox" Grid.Row="6" Grid.ColumnSpan="2"
                  Text="{Binding LogText, Mode=OneWay}"
                  IsReadOnly="True"
                  TextWrapping="NoWrap"
@@ -534,7 +546,7 @@
                  Foreground="{DynamicResource TextFillColorSecondaryBrush}"
                  TextChanged="LogTextBox_TextChanged" />
 
-        <Grid Grid.Row="7" Margin="0,4,0,0">
+        <Grid Grid.Row="7" Grid.ColumnSpan="2" Margin="0,4,0,0">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="8" />
