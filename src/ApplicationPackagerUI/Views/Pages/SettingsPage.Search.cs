@@ -31,6 +31,7 @@ namespace ApplicationPackagerUI.Views.Pages;
 public partial class SettingsPage
 {
     private const int FocusAttempts = 20;
+    private static readonly TimeSpan CardOpenTime = TimeSpan.FromMilliseconds(500);
 
     /// <summary>Every result that the search can give now.</summary>
     public IReadOnlyList<SettingsSearchEntry> BuildSearchIndex()
@@ -354,13 +355,23 @@ public partial class SettingsPage
                 element.Focus();
                 element.BringIntoView();
                 target.BringIntoView();
-                if (element.IsKeyboardFocusWithin) return;
+                if (element.IsKeyboardFocusWithin)
+                {
+                    // A card that opens still grows after the focus moved: the page scrolls again when it has its height.
+                    After(CardOpenTime, () => { if (element.IsKeyboardFocusWithin) element.BringIntoView(); });
+                    return;
+                }
             }
         }
 
         if (attempt >= FocusAttempts) return;
-        var timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(50) };
-        timer.Tick += (_, _) => { timer.Stop(); FocusResult(entry, attempt + 1); };
+        After(TimeSpan.FromMilliseconds(50), () => FocusResult(entry, attempt + 1));
+    }
+
+    private static void After(TimeSpan delay, Action action)
+    {
+        var timer = new DispatcherTimer { Interval = delay };
+        timer.Tick += (_, _) => { timer.Stop(); action(); };
         timer.Start();
     }
 

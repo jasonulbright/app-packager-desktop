@@ -85,6 +85,8 @@ public sealed class SettingsSearchTests : IDisposable
 
         public List<ListBoxItem> Search(string query)
         {
+            // The box keeps its text after a result opens; the same text again lists nothing new.
+            Box.Text = "";
             Box.Text = query;
             Settle(Window);
             return Results.Items.OfType<ListBoxItem>().ToList();
@@ -365,17 +367,20 @@ public sealed class SettingsSearchTests : IDisposable
         {
             if (!page.IsVisible || (target = entry.Locate!()) is null || Keyboard.FocusedElement is not DependencyObject focus) return false;
             // The result of a field name puts the focus on its first control, or on the name when it has none.
-            if (target is TextBlock) return IsOrIsInside(focus, [page], host.Window);
-            return IsOrIsInside(focus, [target], host.Window);
+            return IsOrIsInside(focus, [target is TextBlock ? page : target], host.Window);
         }
 
+        double Top() => target!.TranslatePoint(new System.Windows.Point(0, 0), host.Window).Y;
+        bool InView() => Top() >= 0 && Top() < host.Window.ActualHeight;
+
         StaTestHelper.PumpUntil(Focused, TimeSpan.FromSeconds(15));
+        // A card that opens still grows after the focus moved, so the field comes into view shortly after.
+        var deadline = DateTime.UtcNow.AddSeconds(5);
+        StaTestHelper.PumpUntil(() => InView() || DateTime.UtcNow > deadline, TimeSpan.FromSeconds(15));
         Settle(host.Window);
         Assert.Equal(entry.PageId, (string)((TreeViewItem)host.Tree.SelectedItem).Tag);
         Assert.True(host.Tree.IsVisible);
         Assert.False(host.Results.IsVisible);
-        // The field is in view.
-        var top = target!.TranslatePoint(new System.Windows.Point(0, 0), host.Window).Y;
-        Assert.True(top >= 0 && top < host.Window.ActualHeight, $"{entry.Title} is at {top:0} in a window of {host.Window.ActualHeight:0}.");
+        Assert.True(InView(), $"{entry.Title} is at {Top():0} in a window of {host.Window.ActualHeight:0}.");
     }
 }
