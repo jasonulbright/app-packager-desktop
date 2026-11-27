@@ -189,7 +189,8 @@
                     </Grid.RowDefinitions>
                 <ScrollViewer Grid.Row="0" x:Name="scrollDeployTab" Margin="0,12,0,0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
                               AutomationProperties.AutomationId="scrollDeployTab">
-                    <StackPanel x:Name="pnlDeploy" SizeChanged="OnDeploySizeChanged">
+                    <!-- The scroll bar lies over the content, so the content ends before it. -->
+                    <StackPanel x:Name="pnlDeploy" SizeChanged="OnDeploySizeChanged" Margin="0,0,16,0">
                         <WrapPanel Margin="0,0,0,4">
                             <ListBox ItemsSource="{Binding TypeNames}" SelectedIndex="{Binding TypeIndex}" ItemContainerStyle="{StaticResource ObjectTypeTab}"
                                      Margin="0,0,16,8" AutomationProperties.Name="Object type" AutomationProperties.AutomationId="lstObjectType">

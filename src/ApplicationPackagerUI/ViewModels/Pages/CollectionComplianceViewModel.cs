@@ -230,6 +230,24 @@ public sealed partial class CollectionComplianceViewModel : ObservableObject
     /// <summary>Releases the ConfigMgr data; the page reads it again on the next visit.</summary>
     public async Task OnNavigatedFromAsync()
     {
+        ReleaseSiteData();
+        await SavePreferencesAsync();
+    }
+
+    /// <summary>
+    /// Drops what the page holds of the site that was active, the undo too: it would run against the other site. A page that is
+    /// shown reads the new site.
+    /// </summary>
+    public async Task FollowSiteChangeAsync()
+    {
+        var shown = _active;
+        LastPlan = null;
+        ReleaseSiteData();
+        if (shown) await OnNavigatedToAsync();
+    }
+
+    private void ReleaseSiteData()
+    {
         _active = false;
         // A load still running belongs to the visit that started it; its result is discarded.
         _generation++;
@@ -252,7 +270,6 @@ public sealed partial class CollectionComplianceViewModel : ObservableObject
         ReleaseDetail();
         ReleaseWql();
         ReleaseQueries();
-        await SavePreferencesAsync();
     }
 
     private static void Cancel(CancellationTokenSource? source)

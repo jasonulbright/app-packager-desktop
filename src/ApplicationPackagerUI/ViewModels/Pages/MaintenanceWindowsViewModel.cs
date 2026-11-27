@@ -240,6 +240,27 @@ public sealed partial class MaintenanceWindowsViewModel : ObservableObject
     /// <summary>Releases the ConfigMgr data; the page reads it again on the next visit.</summary>
     public async Task OnNavigatedFromAsync()
     {
+        ReleaseSiteData();
+        await SavePreferencesAsync();
+    }
+
+    /// <summary>
+    /// Drops what the page holds of the site that was active, the undo too: it would run against the other site. A page that showed
+    /// data reads the new site.
+    /// </summary>
+    public async Task FollowSiteChangeAsync()
+    {
+        var shown = IsDataLoaded || IsLoading;
+        LastPlan = null;
+        LastResults.Clear();
+        OnPropertyChanged(nameof(HasResults));
+        ResultSummary = "";
+        ReleaseSiteData();
+        if (shown) await OnNavigatedToAsync();
+    }
+
+    private void ReleaseSiteData()
+    {
         // A load still running belongs to the visit that started it; its result is discarded.
         _generation++;
         try { _load?.Cancel(); } catch (ObjectDisposedException) { }
@@ -257,7 +278,6 @@ public sealed partial class MaintenanceWindowsViewModel : ObservableObject
         NextOccurrences.Clear();
         RowCount = "";
         CoverageCount = "";
-        await SavePreferencesAsync();
     }
 
     partial void OnSelectedTabIndexChanged(int value) => SaveChoicesLater();

@@ -73,6 +73,8 @@ public partial class PackagesViewModel : ObservableObject
     [ObservableProperty] private string _wsusUpdatesToolTip = "";
     /// <summary>The Intune note column shows only while Intune is a system in use.</summary>
     [ObservableProperty] private bool _showIntuneColumn;
+    /// <summary>The connection mark before the status line shows only while ConfigMgr is a system in use.</summary>
+    [ObservableProperty] private bool _showConfigMgrIndicator = true;
     private bool _skipMecmPreflight;
 
     public IAsyncRelayCommand LoadPackagersCommand { get; }
@@ -187,6 +189,7 @@ public partial class PackagesViewModel : ObservableObject
         RefreshDiscoverState(settings);
 
         ShowIntuneColumn = readiness.Systems.Intune;
+        ShowConfigMgrIndicator = readiness.Systems.ConfigMgr;
         IsCheckMecmAvailable = state.CheckMecmEnabled;
         CheckMecmToolTip = state.CheckMecmToolTip;
         IsPublishConfigMgrAvailable = state.MecmEnabled;
@@ -204,6 +207,18 @@ public partial class PackagesViewModel : ObservableObject
 
         NotifyActionCommands();
         Checklist?.Refresh();
+    }
+
+    /// <summary>
+    /// The active site changed, or its settings changed on disk. Everything this page holds about the site is dropped, and every text,
+    /// button and tooltip that depends on the site is read again, before the list loads again.
+    /// </summary>
+    public void FollowSiteChange()
+    {
+        ClearSiteResults(Packagers ?? []);
+        StatusText = "";
+        MecmConnectionStatus = "Unknown";
+        RefreshPublishActionState();
     }
 
     private void NotifyActionCommands()
@@ -797,16 +812,20 @@ public partial class PackagesViewModel : ObservableObject
 
         MecmConnectionStatus = "Testing...";
         AddLogLine($"ConfigMgr: Testing connection to site {settings.SiteCode}...");
+        var asked = SiteKeyOf(settings);
+        bool Switched() => SiteKeyOf(_settingsService.Load()) != asked;
 
         try
         {
             // A query for an application that does not exist proves the connection when it returns, NotFound included.
             var result = await _mecmQueryService.QueryVersionAsync("__CONNECTION_TEST__", CancellationToken.None);
+            if (Switched()) return;
             MecmConnectionStatus = "Connected";
             AddLogLine($"ConfigMgr: Connected to site {settings.SiteCode}");
         }
         catch (Exception ex)
         {
+            if (Switched()) return;
             MecmConnectionStatus = "Failed";
             AddLogLine($"ConfigMgr: Connection failed — {ex.Message}");
             _snackbarService.Show("ConfigMgr Connection",
@@ -1251,7 +1270,19 @@ public partial class PackagesViewModel : ObservableObject
     /// <summary>The review closed with Back, or the run and its results ended; the page restores its place and the focus.</summary>
     public event EventHandler<PublishEndedEventArgs>? PublishEnded;
 
+    private static string SiteKeyOf(AppSettings settings) =>
+        ApplicationPackagerEngine.Services.SiteIdentity.Key(settings.SiteCode, settings.ProviderMachine);
+
     private async Task PackageCoreAsync(IReadOnlyList<PackagerInfo>? rows, RunSnapshot? snapshot)
+    {
+        // From the first read to the end of the results the site cannot change: the reads before the review leave the window usable.
+        var hold = new object();
+        ApplicationPackagerEngine.Services.SiteRunGuard.Set(hold, "a publish is being reviewed or run");
+        try { await PublishHeldAsync(rows, snapshot); }
+        finally { ApplicationPackagerEngine.Services.SiteRunGuard.Set(hold, null); }
+    }
+
+    private async Task PublishHeldAsync(IReadOnlyList<PackagerInfo>? rows, RunSnapshot? snapshot)
     {
         var settings = _settingsService.Load();
 
@@ -2290,6 +2321,9 @@ public partial class PackagesViewModel : ObservableObject
     {
         foreach (var p in rows)
         {
+            // A check box was set against one site: a publish must not take it to another one.
+            p.IsSelected = false;
+            p.SiteCheckedAt = null;
             p.CurrentVersion = "";
             p.Status = "Ready";
             CveRowState.Clear(p);

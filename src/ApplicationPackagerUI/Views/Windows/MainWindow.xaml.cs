@@ -241,14 +241,23 @@ public partial class MainWindow : IDialogHostWindow
         _snackbarService.Show("Site", message, appearance,
             new SymbolIcon(appearance == ControlAppearance.Success ? SymbolRegular.Checkmark24 : SymbolRegular.Warning24), TimeSpan.FromSeconds(6));
 
+    /// <summary>True for a window that stays open beside the main window and shows data or a plan of one site.</summary>
+    public static bool ShowsOneSite(Window window) => window is OneClickPlanWindow or CveWindow or CatalogWindow or ConvertFromCmWindow;
+
     /// <summary>After a switch every page that holds site data reads the new site again. Nothing is written.</summary>
     private void OnSiteChanged()
     {
         void Reload()
         {
+            // An open window that shows the site as it was closes. A switch is refused while any of them runs.
+            foreach (var window in System.Windows.Application.Current.Windows.OfType<Window>().Where(ShowsOneSite).ToList())
+                window.Close();
             _serviceProvider.GetRequiredService<ViewModels.Pages.SettingsViewModel>().ReloadFromStore();
             var packages = _serviceProvider.GetRequiredService<ViewModels.Pages.PackagesViewModel>();
-            ViewModels.Pages.PackagesViewModel.ClearSiteResults(packages.Packagers);
+            packages.FollowSiteChange();
+            _ = _serviceProvider.GetService<ViewModels.Pages.MaintenanceWindowsViewModel>()?.FollowSiteChangeAsync();
+            _ = _serviceProvider.GetService<ViewModels.Pages.CollectionComplianceViewModel>()?.FollowSiteChangeAsync();
+            _ = _serviceProvider.GetService<ViewModels.Pages.PivotsScriptsViewModel>()?.FollowSiteChangeAsync();
             _serviceProvider.GetService<ViewModels.Pages.DeploymentHelperViewModel>()?.Shared.ClearForSiteChange();
             _serviceProvider.GetService<ViewModels.Pages.ComplianceViewModel>()?.Shared.ClearForSiteChange();
             _serviceProvider.GetService<ViewModels.Pages.DpContentManagerViewModel>()?.ClearForSiteChange();

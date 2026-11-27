@@ -131,7 +131,7 @@ The paths with a data root override are in [Data folders](../reference/data-fold
 
 The bottom line of the page has three parts.
 
-- The text `● ConfigMgr` shows the state of the ConfigMgr connection by color. Green: connected. Red: the connection failed. Amber: the test is running. Gray: **Site Code** is empty. The default color shows when **ConfigMgr** is not in use. The log gives the text of the state, for example `ConfigMgr: Connected to site <code>`.
+- The text `● ConfigMgr` shows the state of the ConfigMgr connection by color. Green: connected. Red: the connection failed. Amber: the test is running. Gray: **Site Code** is empty. The text does not show when **ConfigMgr** is not in use. The log gives the text of the state, for example `ConfigMgr: Connected to site <code>`.
 - The middle text shows the progress, for example `Latest check: 2 of 10 — <application>`, or the result of the run.
 - The progress bar shows while an operation runs.
 

@@ -75,7 +75,6 @@ public static class GuideCaptureSteps
         ["core-packages-supersedence-log"] = "core-packages-supersedence-log",
         ["tools-settings-supersedence"] = "tools-settings-supersedence",
         ["core-settings-application-settings"] = "core-settings-application-settings",
-        ["core-one-click-plan-supersedence"] = "core-one-click-plan-supersedence",
         // The states of the App Packager page and its windows (tools/guide-capture/Capture-PackagesPage.ps1 and Capture-PackagesDialogs.ps1: the real app, a Stage into the staging folder of the run, a
         // Publish of one application that the run removes from the site again, one theme after the other).
         ["packages"] = "packages",

@@ -101,6 +101,15 @@ public sealed partial class PivotsScriptsViewModel : ObservableObject
         await EnsureTabLoadedAsync();
     }
 
+    /// <summary>Drops the targets and the lists of the site that was active. A page that is shown reads the new site.</summary>
+    public async Task FollowSiteChangeAsync()
+    {
+        var shown = _active;
+        _active = false;
+        Release();
+        if (shown) await OnNavigatedToAsync();
+    }
+
     /// <summary>Releases the site data and cancels its reads; a run that waits for results keeps waiting.</summary>
     public async Task OnNavigatedFromAsync()
     {

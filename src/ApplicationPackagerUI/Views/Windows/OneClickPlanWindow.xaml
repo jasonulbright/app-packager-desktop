@@ -91,10 +91,10 @@
                 </DataTemplate>
             </DataGrid.RowDetailsTemplate>
             <DataGrid.Columns>
-                <DataGridTemplateColumn x:Name="colInclude" Header="Include" Width="72">
+                <DataGridTemplateColumn x:Name="colInclude" Header="Include" Width="Auto" MinWidth="72">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
-                            <CheckBox IsChecked="{Binding Include, UpdateSourceTrigger=PropertyChanged, Mode=TwoWay}"
+                            <CheckBox MinWidth="0" Padding="0" IsChecked="{Binding Include, UpdateSourceTrigger=PropertyChanged, Mode=TwoWay}"
                                       IsEnabled="{Binding DataContext.CanPlanOnly, RelativeSource={RelativeSource AncestorType=DataGrid}}"
                                       ToolTip="Include this application in this run. The choice applies to this run only. You cannot change it while a run is active."
                                       AutomationProperties.Name="{Binding Application, StringFormat=Include {0}}" HorizontalAlignment="Center" VerticalAlignment="Center" />
@@ -104,28 +104,28 @@
                 <DataGridTextColumn Header="Application" Binding="{Binding Application}" Width="*" MinWidth="160" IsReadOnly="True"
                                     ElementStyle="{StaticResource WrapCell}" />
                 <DataGridTextColumn Header="Version" Binding="{Binding Version}" Width="SizeToCells" MinWidth="100" IsReadOnly="True" ElementStyle="{StaticResource WrapCell}" />
-                <DataGridTemplateColumn x:Name="colMecm" Header="ConfigMgr" Width="96">
+                <DataGridTemplateColumn x:Name="colMecm" Header="ConfigMgr" Width="Auto" MinWidth="96">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
-                            <CheckBox IsChecked="{Binding ConfigMgr, UpdateSourceTrigger=PropertyChanged, Mode=TwoWay}"
+                            <CheckBox MinWidth="0" Padding="0" IsChecked="{Binding ConfigMgr, UpdateSourceTrigger=PropertyChanged, Mode=TwoWay}"
                                       ToolTip="Publish this application to ConfigMgr in this run."
                                       AutomationProperties.Name="{Binding Application, StringFormat=ConfigMgr for {0}}" HorizontalAlignment="Center" VerticalAlignment="Center" />
                         </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
-                <DataGridTemplateColumn x:Name="colWsus" Header="WSUS" Width="72">
+                <DataGridTemplateColumn x:Name="colWsus" Header="WSUS" Width="Auto" MinWidth="72">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
-                            <CheckBox IsChecked="{Binding Wsus, UpdateSourceTrigger=PropertyChanged, Mode=TwoWay}"
+                            <CheckBox MinWidth="0" Padding="0" IsChecked="{Binding Wsus, UpdateSourceTrigger=PropertyChanged, Mode=TwoWay}"
                                       ToolTip="Publish this application to WSUS in this run."
                                       AutomationProperties.Name="{Binding Application, StringFormat=WSUS for {0}}" HorizontalAlignment="Center" VerticalAlignment="Center" />
                         </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
-                <DataGridTemplateColumn x:Name="colIntune" Header="Intune" Width="76">
+                <DataGridTemplateColumn x:Name="colIntune" Header="Intune" Width="Auto" MinWidth="76">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
-                            <CheckBox IsChecked="{Binding Intune, UpdateSourceTrigger=PropertyChanged, Mode=TwoWay}"
+                            <CheckBox MinWidth="0" Padding="0" IsChecked="{Binding Intune, UpdateSourceTrigger=PropertyChanged, Mode=TwoWay}"
                                       ToolTip="Publish this application to Intune in this run."
                                       AutomationProperties.Name="{Binding Application, StringFormat=Intune for {0}}" HorizontalAlignment="Center" VerticalAlignment="Center" />
                         </DataTemplate>

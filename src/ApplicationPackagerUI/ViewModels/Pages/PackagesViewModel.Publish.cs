@@ -134,6 +134,8 @@ public partial class PackagesViewModel : IOneClickRunner, IPublishActionHost
             OnExisting = settings.OneClick.OnExisting,
             Comment = Comment.Trim(),
             SiteText = string.IsNullOrWhiteSpace(settings.SiteCode) ? "" : "ConfigMgr site " + settings.SiteCode.Trim(),
+            PlannedSite = SiteKeyOf(settings),
+            CurrentSite = () => SiteKeyOf(_settingsService.Load()),
             SystemsText = SystemsLine(settings.Systems),
             ReportFolder = OneClickReportFolder,
             ConfirmLocalSources = selected => ConfirmLocalSourceFolders(selected.ToList()),
