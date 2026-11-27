@@ -180,7 +180,7 @@
 
                     <TextBlock Text="Organization" Style="{StaticResource SubHeader}" />
                                 <TextBlock Text="Company Name" Style="{StaticResource FieldLabel}" />
-                                <ui:TextBox Width="360" HorizontalAlignment="Left" Text="{Binding CompanyName, UpdateSourceTrigger=PropertyChanged}"
+                                <ui:TextBox AutomationProperties.Name="Company Name" Width="360" HorizontalAlignment="Left" Text="{Binding CompanyName, UpdateSourceTrigger=PropertyChanged}"
                                             PlaceholderText="Contoso, Ltd." Margin="0,0,0,8"
                                             ToolTip="Enter the name of your organization. Save Settings stores it." />
 
@@ -455,12 +455,12 @@
                                            Foreground="{DynamicResource TextFillColorTertiaryBrush}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,8" />
 
                                 <TextBlock Text="Tenant ID" Style="{StaticResource FieldLabel}" />
-                                <ui:TextBox Width="360" HorizontalAlignment="Left" Text="{Binding IntuneTenantId, UpdateSourceTrigger=PropertyChanged}" helpers:SettingsSearchHints.Keywords="entra azure"
+                                <ui:TextBox AutomationProperties.Name="Tenant ID" Width="360" HorizontalAlignment="Left" Text="{Binding IntuneTenantId, UpdateSourceTrigger=PropertyChanged}" helpers:SettingsSearchHints.Keywords="entra azure"
                                             PlaceholderText="contoso.onmicrosoft.com or a GUID" Margin="0,0,0,8"
                                             ToolTip="Enter the tenant ID or the primary domain of your Microsoft Entra tenant. The app uses it to sign in to Microsoft Graph." />
 
                                 <TextBlock Text="Client ID" Style="{StaticResource FieldLabel}" />
-                                <ui:TextBox Width="360" HorizontalAlignment="Left" Text="{Binding IntuneClientId, UpdateSourceTrigger=PropertyChanged}" helpers:SettingsSearchHints.Keywords="app registration graph"
+                                <ui:TextBox AutomationProperties.Name="Client ID" Width="360" HorizontalAlignment="Left" Text="{Binding IntuneClientId, UpdateSourceTrigger=PropertyChanged}" helpers:SettingsSearchHints.Keywords="app registration graph"
                                             PlaceholderText="App registration (client) ID" Margin="0,0,0,8"
                                             ToolTip="Enter the application (client) ID of the Entra app registration that publishes to Intune." />
 
@@ -474,7 +474,7 @@
                                            Foreground="{DynamicResource TextFillColorTertiaryBrush}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,8" />
 
                                 <TextBlock Text="Client Secret" Style="{StaticResource FieldLabel}" />
-                                <ui:PasswordBox Width="360" HorizontalAlignment="Left" Password="{Binding IntuneClientSecret, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" helpers:SettingsSearchHints.Keywords="dpapi"
+                                <ui:PasswordBox AutomationProperties.Name="Client Secret" Width="360" HorizontalAlignment="Left" Password="{Binding IntuneClientSecret, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" helpers:SettingsSearchHints.Keywords="dpapi"
                                                 PlaceholderText="{Binding IntuneSecretHint}" Margin="0,0,0,4"
                                                 ToolTip="Enter the client secret of the app registration. Save Settings stores it encrypted for the current Windows user. Leave it empty to keep the saved secret." />
                                 <TextBlock Text="Stored encrypted for the current Windows user. Leave empty to keep the saved secret."
@@ -502,7 +502,7 @@
                                 </DockPanel>
 
                                 <TextBlock Text="GitHub token" Style="{StaticResource FieldLabel}" />
-                                <ui:PasswordBox Width="360" HorizontalAlignment="Left" Password="{Binding GitHubToken, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" helpers:SettingsSearchHints.Keywords="github key personal access token pat"
+                                <ui:PasswordBox AutomationProperties.Name="GitHub token" Width="360" HorizontalAlignment="Left" Password="{Binding GitHubToken, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" helpers:SettingsSearchHints.Keywords="github key personal access token pat"
                                                 PlaceholderText="{Binding GitHubTokenHint}" Margin="0,0,0,4"
                                                 AutomationProperties.AutomationId="pwdGitHubToken"
                                                 ToolTip="Enter a GitHub personal access token to override the token of the environment or the GitHub CLI. Save Settings stores it encrypted for the current Windows user. Leave it empty to keep the saved token." />
@@ -520,7 +520,7 @@
                 <StackPanel Margin="0,0,0,8" MaxWidth="960" HorizontalAlignment="Left">
                     <TextBlock Text="Folders" Style="{StaticResource SectionHeader}" />
                                 <TextBlock Text="Content Layout" Style="{StaticResource FieldLabel}" />
-                                <ComboBox SelectedValue="{Binding ContentLayout}" helpers:SettingsSearchHints.Keywords="share folder structure"
+                                <ComboBox AutomationProperties.Name="Content Layout" SelectedValue="{Binding ContentLayout}" helpers:SettingsSearchHints.Keywords="share folder structure"
                                           SelectedValuePath="Tag"
                                           Width="320" HorizontalAlignment="Left" Margin="0,0,0,8"
                                           ToolTip="Folder shape under the share's Applications folder. Nested keeps one folder per vendor and application with a version folder inside; Flat puts every version in one level named Vendor-App-Version.">
@@ -533,7 +533,7 @@
                                     <ui:Button DockPanel.Dock="Right" Content="Browse"
                                                Command="{Binding BrowseDownloadRootCommand}" helpers:SettingsSearchHints.Exclude="True" Margin="8,0,0,0"
                                                ToolTip="Select the Download Root folder." />
-                                    <ui:TextBox Text="{Binding DownloadRoot, UpdateSourceTrigger=PropertyChanged}" ToolTip="{Binding DownloadRoot}" helpers:SettingsSearchHints.Keywords="stage download folder browse"
+                                    <ui:TextBox AutomationProperties.Name="Download Root (local staging)" Text="{Binding DownloadRoot, UpdateSourceTrigger=PropertyChanged}" ToolTip="{Binding DownloadRoot}" helpers:SettingsSearchHints.Keywords="stage download folder browse"
                                                 PlaceholderText="C:\temp\ap" />
                                 </DockPanel>
                     <TextBlock Text="{Binding StagingWarning}" TextWrapping="Wrap" Margin="0,0,0,8"
@@ -561,7 +561,7 @@
                                     <ui:Button DockPanel.Dock="Right" Content="Browse"
                                                Command="{Binding BrowsePackagersRootCommand}" helpers:SettingsSearchHints.Exclude="True" Margin="8,0,0,0"
                                                ToolTip="Select the Packagers folder." />
-                                    <ui:TextBox ToolTip="{Binding PackagersRoot}" Text="{Binding PackagersRoot, UpdateSourceTrigger=PropertyChanged}" helpers:SettingsSearchHints.Keywords="catalog browse"
+                                    <ui:TextBox AutomationProperties.Name="Packagers Folder (leave empty for auto-detect)" ToolTip="{Binding PackagersRoot}" Text="{Binding PackagersRoot, UpdateSourceTrigger=PropertyChanged}" helpers:SettingsSearchHints.Keywords="catalog browse"
                                                 PlaceholderText="Auto-detect" />
                                 </DockPanel>
                 </StackPanel>
@@ -578,7 +578,7 @@
                                     </Grid.ColumnDefinitions>
                                     <StackPanel Grid.Column="0">
                                         <TextBlock Text="Estimated Runtime (mins)" Style="{StaticResource FieldLabel}" />
-                                        <ui:NumberBox Value="{Binding EstimatedRuntimeMins, Mode=TwoWay}"
+                                        <ui:NumberBox AutomationProperties.Name="Estimated Runtime (mins)" Value="{Binding EstimatedRuntimeMins, Mode=TwoWay}"
                                                       Minimum="1" Maximum="120" SmallChange="5" LargeChange="15"
                                                       SpinButtonPlacementMode="Compact"
                                                       Width="140" HorizontalAlignment="Left"
@@ -586,7 +586,7 @@
                                     </StackPanel>
                                     <StackPanel Grid.Column="2">
                                         <TextBlock Text="Maximum Runtime (mins)" Style="{StaticResource FieldLabel}" />
-                                        <ui:NumberBox Value="{Binding MaximumRuntimeMins, Mode=TwoWay}"
+                                        <ui:NumberBox AutomationProperties.Name="Maximum Runtime (mins)" Value="{Binding MaximumRuntimeMins, Mode=TwoWay}"
                                                       Minimum="15" Maximum="720" SmallChange="5" LargeChange="30"
                                                       SpinButtonPlacementMode="Compact"
                                                       Width="140" HorizontalAlignment="Left"
@@ -641,7 +641,7 @@
                                           ToolTip="Runs Start-CMContentDistribution for the new application against the group below. A group that already holds the content is treated as done." />
 
                                 <TextBlock Text="Distribution point group" Style="{StaticResource FieldLabel}" />
-                                <ui:TextBox Text="{Binding DpGroupName, UpdateSourceTrigger=PropertyChanged}" helpers:SettingsSearchHints.Keywords="dp group"
+                                <ui:TextBox AutomationProperties.Name="Distribution point group" Text="{Binding DpGroupName, UpdateSourceTrigger=PropertyChanged}" helpers:SettingsSearchHints.Keywords="dp group"
                                             IsEnabled="{Binding AutoDistribute}" helpers:SettingsSearchHints.Unavailable="The box is available when Distribute content after Package is selected."
                                             PlaceholderText="All DPs" Width="320" HorizontalAlignment="Left" Margin="0,0,0,8"
                                             ToolTip="Name of the distribution point group that receives the content. The box is available when Distribute content after Package is selected." />
@@ -654,7 +654,7 @@
                                 <CheckBox Content="Use a user collection" IsChecked="{Binding TestCollectionIsUser}"
                                           IsEnabled="{Binding TestDeploymentAvailable}" helpers:SettingsSearchHints.Unavailable="Content goes to a distribution point group first; the test deployment is created only after that distribution is targeted." Margin="0,0,0,8"
                                           ToolTip="Select to target users. When cleared, the test deployment targets a device collection. This does not change the application's install context." />
-                                <ui:TextBox Text="{Binding TestCollectionName, UpdateSourceTrigger=PropertyChanged}"
+                                <ui:TextBox AutomationProperties.Name="Test collection" Text="{Binding TestCollectionName, UpdateSourceTrigger=PropertyChanged}"
                                             IsEnabled="{Binding TestDeploymentAvailable}" helpers:SettingsSearchHints.Unavailable="Content goes to a distribution point group first; the test deployment is created only after that distribution is targeted."
                                             PlaceholderText="Application pilot collection" Width="320" HorizontalAlignment="Left" Margin="0,0,0,8"
                                             ToolTip="Enter the name of the collection that receives the test deployment." />
@@ -753,7 +753,7 @@
                                                ToolTip="Clears every choice of every application, so each follows its default: Off, Minimum, the packager defaults and no One Click." />
                                 </WrapPanel>
                                 <WrapPanel Margin="0,0,0,0">
-                                    <ui:TextBox Text="{Binding ApplicationFilter, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="Search applications" Width="220" Margin="0,0,8,8"
+                                    <ui:TextBox AutomationProperties.Name="Search applications" Text="{Binding ApplicationFilter, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="Search applications" Width="220" Margin="0,0,8,8"
                                                 AutomationProperties.AutomationId="txtApplicationFilter"
                                                 ToolTip="Type part of an application name or of a vendor name. The grid shows the matching applications, and Filtered applications means these rows." />
                                     <ui:Button Content="Check all" Command="{Binding CheckAllApplicationsCommand}" helpers:SettingsSearchHints.Exclude="True" CommandParameter="True" Margin="0,0,4,8" AutomationProperties.AutomationId="btnCheckAll"
@@ -768,7 +768,7 @@
                                         <Run Text="{Binding SupersedenceSelectedCount, Mode=OneWay}" /><Run Text=" checked" />
                                     </TextBlock>
                                 </WrapPanel>
-                                <DataGrid x:Name="dgApplications" helpers:SettingsSearchHints.Title="Application Overrides" helpers:SettingsSearchHints.Keywords="by application grid bulk edit check all none reset all overrides refresh list" ItemsSource="{Binding SupersedenceRows}" AutoGenerateColumns="False" CanUserAddRows="False"
+                                <DataGrid AutomationProperties.Name="Application Overrides" x:Name="dgApplications" helpers:SettingsSearchHints.Title="Application Overrides" helpers:SettingsSearchHints.Keywords="by application grid bulk edit check all none reset all overrides refresh list" ItemsSource="{Binding SupersedenceRows}" AutoGenerateColumns="False" CanUserAddRows="False"
                                           CanUserDeleteRows="False" HeadersVisibility="Column" RowHeaderWidth="0" BorderThickness="1"
                                           BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}" GridLinesVisibility="Horizontal"
                                           Height="240" Margin="0,0,0,8" GotKeyboardFocus="Applications_GotKeyboardFocus" IsTextSearchEnabled="True" TextSearch.TextPath="Application"
@@ -778,7 +778,7 @@
                                         <DataGridTemplateColumn Header="Check" Width="56" MinWidth="56">
                                             <DataGridTemplateColumn.CellTemplate>
                                                 <DataTemplate>
-                                                    <CheckBox IsChecked="{Binding IsSelected, UpdateSourceTrigger=PropertyChanged}" HorizontalAlignment="Center"
+                                                    <CheckBox AutomationProperties.Name="Check" IsChecked="{Binding IsSelected, UpdateSourceTrigger=PropertyChanged}" HorizontalAlignment="Center"
                                                               ToolTip="Check this application to change it with the buttons above." />
                                                 </DataTemplate>
                                             </DataGridTemplateColumn.CellTemplate>
@@ -821,12 +821,12 @@
                                     </Grid.ColumnDefinitions>
                                     <StackPanel Grid.Column="0">
                                         <TextBlock Text="Store Name" Style="{StaticResource FieldLabel}" />
-                                        <ui:TextBox Text="{Binding CwaSwitches.Store.Name, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="MyStore"
+                                        <ui:TextBox AutomationProperties.Name="Store Name" Text="{Binding CwaSwitches.Store.Name, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="MyStore"
                                                     ToolTip="Enter the name of the Citrix store that the installer adds. The installer needs the store URL too." />
                                     </StackPanel>
                                     <StackPanel Grid.Column="2">
                                         <TextBlock Text="Store URL (passed as typed)" Style="{StaticResource FieldLabel}" />
-                                        <ui:TextBox Text="{Binding CwaSwitches.Store.Url, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="https://storefront.contoso.com/Citrix/Store/discovery"
+                                        <ui:TextBox AutomationProperties.Name="Store URL (passed as typed)" Text="{Binding CwaSwitches.Store.Url, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="https://storefront.contoso.com/Citrix/Store/discovery"
                                                     ToolTip="Enter the URL of the Citrix store. The app passes it as typed. The installer needs the store name too." />
                                     </StackPanel>
                                 </Grid>
@@ -856,7 +856,7 @@
                                         <CheckBox Content="forceinstall" IsThreeState="True" IsChecked="{Binding CwaSwitches.Installation.ForceInstall}" Margin="0,0,0,4"
                                                   ToolTip="Cleans old Citrix data when an install or an upgrade of an unsupported version fails. Use it as a retry package. It replaces rcu." />
                                         <TextBlock Text="Device name (fixed)" Style="{StaticResource FieldLabel}" />
-                                        <ui:TextBox Text="{Binding CwaSwitches.Installation.ClientName, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="computer name"
+                                        <ui:TextBox AutomationProperties.Name="Device name (fixed)" Text="{Binding CwaSwitches.Installation.ClientName, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="computer name"
                                                     ToolTip="Sets a fixed client device name (ENABLE_DYNAMIC_CLIENT_NAME=No and CLIENT_NAME). Up to 20 letters, digits, dots, hyphens or underscores. Empty keeps the computer name." />
                                     </StackPanel>
                                     <StackPanel Grid.Column="2">
@@ -920,7 +920,7 @@
                                     </Grid.ColumnDefinitions>
                                     <StackPanel Grid.Column="0">
                                         <TextBlock Text="AutoUpdateCheck" Style="{StaticResource FieldLabel}" />
-                                        <ComboBox SelectedValue="{Binding CwaSwitches.UpdateAndTelemetry.AutoUpdateCheck}" SelectedValuePath="Tag" HorizontalAlignment="Stretch"
+                                        <ComboBox AutomationProperties.Name="AutoUpdateCheck" SelectedValue="{Binding CwaSwitches.UpdateAndTelemetry.AutoUpdateCheck}" SelectedValuePath="Tag" HorizontalAlignment="Stretch"
                                                   ToolTip="Passes AutoUpdateCheck=auto, manual or disabled. (not set) passes nothing.">
                                             <ComboBoxItem Content="(not set)" Tag="" />
                                             <ComboBoxItem Content="auto" Tag="auto" />
@@ -932,14 +932,14 @@
                                         <CheckBox Content="EnableTracing" IsThreeState="True" IsChecked="{Binding CwaSwitches.UpdateAndTelemetry.EnableTracing}" Margin="0,0,0,4"
                                                   ToolTip="Checked passes EnableTracing=true and cleared passes EnableTracing=false. Shaded passes nothing." />
                                         <TextBlock Text="AutoUpdateStream" Style="{StaticResource FieldLabel}" />
-                                        <ComboBox SelectedValue="{Binding CwaSwitches.UpdateAndTelemetry.AutoUpdateStream}" SelectedValuePath="Tag" HorizontalAlignment="Stretch"
+                                        <ComboBox AutomationProperties.Name="AutoUpdateStream" SelectedValue="{Binding CwaSwitches.UpdateAndTelemetry.AutoUpdateStream}" SelectedValuePath="Tag" HorizontalAlignment="Stretch"
                                                   ToolTip="Selects the update channel. Works only with AutoUpdateCheck. Use LTSR on devices that stay on a long-term build.">
                                             <ComboBoxItem Content="(not set)" Tag="" />
                                             <ComboBoxItem Content="LTSR" Tag="LTSR" />
                                             <ComboBoxItem Content="Current" Tag="Current" />
                                         </ComboBox>
                                         <TextBlock Text="AURolloutPriority" Style="{StaticResource FieldLabel}" Margin="0,8,0,0" />
-                                        <ComboBox SelectedValue="{Binding CwaSwitches.UpdateAndTelemetry.AURolloutPriority}" SelectedValuePath="Tag" HorizontalAlignment="Stretch"
+                                        <ComboBox AutomationProperties.Name="AURolloutPriority" SelectedValue="{Binding CwaSwitches.UpdateAndTelemetry.AURolloutPriority}" SelectedValuePath="Tag" HorizontalAlignment="Stretch"
                                                   ToolTip="Sets when in the Citrix delivery period a device gets an update. Works only with AutoUpdateCheck.">
                                             <ComboBoxItem Content="(not set)" Tag="" />
                                             <ComboBoxItem Content="Auto" Tag="Auto" />
@@ -950,7 +950,7 @@
                                     </StackPanel>
                                     <StackPanel Grid.Column="2">
                                         <TextBlock Text="ALLOWADDSTORE" Style="{StaticResource FieldLabel}" />
-                                        <ComboBox SelectedValue="{Binding CwaSwitches.StorePolicy.AllowAddStore}" SelectedValuePath="Tag" HorizontalAlignment="Stretch"
+                                        <ComboBox AutomationProperties.Name="ALLOWADDSTORE" SelectedValue="{Binding CwaSwitches.StorePolicy.AllowAddStore}" SelectedValuePath="Tag" HorizontalAlignment="Stretch"
                                                   ToolTip="Passes ALLOWADDSTORE=S, A or N. (not set) passes nothing.">
                                             <ComboBoxItem Content="(not set)" Tag="" />
                                             <ComboBoxItem Content="S - secure stores only" Tag="S" />
@@ -960,7 +960,7 @@
                                     </StackPanel>
                                     <StackPanel Grid.Column="4">
                                         <TextBlock Text="ALLOWSAVEPWD" Style="{StaticResource FieldLabel}" />
-                                        <ComboBox SelectedValue="{Binding CwaSwitches.StorePolicy.AllowSavePwd}" SelectedValuePath="Tag" HorizontalAlignment="Stretch"
+                                        <ComboBox AutomationProperties.Name="ALLOWSAVEPWD" SelectedValue="{Binding CwaSwitches.StorePolicy.AllowSavePwd}" SelectedValuePath="Tag" HorizontalAlignment="Stretch"
                                                   ToolTip="Passes ALLOWSAVEPWD=S, A or N. (not set) passes nothing.">
                                             <ComboBoxItem Content="(not set)" Tag="" />
                                             <ComboBoxItem Content="S - secure stores only" Tag="S" />
@@ -989,7 +989,7 @@
                                         <CheckBox Content="Hide file-type icons" IsThreeState="True" IsChecked="{Binding CwaSwitches.Hdx.LegacyFileTypeIcons}" Margin="0,0,0,4"
                                                   ToolTip="LEGACYFTAICONS: True hides the file-type icons of subscribed apps." />
                                         <TextBlock Text="DisableSetting" Style="{StaticResource FieldLabel}" />
-                                        <ComboBox SelectedValue="{Binding CwaSwitches.Hdx.DisableSetting}" SelectedValuePath="Tag" HorizontalAlignment="Stretch"
+                                        <ComboBox AutomationProperties.Name="DisableSetting" SelectedValue="{Binding CwaSwitches.Hdx.DisableSetting}" SelectedValuePath="Tag" HorizontalAlignment="Stretch"
                                                   ToolTip="Hides the Shortcuts and Reconnect options in Advanced Preferences.">
                                             <ComboBoxItem Content="(not set)" Tag="" />
                                             <ComboBoxItem Content="0 - show both" Tag="0" />
@@ -1038,7 +1038,7 @@
                     <ItemsControl ItemsSource="{Binding InstallParameterGroups}" Margin="0,0,16,0">
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
-                                            <ui:CardExpander Margin="0,0,0,8" IsExpanded="False">
+                                            <ui:CardExpander AutomationProperties.Name="{Binding Header}" Margin="0,0,0,8" IsExpanded="False">
                                                 <ui:CardExpander.Header>
                                                     <StackPanel>
                                                         <TextBlock Text="{Binding Header}" Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
@@ -1065,7 +1065,7 @@
                                                 <DockPanel>
                                                     <ui:Button DockPanel.Dock="Right" Content="Browse..." Command="{Binding BrowseCommand}" Margin="8,0,0,0"
                                                                ToolTip="Select the folder that holds the installer." />
-                                                    <ui:TextBox Text="{Binding Path, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="No folder chosen"
+                                                    <ui:TextBox AutomationProperties.Name="{Binding Label}" Text="{Binding Path, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="No folder chosen"
                                                                 ToolTip="Enter the path of the folder that holds the installer, or select Browse." />
                                                 </DockPanel>
                                                 <TextBlock Text="{Binding Hint}" Foreground="{DynamicResource TextFillColorTertiaryBrush}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,0" />
@@ -1088,7 +1088,7 @@
                                                 <DockPanel>
                                                     <ui:Button DockPanel.Dock="Right" Content="Browse..." Command="{Binding BrowseCommand}" Margin="8,0,0,0"
                                                                ToolTip="Select the file to copy beside the installer." />
-                                                    <ui:TextBox Text="{Binding Path, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="No file chosen"
+                                                    <ui:TextBox AutomationProperties.Name="{Binding Label}" Text="{Binding Path, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="No file chosen"
                                                                 ToolTip="Enter the path of the file, or select Browse." />
                                                 </DockPanel>
                                                 <TextBlock Text="{Binding Hint}" Foreground="{DynamicResource TextFillColorTertiaryBrush}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,0" />
@@ -1122,7 +1122,7 @@
                                     </StackPanel>
                                     <StackPanel Grid.Column="2">
                                         <TextBlock Text="Default cadence (days)" Style="{StaticResource FieldLabel}" />
-                                        <ui:NumberBox Value="{Binding OneClickCadenceDays, Mode=TwoWay}" helpers:SettingsSearchHints.Keywords="days check fresh"
+                                        <ui:NumberBox AutomationProperties.Name="Default cadence (days)" Value="{Binding OneClickCadenceDays, Mode=TwoWay}" helpers:SettingsSearchHints.Keywords="days check fresh"
                                                       Minimum="1" Maximum="365" SmallChange="1" LargeChange="7"
                                                       SpinButtonPlacementMode="Compact" Width="140" HorizontalAlignment="Left"
                                                       ToolTip="Days a version check stays fresh. A Report only run skips a tracked application checked more recently than this." />
@@ -1165,7 +1165,7 @@
                                     </TextBlock>
                                 </DockPanel>
 
-                                <DataGrid ItemsSource="{Binding OneClickRows}" helpers:SettingsSearchHints.Title="Tracked applications" helpers:SettingsSearchHints.Keywords="track all none refresh list cadence grid" AutoGenerateColumns="False" CanUserAddRows="False"
+                                <DataGrid AutomationProperties.Name="Tracked applications" ItemsSource="{Binding OneClickRows}" helpers:SettingsSearchHints.Title="Tracked applications" helpers:SettingsSearchHints.Keywords="track all none refresh list cadence grid" AutoGenerateColumns="False" CanUserAddRows="False"
                                           CanUserDeleteRows="False" HeadersVisibility="Column" RowHeaderWidth="0" BorderThickness="1"
                                           BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}" GridLinesVisibility="Horizontal"
                                           Height="280" Margin="0,0,0,8" IsTextSearchEnabled="True" TextSearch.TextPath="Application"
@@ -1174,7 +1174,7 @@
                                         <DataGridTemplateColumn Header="Track" Width="60">
                                             <DataGridTemplateColumn.CellTemplate>
                                                 <DataTemplate>
-                                                    <CheckBox IsChecked="{Binding Tracked, UpdateSourceTrigger=PropertyChanged}" HorizontalAlignment="Center"
+                                                    <CheckBox AutomationProperties.Name="Track" IsChecked="{Binding Tracked, UpdateSourceTrigger=PropertyChanged}" HorizontalAlignment="Center"
                                                               ToolTip="Track this application in One Click." />
                                                 </DataTemplate>
                                             </DataGridTemplateColumn.CellTemplate>
@@ -1211,7 +1211,7 @@
                                         <DataGridTemplateColumn Header="Cadence (days)" Width="122">
                                             <DataGridTemplateColumn.CellTemplate>
                                                 <DataTemplate>
-                                                    <TextBox Text="{Binding CadenceDisplay, UpdateSourceTrigger=LostFocus, Mode=TwoWay}"
+                                                    <TextBox AutomationProperties.Name="Cadence (days)" Text="{Binding CadenceDisplay, UpdateSourceTrigger=LostFocus, Mode=TwoWay}"
                                                              BorderThickness="0" Background="Transparent" Padding="4,2"
                                                              ToolTip="Days for this application only. Empty uses the default cadence." />
                                                 </DataTemplate>
@@ -1227,7 +1227,7 @@
                                 <TextBlock Text="Check CVEs asks the NIST NVD API for the CVEs between the ConfigMgr version and the latest version of each application. Without a key NVD allows 5 requests in 30 seconds; with a key it allows 50."
                                            Foreground="{DynamicResource TextFillColorTertiaryBrush}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,8" />
                                 <TextBlock Text="NVD API key" Style="{StaticResource FieldLabel}" />
-                                <ui:PasswordBox Width="360" HorizontalAlignment="Left" Password="{Binding NvdApiKey, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                <ui:PasswordBox AutomationProperties.Name="NVD API key" Width="360" HorizontalAlignment="Left" Password="{Binding NvdApiKey, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                                 PlaceholderText="{Binding NvdApiKeyHint}" Margin="0,0,0,4"
                                                 AutomationProperties.AutomationId="pwdNvdApiKey"
                                                 ToolTip="Enter an NVD API key to raise the request limit of Check CVEs. Save Settings stores it encrypted for the current Windows user. Leave it empty to keep the saved key." />

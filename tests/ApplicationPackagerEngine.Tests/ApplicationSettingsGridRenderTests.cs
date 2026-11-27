@@ -26,7 +26,7 @@ public sealed class ApplicationSettingsGridRenderTests
         ["source", "scope", "installertype", "supersedence", "title", "rule", "reboot", "dpgroup", "testcollection", "detection", "tracked"];
 
     /// <summary>A row that offers every choice, so the cells of the chosen columns are enabled except Detection.</summary>
-    private static SupersedenceRow Row(string uid)
+    internal static SupersedenceRow Row(string uid)
     {
         var row = new SupersedenceRow
         {
