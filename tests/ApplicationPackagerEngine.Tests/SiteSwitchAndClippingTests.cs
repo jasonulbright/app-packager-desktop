@@ -121,6 +121,8 @@ public sealed class SiteSwitchAndClippingTests : IDisposable
         Assert.Contains("?.FollowSiteChange();", source);
         Assert.Contains("RenewSitePages();", source);
         Assert.Contains("RootNavigation.SetServiceProvider(_sitePages);", source);
+        var app = File.ReadAllText(Path.Combine(CatalogRoot(), "src", "ApplicationPackagerUI", "App.xaml.cs"));
+        Assert.Contains("services.AddSingleton(sp => new SitePages(sp, registrations));", app);
         Assert.Contains("window is OneClickPlanWindow or CveWindow or CatalogWindow or ConvertFromCmWindow", source);
     }
 

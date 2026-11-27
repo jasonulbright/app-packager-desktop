@@ -41,7 +41,8 @@ public partial class MainWindow : IDialogHostWindow
         navigationService.SetNavigationControl(RootNavigation);
         snackbarService.SetSnackbarPresenter(SnackbarPresenter);
         contentDialogService.SetDialogHost(RootContentDialog);
-        _sitePages = serviceProvider.GetRequiredService<SitePages>();
+        // A provider with no site pages, as a window test builds it, serves every page itself.
+        _sitePages = serviceProvider.GetService<SitePages>() ?? new SitePages(serviceProvider, []);
         RootNavigation.SetServiceProvider(_sitePages);
         RootNavigation.Navigated += (_, e) => _shownPage = e.Page?.GetType();
         _sidebar = new SidebarPresenter(RootNavigation, sidebarService, item => item.Activate?.Invoke(_serviceProvider));

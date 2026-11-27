@@ -32,7 +32,7 @@ public partial class CatalogViewModel : ObservableObject
     private Task _reload = Task.CompletedTask;
     private int _reloadRequest;
     private int _siteGeneration;
-    /// <summary>True while the rows come from a read of the active site that succeeded. Save needs it.</summary>
+    /// <summary>True once the rows come from a read of the active site that succeeded. A switch clears it, and Save needs it.</summary>
     private bool _isRead;
 
     public const string NotReadMessage = "Not saved. The list of applications was not read. It is read again now. Check it, then select Save again.";
@@ -173,7 +173,6 @@ public partial class CatalogViewModel : ObservableObject
     private async Task LoadAsync()
     {
         var generation = Volatile.Read(ref _siteGeneration);
-        _isRead = false;
         var settings = _services.LoadSettings();
         var hidden = new HashSet<string>(settings.HiddenApplications, StringComparer.OrdinalIgnoreCase);
 
