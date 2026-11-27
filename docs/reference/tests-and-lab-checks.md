@@ -700,7 +700,13 @@ The full suite in that session is `tools/lab-tests/Run-LabSuite.ps1`. The lab cl
 
 The first test run in a new run folder can open a Windows Firewall prompt for `testhost`. The prompt covers the desktop, and the capture scripts send no mouse input to it. Close it with Cancel. Windows keeps a firewall rule for each such path; remove the rules of a run folder that is gone.
 
-`tools/guide-capture/Probe-ReleaseE2E.ps1` is the release check of the installed app: first start, saved settings and bulk edit after a restart, the column layout after a restart, a publish from the grid, from the Workbench and from One Click, and the plan of Deployment Helper without a deployment. It removes nothing; it prints a `RECORD` line for each publish so that the caller removes what the run created. `-GridWithoutWsus` publishes from the grid to ConfigMgr only, for a client without the WSUS administration console.
+`tools/guide-capture/Probe-ReleaseE2E.ps1` is the release check of the installed app. It checks the first start, saved settings and bulk edit after a restart, Settings search, the column layout and the detail pane width after a restart, and the Logs window during a Stage. It publishes from the grid to ConfigMgr and WSUS, from the Workbench and from One Click. It publishes to WSUS only, and it retries a WSUS publish that failed. It opens the plan of Deployment Helper and makes no deployment. It removes nothing; it prints a `RECORD` line for each publish so that the caller removes what the run created. `-GridWithoutWsus` publishes from the grid to ConfigMgr only, for a client without the WSUS administration console.
+
+`tools/guide-capture/Probe-KeyboardPass.ps1` walks the pages and windows of the installed app with the keyboard. It reports each control that Tab does not reach and each control that has no name for a screen reader. It reports two editable lists, `Computer group` in WSUS Updates and `Application` in the Workbench: Tab reaches each of them through its text box. It does not open the publish results window, which shows only after a publish. It writes nothing to a site or to WSUS.
+
+`tools/guide-capture/RUNBOOK.md` gives the steps that make the guide images, their preconditions and the cleanup of the lab data.
+
+The display scales 125 and 150 percent need a new sign-in for each scale. The check with Narrator needs a person who listens. The scripts do not do these two checks.
 
 ## Lab harness scripts stop only their own processes (Q-140)
 
