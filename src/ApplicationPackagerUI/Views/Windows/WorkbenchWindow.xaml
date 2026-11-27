@@ -375,7 +375,7 @@
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="*" />
                         <RowDefinition Height="Auto" />
-                        <RowDefinition Height="110" />
+                        <RowDefinition x:Name="rowInstallDiagnostics" Height="110" />
                     </Grid.RowDefinitions>
 
                     <Grid Grid.Row="0">

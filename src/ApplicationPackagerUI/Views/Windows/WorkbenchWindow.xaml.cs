@@ -57,7 +57,14 @@ public partial class WorkbenchWindow : IWorkbenchPrompts
     /// <summary>From this content width the side panel is docked beside the editor. A narrower window shows it in place of the editor.</summary>
     public const double SidePanelDockWidth = 1200;
 
-    private void Body_SizeChanged(object sender, SizeChangedEventArgs e) => ApplySidePanel();
+    // Below this body height the parse diagnostics on Install & uninstall take less height, so the hook editors keep their lines.
+    private const double ShortBodyHeight = 600;
+
+    private void Body_SizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        rowInstallDiagnostics.Height = new GridLength(gridBody.ActualHeight < ShortBodyHeight ? 56 : 110);
+        ApplySidePanel();
+    }
 
     private void Details_Click(object sender, RoutedEventArgs e) => ApplySidePanel();
 
