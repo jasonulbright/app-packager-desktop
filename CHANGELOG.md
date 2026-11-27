@@ -1,5 +1,45 @@
 # Changelog
 
+## [2026.1127.66] - 2026-11-27
+
+### Changed
+
+- Redesign the App Packager page: status tabs, one batch bar and a detail pane.
+- Show the site and the state of each system above every page.
+- Replace the three publish buttons per system with one Publish All button.
+- Move the checks, reports and import commands into the Check, More and Add or import menus.
+- Restyle One Click, the Workbench, Add from web, ConfigMgr settings, Application Settings and Deployment Helper.
+- Move the administrative comment into the publish review and the One Click plan.
+- Keep a failed row checked after a publish or a stage.
+- Show a shorter column set on a new install; the Columns menu holds every column.
+
+### Added
+
+- Add a publish review that lists every application and system before anything is written.
+- Add a second ConfigMgr read after you confirm; a changed plan opens the review again.
+- Add a results window that shows each application and system after a publish run.
+- Add a saved grid layout: columns, order, widths and sort.
+- Add a first-start checklist; open Setup at any time from More.
+- Add an unsaved-changes line to Settings and a list of earlier One Click runs.
+- Add a search over every Settings page and field.
+- Add a retry of a failed ConfigMgr or WSUS destination in the results window.
+- Add the publish review to a publish to WSUS only.
+- Add a Logs window, a run report and links from the results to the history and the report.
+- Add a resizable detail pane with a menu of the row actions.
+- Add a One Click settings button and the details of each planned change.
+
+### Fixed
+
+- Publish to WSUS together with ConfigMgr or Intune in one run.
+- Keep every written system in the results when a publish run is cancelled or fails.
+- Check the selected sealed build again before a Workbench publish writes it.
+- Keep saved One Click destinations when you open Setup again.
+- Publish only the version that the review or the One Click plan showed.
+- Compare an application from a local installer with the version of that file.
+- End a download that receives no data for 60 seconds.
+- Reach every control with the keyboard, and give each one a name for a screen reader.
+- Keep nothing of the old site after a switch of site: publish texts, checked rows, results and tool pages.
+
 ## [2026.1125.65] - 2026-11-25
 
 ### Fixed
