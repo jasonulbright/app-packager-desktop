@@ -83,10 +83,10 @@ public partial class DetectionTesterViewModel : ObservableObject
 
     public DetectionTesterViewModel(IDetectionTestService tests, IDetectionHistoryStore history, IDetectionReportWriter reports,
         IInstalledApplicationsService installedApplications, IDetectionTesterPrompts prompts, SettingsService settings, IAppLog log,
-        ManifestService manifests)
+        ManifestService manifests, SitePageLifetime? lifetime = null)
         : this(new DetectionTesterPageServices(tests, history, reports, installedApplications, prompts,
             () => DetectionTesterPreferences.Load(settings),
-            choices => DetectionTesterPreferences.Save(settings, choices),
+            choices => lifetime?.IsRetired != true && DetectionTesterPreferences.Save(settings, choices),
             log,
             manifests.Read))
     {

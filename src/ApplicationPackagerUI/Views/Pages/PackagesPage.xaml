@@ -459,7 +459,7 @@
                     <TextBlock Text="Publishing" Style="{StaticResource CaptionText}" />
                     <TextBlock Text="{Binding DetailPublishingText}" FontSize="14" TextWrapping="Wrap" Foreground="{DynamicResource TextFillColorPrimaryBrush}"
                                AutomationProperties.AutomationId="txtDetailPublishing" />
-                    <ui:Button Content="Change Systems in Use" Appearance="Transparent" Padding="0,4" HorizontalAlignment="Left" Click="DetailSystems_Click"
+                    <ui:Button Content="Change Systems in Use" Appearance="Transparent" Padding="8,4" HorizontalAlignment="Left" Click="DetailSystems_Click"
                                AutomationProperties.AutomationId="btnDetailSystems" ToolTip="Open Settings, Systems in Use, to change the systems that Publish All reaches." />
                     </StackPanel>
                     </ScrollViewer>
@@ -567,7 +567,8 @@
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
-            <TextBlock Grid.Column="0" FontSize="12" VerticalAlignment="Center">
+            <TextBlock x:Name="txtConfigMgrMark" Grid.Column="0" FontSize="12" VerticalAlignment="Center" AutomationProperties.AutomationId="txtConfigMgrMark"
+                       Visibility="{Binding ShowConfigMgrIndicator, Converter={StaticResource BooleanToVisibilityConverter}}">
                 <TextBlock.Style>
                     <Style TargetType="TextBlock">
                         <Setter Property="Text" Value="● ConfigMgr" />

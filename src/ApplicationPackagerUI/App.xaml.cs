@@ -106,6 +106,10 @@ public partial class App : Application
                 services.AddPivotsScriptsPage();
                 services.AddSiteHygienePage();
 
+                // The tool pages that hold data of a site are built from their registrations, once for each site.
+                var registrations = services.ToList();
+                services.AddSingleton(sp => new SitePages(sp, registrations));
+
                 services.AddHostedService<ApplicationHostService>();
             })
             .Build();

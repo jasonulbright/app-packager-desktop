@@ -1245,7 +1245,7 @@ public partial class SettingsViewModel : ObservableObject, ISettingsReload
         RefreshPublishState();
         // ConfigMgr versions and compare results describe one site.
         if (SiteIdentity.Key(s.SiteCode, s.ProviderMachine) != siteBefore)
-            PackagesViewModel.ClearSiteResults(_packagesViewModel.Packagers);
+            _packagesViewModel.ForgetSiteResults();
 
         _prefsSync.SyncPackagerPreferences(s.CompanyName, s.SideFiles);
         _prefsSync.SyncCwaSettings(s.CitrixSwitches);

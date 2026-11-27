@@ -15,6 +15,9 @@ public partial class MainWindow : IDialogHostWindow
     public ContentDialogHost DialogHost => RootContentDialog;
 
     private readonly IServiceProvider _serviceProvider;
+    private readonly SitePages _sitePages;
+    /// <summary>The type of the page that the window shows.</summary>
+    private Type? _shownPage;
     private readonly ISnackbarService _snackbarService;
     private readonly SidebarPresenter _sidebar;
 
@@ -38,7 +41,10 @@ public partial class MainWindow : IDialogHostWindow
         navigationService.SetNavigationControl(RootNavigation);
         snackbarService.SetSnackbarPresenter(SnackbarPresenter);
         contentDialogService.SetDialogHost(RootContentDialog);
-        RootNavigation.SetServiceProvider(serviceProvider);
+        // A provider with no site pages, as a window test builds it, serves every page itself.
+        _sitePages = serviceProvider.GetService<SitePages>() ?? new SitePages(serviceProvider, []);
+        RootNavigation.SetServiceProvider(_sitePages);
+        RootNavigation.Navigated += (_, e) => _shownPage = e.Page?.GetType();
         _sidebar = new SidebarPresenter(RootNavigation, sidebarService, item => item.Activate?.Invoke(_serviceProvider));
         sidebarService.Changed += OnSidebarChanged;
 
@@ -241,17 +247,35 @@ public partial class MainWindow : IDialogHostWindow
         _snackbarService.Show("Site", message, appearance,
             new SymbolIcon(appearance == ControlAppearance.Success ? SymbolRegular.Checkmark24 : SymbolRegular.Warning24), TimeSpan.FromSeconds(6));
 
+    /// <summary>
+    /// Every tool page of the old site goes, with all it held. The page that the window shows is left and opened again, so it is built
+    /// new and reads the new site.
+    /// </summary>
+    private void RenewSitePages()
+    {
+        var shown = _shownPage;
+        _sitePages.Retire();
+        if (shown is null || !_sitePages.Holds(shown)) return;
+        RootNavigation.Navigate(typeof(Views.Pages.PackagesPage));
+        RootNavigation.Navigate(shown);
+    }
+
+    /// <summary>True for a window that stays open beside the main window and shows data or a plan of one site.</summary>
+    public static bool ShowsOneSite(Window window) => window is OneClickPlanWindow or CveWindow or CatalogWindow or ConvertFromCmWindow;
+
     /// <summary>After a switch every page that holds site data reads the new site again. Nothing is written.</summary>
     private void OnSiteChanged()
     {
         void Reload()
         {
+            // An open window that shows the site as it was closes. A switch is refused while any of them runs.
+            foreach (var window in System.Windows.Application.Current.Windows.OfType<Window>().Where(ShowsOneSite).ToList())
+                window.Close();
             _serviceProvider.GetRequiredService<ViewModels.Pages.SettingsViewModel>().ReloadFromStore();
             var packages = _serviceProvider.GetRequiredService<ViewModels.Pages.PackagesViewModel>();
-            ViewModels.Pages.PackagesViewModel.ClearSiteResults(packages.Packagers);
-            _serviceProvider.GetService<ViewModels.Pages.DeploymentHelperViewModel>()?.Shared.ClearForSiteChange();
-            _serviceProvider.GetService<ViewModels.Pages.ComplianceViewModel>()?.Shared.ClearForSiteChange();
-            _serviceProvider.GetService<ViewModels.Pages.DpContentManagerViewModel>()?.ClearForSiteChange();
+            packages.FollowSiteChange();
+            _serviceProvider.GetService<ViewModels.Windows.CatalogViewModel>()?.FollowSiteChange();
+            RenewSitePages();
             packages.LoadPackagersCommand.Execute(null);
         }
         if (Dispatcher.CheckAccess()) Reload();
@@ -290,8 +314,8 @@ public partial class MainWindow : IDialogHostWindow
         Closing += (_, _) =>
         {
             _serviceProvider.GetRequiredService<ViewModels.Pages.PackagesViewModel>().StopRun();
-            _serviceProvider.GetService<ViewModels.Pages.PivotsScriptsViewModel>()?.OnAppClosing();
-            _serviceProvider.GetService<ViewModels.Pages.SiteHygieneViewModel>()?.OnAppClosing();
+            _sitePages.Existing<ViewModels.Pages.PivotsScriptsViewModel>()?.OnAppClosing();
+            _sitePages.Existing<ViewModels.Pages.SiteHygieneViewModel>()?.OnAppClosing();
             var s = settingsService.Load();
             s.WindowMaximized = WindowState == WindowState.Maximized;
             if (WindowState == WindowState.Normal)

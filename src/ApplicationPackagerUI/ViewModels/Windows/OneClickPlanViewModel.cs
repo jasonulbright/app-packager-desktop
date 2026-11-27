@@ -29,6 +29,10 @@ public sealed record OneClickPlanContext
     public string Comment { get; init; } = "";
     /// <summary>"ConfigMgr site MCM"; empty when no site is set.</summary>
     public string SiteText { get; init; } = "";
+    /// <summary>The site and provider that the plan was made for, as <see cref="CurrentSite"/> writes them.</summary>
+    public string PlannedSite { get; init; } = "";
+    /// <summary>The site and provider that the settings name now; null when the caller does not follow them.</summary>
+    public Func<string>? CurrentSite { get; init; }
     /// <summary>"In use: ConfigMgr. Not in use: Intune, WSUS."</summary>
     public string SystemsText { get; init; } = "";
     public required string ReportFolder { get; init; }
@@ -71,6 +75,9 @@ public partial class OneClickPlanViewModel : ObservableObject
     [ObservableProperty] private bool _showResultWsus;
     [ObservableProperty] private bool _showResultIntune;
     [ObservableProperty] private string _reportPath = "";
+
+    public const string SiteChangedText =
+        "The ConfigMgr site or its provider changed after this plan was made. Nothing was run. Close this window and select One Click again.";
 
     public string Action => _context.Action;
 
@@ -313,6 +320,14 @@ public partial class OneClickPlanViewModel : ObservableObject
     [RelayCommand(CanExecute = nameof(CanRun))]
     private async Task RunAsync()
     {
+        // The plan names one site; the run reads the stored settings. They must be the same.
+        if (_context.CurrentSite is { } current && current() != _context.PlannedSite)
+        {
+            SummaryText = SiteChangedText;
+            BlockingText = SiteChangedText;
+            _context.Log?.Invoke("One Click: " + SiteChangedText);
+            return;
+        }
         var included = Rows.Where(r => r.Include).ToList();
         if (included.Count == 0) return;
 

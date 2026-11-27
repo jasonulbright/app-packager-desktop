@@ -128,6 +128,7 @@ public static partial class PivotsScriptsRegistration
         services.AddSingleton(sp =>
         {
             var settings = sp.GetRequiredService<SettingsService>();
+            var lifetime = sp.GetService<SitePageLifetime>();
             return new PivotsScriptsPageServices(
                 sp.GetRequiredService<IPivotsScriptsService>(),
                 sp.GetRequiredService<IPivotsSessionStore>(),
@@ -139,7 +140,7 @@ public static partial class PivotsScriptsRegistration
                 sp.GetRequiredService<PivotsScriptsWriter>(),
                 settings.Load,
                 () => PivotsScriptsPreferences.Load(settings),
-                choices => PivotsScriptsPreferences.Save(settings, choices),
+                choices => lifetime?.IsRetired != true && PivotsScriptsPreferences.Save(settings, choices),
                 sp.GetRequiredService<IAppLog>());
         });
         services.AddSingleton<PivotsScriptsViewModel>();

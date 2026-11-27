@@ -86,6 +86,7 @@ public static partial class DpContentRegistration
         services.AddSingleton(sp =>
         {
             var settings = sp.GetRequiredService<SettingsService>();
+            var lifetime = sp.GetService<SitePageLifetime>();
             return new DpContentPageServices(
                 sp.GetRequiredService<IDpContentService>(),
                 sp.GetRequiredService<IDpContentAuditLog>(),
@@ -95,7 +96,7 @@ public static partial class DpContentRegistration
                 sp.GetRequiredService<DpContentWriter>(),
                 settings.Load,
                 () => DpContentPreferences.Load(settings),
-                choices => DpContentPreferences.Save(settings, choices),
+                choices => lifetime?.IsRetired != true && DpContentPreferences.Save(settings, choices),
                 sp.GetRequiredService<IAppLog>());
         });
         services.AddSingleton<DpContentManagerViewModel>();

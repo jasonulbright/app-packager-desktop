@@ -18,7 +18,11 @@ The tooltip of the footer says what it does. The footer is the only control that
 
 ### A switch is refused while a run is active
 
-The site cannot change while a check, Stage, publish or tool run is active. The footer then shows a message and the site stays. Wait until the run ends or cancel it, then switch the site. A switch writes nothing into the old site and nothing into the new site.
+The site cannot change while a check, Stage, publish, ConfigMgr conversion or tool run is active, also while **Pivots and Scripts** waits for the results of a run. A publish is active from the read before its review until its results close. The footer then shows a message and the site stays. Wait until the run ends or cancel it, then switch the site. A switch writes nothing into the old site and nothing into the new site.
+
+### What a switch closes and clears
+
+A switch clears the checked rows and the status line of the App Packager page. It reads the publish buttons, the **Publishing** line of the detail pane and the **Publish All** line again. It closes the **One Click**, **CVE**, **Catalog** and ConfigMgr conversion windows. **Export Check ConfigMgr Results** has nothing to export until the next check. Every tool page of the old site goes, with its lists, selections, plans, results and **Undo last change**. The page that shows opens again and reads the new site. An import into the active site does the same.
 
 ## Add a site
 

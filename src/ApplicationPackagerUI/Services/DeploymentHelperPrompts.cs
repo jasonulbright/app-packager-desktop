@@ -205,6 +205,7 @@ public static partial class DeploymentHelperRegistration
         services.AddSingleton(sp =>
         {
             var settings = sp.GetRequiredService<SettingsService>();
+            var lifetime = sp.GetService<SitePageLifetime>();
             return new DeploymentPageServices(
                 sp.GetRequiredService<IDeploymentService>(),
                 sp.GetRequiredService<ICollectionService>(),
@@ -216,7 +217,7 @@ public static partial class DeploymentHelperRegistration
                 sp.GetRequiredService<DeploymentWriter>(),
                 settings.Load,
                 () => DeploymentHelperPreferences.Load(settings),
-                choices => DeploymentHelperPreferences.Save(settings, choices),
+                choices => lifetime?.IsRetired != true && DeploymentHelperPreferences.Save(settings, choices),
                 sp.GetRequiredService<IRingService>(),
                 sp.GetRequiredService<RingWriter>(),
                 sp.GetRequiredService<IAppLog>(),

@@ -296,10 +296,9 @@ public sealed class OneClickRowRunner(IOneClickExecution execution, ISettingsRea
                             cell = "published " + id;
                             if (destinationOutcome == InventoryOutcome.PublishedSupersedenceNotApplied)
                             {
-                                // The application is complete and the run did not fail: the row is published with a warning, and the
-                                // version stays pending for the supersedence-only pass of the next run.
+                                // The application is complete and the run did not fail: the row is published with a warning.
                                 cell = $"published {id}, supersedence not applied";
-                                reasons.Add("ConfigMgr: supersedence not applied, the next run applies it");
+                                reasons.Add("ConfigMgr: supersedence not applied");
                             }
                             (ciId, modelName) = (result.ConfigMgrCiId, result.ConfigMgrModelName);
                             // A warning of a run that succeeded (an icon that was not applied) goes to the history and the report.

@@ -115,6 +115,14 @@ public sealed partial class CollectionComplianceViewModel : ObservableObject
     private int _generation;
     private int _listGeneration;
     private bool _writing;
+    private readonly object _writeHold = new();
+
+    // The site cannot change until the write ends, also one that goes on after its window closed.
+    private void SetWriting(bool value)
+    {
+        _writing = value;
+        ApplicationPackagerEngine.Services.SiteRunGuard.Set(_writeHold, value ? "a collection change is being written" : null);
+    }
     private bool _background;
     private CollectionPlan? _lastRunPlan;
     private IReadOnlyList<CollectionGridRow> _selectedRows = [];
@@ -740,7 +748,7 @@ public sealed partial class CollectionComplianceViewModel : ObservableObject
             if (_background) { StatusMessage = BackgroundRunText; report?.Invoke(BackgroundRunText); }
             return null;
         }
-        _writing = true;
+        SetWriting(true);
         _lastRunPlan = null;
         NotifyWriteCommands();
         var detached = false;
@@ -817,7 +825,7 @@ public sealed partial class CollectionComplianceViewModel : ObservableObject
         {
             if (!detached)
             {
-                _writing = false;
+                SetWriting(false);
                 NotifyWriteCommands();
             }
         }
@@ -843,7 +851,7 @@ public sealed partial class CollectionComplianceViewModel : ObservableObject
                 StatusMessage = BackgroundRunEndedText;
             }
             _background = false;
-            _writing = false;
+            SetWriting(false);
             NotifyWriteCommands();
         }
     }

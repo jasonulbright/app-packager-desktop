@@ -54,7 +54,7 @@ The rights of each destination are in [Permissions](../reference/permissions.md)
 8. Select **Run**.
 9. Wait for the run. The summary line shows `Running: <N> application(s)`. Select **Cancel** to stop the run.
 10. When a destination has a result, the window **Publish results** opens. Read it and select **Done**. **Results** in the plan window opens it again. See [The results](stage-and-publish.md#the-results).
-11. Review the result columns. The summary line ends with `Complete: <N> published, <N> failed. Report: <file>`. When a row only applied supersedence, the line adds `, <N> superseded` before the report.
+11. Review the result columns. The summary line ends with `Complete: <N> published, <N> failed. Report: <file>`.
 12. When an application failed, **Review failed application** selects the first one in the grid.
 13. Select **Open report** to open the report of this window. Select **Run history** to see the earlier runs.
 14. Select **Close**.
@@ -83,7 +83,7 @@ The heading is **Review One Click plan**. The lines under it show:
 | **ConfigMgr**, **WSUS**, **Intune** | The destinations of the row for this run. |
 | **Last published** | The version last published to each destination, for example `ConfigMgr 26.03`. |
 | **Destinations from** | `Saved for this application`, `Default`, or `Changed for this run` when a box differs from the saved choice. |
-| **Planned** | The steps: `Check`, `Stage`, `Publish to <destinations>`, `Supersedence`, or `Skip`. `Supersedence` is the pass that applies a supersedence step that failed at an earlier publish. See Supersedence in a run. |
+| **Planned** | The steps: `Check`, `Stage`, `Publish to <destinations>`, or `Skip`. |
 | **Reason** | Why the plan leaves a row or a destination out. |
 
 During a run the columns change. The destination boxes, **Last published**, **Destinations from** and **Planned** give way to **Step** and one result column for each destination in use: **ConfigMgr result**, **WSUS result**, **Intune result**.
@@ -98,13 +98,10 @@ The plan leaves a row or a destination out for these reasons:
 - `<destination>: not supported`. The definition declares that WSUS cannot take the application, or the destination refused this version before.
 - `<destination>: published <version> is newer than <latest>` or `site version <version> is newer than <latest>`. One Click does not publish an older build over a newer one.
 - `<destination>: <version> already published`.
-- `ConfigMgr: <version> already published, supersedence pending`. The version is on the site and its supersedence step failed. The row does not publish it again. It plans the step `Supersedence`.
-
-When the plan has rows of that kind, the summary line ends with `, <N> supersedence only`.
 
 ## Rules of a run
 
-- After you select **Run**, One Click asks no more questions. The exception is the local installer source below.
+- After you select **Run**, One Click asks no more questions. There are two exceptions: the local installer source below, and the confirmation window of supersedence. See [Supersedence in a run](#supersedence-in-a-run).
 - For each application, One Click checks the vendor version first. A failed check gives the status `Check error` and the outcome `Failed`.
 - When the vendor reports an older version than the one seen before, the row gets the status `Vendor older than last seen` and the outcome `Skipped`.
 - **Report only** ends with the outcome `Checked`. The reason is `update available` or `up to date`.
@@ -123,7 +120,6 @@ When the plan has rows of that kind, the summary line ends with `, <N> supersede
 | Outcome | Meaning |
 |---|---|
 | `Published` | At least one destination published and none failed. A ConfigMgr publish whose supersedence step failed is also `Published`; its ConfigMgr result reads `published <name>, supersedence not applied`. |
-| `Superseded` | The row only ran the supersedence pass, and the step applied or found no older version. |
 | `Staged` | The application is staged. No destination took a publish. |
 | `Checked` | A **Report only** run checked the version. |
 | `Skipped` | Nothing was published and nothing failed. |
@@ -137,7 +133,7 @@ The status of the row in the App Packager grid shows `Published`, `Published, pa
 
 Each run and each **Plan only** writes two files: `one-click-<yyyyMMdd-HHmmss>.md` and `one-click-<yyyyMMdd-HHmmss>.json`. A name clash adds `-2`, `-3` and so on. The folder is `Logs\OneClick` under `%LOCALAPPDATA%\SRLPackr`. See [Data folders](../reference/data-folders.md).
 
-The Markdown report has these parts: a table with Started, Ended, Operator, Computer, Action, the counts of applications, published, not supported, skipped and failed (with the lines `Supersedence applied` and `Supersedence not applied` when a row has them); `## Scope`; `## Applications`; `## Details` with the full refusal and failure text, and for a WSUS success the note that the update reaches only a computer that has an older version; `## Rollback`.
+The Markdown report has these parts: a table with Started, Ended, Operator, Computer, Action, the counts of applications, published, not supported, skipped and failed (with the line `Supersedence not applied` when a row has that result); `## Scope`; `## Applications`; `## Details` with the full refusal and failure text, and for a WSUS success the note that the update reaches only a computer that has an older version; `## Rollback`.
 
 The scope text of each destination:
 
@@ -169,25 +165,13 @@ In the plan window, **Include**, the destination boxes, **Administrative comment
 
 ### Supersedence in a run
 
-When the supersedence mode of **Settings**, **Application Settings** is not `Off`, the ConfigMgr publish of a run also links the new application to the older one. If that step fails, the application stays on the site and the row shows `Published` with the warning `supersedence not applied`. One Click keeps the version as pending in the inventory of the ConfigMgr site that is set. The next run does not publish the version again. It does the lookup of the older application and the supersedence step for that application, and nothing else: it stages nothing and publishes nothing. The plan shows the step `Supersedence` for such a row. The step reads the relations that exist and adds only the missing ones, so a second run is safe. The plan does not check the supersedence mode. A mode of `Off` keeps the pending state (`supersedence not run`).
-
-![The One Click plan window with the step Supersedence for an application whose supersedence step is pending](../images/core-one-click-plan-supersedence.png)
-
-| Result of the step | Pending state | Row outcome |
-|---|---|---|
-| Applied | Ends. | `Superseded` |
-| No older version found | Ends. | `Superseded` |
-| Not applied (the site refused, the site is not reachable, the application is not on the site, no stage manifest) | Stays. | `Skipped`, with `supersedence not applied: <reason>` in the ConfigMgr result |
-| Not run (the mode is `Off`) | Stays. | `Skipped`, with `supersedence not run: <reason>` |
-
-**Force** publishes the version again instead. A publish of a changed build also publishes again and clears the pending state. A row that has another destination to publish stages and publishes it as usual, and the pass runs first. Only a run with the action **Stage and Publish** runs the pass. The pass is for ConfigMgr only.
+When supersedence is on for an application, the ConfigMgr publish of a run also links the new application to the older one, as a **Publish All** run does. The confirmation window of supersedence can open during the run. If the step fails, the new application stays on the site. The row is `Published`, and its ConfigMgr result reads `published <name>, supersedence not applied`. A later run does not run the step on its own. See [Post Packaging steps](publish-to-configmgr.md#post-packaging-steps).
 
 ## Limits
 
 - The lab validated the skip and republish rules on a lab site. A second run without a change skipped every application. A new profile revision made the next run stage the application again.
 - In the lab, a run with Force on sent every row to its destinations again. The ConfigMgr policy **Skip the application** and the state of the WSUS server still decided the result. Nothing new was published.
 - One Click publishes to Intune through the same service as **Publish All**. Intune publishing is tested against simulated Graph responses only.
-- The supersedence pass reads the identity of the application line from the manifest of the last stage. Without that manifest, the pass reports `stage-manifest.json not found`, and the version stays pending until you stage the application once.
 - The plan does not show a pending change of the Workbench profile. It can show `ConfigMgr: <version> already published` for a row that the run then stages again.
 - The lab did not verify a run with Force on that publishes to a real WSUS server.
 

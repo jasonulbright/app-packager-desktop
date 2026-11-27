@@ -36,7 +36,7 @@
             <DataGrid.Columns>
                 <DataGridTextColumn Header="Title" Binding="{Binding Title}" Width="*" MinWidth="280" />
                 <DataGridTextColumn Header="Type" Binding="{Binding PackageType}" Width="80" />
-                <DataGridTextColumn Header="Created" Binding="{Binding CreatedText}" Width="125" />
+                <DataGridTextColumn Header="Created" Binding="{Binding CreatedText}" Width="SizeToCells" MinWidth="140" />
                 <DataGridTextColumn Header="Approved for" Binding="{Binding ApprovedGroups}" Width="150" />
                 <DataGridTextColumn Header="Declined" Binding="{Binding Declined}" Width="95" />
                 <DataGridTextColumn Header="Superseded" Binding="{Binding Superseded}" Width="115" />

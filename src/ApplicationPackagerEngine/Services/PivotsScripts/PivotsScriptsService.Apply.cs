@@ -511,8 +511,10 @@ public sealed partial class PivotsScriptsService
         // The ID goes into an OData filter and a session parameter: only a positive whole number is read.
         if (!long.TryParse(operationId, NumberStyles.None, CultureInfo.InvariantCulture, out var number) || number <= 0)
             throw new PivotsServiceException("The operation ID of the run is not valid, so its results cannot be read.");
-        if (!_runs.TryGetValue(operationId, out var run))
+        // An operation ID is a number of one site: a run of another site under the same number is not this run.
+        if (!_runs.TryGetValue(operationId, out var run) || !IsOfTheConnectedSite(run.Session))
         {
+            _runs.TryRemove(operationId, out _);
             run = await ReloadAsync(operationId, sessionId, ct).ConfigureAwait(false);
             run = RememberRun(run);
         }
@@ -593,16 +595,24 @@ public sealed partial class PivotsScriptsService
     /// the script, and the results saved so far. A script run whose script the site no longer holds is
     /// refused: the site removed its run history with the script.
     /// </summary>
+    private bool IsOfTheConnectedSite(PivotsSessionRecord session)
+    {
+        var (site, provider) = _connection();
+        return (session.Site.Length == 0 || string.Equals(session.Site, site, StringComparison.OrdinalIgnoreCase))
+            && (session.Provider.Length == 0 || string.Equals(session.Provider, provider, StringComparison.OrdinalIgnoreCase));
+    }
+
     private async Task<RunState> ReloadAsync(string operationId, string? sessionId, CancellationToken ct)
     {
         var session = sessionId is { Length: > 0 } ? _sessions.Read(sessionId) : _sessions.FindByOperation(operationId, MaxSessionsSearched);
         if (session is null || session.OperationId != operationId || session.Kind is not (PivotsChangeKind.RunPivot or PivotsChangeKind.RunScript) || session.Devices.Count == 0)
             throw new PivotsServiceException("No saved session of this page holds that run, so its results cannot be read. Check Monitoring > Client Operations or Script Status in the console.");
         // An operation ID is a number of one site: the same number on another site is another run.
-        var (site, provider) = _connection();
-        if ((session.Site.Length > 0 && !string.Equals(session.Site, site, StringComparison.OrdinalIgnoreCase))
-            || (session.Provider.Length > 0 && !string.Equals(session.Provider, provider, StringComparison.OrdinalIgnoreCase)))
+        if (!IsOfTheConnectedSite(session))
+        {
+            var (site, provider) = _connection();
             throw new PivotsServiceException($"The saved run belongs to site {session.Site} on {session.Provider}, and the page is connected to site {site} on {provider}. Connect to the site of the run in Settings, then wait for its results again.");
+        }
         if (session.Kind == PivotsChangeKind.RunScript)
         {
             var script = GuidRegex().IsMatch(session.ScriptGuid ?? "") ? await LoadScriptAsync(session.ScriptGuid!, ct).ConfigureAwait(false) : null;

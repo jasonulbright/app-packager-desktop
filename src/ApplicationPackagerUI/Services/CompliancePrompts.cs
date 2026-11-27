@@ -66,6 +66,7 @@ public static class ComplianceRegistration
         services.AddSingleton(sp =>
         {
             var settings = sp.GetRequiredService<SettingsService>();
+            var lifetime = sp.GetService<SitePageLifetime>();
             return new CompliancePageServices(
                 sp.GetRequiredService<IComplianceService>(),
                 sp.GetRequiredService<ICatalogService>(),
@@ -76,7 +77,7 @@ public static class ComplianceRegistration
                 sp.GetRequiredService<ComplianceWriter>(),
                 settings.Load,
                 () => CollectionCompliancePreferences.LoadCompliance(settings),
-                choices => CollectionCompliancePreferences.SaveCompliance(settings, choices),
+                choices => { if (lifetime?.IsRetired != true) CollectionCompliancePreferences.SaveCompliance(settings, choices); },
                 sp.GetRequiredService<IAppLog>());
         });
         services.AddSingleton<ComplianceViewModel>();

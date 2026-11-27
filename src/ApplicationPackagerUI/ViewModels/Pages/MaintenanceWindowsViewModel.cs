@@ -128,6 +128,14 @@ public sealed partial class MaintenanceWindowsViewModel : ObservableObject
     private Task? _loading;
     private int _generation;
     private bool _writing;
+    private readonly object _writeHold = new();
+
+    // The site cannot change until the write ends, also one that goes on after its window closed.
+    private void SetWriting(bool value)
+    {
+        _writing = value;
+        ApplicationPackagerEngine.Services.SiteRunGuard.Set(_writeHold, value ? "a maintenance window change is being written" : null);
+    }
     private bool _background;
     private MaintenancePlan? _lastRunPlan;
     private IReadOnlyList<MaintenanceWindowRow> _selectedWindows = [];
@@ -135,11 +143,11 @@ public sealed partial class MaintenanceWindowsViewModel : ObservableObject
 
     public MaintenanceWindowsViewModel(IMaintenanceWindowService windows, IScheduleProjector projector, IMaintenanceTemplateStore templates,
         IMaintenanceReportWriter reports, IMaintenanceWindowsPrompts prompts, IChangePlanDialogs plans, MaintenanceWindowWriter writer,
-        SettingsService settings, IAppLog log)
+        SettingsService settings, IAppLog log, SitePageLifetime? lifetime = null)
         : this(new MaintenanceWindowsPageServices(windows, projector, templates, reports, prompts, plans, writer,
             settings.Load,
             () => MaintenanceWindowsPreferences.Load(settings),
-            choices => MaintenanceWindowsPreferences.Save(settings, choices),
+            choices => { if (lifetime?.IsRetired != true) MaintenanceWindowsPreferences.Save(settings, choices); },
             log,
             () => DateTime.Now))
     {
@@ -685,7 +693,7 @@ public sealed partial class MaintenanceWindowsViewModel : ObservableObject
             if (_background) { StatusMessage = BackgroundRunText; report?.Invoke(BackgroundRunText); }
             return null;
         }
-        _writing = true;
+        SetWriting(true);
         _lastRunPlan = null;
         NotifyWriteCommands();
         var detached = false;
@@ -760,7 +768,7 @@ public sealed partial class MaintenanceWindowsViewModel : ObservableObject
         {
             if (!detached)
             {
-                _writing = false;
+                SetWriting(false);
                 NotifyWriteCommands();
             }
         }
@@ -783,7 +791,7 @@ public sealed partial class MaintenanceWindowsViewModel : ObservableObject
             LastPlan = offerUndo && plan.UndoChanges().Count > 0 ? plan : null;
             StatusMessage = BackgroundRunEndedText;
             _background = false;
-            _writing = false;
+            SetWriting(false);
             NotifyWriteCommands();
         }
     }

@@ -131,6 +131,7 @@ public static partial class CollectionComplianceRegistration
         services.AddSingleton(sp =>
         {
             var settings = sp.GetRequiredService<SettingsService>();
+            var lifetime = sp.GetService<SitePageLifetime>();
             return new CollectionCompliancePageServices(
                 sp.GetRequiredService<ICollectionService>(),
                 sp.GetRequiredService<IQueryTemplateStore>(),
@@ -140,7 +141,7 @@ public static partial class CollectionComplianceRegistration
                 sp.GetRequiredService<CollectionWriter>(),
                 settings.Load,
                 () => CollectionCompliancePreferences.Load(settings),
-                choices => CollectionCompliancePreferences.Save(settings, choices),
+                choices => { if (lifetime?.IsRetired != true) CollectionCompliancePreferences.Save(settings, choices); },
                 sp.GetRequiredService<IAppLog>());
         });
         services.AddSingleton<CollectionComplianceViewModel>();

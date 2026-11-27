@@ -35,7 +35,11 @@ public sealed partial class ConvertFromCmViewModel : ObservableObject
 
     public bool Idle => !Busy;
 
-    partial void OnBusyChanged(bool value) => OnPropertyChanged(nameof(Idle));
+    partial void OnBusyChanged(bool value)
+    {
+        ApplicationPackagerEngine.Services.SiteRunGuard.Set(this, value ? "a ConfigMgr conversion is running" : null);
+        OnPropertyChanged(nameof(Idle));
+    }
 
     /// <summary>Publishing needs the .intunewin files, so a Publish choice turns them on; clearing them clears Publish.</summary>
     partial void OnPublishChanged(bool value)

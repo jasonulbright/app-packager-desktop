@@ -57,13 +57,6 @@ public sealed partial class DpContentManagerViewModel
     [NotifyCanExecuteChangedFor(nameof(OpenReportsFolderCommand))]
     private string? _lastReportFolder;
 
-    /// <summary>A switch of site drops the undo and the results of the site that was active.</summary>
-    public void ClearForSiteChange()
-    {
-        LastUndo = null;
-        ReleaseResults();
-    }
-
     private void ReleaseResults()
     {
         LastResults.Clear();

@@ -83,7 +83,14 @@ public sealed partial class PivotsScriptsViewModel
     partial void OnResultTabIndexChanged(int value) => SaveLater();
     partial void OnWaitMinutesChanged(int value) => SaveLater();
     partial void OnResultFilterChanged(string value) => Debounce(ResultFilterKey, ApplyResultFilter);
-    partial void OnIsWaitingChanged(bool value) => UpdateSummary();
+    private readonly object _waitHold = new();
+
+    partial void OnIsWaitingChanged(bool value)
+    {
+        // The wait reads the site, so the site stays until it ends or the operator stops it.
+        ApplicationPackagerEngine.Services.SiteRunGuard.Set(_waitHold, value ? "Pivots and Scripts waits for the results of a run" : null);
+        UpdateSummary();
+    }
     partial void OnWaitProgressChanged(string value) => UpdateSummary();
 
     /// <summary>True when the rows of the shown set hold more columns than <see cref="MaxResultColumns"/>.</summary>

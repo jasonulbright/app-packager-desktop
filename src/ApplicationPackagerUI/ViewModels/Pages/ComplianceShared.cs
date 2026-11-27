@@ -153,16 +153,6 @@ public sealed partial class ComplianceShared(CompliancePageServices services) : 
     }
 
     /// <summary>Releases the shared data; a result that arrives later is discarded.</summary>
-    /// <summary>A switch of site drops the plan, the undo and the results of the site that was active.</summary>
-    public void ClearForSiteChange()
-    {
-        LastPlan = null;
-        LastResults.Clear();
-        OnPropertyChanged(nameof(HasResults));
-        ResultSummary = "";
-        ForgetCollections();
-    }
-
     public void Release()
     {
         Generation++;

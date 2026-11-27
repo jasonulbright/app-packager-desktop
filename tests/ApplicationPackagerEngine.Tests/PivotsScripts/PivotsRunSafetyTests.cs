@@ -360,6 +360,18 @@ public sealed class PivotsRunSafetyTests
     // ---- A reloaded run --------------------------------------------------------------------------------
 
     [Fact]
+    public async Task ARunHeldInMemoryIsNotReadAfterTheConnectionMovedToAnotherSite()
+    {
+        using var h = new PivotsHarness();
+        var plan = await h.PreparePivotAsync(RunTargetKind.Device, Client01, window: PivotsChange.SendOnly);
+        var o = await h.ApplyAsync(plan);
+        h.Connection = ("LAB", "cm02.contoso.com");
+        var ex = await Assert.ThrowsAsync<PivotsServiceException>(() => h.WaitAsync(o.OperationId!, sessionId: o.SessionId));
+        Assert.Contains("belongs to site MCM on cm01.contoso.com", ex.Message);
+        Assert.Equal(0, h.Admin.StatusReads);
+    }
+
+    [Fact]
     public async Task ASavedRunOfAnotherSiteIsNotReadOnTheCurrentConnection()
     {
         using var h = new PivotsHarness();
