@@ -20,8 +20,12 @@ public sealed class ReleaseCiGateTests
         return Path.Combine([folder.FullName, .. parts]);
     }
 
-    private static object Run(long id, string sha, string status, string? conclusion, string created) =>
-        new { databaseId = id, headSha = sha, status, conclusion = conclusion ?? "", @event = "push", createdAt = created };
+    private static object Run(long id, string sha, string status, string? conclusion, string created,
+        string trigger = "push", string title = "ci") =>
+        new { databaseId = id, headSha = sha, status, conclusion = conclusion ?? "", @event = trigger, createdAt = created, displayTitle = title };
+
+    private static object FilteredRun(long id, string status, string? conclusion, string created) =>
+        Run(id, Sha, status, conclusion, created, "workflow_dispatch", "[filtered] FullyQualifiedName~SomeTests");
 
     private static async Task<(int Exit, string Output)> GateAsync(string sha, params object[] runs)
     {
@@ -100,6 +104,86 @@ public sealed class ReleaseCiGateTests
         Assert.NotEqual(0, exit);
     }
 
+    [Theory]
+    [InlineData("completed", "success")]
+    [InlineData("completed", "failure")]
+    [InlineData("queued", null)]
+    [InlineData("in_progress", null)]
+    public async Task AFilteredRunCountsForNothing(string status, string? conclusion)
+    {
+        // It cannot pass a commit.
+        var (alone, output) = await GateAsync(Sha, FilteredRun(1, status, conclusion, "2026-11-08T10:00:00Z"));
+        Assert.NotEqual(0, alone);
+        Assert.Contains("No full CI run exists", output);
+
+        // It cannot block a green full run, and it cannot hide a red one.
+        var (green, _) = await GateAsync(Sha,
+            Run(1, Sha, "completed", "success", "2026-11-08T09:00:00Z"), FilteredRun(2, status, conclusion, "2026-11-08T10:00:00Z"));
+        Assert.Equal(0, green);
+
+        var (red, redOutput) = await GateAsync(Sha,
+            Run(1, Sha, "completed", "failure", "2026-11-08T09:00:00Z"), FilteredRun(2, status, conclusion, "2026-11-08T10:00:00Z"));
+        Assert.NotEqual(0, red);
+        Assert.Contains("ended failure", redOutput);
+    }
+
+    [Fact]
+    public async Task AnUnfilteredManualRunCountsAndAQueuedOneRefuses()
+    {
+        var full = Run(1, Sha, "completed", "success", "2026-11-08T09:00:00Z", "workflow_dispatch");
+        var (exit, _) = await GateAsync(Sha, full);
+        Assert.Equal(0, exit);
+
+        var (queued, output) = await GateAsync(Sha, full, Run(2, Sha, "queued", null, "2026-11-08T10:00:00Z", "workflow_dispatch"));
+        Assert.NotEqual(0, queued);
+        Assert.Contains("still queued", output);
+    }
+
+    [Fact]
+    public async Task TheMarkerInTheCommitMessageOfAPushRunDoesNotHideTheRun()
+    {
+        var (exit, output) = await GateAsync(Sha,
+            Run(1, Sha, "completed", "success", "2026-11-08T09:00:00Z"),
+            Run(2, Sha, "completed", "failure", "2026-11-08T10:00:00Z", "push", "[filtered] a commit message"));
+
+        Assert.NotEqual(0, exit);
+        Assert.Contains("ended failure", output);
+    }
+
+    [Theory]
+    [InlineData("displayTitle")]
+    [InlineData("event")]
+    public async Task ARunListWithoutAFieldThatTheCheckNeedsRefusesTheRelease(string field)
+    {
+        var run = JsonSerializer.SerializeToNode(Run(1, Sha, "completed", "success", "2026-11-08T10:00:00Z"))!.AsObject();
+        Assert.True(run.Remove(field));
+
+        var (exit, output) = await GateAsync(Sha, run);
+
+        Assert.NotEqual(0, exit);
+        Assert.Contains($"has no {field}", output);
+    }
+
+    [Fact]
+    public void TheCiRunNameMarksAFilteredRunAndIsEmptyWithoutAFilter()
+    {
+        var yaml = File.ReadAllText(RepoFile(".github", "workflows", "ci.yml"));
+        Assert.Contains("run-name: \"${{ inputs.filter && format('[filtered] {0}', inputs.filter) || '' }}\"", yaml);
+
+        var gate = File.ReadAllText(RepoFile("tools", "assert-ci-green.ps1"));
+        Assert.Contains("StartsWith('[filtered]'", gate);
+    }
+
+    [Fact]
+    public void OnlyADryRunOfTheReleaseWorkflowRunsTheTests()
+    {
+        var yaml = File.ReadAllText(RepoFile(".github", "workflows", "release.yml")).ReplaceLineEndings("\n");
+
+        Assert.Contains("- name: Set the display resolution for WPF tests\n        if: ${{ inputs.dry_run }}\n", yaml);
+        Assert.Contains("- name: Engine tests\n        if: ${{ inputs.dry_run }}\n", yaml);
+        Assert.Equal(2, yaml.Split("dotnet test ").Length);
+    }
+
     [Fact]
     public void CheckoutKeepsNoCredentialAndOnlyTheTagPushPresentsTheToken()
     {
@@ -129,6 +213,7 @@ public sealed class ReleaseCiGateTests
         Assert.Contains("if: ${{ !inputs.dry_run }}", block);
         Assert.Contains("tools/assert-ci-green.ps1", block);
         Assert.Contains("--workflow ci.yml", block);
+        Assert.Contains("--json databaseId,status,conclusion,event,createdAt,headSha,displayTitle", block);
         Assert.Contains("${{ github.sha }}", block);
         Assert.Contains("actions: read", yaml);
     }

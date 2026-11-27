@@ -1,21 +1,22 @@
 name: ci
 
+# A manual run with a filter runs only some tests. Its run name starts with "[filtered]", and the release check
+# (tools/assert-ci-green.ps1) does not count it. gh run list returns the run name as displayTitle; it does not return
+# the inputs. Without a filter the value is empty, and GitHub then gives the run its default name.
+run-name: "${{ inputs.filter && format('[filtered] {0}', inputs.filter) || '' }}"
+
 on:
   push:
     branches:
       - main
-      - overhaul/v1
     # A push that changes only guide images (docs/images) skips the long build and test job. Markdown files are not skipped:
     # tests read README.md and docs/*.md (definition counts, ASCII, guide coverage, notices).
     paths-ignore:
       - 'docs/images/**'
-  pull_request:
-    branches:
-      - overhaul/v1
   workflow_dispatch:
     inputs:
       filter:
-        description: "Optional dotnet test filter (a fast run of some tests); empty runs everything"
+        description: "Optional dotnet test filter (a fast run of some tests, which does not count for a release); empty runs everything"
         required: false
         default: ""
 

@@ -6,13 +6,8 @@ Maintainer procedure for publishing a release. Run every command from the reposi
 
 - You are on `main`, the working tree is clean and `main` is level with `origin/main`.
 - Every commit on `main` is part of a release.
-- The engine tests pass:
 
-```bash
-dotnet test tests/ApplicationPackagerEngine.Tests/ApplicationPackagerEngine.Tests.csproj --configuration Release --nologo
-```
-
-Any failure stops the release. The workflow runs the same tests again.
+The full CI run on the release commit is the test run of the release (section 5). A release run of `release.yml` does not run the tests again.
 
 ## 2. Version
 
@@ -50,6 +45,16 @@ git push origin main
 
 ## 5. Run the workflow
 
+First, make sure that the CI workflow (`ci.yml`) has a green full run on the release commit. A push to `main` starts that run. A push that changes only files in `docs/images` starts no run. In that case, start a full run with an empty filter:
+
+```bash
+gh workflow run ci.yml -R jasonulbright/app-packager-desktop --ref main
+```
+
+A manual run with a filter runs only some tests. Its run name starts with `[filtered]`. It does not count for a release: it cannot pass the commit and it cannot block the commit. A filtered run on `main` still cancels a CI run that is in progress on `main`, because the two runs are in the same concurrency group.
+
+Wait for the full run to pass. Then start the release:
+
 ```bash
 gh workflow run release.yml -R jasonulbright/app-packager-desktop --ref main -f headline="<one outcome metric>"
 gh run watch -R jasonulbright/app-packager-desktop $(gh run list -R jasonulbright/app-packager-desktop --workflow release.yml -L 1 --json databaseId --jq '.[0].databaseId')
@@ -60,14 +65,13 @@ The headline becomes the `##` line of the release notes. It is one concrete outc
 The workflow:
 
 1. Refuses to run off `main`.
-2. Refuses a commit that the CI workflow has not passed (`tools/assert-ci-green.ps1`): a failed run, a run still going or no run on the commit stops the release. Start the CI workflow on the commit and wait for it before the release. A dry run skips this check.
+2. Refuses a commit that the CI workflow has not passed (`tools/assert-ci-green.ps1`). A full run that is queued or running stops the release. If no full run is open, the newest full run that was not cancelled must have passed. A commit with no such run stops the release. Filtered runs and cancelled runs do not count. A run list without the run name or the event also stops the release. A dry run skips this check.
 3. Reads the version from the UI project, checks it with `tools/test-release-version.ps1` and checks that the tag and the release do not exist.
 4. Reads the `## [<ver>]` section of `CHANGELOG.md` and writes the release notes: `## <headline>`, the section, and `Full changelog: CHANGELOG.md`.
-5. Runs the engine tests.
-6. Publishes the application and `AppPackagerBuild.exe` with `tools/build-release.ps1 -PublishOnly`.
-7. Signs the published executables (the builds are framework-dependent: the .NET Windows Desktop Runtime is not shipped, and the installer installs it on demand). Builds the uninstaller with `tools/build-installer.ps1 -UninstallerOnly` and signs it, because Windows Defender removes an unsigned `Uninstall.exe` that an installer writes. Then builds the installer from the signed stage and the signed uninstaller, and signs the installer.
-8. Verifies every signature with `tools/verify-signatures.ps1`.
-9. Zips the stage, writes `checksums.txt`, tags the commit `v<ver>` and publishes the release with the installer, the zip and `checksums.txt`.
+5. Publishes the application and `AppPackagerBuild.exe` with `tools/build-release.ps1 -PublishOnly`.
+6. Signs the published executables (the builds are framework-dependent: the .NET Windows Desktop Runtime is not shipped, and the installer installs it on demand). Builds the uninstaller with `tools/build-installer.ps1 -UninstallerOnly` and signs it, because Windows Defender removes an unsigned `Uninstall.exe` that an installer writes. Then builds the installer from the signed stage and the signed uninstaller, and signs the installer.
+7. Verifies every signature with `tools/verify-signatures.ps1`.
+8. Zips the stage, writes `checksums.txt`, tags the commit `v<ver>` and publishes the release with the installer, the zip and `checksums.txt`.
 
 The signing identity comes from the federated credential of the Azure app registration. The credential must trust the subject of the run. The run takes no environment, so the subject has the form `repo:<owner>@<owner id>/<repository>@<repository id>:ref:refs/heads/main`.
 
@@ -79,7 +83,7 @@ To test the signed installer on a lab machine before a release, run the workflow
 gh workflow run release.yml -R jasonulbright/app-packager-desktop --ref main -f dry_run=true -f headline="dry run"
 ```
 
-The run tests, builds, signs and verifies everything, but creates no tag and no GitHub release. It skips the version and tag checks, so the version of the last release works. The signed installer, the zip and `checksums.txt` stay as the workflow artifact `release-dry-run` for 3 days: `gh run download <run id> -n release-dry-run`.
+The run runs the engine tests, builds, signs and verifies everything, but creates no tag and no GitHub release. It skips the CI check and the version and tag checks, so the version of the last release works. The signed installer, the zip and `checksums.txt` stay as the workflow artifact `release-dry-run` for 3 days: `gh run download <run id> -n release-dry-run`.
 
 ## 6. Verify the published release
 

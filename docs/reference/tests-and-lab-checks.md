@@ -10,7 +10,7 @@ The unit tests are in `tests\ApplicationPackagerEngine.Tests`. Run one class:
 dotnet test tests\ApplicationPackagerEngine.Tests\ApplicationPackagerEngine.Tests.csproj --filter "FullyQualifiedName~IntuneWinToolPinTests"
 ```
 
-The full suite runs in the CI workflow (`ci.yml`). Tests that open windows take the focus of the computer. Run the full suite in CI or on a lab VM, not on a workstation that someone is using.
+The full suite runs in the CI workflow (`ci.yml`). A release needs a green full run on its commit. A manual run with a filter has a run name that starts with `[filtered]`, and the release check does not count it. Tests that open windows take the focus of the computer. Run the full suite in CI or on a lab VM, not on a workstation that someone is using.
 
 ## Intune content prep tool download
 

@@ -1,13 +1,15 @@
 name: Release
 
 # Run by hand from main once the csproj <Version> and the matching CHANGELOG
-# section are committed. The run tests, publishes, signs the published
+# section are committed. The run publishes, signs the published
 # executables (the application and AppPackagerBuild.exe) with Azure Artifact
 # Signing, compiles the installer from the signed stage and signs that too,
 # verifies both signatures, zips, tags v<version> and publishes the GitHub
 # release with the installer, the zip and their checksums. The uninstaller that
-# the installer carries is built and signed first (see the steps below). A run
-# with dry_run builds and signs everything but creates no tag and no release.
+# the installer carries is built and signed first (see the steps below). A
+# release run does not run the tests: it needs a green full CI run on the same
+# commit. A run with dry_run skips that check, runs the tests, builds and signs
+# everything, and creates no tag and no release.
 #
 # The Azure login exchanges this job's OIDC token for the signing identity.
 # The federated credential on the app registration must carry this run's
@@ -44,7 +46,7 @@ env:
 
 jobs:
   release:
-    name: Test, sign, publish (Windows)
+    name: Build, sign, publish (Windows)
     runs-on: windows-latest
     timeout-minutes: 120
     steps:
@@ -62,15 +64,16 @@ jobs:
           # only the tag push below presents it.
           persist-credentials: false
 
-      # A release is built from a commit the CI workflow has passed. The newest finished run on this commit decides;
-      # a cancelled run counts for nothing, and a run still going refuses the release.
+      # A release is built from a commit the CI workflow has passed. This is the test run of the release. The newest
+      # finished full run on this commit decides, and a full run still queued or running refuses the release.
+      # A cancelled run and a filtered manual run count for nothing.
       - name: Require a green CI run on this commit
         if: ${{ !inputs.dry_run }}
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          $runs = gh run list --workflow ci.yml --commit "${{ github.sha }}" --limit 30 --json databaseId,status,conclusion,event,createdAt,headSha
+          $runs = gh run list --workflow ci.yml --commit "${{ github.sha }}" --limit 30 --json databaseId,status,conclusion,event,createdAt,headSha,displayTitle
           if ($LASTEXITCODE -ne 0) { throw 'gh run list failed.' }
           & tools/assert-ci-green.ps1 -Sha "${{ github.sha }}" -RunsJson ($runs -join "`n")
 
@@ -123,7 +126,9 @@ jobs:
         with:
           dotnet-version: 10.0.x
 
+      # Only a dry run runs the tests here. A release relies on the green full CI run on this commit.
       - name: Set the display resolution for WPF tests
+        if: ${{ inputs.dry_run }}
         shell: pwsh
         run: |
           Set-DisplayResolution -Width 1920 -Height 1080 -Force
@@ -145,6 +150,7 @@ jobs:
           Write-Host "WPF test display: ${width}x${height} DIP, ${pixelWidth}x${pixelHeight} pixels"
 
       - name: Engine tests
+        if: ${{ inputs.dry_run }}
         shell: pwsh
         run: dotnet test tests/ApplicationPackagerEngine.Tests/ApplicationPackagerEngine.Tests.csproj --configuration Release --nologo --blame --blame-hang-timeout 8m --blame-hang-dump-type mini
 
