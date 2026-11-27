@@ -84,7 +84,7 @@ public sealed class OneClickRowRunner(IOneClickExecution execution, ISettingsRea
         var settings = settingsService.Load();
         var plan = execution.ResolveBuildPlan(p);
         var identity = ApplicationInventoryProjection.IdentityFor(p, plan);
-        var entry = projection.Entry(p, settings, plan);
+        var entry = projection.Entry(p, settings, plan, execution.LocalStageVersion(p) is not null);
         var lastKnown = item.PriorKnownVersion ?? entry?.LastKnownVersion ?? "";
         var operationId = Guid.NewGuid().ToString("N");
         var startedAt = DateTimeOffset.UtcNow;

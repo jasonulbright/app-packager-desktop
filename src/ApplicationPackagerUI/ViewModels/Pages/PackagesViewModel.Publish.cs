@@ -113,7 +113,8 @@ public partial class PackagesViewModel : IOneClickRunner, IPublishActionHost
         }
 
         // The history before the checks: the cadence, the last known version and the last publish of the plan are read from it, because the checks record a new check time and version.
-        var history = _inventoryProjection.History(rows, settings, _executionService.ResolveBuildPlan);
+        var history = _inventoryProjection.History(rows, settings, _executionService.ResolveBuildPlan,
+            p => _executionService.LocalStageVersion(p) is not null);
         if (!await OneClickPrechecks.RunAsync(rows, new OneClickChecks(this), AddLogLine))
         {
             AddLogLine("One Click: a check was cancelled, so no plan was made.");

@@ -72,7 +72,7 @@ public sealed class PublishedBuildKeyTests : IDisposable
             InventoryEnvironmentIdentity.ConfigMgr(settings.SiteCode, settings.ProviderMachine), "Publish", "2.0",
             InventoryOutcome.Succeeded, "Widget 2.0", DateTimeOffset.UtcNow, Published));
 
-        var entry = new ApplicationInventoryProjection(inventory).Entry(row, settings, plan);
+        var entry = new ApplicationInventoryProjection(inventory).Entry(row, settings, plan, localInstaller: false);
 
         Assert.Equal("2.0", entry.Published[OneClickDestinations.ConfigMgr].Version);
         Assert.Equal(OneClickHistory.BuildKey("default", 3, ""), entry.PublishedBuild[OneClickDestinations.ConfigMgr]);

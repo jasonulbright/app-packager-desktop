@@ -7,6 +7,9 @@ using ApplicationPackagerEngine.Models;
 using ApplicationPackagerEngine.Models.Inventory;
 using ApplicationPackagerEngine.Services;
 using ApplicationPackagerEngine.Services.OneClick;
+using ApplicationPackagerEngine.Services.Workbench;
+using ApplicationPackagerUI.Models;
+using ApplicationPackagerUI.Services;
 using ApplicationPackagerEngine.Tests.Compliance;
 using ApplicationPackagerUI.ViewModels.Windows;
 using ApplicationPackagerUI.Views.Windows;
@@ -122,9 +125,62 @@ public sealed class PublishSkipAndMatrixTests : IDisposable
             Record(InventoryOutcome.Partial, 1);
             Record(InventoryOutcome.Skipped, 2);
             Assert.True(Partial());
+            // The first call of the next run records "already present" before the operator answers the prompt.
+            Record(InventoryOutcome.AlreadyPresent, 2);
+            Assert.True(Partial());
             Assert.False(inventory.LastObjectIsPartial("a", environment, "Publish", "3.0"));
             Record(InventoryOutcome.Succeeded, 3);
             Assert.False(Partial());
+        }
+        finally { Environment.SetEnvironmentVariable(AppDataPaths.DataRootVariable, saved); }
+    }
+
+    [Fact]
+    public void TheVersionOfARecordIsTheVersionOfItsSealedBuild()
+    {
+        var saved = Environment.GetEnvironmentVariable(AppDataPaths.DataRootVariable);
+        Environment.SetEnvironmentVariable(AppDataPaths.DataRootVariable, _root);
+        try
+        {
+            var inventory = new ApplicationInventoryService();
+            var projection = new ApplicationInventoryProjection(inventory);
+            var settings = new AppSettings { SiteCode = "MCM", ProviderMachine = "cm01.contoso.com" };
+            settings.Wsus.ServerName = "wsus01.contoso.com";
+            var workbench = Path.Combine(_root, "workbench");
+            var plan = new PackagerExecutionService.OneClickBuildPlan(workbench, "catalog:tool", "default", 0);
+            var identity = new InventoryApplicationIdentity("tool", "catalog:tool", "default", 0);
+            var row = new PackagerInfo { Uid = "tool", Application = "Tool" };
+            // An earlier version stored the website version 2.0 for a publish of the local installer 1.9.
+            const string build = "20261003-120000-aaaaaaaa";
+            foreach (var (destination, environment) in ApplicationInventoryProjection.Environments(settings).Where(e => e.Destination != "Intune"))
+                inventory.RecordDestinationOutcome(new InventoryDestinationOutcome("tool", identity, environment, "Publish", "2.0",
+                    destination == "ConfigMgr" ? InventoryOutcome.Partial : InventoryOutcome.Succeeded, "id", DateTimeOffset.UtcNow, build));
+
+            // The build record is gone: a local-installer row does not skip WSUS from the stored version; a download row keeps it.
+            var gone = projection.Entry(row, settings, plan, localInstaller: true);
+            Assert.Equal("", gone.PublishedVersion("WSUS"));
+            Assert.Equal("2.0", gone.PublishedVersion("ConfigMgr"));
+            Assert.Equal("2.0", projection.Entry(row, settings, plan, localInstaller: false).PublishedVersion("WSUS"));
+            var readiness = Ready(false, false, true);
+            PublishPlanCell Cell(OneClickHistoryEntry history, string version) => PublishPlanner.Plan(
+                [new PublishPlanApp("tool", "Tool", version, false) { History = history }], readiness.Systems, readiness).Rows[0].Cells[0];
+            var unverified = Cell(gone, "2.0");
+            Assert.Equal(PublishCellKind.Create, unverified.Kind);
+            Assert.Contains("the earlier published version cannot be verified (the record names 2.0", unverified.Text);
+
+            var stage = Directory.CreateDirectory(Path.Combine(_root, "stage")).FullName;
+            BuildRecords.Write(workbench, stage, new StageManifest
+            {
+                ApplicationId = "catalog:tool", BuildId = build, ProfileId = "default", SoftwareVersion = "1.9"
+            });
+            var read = projection.Entry(row, settings, plan, localInstaller: true);
+            Assert.Equal("1.9", read.PublishedVersion("WSUS"));
+            Assert.Equal("1.9", read.PublishedVersion("ConfigMgr"));
+            Assert.Equal("Skip: version already published", Cell(read, "1.9").Text);
+            Assert.Equal(PublishPlan.WsusAction, Cell(read, "2.0").Text);
+            // The unfinished ConfigMgr publish is found under the version of its build.
+            Assert.True(projection.ConfigMgrIncomplete(row, settings, "1.9", plan));
+            Assert.False(projection.ConfigMgrIncomplete(row, settings, "2.0", plan));
         }
         finally { Environment.SetEnvironmentVariable(AppDataPaths.DataRootVariable, saved); }
     }

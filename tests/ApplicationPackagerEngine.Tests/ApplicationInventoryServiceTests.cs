@@ -207,7 +207,7 @@ public sealed class ApplicationInventoryServiceTests : IDisposable
             Detail: "legacy refusal with unknown server"));
 
         var entry = new ApplicationInventoryProjection(_inventory).Entry(row, settings,
-            new PackagerExecutionService.OneClickBuildPlan("root", "catalog:app", "default", 2));
+            new PackagerExecutionService.OneClickBuildPlan("root", "catalog:app", "default", 2), localInstaller: false);
 
         Assert.Equal("2.0", entry.LastKnownVersion);
         Assert.Equal(at.LocalDateTime, entry.LastChecked);

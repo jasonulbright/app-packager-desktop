@@ -440,27 +440,36 @@ public sealed partial class ApplicationInventoryService
     }
 
     /// <summary>
-    /// True when the last attempt that left an object of this version at the destination was partial. A later attempt that wrote
-    /// nothing, such as a kept existing application or a failure, does not change it.
+    /// True when the last attempt that wrote this version to the destination was partial. Only a finished publish or another partial
+    /// one changes it: a kept existing application, a failure, and "already present", which a run records before the operator answers
+    /// the prompt, do not.
     /// </summary>
-    public bool LastObjectIsPartial(string packagerUid, InventoryEnvironmentIdentity environment, string action, string version)
+    /// <param name="versionOfBuild">The version that the build of an attempt holds, from its application id and build id; null for an
+    /// attempt whose build is not known, which keeps its stored version.</param>
+    public bool LastObjectIsPartial(string packagerUid, InventoryEnvironmentIdentity environment, string action, string version,
+        Func<string?, string?, string?>? versionOfBuild = null)
     {
         Required(packagerUid, nameof(packagerUid));
         ValidateEnvironment(environment);
         Required(action, nameof(action));
         using var connection = Open();
         using var command = connection.CreateCommand();
-        command.CommandText = "SELECT outcome FROM inventory_events WHERE packager_uid = $uid AND destination = $destination AND environment_key = $environment AND action = $action AND version = $version AND outcome IN ($partial, $succeeded, $present, $noSupersedence) ORDER BY occurred_at DESC, id DESC LIMIT 1";
+        command.CommandText = "SELECT outcome, version, application_id, build_id FROM inventory_events WHERE packager_uid = $uid AND destination = $destination AND environment_key = $environment AND action = $action AND outcome IN ($partial, $succeeded, $noSupersedence) ORDER BY occurred_at DESC, id DESC";
         Add(command, "$uid", packagerUid);
         Add(command, "$destination", environment.Destination);
         Add(command, "$environment", environment.Key);
         Add(command, "$action", action);
-        Add(command, "$version", version);
         Add(command, "$partial", InventoryOutcome.Partial.ToString());
         Add(command, "$succeeded", InventoryOutcome.Succeeded.ToString());
-        Add(command, "$present", InventoryOutcome.AlreadyPresent.ToString());
         Add(command, "$noSupersedence", InventoryOutcome.PublishedSupersedenceNotApplied.ToString());
-        return command.ExecuteScalar() as string == InventoryOutcome.Partial.ToString();
+        using var reader = command.ExecuteReader();
+        while (reader.Read())
+        {
+            var written = versionOfBuild?.Invoke(Text(reader, 2), Text(reader, 3)) ?? Text(reader, 1);
+            if (string.Equals(written, version, StringComparison.OrdinalIgnoreCase))
+                return reader.GetString(0) == InventoryOutcome.Partial.ToString();
+        }
+        return false;
     }
 
     public InventoryRefusalState? GetLatestRefusal(string packagerUid, InventoryEnvironmentIdentity environment, string action)
@@ -470,7 +479,7 @@ public sealed partial class ApplicationInventoryService
         Required(action, nameof(action));
         using var connection = Open();
         using var command = connection.CreateCommand();
-        command.CommandText = "SELECT version, detail, occurred_at FROM inventory_events WHERE packager_uid = $uid AND destination = $destination AND environment_key = $environment AND action = $action AND outcome = $outcome ORDER BY occurred_at DESC, id DESC LIMIT 1";
+        command.CommandText = "SELECT version, detail, occurred_at, application_id, build_id FROM inventory_events WHERE packager_uid = $uid AND destination = $destination AND environment_key = $environment AND action = $action AND outcome = $outcome ORDER BY occurred_at DESC, id DESC LIMIT 1";
         Add(command, "$uid", packagerUid);
         Add(command, "$destination", environment.Destination);
         Add(command, "$environment", environment.Key);
@@ -478,7 +487,7 @@ public sealed partial class ApplicationInventoryService
         Add(command, "$outcome", InventoryOutcome.Refused.ToString());
         using var reader = command.ExecuteReader();
         return reader.Read()
-            ? new InventoryRefusalState(Text(reader, 0) ?? "", Text(reader, 1), MaybeTime(reader, 2))
+            ? new InventoryRefusalState(Text(reader, 0) ?? "", Text(reader, 1), MaybeTime(reader, 2), Text(reader, 3), Text(reader, 4))
             : null;
     }
 

@@ -1646,13 +1646,13 @@ public partial class PackagesViewModel : ObservableObject
         var version = sealedVersion ?? VersionOf(p);
         // A view model that a test builds without its constructor has no history.
         var build = _inventoryProjection is null ? null : _executionService.ResolveBuildPlan(p);
-        var history = _inventoryProjection?.Entry(p, settings, build);
+        var history = _inventoryProjection?.Entry(p, settings, build, _executionService.LocalStageVersion(p) is not null);
         var stale = build is not null && ApplicationPackagerEngine.Services.Workbench.BuildRecords.IsCurrent(build.DataRoot, build.ApplicationId,
             build.ProfileId, version, build.ProfileRevision, settings.ScriptSigning.PolicyDigest) == false;
         return new PublishPlanApp(p.Uid, p.Application, version, hidden)
         {
             History = history,
-            ConfigMgrIncomplete = _inventoryProjection?.ConfigMgrIncomplete(p, settings, version) == true,
+            ConfigMgrIncomplete = _inventoryProjection?.ConfigMgrIncomplete(p, settings, version, build) == true,
             BuildStale = stale,
             BuildKey = build is null ? "" : ApplicationPackagerEngine.Services.OneClick.OneClickHistory.BuildKey(build.ProfileId, build.ProfileRevision,
                 settings.ScriptSigning.PolicyDigest),

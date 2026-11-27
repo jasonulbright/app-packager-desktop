@@ -176,7 +176,7 @@ public static class PublishPlanner
                     OneClickDestinations.Intune => PublishPlan.IntuneAction,
                     OneClickDestinations.Wsus => PublishPlan.WsusAction,
                     _ => ConfigMgrText(app)
-                } + (skips ? RefusalWarning(app, d) : ""))).ToList())).ToList();
+                } + (skips ? UnverifiedWarning(app, d) + RefusalWarning(app, d) : ""))).ToList())).ToList();
         return new PublishPlan(order, rows, blocked);
     }
 
@@ -217,6 +217,11 @@ public static class PublishPlanner
         app.Version.Length > 0 && string.Equals(app.History?.RefusedVersion(destination), app.Version, StringComparison.OrdinalIgnoreCase)
             ? app.History!.RefusedReason(destination)
             : null;
+
+    private static string UnverifiedWarning(PublishPlanApp app, string destination) =>
+        app.History?.Published.TryGetValue(destination, out var record) == true && record.Unverified
+            ? $". Warning: the earlier published version cannot be verified (the record names {record.Version}, and its build record is gone)"
+            : "";
 
     /// <summary>
     /// A refusal that a change of the definition, the settings or the server can end does not stop a manual publish. The cell names it.
