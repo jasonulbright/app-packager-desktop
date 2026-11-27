@@ -24,6 +24,8 @@ using ButtonBase = System.Windows.Controls.Primitives.ButtonBase;
 using CheckBox = System.Windows.Controls.CheckBox;
 using ComboBox = System.Windows.Controls.ComboBox;
 using DataGrid = System.Windows.Controls.DataGrid;
+using DatePicker = System.Windows.Controls.DatePicker;
+using Slider = System.Windows.Controls.Slider;
 using ListBox = System.Windows.Controls.ListBox;
 using ListBoxItem = System.Windows.Controls.ListBoxItem;
 using TextBlock = System.Windows.Controls.TextBlock;
@@ -195,6 +197,81 @@ public sealed class SettingsSearchTests : IDisposable
         // The walk reaches the pages that hold their fields in rows and in code.
         Assert.All(new[] { "sidebar", "configmgr", "wsus", "installparams", "localsources", "packagerfiles", "supersedence", "oneclick" },
             id => Assert.True(checkedInputs[id] > 0, id + " showed no input"));
+    });
+
+    /// <summary>Every logical and visual part under an element: closed sections, list rows, grid cells and the parts of templates.</summary>
+    private static IEnumerable<DependencyObject> AllParts(DependencyObject root)
+    {
+        var seen = new HashSet<DependencyObject>();
+        var queue = new Queue<DependencyObject>([root]);
+        while (queue.TryDequeue(out var element))
+        {
+            var children = LogicalTreeHelper.GetChildren(element).OfType<DependencyObject>();
+            if (element is Visual)
+                children = children.Concat(Enumerable.Range(0, VisualTreeHelper.GetChildrenCount(element)).Select(i => VisualTreeHelper.GetChild(element, i)));
+            foreach (var child in children)
+            {
+                if (!seen.Add(child)) continue;
+                yield return child;
+                queue.Enqueue(child);
+            }
+        }
+    }
+
+    /// <summary>An input or a button that the Tab key can reach. A part of a template counts only while it shows.</summary>
+    private static bool TakesTheKeyboard(System.Windows.Controls.Control control) =>
+        control is System.Windows.Controls.Primitives.TextBoxBase or System.Windows.Controls.PasswordBox or ComboBox or ButtonBase or Slider or DatePicker or DataGrid
+        && control.Focusable && control.IsTabStop && (control.TemplatedParent is not System.Windows.Controls.Control || control.IsVisible);
+
+    [Fact]
+    public void EveryInputAndButtonOfEveryPageHasAnAutomationName() => WithPage(ApplicationTheme.Light, host =>
+    {
+        // A row in each grid and every column of the application grid, so the walk reaches each kind of cell editor.
+        host.ViewModel.SupersedenceRows.Add(ApplicationSettingsGridRenderTests.Row("one"));
+        host.ViewModel.OneClickRows.Add(new OneClickRow { Uid = "one", Application = "Contoso one", Vendor = "Contoso" });
+        foreach (var column in ApplicationColumns.All) host.ViewModel.SetColumnVisible(column.Id, true);
+        typeof(SettingsPage).GetMethod("BuildApplicationColumns", BindingFlags.NonPublic | BindingFlags.Instance)!.Invoke(host.Page, null);
+
+        var unnamed = new List<string>();
+        var names = new HashSet<string>(StringComparer.Ordinal);
+        var walked = new Dictionary<string, int>();
+        var seen = new HashSet<DependencyObject>();
+        void Check(string id, DependencyObject root)
+        {
+            walked[id] = 0;
+            foreach (var control in AllParts(root).OfType<System.Windows.Controls.Control>().Where(TakesTheKeyboard))
+            {
+                if (!seen.Add(control)) continue;
+                walked[id]++;
+                var name = System.Windows.Automation.Peers.UIElementAutomationPeer.CreatePeerForElement(control)?.GetName() ?? "";
+                if (!string.IsNullOrWhiteSpace(name)) names.Add(name);
+                else unnamed.Add($"{id}: {control.GetType().Name} id '{AutomationProperties.GetAutomationId(control)}' part '{control.Name}' " +
+                    $"of '{control.TemplatedParent?.GetType().Name}' text '{(control as TextBox)?.Text}' tip '{control.ToolTip}'");
+            }
+        }
+
+        foreach (var id in PageIds(host))
+        {
+            host.Page.SelectPage(id);
+            Settle(host.Window);
+            var page = (FrameworkElement)host.Page.FindName("page_" + id);
+            foreach (var card in Descendants(page).OfType<Wpf.Ui.Controls.CardExpander>().ToList()) card.IsExpanded = true;
+            Settle(host.Window);
+            Settle(host.Window);
+            foreach (var grid in AllParts(page).OfType<DataGrid>())
+                Assert.All(grid.Columns, c => Assert.True(c is DataGridTemplateColumn || c.IsReadOnly || grid.IsReadOnly,
+                    $"{id}: the column '{c.Header}' makes an editor that this walk does not see."));
+            Check(id, page);
+        }
+        Check("(list of pages and buttons)", host.Page);
+
+        Assert.True(unnamed.Count == 0, "These take the keyboard and have no name:" + Environment.NewLine + string.Join(Environment.NewLine, unnamed));
+        // The walk reached the rows of the lists and the cell editors of both grids.
+        Assert.All(new[] { "sidebar", "installparams", "localsources", "packagerfiles", "oneclick", "supersedence" },
+            id => Assert.True(walked[id] > 0, id + " showed no input"));
+        Assert.Contains("Company Name", names);
+        Assert.Contains("Cadence (days)", names);
+        Assert.Contains("Architecture of the application", names);
     });
 
     [Fact]
