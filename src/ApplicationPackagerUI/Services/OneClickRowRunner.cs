@@ -146,8 +146,8 @@ public sealed class OneClickRowRunner(IOneClickExecution execution, ISettingsRea
                 InventoryOutcome.Succeeded, checkedAt, operationId));
             p.LatestVersion = latest;
             p.LastChecked = checkedAt.LocalDateTime;
-            // The version that the stage will hold: the local installer's when the stage takes one, else the vendor's. The vendor
-            // version still decides whether there is an update.
+            // The version that the stage will hold: the local installer's when the stage takes one, else the vendor's. It decides what
+            // each destination takes. The vendor version only decides whether there is an update.
             var local = execution.LocalStageVersion(p);
             var toPublish = local ?? latest;
             item.Version = toPublish;
@@ -162,10 +162,10 @@ public sealed class OneClickRowRunner(IOneClickExecution execution, ISettingsRea
                 return;
             }
 
-        var buildStale = plan is not null && BuildRecords.IsCurrent(plan.DataRoot, plan.ApplicationId, plan.ProfileId, latest,
+        var buildStale = plan is not null && BuildRecords.IsCurrent(plan.DataRoot, plan.ApplicationId, plan.ProfileId, toPublish,
             plan.ProfileRevision, settings.ScriptSigning.PolicyDigest) == false;
         var buildKey = plan is null ? "" : OneClickHistory.BuildKey(plan.ProfileId, plan.ProfileRevision, settings.ScriptSigning.PolicyDigest);
-        var decision = OneClickPlanner.Decide(action, item.Destinations.Names, entry, latest, p.CurrentVersion, options.Force, versionChanged, buildStale,
+        var decision = OneClickPlanner.Decide(action, item.Destinations.Names, entry, toPublish, p.CurrentVersion, options.Force, versionChanged, buildStale,
             staged: entry?.LastStaged is not null, item.NotReady, buildKey);
         foreach (var (destination, cell) in decision.GuardResults)
         {
@@ -184,7 +184,7 @@ public sealed class OneClickRowRunner(IOneClickExecution execution, ISettingsRea
             return;
         }
         if (buildStale && !versionChanged && decision.PublishTo.Count == 0)
-            log($"One Click: {p.Application} {latest} restages: the last build differs in version, profile revision or signing policy. No destination takes a publish of it.");
+            log($"One Click: {p.Application} {toPublish} restages: the last build differs in version, profile revision or signing policy. No destination takes a publish of it.");
 
         var publishes = action == OneClickActionNames.StageAndPackage && decision.PublishTo.Count > 0;
         if (publishes && ReviewedVersion.Refusal(planned, toPublish) is not null)
@@ -318,7 +318,7 @@ public sealed class OneClickRowRunner(IOneClickExecution execution, ISettingsRea
                         destinationOutcome = step.Refused ? InventoryOutcome.Refused
                             : mapped.Ok && mapped.AlreadyPresent ? InventoryOutcome.AlreadyPresent
                             : mapped.Ok ? InventoryOutcome.Succeeded : InventoryOutcome.Failed;
-                        if (present) reasons.Add($"WSUS: {latest} already on the server");
+                        if (present) reasons.Add($"WSUS: {toPublish} already on the server");
                         if (step.Refused)
                         {
                             notSupported++;
@@ -353,7 +353,7 @@ public sealed class OneClickRowRunner(IOneClickExecution execution, ISettingsRea
             catch (OperationCanceledException) when (ct.IsCancellationRequested)
             {
                 item.Cells.Add(answered ?? new(destination, PublishDestinationKind.Failed, "cancel", "The run stopped during this publish. Check the system."));
-                RecordDestination(p, identity, settings, destination, latest, id, InventoryOutcome.Cancelled,
+                RecordDestination(p, identity, settings, destination, toPublish, id, InventoryOutcome.Cancelled,
                     detail.Length == 0 ? "Publish cancelled." : detail, snapshot.BuildId, operationId);
                 StopCanceled(item, p, publishedTo);
                 throw;
@@ -367,7 +367,7 @@ public sealed class OneClickRowRunner(IOneClickExecution execution, ISettingsRea
             // The cell is added before the history write, which can fail on its own.
             item.Cells.Add(intune && answered is not null ? answered
                 : ResultCell(destination, destinationOutcome, detail.Length > 0 ? detail : cell, id));
-            RecordDestination(p, identity, settings, destination, latest, id, destinationOutcome, detail, snapshot.BuildId, operationId, ciId, modelName);
+            RecordDestination(p, identity, settings, destination, toPublish, id, destinationOutcome, detail, snapshot.BuildId, operationId, ciId, modelName);
             item.SetResult(destination, cell, id, detail);
             if (ok)
             {

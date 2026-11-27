@@ -88,6 +88,8 @@ The heading is **Review One Click plan**. The lines under it show:
 
 During a run the columns change. The destination boxes, **Last published**, **Destinations from** and **Planned** give way to **Step** and one result column for each destination in use: **ConfigMgr result**, **WSUS result**, **Intune result**.
 
+The plan and the run compare each destination with the version that the run publishes. For a stage that takes a local installer, that is the version of the file. The website version only shows whether there is an update.
+
 The plan leaves a row or a destination out for these reasons:
 
 - `no destination selected`.

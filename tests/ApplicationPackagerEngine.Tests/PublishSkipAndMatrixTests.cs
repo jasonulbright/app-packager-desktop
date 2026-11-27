@@ -4,6 +4,7 @@ using System.Windows.Automation;
 using System.Windows.Automation.Peers;
 using System.Windows.Controls;
 using ApplicationPackagerEngine.Models;
+using ApplicationPackagerEngine.Models.Inventory;
 using ApplicationPackagerEngine.Services;
 using ApplicationPackagerEngine.Services.OneClick;
 using ApplicationPackagerEngine.Tests.Compliance;
@@ -44,7 +45,7 @@ public sealed class PublishSkipAndMatrixTests : IDisposable
     [InlineData("Intune", "2.0", "", "Skip: version already published")]
     [InlineData("WSUS", "3.0", "", "Skip: published 3.0 is newer than 2.0")]
     [InlineData("Intune", "1.0", "", null)]
-    [InlineData("WSUS", "", "2.0", "Skip: this version was refused before")]
+    [InlineData("WSUS", "", "2.0", null)]
     [InlineData("WSUS", "", "1.0", null)]
     public void WsusAndIntuneSkipWhatTheirRecordsHold(string system, string published, string refused, string? skip)
     {
@@ -70,6 +71,62 @@ public sealed class PublishSkipAndMatrixTests : IDisposable
         Assert.Equal(PublishCellKind.Create, Cell(App(ConfigMgrFact.Unreadable("offline"), History("ConfigMgr", "2.0"))).Kind);
         // A retry has its own rules.
         Assert.Equal(PublishCellKind.Create, PublishPlanner.Plan([App(ConfigMgrFact.Found("3.0"))], readiness.Systems, readiness, skips: false).Rows[0].Cells[0].Kind);
+    }
+
+    [Theory]
+    [InlineData("not supported: PerUserInstall. It installs for the user.", PublishCellKind.Skip)]
+    [InlineData("not supported: DetectionNotMappable,PayloadTooLarge. Two reasons.", PublishCellKind.Skip)]
+    [InlineData("not supported: DetectionNotMappable. The detection has no WSUS form.", PublishCellKind.Create)]
+    [InlineData("The tenant refused the app.", PublishCellKind.Create)]
+    public void AManualPublishSkipsOnlyARefusalOfTheInstallerAndWarnsOfAnyOther(string reason, PublishCellKind kind)
+    {
+        var history = new OneClickHistoryEntry
+        {
+            NotSupported = new Dictionary<string, OneClickRefusalRecord> { ["WSUS"] = new() { Version = "2.0", Reason = reason } }
+        };
+        var readiness = Ready(false, false, true);
+
+        var cell = PublishPlanner.Plan([App(history: history)], readiness.Systems, readiness).Rows[0].Cells[0];
+
+        Assert.Equal(kind, cell.Kind);
+        if (kind == PublishCellKind.Create)
+            Assert.Equal(PublishPlan.WsusAction + ". Warning: this version was refused before (" + reason.TrimEnd('.') + ")", cell.Text);
+    }
+
+    [Fact]
+    public void AnUnfinishedConfigMgrApplicationIsNotSkippedAndANewerOneStillIs()
+    {
+        var readiness = Ready(true, false, false);
+        PublishPlanCell Cell(string site) => PublishPlanner.Plan([App(ConfigMgrFact.Found(site)) with { ConfigMgrIncomplete = true }],
+            readiness.Systems, readiness).Rows[0].Cells[0];
+
+        Assert.Equal(PublishCellKind.Create, Cell("2.0").Kind);
+        Assert.Contains("did not finish, verify it in ConfigMgr", Cell("2.0").Text);
+        Assert.Equal(PublishCellKind.Skip, Cell("3.0").Kind);
+    }
+
+    [Fact]
+    public void APartialPublishStaysUntilAPublishOfTheVersionFinishes()
+    {
+        var saved = Environment.GetEnvironmentVariable(AppDataPaths.DataRootVariable);
+        Environment.SetEnvironmentVariable(AppDataPaths.DataRootVariable, _root);
+        try
+        {
+            var inventory = new ApplicationInventoryService();
+            var environment = InventoryEnvironmentIdentity.ConfigMgr("MCM", "cm01.contoso.com");
+            var at = DateTimeOffset.UtcNow.AddHours(-1);
+            void Record(InventoryOutcome outcome, int minute) => inventory.RecordDestinationOutcome(new InventoryDestinationOutcome(
+                "a", null, environment, "Publish", "2.0", outcome, "Alpha 2.0", at.AddMinutes(minute)));
+            bool Partial() => inventory.LastObjectIsPartial("a", environment, "Publish", "2.0");
+
+            Record(InventoryOutcome.Partial, 1);
+            Record(InventoryOutcome.Skipped, 2);
+            Assert.True(Partial());
+            Assert.False(inventory.LastObjectIsPartial("a", environment, "Publish", "3.0"));
+            Record(InventoryOutcome.Succeeded, 3);
+            Assert.False(Partial());
+        }
+        finally { Environment.SetEnvironmentVariable(AppDataPaths.DataRootVariable, saved); }
     }
 
     [Fact]

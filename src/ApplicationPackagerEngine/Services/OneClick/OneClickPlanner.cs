@@ -234,6 +234,8 @@ public static class OneClickPlanner
 
             var latest = string.IsNullOrWhiteSpace(app.LatestVersion) ? entry?.LastKnownVersion ?? "" : app.LatestVersion;
             var (destinations, source) = DestinationsFor(settings, app.Key);
+            // What a publish of this row would hold: the local installer's version when the stage takes one. The website version only finds updates.
+            var toPublish = string.IsNullOrWhiteSpace(app.StageVersion) ? latest : app.StageVersion;
             var lastPublished = OneClickDestinations.All.ToDictionary(d => d, d => CarriedVersion(entry, d, app.CurrentVersion));
 
             var reasons = new List<string>();
@@ -283,11 +285,11 @@ public static class OneClickPlanner
                                 notReady[d] = NotSupportedPrefix + app.WsusNotSupported;
                                 continue;
                             }
-                            if (!force && latest.Length > 0 && entry?.RefusedVersion(d) == latest) { reasons.Add($"{d}: not supported"); continue; }
-                            if (!force && NewerThanVendor(entry, d, app.CurrentVersion, latest) is { } newer) { reasons.Add($"{d}: {newer}"); continue; }
-                            if (!force && latest.Length > 0 && lastPublished[d] == latest)
+                            if (!force && toPublish.Length > 0 && entry?.RefusedVersion(d) == toPublish) { reasons.Add($"{d}: not supported"); continue; }
+                            if (!force && NewerThanVendor(entry, d, app.CurrentVersion, toPublish) is { } newer) { reasons.Add($"{d}: {newer}"); continue; }
+                            if (!force && toPublish.Length > 0 && lastPublished[d] == toPublish)
                             {
-                                reasons.Add($"{d}: {latest} already published");
+                                reasons.Add($"{d}: {toPublish} already published");
                                 continue;
                             }
                             publishTo.Add(d);

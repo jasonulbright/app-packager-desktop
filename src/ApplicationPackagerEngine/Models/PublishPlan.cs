@@ -40,6 +40,9 @@ public sealed record PublishPlanApp(string Uid, string Application, string Versi
     /// <summary>True when the last sealed build of this version differs in profile revision or signing policy, so the content changed.</summary>
     public bool BuildStale { get; init; }
 
+    /// <summary>True when the last ConfigMgr publish of this version made the application and did not finish its content.</summary>
+    public bool ConfigMgrIncomplete { get; init; }
+
     /// <summary>The key of the build that this run would publish; empty when not known.</summary>
     public string BuildKey { get; init; } = "";
 
@@ -173,14 +176,19 @@ public static class PublishPlanner
                     OneClickDestinations.Intune => PublishPlan.IntuneAction,
                     OneClickDestinations.Wsus => PublishPlan.WsusAction,
                     _ => ConfigMgrText(app)
-                })).ToList())).ToList();
+                } + (skips ? RefusalWarning(app, d) : ""))).ToList())).ToList();
         return new PublishPlan(order, rows, blocked);
     }
 
+    /// <summary>True when the plan writes nothing and a ConfigMgr skip of it can rest on an old read of the site.</summary>
+    public static bool NeedsSiteRead(PublishPlan plan) => plan.Blocked.Count == 0 && plan.Writes == 0
+        && plan.Rows.Any(r => r.Cells.Any(c => c.Destination == OneClickDestinations.ConfigMgr && c.Kind == PublishCellKind.Skip));
+
     /// <summary>
     /// Why the run leaves one system of one application alone, or null when it writes there. The rules are those of the One Click plan:
-    /// the system has a newer version, it has this version from the same build, or it refused this version before. For ConfigMgr the
-    /// answer of the site decides what the site has: a publish record does not skip an application that the site no longer has.
+    /// the system has a newer version, it has this version from the same build, or it refused this version before for a reason of the
+    /// installer. For ConfigMgr the answer of the site decides what the site has: a publish record does not skip an application that
+    /// the site no longer has. An application whose content did not finish is not skipped, so the operator can publish it again.
     /// </summary>
     public static string? SkipReason(PublishPlanApp app, string destination)
     {
@@ -192,16 +200,33 @@ public static class PublishPlanner
         var records = configMgr ? null : app.History;
         if (ApplicationPackagerEngine.Services.OneClick.OneClickPlanner.NewerThanVendor(records, destination, site, app.Version) is { } newer)
             return newer;
+        if (configMgr && app.ConfigMgrIncomplete) return null;
 
         var recordedBuild = app.History?.PublishedBuildKey(destination) ?? "";
         var sameBuild = !app.BuildStale && (app.BuildKey.Length == 0 || recordedBuild.Length == 0
             || string.Equals(recordedBuild, app.BuildKey, StringComparison.OrdinalIgnoreCase));
         var carried = configMgr ? site : records?.PublishedVersion(destination) ?? "";
         if (sameBuild && string.Equals(carried, app.Version, StringComparison.OrdinalIgnoreCase)) return "version already published";
-        return string.Equals(app.History?.RefusedVersion(destination), app.Version, StringComparison.OrdinalIgnoreCase)
+        return EarlierRefusal(app, destination) is { } refusal && WsusRefusalCodes.DependsOnTheInstaller(refusal)
             ? "this version was refused before"
             : null;
     }
+
+    /// <summary>The reason of the last refusal of this version at the destination; null when it did not refuse it.</summary>
+    private static string? EarlierRefusal(PublishPlanApp app, string destination) =>
+        app.Version.Length > 0 && string.Equals(app.History?.RefusedVersion(destination), app.Version, StringComparison.OrdinalIgnoreCase)
+            ? app.History!.RefusedReason(destination)
+            : null;
+
+    /// <summary>
+    /// A refusal that a change of the definition, the settings or the server can end does not stop a manual publish. The cell names it.
+    /// </summary>
+    private static string RefusalWarning(PublishPlanApp app, string destination) => EarlierRefusal(app, destination) switch
+    {
+        null => "",
+        "" => ". Warning: this version was refused before",
+        var reason => ". Warning: this version was refused before (" + reason.TrimEnd('.', ' ') + ")"
+    };
 
     private static string ConfigMgrText(PublishPlanApp app) =>
         app.ConfigMgrSteps.Length > 0 ? ConfigMgrCreate(app) + ". Then: " + app.ConfigMgrSteps : ConfigMgrCreate(app);
@@ -214,6 +239,8 @@ public static class PublishPlanner
     private static string ConfigMgrCreate(PublishPlanApp app) => app.Site.Kind switch
     {
         // The run asks only when the title of the new application matches one on the site, and the title is known when the run stages. So the cell says "if".
+        ConfigMgrFactKind.Found when app.ConfigMgrIncomplete => PublishPlan.ConfigMgrAction +
+            " (the last publish of this version did not finish, verify it in ConfigMgr; if the title matches, the run asks before it replaces it)",
         ConfigMgrFactKind.Found => PublishPlan.ConfigMgrAction + " (ConfigMgr has " + Has(app) + "; if the title matches, the run asks before it replaces it)",
         ConfigMgrFactKind.Unreadable => PublishPlan.ConfigMgrAction + " (ConfigMgr was not read)",
         _ => PublishPlan.ConfigMgrAction

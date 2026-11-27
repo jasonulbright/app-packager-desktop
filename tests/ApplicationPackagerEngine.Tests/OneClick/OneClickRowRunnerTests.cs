@@ -3,6 +3,7 @@ using ApplicationPackagerEngine.Models.Inventory;
 using ApplicationPackagerEngine.Models.Workbench;
 using ApplicationPackagerEngine.Services;
 using ApplicationPackagerEngine.Services.OneClick;
+using ApplicationPackagerEngine.Services.Workbench;
 using ApplicationPackagerUI.Models;
 using ApplicationPackagerUI.Services;
 using ApplicationPackagerUI.ViewModels.Windows;
@@ -614,6 +615,68 @@ public sealed class OneClickRowRunnerTests : IDisposable
         Assert.Equal(file, item.Version);
         Assert.Equal("2.0", item.Row!.LatestVersion);
         Assert.Equal("2.0", Stored().LatestVersion);
+    }
+
+    [Fact]
+    public async Task ALocalVersionOlderThanTheSiteIsNotPublishedOverIt()
+    {
+        var execution = new FakeExecution(Path.Combine(_root, "workbench")) { Latest = "24.0", LocalVersion = "23.0", StagedVersion = "23.0" };
+        var item = Item(true, false, false, planned: "23.0");
+        item.Row!.CurrentVersion = "24.0";
+
+        await Runner(execution).RunAsync(item, Publish with { OnExisting = OneClickOnExisting.Overwrite }, CancellationToken.None);
+
+        Assert.Equal(["Stage"], execution.Calls.Select(c => c.Step));
+        Assert.Equal("skipped: site version 24.0 is newer than 23.0", item.ResultConfigMgr);
+        Assert.DoesNotContain("ConfigMgr", Stored().Published.Keys);
+    }
+
+    [Fact]
+    public async Task APublishOfALocalVersionIsRecordedAsThatVersionAndIsNotPublishedAgain()
+    {
+        var workbench = Path.Combine(_root, "workbench");
+        var execution = new FakeExecution(workbench) { Latest = "2.0", LocalVersion = "1.9", StagedVersion = "1.9" };
+        await Runner(execution).RunAsync(Item(true, false, false, planned: "1.9"), Publish, CancellationToken.None);
+        Assert.Equal("1.9", Stored().Published["ConfigMgr"].Version);
+
+        // The sealed build of 1.9 with the current profile and signing policy: the build is not stale.
+        var stage = Directory.CreateDirectory(Path.Combine(workbench, "sealed")).FullName;
+        BuildRecords.Write(workbench, stage, new StageManifest
+        {
+            ApplicationId = "catalog:widget", BuildId = "20261003-120000-aaaaaaaa", ProfileId = "default", ProfileRevision = 0, SoftwareVersion = "1.9",
+            ScriptSigning = new System.Text.Json.Nodes.JsonObject { ["PolicyDigest"] = new SettingsService().Load().ScriptSigning.PolicyDigest }
+        });
+        var again = new FakeExecution(workbench) { Latest = "2.0", LocalVersion = "1.9", StagedVersion = "1.9" };
+        var item = Item(true, false, false, planned: "1.9");
+
+        await Runner(again).RunAsync(item, Publish, CancellationToken.None);
+
+        Assert.DoesNotContain("Package", again.Calls.Select(c => c.Step));
+        Assert.Equal("already published 1.9", item.ResultConfigMgr);
+    }
+
+    [Theory]
+    [InlineData("", "ConfigMgr: site version 24.0 is newer than 23.0")]
+    [InlineData("23.0", "WSUS: 23.0 already published")]
+    public void ThePlanSkipsByTheVersionOfTheLocalInstaller(string published, string reason)
+    {
+        var configMgr = published.Length == 0;
+        var settings = new OneClickPlanSettings
+        {
+            Tracked = ["widget"],
+            DefaultDestinations = new DestinationSet(configMgr, !configMgr, false),
+            Readiness = new Dictionary<string, OneClickReadiness> { ["ConfigMgr"] = OneClickReadiness.Yes, ["WSUS"] = OneClickReadiness.Yes }
+        };
+        var history = new Dictionary<string, OneClickHistoryEntry>();
+        if (!configMgr)
+            history["widget"] = new() { Published = new Dictionary<string, OneClickPublishRecord> { ["WSUS"] = new() { Version = published } } };
+
+        var row = Assert.Single(OneClickPlanner.Plan(
+            [new OneClickApp("widget", "Widget", "Contoso", "24.0", configMgr ? "24.0" : "") { StageVersion = "23.0" }],
+            settings, history, OneClickActionNames.StageAndPackage, false, DateTime.Now));
+
+        Assert.Empty(row.PublishTo);
+        Assert.Equal(reason, row.Reason);
     }
 
     [Fact]

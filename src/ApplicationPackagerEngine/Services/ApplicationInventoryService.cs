@@ -439,6 +439,30 @@ public sealed partial class ApplicationInventoryService
         return result;
     }
 
+    /// <summary>
+    /// True when the last attempt that left an object of this version at the destination was partial. A later attempt that wrote
+    /// nothing, such as a kept existing application or a failure, does not change it.
+    /// </summary>
+    public bool LastObjectIsPartial(string packagerUid, InventoryEnvironmentIdentity environment, string action, string version)
+    {
+        Required(packagerUid, nameof(packagerUid));
+        ValidateEnvironment(environment);
+        Required(action, nameof(action));
+        using var connection = Open();
+        using var command = connection.CreateCommand();
+        command.CommandText = "SELECT outcome FROM inventory_events WHERE packager_uid = $uid AND destination = $destination AND environment_key = $environment AND action = $action AND version = $version AND outcome IN ($partial, $succeeded, $present, $noSupersedence) ORDER BY occurred_at DESC, id DESC LIMIT 1";
+        Add(command, "$uid", packagerUid);
+        Add(command, "$destination", environment.Destination);
+        Add(command, "$environment", environment.Key);
+        Add(command, "$action", action);
+        Add(command, "$version", version);
+        Add(command, "$partial", InventoryOutcome.Partial.ToString());
+        Add(command, "$succeeded", InventoryOutcome.Succeeded.ToString());
+        Add(command, "$present", InventoryOutcome.AlreadyPresent.ToString());
+        Add(command, "$noSupersedence", InventoryOutcome.PublishedSupersedenceNotApplied.ToString());
+        return command.ExecuteScalar() as string == InventoryOutcome.Partial.ToString();
+    }
+
     public InventoryRefusalState? GetLatestRefusal(string packagerUid, InventoryEnvironmentIdentity environment, string action)
     {
         Required(packagerUid, nameof(packagerUid));

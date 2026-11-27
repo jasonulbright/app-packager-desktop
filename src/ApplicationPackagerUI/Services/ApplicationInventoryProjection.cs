@@ -19,6 +19,14 @@ public sealed class ApplicationInventoryProjection(ApplicationInventoryService i
     public InventoryEnvironmentState? Environment(PackagerInfo row, AppSettings settings) =>
         inventory.GetEnvironmentState(row.Uid, InventoryEnvironmentIdentity.ConfigMgr(settings.SiteCode, settings.ProviderMachine));
 
+    /// <summary>True when the last ConfigMgr publish of this version of the row did not finish its content.</summary>
+    public bool ConfigMgrIncomplete(PackagerInfo row, AppSettings settings, string version)
+    {
+        var environment = InventoryEnvironmentIdentity.ConfigMgr(settings.SiteCode, settings.ProviderMachine);
+        return version.Length > 0 && environment.Key != "unknown"
+            && inventory.LastObjectIsPartial(row.Uid, environment, "Publish", version);
+    }
+
     public OneClickHistoryEntry Entry(PackagerInfo row, AppSettings settings,
         PackagerExecutionService.OneClickBuildPlan? plan = null)
     {
