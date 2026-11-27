@@ -1038,7 +1038,7 @@
                     <ItemsControl ItemsSource="{Binding InstallParameterGroups}" Margin="0,0,16,0">
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
-                                            <ui:CardExpander AutomationProperties.Name="{Binding Header}" Margin="0,0,0,8" IsExpanded="False">
+                                            <ui:CardExpander helpers:TemplatePartNames.FromOwner="True" AutomationProperties.Name="{Binding Header}" Margin="0,0,0,8" IsExpanded="False">
                                                 <ui:CardExpander.Header>
                                                     <StackPanel>
                                                         <TextBlock Text="{Binding Header}" Foreground="{DynamicResource TextFillColorPrimaryBrush}" />

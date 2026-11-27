@@ -7,8 +7,8 @@ using System.Windows.Media;
 namespace ApplicationPackagerUI.Helpers;
 
 /// <summary>
-/// Gives the parts inside a date box or an editable list the name of their owner. A screen reader and a Tab walk reach the parts
-/// (the text box, the calendar button), and without this they have no name.
+/// Gives the parts inside a date box, an editable list or an expander the name of their owner. A screen reader and a Tab walk reach the
+/// parts (the text box, the calendar button, the button that opens the card), and without this they have no name.
 /// </summary>
 public static class TemplatePartNames
 {
@@ -32,6 +32,13 @@ public static class TemplatePartNames
         owner.UpdateLayout();
         var name = AutomationProperties.GetName(owner);
         if (name.Length == 0) return;
+        if (owner is Expander)
+        {
+            // Only the button of the template: the content of an expander has names of its own.
+            foreach (var toggle in Descendants(owner).OfType<ToggleButton>().Where(t => ReferenceEquals(t.TemplatedParent, owner)))
+                if (AutomationProperties.GetName(toggle).Length == 0) AutomationProperties.SetName(toggle, name);
+            return;
+        }
         foreach (var part in Descendants(owner))
         {
             if (part is DatePicker or DatePickerTextBox or System.Windows.Controls.TextBox)

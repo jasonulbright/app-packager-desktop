@@ -75,6 +75,9 @@ public partial class InstallerSettingsPanel : UserControl
                 Margin = new Thickness(0, 4, 0, 4)
             };
 
+            System.Windows.Automation.AutomationProperties.SetName(expander, group.Key);
+            Helpers.TemplatePartNames.SetFromOwner(expander, true);
+
             var stackPanel = new StackPanel { Margin = new Thickness(8) };
 
             foreach (var param in group)
