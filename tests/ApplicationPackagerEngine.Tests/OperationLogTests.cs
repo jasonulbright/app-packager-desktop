@@ -19,9 +19,67 @@ public sealed class OperationLogTests
     {
         var log = new OperationLog(3);
         for (var i = 1; i <= 10; i++) log.Append("line " + i);
-        Assert.Equal(["line 8", "line 9", "line 10"], log);
+        Assert.Equal(["line 8", "line 9", "line 10"], log.Select(e => e.Text));
         Assert.Equal("line 10", log.Last);
         Assert.Equal(2000, new OperationLog().Limit);
+    }
+
+    [Fact]
+    public void ALineFromAPoolThreadReachesABoundLog()
+    {
+        WithApplication(ApplicationTheme.Light, () =>
+        {
+            AppPackagerFitTests.Create(0, out var viewModel);
+            viewModel.LogText = "first";
+            var window = new LogWindow(viewModel);
+            Show(window);
+            try
+            {
+                Settle(window);
+                var download = Task.Run(() => viewModel.AppendLog("from a download"));
+                Run(download);
+                download.GetAwaiter().GetResult();
+                Settle(window);
+                var list = ById<ListBox>(window, "lstLog");
+                Assert.Equal(2, list.Items.Count);
+                Assert.EndsWith("from a download", viewModel.LastLogLine);
+            }
+            finally { window.Close(); }
+        });
+    }
+
+    [Fact]
+    public void EqualLinesAreSeparateAndTheLogScrollsOnlyFromItsEnd()
+    {
+        WithApplication(ApplicationTheme.Light, () =>
+        {
+            AppPackagerFitTests.Create(0, out var viewModel);
+            viewModel.LogText = string.Join(Environment.NewLine, Enumerable.Repeat("same line", 300));
+            var window = new LogWindow(viewModel);
+            Show(window);
+            try
+            {
+                Settle(window);
+                Settle(window);
+                var list = ById<ListBox>(window, "lstLog");
+                var scroller = Descendants(list).OfType<ScrollViewer>().First();
+                Assert.True(scroller.VerticalOffset > 0 && scroller.VerticalOffset >= scroller.ScrollableHeight - 0.5, "The log does not open at its end.");
+                list.SelectedItem = viewModel.LogLines[299];
+                Assert.Equal(299, list.SelectedIndex);
+                viewModel.LogLines.Append("same line");
+                Settle(window);
+                Settle(window);
+                Assert.True(scroller.VerticalOffset >= scroller.ScrollableHeight - 0.5, "The log does not follow the new line from its end.");
+
+                scroller.ScrollToTop();
+                Settle(window);
+                viewModel.LogLines.Append("same line");
+                Settle(window);
+                Settle(window);
+                Assert.Equal(0, scroller.VerticalOffset, 0.5);
+            }
+            finally { window.Close(); }
+        });
     }
 
     [Theory]

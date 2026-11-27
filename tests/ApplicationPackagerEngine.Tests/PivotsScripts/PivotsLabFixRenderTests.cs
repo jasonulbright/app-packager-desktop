@@ -107,6 +107,40 @@ public sealed class PivotsLabFixRenderTests
         });
     }
 
+    [Fact]
+    public void TheEditorKeepsTabAfterTheFocusComesBackAndAfterAStarterListInsert()
+    {
+        WithPage(ApplicationTheme.Light, (window, page, _, _) =>
+        {
+            var editor = ById<TextBox>(page, "txtQuery");
+            Keyboard.Focus(editor);
+            Settle(window);
+            editor.AppendText("x");
+            // Another window or a menu took the focus: no other control of the page had it.
+            Keyboard.ClearFocus();
+            Settle(window);
+            Keyboard.Focus(editor);
+            Settle(window);
+            Press(window, page, editor, Key.Tab);
+            Assert.Equal("txtQuery", FocusedId());
+
+            // A visit from another control of the page starts again.
+            Press(window, page, editor, Key.Tab, ModifierKeys.Control);
+            Release(window, page, editor, Key.LeftCtrl);
+            Keyboard.Focus(editor);
+            Settle(window);
+            Press(window, page, editor, Key.Space, ModifierKeys.Control);
+            var list = page.StarterList!;
+            ((System.Windows.Controls.MenuItem)list.Items[0]).RaiseEvent(new RoutedEventArgs(System.Windows.Controls.MenuItem.ClickEvent));
+            list.IsOpen = false;
+            Settle(window);
+            Keyboard.Focus(editor);
+            Settle(window);
+            Press(window, page, editor, Key.Tab);
+            Assert.Equal("txtQuery", FocusedId());
+        });
+    }
+
     private static void Release(Window window, PivotsScriptsPage page, TextBox editor, Key key, ModifierKeys modifiers = ModifierKeys.None)
     {
         page.ModifierSource = () => modifiers;

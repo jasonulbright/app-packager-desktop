@@ -124,9 +124,9 @@ public partial class PackagesViewModel
             var plan = BuildPlan([PlanApp(p, settings, hidden: false, site, build.SealedVersion)], settings, destination);
             if (plan.Systems.Count == 0) return Refuse($"{destination} is no longer in use (Settings, Systems in Use).");
             var confirmed = await PublishReviewGate.ConfirmAsync(plan, Comment, _publishDialogs.ShowPublishReview,
-                shown => RereadPlanAsync(shown, [p], build.ReadBuild), AddLogLine);
+                shown => RereadPlanAsync(shown, [p], build.ReadBuild), AddLogLine,
+                comment => Comment = comment);
             if (confirmed is null) return Refuse("The review closed without a confirmation.");
-            Comment = confirmed.Comment;
             if (VersionRefusal() is { } changedAfter) return Refuse(changedAfter);
             if (destination == OneClickDestinations.ConfigMgr
                 && PublishRetry.ConfigMgrRefusal(confirmed.Plan.Rows[0].App.Site, version) is { } appeared) return Refuse(appeared);

@@ -52,6 +52,17 @@ public class SettingsService : IRunSettingsReader<AppSettings>
     /// </summary>
     public static Action<int>? ReadAttemptHook { get; set; }
 
+    private bool? _fileAtStart;
+
+    /// <summary>
+    /// True when a settings file existed before this instance first read or wrote one. A setup that the operator did not finish leaves a
+    /// file, so a later start is not a new install.
+    /// </summary>
+    public bool FileExistedAtStart
+    {
+        get { lock (_gate) return _fileAtStart ?? File.Exists(SettingsPath); }
+    }
+
     private bool _readOnce;
     private (bool Read, string? Text, string? Error) _onceRead;
 
@@ -71,6 +82,7 @@ public class SettingsService : IRunSettingsReader<AppSettings>
         (bool Read, string? Text, string? Error) cached;
         lock (_gate) (readOnce, cached) = (_readOnce, _onceRead);
         var (json, readError) = cached.Read ? (cached.Text, cached.Error) : ReadSettingsText();
+        lock (_gate) _fileAtStart ??= json is not null || readError is not null;
         if (readOnce && !cached.Read)
         {
             lock (_gate)
@@ -412,6 +424,7 @@ public class SettingsService : IRunSettingsReader<AppSettings>
     {
         if (_runOverrides is not null)
             throw new InvalidOperationException("These settings carry run overrides for this process and are not written.");
+        lock (_gate) _fileAtStart ??= File.Exists(SettingsPath);
         Directory.CreateDirectory(SettingsDir);
         var node = JsonSerializer.SerializeToNode(settings, JsonOptions)!.AsObject();
         lock (_gate)

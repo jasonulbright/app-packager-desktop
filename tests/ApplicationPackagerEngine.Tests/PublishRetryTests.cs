@@ -170,6 +170,69 @@ public sealed class PublishRetryTests : IDisposable
         return (dialogs, rows);
     }
 
+    private sealed class SiteAnswer(SettingsService settings, MecmQueryResult answer) : MecmQueryService(settings)
+    {
+        public int Reads { get; private set; }
+
+        public override Task<MecmQueryResult> QueryVersionAsync(string cmName, CancellationToken ct = default, string? arpName = null)
+        {
+            Reads++;
+            return Task.FromResult(answer);
+        }
+    }
+
+    [Theory]
+    [InlineData(MecmQueryStatus.NotFound, 1)]
+    [InlineData(MecmQueryStatus.Found, 0)]
+    public async Task ASkipFromTheLastConfigMgrCheckIsReadFromTheSiteBeforeAReviewWithNothingToWrite(MecmQueryStatus status, int writes)
+    {
+        using var scope = SiteContext.Scope(null, _root);
+        File.WriteAllText(SettingsService.SettingsPath,
+            """{ "FirstRunCompleted": true, "Systems": { "ConfigMgr": true, "Intune": false, "Wsus": false }, "SiteCode": "P01", "FileShareRoot": "\\cm01\share" }""");
+        var console = Directory.CreateDirectory(Path.Combine(_root, "console", "bin")).FullName;
+        File.WriteAllText(Path.Combine(_root, "console", "ConfigurationManager.psd1"), "");
+        var before = Environment.GetEnvironmentVariable("SMS_ADMIN_UI_PATH");
+        Environment.SetEnvironmentVariable("SMS_ADMIN_UI_PATH", console);
+        try
+        {
+            var dialogs = new PublishRunKit.Dialogs();
+            var settings = new SettingsService();
+            var row = Row("2.0");
+            row.CurrentVersion = "2.0";
+            var viewModel = PublishRunKit.Create(settings, dialogs, row);
+            var site = new SiteAnswer(settings, new MecmQueryResult { Status = status, SoftwareVersion = status == MecmQueryStatus.Found ? "2.0" : null });
+            PublishRunKit.Set(viewModel, "_mecmQueryService", site);
+
+            await (Task)typeof(PackagesViewModel).GetMethod("PackageCoreAsync", BindingFlags.Instance | BindingFlags.NonPublic)!
+                .Invoke(viewModel, [new List<PackagerInfo> { row }, null])!;
+
+            Assert.Equal(1, site.Reads);
+            Assert.Equal(writes, Assert.Single(dialogs.Reviews).Plan.Writes);
+        }
+        finally { Environment.SetEnvironmentVariable("SMS_ADMIN_UI_PATH", before); }
+    }
+
+    [Fact]
+    public async Task TheCommentOfAReviewIsKeptAfterBackAndAfterACancelledRead()
+    {
+        var systems = new SystemsInUse { ConfigMgr = false, Wsus = true };
+        var plan = PublishPlanner.Plan([new PublishPlanApp("a", "Alpha", "2.0", false)], systems,
+            new PublishReadiness(systems, true, "MCM", @"\\cm01\share", "t", "c", true, "wsus01"));
+        foreach (var confirm in new[] { false, true })
+        {
+            var kept = "";
+            var result = await PublishReviewGate.ConfirmAsync(plan, "", review =>
+            {
+                review.Comment = "WO-7";
+                if (confirm) review.AcceptCommand.Execute(null);
+                return confirm;
+            }, _ => Task.FromResult<PublishPlan?>(null), _ => { }, comment => kept = comment);
+
+            Assert.Null(result);
+            Assert.Equal("WO-7", kept);
+        }
+    }
+
     [Fact]
     public async Task ARetryOpensTheReviewForTheFailedSystemOnlyAndBackPublishesNothing()
     {

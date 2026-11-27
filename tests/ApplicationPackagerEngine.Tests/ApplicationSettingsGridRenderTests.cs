@@ -179,6 +179,10 @@ public sealed class ApplicationSettingsGridRenderTests
                 var first = Open();
                 Show1(first, (window, grid) =>
                 {
+                    // A click on a grip saves nothing.
+                    ColumnGripKit.Drag(window, grid, Column(grid, "Vendor"), 0);
+                    Settle(window);
+                    Assert.Null(settings.Load().ApplicationSettingsGridLayout);
                     ColumnGripKit.Drag(window, grid, Column(grid, "Vendor"), 60);
                     Settle(window);
                     Column(grid, "Install scope").DisplayIndex = 1;

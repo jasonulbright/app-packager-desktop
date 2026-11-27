@@ -12,8 +12,15 @@ public static class PackagesColumns
 {
     public const string ConfigMgrVersion = "ConfigMgr version";
 
-    /// <summary>The header that "ConfigMgr version" had before; a saved file can still name it.</summary>
+    /// <summary>
+    /// The header that "ConfigMgr version" had before. The hidden list and the saved layout keep this name, so an earlier build that
+    /// reads the same file keeps the choices of the operator.
+    /// </summary>
     private const string FormerConfigMgrVersion = "Current (ConfigMgr)";
+
+    /// <summary>The columns that an earlier build can hide, by the names it knows.</summary>
+    private static readonly IReadOnlyList<string> FormerToggleable =
+        ["Vendor", FormerConfigMgrVersion, "Latest", "CVEs", "Max CVSS", "KEV", "In latest", "Newest CVE"];
 
     public static readonly IReadOnlyList<string> Debug = ["CMName", "Script", "Max EPSS", "NVD updated", "CVEs Checked (UTC)"];
 
@@ -54,36 +61,39 @@ public static class PackagesColumns
         return Toggleable.Where(chosen.Contains).ToArray();
     }
 
+    /// <summary>Saves the chosen columns, and the hidden list that an earlier build reads.</summary>
+    public static void Store(AppSettings settings, IReadOnlyList<string> shown)
+    {
+        settings.PackagesShownColumns = shown.ToArray();
+        settings.PackagesHiddenColumns = FormerToggleable.Where(h => !shown.Contains(Rename(h))).ToArray();
+    }
+
+    /// <summary>The saved layout with the names of this build.</summary>
+    public static PackagesColumnLayout? ReadLayout(PackagesColumnLayout? stored) => WithIds(stored, Rename);
+
+    /// <summary>The layout as it is saved, with the names that an earlier build reads.</summary>
+    public static PackagesColumnLayout? StoredLayout(PackagesColumnLayout? layout) =>
+        WithIds(layout, id => id == ConfigMgrVersion ? FormerConfigMgrVersion : id);
+
+    private static PackagesColumnLayout? WithIds(PackagesColumnLayout? layout, Func<string, string> name) => layout is null ? null : new()
+    {
+        Columns = (layout.Columns ?? []).Where(c => c?.Id is not null)
+            .Select(c => new PackagesColumnState { Id = name(c.Id), Width = c.Width }).ToList(),
+        SortId = name(layout.SortId ?? ""),
+        SortDescending = layout.SortDescending
+    };
+
     /// <summary>
     /// Stores the choice of columns once. A new install with no saved choice gets the compact set. Every other install keeps what it
     /// showed: the set from before, less the columns that the operator had hidden. True when the settings changed.
     /// </summary>
     public static bool Migrate(AppSettings settings, bool newInstall)
     {
-        var renamed = RenameLayout(settings.PackagesGridLayout);
-        if (settings.PackagesShownColumns is not null) return renamed;
+        if (settings.PackagesShownColumns is not null) return false;
         var hidden = (settings.PackagesHiddenColumns ?? []).Select(Rename).ToHashSet(StringComparer.Ordinal);
-        settings.PackagesShownColumns = newInstall && hidden.Count == 0 && settings.PackagesGridLayout is null
-            ? Compact.ToArray()
-            : Legacy.Where(h => !hidden.Contains(h)).ToArray();
-        settings.PackagesHiddenColumns = [];
+        Store(settings, newInstall && hidden.Count == 0 && settings.PackagesGridLayout is null
+            ? Compact
+            : Legacy.Where(h => !hidden.Contains(h)).ToList());
         return true;
-    }
-
-    private static bool RenameLayout(PackagesColumnLayout? layout)
-    {
-        if (layout is null) return false;
-        var changed = false;
-        foreach (var column in (layout.Columns ?? []).Where(c => c?.Id is not null && Rename(c.Id) != c.Id))
-        {
-            column.Id = Rename(column.Id);
-            changed = true;
-        }
-        if (Rename(layout.SortId ?? "") != (layout.SortId ?? ""))
-        {
-            layout.SortId = Rename(layout.SortId!);
-            changed = true;
-        }
-        return changed;
     }
 }

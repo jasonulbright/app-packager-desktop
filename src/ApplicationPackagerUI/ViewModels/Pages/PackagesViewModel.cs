@@ -109,6 +109,8 @@ public partial class PackagesViewModel : ObservableObject
         IAddFileRoute addFileRoute,
         SiteStateService siteState)
     {
+        // Made here, so the log belongs to the UI thread.
+        _logLines = new OperationLog();
         _siteState = siteState;
         AddFileRoute = addFileRoute;
         _publishRuns = publishRuns;
@@ -293,7 +295,7 @@ public partial class PackagesViewModel : ObservableObject
     public void SetColumnVisible(string header, bool visible)
     {
         var settings = _settingsService.Load();
-        settings.PackagesShownColumns = PackagesColumns.With(settings.PackagesShownColumns, header, visible);
+        PackagesColumns.Store(settings, PackagesColumns.With(settings.PackagesShownColumns, header, visible));
         _settingsService.Save(settings);
     }
 
@@ -301,7 +303,7 @@ public partial class PackagesViewModel : ObservableObject
     public void ShowCompactColumns()
     {
         var settings = _settingsService.Load();
-        settings.PackagesShownColumns = PackagesColumns.Compact.ToArray();
+        PackagesColumns.Store(settings, PackagesColumns.Compact);
         _settingsService.Save(settings);
     }
 
@@ -311,19 +313,19 @@ public partial class PackagesViewModel : ObservableObject
         var settings = _settingsService.Load();
         // An unreadable file gives defaults, which look like a new install; nothing is stored over it.
         if (_settingsService.IsFileUnreadable) return;
-        if (!PackagesColumns.Migrate(settings, FirstRunDecision.IsWizardDue(settings.FirstRunCompleted))) return;
+        if (!PackagesColumns.Migrate(settings, newInstall: !_settingsService.FileExistedAtStart)) return;
         try { _settingsService.Save(settings); }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
     }
 
     /// <summary>The saved order, widths and sort of the grid; null when the operator changed none.</summary>
-    public PackagesColumnLayout? ColumnLayout => _settingsService?.Load().PackagesGridLayout;
+    public PackagesColumnLayout? ColumnLayout => PackagesColumns.ReadLayout(_settingsService?.Load().PackagesGridLayout);
 
     public void SaveColumnLayout(PackagesColumnLayout layout)
     {
         if (_settingsService is null) return;
         var settings = _settingsService.Load();
-        settings.PackagesGridLayout = layout;
+        settings.PackagesGridLayout = PackagesColumns.StoredLayout(layout);
         _settingsService.Save(settings);
     }
 
@@ -331,7 +333,7 @@ public partial class PackagesViewModel : ObservableObject
     public void ResetColumns()
     {
         var settings = _settingsService.Load();
-        settings.PackagesShownColumns = PackagesColumns.Compact.ToArray();
+        PackagesColumns.Store(settings, PackagesColumns.Compact);
         settings.PackagesGridLayout = null;
         _settingsService.Save(settings);
     }
@@ -650,6 +652,12 @@ public partial class PackagesViewModel : ObservableObject
 
     private void AddLogLine(string message)
     {
+        // A download reports its progress on a pool thread. The bound log and the file writes stay on the thread of the log.
+        if (LogLines.OnAnotherThread)
+        {
+            LogLines.Owner!.BeginInvoke(() => AddLogLine(message));
+            return;
+        }
         var line = $"{DateTime.Now:yyyy-MM-dd HH:mm:ss}  {message}";
         LogLines.Append(line);
         OnPropertyChanged(nameof(LastLogLine));
@@ -1293,14 +1301,25 @@ public partial class PackagesViewModel : ObservableObject
         var shown = new HashSet<PackagerInfo>(rows ?? FilteredPackagers);
         var plan = BuildPlan(selected.Select(p => PlanApp(p, settings, !shown.Contains(p),
                 string.IsNullOrEmpty(p.CurrentVersion) ? ConfigMgrFact.None : ConfigMgrFact.Found(p.CurrentVersion), sealedVersion)).ToList(), settings);
+        // A plan with nothing to write cannot be confirmed, so no read would follow it. A skip that rests on the last ConfigMgr check is
+        // read from the site before such a plan shows.
+        if (PublishPlanner.NeedsSiteRead(plan))
+        {
+            if (await RereadPlanAsync(plan, selected, readBuild) is not { } read)
+            {
+                StatusText = "Publish cancelled. Nothing was published.";
+                return;
+            }
+            plan = read;
+        }
         var confirmed = await PublishReviewGate.ConfirmAsync(plan, Comment, _publishDialogs.ShowPublishReview,
-            shownPlan => RereadPlanAsync(shownPlan, selected, readBuild), AddLogLine);
+            shownPlan => RereadPlanAsync(shownPlan, selected, readBuild), AddLogLine,
+            comment => Comment = comment);
         if (confirmed is null)
         {
             StatusText = "Publish cancelled. Nothing was published.";
             return;
         }
-        Comment = confirmed.Comment;
         var confirmedPlan = confirmed.Plan;
         // The run writes to the systems that the confirmed plan lists, with the settings that the last read used.
         settings = _settingsService.Load();
@@ -1627,14 +1646,13 @@ public partial class PackagesViewModel : ObservableObject
         var version = sealedVersion ?? VersionOf(p);
         // A view model that a test builds without its constructor has no history.
         var build = _inventoryProjection is null ? null : _executionService.ResolveBuildPlan(p);
-        // The records of a row that stages a local installer can name the website version of a One Click run, so they skip nothing there.
-        var fromFile = version != PackagerExecutionService.PublishVersion(p) && p.IsJsonDefined;
-        var history = fromFile ? null : _inventoryProjection?.Entry(p, settings, build);
+        var history = _inventoryProjection?.Entry(p, settings, build);
         var stale = build is not null && ApplicationPackagerEngine.Services.Workbench.BuildRecords.IsCurrent(build.DataRoot, build.ApplicationId,
             build.ProfileId, version, build.ProfileRevision, settings.ScriptSigning.PolicyDigest) == false;
         return new PublishPlanApp(p.Uid, p.Application, version, hidden)
         {
             History = history,
+            ConfigMgrIncomplete = _inventoryProjection?.ConfigMgrIncomplete(p, settings, version) == true,
             BuildStale = stale,
             BuildKey = build is null ? "" : ApplicationPackagerEngine.Services.OneClick.OneClickHistory.BuildKey(build.ProfileId, build.ProfileRevision,
                 settings.ScriptSigning.PolicyDigest),
@@ -1675,8 +1693,8 @@ public partial class PackagesViewModel : ObservableObject
         var byUid = selected.ToDictionary(p => p.Uid, StringComparer.Ordinal);
         var apps = shown.Rows.Select(r => PlanApp(byUid[r.App.Uid], settings, r.App.Hidden, r.App.Site, sealedVersion)).ToList();
         var unread = BuildPlan(apps, settings, shown.RetryDestination);
-        // A plan that cannot run, or has no ConfigMgr, keeps the ConfigMgr facts it was shown with.
-        if (!unread.CanRun || !unread.Systems.Contains(OneClickDestinations.ConfigMgr)) return unread;
+        // A blocked plan, or one with no ConfigMgr, keeps the ConfigMgr facts it was shown with.
+        if (unread.Blocked.Count > 0 || !unread.Systems.Contains(OneClickDestinations.ConfigMgr)) return unread;
 
         _operationCts = new CancellationTokenSource();
         var token = _operationCts.Token;

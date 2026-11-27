@@ -4,6 +4,7 @@ using ApplicationPackagerUI.Helpers;
 namespace ApplicationPackagerEngine.Tests;
 
 /// <summary>Overhaul V1 phase 3b (Q-126): the scope line, the Columns menu and the removal of the per-system publish buttons.</summary>
+[Collection(ProcessEnvironmentCollection.Name)]
 public sealed class PackagesBatchBarTests
 {
     [Theory]
@@ -76,8 +77,48 @@ public sealed class PackagesBatchBarTests
         Assert.DoesNotContain("ConfigMgr version", chosen.PackagesShownColumns!);
         Assert.DoesNotContain("KEV", chosen.PackagesShownColumns!);
         Assert.Contains("CVEs", chosen.PackagesShownColumns!);
-        Assert.Equal("ConfigMgr version", chosen.PackagesGridLayout!.Columns[0].Id);
-        Assert.Equal("ConfigMgr version", chosen.PackagesGridLayout.SortId);
+        // An earlier build that reads the file finds the choices under the names it knows.
+        Assert.Equal(["Vendor", "Current (ConfigMgr)", "KEV"], chosen.PackagesHiddenColumns);
+        Assert.Equal("Current (ConfigMgr)", chosen.PackagesGridLayout!.Columns[0].Id);
+        var read = PackagesColumns.ReadLayout(chosen.PackagesGridLayout)!;
+        Assert.Equal(("ConfigMgr version", 200d, "ConfigMgr version"), (read.Columns[0].Id, read.Columns[0].Width, read.SortId));
+        Assert.Equal("Current (ConfigMgr)", PackagesColumns.StoredLayout(read)!.SortId);
+    }
+
+    [Fact]
+    public void TheHiddenListFollowsALaterChoice()
+    {
+        var settings = new ApplicationPackagerUI.Models.AppSettings();
+        PackagesColumns.Store(settings, PackagesColumns.With(PackagesColumns.Legacy, "Vendor", visible: false));
+        Assert.Equal(["Vendor"], settings.PackagesHiddenColumns);
+        PackagesColumns.Store(settings, PackagesColumns.Compact);
+        Assert.Equal(["Vendor", "CVEs", "Max CVSS", "KEV", "In latest", "Newest CVE"], settings.PackagesHiddenColumns);
+    }
+
+    [Fact]
+    public void ASettingsFileFromAnEarlierStartIsNotANewInstall()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "apd-newinstall-" + Guid.NewGuid().ToString("N"));
+        var saved = Environment.GetEnvironmentVariable(ApplicationPackagerEngine.Services.AppDataPaths.DataRootVariable);
+        Environment.SetEnvironmentVariable(ApplicationPackagerEngine.Services.AppDataPaths.DataRootVariable, root);
+        try
+        {
+            using var scope = ApplicationPackagerEngine.Services.SiteContext.Scope(null, root);
+            var first = new ApplicationPackagerUI.Services.SettingsService();
+            var settings = first.Load();
+            first.Save(settings);
+            Assert.False(first.FileExistedAtStart);
+
+            // The operator closed Setup before the end, so FirstRunCompleted is still false.
+            var next = new ApplicationPackagerUI.Services.SettingsService();
+            Assert.False(next.Load().FirstRunCompleted == true);
+            Assert.True(next.FileExistedAtStart);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable(ApplicationPackagerEngine.Services.AppDataPaths.DataRootVariable, saved);
+            TestCleanup.DeleteDirectory(root);
+        }
     }
 
     [Fact]

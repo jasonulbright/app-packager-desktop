@@ -1,6 +1,7 @@
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Media;
 using ApplicationPackagerUI.ViewModels.Pages;
 using Wpf.Ui.Abstractions.Controls;
 using MenuItem = System.Windows.Controls.MenuItem;
@@ -20,13 +21,16 @@ public partial class PivotsScriptsPage : INavigationAware
         foreach (var (editor, words) in new[] { (txtQuery, PivotsScriptsViewModel.PivotWords), (txtDraft, PivotsScriptsViewModel.ScriptWords) })
         {
             editor.SelectionChanged += (_, _) => ShowCaret(editor);
-            editor.GotKeyboardFocus += (_, _) =>
+            editor.GotKeyboardFocus += (_, e) =>
             {
                 ShowCaret(editor);
-                // A new visit: Tab moves on until the text changes.
-                if (!ReferenceEquals(_edited, editor)) return;
-                _edited = null;
+                // A new visit, from another control of the page: Tab moves on until the text changes. The focus that comes back from the
+                // starter list, a context menu or another window continues the visit.
+                if (ReferenceEquals(_edited, editor) && e.OldFocus is Visual from && !ReferenceEquals(from, editor) && IsAncestorOf(from))
+                    _edited = null;
             };
+            // A paste from the context menu changes the text while the menu has the focus.
+            DataObject.AddPastingHandler(editor, (_, _) => _edited = editor);
             editor.TextChanged += (_, _) =>
             {
                 if (editor.IsKeyboardFocused) _edited = editor;
@@ -45,6 +49,9 @@ public partial class PivotsScriptsPage : INavigationAware
 
     /// <summary>The editor whose text changed while it had the focus: Tab types a tab there.</summary>
     private TextBox? _edited;
+
+    /// <summary>The starter list that Ctrl+Space opened last.</summary>
+    public ContextMenu? StarterList { get; private set; }
 
     /// <summary>The modifier keys held during a key press; replaceable so a test can press Ctrl without a keyboard.</summary>
     public Func<ModifierKeys> ModifierSource { get; set; } = () => Keyboard.Modifiers;
@@ -121,10 +128,12 @@ public partial class PivotsScriptsPage : INavigationAware
                 var at = editor.SelectionStart;
                 editor.SelectedText = word;
                 editor.Select(at + word.Length, 0);
+                _edited = editor;
                 editor.Focus();
             };
             menu.Items.Add(item);
         }
+        StarterList = menu;
         menu.IsOpen = true;
         if (menu.Items.Count > 0 && menu.Items[0] is MenuItem first) first.Focus();
     }

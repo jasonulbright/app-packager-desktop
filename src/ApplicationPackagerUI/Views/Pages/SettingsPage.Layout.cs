@@ -42,9 +42,16 @@ public partial class SettingsPage
     {
         dgApplications.ColumnReordered += (_, _) => SaveApplicationLayout();
         dgApplications.Sorting += (_, _) => Dispatcher.BeginInvoke(SaveApplicationLayout);
+        // A click on a grip that moves nothing sets no width.
+        (DataGridColumn Column, double Width)? pressed = null;
+        dgApplications.AddHandler(Thumb.DragStartedEvent, new DragStartedEventHandler((_, e) =>
+            pressed = ColumnGrips.SizedColumn(dgApplications, e.OriginalSource) is { } column ? (column, column.ActualWidth) : null), true);
         dgApplications.AddHandler(Thumb.DragCompletedEvent, new DragCompletedEventHandler((_, e) =>
         {
-            if (ColumnGrips.SizedColumn(dgApplications, e.OriginalSource) is not { } column) return;
+            var start = pressed;
+            pressed = null;
+            if (ColumnGrips.SizedColumn(dgApplications, e.OriginalSource) is not { } column || start is not { } before
+                || !ReferenceEquals(before.Column, column) || Math.Abs(column.ActualWidth - before.Width) < 0.5) return;
             _sizedApplicationColumns.Add(ColumnKey(column));
             Dispatcher.BeginInvoke(SaveApplicationLayout);
         }), true);

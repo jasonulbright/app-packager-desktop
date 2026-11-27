@@ -79,7 +79,10 @@ public sealed class AppSettings
 
     public string[] HiddenApplications { get; set; } = [];
 
-    /// <summary>The columns that a file from before <see cref="PackagesShownColumns"/> hid. It is read once and then left empty.</summary>
+    /// <summary>
+    /// The hidden columns, by the names that a build from before <see cref="PackagesShownColumns"/> reads. This build reads the list once,
+    /// then keeps it in step with the shown columns.
+    /// </summary>
     public string[] PackagesHiddenColumns { get; set; } = [];
 
     /// <summary>The columns of the Packages grid that the Columns menu shows. Null until the first start stored the choice.</summary>

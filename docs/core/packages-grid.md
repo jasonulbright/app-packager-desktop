@@ -119,7 +119,7 @@ The CSV is UTF-8 with a byte order mark. Every field is in quotes. The columns:
 
 ## Log
 
-The line under the grid shows the newest log line. The button **Operation history** beside it opens the history of the selected row. The button **Logs** opens the window **Log**. The window shows the newest 2000 lines of the session; the log files hold every line. Each line starts with the date and the time. The window scrolls to a new line while no line is selected. **Copy** copies the selected lines, or every line. **Open Log Folder** opens the folder of the log files.
+The line under the grid shows the newest log line. The button **Operation history** beside it opens the history of the selected row. The button **Logs** opens the window **Log**. The window shows the newest 2000 lines of the session; the log files hold every line. Each line starts with the date and the time. The window scrolls to a new line while the view is at the end of the log. **Copy** copies the selected lines, or every line. **Open Log Folder** opens the folder of the log files.
 
 - At the start, the log shows `Session log: <path>` and the source of the list. The source line is `Loading the shipped definitions (no PS1 packagers folder configured).` or `Loading packagers from: <folder>`.
 - The log is also written to two files in the `Logs` folder of the legacy data folder, `%LOCALAPPDATA%\SRLPackr` by default: one file per session named `packr-<yyyyMMdd>-<HHmmss>.log`, and one rolling file `packr.log` in the legacy data folder. App Packager Desktop keeps the newest 30 session files.
