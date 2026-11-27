@@ -81,13 +81,15 @@
                   GridLinesVisibility="Horizontal"
                   AutomationProperties.AutomationId="gridCves">
             <DataGrid.Columns>
-                <DataGridTextColumn Header="CVE" Binding="{Binding Id}" Width="140" />
+                <!-- The grid takes width from each column that is wider than its MinWidth until Summary has its own MinWidth.
+                     Each MinWidth holds the header and the usual value; a date shows whole. A narrower window scrolls sideways. -->
+                <DataGridTextColumn Header="CVE" Binding="{Binding Id}" Width="140" MinWidth="128" />
                 <DataGridTextColumn Header="CVSS" Binding="{Binding Cvss}" Width="SizeToCells" MinWidth="130" />
-                <DataGridTextColumn Header="EPSS" Binding="{Binding Epss}" Width="70" />
-                <DataGridTextColumn Header="KEV" Binding="{Binding Kev}" Width="64" />
-                <DataGridTextColumn Header="Fixed in" Binding="{Binding FixedIn}" Width="110" />
-                <DataGridTextColumn Header="Published" Binding="{Binding Published}" Width="100" />
-                <DataGridTextColumn Header="Modified" Binding="{Binding Modified}" Width="100" />
+                <DataGridTextColumn Header="EPSS" Binding="{Binding Epss}" Width="70" MinWidth="64" />
+                <DataGridTextColumn Header="KEV" Binding="{Binding Kev}" Width="64" MinWidth="48" />
+                <DataGridTextColumn Header="Fixed in" Binding="{Binding FixedIn}" Width="110" MinWidth="90" />
+                <DataGridTextColumn Header="Published" Binding="{Binding Published}" Width="100" MinWidth="100" />
+                <DataGridTextColumn Header="Modified" Binding="{Binding Modified}" Width="100" MinWidth="100" />
                 <DataGridTemplateColumn Header="Summary" Width="*" MinWidth="260" SortMemberPath="Summary">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>

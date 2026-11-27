@@ -40,7 +40,7 @@ The rights of each destination are in [Permissions](../reference/permissions.md)
 8. Optional: enter **Cadence (days)** for one row.
 9. Select **Save Settings**.
 
-![The One Click page of Settings with tracked applications and their destinations](../images/core-one-click-settings.png)
+![The One Click page of Settings with the Track and destination boxes of the applications](../images/core-one-click-settings.png)
 
 ### Plan and run
 

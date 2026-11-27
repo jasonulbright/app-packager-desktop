@@ -1,10 +1,8 @@
 # Guide images: run book
 
-The guide has 141 images. The final build can show 140 of them (see section 6).
+The guide has 140 images.
 
 Run every command on the development computer from the repository root, with the final build. The captures run on CLIENT01. The seed scripts read and write the ConfigMgr site of the lab through a remote session.
-
-Status: the first lab runs (2.1 to 2.15, 2.17, 3.1 and 3.2) found faults in 2.5, 3.1 and 3.2. The fixes for these faults passed the PowerShell parser only and have not run on the lab.
 
 ## 0. Preparation
 
@@ -57,13 +55,13 @@ The guide images are the Light images: `images\light\<id>.png` (scripts with `-O
 
 ## 1. Seed steps and preflight
 
-The parts `Core`, `Deploy`, `Collection` and `Script` have run already. Their records are in `zzapd-records.local.json`. Do not run these parts again: the seed script stops at a name that is on the site. Use that record file as `$rec` for every later step and for the cleanup.
+Run the parts `Core`, `Deploy`, `Collection` and `Script` one time for a record file. The seed script stops at a name that is on the site. When the record file already holds these parts, do not run them again. Use that record file as `$rec` for every later step and for the cleanup.
 
 A list for `-Part` works only through `-Command`. With `pwsh <script>` (that is `-File`), `Core, Deploy` arrives as one text and the script refuses it.
 
 ```powershell
 $rec = '<full path of zzapd-records.local.json>'   # keep this file until the cleanup is done
-# Only for a lab without these objects:
+# Only for a record file without these parts:
 pwsh -NoProfile -Command "& .\tools\guide-capture\lab-seed\Seed-GuideLab.ps1 -RecordFile '$rec' -Part Core,Deploy,Collection,Script"
 pwsh tools\guide-capture\lab-seed\Test-GuideLabData.ps1
 Copy-Item $rec "$cap\zzapd-records.local.json" -Force
@@ -172,8 +170,6 @@ Invoke-Capture 'catalog' '& .\Capture-FirstPackage.ps1 -Run $w -CatalogImportOnl
 |---|---|---|---|
 | 6.1 | `first` `& .\Capture-FirstPackage.ps1 -Run $w -ImportIds 08488e39-fb0d-47ab-b89c-35ee834dade7,20a25326-d78f-4a69-bc81-fa8430093374` (`-Minutes 60`) | WSUS console on CLIENT01, signing certificate trusted (`tools/lab-tests/Initialize-WsusClient.ps1` ends without an error; it runs `Test-WsusPublishing.ps1`); no application `ZZAPD gsudo*`; no unexpired WSUS update of any version of `ZZAPD gsudo`; internet. Use only update ids that the WSUS server holds already. | start-first-package-end-to-end, core-publish-wsus-row, core-wsus-updates-window, core-wsus-catalog-import |
 | 6.2 | `dialogs` `& .\Capture-PackagesDialogs.ps1 -Run $w` (`-Minutes 60`) | no application `ZZAPD gsudo*`; internet. Before the conflict image the run sets the version of its own new application to 0.0.1, so the review lets the second publish through. The conflict dialog is answered with Skip. | start-sidebar-context-menu, core-one-click-plan, core-stage-result-log, core-publish-configmgr-log, core-packages-conflict-dialog |
-
-The image `core-one-click-plan-supersedence` cannot be made. It shows the One Click pass that only applies a pending supersedence step. The supersedence redesign (pull request 221) removed this pass: the planner of the final build does not read the pending state, so no data gives a plan with the step `Supersedence` (`CHANGELOG.md` names the removal).
 
 6.4 Seed the older versions, then run the two scenarios:
 

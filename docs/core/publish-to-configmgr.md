@@ -96,9 +96,9 @@ The check box **Remember this answer** applies the answer to the other applicati
 
 ![The same window with Remember this answer ticked](../images/core-packages-supersedence-confirm-remember.png)
 
-The log of a run with the answer Yes names the older version, the confirmation and the relation that was added:
+The log of a run with the answer Yes names the older version, the confirmation and the relation that was added. The image shows the end of that log:
 
-![The log of a run: confirmed, packaged, supersedence added](../images/core-packages-supersedence-log.png)
+![The end of the log of a run: packaged, supersedence added](../images/core-packages-supersedence-log.png)
 
 A failure of the step never undoes the application: the result says "Published, supersedence not applied" and why. A line that already holds a higher or an equal version under another title is named in the log and is not superseded. Before the publish the program reads the detection of the older application and writes warnings to the log (`Chain check`), and never blocks: Replace and uninstall with Exact while the older application still has a GreaterEquals version clause (its uninstall will be reported as failed); an older application and a new one that disagree (Exact against Minimum, or the reverse); a new application that keeps a GreaterEquals version clause under Replace and uninstall.
 

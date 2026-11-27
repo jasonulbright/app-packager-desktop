@@ -28,7 +28,7 @@
                   AutomationProperties.AutomationId="gridRunHistory" AutomationProperties.Name="Earlier One Click runs"
                   SelectionChanged="History_SelectionChanged">
             <DataGrid.Columns>
-                <DataGridTextColumn Header="Started" Binding="{Binding Started, StringFormat=yyyy-MM-dd HH:mm}" Width="160" />
+                <DataGridTextColumn Header="Started" Binding="{Binding Started, StringFormat=yyyy-MM-dd HH:mm}" Width="160" MinWidth="140" />
                 <DataGridTextColumn Header="Action" Binding="{Binding Action}" Width="*" MinWidth="160" />
                 <DataGridTextColumn Header="Applications" Binding="{Binding Applications}" Width="120" />
                 <DataGridTextColumn Header="Published" Binding="{Binding Published}" Width="100" />

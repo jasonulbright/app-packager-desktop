@@ -10,7 +10,7 @@
 
 App Packager Desktop packages third-party Windows applications and publishes them to ConfigMgr, Intune and WSUS. It is a Windows desktop application. It is free and MIT licensed.
 
-![The App Packager page with the version, ConfigMgr, status and CVE columns filled for checked applications](docs/images/packages.png)
+![The App Packager page after Check Latest and Check ConfigMgr: the latest version and the status of the checked applications, and the detail pane](docs/images/packages.png)
 
 ## What it does
 

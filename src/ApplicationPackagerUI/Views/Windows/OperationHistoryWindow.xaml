@@ -50,8 +50,8 @@
                 <DataGrid.Columns>
                     <DataGridTextColumn Header="Operation" Binding="{Binding Kind}" Width="150" />
                     <DataGridTextColumn Header="Target" Binding="{Binding Target}" Width="170" />
-                    <DataGridTextColumn Header="Started" Binding="{Binding StartedAt.LocalDateTime, StringFormat='{}{0:yyyy-MM-dd HH:mm:ss}'}" Width="175" />
-                    <DataGridTextColumn Header="Finished" Binding="{Binding FinishedAt.LocalDateTime, StringFormat='{}{0:yyyy-MM-dd HH:mm:ss}'}" Width="175" />
+                    <DataGridTextColumn Header="Started" Binding="{Binding StartedAt.LocalDateTime, StringFormat='{}{0:yyyy-MM-dd HH:mm:ss}'}" Width="175" MinWidth="160" />
+                    <DataGridTextColumn Header="Finished" Binding="{Binding FinishedAt.LocalDateTime, StringFormat='{}{0:yyyy-MM-dd HH:mm:ss}'}" Width="175" MinWidth="160" />
                     <DataGridTextColumn Header="Outcome" Binding="{Binding Outcome}" Width="120" ElementStyle="{StaticResource StatusCell}" />
                     <DataGridTextColumn Header="Details" Binding="{Binding Detail}" Width="*" />
                 </DataGrid.Columns>
@@ -82,7 +82,7 @@
                       GridLinesVisibility="Horizontal"
                       RowHeaderWidth="0">
                 <DataGrid.Columns>
-                    <DataGridTextColumn Header="Time" Binding="{Binding OccurredAt.LocalDateTime, StringFormat='{}{0:yyyy-MM-dd HH:mm:ss}'}" Width="175" />
+                    <DataGridTextColumn Header="Time" Binding="{Binding OccurredAt.LocalDateTime, StringFormat='{}{0:yyyy-MM-dd HH:mm:ss}'}" Width="175" MinWidth="160" />
                     <DataGridTextColumn Header="Event" Binding="{Binding Kind}" Width="135" />
                     <DataGridTextColumn Header="Destination" Binding="{Binding Destination}" Width="115" />
                     <DataGridTextColumn Header="Environment" Binding="{Binding EnvironmentKey}" Width="180" />

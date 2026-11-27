@@ -53,7 +53,7 @@ Filters: a text box (**Filter by check, object, evidence or action**), a **Categ
 
 **Show blockers** opens a window for the application of the selected finding (an application finding, or TSQ-05). It lists every object that refers to the application and so blocks its delete: deployments, task sequences (also a task sequence that holds the task sequence that installs the application), stale reference rows of a task sequence that the site does not return, applications that depend on it and applications that supersede it. The list comes from the data of the last scan and makes no site call. A task sequence or a collection that the account may not see is not in the list; the window says so. After a stored scan, or a scan that did not read the data, the window asks for a new scan.
 
-![The Show blockers window with the deployments, task sequences, dependencies and supersedence rules that block the delete of an application](../images/tools-site-hygiene-blockers.png)
+![The Show blockers window with a task sequence and a dependency that block the delete of an application](../images/tools-site-hygiene-blockers.png)
 
 ## Steps: fix findings
 

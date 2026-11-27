@@ -357,7 +357,7 @@
                                     <DataGridTextColumn Header="Type" Width="60" Binding="{Binding InstallerType}" />
                                     <DataGridTextColumn Header="Architecture" Width="96" Binding="{Binding Architecture}" />
                                     <DataGridTextColumn Header="SHA-256" Width="112" Binding="{Binding ShortSha256}" />
-                                    <DataGridTextColumn Header="Added" Width="128" Binding="{Binding Added}" />
+                                    <DataGridTextColumn Header="Added" Width="132" MinWidth="132" Binding="{Binding Added}" />
                                     <DataGridTextColumn Header="Blocking changes" Width="*" MinWidth="200" Binding="{Binding Flags}" />
                                 </DataGrid.Columns>
                             </DataGrid>
@@ -384,9 +384,12 @@
                             <ColumnDefinition Width="150" />
                             <ColumnDefinition Width="Auto" />
                             <ColumnDefinition Width="190" />
-                            <ColumnDefinition Width="Auto" />
                             <ColumnDefinition Width="*" />
                         </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
                         <TextBlock Grid.Column="0" Text="Editing" Style="{StaticResource WbLabel}" />
                         <ComboBox Grid.Column="1" x:Name="cboScriptTarget" AutomationProperties.Name="Editing" Style="{StaticResource WbCombo}"
                                   ItemsSource="{Binding ScriptTargetOptions}" SelectedItem="{Binding ScriptTarget}"
@@ -395,40 +398,42 @@
                         <ComboBox Grid.Column="3" x:Name="cboInstallMode" AutomationProperties.Name="Mode" Style="{StaticResource WbCombo}"
                                   ItemsSource="{Binding InstallModeOptions}" SelectedItem="{Binding InstallModeDisplay}"
                                   ToolTip="Generated keeps the packager wrapper. Extend generated runs before/after hooks around it as separate processes. Custom replaces the entry command entirely." />
-                        <TextBlock Grid.Column="4" x:Name="lblInstallModeSrc" Text="{Binding InstallModeSource}" Style="{StaticResource WbSource}" />
-                        <ui:Button Grid.Column="5" x:Name="btnInstallReset" Content="Reset section" Style="{StaticResource WbInlineButton}"
+                        <!-- The inherited text has its own row: beside the two lists it leaves too little width for the button. -->
+                        <TextBlock Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="4" x:Name="lblInstallModeSrc" Text="{Binding InstallModeSource}" Style="{StaticResource WbSource}"
+                                   Margin="0,0,0,8" HorizontalAlignment="Left" />
+                        <ui:Button Grid.Column="4" x:Name="btnInstallReset" Content="Reset section" Style="{StaticResource WbInlineButton}"
                                    HorizontalAlignment="Left" Margin="12,0,8,8" Command="{Binding ResetInstallSectionCommand}" ToolTip="Remove your overrides on this page for the target you are editing (Install or Uninstall) and use the packager values." />
                     </Grid>
 
+                    <!-- Return codes has its own row: beside Reboot and Working dir it gets too little width to show its text. -->
                     <Grid Grid.Row="1">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="Auto" />
                             <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="160" />
                             <ColumnDefinition Width="Auto" />
                             <ColumnDefinition Width="170" />
                         </Grid.ColumnDefinitions>
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
                         </Grid.RowDefinitions>
                         <TextBlock Grid.Row="0" Grid.Column="0" Text="Effective command" Style="{StaticResource WbLabel}" />
-                        <ui:TextBox Grid.Row="0" Grid.Column="1" Grid.ColumnSpan="3" x:Name="txtEffectiveCommand" AutomationProperties.Name="Effective command" Style="{StaticResource WbField}"
+                        <ui:TextBox Grid.Row="0" Grid.Column="1" x:Name="txtEffectiveCommand" AutomationProperties.Name="Effective command" Style="{StaticResource WbField}"
                                     FontFamily="Cascadia Code, Consolas, Courier New" IsReadOnly="True"
                                     Text="{Binding EffectiveCommand, Mode=OneWay}"
                                     ToolTip="The entry command the build writes for this target. Needs staging until the packager resolves its installer." />
-                        <TextBlock Grid.Row="0" Grid.Column="4" Grid.ColumnSpan="2" x:Name="lblCommandSrc" Text="{Binding CommandSource}" Style="{StaticResource WbSource}" />
+                        <TextBlock Grid.Row="0" Grid.Column="2" Grid.ColumnSpan="2" x:Name="lblCommandSrc" Text="{Binding CommandSource}" Style="{StaticResource WbSource}" />
 
                         <TextBlock Grid.Row="1" Grid.Column="0" Text="Return codes" Style="{StaticResource WbLabel}" />
-                        <ui:TextBox Grid.Row="1" Grid.Column="1" x:Name="txtReturnCodes" AutomationProperties.Name="Return codes" Style="{StaticResource WbField}"
+                        <ui:TextBox Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="3" x:Name="txtReturnCodes" AutomationProperties.Name="Return codes" Style="{StaticResource WbField}"
                                     Text="{Binding ReturnCodes, UpdateSourceTrigger=PropertyChanged}"
                                     PlaceholderText="inherit (for example 0,3010=SoftReboot,1641=HardReboot)" ToolTip="Enter return codes separated by commas, for example 0,3010=SoftReboot. Leave the box empty to inherit the packager codes." />
-                        <TextBlock Grid.Row="1" Grid.Column="2" Text="Reboot" Style="{StaticResource WbLabel}" Margin="12,0,12,8" />
-                        <ComboBox Grid.Row="1" Grid.Column="3" x:Name="cboRebootPolicy" AutomationProperties.Name="Reboot" Style="{StaticResource WbCombo}"
+                        <TextBlock Grid.Row="2" Grid.Column="0" Text="Reboot" Style="{StaticResource WbLabel}" />
+                        <ComboBox Grid.Row="2" Grid.Column="1" x:Name="cboRebootPolicy" AutomationProperties.Name="Reboot" Style="{StaticResource WbCombo}"
                                   ItemsSource="{Binding RebootPolicyOptions}" SelectedItem="{Binding RebootPolicy}" ToolTip="Select the restart behavior for the target you are editing. Inherit uses the packager value." />
-                        <TextBlock Grid.Row="1" Grid.Column="4" Text="Working dir" Style="{StaticResource WbLabel}" Margin="12,0,12,8" />
-                        <ui:TextBox Grid.Row="1" Grid.Column="5" x:Name="txtWorkingDirectory" AutomationProperties.Name="Working directory" Style="{StaticResource WbField}"
+                        <TextBlock Grid.Row="2" Grid.Column="2" Text="Working dir" Style="{StaticResource WbLabel}" Margin="12,0,12,8" />
+                        <ui:TextBox Grid.Row="2" Grid.Column="3" x:Name="txtWorkingDirectory" AutomationProperties.Name="Working directory" Style="{StaticResource WbField}"
                                     Text="{Binding WorkingDirectory, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="inherit" ToolTip="Enter the working directory for the command. Leave the box empty to inherit the packager value." />
                     </Grid>
 
@@ -509,7 +514,6 @@
                             <ColumnDefinition Width="160" />
                             <ColumnDefinition Width="Auto" />
                             <ColumnDefinition Width="180" />
-                            <ColumnDefinition Width="Auto" />
                             <ColumnDefinition Width="*" />
                         </Grid.ColumnDefinitions>
                         <TextBlock Grid.Column="0" Text="Detection" Style="{StaticResource WbLabel}" />
@@ -519,12 +523,20 @@
                         <TextBlock Grid.Column="2" Text="Type" Style="{StaticResource WbLabel}" Margin="16,0,12,8" />
                         <ComboBox Grid.Column="3" x:Name="cboDetectionType" AutomationProperties.Name="Detection type" Style="{StaticResource WbCombo}" IsEnabled="{Binding IsDetectionCustom}"
                                   ItemsSource="{Binding DetectionTypeOptions}" SelectedItem="{Binding DetectionType}" ToolTip="Select the type of detection rule. Available when Detection is Custom." />
-                        <TextBlock Grid.Column="4" x:Name="lblDetectionSrc" Text="{Binding DetectionSource}" Style="{StaticResource WbSource}" />
-                        <ui:Button Grid.Column="5" x:Name="btnDetectionReset" Content="Reset section" Style="{StaticResource WbInlineButton}"
+                        <ui:Button Grid.Column="4" x:Name="btnDetectionReset" Content="Reset section" Style="{StaticResource WbInlineButton}"
                                    HorizontalAlignment="Left" Margin="12,0,8,8" Command="{Binding ResetDetectionSectionCommand}" ToolTip="Remove your detection override and use the packager's native detection rule." />
                     </Grid>
 
-                    <TextBlock Grid.Row="1" x:Name="txtDetectionInherited" Text="{Binding DetectionInheritedText}" Style="{StaticResource WbNote}" Margin="0,4,0,4" />
+                    <!-- The inherited text of the mode stands under the lists: beside them it leaves too little width for the button. -->
+                    <Grid Grid.Row="1">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" x:Name="lblDetectionSrc" Text="{Binding DetectionSource}" Style="{StaticResource WbSource}"
+                                   MaxWidth="240" Margin="0,4,12,4" VerticalAlignment="Top" />
+                        <TextBlock Grid.Column="1" x:Name="txtDetectionInherited" Text="{Binding DetectionInheritedText}" Style="{StaticResource WbNote}" Margin="0,4,0,4" />
+                    </Grid>
 
                     <Grid Grid.Row="2">
                         <ScrollViewer x:Name="pnlDetectionTyped" VerticalScrollBarVisibility="Auto"
@@ -662,7 +674,7 @@
                         <DockPanel Grid.Row="1" Margin="0,0,0,4">
                             <TextBlock DockPanel.Dock="Left" Text="Requirement operations" Style="{StaticResource WbHeading}" Margin="0,0,12,0" VerticalAlignment="Center" />
                             <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" HorizontalAlignment="Right">
-                                <ComboBox x:Name="cboReqTemplate" AutomationProperties.Name="Site condition" AutomationProperties.HelpText="{Binding ToolTip, RelativeSource={RelativeSource Self}, Converter={x:Static helpers:ToolTipTextConverter.Instance}}" Width="200" Margin="0,0,8,8"
+                                <ComboBox x:Name="cboReqTemplate" AutomationProperties.Name="Site condition" AutomationProperties.HelpText="{Binding ToolTip, RelativeSource={RelativeSource Self}, Converter={x:Static helpers:ToolTipTextConverter.Instance}}" Width="180" Margin="0,0,8,8"
                                           ItemsSource="{Binding RequirementTemplates}" SelectedItem="{Binding SelectedRequirementTemplate}"
                                           ToolTip="Site conditions, named below; a rule attaches one to this application." />
                                 <ui:Button x:Name="btnReqAdd" Content="Add" Icon="{ui:SymbolIcon Add24}" Style="{StaticResource WbInlineButton}" MinWidth="70" Command="{Binding AddRequirementCommand}" ToolTip="Add a requirement operation for the selected site condition." />
@@ -686,32 +698,32 @@
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto" />
                                 <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
                             </Grid.RowDefinitions>
+                            <!-- One field in each row. The button column is Auto, so the inherited text gives up width and the button does not. -->
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto" />
                                 <ColumnDefinition Width="180" />
-                                <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="180" />
-                                <ColumnDefinition Width="Auto" />
                                 <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
                             <TextBlock Grid.Column="0" Text="Variant split" Style="{StaticResource WbLabel}" />
                             <ComboBox Grid.Column="1" x:Name="cboVariantSplit" AutomationProperties.Name="Variant split" Style="{StaticResource WbCombo}"
                                       ItemsSource="{Binding VariantSplitOptions}" SelectedItem="{Binding VariantSplit}" IsEnabled="{Binding VariantSplitEnabled}"
                                       ToolTip="Stage one application with several deployment types. Offered only where the packager declares support." />
-                            <TextBlock Grid.Column="2" Text="Install for" Style="{StaticResource WbLabel}" Margin="16,0,12,8" />
-                            <ComboBox Grid.Column="3" x:Name="cboInstallForMode" AutomationProperties.Name="Install for" Style="{StaticResource WbCombo}"
+                            <TextBlock Grid.Row="1" Grid.Column="0" Text="Install for" Style="{StaticResource WbLabel}" />
+                            <ComboBox Grid.Row="1" Grid.Column="1" x:Name="cboInstallForMode" AutomationProperties.Name="Install for" Style="{StaticResource WbCombo}"
                                       ItemsSource="{Binding InstallForOptions}" SelectedItem="{Binding InstallFor}" IsEnabled="{Binding InstallForEnabled}"
                                       ToolTip="System installs for all users; User installs for the signed-in user. Arguments, uninstall command, detection hive and view follow this choice." />
-                            <TextBlock Grid.Column="4" x:Name="lblVariantSrc" Text="{Binding VariantSource}" Style="{StaticResource WbSource}" />
-                            <ui:Button Grid.Column="5" x:Name="btnInstallForReset" Content="Reset" Style="{StaticResource WbInlineButton}" HorizontalAlignment="Left"
+                            <TextBlock Grid.Row="1" Grid.Column="2" x:Name="lblVariantSrc" Text="{Binding VariantSource}" Style="{StaticResource WbSource}" />
+                            <ui:Button Grid.Row="1" Grid.Column="3" x:Name="btnInstallForReset" Content="Reset" Style="{StaticResource WbInlineButton}"
                                        Command="{Binding ResetFieldCommand}" CommandParameter="InstallMode" ToolTip="Remove your override and use the Install for value from the packager definition." />
-                            <TextBlock Grid.Row="1" Grid.Column="0" Text="Installer type" Style="{StaticResource WbLabel}" />
-                            <ComboBox Grid.Row="1" Grid.Column="1" x:Name="cboInstallerType" AutomationProperties.Name="Installer type" Style="{StaticResource WbCombo}"
+                            <TextBlock Grid.Row="2" Grid.Column="0" Text="Installer type" Style="{StaticResource WbLabel}" />
+                            <ComboBox Grid.Row="2" Grid.Column="1" x:Name="cboInstallerType" AutomationProperties.Name="Installer type" Style="{StaticResource WbCombo}"
                                       ItemsSource="{Binding InstallerTypeOptions}" SelectedItem="{Binding InstallerType}" IsEnabled="{Binding InstallerTypeEnabled}"
                                       ToolTip="EXE or MSI. The application stages with that installer, its own silent switches and its own detection. Offered only where the vendor ships both types." />
-                            <TextBlock Grid.Row="1" Grid.Column="4" x:Name="lblInstallerTypeSrc" Text="{Binding InstallerTypeSource}" Style="{StaticResource WbSource}" />
-                            <ui:Button Grid.Row="1" Grid.Column="5" x:Name="btnInstallerTypeReset" Content="Reset" Style="{StaticResource WbInlineButton}" HorizontalAlignment="Left"
+                            <TextBlock Grid.Row="2" Grid.Column="2" x:Name="lblInstallerTypeSrc" Text="{Binding InstallerTypeSource}" Style="{StaticResource WbSource}" />
+                            <ui:Button Grid.Row="2" Grid.Column="3" x:Name="btnInstallerTypeReset" Content="Reset" Style="{StaticResource WbInlineButton}"
                                        Command="{Binding ResetFieldCommand}" CommandParameter="InstallerType" ToolTip="Remove your override and use the Installer type that the packager definition ships." />
                         </Grid>
 

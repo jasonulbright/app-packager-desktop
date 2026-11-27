@@ -90,6 +90,8 @@
                                Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
                 </DataTemplate>
             </DataGrid.RowDetailsTemplate>
+            <!-- The grid takes width from each column that is wider than its MinWidth until the star column has its own MinWidth.
+                 Each MinWidth holds the whole header. The sum fits the default width of the window; a narrower window scrolls sideways. -->
             <DataGrid.Columns>
                 <DataGridTemplateColumn x:Name="colInclude" Header="Include" Width="Auto" MinWidth="72">
                     <DataGridTemplateColumn.CellTemplate>
@@ -101,9 +103,9 @@
                         </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
-                <DataGridTextColumn Header="Application" Binding="{Binding Application}" Width="*" MinWidth="160" IsReadOnly="True"
+                <DataGridTextColumn Header="Application" Binding="{Binding Application}" Width="*" MinWidth="140" IsReadOnly="True"
                                     ElementStyle="{StaticResource WrapCell}" />
-                <DataGridTextColumn Header="Version" Binding="{Binding Version}" Width="SizeToCells" MinWidth="100" IsReadOnly="True" ElementStyle="{StaticResource WrapCell}" />
+                <DataGridTextColumn Header="Version" Binding="{Binding Version}" Width="SizeToCells" MinWidth="90" IsReadOnly="True" ElementStyle="{StaticResource WrapCell}" />
                 <DataGridTemplateColumn x:Name="colMecm" Header="ConfigMgr" Width="Auto" MinWidth="96">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
@@ -113,7 +115,7 @@
                         </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
-                <DataGridTemplateColumn x:Name="colWsus" Header="WSUS" Width="Auto" MinWidth="72">
+                <DataGridTemplateColumn x:Name="colWsus" Header="WSUS" Width="Auto" MinWidth="64">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
                             <CheckBox MinWidth="0" Padding="0" IsChecked="{Binding Wsus, UpdateSourceTrigger=PropertyChanged, Mode=TwoWay}"
@@ -122,7 +124,7 @@
                         </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
-                <DataGridTemplateColumn x:Name="colIntune" Header="Intune" Width="Auto" MinWidth="76">
+                <DataGridTemplateColumn x:Name="colIntune" Header="Intune" Width="Auto" MinWidth="68">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
                             <CheckBox MinWidth="0" Padding="0" IsChecked="{Binding Intune, UpdateSourceTrigger=PropertyChanged, Mode=TwoWay}"
@@ -131,13 +133,13 @@
                         </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
-                <DataGridTextColumn x:Name="colLast" Header="Last published" Binding="{Binding LastPublished}" Width="150" IsReadOnly="True"
+                <DataGridTextColumn x:Name="colLast" Header="Last published" Binding="{Binding LastPublished}" Width="150" MinWidth="116" IsReadOnly="True"
                                     ElementStyle="{StaticResource WrapCell}" />
-                <DataGridTextColumn x:Name="colSource" Header="Destinations from" Binding="{Binding SourceText}" Width="160" IsReadOnly="True"
+                <DataGridTextColumn x:Name="colSource" Header="Destinations from" Binding="{Binding SourceText}" Width="160" MinWidth="140" IsReadOnly="True"
                                     ElementStyle="{StaticResource WrapCell}" />
-                <DataGridTextColumn x:Name="colPlanned" Header="Planned" Binding="{Binding Planned}" Width="240" IsReadOnly="True"
+                <DataGridTextColumn x:Name="colPlanned" Header="Planned" Binding="{Binding Planned}" Width="240" MinWidth="120" IsReadOnly="True"
                                     ElementStyle="{StaticResource WrapCell}" />
-                <DataGridTemplateColumn x:Name="colDetails" Header="Changes" Width="128">
+                <DataGridTemplateColumn x:Name="colDetails" Header="Changes" Width="128" MinWidth="128">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
                             <ToggleButton Content="Change details" IsChecked="{Binding ShowDetails, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Padding="8,2"
@@ -155,7 +157,7 @@
                                     IsReadOnly="True" Visibility="Collapsed" ElementStyle="{StaticResource WrapCell}" />
                 <DataGridTextColumn x:Name="colResultIntune" Header="Intune result" Binding="{Binding ResultIntune}" Width="1.2*" MinWidth="180"
                                     IsReadOnly="True" Visibility="Collapsed" ElementStyle="{StaticResource WrapCell}" />
-                <DataGridTextColumn x:Name="colReason" Header="Reason" Binding="{Binding Reason}" Width="230" IsReadOnly="True"
+                <DataGridTextColumn x:Name="colReason" Header="Reason" Binding="{Binding Reason}" Width="230" MinWidth="170" IsReadOnly="True"
                                     ElementStyle="{StaticResource WrapCell}" />
             </DataGrid.Columns>
         </DataGrid>

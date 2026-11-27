@@ -346,7 +346,7 @@
                               CanUserAddRows="False" CanUserDeleteRows="False" IsReadOnly="True" HeadersVisibility="Column" RowHeaderWidth="0"
                               SelectionMode="Single" GridLinesVisibility="Horizontal" AutomationProperties.AutomationId="dgHistory">
                         <DataGrid.Columns>
-                            <DataGridTextColumn Header="Time" Binding="{Binding Time}" Width="150" />
+                            <DataGridTextColumn Header="Time" Binding="{Binding Time}" Width="150" MinWidth="150" />
                             <DataGridTextColumn Header="Kind" Binding="{Binding Kind}" Width="130" />
                             <DataGridTextColumn Header="Description" Binding="{Binding Description}" Width="*">
                                 <DataGridTextColumn.ElementStyle>

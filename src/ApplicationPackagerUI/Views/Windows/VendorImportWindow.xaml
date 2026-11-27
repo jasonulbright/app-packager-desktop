@@ -137,7 +137,7 @@
                         <DataGridTextColumn Header="Vendor" Binding="{Binding Vendor}" Width="180" />
                         <DataGridTextColumn Header="Definitions" Binding="{Binding Count}" Width="100" />
                         <DataGridTextColumn Header="Trust" Binding="{Binding Trust}" Width="220" />
-                        <DataGridTextColumn Header="Imported" Binding="{Binding FetchedAt}" Width="140" />
+                        <DataGridTextColumn Header="Imported" Binding="{Binding FetchedAt}" Width="140" MinWidth="132" />
                         <DataGridTextColumn Header="Address" Binding="{Binding Address}" Width="*" MinWidth="160" />
                     </DataGrid.Columns>
                 </DataGrid>
