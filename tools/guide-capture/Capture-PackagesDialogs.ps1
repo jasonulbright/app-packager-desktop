@@ -4,21 +4,30 @@
     window, the Configure dialog, the result of Stage, and the Application Already Exists dialog. The real app is driven with UI Automation, one theme after the other.
 
 .DESCRIPTION
-    Run it in the interactive session of the lab user under the capture lock (Run-VisibleProbe.ps1 takes it), from the folder of the published app:
-        Run-VisibleProbe.ps1 -Worktree <published folder with these scripts> -ProbeArgs "& .\Capture-PackagesDialogs.ps1 -Run C:\guide\runs\apd-<timestamp>"
-    The images are <Run>\images\<theme>\<id>.png. The Stage goes to the staging folder of the run. The Publish step answers the Application Already Exists dialog with
-    Skip, the first Publish creates the application on the site and the run script of the caller must remove it again; the second Publish meets it and Skip answers the dialog.
-    A step that fails says FAIL for its image and the run goes on.
+    Run it in the interactive session of the lab user under the capture lock (Run-InSession.ps1 takes it), from the folder of the published app.
+    The images are <Run>\images\<theme>\<id>.png. The Stage goes to the staging folder of the run. The application that the run stages and publishes is the guide
+    definition zzapd-gsudo. The first Publish creates it on the site. The run then changes the
+    version of that application, so that the review lets a second Publish through; it meets the application and Skip answers the Application Already Exists dialog.
+    The log images show the Logs window.
+    Every publish review is confirmed only when it lists exactly -ApplicationName for ConfigMgr; else the run selects Back. In the second publish the
+    ConfigMgr cell may also say that ConfigMgr has the version that the run set.
+    The run does not start when the site already holds it. At the end of a theme it removes the application and its new content folders, only as far as
+    PublishCleanup.ps1 can prove that the run created them. A step that fails says FAIL for its image and the run goes on.
 #>
 param(
     [Parameter(Mandatory)][string]$Run,
     [string[]]$Themes = @('Light', 'Dark'),
     [string]$AppFolder = $PSScriptRoot,
-    [string]$Application = '7-Zip',
+    [string]$Application = 'ZZAPD gsudo',
+    # The name of the application in the Application column of the publish review.
+    [string]$ApplicationName = 'ZZAPD gsudo (x64)',
     [string]$FileShareRoot = '\\cm01.contoso.com\ContentShare$'
 )
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'ApdUiDriver.ps1')
+. (Join-Path $PSScriptRoot 'GuideLib.ps1')
+. (Join-Path $PSScriptRoot 'PublishCleanup.ps1')
+Connect-GuideSite
 $exe = Join-Path $AppFolder 'ApplicationPackagerUI.exe'
 $sid = [Security.Principal.WindowsIdentity]::GetCurrent().User.Value
 
@@ -32,13 +41,6 @@ function Wait-Idle($w, [int]$Seconds) {
     while ((Get-Date) -lt $deadline -and (Test-ApdBusy $w)) { Start-Sleep 2 }
 }
 function Step([string]$Theme, [string]$Id, [scriptblock]$Body) { try { & $Body } catch { "FAIL $Theme ${Id}: $($_.Exception.Message)" } }
-# The windows of the app other than the main window, with their names.
-function Other-Windows { @(Get-ApdWindows | Where-Object { $_.Current.Name -notmatch '^App Packager' }) }
-function Show-Other { "windows: " + ((Get-ApdWindows | ForEach-Object { $_.Current.Name }) -join ' | ') }
-function Click-ByName($Scope, [string[]]$Names) {
-    foreach ($n in $Names) { $b = Find-El $Scope -Name $n -ControlType 'Button' -Timeout 2; if ($b) { Real-Click $b; return $n } }
-    throw ('No button named ' + ($Names -join ', ') + ': ' + ((Get-ElList $Scope 40) -join ' / '))
-}
 function Check-Row($w, [string]$Name) {
     Set-ElText (Find-El $w 'txtAppPackagerSearch') $Name
     Start-Sleep 2
@@ -54,6 +56,12 @@ foreach ($theme in $Themes) {
     $staging = Join-Path $data (Join-Path 'Users' (Join-Path $sid 'Staging'))
     New-Item -ItemType Directory -Force $staging | Out-Null
     & icacls $staging /inheritance:r /grant:r "${env:USERNAME}:(OI)(CI)F" '*S-1-5-32-544:(OI)(CI)F' '*S-1-5-18:(OI)(CI)F' | Out-Null
+    Install-GuideDefinition $data @('zzapd-gsudo')
+    $before = @(Get-GuideApplications)
+    $same = @($before | Where-Object { $_.LocalizedDisplayName -like "$Application*" })
+    if ($same) { $same | ForEach-Object { "on the site before the run: $(Format-GuideApp $_)" }; throw "The site already holds an application whose title starts with '$Application'. The run does not start." }
+    $beforeModels = @($before | ForEach-Object { [string]$_.ModelName })
+    $beforeFolders = @(Get-GuideShareFolders $FileShareRoot)
     $settings = @{ FileShareRoot = $FileShareRoot; DownloadRoot = $staging; Systems = @{ ConfigMgr = $true; Intune = $false; Wsus = $false }
         Sidebar = @{ Order = @(); Hidden = @('site-hygiene') }
         OneClick = @{ Action = 'Report'; TrackedApplications = @('fa505d1415214f14', 'c078c933ebd84276', 'a2f7b815dc6e4903') } }
@@ -73,14 +81,16 @@ foreach ($theme in $Themes) {
         }
         Step $theme 'checks' {
             Check-Row $w $Application
+            Assert-ApdSelection $w 1
             Open-ApdMenuItem $w 'btnCheckMenu' 'miCheckLatest'
             Wait-Idle $w 240
             "status: $(Status-Text $w)"
         }
         Step $theme 'core-one-click-plan' {
-            # The One Click window is not in the UI Automation tree of the app, so the shot is taken after a wait, and Alt+F4 closes the window.
+            # One Click checks every tracked application before the window opens, so the wait is for the summary line of the window.
             Real-Click (Find-El $w 'btnOneClick')
-            Start-Sleep 10
+            if (-not (Wait-El 'txtPlanSummary' 600)) { throw 'The One Click window did not open.' }
+            Start-Sleep 3
             Move-MouseAway
             Shot $theme 'core-one-click-plan'
             if (-not (Close-ApdWindow 'One Click')) { Send-ApdCloseKey 'One Click' }
@@ -89,34 +99,55 @@ foreach ($theme in $Themes) {
         Step $theme 'core-stage-result-log' {
             Real-Click (Find-El $w 'btnStage' -Timeout 5)
             Wait-Idle $w 420
-            # A second dialog (the allowance of the staging folder, a signature note) is answered with the first button that continues.
-            foreach ($i in 1..3) { $dlg = Other-Windows | Select-Object -First 1; if ($dlg) { Show-Other; try { $null = Click-ByName $dlg @('Continue', 'OK', 'Yes'); Wait-Idle $w 300 } catch { break } } }
+            # A dialog after a Stage is not expected: it is not clicked, and the step fails.
+            Resolve-ApdContentDialog $w @()
             "status after Stage: $(Status-Text $w)"
+            $null = Open-ApdLogs $w
             Move-MouseAway
             Shot $theme 'core-stage-result-log'
+            Close-ApdLogs
         }
         Step $theme 'core-publish-configmgr-log' {
+            Assert-ApdSelection $w 1
             Real-Click (Find-El $w 'btnPublishAll')
-            Complete-ApdPublish $w 600
+            Complete-ApdPublish $w 600 -Applications $ApplicationName -Systems 'ConfigMgr' -Comment 'Guide capture'
             "status after Publish: $(Status-Text $w)"
+            $null = Open-ApdLogs $w
             Move-MouseAway
             Shot $theme 'core-publish-configmgr-log'
+            Close-ApdLogs
         }
         Step $theme 'core-packages-conflict-dialog' {
-            # The application of the first publish is on the site now: a second publish of the same version asks what to do. Skip answers it: nothing changes.
+            # The review skips a system that has this version, so a second publish of the same version never reaches the dialog. The version of the
+            # application that this run created is therefore changed on the site: the review then lets the publish through, and the title matches.
+            # Only the application that the log proves this run created is changed; the cleanup of the theme removes it.
+            $evidence = Get-GuidePublishEvidence $data
+            $mine = @(Get-GuideApplications | Where-Object { $beforeModels -notcontains [string]$_.ModelName -and $evidence.Models -contains [string]$_.ModelName })
+            if ($mine.Count -ne 1 -or -not $mine[0].LocalizedDisplayName.StartsWith('ZZAPD', [StringComparison]::Ordinal)) { throw "The log proves $($mine.Count) application(s) of this run, not 1. Nothing was changed." }
+            $model = [string]$mine[0].ModelName
+            Invoke-GuideSite { Set-CMApplication -InputObject (Get-CMApplication -ModelName $model -ErrorAction Stop) -SoftwareVersion '0.0.1' -ErrorAction Stop }
+            "site: the version of $($mine[0].LocalizedDisplayName) is now 0.0.1, so a second publish meets it"
+            # The application exists with the same title: the run asks what to do. Skip answers it: nothing changes.
             Check-Row $w $Application
+            Assert-ApdSelection $w 1
+            # The review is planned from the last check, or from the read of the site, which finds the version that was just set.
+            $secondCells = @{ ConfigMgr = 'Create application and deployment type', 'Create application and deployment type (ConfigMgr has 0.0.1; if the title matches, the run asks before it replaces it)' }
             Real-Click (Find-El $w 'btnPublishAll')
             # The review opens first (and again when ConfigMgr differs from the plan); the dialog comes during the run.
-            Complete-ApdPublish $w 420 -OnConflict Return
+            Complete-ApdPublish $w 420 -Applications $ApplicationName -Systems 'ConfigMgr' -CellTexts $secondCells -OnConflict Return -Comment 'Guide capture'
             if (-not (Find-El $w -Name 'Skip' -ControlType 'Button' -Timeout 5)) { throw 'The Application Already Exists dialog did not open.' }
             Start-Sleep 2
             Move-MouseAway
             Shot $theme 'core-packages-conflict-dialog'
             # The Application Already Exists dialog is a dialog inside the main window: Skip keeps the application as it is.
             $skip = Find-El $w -Name 'Skip' -ControlType 'Button' -Timeout 5
-            if ($skip) { Real-Click $skip; Complete-ApdPublish $w 300 } else { 'No Skip button found: the dialog stays open and the run ends the app.' }
+            if ($skip) { Real-Click $skip; Complete-ApdPublish $w 300 -Applications $ApplicationName -Systems 'ConfigMgr' -CellTexts $secondCells } else { 'No Skip button found: the dialog stays open and the run ends the app.' }
             if (Test-ApdBusy $w) { Real-Click (Find-El $w 'btnCancelOperation'); Start-Sleep 3 }
         }
     }
-    finally { Stop-Apd }
+    finally {
+        Stop-Apd
+        try { Complete-GuideSiteCleanup $data $beforeModels $FileShareRoot $beforeFolders }
+        catch { "cleanup of the site failed, nothing more was removed: $($_.Exception.Message)" }
+    }
 }

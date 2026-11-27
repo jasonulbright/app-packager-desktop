@@ -14,7 +14,9 @@ param(
     [switch]$PublishOnly,
     [string]$AppFolder = $PSScriptRoot,
     [switch]$Publish,
-    [string]$Application = '7-Zip'
+    [string]$Application = '7-Zip',
+    # With -Publish: the name of the application in the Application column of the review. The review is confirmed only for exactly this row.
+    [string]$ApplicationName = $Application
 )
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'ApdUiDriver.ps1')
@@ -85,11 +87,13 @@ foreach ($theme in $Themes) {
             Wait-Idle $w 240
             Real-Click (Find-El $w -Name 'Stage' -ControlType 'Button' -Timeout 5)
             Wait-Idle $w 420
+            Set-ElText (Find-El $w 'txtAppPackagerSearch') ''
+            Start-Sleep 1
+            Assert-ApdSelection $w 1
             Real-Click (Find-El $w 'btnPublishAll')
             Start-Sleep 4
-            Set-ElText (Find-El $null 'txtReviewComment' -Timeout 5) 'Overhaul V1 lab check'
             Names 'txtReviewCounts', 'btnReviewConfirm'
-            Real-Click (Find-El $null 'btnReviewConfirm' -Timeout 3)
+            Confirm-ApdReview -Applications $ApplicationName -Systems 'ConfigMgr' -Comment 'Overhaul V1 lab check'
             Wait-Idle $w 600
             $dlg = $null
             foreach ($i in 1..3) {

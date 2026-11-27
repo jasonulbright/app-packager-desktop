@@ -15,11 +15,14 @@ param(
     [Parameter(Mandatory)][string]$Run,
     [string[]]$Themes = @('Light', 'Dark'),
     [string]$AppFolder = $PSScriptRoot,
-    [switch]$SkipFixes
+    [switch]$SkipFixes,
+    # The copy of the record file of the seed script: only the recorded packages can be deleted.
+    [string]$RecordFile = (Join-Path $PSScriptRoot 'zzapd-records.local.json')
 )
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'ApdUiDriver.ps1')
 . (Join-Path $PSScriptRoot 'GuideLib.ps1')
+. (Join-Path $PSScriptRoot 'PublishCleanup.ps1')
 Initialize-Run $Run
 $exe = Join-Path $AppFolder 'ApplicationPackagerUI.exe'
 $ctItem = [System.Windows.Automation.ControlType]::DataItem
@@ -51,6 +54,8 @@ function Confirm-Plan([int]$Seconds = 300) {
         $el = Find-El $null $box -Timeout 2
         if ($el -and -not $el.Current.IsOffscreen) { Set-Check $el $true }
     }
+    # Only the recorded packages of this theme are deleted: each row is the delete of one of them.
+    Assert-ChangePlanRows @($script:AllowedObjects | ForEach-Object { @{ Action = 'Delete package'; Object = '^' + [regex]::Escape($_) + '$' } })
     Real-Click (Need-El 'btnChangePlanConfirm')
     $close = $null
     $deadline = (Get-Date).AddSeconds($Seconds)
@@ -66,7 +71,33 @@ function Confirm-Plan([int]$Seconds = 300) {
     Real-Click $close; Start-Sleep 2
 }
 
+# Checked for every theme before the first one starts.
+$allowed = @{}
+if (-not $SkipFixes) {
+    Connect-GuideSite
+    foreach ($theme in $Themes) {
+        $names = @(1..3 | ForEach-Object { "ZZAPD Hygiene $theme $_" })
+        $allowed[$theme] = @(Get-GuideRecordedPackages $RecordFile $names "ZZAPD Hygiene $theme" | ForEach-Object { "Package $($_.Name) ($($_.Id))" })
+    }
+}
+
+# The offer to import needs a settings file of the retired Health Dashboard on this computer. A file that is there already is used as it is.
+# A file that the run writes is removed at the end, only while its content is the one that the run wrote.
+$suiteFolder = Join-Path $env:LOCALAPPDATA 'AppPackagerSuite'
+$prefsFolder = Join-Path $suiteFolder 'site-hygiene'
+$prefs = Join-Path $prefsFolder 'SiteHygiene.prefs.json'
+$madeFolders = @(@($suiteFolder, $prefsFolder) | Where-Object { -not (Test-Path -LiteralPath $_) })
+$madeHash = $null
+if (-not (Test-Path -LiteralPath $prefs)) {
+    New-Item -ItemType Directory -Force $prefsFolder | Out-Null
+    Set-Content -LiteralPath $prefs -Encoding Ascii -Value '{ "SqlTrustServerCertificate": true, "AutoRefreshMinutes": 15, "InactiveThresholdDays": 14, "AlertsEnabled": true, "AlertCompliancePct": 80 }'
+    $madeHash = (Get-FileHash -LiteralPath $prefs -Algorithm SHA256).Hash
+    "wrote the settings file of the retired dashboard for the import image: $prefs"
+}
+
+try {
 foreach ($theme in $Themes) {
+    $script:AllowedObjects = @($allowed[$theme])
     $data = Start-RunApp $exe $theme @{}
     try {
         $null = Click-Nav 'Site Hygiene'; Start-Sleep 5
@@ -109,14 +140,19 @@ foreach ($theme in $Themes) {
                 do { Start-Sleep 5; $busy = Find-El $null 'btnLiveCancel' -Timeout 1 } while ((Get-Date) -lt $end -and ($busy -and $busy.Current.IsEnabled))
                 Start-Sleep 2
             }
-            foreach ($floor in '70*', '80*') {
-                Tab 'tabHygieneOptions'; Start-Sleep 2
-                $null = Scroll-ToId 'cboComplianceFloor'
-                Combo 'cboComplianceFloor' $floor; Start-Sleep 2
-                Tab 'tabHygieneLive'; Start-Sleep 2
-                Refresh-Live
+            # The first pair raises the alert when the compliance of the lab is from 70 to 79 percent; the second, wider pair when it is elsewhere in 50 to 98.
+            $banner = $null
+            foreach ($pair in @(@('70*', '80*'), @('50*', '99*'))) {
+                foreach ($floor in $pair) {
+                    Tab 'tabHygieneOptions'; Start-Sleep 2
+                    $null = Scroll-ToId 'cboComplianceFloor'
+                    Combo 'cboComplianceFloor' $floor; Start-Sleep 2
+                    Tab 'tabHygieneLive'; Start-Sleep 2
+                    Refresh-Live
+                }
+                $banner = Find-El $null 'txtAlertBanner' -Timeout 5
+                if ($banner -and -not $banner.Current.IsOffscreen) { break }
             }
-            $banner = Find-El $null 'txtAlertBanner' -Timeout 5
             if (-not $banner -or $banner.Current.IsOffscreen) { throw 'no alert was raised' }
             "alert banner: $($banner.Current.Name)"
             Combo 'cboLiveView' 'Alerts*'; Start-Sleep 3
@@ -176,4 +212,15 @@ foreach ($theme in $Themes) {
         }
     }
     finally { Stop-Apd }
+}
+}
+finally {
+    if ($madeHash -and (Test-Path -LiteralPath $prefs)) {
+        if ((Get-FileHash -LiteralPath $prefs -Algorithm SHA256).Hash -eq $madeHash) {
+            Remove-Item -LiteralPath $prefs -Force
+            foreach ($folder in @($prefsFolder, $suiteFolder)) { if ($madeFolders -contains $folder -and -not (Get-ChildItem -LiteralPath $folder -Force)) { Remove-Item -LiteralPath $folder -Force } }
+            'removed the settings file that the run wrote'
+        }
+        else { "LEFT: $prefs changed during the run" }
+    }
 }

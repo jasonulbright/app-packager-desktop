@@ -99,6 +99,10 @@ function Start-Apd([string]$Exe, [string]$DataRoot, [string]$Theme, [hashtable]$
     New-Item -ItemType Directory -Force $userRoot | Out-Null
     # CheckForUpdatesAtStartup is off: the update window of a newer release must not cover a page in the image (Capture-UpdateAndCli opens it with its own button).
     $all = [ordered]@{ Theme = $Theme; FirstRunCompleted = $true; SiteCode = 'MCM'; ProviderMachine = 'cm01.contoso.com'; UseConfigMgr = $true; CheckForUpdatesAtStartup = $false }
+    # The columns of a new install. The app takes a settings file that is there before its first start as an upgrade and would show the earlier, wider
+    # set, so the compact set is written. A caller that needs other columns gives both values in -Settings.
+    $all.PackagesShownColumns = @('ConfigMgr version', 'Latest', 'Status', 'CVE check')
+    $all.PackagesHiddenColumns = @('Vendor', 'CVEs', 'Max CVSS', 'KEV', 'In latest', 'Newest CVE')
     foreach ($k in $Settings.Keys) { $all[$k] = $Settings[$k] }
     Set-Content -LiteralPath (Join-Path $userRoot 'settings.json') -Value ($all | ConvertTo-Json -Depth 6) -Encoding Ascii
     # The icon pack (C:\guide\icon-pack.zip, the release asset of app-packager-icons) goes into the user definitions folder of the run, so the grids show the packager icons.
@@ -307,16 +311,218 @@ function Get-ApdRowBoxes($Grid) {
     @($Grid.FindAll($script:TS::Descendants, $c) | Where-Object { $_.Current.AutomationId -notin 'chkSelectAllPackages', 'SelectAllCheckBox' })
 }
 
+# ---------------- grids of the Settings page
+# The row of a grid whose name starts with -Name. The grid shows only the rows on screen, so it is scrolled from the top in small steps.
+function Find-ApdGridRow($Grid, [string]$Name) {
+    $scroll = $Grid.GetCurrentPattern([System.Windows.Automation.ScrollPattern]::Pattern)
+    $items = New-Object System.Windows.Automation.PropertyCondition ([System.Windows.Automation.AutomationElement]::ControlTypeProperty), ([System.Windows.Automation.ControlType]::DataItem)
+    foreach ($percent in @(0..50 | ForEach-Object { $_ * 2 })) {
+        $scroll.SetScrollPercent([System.Windows.Automation.ScrollPattern]::NoScroll, $percent)
+        Start-Sleep -Milliseconds 400
+        foreach ($item in $Grid.FindAll([System.Windows.Automation.TreeScope]::Children, $items)) {
+            if ($item.Current.Name -like "$Name*") { return $item }
+        }
+    }
+    $null
+}
+
+# Opens a drop-down list with the mouse (at its right edge) and takes the entry of the list with the text.
+function Select-ApdItem($Combo, [string]$Text) {
+    # Bring the cell into view first: the grid scrolls, and a click on a cell below the visible part misses.
+    try { $Combo.GetCurrentPattern([System.Windows.Automation.ScrollItemPattern]::Pattern).ScrollIntoView(); Start-Sleep -Milliseconds 500 } catch { $null = $_ }
+    $r = $Combo.Current.BoundingRectangle
+    Click-At (New-Object System.Drawing.Point ([int]($r.X + $r.Width - 14)), ([int]($r.Y + $r.Height / 2)))
+    Start-Sleep -Milliseconds 900
+    $entry = Find-El $null $null $Text 'ListItem' -Timeout 3
+    if (-not $entry) {
+        $names = foreach ($w2 in (Get-ApdWindows)) { $w2.FindAll([System.Windows.Automation.TreeScope]::Descendants, (New-Object System.Windows.Automation.PropertyCondition ([System.Windows.Automation.AutomationElement]::ControlTypeProperty), ([System.Windows.Automation.ControlType]::ListItem))) | ForEach-Object { $_.Current.Name } }
+        throw "The list has no entry '$Text'. The list items on screen: $($names -join ' | ')"
+    }
+    if ($entry.Current.IsOffscreen) {
+        # The list opens over the combo and the first entries can sit above the work area, where a mouse click misses: press the keys instead.
+        # The list is open: Home goes to its first entry, Down goes to the entry by its place among the entries of the list, Enter takes it.
+        $listItems = New-Object System.Windows.Automation.PropertyCondition ([System.Windows.Automation.AutomationElement]::ControlTypeProperty), ([System.Windows.Automation.ControlType]::ListItem)
+        $left = $entry.Current.BoundingRectangle.X
+        $places = @(foreach ($w2 in (Get-ApdWindows)) { foreach ($li in $w2.FindAll([System.Windows.Automation.TreeScope]::Descendants, $listItems)) { $b2 = $li.Current.BoundingRectangle; if ([Math]::Abs($b2.X - $left) -lt 2 -and $b2.Width -gt 0) { [pscustomobject]@{ Name = $li.Current.Name; Y = $b2.Y } } } }) | Sort-Object Y -Unique
+        $index = [Array]::IndexOf(@($places | ForEach-Object { $_.Name }), $Text)
+        if ($index -lt 0) { throw "The list has no place for the entry '$Text'." }
+        Send-ApdKeys '{HOME}'
+        if ($index -gt 0) { Send-ApdKeys ('{DOWN ' + $index + '}') }
+        Send-ApdKeys '{ENTER}'
+    }
+    else { Click-El $entry }
+    Start-Sleep -Milliseconds 700
+}
+
+# Checks the check box of the row (the first cell) with the mouse, reads it back, and returns the row.
+function Set-ApdGridRowCheck($Grid, [string]$Name) {
+    $row = Find-ApdGridRow $Grid $Name
+    if (-not $row) { throw "The grid has no row for '$Name'." }
+    try { $row.GetCurrentPattern([System.Windows.Automation.ScrollItemPattern]::Pattern).ScrollIntoView(); Start-Sleep -Milliseconds 700 } catch { $null = $_ }
+    $cell = $row.FindFirst([System.Windows.Automation.TreeScope]::Children, (New-Object System.Windows.Automation.PropertyCondition ([System.Windows.Automation.AutomationElement]::NameProperty), ('Item: ' + $row.Current.Name + ', Column Display Index: 0')))
+    if (-not $cell) { throw "The row of '$Name' has no check box cell." }
+    # A click on a row that shows only in part selects it and scrolls the grid, so the box can stay empty. The box is read, and one more click follows.
+    $box = $cell.FindFirst([System.Windows.Automation.TreeScope]::Descendants, (New-Object System.Windows.Automation.PropertyCondition ([System.Windows.Automation.AutomationElement]::ControlTypeProperty), ([System.Windows.Automation.ControlType]::CheckBox)))
+    if (-not $box) { throw "The row of '$Name' has no check box." }
+    foreach ($attempt in 1, 2) {
+        if ($box.GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern).Current.ToggleState -eq 'On') { break }
+        Click-El $box
+        Start-Sleep -Milliseconds 700
+    }
+    if ($box.GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern).Current.ToggleState -ne 'On') { throw "Two clicks did not check the box of '$Name'." }
+    $r = $row.Current.BoundingRectangle
+    "     clicked the check box of '$Name' at {0},{1}; the page says: {2}" -f [int]$r.X, [int]$r.Y, (Find-El $null 'txtCheckedCount' -Timeout 2).Current.Name
+    $row
+}
+
 # True while a run of the App Packager page is active. Cancel shows only then: it keeps its room, hidden, while no run is active.
 function Test-ApdBusy($Window) {
     $c = Find-El $Window 'btnCancelOperation' -Timeout 1
     [bool]($c -and -not $c.Current.IsOffscreen)
 }
 
-# Follows a run after Publish All until it ends, and writes what it answered. A target with ConfigMgr or Intune opens the review first (it opens again
-# when ConfigMgr, read again, differs from the plan) and the results window after the run; a publish to WSUS only has neither. The run counts as active
-# while the review is open. -OnConflict Skip answers the Application Already Exists dialog with Skip; Return leaves it open and returns.
-function Complete-ApdPublish($Window, [int]$Seconds = 420, [ValidateSet('Skip', 'Return')][string]$OnConflict = 'Skip') {
+# Opens the Logs window with the button under the grid and returns it. Close-ApdLogs closes it with its own Close button.
+function Open-ApdLogs($Window) {
+    $button = Find-El $Window 'btnLogs' -Timeout 10
+    if (-not $button) { throw 'The App Packager page has no Logs button.' }
+    Click-El $button
+    if (-not (Find-El $null 'lstLog' -Timeout 20)) { throw 'The Logs window did not open.' }
+    Start-Sleep -Seconds 2
+    Find-ApdWindow 'Log'
+}
+function Close-ApdLogs {
+    $close = Find-El $null 'btnLogClose' -Timeout 5
+    if (-not $close) { return }
+    Invoke-El $close
+    Start-Sleep -Seconds 1
+}
+
+# True for a text that is only the glyph of an icon (a character of the private use area), which UI Automation lists as a text.
+function Test-ApdGlyph([string]$Text) { [bool]($Text.Length -ge 1 -and $Text.Length -le 2 -and [int][char]$Text[0] -ge 0xD800 -and [int][char]$Text[0] -le 0xF8FF) }
+
+# Throws unless the selection line of the App Packager page says that exactly -Count applications are checked, none of them outside the view. The search
+# box of the grid must be empty or show every checked row.
+function Assert-ApdSelection($Window, [int]$Count) {
+    $e = Find-El $Window 'txtSelectionCount' -Timeout 5
+    $text = if ($e) { [string]$e.Current.Name } else { '' }
+    if ($text -cne "$Count selected") { throw "The selection line says '$text', not '$Count selected'. Nothing was published." }
+}
+
+# What the open review differs in from the expected publish: exactly the rows of -Applications (the names of the Application column), exactly the system
+# columns of -Systems, and in each cell one of the allowed texts of its system. -CellTexts gives the allowed texts of a system; without an entry only the
+# plain create action is allowed. So a Skip, a blocked or unsupported system, an application on the site or a failed read does not pass unless its text
+# is given. No output means that the review matches.
+function Get-ApdReviewProblems([string[]]$Applications, [string[]]$Systems, [hashtable]$CellTexts = @{}) {
+    $read = { param($Id) $e = Find-El $null $Id -Timeout 2; if ($e) { [string]$e.Current.Name } else { '' } }
+    $create = @{ ConfigMgr = 'Create application and deployment type'; Intune = 'Create Win32 app'; WSUS = 'Create software update' }
+    # The order of the system columns of the app.
+    $ordered = @('ConfigMgr', 'Intune', 'WSUS' | Where-Object { $Systems -contains $_ })
+    $n = $ordered.Count
+    $count = $Applications.Count
+    if ($n -eq 0 -or $n -ne $Systems.Count -or $count -eq 0) { "the caller names $count application(s) and the systems '$($Systems -join ', ')'"; return }
+
+    $heading = & $read 'txtReviewHeading'
+    $wantHeading = "Review $count $(if ($count -eq 1) { 'application' } else { 'applications' })"
+    if ($heading -cne $wantHeading) { "the heading is '$heading', not '$wantHeading'" }
+    $writes = $count * $n
+    $counts = & $read 'txtReviewCounts'
+    $wantCounts = "$count $(if ($count -eq 1) { 'application' } else { 'applications' }), $n $(if ($n -eq 1) { 'system' } else { 'systems' }): $writes $(if ($writes -eq 1) { 'publish is' } else { 'publishes are' }) planned."
+    if ($counts -cne $wantCounts) { "the counts line is '$counts', not '$wantCounts'" }
+    # "Publish All: ConfigMgr and WSUS - Site MCM - from Settings, Systems in Use" (the parts are joined by a middle dot).
+    $names = if ($n -gt 1) { ($ordered[0..($n - 2)] -join ', ') + ' and ' + $ordered[-1] } else { $ordered[0] }
+    $scope = & $read 'txtReviewScope'
+    if ($scope -cnotlike "Publish All: $names *from Settings, Systems in Use") { "the scope line is '$scope', not a Publish All to $names" }
+    $blocked = & $read 'txtReviewBlocked'
+    if ($blocked) { "the review names a blocked system: $blocked" }
+
+    $grid = Find-El $null 'gridReviewMatrix' -Timeout 10
+    if (-not $grid) { 'the review shows no matrix'; return }
+    $ofType = { param($Scope, $Type) @($Scope.FindAll($script:TS::Descendants, (New-Object System.Windows.Automation.PropertyCondition ($script:AE::ControlTypeProperty), $Type))) }
+    $headers = @(& $ofType $grid ([System.Windows.Automation.ControlType]::HeaderItem) |
+        Where-Object { $_.Current.Name -and $_.Current.Name -notlike 'System.*' -and $_.Current.BoundingRectangle.Width -gt 0 } | ForEach-Object { [string]$_.Current.Name })
+    $wantHeaders = @('Application', 'Version', 'Checked') + $ordered
+    if (($headers -join '|') -cne ($wantHeaders -join '|')) { "the columns are '$($headers -join ' | ')', not '$($wantHeaders -join ' | ')'" }
+
+    $walker = [System.Windows.Automation.TreeWalker]::ControlViewWalker
+    $seen = New-Object System.Collections.Generic.List[string]
+    foreach ($row in @(& $ofType $grid ([System.Windows.Automation.ControlType]::DataItem) | Where-Object { -not $_.Current.IsOffscreen -and -not $_.Current.BoundingRectangle.IsEmpty })) {
+        $cells = New-Object System.Collections.Generic.List[string]
+        for ($c = $walker.GetFirstChild($row); $c; $c = $walker.GetNextSibling($c)) {
+            if ($c.Current.ControlType -eq [System.Windows.Automation.ControlType]::HeaderItem) { continue }
+            # A matrix cell holds an icon beside the text, and the glyph of the icon is listed as a text too.
+            $all = @(& $ofType $c ([System.Windows.Automation.ControlType]::Text))
+            $texts = @($all | ForEach-Object { [string]$_.Current.Name } | Where-Object { -not (Test-ApdGlyph $_) })
+            if ($texts) { $cells.Add([string](@($texts | Where-Object { $_ } | Select-Object -First 1) -join '')) }
+            elseif ($all) { $cells.Add('') }
+            else { $cells.Add([string]$c.Current.Name) }
+        }
+        if ($cells.Count -ne 3 + $n) { "a row has $($cells.Count) cells, not $(3 + $n): $($cells -join ' | ')"; $seen.Add('(unreadable row)'); continue }
+        $seen.Add($cells[0])
+        if (-not $cells[1] -or $cells[1] -ceq 'Not checked') { "the row '$($cells[0])' has no version" }
+        for ($i = 0; $i -lt $n; $i++) {
+            $system = $ordered[$i]
+            $allowed = @(if ($CellTexts.ContainsKey($system)) { $CellTexts[$system] } else { $create[$system] })
+            if ($allowed -cnotcontains $cells[3 + $i]) { "the $system cell of '$($cells[0])' is '$($cells[3 + $i])'; allowed: '$($allowed -join ''' or ''')'" }
+        }
+    }
+    $got = @($seen | Sort-Object -CaseSensitive) -join "', '"
+    $want = @($Applications | Sort-Object -CaseSensitive) -join "', '"
+    if ($seen.Count -ne $count -or $got -cne $want) { "the review lists $($seen.Count) row(s) '$got'; expected $count row(s) '$want'" }
+}
+
+# Confirms the open review only when it matches the expected publish (Get-ApdReviewProblems) and takes the comment. Else it selects Back and throws, so
+# nothing is published. This is the one place of these scripts, beside the guard of Probe-ReleaseE2E.ps1, that clicks btnReviewConfirm.
+function Confirm-ApdReview {
+    param(
+        [Parameter(Mandatory)][string[]]$Applications,
+        [Parameter(Mandatory)][ValidateSet('ConfigMgr', 'Intune', 'WSUS')][string[]]$Systems,
+        [hashtable]$CellTexts = @{},
+        [string]$Comment = ''
+    )
+    Start-Sleep -Seconds 2
+    $problems = @()
+    $confirm = $null
+    try {
+        $problems = @(Get-ApdReviewProblems $Applications $Systems $CellTexts)
+        # The comment box shows only when ConfigMgr or Intune is in the plan.
+        if (-not $problems -and $Comment -and @($Systems | Where-Object { $_ -ne 'WSUS' })) {
+            $box = Find-El $null 'txtReviewComment' -Timeout 5
+            if ($box) { Set-ElText $box $Comment; Start-Sleep -Milliseconds 500 }
+            $typed = if ($box) { [string]$box.GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern).Current.Value } else { '(no box)' }
+            if ($typed -cne $Comment) { $problems += "the comment box holds '$typed', not the comment of the run" }
+        }
+        $confirm = Find-El $null 'btnReviewConfirm' -Timeout 3
+        if (-not $confirm -or $confirm.Current.IsOffscreen -or -not $confirm.Current.IsEnabled) { $problems += 'the confirm button is not available' }
+    }
+    catch { $problems += "the review could not be read: $($_.Exception.Message)" }
+    if ($problems) {
+        $back = Find-El $null 'btnReviewBack' -Timeout 3
+        if ($back) { Click-El $back; Start-Sleep -Seconds 1 }
+        $how = if ($back) { 'Back was selected' } else { 'no Back button was found' }
+        throw "The publish review is not the expected one; $how and nothing was confirmed. $($problems -join '; ')"
+    }
+    $line = Find-El $null 'txtReviewCounts' -Timeout 1
+    "publish review matches '$($Applications -join ''', ''')' for $($Systems -join ', '): $(if ($line) { $line.Current.Name }) Confirm."
+    Click-El $confirm
+    Start-Sleep -Seconds 3
+}
+
+# Follows a run after Publish All until it ends, and writes what it answered. Every publish opens the review first (it opens again when a fresh read
+# differs from the plan) and the results window after the run. The run counts as active while the review is open. Each review is confirmed only through
+# Confirm-ApdReview, with the expected -Applications and -Systems (and -CellTexts for a cell that is not the plain create action). -Comment goes into the
+# comment box of the review. -OnConflict Skip answers the Application Already Exists dialog with Skip; Return leaves it open and returns. -Expected names
+# the other content dialogs whose primary button may be clicked; the app asks none by default.
+function Complete-ApdPublish {
+    param(
+        $Window,
+        [int]$Seconds = 420,
+        [Parameter(Mandatory)][string[]]$Applications,
+        [Parameter(Mandatory)][ValidateSet('ConfigMgr', 'Intune', 'WSUS')][string[]]$Systems,
+        [hashtable]$CellTexts = @{},
+        [ValidateSet('Skip', 'Return')][string]$OnConflict = 'Skip',
+        [string[]]$Expected = @(),
+        [string]$Comment = ''
+    )
     Start-Sleep -Seconds 3
     $reviews = 0
     $idle = 0
@@ -331,10 +537,12 @@ function Complete-ApdPublish($Window, [int]$Seconds = 420, [ValidateSet('Skip', 
                 if ($back) { Click-El $back; Start-Sleep -Seconds 1 }
                 throw "The publish review cannot run: $why"
             }
-            if (++$reviews -gt 3) { throw 'The publish review opened more than three times.' }
-            $counts = Find-El $null 'txtReviewCounts' -Timeout 1
-            "publish review $($reviews): $(if ($counts) { $counts.Current.Name })"
-            Click-El $confirm; Start-Sleep -Seconds 3
+            if (++$reviews -gt 3) {
+                $back = Find-El $null 'btnReviewBack' -Timeout 2
+                if ($back) { Click-El $back; Start-Sleep -Seconds 1 }
+                throw 'The publish review opened more than three times.'
+            }
+            Confirm-ApdReview -Applications $Applications -Systems $Systems -CellTexts $CellTexts -Comment $Comment
             $idle = 0
             continue
         }
@@ -353,10 +561,9 @@ function Complete-ApdPublish($Window, [int]$Seconds = 420, [ValidateSet('Skip', 
             $idle = 0
             continue
         }
-        foreach ($name in 'Continue', 'OK', 'Yes') {
-            $b = Find-El $Window -Name $name -ControlType 'Button' -Timeout 0.1
-            if ($b -and -not $b.Current.IsOffscreen -and $b.Current.IsEnabled) { "a dialog: $name"; Click-El $b; Start-Sleep -Seconds 2; $idle = 0; break }
-        }
+        # Any other content dialog with a primary button: clicked only when its title is one of -Expected, else the run fails and nothing is clicked.
+        $primary = Find-El $null 'PrimaryButton' -Timeout 0.1
+        if ($primary -and -not $primary.Current.IsOffscreen) { Resolve-ApdContentDialog $Window $Expected; $idle = 0; continue }
         if (Test-ApdBusy $Window) { $idle = 0 } elseif (++$idle -ge 3) { return }
         Start-Sleep -Seconds 1
     }

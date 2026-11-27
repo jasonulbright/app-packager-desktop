@@ -14,11 +14,15 @@
 param(
     [Parameter(Mandatory)][string]$Run,
     [string[]]$Themes = @('Light', 'Dark'),
-    [string]$AppFolder = $PSScriptRoot
+    [string]$AppFolder = $PSScriptRoot,
+    # The copy of the record file of the seed script: only the recorded packages can be redistributed or removed.
+    [string]$RecordFile = (Join-Path $PSScriptRoot 'zzapd-records.local.json'),
+    [string]$DistributionPoint = 'CM01.CONTOSO.COM'
 )
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'ApdUiDriver.ps1')
 . (Join-Path $PSScriptRoot 'GuideLib.ps1')
+. (Join-Path $PSScriptRoot 'PublishCleanup.ps1')
 Initialize-Run $Run
 $exe = Join-Path $AppFolder 'ApplicationPackagerUI.exe'
 
@@ -32,11 +36,13 @@ function Pairs-Continue {
     Real-Click (Need-El 'btnPairsContinue')
 }
 # Ticks the boxes that the plan asks, runs its action button, waits for the result and closes the window.
-function Finish-Plan([int]$Seconds = 240) {
+function Finish-Plan([string]$Action, [int]$Seconds = 240) {
     foreach ($box in 'chkChangePlanExtra', 'chkChangePlanDestructive', 'chkChangePlanSecond') {
         $el = Find-El $null $box -Timeout 2
         if ($el -and -not $el.Current.IsOffscreen) { Set-Check $el $true }
     }
+    # Only the pair of the recorded package of this theme and the distribution point is confirmed, with the action of the step.
+    Assert-ChangePlanRows @($script:AllowedObjects | ForEach-Object { @{ Action = $Action; Object = '^' + [regex]::Escape($_) + '$'; Count = 1 } })
     Real-Click (Need-El 'btnChangePlanConfirm')
     $close = $null
     $deadline = (Get-Date).AddSeconds($Seconds)
@@ -52,8 +58,14 @@ function Finish-Plan([int]$Seconds = 240) {
     Real-Click $close; Start-Sleep 3
 }
 
+Connect-GuideSite
+# Checked for every theme before the first one starts.
+$packages = @{}
+foreach ($theme in $Themes) { $packages[$theme] = @(Get-GuideRecordedPackages $RecordFile @("ZZAPD DP Guide $theme") "ZZAPD DP Guide $theme")[0] }
+
 foreach ($theme in $Themes) {
     $package = "ZZAPD DP Guide $theme"
+    $script:AllowedObjects = @("$package ($($packages[$theme].Id)) on $DistributionPoint")
     $data = Start-RunApp $exe $theme @{ Systems = @{ ConfigMgr = $true; Intune = $false; Wsus = $false } }
     try {
         $null = Click-Nav 'DP Content Manager'; Start-Sleep 14
@@ -68,7 +80,7 @@ foreach ($theme in $Themes) {
             Real-Click (Need-El 'btnRedistributeIssues')
             Pairs-Continue
             $null = Wait-Window 'btnChangePlanConfirm' 90
-            Finish-Plan
+            Finish-Plan 'Redistribute'
             Start-Sleep 3
             $null = Wait-El 'pnlDpContentResults' 30
             Start-Sleep 2
@@ -80,7 +92,7 @@ foreach ($theme in $Themes) {
             Real-Click (Need-El 'btnRemoveFailures')
             Pairs-Continue
             $null = Wait-Window 'btnChangePlanConfirm' 90
-            Finish-Plan
+            Finish-Plan 'Remove from DP'
             Tab 'tabDpHistory'; Start-Sleep 3
             Real-Click (Need-El 'btnDpHistoryRefresh'); Start-Sleep 3
             $null = Pick-First 'dgDpHistory'

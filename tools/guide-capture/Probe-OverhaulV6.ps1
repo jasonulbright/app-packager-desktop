@@ -16,6 +16,8 @@ param(
     [string]$AppFolder = $PSScriptRoot,
     [switch]$Recheck,
     [string]$Application = '7-Zip',
+    # With -Recheck: the name of the application in the Application column of the review. The first review is confirmed only for exactly this row.
+    [string]$ApplicationName = $Application,
     [string]$TrackedId = 'fa505d1415214f14'
 )
 $ErrorActionPreference = 'Stop'
@@ -159,12 +161,15 @@ foreach ($theme in $Themes) {
             Start-Sleep 6
             # No check runs first: the plan then knows no ConfigMgr application, and the read after Confirm finds the one the lab site has.
             Check-Row $w $Application
+            Set-ElText (Find-El $w 'txtAppPackagerSearch') ''
+            Start-Sleep 1
+            Assert-ApdSelection $w 1
             Real-Click (Find-El $w 'btnPublishAll')
             Start-Sleep 4
             Names 'txtReviewCounts', 'btnReviewConfirm'
             Move-MouseAway
             Shot $theme 'recheck-first-review'
-            Real-Click (Find-El $null 'btnReviewConfirm' -Timeout 5)
+            Confirm-ApdReview -Applications $ApplicationName -Systems 'ConfigMgr'
             $changed = $null
             foreach ($i in 1..40) { $changed = Find-El $null 'txtReviewChanged' -Timeout 3; if ($changed -and $changed.Current.Name) { break } }
             "review opened again: $([bool]($changed -and $changed.Current.Name))"

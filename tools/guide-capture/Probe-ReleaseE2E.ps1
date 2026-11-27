@@ -1,7 +1,8 @@
 <#
 .SYNOPSIS
-    The release end-to-end check of the installed app in its real window: first start, saved settings, saved columns, a publish from the grid to ConfigMgr and WSUS, a
-    publish from the Workbench, a One Click run, and the deploy plan of the Deployment Helper. Every step says PASS or FAIL with what it read. The last line is
+    The release end-to-end check of the installed app in its real window: first start, saved settings, the Settings search, saved columns, the detail pane,
+    the Logs window during a Stage, a publish from the grid to ConfigMgr and WSUS, a publish from the Workbench, a One Click run, a publish to WSUS only,
+    a retry of a failed WSUS publish, and the deploy plan of the Deployment Helper. Every step says PASS or FAIL with what it read. The last line is
     "E2E-FAILS=<n>" and the exit code is 0.
 
 .DESCRIPTION
@@ -9,20 +10,29 @@
         .\Probe-ReleaseE2E.ps1 -Run <new folder> -AppFolder "$env:LOCALAPPDATA\Programs\App Packager Desktop"
 
     What must be true before the run (the script cannot prove all of it):
-      - the site MCM on cm01.contoso.com holds no application of -GridApp, -WorkbenchApp or -OneClickApp (each publish step also runs Check ConfigMgr first
-        and does not publish unless the log says "Not found in ConfigMgr");
-      - the WSUS server holds no update of the version of -GridApp that is current;
+      - the site MCM on cm01.contoso.com holds no application of -GridApp, -WorkbenchApp or -OneClickApp (each ConfigMgr publish step also runs
+        Check ConfigMgr first and does not publish unless the log says "Not found in ConfigMgr");
+      - the WSUS server holds no unexpired update of any version of -GridApp, -WsusApp or -RetryApp (a new publish supersedes the older updates);
+      - the port -WsusBadPort of the WSUS server is closed (the step retry checks it);
       - the collection -Collection exists and has no member;
       - no release newer than the installed build is on GitHub (an update window would open by itself);
       - the lab client reaches the vendor download sites.
 
-    Step names for -Only: first-start, settings, columns, grid-publish, workbench-publish, one-click, deployment-helper. Each step has a data folder of its own
-    under -Run. deployment-helper needs the application of -GridApp on the site, so it follows grid-publish (also in an earlier run).
+    Step names for -Only: first-start, settings, settings-search, columns, detail-pane, logs, grid-publish, workbench-publish, one-click, wsus-only, retry,
+    deployment-helper. Each step has a data folder of its own under -Run. deployment-helper needs the application of -GridApp on the site, so it follows
+    grid-publish (also in an earlier run). settings-search, columns, detail-pane and logs write nothing to the site or to WSUS.
 
     What the run writes: grid-publish creates one application on the site, its content on the file share and one WSUS update; workbench-publish and one-click
-    each create one application and its content. The run removes none of them. For each publish it prints lines that start with RECORD: the title, the version,
-    the content path, the CI_ID and ModelName and the WSUS update id, as the log of the run gives them. It deletes no file and no folder. It sends keys and
-    mouse input only to windows of the app that it started. It never clicks Overwrite: an Application Already Exists dialog gets Skip and the step fails.
+    each create one application and its content; wsus-only and retry each publish one WSUS update. The run removes none of them. For each publish it prints
+    lines that start with RECORD: the title, the version, the content path, the CI_ID and ModelName and the WSUS update id, as the log of the run gives them.
+    It deletes no file and no folder. It sends keys and mouse input only to windows of the app that it started. Before every confirm of a publish review it
+    checks that the review lists exactly the one application and exactly the expected systems, each with its create action; else it selects Back.
+    It never clicks Overwrite: an Application Already Exists dialog gets Skip and the step fails.
+
+    retry: the first publish runs with the WSUS port -WsusBadPort in the settings, so it fails before anything reaches the server. The results window is
+    modal, so Settings cannot be opened while it shows, and the window is the only place of the Retry button. The step therefore writes the right port into
+    the settings files of its own data folder while the results window is open; the app reads the settings file again when the retry starts. A save of the
+    port through the Settings page would need the results window closed, and then no Retry is left.
     The images are <Run>\images\<step>-<name>.png.
 #>
 param(
@@ -31,6 +41,12 @@ param(
     [string]$GridApp = 'WizTree',
     [string]$WorkbenchApp = 'Everything',
     [string]$OneClickApp = 'WinSCP',
+    # Applications with WSUS support, for the steps wsus-only and retry; the step logs stages -LogsApp and publishes nothing.
+    [string]$WsusApp = 'KeePass',
+    [string]$RetryApp = 'CMake',
+    [string]$LogsApp = 'WizTree',
+    # A port of the WSUS server on which nothing listens.
+    [int]$WsusBadPort = 8599,
     [string]$Collection = 'Zone 13',
     [string[]]$Only = @(),
     # For a client without the WSUS administration console: the grid step publishes to ConfigMgr only.
@@ -44,7 +60,7 @@ $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'ApdUiDriver.ps1')
 . (Join-Path $PSScriptRoot 'GuideLib.ps1')
 
-$stepNames = 'first-start', 'settings', 'columns', 'grid-publish', 'workbench-publish', 'one-click', 'deployment-helper'
+$stepNames = 'first-start', 'settings', 'settings-search', 'columns', 'detail-pane', 'logs', 'grid-publish', 'workbench-publish', 'one-click', 'wsus-only', 'retry', 'deployment-helper'
 $script:Fails = 0
 $script:Records = New-Object System.Collections.Generic.List[string]
 $script:StepName = ''
@@ -201,8 +217,11 @@ function Get-RowCells($Row) {
     $cells = New-Object System.Collections.Generic.List[string]
     for ($c = $walker.GetFirstChild($Row); $c; $c = $walker.GetNextSibling($c)) {
         if ($c.Current.ControlType -eq [System.Windows.Automation.ControlType]::HeaderItem) { continue }
-        $text = $c.FindFirst($script:TS::Descendants, $isText)
-        if ($text) { $cells.Add([string]$text.Current.Name) } else { $cells.Add([string]$c.Current.Name) }
+        # The cells of a matrix hold an icon beside the text, and the glyph of the icon is listed as a text too.
+        $texts = @($c.FindAll($script:TS::Descendants, $isText) | ForEach-Object { [string]$_.Current.Name } | Where-Object { -not (Test-ApdGlyph $_) })
+        if ($texts) { $cells.Add([string](@($texts | Where-Object { $_ } | Select-Object -First 1) -join '')) }
+        elseif ($c.FindFirst($script:TS::Descendants, $isText)) { $cells.Add('') }
+        else { $cells.Add([string]$c.Current.Name) }
     }
     , $cells.ToArray()
 }
@@ -271,31 +290,51 @@ function Assert-NotOnSite([string]$Data, [string]$FullName) {
 function Read-Matrix([string]$GridId) {
     foreach ($row in @(Get-GridRows $GridId)) { [pscustomobject]@{ Cells = (Get-RowCells $row) } }
 }
-# True when the open review lists exactly the one application, for exactly these systems, and shows no ConfigMgr application for it and no failed read.
-function Test-Review([string]$FullName, [string[]]$Systems) {
+# True when the open review lists exactly the one application, for exactly these systems, and each system creates its object: no Skip, no blocked system,
+# no application on the site and no failed read. -Retry is the review of a retry, which names its one destination.
+function Test-Review([string]$FullName, [string[]]$Systems, [switch]$Retry) {
     Start-Sleep -Seconds 2
+    $actions = @{ ConfigMgr = 'Create application and deployment type'; WSUS = 'Create software update'; Intune = 'Create Win32 app' }
+    # The order of the system columns of the app.
+    $ordered = @('ConfigMgr', 'Intune', 'WSUS' | Where-Object { $Systems -contains $_ })
+    $n = $ordered.Count
+    $headers = @(Get-Headers 'gridReviewMatrix' | ForEach-Object { $_.Current.Name })
     $rows = @(Read-Matrix 'gridReviewMatrix')
+    $heading = Get-Text 'txtReviewHeading'
     $counts = Get-Text 'txtReviewCounts'
     $scope = Get-Text 'txtReviewScope'
     $changed = Get-Text 'txtReviewChanged' 1
     $blocked = Get-Text 'txtReviewBlocked' 1
-    Say "  review: counts='$counts' scope='$scope' changed='$changed' blocked='$blocked'"
+    Say "  review: heading='$heading' counts='$counts' scope='$scope' changed='$changed' blocked='$blocked'"
+    Say "  review columns: $($headers -join ' | ')"
     foreach ($r in $rows) { Say "  review row: $($r.Cells -join ' | ')" }
     $confirm = Find-El $null 'btnReviewConfirm' -Timeout 3
     # "Publish All: ConfigMgr and WSUS - Site MCM - from Settings, Systems in Use" (the parts are joined by a middle dot).
-    $names = if (@($Systems).Count -gt 1) { (@($Systems)[0..(@($Systems).Count - 2)] -join ', ') + ' and ' + @($Systems)[-1] } else { @($Systems)[0] }
-    $one = $rows.Count -eq 1 -and @($rows[0].Cells).Count -ge 1 -and $rows[0].Cells[0] -ceq $FullName -and $counts -like '1 application, *' -and $scope -clike "Publish All: $names *from Settings, Systems in Use"
-    # "ConfigMgr has ...": the site holds an application. "ConfigMgr was not read": nothing proves that it holds none.
-    $known = $rows.Count -eq 1 -and (($rows[0].Cells -join ' ') -match 'ConfigMgr has|ConfigMgr was not read')
-    if ($one) { $script:ReviewVersion = [string]$rows[0].Cells[1] }
-    $one -and -not $known -and $confirm -and $confirm.Current.IsEnabled
+    $names = if ($n -gt 1) { ($ordered[0..($n - 2)] -join ', ') + ' and ' + $ordered[-1] } else { $ordered[0] }
+    $scopeOk = if ($Retry) { $n -eq 1 -and $scope -ceq "Retry of a failed destination: $($ordered[0]) only." } else { $scope -clike "Publish All: $names *from Settings, Systems in Use" }
+    $countsOk = $counts -ceq "1 application, $n $(if ($n -eq 1) { 'system' } else { 'systems' }): $n $(if ($n -eq 1) { 'publish is' } else { 'publishes are' }) planned."
+    $columnsOk = ($headers -join '|') -ceq ((@('Application', 'Version', 'Checked') + $ordered) -join '|')
+    $rowOk = $false
+    if ($rows.Count -eq 1) {
+        $cells = @($rows[0].Cells)
+        if ($cells.Count -eq 3 + $n -and $cells[0] -ceq $FullName -and $cells[1] -cne 'Not checked') {
+            $rowOk = $true
+            for ($i = 0; $i -lt $n; $i++) { if ($cells[3 + $i] -cne $actions[$ordered[$i]]) { $rowOk = $false } }
+        }
+    }
+    $ok = $rowOk -and $columnsOk -and $countsOk -and $scopeOk -and $heading -ceq 'Review 1 application' -and -not $blocked
+    if ($ok) { $script:ReviewVersion = [string]$rows[0].Cells[1] }
+    else { Say "  the review does not pass: row=$rowOk columns=$columnsOk counts=$countsOk scope=$scopeOk" }
+    [bool]($ok -and $confirm -and $confirm.Current.IsEnabled)
 }
 
-# Starts a publish with -Start and follows it: each review passes the guard before it is confirmed, else Back. Reads the results window. Returns $true when
-# every system says Published for the one application. Complete-ApdPublish of the driver is not used here: it confirms a review without this guard.
-function Invoke-GuardedPublish([scriptblock]$Start, [string]$FullName, [string[]]$Systems) {
+# Starts a publish with -Start and follows it: each review passes the guard before it is confirmed, else Back. -Comment goes into the comment box of the
+# review. Reads the results window and returns $true when the one application has -Cell in every system. With -KeepResults the results window stays open.
+# Complete-ApdPublish of the driver is not used here: this check also reads the results cells and records each review.
+function Invoke-GuardedPublish([scriptblock]$Start, [string]$FullName, [string[]]$Systems, [string]$Comment = '', [string]$Cell = '^Published$', [switch]$Retry, [switch]$KeepResults) {
     $script:ReviewVersion = ''
     & $Start
+    Start-Sleep -Seconds 4
     $reviews = 0; $idle = 0; $conflict = $false
     $deadline = (Get-Date).AddSeconds(1500); $beat = Get-Date; $started = Get-Date
     while ((Get-Date) -lt $deadline) {
@@ -303,7 +342,14 @@ function Invoke-GuardedPublish([scriptblock]$Start, [string]$FullName, [string[]
         $confirm = Find-El $null 'btnReviewConfirm' -Timeout 1
         if ($confirm -and -not $confirm.Current.IsOffscreen) {
             $reviews++
-            $good = Test-Review $FullName $Systems
+            $good = Test-Review $FullName $Systems -Retry:$Retry
+            if ($good -and $Comment) {
+                $box = Find-El $null 'txtReviewComment' -Timeout 5
+                if ($box) { Set-ElText $box $Comment; Start-Sleep -Milliseconds 500 }
+                $typed = if ($box) { [string]$box.GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern).Current.Value } else { '(no box)' }
+                if ($typed -cne $Comment) { $good = $false }
+                Check 'the review holds the comment of the run' ($typed -ceq $Comment) "txtReviewComment='$typed'"
+            }
             Snap "review-$reviews"
             if (-not $good -or $reviews -gt 2) {
                 Click-Id 'btnReviewBack' 5
@@ -323,17 +369,22 @@ function Invoke-GuardedPublish([scriptblock]$Start, [string]$FullName, [string[]
             $headers = @(Get-Headers 'gridResultsMatrix' | ForEach-Object { $_.Current.Name })
             $rows = @(Read-Matrix 'gridResultsMatrix')
             foreach ($r in $rows) { Say "  results row: $($r.Cells -join ' | ')" }
+            $note = Get-Text 'txtResultsRetryNote' 1
+            if ($note) { Say "  results retry note: $note" }
             $details = Find-El $null 'lstResultsDetails' -Timeout 1
             if ($details) { foreach ($t in (Get-Items $details ([System.Windows.Automation.ControlType]::Text))) { Say "  results detail: $($t.Current.Name)" } }
             Snap 'results'
             $n = $Systems.Count
-            $want = "$n $(if ($n -eq 1) { 'publish' } else { 'publishes' }) completed"
+            $published = $Cell -ceq '^Published$'
+            $want = if ($published) { "$n $(if ($n -eq 1) { 'publish' } else { 'publishes' }) completed" } else { 'Publish completed with issues' }
             $cells = if ($rows.Count -eq 1) { @($rows[0].Cells) } else { @() }
-            $allPublished = $cells.Count -eq ($n + 1) -and $cells[0] -ceq $FullName -and @($cells | Select-Object -Skip 1 | Where-Object { $_ -ceq 'Published' }).Count -eq $n
-            $ok = $headline -ceq $want -and $allPublished -and -not $conflict
-            Check "the results say Published for $($Systems -join ' and ')" $ok "headline='$headline' ($counted); columns: $($headers -join ', ')"
-            Click-Id 'btnResultsDone' 5
-            Wait-RunEnd (Main-Window) 300 'the end of the publish'
+            $allMatch = $cells.Count -eq ($n + 1) -and $cells[0] -ceq $FullName -and @($cells | Select-Object -Skip 1 | Where-Object { $_ -cmatch $Cell }).Count -eq $n
+            $ok = $reviews -ge 1 -and $headline -ceq $want -and $allMatch -and -not $conflict -and -not $note
+            Check "the results show $Cell for $($Systems -join ' and ')" $ok "headline='$headline' ($counted); columns: $($headers -join ', '); reviews: $reviews"
+            if (-not $KeepResults) {
+                Click-Id 'btnResultsDone' 5
+                Wait-RunEnd (Main-Window) 300 'the end of the publish'
+            }
             return $ok
         }
         Assert-NoDialog
@@ -384,6 +435,9 @@ $steps['first-start'] = {
     $dialog = [bool](Find-El $null 'PrimaryButton' -Timeout 1)
     Check 'no window and no dialog opens by itself' ($windows.Count -eq 1 -and $windows[0] -ceq 'App Packager Desktop' -and -not $dialog) "windows 25 s after the load: $($windows -join ' | '); dialog: $dialog"
     Snap 'start'
+    $headers = @(Get-HeaderNames)
+    $compact = @('ConfigMgr version', 'Latest', 'Status', 'CVE check')
+    Check 'a new install shows the compact columns' (@($compact | Where-Object { $headers -cnotcontains $_ }).Count -eq 0 -and $headers -cnotcontains 'Vendor' -and $headers -cnotcontains 'KEV') ($headers -join ', ')
 
     $progress = Get-Text 'txtSetupProgress' 15
     Check 'the setup checklist shows' ($progress -ceq '1 of 4 complete') "txtSetupProgress='$progress'"
@@ -540,14 +594,16 @@ $steps['columns'] = {
     $data = New-StepData 'columns'
     Start-StepApp $data (New-Settings $data $false)
     $before = Get-HeaderNames
-    Require 'the grid shows the columns KEV and Vendor at the start' ($before -ccontains 'KEV' -and $before -ccontains 'Vendor') ($before -join ', ')
-    Click-Id 'btnColumns'
-    Start-Sleep -Seconds 1
-    Click-Id 'miColumnKEV' 5
-    Send-ApdKeys '{ESC}'
-    Start-Sleep -Seconds 2
-    $hidden = Get-HeaderNames
-    Check 'Columns hides KEV' ($hidden -cnotcontains 'KEV') ($hidden -join ', ')
+    Require 'the grid shows the compact columns at the start' ($before -ccontains 'CVE check' -and $before -ccontains 'ConfigMgr version' -and $before -cnotcontains 'Vendor') ($before -join ', ')
+    foreach ($id in 'miColumnVendor', 'miColumnCVEcheck') {
+        Click-Id 'btnColumns'
+        Start-Sleep -Seconds 1
+        Click-Id $id 5
+        Send-ApdKeys '{ESC}'
+        Start-Sleep -Seconds 2
+    }
+    $changed = Get-HeaderNames
+    Check 'Columns shows Vendor and hides CVE check' ($changed -ccontains 'Vendor' -and $changed -cnotcontains 'CVE check') ($changed -join ', ')
     $widthBefore = Get-HeaderWidth 'Vendor'
     Resize-Column (Get-Headers 'PackagerGrid' | Where-Object { $_.Current.Name -ceq 'Vendor' } | Select-Object -First 1) 60
     $widthSet = Get-HeaderWidth 'Vendor'
@@ -557,17 +613,183 @@ $steps['columns'] = {
 
     $saved = Get-UserSettings $data
     $layout = @($saved.PackagesGridLayout.Columns | Where-Object { $_.Id -eq 'Vendor' }) | Select-Object -First 1
-    Check 'settings.json holds the hidden column' (@($saved.PackagesHiddenColumns) -ccontains 'KEV') "PackagesHiddenColumns=$(@($saved.PackagesHiddenColumns) -join ',')"
+    Check 'settings.json holds the choice of columns' (@($saved.PackagesShownColumns) -ccontains 'Vendor' -and @($saved.PackagesShownColumns) -cnotcontains 'CVE check') "PackagesShownColumns=$(@($saved.PackagesShownColumns) -join ',')"
     Check 'settings.json holds the width of Vendor' ($layout -and $layout.Width -gt 0) "PackagesGridLayout Vendor width=$($layout.Width)"
 
     Open-App $data
     if (-not (Wait-El 'btnMore' 90 -Enabled)) { throw 'the App Packager page did not load after the restart' }
     Start-Sleep -Seconds 5
     $after = Get-HeaderNames
-    Check 'after the restart KEV stays hidden' ($after -cnotcontains 'KEV' -and $after -ccontains 'Vendor') ($after -join ', ')
+    Check 'after the restart the choice of columns stays' ($after -ccontains 'Vendor' -and $after -cnotcontains 'CVE check') ($after -join ', ')
     $widthAfter = Get-HeaderWidth 'Vendor'
     Check 'after the restart Vendor keeps its width' ([math]::Abs($widthAfter - $widthSet) -le 3) "width set $widthSet px, after restart $widthAfter px"
     Snap 'after-restart'
+}
+
+# ---------------- settings search
+function Get-Focused {
+    $f = [System.Windows.Automation.AutomationElement]::FocusedElement
+    [pscustomobject]@{ Id = [string]$f.Current.AutomationId; Name = [string]$f.Current.Name; Own = [bool](Test-ApdOwnedId $f.Current.ProcessId) }
+}
+function Test-TreeSelected([string]$Id) {
+    $item = Find-El $null $Id -Timeout 3
+    if (-not $item) { return $false }
+    $item.GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Current.IsSelected
+}
+
+$steps['settings-search'] = {
+    $data = New-StepData 'settings-search'
+    # WSUS is in use, so the WSUS server box can take the focus.
+    Start-StepApp $data (New-Settings $data $true)
+    Open-Page 'Settings'
+    # Settings opens on General. No other page of the tree is opened by hand in this step, so each result opens a page that was never shown.
+    $cases = @(
+        @{ Query = 'file share root'; Result = 'File Share Root (UNC)'; Page = 'nav_configmgr'; Field = 'txtFileShareRoot'; Way = 'Enter' },
+        @{ Query = 'wsus server'; Result = 'WSUS server'; Page = 'nav_wsus'; Field = 'txtWsusServer'; Way = 'Arrow' },
+        @{ Query = 'action on update'; Result = 'Action on update'; Page = 'nav_oneclick'; Field = 'cboOneClickAction'; Way = 'Mouse' }
+    )
+    foreach ($c in $cases) {
+        $case = "'$($c.Query)' ($($c.Way))"
+        $opened = Test-TreeSelected $c.Page
+        Check "$case starts on another page" (-not $opened) "$($c.Page) selected: $opened"
+        $box = Need-El 'txtSettingsSearch'
+        Real-Click $box
+        Set-ElText $box ''
+        Start-Sleep -Milliseconds 500
+        Set-ElText $box $c.Query
+        Start-Sleep -Seconds 2
+        $first = Find-El $null 'settingsResult0' -Timeout 10
+        $count = Get-Text 'txtSettingsSearchCount'
+        Require "$case lists the expected first result" ($first -and $first.Current.Name -like "$($c.Result)*") "first result '$(if ($first) { $first.Current.Name })'; count '$count'"
+        Snap "search-$($c.Page)"
+        switch ($c.Way) {
+            'Enter' { $box.SetFocus(); Start-Sleep -Milliseconds 500; Send-ApdKeys '{ENTER}' }
+            'Arrow' {
+                $box.SetFocus(); Start-Sleep -Milliseconds 500
+                Send-ApdKeys '{DOWN}'; Start-Sleep -Seconds 1
+                $at = Get-Focused
+                Check "$case Down moves the focus to the first result" ($at.Own -and $at.Id -ceq 'settingsResult0') "focus id='$($at.Id)' name='$($at.Name)'"
+                Send-ApdKeys '{ENTER}'
+            }
+            'Mouse' { Real-Click $first }
+        }
+        $script:Focus = $null
+        $null = Wait-Until { $script:Focus = Get-Focused; $script:Focus.Id -ceq $c.Field } 15 "the focus of $case"
+        Check "$case gives the field the keyboard focus" ($script:Focus.Own -and $script:Focus.Id -ceq $c.Field) "focus id='$($script:Focus.Id)' name='$($script:Focus.Name)'"
+        $field = Find-El $null $c.Field -Timeout 5
+        Check "$case shows its page and field" ((Test-TreeSelected $c.Page) -and $field -and -not $field.Current.IsOffscreen) "$($c.Page) selected: $(Test-TreeSelected $c.Page); field on screen: $([bool]($field -and -not $field.Current.IsOffscreen))"
+        $kept = [string](Need-El 'txtSettingsSearch').GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern).Current.Value
+        Check "$case keeps the search text" ($kept -ceq $c.Query) "box '$kept'"
+        Snap "opened-$($c.Page)"
+    }
+}
+
+# ---------------- the detail pane
+# A drag with the real mouse from the middle of an element, to the side. The button is always released.
+function Move-Splitter([int]$By) {
+    $r = (Need-El 'splDetailPane').Current.BoundingRectangle
+    $y = [int]($r.Y + $r.Height / 2); $x = [int]($r.X + $r.Width / 2)
+    [System.Windows.Forms.Cursor]::Position = New-Object System.Drawing.Point $x, $y
+    Start-Sleep -Milliseconds 500
+    Assert-ApdPointer 'The drag of the splitter'
+    [ApdW]::mouse_event(2, 0, 0, 0, [UIntPtr]::Zero)
+    try { foreach ($i in 1..10) { [System.Windows.Forms.Cursor]::Position = New-Object System.Drawing.Point ($x + [int]($By * $i / 10)), $y; Start-Sleep -Milliseconds 60 } }
+    finally { [ApdW]::mouse_event(4, 0, 0, 0, [UIntPtr]::Zero) }
+    Start-Sleep -Seconds 2
+}
+function Get-SplitterX { [int](Need-El 'splDetailPane').Current.BoundingRectangle.X }
+# Selects the row of one application, which fills the detail pane.
+function Select-DetailRow([string]$Application) {
+    $found = Find-PackagerRow $Application
+    $cell = Find-El $found.Row -Name $found.Name -Timeout 5
+    Real-Click $(if ($cell) { $cell } else { $found.Row })
+    $open = Find-El $null 'btnDetailPaneOpen' -Timeout 2
+    if ($open -and -not $open.Current.IsOffscreen) { Real-Click $open }
+    Require 'the detail pane shows the application' ((Get-Text 'txtDetailTitle' 10) -ceq $found.Name) "txtDetailTitle='$(Get-Text 'txtDetailTitle')'"
+}
+
+$steps['detail-pane'] = {
+    $data = New-StepData 'detail-pane'
+    Start-StepApp $data (New-Settings $data $false)
+    Select-DetailRow $GridApp
+    $start = Get-SplitterX
+    Snap 'pane-start'
+    # To the left makes the pane wider.
+    Move-Splitter -90
+    $moved = Get-SplitterX
+    Check 'a drag of the splitter widens the detail pane' (($start - $moved) -ge 60) "splitter x $start -> $moved"
+    $width = [double](Get-UserSettings $data).PackagesDetailPaneWidth
+    Check 'the settings file holds the new width' ($width -ge 380 -and $width -le 640) "PackagesDetailPaneWidth=$width"
+
+    Click-Id 'btnDetailMoreActions' 10
+    Start-Sleep -Seconds 1
+    $kinds = 'History', 'EditApplication', 'OpenLogFolder', 'OpenStagedFolder', 'OpenNetworkShare', 'CopyLatestVersion', 'OpenVendorUrl', 'ShowCves', 'OpenCveSources', 'CopyCveIds'
+    $read = foreach ($kind in $kinds) {
+        $item = Find-El $null "miRow$kind" -Timeout 3
+        [pscustomobject]@{ Kind = $kind; Shown = [bool]($item -and -not $item.Current.IsOffscreen); Text = $(if ($item) { "$($item.Current.Name) enabled=$($item.Current.IsEnabled)" }) }
+    }
+    foreach ($r in $read) { Say "  menu item miRow$($r.Kind): shown=$($r.Shown) $($r.Text)" }
+    Snap 'row-actions'
+    Check 'More actions opens with its ten items' (@($read | Where-Object { -not $_.Shown }).Count -eq 0) "missing: $(@($read | Where-Object { -not $_.Shown } | ForEach-Object { $_.Kind }) -join ', ')"
+    # No item is chosen: Escape closes the menu.
+    Send-ApdKeys '{ESC}'
+    Start-Sleep -Seconds 1
+    Check 'Escape closes the menu' (-not (Find-El $null 'miRowHistory' -Timeout 1)) 'miRowHistory is gone'
+    Close-AppNormally
+
+    Open-App $data
+    if (-not (Wait-El 'btnMore' 90 -Enabled)) { throw 'the App Packager page did not load after the restart' }
+    Start-Sleep -Seconds 5
+    Select-DetailRow $GridApp
+    $after = Get-SplitterX
+    Check 'after the restart the detail pane keeps its width' ([math]::Abs($after - $moved) -le 3) "splitter x before the restart $moved, after $after"
+    Snap 'pane-after-restart'
+}
+
+# ---------------- the Logs window while a Stage downloads
+# Every line of the Logs window: the list shows only the lines on screen, so it is read at every scroll position.
+function Read-LogWindow {
+    $list = Need-El 'lstLog'
+    $isItem = New-Object System.Windows.Automation.PropertyCondition ($script:AE::ControlTypeProperty), ([System.Windows.Automation.ControlType]::ListItem)
+    $lines = [ordered]@{}
+    $scroll = $null
+    $canScroll = $list.TryGetCurrentPattern([System.Windows.Automation.ScrollPattern]::Pattern, [ref]$scroll) -and $scroll.Current.VerticallyScrollable
+    $positions = if ($canScroll) { @(0..50 | ForEach-Object { $_ * 2 }) } else { @(-1) }
+    foreach ($position in $positions) {
+        if ($position -ge 0) { $scroll.SetScrollPercent([System.Windows.Automation.ScrollPattern]::NoScroll, $position); Start-Sleep -Milliseconds 150 }
+        foreach ($item in $list.FindAll($script:TS::Descendants, $isItem)) { if ($item.Current.Name) { $lines[[string]$item.Current.Name] = $true } }
+    }
+    @($lines.Keys)
+}
+
+$steps['logs'] = {
+    $data = New-StepData 'logs'
+    Start-StepApp $data (New-Settings $data $false)
+    $full = Select-OnlyApplication $LogsApp
+    Invoke-CheckLatest $data $full
+    $null = Open-ApdLogs (Main-Window)
+    Require 'the Logs window opens' ([bool](Find-El $null 'lstLog' -Timeout 5)) "note '$(Get-Text 'txtLogNote')'"
+    $mark = Get-LogMark $data
+    # The Logs window can cover the button, so the button is invoked and not clicked.
+    $stage = Find-El (Main-Window) 'btnStage' -Timeout 10
+    Require 'Stage is enabled while the Logs window is open' ($stage -and $stage.Current.IsEnabled) 'btnStage'
+    Invoke-El $stage
+    Wait-RunEnd (Main-Window) 900 'Stage'
+    $seg = Get-LogSince $data $mark
+    Show-Log $seg 'Download|cached|Stage|Staged|ERROR'
+    Require 'the Stage downloads and ends with a staged version' ($seg -match '(?m)Downloading(:| {3,}:)' -and $seg -match 'Staged: ' -and $seg -notmatch 'Stage FAILED') 'log lines above'
+    $window = @(Read-LogWindow)
+    Say "  lines in the Logs window: $($window.Count)"
+    Snap 'logs-window'
+    $wanted = @($seg -split "`r?`n" | Where-Object { $_ -match 'Downloading|Staged: ' })
+    $missing = @($wanted | Where-Object { $line = $_.Trim(); -not @($window | Where-Object { $_.Trim() -ceq $line }) })
+    Check 'the Logs window holds the download and result lines of the Stage' ($wanted.Count -ge 2 -and $missing.Count -eq 0) "wanted $($wanted.Count), missing $($missing.Count): $($missing -join ' // ')"
+    $session = @(Get-ChildItem -LiteralPath $data -Recurse -File -Filter 'packr-*.log' | Sort-Object LastWriteTime -Descending | Select-Object -First 1)
+    $text = if ($session) { Get-Content -LiteralPath $session[0].FullName -Raw } else { '' }
+    $notInFile = @($wanted | Where-Object { -not $text.Contains($_.Trim()) })
+    Check 'the session log file holds the same lines' ($session.Count -eq 1 -and $notInFile.Count -eq 0) "file '$(if ($session) { $session[0].Name })'; missing $($notInFile.Count)"
+    Close-ApdLogs
+    Check 'Close closes the Logs window' (-not (Find-El $null 'lstLog' -Timeout 2)) 'lstLog is gone'
 }
 
 # Check Latest and Stage of one application from the page, then the check that the site does not hold it.
@@ -597,7 +819,8 @@ $steps['grid-publish'] = {
     Require 'Publish All is enabled' ($publish -and $publish.Current.IsEnabled) "help: $($publish.Current.HelpText)"
     $mark = Get-LogMark $data
     try {
-        $ok = Invoke-GuardedPublish { Click-Id 'btnPublishAll' } $full $systems
+        # ConfigMgr is in the plan, so the review shows the comment box.
+        $ok = Invoke-GuardedPublish { Click-Id 'btnPublishAll' } $full $systems -Comment 'Release end-to-end check'
     }
     finally { $record = Write-Record $data $mark $full $script:ReviewVersion }
     Check 'the log says that this run created the ConfigMgr application' $record.Created "title '$($record.Title)', content '$($record.ContentPath)'"
@@ -680,7 +903,7 @@ $steps['one-click'] = {
     $seg = Get-LogSince $data $mark
     Show-Log $seg 'One Click|ConfigMgr|Not found|Latest version|ERROR'
     $onlyThis = $rows.Count -eq 1 -and (Get-RowNames $rows[0]) -ccontains $full -and $header -like '1 application included, 0 not included.*' -and
-        $boxes['Include'] -eq 'On' -and $boxes['ConfigMgr'] -eq 'On' -and $boxes['WSUS'] -ne 'On' -and $boxes['Intune'] -ne 'On' -and
+        $boxes["Include $full"] -eq 'On' -and $boxes["ConfigMgr for $full"] -eq 'On' -and $boxes["WSUS for $full"] -ne 'On' -and $boxes["Intune for $full"] -ne 'On' -and
         $systems -ceq 'In use: ConfigMgr. Not in use: Intune, WSUS.'
     $absent = Test-NotFoundLine $seg $full
     $runButton = Find-El $null 'btnRun' -Timeout 5
@@ -732,6 +955,111 @@ $steps['one-click'] = {
     if ($report.Success -and (Test-Path -LiteralPath ($report.Groups[1].Value + '.json'))) {
         foreach ($a in (Get-Content -LiteralPath ($report.Groups[1].Value + '.json') -Raw | ConvertFrom-Json).Applications) { Say "  report: $($a | ConvertTo-Json -Compress -Depth 4)" }
     }
+}
+
+# ---------------- WSUS only, and the retry of a failed destination
+# Requires that the definition of the application declares WSUS support, so that the plan can create a software update.
+function Assert-WsusSupport([string]$Application) {
+    $found = @(Get-ChildItem -LiteralPath (Join-Path $AppFolder 'Definitions') -Filter *.json -File |
+        ForEach-Object { try { Get-Content -LiteralPath $_.FullName -Raw | ConvertFrom-Json } catch { $null = $_ } } | Where-Object { $_.Application -match (Get-NamePattern $Application) })
+    Require "one definition of $Application declares WSUS support" ($found.Count -eq 1 -and $found[0].WsusSupport -eq 'Yes') "$($found.Count) definition(s), WsusSupport='$(if ($found.Count -eq 1) { $found[0].WsusSupport })'"
+}
+function New-WsusOnlySettings([string]$Data, [int]$Port) {
+    $settings = New-Settings $Data $true
+    $settings.Systems = @{ ConfigMgr = $false; Intune = $false; Wsus = $true }
+    $settings.Wsus = @{ ServerName = $WsusServer; PortNumber = $Port; UseSsl = $false }
+    $settings
+}
+function Get-WsusPublished([string]$Segment) {
+    @([regex]::Matches($Segment, '(published|already on the server) ([0-9a-fA-F]{8}(-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12});') | ForEach-Object { "$($_.Groups[2].Value) ($($_.Groups[1].Value))" } | Select-Object -Unique)
+}
+
+$steps['wsus-only'] = {
+    $data = New-StepData 'wsus-only'
+    Assert-WsusSupport $WsusApp
+    Start-StepApp $data (New-WsusOnlySettings $data $WsusPort)
+    $full = Select-OnlyApplication $WsusApp
+    Invoke-CheckLatest $data $full
+    $publish = Find-El (Main-Window) 'btnPublishAll' -Timeout 10
+    Require 'Publish All is enabled' ($publish -and $publish.Current.IsEnabled) "help: $($publish.Current.HelpText)"
+
+    # Back first: the review shows for WSUS alone, and Back writes nothing.
+    $mark = Get-LogMark $data
+    Click-Id 'btnPublishAll'
+    Require 'the review opens for a publish to WSUS only' ([bool](Wait-El 'btnReviewBack' 120)) 'btnReviewBack'
+    $good = Test-Review $full @('WSUS')
+    Snap 'review-before-back'
+    Check "the review lists exactly '$full' for WSUS" $good 'see the review above'
+    Check 'the review of a WSUS publish has no comment box' (-not (Find-El $null 'txtReviewComment' -Timeout 1)) 'txtReviewComment is not there'
+    Click-Id 'btnReviewBack' 5
+    Start-Sleep -Seconds 8
+    $seg = Get-LogSince $data $mark
+    Show-Log $seg 'Publish|WSUS|Stage|ERROR'
+    $wrote = $seg -match 'Publishing to WSUS|Publish to WSUS:' -or (Get-WsusPublished $seg).Count -gt 0
+    Require 'Back writes nothing' ($seg -match 'Publish review: closed with Back\. Nothing was published\.' -and -not $wrote -and -not (Find-El $null 'btnResultsDone' -Timeout 2) -and -not (Find-El $null 'btnReviewConfirm' -Timeout 1)) 'log lines above'
+    $count = Get-Text 'txtSelectionCount'
+    Require 'exactly one application stays checked after Back' ($count -ceq '1 selected') "txtSelectionCount='$count'"
+
+    $mark = Get-LogMark $data
+    try { $ok = Invoke-GuardedPublish { Click-Id 'btnPublishAll' } $full @('WSUS') }
+    finally { $record = Write-Record $data $mark $full $script:ReviewVersion }
+    Check 'the log says that this run published the WSUS update' ($record.Wsus -match '\(published\)') "wsus '$($record.Wsus)'"
+    Snap 'grid-after'
+}
+
+# True when something listens on the port.
+function Test-Port([string]$Server, [int]$Port) {
+    $client = New-Object System.Net.Sockets.TcpClient
+    try { $task = $client.ConnectAsync($Server, $Port); try { return ($task.Wait(5000) -and $client.Connected) } catch { return $false } }
+    finally { $client.Close() }
+}
+# Writes the WSUS port into every settings file of a data folder that names the wrong one: the global file and the file of the active site, which the app
+# reads first. Only the number changes; the rest of each file stays byte for byte.
+function Set-StepWsusPort([string]$Data, [int]$From, [int]$To) {
+    $changed = @()
+    foreach ($f in @(Get-ChildItem -LiteralPath $Data -Recurse -File -Filter 'settings.json')) {
+        $text = [IO.File]::ReadAllText($f.FullName)
+        $new = [regex]::Replace($text, '("PortNumber"\s*:\s*)' + $From + '(?!\d)', ('${1}' + $To))
+        if ($new -cne $text) { [IO.File]::WriteAllText($f.FullName, $new, (New-Object System.Text.UTF8Encoding $false)); $changed += $f.FullName }
+    }
+    $changed
+}
+
+$steps['retry'] = {
+    $data = New-StepData 'retry'
+    Assert-WsusSupport $RetryApp
+    Require 'the WSUS server answers on its port' (Test-Port $WsusServer $WsusPort) "$($WsusServer):$WsusPort"
+    Require 'nothing listens on the wrong port' (-not (Test-Port $WsusServer $WsusBadPort)) "$($WsusServer):$WsusBadPort"
+    Start-StepApp $data (New-WsusOnlySettings $data $WsusBadPort)
+    $full = Select-OnlyApplication $RetryApp
+    Invoke-CheckLatest $data $full
+
+    $mark = Get-LogMark $data
+    try {
+        $failed = Invoke-GuardedPublish { Click-Id 'btnPublishAll' } $full @('WSUS') -Cell '^Failed' -KeepResults
+        $seg = Get-LogSince $data $mark
+        Show-Log $seg 'WSUS|Publish|ERROR'
+        Require 'the publish to the wrong port fails and publishes nothing' ($failed -and (Get-WsusPublished $seg).Count -eq 0) 'results and log above'
+        $buttons = @(Get-Items (Need-El 'lstResultsRetries') ([System.Windows.Automation.ControlType]::Button) | Where-Object { $_.Current.AutomationId -eq 'btnResultsRetry' -and -not $_.Current.IsOffscreen })
+        $names = @($buttons | ForEach-Object { $_.Current.Name })
+        Require 'the results offer one retry, for WSUS' ($buttons.Count -eq 1 -and $names[0] -ceq "Retry WSUS for $full") "buttons: $($names -join ' ; ')"
+
+        $changed = @(Set-StepWsusPort $data $WsusBadPort $WsusPort)
+        Require 'the right port is in the settings files' ($changed.Count -ge 1) "changed: $($changed -join ' ; ')"
+        $retryMark = Get-LogMark $data
+        $ok = Invoke-GuardedPublish { Real-Click $buttons[0] } $full @('WSUS') -Retry
+        $seg = Get-LogSince $data $retryMark
+        Show-Log $seg 'Retry|WSUS|ERROR'
+        Check 'the retry publishes through the review for WSUS alone' ($ok -and $seg -match [regex]::Escape("Retry: WSUS for $full")) 'results and log above'
+    }
+    finally {
+        # A failed check can leave the results window open; Done closes it and publishes nothing.
+        $done = Find-El $null 'btnResultsDone' -Timeout 2
+        if ($done) { Real-Click $done }
+        $record = Write-Record $data $mark $full $script:ReviewVersion
+    }
+    Check 'the log says that this run published the WSUS update once' ($record.Wsus -match '\(published\)') "wsus '$($record.Wsus)'"
+    Snap 'grid-after'
 }
 
 # Filters a list of the Deploy tab and selects its only row that has exactly one of the names.

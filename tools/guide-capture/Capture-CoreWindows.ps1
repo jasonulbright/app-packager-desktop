@@ -8,15 +8,17 @@
         Run-VisibleProbe.ps1 -Worktree <published folder with these scripts> -ProbeArgs "& .\Capture-CoreWindows.ps1 -Run C:\guide\apd-pending\core"
     The images are <Run>\images\<theme>\<id>.png. Nothing is written to the site: the checks read, Convert only previews, Discover only reads the site database.
     A step that fails says FAIL for its image and the run goes on. The lab needs internet access for Check Latest and for the CVE lookup.
+    The first application of -Checked is the guide definition zzapd-firefox: the site must hold the application "ZZAPD Firefox" with version 140.0, and the
+    application of -ConvertApplication (tools/guide-capture/lab-seed, part Core).
     The run leaves the browser of the CVE report open, and input to the app is refused while the browser is in front: run one theme at a time (-Themes).
 #>
 param(
     [Parameter(Mandatory)][string]$Run,
     [string[]]$Themes = @('Light', 'Dark'),
     [string]$AppFolder = $PSScriptRoot,
-    [string[]]$Checked = @('Mozilla Firefox', 'Audacity'),
+    [string[]]$Checked = @('ZZAPD Mozilla Firefox', 'Audacity'),
     [string]$FileShareRoot = '\\cm01.contoso.com\ContentShare$',
-    [string]$ConvertApplication = 'Audacity 3.7.9'
+    [string]$ConvertApplication = 'ZZAPD Sample Viewer 1.0'
 )
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'ApdUiDriver.ps1')
@@ -43,7 +45,9 @@ function Check-Row($w, [string]$Name) {
 }
 
 foreach ($theme in $Themes) {
-    $data = Start-RunApp $exe $theme @{ FileShareRoot = $FileShareRoot; Systems = @{ ConfigMgr = $true; Intune = $false; Wsus = $true }; Wsus = @{ ServerName = 'cm01.contoso.com'; PortNumber = 8530 } }
+    # The CVE images need the CVE columns, which a new install does not show.
+    $columns = @('ConfigMgr version', 'Latest', 'Status', 'CVE check', 'Vendor', 'CVEs', 'Max CVSS', 'KEV', 'In latest', 'Newest CVE')
+    $data = Start-RunApp $exe $theme @{ PackagesShownColumns = $columns; PackagesHiddenColumns = @(); FileShareRoot = $FileShareRoot; Systems = @{ ConfigMgr = $true; Intune = $false; Wsus = $true }; Wsus = @{ ServerName = 'cm01.contoso.com'; PortNumber = 8530 } } @() @('zzapd-firefox')
     try {
         $w = Main-Window
         # ---- The Catalog window with its vendor groups expanded
@@ -109,12 +113,12 @@ foreach ($theme in $Themes) {
             Wait-Idle $w 600
             "status after Check CVEs: $(Status-Text $w)"
             # The CVE columns are at the right of the grid and show without scrolling at 1920 px; the search shows the row of the application that has CVEs.
-            Set-ElText (Need-El 'txtAppPackagerSearch') 'Mozilla Firefox'
+            Set-ElText (Need-El 'txtAppPackagerSearch') $Checked[0]
             Start-Sleep 3
             Shot 'core-packages-cve-columns'
         }
         Step 'core-cve-window' {
-            $cells = @((Main-Window).FindAll($script:TS::Descendants, (New-Object System.Windows.Automation.PropertyCondition ($script:AE::AutomationIdProperty), 'btnCveCell')) | Where-Object { -not $_.Current.IsOffscreen -and $_.Current.Name -match '^\d+$' -and [int]$_.Current.Name -gt 0 })
+            $cells = @((Main-Window).FindAll($script:TS::Descendants, (New-Object System.Windows.Automation.PropertyCondition ($script:AE::AutomationIdProperty), 'btnCveCell')) | Where-Object { -not $_.Current.IsOffscreen -and $_.Current.Name -cmatch '^CVEs of .+: [1-9]\d* found$' })
             if (-not $cells) { throw 'no row with CVEs on screen' }
             Real-Click $cells[0]
             $null = Need-El 'txtCveTitle' 30

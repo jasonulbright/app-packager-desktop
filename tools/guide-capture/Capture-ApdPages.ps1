@@ -18,7 +18,7 @@ $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'ApdUiDriver.ps1')
 $exe = Join-Path $AppFolder 'ApplicationPackagerUI.exe'
 # Page file name to guide image id. The other guide images of these pages come from runs that put the page into a state.
-$guide = @{ 'app-packager' = 'start-sidebar-default'; 'add-from-web' = 'core-add-app-step1'; 'add-from-file' = 'core-add-file-pick'; 'pivots-and-scripts' = 'tools-pivots-pivot' }
+$guide = @{ 'app-packager' = 'start-sidebar-default'; 'add-from-web' = 'core-add-app-step1'; 'add-from-file' = 'core-add-file-pick' }
 $nav = 'App Packager', 'Add from web', 'Add from file', 'Installer Analysis', 'Detection Tester', 'Deployment Helper', 'Pivots and Scripts', 'Collection and Compliance', 'Maintenance Windows', 'DP Content Manager', 'Site Hygiene', 'Settings', 'Workbench'
 
 foreach ($theme in $Themes) {

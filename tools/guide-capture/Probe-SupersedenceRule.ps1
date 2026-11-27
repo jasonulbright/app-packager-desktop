@@ -11,6 +11,8 @@
       2. makes the throw-away older application "<title> - <older version>" (same publisher, one script deployment type) on the site and records its revision and an XML hash;
       3. for Exact: records the installed value of the title with the command line (the Exact guard needs it for a clause that is not an MSI product clause);
       4. starts the app with the per-application override (supersedence Replace and the version rule), checks the row, runs Check Latest and Publish to ConfigMgr;
+         the publish review is confirmed only when it lists exactly -ApplicationName for ConfigMgr, with the create action and the supersedence step;
+         else the run selects Back;
       5. when the confirmation window shows, reads the new application from the site (no relation may exist yet), then answers Yes;
       6. after the publish reads the new application back: the operators of the version clauses of its detection, and the relation to the older application;
          the older application must have the same revision and the same XML hash as before;
@@ -26,6 +28,8 @@ param(
     [ValidateSet('Light', 'Dark')][string]$Theme = 'Light',
     [string]$AppFolder = $PSScriptRoot,
     [string]$ApplicationId = 'catalog:06915f526f2e443f',
+    # The name of the application of -ApplicationId in the Application column of the publish review.
+    [string]$ApplicationName = 'WizTree (x64)',
     [string]$OlderVersion = '4.30',
     [string]$SiteCode = 'MCM',
     [string]$Provider = 'cm01.contoso.com',
@@ -200,12 +204,22 @@ try {
             foreach ($d in (Get-ChildItem -LiteralPath "FileSystem::$shareRoot" -Directory -Recurse -Depth $shareDepth -ErrorAction Stop)) { $null = $shareBefore.Add($d.FullName.TrimEnd('\')) }
         } catch { $shareBefore = $null; "INFO the content share could not be listed, so no content folder will be removed: $($_.Exception.Message)" }
         $w = Main-Window
+        Assert-ApdSelection $w 1
         $published = $true
         Real-Click (Find-El $w 'btnPublishAll')
+        $createText = 'Create application and deployment type'
+        $reviewCells = @{ ConfigMgr = "$createText. Then: apply supersedence", "$createText (ConfigMgr has $OlderVersion; if the title matches, the run asks before it replaces it). Then: apply supersedence" }
+        $reviews = 0
         $logFile = Join-Path (Split-Path (Get-ChildItem $data -Recurse -Filter settings.json | Select-Object -First 1).FullName) 'SRLPackr\packr.log'
         $answered = $false; $finished = $false
         $deadline = (Get-Date).AddSeconds(420)
         while ((Get-Date) -lt $deadline -and -not $finished) {
+            $review = Find-El $null 'btnReviewConfirm' -Timeout 1
+            if ($review -and -not $review.Current.IsOffscreen) {
+                if (++$reviews -gt 3) { $back = Find-El $null 'btnReviewBack' -Timeout 2; if ($back) { Real-Click $back }; throw 'The publish review opened more than three times.' }
+                Confirm-ApdReview -Applications $ApplicationName -Systems 'ConfigMgr' -CellTexts $reviewCells
+                continue
+            }
             $yes = Find-El $null 'btnSupersedeYes' -Timeout 2
             if ($yes -and -not $answered) {
                 "INFO confirmation: $((Find-El $null 'txtSupersedeOld' -Timeout 2).Current.Name) / $((Find-El $null 'txtSupersedeNew' -Timeout 2).Current.Name)"
@@ -220,7 +234,7 @@ try {
                 continue
             }
             # Application Already Exists is answered with Skip and fails the run; another dialog is clicked only when its title is expected.
-            Resolve-ApdContentDialog (Main-Window) @('No Comment Provided')
+            Resolve-ApdContentDialog (Main-Window) @()
             $text = Get-Content $logFile -Raw -ErrorAction SilentlyContinue
             if ($text -match '(?m)^\S+ \S+  Packaged\.' -or $text -match 'Package FAILED' -or $text -match 'declined at the confirmation|cancelled|Cancelled') { $finished = $true }
             Start-Sleep 3

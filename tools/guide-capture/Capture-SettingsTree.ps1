@@ -12,7 +12,11 @@ param(
     [string[]]$Themes = @('Light', 'Dark'),
     [string]$AppFolder = $PSScriptRoot,
     [string]$OutDir = (Join-Path $PSScriptRoot 'out'),
-    [string]$DataRoot = (Join-Path $PSScriptRoot 'data')
+    [string]$DataRoot = (Join-Path $PSScriptRoot 'data'),
+    # Only these image ids; empty takes all of them.
+    [string[]]$Only = @(),
+    # WSUS in use, with its page enabled (the image core-settings-wsus).
+    [switch]$WsusInUse
 )
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'ApdUiDriver.ps1')
@@ -20,7 +24,8 @@ $ErrorActionPreference = 'Stop'
 # Guide image id and the tree page that it shows (the automation id of the tree item).
 $images = [ordered]@{
     'core-settings-configmgr'   = 'nav_configmgr'
-    'core-settings-citrix'      = 'nav_citrix'
+    # Preview stands at the end of the second Citrix page (Citrix Updates and Policy).
+    'core-settings-citrix'      = 'nav_citrixpolicy'
     'core-settings-intune-cve'  = 'nav_intune'
     'core-settings-top'         = 'nav_general'
     'core-settings-wsus'        = 'nav_wsus'
@@ -37,7 +42,8 @@ foreach ($theme in $Themes) {
     $root = Join-Path $DataRoot $theme
     Remove-Item $root -Recurse -Force -ErrorAction SilentlyContinue
     $dir = Join-Path $OutDir $theme.ToLower()
-    $null = Start-Apd -Exe (Join-Path $AppFolder 'ApplicationPackagerUI.exe') -DataRoot $root -Theme $theme
+    $settings = if ($WsusInUse) { @{ Systems = @{ ConfigMgr = $true; Intune = $false; Wsus = $true } } } else { @{} }
+    $null = Start-Apd -Exe (Join-Path $AppFolder 'ApplicationPackagerUI.exe') -DataRoot $root -Theme $theme -Settings $settings
     try {
         $window = @(Get-ApdWindows)[0]
         $settings = Find-El $window 'tvOptions' '' '' 3
@@ -47,11 +53,30 @@ foreach ($theme in $Themes) {
         }
         $tree = Find-El $window 'tvOptions' '' '' 15
         if (-not $tree) { throw 'The tree of Settings did not open.' }
-        foreach ($id in $images.Keys) {
+        foreach ($id in @($images.Keys | Where-Object { -not $Only -or $Only -contains $_ })) {
             $item = Find-El $window $images[$id] '' '' 10
             if (-not $item) { throw ('The tree item {0} was not found.' -f $images[$id]) }
             Click-El $item
             Start-Sleep -Seconds 2
+            if ($id -eq 'core-settings-citrix') {
+                # Preview only shows the install arguments of the choices; nothing is saved.
+                $preview = Find-El $window '' 'Preview' 'Button' 10
+                if (-not $preview) { throw 'The page shows no Preview button.' }
+                Invoke-El $preview
+                Start-Sleep -Seconds 2
+                [System.Windows.Forms.Cursor]::Position = New-Object System.Drawing.Point 1000, 600
+                $isText = New-Object System.Windows.Automation.PropertyCondition ($script:AE::ControlTypeProperty), ([System.Windows.Automation.ControlType]::Text)
+                $shown = $false
+                foreach ($notch in 1..40) {
+                    $result = @($window.FindAll($script:TS::Descendants, $isText) | Where-Object { $_.Current.Name -cmatch '(?m)^Current: ' -and -not $_.Current.IsOffscreen })
+                    if ($result) { $shown = $true; break }
+                    Send-ApdWheel ([uint32]4294967176); Start-Sleep -Milliseconds 300
+                }
+                if (-not $shown) { throw 'The result of Preview did not come into view. No image is saved.' }
+                # To the end of the page, so the whole result shows.
+                foreach ($notch in 1..10) { Send-ApdWheel ([uint32]4294967176); Start-Sleep -Milliseconds 150 }
+                Start-Sleep -Seconds 1
+            }
             Move-MouseAway
             # A horizontal scroll bar of the tree is a part of the tree with the automation id HorizontalScrollBar.
             $bar = Find-El $tree 'HorizontalScrollBar' '' '' 1

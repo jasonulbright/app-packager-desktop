@@ -1,0 +1,39 @@
+{
+  "Schema": 1,
+  "Id": "zzapd00000000004",
+  "WsusSupport": "Yes",
+  "IconSource": "Installer",
+  "Vendor": "ZZAPD Lab",
+  "Application": "ZZAPD gsudo (x64)",
+  "CMName": "ZZAPD gsudo",
+  "AppName": "ZZAPD gsudo (x64) - {version}",
+  "Architecture": "x64",
+  "VendorUrl": "https://gerardog.github.io/gsudo/",
+  "Cpe": "cpe:2.3:a:gerardog:gsudo:*:*:*:*:*:*:*:*",
+  "ArpName": "none",
+  "InstallerType": "MSI",
+  "InstallerFramework": "NativeMSI",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "JsonQuery",
+    "Url": "https://api.github.com/repos/gerardog/gsudo/releases/latest",
+    "Pattern": "tag_name",
+    "VersionTransform": "strip_prefix:v"
+  },
+  "DownloadUrl": "https://github.com/gerardog/gsudo/releases/download/{version}/gsudo.setup.x64.msi",
+  "InstallerFileName": "gsudo.setup.x64.msi",
+  "InstallArgs": "/qn /norestart",
+  "UninstallArgs": "/x {ProductCode} /qn /norestart",
+  "Detection": {
+    "Type": "RegistryKeyValue",
+    "RegistryHive": "HKLM",
+    "RegistryKeyTemplate": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{ProductCode}",
+    "ValueName": "DisplayVersion",
+    "PropertyType": "Version",
+    "Operator": "GreaterEquals",
+    "Is64Bit": true
+  },
+  "RunningProcess": [
+    "gsudo"
+  ]
+}

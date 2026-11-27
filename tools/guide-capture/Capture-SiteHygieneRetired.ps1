@@ -1,21 +1,19 @@
 <#
 .SYNOPSIS
-    The lab run of the Site Hygiene fixes for retired and superseded applications (Q-89): drives the real app on the lab client against the ConfigMgr site, in one
-    theme. It scans, opens the Show blockers window for the retired application of a task sequence, runs the APP-07 fix and then the APP-08 fix through the plan window, and
-    saves the images of the Show blockers window and of the plans.
+    The lab capture run of the Show blockers window of Site Hygiene (Q-89): drives the real app on the lab client against the ConfigMgr site, in one theme.
+    It scans, opens the Show blockers window for the retired application that a task sequence installs, and saves the image. It runs no fix.
 
 .DESCRIPTION
-    Run it in the interactive session of the lab user under the capture lock (Run-VisibleProbe.ps1 takes it), from the folder of the published app with ApdUiDriver.ps1:
-        Run-VisibleProbe.ps1 -Worktree <published folder with both scripts> -ProbeArgs "& .\Capture-SiteHygieneRetired.ps1 -Theme Light"
-    The images are <Run>\images\<theme>\<id>.png. The status bar, which names the site server, is painted over in each image.
-
-    What the site must hold first (throw-away applications of the lab, made and removed by the person who runs the check; the run removes nothing else):
-      ZZQ89 Retired2 (retired) supersedes ZZQ89 Active2, ZZQ89 Active supersedes ZZQ89 Old, and a task sequence installs the retired ZZQ89 Retired, which ZZQ89 Active depends on.
-    Pass -SkipFixes to open the Show blockers window only; the run then changes nothing on the site.
+    Run it in the interactive session of the lab user under the capture lock (Run-InSession.ps1 takes it), from the folder of the published app with these scripts:
+        & .\Capture-SiteHygieneRetired.ps1 -Theme Light -Run <work folder>
+    The image is <Run>\images\<theme>\tools-site-hygiene-blockers.png. The run changes nothing on the site.
+    The site must hold the retired application -BlockedApp, which a task sequence installs and another application depends on
+    (tools/guide-capture/lab-seed, part Blockers).
 #>
 param(
     [ValidateSet('Light', 'Dark')][string]$Theme = 'Light',
-    [switch]$SkipFixes,
+    # The retired application of the Show blockers image (tools/guide-capture/lab-seed, part Blockers).
+    [string]$BlockedApp = 'ZZAPD Blocker Retired',
     [string]$Run = (Join-Path $PSScriptRoot 'out'),
     [string]$AppFolder = $PSScriptRoot
 )
@@ -63,40 +61,6 @@ function Select-Finding([string]$Like) {
     Start-Sleep -Seconds 1
 }
 
-# Runs the plan window: the check boxes that the plan asks (the option stays on), then Confirm, then waits for the result and closes the window.
-function Run-Plan([string]$Id) {
-    Click-El (Find-El $null 'btnHygieneRunFix' -Timeout 10)
-    $confirm = Find-El $null 'btnChangePlanConfirm' -Timeout 180
-    if (-not $confirm) { throw 'The plan window did not open.' }
-    Start-Sleep -Seconds 2
-    Shot "$Id-plan"
-    foreach ($box in 'chkChangePlanExtra', 'chkChangePlanDestructive', 'chkChangePlanSecond') {
-        $el = Find-El $null $box -Timeout 2
-        if ($el -and -not $el.Current.IsOffscreen) {
-            $toggle = $el.GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern)
-            if ($toggle.Current.ToggleState -ne 'On') { $toggle.Toggle(); Start-Sleep -Milliseconds 500 }
-        }
-    }
-    $option = Find-El $null 'chkChangePlanOption' -Timeout 2
-    "option check box: " + $(if ($option) { $option.GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern).Current.ToggleState } else { 'none' })
-    Invoke-El $confirm
-    $close = $null
-    $deadline = (Get-Date).AddSeconds(300)
-    while ((Get-Date) -lt $deadline -and -not $close) {
-        Start-Sleep -Seconds 3
-        $c = Find-El $null 'btnChangePlanClose' -Timeout 1
-        if ($c -and -not $c.Current.IsOffscreen -and $c.Current.IsEnabled) { $close = $c }
-    }
-    if (-not $close) { throw 'The plan did not finish.' }
-    $result = Find-El $null 'txtChangePlanResult' -Timeout 2
-    "result of $($Id): " + $(if ($result) { $result.Current.Name } else { '(no text)' })
-    $summary = Find-El $null 'txtChangePlanSummary' -Timeout 2
-    if ($summary) { "summary: " + $summary.Current.Name }
-    Shot "$Id-result"
-    Invoke-El $close
-    Start-Sleep -Seconds 2
-}
-
 $null = Start-Apd $exe $data $Theme
 try {
     $w = Get-ApdWindows | Where-Object { $_.Current.Name -match 'App Packager' } | Select-Object -First 1
@@ -113,7 +77,7 @@ try {
 
     # Show blockers for the retired application that a task sequence installs and that another application depends on.
     Show-Filter 'TSQ-05'
-    Select-Finding '*ZZQ89 Retired'
+    Select-Finding "*$BlockedApp"
     Click-El (Find-El $null 'btnHygieneShowBlockers' -Timeout 10)
     $summary = Find-El $null 'txtBlockersSummary' -Timeout 20
     if (-not $summary) { throw 'The Show blockers window did not open.' }
@@ -122,15 +86,5 @@ try {
     Shot 'tools-site-hygiene-blockers'
     Invoke-El (Find-El $null 'btnBlockersClose' -Timeout 10)
     Start-Sleep -Seconds 2
-
-    if (-not $SkipFixes) {
-        Show-Filter 'APP-07'
-        Select-Finding 'ZZQ89 Retired2'
-        Run-Plan 'tools-site-hygiene-app07'
-
-        Show-Filter 'APP-08'
-        Select-Finding 'ZZQ89 Old'
-        Run-Plan 'tools-site-hygiene-app08'
-    }
 }
 finally { Stop-Apd; Stop-Transcript | Out-Null }

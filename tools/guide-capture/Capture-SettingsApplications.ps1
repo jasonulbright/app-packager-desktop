@@ -25,68 +25,6 @@ function Check([bool]$Condition, [string]$Text) {
     if ($Condition) { "OK   $Text" } else { $script:failures++; "FAIL $Text" }
 }
 
-function Find-GridRow($Grid, [string]$Name) {
-    $scroll = $Grid.GetCurrentPattern([System.Windows.Automation.ScrollPattern]::Pattern)
-    $items = New-Object System.Windows.Automation.PropertyCondition ([System.Windows.Automation.AutomationElement]::ControlTypeProperty), ([System.Windows.Automation.ControlType]::DataItem)
-    foreach ($percent in @(0..50 | ForEach-Object { $_ * 2 })) {
-        $scroll.SetScrollPercent([System.Windows.Automation.ScrollPattern]::NoScroll, $percent)
-        Start-Sleep -Milliseconds 400
-        foreach ($item in $Grid.FindAll([System.Windows.Automation.TreeScope]::Children, $items)) {
-            if ($item.Current.Name -like "$Name*") { return $item }
-        }
-    }
-    $null
-}
-
-# Opens a drop-down list with the mouse and clicks the entry of the list with the text.
-function Choose-Item($Combo, [string]$Text) {
-    # Bring the cell into view first: the grid scrolls, and a click on a cell below the visible part misses.
-    try { $Combo.GetCurrentPattern([System.Windows.Automation.ScrollItemPattern]::Pattern).ScrollIntoView(); Start-Sleep -Milliseconds 500 } catch { $null = $_ }
-    $r = $Combo.Current.BoundingRectangle
-    Click-At (New-Object System.Drawing.Point ([int]($r.X + $r.Width - 14)), ([int]($r.Y + $r.Height / 2)))
-    Start-Sleep -Milliseconds 900
-    $entry = Find-El $null $null $Text 'ListItem' -Timeout 3
-    if (-not $entry) {
-        Save-Shot (Join-Path $OutDir 'debug.png')
-        $names = foreach ($w2 in (Get-ApdWindows)) { $w2.FindAll([System.Windows.Automation.TreeScope]::Descendants, (New-Object System.Windows.Automation.PropertyCondition ([System.Windows.Automation.AutomationElement]::ControlTypeProperty), ([System.Windows.Automation.ControlType]::ListItem))) | ForEach-Object { $_.Current.Name } }
-        throw "The list has no entry '$Text'. The list items on screen: $($names -join ' | ')"
-    }
-    if ($entry.Current.IsOffscreen) {
-        # The list opens over the combo and the first entries can sit above the work area, where a mouse click misses: press the keys instead.
-        # The list is open: Home goes to its first entry, Down goes to the entry by its place among the entries of the list, Enter takes it.
-        $listItems = New-Object System.Windows.Automation.PropertyCondition ([System.Windows.Automation.AutomationElement]::ControlTypeProperty), ([System.Windows.Automation.ControlType]::ListItem)
-        $left = $entry.Current.BoundingRectangle.X
-        $places = @(foreach ($w2 in (Get-ApdWindows)) { foreach ($li in $w2.FindAll([System.Windows.Automation.TreeScope]::Descendants, $listItems)) { $b2 = $li.Current.BoundingRectangle; if ([Math]::Abs($b2.X - $left) -lt 2 -and $b2.Width -gt 0) { [pscustomobject]@{ Name = $li.Current.Name; Y = $b2.Y } } } }) | Sort-Object Y -Unique
-        $index = [Array]::IndexOf(@($places | ForEach-Object { $_.Name }), $Text)
-        if ($index -lt 0) { throw "The list has no place for the entry '$Text'." }
-        Send-ApdKeys '{HOME}'
-        if ($index -gt 0) { Send-ApdKeys ('{DOWN ' + $index + '}') }
-        Send-ApdKeys '{ENTER}'
-    }
-    else { Click-El $entry }
-    Start-Sleep -Milliseconds 700
-}
-
-function Check-Row($Grid, [string]$Name) {
-    $row = Find-GridRow $Grid $Name
-    if (-not $row) { throw "The grid has no row for '$Name'." }
-    try { $row.GetCurrentPattern([System.Windows.Automation.ScrollItemPattern]::Pattern).ScrollIntoView(); Start-Sleep -Milliseconds 700 } catch { $null = $_ }
-    $cell = $row.FindFirst([System.Windows.Automation.TreeScope]::Children, (New-Object System.Windows.Automation.PropertyCondition ([System.Windows.Automation.AutomationElement]::NameProperty), ('Item: ' + $row.Current.Name + ', Column Display Index: 0')))
-    if (-not $cell) { throw "The row of '$Name' has no check box cell." }
-    # A click on a row that shows only in part selects it and scrolls the grid, so the box can stay empty. The box is read, and one more click follows.
-    $box = $cell.FindFirst([System.Windows.Automation.TreeScope]::Descendants, (New-Object System.Windows.Automation.PropertyCondition ([System.Windows.Automation.AutomationElement]::ControlTypeProperty), ([System.Windows.Automation.ControlType]::CheckBox)))
-    if (-not $box) { throw "The row of '$Name' has no check box." }
-    foreach ($attempt in 1, 2) {
-        if ($box.GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern).Current.ToggleState -eq 'On') { break }
-        Click-El $box
-        Start-Sleep -Milliseconds 700
-    }
-    if ($box.GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern).Current.ToggleState -ne 'On') { throw "Two clicks did not check the box of '$Name'." }
-    $r = $row.Current.BoundingRectangle
-    "     clicked the check box of '$Name' at {0},{1}; the page says: {2}" -f [int]$r.X, [int]$r.Y, (Find-El $null 'txtCheckedCount' -Timeout 2).Current.Name
-    $row
-}
-
 foreach ($theme in $Themes) {
     $data = Join-Path $OutDir "data-$theme"
     Remove-Item $data -Recurse -Force -ErrorAction SilentlyContinue
@@ -101,12 +39,12 @@ foreach ($theme in $Themes) {
         Check ($null -ne (Find-El $w 'cboBulkColumn' -Timeout 5)) "$theme the page has the column list of the bulk action"
 
         # Check one application with the mouse, then set two columns for the checked application with the bulk buttons.
-        $null = Check-Row $grid 'Bitwarden'
-        Choose-Item (Find-El $w 'cboBulkColumn' -Timeout 5) 'Install scope'
-        Choose-Item (Find-El $w 'cboBulkValue' -Timeout 5) 'User'
+        $null = Set-ApdGridRowCheck $grid 'Bitwarden'
+        Select-ApdItem (Find-El $w 'cboBulkColumn' -Timeout 5) 'Install scope'
+        Select-ApdItem (Find-El $w 'cboBulkValue' -Timeout 5) 'User'
         Click-El (Find-El $w 'btnBulkApply' -Timeout 5); Start-Sleep -Milliseconds 800
-        Choose-Item (Find-El $w 'cboBulkColumn' -Timeout 5) 'Supersedence'
-        Choose-Item (Find-El $w 'cboBulkValue' -Timeout 5) 'Replace'
+        Select-ApdItem (Find-El $w 'cboBulkColumn' -Timeout 5) 'Supersedence'
+        Select-ApdItem (Find-El $w 'cboBulkValue' -Timeout 5) 'Replace'
         Click-El (Find-El $w 'btnBulkApply' -Timeout 5); Start-Sleep -Milliseconds 800
 
         # The installer type of 7-Zip with the mouse: the column is not on at the start, so choose it in the column chooser first.
@@ -115,19 +53,19 @@ foreach ($theme in $Themes) {
         Check ($null -ne $item) "$theme the column chooser lists Installer type"
         if ($item) { Click-El $item; Start-Sleep -Milliseconds 700 }
         Send-ApdKeys '{ESC}'; Start-Sleep -Milliseconds 700
-        $row = Find-GridRow $grid '7-Zip'
+        $row = Find-ApdGridRow $grid '7-Zip'
         $cell = $row.FindFirst([System.Windows.Automation.TreeScope]::Descendants, (New-Object System.Windows.Automation.PropertyCondition ([System.Windows.Automation.AutomationElement]::NameProperty), 'Installer type of the application'))
         if (-not $cell) { throw 'The row of 7-Zip has no installer type cell.' }
-        Choose-Item $cell 'EXE'
+        Select-ApdItem $cell 'EXE'
 
         # One cell of a row with the mouse: the Architecture of 7-Zip.
-        $row = Find-GridRow $grid '7-Zip'
+        $row = Find-ApdGridRow $grid '7-Zip'
         $cell = $row.FindFirst([System.Windows.Automation.TreeScope]::Descendants, (New-Object System.Windows.Automation.PropertyCondition ([System.Windows.Automation.AutomationElement]::NameProperty), 'Architecture of the application'))
         if (-not $cell) { throw 'The row of 7-Zip has no Architecture cell.' }
-        Choose-Item $cell 'ARM64 only'
+        Select-ApdItem $cell 'ARM64 only'
 
         # The version in the title of Bitwarden is locked to Include version while supersedence is on.
-        $row = Find-GridRow $grid 'Bitwarden'
+        $row = Find-ApdGridRow $grid 'Bitwarden'
         $title = $row.FindFirst([System.Windows.Automation.TreeScope]::Descendants, (New-Object System.Windows.Automation.PropertyCondition ([System.Windows.Automation.AutomationElement]::NameProperty), 'Version in the title of the application'))
         Check ((-not $title.Current.IsEnabled)) "$theme the version in the title of Bitwarden is locked while supersedence is on"
 
@@ -145,15 +83,15 @@ foreach ($theme in $Themes) {
         Check ($null -ne $item) "$theme the column chooser lists Reboot after install"
         if ($item) { Click-El $item; Start-Sleep -Milliseconds 700 }
         Send-ApdKeys '{ESC}'; Start-Sleep -Milliseconds 700
-        $row7 = Find-GridRow $grid '7-Zip'
+        $row7 = Find-ApdGridRow $grid '7-Zip'
         try { $row7.GetCurrentPattern([System.Windows.Automation.ScrollItemPattern]::Pattern).ScrollIntoView(); Start-Sleep -Milliseconds 700 } catch { $null = $_ }
         $gs = $grid.GetCurrentPattern([System.Windows.Automation.ScrollPattern]::Pattern)
         $gs.SetScrollPercent(100, [System.Windows.Automation.ScrollPattern]::NoScroll); Start-Sleep -Milliseconds 800
-        $row7 = Find-GridRow $grid '7-Zip'
+        $row7 = Find-ApdGridRow $grid '7-Zip'
         $gs.SetScrollPercent(100, [System.Windows.Automation.ScrollPattern]::NoScroll); Start-Sleep -Milliseconds 800
         $rebootCell = $row7.FindFirst([System.Windows.Automation.TreeScope]::Descendants, (New-Object System.Windows.Automation.PropertyCondition ([System.Windows.Automation.AutomationElement]::NameProperty), 'Reboot behavior of the application'))
         if (-not $rebootCell) { throw 'The row of 7-Zip has no reboot cell.' }
-        Choose-Item $rebootCell 'Soft reboot'
+        Select-ApdItem $rebootCell 'Soft reboot'
         $gs.SetScrollPercent(0, [System.Windows.Automation.ScrollPattern]::NoScroll); Start-Sleep -Milliseconds 800
 
         # The distribution columns and the read-only detection column come from the chooser too.
@@ -174,15 +112,15 @@ foreach ($theme in $Themes) {
         $box = Find-El $w 'txtApplicationFilter' -Timeout 5
         Click-El $box; Start-Sleep -Milliseconds 500
         Send-ApdKeys 'Bitwarden'; Start-Sleep -Seconds 1
-        Choose-Item (Find-El $w 'cboBulkColumn' -Timeout 5) 'Network'
-        Choose-Item (Find-El $w 'cboBulkValue' -Timeout 5) 'VPN only'
-        Choose-Item (Find-El $w 'cboBulkScope' -Timeout 5) 'Filtered applications'
+        Select-ApdItem (Find-El $w 'cboBulkColumn' -Timeout 5) 'Network'
+        Select-ApdItem (Find-El $w 'cboBulkValue' -Timeout 5) 'VPN only'
+        Select-ApdItem (Find-El $w 'cboBulkScope' -Timeout 5) 'Filtered applications'
         Click-El (Find-El $w 'btnBulkApply' -Timeout 5); Start-Sleep -Milliseconds 800
         # The filter stays for the image: the changed row and nothing else; clear it afterwards so the rows around it show.
         Click-El $box; Send-ApdKeys '^a{BACKSPACE}'; Start-Sleep -Seconds 1
 
         # Scroll to the rows around Bitwarden for the image: the changed row and its neighbours.
-        $near = Find-GridRow $grid 'BleachBit'
+        $near = Find-ApdGridRow $grid 'BleachBit'
         if ($near) { try { $near.GetCurrentPattern([System.Windows.Automation.ScrollItemPattern]::Pattern).ScrollIntoView() } catch { $null = $_ }; Start-Sleep -Milliseconds 700 }
         Move-MouseAway
         Save-Shot (Join-Path $OutDir (Join-Path $theme.ToLower() 'core-settings-application-settings.png')) -MaskFooter
