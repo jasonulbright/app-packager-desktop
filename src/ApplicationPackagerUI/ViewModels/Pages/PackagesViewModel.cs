@@ -215,6 +215,8 @@ public partial class PackagesViewModel : ObservableObject
     /// </summary>
     public void FollowSiteChange()
     {
+        // A check box was set while the page named the other site: a publish must not take it along.
+        foreach (var p in Packagers ?? []) p.IsSelected = false;
         ClearSiteResults(Packagers ?? []);
         StatusText = "";
         MecmConnectionStatus = "Unknown";
@@ -2321,8 +2323,6 @@ public partial class PackagesViewModel : ObservableObject
     {
         foreach (var p in rows)
         {
-            // A check box was set against one site: a publish must not take it to another one.
-            p.IsSelected = false;
             p.SiteCheckedAt = null;
             p.CurrentVersion = "";
             p.Status = "Ready";
