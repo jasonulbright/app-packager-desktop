@@ -90,6 +90,26 @@ public sealed class KeyboardAndNameTests
     }
 
     [Fact]
+    public void TabFromTheSearchBoxReachesColumnsThenMore()
+    {
+        WithApplication(ApplicationTheme.Light, () =>
+        {
+            var (page, window, _) = Shown();
+            try
+            {
+                window.Activate();
+                var search = Descendants(page).OfType<Wpf.Ui.Controls.TextBox>().Single(b => AutomationProperties.GetAutomationId(b) == "txtAppPackagerSearch");
+                Keyboard.Focus(search);
+                Settle(window);
+                var walk = PageChromeKit.Tabs(5);
+                var columns = walk.IndexOf("btnColumns");
+                Assert.True(columns >= 0 && walk.IndexOf("btnMore") == columns + 1, "Tab from the search box: " + string.Join(" > ", walk));
+            }
+            finally { window.Close(); }
+        });
+    }
+
+    [Fact]
     public void EachRowCheckBoxAndCveCellNamesItsApplication()
     {
         WithApplication(ApplicationTheme.Light, () =>

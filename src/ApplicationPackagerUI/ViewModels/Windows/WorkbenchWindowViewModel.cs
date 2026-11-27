@@ -185,6 +185,9 @@ public partial class WorkbenchWindowViewModel : ObservableObject
     [ObservableProperty] [NotifyPropertyChangedFor(nameof(ValidationLine))] private string _chipIntune = "Intune: Not validated";
     [ObservableProperty] private string _saveStateText = CleanText;
 
+    /// <summary>The site and its SMS Provider, as the footer of the main window writes them.</summary>
+    [ObservableProperty] private string _siteLine = "";
+
     /// <summary>The three validation results in one line, for the footer while the side panel is closed.</summary>
     public string ValidationLine => $"{ChipContent} · {ChipConfigMgr} · {ChipIntune}";
 
@@ -192,6 +195,7 @@ public partial class WorkbenchWindowViewModel : ObservableObject
     public async Task InitializeAsync(string? preselectApplicationId = null)
     {
         _settings = _settingsService.Load();
+        SiteLine = SiteFooter.Format(_settings.SiteCode, _settings.ProviderMachine);
         ApplyPublishState(Pages.PackagesViewModel.ReadinessOf(_settings));
         _store = WorkbenchStore.Open();
         var applications = await _catalog.LoadAsync(_store);

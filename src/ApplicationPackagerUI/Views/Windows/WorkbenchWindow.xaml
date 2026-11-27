@@ -131,6 +131,8 @@
         </Grid.RowDefinitions>
 
         <ui:TitleBar Grid.Row="0" Title="Workbench" />
+        <TextBlock Grid.Row="0" x:Name="txtWorkbenchSite" Text="{Binding SiteLine}" HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="12"
+                   IsHitTestVisible="False" Foreground="{DynamicResource TextFillColorSecondaryBrush}" AutomationProperties.AutomationId="txtWorkbenchSite" />
 
         <Grid Grid.Row="1" Margin="16,4,16,8">
             <Grid.ColumnDefinitions>

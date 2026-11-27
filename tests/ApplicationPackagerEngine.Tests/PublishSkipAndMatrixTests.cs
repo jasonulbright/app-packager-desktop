@@ -190,6 +190,35 @@ public sealed class PublishSkipAndMatrixTests : IDisposable
     }
 
     [Theory]
+    [InlineData(ApplicationTheme.Light)]
+    [InlineData(ApplicationTheme.Dark)]
+    public void TheResultsOfARunInWhichEverySystemFailedFitAndNameEachCell(ApplicationTheme theme)
+    {
+        RenderKit.WithApplication(theme, () =>
+        {
+            var rows = new List<(string, PublishRowResult)>
+            {
+                ("Notepad++", new PublishRowResult("n", "8.0",
+                [
+                    new PublishDestinationResult("ConfigMgr", PublishDestinationKind.Failed, "", "share refused"),
+                    new PublishDestinationResult("WSUS", PublishDestinationKind.Failed, "", "server unreachable")
+                ]))
+            };
+            var window = new PublishResultsWindow(new PublishResultsViewModel(rows, false, offerRetry: true)) { Width = 900, Height = 480 };
+            RenderKit.Show(window);
+            try
+            {
+                AssertFits(window, $"results, all failed, {theme}");
+                Assert.Equal("Publish completed with issues", RenderKit.ById<TextBlock>(window, "txtResultsHeadline").Text);
+                Assert.Equal("Published 0", RenderKit.ById<TextBlock>(window, "txtResultsPublished").Text);
+                Assert.Equal("Failed 2", RenderKit.ById<TextBlock>(window, "txtResultsFailed").Text);
+                Assert.Equal("Notepad++, WSUS, Failed", CellName(RenderKit.ById<DataGrid>(window, "gridResultsMatrix"), 0, 2));
+            }
+            finally { window.Close(); }
+        });
+    }
+
+    [Theory]
     [InlineData(ApplicationTheme.Light, PublishDestinationKind.Published, "2 publishes completed")]
     [InlineData(ApplicationTheme.Dark, PublishDestinationKind.Failed, "Publish completed with issues")]
     public void TheResultsFitWithTheirFooterAndEachCellHasAName(ApplicationTheme theme, PublishDestinationKind second, string headline)
