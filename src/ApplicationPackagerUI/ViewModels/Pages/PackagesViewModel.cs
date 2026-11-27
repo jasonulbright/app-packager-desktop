@@ -209,6 +209,14 @@ public partial class PackagesViewModel : ObservableObject
         Checklist?.Refresh();
     }
 
+    /// <summary>Drops what the page holds of a site: the results on the rows and the rows of the last Check ConfigMgr, which Export writes.</summary>
+    public void ForgetSiteResults()
+    {
+        ClearSiteResults(Packagers ?? []);
+        _lastCheckResult = [];
+        ExportCheckResultsCommand.NotifyCanExecuteChanged();
+    }
+
     /// <summary>
     /// The active site changed, or its settings changed on disk. Everything this page holds about the site is dropped, and every text,
     /// button and tooltip that depends on the site is read again, before the list loads again.
@@ -217,7 +225,7 @@ public partial class PackagesViewModel : ObservableObject
     {
         // A check box was set while the page named the other site: a publish must not take it along.
         foreach (var p in Packagers ?? []) p.IsSelected = false;
-        ClearSiteResults(Packagers ?? []);
+        ForgetSiteResults();
         StatusText = "";
         MecmConnectionStatus = "Unknown";
         RefreshPublishActionState();

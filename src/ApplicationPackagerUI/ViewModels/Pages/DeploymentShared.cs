@@ -125,15 +125,6 @@ public sealed partial class DeploymentShared(DeploymentPageServices services) : 
     /// Releases the data of the visit and cancels its reads; a result that arrives later is
     /// discarded. The last plan stays, so its Undo is offered on the next visit.
     /// </summary>
-    /// <summary>A switch of site drops the plan, the undo and the results of the site that was active: an undo would run against the other site.</summary>
-    public void ClearForSiteChange()
-    {
-        LastPlan = null;
-        LastResults.Clear();
-        NotifyResults();
-        ResultSummary = "";
-    }
-
     public void Release()
     {
         Generation++;

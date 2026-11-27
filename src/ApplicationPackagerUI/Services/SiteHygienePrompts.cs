@@ -140,6 +140,7 @@ public static class SiteHygieneRegistration
         services.AddSingleton(sp =>
         {
             var settings = sp.GetRequiredService<SettingsService>();
+            var lifetime = sp.GetService<SitePageLifetime>();
             return new SiteHygienePageServices(
                 sp.GetRequiredService<ISiteHygieneService>(),
                 sp.GetRequiredService<IHygieneSuppressionStore>(),
@@ -150,7 +151,7 @@ public static class SiteHygieneRegistration
                 sp.GetRequiredService<SiteHygieneWriter>(),
                 settings.Load,
                 () => SiteHygienePreferences.Load(settings),
-                choices => SiteHygienePreferences.Save(settings, choices),
+                choices => lifetime?.IsRetired != true && SiteHygienePreferences.Save(settings, choices),
                 sp.GetRequiredService<IAppLog>())
             {
                 AuditLog = sp.GetRequiredService<IHygieneAuditLog>(),
@@ -163,9 +164,12 @@ public static class SiteHygieneRegistration
     }
 
     /// <summary>The Live services when the engine registers all of them; null leaves the Live tab without a source.</summary>
-    private static SiteHygieneLiveServices? LiveServices(IServiceProvider sp, SettingsService settings) =>
-        sp.GetService<ISiteHygieneLiveService>() is { } live && sp.GetService<IMetricsHistoryStore>() is { } history && sp.GetService<IAlertEvaluator>() is { } alerts
+    private static SiteHygieneLiveServices? LiveServices(IServiceProvider sp, SettingsService settings)
+    {
+        var lifetime = sp.GetService<SitePageLifetime>();
+        return sp.GetService<ISiteHygieneLiveService>() is { } live && sp.GetService<IMetricsHistoryStore>() is { } history && sp.GetService<IAlertEvaluator>() is { } alerts
         && sp.GetService<IAlertLog>() is { } alertLog && sp.GetService<ILegacyDashboardImport>() is { } import && sp.GetService<ILiveReportWriter>() is { } reports
-            ? new SiteHygieneLiveServices(live, history, alerts, alertLog, import, reports) { SaveLive = (options, server, database) => SiteHygieneLivePreferences.Save(settings, options, server, database) }
+            ? new SiteHygieneLiveServices(live, history, alerts, alertLog, import, reports) { SaveLive = (options, server, database) => lifetime?.IsRetired != true && SiteHygieneLivePreferences.Save(settings, options, server, database) }
             : null;
+    }
 }

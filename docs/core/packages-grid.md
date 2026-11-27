@@ -71,7 +71,6 @@ The color of the status text follows the value. Green: **Staged**, **Packaged**,
 | **Published**, **Publish error** | The Intune-only publish succeeded, or the Intune-only or WSUS-only publish failed. A WSUS-only success reads **Published (updates only)**. |
 | **Published (updates only)**, **Already on the server (updates only)**, and the same with **, warning** | The WSUS publish succeeded, the WSUS update for this version existed already, or a follow-up step gave a warning. A WSUS update applies only where the detection finds an older version of the application, so WSUS cannot give a first install of it. |
 | `not supported: <codes>` | WSUS refused the application. See [WSUS publishing](wsus-publishing.md). |
-| **Applying supersedence...**, **Supersedence applied**, **No older version**, **Supersedence not applied**, **Supersedence not run** | A [One Click](one-click.md) run does the supersedence pass for a version that is on the site: it is working, it set the relations, it found no older version, the step failed (the version stays pending), or the mode is `Off`. |
 
 A WSUS run that follows a ConfigMgr publish adds a suffix such as `, WSUS not supported`, `, WSUS failed` or `, WSUS warning`. The One Click statuses are in [One Click](one-click.md). **Check Latest** sets no tooltip. A WSUS publish sets the tooltip text of the **Status** cell. The spelling **Canceled** (one l) also appears in a publish status. It comes from the internal name of the outcome.
 

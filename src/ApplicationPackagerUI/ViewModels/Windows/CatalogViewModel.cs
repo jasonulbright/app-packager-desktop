@@ -31,6 +31,11 @@ public partial class CatalogViewModel : ObservableObject
     private readonly object _reloadLock = new();
     private Task _reload = Task.CompletedTask;
     private int _reloadRequest;
+    private int _siteGeneration;
+    /// <summary>True while the rows come from a read of the active site that succeeded. Save needs it.</summary>
+    private bool _isRead;
+
+    public const string NotReadMessage = "Not saved. The list of applications was not read. It is read again now. Check it, then select Save again.";
 
     [ObservableProperty] private ObservableCollection<VendorGroup> _vendorGroups = [];
     [ObservableProperty] private int _totalCount;
@@ -150,13 +155,31 @@ public partial class CatalogViewModel : ObservableObject
         catch (Exception) { }
     }
 
+    /// <summary>
+    /// The active site changed. The check boxes and the saved list of the old site go at once, and the list is read again. Save writes
+    /// nothing until that read succeeds.
+    /// </summary>
+    public void FollowSiteChange()
+    {
+        Interlocked.Increment(ref _siteGeneration);
+        _isRead = false;
+        _savedHidden = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        VendorGroups = [];
+        MatchCount = 0;
+        UpdateCounts();
+        ReloadAfterSettingsChange();
+    }
+
     private async Task LoadAsync()
     {
+        var generation = Volatile.Read(ref _siteGeneration);
+        _isRead = false;
         var settings = _services.LoadSettings();
         var hidden = new HashSet<string>(settings.HiddenApplications, StringComparer.OrdinalIgnoreCase);
 
         var allPackagers = await _services.LoadPackagers();
-        if (allPackagers is null) return;
+        // A read that started on the other site holds the hidden list of that site.
+        if (allPackagers is null || generation != Volatile.Read(ref _siteGeneration)) return;
         _savedHidden = hidden;
 
         var groups = allPackagers
@@ -191,6 +214,7 @@ public partial class CatalogViewModel : ObservableObject
         VendorGroups = new ObservableCollection<VendorGroup>(groups);
         ApplySearch();
         UpdateCounts();
+        _isRead = true;
     }
 
     /// <summary>
@@ -282,6 +306,12 @@ public partial class CatalogViewModel : ObservableObject
     private async Task Save()
     {
         await WaitForReloadAsync();
+        if (!_isRead)
+        {
+            (_services.ShowCaution ?? _services.ShowSaved)(NotReadMessage);
+            ReloadAfterSettingsChange();
+            return;
+        }
 
         var s = _services.LoadSettings();
         s.HiddenApplications = VendorGroups

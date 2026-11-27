@@ -101,7 +101,7 @@ The plan leaves a row or a destination out for these reasons:
 
 ## Rules of a run
 
-- After you select **Run**, One Click asks no more questions. The exception is the local installer source below.
+- After you select **Run**, One Click asks no more questions. There are two exceptions: the local installer source below, and the confirmation window of supersedence. See [Supersedence in a run](#supersedence-in-a-run).
 - For each application, One Click checks the vendor version first. A failed check gives the status `Check error` and the outcome `Failed`.
 - When the vendor reports an older version than the one seen before, the row gets the status `Vendor older than last seen` and the outcome `Skipped`.
 - **Report only** ends with the outcome `Checked`. The reason is `update available` or `up to date`.

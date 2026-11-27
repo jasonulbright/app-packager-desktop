@@ -21,6 +21,12 @@ public static class SiteRunGuard
         }
     }
 
+    /// <summary>The reasons of every active run.</summary>
+    public static IReadOnlyList<string> ActiveRuns()
+    {
+        lock (Active) return Active.Select(pair => pair.Value).ToList();
+    }
+
     /// <summary>The reason of one active run, or null when none is active.</summary>
     public static string? ActiveRun()
     {

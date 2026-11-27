@@ -5,6 +5,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Media;
+using Microsoft.Extensions.DependencyInjection;
 using ApplicationPackagerEngine.Models;
 using ApplicationPackagerEngine.Services;
 using ApplicationPackagerEngine.Services.OneClick;
@@ -117,6 +118,9 @@ public sealed class SiteSwitchAndClippingTests : IDisposable
         var load = source.IndexOf("packages.LoadPackagersCommand.Execute(null);", StringComparison.Ordinal);
         Assert.True(follow > 0 && load > follow);
         Assert.Contains("Windows.OfType<Window>().Where(ShowsOneSite)", source);
+        Assert.Contains("?.FollowSiteChange();", source);
+        Assert.Contains("RenewSitePages();", source);
+        Assert.Contains("RootNavigation.SetServiceProvider(_sitePages);", source);
         Assert.Contains("window is OneClickPlanWindow or CveWindow or CatalogWindow or ConvertFromCmWindow", source);
     }
 
@@ -132,7 +136,7 @@ public sealed class SiteSwitchAndClippingTests : IDisposable
         var dialogs = new PublishRunKit.Dialogs();
         dialogs.Answers.Enqueue(_ =>
         {
-            during = new SiteManager().Refusal();
+            during = new SiteManager().Refusal() is null ? null : string.Join("; ", SiteRunGuard.ActiveRuns());
             return false;
         });
         var row = new PackagerInfo { Uid = "a", Application = "Alpha", LatestVersion = "2.0" };
@@ -143,7 +147,7 @@ public sealed class SiteSwitchAndClippingTests : IDisposable
 
         Assert.NotNull(during);
         Assert.Contains("a publish is being reviewed or run", during);
-        Assert.Null(SiteRunGuard.ActiveRun());
+        Assert.DoesNotContain("a publish is being reviewed or run", SiteRunGuard.ActiveRuns());
     }
 
     private sealed class CountingRunner : IOneClickRunner
@@ -186,21 +190,166 @@ public sealed class SiteSwitchAndClippingTests : IDisposable
         Assert.False(viewModel.IsRunView);
     }
 
-    [Fact]
-    public async Task TheToolPagesDropTheUndoOfTheSiteThatWasActive()
+    private static ServiceCollection ToolRegistrations()
     {
-        static void Plant(object viewModel, Type plan) => viewModel.GetType()
-            .GetField("_lastPlan", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(viewModel, RuntimeHelpers.GetUninitializedObject(plan));
+        var services = new ServiceCollection();
+        services.AddPackagerServices().AddSidebar();
+        services.AddSingleton<Wpf.Ui.IContentDialogService, Wpf.Ui.ContentDialogService>();
+        services.AddSingleton<IChangePlanDialogs, ChangePlanDialogs>();
+        services.AddDetectionTesterPage();
+        services.AddMaintenanceWindowsPage();
+        services.AddCollectionCompliancePage();
+        services.AddDeploymentHelperPage();
+        services.AddDpContentManagerPage();
+        services.AddPivotsScriptsPage();
+        services.AddSiteHygienePage();
+        return services;
+    }
 
-        var windows = new MaintenanceWindows.MaintenanceWindowsHarness().Create();
-        Plant(windows, typeof(MaintenanceWindowsViewModel).GetProperty(nameof(MaintenanceWindowsViewModel.LastPlan))!.PropertyType);
-        await windows.FollowSiteChangeAsync();
-        Assert.Null(windows.LastPlan);
+    [Fact]
+    public void EveryToolViewModelIsBuiltNewAfterASwitchAndTheOldSetSavesNothing()
+    {
+        using var scope = SiteContext.Scope(null);
+        var registrations = ToolRegistrations();
+        using var provider = registrations.BuildServiceProvider(new ServiceProviderOptions { ValidateOnBuild = false, ValidateScopes = true });
+        var pages = new SitePages(provider, registrations);
+        // Every type of the set has a registration, or the switch would keep its one instance.
+        Assert.All(SitePages.Types, type => Assert.True(pages.Holds(type), type.Name + " has no registration."));
+        Type[] viewModels =
+        [
+            typeof(DeploymentHelperViewModel), typeof(ComplianceViewModel), typeof(CollectionComplianceViewModel), typeof(DpContentManagerViewModel),
+            typeof(MaintenanceWindowsViewModel), typeof(PivotsScriptsViewModel), typeof(SiteHygieneViewModel), typeof(DetectionTesterViewModel)
+        ];
+        var first = viewModels.Select(type => pages.GetService(type)!).ToList();
+        Assert.All(viewModels.Zip(first), pair => Assert.Same(pair.Second, pages.GetService(pair.First)));
+        var choices = (PivotsScriptsPageServices)pages.GetService(typeof(PivotsScriptsPageServices))!;
+        var settings = provider.GetRequiredService<SettingsService>();
 
-        var collections = new Collections.CollectionComplianceHarness().Create();
-        Plant(collections, typeof(CollectionComplianceViewModel).GetProperty(nameof(CollectionComplianceViewModel.LastPlan))!.PropertyType);
-        await collections.FollowSiteChangeAsync();
-        Assert.Null(collections.LastPlan);
+        pages.Retire();
+
+        Assert.Null(pages.Existing<PivotsScriptsViewModel>());
+        Assert.All(viewModels.Zip(first), pair => Assert.NotSame(pair.Second, pages.GetService(pair.First)));
+        // A late save of the old set writes nothing into the site that is active now.
+        Assert.False(choices.SavePreferences(new PivotsScriptsSettings()));
+        Assert.Null(settings.Load().PivotsScripts);
+        Assert.True(((PivotsScriptsPageServices)pages.GetService(typeof(PivotsScriptsPageServices))!).SavePreferences(new PivotsScriptsSettings()));
+    }
+
+    [Fact]
+    public void ANavigationAfterASwitchShowsANewPage()
+    {
+        WithApplication(ApplicationTheme.Light, () =>
+        {
+            var root = new ServiceCollection().AddSingleton(typeof(PackagesPage), _ => new System.Windows.Controls.Page()).BuildServiceProvider();
+            var tool = new ServiceDescriptor(typeof(DetectionTesterPage), _ => new System.Windows.Controls.Page(), ServiceLifetime.Singleton);
+            var pages = new SitePages(root, [tool]);
+            var navigation = new Wpf.Ui.Controls.NavigationView();
+            navigation.SetServiceProvider(pages);
+            navigation.MenuItems.Add(new Wpf.Ui.Controls.NavigationViewItem("Start", typeof(PackagesPage)));
+            navigation.MenuItems.Add(new Wpf.Ui.Controls.NavigationViewItem("Tool", typeof(DetectionTesterPage)));
+            object? shown = null;
+            navigation.Navigated += (_, e) => shown = e.Page;
+            var window = new Window { Width = 800, Height = 600, Content = navigation };
+            Show(window);
+            try
+            {
+                Settle(window);
+                Assert.True(navigation.Navigate(typeof(DetectionTesterPage)));
+                Settle(window);
+                var first = shown;
+                Assert.NotNull(first);
+
+                pages.Retire();
+                navigation.Navigate(typeof(PackagesPage));
+                Settle(window);
+                navigation.Navigate(typeof(DetectionTesterPage));
+                Settle(window);
+
+                Assert.NotSame(first, shown);
+                Assert.Same(shown, pages.GetService(typeof(DetectionTesterPage)));
+            }
+            finally { window.Close(); }
+        });
+    }
+
+    [Fact]
+    public async Task TheCatalogDropsTheOtherSitesBoxesAndSavesOnlyAfterAReadOfTheNewSite()
+    {
+        var hidden = new[] { "a" };
+        IReadOnlyList<PackagerInfo>? list = [new() { Uid = "a", Application = "Alpha", Vendor = "V" }, new() { Uid = "b", Application = "Beta", Vendor = "V" }];
+        var saved = new List<string[]>();
+        var cautions = new List<string>();
+        var catalog = new CatalogViewModel(new CatalogServices(
+            LoadSettings: () => new AppSettings { HiddenApplications = hidden },
+            SaveSettings: s => saved.Add(s.HiddenApplications),
+            LoadPackagers: () => Task.FromResult(list),
+            RefreshGrid: () => Task.CompletedTask,
+            ShowSaved: _ => { },
+            Log: _ => { }) { ShowCaution = cautions.Add });
+        await catalog.WaitForReloadAsync();
+        Assert.Equal(1, catalog.VisibleCount);
+
+        // The new site hides Beta; its list cannot be read yet.
+        hidden = ["b"];
+        var answer = list;
+        list = null;
+        catalog.FollowSiteChange();
+        Assert.Empty(catalog.VendorGroups);
+        Assert.False(catalog.HasUnsavedChanges);
+        await catalog.SaveCommand.ExecuteAsync(null);
+        Assert.Empty(saved);
+        Assert.Equal(CatalogViewModel.NotReadMessage, cautions.Last());
+
+        list = answer;
+        catalog.ReloadAfterSettingsChange();
+        await catalog.SaveCommand.ExecuteAsync(null);
+        Assert.Equal(["b"], Assert.Single(saved));
+    }
+
+    [Fact]
+    public void ASwitchLeavesNoCheckResultToExport()
+    {
+        using var scope = SiteContext.Scope(null);
+        var settings = new SettingsService();
+        Save(settings, "AB1", configMgr: true, wsus: false);
+        var viewModel = Packages(settings, new PublishRunKit.Dialogs());
+        var field = typeof(PackagesViewModel).GetField("_lastCheckResult", BindingFlags.Instance | BindingFlags.NonPublic)!;
+        var row = Array.CreateInstance(field.FieldType.GetGenericArguments()[0], 1);
+        row.SetValue(RuntimeHelpers.GetUninitializedObject(field.FieldType.GetGenericArguments()[0]), 0);
+        field.SetValue(viewModel, row);
+        Assert.True(viewModel.ExportCheckResultsCommand.CanExecute(null));
+
+        viewModel.FollowSiteChange();
+
+        Assert.False(viewModel.ExportCheckResultsCommand.CanExecute(null));
+        var source = File.ReadAllText(Path.Combine(CatalogRoot(), "src", "ApplicationPackagerUI", "ViewModels", "Pages", "SettingsViewModel.cs"));
+        Assert.Contains("_packagesViewModel.ForgetSiteResults();", source);
+    }
+
+    [Fact]
+    public void AWaitForResultsAndABackgroundWriteRefuseASwitch()
+    {
+        static void Holds(Action<bool> set, string reason)
+        {
+            set(true);
+            Assert.Contains(reason, SiteRunGuard.ActiveRuns());
+            set(false);
+            Assert.DoesNotContain(reason, SiteRunGuard.ActiveRuns());
+        }
+
+        var pivots = new PivotsScripts.PivotsScriptsHarness().Create();
+        Holds(value => pivots.IsWaiting = value, "Pivots and Scripts waits for the results of a run");
+        Action<bool> Writing(object viewModel) => value => viewModel.GetType()
+            .GetMethod("SetWriting", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(viewModel, [value]);
+        Holds(Writing(new MaintenanceWindows.MaintenanceWindowsHarness().Create()), "a maintenance window change is being written");
+        Holds(Writing(new Collections.CollectionComplianceHarness().Create()), "a collection change is being written");
+        // Every start and end of a write goes through the setter.
+        foreach (var file in new[] { "MaintenanceWindowsViewModel.cs", "CollectionComplianceViewModel.cs" })
+        {
+            var source = File.ReadAllText(Path.Combine(CatalogRoot(), "src", "ApplicationPackagerUI", "ViewModels", "Pages", file));
+            Assert.DoesNotContain(" _writing = true;", source);
+            Assert.DoesNotContain(" _writing = false;", source);
+        }
     }
 
     private static double TextWidth(TextBlock block, string text) => new FormattedText(text, CultureInfo.InvariantCulture, System.Windows.FlowDirection.LeftToRight,

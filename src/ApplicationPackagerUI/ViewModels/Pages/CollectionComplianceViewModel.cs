@@ -115,6 +115,14 @@ public sealed partial class CollectionComplianceViewModel : ObservableObject
     private int _generation;
     private int _listGeneration;
     private bool _writing;
+    private readonly object _writeHold = new();
+
+    // The site cannot change until the write ends, also one that goes on after its window closed.
+    private void SetWriting(bool value)
+    {
+        _writing = value;
+        ApplicationPackagerEngine.Services.SiteRunGuard.Set(_writeHold, value ? "a collection change is being written" : null);
+    }
     private bool _background;
     private CollectionPlan? _lastRunPlan;
     private IReadOnlyList<CollectionGridRow> _selectedRows = [];
@@ -230,24 +238,6 @@ public sealed partial class CollectionComplianceViewModel : ObservableObject
     /// <summary>Releases the ConfigMgr data; the page reads it again on the next visit.</summary>
     public async Task OnNavigatedFromAsync()
     {
-        ReleaseSiteData();
-        await SavePreferencesAsync();
-    }
-
-    /// <summary>
-    /// Drops what the page holds of the site that was active, the undo too: it would run against the other site. A page that is
-    /// shown reads the new site.
-    /// </summary>
-    public async Task FollowSiteChangeAsync()
-    {
-        var shown = _active;
-        LastPlan = null;
-        ReleaseSiteData();
-        if (shown) await OnNavigatedToAsync();
-    }
-
-    private void ReleaseSiteData()
-    {
         _active = false;
         // A load still running belongs to the visit that started it; its result is discarded.
         _generation++;
@@ -270,6 +260,7 @@ public sealed partial class CollectionComplianceViewModel : ObservableObject
         ReleaseDetail();
         ReleaseWql();
         ReleaseQueries();
+        await SavePreferencesAsync();
     }
 
     private static void Cancel(CancellationTokenSource? source)
@@ -757,7 +748,7 @@ public sealed partial class CollectionComplianceViewModel : ObservableObject
             if (_background) { StatusMessage = BackgroundRunText; report?.Invoke(BackgroundRunText); }
             return null;
         }
-        _writing = true;
+        SetWriting(true);
         _lastRunPlan = null;
         NotifyWriteCommands();
         var detached = false;
@@ -834,7 +825,7 @@ public sealed partial class CollectionComplianceViewModel : ObservableObject
         {
             if (!detached)
             {
-                _writing = false;
+                SetWriting(false);
                 NotifyWriteCommands();
             }
         }
@@ -860,7 +851,7 @@ public sealed partial class CollectionComplianceViewModel : ObservableObject
                 StatusMessage = BackgroundRunEndedText;
             }
             _background = false;
-            _writing = false;
+            SetWriting(false);
             NotifyWriteCommands();
         }
     }
