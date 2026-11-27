@@ -54,7 +54,7 @@
         <Setter Property="AutomationProperties.Name" Value="{Binding Name}" />
     </Style>
 
-    <!-- A code editor: monospace, no wrap, Tab inserts a tab; Ctrl+Tab, or Esc and then Tab, moves the focus on. -->
+    <!-- A code editor: monospace, no wrap. The page decides when Tab inserts a tab and when it moves the focus on. -->
     <Style x:Key="Editor" TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}">
         <Setter Property="FontFamily" Value="{StaticResource EditorFont}" />
         <Setter Property="AcceptsReturn" Value="True" />

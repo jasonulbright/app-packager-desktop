@@ -96,7 +96,6 @@ foreach ($theme in $Themes) {
             Shot $theme 'core-stage-result-log'
         }
         Step $theme 'core-publish-configmgr-log' {
-            Set-ElText (Find-El $w 'txtAppPackagerComment') 'Guide capture'
             Real-Click (Find-El $w 'btnPublishAll')
             Complete-ApdPublish $w 600
             "status after Publish: $(Status-Text $w)"

@@ -42,6 +42,9 @@ public partial class MainWindow : IDialogHostWindow
         _sidebar = new SidebarPresenter(RootNavigation, sidebarService, item => item.Activate?.Invoke(_serviceProvider));
         sidebarService.Changed += OnSidebarChanged;
 
+        // The template of the navigation exists after the window loaded.
+        Loaded += (_, _) => Helpers.NavigationNames.Apply(RootNavigation);
+
         // Pages set CanContentScroll to False, which disables the NavigationView's
         // DynamicScrollViewer; DataGrid and ScrollViewer controls scroll on the mouse wheel themselves.
     }
@@ -50,6 +53,14 @@ public partial class MainWindow : IDialogHostWindow
 
     /// <summary>Opens the Settings page, where the site, the host and the systems in use are set (the "Connections" button of the strip).</summary>
     public void OpenConnections() => RootNavigation.Navigate(typeof(Views.Pages.SettingsPage));
+
+    /// <summary>Opens Settings on one page of its tree, such as "oneclick".</summary>
+    public void OpenSettingsPage(string pageId)
+    {
+        _serviceProvider.GetRequiredService<Views.Pages.SettingsPage>().SelectPage(pageId);
+        RootNavigation.Navigate(typeof(Views.Pages.SettingsPage));
+        Activate();
+    }
 
     /// <summary>Opens the Setup window (a step of the setup checklist, or More, Setup). It needs no stored setting.</summary>
     public void OpenSetup()

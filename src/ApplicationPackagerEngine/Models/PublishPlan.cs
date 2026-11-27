@@ -31,6 +31,24 @@ public sealed record PublishPlanApp(string Uid, string Application, string Versi
     /// <summary>The steps that the ConfigMgr run takes after it creates the application: distribution, test deployment, supersedence. Empty when none.</summary>
     public string ConfigMgrSteps { get; init; } = "";
 
+    /// <summary>When the version of this application was last checked; null when no check time is stored.</summary>
+    public DateTime? CheckedAt { get; init; }
+
+    /// <summary>The publish and refusal records of the application for the current environments; null when none are read.</summary>
+    public ApplicationPackagerEngine.Services.OneClick.OneClickHistoryEntry? History { get; init; }
+
+    /// <summary>True when the last sealed build of this version differs in profile revision or signing policy, so the content changed.</summary>
+    public bool BuildStale { get; init; }
+
+    /// <summary>True when the last ConfigMgr publish of this version made the application and did not finish its content.</summary>
+    public bool ConfigMgrIncomplete { get; init; }
+
+    /// <summary>The key of the build that this run would publish; empty when not known.</summary>
+    public string BuildKey { get; init; } = "";
+
+    /// <summary>The detection method of the definition, for the ConfigMgr card.</summary>
+    public string Detection { get; init; } = "";
+
     /// <summary>Why Intune cannot take this application; empty when it can.</summary>
     public string IntuneNotSupported { get; init; } = "";
 
@@ -45,8 +63,15 @@ public enum PublishCellKind
     /// <summary>The destination is not ready, so nothing is written there.</summary>
     Blocked,
     /// <summary>The destination cannot take this application, so nothing is written there.</summary>
-    NotSupported
+    NotSupported,
+    /// <summary>The destination holds this version or a newer one, or refused this version before. The run writes nothing there.</summary>
+    Skip
 }
+
+/// <summary>One detail card of the review: a system and its lines of label and text.</summary>
+public sealed record PublishCard(string Destination, IReadOnlyList<PublishCardLine> Lines);
+
+public sealed record PublishCardLine(string Label, string Text);
 
 /// <summary>One destination of one application in the plan: what the run does there.</summary>
 public sealed record PublishPlanCell(string Destination, PublishCellKind Kind, string Text);
@@ -63,6 +88,15 @@ public sealed record PublishPlan(IReadOnlyList<string> Systems, IReadOnlyList<Pu
 {
     public bool CanRun => Writes > 0 && Blocked.Count == 0;
 
+    /// <summary>The cells that the run leaves alone because the destination has the version or refused it.</summary>
+    public int Skips => Rows.Sum(r => r.Cells.Count(c => c.Kind == PublishCellKind.Skip));
+
+    /// <summary>The applications that the run publishes to at least one system.</summary>
+    public int ApplicationsToWrite => Rows.Count(r => r.Cells.Any(c => c.Kind == PublishCellKind.Create));
+
+    /// <summary>The detail card of each system; empty when the plan was built with no settings.</summary>
+    public IReadOnlyList<PublishCard> Cards { get; init; } = [];
+
     /// <summary>The number of publishes the run plans: one for each application and system that can take it.</summary>
     public int Writes => Rows.Sum(r => r.Cells.Count(c => c.Kind == PublishCellKind.Create));
 
@@ -70,6 +104,13 @@ public sealed record PublishPlan(IReadOnlyList<string> Systems, IReadOnlyList<Pu
 
     /// <summary>The ConfigMgr site and provider the plan writes to; empty when the plan was not given one.</summary>
     public string Site { get; init; } = "";
+
+    public string SiteCode => Site.Split('|')[0];
+
+    public string Provider => Site.Contains('|') ? Site[(Site.IndexOf('|') + 1)..] : "";
+
+    /// <summary>The one destination of a retry; empty for a publish to every system in use.</summary>
+    public string RetryDestination { get; init; } = "";
 
     /// <summary>
     /// A digest of what the run depends on: the systems, the blocked systems, and for each application its version and its ConfigMgr facts.
@@ -84,7 +125,9 @@ public sealed record PublishPlan(IReadOnlyList<string> Systems, IReadOnlyList<Pu
             foreach (var b in Blocked) text.Append("blocked|").Append(b.Destination).Append('\n');
             foreach (var r in Rows.OrderBy(r => r.App.Uid, StringComparer.Ordinal))
                 text.Append(r.App.Uid).Append('|').Append(r.App.Version).Append('|').Append(r.App.Site.Kind).Append('|').Append(r.App.Site.Version)
-                    .Append('|').Append(r.App.ConfigMgrSteps).Append('|').Append(r.App.IntuneNotSupported).Append('|').Append(r.App.WsusNotSupported).Append('\n');
+                    .Append('|').Append(r.App.ConfigMgrSteps).Append('|').Append(r.App.IntuneNotSupported).Append('|').Append(r.App.WsusNotSupported)
+                    // What each system gets: a change from Skip to Create must open the review again.
+                    .Append('|').Append(string.Join(",", r.Cells.Select(c => c.Kind))).Append('\n');
             return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(text.ToString())));
         }
     }
@@ -92,10 +135,17 @@ public sealed record PublishPlan(IReadOnlyList<string> Systems, IReadOnlyList<Pu
     /// <summary>"3 applications, 2 systems: 6 publishes are planned."</summary>
     public string CountsText =>
         $"{Rows.Count} {(Rows.Count == 1 ? "application" : "applications")}, {Systems.Count} {(Systems.Count == 1 ? "system" : "systems")}: " +
-        $"{Writes} {(Writes == 1 ? "publish is" : "publishes are")} planned.";
+        $"{Writes} {(Writes == 1 ? "publish is" : "publishes are")} planned." + (Skips > 0 ? $" {Skips} skipped." : "");
 
     /// <summary>The text of the confirm button: "Publish 3 applications".</summary>
-    public string ConfirmText => $"Publish {Rows.Count} {(Rows.Count == 1 ? "application" : "applications")}";
+    public string ConfirmText
+    {
+        get
+        {
+            var count = Skips > 0 ? ApplicationsToWrite : Rows.Count;
+            return $"Publish {count} {(count == 1 ? "application" : "applications")}";
+        }
+    }
 
     public const string ConfigMgrAction = "Create application and deployment type";
     public const string IntuneAction = "Create Win32 app";
@@ -105,7 +155,8 @@ public sealed record PublishPlan(IReadOnlyList<string> Systems, IReadOnlyList<Pu
 public static class PublishPlanner
 {
     /// <summary>The plan for the checked applications and the systems of Settings, Systems in Use, with the readiness of each system.</summary>
-    public static PublishPlan Plan(IEnumerable<PublishPlanApp> apps, SystemsInUse? systems, PublishReadiness readiness)
+    /// <param name="skips">False for a retry, which has its own rules for a destination that may have the version.</param>
+    public static PublishPlan Plan(IEnumerable<PublishPlanApp> apps, SystemsInUse? systems, PublishReadiness readiness, bool skips = true)
     {
         var set = new DestinationSet(systems?.ConfigMgr ?? false, systems?.Wsus ?? false, systems?.Intune ?? false);
         var order = new[] { OneClickDestinations.ConfigMgr, OneClickDestinations.Intune, OneClickDestinations.Wsus }.Where(set.Has).ToList();
@@ -118,14 +169,69 @@ public static class PublishPlanner
                 ? new PublishPlanCell(d, PublishCellKind.Blocked, "Blocked: " + blocked.First(b => b.Destination == d).Reason)
                 : Unsupported(app, d) is { Length: > 0 } why
                 ? new PublishPlanCell(d, PublishCellKind.NotSupported, "Not supported: " + why)
+                : skips && SkipReason(app, d) is { } held
+                ? new PublishPlanCell(d, PublishCellKind.Skip, "Skip: " + held)
                 : new PublishPlanCell(d, PublishCellKind.Create, d switch
                 {
                     OneClickDestinations.Intune => PublishPlan.IntuneAction,
                     OneClickDestinations.Wsus => PublishPlan.WsusAction,
                     _ => ConfigMgrText(app)
-                })).ToList())).ToList();
+                } + (skips ? UnverifiedWarning(app, d) + RefusalWarning(app, d) : ""))).ToList())).ToList();
         return new PublishPlan(order, rows, blocked);
     }
+
+    /// <summary>True when the plan writes nothing and a ConfigMgr skip of it can rest on an old read of the site.</summary>
+    public static bool NeedsSiteRead(PublishPlan plan) => plan.Blocked.Count == 0 && plan.Writes == 0
+        && plan.Rows.Any(r => r.Cells.Any(c => c.Destination == OneClickDestinations.ConfigMgr && c.Kind == PublishCellKind.Skip));
+
+    /// <summary>
+    /// Why the run leaves one system of one application alone, or null when it writes there. The rules are those of the One Click plan:
+    /// the system has a newer version, it has this version from the same build, or it refused this version before for a reason of the
+    /// installer. For ConfigMgr the answer of the site decides what the site has: a publish record does not skip an application that
+    /// the site no longer has. An application whose content did not finish is not skipped, so the operator can publish it again.
+    /// </summary>
+    public static string? SkipReason(PublishPlanApp app, string destination)
+    {
+        if (app.Version.Length == 0) return null;
+        var configMgr = destination == OneClickDestinations.ConfigMgr;
+        // With no answer from the site, nothing proves what it has.
+        if (configMgr && app.Site.Kind == ConfigMgrFactKind.Unreadable) return null;
+        var site = configMgr && app.Site.Kind == ConfigMgrFactKind.Found ? app.Site.Version : "";
+        var records = configMgr ? null : app.History;
+        if (ApplicationPackagerEngine.Services.OneClick.OneClickPlanner.NewerThanVendor(records, destination, site, app.Version) is { } newer)
+            return newer;
+        if (configMgr && app.ConfigMgrIncomplete) return null;
+
+        var recordedBuild = app.History?.PublishedBuildKey(destination) ?? "";
+        var sameBuild = !app.BuildStale && (app.BuildKey.Length == 0 || recordedBuild.Length == 0
+            || string.Equals(recordedBuild, app.BuildKey, StringComparison.OrdinalIgnoreCase));
+        var carried = configMgr ? site : records?.PublishedVersion(destination) ?? "";
+        if (sameBuild && string.Equals(carried, app.Version, StringComparison.OrdinalIgnoreCase)) return "version already published";
+        return EarlierRefusal(app, destination) is { } refusal && WsusRefusalCodes.DependsOnTheInstaller(refusal)
+            ? "this version was refused before"
+            : null;
+    }
+
+    /// <summary>The reason of the last refusal of this version at the destination; null when it did not refuse it.</summary>
+    private static string? EarlierRefusal(PublishPlanApp app, string destination) =>
+        app.Version.Length > 0 && string.Equals(app.History?.RefusedVersion(destination), app.Version, StringComparison.OrdinalIgnoreCase)
+            ? app.History!.RefusedReason(destination)
+            : null;
+
+    private static string UnverifiedWarning(PublishPlanApp app, string destination) =>
+        app.History?.Published.TryGetValue(destination, out var record) == true && record.Unverified
+            ? $". Warning: the earlier published version cannot be verified (the record names {record.Version}, and its build record is gone)"
+            : "";
+
+    /// <summary>
+    /// A refusal that a change of the definition, the settings or the server can end does not stop a manual publish. The cell names it.
+    /// </summary>
+    private static string RefusalWarning(PublishPlanApp app, string destination) => EarlierRefusal(app, destination) switch
+    {
+        null => "",
+        "" => ". Warning: this version was refused before",
+        var reason => ". Warning: this version was refused before (" + reason.TrimEnd('.', ' ') + ")"
+    };
 
     private static string ConfigMgrText(PublishPlanApp app) =>
         app.ConfigMgrSteps.Length > 0 ? ConfigMgrCreate(app) + ". Then: " + app.ConfigMgrSteps : ConfigMgrCreate(app);
@@ -138,6 +244,8 @@ public static class PublishPlanner
     private static string ConfigMgrCreate(PublishPlanApp app) => app.Site.Kind switch
     {
         // The run asks only when the title of the new application matches one on the site, and the title is known when the run stages. So the cell says "if".
+        ConfigMgrFactKind.Found when app.ConfigMgrIncomplete => PublishPlan.ConfigMgrAction +
+            " (the last publish of this version did not finish, verify it in ConfigMgr; if the title matches, the run asks before it replaces it)",
         ConfigMgrFactKind.Found => PublishPlan.ConfigMgrAction + " (ConfigMgr has " + Has(app) + "; if the title matches, the run asks before it replaces it)",
         ConfigMgrFactKind.Unreadable => PublishPlan.ConfigMgrAction + " (ConfigMgr was not read)",
         _ => PublishPlan.ConfigMgrAction
@@ -172,6 +280,11 @@ public static class PublishPlanner
                     ConfigMgrFactKind.Unreadable => "ConfigMgr could not be read (" + app.Site.Detail + ")",
                     _ => "ConfigMgr no longer has the application"
                 });
+            var was = shown.Rows.First(r => r.App.Uid == app.Uid).Cells;
+            var now = fresh.Rows.First(r => r.App.Uid == app.Uid).Cells;
+            // A change of what a system gets that no fact above explains, such as a new publish record.
+            if (parts.Count == 0 && !was.Select(c => c.Kind).SequenceEqual(now.Select(c => c.Kind)))
+                parts.Add("the planned actions are now: " + string.Join("; ", now.Select(c => c.Destination + ", " + c.Text)));
             if (parts.Count > 0) changes[app.Uid] = app.Application + ": " + string.Join("; ", parts) + ".";
         }
         foreach (var gone in shown.Rows.Select(r => r.App).Where(a => fresh.Rows.All(r => r.App.Uid != a.Uid)))

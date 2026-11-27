@@ -836,6 +836,26 @@ public partial class SettingsViewModel : ObservableObject, ISettingsReload
         }
     }
 
+    /// <summary>The saved order, widths and sort of the Application Settings grid; null when the operator changed none.</summary>
+    public ApplicationPackagerUI.Helpers.PackagesColumnLayout? ApplicationGridLayout => _settingsService?.Load().ApplicationSettingsGridLayout;
+
+    /// <summary>Saves the layout at once; it is not part of Save Settings.</summary>
+    public void SaveApplicationGridLayout(ApplicationPackagerUI.Helpers.PackagesColumnLayout layout)
+    {
+        if (_settingsService is null) return;
+        try
+        {
+            var settings = _settingsService.Load();
+            settings.ApplicationSettingsGridLayout = layout;
+            _settingsService.Save(settings);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException)
+        {
+            _snackbarService.Show("Settings", "The column layout was not saved. " + ex.Message, Wpf.Ui.Controls.ControlAppearance.Danger,
+                new SymbolIcon(SymbolRegular.ErrorCircle24), TimeSpan.FromSeconds(6));
+        }
+    }
+
     /// <summary>Shows or hides one column of the grid (the column chooser). The choice is saved at once and is not part of Save Settings.</summary>
     public void SetColumnVisible(string id, bool visible)
     {

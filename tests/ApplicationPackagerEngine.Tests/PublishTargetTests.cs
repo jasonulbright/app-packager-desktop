@@ -155,7 +155,7 @@ public sealed class PublishTargetTests : IDisposable
         Assert.Equal("1.0", tenantADestination.LastSuccessVersion);
         Assert.Equal(InventoryOutcome.Refused, tenantADestination.LastAttemptOutcome);
 
-        var tenantBProjection = new ApplicationInventoryProjection(afterTenantB).Entry(row, appSettings);
+        var tenantBProjection = new ApplicationInventoryProjection(afterTenantB).Entry(row, appSettings, plan: null, localInstaller: false);
         Assert.DoesNotContain("Intune", tenantBProjection.Published.Keys);
         Assert.Contains("Intune", tenantBProjection.NotSupported.Keys);
     }

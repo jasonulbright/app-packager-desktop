@@ -18,6 +18,8 @@ public interface IOneClickExecution
 {
     Task<string?> GetLatestVersionAsync(PackagerInfo row, CancellationToken ct);
     string VersionSource(PackagerInfo row);
+    /// <summary>The version of the local installer that the stage will take; null when the stage downloads.</summary>
+    string? LocalStageVersion(PackagerInfo row);
     PackagerExecutionService.OneClickBuildPlan? ResolveBuildPlan(PackagerInfo row);
     string? StagedManifestPath(PackagerInfo row, PackagerExecutionResult stage, RunSnapshot? snapshot);
     RunSnapshot? CreateRowSnapshot(PackagerInfo row, PackagerExecutionService.OneClickBuildPlan plan, string target, out string? refusal);
@@ -34,6 +36,8 @@ public sealed class OneClickExecution(PackagerExecutionService execution, IWsusP
     public Task<string?> GetLatestVersionAsync(PackagerInfo row, CancellationToken ct) => execution.GetLatestVersionAsync(row, ct);
 
     public string VersionSource(PackagerInfo row) => execution.VersionSource(row);
+
+    public string? LocalStageVersion(PackagerInfo row) => execution.LocalStageVersion(row);
 
     public PackagerExecutionService.OneClickBuildPlan? ResolveBuildPlan(PackagerInfo row) => execution.ResolveBuildPlan(row);
 
@@ -80,7 +84,7 @@ public sealed class OneClickRowRunner(IOneClickExecution execution, ISettingsRea
         var settings = settingsService.Load();
         var plan = execution.ResolveBuildPlan(p);
         var identity = ApplicationInventoryProjection.IdentityFor(p, plan);
-        var entry = projection.Entry(p, settings, plan);
+        var entry = projection.Entry(p, settings, plan, execution.LocalStageVersion(p) is not null);
         var lastKnown = item.PriorKnownVersion ?? entry?.LastKnownVersion ?? "";
         var operationId = Guid.NewGuid().ToString("N");
         var startedAt = DateTimeOffset.UtcNow;
@@ -92,6 +96,8 @@ public sealed class OneClickRowRunner(IOneClickExecution execution, ISettingsRea
             var action = OneClickActionNames.Normalize(options.Action);
             var stepLog = (string line) => log($"  {line}");
 
+            // The version that the plan window showed. The run publishes that version or nothing.
+            var planned = item.Version;
             item.Step = "checking " + p.Application;
             p.Status = "Checking latest...";
             log($"One Click: {p.Application} ({p.Script})");
@@ -140,7 +146,11 @@ public sealed class OneClickRowRunner(IOneClickExecution execution, ISettingsRea
                 InventoryOutcome.Succeeded, checkedAt, operationId));
             p.LatestVersion = latest;
             p.LastChecked = checkedAt.LocalDateTime;
-            item.Version = latest;
+            // The version that the stage will hold: the local installer's when the stage takes one, else the vendor's. It decides what
+            // each destination takes. The vendor version only decides whether there is an update.
+            var local = execution.LocalStageVersion(p);
+            var toPublish = local ?? latest;
+            item.Version = toPublish;
             log("Latest: " + latest);
             VersionChecked?.Invoke();
             var versionChanged = lastKnown.Length == 0 || !string.Equals(lastKnown, latest, StringComparison.OrdinalIgnoreCase);
@@ -152,10 +162,10 @@ public sealed class OneClickRowRunner(IOneClickExecution execution, ISettingsRea
                 return;
             }
 
-        var buildStale = plan is not null && BuildRecords.IsCurrent(plan.DataRoot, plan.ApplicationId, plan.ProfileId, latest,
+        var buildStale = plan is not null && BuildRecords.IsCurrent(plan.DataRoot, plan.ApplicationId, plan.ProfileId, toPublish,
             plan.ProfileRevision, settings.ScriptSigning.PolicyDigest) == false;
         var buildKey = plan is null ? "" : OneClickHistory.BuildKey(plan.ProfileId, plan.ProfileRevision, settings.ScriptSigning.PolicyDigest);
-        var decision = OneClickPlanner.Decide(action, item.Destinations.Names, entry, latest, p.CurrentVersion, options.Force, versionChanged, buildStale,
+        var decision = OneClickPlanner.Decide(action, item.Destinations.Names, entry, toPublish, p.CurrentVersion, options.Force, versionChanged, buildStale,
             staged: entry?.LastStaged is not null, item.NotReady, buildKey);
         foreach (var (destination, cell) in decision.GuardResults)
         {
@@ -174,7 +184,18 @@ public sealed class OneClickRowRunner(IOneClickExecution execution, ISettingsRea
             return;
         }
         if (buildStale && !versionChanged && decision.PublishTo.Count == 0)
-            log($"One Click: {p.Application} {latest} restages: the last build differs in version, profile revision or signing policy. No destination takes a publish of it.");
+            log($"One Click: {p.Application} {toPublish} restages: the last build differs in version, profile revision or signing policy. No destination takes a publish of it.");
+
+        var publishes = action == OneClickActionNames.StageAndPackage && decision.PublishTo.Count > 0;
+        if (publishes && ReviewedVersion.Refusal(planned, toPublish) is not null)
+        {
+            var found = local is null ? $"the check now reads {latest}" : $"the installer source folder now holds {local}";
+            var changed = $"the plan showed {(planned.Length > 0 ? planned : "no version")} and {found}; open One Click again and review the plan";
+            p.Status = CveRowState.UpdateStatus(p);
+            log($"One Click: {p.Application} is not published: {changed}.");
+            Finish(item, OneClickOutcomes.Skipped, changed);
+            return;
+        }
 
         // One run snapshot serves the stage and every publish of this row.
         if (plan is null)
@@ -206,6 +227,13 @@ public sealed class OneClickRowRunner(IOneClickExecution execution, ISettingsRea
             log($"Stage FAILED (exit {stage.ExitCode})");
             StdErr?.Invoke(stage.StdErr);
             Finish(item, OneClickOutcomes.Failed, "stage failed");
+            return;
+        }
+        if (publishes && StagedVersionRefusal(p, stage, snapshot, toPublish) is { } otherVersion)
+        {
+            p.Status = "Publish error";
+            log($"One Click: {p.Application}: {otherVersion}");
+            Finish(item, OneClickOutcomes.Failed, otherVersion);
             return;
         }
         p.Status = "Staged";
@@ -290,7 +318,7 @@ public sealed class OneClickRowRunner(IOneClickExecution execution, ISettingsRea
                         destinationOutcome = step.Refused ? InventoryOutcome.Refused
                             : mapped.Ok && mapped.AlreadyPresent ? InventoryOutcome.AlreadyPresent
                             : mapped.Ok ? InventoryOutcome.Succeeded : InventoryOutcome.Failed;
-                        if (present) reasons.Add($"WSUS: {latest} already on the server");
+                        if (present) reasons.Add($"WSUS: {toPublish} already on the server");
                         if (step.Refused)
                         {
                             notSupported++;
@@ -325,7 +353,7 @@ public sealed class OneClickRowRunner(IOneClickExecution execution, ISettingsRea
             catch (OperationCanceledException) when (ct.IsCancellationRequested)
             {
                 item.Cells.Add(answered ?? new(destination, PublishDestinationKind.Failed, "cancel", "The run stopped during this publish. Check the system."));
-                RecordDestination(p, identity, settings, destination, latest, id, InventoryOutcome.Cancelled,
+                RecordDestination(p, identity, settings, destination, toPublish, id, InventoryOutcome.Cancelled,
                     detail.Length == 0 ? "Publish cancelled." : detail, snapshot.BuildId, operationId);
                 StopCanceled(item, p, publishedTo);
                 throw;
@@ -339,7 +367,7 @@ public sealed class OneClickRowRunner(IOneClickExecution execution, ISettingsRea
             // The cell is added before the history write, which can fail on its own.
             item.Cells.Add(intune && answered is not null ? answered
                 : ResultCell(destination, destinationOutcome, detail.Length > 0 ? detail : cell, id));
-            RecordDestination(p, identity, settings, destination, latest, id, destinationOutcome, detail, snapshot.BuildId, operationId, ciId, modelName);
+            RecordDestination(p, identity, settings, destination, toPublish, id, destinationOutcome, detail, snapshot.BuildId, operationId, ciId, modelName);
             item.SetResult(destination, cell, id, detail);
             if (ok)
             {
@@ -359,6 +387,17 @@ public sealed class OneClickRowRunner(IOneClickExecution execution, ISettingsRea
         {
             var outcome = InventoryOperationOutcome(item, ct.IsCancellationRequested);
             inventory.CompleteOperation(operationId, outcome, DateTimeOffset.UtcNow, item.Reason);
+        }
+    }
+
+    /// <summary>Why the stage is not the version that the run decided to publish; null when it is, or when no manifest exists (the publish then refuses).</summary>
+    private string? StagedVersionRefusal(PackagerInfo row, PackagerExecutionResult stage, RunSnapshot snapshot, string version)
+    {
+        if (execution.StagedManifestPath(row, stage, snapshot) is not { } path || !File.Exists(path)) return null;
+        try { return ReviewedVersion.Refusal(version, new ManifestService().Read(path).SoftwareVersion); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException or InvalidOperationException)
+        {
+            return $"The stage manifest {path} cannot be read, so its version cannot be compared: {ex.Message} Nothing was published.";
         }
     }
 

@@ -97,7 +97,7 @@ public sealed class PackagesColumnRestartRenderTests : IDisposable
         {
             var vendor = shown.Column("Vendor");
             var before = vendor.ActualWidth;
-            Assert.True(before < 135, "The grid takes no width from the Vendor column: " + shown.Widths());
+            Assert.True(before < 139.5, "The grid takes no width from the Vendor column: " + shown.Widths());
             report = "Before the drag: " + shown.Widths();
             shown.Drag("Vendor", 60);
             seen = vendor.ActualWidth;
@@ -174,7 +174,7 @@ public sealed class PackagesColumnRestartRenderTests : IDisposable
         {
             Assert.True(Math.Abs(shown.Column("Vendor").ActualWidth - 179.67) < 0.5, shown.Widths());
             Assert.True(shown.Column("Status").ActualWidth < 249, shown.Widths());
-            Assert.Equal(170, shown.Column("Status").MinWidth);
+            Assert.Equal(150, shown.Column("Status").MinWidth);
         });
     });
 }

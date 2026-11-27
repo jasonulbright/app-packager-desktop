@@ -131,6 +131,8 @@
         </Grid.RowDefinitions>
 
         <ui:TitleBar Grid.Row="0" Title="Workbench" />
+        <TextBlock Grid.Row="0" x:Name="txtWorkbenchSite" Text="{Binding SiteLine}" HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="12"
+                   IsHitTestVisible="False" Foreground="{DynamicResource TextFillColorSecondaryBrush}" AutomationProperties.AutomationId="txtWorkbenchSite" />
 
         <Grid Grid.Row="1" Margin="16,4,16,8">
             <Grid.ColumnDefinitions>
@@ -146,7 +148,7 @@
             </Grid.ColumnDefinitions>
 
             <TextBlock Grid.Column="0" Text="Application" Style="{StaticResource WbLabel}" Margin="0,0,8,0" />
-            <ComboBox Grid.Column="1" x:Name="cboApplication" AutomationProperties.Name="Application" AutomationProperties.HelpText="The application that the Workbench edits." IsEditable="True" IsTextSearchEnabled="True"
+            <ComboBox helpers:TemplatePartNames.FromOwner="True" Grid.Column="1" x:Name="cboApplication" AutomationProperties.Name="Application" AutomationProperties.HelpText="The application that the Workbench edits." IsEditable="True" IsTextSearchEnabled="True"
                       StaysOpenOnEdit="True" Margin="0,0,12,0"
                       ItemsSource="{Binding Applications}" SelectedItem="{Binding SelectedApplication}"
                       DisplayMemberPath="DisplayLabel" TextSearch.TextPath="DisplayLabel"

@@ -53,7 +53,7 @@ The .NET Windows Desktop Runtime 10.0.14 or newer (x64) must be on the computer.
 1. The app starts on the **App Packager** page. On a new installation, a setup checklist opens beside the grid. Its steps are: choose the systems (ConfigMgr, Intune, WSUS), connect to your site, set the content folders and discover unmanaged software. **Open Setup** opens the Setup window, which asks only for the settings that your systems need. The Setup window does not open by itself. **More**, **Setup...** also opens it. All settings are also on the **Settings** page.
 2. On the **App Packager** page, select one or more applications. Select **Check**, then **Check Latest**, to read the current vendor version.
 3. Select **Stage** to download and prepare the content.
-4. Select **Publish All**. It publishes to the systems in Settings, Systems in Use. A review opens before the publish, and a results window after it. A publish to WSUS only has neither. The button is disabled while a system in use is not set up. Its tooltip names the reason.
+4. Select **Publish All**. It publishes to the systems in Settings, Systems in Use. A review opens before the publish, and a results window after it, also for a publish to WSUS only. The button is disabled while a system in use is not set up. Its tooltip names the reason.
 
 [Getting started](docs/getting-started.md) shows these steps in detail.
 
@@ -116,7 +116,7 @@ App Packager Desktop is the C# counterpart of [app-packager](https://github.com/
 
 ## Support
 
-Open an issue in the [GitHub repository](https://github.com/jasonulbright/app-packager-desktop/issues) for a defect or a question. Include the version from **Settings**, **About** and the lines from the log pane. The release notes are in [CHANGELOG.md](CHANGELOG.md).
+Open an issue in the [GitHub repository](https://github.com/jasonulbright/app-packager-desktop/issues) for a defect or a question. Include the version from **Settings**, **About** and the lines from the log. The release notes are in [CHANGELOG.md](CHANGELOG.md).
 
 ## Security
 

@@ -64,7 +64,7 @@ public sealed class PublishRunServiceTests : IDisposable
         var row = StagedRow();
         var log = new List<string>();
 
-        var run = await Service(publisher).PublishWsusRowAsync(row, null, log.Add, CancellationToken.None);
+        var run = await Service(publisher).PublishWsusRowAsync(row, null, null, log.Add, CancellationToken.None);
 
         Assert.False(run.StageFailed);
         Assert.Equal(1, publisher.Calls);
@@ -80,7 +80,7 @@ public sealed class PublishRunServiceTests : IDisposable
         var refusal = new WsusRefusedException([new WsusFinding(WsusSeverity.Blocking, WsusRefusalCodes.CustomInstall, "install.ps1 runs extra steps")]);
         var row = StagedRow();
 
-        var run = await Service(new FakePublisher(() => throw refusal)).PublishWsusRowAsync(row, null, _ => { }, CancellationToken.None);
+        var run = await Service(new FakePublisher(() => throw refusal)).PublishWsusRowAsync(row, null, null, _ => { }, CancellationToken.None);
 
         Assert.True(run.Step!.Refused);
         Assert.Equal(PublishRowOutcomeKind.NotSupported, run.Outcome!.Kind);
@@ -97,7 +97,7 @@ public sealed class PublishRunServiceTests : IDisposable
             "already on the server " + id, WsusRuleSource.Detection, []));
         var row = StagedRow();
 
-        var run = await Service(publisher).PublishWsusRowAsync(row, null, _ => { }, CancellationToken.None);
+        var run = await Service(publisher).PublishWsusRowAsync(row, null, null, _ => { }, CancellationToken.None);
 
         Assert.Equal((PublishRowOutcomeKind.Success, "Already on the server (updates only)"), (run.Outcome!.Kind, row.Status));
         Assert.Equal(WsusPublishService.UpdatesOnlySentence, row.StatusDetail);

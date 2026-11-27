@@ -49,6 +49,8 @@ The panel shows the progress, for example `1 of 4 complete`, and four steps. Eac
 | **Set content folders** | **Download Root** is set and, with ConfigMgr in use, **File Share Root** is set to a value other than the example `\\fileserver\sccm$`. | **Open Setup** |
 | **Discover unmanaged software** | A scan of the active site ran, or you skipped it. `Not needed` when ConfigMgr is not in use. | **Scan Site Inventory** or **Scan Again**, **Skip Scan** |
 
+In a page at least 1400 pixels wide, the panel also takes the height of the batch bar and the log, so the four steps show without scrolling in a maximized window on a 1920 x 1080 display. In a smaller window, the steps scroll. The buttons below the steps always show.
+
 - **Skip for Now** closes the panel until the next start. The strip above the status tabs then shows while the checklist has work. When the checklist has no work left, the button reads **Close**.
 - **Do Not Show Again** stops the checklist from opening at the start. It changes no other setting.
 - To open the checklist again, select **More**, then **Setup checklist**.
@@ -80,7 +82,7 @@ Notes about the Setup window:
 - When a site is active, **Site Code** is read only. Use the site switcher to add or change a site.
 - If you clear **ConfigMgr**, **Save** stores an empty site code.
 - If you select no system, the window shows this text: "No system is selected. Save stores that, and Publish All stays disabled until a system is selected in Settings."
-- When **Save** changes the systems in use, it makes each selected system a default destination of One Click. It does the same on a new installation that has no saved default destinations. The log pane of the **App Packager** page then shows a line that starts with "Setup complete." In other cases, **Save** keeps the saved One Click destinations.
+- When **Save** changes the systems in use, it makes each selected system a default destination of One Click. It does the same on a new installation that has no saved default destinations. The log of the **App Packager** page then shows a line that starts with "Setup complete." In other cases, **Save** keeps the saved One Click destinations.
 - After **Save**, the app tests the ConfigMgr connection again.
 - All Setup values are also on the **Settings** page. See [Settings page](core/settings-page.md).
 
@@ -95,7 +97,7 @@ The first start shows the Dark theme. To change it, open **Settings** and select
 5. Select **Save Settings**.
 6. Open **App Packager**. Select the page, then press F5 to reload the application list. The reload tests the connection to the site.
 7. View the ConfigMgr state in the context strip at the top of the window. It reads `connected` when the test passed and `connection failed` when it did not. The signal beside the heading **ConfigMgr Connection** in Settings shows the same result. You can also view the `● ConfigMgr` indicator in the status line. The text of the indicator does not change. Its color shows the state. Green means the test passed. Red means the test did not pass. Amber means the test is running. Gray means that no site code is configured. The default color shows when **ConfigMgr** is not selected under **Systems in Use**.
-8. Review the log pane for the text of the state. A passed test shows `ConfigMgr: Connected to site <code>`. A failed test shows `ConfigMgr: Connection failed` and the reason.
+8. Review the log for the text of the state. A passed test shows `ConfigMgr: Connected to site <code>`. A failed test shows `ConfigMgr: Connection failed` and the reason.
 
 **Publish All** is disabled, not hidden, when a system in use is not ready. The tooltip names the system and the reason. See [Troubleshooting](troubleshooting.md).
 
@@ -104,7 +106,7 @@ The first start shows the Dark theme. To change it, open **Settings** and select
 1. Open **App Packager**.
 2. In the grid, select the check box of one application. Use **Search applications...** to find it.
 3. Select **Check**, then **Check Latest**. The **Latest** column shows the vendor version.
-4. Select **Check**, then **Check ConfigMgr**. The **Current (ConfigMgr)** column shows the version that the site holds. The **Status** column shows **Update available** when the site version is older than the vendor version. It shows **Not found in ConfigMgr** when the site has no application with that name.
+4. Select **Check**, then **Check ConfigMgr**. The **ConfigMgr version** column shows the version that the site holds. The **Status** column shows **Update available** when the site version is older than the vendor version. It shows **Not found in ConfigMgr** when the site has no application with that name.
 5. Select **Stage**. App Packager Desktop downloads the installer and prepares the content in the download root. The status shows **Staging...** and then **Staged**.
 6. If the dialog **Configure: <application>** opens, check the values. Select **Continue**. Select **Cancel** to skip the application.
 7. Select **Publish All**. With ConfigMgr as the only system in use, it publishes to ConfigMgr. Review the **Review Publish All** window and select **Publish 1 application**.

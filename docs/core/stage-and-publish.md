@@ -55,8 +55,8 @@ If you do not select any row, the page shows `No packagers selected.`
 1. Select the systems under Settings, Systems in Use, and select **Save Settings**.
 2. Open the **App Packager** page.
 3. Select the check box of each application to publish. For ConfigMgr and Intune, stage the applications first. The WSUS part of a run stages an application that has no stage of its latest version.
-4. Optional: enter a work order or a note in **Administrative Comments**.
-5. Select **Publish All**. The window **Review Publish All** opens.
+4. Select **Publish All**. The window **Review Publish All** opens.
+5. Optional: enter a work order or a note in **Administrative comment**.
 6. Check the review. Select **Back** to close it. Nothing is published, and the checks stay.
 7. Select **Publish N applications**. The app reads ConfigMgr again before the first write.
 8. Answer the prompts that the run can show: a folder prompt, the **Intune review** dialog, the supersedence window and **Application Already Exists**.
@@ -68,26 +68,51 @@ The review shows these parts:
 
 | Part | Content |
 |---|---|
-| Count line | For example `3 applications, 2 systems: 6 publishes are planned.` |
-| Systems line | `Systems: <names> (Settings, Systems in Use)` |
+| Site line and heading | The site and its SMS Provider, and `Review <N> applications`. |
+| Count line | For example `3 applications, 2 systems: 6 publishes are planned.` With skipped cells, the line adds `<N> skipped.` |
+| Scope line | For example `Publish All: ConfigMgr and Intune`, then the site and `from Settings, Systems in Use`, with a middle dot between the parts. The batch bar of the App Packager page shows the same text. |
 | Hidden line | The number of checked applications that are outside the current view. The run publishes them too. |
 | Blocked line | Each system that is not ready, with its reason. The confirm button is then disabled. |
 | Grid | One row for each checked application. The columns are **Application**, **Version** (`Not checked` when no version is known), **Checked** and one column for each system. **Checked** reads `Changed`, `Outside the view`, both or nothing. |
-| **Administrative comment** | The text of **Administrative Comments**. You can change it here. The text goes back to the box on the page. It can stay empty. |
+| **Administrative comment** | A work order or a note for the description of the ConfigMgr application. It starts with the comment of your last review in this session, also after **Back**. It can stay empty. |
+| Cards | One card for each system: what a publish creates there. The ConfigMgr card shows the scope, the content source, the detection method, the existing application, distribution and supersedence. |
+| May ask line | The prompts that can still open during the run. Each prompt still asks. |
+| Plan note | The time of the last check of the listed applications, and what the app reads again when you confirm. |
 
-A cell reads `Create application and deployment type`, `Create Win32 app` or `Create software update`. It reads `Blocked: <reason>` or `Not supported: <reason>` when the run writes nothing there. A ConfigMgr cell can add `Then:` with the steps after the application: distribution, test deployment or supersedence. When the last check found the application in ConfigMgr, the cell says which version ConfigMgr has, and that the run asks before it replaces an application with the same title.
+A cell reads `Create application and deployment type`, `Create Win32 app` or `Create software update`. It reads `Blocked: <reason>`, `Not supported: <reason>` or `Skip: <reason>` when the run writes nothing there. A cell is skipped when the system has this version or a newer one. It is also skipped when the system refused this version before because of the installer: its type, an install for the signed-in user, or a payload that is too large. Another earlier refusal does not skip the cell. The cell then adds `Warning: this version was refused before` with the reason. The app reads the published version of a record from the sealed build of that publish. For an application with a local installer whose build record is gone, the record does not skip Intune or WSUS. The cell then adds `Warning: the earlier published version cannot be verified`. A ConfigMgr application of this version whose last publish did not finish is not skipped. The cell then says to verify it in ConfigMgr. For ConfigMgr, the answer of the site decides what the site has. An application that the site no longer has is not skipped. A build with another profile revision or signing policy is not skipped. The run writes only to the cells that are not skipped. The confirm button counts the applications that the run writes. It is disabled when there is nothing to publish. A ConfigMgr cell can add `Then:` with the steps after the application: distribution, test deployment or supersedence. When the last check found the application in ConfigMgr, the cell says which version ConfigMgr has, and that the run asks before it replaces an application with the same title.
 
-The review comes from the last check. When you confirm, the app reads again: the systems and their readiness, the version of each application and, with ConfigMgr in the plan, the ConfigMgr application of each application. When the plan differs, the review opens again. It starts with `Nothing was published. The plan changed after you confirmed it. Check it and confirm again.` and then gives each difference. The log shows the same differences. Nothing is published until a fresh read matches the plan that you confirmed.
+The review comes from the last check. When that check would leave nothing to publish and a ConfigMgr cell is skipped, the app reads ConfigMgr before it shows the review. When you confirm, the app reads again: the systems and their readiness, the version of each application and, with ConfigMgr in the plan, the ConfigMgr application of each application. When the plan differs, the review opens again. It starts with `Nothing was published. The plan changed after you confirmed it. Check it and confirm again.` and then gives each difference. The log shows the same differences. Nothing is published until a fresh read matches the plan that you confirmed.
 
 ### The results
 
-The window **Publish results** shows a headline: `N publishes completed`, `Publish completed with issues`, `Nothing was published` or `Publish was cancelled`. It shows the counts **Published**, **Failed** and **Skipped**. The grid has one row for each application and one column for each system. A cell reads `Published`, `Published, supersedence not applied`, `Failed`, `Failed at <step>`, `Failed, state not known`, `Stopped, state not known`, `Skipped`, `Not supported`, `Blocked` or `Not run`. A system that fails does not stop the next system of the run. For an application that reached one system and not another, a notice says what the run did. What reached a system stays published. When a state is not known, check that system. The lines below the grid give the message of each cell that needs one.
+The window **Publish results** shows a headline: `N publishes completed`, `Publish completed with issues`, `Nothing was published` or `Publish was cancelled`. It shows the counts **Published**, **Failed** and **Skipped** as three tiles. Each cell has a symbol and a text. When the run created a ConfigMgr application and asked for no test deployment, the line `Publishing created a ConfigMgr application. No deployment was created.` shows. The grid has one row for each application and one column for each system. A cell reads `Published`, `Published, supersedence not applied`, `Failed`, `Failed at <step>`, `Failed, state not known`, `Stopped, state not known`, `Skipped`, `Not supported`, `Blocked` or `Not run`. A system that fails does not stop the next system of the run. For an application that reached one system and not another, a notice says what the run did. What reached a system stays published. When a state is not known, check that system. The lines below the grid give the message of each cell that needs one.
 
-A failed row stays checked. Select **Done** to close the window. The grid keeps its filter and its sort.
+A failed row stays checked. Select **Done** to close the window. The grid keeps its filter, its sort, the selected row and the scroll position.
+
+The buttons under the grid are **Operation history** (the selected or the first failed application), **Open report**, **Logs** and, after a failure, **Review failed application**, which closes the window and selects that application in the grid. Each Publish All run writes a report as a Markdown file and a JSON file in the folder `PublishReports` of the log folder.
+
+### Retry a failed destination
+
+Below the grid, the results have one line for each cell that failed. A line for **ConfigMgr** or **WSUS** can have the button **Retry failed destination**. The button retries one system of one application.
+
+| Failed cell | What the window offers |
+|---|---|
+| **ConfigMgr** | The button. Before the retry, the app reads ConfigMgr. The retry publishes nothing when ConfigMgr has this version, or when ConfigMgr cannot be read. The retry does not replace an application. When ConfigMgr has an application with the same title, the app keeps it and the cell reads `Skipped`. |
+| **ConfigMgr**, `Failed at content` | No button. ConfigMgr has the application and a later step failed. Verify the application in ConfigMgr. |
+| **WSUS** | The button. The publish compares the stage with the update that WSUS has for this version. It does not change that update. It refuses a stage that differs. |
+| **Intune** | No button. The line reads `Verify in Intune before retrying.` The app cannot verify what a failed publish left in Intune. |
+
+The retry opens **Review Publish All** for this application and this system only. It reads the plan again when you confirm, as the first publish does. The retry publishes the same version as the failed publish. When the version is now different, the retry does not run. Use **Publish All** to review the new version.
+
+After the retry, the results open again. The cell shows the result of the retry. When the retry did not run, the window gives the reason. The results of a **One Click** run have no retry.
+
+### Only the reviewed version is published
+
+A publish uses the version that the review shows. A stage can hold another version, for example when the vendor released a version after the last check, or when a local installer has another file version. The app then publishes nothing for that cell, and the message reads `Staged <version>, reviewed <version>; check the version and review again. Nothing was published.` For a definition whose stage takes a local installer, the review and the **One Click** plan show the version of that file, and that version is published. The website version still decides whether an update is available. An application with no version in the review is not published. Select **Check**, then **Check Latest**, and use **Publish All** again. A PS1 packager publishes through its own script. For it, the app compares the version of the row before the script runs. The app cannot compare what the script then publishes. The command line has no review, so it does not compare.
 
 ### A publish to WSUS only
 
-When WSUS is the only system in use, **Publish All** has no review window and no results window. The run starts at once. Review the result in the **Status** column and in the log. See [WSUS publishing](wsus-publishing.md).
+When WSUS is the only system in use, **Publish All** opens the same review window and the same results window. The review has one column, **WSUS**. It has no **Administrative comment** box, because WSUS does not get the comment. When you confirm, the app reads the settings and the versions again. The read does not connect to the WSUS server. The publish itself checks the update that the server has for this version. A row that WSUS cannot take stays checked. A row that fails also stays checked. See [WSUS publishing](wsus-publishing.md).
 
 ## What Stage does
 

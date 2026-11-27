@@ -37,6 +37,21 @@ public partial class PackagerInfo
     private (string Current, string Latest)? _cveCellVersions;
 
     /// <summary>Shows the cells and takes the row's versions as the pair they describe.</summary>
+    /// <summary>
+    /// The CVE state of the row in one text: "3 found", "No site version", "CPE missing", "Not checked", or the reason of the last
+    /// lookup that gave no count.
+    /// </summary>
+    public string CveCheckText => CveCheck.Text(CveCount, Cpe);
+
+    partial void OnCveCountChanged(string value)
+    {
+        OnPropertyChanged(nameof(CveCheckText));
+        OnPropertyChanged(nameof(CveCellName));
+    }
+
+    /// <summary>The name of the CVE cell button: it names the application and the state, also before a lookup.</summary>
+    public string CveCellName => $"CVEs of {Application}: {CveCheckText}";
+
     public void SetCveCells(VulnerabilityGridCells cells)
     {
         ArgumentNullException.ThrowIfNull(cells);

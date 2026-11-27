@@ -151,7 +151,7 @@ public sealed record InventoryDestinationState(
     string? ConfigMgrCiId = null,
     string? ConfigMgrModelName = null);
 
-public sealed record InventoryRefusalState(string Version, string? Detail, DateTimeOffset? At);
+public sealed record InventoryRefusalState(string Version, string? Detail, DateTimeOffset? At, string? ApplicationId = null, string? BuildId = null);
 
 public sealed record InventoryOperation(
     string OperationId,

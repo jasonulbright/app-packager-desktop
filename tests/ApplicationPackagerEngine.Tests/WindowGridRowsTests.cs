@@ -122,14 +122,27 @@ public sealed class WindowGridRowsTests
                     ReportFolder = folder
                 }, new NoRunner());
                 var window = new OneClickPlanWindow(viewModel, folder);
+                var opened = 0;
+                window.OpenOneClickSettings = () => opened++;
+                var closed = false;
+                window.Closed += (_, _) => closed = true;
                 Open(window);
                 try
                 {
                     var rows = new MinimumSizeRows();
                     rows.Add("gridPlan", (DataGrid)window.FindName("gridPlan"));
                     rows.AssertEnough($"One Click plan {theme}");
+
+                    var settings = (Wpf.Ui.Controls.Button)window.FindName("btnOneClickSettings");
+                    Assert.Equal("One Click settings", settings.Content);
+                    Assert.Equal("btnOneClickSettings", System.Windows.Automation.AutomationProperties.GetAutomationId(settings));
+                    Assert.Equal("One Click settings", System.Windows.Automation.Peers.UIElementAutomationPeer.CreatePeerForElement(settings).GetName());
+                    Assert.True(settings.IsVisible && settings.IsEnabled && settings.Focusable && settings.IsTabStop);
+                    settings.RaiseEvent(new System.Windows.RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent));
+                    Assert.True(closed, "The plan window stays over the Settings page.");
+                    Assert.Equal(1, opened);
                 }
-                finally { window.Close(); }
+                finally { if (!closed) window.Close(); }
             });
         }
         finally { try { Directory.Delete(folder, recursive: true); } catch (IOException) { } }

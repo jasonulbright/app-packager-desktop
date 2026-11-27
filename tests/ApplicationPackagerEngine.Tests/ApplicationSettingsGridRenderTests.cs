@@ -138,6 +138,77 @@ public sealed class ApplicationSettingsGridRenderTests
         Shows("Install scope", 40);
     });
 
+    [Fact]
+    public void TheOrderTheWidthsAndTheSortAreSavedAndShowAgainOnANewPage()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "apd-appgrid-" + Guid.NewGuid().ToString("N"));
+        var before = Environment.GetEnvironmentVariable(ApplicationPackagerEngine.Services.AppDataPaths.DataRootVariable);
+        Environment.SetEnvironmentVariable(ApplicationPackagerEngine.Services.AppDataPaths.DataRootVariable, root);
+        try
+        {
+            PageHeaderRenderTests.With("Settings", ApplicationTheme.Light, () =>
+            {
+                using var scope = ApplicationPackagerEngine.Services.SiteContext.Scope(null, root);
+                Directory.CreateDirectory(ApplicationPackagerEngine.Services.AppDataPaths.Root);
+                const BindingFlags instance = BindingFlags.NonPublic | BindingFlags.Instance;
+                var settings = new SettingsService();
+                SettingsPage Open()
+                {
+                    var page = Page();
+                    var viewModel = typeof(SettingsPage).GetField("_viewModel", instance)!.GetValue(page)!;
+                    typeof(SettingsViewModel).GetField("_settingsService", instance)!.SetValue(viewModel, settings);
+                    typeof(SettingsPage).GetField("_sizedApplicationColumns", instance)!.SetValue(page, new HashSet<string>(StringComparer.Ordinal));
+                    typeof(SettingsPage).GetMethod("TrackApplicationLayout", instance)!.Invoke(page, null);
+                    typeof(SettingsPage).GetMethod("BuildApplicationColumns", instance)!.Invoke(page, null);
+                    return page;
+                }
+                void Show1(SettingsPage page, Action<Window, DataGrid> test)
+                {
+                    var window = new Window { Width = 1690, Height = 984, WindowStyle = WindowStyle.None, Content = page };
+                    Show(window);
+                    try
+                    {
+                        Settle(window);
+                        Settle(window);
+                        test(window, (DataGrid)page.FindName("dgApplications"));
+                    }
+                    finally { window.Close(); }
+                }
+                static DataGridColumn Column(DataGrid grid, string header) => grid.Columns.Single(c => c.Header as string == header);
+
+                var first = Open();
+                Show1(first, (window, grid) =>
+                {
+                    // A click on a grip saves nothing.
+                    ColumnGripKit.Drag(window, grid, Column(grid, "Vendor"), 0);
+                    Settle(window);
+                    Assert.Null(settings.Load().ApplicationSettingsGridLayout);
+                    ColumnGripKit.Drag(window, grid, Column(grid, "Vendor"), 60);
+                    Settle(window);
+                    Column(grid, "Install scope").DisplayIndex = 1;
+                    Column(grid, "Application").SortDirection = System.ComponentModel.ListSortDirection.Descending;
+                    typeof(SettingsPage).GetMethod("SaveApplicationLayout", instance)!.Invoke(first, null);
+                });
+                var saved = settings.Load().ApplicationSettingsGridLayout!;
+                Assert.Equal("Install scope", saved.Columns[0].Id);
+                Assert.Equal(180, saved.Columns.Single(c => c.Id == "Vendor").Width, 1.0);
+                Assert.Equal(("Application", true), (saved.SortId, saved.SortDescending));
+
+                Show1(Open(), (_, grid) =>
+                {
+                    Assert.Equal(1, Column(grid, "Install scope").DisplayIndex);
+                    Assert.Equal(180, Column(grid, "Vendor").ActualWidth, 1.0);
+                    Assert.Equal(System.ComponentModel.ListSortDirection.Descending, Column(grid, "Application").SortDirection);
+                });
+            });
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable(ApplicationPackagerEngine.Services.AppDataPaths.DataRootVariable, before);
+            TestCleanup.DeleteDirectory(root);
+        }
+    }
+
     [Theory]
     [InlineData(ApplicationTheme.Dark)]
     [InlineData(ApplicationTheme.Light)]

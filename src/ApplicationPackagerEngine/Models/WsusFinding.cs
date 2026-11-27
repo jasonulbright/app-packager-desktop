@@ -33,4 +33,18 @@ public static class WsusRefusalCodes
     public const string WsusRulesFromMsi = "WsusRulesFromMsi";
     public const string TimingNotApplied = "TimingNotApplied";
     public const string UninstallNotPublished = "UninstallNotPublished";
+
+    /// <summary>
+    /// True when a stored refusal ("not supported: Code[,Code]. text") names a property of the installer, which the same version keeps.
+    /// The other codes follow the definition or the staged files, and text with no code can follow the server or the settings.
+    /// </summary>
+    public static bool DependsOnTheInstaller(string reason)
+    {
+        const string prefix = "not supported: ";
+        if (!reason.StartsWith(prefix, StringComparison.Ordinal)) return false;
+        var rest = reason[prefix.Length..];
+        var end = rest.IndexOf('.');
+        return (end < 0 ? rest : rest[..end]).Split(',', StringSplitOptions.TrimEntries)
+            .Any(code => code is InstallerTypeUnsupported or PerUserInstall or PayloadTooLarge);
+    }
 }

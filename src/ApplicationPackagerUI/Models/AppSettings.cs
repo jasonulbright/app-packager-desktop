@@ -79,8 +79,14 @@ public sealed class AppSettings
 
     public string[] HiddenApplications { get; set; } = [];
 
-    /// <summary>The headers of the Packages grid columns that the operator hid with the Columns menu. Empty shows every column, as before the menu existed.</summary>
+    /// <summary>
+    /// The hidden columns, by the names that a build from before <see cref="PackagesShownColumns"/> reads. This build reads the list once,
+    /// then keeps it in step with the shown columns.
+    /// </summary>
     public string[] PackagesHiddenColumns { get; set; } = [];
+
+    /// <summary>The columns of the Packages grid that the Columns menu shows. Null until the first start stored the choice.</summary>
+    public string[]? PackagesShownColumns { get; set; }
 
     /// <summary>The order, the widths and the sort of the Packages grid. Null until the operator changes one of them.</summary>
     public ApplicationPackagerUI.Helpers.PackagesColumnLayout? PackagesGridLayout { get; set; }
@@ -88,8 +94,14 @@ public sealed class AppSettings
     /// <summary>The ids of the columns that the Application Settings grid shows, from its Columns menu. Null shows the default columns.</summary>
     public string[]? ApplicationSettingsColumns { get; set; }
 
+    /// <summary>The order, the widths and the sort of the Application Settings grid; the columns it shows are in <see cref="ApplicationSettingsColumns"/>.</summary>
+    public ApplicationPackagerUI.Helpers.PackagesColumnLayout? ApplicationSettingsGridLayout { get; set; }
+
     /// <summary>The detail pane of the Packages page is open. The pane starts closed in a window narrower than 1100 whatever this says.</summary>
     public bool PackagesDetailPaneOpen { get; set; } = true;
+
+    /// <summary>The width of the detail pane that the operator set with the splitter. The page limits it to the room beside the grid.</summary>
+    public double PackagesDetailPaneWidth { get; set; } = 320;
 
     /// <summary>Definition ids that Discover unmanaged software no longer offers. Disjoint from <see cref="DiscoveryEnabled"/>.</summary>
     public string[] DiscoveryDismissed { get; set; } = [];

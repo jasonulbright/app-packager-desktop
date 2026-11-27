@@ -1,6 +1,7 @@
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Media;
 using ApplicationPackagerUI.ViewModels.Pages;
 using Wpf.Ui.Abstractions.Controls;
 using MenuItem = System.Windows.Controls.MenuItem;
@@ -20,7 +21,20 @@ public partial class PivotsScriptsPage : INavigationAware
         foreach (var (editor, words) in new[] { (txtQuery, PivotsScriptsViewModel.PivotWords), (txtDraft, PivotsScriptsViewModel.ScriptWords) })
         {
             editor.SelectionChanged += (_, _) => ShowCaret(editor);
-            editor.GotKeyboardFocus += (_, _) => ShowCaret(editor);
+            editor.GotKeyboardFocus += (_, e) =>
+            {
+                ShowCaret(editor);
+                // A new visit, from another control of the page: Tab moves on until the text changes. The focus that comes back from the
+                // starter list, a context menu or another window continues the visit.
+                if (ReferenceEquals(_edited, editor) && e.OldFocus is Visual from && !ReferenceEquals(from, editor) && IsAncestorOf(from))
+                    _edited = null;
+            };
+            // A paste from the context menu changes the text while the menu has the focus.
+            DataObject.AddPastingHandler(editor, (_, _) => _edited = editor);
+            editor.TextChanged += (_, _) =>
+            {
+                if (editor.IsKeyboardFocused) _edited = editor;
+            };
             editor.LostKeyboardFocus += (_, _) =>
             {
                 _leaveArmed = null;
@@ -31,7 +45,13 @@ public partial class PivotsScriptsPage : INavigationAware
         }
     }
 
-    public const string EditorKeyHint = "Ctrl+Space shows the starter list. Tab types a tab. To leave the editor, press Ctrl+Tab, or press Esc and then Tab.";
+    public const string EditorKeyHint = "Ctrl+Space shows the starter list. Tab moves to the next control until you change the text. After a change, Tab types a tab; to leave then, press Ctrl+Tab, or press Esc and then Tab.";
+
+    /// <summary>The editor whose text changed while it had the focus: Tab types a tab there.</summary>
+    private TextBox? _edited;
+
+    /// <summary>The starter list that Ctrl+Space opened last.</summary>
+    public ContextMenu? StarterList { get; private set; }
 
     /// <summary>The modifier keys held during a key press; replaceable so a test can press Ctrl without a keyboard.</summary>
     public Func<ModifierKeys> ModifierSource { get; set; } = () => Keyboard.Modifiers;
@@ -47,13 +67,13 @@ public partial class PivotsScriptsPage : INavigationAware
     private (TextBox Editor, FocusNavigationDirection Direction)? _pendingExit;
 
     /// <summary>
-    /// The focus move for a key press in an editor, or null when the editor keeps the key. Tab types a
-    /// tab; Ctrl+Tab, or Tab right after Esc, leaves the editor. Ctrl+Tab otherwise reaches the
-    /// TabControl and switches to the next tab.
+    /// The focus move for a key press in an editor, or null when the editor keeps the key. Tab and Shift+Tab leave an editor whose text
+    /// did not change in this visit, so a Tab walk of the page passes it. After a change, Tab types a tab; Ctrl+Tab, or Tab right after
+    /// Esc, leaves the editor. Ctrl+Tab otherwise reaches the TabControl and switches to the next tab.
     /// </summary>
-    public static FocusNavigationDirection? EditorExit(Key key, ModifierKeys modifiers, bool afterEscape)
+    public static FocusNavigationDirection? EditorExit(Key key, ModifierKeys modifiers, bool afterEscape, bool unchanged = false)
     {
-        if (key != Key.Tab || ((modifiers & ModifierKeys.Control) == 0 && !afterEscape)) return null;
+        if (key != Key.Tab || ((modifiers & ModifierKeys.Control) == 0 && !afterEscape && !unchanged)) return null;
         return (modifiers & ModifierKeys.Shift) != 0 ? FocusNavigationDirection.Previous : FocusNavigationDirection.Next;
     }
 
@@ -84,7 +104,7 @@ public partial class PivotsScriptsPage : INavigationAware
             _leaveArmed = editor;
             return;
         }
-        if (EditorExit(e.Key, modifiers, afterEscape) is { } direction)
+        if (EditorExit(e.Key, modifiers, afterEscape, unchanged: !ReferenceEquals(_edited, editor)) is { } direction)
         {
             e.Handled = true;
             if ((modifiers & ModifierKeys.Control) != 0) _pendingExit = (editor, direction);
@@ -108,10 +128,12 @@ public partial class PivotsScriptsPage : INavigationAware
                 var at = editor.SelectionStart;
                 editor.SelectedText = word;
                 editor.Select(at + word.Length, 0);
+                _edited = editor;
                 editor.Focus();
             };
             menu.Items.Add(item);
         }
+        StarterList = menu;
         menu.IsOpen = true;
         if (menu.Items.Count > 0 && menu.Items[0] is MenuItem first) first.Focus();
     }

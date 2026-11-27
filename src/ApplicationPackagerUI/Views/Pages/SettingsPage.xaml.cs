@@ -27,6 +27,8 @@ public partial class SettingsPage
         SelectPage(s_lastPage);
         BuildApplicationColumns();
         TrackApplicationColumnGrips();
+        TrackApplicationLayout();
+        SetHelpFromToolTips(page_configmgr, page_supersedence);
         TrackInput();
         CollectionViewSource.GetDefaultView(_viewModel.SupersedenceRows).Filter = o => o is Models.SupersedenceRow r && _viewModel.MatchesFilter(r);
         _viewModel.FilterChanged += () => CollectionViewSource.GetDefaultView(_viewModel.SupersedenceRows).Refresh();
@@ -118,6 +120,7 @@ public partial class SettingsPage
                 CellTemplate = new DataTemplate { VisualTree = cell }
             });
         }
+        ApplyApplicationLayout();
     }
 
     // Each column has its width as MinWidth, so the grid scrolls sideways and does not narrow it. A grip of the operator lowers that minimum

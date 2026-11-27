@@ -14,15 +14,19 @@ public static class PublishReviewGate
     /// <param name="show">Shows one review; true when the operator pressed the confirm button.</param>
     /// <param name="reread">The plan from a fresh read of the shown plan; null when the operator cancelled the read.</param>
     /// <param name="log">The log of the page.</param>
+    /// <param name="keepComment">Takes the comment of each review as it closes, so a Back or a cancelled read does not lose it.</param>
     /// <returns>The confirmed review, or null when nothing is to be published.</returns>
     public static async Task<PublishReviewViewModel?> ConfirmAsync(PublishPlan plan, string comment,
-        Func<PublishReviewViewModel, bool> show, Func<PublishPlan, Task<PublishPlan?>> reread, Action<string> log)
+        Func<PublishReviewViewModel, bool> show, Func<PublishPlan, Task<PublishPlan?>> reread, Action<string> log,
+        Action<string>? keepComment = null)
     {
         IReadOnlyDictionary<string, string>? changes = null;
         while (true)
         {
             var review = new PublishReviewViewModel(plan, comment, changes);
-            if (!show(review))
+            var confirmed = show(review);
+            keepComment?.Invoke(review.Comment);
+            if (!confirmed)
             {
                 log("Publish review: closed with Back. Nothing was published.");
                 return null;

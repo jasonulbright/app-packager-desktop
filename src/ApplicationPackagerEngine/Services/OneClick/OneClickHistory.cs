@@ -17,6 +17,11 @@ public sealed class OneClickPublishRecord
     public bool SupersedencePending { get; set; }
     /// <summary>The reason the step gave; empty when the record is not pending.</summary>
     public string SupersedenceReason { get; set; } = "";
+    /// <summary>
+    /// The stored version of a local-installer publish whose build record is gone. An earlier version of the app could store the website
+    /// version there, so no skip rests on it.
+    /// </summary>
+    public bool Unverified { get; set; }
 }
 
 /// <summary>
@@ -46,8 +51,9 @@ public sealed record OneClickHistoryEntry
     /// </summary>
     public IReadOnlyDictionary<string, string> PublishedBuild { get; init; } = new Dictionary<string, string>();
 
+    /// <summary>The version that the destination holds by its record; empty with no record or with one that cannot be verified.</summary>
     public string PublishedVersion(string destination) =>
-        Published.TryGetValue(destination, out var record) ? record.Version ?? "" : "";
+        Published.TryGetValue(destination, out var record) && !record.Unverified ? record.Version ?? "" : "";
 
     public string PublishedBuildKey(string destination) =>
         PublishedBuild.TryGetValue(destination, out var key) ? key ?? "" : "";

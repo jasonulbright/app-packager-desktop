@@ -127,7 +127,7 @@ This page holds the defaults for all applications, and one grid with the setting
 | **Version rule, ConfigMgr**, **Version rule, Intune** | **Minimum** | The operator of the version clause of the detection that is published. **Minimum** is this version or newer. **Exact** is this version only. See [Publish to ConfigMgr](publish-to-configmgr.md). |
 | **Supersedence mode, ConfigMgr** | **Off** | The default for every application: **Off**, **Replace** or **Replace and uninstall**. An application that has no setting of its own follows it. |
 
-The grid has one row for each application. **Columns** lists every setting that the grid can show; the first five are on at the start, and the others are one click away. The app saves the column choice at once. **Save Settings** is not necessary for it. A setting that does not apply to an application is greyed out, and its tooltip says why. The line under the grid shows the help of the field that has the keyboard focus, or why it is unavailable. It is never ignored without a sign.
+The grid has one row for each application. **Columns** lists every setting that the grid can show; the first five are on at the start, and the others are one click away. The app saves the column choice, the column order, the widths that you set and the sort at once. **Save Settings** is not necessary for them. A setting that does not apply to an application is greyed out, and its tooltip says why. The line under the grid shows the help of the field that has the keyboard focus, or why it is unavailable. It is never ignored without a sign.
 
 | Column | Choices | Effect |
 |---|---|---|

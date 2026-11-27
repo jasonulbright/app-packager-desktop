@@ -47,7 +47,7 @@ public sealed class PackagesGridHeaderWidthTests
                 (string?)e.Attribute("Visibility") != "Collapsed"))
             .Where(c => c.Visible || withHiddenColumns)
             .ToList();
-        Assert.Contains(columns, c => c.Header == "Current (ConfigMgr)");
+        Assert.Contains(columns, c => c.Header == "ConfigMgr version");
         Assert.Contains(columns, c => c.Header == "KEV");
         return columns;
     }

@@ -110,7 +110,7 @@ public partial class OneClickPlanViewModel : ObservableObject
     /// <summary>The results of the finished run for the shared results window: one row for each included application.</summary>
     public PublishResultsViewModel BuildResults() => new(
         Rows.Where(r => r.Include).Select(r => (r.Application, new PublishRowResult(r.Key, r.Version, r.Cells.ToList()))).ToList(),
-        _runCanceled, _runSystems);
+        _runCanceled, _runSystems) { ReportPath = ReportPath };
 
     /// <summary>Raised after a run that has results, so the window can show them.</summary>
     public event EventHandler? ResultsReady;
@@ -200,7 +200,7 @@ public partial class OneClickPlanViewModel : ObservableObject
             {
                 if (existing.TryGetValue(p.Key, out var item))
                 {
-                    item.Version = p.Version;
+                    item.Version = ShownVersion(p);
                     item.Planned = p.Planned;
                     item.Reason = p.Reason;
                     item.LastPublished = p.LastPublishedText;
@@ -215,7 +215,7 @@ public partial class OneClickPlanViewModel : ObservableObject
                     Application = p.Application,
                     Vendor = p.Vendor,
                     Row = _apps.TryGetValue(p.Key, out var app) ? app.Row : null,
-                    Version = p.Version,
+                    Version = ShownVersion(p),
                     PriorKnownVersion = _context.History.TryGetValue(p.Key, out var prior) ? prior.LastKnownVersion : null,
                     ConfigMgr = p.Destinations.ConfigMgr,
                     Wsus = p.Destinations.Wsus,
@@ -238,9 +238,13 @@ public partial class OneClickPlanViewModel : ObservableObject
             {
                 var (set, source) = OneClickPlanner.DestinationsFor(saved, item.Key);
                 var changed = set.ConfigMgr != item.ConfigMgr || set.Wsus != item.Wsus || set.Intune != item.Intune;
-                item.SourceText = changed ? "Changed for this run" : source == "Row" ? "Saved for this application" : "Default";
+                item.SourceText = ApplicationPackagerEngine.Models.ScopeText.Cell(changed ? ScopeSource.ChangedForRun : source == "Row" ? ScopeSource.SavedForApplication : ScopeSource.Default);
             }
             bool Included(OneClickPlanRow r) => byKey.TryGetValue(r.Key, out var i) && i.Include;
+            foreach (var planned in plan)
+                if (byKey.TryGetValue(planned.Key, out var row))
+                    row.ChangeDetails = string.Join(Environment.NewLine,
+                        planned.PublishTo.Select(d => d + ": " + OneClickPlanner.Scope(d, settings.Scope)));
             var summary = OneClickPlanner.Summarize(plan, settings, _context.Action, Included);
             SummaryText = summary.Line;
             HeaderText = HeaderLine(plan.Count(Included), plan.Count);
@@ -255,6 +259,10 @@ public partial class OneClickPlanViewModel : ObservableObject
             _refreshing = false;
         }
     }
+
+    /// <summary>The version that the run would publish: of the local installer when the stage takes one.</summary>
+    private string ShownVersion(OneClickPlanRow row) =>
+        _apps.TryGetValue(row.Key, out var app) && app.App.StageVersion is { } local ? local : row.Version;
 
     /// <summary>Writes the report of the included rows: the plan before a run, the outcomes after it.</summary>
     public (string MarkdownPath, string JsonPath) WriteReport(DateTime ended, bool canceled, string label = "One Click report")

@@ -30,7 +30,22 @@ public partial class OneClickPlanWindow : ApplicationPackagerUI.Services.IDialog
     private void ShowResults()
     {
         if (!IsVisible || !_viewModel.HasResults) return;
-        new PublishResultsWindow(_viewModel.BuildResults()) { Owner = this }.ShowDialog();
+        var results = _viewModel.BuildResults();
+        new PublishResultsWindow(results) { Owner = this }.ShowDialog();
+        if (results.ReviewUid.Length > 0) ReviewFailed_Click(this, new RoutedEventArgs());
+    }
+
+    /// <summary>Opens Settings on the One Click page after this window closed; null uses the main window.</summary>
+    public Action? OpenOneClickSettings { get; set; }
+
+    private void Settings_Click(object sender, RoutedEventArgs e)
+    {
+        if (_viewModel.IsRunning) return;
+        var main = Owner as MainWindow ?? System.Windows.Application.Current?.MainWindow as MainWindow;
+        var open = OpenOneClickSettings ?? (() => main?.OpenSettingsPage("oneclick"));
+        // This window is owned by the main window and stays above it, so it closes first. Its plan holds the action it was opened with.
+        Close();
+        open();
     }
 
     private void Results_Click(object sender, RoutedEventArgs e) => ShowResults();
@@ -60,7 +75,7 @@ public partial class OneClickPlanWindow : ApplicationPackagerUI.Services.IDialog
         var run = _viewModel.IsRunView;
         static Visibility Show(bool value) => value ? Visibility.Visible : Visibility.Collapsed;
         colMecm.Visibility = colWsus.Visibility = colIntune.Visibility = Show(!run);
-        colLast.Visibility = colPlanned.Visibility = colSource.Visibility = Show(!run);
+        colLast.Visibility = colPlanned.Visibility = colSource.Visibility = colDetails.Visibility = Show(!run);
         colStep.Visibility = Show(run);
         colResultMecm.Visibility = Show(run && _viewModel.ShowResultConfigMgr);
         colResultWsus.Visibility = Show(run && _viewModel.ShowResultWsus);

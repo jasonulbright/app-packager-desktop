@@ -484,6 +484,91 @@ public sealed class SetupChecklistTests : IDisposable
         Assert.Contains("public void OpenSetup()", source);
     }
 
+    // The page area of a maximized window on a 1080p display (1920 x 1032): less the navigation pane, and less the title bar (48), the context
+    // strip (49) and the site footer (40).
+    private const double DesignPageWidth = 1920 - 230, DesignPageHeight = 1032 - 48 - 49 - 40;
+
+    private (PackagesPage Page, Window Window) ChecklistWindow(double width, double height)
+    {
+        // A failed connection and folders that are not set give the longest step texts and the most buttons.
+        File.WriteAllText(SettingsService.SettingsPath,
+            """{ "FirstRunCompleted": false, "Systems": { "ConfigMgr": true, "Intune": true, "Wsus": true }, "SiteCode": "P01", "SiteCodeSaved": true }""");
+        _connection = ConfigMgrConnectionState.Failed;
+        var page = AppPackagerFitTests.Create(12, out var viewModel);
+        viewModel.Checklist = Checklist(new SettingsService());
+        viewModel.Checklist.Refresh();
+        // Create builds the page before the checklist exists, so the page is built again.
+        page = new PackagesPage(viewModel);
+        var window = new Window { Width = width, Height = height, WindowStyle = WindowStyle.None, Content = page };
+        RenderKit.Show(window);
+        RenderKit.Settle(window);
+        return (page, window);
+    }
+
+    private static ScrollViewer StepScroller(UserControl panel) =>
+        RenderKit.Descendants(panel).OfType<ScrollViewer>().First(s => RenderKit.Descendants(s).OfType<ItemsControl>()
+            .Any(i => AutomationProperties.GetAutomationId(i) == "lstSetupSteps"));
+
+    private static void AssertInsideOf(FrameworkElement container, FrameworkElement element, string where)
+    {
+        var bounds = element.TransformToAncestor(container).TransformBounds(new Rect(element.RenderSize));
+        Assert.True(bounds.Top >= -0.5 && bounds.Bottom <= container.ActualHeight + 0.5 && bounds.Left >= -0.5 && bounds.Right <= container.ActualWidth + 0.5,
+            $"{where}: {AutomationProperties.GetAutomationId(element)} is at {bounds} in {container.ActualWidth:0}x{container.ActualHeight:0}.");
+    }
+
+    [Theory]
+    [InlineData(ApplicationTheme.Light)]
+    [InlineData(ApplicationTheme.Dark)]
+    public void AtTheDesignWindowTheFourStepsAndTheFooterButtonsShowWithoutScrolling(ApplicationTheme theme)
+    {
+        RenderKit.WithApplication(theme, () =>
+        {
+            using var scope = SiteContext.Scope(null, _root);
+            var (page, window) = ChecklistWindow(DesignPageWidth, DesignPageHeight);
+            try
+            {
+                var where = $"setup checklist {theme} 1920x1032";
+                var panel = RenderKit.ById<UserControl>(page, "pnlSetupChecklist");
+                Assert.True(panel.IsVisible);
+                AssertInsideOf(page, panel, where);
+                var scroller = StepScroller(panel);
+                Assert.True(scroller.ScrollableHeight < 0.5, $"{where}: the steps need {scroller.ScrollableHeight:0} px more than the {scroller.ViewportHeight:0} px they have.");
+                foreach (var key in new[] { "Systems", "Site", "Folders", "Discovery" })
+                    AssertInsideOf(scroller, RenderKit.ById<TextBlock>(panel, "txtSetupStep" + key), where);
+                var inSteps = RenderKit.Descendants(scroller).OfType<ButtonBase>().Where(b => b.IsVisible && b is System.Windows.Controls.Button).ToList();
+                Assert.Contains(inSteps, b => AutomationProperties.GetAutomationId(b) == "btnSetupScan");
+                foreach (var button in inSteps) AssertInsideOf(scroller, button, where);
+                foreach (var id in new[] { "btnSetupClose", "btnSetupDismiss" })
+                {
+                    var button = RenderKit.ById<ButtonBase>(panel, id);
+                    Assert.True(button.IsVisible);
+                    AssertInsideOf(panel, button, where);
+                }
+                PageChromeKit.AssertNothingClipped(panel, where);
+            }
+            finally { window.Close(); }
+        });
+    }
+
+    [Fact]
+    public void InASmallWindowTheStepsScrollAndTheFooterButtonsStayInTheWindow()
+    {
+        RenderKit.WithApplication(ApplicationTheme.Light, () =>
+        {
+            using var scope = SiteContext.Scope(null, _root);
+            var (page, window) = ChecklistWindow(1440 - 230, 720 - 48);
+            try
+            {
+                var panel = RenderKit.ById<UserControl>(page, "pnlSetupChecklist");
+                var scroller = StepScroller(panel);
+                Assert.Equal(ScrollBarVisibility.Auto, scroller.VerticalScrollBarVisibility);
+                Assert.True(scroller.ScrollableHeight > 0, "The steps do not scroll in a window that is too low for them.");
+                foreach (var id in new[] { "btnSetupClose", "btnSetupDismiss" }) AssertInsideOf(panel, RenderKit.ById<ButtonBase>(panel, id), "small window");
+            }
+            finally { window.Close(); }
+        });
+    }
+
     /// <summary>The sizes of the fit test of the page: a new install keeps whole grid rows beside the panel and under the strip.</summary>
     [Theory]
     [MemberData(nameof(AppPackagerFitTests.Sizes), MemberType = typeof(AppPackagerFitTests))]

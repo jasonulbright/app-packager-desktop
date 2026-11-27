@@ -17,11 +17,6 @@ public partial class PackagesPage
         if (sender is FrameworkElement { DataContext: PackagerInfo row }) await OpenCveWindowAsync(row);
     }
 
-    private async void ContextMenu_ShowCves(object sender, RoutedEventArgs e)
-    {
-        if (GetSelectedPackager() is { } row) await OpenCveWindowAsync(row);
-    }
-
     private async Task OpenCveWindowAsync(PackagerInfo row)
     {
         try
@@ -46,27 +41,8 @@ public partial class PackagesPage
         }
     }
 
-    /// <summary>Rebuilds the CVE source submenu for the selected row; a row without a CPE has no sources.</summary>
-    private void PackagerMenu_Opened(object sender, RoutedEventArgs e)
+    private async Task CopyCveIdsAsync(PackagerInfo row)
     {
-        MenuOpenCveSources.Items.Clear();
-        var row = GetSelectedPackager();
-        var hasCpe = row is not null && row.Cpe.Length > 0;
-        MenuShowCves.IsEnabled = row is not null;
-        MenuOpenCveSources.IsEnabled = hasCpe;
-        MenuCopyCveIds.IsEnabled = hasCpe;
-        if (!hasCpe) return;
-        foreach (var (name, url) in PackagesViewModel.CveSourceLinks(row!))
-        {
-            var item = new System.Windows.Controls.MenuItem { Header = name, Tag = url, ToolTip = url };
-            item.Click += (sender, _) => Packages.OpenExternalLink((sender as System.Windows.Controls.MenuItem)?.Tag as string);
-            MenuOpenCveSources.Items.Add(item);
-        }
-    }
-
-    private async void ContextMenu_CopyCveIds(object sender, RoutedEventArgs e)
-    {
-        if (GetSelectedPackager() is not { } row) return;
         var result = await Task.Run(() => PackagesViewModel.CachedCveResult(row));
         if (result is null)
         {

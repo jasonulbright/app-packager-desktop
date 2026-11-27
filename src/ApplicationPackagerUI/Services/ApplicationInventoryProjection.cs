@@ -19,8 +19,23 @@ public sealed class ApplicationInventoryProjection(ApplicationInventoryService i
     public InventoryEnvironmentState? Environment(PackagerInfo row, AppSettings settings) =>
         inventory.GetEnvironmentState(row.Uid, InventoryEnvironmentIdentity.ConfigMgr(settings.SiteCode, settings.ProviderMachine));
 
+    /// <summary>True when the last ConfigMgr publish of this version of the row did not finish its content.</summary>
+    public bool ConfigMgrIncomplete(PackagerInfo row, AppSettings settings, string version, PackagerExecutionService.OneClickBuildPlan? plan)
+    {
+        var environment = InventoryEnvironmentIdentity.ConfigMgr(settings.SiteCode, settings.ProviderMachine);
+        return version.Length > 0 && environment.Key != "unknown"
+            && inventory.LastObjectIsPartial(row.Uid, environment, "Publish", version,
+                (applicationId, buildId) => SealedVersion(plan, applicationId, buildId));
+    }
+
+    /// <summary>
+    /// The records of one row. A record's version is the one that its sealed build holds: an earlier version of the app stored the website
+    /// version for a publish of a local installer.
+    /// </summary>
+    /// <param name="plan">The workbench identity of the row, which locates the build records; null when it cannot be resolved.</param>
+    /// <param name="localInstaller">True when a stage of the row takes a local installer.</param>
     public OneClickHistoryEntry Entry(PackagerInfo row, AppSettings settings,
-        PackagerExecutionService.OneClickBuildPlan? plan = null)
+        PackagerExecutionService.OneClickBuildPlan? plan, bool localInstaller)
     {
         var vendor = Vendor(row);
         var identity = IdentityFor(row, plan);
@@ -39,9 +54,12 @@ public sealed class ApplicationInventoryProjection(ApplicationInventoryService i
             var state = inventory.GetDestinationState(row.Uid, environment, "Publish");
             if (!string.IsNullOrWhiteSpace(state?.LastSuccessVersion))
             {
+                var sealedVersion = SealedVersion(plan, state.ApplicationId, state.LastSuccessBuildId);
                 published[destination] = new OneClickPublishRecord
                 {
-                    Version = state.LastSuccessVersion,
+                    Version = sealedVersion ?? state.LastSuccessVersion,
+                    // ConfigMgr keeps the stored version: the site answer is what a ConfigMgr skip mainly rests on.
+                    Unverified = sealedVersion is null && localInstaller && destination != OneClickDestinations.ConfigMgr,
                     Id = state.LastSuccessObjectId ?? "",
                     At = OneClickHistory.Stamp(state.LastSuccessAt ?? DateTimeOffset.MinValue)
                 };
@@ -59,7 +77,7 @@ public sealed class ApplicationInventoryProjection(ApplicationInventoryService i
             if (refusal is not null)
                 refused[destination] = new OneClickRefusalRecord
                 {
-                    Version = refusal.Version,
+                    Version = SealedVersion(plan, refusal.ApplicationId, refusal.BuildId) ?? refusal.Version,
                     Reason = refusal.Detail ?? "",
                     At = OneClickHistory.Stamp(refusal.At ?? DateTimeOffset.MinValue)
                 };
@@ -74,6 +92,23 @@ public sealed class ApplicationInventoryProjection(ApplicationInventoryService i
             NotSupported = refused,
             PublishedBuild = publishedBuild
         };
+    }
+
+    /// <summary>The version in the sealed build record of a build; null when no build is named or its record is gone.</summary>
+    private static string? SealedVersion(PackagerExecutionService.OneClickBuildPlan? plan, string? applicationId, string? buildId)
+    {
+        if (plan is null || string.IsNullOrWhiteSpace(buildId)) return null;
+        try
+        {
+            var record = BuildRecords.Find(plan.DataRoot, string.IsNullOrWhiteSpace(applicationId) ? plan.ApplicationId : applicationId, buildId);
+            var version = record is null ? null : WorkbenchJson.Get(record, "SoftwareVersion").Text;
+            return string.IsNullOrWhiteSpace(version) ? null : version;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException
+                                   or InvalidOperationException or System.Text.Json.JsonException)
+        {
+            return null;
+        }
     }
 
     /// <summary>
@@ -98,8 +133,8 @@ public sealed class ApplicationInventoryProjection(ApplicationInventoryService i
     }
 
     public IReadOnlyDictionary<string, OneClickHistoryEntry> History(IEnumerable<PackagerInfo> rows, AppSettings settings,
-        Func<PackagerInfo, PackagerExecutionService.OneClickBuildPlan?>? resolvePlan = null) =>
-        rows.ToDictionary(row => row.Uid, row => Entry(row, settings, resolvePlan?.Invoke(row)), StringComparer.OrdinalIgnoreCase);
+        Func<PackagerInfo, PackagerExecutionService.OneClickBuildPlan?> resolvePlan, Func<PackagerInfo, bool> localInstaller) =>
+        rows.ToDictionary(row => row.Uid, row => Entry(row, settings, resolvePlan(row), localInstaller(row)), StringComparer.OrdinalIgnoreCase);
 
     public static InventoryApplicationIdentity IdentityFor(IPackagerExecutionRequest row,
         PackagerExecutionService.OneClickBuildPlan? plan = null)

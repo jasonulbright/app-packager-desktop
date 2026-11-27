@@ -110,7 +110,7 @@ The library folder and the wait time are set on the **Options** tab. See [Pivots
 Keyboard rules in the editors:
 
 - **Ctrl+Space** shows the starter list at the caret.
-- **Tab** types a tab character.
+- **Tab** moves to the next control until you change the text. After a change, **Tab** types a tab character. This stays so when the focus comes back from the starter list, a menu or another window.
 - **Ctrl+Tab** leaves the editor. **Esc** and then **Tab** also leaves the editor.
 
 ## Limits

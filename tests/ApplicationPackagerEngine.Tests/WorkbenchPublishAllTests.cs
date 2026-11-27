@@ -39,20 +39,8 @@ public sealed class WorkbenchPublishAllTests
 
         viewModel.ApplyPublishState(Readiness(configMgr: false, intune: false, wsus: true));
         Assert.True(viewModel.PublishAllCommand.CanExecute(null));
-        Assert.EndsWith("A publish to WSUS only has no review. It starts at once.", viewModel.PublishAllToolTip);
-    }
-
-    [Fact]
-    public async Task EveryTargetOfAWorkbenchPublishRunsWithTheReviewAndWsusOnlyKeepsItsOwnRun()
-    {
-        foreach (var target in DeploymentTargets.Names)
-        {
-            var calls = new List<string>();
-            await PackagesViewModel.RouteWorkbenchPublishAsync(target,
-                () => { calls.Add("wsus run"); return Task.CompletedTask; },
-                review => { calls.Add("package run, review " + review); return Task.CompletedTask; });
-            Assert.Equal(target == DeploymentTargets.WsusOnly ? ["wsus run"] : ["package run, review True"], calls);
-        }
+        Assert.Equal("Publish the selected build to WSUS (Settings, Systems in Use). The publish review opens before anything is published.",
+            viewModel.PublishAllToolTip);
     }
 
     [Fact]
@@ -106,7 +94,8 @@ public sealed class WorkbenchPublishAllTests
             var viewModel = new WorkbenchWindowViewModel(null!, null!, null!, null!)
             {
                 IdentityText = "Application id catalog:package-review; output folders keep using the packager identity.",
-                ProvenanceText = @"Definitions\review.json"
+                ProvenanceText = @"Definitions\review.json",
+                SiteLine = "Site MCM"
             };
             var window = (WorkbenchWindow)System.Runtime.CompilerServices.RuntimeHelpers.GetUninitializedObject(typeof(WorkbenchWindow));
             typeof(WorkbenchWindow).BaseType!.GetConstructor(Type.EmptyTypes)!.Invoke(window, null);
@@ -138,6 +127,8 @@ public sealed class WorkbenchPublishAllTests
                 Assert.Equal(!docked, details.IsVisible);
                 Assert.Equal(!docked, line.IsVisible);
                 Assert.True(editor.IsVisible, $"{where}: the editor is hidden.");
+                var site = Named<System.Windows.Controls.TextBlock>("txtWorkbenchSite");
+                Assert.True(site.IsVisible && site.Text == "Site MCM", $"{where}: the site line is not shown.");
 
                 foreach (var name in new[] { "btnUseDefaults", "btnSave", "btnSaveAs", "btnValidate", "btnStage", "btnPublishAll" })
                     AssertInside(host, Named<FrameworkElement>(name), host.ActualHeight, name);

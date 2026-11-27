@@ -99,7 +99,7 @@ App Packager Desktop stores the hidden applications in the setting `HiddenApplic
 | Message | Cause | Fix |
 |---|---|---|
 | All applications are hidden. Select Catalog to show applications. (App Packager page) | Every application is hidden. | Select **Catalog**, then **Show all**, then **Save**. |
-| Catalog: the list could not be reloaded. Open Catalog again to retry. (log pane of the App Packager page) | The window could not read the definitions. | Do as the message says. |
+| Catalog: the list could not be reloaded. Open Catalog again to retry. (log of the App Packager page) | The window could not read the definitions. | Do as the message says. |
 
 ## Links
 

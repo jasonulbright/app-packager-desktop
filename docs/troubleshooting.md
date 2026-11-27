@@ -4,7 +4,7 @@ This page lists the most common messages of App Packager Desktop with their caus
 
 ## What it does
 
-The page helps you find the fix for a message that you see on the **App Packager** page, in the log pane, in a tooltip or in a dialog. [error-messages.md](reference/error-messages.md) lists all messages.
+The page helps you find the fix for a message that you see on the **App Packager** page, in the log, in a tooltip or in a dialog. [error-messages.md](reference/error-messages.md) lists all messages.
 
 ## When to use it
 
@@ -58,7 +58,7 @@ A disabled **Publish All** button shows a tooltip. It starts with `Publish All:`
 
 | Message | Cause | Fix |
 |---|---|---|
-| Could not connect to site `<code>`. Check Settings and ensure the Configuration Manager console is available. | The connection test failed when the list loaded. The log pane shows "ConfigMgr: Connection failed" and the reason. | Check **Site Code** and **Site Server / SMS Provider Host**. Check that the console is on this computer. |
+| Could not connect to site `<code>`. Check Settings and ensure the Configuration Manager console is available. | The connection test failed when the list loaded. The log shows "ConfigMgr: Connection failed" and the reason. | Check **Site Code** and **Site Server / SMS Provider Host**. Check that the console is on this computer. |
 | The ConfigurationManager PowerShell module was not found. Install the Configuration Manager console on this computer. | The module file is missing. | Install the console. |
 | The SMS Provider `<p>` denied access. The account needs a ConfigMgr security role for site `<code>`. | The provider refused the account. | Give the account a ConfigMgr security role for the site. |
 | The CMSite drive for site `<code>` on `<provider>` could not connect. Check the site code and the SMS Provider in Settings, ConfigMgr. | The CMSite drive did not connect. | Check **Site Code** and **Site Server / SMS Provider Host**. |
@@ -87,10 +87,11 @@ A disabled **Publish All** button shows a tooltip. It starts with `Publish All:`
 
 | Message | Cause | Fix |
 |---|---|---|
-| The **Status** column shows **Error**. The log pane shows "ERROR: Could not determine latest version for `<application>`". | The vendor lookup returned no version. | Review the log pane for the reason. The grid shows only **Error**. |
+| The **Status** column shows **Error**. The log shows "ERROR: Could not determine latest version for `<application>`". | The vendor lookup returned no version. | Review the log for the reason. The grid shows only **Error**. |
 
 ## Limits
 
+- App Packager Desktop does not support Windows contrast themes. Its windows keep their light or dark colors when a contrast theme is on.
 This page lists a selection of the messages. The tools show more messages. The Discover scan time limit is 600 seconds.
 
 ## Related pages
