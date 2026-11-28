@@ -13,6 +13,12 @@ public sealed class AppSettings
     /// <summary>Look up the latest GitHub release when the app starts. The manual check is always available.</summary>
     public bool CheckForUpdatesAtStartup { get; set; } = true;
 
+    /// <summary>
+    /// The application list shows the icons of the icon pack. Off: it shows two letters of the name, and the app does not download
+    /// or update the pack at startup. A staged application takes the icon of an installed pack with either value.
+    /// </summary>
+    public bool ShowPackIcons { get; set; } = true;
+
     public string SiteCode { get; set; } = "MCM";
 
     /// <summary>

@@ -1484,6 +1484,10 @@
                                 <TextBlock Text="Application icons for definitions tagged IconSource External. Downloaded from the icon pack release and stored in your LocalAppData definition folder; bundled icons remain read-only."
                                            Foreground="{DynamicResource MkMutedBrush}" Margin="0,0,0,8" TextWrapping="Wrap" />
 
+                                <CheckBox Content="Show icons from the icon pack" helpers:SettingsSearchHints.Keywords="icon pack letters placeholder"
+                                          AutomationProperties.AutomationId="chkShowPackIcons" IsChecked="{Binding ShowPackIcons}" Margin="0,0,0,8"
+                                          ToolTip="Off: the application list shows two letters of each name, and the app does not download or update the icon pack when it starts. A staged application takes the icon of an installed pack either way." />
+
                                 <DockPanel Margin="0,0,0,8">
                                     <ui:Button DockPanel.Dock="Right" Content="Install from file..."
                                                mk:Mk.Icon="folder_open"

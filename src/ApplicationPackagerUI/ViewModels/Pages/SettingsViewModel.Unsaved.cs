@@ -153,6 +153,7 @@ public partial class SettingsViewModel
 
         Put(nameof(CompanyName), CompanyName);
         Put(nameof(CheckForUpdatesAtStartup), CheckForUpdatesAtStartup);
+        Put(nameof(ShowPackIcons), ShowPackIcons);
         Put(nameof(CurrentTheme), CurrentTheme);
         Put(nameof(SiteCode), SiteCode);
         Put(nameof(ProviderMachine), Trimmed(ProviderMachine));

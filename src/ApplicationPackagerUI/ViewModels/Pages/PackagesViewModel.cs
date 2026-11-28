@@ -35,10 +35,15 @@ public partial class PackagesViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(ShowSourceColumn))]
     private ObservableCollection<PackagerInfo> _packagers = [];
 
-    /// <summary>Refreshes the icon of every row (the icon pack was installed or updated in the background).</summary>
+    /// <summary>Refreshes the icon of every row (the icon pack was installed or updated, or the operator saved the icon setting).</summary>
     public void RefreshIcons()
     {
-        foreach (var row in Packagers) row.RefreshIcon();
+        var show = _settingsService?.Load().ShowPackIcons ?? true;
+        foreach (var row in Packagers)
+        {
+            row.ShowPackIcon = show;
+            row.RefreshIcon();
+        }
     }
 
     /// <summary>The Source column of the grid shows only while a row is an imported definition; it is empty for every other row.</summary>
@@ -801,6 +806,7 @@ public partial class PackagesViewModel : ObservableObject
             ApplyStoredCveState(p, settings);
         }
 
+        foreach (var result in results) result.ShowPackIcon = settings.ShowPackIcons;
         Packagers = new ObservableCollection<PackagerInfo>(results);
         WatchRows();
         SearchText = "";

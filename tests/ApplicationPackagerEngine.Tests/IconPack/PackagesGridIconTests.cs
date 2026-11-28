@@ -50,6 +50,41 @@ public sealed class PackagesGridIconTests
     }
 
     [Fact]
+    public void ARowWithPackIconsOffGivesNoIconAndGivesItAgainWhenTheyAreOn()
+    {
+        var root = Directory.CreateTempSubdirectory("apd-icon-off-").FullName;
+        try
+        {
+            Directory.CreateDirectory(Path.Combine(root, "Icons"));
+            var definition = Path.Combine(root, "tool.json");
+            File.WriteAllText(definition, "{}");
+            File.WriteAllBytes(Path.Combine(root, "Icons", "tool.png"), [0x89, 0x50, 0x4E, 0x47]);
+            var row = new ApplicationPackagerUI.Models.PackagerInfo { IsJsonDefined = true, DefinitionPath = definition };
+            Assert.EndsWith("tool.png", row.IconPath);
+
+            row.ShowPackIcon = false;
+            row.RefreshIcon();
+            Assert.Equal("", row.IconPath);
+            Assert.Null(row.IconUri);
+            Assert.Null(row.IconImage);
+            Assert.Equal("Icon pack icons are off in Settings", row.IconTooltip);
+
+            row.ShowPackIcon = true;
+            row.RefreshIcon();
+            Assert.EndsWith("tool.png", row.IconPath);
+        }
+        finally { Directory.Delete(root, recursive: true); }
+    }
+
+    [Fact]
+    public void PackIconsAreOnByDefaultAndTheSavedChoiceIsRead()
+    {
+        Assert.True(System.Text.Json.JsonSerializer.Deserialize<ApplicationPackagerUI.Models.AppSettings>("{}")!.ShowPackIcons);
+        var json = System.Text.Json.JsonSerializer.Serialize(new ApplicationPackagerUI.Models.AppSettings { ShowPackIcons = false });
+        Assert.False(System.Text.Json.JsonSerializer.Deserialize<ApplicationPackagerUI.Models.AppSettings>(json)!.ShowPackIcons);
+    }
+
+    [Fact]
     public void RefreshIconTellsTheGridThatTheIconChanged()
     {
         var row = new ApplicationPackagerUI.Models.PackagerInfo();

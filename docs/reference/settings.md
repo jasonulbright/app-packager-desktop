@@ -125,7 +125,11 @@ This section shows the state of three tools. It stores no setting.
 
 ## Packager Icon Pack and GitHub API
 
-These sections store no setting.
+| UI label | Property | Default | Effect |
+|---|---|---|---|
+| `Show icons from the icon pack` | `ShowPackIcons` | `true` | On: the application list shows the icons of the icon pack. Off: it shows two letters of each name, and the app does not download or update the pack when it starts. A staged application takes the icon of an installed pack with either value. |
+
+The controls in this table store no setting.
 
 | UI label | Effect |
 |---|---|

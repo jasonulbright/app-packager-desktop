@@ -98,7 +98,7 @@ function Start-Apd([string]$Exe, [string]$DataRoot, [string]$Theme, [hashtable]$
     $userRoot = Join-Path $DataRoot (Join-Path 'Users' $sid)
     New-Item -ItemType Directory -Force $userRoot | Out-Null
     # CheckForUpdatesAtStartup is off: the update window of a newer release must not cover a page in the image (Capture-UpdateAndCli opens it with its own button).
-    $all = [ordered]@{ Theme = $Theme; FirstRunCompleted = $true; SiteCode = 'MCM'; ProviderMachine = 'cm01.contoso.com'; UseConfigMgr = $true; CheckForUpdatesAtStartup = $false }
+    $all = [ordered]@{ Theme = $Theme; FirstRunCompleted = $true; SiteCode = 'MCM'; ProviderMachine = 'cm01.contoso.com'; UseConfigMgr = $true; CheckForUpdatesAtStartup = $false; ShowPackIcons = $false }
     # The columns of a new install. The app takes a settings file that is there before its first start as an upgrade and would show the earlier, wider
     # set, so the compact set is written. A caller that needs other columns gives both values in -Settings.
     $all.PackagesShownColumns = @('ConfigMgr version', 'Latest', 'Status', 'CVE check')
