@@ -29,31 +29,37 @@ public sealed class PageStructureTests
     [Fact]
     public void ThePageHeaderPagesAreFound() => Assert.True(Pages().Count >= 13);
 
+    // The plain title of the mock (Compact) draws no icon; every header with a card does.
     [Theory]
     [MemberData(nameof(Pages))]
     public void EveryPageHeaderShowsAnIcon(string file)
     {
         var xaml = File.ReadAllText(file);
         foreach (Match header in Regex.Matches(xaml, @"<controls:PageHeader\s[^>]*>", RegexOptions.Singleline))
-            Assert.Matches(@"\sIcon=""[A-Za-z0-9]+24""", header.Value);
+            if (!header.Value.Contains("Compact=\"True\"", StringComparison.Ordinal))
+                Assert.Matches(@"\sIcon=""[A-Za-z0-9]+24""", header.Value);
     }
 
-
-    [Fact]
-    public void TheStatusColumnShowsTheRightIconForEachClass()
+    [Theory]
+    [InlineData("Staged", "checkmark_circle", "good")]
+    [InlineData("Up to date", "checkmark_circle", "good")]
+    [InlineData("Update available", "arrow_up", "warn")]
+    [InlineData(ApplicationPackagerUI.Helpers.PackagesTab.NotFoundStatus, "info", "info")]
+    [InlineData("Download error: timeout", "error_circle", "bad")]
+    [InlineData("Ready", "clock", "")]
+    public void TheStatusColumnShowsTheRightIconForEachClass(string status, string glyph, string kind)
     {
-        var doc = XDocument.Load(Src("Views", "Pages", "PackagesPage.xaml"));
-        var style = doc.Descendants().Single(e => e.Name.LocalName == "Style" && (string?)e.Attribute("TargetType") == "ui:SymbolIcon");
-        var neutral = style.Elements().Single(e => e.Name.LocalName == "Setter" && (string?)e.Attribute("Property") == "Symbol");
-        Assert.Equal("Circle24", (string?)neutral.Attribute("Value"));
-
-        var bySymbol = style.Descendants().Where(e => e.Name.LocalName == "DataTrigger")
-            .ToDictionary(t => (string)t.Attribute("Value")!, t => (string)t.Descendants().Single(s => s.Name.LocalName == "Setter").Attribute("Value")!);
-        Assert.Equal("CheckmarkCircle24", bySymbol["Success"]);
-        Assert.Equal("Warning24", bySymbol["Warning"]);
-        Assert.Equal("Info24", bySymbol["Info"]);
-        Assert.Equal("DismissCircle24", bySymbol["Error"]);
-        Assert.Equal(4, bySymbol.Count);
+        Assert.Equal(glyph, ApplicationPackagerUI.Helpers.PackagesCells.StatusIcon(status));
+        Assert.Equal(kind, ApplicationPackagerUI.Helpers.PackagesCells.StatusKind(status));
+        // The icon font is read by a pack address. A test that runs first in its process must register that address scheme, else the type of the
+        // icons fails for the whole run.
+        _ = System.IO.Packaging.PackUriHelper.UriSchemePack;
+        _ = System.Windows.Application.Current;
+        Assert.True(ApplicationPackagerUI.Controls.Mock.Ico.Knows(glyph), $"The icon font has no glyph {glyph}.");
+        // The cell of the grid takes its glyph from this conversion.
+        var cell = XDocument.Load(Src("Views", "Pages", "PackagesPage.xaml")).Descendants()
+            .Where(e => e.Name.LocalName == "Ico" && Attr(e, "Glyph").Contains("ConverterParameter=StatusIcon", StringComparison.Ordinal));
+        Assert.Single(cell);
     }
 
     private static IEnumerable<string> AllXaml()
@@ -79,17 +85,40 @@ public sealed class PageStructureTests
                 .Any(v => v > 3 && v % 4 != 0))
             .Select(m => m.Value);
 
+    // The files that draw the approved mock images. Their sizes and offsets are those of the images, which the image proof
+    // (tools/MockProof) compares; the type scale and the 4 px grid hold for every other file.
+    private static readonly string[] MockFiles =
+    [
+        "ContextStrip.xaml", "PageHeader.xaml", "SetupChecklistPanel.xaml", "StepList.xaml", "WorkbenchSidePanel.xaml",
+        "AddAppPage.xaml", "DeploymentHelperPage.xaml", "DeploymentRingsView.xaml", "PackagesPage.xaml", "SettingsPage.xaml",
+        "Mock.xaml", "Mock.Dialogs.xaml", "Mock.Settings.xaml", "Mock.WebDeploy.xaml", "Shell.xaml",
+        "MainWindow.xaml", "OneClickPlanWindow.xaml", "PublishResultsWindow.xaml", "PublishReviewWindow.xaml", "WorkbenchWindow.xaml"
+    ];
+
+    private static IEnumerable<string> GridXaml() => AllXaml().Where(file => !MockFiles.Contains(Path.GetFileName(file)));
+
+    [Fact]
+    public void EveryFileThatLeavesTheScaleAndTheGridDrawsTheMock()
+    {
+        foreach (var name in MockFiles)
+        {
+            var file = Assert.Single(AllXaml(), f => Path.GetFileName(f) == name);
+            Assert.True(Regex.IsMatch(File.ReadAllText(file), @"\bMk[.\w]*(?:Brush|Button|Grid|:)|mk:"), $"{name} uses nothing of the mock styles.");
+        }
+        Assert.True(GridXaml().Count() > 30, "Too few files are left for the scale and the grid checks.");
+    }
+
     [Fact]
     public void EveryFontSizeIsOnTheTypeScale()
     {
-        var off = AllXaml().SelectMany(file => OffScaleSizes(File.ReadAllText(file)).Select(size => $"{Path.GetFileName(file)}: {size}")).ToList();
+        var off = GridXaml().SelectMany(file => OffScaleSizes(File.ReadAllText(file)).Select(size => $"{Path.GetFileName(file)}: {size}")).ToList();
         Assert.True(off.Count == 0, "Font sizes off the scale: " + string.Join(", ", off));
     }
 
     [Fact]
     public void EveryMarginAndPaddingIsOnTheGrid()
     {
-        var off = AllXaml().SelectMany(file => OffGridSpacing(File.ReadAllText(file)).Select(v => $"{Path.GetFileName(file)}: {v}")).Distinct().ToList();
+        var off = GridXaml().SelectMany(file => OffGridSpacing(File.ReadAllText(file)).Select(v => $"{Path.GetFileName(file)}: {v}")).Distinct().ToList();
         Assert.True(off.Count == 0, "Spacing off the grid: " + string.Join("; ", off));
     }
 
@@ -137,20 +166,24 @@ public sealed class PageStructureTests
         Assert.Equal(Column("TitleText"), Column("StatusText"));
     }
 
-    // The App Packager actions (overhaul V1, phase 3c): the tab row has One Click and the Check menu, the batch bar has Cancel, Stage and Publish All.
-    // The checks, the reports and the ways to add an application are menus, so the page has no toolbar row.
+    // The App Packager actions as the mock draws them: one row with the three checks, Stage, Review publish and One Click; Cancel is in
+    // the line under the grid. The reports and the ways to add an application are in menus.
     [Fact]
-    public void TheAppPackagerActionsAreInTheTabRowAndTheBatchBar()
+    public void TheAppPackagerActionsAreInTheActionRowAndTheLogLine()
     {
         var doc = Xaml("Views", "Pages", "PackagesPage.xaml");
-        string[] Buttons(string name) => doc.Descendants()
-            .Single(e => Attr(e, "{http://schemas.microsoft.com/winfx/2006/xaml}Name") == name)
-            .Descendants().Where(e => e.Name.LocalName == "Button").Select(b => Attr(b, "Content")).ToArray();
-        Assert.Equal(new[] { "One Click", "Check" }, Buttons("AppPackagerToolbar"));
-        Assert.Equal(new[] { "Cancel", "Stage", "Publish All" }, Buttons("BatchActions"));
+        XElement Named(string name) => doc.Descendants().Single(e => Attr(e, "{http://schemas.microsoft.com/winfx/2006/xaml}Name") == name);
+        string[] Buttons(string name) => Named(name).Descendants().Where(e => e.Name.LocalName == "Button").Select(b => Attr(b, "Content")).ToArray();
+        Assert.Equal(new[] { "Check latest", "Check ConfigMgr", "Check CVEs", "Stage", "Review publish", "One Click" }, Buttons("AppPackagerToolbar"));
+        Assert.Equal(new[] { "Logs", "Operation history", "Cancel" }, Buttons("LogBar"));
+        var commands = Named("AppPackagerToolbar").Descendants().Where(e => e.Name.LocalName == "Button").Select(b => Attr(b, "Command")).ToArray();
+        Assert.Equal(new[] { "{Binding CheckLatestCommand}", "{Binding CheckMecmCommand}", "{Binding CheckCvesCommand}", "{Binding StageCommand}",
+            "{Binding PublishAllCommand}", "{Binding OneClickCommand}" }, commands);
+        Assert.Equal("{Binding CancelOperationCommand}", Attr(Named("btnCancelOperation"), "Command"));
+        foreach (var menu in new[] { "btnMore", "btnColumns" }) Assert.NotEmpty(Attr(Named(menu), "Click"));
         // The per-system publish buttons are gone (D-47), and so are the buttons that moved into a menu.
         var all = doc.Descendants().Where(e => e.Name.LocalName == "Button").Select(b => Attr(b, "Content")).ToList();
-        foreach (var gone in new[] { "Check Latest", "Check ConfigMgr", "Check CVEs", "CVE Report", "Ops History", "Export Check Results", "Import From URL",
+        foreach (var gone in new[] { "CVE Report", "Ops History", "Export Check Results", "Import From URL",
                      "Convert from ConfigMgr", "Discover unmanaged software", "Supersedence", "WSUS Updates", "Publish to ConfigMgr", "Publish to Intune", "Publish to WSUS" })
             Assert.DoesNotContain(gone, all);
     }
@@ -180,14 +213,34 @@ public sealed class PageStructureTests
         Assert.Contains("Script library", texts);
     }
 
-    // Keyboard focus stays visible: no style removes the focus visual of a control. CM01 captures of the Tab key in the light and the
-    // dark theme show the library focus ring on the sidebar items and the buttons (step 7 of the pass).
+    // Keyboard focus stays visible. A style of the mock may drop the focus rectangle only when its own template draws the focus, or when
+    // it is the grid row, whose focused cell draws it.
     [Fact]
     public void NoStyleRemovesTheFocusVisual()
     {
-        var off = AllXaml().Where(file => RemovesTheFocusVisual(File.ReadAllText(file))).Select(Path.GetFileName).ToList();
+        var off = new List<string>();
+        foreach (var file in AllXaml())
+        {
+            var all = XDocument.Load(file, LoadOptions.SetLineInfo).Descendants().ToList();
+            var removed = all.Where(e => Attr(e, "FocusVisualStyle") == "{x:Null}"
+                || (e.Name.LocalName == "Setter" && Attr(e, "Property") == "FocusVisualStyle" && Attr(e, "Value") == "{x:Null}"));
+            foreach (var element in removed)
+            {
+                var style = element.Name.LocalName == "Setter" ? element.Parent! : element;
+                if (Attr(style, "{http://schemas.microsoft.com/winfx/2006/xaml}Key") == "Mk.GridRow" || DrawsTheKeyboardFocus(style)) continue;
+                off.Add($"{Path.GetFileName(file)}:{((System.Xml.IXmlLineInfo)element).LineNumber}");
+            }
+        }
         Assert.True(off.Count == 0, "A style removes the focus visual: " + string.Join(", ", off));
+        // The grid cell draws the focus that the row style leaves to it.
+        var cell = Xaml("Views", "Styles", "Mock.xaml").Descendants()
+            .Single(e => e.Name.LocalName == "Style" && Attr(e, "{http://schemas.microsoft.com/winfx/2006/xaml}Key") == "Mk.GridCell");
+        Assert.True(DrawsTheKeyboardFocus(cell), "The grid cell does not show the keyboard focus.");
     }
+
+    private static bool DrawsTheKeyboardFocus(XElement style) =>
+        style.Descendants().Any(t => t.Name.LocalName == "Trigger" && Attr(t, "Property") == "IsKeyboardFocused" && Attr(t, "Value") == "True"
+                                     && t.Elements().Any(s => Attr(s, "Property") is "BorderBrush" or "BorderThickness"));
 
     // True when a XAML text sets a FocusVisualStyle to {x:Null}, as an attribute or in a setter.
     internal static bool RemovesTheFocusVisual(string xaml) =>

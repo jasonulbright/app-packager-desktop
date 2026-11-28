@@ -191,20 +191,54 @@ public sealed class FoundationsTests
                 if (table[key] != g.Groups[1].Value) wrong.Add($"{Path.GetRelativePath(ui, file)}: {label} shows {g.Groups[1].Value}, the table says {table[key]}");
             }
         }
-        Assert.True(seen >= 6, $"Only {seen} labeled buttons were found.");
+        // The buttons of the mock name a glyph of the icon font of the mock.
+        var mockTable = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["One Click"] = "play", ["Check"] = "checkmark_circle", ["Check latest"] = "arrow_sync", ["Check ConfigMgr"] = "server",
+            ["Check CVEs"] = "shield", ["Stage"] = "box", ["Review publish"] = "arrow_right"
+        };
+        var mockButton = new Regex(@"<Button\b[^>]*>", RegexOptions.Singleline);
+        var mockGlyph = new Regex(@"\bmk:Mk\.Icon=""([a-z_]+)""");
+        foreach (var file in Directory.EnumerateFiles(ui, "*.xaml", SearchOption.AllDirectories))
+        {
+            if (file.Contains(Path.DirectorySeparatorChar + "obj" + Path.DirectorySeparatorChar)) continue;
+            foreach (Match tag in mockButton.Matches(File.ReadAllText(file)))
+            {
+                var c = content.Match(tag.Value);
+                var g = mockGlyph.Match(tag.Value);
+                if (!c.Success || !g.Success || !mockTable.TryGetValue(c.Groups[1].Value, out var expected)) continue;
+                seen++;
+                Assert.True(ApplicationPackagerUI.Controls.Mock.Ico.Knows(g.Groups[1].Value), $"The icon font has no glyph {g.Groups[1].Value}.");
+                if (expected != g.Groups[1].Value) wrong.Add($"{Path.GetRelativePath(ui, file)}: {c.Groups[1].Value} shows {g.Groups[1].Value}, the table says {expected}");
+            }
+        }
+        Assert.True(seen >= 12, $"Only {seen} labeled buttons were found.");
         Assert.True(wrong.Count == 0, string.Join(" | ", wrong));
     }
 
     // Cancel slot
 
     [Theory]
-    [InlineData("Views/Windows/OneClickPlanWindow.xaml", "btnCancelRun")]
     [InlineData("Views/Pages/SettingsPage.xaml", "btnWsusCancel")]
     public void ACancelButtonOfAHostThatTakesTheSlotUsesTheStyle(string file, string id)
     {
         var text = File.ReadAllText(Path.Combine(CatalogServiceTests.RepositoryRoot(), "src", "ApplicationPackagerUI", file));
         var tag = Regex.Matches(text, @"<ui:Button\b[^>]*>", RegexOptions.Singleline).Single(m => m.Value.Contains($"\"{id}\""));
         Assert.Contains("Style=\"{StaticResource CancelSlot}\"", tag.Value);
+    }
+
+    // The footer of the One Click window is that of the mock: Cancel shows only during a run. It is the first button of a row that is
+    // aligned to the right, so Close and Run keep their place when it appears.
+    [Fact]
+    public void TheCancelButtonOfTheOneClickWindowMovesNoOtherButton()
+    {
+        var doc = XDocument.Load(Path.Combine(CatalogServiceTests.RepositoryRoot(), "src", "ApplicationPackagerUI", "Views", "Windows", "OneClickPlanWindow.xaml"));
+        var cancel = doc.Descendants(P + "Button").Single(b => (string?)b.Attribute(X + "Name") == "btnCancelRun");
+
+        Assert.Equal("{Binding CancelCommand}", (string?)cancel.Attribute("Command"));
+        Assert.Contains("IsRunning", (string?)cancel.Attribute("Visibility"));
+        Assert.Same(cancel, cancel.Parent!.Elements(P + "Button").First());
+        Assert.EndsWith("DialogFrame.FootRight", cancel.Parent.Parent!.Name.LocalName);
     }
 
     [Theory]

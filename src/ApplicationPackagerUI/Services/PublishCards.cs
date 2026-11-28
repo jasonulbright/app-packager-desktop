@@ -2,7 +2,6 @@ using System.IO;
 using System.Text.Json;
 using ApplicationPackagerEngine.Models;
 using ApplicationPackagerEngine.Services.OneClick;
-using ApplicationPackagerEngine.Services.Supersedence;
 using ApplicationPackagerUI.Models;
 
 namespace ApplicationPackagerUI.Services;
@@ -18,8 +17,15 @@ public static class PublishCards
 
     private static List<PublishCardLine> Lines(PublishPlan plan, AppSettings settings, OneClickScopeSettings scope, string system)
     {
-        var lines = new List<PublishCardLine> { new("Scope", OneClickPlanner.Scope(system, scope)) };
         var rows = plan.Rows.Where(r => r.Cells.Any(c => c.Destination == system && c.Kind == PublishCellKind.Create)).Select(r => r.App).ToList();
+        // A PS1 packager can distribute and deploy by its own script, so the card does not say that nothing is deployed.
+        var scripts = system == OneClickDestinations.ConfigMgr && rows.Any(a => a.ScriptDecides);
+        var lines = new List<PublishCardLine>
+        {
+            new("Scope", !scripts ? OneClickPlanner.Scope(system, scope)
+                : rows.All(a => a.ScriptDecides) ? "The PS1 packager script decides distribution and deployment."
+                : OneClickPlanner.Scope(system, scope) + ". A PS1 packager can distribute or deploy by its own script.")
+        };
         string PerApplication(Func<PublishPlanApp, string> text) =>
             rows.Count == 0 ? "No application is published to this system." : string.Join(Environment.NewLine, rows.Select(a => a.Application + ": " + text(a)));
         switch (system)
@@ -33,10 +39,10 @@ public static class PublishCards
                     ConfigMgrFactKind.Unreadable => "ConfigMgr was not read",
                     _ => "none found by the last check"
                 })));
-                lines.Add(new("Distribution and deployment", PerApplication(a => a.ConfigMgrSteps.Length > 0 ? a.ConfigMgrSteps : "none")));
-                lines.Add(new("Supersedence", SupersedenceSettingsEditor.EffectiveMode(settings.Supersedence, "") == SupersedenceMode.Off
-                    ? "Off by default. A row that applies it says so under Distribution and deployment."
-                    : "On by default. The run asks before it applies it."));
+                lines.Add(new("Distribution and deployment", PerApplication(a => a.ScriptDecides ? "the PS1 packager script decides"
+                    : a.ConfigMgrSteps.Length > 0 ? a.ConfigMgrSteps : "none")));
+                lines.Add(new("Supersedence", PerApplication(a => a.ScriptDecides ? "set by the PS1 packager script"
+                    : a.Supersedes ? "on, the run asks before it applies it" : "off")));
                 break;
             case OneClickDestinations.Intune:
                 lines.Add(new("Detection method", "From the detection method of the stage."));

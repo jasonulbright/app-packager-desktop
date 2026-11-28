@@ -121,17 +121,20 @@ public sealed class PublishRetryTests : IDisposable
             try
             {
                 RenderKit.Settle(window);
-                var buttons = RenderKit.Descendants(window).OfType<ButtonBase>()
-                    .Where(b => AutomationProperties.GetAutomationId(b) == "btnResultsRetry" && b.IsVisible).ToList();
-                var retry = Assert.Single(buttons);
-                Assert.Equal("Retry WSUS for Alpha", AutomationProperties.GetName(retry));
-                Assert.True(retry.Focusable && retry.IsTabStop && retry.IsEnabled);
-                var texts = RenderKit.Descendants(window).OfType<TextBlock>().Select(t => t.Text).ToList();
-                Assert.Contains(texts, t => t.StartsWith("Alpha, Intune: Verify in Intune before retrying.", StringComparison.Ordinal));
+                // The window of the mock offers the retry in the menu of the result row.
+                Assert.NotNull(RenderKit.ById<System.Windows.Controls.DataGrid>(window, "gridResultsMatrix").ContextMenu);
+                var items = window.BuildRowMenu(viewModel.Lines[0]).Items.OfType<System.Windows.Controls.MenuItem>()
+                    .Where(i => AutomationProperties.GetAutomationId(i) == "btnResultsRetry").ToList();
+                var retry = Assert.Single(items, i => i.IsEnabled);
+                Assert.Equal("Retry WSUS for Alpha", retry.Header);
+                // A retry that the app cannot verify shows what to verify by hand, and cannot be selected.
+                var manual = Assert.Single(items, i => !i.IsEnabled);
+                Assert.StartsWith("Alpha, Intune: Verify in Intune before retrying.", (string)manual.Header);
+                Assert.True(System.Windows.Controls.ToolTipService.GetShowOnDisabled(manual));
                 Assert.False(RenderKit.ById<TextBlock>(window, "txtResultsRetryNote").IsVisible);
                 PageChromeKit.AssertNothingClipped((DependencyObject)window.Content, $"publish results with a retry {theme}");
 
-                retry.RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent));
+                retry.RaiseEvent(new RoutedEventArgs(System.Windows.Controls.MenuItem.ClickEvent));
                 Assert.True(closed, "The retry button does not close the results.");
                 Assert.Equal("WSUS", viewModel.RequestedRetry!.Destination);
             }
@@ -144,7 +147,7 @@ public sealed class PublishRetryTests : IDisposable
         var build = Activator.CreateInstance(typeof(PackagesViewModel).GetNestedType("PublishRunBuild", BindingFlags.NonPublic)!,
             new List<PackagerInfo> { row }, null, null, null)!;
         return (Task)typeof(PackagesViewModel).GetMethod("ShowResultsAsync", BindingFlags.Instance | BindingFlags.NonPublic)!
-            .Invoke(viewModel, [rows, false, new[] { "ConfigMgr", "WSUS" }, build, null])!;
+            .Invoke(viewModel, [rows, false, new[] { "ConfigMgr", "WSUS" }, build, new HashSet<string>(), new List<PublishPlanApp>(), new HashSet<string>()])!;
     }
 
     private static PackagerInfo Row(string version) => new() { Uid = "a", Application = "Alpha", CMName = "Alpha", Vendor = "Contoso", LatestVersion = version };

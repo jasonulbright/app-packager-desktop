@@ -584,13 +584,10 @@ public sealed class LiveServiceTests
 
     // ---- Read-only source scan -------------------------------------------------------------------
 
-    private static string Repo([System.Runtime.CompilerServices.CallerFilePath] string path = "") =>
-        Path.GetFullPath(Path.Combine(Path.GetDirectoryName(path)!, "..", "..", ".."));
-
     [Fact]
     public void TheLiveScriptsAndTheLiveServiceHoldNoWriteCmdletOrWriteStatement()
     {
-        var folder = Path.Combine(Repo(), "src", "ApplicationPackagerEngine", "Services", "SiteHygiene");
+        var folder = Path.Combine(Compliance.CatalogServiceTests.RepositoryRoot(), "src", "ApplicationPackagerEngine", "Services", "SiteHygiene");
         var provider = File.ReadAllText(Path.Combine(folder, "Scripts", "SiteHygieneLive.ps1"));
         var sqlScript = File.ReadAllText(Path.Combine(folder, "Scripts", "SiteHygieneLiveSql.ps1"));
         var service = File.ReadAllText(Path.Combine(folder, "SiteHygieneLiveService.cs")) + File.ReadAllText(Path.Combine(folder, "LiveAggregator.cs"));

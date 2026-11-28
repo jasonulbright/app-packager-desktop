@@ -10,6 +10,9 @@ public partial class AddAppPage
     {
         DataContext = viewModel;
         InitializeComponent();
+        // The detection editor and the result panel are shared with other pages; on this page they take the styles of the mock.
+        Helpers.MockControlStyles.Apply(DetectionEditor, this);
+        Helpers.MockControlStyles.Apply(ResultPanel, this);
     }
 
     private void SaveAndOpenWorkbench_Click(object sender, RoutedEventArgs e) =>

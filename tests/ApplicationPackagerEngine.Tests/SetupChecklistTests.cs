@@ -155,7 +155,9 @@ public sealed class SetupChecklistTests : IDisposable
         var vm = Checklist(service);
         vm.Refresh();
         Assert.True(vm.IsDue && vm.IsOpen);
-        Assert.Equal("1 of 4 complete", vm.ProgressText);
+        // The panel lists the discovery step once the three steps of a setup are done.
+        Assert.Equal("1 of 3 complete", vm.ProgressText);
+        Assert.Equal([SetupStepKey.Systems, SetupStepKey.Site, SetupStepKey.Folders], vm.ShownSteps.Select(s => s.Key));
         Assert.Equal("Connect a site to check for updates", vm.StripTitle);
         Assert.Equal(SetupChecklistRules.InProgress, service.Load().SetupChecklist);
 
@@ -168,6 +170,7 @@ public sealed class SetupChecklistTests : IDisposable
         vm.Refresh();
         Assert.True(vm.IsOpen);
         Assert.Equal("3 of 4 complete", vm.ProgressText);
+        Assert.Equal(SetupStepKey.Discovery, vm.ShownSteps[^1].Key);
         Assert.Equal("Finish the setup checklist", vm.StripTitle);
 
         Scanned("P01", "cm01.contoso.com", 5);
@@ -261,11 +264,17 @@ public sealed class SetupChecklistTests : IDisposable
     public void SkipScanCompletesTheStepAndALaterScanShowsItsResult()
     {
         using var scope = SiteContext.Scope(null, _root);
-        var vm = Checklist(new SettingsService());
+        var service = new SettingsService();
+        Configure(service, "P01", "cm01.contoso.com");
+        var vm = Checklist(service);
         vm.Refresh();
         vm.SkipScanCommand.Execute(null);
         Assert.Equal("Skipped", Step(vm, SetupStepKey.Discovery).StateWord);
-        Assert.Equal("2 of 4 complete", vm.ProgressText);
+        // The site is not tested, so the panel still lists the three steps of the setup, and two of them are done.
+        Assert.Equal("2 of 3 complete", vm.ProgressText);
+        _connection = ConfigMgrConnectionState.Connected;
+        vm.Refresh();
+        Assert.Equal("4 of 4 complete", vm.ProgressText);
 
         var settings = new SettingsService().Load();
         Scanned(settings.SiteCode, settings.ProviderMachine, 2);
@@ -516,10 +525,29 @@ public sealed class SetupChecklistTests : IDisposable
             $"{where}: {AutomationProperties.GetAutomationId(element)} is at {bounds} in {container.ActualWidth:0}x{container.ActualHeight:0}.");
     }
 
+    /// <summary>The menu of a step, filled as a right click or the menu key fills it. It has the actions that the step has beside its button.</summary>
+    private static List<MenuItem> StepMenu(UserControl panel, string key)
+    {
+        var title = RenderKit.ById<TextBlock>(panel, "txtSetupStep" + key);
+        DependencyObject node = title;
+        while (node is not UserControl { ContextMenu: not null }) node = System.Windows.Media.VisualTreeHelper.GetParent(node);
+        var step = (UserControl)node;
+        typeof(ApplicationPackagerUI.Controls.SetupChecklistPanel)
+            .GetMethod("Step_ContextMenuOpening", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
+            .Invoke(panel, [step, null]);
+        return step.ContextMenu!.Items.OfType<MenuItem>().ToList();
+    }
+
+    private static List<string> Ids(IEnumerable<MenuItem> items) => items.Select(AutomationProperties.GetAutomationId).ToList();
+
+    /// <summary>The button of each step that has one: the buttons of the list, in order.</summary>
+    private static List<System.Windows.Controls.Button> StepButtons(ScrollViewer scroller) =>
+        RenderKit.Descendants(scroller).OfType<System.Windows.Controls.Button>().Where(b => b.IsVisible).ToList();
+
     [Theory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
-    public void AtTheDesignWindowTheFourStepsAndTheFooterButtonsShowWithoutScrolling(ApplicationTheme theme)
+    public void AtTheDesignWindowTheStepsAndTheirButtonsShowWithoutScrolling(ApplicationTheme theme)
     {
         RenderKit.WithApplication(theme, () =>
         {
@@ -533,17 +561,19 @@ public sealed class SetupChecklistTests : IDisposable
                 AssertInsideOf(page, panel, where);
                 var scroller = StepScroller(panel);
                 Assert.True(scroller.ScrollableHeight < 0.5, $"{where}: the steps need {scroller.ScrollableHeight:0} px more than the {scroller.ViewportHeight:0} px they have.");
-                foreach (var key in new[] { "Systems", "Site", "Folders", "Discovery" })
+                foreach (var key in new[] { "Systems", "Site", "Folders" })
                     AssertInsideOf(scroller, RenderKit.ById<TextBlock>(panel, "txtSetupStep" + key), where);
-                var inSteps = RenderKit.Descendants(scroller).OfType<ButtonBase>().Where(b => b.IsVisible && b is System.Windows.Controls.Button).ToList();
-                Assert.Contains(inSteps, b => AutomationProperties.GetAutomationId(b) == "btnSetupScan");
-                foreach (var button in inSteps) AssertInsideOf(scroller, button, where);
-                foreach (var id in new[] { "btnSetupClose", "btnSetupDismiss" })
-                {
-                    var button = RenderKit.ById<ButtonBase>(panel, id);
-                    Assert.True(button.IsVisible);
-                    AssertInsideOf(panel, button, where);
-                }
+                var buttons = StepButtons(scroller);
+                Assert.Equal(2, buttons.Count);
+                foreach (var button in buttons) AssertInsideOf(scroller, button, where);
+                // The failed connection test stays reachable from the menu of its step, with the Setup window.
+                var site = StepMenu(panel, "Site");
+                Assert.Contains("btnSetupTestConnection", Ids(site));
+                Assert.Contains("btnSetupOpenWindowSite", Ids(site));
+                Assert.Contains("btnSetupDismiss", Ids(site));
+                var skip = RenderKit.ById<ButtonBase>(page, "btnSetupClose");
+                Assert.True(skip.IsVisible);
+                AssertInsideOf(page, skip, where);
                 PageChromeKit.AssertNothingClipped(panel, where);
             }
             finally { window.Close(); }
@@ -551,28 +581,105 @@ public sealed class SetupChecklistTests : IDisposable
     }
 
     [Fact]
-    public void InASmallWindowTheStepsScrollAndTheFooterButtonsStayInTheWindow()
+    public void InASmallWindowTheStepsScrollAndSkipStaysInTheWindow()
     {
         RenderKit.WithApplication(ApplicationTheme.Light, () =>
         {
             using var scope = SiteContext.Scope(null, _root);
-            var (page, window) = ChecklistWindow(1440 - 230, 720 - 48);
+            var (page, window) = ChecklistWindow(1440 - 230, 480);
             try
             {
                 var panel = RenderKit.ById<UserControl>(page, "pnlSetupChecklist");
                 var scroller = StepScroller(panel);
                 Assert.Equal(ScrollBarVisibility.Auto, scroller.VerticalScrollBarVisibility);
                 Assert.True(scroller.ScrollableHeight > 0, "The steps do not scroll in a window that is too low for them.");
-                foreach (var id in new[] { "btnSetupClose", "btnSetupDismiss" }) AssertInsideOf(panel, RenderKit.ById<ButtonBase>(panel, id), "small window");
+                AssertInsideOf(page, RenderKit.ById<ButtonBase>(page, "btnSetupClose"), "small window");
             }
             finally { window.Close(); }
         });
     }
 
-    /// <summary>The sizes of the fit test of the page: a new install keeps whole grid rows beside the panel and under the strip.</summary>
+    [Theory]
+    [InlineData(ApplicationTheme.Light)]
+    [InlineData(ApplicationTheme.Dark)]
+    public void TheKeyboardReachesEveryStepAndTheHelpTextNamesTheMenuKeys(ApplicationTheme theme)
+    {
+        RenderKit.WithApplication(theme, () =>
+        {
+            using var scope = SiteContext.Scope(null, _root);
+            var (page, window) = ChecklistWindow(DesignPageWidth, DesignPageHeight);
+            try
+            {
+                var panel = RenderKit.ById<UserControl>(page, "pnlSetupChecklist");
+                var steps = RenderKit.Descendants(panel).OfType<UserControl>().Where(s => s.ContextMenu is not null).ToList();
+                // A failed connection and no folders: the first step is done and has no button, and it takes the focus too.
+                Assert.Equal(3, steps.Count);
+                foreach (var step in steps)
+                {
+                    Assert.True(step.Focusable && step.IsTabStop && step.IsVisible);
+                    Assert.NotNull(step.FocusVisualStyle);
+                    Assert.Contains("Apps key or Shift+F10", AutomationProperties.GetHelpText(step));
+                    Assert.StartsWith("Step ", UIElementAutomationPeer.CreatePeerForElement(step).GetName());
+                }
+                Assert.True(steps[0].MoveFocus(new System.Windows.Input.TraversalRequest(System.Windows.Input.FocusNavigationDirection.Next)));
+                Assert.Contains("btnSetupOpenWindowSystems", Ids(StepMenu(panel, "Systems")));
+            }
+            finally { window.Close(); }
+        });
+    }
+
+    [Fact]
+    public void ARunShowsCancelAlsoWithTheChecklistOpenAndShowDetailsOpensThePane()
+    {
+        File.WriteAllText(SettingsService.SettingsPath, "{ \"FirstRunCompleted\": false }");
+        RenderKit.WithApplication(ApplicationTheme.Light, () =>
+        {
+            using var scope = SiteContext.Scope(null, _root);
+            var page = AppPackagerFitTests.Create(12, out var viewModel);
+            viewModel.Checklist = Checklist(new SettingsService());
+            viewModel.Checklist.Refresh();
+            page = new PackagesPage(viewModel);
+            var window = new Window { Width = 1690, Height = 984, WindowStyle = WindowStyle.None, Content = page };
+            RenderKit.Show(window);
+            try
+            {
+                RenderKit.Settle(window);
+                var panel = RenderKit.ById<UserControl>(page, "pnlSetupChecklist");
+                var bar = (Border)page.FindName("LogBar");
+                Assert.True(panel.IsVisible);
+                Assert.False(bar.IsVisible);
+
+                viewModel.ShowProgress = true;
+                RenderKit.Settle(window);
+                Assert.True(panel.IsVisible && bar.IsVisible, "A run with the checklist open hides the progress.");
+                Assert.True(RenderKit.Descendants(bar).OfType<System.Windows.Controls.ProgressBar>().Single().IsVisible);
+                viewModel.ShowProgress = false;
+                RenderKit.Settle(window);
+                Assert.False(bar.IsVisible);
+
+                // Cancel follows the run state. The field is set, because the change handler needs the services of the real view model.
+                typeof(PackagesViewModel).GetField("_isOperationRunning", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
+                    .SetValue(viewModel, true);
+                typeof(CommunityToolkit.Mvvm.ComponentModel.ObservableObject)
+                    .GetMethod("OnPropertyChanged", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic,
+                        [typeof(string)])!.Invoke(viewModel, [nameof(PackagesViewModel.IsOperationRunning)]);
+                RenderKit.Settle(window);
+                var cancel = RenderKit.ById<ButtonBase>(page, "btnCancelOperation");
+                Assert.True(bar.IsVisible && cancel.IsVisible, "A run with the checklist open has no Cancel.");
+
+                page.ShowDetails();
+                RenderKit.Settle(window);
+                Assert.False(panel.IsVisible);
+                Assert.True(RenderKit.ById<Border>(page, "pnlDetailPane").IsVisible);
+            }
+            finally { window.Close(); }
+        });
+    }
+
+    /// <summary>The sizes of the fit test of the page: a new install keeps whole grid rows beside the panel and after the panel closed.</summary>
     [Theory]
     [MemberData(nameof(AppPackagerFitTests.Sizes), MemberType = typeof(AppPackagerFitTests))]
-    public void ANewInstallKeepsWholeGridRowsWithTheChecklistOpenAndWithTheStrip(ApplicationTheme theme, int width, int height)
+    public void ANewInstallKeepsWholeGridRowsWithTheChecklistOpenAndClosed(ApplicationTheme theme, int width, int height)
     {
         File.WriteAllText(SettingsService.SettingsPath, "{ \"FirstRunCompleted\": false }");
         RenderKit.WithApplication(theme, () =>
@@ -589,7 +696,6 @@ public sealed class SetupChecklistTests : IDisposable
             {
                 RenderKit.Settle(window);
                 var grid = (DataGrid)page.FindName("PackagerGrid");
-                var strip = RenderKit.ById<Border>(page, "pnlSetupStrip");
                 var panel = RenderKit.ById<UserControl>(page, "pnlSetupChecklist");
                 var needed = height >= 1000 ? AppPackagerFitTests.MinimumWholeRows : 5;
 
@@ -599,9 +705,8 @@ public sealed class SetupChecklistTests : IDisposable
                     Assert.True(whole >= needed, $"{theme} {width}x{height}, {state}: the grid shows {whole} whole rows (needs {needed}) and is {grid.ActualHeight:0} px tall.");
                 }
 
-                // A window narrower than the pane limit starts with the strip; a wider one starts with the panel.
+                // A window narrower than the pane limit starts without the panel; a wider one starts with it.
                 var narrow = width < PackagesPage.DetailPaneMinimumWindowWidth;
-                Assert.Equal(narrow, strip.IsVisible);
                 Assert.Equal(!narrow, panel.IsVisible);
                 Check("at the start");
 
@@ -609,11 +714,15 @@ public sealed class SetupChecklistTests : IDisposable
                 {
                     viewModel.Checklist.CloseCommand.Execute(null);
                     RenderKit.Settle(window);
-                    Assert.True(strip.IsVisible);
-                    PageChromeKit.AssertNothingClipped(strip, $"setup strip {theme} {width}x{height}");
-                    Check("with the strip");
+                    Assert.False(panel.IsVisible);
+                    Check("with the checklist closed");
                 }
-                else PageChromeKit.AssertNothingClipped(strip, $"setup strip {theme} {width}x{height}");
+                // More opens the checklist again, in a narrow window too.
+                var open = page.BuildMoreMenu().Items.OfType<MenuItem>().Single(i => AutomationProperties.GetAutomationId(i) == "miSetupChecklist");
+                Assert.True(open.IsEnabled);
+                open.RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
+                RenderKit.Settle(window);
+                Assert.True(panel.IsVisible);
             }
             finally { window.Close(); }
         });
@@ -644,33 +753,27 @@ public sealed class SetupChecklistTests : IDisposable
                 var grid = (DataGrid)page.FindName("PackagerGrid");
                 Assert.True(panel.IsVisible);
                 Assert.False(RenderKit.ById<Border>(page, "pnlDetailPane").IsVisible);
-                Assert.False(RenderKit.ById<Border>(page, "pnlSetupStrip").IsVisible);
                 Assert.NotEmpty(RenderKit.Descendants(grid).OfType<DataGridRow>());
                 PageChromeKit.AssertNothingClipped(panel, $"setup checklist {theme}");
+                Assert.Equal("1 of 3 complete", RenderKit.ById<TextBlock>(panel, "txtSetupProgress").Text);
 
-                var titles = new[] { "Systems", "Site", "Folders", "Discovery" }
+                var titles = new[] { "Systems", "Site", "Folders" }
                     .Select(key => UIElementAutomationPeer.CreatePeerForElement(RenderKit.ById<TextBlock>(panel, "txtSetupStep" + key)).GetName()).ToList();
                 Assert.Equal(
-                    [
-                        "Step 1 of 4, Choose systems: Complete", "Step 2 of 4, Connect to your site: To do",
-                        "Step 3 of 4, Set content folders: To do", "Step 4 of 4, Discover unmanaged software: To do"
-                    ], titles);
+                    ["Step 1 of 3, Choose systems: Complete", "Step 2 of 3, Connect to your site: To do", "Step 3 of 3, Set content folders: To do"], titles);
 
                 // More, Setup needs no stored setting.
                 var setup = page.BuildMoreMenu().Items.OfType<MenuItem>().Single(i => AutomationProperties.GetAutomationId(i) == "miSetup");
                 Assert.True(setup.IsEnabled);
 
-                RenderKit.ById<ButtonBase>(panel, "btnSetupClose").Command.Execute(null);
+                RenderKit.ById<ButtonBase>(page, "btnSetupClose").Command.Execute(null);
                 RenderKit.Settle(window);
                 Assert.False(panel.IsVisible);
                 Assert.True(grid.IsVisible && grid.IsEnabled);
                 Assert.True(RenderKit.ById<Border>(page, "pnlDetailPane").IsVisible);
-                var open = RenderKit.ById<ButtonBase>(page, "btnOpenSetupChecklist");
-                Assert.True(open.IsVisible);
-                Assert.Equal("Connect a site to check for updates", RenderKit.ById<TextBlock>(page, "txtSetupStripTitle").Text);
-                Assert.Equal("1 of 4 complete.", RenderKit.ById<TextBlock>(page, "txtSetupStripText").Text);
 
-                open.RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent));
+                page.BuildMoreMenu().Items.OfType<MenuItem>().Single(i => AutomationProperties.GetAutomationId(i) == "miSetupChecklist")
+                    .RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
                 RenderKit.Settle(window);
                 Assert.True(panel.IsVisible);
             }

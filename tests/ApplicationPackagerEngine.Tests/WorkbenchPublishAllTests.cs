@@ -111,6 +111,8 @@ public sealed class WorkbenchPublishAllTests
                 Content = content,
                 Background = (System.Windows.Media.Brush)System.Windows.Application.Current.FindResource("ApplicationBackgroundBrush")
             };
+            // The frame of the mock takes its template from the dictionaries of the window.
+            host.Resources = window.Resources;
             Show(host);
             try
             {
@@ -126,13 +128,18 @@ public sealed class WorkbenchPublishAllTests
                 Assert.Equal(docked, panel.IsVisible);
                 Assert.Equal(!docked, details.IsVisible);
                 Assert.Equal(!docked, line.IsVisible);
+                // The side panel says whether the profile is saved; while it does not show, a line says it.
+                var saveState = Named<System.Windows.Controls.TextBlock>("txtSaveStateLine");
+                Assert.Equal(!docked, saveState.IsVisible);
+                Assert.Equal(viewModel.SaveStateText, saveState.Text);
                 Assert.True(editor.IsVisible, $"{where}: the editor is hidden.");
-                var site = Named<System.Windows.Controls.TextBlock>("txtWorkbenchSite");
-                Assert.True(site.IsVisible && site.Text == "Site MCM", $"{where}: the site line is not shown.");
+                // The frame of the mock shows the site in the context strip under its head, as the main window does.
+                var strip = Assert.Single(Descendants(host).OfType<ContextStrip>());
+                Assert.True(strip.IsVisible && strip.ActualHeight > 0, $"{where}: the context strip is not shown.");
 
                 foreach (var name in new[] { "btnUseDefaults", "btnSave", "btnSaveAs", "btnValidate", "btnStage", "btnPublishAll" })
                     AssertInside(host, Named<FrameworkElement>(name), host.ActualHeight, name);
-                Assert.Equal("Publish All", Named<Wpf.Ui.Controls.Button>("btnPublishAll").Content);
+                Assert.Equal("Review publish", Named<System.Windows.Controls.Button>("btnPublishAll").Content);
                 foreach (var gone in new[] { "btnPublishMecm", "btnPublishIntune", "btnPublishWsus" })
                     Assert.Null(window.FindName(gone));
 

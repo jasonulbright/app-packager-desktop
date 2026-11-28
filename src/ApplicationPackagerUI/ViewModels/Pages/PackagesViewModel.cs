@@ -11,6 +11,9 @@ using ApplicationPackagerUI.ViewModels.Windows;
 
 namespace ApplicationPackagerUI.ViewModels.Pages;
 
+/// <summary>One entry of the status list over the grid.</summary>
+public sealed record StatusFilter(string Label, PackagesTabChoice Choice);
+
 public partial class PackagesViewModel : ObservableObject
 {
     private readonly PackagerDiscoveryService _discoveryService;
@@ -44,7 +47,13 @@ public partial class PackagesViewModel : ObservableObject
     [ObservableProperty] private ObservableCollection<PackagerInfo> _filteredPackagers = [];
     [ObservableProperty] private string _searchText = "";
     [ObservableProperty] private string _comment = "";
-    [ObservableProperty] private string _statusText = "Ready.";
+    [ObservableProperty] [NotifyPropertyChangedFor(nameof(RunSummaryText))] private string _statusText = "Ready";
+
+    /// <summary>The bold words before the line under the grid: "Running" during a run, "Run complete" after a publish, else "Last check".</summary>
+    [ObservableProperty] private string _runSummaryTitle = "Last check";
+
+    /// <summary>The line under the grid: the progress of the run, or how the last one ended.</summary>
+    public string RunSummaryText => StatusText == "Ready" ? "No check has run in this session." : StatusText;
     [ObservableProperty] private bool _isOperationRunning;
     [ObservableProperty] private bool _showDebugColumns;
     /// <summary>The bulk selection cycle behind the header check box (same rules as the PowerShell app).</summary>
@@ -258,6 +267,14 @@ public partial class PackagesViewModel : ObservableObject
         await AnalyzeDroppedInstallerCommand.ExecuteAsync(pendingDrop);
     }
 
+    /// <summary>The marks of the grid and the name of the WSUS server for the review window.</summary>
+    private ViewModels.Windows.PublishReviewViewModel NameReview(ViewModels.Windows.PublishReviewViewModel review) =>
+        new(review.Plan, review.Comment, review.Changes)
+        {
+            Mark = name => Packagers.FirstOrDefault(p => p.Application == name)?.Mark ?? Helpers.PackagesCells.MarkOf(name),
+            WsusName = _settingsService.Load().Wsus.ServerName ?? "",
+        };
+
     private bool CanRunOperation() => !IsOperationRunning;
 
     /// <summary>Disabled rather than hidden when ConfigMgr is not ready: the tooltip states why.</summary>
@@ -265,7 +282,12 @@ public partial class PackagesViewModel : ObservableObject
 
     partial void OnIsOperationRunningChanged(bool value)
     {
-        if (value) _cancelRequested = false;
+        if (value)
+        {
+            _cancelRequested = false;
+            RunSummaryTitle = "Running";
+        }
+        else if (RunSummaryTitle == "Running") RunSummaryTitle = "Last check";
         ApplicationPackagerEngine.Services.SiteRunGuard.Set(this, value ? "a check, Stage or publish run is active" : null);
         NotifyActionCommands();
         Checklist?.RefreshBusy();
@@ -294,7 +316,7 @@ public partial class PackagesViewModel : ObservableObject
 
     public string TabAllText => $"All {TabCounts.All}";
     public string TabUpdateText => $"Updates available {TabCounts.Update}";
-    public string TabNotFoundText => $"Not found in ConfigMgr {TabCounts.NotFound}";
+    public string TabNotFoundText => $"Absent from ConfigMgr {TabCounts.NotFound}";
     public string TabNotCheckedText => $"Not checked {TabCounts.NotChecked}";
 
     /// <summary>"12 selected" and, when the view hides some of them, "12 selected, 4 outside this view". A run acts on all of them.</summary>
@@ -363,8 +385,27 @@ public partial class PackagesViewModel : ObservableObject
         _settingsService.Save(settings);
     }
 
+    /// <summary>The header box: checked when every application is checked, a dash when some are, empty when none is.</summary>
+    public bool? CheckedPart => SelectedCount == 0 ? false : SelectedCount == (Packagers?.Count ?? 0) ? true : null;
+
     public bool HasHiddenSelection => HiddenSelectedCount > 0;
     public bool HasSelection => SelectedCount > 0;
+
+    /// <summary>The entries of the status list over the grid, as the mock names them.</summary>
+    public IReadOnlyList<StatusFilter> StatusFilters => AllStatusFilters;
+
+    private static readonly IReadOnlyList<StatusFilter> AllStatusFilters =
+    [
+        new("All applications", PackagesTabChoice.All),
+        new("Updates available", PackagesTabChoice.Update),
+        new("Absent from ConfigMgr", PackagesTabChoice.NotFound),
+        new("Up to date", PackagesTabChoice.UpToDate),
+        new("Not checked", PackagesTabChoice.NotChecked),
+        new("Checked applications", PackagesTabChoice.Selected)
+    ];
+
+    /// <summary>The tooltip of the status list: what it does and the count of each status over every application.</summary>
+    public string StatusFilterToolTip => $"Show every application, or one status. {TabAllText}, {TabUpdateText}, {TabNotFoundText}, {TabNotCheckedText}.";
 
     /// <summary>The tab of the grid. A change filters the grid in place: the sort and the scroll position stay.</summary>
     [ObservableProperty] private PackagesTabChoice _statusTab = PackagesTabChoice.All;
@@ -404,7 +445,9 @@ public partial class PackagesViewModel : ObservableObject
         OnPropertyChanged(nameof(TabUpdateText));
         OnPropertyChanged(nameof(TabNotFoundText));
         OnPropertyChanged(nameof(TabNotCheckedText));
+        OnPropertyChanged(nameof(StatusFilterToolTip));
         OnPropertyChanged(nameof(SelectedCount));
+        OnPropertyChanged(nameof(CheckedPart));
         OnPropertyChanged(nameof(HiddenSelectedCount));
         OnPropertyChanged(nameof(SelectionText));
         OnPropertyChanged(nameof(HasHiddenSelection));
@@ -456,6 +499,7 @@ public partial class PackagesViewModel : ObservableObject
         foreach (var row in Packagers) row.IsSelected = false;
         if (StatusTab == PackagesTabChoice.Selected) StatusTab = PackagesTabChoice.All;
         OnPropertyChanged(nameof(HeaderSelection));
+        OnPropertyChanged(nameof(CheckedPart));
     }
 
     /// <param name="replace">True after a load: the grid gets a new list. Otherwise the list changes in place, so the sort and the scroll stay.</param>
@@ -485,6 +529,7 @@ public partial class PackagesViewModel : ObservableObject
     {
         _selection.Advance(FilteredPackagers, AddLogLine);
         OnPropertyChanged(nameof(HeaderSelection));
+        OnPropertyChanged(nameof(CheckedPart));
     }
 
     /// <summary>Ctrl+A: every visible row, or clear when every visible row is already the bulk selection.</summary>
@@ -495,6 +540,7 @@ public partial class PackagesViewModel : ObservableObject
         if (visible.Count > 0 && visible.All(p => p.IsSelected)) _selection.Clear(visible, AddLogLine);
         else _selection.SelectAllVisible(FilteredPackagers, AddLogLine);
         OnPropertyChanged(nameof(HeaderSelection));
+        OnPropertyChanged(nameof(CheckedPart));
     }
 
     [RelayCommand]
@@ -502,6 +548,7 @@ public partial class PackagesViewModel : ObservableObject
     {
         _selection.SelectUpdates(FilteredPackagers, AddLogLine);
         OnPropertyChanged(nameof(HeaderSelection));
+        OnPropertyChanged(nameof(CheckedPart));
     }
 
     [RelayCommand]
@@ -1048,8 +1095,8 @@ public partial class PackagesViewModel : ObservableObject
                     {
                         p.CurrentVersion = "";
                         p.SiteCheckedAt = DateTimeOffset.Now;
-                        p.Status = "Not found in ConfigMgr";
-                        AddLogLine($"  Not found in ConfigMgr");
+                        p.Status = PackagesTab.NotFoundStatus;
+                        AddLogLine($"  Absent from ConfigMgr");
                     }
                 }
                 catch (OperationCanceledException ex)
@@ -1270,6 +1317,7 @@ public partial class PackagesViewModel : ObservableObject
             IsOperationRunning = false;
             var review = _reviewAfterPublish;
             _reviewAfterPublish = null;
+            RunSummaryTitle = "Run complete";
             PublishEnded?.Invoke(this, new PublishEndedEventArgs(review));
         }
     }
@@ -1355,7 +1403,7 @@ public partial class PackagesViewModel : ObservableObject
         }
         var confirmed = await PublishReviewGate.ConfirmAsync(plan, Comment, _publishDialogs.ShowPublishReview,
             shownPlan => RereadPlanAsync(shownPlan, selected, readBuild), AddLogLine,
-            comment => Comment = comment);
+            comment => Comment = comment, NameReview);
         if (confirmed is null)
         {
             StatusText = "Publish cancelled. Nothing was published.";
@@ -1401,6 +1449,9 @@ public partial class PackagesViewModel : ObservableObject
         _executionService.SupersedenceConfirmation = new ApplicationPackagerEngine.Services.Supersedence.SupersedenceConfirmer(
             Views.Windows.SupersedenceConfirmDialog.AskAsync, () => _operationCts?.Cancel());
         StatusText = wsusOnly ? "Publishing selected applications to WSUS..." : "Packaging selected applications...";
+
+        // The applications whose existing ConfigMgr application the operator overwrote: nothing of them was kept.
+        var overwritten = new HashSet<string>(StringComparer.Ordinal);
 
         // Per-run only: an apply-to-all answer dies with the loop and is never persisted.
         ConflictAnswer? runConflictAnswer = null;
@@ -1462,6 +1513,7 @@ public partial class PackagesViewModel : ObservableObject
                                 return packaged;
                             }
                             AddLogLine($"Overwriting existing: {packaged.Conflict.ApplicationName} v{packaged.Conflict.Version}");
+                            overwritten.Add(p.Uid);
                             return await _executionService.PackageAsync(
                                 p, Comment, line => AddLogLine($"  {line}"), token,
                                 ApplicationPackagerEngine.Services.OnExistingBehavior.Overwrite,
@@ -1641,7 +1693,7 @@ public partial class PackagesViewModel : ObservableObject
                     && !r.App.ConfigMgrSteps.Contains("deploy to ", StringComparison.Ordinal))
                 .Select(r => r.App.Uid).ToHashSet(StringComparer.Ordinal);
             await ShowResultsAsync(all, tally.Cancelled, confirmedPlan.Systems, new PublishRunBuild(selected, snapshot, sealedVersion, readBuild),
-                withoutDeployment);
+                withoutDeployment, confirmedPlan.Rows.Select(r => r.App).ToList(), overwritten);
         }
     }
 
@@ -1682,7 +1734,7 @@ public partial class PackagesViewModel : ObservableObject
             }
             if (ApplicationPackagerEngine.Services.Supersedence.SupersedenceSettingsEditor.EffectiveMode(settings.Supersedence, applicationId)
                 != ApplicationPackagerEngine.Services.Supersedence.SupersedenceMode.Off)
-                steps.Add("apply supersedence");
+                steps.Add(PublishPlan.SupersedenceStep);
         }
         var version = sealedVersion ?? VersionOf(p);
         // A view model that a test builds without its constructor has no history.
@@ -1701,6 +1753,7 @@ public partial class PackagesViewModel : ObservableObject
             Site = site,
             CheckedAt = p.LastChecked,
             ConfigMgrSteps = string.Join(", ", steps),
+            ScriptDecides = script,
             IntuneNotSupported = script ? "a PS1 packager publishes to ConfigMgr only" : "",
             WsusNotSupported = p.WsusNotSupported ?? ""
         };
@@ -1848,7 +1901,7 @@ public partial class PackagesViewModel : ObservableObject
     public IReadOnlyList<DetailLine> DetailLines => DetailPackager is null ? [] : PackagesDetail.Lines(DetailPackager, DetailStageText);
 
     /// <summary>The pane is open. The choice is saved.</summary>
-    [ObservableProperty] private bool _isDetailPaneOpen = true;
+    [ObservableProperty] private bool _isDetailPaneOpen;
 
     partial void OnIsDetailPaneOpenChanged(bool value)
     {
@@ -1860,7 +1913,7 @@ public partial class PackagesViewModel : ObservableObject
     }
 
     /// <summary>The width of the open pane. The choice is saved.</summary>
-    [ObservableProperty] private double _detailPaneWidth = 320;
+    [ObservableProperty] private double _detailPaneWidth = 350;
 
     partial void OnDetailPaneWidthChanged(double value)
     {

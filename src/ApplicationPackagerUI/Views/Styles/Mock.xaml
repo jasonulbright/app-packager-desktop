@@ -1,0 +1,715 @@
+﻿<ResourceDictionary
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:mk="clr-namespace:ApplicationPackagerUI.Controls.Mock">
+
+    <!-- The controls of the approved mock images. Each style states the rule of the mock's style sheet (design.css) that it draws; the sizes are
+         those of that sheet, one CSS pixel for one device independent unit. The colors are the Mk brushes of the palette of the theme. -->
+
+    <!-- A view that is built where App.xaml did not merge a palette still finds the Mk brushes. -->
+    <ResourceDictionary.MergedDictionaries>
+        <mk:PaletteFallback />
+    </ResourceDictionary.MergedDictionaries>
+
+    <!-- :focus-visible { outline: 2px solid the color focus); outline-offset: 2px } -->
+    <Style x:Key="Mk.Focus">
+        <Setter Property="Control.Template">
+            <Setter.Value>
+                <ControlTemplate>
+                    <Rectangle Margin="-3" Stroke="{DynamicResource MkAccentBrush}" StrokeThickness="2" RadiusX="6" RadiusY="6" />
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- button, .button { min-height:32px; padding:4px 11px; gap:7px; font-weight:550; border:1px solid the color edge); radius 5 } -->
+    <Style x:Key="Mk.Button" TargetType="Button">
+        <Setter Property="FontFamily" Value="Segoe UI" />
+        <Setter Property="FontSize" Value="14" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Foreground" Value="{DynamicResource MkTextBrush}" />
+        <Setter Property="Background" Value="{DynamicResource MkSurfaceBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource MkEdgeBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="Padding" Value="11,0" />
+        <Setter Property="MinHeight" Value="32" />
+        <Setter Property="Height" Value="32" />
+        <Setter Property="MinWidth" Value="0" />
+        <Setter Property="HorizontalContentAlignment" Value="Center" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="SnapsToDevicePixels" Value="True" />
+        <Setter Property="FocusVisualStyle" Value="{StaticResource Mk.Focus}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Grid>
+                        <Border x:Name="Face" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="5" SnapsToDevicePixels="True" mk:Mk.Drop="{Binding Path=(mk:Mk.FaceDrop), RelativeSource={RelativeSource TemplatedParent}}" />
+                        <Rectangle x:Name="Dashes" Stroke="{DynamicResource MkEdgeBrush}" StrokeThickness="1" StrokeDashArray="4 2" RadiusX="5" RadiusY="5" Visibility="Collapsed" mk:Mk.Drop="{Binding Path=(mk:Mk.FaceDrop), RelativeSource={RelativeSource TemplatedParent}}" />
+                        <StackPanel Orientation="Horizontal" Margin="{TemplateBinding Padding}" HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                    VerticalAlignment="{TemplateBinding VerticalContentAlignment}">
+                            <mk:Ico x:Name="Lead" Margin="1,0,7,0" Glyph="{Binding Path=(mk:Mk.Icon), RelativeSource={RelativeSource TemplatedParent}}" mk:Mk.Drop="{Binding Path=(mk:Mk.IconDrop), RelativeSource={RelativeSource TemplatedParent}}" />
+                            <ContentPresenter x:Name="Body" VerticalAlignment="Center" Margin="0,0,1,0" RecognizesAccessKey="True" mk:Mk.Drop="{Binding Path=(mk:Mk.TextDrop), RelativeSource={RelativeSource TemplatedParent}}"><ContentPresenter.Resources><Style TargetType="TextBlock" /></ContentPresenter.Resources></ContentPresenter>
+                            <mk:Ico x:Name="Tail" Margin="6,0,1,0" Glyph="{Binding Path=(mk:Mk.TrailingIcon), RelativeSource={RelativeSource TemplatedParent}}" mk:Mk.Drop="{Binding Path=(mk:Mk.IconDrop), RelativeSource={RelativeSource TemplatedParent}}" />
+                        </StackPanel>
+                    </Grid>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="mk:Mk.Icon" Value="{x:Null}">
+                            <Setter TargetName="Lead" Property="Visibility" Value="Collapsed" />
+                            <Setter TargetName="Body" Property="Margin" Value="1,0,1,0" />
+                        </Trigger>
+                        <Trigger Property="mk:Mk.Icon" Value="">
+                            <Setter TargetName="Lead" Property="Visibility" Value="Collapsed" />
+                            <Setter TargetName="Body" Property="Margin" Value="1,0,1,0" />
+                        </Trigger>
+                        <Trigger Property="mk:Mk.TrailingIcon" Value="{x:Null}">
+                            <Setter TargetName="Tail" Property="Visibility" Value="Collapsed" />
+                        </Trigger>
+                        <Trigger Property="Content" Value="{x:Null}">
+                            <Setter TargetName="Body" Property="Visibility" Value="Collapsed" />
+                            <Setter TargetName="Lead" Property="Margin" Value="1,0" />
+                        </Trigger>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Face" Property="Opacity" Value="0.88" />
+                        </Trigger>
+                        <!-- button[disabled] { background:the color sub); color:the color muted); border-style:dashed; font-weight:400 } -->
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter TargetName="Face" Property="Background" Value="{DynamicResource MkSubBrush}" />
+                            <Setter TargetName="Face" Property="BorderBrush" Value="Transparent" />
+                            <Setter TargetName="Dashes" Property="Visibility" Value="Visible" />
+                            <Setter Property="Foreground" Value="{DynamicResource MkMutedBrush}" />
+                            <Setter Property="FontWeight" Value="Normal" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key="Mk.Button.Primary" TargetType="Button" BasedOn="{StaticResource Mk.Button}">
+        <Setter Property="Background" Value="{DynamicResource MkAccentBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource MkAccentBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource MkOnBrush}" />
+    </Style>
+
+    <!-- .logline button { min-height:28px } : the mock draws it 29 px high -->
+    <Style x:Key="Mk.Button.Line" TargetType="Button" BasedOn="{StaticResource Mk.Button}">
+        <Setter Property="mk:Mk.IconDrop" Value="1" />
+        <Setter Property="MinHeight" Value="29" />
+        <Setter Property="Height" Value="29" />
+    </Style>
+
+    <!-- td button { min-height:26px; padding:2px 8px; font-size:12px } -->
+    <Style x:Key="Mk.Button.Cell" TargetType="Button" BasedOn="{StaticResource Mk.Button}">
+        <Setter Property="MinHeight" Value="26" />
+        <Setter Property="Height" Value="26" />
+        <Setter Property="Padding" Value="8,0" />
+        <Setter Property="FontSize" Value="12" />
+    </Style>
+
+    <!-- .windowhead .button { border-color:transparent; background:transparent } -->
+    <Style x:Key="Mk.Button.Quiet" TargetType="Button" BasedOn="{StaticResource Mk.Button}">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderBrush" Value="Transparent" />
+        <Setter Property="MinWidth" Value="36" />
+    </Style>
+
+    <!-- input[type=checkbox] { 16x16; radius 3 } checked and indeterminate: accent fill -->
+    <Style x:Key="Mk.CheckBox" TargetType="CheckBox">
+        <Setter Property="FontFamily" Value="Segoe UI" />
+        <Setter Property="FontSize" Value="14" />
+        <Setter Property="Foreground" Value="{DynamicResource MkTextBrush}" />
+        <Setter Property="MinWidth" Value="0" />
+        <Setter Property="MinHeight" Value="0" />
+        <Setter Property="FocusVisualStyle" Value="{StaticResource Mk.Focus}" />
+        <Setter Property="SnapsToDevicePixels" Value="True" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="CheckBox">
+                    <StackPanel Orientation="Horizontal" Background="Transparent">
+                        <Grid Width="16" Height="16" VerticalAlignment="Center" mk:Mk.Drop="{Binding Path=(mk:Mk.IconDrop), RelativeSource={RelativeSource TemplatedParent}}">
+                            <Border x:Name="Box" Background="{DynamicResource MkSurfaceBrush}" BorderBrush="{DynamicResource MkEdgeBrush}" BorderThickness="1" CornerRadius="3" />
+                            <Rectangle x:Name="Dashed" Stroke="{DynamicResource MkEdgeBrush}" StrokeThickness="1" StrokeDashArray="3 2" RadiusX="3" RadiusY="3" Visibility="Collapsed" />
+                            <Path x:Name="Tick" Data="M 3.4,8 L 6.7,11.3 L 13,5" Stroke="{DynamicResource MkOnBrush}" StrokeThickness="2" Visibility="Collapsed" />
+                            <Rectangle x:Name="Dash" Width="8" Height="2" Fill="{DynamicResource MkOnBrush}" Visibility="Collapsed" />
+                        </Grid>
+                        <ContentPresenter x:Name="Body" Margin="8,-1,0,0" VerticalAlignment="Center" RecognizesAccessKey="True" />
+                    </StackPanel>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="Content" Value="{x:Null}">
+                            <Setter TargetName="Body" Property="Visibility" Value="Collapsed" />
+                        </Trigger>
+                        <Trigger Property="IsChecked" Value="True">
+                            <Setter TargetName="Box" Property="Background" Value="{DynamicResource MkAccentBrush}" />
+                            <Setter TargetName="Box" Property="BorderBrush" Value="{DynamicResource MkAccentBrush}" />
+                            <Setter TargetName="Tick" Property="Visibility" Value="Visible" />
+                        </Trigger>
+                        <Trigger Property="IsChecked" Value="{x:Null}">
+                            <Setter TargetName="Box" Property="Background" Value="{DynamicResource MkAccentBrush}" />
+                            <Setter TargetName="Box" Property="BorderBrush" Value="{DynamicResource MkAccentBrush}" />
+                            <Setter TargetName="Dash" Property="Visibility" Value="Visible" />
+                        </Trigger>
+                        <!-- input[type=checkbox]:disabled { border-style:dashed } -->
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter TargetName="Box" Property="BorderBrush" Value="Transparent" />
+                            <Setter TargetName="Dashed" Property="Visibility" Value="Visible" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- input[type=radio] -->
+    <Style x:Key="Mk.Radio" TargetType="RadioButton">
+        <Setter Property="FontFamily" Value="Segoe UI" />
+        <Setter Property="FontSize" Value="14" />
+        <Setter Property="Foreground" Value="{DynamicResource MkTextBrush}" />
+        <Setter Property="MinWidth" Value="0" />
+        <Setter Property="MinHeight" Value="29" />
+        <Setter Property="FocusVisualStyle" Value="{StaticResource Mk.Focus}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="RadioButton">
+                    <StackPanel Orientation="Horizontal" Background="Transparent">
+                        <Grid Width="16" Height="16" VerticalAlignment="Center">
+                            <Ellipse x:Name="Ring" Fill="{DynamicResource MkRadioFillBrush}" Stroke="{DynamicResource MkEdgeBrush}" StrokeThickness="1" />
+                            <Ellipse x:Name="Dot" Width="10" Height="10" Fill="{DynamicResource MkAccentBrush}" Visibility="Collapsed" />
+                        </Grid>
+                        <ContentPresenter Margin="8,-1,0,0" VerticalAlignment="Center" RecognizesAccessKey="True" />
+                    </StackPanel>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsChecked" Value="True">
+                            <Setter TargetName="Ring" Property="Stroke" Value="{DynamicResource MkAccentBrush}" />
+                            <Setter TargetName="Ring" Property="StrokeThickness" Value="1.3" />
+                            <Setter TargetName="Ring" Property="Fill" Value="{DynamicResource MkRadioGapBrush}" />
+                            <Setter TargetName="Dot" Property="Visibility" Value="Visible" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter Property="Opacity" Value="0.55" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- .fieldinput, textarea { padding:6px 10px; min-height:34px; border:1px solid the color edge); radius 5 } -->
+    <Style x:Key="Mk.TextBox" TargetType="TextBox">
+        <Setter Property="FontFamily" Value="Segoe UI" />
+        <Setter Property="FontSize" Value="14" />
+        <Setter Property="Foreground" Value="{DynamicResource MkTextBrush}" />
+        <Setter Property="CaretBrush" Value="{DynamicResource MkTextBrush}" />
+        <Setter Property="Background" Value="{DynamicResource MkSurfaceBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource MkEdgeBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="Padding" Value="10,0" />
+        <Setter Property="MinHeight" Value="34" />
+        <Setter Property="MinWidth" Value="0" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="SnapsToDevicePixels" Value="True" />
+        <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="TextBox">
+                    <Grid>
+                        <Border x:Name="Face" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="5" />
+                        <mk:Ico x:Name="Lead" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="10,9,0,0" Foreground="{DynamicResource MkMutedBrush}"
+                                Glyph="{Binding Path=(mk:Mk.Icon), RelativeSource={RelativeSource TemplatedParent}}" mk:Mk.Drop="{Binding Path=(mk:Mk.IconDrop), RelativeSource={RelativeSource TemplatedParent}}" />
+                        <Grid x:Name="Area" Margin="{TemplateBinding Padding}">
+                            <!-- The text host of the box has a margin of two units of its own, which the padding allows for. -->
+                            <TextBlock x:Name="Hint" Margin="1,1,1,0" Foreground="{DynamicResource MkMutedBrush}" TextTrimming="CharacterEllipsis" Visibility="Collapsed"
+                                       VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                       Text="{Binding Path=(mk:Mk.Placeholder), RelativeSource={RelativeSource TemplatedParent}}" mk:Mk.Drop="{Binding Path=(mk:Mk.TextDrop), RelativeSource={RelativeSource TemplatedParent}}" />
+                        </Grid>
+                        <!-- The text box gives its padding to the content host, so the host stands outside the padded area. -->
+                        <ScrollViewer x:Name="PART_ContentHost" Margin="-1,1,-1,0" VerticalAlignment="{TemplateBinding VerticalContentAlignment}" mk:Mk.Drop="{Binding Path=(mk:Mk.TextDrop), RelativeSource={RelativeSource TemplatedParent}}" />
+                    </Grid>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="mk:Mk.Icon" Value="{x:Null}">
+                            <Setter TargetName="Lead" Property="Visibility" Value="Collapsed" />
+                        </Trigger>
+                        <Trigger Property="Text" Value="">
+                            <Setter TargetName="Hint" Property="Visibility" Value="Visible" />
+                        </Trigger>
+                        <Trigger Property="IsKeyboardFocused" Value="True">
+                            <Setter TargetName="Face" Property="BorderBrush" Value="{DynamicResource MkAccentBrush}" />
+                            <Setter TargetName="Face" Property="BorderThickness" Value="2" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter TargetName="Face" Property="Background" Value="{DynamicResource MkSubBrush}" />
+                            <Setter Property="Foreground" Value="{DynamicResource MkMutedBrush}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- .search { width:345px } .search input { padding-left:34px } -->
+    <Style x:Key="Mk.Search" TargetType="TextBox" BasedOn="{StaticResource Mk.TextBox}">
+        <Setter Property="mk:Mk.Icon" Value="search" />
+        <Setter Property="Padding" Value="34,0,10,0" />
+        <Setter Property="Width" Value="345" />
+        <Setter Property="Height" Value="34" />
+    </Style>
+
+    <!-- The drop-down list: the select element as the mock's browser draws it. -->
+    <Style x:Key="Mk.ComboBoxItem" TargetType="ComboBoxItem">
+        <Setter Property="Foreground" Value="{DynamicResource MkTextBrush}" />
+        <Setter Property="Padding" Value="10,5" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ComboBoxItem">
+                    <Border x:Name="Face" Background="Transparent" Padding="{TemplateBinding Padding}">
+                        <ContentPresenter />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsHighlighted" Value="True">
+                            <Setter TargetName="Face" Property="Background" Value="{DynamicResource MkTintBrush}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+    <Style x:Key="Mk.ComboBox" TargetType="ComboBox">
+        <Setter Property="FontFamily" Value="Segoe UI" />
+        <Setter Property="FontSize" Value="14" />
+        <Setter Property="Foreground" Value="{DynamicResource MkTextBrush}" />
+        <Setter Property="Background" Value="{DynamicResource MkSurfaceBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource MkEdgeBrush}" />
+        <Setter Property="MinHeight" Value="34" />
+        <Setter Property="Height" Value="34" />
+        <Setter Property="MinWidth" Value="0" />
+        <Setter Property="SnapsToDevicePixels" Value="True" />
+        <Setter Property="ItemContainerStyle" Value="{StaticResource Mk.ComboBoxItem}" />
+        <Setter Property="FocusVisualStyle" Value="{StaticResource Mk.Focus}" />
+        <Setter Property="ScrollViewer.CanContentScroll" Value="True" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ComboBox">
+                    <Grid>
+                        <ToggleButton x:Name="Toggle" Focusable="False" ClickMode="Press"
+                                      IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}">
+                            <ToggleButton.Template>
+                                <ControlTemplate TargetType="ToggleButton">
+                                    <Border Background="Transparent" />
+                                </ControlTemplate>
+                            </ToggleButton.Template>
+                        </ToggleButton>
+                        <Border x:Name="Face" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="1" CornerRadius="5" IsHitTestVisible="False" />
+                        <ContentPresenter x:Name="Shown" Margin="15,-1,24,0" VerticalAlignment="Center" HorizontalAlignment="Left" IsHitTestVisible="False"
+                                          Content="{TemplateBinding SelectionBoxItem}" ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
+                                          ContentTemplateSelector="{TemplateBinding ItemTemplateSelector}" ContentStringFormat="{TemplateBinding SelectionBoxItemStringFormat}" />
+                        <!-- An editable list: the text box lies over the shown value. -->
+                        <TextBox x:Name="PART_EditableTextBox" Margin="3,1,25,1" mk:Mk.Drop="{Binding Path=(mk:Mk.TextDrop), RelativeSource={RelativeSource TemplatedParent}}" Background="Transparent" BorderThickness="0" VerticalContentAlignment="Center" Visibility="Collapsed"
+                                 Foreground="{TemplateBinding Foreground}" IsReadOnly="{TemplateBinding IsReadOnly}">
+                            <TextBox.Template>
+                                <ControlTemplate TargetType="TextBox">
+                                    <ScrollViewer x:Name="PART_ContentHost" VerticalAlignment="Center" />
+                                </ControlTemplate>
+                            </TextBox.Template>
+                        </TextBox>
+                        <Path Data="M 0,0 L 4,4 L 8,0" Stroke="{TemplateBinding Foreground}" StrokeThickness="1.8" HorizontalAlignment="Right" VerticalAlignment="Center"
+                              Margin="0,1,4,0" IsHitTestVisible="False" mk:Mk.Drop="{Binding Path=(mk:Mk.IconDrop), RelativeSource={RelativeSource TemplatedParent}}" />
+                        <Popup x:Name="PART_Popup" Placement="Bottom" IsOpen="{TemplateBinding IsDropDownOpen}" AllowsTransparency="True" Focusable="False">
+                            <Border Background="{DynamicResource MkSurfaceBrush}" BorderBrush="{DynamicResource MkEdgeBrush}" BorderThickness="1" CornerRadius="4"
+                                    MinWidth="{Binding ActualWidth, RelativeSource={RelativeSource TemplatedParent}}" MaxHeight="{TemplateBinding MaxDropDownHeight}">
+                                <ScrollViewer CanContentScroll="True">
+                                    <ItemsPresenter KeyboardNavigation.DirectionalNavigation="Contained" />
+                                </ScrollViewer>
+                            </Border>
+                        </Popup>
+                    </Grid>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsEditable" Value="True">
+                            <Setter TargetName="PART_EditableTextBox" Property="Visibility" Value="Visible" />
+                            <Setter TargetName="Shown" Property="Visibility" Value="Collapsed" />
+                        </Trigger>
+                        <!-- select:disabled { border-style:dashed; color:the color muted); background:the color sub) } -->
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter TargetName="Face" Property="Background" Value="{DynamicResource MkSubBrush}" />
+                            <Setter Property="Foreground" Value="{DynamicResource MkMutedBrush}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- .panel { background:the color surface); border:1px solid the color line); radius 7 } -->
+    <Style x:Key="Mk.Panel" TargetType="Border">
+        <Setter Property="Background" Value="{DynamicResource MkSurfaceBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource MkLineBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="7" />
+        <Setter Property="SnapsToDevicePixels" Value="True" />
+    </Style>
+
+    <!-- .divider { width:1px; height:24px; margin:0 4px } between items that stand 8 px apart -->
+    <Style x:Key="Mk.Divider" TargetType="Rectangle">
+        <Setter Property="UseLayoutRounding" Value="True" />
+        <Setter Property="Width" Value="1" />
+        <Setter Property="Height" Value="24" />
+        <Setter Property="Fill" Value="{DynamicResource MkLineBrush}" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+
+    <!-- .banner { background:the color tint); border-left:3px solid the color accent); radius 4; padding:11px 14px } -->
+    <Style x:Key="Mk.Banner" TargetType="Border">
+        <Setter Property="Background" Value="{DynamicResource MkTintBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource MkAccentBrush}" />
+        <Setter Property="BorderThickness" Value="3,0,0,0" />
+        <Setter Property="CornerRadius" Value="4" />
+        <Setter Property="Padding" Value="14,11" />
+    </Style>
+    <!-- .notice { background:the color sub); border-left:3px solid the color edge); radius 4; padding:9px 13px } -->
+    <Style x:Key="Mk.Notice" TargetType="Border">
+        <Setter Property="Background" Value="{DynamicResource MkSubBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource MkEdgeBrush}" />
+        <Setter Property="BorderThickness" Value="3,0,0,0" />
+        <Setter Property="CornerRadius" Value="4" />
+        <Setter Property="Padding" Value="13,9" />
+        <Setter Property="MinHeight" Value="38.5" />
+    </Style>
+    <Style x:Key="Mk.Notice.Warn" TargetType="Border" BasedOn="{StaticResource Mk.Notice}">
+        <Setter Property="BorderBrush" Value="{DynamicResource MkWarnBrush}" />
+    </Style>
+
+    <!-- Text roles -->
+    <Style x:Key="Mk.Body" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="Segoe UI" />
+        <Setter Property="FontSize" Value="14" />
+        <Setter Property="Foreground" Value="{DynamicResource MkTextBrush}" />
+    </Style>
+    <Style x:Key="Mk.Muted" TargetType="TextBlock" BasedOn="{StaticResource Mk.Body}">
+        <Setter Property="Foreground" Value="{DynamicResource MkMutedBrush}" />
+    </Style>
+    <Style x:Key="Mk.Help" TargetType="TextBlock" BasedOn="{StaticResource Mk.Muted}">
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="LineHeight" Value="18" />
+        <Setter Property="TextWrapping" Value="Wrap" />
+    </Style>
+    <Style x:Key="Mk.Strong" TargetType="TextBlock" BasedOn="{StaticResource Mk.Body}">
+        <Setter Property="FontWeight" Value="Bold" />
+    </Style>
+    <!-- .field > span { font-weight:550 } -->
+    <Style x:Key="Mk.FieldName" TargetType="TextBlock" BasedOn="{StaticResource Mk.Body}">
+        <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+    <!-- h3 { font-size:15px; font-weight:650 } -->
+    <Style x:Key="Mk.H3" TargetType="TextBlock" BasedOn="{StaticResource Mk.Body}">
+        <Setter Property="FontSize" Value="15" />
+        <Setter Property="FontWeight" Value="Bold" />
+    </Style>
+
+    <!-- .tab { min-height:35px; padding:5px 12px } .tab[aria-current] { background:the color tint); weight 600; border-bottom:2px solid the color accent) } -->
+    <Style x:Key="Mk.Tab" TargetType="RadioButton">
+        <Setter Property="FontFamily" Value="Segoe UI" />
+        <Setter Property="FontSize" Value="14" />
+        <Setter Property="Foreground" Value="{DynamicResource MkTextBrush}" />
+        <Setter Property="Height" Value="35" />
+        <Setter Property="Margin" Value="0,0,4,0" />
+        <Setter Property="Padding" Value="13,0" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="FocusVisualStyle" Value="{StaticResource Mk.Focus}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="RadioButton">
+                    <Border x:Name="Face" Background="Transparent" BorderThickness="0,0,0,2" BorderBrush="Transparent" CornerRadius="4,4,0,0" Padding="{TemplateBinding Padding}">
+                        <ContentPresenter VerticalAlignment="Center" HorizontalAlignment="Center"><ContentPresenter.Resources><Style TargetType="TextBlock" /></ContentPresenter.Resources></ContentPresenter>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsChecked" Value="True">
+                            <Setter TargetName="Face" Property="Background" Value="{DynamicResource MkTintBrush}" />
+                            <Setter TargetName="Face" Property="BorderBrush" Value="{DynamicResource MkAccentBrush}" />
+                            <Setter Property="FontWeight" Value="SemiBold" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- .treebtn { min-height:29px; padding:3px 10px } with the 3 px accent bar of the current one -->
+    <Style x:Key="Mk.TreeItem" TargetType="RadioButton">
+        <Setter Property="FontFamily" Value="Segoe UI" />
+        <Setter Property="FontSize" Value="14" />
+        <Setter Property="Foreground" Value="{DynamicResource MkTextBrush}" />
+        <Setter Property="Height" Value="29" />
+        <Setter Property="Padding" Value="11,0" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="HorizontalAlignment" Value="Stretch" />
+        <Setter Property="FocusVisualStyle" Value="{StaticResource Mk.Focus}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="RadioButton">
+                    <Grid>
+                        <Border x:Name="Face" Background="Transparent" CornerRadius="5" />
+                        <Rectangle x:Name="Bar" Width="3" RadiusX="2" RadiusY="2" HorizontalAlignment="Left" Margin="0,6" Fill="{DynamicResource MkAccentBrush}" Visibility="Collapsed" />
+                        <ContentPresenter Margin="{TemplateBinding Padding}" VerticalAlignment="Center"><ContentPresenter.Resources><Style TargetType="TextBlock" /></ContentPresenter.Resources></ContentPresenter>
+                    </Grid>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsChecked" Value="True">
+                            <Setter TargetName="Face" Property="Background" Value="{DynamicResource MkTintBrush}" />
+                            <Setter TargetName="Bar" Property="Visibility" Value="Visible" />
+                            <Setter Property="FontWeight" Value="SemiBold" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- .dropdown menu { min-width:235px; padding:6px; border:1px solid the color edge); radius 5 } and its buttons -->
+    <Style x:Key="Mk.ContextMenu" TargetType="ContextMenu">
+        <Setter Property="OverridesDefaultStyle" Value="True" />
+        <Setter Property="SnapsToDevicePixels" Value="True" />
+        <Setter Property="MinWidth" Value="235" />
+        <Setter Property="FontFamily" Value="Segoe UI" />
+        <Setter Property="FontSize" Value="14" />
+        <Setter Property="Foreground" Value="{DynamicResource MkTextBrush}" />
+        <Setter Property="HasDropShadow" Value="False" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ContextMenu">
+                    <Border Background="{DynamicResource MkSurfaceBrush}" BorderBrush="{DynamicResource MkEdgeBrush}" BorderThickness="1" CornerRadius="5" Padding="6">
+                        <ScrollViewer VerticalScrollBarVisibility="Auto" CanContentScroll="False">
+                            <ItemsPresenter KeyboardNavigation.DirectionalNavigation="Cycle" />
+                        </ScrollViewer>
+                    </Border>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- The scroll bar of the grids: 10 px, a thin thumb on the surface (scrollbar-width: thin). -->
+    <Style x:Key="Mk.ScrollThumb" TargetType="Thumb">
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Thumb">
+                    <Border Background="{DynamicResource MkEdgeBrush}" CornerRadius="3" Margin="2" />
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+    <Style x:Key="Mk.ScrollBar" TargetType="ScrollBar">
+        <Setter Property="OverridesDefaultStyle" Value="True" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Width" Value="10" />
+        <Setter Property="MinWidth" Value="10" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ScrollBar">
+                    <Grid Background="{TemplateBinding Background}">
+                        <Track x:Name="PART_Track" IsDirectionReversed="True">
+                            <Track.Thumb>
+                                <Thumb Style="{StaticResource Mk.ScrollThumb}" />
+                            </Track.Thumb>
+                        </Track>
+                    </Grid>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+        <Style.Triggers>
+            <Trigger Property="Orientation" Value="Horizontal">
+                <Setter Property="Width" Value="Auto" />
+                <Setter Property="Height" Value="10" />
+                <Setter Property="MinHeight" Value="10" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="ScrollBar">
+                            <Grid Background="{TemplateBinding Background}">
+                                <Track x:Name="PART_Track">
+                                    <Track.Thumb>
+                                        <Thumb Style="{StaticResource Mk.ScrollThumb}" />
+                                    </Track.Thumb>
+                                </Track>
+                            </Grid>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+
+    <!-- table: th { background:the color sub); height:38px; font-size:12px; weight 650 } td { padding:6px 12px; border-bottom:1px solid the color line) } -->
+    <Style x:Key="Mk.GridHeader" TargetType="DataGridColumnHeader">
+        <Setter Property="FontFamily" Value="Segoe UI" />
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="FontWeight" Value="Bold" />
+        <Setter Property="Foreground" Value="{DynamicResource MkTextBrush}" />
+        <Setter Property="Background" Value="{DynamicResource MkSubBrush}" />
+        <Setter Property="Height" Value="38" />
+        <Setter Property="Padding" Value="12,0,4,0" />
+        <Setter Property="HorizontalContentAlignment" Value="Left" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="FocusVisualStyle" Value="{StaticResource Mk.Focus}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="DataGridColumnHeader">
+                    <Grid>
+                        <Border Background="{TemplateBinding Background}" BorderBrush="{DynamicResource MkLineBrush}" BorderThickness="0,0,0,1" />
+                        <DockPanel Margin="{TemplateBinding Padding}" HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                   VerticalAlignment="{TemplateBinding VerticalContentAlignment}">
+                            <mk:Ico x:Name="Sort" DockPanel.Dock="Right" Glyph="arrow_up" FontSize="12" Width="14" Margin="2,0,0,0" Visibility="Collapsed" />
+                            <ContentPresenter Margin="0,0,0,0" VerticalAlignment="Center"><ContentPresenter.Resources><Style TargetType="TextBlock" /></ContentPresenter.Resources></ContentPresenter>
+                        </DockPanel>
+                        <Thumb x:Name="PART_LeftHeaderGripper" HorizontalAlignment="Left" Width="6" Cursor="SizeWE" Opacity="0" />
+                        <Thumb x:Name="PART_RightHeaderGripper" HorizontalAlignment="Right" Width="6" Cursor="SizeWE" Opacity="0" />
+                    </Grid>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="SortDirection" Value="Ascending">
+                            <Setter TargetName="Sort" Property="Visibility" Value="Visible" />
+                        </Trigger>
+                        <Trigger Property="SortDirection" Value="Descending">
+                            <Setter TargetName="Sort" Property="Visibility" Value="Visible" />
+                            <Setter TargetName="Sort" Property="Glyph" Value="chevron_down" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key="Mk.GridCell" TargetType="DataGridCell">
+        <Setter Property="Foreground" Value="{DynamicResource MkTextBrush}" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Padding" Value="11,0,5,0" />
+        <Setter Property="FocusVisualStyle" Value="{StaticResource Mk.Focus}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="DataGridCell">
+                    <Border x:Name="Face" Background="{TemplateBinding Background}" BorderThickness="1" BorderBrush="Transparent">
+                        <ContentPresenter Margin="{TemplateBinding Padding}" VerticalAlignment="Center" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsKeyboardFocused" Value="True">
+                            <Setter TargetName="Face" Property="BorderBrush" Value="{DynamicResource MkAccentBrush}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- The text of a text column: one line that ends in an ellipsis, with the whole text as a tooltip, a little above the middle as the mock sets it. -->
+    <Style x:Key="Mk.CellText" TargetType="TextBlock">
+        <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="Margin" Value="0,0,0,0" />
+        <Setter Property="ToolTip" Value="{Binding Text, RelativeSource={RelativeSource Self}}" />
+    </Style>
+
+    <!-- tbody row: 1 px line under it; the chosen row has the tint and a 3 px accent bar at its left edge. -->
+    <Style x:Key="Mk.GridRow" TargetType="DataGridRow">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Foreground" Value="{DynamicResource MkTextBrush}" />
+        <Setter Property="MinHeight" Value="0" />
+        <Setter Property="SnapsToDevicePixels" Value="True" />
+        <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="DataGridRow">
+                    <Grid>
+                        <Border x:Name="DGR_Border" Background="{TemplateBinding Background}" BorderBrush="{DynamicResource MkLineBrush}" BorderThickness="0,0,0,1" SnapsToDevicePixels="True">
+                            <SelectiveScrollingGrid>
+                                <SelectiveScrollingGrid.RowDefinitions>
+                                    <RowDefinition Height="*" />
+                                    <RowDefinition Height="Auto" />
+                                </SelectiveScrollingGrid.RowDefinitions>
+                                <DataGridCellsPresenter ItemsPanel="{TemplateBinding ItemsPanel}" SnapsToDevicePixels="True" />
+                                <DataGridDetailsPresenter Grid.Row="1" Visibility="{TemplateBinding DetailsVisibility}" SelectiveScrollingGrid.SelectiveScrollingOrientation="Both" />
+                            </SelectiveScrollingGrid>
+                        </Border>
+                        <Rectangle x:Name="ActiveRectangle" Width="3" HorizontalAlignment="Left" Fill="{DynamicResource MkAccentBrush}" Visibility="Collapsed" />
+                    </Grid>
+                    <ControlTemplate.Triggers>
+                        <!-- tr:last-child td { border-bottom:0 } -->
+                        <DataTrigger Value="True">
+                            <DataTrigger.Binding>
+                                <MultiBinding Converter="{x:Static mk:LastRowConverter.Instance}">
+                                    <Binding />
+                                    <Binding Path="Items.Count" RelativeSource="{RelativeSource AncestorType=DataGrid}" />
+                                    <Binding RelativeSource="{RelativeSource AncestorType=DataGrid}" />
+                                </MultiBinding>
+                            </DataTrigger.Binding>
+                            <Setter TargetName="DGR_Border" Property="BorderBrush" Value="Transparent" />
+                        </DataTrigger>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="DGR_Border" Property="Background" Value="{DynamicResource MkSubBrush}" />
+                        </Trigger>
+                        <Trigger Property="IsSelected" Value="True">
+                            <Setter TargetName="DGR_Border" Property="Background" Value="{DynamicResource MkTintBrush}" />
+                            <Setter TargetName="ActiveRectangle" Property="Visibility" Value="Visible" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key="Mk.Grid" TargetType="DataGrid">
+        <Setter Property="FontFamily" Value="Segoe UI" />
+        <Setter Property="FontSize" Value="14" />
+        <Setter Property="Foreground" Value="{DynamicResource MkTextBrush}" />
+        <Setter Property="Background" Value="{DynamicResource MkSurfaceBrush}" />
+        <Setter Property="RowBackground" Value="{x:Null}" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="GridLinesVisibility" Value="None" />
+        <Setter Property="HeadersVisibility" Value="Column" />
+        <Setter Property="ColumnHeaderStyle" Value="{StaticResource Mk.GridHeader}" />
+        <Setter Property="CellStyle" Value="{StaticResource Mk.GridCell}" />
+        <Setter Property="RowStyle" Value="{StaticResource Mk.GridRow}" />
+        <Setter Property="AutoGenerateColumns" Value="False" />
+        <Setter Property="CanUserAddRows" Value="False" />
+        <Setter Property="CanUserDeleteRows" Value="False" />
+        <Setter Property="CanUserResizeRows" Value="False" />
+        <Setter Property="RowHeaderWidth" Value="0" />
+        <Setter Property="HorizontalScrollBarVisibility" Value="Auto" />
+        <Setter Property="VerticalScrollBarVisibility" Value="Auto" />
+        <Setter Property="ScrollViewer.CanContentScroll" Value="True" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="DataGrid">
+                    <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" SnapsToDevicePixels="True">
+                        <ScrollViewer x:Name="DG_ScrollViewer" Focusable="False">
+                            <ScrollViewer.Template>
+                                <ControlTemplate TargetType="ScrollViewer">
+                                    <Grid x:Name="Root" Background="Transparent">
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="*" />
+                                            <RowDefinition Height="Auto" />
+                                        </Grid.RowDefinitions>
+                                        <DataGridColumnHeadersPresenter x:Name="PART_ColumnHeadersPresenter" />
+                                        <ScrollContentPresenter x:Name="PART_ScrollContentPresenter" Grid.Row="1" CanContentScroll="{TemplateBinding CanContentScroll}" />
+                                        <ScrollBar x:Name="PART_VerticalScrollBar" Grid.Row="1" Style="{StaticResource Mk.ScrollBar}" HorizontalAlignment="Right" Opacity="0"
+                                                   Orientation="Vertical" Minimum="0" Maximum="{TemplateBinding ScrollableHeight}" ViewportSize="{TemplateBinding ViewportHeight}"
+                                                   Value="{Binding VerticalOffset, RelativeSource={RelativeSource TemplatedParent}, Mode=OneWay}"
+                                                   Visibility="{TemplateBinding ComputedVerticalScrollBarVisibility}" />
+                                        <ScrollBar x:Name="PART_HorizontalScrollBar" Grid.Row="2" Style="{StaticResource Mk.ScrollBar}"
+                                                   Orientation="Horizontal" Minimum="0" Maximum="{TemplateBinding ScrollableWidth}" ViewportSize="{TemplateBinding ViewportWidth}"
+                                                   Value="{Binding HorizontalOffset, RelativeSource={RelativeSource TemplatedParent}, Mode=OneWay}"
+                                                   Visibility="{TemplateBinding ComputedHorizontalScrollBarVisibility}" />
+                                    </Grid>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger SourceName="Root" Property="IsMouseOver" Value="True">
+                                            <Setter TargetName="PART_VerticalScrollBar" Property="Opacity" Value="1" />
+                                        </Trigger>
+                                        <Trigger Property="IsKeyboardFocusWithin" Value="True">
+                                            <Setter TargetName="PART_VerticalScrollBar" Property="Opacity" Value="1" />
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </ScrollViewer.Template>
+                            <ItemsPresenter SnapsToDevicePixels="True" />
+                        </ScrollViewer>
+                    </Border>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+</ResourceDictionary>

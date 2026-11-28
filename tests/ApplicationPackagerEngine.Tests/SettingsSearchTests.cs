@@ -287,7 +287,7 @@ public sealed class SettingsSearchTests : IDisposable
     [Theory]
     [InlineData("use ssl", "wsus", "Use SSL", "Connections > WSUS")]
     [InlineData("client secret", "intune", "Client Secret", "Connections > Intune")]
-    [InlineData("not offered", "configmgr", "Not offered by Discover", "Connections > ConfigMgr")]
+    [InlineData("not offered", "configmgr", "Applications hidden from Discover", "Connections > ConfigMgr")]
     [InlineData("company", "general", "Company Name", "General")]
     [InlineData("timestamp server", "signing", "Timestamp server", "Security > Script Signing")]
     [InlineData("citrix store url", "citrix", "Store URL (passed as typed)", "Applications > Citrix Workspace App")]
@@ -297,7 +297,10 @@ public sealed class SettingsSearchTests : IDisposable
         var first = (SettingsSearchEntry)host.Search(query)[0].Tag;
 
         Assert.Equal((id, title, path), (first.PageId, first.Title, first.Path));
-        Assert.Equal($"{title}   -   {path}", AutomationProperties.GetName(host.Results.Items.OfType<ListBoxItem>().First()));
+        // The name of a result whose control is off also says why it is off.
+        var reason = first.Unavailable?.Invoke();
+        Assert.Equal(title == "Applications hidden from Discover", reason is not null);
+        Assert.Equal($"{title}   -   {path}" + (reason is null ? "" : ". " + reason), AutomationProperties.GetName(host.Results.Items.OfType<ListBoxItem>().First()));
     });
 
     [Fact]
@@ -369,7 +372,6 @@ public sealed class SettingsSearchTests : IDisposable
     [InlineData(ApplicationTheme.Light, "timestamp required", "signing", "Timestamp required")]
     [InlineData(ApplicationTheme.Dark, "company", "general", "Company Name")]
     [InlineData(ApplicationTheme.Light, "application overrides", "supersedence", "Application Overrides")]
-    [InlineData(ApplicationTheme.Dark, "not offered", "configmgr", "Not offered by Discover")]
     public void EnterOpensTheFirstResultWithTheFocusOnItsField(ApplicationTheme theme, string query, string id, string title) => WithPage(theme, host =>
     {
         var entry = (SettingsSearchEntry)host.Search(query)[0].Tag;
@@ -450,7 +452,7 @@ public sealed class SettingsSearchTests : IDisposable
 
     private static void Open(Host host, SettingsSearchEntry entry)
     {
-        host.Box.Focus();
+        host.Page.ShowSearch();
         host.Page.OpenSearchResult(entry);
         StaTestHelper.PumpUntil(() => Keyboard.FocusedElement is { } focus && !ReferenceEquals(focus, host.Box), TimeSpan.FromSeconds(15));
     }
@@ -488,7 +490,6 @@ public sealed class SettingsSearchTests : IDisposable
 
     [Theory]
     [InlineData("win32 content", "Win32 Content Prep Tool")]
-    [InlineData("not offered", "Not offered by Discover")]
     public void AFieldNameWhoseOnlyButtonTheSearchLeavesOutKeepsTheFocus(string query, string title) => WithPage(ApplicationTheme.Light, host =>
     {
         var entry = (SettingsSearchEntry)host.Search(query)[0].Tag;

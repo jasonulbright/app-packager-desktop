@@ -25,7 +25,8 @@ public partial class PackagesViewModel
     /// place of the failed one, or with the reason why it did not run.
     /// </summary>
     private async Task ShowResultsAsync(List<(string Application, PublishRowResult Result)> rows, bool cancelled,
-        IReadOnlyList<string> systems, PublishRunBuild build, IReadOnlySet<string>? withoutDeployment = null)
+        IReadOnlyList<string> systems, PublishRunBuild build, IReadOnlySet<string> withoutDeployment,
+        IReadOnlyList<PublishPlanApp> planned, IReadOnlySet<string> overwritten)
     {
         var note = "";
         while (true)
@@ -36,9 +37,16 @@ public partial class PackagesViewModel
             var results = new PublishResultsViewModel(rows, cancelled, systems, offerRetry: true)
             {
                 RetryNote = note,
+                KeptNotice = KeptNoticeOf(rows, planned, overwritten),
                 SiteLine = siteLine,
+                SiteCode = settings.SiteCode ?? "",
+                RunNote = DateTime.Now.ToString("d MMM yyyy, HH:mm", System.Globalization.CultureInfo.InvariantCulture),
+                Versions = rows.Select(r => (r.Result.Uid, Row: Packagers.FirstOrDefault(p => p.Uid == r.Result.Uid)))
+                    .Where(x => x.Row is not null).GroupBy(x => x.Uid).ToDictionary(g => g.Key, g => g.First().Row!.LatestVersion),
+                Mark = name => Packagers.FirstOrDefault(p => p.Application == name)?.Mark ?? Helpers.PackagesCells.MarkOf(name),
+                SystemNames = new Dictionary<string, string> { [ApplicationPackagerEngine.Models.OneClickDestinations.Wsus] = settings.Wsus.ServerName ?? "" },
                 ReportPath = report,
-                WithoutDeployment = withoutDeployment ?? new HashSet<string>(),
+                WithoutDeployment = withoutDeployment,
                 ShowLogs = owner => new Views.Windows.LogWindow(this) { Owner = owner }.ShowDialog(),
                 ShowHistory = _inventory is null ? null : (uid, owner) =>
                 {
@@ -60,6 +68,24 @@ public partial class PackagesViewModel
             // The row stays checked while any of its systems failed.
             row.IsSelected = cells.Any(c => c.Kind == PublishDestinationKind.Failed);
         }
+    }
+
+    /// <summary>
+    /// "X 1.0 was kept. Supersedence is off." Only for one application whose new ConfigMgr application the run created beside an older one: its
+    /// effective supersedence mode is off, no script decides, and the operator did not overwrite an application. Empty in every other case.
+    /// </summary>
+    public static string KeptNoticeOf(IReadOnlyList<(string Application, PublishRowResult Result)> rows,
+        IReadOnlyList<PublishPlanApp> planned, IReadOnlySet<string> overwritten)
+    {
+        if (rows.Count != 1) return "";
+        var result = rows[0].Result;
+        var app = planned.FirstOrDefault(a => a.Uid == result.Uid);
+        if (app is null || app.ScriptDecides || app.Supersedes || overwritten.Contains(app.Uid)) return "";
+        if (result.For(OneClickDestinations.ConfigMgr) is not { Kind: PublishDestinationKind.Published, Created: true }) return "";
+        if (app.Site.Kind != ConfigMgrFactKind.Found || app.Site.Version.Length == 0 || app.Site.Version == result.Version) return "";
+        var bracket = app.Application.LastIndexOf(" (", StringComparison.Ordinal);
+        var name = bracket > 0 ? app.Application[..bracket] : app.Application;
+        return $"{name} {app.Site.Version} was kept. Supersedence is off.";
     }
 
     private string WritePublishReport(IReadOnlyList<(string Application, PublishRowResult Result)> rows, bool cancelled,
@@ -125,7 +151,7 @@ public partial class PackagesViewModel
             if (plan.Systems.Count == 0) return Refuse($"{destination} is no longer in use (Settings, Systems in Use).");
             var confirmed = await PublishReviewGate.ConfirmAsync(plan, Comment, _publishDialogs.ShowPublishReview,
                 shown => RereadPlanAsync(shown, [p], build.ReadBuild), AddLogLine,
-                comment => Comment = comment);
+                comment => Comment = comment, NameReview);
             if (confirmed is null) return Refuse("The review closed without a confirmation.");
             if (VersionRefusal() is { } changedAfter) return Refuse(changedAfter);
             if (destination == OneClickDestinations.ConfigMgr

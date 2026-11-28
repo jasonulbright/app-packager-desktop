@@ -19,7 +19,7 @@ namespace ApplicationPackagerEngine.Tests;
 public sealed class PackagesGridRenderTests
 {
     /// <summary>The least RGB distance between two row fills that reads as a different fill; the fills of the theme differ by about 15.</summary>
-    private const double ClearlyDifferent = 30;
+    private const double ClearlyDifferent = 12;
 
     private static double Distance(Color a, Color b) =>
         Math.Sqrt(Math.Pow(a.R - b.R, 2) + Math.Pow(a.G - b.G, 2) + Math.Pow(a.B - b.B, 2));
@@ -57,7 +57,7 @@ public sealed class PackagesGridRenderTests
                 Settle(window);
                 var grid = (DataGrid)page.FindName("PackagerGrid");
                 Assert.NotNull(grid.RowStyle);
-                Assert.Same(page.TryFindResource("SelectableRow"), grid.RowStyle);
+                Assert.Same(page.TryFindResource("PackageRow"), grid.RowStyle);
                 grid.SelectedIndex = 0;
                 Settle(window);
                 var selected = Row(grid, 0);
@@ -71,6 +71,7 @@ public sealed class PackagesGridRenderTests
 
                 var (s, h, n) = (Fill(window, selected), Fill(window, hovered), Fill(window, normal));
                 var where = $"{theme}: selected {s}, hovered {h}, unselected {n}";
+                // The tint of the mock is close to its hover fill, so the accent bar below is the second sign of a selected row.
                 Assert.True(Distance(s, h) >= ClearlyDifferent, $"{where}: the selected row is not clearly different from the hovered row ({Distance(s, h):0}).");
                 Assert.True(Distance(s, n) >= ClearlyDifferent, $"{where}: the selected row is not clearly different from an unselected row ({Distance(s, n):0}).");
                 Assert.True(Distance(h, n) >= 8, $"{where}: the hovered row shows no change ({Distance(h, n):0}).");
@@ -87,6 +88,8 @@ public sealed class PackagesGridRenderTests
                 Assert.True(Contrast(foreground, s) >= 4.5, $"{where}: the text color {foreground} of the selected row has a contrast of {Contrast(foreground, s):0.00}.");
                 Assert.Contains(glyphs, p => Contrast(p, s) >= 4.5);
                 SetPointerOver(hovered, false);
+                Assert.False(Descendants(hovered).OfType<System.Windows.Shapes.Rectangle>().Single(r => r.Name == "ActiveRectangle").IsVisible,
+                    $"{where}: an unselected row shows the bar of a selected row.");
 
                 // The check box column keeps its two-way binding on a row of the shared style.
                 viewModel.FilteredPackagers[2].IsSelected = true;

@@ -1,4 +1,4 @@
-using System.Windows;
+﻿using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
@@ -50,6 +50,7 @@ public partial class MainWindow : IDialogHostWindow
 
         // The template of the navigation exists after the window loaded.
         Loaded += (_, _) => Helpers.NavigationNames.Apply(RootNavigation);
+        Loaded += (_, _) => FollowStatus();
 
         // Pages set CanContentScroll to False, which disables the NavigationView's
         // DynamicScrollViewer; DataGrid and ScrollViewer controls scroll on the mouse wheel themselves.

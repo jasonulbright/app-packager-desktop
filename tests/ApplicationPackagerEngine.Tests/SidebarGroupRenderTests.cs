@@ -107,21 +107,13 @@ public sealed class SidebarGroupRenderTests : IDisposable
     }
 
     /// <summary>
-    /// The navigation view animates the width of its pane grid from the compact length to the
-    /// open length when the window first shows. The animation runs on the clock, not on the
-    /// dispatcher queue, so a settled layout can still hold a part-open pane; the wait ends when
-    /// the animated width holds its final value and the layout follows it.
+    /// The pane of the mock has one width for each state and no animation: 216 px open and 59 px closed.
     /// </summary>
-    private static void WaitForPaneAnimation(Window window, Wpf.Ui.Controls.NavigationView navigation)
+    private static void AssertPaneWidth(Window window, Wpf.Ui.Controls.NavigationView navigation)
     {
-        var pane = (FrameworkElement)navigation.Template.FindName("PaneGrid", navigation);
-        var target = navigation.IsPaneOpen ? navigation.OpenPaneLength : navigation.CompactPaneLength;
-        StaTestHelper.PumpUntil(() =>
-        {
-            window.UpdateLayout();
-            return pane.Width.Equals(target);
-        });
         RenderKit.Settle(window);
+        var pane = (FrameworkElement)navigation.Template.FindName("Pane", navigation);
+        Assert.Equal(navigation.IsPaneOpen ? 216 : 59, pane.ActualWidth, 0.5);
     }
 
     private static double MaxContrast(List<Color> pixels)
@@ -157,6 +149,7 @@ public sealed class SidebarGroupRenderTests : IDisposable
             window.ShowInTaskbar = false;
             window.Resources.MergedDictionaries.Add(new Wpf.Ui.Markup.ThemesDictionary { Theme = theme });
             window.Resources.MergedDictionaries.Add(new Wpf.Ui.Markup.ControlsDictionary());
+            window.Resources.MergedDictionaries.Add(RenderKit.Palette(theme));
             ApplicationHostService.ShowMainWindow(window);
             RenderKit.Settle(window);
             var where = $"{theme} {width}x{height} {(open ? "open" : "closed")}";
@@ -165,7 +158,7 @@ public sealed class SidebarGroupRenderTests : IDisposable
 
             var navigation = window.GetNavigation();
             Assert.Equal(open, navigation.IsPaneOpen);
-            WaitForPaneAnimation(window, navigation);
+            AssertPaneWidth(window, navigation);
             var root = (FrameworkElement)window.Content;
             var captions = navigation.MenuItems.OfType<SidebarGroupCaption>().ToList();
             Assert.Equal([SidebarGroupIds.Tools], captions.Select(c => c.Group.Id));
@@ -248,8 +241,9 @@ public sealed class SidebarGroupRenderTests : IDisposable
             typeof(WorkbenchWindow).BaseType!.GetConstructor(Type.EmptyTypes)!.Invoke(window, null);
             window.InitializeComponent();
             Assert.Equal("Workbench", window.Title);
-            var titleBar = Assert.Single(LogicalTree(window).OfType<Wpf.Ui.Controls.TitleBar>());
-            Assert.Equal("Workbench", titleBar.Title);
+            // The head of the window is that of the mock.
+            var frame = Assert.Single(LogicalTree(window).OfType<ApplicationPackagerUI.Controls.Mock.DialogFrame>());
+            Assert.Equal("Workbench", frame.Title);
         });
     }
 

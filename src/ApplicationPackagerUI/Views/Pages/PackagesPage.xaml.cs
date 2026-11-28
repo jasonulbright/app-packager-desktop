@@ -1,4 +1,4 @@
-using System.ComponentModel;
+﻿using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.Windows;
@@ -17,6 +17,9 @@ public partial class PackagesPage
     {
         DataContext = viewModel;
         InitializeComponent();
+        // A column header has no data context, so the header box is bound to the view model itself.
+        SelectAllCheckBox.SetBinding(System.Windows.Controls.Primitives.ToggleButton.IsCheckedProperty,
+            new System.Windows.Data.Binding(nameof(PackagesViewModel.CheckedPart)) { Source = viewModel, Mode = System.Windows.Data.BindingMode.OneWay });
 
         viewModel.PropertyChanged += OnViewModelPropertyChanged;
         viewModel.ImportFromUrlRequested += (_, _) => ShowImportFromUrl(viewModel);
@@ -35,6 +38,11 @@ public partial class PackagesPage
         if (viewModel.Checklist is { } checklist) checklist.StateChanged += ApplyPane;
 
         SizeChanged += (_, _) => PlaceChecklist();
+        viewModel.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName is nameof(PackagesViewModel.IsOperationRunning) or nameof(PackagesViewModel.ShowProgress))
+                Dispatcher.Invoke(PlaceLogBar);
+        };
         WorkArea.SizeChanged += (_, e) =>
         {
             if (e.WidthChanged) FitDetailPane();
@@ -114,10 +122,11 @@ public partial class PackagesPage
 
     private void SelectAllCheckBox_Click(object sender, RoutedEventArgs e)
     {
-        // The header is tri-state: the view model owns the value, the click only advances its cycle.
+        // The header is tri-state: the view model owns the cycle, the click only advances its cycle.
         var vm = (PackagesViewModel)DataContext!;
         vm.CycleSelectionCommand.Execute(null);
-        if (sender is System.Windows.Controls.CheckBox cb) cb.IsChecked = vm.HeaderSelection;
+        // The box follows the checked applications again.
+        if (sender is System.Windows.Controls.CheckBox cb) cb.GetBindingExpression(System.Windows.Controls.Primitives.ToggleButton.IsCheckedProperty)?.UpdateTarget();
         e.Handled = true;
     }
 
@@ -169,8 +178,6 @@ public partial class PackagesPage
 
     private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (e.PropertyName == nameof(PackagesViewModel.HeaderSelection))
-            SelectAllCheckBox.IsChecked = ((PackagesViewModel)DataContext!).HeaderSelection;
         if (e.PropertyName is nameof(PackagesViewModel.ShowDebugColumns) or nameof(PackagesViewModel.ShowSourceColumn)
             or nameof(PackagesViewModel.ShowIntuneColumn))
             ApplySavedColumns();
@@ -277,13 +284,13 @@ public partial class PackagesPage
     {
         IEnumerable<UIElement> targets = back
             ? [btnMore, btnColumns]
-            : [btnDetailPane, DetailSplitter, SetupPanel, btnStage, btnPublishAll, SelectUpdatesButton, btnLogs];
+            : [DetailSplitter, DetailPane, SetupPanel, btnOperationHistory, btnLogs];
         foreach (var target in targets)
         {
             if (!target.IsVisible || !target.IsEnabled) continue;
-            if (ReferenceEquals(target, SetupPanel))
+            if (ReferenceEquals(target, SetupPanel) || ReferenceEquals(target, DetailPane))
             {
-                if (SetupPanel.MoveFocus(new TraversalRequest(FocusNavigationDirection.First))) return true;
+                if (((FrameworkElement)target).MoveFocus(new TraversalRequest(FocusNavigationDirection.First))) return true;
                 continue;
             }
             if (target.Focus()) return true;
@@ -317,16 +324,13 @@ public partial class PackagesPage
         DetailPane.Visibility = open ? Visibility.Visible : Visibility.Collapsed;
         DetailSplitter.Visibility = open ? Visibility.Visible : Visibility.Collapsed;
         FitDetailPane();
-        btnDetailPane.Visibility = open || showChecklist ? Visibility.Collapsed : Visibility.Visible;
         SetupPanel.Visibility = showChecklist ? Visibility.Visible : Visibility.Collapsed;
-        SetupStrip.Visibility = !showChecklist && checklist is { IsDue: true } ? Visibility.Visible : Visibility.Collapsed;
         PlaceChecklist();
-        // A closed checklist gives the keyboard focus to the button that opens it, or to the grid (R-21).
+        // A closed checklist gives the keyboard focus to the grid (R-21).
         if (checklistHadFocus)
         {
             UpdateLayout();
-            if (SetupStrip.IsVisible) btnOpenSetupChecklist.Focus();
-            else PackagerGrid.Focus();
+            PackagerGrid.Focus();
         }
     }
 
@@ -374,30 +378,58 @@ public partial class PackagesPage
         if (DetailPaneColumn.ActualWidth > 0) ((PackagesViewModel)DataContext!).DetailPaneWidth = DetailPaneColumn.ActualWidth;
     }
 
-    /// <summary>A page at least this wide gives the open checklist more room, so its four steps show without scrolling.</summary>
-    public const double WideChecklistPageWidth = 1400;
+    private const double ChecklistWidth = 390, ChecklistGap = 16;
 
-    private const double ChecklistWidth = 320, WideChecklistWidth = 360;
+    // The widths of the five text columns of the mock at the two widths of its table. A column that the operator sized keeps its width.
+    private static readonly (string Header, double Wide, double Beside)[] ColumnWeights =
+    [
+        ("Application", 420, 344), ("Vendor", 328, 268), ("ConfigMgr version", 208, 171), ("Latest version", 169, 134), ("Status", 313, 166), ("CVE check", 186, 134)
+    ];
+
+    private void FitChecklistColumns(bool beside)
+    {
+        foreach (var (header, wide, narrow) in ColumnWeights)
+        {
+            var column = PackagerGrid.Columns.FirstOrDefault(c => c.Header as string == header);
+            if (column is null || _userSized.Contains(column) || !column.Width.IsStar) continue;
+            // Only beside the checklist may a column go below the least width of the page.
+            var least = _defaultMinWidths.GetValueOrDefault(column, column.MinWidth);
+            column.MinWidth = beside ? Math.Min(least, narrow - 30) : least;
+            column.Width = new DataGridLength(beside ? narrow : wide, DataGridLengthUnitType.Star);
+        }
+    }
 
     /// <summary>
-    /// The checklist stands beside the grid. In a wide page it also stands beside the batch bar and the log, and it is wider. In a narrower
-    /// page the bar and the log keep the whole width, and the steps scroll.
+    /// First start, as the mock draws it: the checklist stands at the right of the search row and the grid; the checks and the run buttons, the
+    /// status list and the line of the last run leave the page; the header has Skip for now.
     /// </summary>
     private void PlaceChecklist()
     {
         var shown = SetupPanel.Visibility == Visibility.Visible;
-        var wide = shown && ActualWidth >= WideChecklistPageWidth;
-        SetupPanel.Width = wide ? WideChecklistWidth : ChecklistWidth;
-        Grid.SetRowSpan(SetupPanel, wide ? 3 : 1);
-        Grid.SetColumnSpan(WorkArea, shown ? 1 : 2);
-        Grid.SetColumnSpan(BatchBar, wide ? 1 : 2);
-        Grid.SetColumnSpan(LogBar, wide ? 1 : 2);
+        var room = shown ? new Thickness(0, 0, ChecklistWidth + ChecklistGap, 0) : new Thickness(0);
+        // The mock sets the search row of the first start one unit higher, and its placeholder in the middle of the box.
+        FilterBar.Margin = new Thickness(room.Left, shown ? -1 : 0, room.Right, 14);
+        Controls.Mock.Mk.SetTextDrop(SearchBox, shown ? 0 : -1);
+        foreach (var button in new[] { SelectUpdatesButton, btnColumns, btnMore }) Controls.Mock.Mk.SetTextDrop(button, shown ? 1 : 0);
+        WorkArea.Margin = room;
+        BatchBar.Visibility = FilterGlyph.Visibility = StatusFilterList.Visibility = shown ? Visibility.Collapsed : Visibility.Visible;
+        PlaceLogBar();
+        CatalogHeading.Visibility = shown ? Visibility.Visible : Visibility.Collapsed;
+        FitChecklistColumns(shown);
+        if (shown) SelectAllCheckBox.IsChecked = false;
+        else SelectAllCheckBox.SetBinding(System.Windows.Controls.Primitives.ToggleButton.IsCheckedProperty,
+            new System.Windows.Data.Binding(nameof(PackagesViewModel.CheckedPart)) { Source = DataContext, Mode = System.Windows.Data.BindingMode.OneWay });
+        if (Header.Actions is System.Windows.Controls.Panel actions)
+            foreach (FrameworkElement child in actions.Children)
+                child.Visibility = Equals(child.Tag, "skip") == shown ? Visibility.Visible : Visibility.Collapsed;
     }
 
-    private void OpenChecklist_Click(object sender, RoutedEventArgs e) => ShowChecklist();
+    /// <summary>The line under the grid holds Cancel and the progress bar, so it shows during a run also while the checklist is open.</summary>
+    private void PlaceLogBar() => LogBar.Visibility = SetupPanel.Visibility != Visibility.Visible
+        || DataContext is PackagesViewModel { IsOperationRunning: true } or PackagesViewModel { ShowProgress: true } ? Visibility.Visible : Visibility.Collapsed;
 
     /// <summary>Opens the setup checklist and moves the keyboard focus into it.</summary>
-    private void ShowChecklist()
+    internal void ShowChecklist()
     {
         if (((PackagesViewModel)DataContext!).Checklist is not { } checklist) return;
         checklist.Show();
@@ -416,12 +448,15 @@ public partial class PackagesPage
     {
         ((PackagesViewModel)DataContext!).IsDetailPaneOpen = false;
         ApplyPane();
-        btnDetailPane.Focus();
+        PackagerGrid.Focus();
     }
 
-    private void DetailOpen_Click(object sender, RoutedEventArgs e)
+    /// <summary>Opens the detail pane of the focused row: the row menu and More, Show details.</summary>
+    public void ShowDetails()
     {
         _narrow = false;
+        // The open checklist stands in the place of the pane, so it closes; nothing is stored.
+        if (SetupPanel.Visibility == Visibility.Visible) ((PackagesViewModel)DataContext!).Checklist?.CloseCommand.Execute(null);
         ((PackagesViewModel)DataContext!).IsDetailPaneOpen = true;
         ApplyPane();
     }
@@ -458,9 +493,14 @@ public partial class PackagesPage
         _convertFromCm.Show();
     }
 
+    private PackagerInfo? HistoryRow() => GetSelectedPackager() ?? Packages.Packagers?.FirstOrDefault(p => p.IsSelected);
+
     private void ViewHistory_Click(object sender, RoutedEventArgs e)
     {
-        if (GetSelectedPackager() is { } packager) OpenHistory(packager);
+        if (HistoryRow() is { } packager) OpenHistory(packager);
+        else
+            System.Windows.MessageBox.Show(Window.GetWindow(this), "Select or check an application first. Its operation history then opens.", "Operation history",
+                System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Information);
     }
 
     private void OpenHistory(PackagerInfo packager)
@@ -512,11 +552,23 @@ public partial class PackagesPage
     /// <summary>Fills the context menu of the grid for the selected row each time it opens.</summary>
     private void PackagerMenu_Opened(object sender, RoutedEventArgs e)
     {
-        if (sender is System.Windows.Controls.ContextMenu menu) FillRowMenu(menu, GetSelectedPackager());
+        if (sender is not System.Windows.Controls.ContextMenu menu) return;
+        FillRowMenu(menu, GetSelectedPackager());
+        AddDetailsEntry(menu, GetSelectedPackager());
     }
 
     private void FillRowMenu(System.Windows.Controls.ContextMenu menu, PackagerInfo? row) =>
         Helpers.RowActions.Fill(menu, row, RunRowAction, PackagesViewModel.CveSourceLinks, url => Packages.OpenExternalLink(url));
+
+    // The row menu of the grid also opens the detail pane, which holds the run comment.
+    private void AddDetailsEntry(System.Windows.Controls.ContextMenu menu, PackagerInfo? row)
+    {
+        var details = Item("Show details", "miRowShowDetails", Wpf.Ui.Controls.SymbolRegular.PanelRight24, "Open the details of the application beside the grid, with the comment of the next run.");
+        details.IsEnabled = row is not null;
+        details.Click += (_, _) => ShowDetails();
+        menu.Items.Insert(0, details);
+        menu.Items.Insert(1, new System.Windows.Controls.Separator());
+    }
 
     /// <summary>The More actions menu of the detail pane, for the row that the pane shows.</summary>
     public System.Windows.Controls.ContextMenu BuildRowActionsMenu()

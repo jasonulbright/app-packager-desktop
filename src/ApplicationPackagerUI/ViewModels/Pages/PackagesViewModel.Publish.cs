@@ -139,7 +139,11 @@ public partial class PackagesViewModel : IOneClickRunner, IPublishActionHost
             SystemsText = SystemsLine(settings.Systems),
             ReportFolder = OneClickReportFolder,
             ConfirmLocalSources = selected => ConfirmLocalSourceFolders(selected.ToList()),
-            Log = AddLogLine
+            Log = AddLogLine,
+            // A PS1 packager decides by its own script, so the plan says nothing about it.
+            Supersedes = p => (p.IsJsonDefined || p.StagedManifestPath is not null)
+                && ApplicationPackagerEngine.Services.Supersedence.SupersedenceSettingsEditor.EffectiveMode(_settingsService.Load().Supersedence,
+                    _executionService.SupersedenceApplicationId(p)) != ApplicationPackagerEngine.Services.Supersedence.SupersedenceMode.Off
         };
         AddLogLine($"One Click: the checks are done, the plan opens for {rows.Count} application(s).");
         _publishDialogs.ShowOneClickPlan(new OneClickPlanViewModel(context, this));

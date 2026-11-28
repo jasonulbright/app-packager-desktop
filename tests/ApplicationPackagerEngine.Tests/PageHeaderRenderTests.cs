@@ -65,6 +65,9 @@ public sealed class PageHeaderRenderTests : IDisposable
         TestCleanup.DeleteDirectory(_root);
     }
 
+    /// <summary>The pages that the approved mock images draw: they have the plain title, with no card and no icon.</summary>
+    private static readonly string[] PlainTitlePages = ["App Packager", "Add from web", "Deployment Helper", "Settings"];
+
     public static readonly string[] PageNames =
     [
         "App Packager", "Add from web", "Add from file", "Settings", "Installer Analysis", "Detection Tester", "Deployment Helper",
@@ -172,6 +175,7 @@ public sealed class PageHeaderRenderTests : IDisposable
     {
         With(name, theme, () =>
         {
+            Application.Current.Resources.MergedDictionaries.Add(Palette(theme));
             var (page, owner) = Create(name);
             var window = new Window { Width = width - NavigationPaneWidth, Height = height - FrameHeight, WindowStyle = WindowStyle.None, Content = page };
             Show(window);
@@ -181,7 +185,21 @@ public sealed class PageHeaderRenderTests : IDisposable
                 var where = $"{name} {theme} {width}x{height}";
                 var header = Descendants(page).OfType<PageHeader>().First();
                 Assert.Equal(TitleOf(name), header.Title);
-                PageChromeKit.AssertTitle(window, header.TitleElement, where);
+                Assert.Equal(PlainTitlePages.Contains(name), header.Compact);
+                if (header.Compact)
+                {
+                    // The plain title of the mock draws its own glyphs, in the text color of the mock; it shows the title whole.
+                    var title = Assert.IsType<ApplicationPackagerUI.Controls.Mock.TrackedText>(header.TitleElement);
+                    Assert.Equal(TitleOf(name), title.Text);
+                    Assert.True(title.IsVisible && title.ActualWidth > 100 && title.ActualHeight > 20, $"{where}: the title is not drawn.");
+                    Assert.True(title.ActualWidth + 0.5 >= title.DesiredSize.Width, $"{where}: the title is cut.");
+                    var color = PageChromeKit.ColorOf(title.Foreground);
+                    Assert.Equal(PageChromeKit.ColorOf(title.FindResource("MkTextBrush")), color);
+                    var contrast = Contrast(color, PageChromeKit.ColorOf(title.FindResource("MkBaseBrush")));
+                    Assert.True(contrast >= PageChromeKit.TextContrastMinimum, $"{where}: the title has a contrast of {contrast:0.00}.");
+                }
+                else
+                    PageChromeKit.AssertTitle(window, Assert.IsType<System.Windows.Controls.TextBlock>(header.TitleElement), where);
                 if (height <= 720)
                     Assert.True(header.ActualHeight <= CompactHeaderMaximum, $"{where}: the page header is {header.ActualHeight:0} px tall; the limit is {CompactHeaderMaximum} px.");
             }
@@ -261,13 +279,13 @@ public sealed class PageHeaderRenderTests : IDisposable
             finally { window.Close(); }
         });
 
-        // The pages of the V1 workspace have the plain title (overhaul V1, phases 2, 7b and 7c): no card, so the title sits at the left edge of the header.
-        // They keep the place of the header and the gap to the content, like every other page.
-        string[] plain = ["App Packager", "Deployment Helper", "Settings"];
-        var reference = places["Add from web"];
-        var differing = places.Where(p => !plain.Contains(p.Key) && !p.Value.SameAs(reference)).Select(p => $"{p.Key}: {p.Value}").ToList();
-        Assert.True(differing.Count == 0, $"{theme}: Add from web has {reference}. Different: {string.Join("; ", differing)}.");
-        Assert.All(plain, name => Assert.True(places[name].SameFrame(reference), $"{theme}: {name} has {places[name]}; the frame of the other pages is {reference}."));
+        // The pages of the mock have the plain title: no card, so the title sits at the left edge of the header. They keep the place of
+        // the header and the gap to the content, like every other page.
+        var reference = places["Add from file"];
+        var differing = places.Where(p => !PlainTitlePages.Contains(p.Key) && !p.Value.SameAs(reference)).Select(p => $"{p.Key}: {p.Value}").ToList();
+        Assert.True(differing.Count == 0, $"{theme}: Add from file has {reference}. Different: {string.Join("; ", differing)}.");
+        var plain = places["Add from web"];
+        Assert.All(PlainTitlePages, name => Assert.True(places[name].SameFrame(plain), $"{theme}: {name} has {places[name]}; the frame of the pages of the mock is {plain}."));
     }
 
     [Theory]

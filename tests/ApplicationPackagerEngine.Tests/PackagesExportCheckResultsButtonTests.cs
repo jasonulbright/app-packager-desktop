@@ -28,16 +28,21 @@ public sealed class PackagesExportCheckResultsButtonTests
             viewModel.CheckMecmToolTip = "Set the site code in Settings to check ConfigMgr.";
             var page = new PackagesPage(viewModel);
 
-            Assert.Equal(["miCheckLatest", "miCheckConfigMgr", "miCheckCves"], Ids(page.BuildCheckMenu()));
-            var site = page.BuildCheckMenu().Items.OfType<MenuItem>().ElementAt(1);
+            // The three checks are buttons of the page. A disabled check keeps its reason.
+            page.DataContext = viewModel;
+            foreach (var name in new[] { "btnCheckLatest", "btnCheckConfigMgr", "btnCheckCves" })
+                Assert.False(string.IsNullOrWhiteSpace(((System.Windows.Controls.Button)page.FindName(name)).Content as string), name);
+            var site = (System.Windows.Controls.Button)page.FindName("btnCheckConfigMgr");
             Assert.Equal(viewModel.CheckMecmToolTip, site.ToolTip);
             Assert.True(ToolTipService.GetShowOnDisabled(site), "A disabled check keeps its reason.");
 
             var more = page.BuildMoreMenu();
-            Assert.Equal(["miCveReport", "miOperationHistory", "miExportCheckResults", "miSetupChecklist", "miSetup", "miShowDebugColumns"], Ids(more));
-            var items = more.Items.OfType<MenuItem>().ToList();
-            Assert.False(items[1].IsEnabled, "Operation history needs a selected row.");
-            var export = Convert.ToString(items[2].ToolTip);
+            Assert.Equal(["miMoreConvertFromCm", "miMoreImportFromUrl", "miShowDetails", "miShowSelected", "miClearSelection",
+                "miCveReport", "miOperationHistory", "miExportCheckResults", "miSetupChecklist", "miSetup", "miShowDebugColumns"], Ids(more));
+            var items = more.Items.OfType<MenuItem>().ToDictionary(AutomationProperties.GetAutomationId);
+            Assert.False(items["miOperationHistory"].IsEnabled, "Operation history needs a selected row.");
+            Assert.False(items["miShowDetails"].IsEnabled, "Show details needs a selected row.");
+            var export = Convert.ToString(items["miExportCheckResults"].ToolTip);
             Assert.Contains("Check ConfigMgr", export);
             Assert.Contains("only those with an update available", export);
 

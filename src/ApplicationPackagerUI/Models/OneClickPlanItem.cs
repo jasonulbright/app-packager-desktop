@@ -1,4 +1,4 @@
-using ApplicationPackagerEngine.Models;
+﻿using ApplicationPackagerEngine.Models;
 
 namespace ApplicationPackagerUI.Models;
 
@@ -28,6 +28,20 @@ public partial class OneClickPlanItem : ObservableObject
     public required string Application { get; init; }
     public string Vendor { get; init; } = "";
 
+    /// <summary>The two characters before the name in the plan.</summary>
+    public string Mark => Row?.Mark ?? Helpers.PackagesCells.MarkOf(Application);
+
+    /// <summary>
+    /// "Create application and deployment type" for an included row, "Skip \u00b7 reason" for one that is not. An included row has a reason when the run
+    /// leaves one of its destinations out, so it shows the reason too.
+    /// </summary>
+    public string PlannedLine => (Include ? Planned : "Skip") + (Reason.Length > 0 ? " \u00b7 " + Reason : "");
+
+    /// <summary>The action of a run that only checks: "Check", or "Skip" for a row that is not included.</summary>
+    public string PlannedWord => Include ? Planned : "Skip";
+
+    public string LastPublishedShown => LastPublished.Length > 0 ? LastPublished : "None";
+
     /// <summary>The grid row the run checks, stages and publishes; null in a plan built without one.</summary>
     public PackagerInfo? Row { get; init; }
 
@@ -38,13 +52,23 @@ public partial class OneClickPlanItem : ObservableObject
     public string? PriorKnownVersion { get; init; }
 
     [ObservableProperty] private string _version = "";
-    [ObservableProperty] private bool _include;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(PlannedLine))]
+    [NotifyPropertyChangedFor(nameof(PlannedWord))]
+    private bool _include;
     [ObservableProperty] private bool _configMgr;
     [ObservableProperty] private bool _wsus;
     [ObservableProperty] private bool _intune;
-    [ObservableProperty] private string _lastPublished = "";
-    [ObservableProperty] private string _planned = "";
-    [ObservableProperty] private string _reason = "";
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(LastPublishedShown))]
+    private string _lastPublished = "";
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(PlannedLine))]
+    [NotifyPropertyChangedFor(nameof(PlannedWord))]
+    private string _planned = "";
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(PlannedLine))]
+    private string _reason = "";
     [ObservableProperty] private string _step = "";
     [ObservableProperty] private string _outcome = "";
     [ObservableProperty] private string _resultConfigMgr = "";
@@ -52,7 +76,11 @@ public partial class OneClickPlanItem : ObservableObject
     [ObservableProperty] private string _resultIntune = "";
 
     /// <summary>Where the destination boxes of this row come from: the saved selection of the application, the default, or a change for this run.</summary>
-    [ObservableProperty] private string _sourceText = "";
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(SourceToolTip))]
+    private string _sourceText = "";
+
+    public string SourceToolTip => "Destinations from: " + SourceText;
 
     /// <summary>One cell for each destination that the run reached or refused, for the results window.</summary>
     public List<PublishDestinationResult> Cells { get; } = [];

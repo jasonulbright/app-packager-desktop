@@ -1,4 +1,4 @@
-namespace ApplicationPackagerEngine.Services.Workbench;
+﻿namespace ApplicationPackagerEngine.Services.Workbench;
 
 /// <summary>
 /// The icon a profile inherits when it sets none, resolved the way Stage publishes one:
@@ -55,5 +55,5 @@ public static class WorkbenchInheritedIcon
     /// <summary>The Icon line of the Application page for an inherited icon.</summary>
     public static string InheritedStateText(string resolvedPath) => string.IsNullOrEmpty(resolvedPath)
         ? "Inherited from the packager. No staged icon or icon pack entry was found."
-        : "Inherited from the packager: " + resolvedPath;
+        : "Inherited from the packager";
 }

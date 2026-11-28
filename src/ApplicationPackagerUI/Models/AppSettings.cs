@@ -98,10 +98,10 @@ public sealed class AppSettings
     public ApplicationPackagerUI.Helpers.PackagesColumnLayout? ApplicationSettingsGridLayout { get; set; }
 
     /// <summary>The detail pane of the Packages page is open. The pane starts closed in a window narrower than 1100 whatever this says.</summary>
-    public bool PackagesDetailPaneOpen { get; set; } = true;
+    public bool PackagesDetailPaneOpen { get; set; }
 
     /// <summary>The width of the detail pane that the operator set with the splitter. The page limits it to the room beside the grid.</summary>
-    public double PackagesDetailPaneWidth { get; set; } = 320;
+    public double PackagesDetailPaneWidth { get; set; } = 350;
 
     /// <summary>Definition ids that Discover unmanaged software no longer offers. Disjoint from <see cref="DiscoveryEnabled"/>.</summary>
     public string[] DiscoveryDismissed { get; set; } = [];

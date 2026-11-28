@@ -42,9 +42,9 @@ public sealed class SidebarGroupRegistryTests
     {
         var registry = SidebarRegistry.CreateDefault();
         Assert.Equal([SidebarGroupIds.Tools], registry.Groups.Select(g => g.Id));
-        Assert.Equal(["TOOLS"], registry.Groups.Select(g => g.Caption));
+        // The mock writes the caption with one capital.
+        Assert.Equal(["Tools"], registry.Groups.Select(g => g.Caption));
         Assert.Equal(["Tools group"], registry.Groups.Select(g => g.AutomationName));
-        Assert.All(registry.Groups, g => Assert.Equal(g.Caption.ToUpperInvariant(), g.Caption));
     }
 
     [Fact]

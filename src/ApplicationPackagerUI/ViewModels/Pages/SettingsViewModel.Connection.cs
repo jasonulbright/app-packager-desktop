@@ -17,6 +17,25 @@ public partial class SettingsViewModel
 
     public SymbolRegular ConfigMgrSignalGlyph => _siteState is null ? SymbolRegular.Info24 : SignalGlyph(_siteState.Current.For(OneClickDestinations.ConfigMgr).State);
 
+    /// <summary>The glyph of the mock's icon font for the state of the connection.</summary>
+    public string ConfigMgrSignalIcon => _siteState?.Current.For(OneClickDestinations.ConfigMgr).State switch
+    {
+        SystemState.Connected => "checkmark_circle",
+        SystemState.Failed => "error_circle",
+        SystemState.NotConfigured => "warning",
+        SystemState.Testing => "clock",
+        _ => "info"
+    };
+
+    /// <summary>The color class of the signal: good, warn, bad or empty. Only a connection test that succeeded is good.</summary>
+    public string ConfigMgrSignalKind => _siteState?.Current.For(OneClickDestinations.ConfigMgr).State switch
+    {
+        SystemState.Connected => "good",
+        SystemState.Failed => "bad",
+        SystemState.NotConfigured => "warn",
+        _ => ""
+    };
+
     /// <summary>Why ConfigMgr is not configured, or the signal itself.</summary>
     public string ConfigMgrSignalToolTip => _siteState?.Current.For(OneClickDestinations.ConfigMgr).Reason is { Length: > 0 } reason ? reason : ConfigMgrSignalText;
 
@@ -43,6 +62,8 @@ public partial class SettingsViewModel
             {
                 OnPropertyChanged(nameof(ConfigMgrSignalText));
                 OnPropertyChanged(nameof(ConfigMgrSignalGlyph));
+                OnPropertyChanged(nameof(ConfigMgrSignalIcon));
+                OnPropertyChanged(nameof(ConfigMgrSignalKind));
                 OnPropertyChanged(nameof(ConfigMgrSignalToolTip));
             }
             // The service raises Changed on any thread.

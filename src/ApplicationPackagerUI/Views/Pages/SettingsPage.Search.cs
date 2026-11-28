@@ -56,7 +56,7 @@ public partial class SettingsPage
         var labelStyle = (Style)Resources["FieldLabel"];
         var headerStyle = (Style)Resources["SectionHeader"];
         var elements = LogicalDescendants(page).ToList();
-        var heading = elements.OfType<TextBlock>().FirstOrDefault(t => ReferenceEquals(t.Style, headerStyle))?.Text;
+        var heading = elements.OfType<Controls.Mock.TrackedText>().FirstOrDefault(t => ReferenceEquals(t.Style, headerStyle))?.Text;
         index.Add(new SettingsSearchEntry { PageId = id, Title = (string)node.Header, Path = path, Keywords = $"{heading} {GetKeywords(node)}" });
 
         void Add(FrameworkElement element, string title, string keywords = "") => index.Add(new SettingsSearchEntry
@@ -185,7 +185,7 @@ public partial class SettingsPage
     private TextBlock? PrecedingLabel(DependencyObject element, DependencyObject page, Style labelStyle)
     {
         var headings = new[] { Resources["SectionHeader"], Resources["SubHeader"] };
-        bool Stops(DependencyObject e) => HoldsTypedValue(e) || e is TextBlock t && headings.Contains(t.Style);
+        bool Stops(DependencyObject e) => HoldsTypedValue(e) || e is FrameworkElement { Style: { } style } && headings.Contains(style);
         for (var current = element; !ReferenceEquals(current, page) && LogicalTreeHelper.GetParent(current) is { } parent; current = parent)
         {
             if (parent is not System.Windows.Controls.Panel panel || current is not UIElement child) continue;
@@ -212,7 +212,27 @@ public partial class SettingsPage
     private static string? UnavailableReason(FrameworkElement element, FrameworkElement page) =>
         GetUnavailable(element) is { } reason && (!element.IsEnabled || IsHiddenOnPage(element, page)) ? reason : null;
 
-    private void SearchBox_TextChanged(object sender, TextChangedEventArgs e) => ShowSearchResults(txtSettingsSearch.Text);
+    private void SearchBox_TextChanged(object sender, TextChangedEventArgs e)
+    {
+        if (txtSettingsSearch.Text.Length > 0) txtSettingsSearch.Visibility = Visibility.Visible;
+        ShowSearchResults(txtSettingsSearch.Text);
+    }
+
+    /// <summary>Shows the search box above the list of pages and gives it the keyboard.</summary>
+    public void ShowSearch()
+    {
+        txtSettingsSearch.Visibility = Visibility.Visible;
+        UpdateLayout();
+        txtSettingsSearch.Focus();
+    }
+
+    private void ShowSearch_Click(object sender, RoutedEventArgs e) => Dispatcher.BeginInvoke(DispatcherPriority.Input, ShowSearch);
+
+    /// <summary>An empty search box leaves when the keyboard leaves it.</summary>
+    private void SearchBox_LostKeyboardFocus(object sender, KeyboardFocusChangedEventArgs e)
+    {
+        if (txtSettingsSearch.Text.Length == 0 && e.NewFocus is not System.Windows.Controls.ContextMenu) txtSettingsSearch.Visibility = Visibility.Collapsed;
+    }
 
     private void ShowSearchResults(string query)
     {
@@ -281,6 +301,12 @@ public partial class SettingsPage
 
     private void Search_PreviewKeyDown(object sender, KeyEventArgs e)
     {
+        if (e.Key == Key.F && Keyboard.Modifiers == ModifierKeys.Control)
+        {
+            ShowSearch();
+            e.Handled = true;
+            return;
+        }
         if (HandleRepeatedKey(e.Key, e.IsRepeat)) e.Handled = true;
     }
 
@@ -366,10 +392,19 @@ public partial class SettingsPage
         var node = Leaves(OptionsTree.Items).First(n => (string)n.Tag == entry.PageId);
         for (var parent = node.Parent as TreeViewItem; parent is not null; parent = parent.Parent as TreeViewItem) parent.IsExpanded = true;
         SelectPage(entry.PageId);
+        // A connection option of Discover is a result like any other: its panel shows when the result opens.
+        if (entry.Locate?.Invoke() is { } found && IsInside(found, pnlDiscoveryOptions)) RevealDiscoveryOptions();
         UpdateLayout();
         node.BringIntoView();
         if (entry.Locate is null) node.Focus();
         else Dispatcher.BeginInvoke(DispatcherPriority.Background, () => FocusResult(entry, 1));
+    }
+
+    private static bool IsInside(DependencyObject element, DependencyObject container)
+    {
+        for (var current = element; current is not null; current = LogicalTreeHelper.GetParent(current))
+            if (ReferenceEquals(current, container)) return true;
+        return false;
     }
 
     private void FocusResult(SettingsSearchEntry entry, int attempt)

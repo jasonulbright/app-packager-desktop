@@ -44,7 +44,7 @@ public static class CheckConfigMgrResultExport
         return gridStatus switch
         {
             "Up to date" or "Current newer" => UpToDate,
-            "Not found in ConfigMgr" => NotFound,
+            "Absent from ConfigMgr" or "Not found in ConfigMgr" => NotFound,
             _ => null
         };
     }

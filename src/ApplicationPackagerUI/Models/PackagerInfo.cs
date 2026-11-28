@@ -1,4 +1,4 @@
-using ApplicationPackagerEngine.Models;
+﻿using ApplicationPackagerEngine.Models;
 using ApplicationPackagerEngine.Models.Workbench;
 
 namespace ApplicationPackagerUI.Models;
@@ -98,6 +98,15 @@ public partial class PackagerInfo : ObservableObject, IPackagerExecutionRequest
     /// version, which can differ from LatestVersion; Package publishes this version then.
     /// </summary>
     public string? LocalSourceStagedVersion { get; set; }
+
+    private string? _mark;
+
+    /// <summary>The two characters of the mark before the name, which the grid shows while the icon pack has no icon for the application.</summary>
+    public string Mark
+    {
+        get => _mark ?? Helpers.PackagesCells.MarkOf(Application);
+        init => _mark = value;
+    }
 
     public bool IsRunnable => true;
 }

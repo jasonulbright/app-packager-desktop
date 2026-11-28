@@ -1,4 +1,4 @@
-using System.ComponentModel;
+﻿using System.ComponentModel;
 using System.Windows;
 using System.Windows.Automation;
 using System.Windows.Controls;
@@ -37,22 +37,6 @@ public partial class PackagesPage
         menu.IsOpen = true;
     }
 
-    /// <summary>The Check menu: the three checks under their own names.</summary>
-    public System.Windows.Controls.ContextMenu BuildCheckMenu()
-    {
-        var vm = (PackagesViewModel)DataContext!;
-        var latest = Item("Check Latest", "miCheckLatest", SymbolRegular.ArrowDownload24, "Look up the latest version of each checked application.");
-        latest.Command = vm.CheckLatestCommand;
-        var site = Item("Check ConfigMgr", "miCheckConfigMgr", SymbolRegular.Search24, vm.CheckMecmToolTip);
-        site.Command = vm.CheckMecmCommand;
-        var cves = Item("Check CVEs", "miCheckCves", SymbolRegular.ShieldError24,
-            "Look up the CVEs fixed by updating each checked application from its ConfigMgr version to the latest version. Needs both versions and a CPE.");
-        cves.Command = vm.CheckCvesCommand;
-        var menu = new System.Windows.Controls.ContextMenu();
-        foreach (var item in new[] { latest, site, cves }) menu.Items.Add(item);
-        return menu;
-    }
-
     /// <summary>The More menu: the commands that are not part of a run.</summary>
     public System.Windows.Controls.ContextMenu BuildMoreMenu()
     {
@@ -61,7 +45,7 @@ public partial class PackagesPage
             "Write the CVE report for the checked applications (all applications when none is checked) as HTML, CSV, XLSX, Markdown and JSON, then open the HTML page.");
         report.Command = vm.CveReportCommand;
         var history = Item("Operation history...", "miOperationHistory", SymbolRegular.TextBulletListSquare24, "View recorded operations for the selected application.");
-        history.IsEnabled = GetSelectedPackager() is not null;
+        history.IsEnabled = HistoryRow() is not null;
         history.Click += ViewHistory_Click;
         var export = Item("Export Check Results...", "miExportCheckResults", SymbolRegular.DocumentTable24,
             "Saves the result of the last Check ConfigMgr run as a CSV or JSON file. The file type in the dialog chooses all checked applications or only those with an update available. Each run also writes CheckConfigMgrResult.csv in the SRLPackr data folder.");
@@ -69,7 +53,28 @@ public partial class PackagesPage
         var debug = new MenuItem { Header = "Show debug columns", IsCheckable = true, IsChecked = vm.ShowDebugColumns, ToolTip = "Show the CMName, Script, Max EPSS, NVD updated and CVEs Checked (UTC) columns." };
         AutomationProperties.SetAutomationId(debug, "miShowDebugColumns");
         debug.Click += (_, _) => vm.ShowDebugColumns = debug.IsChecked;
+        var convert = Item("Convert from ConfigMgr", "miMoreConvertFromCm", SymbolRegular.ArrowSwap24, "Convert a ConfigMgr application to Intune apps.");
+        convert.Click += ConvertFromCm_Click;
+        var import = Item("Import from URL", "miMoreImportFromUrl", SymbolRegular.ArrowDownload24, "Open the window that imports vendor definitions from a feed address.");
+        import.Command = vm.ImportFromUrlCommand;
+        var details = Item("Show details", "miShowDetails", SymbolRegular.PanelRight24, "Open the details of the selected application beside the grid, with the comment of the next run.");
+        details.IsEnabled = GetSelectedPackager() is not null;
+        details.Click += (_, _) => ShowDetails();
+        var showChecked = Item("Show checked applications", "miShowSelected", SymbolRegular.CheckboxChecked24,
+            "Show only the checked applications, so that you see the ones that the search or the status list hides.");
+        showChecked.IsEnabled = vm.HasSelection;
+        showChecked.Command = vm.ShowSelectedCommand;
+        var clear = Item("Clear selection", "miClearSelection", SymbolRegular.CheckboxUnchecked24, "Uncheck every application, also those that the search or the status list hides.");
+        clear.IsEnabled = vm.HasSelection;
+        clear.Command = vm.ClearSelectionCommand;
         var menu = new System.Windows.Controls.ContextMenu();
+        menu.Items.Add(convert);
+        menu.Items.Add(import);
+        menu.Items.Add(new Separator());
+        menu.Items.Add(details);
+        menu.Items.Add(showChecked);
+        menu.Items.Add(clear);
+        menu.Items.Add(new Separator());
         menu.Items.Add(report);
         menu.Items.Add(history);
         menu.Items.Add(export);
@@ -109,8 +114,6 @@ public partial class PackagesPage
     {
         if (Window.GetWindow(this) is Views.Windows.MainWindow main) main.GetNavigation().Navigate(page);
     }
-
-    private void CheckMenu_Click(object sender, RoutedEventArgs e) => Open(sender, BuildCheckMenu());
 
     private void More_Click(object sender, RoutedEventArgs e) => Open(sender, BuildMoreMenu());
 

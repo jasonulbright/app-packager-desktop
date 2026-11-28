@@ -1,4 +1,4 @@
-using System.ComponentModel;
+﻿using System.ComponentModel;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -18,6 +18,7 @@ public partial class WorkbenchWindow : IWorkbenchPrompts
         _viewModel = viewModel;
         DataContext = viewModel;
         InitializeComponent();
+        Controls.Mock.DialogFrame.Attach(this);
 
         viewModel.Prompts = this;
         viewModel.CloseRequested += (_, _) =>
@@ -68,6 +69,17 @@ public partial class WorkbenchWindow : IWorkbenchPrompts
 
     private void Details_Click(object sender, RoutedEventArgs e) => ApplySidePanel();
 
+    private void DescriptionGrip_DragDelta(object sender, System.Windows.Controls.Primitives.DragDeltaEventArgs e) =>
+        txtDescription.Height = Math.Clamp(txtDescription.Height + e.VerticalChange, 52, 320);
+
+    private void Bundle_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not System.Windows.Controls.Button { ContextMenu: { } menu } button) return;
+        menu.PlacementTarget = button;
+        menu.Placement = System.Windows.Controls.Primitives.PlacementMode.Bottom;
+        menu.IsOpen = true;
+    }
+
     // A section that the operator selects shows its editor again.
     private void Sections_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
@@ -88,9 +100,9 @@ public partial class WorkbenchWindow : IWorkbenchPrompts
         pnlSidePanel.Visibility = docked || replacing ? Visibility.Visible : Visibility.Collapsed;
         Grid.SetColumn(pnlSidePanel, docked ? 3 : 2);
         pnlSidePanel.Width = docked ? 270 : double.NaN;
-        pnlSidePanel.Margin = docked ? new Thickness(0, 12, 16, 8) : new Thickness(16, 12, 16, 8);
+        pnlSidePanel.Margin = docked ? new Thickness(0) : new Thickness(16, 0, 0, 0);
         gridEditor.Visibility = replacing ? Visibility.Collapsed : Visibility.Visible;
-        txtValidationLine.Visibility = docked || replacing ? Visibility.Collapsed : Visibility.Visible;
+        txtValidationLine.Visibility = txtSaveStateLine.Visibility = docked || replacing ? Visibility.Collapsed : Visibility.Visible;
     }
 
     private void OnPreviewKeyDown(object sender, KeyEventArgs e)

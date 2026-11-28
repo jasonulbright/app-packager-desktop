@@ -310,14 +310,14 @@ public sealed class Phase0EngineTruthTests
     [Theory]
     [InlineData("Update available", "1.0", PackagesTabKind.Update)]
     [InlineData("Update available (16 CVEs, 1 in KEV)", "1.0", PackagesTabKind.Update)]
-    [InlineData("Not found in ConfigMgr", "", PackagesTabKind.NotFound)]
+    [InlineData("Absent from ConfigMgr", "", PackagesTabKind.NotFound)]
     [InlineData("Ready", "", PackagesTabKind.NotChecked)]
     [InlineData("Cached", "", PackagesTabKind.NotChecked)]
     [InlineData("Latest retrieved", "", PackagesTabKind.NotChecked)]
     [InlineData("", "", PackagesTabKind.NotChecked)]
     [InlineData("Ready", "1.0", PackagesTabKind.Other)]
     [InlineData("Cached", "1.0", PackagesTabKind.Other)]
-    [InlineData("Up to date", "1.0", PackagesTabKind.Other)]
+    [InlineData("Up to date", "1.0", PackagesTabKind.UpToDate)]
     [InlineData("Current newer", "2.0", PackagesTabKind.Other)]
     [InlineData("ConfigMgr version retrieved", "1.0", PackagesTabKind.Other)]
     [InlineData("Staged", "", PackagesTabKind.Other)]
@@ -350,7 +350,7 @@ public sealed class Phase0EngineTruthTests
         };
         Assert.Equal(new PackagesTabCounts(3, 0, 0, 2), PackagesTab.Count(rows));
 
-        rows[0].Status = "Not found in ConfigMgr";
+        rows[0].Status = PackagesTab.NotFoundStatus;
         rows[1].CurrentVersion = "1.0";
         rows[1].Status = CveRowState.UpdateAvailable;
         Assert.Equal(new PackagesTabCounts(3, 1, 1, 0), PackagesTab.Count(rows));

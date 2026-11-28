@@ -22,6 +22,9 @@ public partial class DeploymentHelperPage : INavigationAware
     /// </summary>
     public const double CardsSideBySideWidth = 1480;
 
+    /// <summary>Below this width the template and read buttons stand on a row of their own under the object types.</summary>
+    public const double ToolbarOneRowWidth = 1180;
+
     private readonly DeploymentHelperViewModel _viewModel;
 
     public DeploymentHelperPage(DeploymentHelperViewModel viewModel)
@@ -33,6 +36,20 @@ public partial class DeploymentHelperPage : INavigationAware
         btnValidate.IsEnabledChanged += OnValidateEnabledChanged;
         // A software update group has no content card; the schedule card then takes the whole width.
         pnlDistribution.IsVisibleChanged += (_, _) => ArrangeCards(pnlDeploy.ActualWidth);
+        // The checks and the message of the form stand under the cards; a new one comes into view.
+        _viewModel.Deploy.PropertyChanged += OnDeployChanged;
+    }
+
+    private void OnDeployChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        var form = _viewModel.Deploy;
+        var added = e.PropertyName switch
+        {
+            nameof(DeploymentFormViewModel.ValidationMessage) => form.ValidationMessage.Length > 0 && form.Checks.Count > 0,
+            nameof(DeploymentFormViewModel.FormMessage) => form.FormMessage.Length > 0,
+            _ => false
+        };
+        if (added) Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Loaded, () => pnlValidation.BringIntoView());
     }
 
     private bool _validateLostFocus;
@@ -68,7 +85,17 @@ public partial class DeploymentHelperPage : INavigationAware
     private void OnDeploySizeChanged(object sender, SizeChangedEventArgs e)
     {
         Place(pnlObjects, pnlCollections, e.NewSize.Width >= SideBySideWidth);
+        ArrangeToolbar(e.NewSize.Width >= ToolbarOneRowWidth);
         ArrangeCards(e.NewSize.Width);
+    }
+
+    private void ArrangeToolbar(bool oneRow)
+    {
+        Grid.SetRow(pnlTemplateActions, oneRow ? 0 : 1);
+        Grid.SetColumn(pnlTemplateActions, oneRow ? 2 : 0);
+        Grid.SetColumnSpan(pnlTemplateActions, oneRow ? 1 : 3);
+        pnlTemplateActions.HorizontalAlignment = oneRow ? System.Windows.HorizontalAlignment.Right : System.Windows.HorizontalAlignment.Left;
+        pnlTemplateActions.Margin = new Thickness(0, oneRow ? 0 : 8, 0, 0);
     }
 
     private void ArrangeCards(double width) =>
@@ -82,12 +109,13 @@ public partial class DeploymentHelperPage : INavigationAware
         Grid.SetRow(second, sideBySide ? 0 : 2);
         Grid.SetColumn(second, sideBySide ? 2 : 0);
         Grid.SetColumnSpan(second, sideBySide ? 1 : 3);
-        second.Margin = new Thickness(0, sideBySide ? 0 : 12, 0, 0);
+        second.Margin = new Thickness(0, sideBySide ? 0 : 14, 0, 0);
     }
 
-    // The checks sit at the end of the tab; the button brings them into view and puts the keyboard on the list when it has rows.
+    // The checks sit at the end of the tab; the button shows them, brings them into view and puts the keyboard on the list when it has rows.
     private void OnViewChecksClick(object sender, RoutedEventArgs e)
     {
+        pnlValidation.Tag = "shown";
         pnlValidation.BringIntoView();
         pnlValidation.UpdateLayout();
         FirstCell(dgChecks)?.Focus();
@@ -122,13 +150,13 @@ public partial class DeploymentHelperPage : INavigationAware
 /// <summary>
 /// The "Deployment to review" line of the Deploy tab: the object, the collection, the purpose and the member count of the form. While a
 /// choice is missing or refused, the line says which one. The values are the object, the program, the collection, Required and the
-/// values of the last prepare. Without a prepare, the names come from the lists and the line says that the count is from the last read.
-/// With a prepare, the count is the count of the last check. Out-of-date values show no count; the line asks for Validate.
+/// values of the last prepare. Without a prepare, the names and the count come from the lists; with a prepare, from the last check. The
+/// tooltip of the line says which. Out-of-date values show no count; the line asks for Validate.
 /// </summary>
 public sealed class DeploymentReviewSummaryConverter : IMultiValueConverter
 {
-    public const string LastRead = " at the last read";
-    public const string LastCheck = " at the last check";
+    public const string LastRead = "The member count is the count at the last read.";
+    public const string LastCheck = "The member count is the count at the last check.";
     public const string OutOfDate = "changed, select Validate again";
 
     public static string Summary(DeploymentObjectRow? obj, string? program, DeploymentCollectionRow? collection, bool required, DeploymentReadValues? read = null)
@@ -148,7 +176,7 @@ public sealed class DeploymentReviewSummaryConverter : IMultiValueConverter
         var purpose = required ? DeploymentText.Required : DeploymentText.Available;
         var members = read is { OutOfDate: true }
             ? OutOfDate
-            : DeploymentText.Count(read?.Collection.MemberCount ?? collection.MemberCount, "member") + (read is null ? LastRead : LastCheck);
+            : DeploymentText.Count(read?.Collection.MemberCount ?? collection.MemberCount, "member");
         return $"{name} \u2192 {read?.Collection.Name ?? collection.Name} \u00b7 {purpose} \u00b7 {members}";
     }
 
@@ -156,4 +184,13 @@ public sealed class DeploymentReviewSummaryConverter : IMultiValueConverter
         Summary(values[0] as DeploymentObjectRow, values[1] as string, values[2] as DeploymentCollectionRow, values[3] is true, values[4] as DeploymentReadValues);
 
     public object[] ConvertBack(object value, Type[] targetTypes, object parameter, CultureInfo culture) => throw new NotSupportedException();
+}
+
+/// <summary>The tooltip of the "Deployment to review" line: where its member count comes from.</summary>
+public sealed class DeploymentReviewSourceConverter : IValueConverter
+{
+    public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture) =>
+        value is DeploymentReadValues ? DeploymentReviewSummaryConverter.LastCheck : DeploymentReviewSummaryConverter.LastRead;
+
+    public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) => Binding.DoNothing;
 }

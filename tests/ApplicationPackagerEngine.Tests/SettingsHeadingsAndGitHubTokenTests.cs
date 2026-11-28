@@ -18,10 +18,15 @@ public sealed class SettingsHeadingsAndGitHubTokenTests
 
     private static XDocument Page() => XDocument.Load(Path.Combine(CatalogServiceTests.RepositoryRoot(), "src", "ApplicationPackagerUI", "Views", "Pages", "SettingsPage.xaml"));
 
-    private static List<string> Headings() => Page().Descendants(Presentation + "TextBlock")
+    private static readonly XNamespace Mock = "clr-namespace:ApplicationPackagerUI.Controls.Mock";
+
+    // The approved mock writes these headings in sentence case.
+    private static readonly string[] MockHeadings = ["ConfigMgr connection", "Application settings", "Systems in use"];
+
+    private static List<string> Headings() => Page().Descendants(Mock + "TrackedText").Concat(Page().Descendants(Presentation + "TextBlock"))
         .Where(t => (string?)t.Attribute("Style") is "{StaticResource SectionHeader}" or "{StaticResource SubHeader}")
         .Select(t => (string?)t.Attribute("Text") ?? "")
-        .Where(text => text.Length > 0 && !text.StartsWith('{'))
+        .Where(text => text.Length > 0 && !text.StartsWith('{') && !MockHeadings.Contains(text))
         .ToList();
 
     internal static string? TitleCaseProblem(string heading)

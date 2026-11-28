@@ -99,7 +99,8 @@ public sealed class PackagesGridIconTests
     {
         var xaml = File.ReadAllText(FindRepoFile("src/ApplicationPackagerUI/Views/Pages/PackagesPage.xaml"));
         Assert.Contains("Source=\"{Binding IconImage,", xaml);
-        Assert.DoesNotContain("AlternationIndex", xaml);
+        // The alternation index only moves the mark and the status text by a unit; it never picks the picture.
+        Assert.DoesNotMatch("(Source|Text|IconImage|IconPath)=\"[^\"]*AlternationIndex", xaml);
         Assert.DoesNotContain("IconIndex", xaml);
     }
 

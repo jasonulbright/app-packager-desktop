@@ -1,4 +1,4 @@
-using System.Windows;
+﻿using System.Windows;
 using System.Windows.Controls;
 using TreeViewItem = System.Windows.Controls.TreeViewItem;
 using Microsoft.Extensions.DependencyInjection;
@@ -30,6 +30,7 @@ public partial class SettingsPage
         TrackApplicationLayout();
         SetHelpFromToolTips(page_configmgr, page_supersedence);
         TrackInput();
+        TrackDiscoveryStatus();
         CollectionViewSource.GetDefaultView(_viewModel.SupersedenceRows).Filter = o => o is Models.SupersedenceRow r && _viewModel.MatchesFilter(r);
         _viewModel.FilterChanged += () => CollectionViewSource.GetDefaultView(_viewModel.SupersedenceRows).Refresh();
         // The view model is built before the application list finishes loading, so the
@@ -44,7 +45,36 @@ public partial class SettingsPage
         };
     }
 
+    private void ShowSetupChecklist_Click(object sender, RoutedEventArgs e)
+    {
+        if (Window.GetWindow(this) is not Windows.MainWindow main) return;
+        main.GetNavigation().Navigate(typeof(PackagesPage));
+        var packages = App.Services.GetRequiredService<PackagesPage>();
+        Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Loaded, packages.ShowChecklist);
+    }
+
     private void OpenSystemsInUse_Click(object sender, RoutedEventArgs e) => SelectPage("systems");
+
+    /// <summary>Opens the ConfigMgr page with the connection options of Discover (Test connection, encryption and certificate).</summary>
+    private void ShowDiscoveryOptions_Click(object sender, RoutedEventArgs e)
+    {
+        SelectPage("configmgr");
+        RevealDiscoveryOptions();
+        Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Background, () => pnlDiscoveryOptions.BringIntoView());
+    }
+
+    private void RevealDiscoveryOptions() => pnlDiscoveryOptions.Tag = "shown";
+
+    /// <summary>A run of Discover or a connection test shows its result, and with it the options that a failed connection needs.</summary>
+    private void TrackDiscoveryStatus()
+    {
+        if (_viewModel.DiscoverStatus is { Length: > 0 }) RevealDiscoveryOptions();
+        _viewModel.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(SettingsViewModel.DiscoverStatus) && _viewModel.DiscoverStatus is { Length: > 0 })
+                Dispatcher.BeginInvoke(RevealDiscoveryOptions);
+        };
+    }
 
     /// <summary>Shows one page of the Options tree and hides the others. An unknown id leaves the page as it is.</summary>
     public void SelectPage(string id)
@@ -94,7 +124,7 @@ public partial class SettingsPage
             var cell = column.Choices is null
                 ? new FrameworkElementFactory(typeof(System.Windows.Controls.TextBox))
                 : new FrameworkElementFactory(typeof(ComboBox));
-            cell.SetValue(FrameworkElement.MarginProperty, new Thickness(4, 0, 4, 0));
+            cell.SetResourceReference(FrameworkElement.StyleProperty, column.Choices is null ? "Mk.Settings.CellTextBox" : "Mk.Settings.CellComboBox");
             cell.SetValue(System.Windows.Automation.AutomationProperties.NameProperty, column.AutomationName);
             cell.SetBinding(UIElement.IsEnabledProperty, new Binding($"Editable[{column.Id}]"));
             cell.SetBinding(FrameworkElement.ToolTipProperty, new Binding($"Tips[{column.Id}]"));
@@ -160,7 +190,10 @@ public partial class SettingsPage
     {
         if (_pressedColumn is not { } pressed) return;
         _pressedColumn = null;
-        pressed.Column.MinWidth = Math.Abs(pressed.Column.ActualWidth - pressed.Width) < 0.5 ? pressed.MinWidth : pressed.Column.ActualWidth;
+        // A click on a grip that moved nothing sets no width.
+        var moved = Math.Abs(pressed.Column.ActualWidth - pressed.Width) >= 0.5;
+        pressed.Column.MinWidth = moved ? pressed.Column.ActualWidth : pressed.MinWidth;
+        if (moved && _tracksApplicationLayout) NoteSizedApplicationColumn(pressed.Column);
         if (_pinnedStar is not { } star) return;
         _pinnedStar = null;
         star.Column.Width = star.Width;
@@ -213,7 +246,7 @@ public partial class SettingsPage
     /// <summary>The column chooser: one check item for each setting of the registry.</summary>
     private void Columns_Click(object sender, RoutedEventArgs e)
     {
-        var menu = new ContextMenu { PlacementTarget = (UIElement)sender };
+        var menu = new ContextMenu { PlacementTarget = (UIElement)sender, Placement = System.Windows.Controls.Primitives.PlacementMode.Bottom };
         foreach (var column in ApplicationColumns.All)
         {
             var item = new System.Windows.Controls.MenuItem { Header = column.Header, IsCheckable = true, IsChecked = _viewModel.VisibleColumnIds.Contains(column.Id), StaysOpenOnClick = true, ToolTip = column.Tooltip };

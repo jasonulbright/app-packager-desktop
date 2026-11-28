@@ -1,4 +1,4 @@
-using System.Windows;
+﻿using System.Windows;
 using System.Windows.Automation;
 using Wpf.Ui.Controls;
 
@@ -38,7 +38,7 @@ public partial class PageHeader
 
     public static readonly DependencyProperty TitleAutomationIdProperty =
         DependencyProperty.Register(nameof(TitleAutomationId), typeof(string), typeof(PageHeader),
-            new PropertyMetadata("txtPageTitle", (d, e) => AutomationProperties.SetAutomationId(((PageHeader)d).TitleText, (string)e.NewValue)));
+            new PropertyMetadata("txtPageTitle", (d, _) => ((PageHeader)d).ApplyTitleId()));
 
     public static readonly DependencyProperty DescriptionAutomationIdProperty =
         DependencyProperty.Register(nameof(DescriptionAutomationId), typeof(string), typeof(PageHeader),
@@ -47,7 +47,7 @@ public partial class PageHeader
     public PageHeader()
     {
         InitializeComponent();
-        AutomationProperties.SetAutomationId(TitleText, TitleAutomationId);
+        ApplyTitleId();
         AutomationProperties.SetAutomationId(DescriptionText, DescriptionAutomationId);
         SizeChanged += (_, _) => UpdateParts();
         UpdateParts();
@@ -110,11 +110,31 @@ public partial class PageHeader
         set => SetValue(DescriptionAutomationIdProperty, value);
     }
 
-    public System.Windows.Controls.TextBlock TitleElement => TitleText;
+    public static readonly DependencyProperty EyebrowProperty =
+        DependencyProperty.Register(nameof(Eyebrow), typeof(string), typeof(PageHeader),
+            new PropertyMetadata("", (d, _) => ((PageHeader)d).UpdateParts()));
+
+    /// <summary>The small gray line above the title, such as "Applications" above "Add from web".</summary>
+    public string Eyebrow
+    {
+        get => (string)GetValue(EyebrowProperty);
+        set => SetValue(EyebrowProperty, value);
+    }
+
+    /// <summary>The element that draws the title of the page.</summary>
+    public FrameworkElement TitleElement => Compact ? LargeTitle : TitleText;
 
     public System.Windows.Controls.TextBlock DescriptionElement => DescriptionText;
 
     public bool IsCompact => ActualWidth > 0 && ActualWidth < CompactWidth;
+
+    // The automation id names the title that shows.
+    private void ApplyTitleId()
+    {
+        if (TitleText is null) return;
+        AutomationProperties.SetAutomationId(LargeTitle, Compact ? TitleAutomationId : "");
+        AutomationProperties.SetAutomationId(TitleText, Compact ? "" : TitleAutomationId);
+    }
 
     private void UpdateParts()
     {
@@ -124,20 +144,24 @@ public partial class PageHeader
         IconHost.Visibility = plain || Icon == SymbolRegular.Empty ? Visibility.Collapsed : Visibility.Visible;
         StatusText.Visibility = plain || string.IsNullOrWhiteSpace(Status) ? Visibility.Collapsed : Visibility.Visible;
         // The plain title has no card: no fill, no border, no padding.
+        TitleText.Visibility = plain ? Visibility.Collapsed : Visibility.Visible;
+        LargeTitle.Visibility = plain ? Visibility.Visible : Visibility.Collapsed;
+        EyebrowText.Visibility = plain && !string.IsNullOrWhiteSpace(Eyebrow) ? Visibility.Visible : Visibility.Collapsed;
+        TitleRow.MinHeight = plain ? 44 : 32;
+        Margin = new Thickness(0, 0, 0, plain ? 14 : 8);
         if (plain)
         {
             Band.Background = System.Windows.Media.Brushes.Transparent;
             Band.BorderThickness = new Thickness(0);
             Band.Padding = new Thickness(0);
-            TitleText.SetResourceReference(System.Windows.Controls.TextBlock.StyleProperty, "PageTitleLarge");
         }
         else
         {
             Band.SetResourceReference(System.Windows.Controls.Border.BackgroundProperty, "CardBackgroundFillColorDefaultBrush");
             Band.BorderThickness = new Thickness(1);
             Band.Padding = new Thickness(12, 8, 12, 8);
-            TitleText.SetResourceReference(System.Windows.Controls.TextBlock.StyleProperty, "PageTitle");
         }
+        ApplyTitleId();
         ActionsPresenter.Visibility = Actions is null ? Visibility.Collapsed : Visibility.Visible;
         var compact = IsCompact;
         DescriptionText.TextWrapping = compact ? TextWrapping.NoWrap : TextWrapping.Wrap;

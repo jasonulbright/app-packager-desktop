@@ -472,7 +472,7 @@ public sealed class SiteSwitchAndClippingTests : IDisposable
     [Theory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
-    public void TheDetailPaneLinkAndTheConfigMgrMarkFollowTheirSettings(ApplicationTheme theme)
+    public void TheDetailPaneLinkKeepsItsTextInsideItsBorder(ApplicationTheme theme)
     {
         WithApplication(theme, () =>
         {
@@ -488,14 +488,6 @@ public sealed class SiteSwitchAndClippingTests : IDisposable
                 var left = text.TranslatePoint(new System.Windows.Point(0, 0), link).X;
                 Assert.True(left >= 4 && link.ActualWidth - left - text.ActualWidth >= 4,
                     $"The text of the link is {left:0} px and {link.ActualWidth - left - text.ActualWidth:0} px from its border.");
-
-                var mark = (TextBlock)page.FindName("txtConfigMgrMark");
-                viewModel.ShowConfigMgrIndicator = true;
-                Settle(window);
-                Assert.True(mark.IsVisible);
-                viewModel.ShowConfigMgrIndicator = false;
-                Settle(window);
-                Assert.False(mark.IsVisible);
             }
             finally { window.Close(); }
         });

@@ -43,11 +43,11 @@ public sealed class PackagesBatchBarTests
     {
         var shown = PackagesColumns.With(PackagesColumns.Compact, "KEV", visible: true);
         shown = PackagesColumns.With(shown, "Vendor", visible: true);
-        Assert.Equal(["ConfigMgr version", "Latest", "Status", "CVE check", "Vendor", "KEV"], shown);
-        Assert.Equal(["ConfigMgr version", "Latest", "CVE check", "Vendor", "KEV"], PackagesColumns.With(shown, "Status", visible: false));
+        Assert.Equal(["Vendor", "ConfigMgr version", "Latest version", "Status", "CVE check", "KEV"], shown);
+        Assert.Equal(["Vendor", "ConfigMgr version", "Latest version", "CVE check", "KEV"], PackagesColumns.With(shown, "Status", visible: false));
         Assert.Equal(shown, PackagesColumns.With(shown, "Application", visible: false));
         Assert.DoesNotContain("Application", PackagesColumns.Toggleable);
-        foreach (var column in new[] { "Source", "Intune", "CMName", "Script", "Max EPSS", "NVD updated", "CVEs Checked (UTC)" })
+        foreach (var column in new[] { "Source", "Intune", "CMName", "Script", "Max EPSS", "NVD updated", "CVEs checked (UTC)" })
             Assert.Contains(column, PackagesColumns.Toggleable);
     }
 
@@ -56,33 +56,33 @@ public sealed class PackagesBatchBarTests
     {
         var settings = new ApplicationPackagerUI.Models.AppSettings();
         Assert.True(PackagesColumns.Migrate(settings, newInstall: true));
-        Assert.Equal(["ConfigMgr version", "Latest", "Status", "CVE check"], settings.PackagesShownColumns);
+        Assert.Equal(["Vendor", "ConfigMgr version", "Latest version", "Status", "CVE check"], settings.PackagesShownColumns);
         Assert.False(PackagesColumns.Migrate(settings, newInstall: true));
     }
 
     [Fact]
-    public void AnUpgradeKeepsTheColumnsThatTheOperatorSawAndTheSavedChoices()
+    public void AnUpgradeShowsTheColumnsOfTheMockAndKeepsTheSavedLayout()
     {
-        var plain = new ApplicationPackagerUI.Models.AppSettings();
-        PackagesColumns.Migrate(plain, newInstall: false);
-        Assert.Equal(PackagesColumns.Legacy.OrderBy(c => c), plain.PackagesShownColumns!.OrderBy(c => c));
-
         var chosen = new ApplicationPackagerUI.Models.AppSettings
         {
             PackagesHiddenColumns = ["Vendor", "Current (ConfigMgr)", "KEV"],
-            PackagesGridLayout = new() { Columns = [new() { Id = "Current (ConfigMgr)", Width = 200 }], SortId = "Current (ConfigMgr)" }
+            PackagesGridLayout = new() { Columns = [new() { Id = "Current (ConfigMgr)", Width = 200 }, new() { Id = "Latest", Width = 130 }], SortId = "Current (ConfigMgr)" }
         };
-        PackagesColumns.Migrate(chosen, newInstall: false);
-        Assert.DoesNotContain("Vendor", chosen.PackagesShownColumns!);
-        Assert.DoesNotContain("ConfigMgr version", chosen.PackagesShownColumns!);
-        Assert.DoesNotContain("KEV", chosen.PackagesShownColumns!);
-        Assert.Contains("CVEs", chosen.PackagesShownColumns!);
-        // An earlier build that reads the file finds the choices under the names it knows.
-        Assert.Equal(["Vendor", "Current (ConfigMgr)", "KEV"], chosen.PackagesHiddenColumns);
+        Assert.True(PackagesColumns.Migrate(chosen, newInstall: false));
+        Assert.Equal(PackagesColumns.Compact, chosen.PackagesShownColumns);
+        // An earlier build that reads the file finds the hidden columns under the names it knows.
+        Assert.Equal(["CVEs", "Max CVSS", "KEV", "In latest", "Newest CVE"], chosen.PackagesHiddenColumns);
+        // The order, the widths and the sort of the operator stay, and the names of an earlier build are read as the names of this one.
         Assert.Equal("Current (ConfigMgr)", chosen.PackagesGridLayout!.Columns[0].Id);
         var read = PackagesColumns.ReadLayout(chosen.PackagesGridLayout)!;
         Assert.Equal(("ConfigMgr version", 200d, "ConfigMgr version"), (read.Columns[0].Id, read.Columns[0].Width, read.SortId));
-        Assert.Equal("Current (ConfigMgr)", PackagesColumns.StoredLayout(read)!.SortId);
+        Assert.Equal("Latest version", read.Columns[1].Id);
+        var stored = PackagesColumns.StoredLayout(read)!;
+        Assert.Equal(("Current (ConfigMgr)", "Latest"), (stored.SortId, stored.Columns[1].Id));
+        // A stored choice is not replaced at a later start.
+        chosen.PackagesShownColumns = ["KEV"];
+        Assert.False(PackagesColumns.Migrate(chosen, newInstall: false));
+        Assert.Equal(["KEV"], chosen.PackagesShownColumns);
     }
 
     [Fact]
@@ -92,7 +92,7 @@ public sealed class PackagesBatchBarTests
         PackagesColumns.Store(settings, PackagesColumns.With(PackagesColumns.Legacy, "Vendor", visible: false));
         Assert.Equal(["Vendor"], settings.PackagesHiddenColumns);
         PackagesColumns.Store(settings, PackagesColumns.Compact);
-        Assert.Equal(["Vendor", "CVEs", "Max CVSS", "KEV", "In latest", "Newest CVE"], settings.PackagesHiddenColumns);
+        Assert.Equal(["CVEs", "Max CVSS", "KEV", "In latest", "Newest CVE"], settings.PackagesHiddenColumns);
     }
 
     [Fact]

@@ -1,4 +1,4 @@
-using System.Windows;
+﻿using System.Windows;
 using System.Windows.Controls;
 using ApplicationPackagerEngine.Models;
 using ApplicationPackagerEngine.Services;
@@ -89,7 +89,7 @@ public sealed class WsusOnlyPublishReviewTests : IDisposable
     [Theory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
-    public void TheWsusOnlyReviewNamesNoConfigMgrReadAndAsksForNoComment(ApplicationTheme theme)
+    public void TheWsusOnlyReviewNamesNoConfigMgrRead(ApplicationTheme theme)
     {
         RenderKit.WithApplication(theme, () =>
         {
@@ -100,12 +100,16 @@ public sealed class WsusOnlyPublishReviewTests : IDisposable
                 try
                 {
                     window.UpdateLayout();
-                    var note = RenderKit.ById<TextBlock>(window, "txtReviewPlanNote").Text;
+                    var note = (string)((System.Windows.Controls.Button)window.FindName("btnReviewConfirm")).ToolTip;
                     Assert.Equal(!wsusOnly, note.Contains("ConfigMgr is read again", StringComparison.Ordinal));
                     Assert.Equal(wsusOnly, note.Contains("does not change an update that WSUS already has", StringComparison.Ordinal));
-                    Assert.Equal(!wsusOnly, ((FrameworkElement)window.FindName("txtReviewComment")).IsVisible);
                     var grid = RenderKit.ById<DataGrid>(window, "gridReviewMatrix");
-                    Assert.Equal(["Application", "Version", "Checked", wsusOnly ? "WSUS" : "ConfigMgr"], grid.Columns.Select(c => (string)c.Header));
+                    // One system: the window of the mock shows the line table, and the matrix is not drawn.
+                    var lines = RenderKit.ById<DataGrid>(window, "gridReviewLines");
+                    Assert.Equal(["Application", "Current \u2192 planned", "System", "Application change", "Deployment"], lines.Columns.Select(c => (string)c.Header));
+                    Assert.False(grid.IsVisible);
+                    var line = Assert.Single(lines.Items.Cast<ApplicationPackagerUI.ViewModels.Windows.PublishReviewLine>());
+                    Assert.Equal(wsusOnly ? "WSUS" : "ConfigMgr", line.System);
                 }
                 finally { window.Close(); }
             }

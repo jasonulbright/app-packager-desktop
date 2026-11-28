@@ -102,7 +102,7 @@ public sealed class SidebarWiringTests : IDisposable
             var navigation = window.GetNavigation();
             var registry = provider.GetRequiredService<SidebarRegistry>();
             Assert.Equal(registry.Items.Select(i => i.Title), Titles(window));
-            Assert.Equal(["TOOLS"], navigation.MenuItems.OfType<ApplicationPackagerUI.Views.Windows.SidebarGroupCaption>().Select(c => c.Text.Text));
+            Assert.Equal(["Tools"], navigation.MenuItems.OfType<ApplicationPackagerUI.Views.Windows.SidebarGroupCaption>().Select(c => c.Text.Text));
             var settings = Assert.IsType<Wpf.Ui.Controls.NavigationViewItem>(Assert.Single(navigation.FooterMenuItems.Cast<object>()));
             Assert.Equal("Settings", settings.Content);
             Assert.Equal(typeof(ApplicationPackagerUI.Views.Pages.SettingsPage), settings.TargetPageType);

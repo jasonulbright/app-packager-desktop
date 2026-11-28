@@ -13,7 +13,6 @@ using ApplicationPackagerUI.Views.Pages;
 using Wpf.Ui.Appearance;
 using Application = System.Windows.Application;
 using ButtonBase = System.Windows.Controls.Primitives.ButtonBase;
-using RadioButton = System.Windows.Controls.RadioButton;
 
 namespace ApplicationPackagerEngine.Tests;
 
@@ -28,7 +27,7 @@ public sealed class PackagesTabsTests
     [
         new() { Uid = "a", Application = "Alpha", Status = "Ready" },
         new() { Uid = "b", Application = "Bravo", Status = CveRowState.UpdateAvailable, CurrentVersion = "1.0" },
-        new() { Uid = "c", Application = "Charlie", Status = "Not found in ConfigMgr" },
+        new() { Uid = "c", Application = "Charlie", Status = PackagesTab.NotFoundStatus },
         new() { Uid = "d", Application = "Delta", Status = "Up to date", CurrentVersion = "2.0" },
         new() { Uid = "e", Application = "Echo", Status = "Cached" }
     ];
@@ -38,6 +37,7 @@ public sealed class PackagesTabsTests
     [InlineData(PackagesTabChoice.Update, new[] { "b" })]
     [InlineData(PackagesTabChoice.NotFound, new[] { "c" })]
     [InlineData(PackagesTabChoice.NotChecked, new[] { "a", "e" })]
+    [InlineData(PackagesTabChoice.UpToDate, new[] { "d" })]
     public void EachTabShowsItsRows(PackagesTabChoice tab, string[] expected) =>
         Assert.Equal(expected, Rows().Where(r => PackagesTab.Matches(tab, r)).Select(r => r.Uid));
 
@@ -98,7 +98,7 @@ public sealed class PackagesTabsTests
         Assert.Equal(["b"], viewModel.FilteredPackagers.Select(r => r.Uid));
         Assert.Equal(new PackagesTabCounts(5, 1, 1, 2), viewModel.TabCounts);
         Assert.Equal("Updates available 1", viewModel.TabUpdateText);
-        Assert.Equal("Not found in ConfigMgr 1", viewModel.TabNotFoundText);
+        Assert.Equal("Absent from ConfigMgr 1", viewModel.TabNotFoundText);
         Assert.Equal("All 5", viewModel.TabAllText);
     }
 
@@ -173,7 +173,7 @@ public sealed class PackagesTabsTests
     [Theory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
-    public void ThePageShowsTheFourTabsWithTheirCountsAndTheSelectionLine(ApplicationTheme theme)
+    public void ThePageShowsTheStatusListWithTheCountsAndTheSelectionLine(ApplicationTheme theme)
     {
         RenderKit.WithApplication(theme, () =>
         {
@@ -186,25 +186,29 @@ public sealed class PackagesTabsTests
             RenderKit.Show(window);
             try
             {
-                window.UpdateLayout();
-                string Tab(string id) => (string)RenderKit.ById<RadioButton>(page, id).Content;
-                Assert.Equal("All 5", Tab("tabStatusAll"));
-                Assert.Equal("Updates available 1", Tab("tabStatusUpdate"));
-                Assert.Equal("Not found in ConfigMgr 1", Tab("tabStatusNotFound"));
-                Assert.Equal("Not checked 2", Tab("tabStatusNotChecked"));
-                Assert.True(RenderKit.ById<RadioButton>(page, "tabStatusAll").IsChecked);
+                RenderKit.Settle(window);
+                var list = RenderKit.ById<System.Windows.Controls.ComboBox>(page, "cboStatusFilter");
+                Assert.Equal(["All applications", "Updates available", "Absent from ConfigMgr", "Up to date", "Not checked", "Checked applications"],
+                    list.Items.Cast<StatusFilter>().Select(f => f.Label));
+                Assert.Equal(PackagesTabChoice.All, list.SelectedValue);
+                Assert.Equal("Application status", UIElementAutomationPeer.CreatePeerForElement(list).GetName());
+                // The counts of the statuses are in the tooltip of the list.
+                foreach (var count in new[] { "All 5", "Updates available 1", "Absent from ConfigMgr 1", "Not checked 2" })
+                    Assert.Contains(count, (string)list.ToolTip);
 
-                // A tab has its count in its name for a screen reader, and a click on a tab changes the list.
-                var update = RenderKit.ById<RadioButton>(page, "tabStatusUpdate");
-                Assert.Equal("Updates available 1", UIElementAutomationPeer.CreatePeerForElement(update).GetName());
-                update.IsChecked = true;
+                list.SelectedValue = PackagesTabChoice.Update;
+                RenderKit.Settle(window);
                 Assert.Equal(PackagesTabChoice.Update, viewModel.StatusTab);
                 Assert.Equal(["b"], viewModel.FilteredPackagers.Select(r => r.Uid));
 
                 var line = RenderKit.ById<TextBlock>(page, "txtSelectionCount");
                 Assert.Equal("1 selected, 1 outside this view", line.Text);
-                Assert.True(RenderKit.ById<ButtonBase>(page, "btnShowSelected").IsVisible);
-                Assert.True(RenderKit.ById<ButtonBase>(page, "btnClearSelection").IsVisible);
+                var more = page.BuildMoreMenu().Items.OfType<System.Windows.Controls.MenuItem>()
+                    .ToDictionary(System.Windows.Automation.AutomationProperties.GetAutomationId);
+                Assert.True(more["miShowSelected"].IsEnabled);
+                Assert.True(more["miClearSelection"].IsEnabled);
+                Assert.Same(viewModel.ShowSelectedCommand, more["miShowSelected"].Command);
+                Assert.Same(viewModel.ClearSelectionCommand, more["miClearSelection"].Command);
             }
             finally { window.Close(); }
         });

@@ -5,7 +5,8 @@ namespace ApplicationPackagerEngine.Tests;
 
 /// <summary>
 /// Decision D-07 of the suite: bold text is for the title of a field only, not for a window or page header, a summary or a status text,
-/// and the text of a button is always bold, in both themes.
+/// and the text of a button is always bold, in both themes. The approved mock images draw a few more bold texts and three controls of
+/// normal weight; each one is listed here by name, so any other new one still fails.
 /// </summary>
 public sealed class BoldTextRuleTests
 {
@@ -62,21 +63,52 @@ public sealed class BoldTextRuleTests
         Path.Combine("Views", "Windows", "PivotsParametersWindow.xaml")
     ];
 
+    // The bold texts that the mock draws: the file, then the text or the binding of the element.
+    private static readonly (string File, string Text)[] MockBoldTexts =
+    [
+        ("ContextStrip.xaml", "{Binding SiteText}"),
+        ("PackagesPage.xaml", "{Binding SelectionText}"),
+        ("PackagesPage.xaml", "{Binding RunSummaryTitle}"),
+        ("PackagesPage.xaml", "{Binding Mark}"),
+        ("PackagesPage.xaml", "{Binding Application}"),
+        ("SettingsPage.xaml", "Replace and uninstall requires Exact."),
+        ("SettingsPage.xaml", "Bulk edit"),
+        ("Mock.Dialogs.xaml", "{TemplateBinding Title}"),
+        ("Mock.Settings.xaml", "{TemplateBinding Header}"),
+        ("OneClickPlanWindow.xaml", "Action"),
+        ("OneClickPlanWindow.xaml", "Changes apply to this run."),
+        ("OneClickPlanWindow.xaml", "{Binding Application}"),
+        ("PublishReviewWindow.xaml", "{Binding Application}"),
+        ("WorkbenchWindow.xaml", "Build"),
+        ("WorkbenchWindow.xaml", "Application"),
+        ("WorkbenchWindow.xaml", "Profile"),
+        ("WorkbenchWindow.xaml", "Icon")
+    ];
+
     [Fact]
     public void OnlyTheTitleOfAFieldIsBoldOutsideAButton()
     {
         var offenders = new List<string>();
+        var found = new HashSet<(string, string)>();
         foreach (var file in AllXaml())
         {
             var relative = Path.GetRelativePath(Root(), file);
             if (FieldTitleFiles.Contains(relative, StringComparer.OrdinalIgnoreCase)) continue;
             foreach (var element in XDocument.Load(file, LoadOptions.SetLineInfo).Descendants()
                          .Where(e => e.Name.LocalName is "TextBlock" or "Run" or "Label" or "Span" or "Bold" && IsBold((string?)e.Attribute("FontWeight"))))
-                offenders.Add($"{relative}:{((System.Xml.IXmlLineInfo)element).LineNumber}");
+            {
+                var key = (Path.GetFileName(file), (string?)element.Attribute("Text") ?? "");
+                if (MockBoldTexts.Contains(key)) found.Add(key);
+                else offenders.Add($"{relative}:{((System.Xml.IXmlLineInfo)element).LineNumber}");
+            }
         }
 
         Assert.True(offenders.Count == 0, "These texts are bold and are not the title of a field (use the FieldLabel style for a field title): " + string.Join(", ", offenders));
+        Assert.Equal(MockBoldTexts.Length, found.Count);
     }
+
+    // The bold text styles of the mock: a strong word, the name of a field, a section title, the mark of an application, the number of a result.
+    private static readonly string[] MockBoldTextStyles = ["SubHeader", "Mk.AppMarkText", "Mk.Strong", "Mk.FieldName", "Mk.H3", "Metric"];
 
     [Fact]
     public void NoStyleOfATextIsBoldExceptTheFieldLabel()
@@ -84,12 +116,17 @@ public sealed class BoldTextRuleTests
         var offenders = new List<string>();
         foreach (var file in AllXaml())
             foreach (var style in XDocument.Load(file, LoadOptions.SetLineInfo).Descendants(Presentation + "Style")
-                         .Where(s => (string?)s.Attribute("TargetType") is "TextBlock" or "Label" or "Run" && (string?)s.Attribute(Xaml + "Key") != "FieldLabel"))
+                         .Where(s => (string?)s.Attribute("TargetType") is "TextBlock" or "Label" or "Run" && (string?)s.Attribute(Xaml + "Key") != "FieldLabel"
+                             && !MockBoldTextStyles.Contains((string?)s.Attribute(Xaml + "Key"))))
                 foreach (var setter in style.Elements(Presentation + "Setter").Where(x => (string?)x.Attribute("Property") == "FontWeight" && IsBold((string?)x.Attribute("Value"))))
                     offenders.Add($"{Path.GetRelativePath(Root(), file)}:{((System.Xml.IXmlLineInfo)setter).LineNumber} ({(string?)style.Attribute(Xaml + "Key")})");
 
         Assert.True(offenders.Count == 0, "These text styles are bold; only the title of a field is: " + string.Join(", ", offenders));
     }
+
+    // The controls of the mock whose text has the normal weight: the Menu entry of the sidebar, the glyph buttons of the title bar and the
+    // site text of the status bar.
+    private static readonly string[] MockNormalButtonStyles = ["Mk.NavToggle", "Mk.SystemButton", "Mk.FooterSwitcher"];
 
     [Fact]
     public void EveryStyleOfAButtonIsBoldOrBasedOnTheStyleThatIs()
@@ -100,7 +137,7 @@ public sealed class BoldTextRuleTests
                          .Where(s => ((string?)s.Attribute("TargetType"))?.Replace("{x:Type ", "").TrimEnd('}') is "ui:Button" or "Button" && (string?)s.Attribute(Xaml + "Key") is not null))
             {
                 var bold = style.Elements(Presentation + "Setter").Any(x => (string?)x.Attribute("Property") == "FontWeight" && IsBold((string?)x.Attribute("Value")));
-                if (!bold && style.Attribute("BasedOn") is null)
+                if (!bold && style.Attribute("BasedOn") is null && !MockNormalButtonStyles.Contains((string?)style.Attribute(Xaml + "Key")))
                     offenders.Add($"{Path.GetRelativePath(Root(), file)}:{((System.Xml.IXmlLineInfo)style).LineNumber} ({(string?)style.Attribute(Xaml + "Key")})");
             }
 

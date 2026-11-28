@@ -280,6 +280,7 @@ public sealed class WindowGridRowsMoreTests
             content.DataContext = viewModel;
             var host = new Window
             {
+                Resources = window.Resources,
                 Width = Math.Max(MinimumSizeRows.Width, window.MinWidth),
                 Height = Math.Max(MinimumSizeRows.Height, window.MinHeight),
                 WindowStyle = WindowStyle.None,

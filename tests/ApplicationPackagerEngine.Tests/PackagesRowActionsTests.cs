@@ -58,7 +58,9 @@ public sealed class PackagesRowActionsTests
                 gridMenu.IsOpen = false;
                 var fromPane = Items(page.BuildRowActionsMenu());
 
-                Assert.Equal(fromGrid, fromPane);
+                // The row menu of the grid also opens the pane; its other entries are the entries of the pane.
+                Assert.Equal(("miRowShowDetails", "Show details", true), fromGrid[0]);
+                Assert.Equal(fromPane, fromGrid.Skip(1));
                 Assert.Equal(RowActions.All.Select(a => a.AutomationId), fromPane.Select(i => i.Id));
                 Assert.Equal(RowActions.All.Select(a => a.Header), fromPane.Select(i => i.Header));
                 // An application without a CPE has no CVE sources and no CVE ids.

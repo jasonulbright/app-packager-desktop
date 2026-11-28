@@ -21,8 +21,8 @@ namespace ApplicationPackagerEngine.Tests;
 public sealed class PackagesGridHeaderWidthTests
 {
     private const double WindowWidth = 1200;
-    private const double NavigationPaneWidth = 220;
-    private const double PageMargin = 32;
+    private const double NavigationPaneWidth = 216;
+    private const double PageMargin = 50;
 
     private sealed record Column(string Header, DataGridLength Width, double? MinWidth, bool Visible);
 
@@ -67,6 +67,11 @@ public sealed class PackagesGridHeaderWidthTests
         };
         grid.Resources.MergedDictionaries.Add(new ThemesDictionary { Theme = ApplicationTheme.Dark });
         grid.Resources.MergedDictionaries.Add(new ControlsDictionary());
+        _ = System.Windows.Application.Current;
+        foreach (var path in new[] { "Palette.Dark", "Mock" })
+            grid.Resources.MergedDictionaries.Add(new ResourceDictionary
+            { Source = new Uri($"pack://application:,,,/ApplicationPackagerUI;component/Views/Styles/{path}.xaml", UriKind.Absolute) });
+        grid.ColumnHeaderStyle = (Style)grid.FindResource("Mk.GridHeader");
         return grid;
     }
 

@@ -2,6 +2,8 @@
     x:Class="ApplicationPackagerUI.Controls.StepList"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    FontFamily="Segoe UI"
+    TextOptions.TextFormattingMode="Ideal"
     Focusable="False"
     IsTabStop="False"
     AutomationProperties.Name="Steps">
@@ -9,78 +11,45 @@
     <UserControl.Resources>
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
-                <ResourceDictionary Source="/ApplicationPackagerUI;component/Views/Styles/Typography.xaml" />
+                <ResourceDictionary Source="/ApplicationPackagerUI;component/Views/Styles/Mock.xaml" />
             </ResourceDictionary.MergedDictionaries>
         </ResourceDictionary>
     </UserControl.Resources>
 
-    <!-- A read-only list of the steps of a wizard. The current step has a marker, a tint, a filled number and the words "current step" in its
-         name. Back and Next move between the steps. -->
-    <Border BorderThickness="1" CornerRadius="8" BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}" Padding="8">
+    <!-- A read-only list of the steps of a wizard (.panel.pad with .steps of the mock). The current step has a tint, bold text, a filled number
+         and the words "current step" in its name. Back and Next move between the steps. -->
+    <Border Style="{StaticResource Mk.Panel}" Padding="16">
         <ScrollViewer VerticalScrollBarVisibility="Auto" Focusable="False">
             <StackPanel>
-                <TextBlock x:Name="txtStepCount" Text="{Binding StepCountText}" Style="{StaticResource CardTitleText}" Margin="8,4,8,12" />
+                <TextBlock x:Name="txtStepCount" Text="{Binding StepCountText}" Style="{StaticResource Mk.H3}" Height="20" Margin="0,0,0,14" />
                 <ItemsControl ItemsSource="{Binding Steps}" Focusable="False" IsTabStop="False">
                     <ItemsControl.ItemTemplate>
                         <DataTemplate>
-                            <Grid Margin="0,0,0,4">
-                                <Border CornerRadius="4">
-                                    <Border.Style>
-                                        <Style TargetType="Border">
-                                            <Setter Property="Background" Value="Transparent" />
-                                            <Style.Triggers>
-                                                <DataTrigger Binding="{Binding IsCurrent}" Value="True">
-                                                    <Setter Property="Background" Value="{DynamicResource SubtleFillColorSecondaryBrush}" />
-                                                </DataTrigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                    </Border.Style>
-                                </Border>
-                                <Border Width="3" Height="16" CornerRadius="1.5" HorizontalAlignment="Left" Background="{DynamicResource AccentFillColorDefaultBrush}">
-                                    <Border.Style>
-                                        <Style TargetType="Border">
-                                            <Setter Property="Visibility" Value="Collapsed" />
-                                            <Style.Triggers>
-                                                <DataTrigger Binding="{Binding IsCurrent}" Value="True">
-                                                    <Setter Property="Visibility" Value="Visible" />
-                                                </DataTrigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                    </Border.Style>
-                                </Border>
-                                <DockPanel Margin="8">
-                                    <Border DockPanel.Dock="Left" Width="24" Height="24" CornerRadius="12" BorderThickness="1" Margin="0,0,8,0">
-                                        <Border.Style>
-                                            <Style TargetType="Border">
-                                                <Setter Property="BorderBrush" Value="{DynamicResource ControlStrokeColorDefaultBrush}" />
-                                                <Setter Property="Background" Value="Transparent" />
-                                                <Style.Triggers>
-                                                    <DataTrigger Binding="{Binding IsCurrent}" Value="True">
-                                                        <Setter Property="BorderBrush" Value="{DynamicResource AccentFillColorDefaultBrush}" />
-                                                        <Setter Property="Background" Value="{DynamicResource AccentFillColorDefaultBrush}" />
-                                                    </DataTrigger>
-                                                </Style.Triggers>
-                                            </Style>
-                                        </Border.Style>
-                                        <TextBlock Text="{Binding Number}" FontSize="12" HorizontalAlignment="Center" VerticalAlignment="Center">
-                                            <TextBlock.Style>
-                                                <Style TargetType="TextBlock">
-                                                    <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
-                                                    <Style.Triggers>
-                                                        <DataTrigger Binding="{Binding IsCurrent}" Value="True">
-                                                            <Setter Property="Foreground" Value="{DynamicResource TextOnAccentFillColorPrimaryBrush}" />
-                                                        </DataTrigger>
-                                                    </Style.Triggers>
-                                                </Style>
-                                            </TextBlock.Style>
-                                        </TextBlock>
-                                    </Border>
-                                    <TextBlock Text="{Binding Title}" FontSize="14" TextWrapping="Wrap" VerticalAlignment="Center"
-                                               Foreground="{DynamicResource TextFillColorPrimaryBrush}"
+                            <!-- li { gap:10px; padding:9px 10px; radius 4 } with a circle of 25 units. -->
+                            <Border x:Name="Row" Height="43" Padding="10,0" CornerRadius="4" Background="Transparent">
+                                <DockPanel>
+                                    <Grid DockPanel.Dock="Left" Width="25" Height="25" Margin="0,0,10,0">
+                                        <Ellipse x:Name="Circle" Stroke="{DynamicResource MkEdgeBrush}" StrokeThickness="1" Fill="Transparent" />
+                                        <TextBlock x:Name="Number" Text="{Binding Number}" FontSize="12" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                   Margin="0,1,1,0" Foreground="{DynamicResource MkTextBrush}" />
+                                    </Grid>
+                                    <TextBlock x:Name="Title" Text="{Binding Title}" FontSize="14" TextWrapping="Wrap" VerticalAlignment="Center" Margin="0,-1,0,0"
+                                               Foreground="{DynamicResource MkTextBrush}"
                                                AutomationProperties.Name="{Binding AutomationName}"
                                                AutomationProperties.ItemStatus="{Binding ItemStatus}" />
                                 </DockPanel>
-                            </Grid>
+                            </Border>
+                            <DataTemplate.Triggers>
+                                <DataTrigger Binding="{Binding IsCurrent}" Value="True">
+                                    <Setter TargetName="Row" Property="Background" Value="{DynamicResource MkTintBrush}" />
+                                    <Setter TargetName="Circle" Property="Fill" Value="{DynamicResource MkAccentBrush}" />
+                                    <Setter TargetName="Circle" Property="Stroke" Value="{DynamicResource MkAccentBrush}" />
+                                    <Setter TargetName="Number" Property="Foreground" Value="{DynamicResource MkOnBrush}" />
+                                    <Setter TargetName="Number" Property="FontWeight" Value="Bold" />
+                                    <Setter TargetName="Number" Property="Margin" Value="0,1,0,0" />
+                                    <Setter TargetName="Title" Property="FontWeight" Value="Bold" />
+                                </DataTrigger>
+                            </DataTemplate.Triggers>
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>
                 </ItemsControl>

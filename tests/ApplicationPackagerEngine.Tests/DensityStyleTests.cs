@@ -66,10 +66,22 @@ public sealed class DensityStyleTests
         var offenders = Directory.EnumerateFiles(root, "*.xaml", SearchOption.AllDirectories)
             .SelectMany(f => XDocument.Load(f).Descendants(Presentation + "Style")
                 .Where(s => (string?)s.Attribute("TargetType") == "DataGridCell" && s.Parent?.Name.LocalName.EndsWith(".CellStyle", StringComparison.Ordinal) == true
-                            && !((string?)s.Attribute("BasedOn") ?? "").Contains("DensityCell", StringComparison.Ordinal))
+                            && !((string?)s.Attribute("BasedOn") ?? "").Contains("DensityCell", StringComparison.Ordinal)
+                            // The grids of the mock take their cell from the mock, which replaces the template and sets no minimum height.
+                            && (string?)s.Attribute("BasedOn") != "{StaticResource Mk.GridCell}")
                 .Select(_ => Path.GetRelativePath(root, f))).ToList();
 
         Assert.True(offenders.Count == 0, "A column cell style of the theme keeps the 40 px minimum height of the theme: " + string.Join(", ", offenders));
+    }
+
+    [Fact]
+    public void TheCellOfTheMockGridKeepsNoMinimumHeightOfTheTheme()
+    {
+        var cell = Styles("Mock.xaml").Descendants(Presentation + "Style").Single(s => (string?)s.Attribute(Xaml + "Key") == "Mk.GridCell");
+
+        Assert.Null(cell.Attribute("BasedOn"));
+        Assert.Null(Setter(cell, "MinHeight"));
+        Assert.Contains(cell.Elements(Presentation + "Setter"), s => (string?)s.Attribute("Property") == "Template");
     }
 
     [Fact]

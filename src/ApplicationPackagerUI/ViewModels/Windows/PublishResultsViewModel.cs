@@ -1,4 +1,4 @@
-using ApplicationPackagerEngine.Models;
+﻿using ApplicationPackagerEngine.Models;
 
 namespace ApplicationPackagerUI.ViewModels.Windows;
 
@@ -29,7 +29,7 @@ public sealed record PublishRetryOffer(string Uid, string Application, string De
 /// The publish results window (overhaul V1, phase 5a): one cell for each application and system, built from the per-destination results of the run, with
 /// counts and notices that say only what the run did. What reached a system stays published, and the window says so when a later system failed.
 /// </summary>
-public sealed class PublishResultsViewModel
+public sealed partial class PublishResultsViewModel
 {
     /// <param name="planned">The systems of the confirmed plan, so a system that no application reached still has its column.</param>
     /// <param name="offerRetry">True for a run that can retry a failed destination from this window. A One Click run cannot.</param>
@@ -155,28 +155,37 @@ public sealed class PublishResultsViewModel
     /// <summary>"3 publishes completed", "Publish completed with issues", "Publish was cancelled".</summary>
     public string Headline =>
         Cancelled ? "Publish was cancelled"
-        : Failed > 0 || Warnings > 0 ? "Publish completed with issues"
+        : HasIssues ? (IsOneClick ? "One Click completed with issues" : "Publish completed with issues")
         : Published == 0 ? "Nothing was published"
-        : $"{Published} {(Published == 1 ? "publish" : "publishes")} completed";
+        : IsOneClick ? "One Click completed"
+        : $"{PublishedApplications} {(PublishedApplications == 1 ? "application" : "applications")} published";
+
+    private int PublishedApplications => _rows.Count(r => r.Result.Destinations.Any(d => d.Kind == PublishDestinationKind.Published));
 
     public string PublishedText => $"Published {Published}";
     public string FailedText => $"Failed {Failed}";
     public string SkippedText => $"Skipped {Skipped}";
 
-    /// <summary>"Notepad++ reached ConfigMgr. It did not reach Intune (Failed at content upload)." Generated from the facts of the run, never fixed text.</summary>
+    /// <summary>
+    /// "Notepad++ reached ConfigMgr. Its Intune content upload failed. The WSUS version was already published." Generated from the facts of the
+    /// run, never fixed text. A stopped or broken publish may have written, so its state is named as not known.
+    /// </summary>
     public static string PartialNotice(string application, PublishRowResult result)
     {
         var reached = result.Destinations.Where(d => d.Kind == PublishDestinationKind.Published).Select(d => d.Destination).ToList();
-        var other = result.Destinations.Where(d => d.Kind != PublishDestinationKind.Published).ToList();
-        // A stopped or broken publish may have written; a failed content step leaves the application there. Neither is "did not reach".
-        static bool Unknown(PublishDestinationResult d) => d.Kind == PublishDestinationKind.Failed && d.Step is "cancel" or "error";
-        static bool Created(PublishDestinationResult d) => d.Kind == PublishDestinationKind.Failed && d.Step is "content" or "content upload";
-        var parts = new List<string> { $"{application} reached {Join(reached)}." };
-        var missed = other.Where(d => !Unknown(d) && !Created(d)).Select(d => $"{d.Destination} ({d.Text})").ToList();
-        if (missed.Count > 0) parts.Add($"It did not reach {Join(missed)}.");
-        parts.AddRange(other.Where(Created).Select(d => $"{d.Destination} has the application, and a later step failed ({d.Text})."));
-        parts.AddRange(other.Where(Unknown).Select(d => $"The state in {d.Destination} is not known. Check the system."));
-        parts.Add("What reached a system stays published.");
+        var parts = new List<string> { $"{WithoutArchitecture(application)} reached {Join(reached)}." };
+        foreach (var d in result.Destinations.Where(d => d.Kind != PublishDestinationKind.Published))
+            parts.Add(d.Kind switch
+            {
+                PublishDestinationKind.Failed when d.Step is "cancel" or "error" => $"The state in {d.Destination} is not known. Check the system.",
+                PublishDestinationKind.Failed when d.Step is "content" => $"{d.Destination} has the application, and its content step failed.",
+                PublishDestinationKind.Failed when d.Step.Length > 0 => $"Its {d.Destination} {d.Step} failed.",
+                PublishDestinationKind.Skipped when d.Message.Contains("already published", StringComparison.OrdinalIgnoreCase)
+                    => $"The {d.Destination} version was already published.",
+                _ => $"It did not reach {d.Destination} ({d.Text})."
+            });
+        if (parts.Count > 1 && result.Destinations.Any(d => d.Kind == PublishDestinationKind.Failed && d.Step is "cancel" or "error" or "content"))
+            parts.Add("What reached a system stays published.");
         return string.Join(" ", parts);
     }
 

@@ -349,13 +349,13 @@ public sealed class AddFlowRenderTests : IDisposable
                             var field = Id<Control>(page, id);
                             Assert.False(string.IsNullOrWhiteSpace(AutomationProperties.GetHelpText(field)), $"{stepWhere}: {id} has no help text.");
                         }
-                        Assert.Equal("Next · Version source", Id<Wpf.Ui.Controls.Button>(page, "btnAddWebNext").Content);
+                        Assert.Equal("Next · Version source", Id<Button>(page, "btnAddWebNext").Content);
                     }
                     if (step < AddAppViewModel.StepCount) viewModel.NextStepCommand.Execute(null);
                 }
 
                 Assert.True(Id<Border>(page, "pnlAddWebDetectionWarning").IsVisible);
-                var review = Id<Wpf.Ui.Controls.TextBox>(page, "txtAddWebReview");
+                var review = Id<TextBox>(page, "txtAddWebReview");
                 WholeLineKit.AssertWholeLines(review, where);
                 var split = Assert.IsType<Wpf.Ui.Controls.SplitButton>(Id<Button>(page, "btnAddWebSave"));
                 var menu = Assert.IsType<ContextMenu>(split.Flyout);
@@ -376,9 +376,9 @@ public sealed class AddFlowRenderTests : IDisposable
             var window = Host(page, 1440, 900);
             try
             {
-                var title = Id<TextBlock>(page, "txtAddWebHeader");
+                var title = Id<ApplicationPackagerUI.Controls.Mock.TrackedText>(page, "txtAddWebHeader");
                 Assert.Equal("Add from web", title.Text);
-                AssertTitleUsesThePrimaryTextBrush(window, title, $"Add from web title {theme}");
+                Assert.Equal(ColorOf(System.Windows.Application.Current.FindResource("MkTextBrush")), ColorOf(title.Foreground));
             }
             finally { window.Close(); }
         });
@@ -453,6 +453,7 @@ public sealed class AddFlowRenderTests : IDisposable
             window.Content = null;
             var host = new Window
             {
+                Resources = window.Resources,
                 Width = window.MinWidth,
                 Height = window.MinHeight,
                 WindowStyle = WindowStyle.None,
@@ -462,8 +463,8 @@ public sealed class AddFlowRenderTests : IDisposable
             Show(host);
             try
             {
-                var open = Id<Wpf.Ui.Controls.Button>(content, "btnOpenDefinition");
-                Assert.Equal("Open definition...", open.Content);
+                var open = Id<System.Windows.Controls.Button>(content, "btnOpenDefinition");
+                Assert.Equal("Open definition", open.Content);
                 var rename = (FrameworkElement)window.FindName("btnProfileRename");
                 var build = (FrameworkElement)window.FindName("cboBuild");
                 Rect Bounds(FrameworkElement e) => e.TransformToAncestor(host).TransformBounds(new Rect(e.RenderSize));

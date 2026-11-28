@@ -1,0 +1,146 @@
+﻿<ResourceDictionary
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+    xmlns:mk="clr-namespace:ApplicationPackagerUI.Controls.Mock">
+
+    <ResourceDictionary.MergedDictionaries>
+        <ResourceDictionary Source="/ApplicationPackagerUI;component/Views/Styles/Mock.xaml" />
+    </ResourceDictionary.MergedDictionaries>
+
+    <!-- .navbtn { width:100%; min-height:35px; padding 4px 11px; gap 7 } and the current entry: tint, weight 600, a 3 px accent bar 8 px from top and bottom. -->
+    <Style x:Key="Mk.NavItem" TargetType="ui:NavigationViewItem">
+        <Setter Property="OverridesDefaultStyle" Value="True" />
+        <Setter Property="FontFamily" Value="Segoe UI" />
+        <Setter Property="FontSize" Value="14" />
+        <Setter Property="FontWeight" Value="Normal" />
+        <Setter Property="Foreground" Value="{DynamicResource MkTextBrush}" />
+        <Setter Property="Height" Value="35" />
+        <Setter Property="MinHeight" Value="35" />
+        <Setter Property="Margin" Value="0,0,0,3" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="HorizontalAlignment" Value="Stretch" />
+        <Setter Property="Focusable" Value="True" />
+        <Setter Property="IsTabStop" Value="True" />
+        <Setter Property="FocusVisualStyle" Value="{StaticResource Mk.Focus}" />
+        <Setter Property="SnapsToDevicePixels" Value="True" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ui:NavigationViewItem">
+                    <Grid Background="Transparent">
+                        <Border x:Name="Face" CornerRadius="5" Background="Transparent" Margin="0,0,8,0" />
+                        <Rectangle x:Name="Bar" Width="3" RadiusX="2" RadiusY="2" HorizontalAlignment="Left" Margin="1,9,0,9" Fill="{DynamicResource MkAccentBrush}" Visibility="Collapsed" />
+                        <StackPanel Orientation="Horizontal" Margin="12,0,0,0" VerticalAlignment="Center">
+                            <mk:Ico Glyph="{Binding Path=(mk:Mk.Icon), RelativeSource={RelativeSource TemplatedParent}}">
+                                <mk:Ico.RenderTransform>
+                                    <TranslateTransform Y="1" />
+                                </mk:Ico.RenderTransform>
+                            </mk:Ico>
+                            <ContentPresenter x:Name="Label" Margin="7,0,0,0" VerticalAlignment="Center"><ContentPresenter.Resources><Style TargetType="TextBlock" /></ContentPresenter.Resources></ContentPresenter>
+                        </StackPanel>
+                    </Grid>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Face" Property="Background" Value="{DynamicResource MkSubBrush}" />
+                        </Trigger>
+                        <Trigger Property="IsActive" Value="True">
+                            <Setter TargetName="Face" Property="Background" Value="{DynamicResource MkTintBrush}" />
+                            <Setter TargetName="Bar" Property="Visibility" Value="Visible" />
+                            <Setter Property="FontWeight" Value="SemiBold" />
+                        </Trigger>
+                        <Trigger Property="mk:Mk.IsCurrent" Value="True">
+                            <Setter TargetName="Face" Property="Background" Value="{DynamicResource MkTintBrush}" />
+                            <Setter TargetName="Bar" Property="Visibility" Value="Visible" />
+                            <Setter Property="FontWeight" Value="SemiBold" />
+                        </Trigger>
+                        <DataTrigger Binding="{Binding IsPaneOpen, RelativeSource={RelativeSource AncestorType=ui:NavigationView}}" Value="False">
+                            <Setter TargetName="Label" Property="Visibility" Value="Collapsed" />
+                        </DataTrigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- The Menu entry of the mock: it shows or hides the labels of the sidebar. -->
+    <Style x:Key="Mk.NavToggle" TargetType="Button">
+        <Setter Property="FontFamily" Value="Segoe UI" />
+        <Setter Property="FontSize" Value="14" />
+        <Setter Property="Foreground" Value="{DynamicResource MkTextBrush}" />
+        <Setter Property="Height" Value="35" />
+        <Setter Property="Margin" Value="0,0,0,3" />
+        <Setter Property="FocusVisualStyle" Value="{StaticResource Mk.Focus}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="Face" CornerRadius="5" Background="Transparent" Margin="0,0,8,0">
+                        <StackPanel Orientation="Horizontal" Margin="12,0,0,0" VerticalAlignment="Center">
+                            <mk:Ico Glyph="navigation">
+                                <mk:Ico.RenderTransform>
+                                    <TranslateTransform Y="1" />
+                                </mk:Ico.RenderTransform>
+                            </mk:Ico>
+                            <TextBlock x:Name="Label" Text="Menu" Margin="7,0,0,0" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Face" Property="Background" Value="{DynamicResource MkSubBrush}" />
+                        </Trigger>
+                        <DataTrigger Binding="{Binding IsPaneOpen, RelativeSource={RelativeSource AncestorType=ui:NavigationView}}" Value="False">
+                            <Setter TargetName="Label" Property="Visibility" Value="Collapsed" />
+                        </DataTrigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- .mock grid: a 216 px sidebar and the workspace; the workspace has the strip at its top, 24 px at the sides and a 14 px gap under the strip. -->
+    <Style x:Key="Mk.Navigation" TargetType="ui:NavigationView">
+        <Setter Property="OverridesDefaultStyle" Value="True" />
+        <Setter Property="Focusable" Value="False" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ui:NavigationView">
+                    <Grid Background="{DynamicResource MkBaseBrush}">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Border x:Name="Pane" Width="216" BorderThickness="0,0,1,0" BorderBrush="{DynamicResource MkLineBrush}" SnapsToDevicePixels="True">
+                            <Grid x:Name="PaneGrid" Margin="8,10,0,10" Background="Transparent">
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="*" />
+                                    <RowDefinition Height="Auto" />
+                                </Grid.RowDefinitions>
+                                <Button x:Name="PART_ToggleButton" Style="{StaticResource Mk.NavToggle}" AutomationProperties.AutomationId="btnNavigationToggle" />
+                                <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Focusable="False">
+                                    <ScrollViewer.Resources>
+                                        <Style TargetType="ScrollBar" BasedOn="{StaticResource Mk.ScrollBar}" />
+                                    </ScrollViewer.Resources>
+                                    <ItemsControl x:Name="PART_MenuItemsItemsControl" Focusable="False" IsTabStop="False" KeyboardNavigation.DirectionalNavigation="Contained" Margin="0,0,0,0" />
+                                </ScrollViewer>
+                                <ItemsControl x:Name="PART_FooterMenuItemsItemsControl" Grid.Row="2" Focusable="False" IsTabStop="False" Margin="0,0,0,-3" />
+                            </Grid>
+                        </Border>
+                        <Grid Grid.Column="1">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="*" />
+                            </Grid.RowDefinitions>
+                            <ContentPresenter Margin="24,0" Content="{TemplateBinding Header}" />
+                            <ui:NavigationViewContentPresenter x:Name="PART_NavigationViewContentPresenter" Grid.Row="1" Margin="0,14,0,0" Padding="0" />
+                        </Grid>
+                    </Grid>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsPaneOpen" Value="False">
+                            <Setter TargetName="Pane" Property="Width" Value="59" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+</ResourceDictionary>

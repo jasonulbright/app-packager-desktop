@@ -1,175 +1,204 @@
-<ui:FluentWindow
+﻿<ui:FluentWindow
     x:Class="ApplicationPackagerUI.Views.Windows.PublishResultsWindow"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+    xmlns:mk="clr-namespace:ApplicationPackagerUI.Controls.Mock"
     Title="Publish results"
-    Width="1190" Height="600"
-    MinWidth="900" MinHeight="480"
-    WindowStartupLocation="CenterOwner"
+    Width="1190" Height="440"
+    MinWidth="900" MinHeight="400"
+    ResizeMode="NoResize"
     ExtendsContentIntoTitleBar="True"
+    FontFamily="Segoe UI"
+    TextOptions.TextFormattingMode="Ideal"
     WindowBackdropType="None">
 
     <Window.Resources>
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
-                <ResourceDictionary Source="/ApplicationPackagerUI;component/Views/Styles/Typography.xaml" />
+                <ResourceDictionary Source="/ApplicationPackagerUI;component/Views/Styles/Mock.Dialogs.xaml" />
             </ResourceDictionary.MergedDictionaries>
-            <BooleanToVisibilityConverter x:Key="ShowWhen" />
-            <Style x:Key="Tile" TargetType="Border">
-                <Setter Property="Padding" Value="12,8" />
-                <Setter Property="Margin" Value="0,0,8,0" />
-                <Setter Property="BorderThickness" Value="1" />
-                <Setter Property="CornerRadius" Value="8" />
-                <Setter Property="BorderBrush" Value="{DynamicResource ControlStrokeColorDefaultBrush}" />
-                <Setter Property="Background" Value="{DynamicResource SurfacePageBrush}" />
+            <BooleanToVisibilityConverter x:Key="Visible" />
+            <!-- A notice shows only while it has text. -->
+            <Style x:Key="OptionalBorder" TargetType="Border" BasedOn="{StaticResource Mk.Notice}">
+                <Setter Property="Margin" Value="0,13,0,0" />
+                <Style.Triggers>
+                    <DataTrigger Binding="{Binding Tag, RelativeSource={RelativeSource Self}}" Value="">
+                        <Setter Property="Visibility" Value="Collapsed" />
+                    </DataTrigger>
+                </Style.Triggers>
+            </Style>
+            <Style x:Key="BannerStyle" TargetType="Border" BasedOn="{StaticResource Mk.Banner}">
+                <Setter Property="Margin" Value="0,13,0,0" />
+                <Setter Property="MinHeight" Value="43" />
+                <Style.Triggers>
+                    <DataTrigger Binding="{Binding SuccessBanner}" Value="">
+                        <Setter Property="Visibility" Value="Collapsed" />
+                    </DataTrigger>
+                </Style.Triggers>
+            </Style>
+            <Style x:Key="OptionalHelp" TargetType="TextBlock" BasedOn="{StaticResource Mk.Help}">
+                <Setter Property="Margin" Value="0,13,0,0" />
+                <Style.Triggers>
+                    <Trigger Property="Text" Value="">
+                        <Setter Property="Visibility" Value="Collapsed" />
+                    </Trigger>
+                </Style.Triggers>
+            </Style>
+            <Style x:Key="SignalText" TargetType="TextBlock">
+                <Setter Property="Foreground" Value="{DynamicResource MkTextBrush}" />
+                <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+                <Style.Triggers>
+                    <DataTrigger Binding="{Binding Tag, RelativeSource={RelativeSource Self}}" Value="good">
+                        <Setter Property="Foreground" Value="{DynamicResource MkOkBrush}" />
+                    </DataTrigger>
+                    <DataTrigger Binding="{Binding Tag, RelativeSource={RelativeSource Self}}" Value="warn">
+                        <Setter Property="Foreground" Value="{DynamicResource MkWarnBrush}" />
+                    </DataTrigger>
+                    <DataTrigger Binding="{Binding Tag, RelativeSource={RelativeSource Self}}" Value="bad">
+                        <Setter Property="Foreground" Value="{DynamicResource MkBadBrush}" />
+                    </DataTrigger>
+                </Style.Triggers>
+            </Style>
+            <Style x:Key="Metric" TargetType="TextBlock">
+                <Setter Property="FontSize" Value="25" />
+                <Setter Property="FontWeight" Value="Bold" />
+                <Setter Property="LineHeight" Value="25" />
+                <Setter Property="LineStackingStrategy" Value="BlockLineHeight" />
+                <Setter Property="Margin" Value="0,3,0,-3" />
+                <Setter Property="Foreground" Value="{DynamicResource MkTextBrush}" />
+            </Style>
+            <Style x:Key="OptionalList" TargetType="ItemsControl">
+                <Setter Property="Margin" Value="0,13,0,0" />
+                <Setter Property="Focusable" Value="False" />
+                <Setter Property="IsTabStop" Value="False" />
+                <Setter Property="ItemTemplate">
+                    <Setter.Value>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding Mode=OneWay}" TextWrapping="Wrap" Foreground="{DynamicResource MkTextBrush}" />
+                        </DataTemplate>
+                    </Setter.Value>
+                </Setter>
+                <Style.Triggers>
+                    <Trigger Property="HasItems" Value="False">
+                        <Setter Property="Visibility" Value="Collapsed" />
+                    </Trigger>
+                </Style.Triggers>
             </Style>
         </ResourceDictionary>
     </Window.Resources>
 
-    <Grid>
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="*" MinHeight="96" />
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
-        </Grid.RowDefinitions>
-
-        <ui:TitleBar Grid.Row="0" Title="Publish results" ShowMinimize="False" />
-
-        <StackPanel Grid.Row="1" Margin="16,0,16,8">
-            <TextBlock Text="{Binding SiteLine}" FontSize="12" Foreground="{DynamicResource TextFillColorSecondaryBrush}" AutomationProperties.AutomationId="txtResultsSite">
-                <TextBlock.Style>
-                    <Style TargetType="TextBlock">
-                        <Style.Triggers>
-                            <DataTrigger Binding="{Binding SiteLine}" Value="">
-                                <Setter Property="Visibility" Value="Collapsed" />
-                            </DataTrigger>
-                        </Style.Triggers>
-                    </Style>
-                </TextBlock.Style>
-            </TextBlock>
-            <TextBlock Text="{Binding Headline}" Style="{StaticResource SectionTitle}" AutomationProperties.HeadingLevel="Level1"
-                       AutomationProperties.AutomationId="txtResultsHeadline" AutomationProperties.LiveSetting="Polite" />
-            <!-- The three counts as tiles: a glyph, the word and the number, so no count is read by color alone. -->
-            <StackPanel Orientation="Horizontal" Margin="0,8,0,0" AutomationProperties.AutomationId="pnlResultTiles">
-                <Border Style="{StaticResource Tile}">
-                    <StackPanel Orientation="Horizontal">
-                        <ui:SymbolIcon Symbol="CheckmarkCircle24" FontSize="20" Margin="0,0,8,0" Foreground="{DynamicResource StatusSuccessBrush}" />
-                        <TextBlock Text="{Binding PublishedText}" FontSize="16" Foreground="{DynamicResource StatusSuccessBrush}" AutomationProperties.AutomationId="txtResultsPublished" />
+    <mk:DialogFrame Title="Publish results">
+        <mk:DialogFrame.Body>
+            <ScrollViewer x:Name="BodyScroll" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Focusable="False">
+                <StackPanel>
+                    <StackPanel Height="51">
+                        <mk:TrackedText Style="{StaticResource Mk.H2}" Text="{Binding Headline, Mode=OneWay}" AutomationProperties.HeadingLevel="Level1"
+                                        AutomationProperties.AutomationId="txtResultsHeadline" AutomationProperties.LiveSetting="Polite" />
+                        <TextBlock Text="{Binding SubLine, Mode=OneWay}" Margin="0,5,0,-1" Height="21" Foreground="{DynamicResource MkMutedBrush}"
+                                   AutomationProperties.AutomationId="txtResultsSite" />
                     </StackPanel>
-                </Border>
-                <Border Style="{StaticResource Tile}">
-                    <StackPanel Orientation="Horizontal">
-                        <ui:SymbolIcon Symbol="DismissCircle24" FontSize="20" Margin="0,0,8,0" Foreground="{DynamicResource StatusErrorBrush}" />
-                        <TextBlock Text="{Binding FailedText}" FontSize="16" Foreground="{DynamicResource StatusErrorBrush}" AutomationProperties.AutomationId="txtResultsFailed" />
-                    </StackPanel>
-                </Border>
-                <Border Style="{StaticResource Tile}">
-                    <StackPanel Orientation="Horizontal">
-                        <ui:SymbolIcon Symbol="SubtractCircle24" FontSize="20" Margin="0,0,8,0" Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
-                        <TextBlock Text="{Binding SkippedText}" FontSize="16" Foreground="{DynamicResource TextFillColorSecondaryBrush}" AutomationProperties.AutomationId="txtResultsSkipped" />
-                    </StackPanel>
-                </Border>
-            </StackPanel>
-            <TextBlock Text="{Binding DeploymentNotice}" FontSize="14" Margin="0,8,0,0" TextWrapping="Wrap" Foreground="{DynamicResource TextFillColorPrimaryBrush}"
-                       AutomationProperties.AutomationId="txtResultsDeployment">
-                <TextBlock.Style>
-                    <Style TargetType="TextBlock">
-                        <Style.Triggers>
-                            <DataTrigger Binding="{Binding DeploymentNotice}" Value="">
-                                <Setter Property="Visibility" Value="Collapsed" />
-                            </DataTrigger>
-                        </Style.Triggers>
-                    </Style>
-                </TextBlock.Style>
-            </TextBlock>
-            <ItemsControl ItemsSource="{Binding Notices}" Margin="0,8,0,0" Focusable="False" IsTabStop="False" AutomationProperties.AutomationId="lstResultsNotices">
-                <ItemsControl.ItemTemplate>
-                    <DataTemplate>
-                        <TextBlock Text="{Binding}" FontSize="14" TextWrapping="Wrap" Margin="0,0,0,4" Foreground="{DynamicResource StatusWarningBrush}" />
-                    </DataTemplate>
-                </ItemsControl.ItemTemplate>
-            </ItemsControl>
-        </StackPanel>
 
-        <DataGrid x:Name="Matrix" Grid.Row="2" Margin="16,0,16,8" ItemsSource="{Binding Rows}" AutoGenerateColumns="False" IsReadOnly="True"
-                  CanUserAddRows="False" HeadersVisibility="Column" GridLinesVisibility="Horizontal"
-                  AutomationProperties.AutomationId="gridResultsMatrix" AutomationProperties.Name="Publish results matrix">
-            <DataGrid.Columns>
-                <DataGridTextColumn Header="Application" Binding="{Binding Application}" Width="2*" MinWidth="160" />
-            </DataGrid.Columns>
-        </DataGrid>
+                    <Border Style="{StaticResource BannerStyle}">
+                        <DockPanel>
+                            <mk:Ico DockPanel.Dock="Left" Glyph="checkmark_circle" Foreground="{DynamicResource MkTextBrush}" Margin="0,0,8,0" />
+                            <TextBlock Text="{Binding SuccessBanner, Mode=OneWay}" TextWrapping="Wrap" VerticalAlignment="Center"
+                                       Foreground="{DynamicResource MkTextBrush}" AutomationProperties.AutomationId="txtResultsBanner" />
+                        </DockPanel>
+                    </Border>
 
-        <ItemsControl Grid.Row="3" ItemsSource="{Binding Details}" Margin="16,0,16,8" MaxHeight="96" Focusable="False" IsTabStop="False" AutomationProperties.AutomationId="lstResultsDetails">
-            <ItemsControl.ItemTemplate>
-                <DataTemplate>
-                    <TextBlock Text="{Binding}" Style="{StaticResource CaptionText}" />
-                </DataTemplate>
-            </ItemsControl.ItemTemplate>
-        </ItemsControl>
+                    <Border Style="{StaticResource OptionalBorder}" Tag="{Binding IssueNotice, Mode=OneWay}" BorderBrush="{DynamicResource MkWarnBrush}"
+                            AutomationProperties.AutomationId="lstResultsNotices">
+                        <DockPanel x:Name="pnlIssue">
+                            <mk:Ico DockPanel.Dock="Left" Glyph="warning" Foreground="{DynamicResource MkTextBrush}" FontSize="16" Width="16" Height="16" Margin="0,0,6,0" />
+                            <TextBlock Text="{Binding IssueNotice, Mode=OneWay}" TextWrapping="Wrap" Margin="0,-1,0,0" Foreground="{DynamicResource MkTextBrush}" />
+                        </DockPanel>
+                    </Border>
 
-        <!-- One entry for each failed destination: the retry button where the app can verify the destination, else what to verify by hand. -->
-        <StackPanel Grid.Row="4" Margin="16,0,16,8">
-            <TextBlock Text="{Binding RetryNote}" FontSize="14" TextWrapping="Wrap" Margin="0,0,0,4" Foreground="{DynamicResource StatusWarningBrush}"
-                       AutomationProperties.AutomationId="txtResultsRetryNote" AutomationProperties.LiveSetting="Assertive">
-                <TextBlock.Style>
-                    <Style TargetType="TextBlock">
-                        <Style.Triggers>
-                            <DataTrigger Binding="{Binding RetryNote}" Value="">
-                                <Setter Property="Visibility" Value="Collapsed" />
-                            </DataTrigger>
-                        </Style.Triggers>
-                    </Style>
-                </TextBlock.Style>
-            </TextBlock>
-            <ScrollViewer MaxHeight="96" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Focusable="False">
-                <ItemsControl ItemsSource="{Binding Retries}" Focusable="False" IsTabStop="False" AutomationProperties.AutomationId="lstResultsRetries">
-                    <ItemsControl.ItemTemplate>
-                        <DataTemplate>
-                            <DockPanel Margin="0,0,0,4">
-                                <ui:Button DockPanel.Dock="Right" Content="Retry failed destination" Icon="{ui:SymbolIcon ArrowClockwise24}" Margin="8,0,0,0"
-                                           Click="Retry_Click" VerticalAlignment="Center"
-                                           AutomationProperties.AutomationId="btnResultsRetry" AutomationProperties.Name="{Binding ButtonName}"
-                                           ToolTip="Opens the publish review for this application and this system only. Nothing is published until you confirm.">
-                                    <ui:Button.Style>
-                                        <Style TargetType="ui:Button" BasedOn="{StaticResource {x:Type ui:Button}}">
-                                            <Style.Triggers>
-                                                <DataTrigger Binding="{Binding CanRetry}" Value="False">
-                                                    <Setter Property="Visibility" Value="Collapsed" />
-                                                </DataTrigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                    </ui:Button.Style>
-                                </ui:Button>
-                                <TextBlock Text="{Binding Text}" FontSize="14" TextWrapping="Wrap" VerticalAlignment="Center"
-                                           Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
-                            </DockPanel>
-                        </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                </ItemsControl>
+                    <Border Style="{StaticResource OptionalBorder}" Tag="{Binding RetryNote, Mode=OneWay}" BorderBrush="{DynamicResource MkWarnBrush}">
+                        <TextBlock Text="{Binding RetryNote, Mode=OneWay}" TextWrapping="Wrap" Foreground="{DynamicResource MkTextBrush}"
+                                   AutomationProperties.AutomationId="txtResultsRetryNote" AutomationProperties.LiveSetting="Assertive" />
+                    </Border>
+
+                    <!-- A One Click run: the three counts. -->
+                    <UniformGrid Rows="1" Margin="-7,13,-7,0" Visibility="{Binding IsOneClick, Converter={StaticResource Visible}}" AutomationProperties.AutomationId="pnlResultTiles">
+                        <Border Style="{StaticResource Mk.Panel}" Margin="7,0" Padding="16" Height="92">
+                            <StackPanel>
+                                <TextBlock Text="{Binding Published, Mode=OneWay}" Style="{StaticResource Metric}" Foreground="{DynamicResource MkOkBrush}" />
+                                <StackPanel Orientation="Horizontal" Margin="0,15,0,-1">
+                                    <mk:Ico Glyph="checkmark_circle" Foreground="{DynamicResource MkOkBrush}" />
+                                    <TextBlock Text="Published" Margin="6,-1,0,0" Foreground="{DynamicResource MkOkBrush}" AutomationProperties.AutomationId="txtResultsPublished"
+                                               AutomationProperties.Name="{Binding PublishedText, Mode=OneWay}" />
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+                        <Border Style="{StaticResource Mk.Panel}" Margin="7,0" Padding="16" Height="92">
+                            <StackPanel>
+                                <TextBlock Text="{Binding Failed, Mode=OneWay}" Style="{StaticResource Metric}" Foreground="{DynamicResource MkBadBrush}" />
+                                <StackPanel Orientation="Horizontal" Margin="0,15,0,-1">
+                                    <mk:Ico Glyph="error_circle" Foreground="{DynamicResource MkBadBrush}" />
+                                    <TextBlock Text="Failed" Margin="6,-1,0,0" Foreground="{DynamicResource MkBadBrush}" AutomationProperties.AutomationId="txtResultsFailed"
+                                               AutomationProperties.Name="{Binding FailedText, Mode=OneWay}" />
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+                        <Border Style="{StaticResource Mk.Panel}" Margin="7,0" Padding="16" Height="92">
+                            <StackPanel>
+                                <TextBlock Text="{Binding Skipped, Mode=OneWay}" Style="{StaticResource Metric}" />
+                                <StackPanel Orientation="Horizontal" Margin="0,15,0,-1">
+                                    <mk:Ico Glyph="clock" Foreground="{DynamicResource MkTextBrush}" />
+                                    <TextBlock Text="Skipped" Margin="6,-1,0,0" Foreground="{DynamicResource MkTextBrush}" AutomationProperties.AutomationId="txtResultsSkipped"
+                                               AutomationProperties.Name="{Binding SkippedText, Mode=OneWay}" />
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+                    </UniformGrid>
+
+                    <Border Style="{StaticResource Mk.Panel}" Margin="0,13,0,0">
+                        <DataGrid x:Name="Matrix" Style="{StaticResource Mk.PlainGrid}" ItemsSource="{Binding Lines, Mode=OneWay}" MaxHeight="360"
+                                  AutomationProperties.AutomationId="gridResultsMatrix" AutomationProperties.Name="Publish results matrix">
+                            <DataGrid.ContextMenu>
+                                <ContextMenu Opened="RowMenu_Opened" />
+                            </DataGrid.ContextMenu>
+                        </DataGrid>
+                    </Border>
+
+                    <Border Style="{StaticResource OptionalBorder}" Tag="{Binding TableNotice, Mode=OneWay}">
+                        <DockPanel Margin="0,1,0,-1">
+                            <mk:Ico DockPanel.Dock="Left" Glyph="info" Foreground="{DynamicResource MkTextBrush}" FontSize="16" Width="16" Height="16" Margin="0,0,6,0" />
+                            <TextBlock Text="{Binding TableNotice, Mode=OneWay}" TextWrapping="Wrap" Margin="0,-1,0,0" Foreground="{DynamicResource MkTextBrush}"
+                                       AutomationProperties.AutomationId="txtResultsDeployment" />
+                        </DockPanel>
+                    </Border>
+                    <TextBlock x:Name="txtFailureHelp" Text="{Binding FailureHelp, Mode=OneWay}" Style="{StaticResource OptionalHelp}" AutomationProperties.AutomationId="lstResultsDetails" />
+                    <ItemsControl x:Name="lstFailures" ItemsSource="{Binding FailureLines, Mode=OneWay}" Style="{StaticResource OptionalList}" AutomationProperties.AutomationId="lstResultsFailures" />
+                    <ItemsControl ItemsSource="{Binding RetryLines, Mode=OneWay}" Style="{StaticResource OptionalList}" AutomationProperties.AutomationId="lstResultsRetries" />
+                    <TextBlock Text="{Binding RowMenuHelp, Mode=OneWay}" Style="{StaticResource OptionalHelp}" AutomationProperties.AutomationId="txtResultsRowMenu" />
+                </StackPanel>
             </ScrollViewer>
-        </StackPanel>
-
-        <Border Grid.Row="5" BorderThickness="0,1,0,0" BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}" Padding="16,8">
-            <DockPanel LastChildFill="False">
-                <ui:Button DockPanel.Dock="Left" x:Name="btnResultsHistory" Content="Operation history" Icon="{ui:SymbolIcon History24}" Margin="0,0,8,0"
-                           Click="History_Click" Visibility="{Binding HasHistory, Converter={StaticResource ShowWhen}}"
-                           AutomationProperties.AutomationId="btnResultsHistory" ToolTip="View the recorded operations of the application that is selected in the list. With no selection, the first failed one." />
-                <ui:Button DockPanel.Dock="Left" x:Name="btnResultsReport" Content="Open report" Icon="{ui:SymbolIcon Open24}" Margin="0,0,8,0"
-                           Click="Report_Click" Visibility="{Binding HasReport, Converter={StaticResource ShowWhen}}"
-                           AutomationProperties.AutomationId="btnResultsReport" ToolTip="Open the report of this run." />
-                <ui:Button DockPanel.Dock="Left" x:Name="btnResultsLogs" Content="Logs" Icon="{ui:SymbolIcon DocumentText24}" Margin="0,0,8,0"
-                           Click="Logs_Click" Visibility="{Binding HasLogs, Converter={StaticResource ShowWhen}}"
-                           AutomationProperties.AutomationId="btnResultsLogs" ToolTip="Open the log of this session." />
-                <ui:Button DockPanel.Dock="Right" Content="Done" Appearance="Primary" MinWidth="110" IsDefault="True" IsCancel="True" Click="Done_Click"
-                           AutomationProperties.AutomationId="btnResultsDone" ToolTip="Close the results. The grid keeps its filter, its sort and its place." Margin="8,0,0,0" />
-                <ui:Button DockPanel.Dock="Right" x:Name="btnResultsReview" Content="Review failed application" Margin="0,0,0,0" Click="Review_Click"
-                           Visibility="{Binding HasFailure, Converter={StaticResource ShowWhen}}"
-                           AutomationProperties.AutomationId="btnResultsReview" ToolTip="Close the results and select the first failed application in the grid." />
-            </DockPanel>
-        </Border>
-    </Grid>
+        </mk:DialogFrame.Body>
+        <mk:DialogFrame.FootLeft>
+            <StackPanel Orientation="Horizontal" UseLayoutRounding="False">
+                <Button x:Name="btnResultsRunHistory" Style="{StaticResource Mk.Button}" mk:Mk.Icon="history" Content="Run history" Click="RunHistory_Click" Margin="0,0,8,0"
+                        Visibility="{Binding HasRunHistory, Converter={StaticResource Visible}, Mode=OneWay}" AutomationProperties.AutomationId="btnResultsRunHistory"
+                        ToolTip="Lists the reports of earlier One Click runs." />
+                <Button x:Name="btnResultsHistory" Style="{StaticResource Mk.Button}" mk:Mk.Icon="history" Content="Operation history" Click="History_Click" Margin="0,0,8,0"
+                        AutomationProperties.AutomationId="btnResultsHistory" ToolTip="View the recorded operations of the application that is selected in the list. With no selection, the first failed one." />
+                <Button x:Name="btnResultsReport" Style="{StaticResource Mk.Button}" mk:Mk.Icon="open" Content="Open report" Click="Report_Click" Margin="0,0,8,0"
+                        Visibility="{Binding ShowReportButton, Converter={StaticResource Visible}, Mode=OneWay}" AutomationProperties.AutomationId="btnResultsReport"
+                        ToolTip="Open the report of this run." />
+                <Button x:Name="btnResultsLogs" Style="{StaticResource Mk.Button}" mk:Mk.Icon="document" Content="Logs" Click="Logs_Click"
+                        Visibility="{Binding HasLogs, Converter={StaticResource Visible}, Mode=OneWay}" AutomationProperties.AutomationId="btnResultsLogs"
+                        ToolTip="Open the log of this session." />
+            </StackPanel>
+        </mk:DialogFrame.FootLeft>
+        <mk:DialogFrame.FootRight>
+            <StackPanel Orientation="Horizontal" UseLayoutRounding="False">
+                <Button x:Name="btnResultsReview" Style="{StaticResource Mk.Button}" mk:Mk.Icon="arrow_right" Content="Review failed application" Click="Review_Click" Margin="0,0,8,0"
+                        AutomationProperties.AutomationId="btnResultsReview" ToolTip="Close the results and select the first failed application in the grid." />
+                <Button x:Name="btnResultsDone" Style="{StaticResource Mk.Button.Primary}" mk:Mk.Icon="checkmark" Content="Done" IsDefault="True" IsCancel="True" Click="Done_Click"
+                        AutomationProperties.AutomationId="btnResultsDone" ToolTip="Close the results. The grid keeps its filter, its sort and its place." />
+            </StackPanel>
+        </mk:DialogFrame.FootRight>
+    </mk:DialogFrame>
 </ui:FluentWindow>

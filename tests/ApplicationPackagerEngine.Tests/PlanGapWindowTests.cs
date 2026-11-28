@@ -13,7 +13,6 @@ using Wpf.Ui.Appearance;
 using static ApplicationPackagerEngine.Tests.Compliance.RenderKit;
 using CheckBox = System.Windows.Controls.CheckBox;
 using DataGrid = System.Windows.Controls.DataGrid;
-using ToggleButton = System.Windows.Controls.Primitives.ToggleButton;
 
 namespace ApplicationPackagerEngine.Tests;
 
@@ -39,7 +38,7 @@ public sealed class PlanGapWindowTests
 
     private static OneClickPlanViewModel Plan(IOneClickRunner runner, string folder) => new(new OneClickPlanContext
     {
-        Apps = [(new OneClickApp("a", "Audacity", "Contoso", "3.7"), (PackagerInfo?)new PackagerInfo { Uid = "a", Application = "Audacity" })],
+        Apps = [(new OneClickApp("a", "Audacity", "Contoso", "3.7"), (PackagerInfo?)new PackagerInfo { Uid = "a", Application = "Audacity", IsJsonDefined = true })],
         Settings = () => new OneClickPlanSettings
         {
             Tracked = ["a"],
@@ -78,9 +77,20 @@ public sealed class PlanGapWindowTests
                         Assert.Contains(name, names);
 
                     Assert.Equal("ConfigMgr: application only, no distribution, no deployment", row.ChangeDetails);
-                    var toggle = Descendants(grid).OfType<ToggleButton>().Single(t => AutomationProperties.GetAutomationId(t) == "btnChangeDetails");
-                    Assert.Equal("Change details for Audacity", AutomationProperties.GetName(toggle));
-                    toggle.IsChecked = true;
+                    // Where the destinations come from is the tooltip of the application cell.
+                    Assert.Contains(Descendants(grid).OfType<FrameworkElement>(), e => Equals(e.ToolTip, "Destinations from: Default"));
+                    // Change details is an entry of the row menu, which the keyboard opens too.
+                    grid.SelectedItem = row;
+                    var menu = grid.ContextMenu!;
+                    menu.PlacementTarget = grid;
+                    menu.IsOpen = true;
+                    Settle(window);
+                    var details = Assert.Single(menu.Items.OfType<System.Windows.Controls.MenuItem>(), i => AutomationProperties.GetAutomationId(i) == "btnChangeDetails");
+                    Assert.Equal("Change details", details.Header);
+                    Assert.True(details.IsEnabled && !details.IsChecked);
+                    details.IsChecked = true;
+                    details.RaiseEvent(new RoutedEventArgs(System.Windows.Controls.MenuItem.ClickEvent));
+                    menu.IsOpen = false;
                     Settle(window);
                     Assert.Contains(Descendants(grid).OfType<TextBlock>(), t => t.IsVisible && t.Text == row.ChangeDetails);
                 }
@@ -155,10 +165,10 @@ public sealed class PlanGapWindowTests
 
     /// <summary>
     /// A UI Automation client on another thread reads the page through the automation tree, as a screen reader does: the grid, the
-    /// status tabs and the batch actions are there under their names and control types.
+    /// status list and the batch actions are there under their names and control types.
     /// </summary>
     [Fact]
-    public void AUiAutomationClientFindsTheGridTheTabsAndTheBatchButtons()
+    public void AUiAutomationClientFindsTheGridTheStatusListAndTheBatchButtons()
     {
         WithApplication(ApplicationTheme.Light, () =>
         {
@@ -196,9 +206,9 @@ public sealed class PlanGapWindowTests
                 Assert.True(failure is null, failure?.ToString());
                 var list = string.Join("; ", found.Select(f => $"{f.Type} '{f.Name}' {f.Id}"));
                 Assert.True(found.Any(f => f.Id == "PackagerGrid" && f.Type == "ControlType.DataGrid" && f.Name == "Applications"), "No grid: " + list);
-                Assert.True(found.Any(f => f.Id == "tabStatusAll" && f.Type == "ControlType.RadioButton"), "No status tab: " + list);
+                Assert.True(found.Any(f => f.Id == "cboStatusFilter" && f.Type == "ControlType.ComboBox" && f.Name == "Application status"), "No status list: " + list);
                 Assert.True(found.Any(f => f.Id == "btnStage" && f.Type == "ControlType.Button" && f.Name == "Stage"), "No Stage button: " + list);
-                Assert.True(found.Any(f => f.Id == "btnPublishAll" && f.Type == "ControlType.Button" && f.Name == "Publish All"), "No Publish All button: " + list);
+                Assert.True(found.Any(f => f.Id == "btnPublishAll" && f.Type == "ControlType.Button" && f.Name == "Review publish"), "No Review publish button: " + list);
             }
             finally { window.Close(); }
         });

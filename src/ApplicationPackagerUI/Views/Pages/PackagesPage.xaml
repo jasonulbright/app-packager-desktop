@@ -1,10 +1,14 @@
-<Page
+﻿<Page
     x:Class="ApplicationPackagerUI.Views.Pages.PackagesPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
     xmlns:helpers="clr-namespace:ApplicationPackagerUI.Helpers"
     xmlns:controls="clr-namespace:ApplicationPackagerUI.Controls"
+    xmlns:mk="clr-namespace:ApplicationPackagerUI.Controls.Mock"
+    FontFamily="Segoe UI"
+    FontSize="14"
+    TextOptions.TextFormattingMode="Ideal"
     ScrollViewer.CanContentScroll="False"
     AllowDrop="True"
     DragOver="Page_DragOver"
@@ -16,38 +20,88 @@
                 <ResourceDictionary Source="/ApplicationPackagerUI;component/Views/Styles/Density.xaml" />
                 <ResourceDictionary Source="/ApplicationPackagerUI;component/Views/Styles/SelectableRows.xaml" />
                 <ResourceDictionary Source="/ApplicationPackagerUI;component/Views/Styles/Typography.xaml" />
+                <ResourceDictionary Source="/ApplicationPackagerUI;component/Views/Styles/Mock.xaml" />
             </ResourceDictionary.MergedDictionaries>
-            <helpers:StatusCategoryConverter x:Key="StatusCategoryConverter" />
-        <helpers:EnumEqualsConverter x:Key="EnumEquals" />
-        <Style x:Key="StatusTab" TargetType="RadioButton">
-            <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
-            <Setter Property="Margin" Value="0,0,16,0" />
-            <Setter Property="Padding" Value="0,4,0,8" />
-            <Setter Property="Cursor" Value="Hand" />
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="RadioButton">
-                        <Border x:Name="Cue" Background="Transparent" BorderThickness="0,0,0,2" BorderBrush="Transparent" Padding="{TemplateBinding Padding}">
-                            <TextBlock x:Name="Label" Text="{TemplateBinding Content}" FontSize="14" Foreground="{TemplateBinding Foreground}" />
-                        </Border>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsChecked" Value="True">
-                                <Setter TargetName="Cue" Property="BorderBrush" Value="{DynamicResource AccentFillColorDefaultBrush}" />
-                            </Trigger>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="Label" Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
-                            </Trigger>
-                            <Trigger Property="IsKeyboardFocused" Value="True">
-                                <Setter TargetName="Cue" Property="BorderBrush" Value="{DynamicResource AccentFillColorDefaultBrush}" />
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
-            <Style x:Key="TrimCell" TargetType="TextBlock" BasedOn="{StaticResource DensityTextCell}">
+            <helpers:PackagesCellConverter x:Key="Cell" />
+            <Style x:Key="TrimCell" TargetType="TextBlock" BasedOn="{StaticResource Mk.CellText}" />
+
+            <!-- A row is 32.5 px high in the mock: the rows are 33 and 32 px in turn. A checked row has the tint and the accent bar at its left. -->
+            <Style x:Key="PackageRow" TargetType="DataGridRow" BasedOn="{StaticResource Mk.GridRow}">
+                <Setter Property="Height" Value="33" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="DataGridRow">
+                            <Grid>
+                                <Border x:Name="DGR_Border" Background="{TemplateBinding Background}" BorderBrush="Transparent" BorderThickness="0,0,0,1" SnapsToDevicePixels="True">
+                                    <DataGridCellsPresenter ItemsPanel="{TemplateBinding ItemsPanel}" SnapsToDevicePixels="True" />
+                                </Border>
+                                <!-- The line under a row starts behind the 3 px of the accent bar, as in the mock. -->
+                                <Rectangle x:Name="Line" Height="1" VerticalAlignment="Bottom" Margin="3,0,0,0" Fill="{DynamicResource MkLineBrush}" />
+                                <Rectangle x:Name="LineTail" Height="1" Width="3" VerticalAlignment="Bottom" HorizontalAlignment="Left" Fill="{DynamicResource MkLineBrush}">
+                                    <Rectangle.OpacityMask>
+                                        <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+                                            <!-- An opacity mask: only the alpha of a color counts, so these two do not follow the theme. -->
+                                            <GradientStop Color="Transparent" Offset="0" />
+                                            <GradientStop Color="{x:Static Colors.Black}" Offset="1" />
+                                        </LinearGradientBrush>
+                                    </Rectangle.OpacityMask>
+                                </Rectangle>
+                                <Rectangle x:Name="ActiveRectangle" Width="3" HorizontalAlignment="Left" Fill="{DynamicResource MkAccentBrush}" Visibility="Collapsed" />
+                            </Grid>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="DGR_Border" Property="Background" Value="{DynamicResource MkSubBrush}" />
+                                </Trigger>
+                                <!-- tr:last-child td { border-bottom:0 } -->
+                                <DataTrigger Value="True">
+                                    <DataTrigger.Binding>
+                                        <MultiBinding Converter="{x:Static mk:LastRowConverter.Instance}">
+                                            <Binding />
+                                            <Binding Path="Items.Count" RelativeSource="{RelativeSource AncestorType=DataGrid}" />
+                                            <Binding RelativeSource="{RelativeSource AncestorType=DataGrid}" />
+                                        </MultiBinding>
+                                    </DataTrigger.Binding>
+                                    <Setter TargetName="Line" Property="Visibility" Value="Collapsed" />
+                                    <Setter TargetName="LineTail" Property="Visibility" Value="Collapsed" />
+                                </DataTrigger>
+                                <!-- The row that the keyboard or the pointer chose, for the detail pane, the row menu and the Workbench. -->
+                                <Trigger Property="IsSelected" Value="True">
+                                    <Setter TargetName="DGR_Border" Property="Background" Value="{DynamicResource MkTintBrush}" />
+                                    <Setter TargetName="ActiveRectangle" Property="Visibility" Value="Visible" />
+                                </Trigger>
+                                <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                                    <Setter TargetName="DGR_Border" Property="Background" Value="{DynamicResource MkTintBrush}" />
+                                    <Setter TargetName="ActiveRectangle" Property="Visibility" Value="Visible" />
+                                </DataTrigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+                <Style.Triggers>
+                    <Trigger Property="AlternationIndex" Value="1">
+                        <Setter Property="Height" Value="32" />
+                    </Trigger>
+                </Style.Triggers>
+            </Style>
+
+            <!-- The class of a status gives the color of its glyph and its text. -->
+            <Style x:Key="StatusText" TargetType="TextBlock">
+                <Setter Property="Foreground" Value="{DynamicResource MkTextBrush}" />
                 <Setter Property="TextTrimming" Value="CharacterEllipsis" />
-                <Setter Property="ToolTip" Value="{Binding Text, RelativeSource={RelativeSource Self}}" />
+                <Style.Triggers>
+                    <DataTrigger Binding="{Binding Status, Converter={StaticResource Cell}, ConverterParameter=StatusKind}" Value="good">
+                        <Setter Property="Foreground" Value="{DynamicResource MkOkBrush}" />
+                    </DataTrigger>
+                    <DataTrigger Binding="{Binding Status, Converter={StaticResource Cell}, ConverterParameter=StatusKind}" Value="info">
+                        <Setter Property="Foreground" Value="{DynamicResource MkAccentBrush}" />
+                    </DataTrigger>
+                    <DataTrigger Binding="{Binding Status, Converter={StaticResource Cell}, ConverterParameter=StatusKind}" Value="warn">
+                        <Setter Property="Foreground" Value="{DynamicResource MkWarnBrush}" />
+                    </DataTrigger>
+                    <DataTrigger Binding="{Binding Status, Converter={StaticResource Cell}, ConverterParameter=StatusKind}" Value="bad">
+                        <Setter Property="Foreground" Value="{DynamicResource MkBadBrush}" />
+                    </DataTrigger>
+                </Style.Triggers>
             </Style>
             <!-- The text takes the cell's own foreground, so the count stays readable on a selected row. -->
             <Style x:Key="CveCellButton" TargetType="Button">
@@ -70,148 +124,151 @@
         </ResourceDictionary>
     </Page.Resources>
 
-    <Grid Margin="24,8,24,16" Background="Transparent" AllowDrop="True">
+    <!-- .workspace { padding:0 24px 16px; gap:14px } : the header, the action row, the filter row and the panel with the grid. -->
+    <Grid Margin="24,0,24,16" Background="Transparent" AllowDrop="True">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
             <RowDefinition Height="*" MinHeight="120" />
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
-        <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="*" />
-            <ColumnDefinition Width="Auto" />
-        </Grid.ColumnDefinitions>
 
-        <controls:PageHeader Grid.Row="0" Grid.ColumnSpan="2" Title="App Packager" Icon="Box24" Compact="True" TitleAutomationId="txtAppPackagerTitle">
+        <controls:PageHeader x:Name="Header" Grid.Row="0" Title="App Packager" Compact="True" TitleAutomationId="txtAppPackagerTitle">
             <controls:PageHeader.Actions>
-                <StackPanel Orientation="Horizontal">
-                <ui:Button
-                           Content="Catalog"
-                           Icon="{ui:SymbolIcon AppsList24}"
-                           Click="Catalog_Click"
-                           ToolTip="Show or hide applications in this grid."
-                           AutomationProperties.AutomationId="btnCatalog" />
-                <ui:Button
-                           Content="Add or import"
-                           Icon="{ui:SymbolIcon Add24}"
-                           Margin="8,0,0,0"
-                           Click="AddOrImport_Click"
-                           ToolTip="Add an application from the web or from a file, convert a ConfigMgr application, or import vendor definitions."
-                           AutomationProperties.AutomationId="btnAddOrImport" />
-            </StackPanel>
+                <Grid>
+                <Button Style="{StaticResource Mk.Button}" mk:Mk.Icon="arrow_right" mk:Mk.FaceDrop="-1" Content="Skip for now" Command="{Binding Checklist.CloseCommand}"
+                        Visibility="Collapsed" Tag="skip" HorizontalAlignment="Right" Margin="0,1,0,0" AutomationProperties.AutomationId="btnSetupClose"
+                        ToolTip="Close the checklist. Nothing is stored. An unfinished checklist opens again at the next start." />
+                <StackPanel Orientation="Horizontal" Margin="0,2,0,0" Tag="actions">
+                    <Button Style="{StaticResource Mk.Button}" mk:Mk.Icon="list" mk:Mk.FaceDrop="-1" Content="Catalog" Click="Catalog_Click"
+                            ToolTip="Show or hide applications in this grid." AutomationProperties.AutomationId="btnCatalog" />
+                    <Button Style="{StaticResource Mk.Button}" mk:Mk.TrailingIcon="chevron_down" mk:Mk.FaceDrop="-1" Content="Add or import" Margin="8,0,0,0" Click="AddOrImport_Click"
+                            ToolTip="Add an application from the web or from a file, convert a ConfigMgr application, or import vendor definitions."
+                            AutomationProperties.AutomationId="btnAddOrImport" />
+                </StackPanel>
+                </Grid>
             </controls:PageHeader.Actions>
         </controls:PageHeader>
 
-        <!-- The first-start strip (overhaul V1, phase 7d): it shows while the setup checklist has work and its panel is closed. Its bindings
-             start at the page's view model: a data context set after the XAML loaded is too late for them. -->
-        <Border x:Name="SetupStrip" Grid.Row="1" Grid.ColumnSpan="2" Visibility="Collapsed" Margin="0,0,0,8" Padding="12,4" BorderThickness="1" CornerRadius="8"
-                BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}" Background="{DynamicResource SurfacePageBrush}"
-                AutomationProperties.AutomationId="pnlSetupStrip">
-            <DockPanel>
-                <ui:Button x:Name="btnOpenSetupChecklist" DockPanel.Dock="Right" Content="Open Setup Checklist" Icon="{ui:SymbolIcon ArrowRight24}" Click="OpenChecklist_Click"
-                           AutomationProperties.AutomationId="btnOpenSetupChecklist" ToolTip="Open the setup checklist beside the grid." />
-                <ui:SymbolIcon DockPanel.Dock="Left" Symbol="Info24" FontSize="16" Margin="0,0,8,0" VerticalAlignment="Center"
-                               Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
-                <WrapPanel VerticalAlignment="Center" Margin="0,0,8,0">
-                    <TextBlock Text="{Binding Checklist.StripTitle, FallbackValue=''}" FontSize="14" Margin="0,0,12,0" TextWrapping="Wrap" Foreground="{DynamicResource TextFillColorPrimaryBrush}"
-                               AutomationProperties.AutomationId="txtSetupStripTitle" />
-                    <TextBlock Text="{Binding Checklist.StripText, FallbackValue=''}" FontSize="14" Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                               AutomationProperties.AutomationId="txtSetupStripText" />
-                </WrapPanel>
-            </DockPanel>
-        </Border>
+        <!-- The three checks, then Stage, Review publish and One Click; the count of the checked applications at the right. -->
+        <DockPanel x:Name="BatchBar" Grid.Row="1" MinHeight="32" Margin="0,0,0,14" LastChildFill="False" UseLayoutRounding="False"
+                   AutomationProperties.AutomationId="pnlBatchBar" AutomationProperties.Name="Actions">
+            <TextBlock DockPanel.Dock="Right" Text="{Binding SelectionText}" FontWeight="Bold" VerticalAlignment="Center" Margin="0,1,0,0"
+                       Foreground="{DynamicResource MkTextBrush}" AutomationProperties.AutomationId="txtSelectionCount" AutomationProperties.LiveSetting="Polite"
+                       ToolTip="The checked applications. Stage and Review publish act on all of them, also on those that the search or the filter hides." />
+            <!-- A narrow window wraps the buttons. Each has 8 px under it, which the panel takes back, so one line keeps its place. -->
+            <WrapPanel x:Name="AppPackagerToolbar" Margin="0,0,0,-8" VerticalAlignment="Top" UseLayoutRounding="False" AutomationProperties.AutomationId="pnlAppPackagerToolbar">
+                <Button x:Name="btnCheckLatest" Style="{StaticResource Mk.Button}" mk:Mk.Icon="arrow_sync" Content="Check latest" Command="{Binding CheckLatestCommand}" Margin="0,0,8,8"
+                        AutomationProperties.AutomationId="btnCheckLatest" ToolTip="Look up the latest version of each checked application." />
+                <Button x:Name="btnCheckConfigMgr" Style="{StaticResource Mk.Button}" mk:Mk.Icon="server" Content="Check ConfigMgr" Command="{Binding CheckMecmCommand}" Margin="0,0,8,8"
+                        AutomationProperties.AutomationId="btnCheckConfigMgr" ToolTip="{Binding CheckMecmToolTip}" ToolTipService.ShowOnDisabled="True" />
+                <Button x:Name="btnCheckCves" Style="{StaticResource Mk.Button}" mk:Mk.Icon="shield" Content="Check CVEs" Command="{Binding CheckCvesCommand}" Margin="0,0,0,8"
+                        AutomationProperties.AutomationId="btnCheckCves"
+                        ToolTip="Look up the CVEs fixed by updating each checked application from its ConfigMgr version to the latest version. Needs both versions and a CPE." />
+                <Rectangle Style="{StaticResource Mk.Divider}" Margin="12,0,12,8" />
+                <Button x:Name="btnStage" Style="{StaticResource Mk.Button}" mk:Mk.Icon="box" Content="Stage" Command="{Binding StageCommand}" Margin="0,0,8,8"
+                        AutomationProperties.AutomationId="btnStage" ToolTip="Stage the installer content of each checked application." />
+                <Button x:Name="btnPublishAll" Style="{StaticResource Mk.Button.Primary}" mk:Mk.Icon="arrow_right" Content="Review publish" Command="{Binding PublishAllCommand}" Margin="0,0,8,8"
+                        ToolTip="{Binding PublishAllToolTip}" ToolTipService.ShowOnDisabled="True" AutomationProperties.AutomationId="btnPublishAll" />
+                <Button x:Name="btnOneClick" Style="{StaticResource Mk.Button}" mk:Mk.Icon="play" Content="One Click" Command="{Binding OneClickCommand}" Margin="0,0,0,8"
+                        AutomationProperties.AutomationId="btnOneClick"
+                        ToolTip="One Click check (and optionally Stage / Publish) against your tracked apps. Configure tracked apps, action, and destinations in Settings, One Click." />
+            </WrapPanel>
+        </DockPanel>
 
-        <Grid Grid.Row="2" Grid.ColumnSpan="2" Margin="0,0,0,8">
+        <!-- Search, the status list and Select updates; Columns and More at the right. -->
+        <!-- The order here is the tab order: search, status, Select updates, Columns, More. A narrow window wraps the left group. -->
+        <Grid x:Name="FilterBar" Grid.Row="2" MinHeight="35" Margin="0,0,0,14" UseLayoutRounding="False">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
-            <!-- The status tabs of the V1 workspace (overhaul V1, phase 3): the grid shows every application or one status. The counts are over every
-                 application, not over the search. The cue is the primary text with an accent underline, never bold. -->
-            <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Bottom" AutomationProperties.AutomationId="pnlStatusTabs" AutomationProperties.Name="Status tabs">
-                <RadioButton GroupName="StatusTabs" Style="{StaticResource StatusTab}" Content="{Binding TabAllText}"
-                             IsChecked="{Binding StatusTab, Converter={StaticResource EnumEquals}, ConverterParameter=All}"
-                             AutomationProperties.AutomationId="tabStatusAll" AutomationProperties.Name="{Binding TabAllText}"
-                             ToolTip="Show every application." />
-                <RadioButton GroupName="StatusTabs" Style="{StaticResource StatusTab}" Content="{Binding TabUpdateText}"
-                             IsChecked="{Binding StatusTab, Converter={StaticResource EnumEquals}, ConverterParameter=Update}"
-                             AutomationProperties.AutomationId="tabStatusUpdate" AutomationProperties.Name="{Binding TabUpdateText}"
-                             ToolTip="Show the applications whose status says that an update is available." />
-                <RadioButton GroupName="StatusTabs" Style="{StaticResource StatusTab}" Content="{Binding TabNotFoundText}"
-                             IsChecked="{Binding StatusTab, Converter={StaticResource EnumEquals}, ConverterParameter=NotFound}"
-                             AutomationProperties.AutomationId="tabStatusNotFound" AutomationProperties.Name="{Binding TabNotFoundText}"
-                             ToolTip="Show the applications that the last Check ConfigMgr did not find on the site." />
-                <RadioButton GroupName="StatusTabs" Style="{StaticResource StatusTab}" Content="{Binding TabNotCheckedText}"
-                             IsChecked="{Binding StatusTab, Converter={StaticResource EnumEquals}, ConverterParameter=NotChecked}"
-                             AutomationProperties.AutomationId="tabStatusNotChecked" AutomationProperties.Name="{Binding TabNotCheckedText}"
-                             ToolTip="Show the applications that no check has compared with the site yet." />
-            </StackPanel>
-            <StackPanel x:Name="AppPackagerToolbar" Grid.Column="1" Orientation="Horizontal" Margin="8,0,0,0" AutomationProperties.AutomationId="pnlAppPackagerToolbar">
-                <ui:Button Content="One Click"
-                           Icon="{ui:SymbolIcon Play24}"
-                           Command="{Binding OneClickCommand}"
-                           AutomationProperties.AutomationId="btnOneClick"
-                           ToolTip="One Click check (and optionally Stage / Publish) against your tracked apps. Configure tracked apps, action, and destinations in Settings, One Click." />
-                <ui:Button x:Name="btnCheckMenu"
-                           Content="Check"
-                           Icon="{ui:SymbolIcon CheckmarkCircle24}"
-                           Margin="8,0,0,0"
-                           Click="CheckMenu_Click"
-                           ToolTip="Check Latest, Check ConfigMgr or Check CVEs for the checked applications."
-                           AutomationProperties.AutomationId="btnCheckMenu" />
+            <WrapPanel Margin="0,0,0,-8" VerticalAlignment="Top">
+                <TextBox x:Name="SearchBox" Style="{StaticResource Mk.Search}" mk:Mk.TextDrop="-1" mk:Mk.Placeholder="Search applications" VerticalAlignment="Center" Margin="0,0,0,8"
+                         Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
+                         AutomationProperties.AutomationId="txtAppPackagerSearch" AutomationProperties.Name="Search applications"
+                         ToolTip="Enter part of an application name, vendor or CMName to show only the matching applications." />
+                <!-- It holds the line at 35 px also on the first start, which hides the glyph and the status list. -->
+                <StackPanel Orientation="Horizontal" MinHeight="35" Margin="0,0,0,8">
+                    <mk:Ico x:Name="FilterGlyph" Glyph="filter" Margin="8,0,0,0" Foreground="{DynamicResource MkTextBrush}">
+                        <mk:Ico.RenderTransform>
+                            <TranslateTransform Y="1" />
+                        </mk:Ico.RenderTransform>
+                    </mk:Ico>
+                    <ComboBox x:Name="StatusFilterList" Style="{StaticResource Mk.ComboBox}" Width="189" Height="35" Margin="8,0,0,0"
+                              ItemsSource="{Binding StatusFilters}" DisplayMemberPath="Label" SelectedValuePath="Choice" SelectedValue="{Binding StatusTab, Mode=TwoWay}"
+                              AutomationProperties.AutomationId="cboStatusFilter" AutomationProperties.Name="Application status" ToolTip="{Binding StatusFilterToolTip}" />
+                </StackPanel>
+                <Button x:Name="SelectUpdatesButton" Style="{StaticResource Mk.Button}" mk:Mk.Icon="checkmark" mk:Mk.IconDrop="1" Content="Select updates" Command="{Binding SelectUpdateAvailableCommand}"
+                        Margin="8,0,0,8"
+                        AutomationProperties.AutomationId="btnSelectUpdates" ToolTip="Check every application whose status shows that an update is available." />
+            </WrapPanel>
+            <StackPanel Grid.Column="1" Orientation="Horizontal" Height="35" VerticalAlignment="Top">
+                <Button x:Name="btnColumns" Style="{StaticResource Mk.Button}" mk:Mk.TrailingIcon="chevron_down" mk:Mk.IconDrop="1" Content="Columns" Click="Columns_Click" Margin="8,0,0,0"
+                        AutomationProperties.AutomationId="btnColumns" ToolTip="Choose the columns of the grid. The columns, their order, their width and the sort are saved." />
+                <Button x:Name="btnMore" Style="{StaticResource Mk.Button}" mk:Mk.TrailingIcon="chevron_down" mk:Mk.IconDrop="1" Content="More" Click="More_Click" Margin="8,0,0,0"
+                        AutomationProperties.AutomationId="btnMore" ToolTip="CVE report, operation history, export of the check results, the setup checklist, Setup and the debug columns." />
             </StackPanel>
         </Grid>
 
-        <Grid Grid.Row="3" Grid.ColumnSpan="2" Margin="0,0,0,8">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="Auto" />
-            </Grid.ColumnDefinitions>
-            <ui:TextBox Grid.Column="0"
-                        Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
-                        PlaceholderText="Search applications..."
-                        Icon="{ui:SymbolIcon Search24}"
-                        AutomationProperties.AutomationId="txtAppPackagerSearch"
-                        AutomationProperties.Name="Search applications" ToolTip="Enter part of an application name, vendor or CMName to show only the matching applications." />
-            <ui:Button Grid.Column="1" x:Name="btnColumns" Content="Columns" Icon="{ui:SymbolIcon TableSettings24}" Click="Columns_Click" Margin="8,0,0,0"
-                       AutomationProperties.AutomationId="btnColumns" ToolTip="Choose the columns of the grid. The columns, their order, their width and the sort are saved." />
-            <ui:Button Grid.Column="2" x:Name="btnMore" Content="More" Icon="{ui:SymbolIcon MoreHorizontal24}" Click="More_Click" Margin="8,0,0,0"
-                       AutomationProperties.AutomationId="btnMore" ToolTip="CVE report, operation history, export of the check results, the setup checklist, Setup and the debug columns." />
-        </Grid>
-
-        <Grid x:Name="WorkArea" Grid.Row="4" Grid.ColumnSpan="2">
+        <Grid x:Name="WorkArea" Grid.Row="3">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" MinWidth="360" />
                 <ColumnDefinition Width="Auto" />
-                <ColumnDefinition x:Name="DetailPaneColumn" Width="320" />
+                <ColumnDefinition x:Name="DetailPaneColumn" Width="0" />
             </Grid.ColumnDefinitions>
-        <ui:DataGrid Grid.Column="0"
-                  x:Name="PackagerGrid"
-                  AutomationProperties.Name="Applications"
-                  PreviewKeyDown="PackagerGrid_PreviewKeyDown"
-                  ItemsSource="{Binding FilteredPackagers}"
-                  AutoGenerateColumns="False"
-                  CanUserAddRows="False"
-                  CanUserDeleteRows="False"
-                  SelectionMode="Single"
-                  EnableRowVirtualization="True"
-                  VirtualizingPanel.IsVirtualizing="True"
-                  VirtualizingPanel.VirtualizationMode="Recycling"
-                  ScrollViewer.CanContentScroll="True"
-                  SelectionChanged="PackagerGrid_SelectionChanged"
-                  IsReadOnly="False"
-                  RowHeaderWidth="0"
-                  GridLinesVisibility="Horizontal"
-                  HeadersVisibility="Column"
-                  FrozenColumnCount="1"
-                  RowStyle="{StaticResource SelectableRow}"
-                  MouseDoubleClick="PackagerGrid_MouseDoubleClick"
-                  ContextMenuOpening="PackagerGrid_ContextMenuOpening">
+
+            <!-- .panel with the grid, a 14 px gap and the line of the last run. -->
+            <Border x:Name="GridPanel" Grid.Column="0" Style="{StaticResource Mk.Panel}">
+                <DockPanel>
+                    <!-- First start: the heading over the catalog. -->
+                    <StackPanel x:Name="CatalogHeading" DockPanel.Dock="Top" Margin="16,16,16,14" Visibility="Collapsed">
+                        <mk:TrackedText Text="All applications" FontSize="19" Tracking="-0.15" Height="26" HorizontalAlignment="Left" Foreground="{DynamicResource MkTextBrush}" />
+                        <TextBlock Text="Browse the catalog while you set up your connections." Style="{StaticResource Mk.Help}">
+                            <TextBlock.RenderTransform>
+                                <TranslateTransform Y="1" />
+                            </TextBlock.RenderTransform>
+                        </TextBlock>
+                    </StackPanel>
+                    <Border x:Name="LogBar" DockPanel.Dock="Bottom" Height="48" Margin="0,14,0,0" Padding="12,0" BorderThickness="0,1,0,0"
+                            BorderBrush="{DynamicResource MkLineBrush}" AutomationProperties.AutomationId="pnlLogBar">
+                        <DockPanel>
+                            <Button x:Name="btnLogs" DockPanel.Dock="Right" Style="{StaticResource Mk.Button.Line}" mk:Mk.Icon="document" Content="Logs" Margin="10,0,0,0" Click="Logs_Click"
+                                    AutomationProperties.AutomationId="btnLogs" ToolTip="Open the log of this session." />
+                            <Button x:Name="btnOperationHistory" DockPanel.Dock="Right" Style="{StaticResource Mk.Button.Line}" mk:Mk.Icon="history" Content="Operation history"
+                                    Click="ViewHistory_Click" AutomationProperties.AutomationId="btnOperationHistory"
+                                    ToolTip="View the recorded operations of the selected application, or of the first checked one." />
+                            <!-- Cancel and the progress show while a run is active. -->
+                            <Button x:Name="btnCancelOperation" DockPanel.Dock="Right" Style="{StaticResource Mk.Button.Line}" mk:Mk.Icon="dismiss" Content="Cancel" Margin="10,0,10,0"
+                                    Command="{Binding CancelOperationCommand}" AutomationProperties.AutomationId="btnCancelOperation" ToolTip="Stop the run that is active."
+                                    Visibility="{Binding IsOperationRunning, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                            <ProgressBar DockPanel.Dock="Right" Width="200" Height="8" Minimum="0" Maximum="{Binding ProgressTotal}" Value="{Binding ProgressCurrent}"
+                                         Visibility="{Binding ShowProgress, Converter={StaticResource BooleanToVisibilityConverter}}" VerticalAlignment="Center" />
+                            <TextBlock Text="{Binding RunSummaryTitle}" FontWeight="Bold" VerticalAlignment="Center" Margin="0,-1,10,0" Foreground="{DynamicResource MkTextBrush}"
+                                       AutomationProperties.AutomationId="txtRunSummaryTitle" />
+                            <TextBlock Text="{Binding RunSummaryText}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Margin="0,-1,12,0"
+                                       Foreground="{DynamicResource MkMutedBrush}" ToolTip="{Binding RunSummaryText}" AutomationProperties.AutomationId="txtLogSummary" />
+                        </DockPanel>
+                    </Border>
+                    <DataGrid x:Name="PackagerGrid"
+                              Style="{StaticResource Mk.Grid}"
+                              RowStyle="{StaticResource PackageRow}"
+                              Background="Transparent"
+                              AlternationCount="2"
+                              AutomationProperties.Name="Applications"
+                              PreviewKeyDown="PackagerGrid_PreviewKeyDown"
+                              ItemsSource="{Binding FilteredPackagers}"
+                              SelectionMode="Single"
+                              EnableRowVirtualization="True"
+                              VirtualizingPanel.IsVirtualizing="True"
+                              VirtualizingPanel.VirtualizationMode="Recycling"
+                              VirtualizingPanel.ScrollUnit="Pixel"
+                              ScrollViewer.CanContentScroll="True"
+                              SelectionChanged="PackagerGrid_SelectionChanged"
+                              IsReadOnly="False"
+                              FrozenColumnCount="1"
+                              MouseDoubleClick="PackagerGrid_MouseDoubleClick"
+                              ContextMenuOpening="PackagerGrid_ContextMenuOpening">
 
             <!-- The items come from RowActions when the menu opens; the More actions menu of the detail pane shows the same ones. -->
             <DataGrid.ContextMenu>
@@ -219,133 +276,106 @@
             </DataGrid.ContextMenu>
 
             <DataGrid.Columns>
-                <DataGridTemplateColumn Width="48" CanUserResize="False" CanUserReorder="False" MinWidth="48" MaxWidth="48">
+                <DataGridTemplateColumn Width="40" CanUserResize="False" CanUserReorder="False" MinWidth="40" MaxWidth="40">
                     <DataGridTemplateColumn.HeaderStyle>
-                        <Style TargetType="DataGridColumnHeader" BasedOn="{StaticResource {x:Type DataGridColumnHeader}}">
-                            <Setter Property="Padding" Value="0" />
-                            <Setter Property="HorizontalContentAlignment" Value="Center" />
-                            <Setter Property="Background" Value="Transparent" />
+                        <Style TargetType="DataGridColumnHeader" BasedOn="{StaticResource Mk.GridHeader}">
+                            <Setter Property="Padding" Value="12,1,0,0" />
                         </Style>
                     </DataGridTemplateColumn.HeaderStyle>
                     <DataGridTemplateColumn.CellStyle>
-                        <Style TargetType="DataGridCell" BasedOn="{StaticResource DensityCell}">
-                            <Setter Property="IsHitTestVisible" Value="True" />
-                            <Setter Property="Template">
-                                <Setter.Value>
-                                    <ControlTemplate TargetType="DataGridCell">
-                                        <Grid Background="Transparent">
-                                            <ContentPresenter
-                                                TextElement.Foreground="{DynamicResource TextFillColorPrimaryBrush}"
-                                                HorizontalAlignment="Center"
-                                                VerticalAlignment="Center" />
-                                        </Grid>
-                                    </ControlTemplate>
-                                </Setter.Value>
-                            </Setter>
+                        <Style TargetType="DataGridCell" BasedOn="{StaticResource Mk.GridCell}">
+                            <Setter Property="Padding" Value="11,3,0,0" />
                         </Style>
                     </DataGridTemplateColumn.CellStyle>
                     <DataGridTemplateColumn.Header>
-                        <CheckBox x:Name="SelectAllCheckBox"
-                                  IsThreeState="True" IsChecked="False"
+                        <CheckBox x:Name="SelectAllCheckBox" Style="{StaticResource Mk.CheckBox}"
+                                  IsThreeState="True"
                                   AutomationProperties.AutomationId="chkSelectAllPackages"
                                   AutomationProperties.Name="Select applications"
-                                  Click="SelectAllCheckBox_Click"
-                                  HorizontalAlignment="Center"
-                                  Background="Transparent" ToolTip="Select to cycle: every visible application, only those with an update available, then none." />
+                                  Click="SelectAllCheckBox_Click" ToolTip="Select to cycle: every visible application, only those with an update available, then none." />
                     </DataGridTemplateColumn.Header>
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
-                            <CheckBox IsChecked="{Binding IsSelected, UpdateSourceTrigger=PropertyChanged}" MinWidth="0" MinHeight="0"
+                            <CheckBox Style="{StaticResource Mk.CheckBox}" HorizontalAlignment="Left" VerticalAlignment="Center"
+                                      IsChecked="{Binding IsSelected, UpdateSourceTrigger=PropertyChanged}"
                                       AutomationProperties.Name="{Binding Application, StringFormat=Include {0}}"
-                                      IsEnabled="{Binding IsRunnable}"
-                                      HorizontalAlignment="Center" ToolTip="Include this application in the run." />
+                                      IsEnabled="{Binding IsRunnable}" ToolTip="Include this application in the run." />
                         </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
 
-                <DataGridTemplateColumn Width="36" MinWidth="36" MaxWidth="36" CanUserResize="False" CanUserReorder="False" CanUserSort="False" IsReadOnly="True">
+                <!-- A grid narrower than its columns takes width from every column down to its MinWidth, and only then scrolls. The star
+                     widths are the column widths of the mock at 1930 px. -->
+                <DataGridTemplateColumn Header="Application" Width="420*" MinWidth="180" SortMemberPath="Application" IsReadOnly="True">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
-                            <Grid Width="24" Height="24" HorizontalAlignment="Center" VerticalAlignment="Center" ToolTip="{Binding IconTooltip}"
-                                  AutomationProperties.AutomationId="PackagerIcon">
-                                <ui:SymbolIcon Symbol="Box24" FontSize="16" Opacity="0.35" />
-                                <Image Source="{Binding IconImage, Mode=OneWay, TargetNullValue={x:Null}, FallbackValue={x:Null}}" Width="24" Height="24" Stretch="Uniform"
-                                       RenderOptions.BitmapScalingMode="HighQuality" />
-                            </Grid>
+                            <DockPanel Background="Transparent">
+                                <!-- .appmark: 22 px square with the icon of the icon pack, or two characters of the name. -->
+                                <Border DockPanel.Dock="Left" Width="22" Height="22" CornerRadius="4" BorderThickness="1" VerticalAlignment="Center" Margin="0,0,9,0"
+                                        Background="{DynamicResource MkSubBrush}" BorderBrush="{DynamicResource MkEdgeBrush}" ToolTip="{Binding IconTooltip}"
+                                        AutomationProperties.AutomationId="PackagerIcon">
+                                    <Border.Style>
+                                        <Style TargetType="Border">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding AlternationIndex, RelativeSource={RelativeSource AncestorType=DataGridRow}}" Value="1">
+                                                    <Setter Property="RenderTransform">
+                                                        <Setter.Value>
+                                                            <TranslateTransform Y="1" />
+                                                        </Setter.Value>
+                                                    </Setter>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Border.Style>
+                                    <Grid>
+                                        <TextBlock x:Name="MarkText" Text="{Binding Mark}" FontSize="9" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                   Margin="0,-1,0,0" Foreground="{DynamicResource MkTextBrush}">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding IconPath, Converter={x:Static helpers:HasTextConverter.Instance}}" Value="True">
+                                                            <Setter Property="Visibility" Value="Collapsed" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+                                        <Image Source="{Binding IconImage, Mode=OneWay, TargetNullValue={x:Null}, FallbackValue={x:Null}}" Width="18" Height="18" Stretch="Uniform"
+                                               RenderOptions.BitmapScalingMode="HighQuality" />
+                                    </Grid>
+                                </Border>
+                                <TextBlock Text="{Binding Application}" FontWeight="Bold" VerticalAlignment="Center" Margin="0,-3,0,0" TextTrimming="CharacterEllipsis"
+                                           ToolTip="{Binding Application}" />
+                            </DockPanel>
                         </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
-                <!-- A grid narrower than its columns takes width from every column down to its MinWidth,
-                     and only then scrolls. Each MinWidth holds the header text and the sort arrow. -->
-                <DataGridTextColumn Header="Application" Binding="{Binding Application}" Width="2*" MinWidth="130" IsReadOnly="True" ElementStyle="{StaticResource TrimCell}" />
-                <DataGridTextColumn Header="Vendor" Binding="{Binding Vendor}" Width="140" MinWidth="100" IsReadOnly="True" ElementStyle="{StaticResource TrimCell}" />
+                <DataGridTextColumn Header="Vendor" Binding="{Binding Vendor}" Width="328*" MinWidth="100" IsReadOnly="True" ElementStyle="{StaticResource TrimCell}" />
                 <DataGridTextColumn x:Name="ColSource" Header="Source" Binding="{Binding SourceLabel}" Width="170" MinWidth="90" IsReadOnly="True" ElementStyle="{StaticResource TrimCell}"
                                     Visibility="Collapsed" />
-                <DataGridTextColumn Header="ConfigMgr version" Binding="{Binding CurrentVersion}" Width="160" MinWidth="160" IsReadOnly="True" />
-                <DataGridTextColumn Header="Latest" Binding="{Binding LatestVersion}" Width="120" MinWidth="90" IsReadOnly="True" />
+                <DataGridTextColumn Header="ConfigMgr version" Binding="{Binding CurrentVersion, Converter={StaticResource Cell}, ConverterParameter=Dash}" SortMemberPath="CurrentVersion"
+                                    Width="208*" MinWidth="140" IsReadOnly="True" ElementStyle="{StaticResource TrimCell}" />
+                <DataGridTextColumn Header="Latest version" Binding="{Binding LatestVersion, Converter={StaticResource Cell}, ConverterParameter=Dash}" SortMemberPath="LatestVersion"
+                                    Width="169*" MinWidth="116" IsReadOnly="True" ElementStyle="{StaticResource TrimCell}" />
 
-                <DataGridTemplateColumn Header="Status" Width="250" MinWidth="150" SortMemberPath="Status">
+                <DataGridTemplateColumn Header="Status" Width="313*" MinWidth="170" SortMemberPath="Status" IsReadOnly="True">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
                             <!-- Status by color and by icon: the icon shows the class for a user who cannot tell the colors apart. -->
-                            <DockPanel LastChildFill="True" Margin="4,0" ToolTip="{Binding StatusDetail}">
-                            <ui:SymbolIcon DockPanel.Dock="Left" FontSize="16" Margin="0,0,4,0" VerticalAlignment="Center"
-                                           Foreground="{Binding Foreground, ElementName=StatusLabel}">
-                                <ui:SymbolIcon.Style>
-                                    <Style TargetType="ui:SymbolIcon">
-                                        <Setter Property="Symbol" Value="Circle24" />
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding Status, Converter={StaticResource StatusCategoryConverter}}" Value="Success">
-                                                <Setter Property="Symbol" Value="CheckmarkCircle24" />
-                                            </DataTrigger>
-                                            <DataTrigger Binding="{Binding Status, Converter={StaticResource StatusCategoryConverter}}" Value="Warning">
-                                                <Setter Property="Symbol" Value="Warning24" />
-                                            </DataTrigger>
-                                            <DataTrigger Binding="{Binding Status, Converter={StaticResource StatusCategoryConverter}}" Value="Info">
-                                                <Setter Property="Symbol" Value="Info24" />
-                                            </DataTrigger>
-                                            <DataTrigger Binding="{Binding Status, Converter={StaticResource StatusCategoryConverter}}" Value="Error">
-                                                <Setter Property="Symbol" Value="DismissCircle24" />
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </ui:SymbolIcon.Style>
-                            </ui:SymbolIcon>
-                            <TextBlock x:Name="StatusLabel" Text="{Binding Status}"
-                                       TextTrimming="CharacterEllipsis"
-                                       VerticalAlignment="Center">
-                                <TextBlock.Style>
-                                    <!-- One trigger for each color class. A dynamic resource follows the theme when the theme changes. -->
-                                    <Style TargetType="TextBlock" BasedOn="{StaticResource {x:Type TextBlock}}">
-                                        <Setter Property="Foreground" Value="{DynamicResource StatusNeutralBrush}" />
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding Status, Converter={StaticResource StatusCategoryConverter}}" Value="Success">
-                                                <Setter Property="Foreground" Value="{DynamicResource StatusSuccessBrush}" />
-                                            </DataTrigger>
-                                            <DataTrigger Binding="{Binding Status, Converter={StaticResource StatusCategoryConverter}}" Value="Warning">
-                                                <Setter Property="Foreground" Value="{DynamicResource StatusWarningBrush}" />
-                                            </DataTrigger>
-                                            <DataTrigger Binding="{Binding Status, Converter={StaticResource StatusCategoryConverter}}" Value="Info">
-                                                <Setter Property="Foreground" Value="{DynamicResource StatusInfoBrush}" />
-                                            </DataTrigger>
-                                            <DataTrigger Binding="{Binding Status, Converter={StaticResource StatusCategoryConverter}}" Value="Error">
-                                                <Setter Property="Foreground" Value="{DynamicResource StatusErrorBrush}" />
-                                            </DataTrigger>
-                                            <!-- On a selected row the tint lowers the contrast of the status colors, so the text takes the cell color. -->
-                                            <DataTrigger Binding="{Binding IsSelected, RelativeSource={RelativeSource AncestorType=DataGridRow}}" Value="True">
-                                                <Setter Property="Foreground" Value="{Binding Foreground, RelativeSource={RelativeSource AncestorType=DataGridCell}}" />
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </TextBlock.Style>
-                            </TextBlock>
+                            <DockPanel Background="Transparent" Margin="0,-4,0,0" ToolTip="{Binding StatusDetail}">
+                                <mk:Ico DockPanel.Dock="Left" Margin="0,0,6,0" Glyph="{Binding Status, Converter={StaticResource Cell}, ConverterParameter=StatusIcon}"
+                                        Foreground="{Binding Foreground, ElementName=StatusLabel}" />
+                                <!-- The text of every second row stands 1 px lower. A transform cannot bind to the row, so the element takes the value. -->
+                                <TextBlock x:Name="StatusLabel" Text="{Binding Status, Converter={StaticResource Cell}, ConverterParameter=StatusLabel}"
+                                           Style="{StaticResource StatusText}" VerticalAlignment="Center" Margin="0,-1,0,0"
+                                           mk:Mk.Drop="{Binding AlternationIndex, RelativeSource={RelativeSource AncestorType=DataGridRow}}" />
                             </DockPanel>
                         </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
 
-                <!-- One text for the CVE state of the row; the five CVE columns behind it are in the Columns menu. -->
-                <DataGridTextColumn Header="CVE check" Binding="{Binding CveCheckText}" SortMemberPath="CveCountSort" Width="150" MinWidth="104" IsReadOnly="True"
+                <!-- One text for the CVE state of the row; the columns behind it are in the Columns menu. -->
+                <DataGridTextColumn Header="CVE check" Binding="{Binding CveCheckText}" SortMemberPath="CveCountSort" Width="186*" MinWidth="120" IsReadOnly="True"
                                     ElementStyle="{StaticResource TrimCell}" />
 
                 <DataGridTemplateColumn Header="CVEs" Width="120" MinWidth="90" SortMemberPath="CveCountSort" IsReadOnly="True">
@@ -358,40 +388,38 @@
                         </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
-                <DataGridTextColumn Header="Max CVSS" Binding="{Binding CveCvss}" SortMemberPath="CveCvssSort" Width="116" MinWidth="116" IsReadOnly="True" />
-                <DataGridTextColumn Header="KEV" Binding="{Binding CveKev}" Width="66" MinWidth="66" IsReadOnly="True" />
-                <DataGridTextColumn Header="In latest" Binding="{Binding CveFixed}" SortMemberPath="CveFixedSort" Width="94" MinWidth="94" IsReadOnly="True" />
-                <DataGridTextColumn Header="Newest CVE" Binding="{Binding CveNewest}" Width="120" MinWidth="120" IsReadOnly="True" />
-                <DataGridTextColumn x:Name="ColCveEpss" Header="Max EPSS" Binding="{Binding CveEpss}" SortMemberPath="CveEpssSort" Width="110" MinWidth="110" IsReadOnly="True"
+                <DataGridTextColumn Header="Max CVSS" Binding="{Binding CveCvss}" SortMemberPath="CveCvssSort" Width="116" MinWidth="116" IsReadOnly="True" ElementStyle="{StaticResource TrimCell}" />
+                <DataGridTextColumn Header="KEV" Binding="{Binding CveKev}" Width="66" MinWidth="66" IsReadOnly="True" ElementStyle="{StaticResource TrimCell}" />
+                <DataGridTextColumn Header="In latest" Binding="{Binding CveFixed}" SortMemberPath="CveFixedSort" Width="94" MinWidth="94" IsReadOnly="True" ElementStyle="{StaticResource TrimCell}" />
+                <DataGridTextColumn Header="Newest CVE" Binding="{Binding CveNewest}" Width="120" MinWidth="120" IsReadOnly="True" ElementStyle="{StaticResource TrimCell}" />
+                <DataGridTextColumn x:Name="ColCveEpss" Header="Max EPSS" Binding="{Binding CveEpss}" SortMemberPath="CveEpssSort" Width="110" MinWidth="110" IsReadOnly="True" ElementStyle="{StaticResource TrimCell}"
                                     Visibility="Collapsed" />
-                <DataGridTextColumn x:Name="ColCveUpdated" Header="NVD updated" Binding="{Binding CveUpdated}" Width="130" MinWidth="130" IsReadOnly="True"
+                <DataGridTextColumn x:Name="ColCveUpdated" Header="NVD updated" Binding="{Binding CveUpdated}" Width="130" MinWidth="130" IsReadOnly="True" ElementStyle="{StaticResource TrimCell}"
                                     Visibility="Collapsed" />
-                <DataGridTextColumn x:Name="ColCveChecked" Header="CVEs Checked (UTC)" Binding="{Binding CveChecked}" Width="180" MinWidth="180" IsReadOnly="True"
+                <DataGridTextColumn x:Name="ColCveChecked" Header="CVEs checked (UTC)" Binding="{Binding CveChecked}" Width="180" MinWidth="180" IsReadOnly="True" ElementStyle="{StaticResource TrimCell}"
                                     Visibility="Collapsed" />
 
-                <DataGridTextColumn x:Name="ColIntune" Header="Intune" Binding="{Binding IntuneNote}" Width="*" MinWidth="110" IsReadOnly="True"
+                <DataGridTextColumn x:Name="ColIntune" Header="Intune" Binding="{Binding IntuneNote}" Width="*" MinWidth="110" IsReadOnly="True" ElementStyle="{StaticResource TrimCell}"
                                     Visibility="Collapsed" />
 
                 <!-- Debug columns (visibility toggled in code-behind) -->
-                <DataGridTextColumn x:Name="ColCMName" Header="CMName" Binding="{Binding CMName}" Width="200" MinWidth="110" IsReadOnly="True"
+                <DataGridTextColumn x:Name="ColCMName" Header="CMName" Binding="{Binding CMName}" Width="200" MinWidth="110" IsReadOnly="True" ElementStyle="{StaticResource TrimCell}"
                                     Visibility="Collapsed" />
-                <DataGridTextColumn x:Name="ColScript" Header="Script" Binding="{Binding Script}" Width="200" MinWidth="110" IsReadOnly="True"
+                <DataGridTextColumn x:Name="ColScript" Header="Script" Binding="{Binding Script}" Width="200" MinWidth="110" IsReadOnly="True" ElementStyle="{StaticResource TrimCell}"
                                     Visibility="Collapsed" />
             </DataGrid.Columns>
-        </ui:DataGrid>
+                    </DataGrid>
+                </DockPanel>
+            </Border>
 
             <!-- The detail pane of the focused row (overhaul V1, phase 4): closes with the button in its header, opens with the button in the corner of the grid. -->
-            <ui:Button x:Name="btnDetailPane" Grid.Column="0" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,4,12,0" Visibility="Collapsed"
-                       Content="Details" Icon="{ui:SymbolIcon PanelRight24}" Click="DetailOpen_Click" Appearance="Transparent"
-                       AutomationProperties.AutomationId="btnDetailPaneOpen" ToolTip="Open the detail pane of the selected application." />
             <GridSplitter x:Name="DetailSplitter" Grid.Column="1" Width="8" HorizontalAlignment="Center" VerticalAlignment="Stretch"
                           ResizeDirection="Columns" ResizeBehavior="PreviousAndNext" Background="Transparent" KeyboardIncrement="16"
                           Focusable="True" IsTabStop="True" Visibility="Collapsed"
                           DragCompleted="DetailSplitter_DragCompleted" KeyUp="DetailSplitter_KeyUp"
                           AutomationProperties.AutomationId="splDetailPane" AutomationProperties.Name="Detail pane width"
                           ToolTip="Drag, or press the left and right arrow keys, to change the width of the detail pane. The width is saved." />
-            <Border x:Name="DetailPane" Grid.Column="2" Padding="12" BorderThickness="1"
-                    BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}" Background="{DynamicResource SurfacePageBrush}" CornerRadius="8"
+            <Border x:Name="DetailPane" Grid.Column="2" Padding="16" Style="{StaticResource Mk.Panel}"
                     AutomationProperties.AutomationId="pnlDetailPane" AutomationProperties.Name="Application details">
                 <DockPanel>
                     <DockPanel DockPanel.Dock="Top" Margin="0,0,0,8">
@@ -456,6 +484,12 @@
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
+                    <!-- The comment of the next run; the mock draws no field for it in the review and One Click windows. -->
+                    <TextBlock Text="Administrative comments" Style="{StaticResource CaptionText}" Margin="0,0,0,4" />
+                    <TextBox Style="{StaticResource Mk.TextBox}" Text="{Binding Comment, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,8"
+                             TextWrapping="Wrap" AcceptsReturn="False" MinHeight="64" VerticalContentAlignment="Top" Padding="10,6" mk:Mk.Placeholder="Add a comment to this run"
+                             AutomationProperties.AutomationId="txtRunComment" AutomationProperties.Name="Administrative comments"
+                             ToolTip="The comment that the next run writes to each published application. It may stay empty." />
                     <TextBlock Text="Publishing" Style="{StaticResource CaptionText}" />
                     <TextBlock Text="{Binding DetailPublishingText}" FontSize="14" TextWrapping="Wrap" Foreground="{DynamicResource TextFillColorPrimaryBrush}"
                                AutomationProperties.AutomationId="txtDetailPublishing" />
@@ -468,140 +502,7 @@
 
         </Grid>
 
-        <!-- The setup checklist takes the place of the detail pane while it is open. In a wide page it also takes the height of the batch bar and the log. -->
-        <controls:SetupChecklistPanel x:Name="SetupPanel" Grid.Row="4" Grid.Column="1" Width="320" Margin="8,0,0,0" Visibility="Collapsed" />
-
-        <!-- The batch bar (overhaul V1, phase 3): what is checked, where Publish All goes, and the actions on the checked applications. -->
-        <DockPanel x:Name="BatchBar" Grid.Row="5" Grid.ColumnSpan="2" Margin="0,8,0,8" AutomationProperties.AutomationId="pnlBatchBar" AutomationProperties.Name="Batch actions">
-            <StackPanel x:Name="BatchActions" DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Top" AutomationProperties.AutomationId="pnlBatchActions">
-                <!-- Cancel keeps its room while no run is active (Hidden, not Collapsed), so the bar does not change its layout when a run starts. -->
-                <Grid Margin="0,0,8,0">
-                    <Grid.Style>
-                        <Style TargetType="Grid">
-                            <Setter Property="Visibility" Value="Hidden" />
-                            <Style.Triggers>
-                                <DataTrigger Binding="{Binding IsOperationRunning}" Value="True">
-                                    <Setter Property="Visibility" Value="Visible" />
-                                </DataTrigger>
-                            </Style.Triggers>
-                        </Style>
-                    </Grid.Style>
-                    <ui:Button Content="Cancel"
-                               Icon="{ui:SymbolIcon Dismiss24}"
-                               Appearance="Danger"
-                               Command="{Binding CancelOperationCommand}"
-                               AutomationProperties.AutomationId="btnCancelOperation"
-                               ToolTip="Stop the run that is active." />
-                </Grid>
-                <ui:Button x:Name="btnStage"
-                           Content="Stage"
-                           Icon="{ui:SymbolIcon ArrowCircleDown24}"
-                           Command="{Binding StageCommand}"
-                           AutomationProperties.AutomationId="btnStage"
-                           ToolTip="Stage the installer content of each checked application."
-                           Margin="0,0,8,0" />
-                <ui:Button x:Name="btnPublishAll"
-                           Content="Publish All"
-                           Icon="{ui:SymbolIcon ArrowCircleUp24}"
-                           Appearance="Primary"
-                           Command="{Binding PublishAllCommand}"
-                           ToolTip="{Binding PublishAllToolTip}"
-                           ToolTipService.ShowOnDisabled="True"
-                           AutomationProperties.AutomationId="btnPublishAll" />
-            </StackPanel>
-            <WrapPanel Margin="0,0,8,0" VerticalAlignment="Center">
-                <TextBlock Text="{Binding SelectionText}" Margin="0,0,8,0" VerticalAlignment="Center" FontSize="14"
-                           Foreground="{DynamicResource TextFillColorPrimaryBrush}"
-                           AutomationProperties.AutomationId="txtSelectionCount" AutomationProperties.LiveSetting="Polite"
-                           ToolTip="The checked applications. Stage and Publish All act on all of them, also on those that the search or the tab hides." />
-                <ui:Button Content="Show selected" Command="{Binding ShowSelectedCommand}" Appearance="Transparent" Margin="0,0,8,0"
-                           Visibility="{Binding HasHiddenSelection, Converter={StaticResource BooleanToVisibilityConverter}}"
-                           AutomationProperties.AutomationId="btnShowSelected" ToolTip="Show only the checked applications, so that you see the ones that the search or the tab hides." />
-                <ui:Button Content="Clear selection" Command="{Binding ClearSelectionCommand}" Appearance="Transparent" Margin="0,0,8,0"
-                           Visibility="{Binding HasSelection, Converter={StaticResource BooleanToVisibilityConverter}}"
-                           AutomationProperties.AutomationId="btnClearSelection" ToolTip="Uncheck every application, also those that the search or the tab hides." />
-                <ui:Button x:Name="SelectUpdatesButton" Content="Select Update Available"
-                           Icon="{ui:SymbolIcon CheckboxChecked24}"
-                           Command="{Binding SelectUpdateAvailableCommand}"
-                           AutomationProperties.AutomationId="btnSelectUpdates"
-                           Appearance="Transparent"
-                           Margin="0,0,12,0" ToolTip="Check every application whose status shows that an update is available." />
-                <TextBlock Text="Stage and Publish All act on the checked applications." VerticalAlignment="Center" FontSize="12" Margin="0,0,12,0"
-                           Foreground="{DynamicResource TextFillColorSecondaryBrush}" AutomationProperties.AutomationId="txtBatchNote" />
-                <TextBlock Text="{Binding PublishScopeText}" VerticalAlignment="Center" FontSize="14" Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                           AutomationProperties.AutomationId="txtPublishScope"
-                           ToolTip="Publish All reaches the systems that Settings, Systems in Use turns on. One run covers all of them." />
-            </WrapPanel>
-        </DockPanel>
-
-        <!-- The last line of the log under the grid, with the history of the selected application and the whole log (overhaul V1, section 2.7).
-             Progress and Cancel stay visible during a run: the status line below and the batch bar above. -->
-        <Border x:Name="LogBar" Grid.Row="6" Grid.ColumnSpan="2" BorderThickness="0,1,0,0" BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}" Padding="0,4,0,0"
-                AutomationProperties.AutomationId="pnlLogBar">
-            <DockPanel>
-                <ui:Button x:Name="btnLogs" DockPanel.Dock="Right" Content="Logs" Icon="{ui:SymbolIcon DocumentText24}" Margin="8,0,0,0" Click="Logs_Click"
-                           AutomationProperties.AutomationId="btnLogs" ToolTip="Open the log of this session." />
-                <ui:Button x:Name="btnOperationHistory" DockPanel.Dock="Right" Content="Operation history" Icon="{ui:SymbolIcon History24}" Margin="8,0,0,0"
-                           Click="ViewHistory_Click" AutomationProperties.AutomationId="btnOperationHistory" ToolTipService.ShowOnDisabled="True"
-                           ToolTip="View the recorded operations of the selected application. Select a row first.">
-                    <ui:Button.Style>
-                        <Style TargetType="ui:Button" BasedOn="{StaticResource {x:Type ui:Button}}">
-                            <Style.Triggers>
-                                <DataTrigger Binding="{Binding DetailPackager}" Value="{x:Null}">
-                                    <Setter Property="IsEnabled" Value="False" />
-                                </DataTrigger>
-                            </Style.Triggers>
-                        </Style>
-                    </ui:Button.Style>
-                </ui:Button>
-                <TextBlock Text="{Binding LastLogLine}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" FontFamily="Consolas" FontSize="12"
-                           Foreground="{DynamicResource TextFillColorSecondaryBrush}" ToolTip="{Binding LastLogLine}"
-                           AutomationProperties.AutomationId="txtLogSummary" />
-            </DockPanel>
-        </Border>
-
-        <Grid Grid.Row="7" Grid.ColumnSpan="2" Margin="0,4,0,0">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="8" />
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="Auto" />
-            </Grid.ColumnDefinitions>
-            <TextBlock x:Name="txtConfigMgrMark" Grid.Column="0" FontSize="12" VerticalAlignment="Center" AutomationProperties.AutomationId="txtConfigMgrMark"
-                       Visibility="{Binding ShowConfigMgrIndicator, Converter={StaticResource BooleanToVisibilityConverter}}">
-                <TextBlock.Style>
-                    <Style TargetType="TextBlock">
-                        <Setter Property="Text" Value="● ConfigMgr" />
-                        <Setter Property="Foreground" Value="{DynamicResource TextFillColorTertiaryBrush}" />
-                        <Style.Triggers>
-                            <DataTrigger Binding="{Binding MecmConnectionStatus}" Value="Connected">
-                                <Setter Property="Foreground" Value="{DynamicResource SystemFillColorSuccessBrush}" />
-                            </DataTrigger>
-                            <DataTrigger Binding="{Binding MecmConnectionStatus}" Value="Failed">
-                                <Setter Property="Foreground" Value="{DynamicResource SystemFillColorCriticalBrush}" />
-                            </DataTrigger>
-                            <DataTrigger Binding="{Binding MecmConnectionStatus}" Value="Testing...">
-                                <Setter Property="Foreground" Value="{DynamicResource SystemFillColorCautionBrush}" />
-                            </DataTrigger>
-                            <DataTrigger Binding="{Binding MecmConnectionStatus}" Value="Not configured">
-                                <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
-                            </DataTrigger>
-                        </Style.Triggers>
-                    </Style>
-                </TextBlock.Style>
-            </TextBlock>
-            <TextBlock Grid.Column="2"
-                       Text="{Binding StatusText}"
-                       FontSize="12"
-                       Foreground="{DynamicResource TextFillColorTertiaryBrush}"
-                       VerticalAlignment="Center" />
-            <ProgressBar Grid.Column="3"
-                         Width="200" Height="8"
-                         Minimum="0"
-                         Maximum="{Binding ProgressTotal}"
-                         Value="{Binding ProgressCurrent}"
-                         Visibility="{Binding ShowProgress, Converter={StaticResource BooleanToVisibilityConverter}}"
-                         VerticalAlignment="Center" Margin="12,0,0,0" />
-        </Grid>
+        <!-- First start: the checklist stands beside the filter row and the grid. -->
+        <controls:SetupChecklistPanel x:Name="SetupPanel" Grid.Row="1" Grid.RowSpan="3" HorizontalAlignment="Right" Width="390" Visibility="Collapsed" />
     </Grid>
 </Page>

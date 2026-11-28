@@ -20,6 +20,39 @@ public partial class OneClickPlanWindow : ApplicationPackagerUI.Services.IDialog
         _reportFolder = reportFolder;
         DataContext = viewModel;
         InitializeComponent();
+        Controls.Mock.DialogFrame.Attach(this);
+        // The two sizes of the mock.
+        Width = viewModel.IsPublishRun ? 1336 : 1240;
+        Height = viewModel.IsPublishRun ? 625 : 600;
+        Controls.Mock.DialogFrame.RoundAs(this, Height);
+        Controls.Mock.Mk.SetFaceDrop(btnOneClickSettings, viewModel.IsPublishRun ? -1 : 0);
+        Controls.Mock.Mk.SetIconDrop(cboPlanAction, -1);
+        // Places where the mock rounds to another pixel than the layout does.
+        Controls.Mock.Mk.SetDrop(txtFootNote, -1);
+        if (!viewModel.IsPublishRun)
+        {
+            Resources["FlowShift"] = new System.Windows.Media.TranslateTransform(0, 1);
+            Controls.Mock.Mk.SetIconDrop(btnOneClickSettings, 1);
+            gridPlan.LoadingRow += (_, e) => e.Row.Resources["CellShift"] = new System.Windows.Media.TranslateTransform(0, e.Row.GetIndex() == 2 ? 1 : 0);
+            // The check boxes of the first two rows stand one unit higher.
+            gridPlan.LoadingRow += (_, e) => e.Row.Resources["CheckDrop"] = e.Row.GetIndex() < 2 ? -1d : 0d;
+        }
+        if (viewModel.IsPublishRun)
+        {
+            gridPlan.LoadingRow += (_, e) =>
+            {
+                // The first row of the mock is one unit higher than the others. It is a least height, so a wrapped text still makes a row higher.
+                var index = e.Row.GetIndex();
+                e.Row.Resources["RowContent"] = index == 0 ? 29d : 0d;
+                // So do some of their texts and boxes: the names, the boxes of the first row, and the mark and the texts of the second.
+                static System.Windows.Media.TranslateTransform Down(int units) => new(0, units);
+                e.Row.Resources["CheckDrop"] = index == 0 ? -1d : 0d;
+                e.Row.Resources["NameShift"] = Down(index <= 2 ? -1 : 0);
+                e.Row.Resources["MarkShift"] = Down(index == 1 ? -1 : 0);
+                e.Row.Resources["CellShift"] = Down(index == 1 ? -1 : 0);
+            };
+            foreach (var button in new[] { btnPlanOnly, btnHistory, btnOpenReport, btnClose, btnRun }) Controls.Mock.Mk.SetTextDrop(button, -1);
+        }
         viewModel.PropertyChanged += OnViewModelChanged;
         Closing += OnClosing;
         // The dialog opens after the run has left its running state, so it does not run inside the run command.
@@ -30,7 +63,7 @@ public partial class OneClickPlanWindow : ApplicationPackagerUI.Services.IDialog
     private void ShowResults()
     {
         if (!IsVisible || !_viewModel.HasResults) return;
-        var results = _viewModel.BuildResults();
+        var results = _viewModel.BuildResults(owner => new OneClickHistoryWindow(_reportFolder) { Owner = owner }.ShowDialog());
         new PublishResultsWindow(results) { Owner = this }.ShowDialog();
         if (results.ReviewUid.Length > 0) ReviewFailed_Click(this, new RoutedEventArgs());
     }
@@ -66,21 +99,58 @@ public partial class OneClickPlanWindow : ApplicationPackagerUI.Services.IDialog
     }
 
     /// <summary>
-    /// During a run the result columns of the destinations in use take the place of the
-    /// destination boxes and the plan columns; with both shown, a result column is
-    /// narrower than one package id.
+    /// A run that can publish shows a box for each system and one column for the action and its reason. A run that only checks shows the action
+    /// and the reason in two columns. During a run the result columns of the destinations in use take the place of the boxes and the plan.
     /// </summary>
     private void ApplyColumns()
     {
         var run = _viewModel.IsRunView;
+        var publish = _viewModel.IsPublishRun;
         static Visibility Show(bool value) => value ? Visibility.Visible : Visibility.Collapsed;
-        colMecm.Visibility = colWsus.Visibility = colIntune.Visibility = Show(!run);
-        colLast.Visibility = colPlanned.Visibility = colSource.Visibility = colDetails.Visibility = Show(!run);
+        colApplication.Visibility = Show(publish);
+        colPlainApplication.Visibility = Show(!publish);
+        colVersion.Header = publish ? "Latest" : "Latest version";
+        colMecm.Visibility = colWsus.Visibility = colIntune.Visibility = Show(!run && publish);
+        colLast.Visibility = Show(!run);
+        colPlanned.Visibility = Show(!run && publish);
+        colWord.Visibility = Show(!run && !publish);
         colStep.Visibility = Show(run);
         colResultMecm.Visibility = Show(run && _viewModel.ShowResultConfigMgr);
         colResultWsus.Visibility = Show(run && _viewModel.ShowResultWsus);
         colResultIntune.Visibility = Show(run && _viewModel.ShowResultIntune);
-        colReason.Width = run ? new DataGridLength(1, DataGridLengthUnitType.Star) : new DataGridLength(230);
+        colReason.Visibility = Show(run || !publish);
+        // The two tables of the mock give the shared columns different widths.
+        static DataGridLength Star(double weight) => new(weight, DataGridLengthUnitType.Star);
+        colInclude.Width = Star(65.4);
+        colVersion.Width = Star(publish ? 93 : 148.1);
+        colLast.Width = Star(publish ? 187.5 : 185.3);
+        colPlainApplication.Width = Star(301.8);
+        colWord.Width = Star(156.7);
+        colReason.Width = Star(run ? 320 : 342.7);
+        gridPlan.MinRowHeight = publish ? 30 : 33;
+    }
+
+    /// <summary>Choosing another action opens the page that saves it: the action of a run is the saved one.</summary>
+    private void Action_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (!IsLoaded || cboPlanAction.SelectedItem is not string chosen || chosen == _viewModel.ActionChoice) return;
+        cboPlanAction.SelectedItem = _viewModel.ActionChoice;
+        Settings_Click(sender, new RoutedEventArgs());
+    }
+
+    private void PlanMenu_Opened(object sender, RoutedEventArgs e)
+    {
+        if (sender is not System.Windows.Controls.ContextMenu menu) return;
+        menu.Items.Clear();
+        var row = gridPlan.SelectedItem as Models.OneClickPlanItem;
+        var details = new System.Windows.Controls.MenuItem
+        {
+            Header = "Change details", IsCheckable = true, IsChecked = row?.ShowDetails ?? false, IsEnabled = row?.HasChangeDetails ?? false,
+            ToolTip = "Show what this run creates in each destination for the application."
+        };
+        System.Windows.Automation.AutomationProperties.SetAutomationId(details, "btnChangeDetails");
+        details.Click += (_, _) => { if (row is not null) row.ShowDetails = details.IsChecked; };
+        menu.Items.Add(details);
     }
 
     private void OnClosing(object? sender, CancelEventArgs e)

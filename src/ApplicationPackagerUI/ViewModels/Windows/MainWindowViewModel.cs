@@ -1,4 +1,4 @@
-using ApplicationPackagerUI.Services;
+﻿using ApplicationPackagerUI.Services;
 
 namespace ApplicationPackagerUI.ViewModels.Windows;
 
@@ -10,6 +10,10 @@ public partial class MainWindowViewModel : ObservableObject
     /// <summary>The site code and the site server in the footer, lower right: "Site MCM", a middle dot and the server; "Site not set" when empty. Only Options and the Setup window change them.</summary>
     [ObservableProperty]
     private string _footerText = SiteFooter.Format(null, null);
+
+    /// <summary>The left text of the status bar.</summary>
+    [ObservableProperty]
+    private string _statusText = "Ready";
 
     public MainWindowViewModel() { }
 

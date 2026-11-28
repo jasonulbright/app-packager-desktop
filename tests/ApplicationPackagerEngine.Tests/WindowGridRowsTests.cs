@@ -133,7 +133,7 @@ public sealed class WindowGridRowsTests
                     rows.Add("gridPlan", (DataGrid)window.FindName("gridPlan"));
                     rows.AssertEnough($"One Click plan {theme}");
 
-                    var settings = (Wpf.Ui.Controls.Button)window.FindName("btnOneClickSettings");
+                    var settings = (System.Windows.Controls.Button)window.FindName("btnOneClickSettings");
                     Assert.Equal("One Click settings", settings.Content);
                     Assert.Equal("btnOneClickSettings", System.Windows.Automation.AutomationProperties.GetAutomationId(settings));
                     Assert.Equal("One Click settings", System.Windows.Automation.Peers.UIElementAutomationPeer.CreatePeerForElement(settings).GetName());
