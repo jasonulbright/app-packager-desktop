@@ -28,8 +28,11 @@ public sealed class DestructiveButtonScanTests
                 var name = DestructiveCommands.FirstOrDefault(c => command.Contains(c, StringComparison.Ordinal));
                 if (name is null) continue;
                 found.Add(name);
-                if ((string?)button.Attribute("Appearance") != "Danger") wrong.Add($"{Path.GetFileName(file)}:{((System.Xml.IXmlLineInfo)button).LineNumber} {name}");
+                if ((string?)button.Attribute("Appearance") != "Danger" && (string?)button.Attribute("Style") != "{StaticResource ToolButton.Danger}") wrong.Add($"{Path.GetFileName(file)}:{((System.Xml.IXmlLineInfo)button).LineNumber} {name}");
             }
+        var danger = XDocument.Load(Path.Combine(views, "Styles", "Mock.WebDeploy.xaml")).Descendants(Presentation + "Style")
+            .Single(s => (string?)s.Attribute(XName.Get("Key", "http://schemas.microsoft.com/winfx/2006/xaml")) == "ToolButton.Danger");
+        Assert.Contains(danger.Elements(Presentation + "Setter"), s => (string?)s.Attribute("Property") == "Foreground" && (string?)s.Attribute("Value") == "{DynamicResource MkBadBrush}");
         Assert.Equal(DestructiveCommands.Order(), found.Distinct().Order());
         Assert.True(wrong.Count == 0, "These buttons open a destructive plan without the danger appearance: " + string.Join(", ", wrong));
     }

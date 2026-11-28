@@ -249,14 +249,16 @@ public sealed class PublishReviewTests
         Assert.Equal("Publish completed with issues", model.Headline);
         Assert.Equal(["Published", "Failed at content upload"], model.Rows[0].Cells);
         Assert.Equal(
-            "Notepad++ reached ConfigMgr. Intune has the application, and a later step failed (Failed at content upload). What reached a system stays published.",
+            "Notepad++ reached ConfigMgr. Its Intune content upload failed.",
             Assert.Single(model.Notices));
+        // With several systems the window also says what to check before a retry, and that the success stays.
+        Assert.Equal("Review the failed destination and verify the existing Intune state before retrying. Successful destinations stay published.", model.FailureHelp);
         Assert.Contains("Notepad++, Intune: upload failed", model.Details);
     }
 
     [Theory]
-    [InlineData(1, false, "1 publish completed")]
-    [InlineData(2, false, "2 publishes completed")]
+    [InlineData(1, false, "1 application published")]
+    [InlineData(2, false, "2 applications published")]
     [InlineData(0, false, "Nothing was published")]
     [InlineData(2, true, "Publish was cancelled")]
     public void TheHeadlineIsGeneratedFromTheCounts(int published, bool cancelled, string expected)
@@ -271,7 +273,7 @@ public sealed class PublishReviewTests
     {
         var notice = PublishResultsViewModel.PartialNotice("App", Row("a", Cell("ConfigMgr", PublishDestinationKind.Published),
             Cell("Intune", PublishDestinationKind.Failed, "cancel"), Cell("WSUS", PublishDestinationKind.NotSupported)));
-        Assert.Equal("App reached ConfigMgr. It did not reach WSUS (Not supported). The state in Intune is not known. Check the system. What reached a system stays published.", notice);
+        Assert.Equal("App reached ConfigMgr. The state in Intune is not known. Check the system. It did not reach WSUS (Not supported). What reached a system stays published.", notice);
     }
 
     // The windows
@@ -291,15 +293,19 @@ public sealed class PublishReviewTests
             {
                 window.UpdateLayout();
                 var grid = RenderKit.ById<DataGrid>(window, "gridReviewMatrix");
-                Assert.Equal(["Application", "Version", "Checked", "ConfigMgr", "Intune"], grid.Columns.Select(c => (string)c.Header));
+                // One of the two applications is outside the view, so the review has the Checked column.
+                Assert.Equal(["Application", "Latest version", "Checked", "ConfigMgr", "Intune"], grid.Columns.Select(c => (string)c.Header));
+                Assert.Equal(["Outside the view", ""], model.Rows.Select(r => r.Checked));
                 var confirm = RenderKit.ById<ButtonBase>(window, "btnReviewConfirm");
                 Assert.Equal("Publish 2 applications", (string)confirm.Content);
                 Assert.False(confirm.IsEnabled, "Confirm is enabled while a system is blocked.");
                 Assert.True(RenderKit.ById<TextBlock>(window, "txtReviewBlocked").IsVisible);
-                Assert.True(RenderKit.ById<TextBlock>(window, "txtReviewHidden").IsVisible);
                 Assert.True(RenderKit.ById<ButtonBase>(window, "btnReviewBack").IsEnabled);
-                // A blocked cell is not a planned publish, so only the ConfigMgr cells count.
-                Assert.Equal("2 applications, 2 systems: 2 publishes are planned.", RenderKit.ById<TextBlock>(window, "txtReviewCounts").Text);
+                // A blocked cell is not a planned publish, so only the ConfigMgr cells count. The banner also counts the hidden application.
+                var banner = RenderKit.ById<TextBlock>(window, "txtReviewCounts");
+                Assert.True(banner.IsVisible);
+                Assert.Equal("2 destination publishes are planned. Review each destination below. 1 checked application is outside the current view. It is published too.",
+                    banner.Text);
             }
             finally { window.Close(); }
         });
@@ -321,7 +327,8 @@ public sealed class PublishReviewTests
                 window.UpdateLayout();
                 Assert.True(RenderKit.ById<ButtonBase>(window, "btnReviewConfirm").IsEnabled);
                 Assert.False(RenderKit.ById<TextBlock>(window, "txtReviewBlocked").IsVisible);
-                Assert.False(RenderKit.ById<TextBlock>(window, "txtReviewHidden").IsVisible);
+                Assert.DoesNotContain("outside the current view", RenderKit.ById<TextBlock>(window, "txtReviewCounts").Text);
+                Assert.DoesNotContain(RenderKit.ById<DataGrid>(window, "gridReviewMatrix").Columns, c => Equals(c.Header, "Checked"));
             }
             finally { window.Close(); }
         });
@@ -343,11 +350,13 @@ public sealed class PublishReviewTests
             try
             {
                 window.UpdateLayout();
-                Assert.Equal("Publish completed with issues", RenderKit.ById<TextBlock>(window, "txtResultsHeadline").Text);
-                Assert.Equal("Published 1", RenderKit.ById<TextBlock>(window, "txtResultsPublished").Text);
-                Assert.Equal("Failed 1", RenderKit.ById<TextBlock>(window, "txtResultsFailed").Text);
+                Assert.Equal("Publish completed with issues", RenderKit.ById<ApplicationPackagerUI.Controls.Mock.TrackedText>(window, "txtResultsHeadline").Text);
+                // The counts of a publish to several systems are in the line under the heading.
+                var counts = RenderKit.ById<TextBlock>(window, "txtResultsSite");
+                Assert.True(counts.IsVisible);
+                Assert.Equal("1 application \u00b7 1 destination publish succeeded \u00b7 1 failed \u00b7 0 skipped", counts.Text);
                 var grid = RenderKit.ById<DataGrid>(window, "gridResultsMatrix");
-                Assert.Equal(["Application", "ConfigMgr", "Intune"], grid.Columns.Select(c => (string)c.Header));
+                Assert.Equal(["Application", "Latest version", "ConfigMgr", "Intune"], grid.Columns.Select(c => (string)c.Header));
                 var texts = RenderKit.Descendants(window).OfType<TextBlock>().Select(t => t.Text).ToList();
                 Assert.Contains("Failed at content upload", texts);
                 Assert.Contains(texts, t => t.StartsWith("Notepad++ reached ConfigMgr.", StringComparison.Ordinal));

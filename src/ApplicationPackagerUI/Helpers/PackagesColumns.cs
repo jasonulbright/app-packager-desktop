@@ -1,4 +1,4 @@
-using ApplicationPackagerUI.Models;
+﻿using ApplicationPackagerUI.Models;
 
 namespace ApplicationPackagerUI.Helpers;
 
@@ -18,28 +18,49 @@ public static class PackagesColumns
     /// </summary>
     private const string FormerConfigMgrVersion = "Current (ConfigMgr)";
 
+    public const string LatestVersion = "Latest version";
+    public const string CvesChecked = "CVEs checked (UTC)";
+
+    // The headers that two more columns had before the labels of the mock. The saved lists and layouts keep the former names.
+    private const string FormerLatestVersion = "Latest";
+    private const string FormerCvesChecked = "CVEs Checked (UTC)";
+
     /// <summary>The columns that an earlier build can hide, by the names it knows.</summary>
     private static readonly IReadOnlyList<string> FormerToggleable =
         ["Vendor", FormerConfigMgrVersion, "Latest", "CVEs", "Max CVSS", "KEV", "In latest", "Newest CVE"];
 
-    public static readonly IReadOnlyList<string> Debug = ["CMName", "Script", "Max EPSS", "NVD updated", "CVEs Checked (UTC)"];
+    public static readonly IReadOnlyList<string> Debug = ["CMName", "Script", "Max EPSS", "NVD updated", CvesChecked];
 
     /// <summary>The entries of the Columns menu, in menu order.</summary>
     public static readonly IReadOnlyList<string> Toggleable =
     [
-        ConfigMgrVersion, "Latest", "Status", "CVE check",
-        "Vendor", "Source", "Intune", "CMName", "Script", "Max EPSS", "NVD updated", "CVEs Checked (UTC)",
-        "CVEs", "Max CVSS", "KEV", "In latest", "Newest CVE"
+        "Vendor", "Source", ConfigMgrVersion, LatestVersion, "Status", "CVE check",
+        "CVEs", "Max CVSS", "KEV", "In latest", "Newest CVE", "Max EPSS", "NVD updated", CvesChecked,
+        "Intune", "CMName", "Script"
     ];
 
-    /// <summary>The columns of a new install, and of the Compact view entry.</summary>
-    public static readonly IReadOnlyList<string> Compact = [ConfigMgrVersion, "Latest", "Status", "CVE check"];
+    /// <summary>The columns of the mock: of a new install, and of the Compact view entry.</summary>
+    public static readonly IReadOnlyList<string> Compact = ["Vendor", ConfigMgrVersion, LatestVersion, "Status", "CVE check"];
 
     /// <summary>The columns that the grid showed before the compact set existed.</summary>
     public static readonly IReadOnlyList<string> Legacy =
-        [ConfigMgrVersion, "Latest", "Status", "Vendor", "Source", "Intune", "CVEs", "Max CVSS", "KEV", "In latest", "Newest CVE"];
+        ["Vendor", "Source", ConfigMgrVersion, LatestVersion, "Status", "CVEs", "Max CVSS", "KEV", "In latest", "Newest CVE", "Intune"];
 
-    public static string Rename(string header) => string.Equals(header, FormerConfigMgrVersion, StringComparison.Ordinal) ? ConfigMgrVersion : header;
+    public static string Rename(string header) => header switch
+    {
+        FormerConfigMgrVersion => ConfigMgrVersion,
+        FormerLatestVersion => LatestVersion,
+        FormerCvesChecked => CvesChecked,
+        _ => header
+    };
+
+    private static string FormerName(string header) => header switch
+    {
+        ConfigMgrVersion => FormerConfigMgrVersion,
+        LatestVersion => FormerLatestVersion,
+        CvesChecked => FormerCvesChecked,
+        _ => header
+    };
 
     /// <summary>The chosen columns of a saved list, in menu order; an unknown column is dropped. No saved list is the set from before.</summary>
     public static IReadOnlyList<string> Shown(IEnumerable<string>? saved)
@@ -73,7 +94,7 @@ public static class PackagesColumns
 
     /// <summary>The layout as it is saved, with the names that an earlier build reads.</summary>
     public static PackagesColumnLayout? StoredLayout(PackagesColumnLayout? layout) =>
-        WithIds(layout, id => id == ConfigMgrVersion ? FormerConfigMgrVersion : id);
+        WithIds(layout, FormerName);
 
     private static PackagesColumnLayout? WithIds(PackagesColumnLayout? layout, Func<string, string> name) => layout is null ? null : new()
     {
@@ -84,16 +105,14 @@ public static class PackagesColumns
     };
 
     /// <summary>
-    /// Stores the choice of columns once. A new install with no saved choice gets the compact set. Every other install keeps what it
-    /// showed: the set from before, less the columns that the operator had hidden. True when the settings changed.
+    /// Stores the choice of columns once. The first start of the interface of the mock shows the columns of the mock; the other columns stay
+    /// in the Columns menu. True when the settings changed.
     /// </summary>
     public static bool Migrate(AppSettings settings, bool newInstall)
     {
         if (settings.PackagesShownColumns is not null) return false;
-        var hidden = (settings.PackagesHiddenColumns ?? []).Select(Rename).ToHashSet(StringComparer.Ordinal);
-        Store(settings, newInstall && hidden.Count == 0 && settings.PackagesGridLayout is null
-            ? Compact
-            : Legacy.Where(h => !hidden.Contains(h)).ToList());
+        _ = newInstall;
+        Store(settings, Compact);
         return true;
     }
 }

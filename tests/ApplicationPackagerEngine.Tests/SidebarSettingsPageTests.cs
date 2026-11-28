@@ -189,7 +189,7 @@ public sealed class SidebarSettingsPageTests
     }
 
     private static string[] ShownCaptions(Harness h) =>
-        Descendants(SidebarList(h)).OfType<TextBlock>().Where(t => t.IsVisible && t.Text is "MAIN" or "MORE" or "TOOLS").Select(t => t.Text).ToArray();
+        Descendants(SidebarList(h)).OfType<TextBlock>().Where(t => t.IsVisible && t.Text is "MAIN" or "MORE" or "Tools").Select(t => t.Text).ToArray();
 
     [Theory]
     [InlineData(ApplicationTheme.Light)]
@@ -218,11 +218,11 @@ public sealed class SidebarSettingsPageTests
     {
         WithPage(h =>
         {
-            Assert.Equal(["TOOLS"], ShownCaptions(h));
+            Assert.Equal(["Tools"], ShownCaptions(h));
             var boxes = Descendants(SidebarList(h)).OfType<CheckBox>().ToList();
             Assert.Equal(["App Packager", "Add from web", "Add from file", "WSUS Updates", "Workbench", "Installer Analysis", "Detection Tester", "Deployment Helper",
                 "Pivots and Scripts", "Collection and Compliance", "Maintenance Windows", "DP Content Manager", "Site Hygiene"], boxes.Select(b => (string)b.Content));
-            var tools = Descendants(SidebarList(h)).OfType<TextBlock>().Single(t => t.IsVisible && t.Text == "TOOLS");
+            var tools = Descendants(SidebarList(h)).OfType<TextBlock>().Single(t => t.IsVisible && t.Text == "Tools");
             Assert.True(tools.TranslatePoint(new System.Windows.Point(0, 0), h.Page).Y >= boxes[4].TranslatePoint(new System.Windows.Point(0, boxes[4].ActualHeight), h.Page).Y);
             Assert.True(tools.TranslatePoint(new System.Windows.Point(0, tools.ActualHeight), h.Page).Y <= boxes[5].TranslatePoint(new System.Windows.Point(0, 0), h.Page).Y);
             Assert.False(RowButton(h, "Move Add from web up").IsEnabled);
@@ -245,11 +245,12 @@ public sealed class SidebarSettingsPageTests
     {
         WithPage(h =>
         {
-            var icons = Descendants(h.Page).OfType<Wpf.Ui.Controls.Button>().Select(b => b.Icon).OfType<Wpf.Ui.Controls.SymbolIcon>().ToList();
+            var icons = Descendants(h.Page).OfType<Wpf.Ui.Controls.Button>().Select(b => b.Content).OfType<Wpf.Ui.Controls.SymbolIcon>().ToList();
             Assert.NotEmpty(icons);
             Assert.All(icons, i => Assert.True(Enum.IsDefined(i.Symbol), i.Symbol.ToString()));
             var reset = Descendants(h.Page).OfType<Wpf.Ui.Controls.Button>().Single(b => AutomationProperties.GetAutomationId(b) == "btnResetSidebar");
-            Assert.Equal(Wpf.Ui.Controls.SymbolRegular.ArrowReset24, ((Wpf.Ui.Controls.SymbolIcon)reset.Icon!).Symbol);
+            // A button with text takes its glyph from the icon font of the mock.
+            Assert.True(ApplicationPackagerUI.Controls.Mock.Ico.Knows(ApplicationPackagerUI.Controls.Mock.Mk.GetIcon(reset)!));
             Assert.Contains(icons, i => i.Symbol == Wpf.Ui.Controls.SymbolRegular.ArrowUp24);
             Assert.Contains(icons, i => i.Symbol == Wpf.Ui.Controls.SymbolRegular.ArrowDown24);
         });

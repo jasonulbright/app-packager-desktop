@@ -1,11 +1,11 @@
-using System.Collections.ObjectModel;
+﻿using System.Collections.ObjectModel;
 using ApplicationPackagerEngine.Models;
 using ApplicationPackagerUI.Services;
 
 namespace ApplicationPackagerUI.ViewModels.Windows;
 
 /// <summary>One system of the strip as the view draws it: the text, the glyph, the state key for the color and the reason as a tooltip.</summary>
-public sealed record StripSystemItem(string Text, SymbolRegular Glyph, string StateKey, string ToolTip);
+public sealed record StripSystemItem(string Text, string Glyph, string StateKey, string ToolTip);
 
 /// <summary>
 /// The context strip at the top of every page (overhaul V1, phase 2): the site, the SMS Provider host and the state of ConfigMgr, Intune and WSUS.
@@ -42,6 +42,22 @@ public partial class ContextStripViewModel : ObservableObject
         _ => SymbolRegular.CheckmarkCircle24
     };
 
+    // ConfigMgr has a connection test: configured and not yet tested reads "not verified", as the mock writes it.
+    private static StripSystemItem? Item(SystemStatus system) =>
+        system is { Name: ApplicationPackagerEngine.Models.OneClickDestinations.ConfigMgr, State: SystemState.Ready }
+            ? new StripSystemItem(system.Name + " not verified", "warning", "Unverified", "The connection to the site is not tested yet.")
+            : null;
+
+    /// <summary>The glyph of the icon font for a state, as the mock draws it: a clock for off, a check for a system that is on.</summary>
+    public static string IconOf(SystemState state) => state switch
+    {
+        SystemState.Off => "clock",
+        SystemState.NotConfigured => "warning",
+        SystemState.Failed => "error_circle",
+        SystemState.Testing => "arrow_sync",
+        _ => "checkmark_circle"
+    };
+
     public void Apply(ContextStripState state)
     {
         SiteText = state.SiteText;
@@ -49,7 +65,7 @@ public partial class ContextStripViewModel : ObservableObject
         AutomationName = state.AutomationName;
         Systems.Clear();
         foreach (var system in state.Systems)
-            Systems.Add(new StripSystemItem(system.Text, GlyphOf(system.State), system.State.ToString(),
+            Systems.Add(Item(system) ?? new StripSystemItem(system.Text, IconOf(system.State), system.State.ToString(),
                 system.Reason.Length > 0 ? system.Reason : system.Text));
     }
 }

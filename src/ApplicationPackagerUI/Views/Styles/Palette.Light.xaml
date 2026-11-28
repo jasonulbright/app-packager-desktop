@@ -8,18 +8,18 @@
     <!-- The one app accent. The theme applier gives it to the accent manager of the control library, which derives the hover,
          pressed and text variants: darker in the light theme, lighter in the dark theme, so every variant passes where the
          base color passes. -->
-    <Color x:Key="BrandAccentColor">#0B5FA5</Color>
+    <Color x:Key="BrandAccentColor">#005EA8</Color>
 
     <!-- Text below the primary and secondary levels. Disabled text keeps the library value: the WCAG rules exempt it. -->
-    <Color x:Key="TextFillColorTertiary">#6B6B6B</Color>
-    <SolidColorBrush x:Key="TextFillColorTertiaryBrush" Color="#6B6B6B" />
+    <Color x:Key="TextFillColorTertiary">#555E68</Color>
+    <SolidColorBrush x:Key="TextFillColorTertiaryBrush" Color="#555E68" />
 
     <!-- Status colors for text and icons: success, warning, error, information and neutral. -->
-    <Color x:Key="StatusSuccessColor">#0B6A0B</Color>
-    <Color x:Key="StatusWarningColor">#8A4B00</Color>
-    <Color x:Key="StatusErrorColor">#B3261E</Color>
-    <Color x:Key="StatusInfoColor">#00579E</Color>
-    <Color x:Key="StatusNeutralColor">#5C5C5C</Color>
+    <Color x:Key="StatusSuccessColor">#216044</Color>
+    <Color x:Key="StatusWarningColor">#7B4609</Color>
+    <Color x:Key="StatusErrorColor">#A42530</Color>
+    <Color x:Key="StatusInfoColor">#005EA8</Color>
+    <Color x:Key="StatusNeutralColor">#555E68</Color>
     <SolidColorBrush x:Key="StatusSuccessBrush" Color="{StaticResource StatusSuccessColor}" />
     <SolidColorBrush x:Key="StatusWarningBrush" Color="{StaticResource StatusWarningColor}" />
     <SolidColorBrush x:Key="StatusErrorBrush" Color="{StaticResource StatusErrorColor}" />
@@ -31,7 +31,7 @@
     <SolidColorBrush x:Key="SystemFillColorAttentionBrush" Color="{StaticResource StatusInfoColor}" />
 
     <!-- Borders that mark a control or a card: 3 to 1 against every surface. -->
-    <Color x:Key="BorderStrongColor">#858585</Color>
+    <Color x:Key="BorderStrongColor">#737C86</Color>
     <SolidColorBrush x:Key="ControlStrokeColorDefaultBrush" Color="{StaticResource BorderStrongColor}" />
     <SolidColorBrush x:Key="CardStrokeColorDefaultBrush" Color="{StaticResource BorderStrongColor}" />
     <SolidColorBrush x:Key="CardBorderBrush" Color="{StaticResource BorderStrongColor}" />
@@ -48,4 +48,43 @@
     <SolidColorBrush x:Key="SurfaceBaseBrush" Color="{StaticResource SurfaceBaseColor}" />
     <SolidColorBrush x:Key="SurfacePageBrush" Color="{StaticResource SurfacePageColor}" />
     <SolidColorBrush x:Key="SurfaceSubBrush" Color="{StaticResource SurfaceSubColor}" />
+
+    <!-- The palette of the approved mock images (design.css of the mock), one key for each of its variables. -->
+    <Color x:Key="MkBaseColor">#F4F5F6</Color>
+    <SolidColorBrush x:Key="MkBaseBrush" Color="{StaticResource MkBaseColor}" />
+    <Color x:Key="MkSurfaceColor">#FFFFFF</Color>
+    <SolidColorBrush x:Key="MkSurfaceBrush" Color="{StaticResource MkSurfaceColor}" />
+    <Color x:Key="MkSubColor">#EBEDF0</Color>
+    <SolidColorBrush x:Key="MkSubBrush" Color="{StaticResource MkSubColor}" />
+    <Color x:Key="MkTextColor">#24272B</Color>
+    <SolidColorBrush x:Key="MkTextBrush" Color="{StaticResource MkTextColor}" />
+    <Color x:Key="MkMutedColor">#555E68</Color>
+    <SolidColorBrush x:Key="MkMutedBrush" Color="{StaticResource MkMutedColor}" />
+    <Color x:Key="MkLineColor">#D1D6DC</Color>
+    <SolidColorBrush x:Key="MkLineBrush" Color="{StaticResource MkLineColor}" />
+    <Color x:Key="MkEdgeColor">#737C86</Color>
+    <SolidColorBrush x:Key="MkEdgeBrush" Color="{StaticResource MkEdgeColor}" />
+    <Color x:Key="MkAccentColor">#005EA8</Color>
+    <SolidColorBrush x:Key="MkAccentBrush" Color="{StaticResource MkAccentColor}" />
+    <Color x:Key="MkOnColor">#FFFFFF</Color>
+    <SolidColorBrush x:Key="MkOnBrush" Color="{StaticResource MkOnColor}" />
+    <Color x:Key="MkTintColor">#E3EFFC</Color>
+    <SolidColorBrush x:Key="MkTintBrush" Color="{StaticResource MkTintColor}" />
+    <Color x:Key="MkOkColor">#216044</Color>
+    <SolidColorBrush x:Key="MkOkBrush" Color="{StaticResource MkOkColor}" />
+    <Color x:Key="MkWarnColor">#7B4609</Color>
+    <SolidColorBrush x:Key="MkWarnBrush" Color="{StaticResource MkWarnColor}" />
+    <Color x:Key="MkBadColor">#A42530</Color>
+    <SolidColorBrush x:Key="MkBadBrush" Color="{StaticResource MkBadColor}" />
+    <!-- The radio button as the browser of the mock draws it: white while it is not selected in both themes, and the color between the ring and the dot. -->
+    <SolidColorBrush x:Key="MkRadioFillBrush" Color="#FFFFFF" />
+    <SolidColorBrush x:Key="MkRadioGapBrush" Color="#FFFFFF" />
+    <SolidColorBrush x:Key="MkScrimBrush" Color="#55111820" />
+
+    <!-- The library controls that a page still uses take the same text and background colors. -->
+    <Color x:Key="TextFillColorPrimary">#24272B</Color>
+    <SolidColorBrush x:Key="TextFillColorPrimaryBrush" Color="#24272B" />
+    <Color x:Key="TextFillColorSecondary">#555E68</Color>
+    <SolidColorBrush x:Key="TextFillColorSecondaryBrush" Color="#555E68" />
+    <SolidColorBrush x:Key="ApplicationBackgroundBrush" Color="#F4F5F6" />
 </ResourceDictionary>

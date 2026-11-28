@@ -289,14 +289,19 @@ public sealed class PublishSkipAndMatrixTests : IDisposable
             try
             {
                 AssertFits(window, $"review {theme} {width}x{height}");
-                Assert.Equal("Review 1 application", RenderKit.ById<TextBlock>(window, "txtReviewHeading").Text);
-                Assert.Contains("Site MCM", RenderKit.ById<TextBlock>(window, "txtReviewSite").Text);
-                Assert.True(RenderKit.ById<ScrollViewer>(window, "pnlReviewCards").IsVisible);
+                Assert.Equal("Review 1 application", RenderKit.ById<ApplicationPackagerUI.Controls.Mock.TrackedText>(window, "txtReviewHeading").Text);
+                Assert.Contains("Site MCM", RenderKit.ById<TextBlock>(window, "txtReviewScope").Text);
+                var cards = RenderKit.ById<ItemsControl>(window, "pnlReviewSystemCards");
+                Assert.True(cards.IsVisible);
+                // Each card shows a summary; its tooltip has every line of the plan about that system.
+                Assert.Contains("Scope: application only, no distribution, no deployment",
+                    ((ApplicationPackagerUI.ViewModels.Windows.PublishSystemCard)cards.Items[0]).Detail);
+                Assert.Contains(RenderKit.Descendants(cards).OfType<Border>(), b => b.ToolTip is string tip && tip.Contains("Scope: published, not approved"));
                 var grid = RenderKit.ById<DataGrid>(window, "gridReviewMatrix");
-                Assert.Equal("Alpha, Intune, Create Win32 app", CellName(grid, 0, 4));
-                var confirm = RenderKit.ById<Wpf.Ui.Controls.Button>(window, "btnReviewConfirm");
-                // The write creates objects, so the button is Primary and not Danger.
-                Assert.Equal(Wpf.Ui.Controls.ControlAppearance.Primary, confirm.Appearance);
+                Assert.Equal("Alpha, Intune, Create Win32 app", CellName(grid, 0, 3));
+                var confirm = RenderKit.ById<System.Windows.Controls.Button>(window, "btnReviewConfirm");
+                // The write creates objects, so the button has the primary style of the mock.
+                Assert.Same(window.FindResource("Mk.Button.Primary"), confirm.Style);
             }
             finally { window.Close(); }
         });
@@ -322,17 +327,17 @@ public sealed class PublishSkipAndMatrixTests : IDisposable
             try
             {
                 AssertFits(window, $"results, all failed, {theme}");
-                Assert.Equal("Publish completed with issues", RenderKit.ById<TextBlock>(window, "txtResultsHeadline").Text);
-                Assert.Equal("Published 0", RenderKit.ById<TextBlock>(window, "txtResultsPublished").Text);
-                Assert.Equal("Failed 2", RenderKit.ById<TextBlock>(window, "txtResultsFailed").Text);
-                Assert.Equal("Notepad++, WSUS, Failed", CellName(RenderKit.ById<DataGrid>(window, "gridResultsMatrix"), 0, 2));
+                Assert.Equal("Publish completed with issues", RenderKit.ById<ApplicationPackagerUI.Controls.Mock.TrackedText>(window, "txtResultsHeadline").Text);
+                Assert.Equal("1 application \u00b7 0 destination publishes succeeded \u00b7 2 failed \u00b7 0 skipped", RenderKit.ById<TextBlock>(window, "txtResultsSite").Text);
+                // The columns are Application, Latest version, ConfigMgr and WSUS.
+                Assert.Equal("Notepad++, WSUS, Failed", CellName(RenderKit.ById<DataGrid>(window, "gridResultsMatrix"), 0, 3));
             }
             finally { window.Close(); }
         });
     }
 
     [Theory]
-    [InlineData(ApplicationTheme.Light, PublishDestinationKind.Published, "2 publishes completed")]
+    [InlineData(ApplicationTheme.Light, PublishDestinationKind.Published, "1 application published")]
     [InlineData(ApplicationTheme.Dark, PublishDestinationKind.Failed, "Publish completed with issues")]
     public void TheResultsFitWithTheirFooterAndEachCellHasAName(ApplicationTheme theme, PublishDestinationKind second, string headline)
     {
@@ -348,18 +353,23 @@ public sealed class PublishSkipAndMatrixTests : IDisposable
             try
             {
                 AssertFits(window, $"results {theme} {second}");
-                Assert.Equal(headline, RenderKit.ById<TextBlock>(window, "txtResultsHeadline").Text);
+                Assert.Equal(headline, RenderKit.ById<ApplicationPackagerUI.Controls.Mock.TrackedText>(window, "txtResultsHeadline").Text);
                 foreach (var id in new[] { "btnResultsHistory", "btnResultsReport", "btnResultsLogs", "btnResultsDone" })
                     Assert.True(RenderKit.ById<ButtonBase>(window, id).IsVisible, id);
                 var failed = second == PublishDestinationKind.Failed;
-                Assert.Equal(failed, RenderKit.ById<ButtonBase>(window, "btnResultsReview").IsVisible);
-                Assert.True(RenderKit.ById<TextBlock>(window, "txtResultsDeployment").IsVisible);
+                // The window of the mock has no line for it on a publish to several systems; the row says it.
+                Assert.Contains("No deployment was created.", viewModel.Lines[0].Tip);
                 var grid = RenderKit.ById<DataGrid>(window, "gridResultsMatrix");
-                Assert.Equal(failed ? "Notepad++, Intune, Failed at content upload" : "Notepad++, Intune, Published", CellName(grid, 0, 2));
-                if (!failed) return;
+                Assert.NotNull(grid.ContextMenu);
+                Assert.Equal(failed ? "Notepad++, Intune, Failed at content upload" : "Notepad++, Intune, Published", CellName(grid, 0, 3));
+                // The review of the failed application is in the row menu.
+                var review = window.BuildRowMenu(viewModel.Lines[0]).Items.OfType<System.Windows.Controls.MenuItem>()
+                    .SingleOrDefault(i => AutomationProperties.GetAutomationId(i) == "miResultsReview");
+                Assert.Equal(failed, review is not null);
+                if (review is null) return;
                 var closed = false;
                 window.Closed += (_, _) => closed = true;
-                RenderKit.ById<ButtonBase>(window, "btnResultsReview").RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent));
+                review.RaiseEvent(new RoutedEventArgs(System.Windows.Controls.MenuItem.ClickEvent));
                 Assert.True(closed);
                 Assert.Equal("n", viewModel.ReviewUid);
             }

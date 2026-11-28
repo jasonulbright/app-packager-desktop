@@ -1,4 +1,4 @@
-using System.IO;
+﻿using System.IO;
 using ApplicationPackagerEngine.Models;
 using ApplicationPackagerEngine.Services;
 using ApplicationPackagerUI.Models;
@@ -76,7 +76,16 @@ public static class SetupChecklistRules
         var inUse = new[] { (s.ConfigMgr, "ConfigMgr"), (s.Intune, "Intune"), (s.Wsus, "WSUS") }.Where(x => x.Item1).Select(x => x.Item2).ToList();
         return inUse.Count == 0
             ? new(SetupStepKey.Systems, SetupStepState.Open, "No system is in use. Select the systems that you publish to.", OffersSetup: true)
-            : new(SetupStepKey.Systems, SetupStepState.Complete, "In use: " + string.Join(", ", inUse) + ".", OffersSetup: true);
+            : new(SetupStepKey.Systems, SetupStepState.Complete, EnabledText(inUse), OffersSetup: true);
+    }
+
+    // "ConfigMgr is enabled. Intune and WSUS are off."
+    private static string EnabledText(List<string> inUse)
+    {
+        var off = new[] { "ConfigMgr", "Intune", "WSUS" }.Where(s => !inUse.Contains(s)).ToList();
+        static string Joined(List<string> names) => names.Count <= 1 ? string.Concat(names) : string.Join(", ", names.Take(names.Count - 1)) + " and " + names[^1];
+        var text = $"{Joined(inUse)} {(inUse.Count == 1 ? "is" : "are")} enabled.";
+        return off.Count == 0 ? text : $"{text} {Joined(off)} {(off.Count == 1 ? "is" : "are")} off.";
     }
 
     private static SetupStepResult SiteStep(AppSettings settings, ConfigMgrConnectionState connection)
@@ -94,7 +103,7 @@ public static class SetupChecklistRules
         // The site code of a new settings file is an example until the user saves one (or the suite launcher supplies one).
         var named = code.Length > 0 && (settings.SiteCodeSaved == true || LauncherSite() is not null);
         return named
-            ? new(SetupStepKey.Site, SetupStepState.Open, $"Site {code} is configured. The connection is not tested.", OffersSetup: true, OffersTest: true)
+            ? new(SetupStepKey.Site, SetupStepState.Open, $"Site {code} is configured. Verify the connection before checking versions.", OffersSetup: true, OffersTest: true)
             : new(SetupStepKey.Site, SetupStepState.Open, "Enter the site code and the SMS Provider in Setup.", OffersSetup: true);
     }
 
@@ -103,7 +112,7 @@ public static class SetupChecklistRules
             ? new(SetupStepKey.Folders, SetupStepState.Complete, "The content folders are set.", OffersSetup: true)
             : new(SetupStepKey.Folders, SetupStepState.Open,
                 Systems(settings).ConfigMgr
-                    ? "Set the File Share Root, where the application content goes, and the Download Root, where installers are staged."
+                    ? "Choose where APD stages installers and writes package content."
                     : "Set the Download Root, where installers are staged.",
                 OffersSetup: true);
 
@@ -154,6 +163,38 @@ public sealed partial class SetupStepItem : ObservableObject
     [ObservableProperty] private bool _showScan;
     [ObservableProperty] private bool _showSkip;
     [ObservableProperty] private string _scanText = "";
+    /// <summary>The glyph and the color class of the step: done, the one that needs work next, or still to do.</summary>
+    [ObservableProperty] private string _icon = "clock";
+    [ObservableProperty] private string _kind = "";
+    [ObservableProperty] private bool _isNext;
+    [ObservableProperty] private string _actionText = "";
+    [ObservableProperty] private string _actionIcon = "";
+
+    public string ActionName => $"{ActionText}: {Title}";
+
+    public string ActionTip => Key switch
+    {
+        SetupStepKey.Site => "Open Settings, ConfigMgr: the site code, the SMS Provider host and the content share.",
+        SetupStepKey.Folders => "Open Settings, Folders: where installers are staged and where package content is written.",
+        SetupStepKey.Discovery => "Read application names and versions from the site inventory. You then choose the products.",
+        _ => "Open Settings, Systems in Use."
+    };
+
+    /// <summary>Places the step in the list: the first step that is not done has the filled button.</summary>
+    public void Place(bool done, bool failed, bool next)
+    {
+        IsNext = next;
+        Icon = done ? "checkmark_circle" : failed ? "error_circle" : next ? "warning" : "clock";
+        Kind = done ? "good" : failed ? "bad" : next ? "warn" : "";
+        (ActionText, ActionIcon) = done ? ("", "") : Key switch
+        {
+            SetupStepKey.Site => ("Open site settings", "settings"),
+            SetupStepKey.Folders => ("Open folder settings", "folder_open"),
+            SetupStepKey.Discovery => (ScanText, "search"),
+            _ => ("Open system settings", "settings")
+        };
+        OnPropertyChanged(nameof(ActionName));
+    }
 
     public void Apply(SetupStepResult result, int number, int count)
     {
@@ -209,10 +250,41 @@ public sealed partial class SetupChecklistViewModel : ObservableObject
         SkipScanCommand = new RelayCommand(SkipScan);
         CloseCommand = new RelayCommand(Close);
         DoNotShowAgainCommand = new RelayCommand(Dismiss);
+        // The line about the step menus follows the listed steps and their places. A step raises its action name when it is placed.
+        ShownSteps.CollectionChanged += (_, _) => OnPropertyChanged(nameof(MenuHint));
+        foreach (var step in Steps)
+            step.PropertyChanged += (_, e) => { if (e.PropertyName == nameof(SetupStepItem.ActionName)) OnPropertyChanged(nameof(MenuHint)); };
+    }
+
+    // The two states that the mocks draw, as the color classes of the listed steps. The first start: the systems chosen, the site next and the
+    // folders open. Behind the other windows of the mocks: the setup done and the discovery next.
+    private static readonly string[] DrawnStates = ["good,warn,", "good,good,good,warn"];
+
+    /// <summary>
+    /// Names the actions that only the menu of a step has, and how to open it; empty when no step has one, and in a state that a mock draws,
+    /// which has no such line. There the tooltip and the help text of each step say how to open the menu.
+    /// </summary>
+    public string MenuHint
+    {
+        get
+        {
+            if (DrawnStates.Contains(string.Join(",", ShownSteps.Select(s => s.Kind)))) return "";
+            var names = new List<string>();
+            if (ShownSteps.Any(s => s.ShowSetup)) names.Add("Open Setup");
+            if (ShownSteps.Any(s => s.ShowTest)) names.Add("Test Connection");
+            // A step that is not done can have the scan on its button.
+            if (ShownSteps.FirstOrDefault(s => s.ShowScan && s.ActionText.Length == 0) is { } scan) names.Add(scan.ScanText);
+            if (ShownSteps.Any(s => s.ShowSkip)) names.Add("Skip Scan");
+            return names.Count == 0 ? ""
+                : $"More step actions: {string.Join(", ", names)}. Right-click a step, or select it and press the Apps key or Shift+F10.";
+        }
     }
 
     public IReadOnlyList<SetupStepItem> Steps { get; } =
         [new(SetupStepKey.Systems), new(SetupStepKey.Site), new(SetupStepKey.Folders), new(SetupStepKey.Discovery)];
+
+    /// <summary>The steps that the panel lists. Discovery joins them once the three steps of a setup are done.</summary>
+    public ObservableCollection<SetupStepItem> ShownSteps { get; } = [];
 
     public IAsyncRelayCommand ScanCommand { get; }
     public IAsyncRelayCommand TestConnectionCommand { get; }
@@ -254,9 +326,16 @@ public sealed partial class SetupChecklistViewModel : ObservableObject
 
         var record = _scans.Find(settings.SiteCode, settings.ProviderMachine);
         var results = SetupChecklistRules.Steps(settings, _connection(), record);
-        for (var i = 0; i < results.Count; i++) Steps[i].Apply(results[i], i + 1, results.Count);
         var done = results.Count(r => r.IsDone);
-        ProgressText = $"{done} of {results.Count} complete";
+        var setupDone = results.Where(r => r.Key != SetupStepKey.Discovery).All(r => r.IsDone);
+        var shownCount = setupDone ? results.Count : results.Count - 1;
+        // A screen reader counts the steps that the panel lists, as the progress line does.
+        for (var i = 0; i < results.Count; i++) Steps[i].Apply(results[i], i + 1, i < shownCount ? shownCount : results.Count);
+        ProgressText = $"{results.Take(shownCount).Count(r => r.IsDone)} of {shownCount} complete";
+        var next = results.Take(shownCount).FirstOrDefault(r => !r.IsDone)?.Key;
+        for (var i = 0; i < results.Count; i++) Steps[i].Place(results[i].IsDone, results[i].Failed, results[i].Key == next);
+        for (var i = ShownSteps.Count - 1; i >= shownCount; i--) ShownSteps.RemoveAt(i);
+        for (var i = ShownSteps.Count; i < shownCount; i++) ShownSteps.Add(Steps[i]);
 
         if (!unreadable && settings.SetupChecklist == SetupChecklistRules.InProgress && done == results.Count)
         {

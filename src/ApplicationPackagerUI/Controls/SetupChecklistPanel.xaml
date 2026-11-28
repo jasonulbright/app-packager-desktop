@@ -1,99 +1,120 @@
-<UserControl
+﻿<UserControl
     x:Class="ApplicationPackagerUI.Controls.SetupChecklistPanel"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+    xmlns:mk="clr-namespace:ApplicationPackagerUI.Controls.Mock"
     Focusable="False"
     IsTabStop="False"
+    FontFamily="Segoe UI"
+    FontSize="14"
     AutomationProperties.AutomationId="pnlSetupChecklist"
     AutomationProperties.Name="Setup checklist">
 
     <UserControl.Resources>
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
-                <ResourceDictionary Source="/ApplicationPackagerUI;component/Views/Styles/Typography.xaml" />
+                <ResourceDictionary Source="/ApplicationPackagerUI;component/Views/Styles/Mock.Dialogs.xaml" />
             </ResourceDictionary.MergedDictionaries>
             <BooleanToVisibilityConverter x:Key="BoolToVisibility" />
-            <!-- The color follows the state; the glyph and the word say it too (R-18). -->
-            <Style x:Key="StateText" TargetType="TextBlock" BasedOn="{StaticResource CaptionText}">
+            <!-- The color follows the state; the glyph and the words say it too (R-18). -->
+            <Style x:Key="StepTitle" TargetType="TextBlock" BasedOn="{StaticResource Mk.H3}">
                 <Style.Triggers>
-                    <DataTrigger Binding="{Binding StateKey}" Value="Complete">
-                        <Setter Property="Foreground" Value="{DynamicResource StatusSuccessBrush}" />
+                    <DataTrigger Binding="{Binding Kind}" Value="good">
+                        <Setter Property="Foreground" Value="{DynamicResource MkOkBrush}" />
                     </DataTrigger>
-                    <DataTrigger Binding="{Binding StateKey}" Value="Failed">
-                        <Setter Property="Foreground" Value="{DynamicResource StatusErrorBrush}" />
+                    <DataTrigger Binding="{Binding Kind}" Value="warn">
+                        <Setter Property="Foreground" Value="{DynamicResource MkWarnBrush}" />
+                    </DataTrigger>
+                    <DataTrigger Binding="{Binding Kind}" Value="bad">
+                        <Setter Property="Foreground" Value="{DynamicResource MkBadBrush}" />
                     </DataTrigger>
                 </Style.Triggers>
             </Style>
         </ResourceDictionary>
     </UserControl.Resources>
 
-    <Border Padding="12" BorderThickness="1" CornerRadius="8"
-            BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}" Background="{DynamicResource SurfacePageBrush}">
-        <DockPanel>
-            <StackPanel DockPanel.Dock="Top" Margin="0,0,0,12">
-                <TextBlock Text="Setup checklist" Style="{StaticResource CardTitleText}" />
-                <TextBlock Text="{Binding ProgressText}" Style="{StaticResource CaptionText}" AutomationProperties.AutomationId="txtSetupProgress"
-                           AutomationProperties.LiveSetting="Polite" />
-            </StackPanel>
-
-            <StackPanel DockPanel.Dock="Bottom" Margin="0,8,0,0">
-                <WrapPanel>
-                    <ui:Button Content="{Binding CloseText}" Command="{Binding CloseCommand}" Margin="0,0,8,8"
-                               AutomationProperties.AutomationId="btnSetupClose"
-                               ToolTip="Close the checklist. Nothing is stored. An unfinished checklist opens again at the next start." />
-                    <ui:Button Content="Do Not Show Again" Command="{Binding DoNotShowAgainCommand}" Margin="0,0,8,8" Appearance="Transparent"
-                               Visibility="{Binding IsDue, Converter={StaticResource BoolToVisibility}}"
-                               AutomationProperties.AutomationId="btnSetupDismiss"
-                               ToolTip="Stop opening the checklist at the start. The settings do not change." />
-                </WrapPanel>
-                <TextBlock Text="To open this checklist again, select More, then Setup checklist." Style="{StaticResource CaptionText}" />
-            </StackPanel>
-
-            <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Focusable="False">
-                <ItemsControl ItemsSource="{Binding Steps}" Focusable="False" IsTabStop="False" AutomationProperties.AutomationId="lstSetupSteps">
+    <!-- .panel .stack .block: padding 20, a 14 px gap between the parts. -->
+    <Border Style="{StaticResource Mk.Panel}" Padding="20">
+        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Focusable="False">
+            <StackPanel>
+                <mk:TrackedText Style="{StaticResource Mk.H2}" Text="Setup checklist" AutomationProperties.HeadingLevel="Level2" />
+                <StackPanel Orientation="Horizontal" Margin="0,14,0,0" Height="19">
+                    <mk:Ico Glyph="info" Foreground="{DynamicResource MkAccentBrush}" mk:Mk.Drop="1" />
+                    <TextBlock Text="{Binding ProgressText}" Margin="6,-1,0,0" VerticalAlignment="Center" Foreground="{DynamicResource MkAccentBrush}"
+                               AutomationProperties.AutomationId="txtSetupProgress" AutomationProperties.LiveSetting="Polite" />
+                </StackPanel>
+                <Rectangle Height="1" Fill="{DynamicResource MkLineBrush}" Margin="0,14,0,0" />
+                <ItemsControl ItemsSource="{Binding ShownSteps}" Focusable="False" IsTabStop="False" AutomationProperties.AutomationId="lstSetupSteps">
                     <ItemsControl.ItemTemplate>
                         <DataTemplate>
-                            <StackPanel Margin="0,0,0,12">
-                                <DockPanel>
-                                    <ui:SymbolIcon DockPanel.Dock="Left" Symbol="{Binding Glyph}" FontSize="16" Margin="0,0,8,0" VerticalAlignment="Top"
-                                                   Foreground="{Binding Foreground, ElementName=State}" />
-                                    <TextBlock Text="{Binding Title}" FontSize="14" TextWrapping="Wrap" Foreground="{DynamicResource TextFillColorPrimaryBrush}"
-                                               AutomationProperties.AutomationId="{Binding TitleAutomationId}"
-                                               AutomationProperties.Name="{Binding AccessibleName}" />
-                                </DockPanel>
-                                <StackPanel Margin="24,0,0,0">
-                                    <TextBlock x:Name="State" Text="{Binding StateWord}" Style="{StaticResource StateText}" />
-                                    <TextBlock Text="{Binding Detail}" Style="{StaticResource CaptionText}" Margin="0,4,0,8" />
-                                    <WrapPanel>
-                                        <ui:Button Content="Open Setup" Margin="0,0,8,8" Click="OpenSetup_Click"
-                                                   Visibility="{Binding ShowSetup, Converter={StaticResource BoolToVisibility}}"
-                                                   IsEnabled="{Binding DataContext.CanOpenSetup, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                                                   AutomationProperties.AutomationId="{Binding SetupAutomationId}"
-                                                   AutomationProperties.Name="{Binding SetupName}"
-                                                   ToolTip="Open the Setup window: the systems, the site and the content folders." />
-                                        <ui:Button Content="Test Connection" Margin="0,0,8,8"
-                                                   Command="{Binding DataContext.TestConnectionCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                                                   Visibility="{Binding ShowTest, Converter={StaticResource BoolToVisibility}}"
-                                                   AutomationProperties.AutomationId="btnSetupTestConnection"
-                                                   ToolTip="Test the connection to the ConfigMgr site with the saved settings." />
-                                        <ui:Button Content="{Binding ScanText}" Margin="0,0,8,8"
-                                                   Command="{Binding DataContext.ScanCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                                                   Visibility="{Binding ShowScan, Converter={StaticResource BoolToVisibility}}"
-                                                   AutomationProperties.AutomationId="btnSetupScan"
-                                                   ToolTip="Read application names and versions from the site inventory. You then choose the products." />
-                                        <ui:Button Content="Skip Scan" Margin="0,0,8,8" Appearance="Transparent"
-                                                   Command="{Binding DataContext.SkipScanCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                                                   Visibility="{Binding ShowSkip, Converter={StaticResource BoolToVisibility}}"
-                                                   AutomationProperties.AutomationId="btnSetupSkipScan"
-                                                   ToolTip="Complete this step for this site without a scan. You can scan later." />
-                                    </WrapPanel>
+                            <UserControl Focusable="True" IsTabStop="True" FocusVisualStyle="{StaticResource Mk.Focus}" ContextMenuOpening="Step_ContextMenuOpening"
+                                         AutomationProperties.Name="{Binding AccessibleName}"
+                                         AutomationProperties.HelpText="Press the Apps key or Shift+F10 for the actions of this step."
+                                         ToolTip="Right-click the step, or press the Apps key or Shift+F10, for the actions of this step.">
+                                <UserControl.ContextMenu>
+                                    <ContextMenu />
+                                </UserControl.ContextMenu>
+                            <StackPanel Background="Transparent">
+                                <StackPanel Orientation="Horizontal" Margin="0,12,0,0" Height="24">
+                                    <mk:Ico Glyph="{Binding Icon}" Foreground="{Binding Foreground, ElementName=Title}" />
+                                    <TextBlock x:Name="Title" Text="{Binding Title}" Style="{StaticResource StepTitle}" Margin="6,-1,0,0" VerticalAlignment="Center"
+                                               AutomationProperties.AutomationId="{Binding TitleAutomationId}" AutomationProperties.Name="{Binding AccessibleName}"
+                                               ToolTip="{Binding StateWord}" />
                                 </StackPanel>
+                                <!-- A step without a button is one unit lower than its parts. -->
+                                <TextBlock Text="{Binding Detail}">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock" BasedOn="{StaticResource Mk.Help}">
+                                            <Setter Property="Margin" Value="0,17,0,0" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding ActionText}" Value="">
+                                                    <Setter Property="Margin" Value="0,17,0,-1" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+                                <!-- The way to the page that finishes the step: the one that needs work next has the filled button. -->
+                                <Button Content="{Binding ActionText}" mk:Mk.Icon="{Binding ActionIcon}" mk:Mk.IconDrop="1" mk:Mk.TextDrop="1" Margin="0,13,0,0" Padding="11,0,12,0" HorizontalAlignment="Stretch" Click="StepAction_Click"
+                                        IsEnabled="{Binding DataContext.CanOpenSetup, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                        AutomationProperties.AutomationId="{Binding SetupAutomationId}" AutomationProperties.Name="{Binding ActionName}"
+                                        ToolTip="{Binding ActionTip}">
+                                    <Button.Style>
+                                        <Style TargetType="Button" BasedOn="{StaticResource Mk.Button}">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsNext}" Value="True">
+                                                    <Setter Property="Background" Value="{DynamicResource MkAccentBrush}" />
+                                                    <Setter Property="BorderBrush" Value="{DynamicResource MkAccentBrush}" />
+                                                    <Setter Property="Foreground" Value="{DynamicResource MkOnBrush}" />
+                                                </DataTrigger>
+                                                <DataTrigger Binding="{Binding ActionText}" Value="">
+                                                    <Setter Property="Visibility" Value="Collapsed" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Button.Style>
+                                </Button>
                             </StackPanel>
+                            </UserControl>
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>
                 </ItemsControl>
-            </ScrollViewer>
-        </DockPanel>
+                <TextBlock Text="{Binding MenuHint}" AutomationProperties.AutomationId="txtSetupMenuHint">
+                    <TextBlock.Style>
+                        <Style TargetType="TextBlock" BasedOn="{StaticResource Mk.Help}">
+                            <Setter Property="Margin" Value="0,14,0,0" />
+                            <Setter Property="TextWrapping" Value="Wrap" />
+                            <Style.Triggers>
+                                <Trigger Property="Text" Value="">
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                </Trigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TextBlock.Style>
+                </TextBlock>
+                <Rectangle Height="1" Fill="{DynamicResource MkLineBrush}" Margin="0,14,0,0" />
+                <TextBlock Text="Return to this checklist from Settings." Style="{StaticResource Mk.Help}" Margin="0,15,0,0" />
+            </StackPanel>
+        </ScrollViewer>
     </Border>
 </UserControl>

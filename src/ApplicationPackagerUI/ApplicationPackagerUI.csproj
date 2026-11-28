@@ -17,6 +17,8 @@
 
   <ItemGroup>
     <Resource Include="app.ico" />
+    <!-- Fluent System Icons (MIT), the icon font of the approved mock images. -->
+    <Resource Include="Assets\FluentSystemIcons.ttf" />
   </ItemGroup>
 
   <ItemGroup>

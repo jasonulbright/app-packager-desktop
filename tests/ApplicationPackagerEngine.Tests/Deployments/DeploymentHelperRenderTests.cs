@@ -169,7 +169,18 @@ public sealed class DeploymentHelperRenderTests
             var types = ById<ListBox>(page, "lstObjectType");
             types.BringIntoView();
             Settle(window);
-            AssertReadableListAndVisibleSelection(window, types, $"lstObjectType-{theme}");
+            types.SelectedIndex = 0;
+            Settle(window);
+            var accent = ((System.Windows.Media.SolidColorBrush)System.Windows.Application.Current.FindResource("MkAccentBrush")).Color;
+            for (var i = 0; i < 2; i++)
+            {
+                var item = (ListBoxItem)types.ItemContainerGenerator.ContainerFromIndex(i);
+                var face = Descendants(item).OfType<Border>().Single(b => b.Name == "Face");
+                var line = (face.BorderBrush as System.Windows.Media.SolidColorBrush)?.Color;
+                Assert.True(face.BorderThickness.Bottom >= 2 && (i == 0) == (line == accent), $"lstObjectType-{theme}: tab {i} has the line {line}.");
+                var pixels = Pixels(window, Descendants(item).OfType<TextBlock>().First(t => t.IsVisible && t.Text.Length > 0));
+                Assert.True(TextContrast(pixels) >= 4.5, $"lstObjectType-{theme}: tab {i} has a contrast of {TextContrast(pixels):0.00}.");
+            }
             ShowTab(window, viewModel, DeploymentHelperViewModel.HistoryTab);
             AssertReadableRowsAndVisibleSelection(window, ById<DataGrid>(page, "dgHistory"), $"dgHistory-{theme}");
             ShowTab(window, viewModel, DeploymentHelperViewModel.OptionsTab);
@@ -201,6 +212,8 @@ public sealed class DeploymentHelperRenderTests
         WithPage(theme, (window, page, viewModel, harness) =>
         {
             Fill(window, viewModel, harness);
+            viewModel.Deploy.IsRequired = true;
+            Settle(window);
             Assert.Equal(width >= 1000 + 48, page.PickersSideBySide);
             void Check(int tab, string scrollId, params string[] ids)
             {
@@ -217,7 +230,7 @@ public sealed class DeploymentHelperRenderTests
             }
 
             Check(DeploymentHelperViewModel.DeployTab, "scrollDeployTab", "lstObjectType", "cboTemplate", "btnSaveTemplate", "btnDeployRefresh", "btnDeployCancel", "dgObjects", "dgCollections", "cboNotification",
-                "chkRebootOutside", "txtRequiredOnlyNote", "dgDpGroups", "btnDistribute", "chkDistributeFirst", "dgChecks");
+                "chkRebootOutside", "dpDeadlineDate", "dgDpGroups", "btnDistribute", "chkDistributeFirst", "dgChecks");
             Check(DeploymentHelperViewModel.HistoryTab, "scrollHistoryTab", "txtHistoryFilter", "btnHistoryCancel", "btnHistoryFolder", "btnRemoveDeployment", "dgHistory");
             Check(DeploymentHelperViewModel.OptionsTab, "scrollOptionsTab", "btnOptionsRefresh", "btnOptionsCancel", "txtAuditLogPath", "btnCheckAuditLog", "btnDeleteTemplate", "dgTemplates", "txtConnection");
             var header = ById<FrameworkElement>(page, "txtDeploymentTitle");
@@ -317,18 +330,18 @@ public sealed class DeploymentHelperRenderTests
         var workstations = Collection("LAB00010", "All Workstations", 2);
 
         // A name that holds its version shows it once.
-        Assert.Equal("7-Zip 26.06 (x64 edition) \u2192 All Workstations \u00b7 Available \u00b7 2 members at the last read",
+        Assert.Equal("7-Zip 26.06 (x64 edition) \u2192 All Workstations \u00b7 Available \u00b7 2 members",
             Line(Object(DeploymentObjectType.Application, "7-Zip 26.06 (x64 edition)", "26.06"), null, workstations, false));
-        Assert.Equal("7-Zip 26.04 \u2192 Pilot \u00b7 Required \u00b7 1 member at the last read",
+        Assert.Equal("7-Zip 26.04 \u2192 Pilot \u00b7 Required \u00b7 1 member",
             Line(Object(DeploymentObjectType.Application, "7-Zip", "26.04"), null, Collection("LAB00011", "Pilot", 1), true));
-        Assert.Equal("Office Tools 16.0 (program Install) \u2192 All Workstations \u00b7 Available \u00b7 2 members at the last read",
+        Assert.Equal("Office Tools 16.0 (program Install) \u2192 All Workstations \u00b7 Available \u00b7 2 members",
             Line(Object(DeploymentObjectType.Package, "Office Tools", "16.0"), "Install", workstations, false));
-        Assert.Equal("2026-10 Cumulative Updates \u2192 All Workstations \u00b7 Required \u00b7 2 members at the last read",
+        Assert.Equal("2026-10 Cumulative Updates \u2192 All Workstations \u00b7 Required \u00b7 2 members",
             Line(Object(DeploymentObjectType.SoftwareUpdateGroup, "2026-10 Cumulative Updates", ""), null, workstations, true));
 
         // The values of a prepare replace the names and the count of the lists, and the count is the count of the last check.
         var read = new DeploymentReadValues(Object(DeploymentObjectType.Application, "7-Zip", "26.07").Object, new DeploymentCollection("LAB00010", "All Workstations (new)", "", 41));
-        Assert.Equal("7-Zip 26.07 \u2192 All Workstations (new) \u00b7 Available \u00b7 41 members at the last check",
+        Assert.Equal("7-Zip 26.07 \u2192 All Workstations (new) \u00b7 Available \u00b7 41 members",
             DeploymentReviewSummaryConverter.Summary(Object(DeploymentObjectType.Application, "7-Zip", "26.04"), null, workstations, false, read));
         Assert.Equal("7-Zip 26.07 \u2192 All Workstations (new) \u00b7 Available \u00b7 changed, select Validate again",
             DeploymentReviewSummaryConverter.Summary(Object(DeploymentObjectType.Application, "7-Zip", "26.04"), null, workstations, false, read with { OutOfDate = true }));
@@ -355,10 +368,10 @@ public sealed class DeploymentHelperRenderTests
             Assert.Equal(DeploymentFormViewModel.PickCollection, ReviewText(page));
             form.SelectedCollection = form.Collections.Single(c => c.CollectionId == "LAB00010");
             Settle(window);
-            Assert.Equal("7-Zip 26.04 \u2192 Pilot Workstations \u00b7 Available \u00b7 3 members at the last read", ReviewText(page));
+            Assert.Equal("7-Zip 26.04 \u2192 Pilot Workstations \u00b7 Available \u00b7 3 members", ReviewText(page));
             form.IsRequired = true;
             Settle(window);
-            Assert.Equal("7-Zip 26.04 \u2192 Pilot Workstations \u00b7 Required \u00b7 3 members at the last read", ReviewText(page));
+            Assert.Equal("7-Zip 26.04 \u2192 Pilot Workstations \u00b7 Required \u00b7 3 members", ReviewText(page));
         });
     }
 
@@ -369,8 +382,8 @@ public sealed class DeploymentHelperRenderTests
     {
         WithPage(theme, (window, page, viewModel, harness) =>
         {
-            const string Listed = "7-Zip 26.04 \u2192 Pilot Workstations \u00b7 Available \u00b7 3 members at the last read";
-            const string Prepared = "7-Zip 26.04 \u2192 Pilot Workstations \u00b7 Available \u00b7 40 members at the last check";
+            const string Listed = "7-Zip 26.04 \u2192 Pilot Workstations \u00b7 Available \u00b7 3 members";
+            const string Prepared = "7-Zip 26.04 \u2192 Pilot Workstations \u00b7 Available \u00b7 40 members";
             var form = viewModel.Deploy;
             void Pick(string collectionId)
             {
@@ -411,7 +424,7 @@ public sealed class DeploymentHelperRenderTests
             Run(form.RefreshCommand.ExecuteAsync(null));
             Settle(window);
             Assert.Null(form.PreparedCreate);
-            Assert.EndsWith("3 members at the last read", ReviewText(page));
+            Assert.EndsWith("3 members", ReviewText(page));
         });
     }
 
@@ -442,7 +455,7 @@ public sealed class DeploymentHelperRenderTests
             harness.Service.MemberCounts["LAB00010"] = 41;
             Run(form.ValidateCommand.ExecuteAsync(null));
             Settle(window);
-            Assert.Equal("7-Zip 26.04 \u2192 Pilot Workstations \u00b7 Available \u00b7 41 members at the last check", ReviewText(page));
+            Assert.Equal("7-Zip 26.04 \u2192 Pilot Workstations \u00b7 Available \u00b7 41 members", ReviewText(page));
         });
     }
 

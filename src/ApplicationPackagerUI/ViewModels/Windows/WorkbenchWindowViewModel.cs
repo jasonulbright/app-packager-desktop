@@ -1,4 +1,4 @@
-using System.Globalization;
+﻿using System.Globalization;
 using System.IO;
 using System.Text.Json.Nodes;
 using ApplicationPackagerEngine.Models;
@@ -54,7 +54,7 @@ public partial class WorkbenchWindowViewModel : ObservableObject
     public bool IsDirty => _session?.IsDirty == true;
 
     public IReadOnlyList<string> Sections { get; } =
-        ["Application", "Install & uninstall", "Detection", "Requirements & variants", "Timing & execution", "Source files", "Review & build"];
+        ["Application", "Install and uninstall", "Detection", "Requirements and variants", "Timing and execution", "Source files", "Review and build"];
     public IReadOnlyList<string> TitleModeOptions => WorkbenchFieldMapping.TitleModeOptions;
     public IReadOnlyList<string> ScriptTargetOptions { get; } = ["Install", "Uninstall"];
     public IReadOnlyList<string> InstallModeOptions => WorkbenchFieldMapping.ScriptModeOptions;

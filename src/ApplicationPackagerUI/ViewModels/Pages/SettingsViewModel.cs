@@ -29,6 +29,7 @@ public partial class SettingsViewModel : ObservableObject, ISettingsReload
     [ObservableProperty] private string _downloadRoot = @"C:\temp\ap";
     [ObservableProperty] private string _packagersRoot = "";
     [ObservableProperty] private bool _checkForUpdatesAtStartup = true;
+    [ObservableProperty] private bool _showPackIcons = true;
 
     [ObservableProperty] private double? _estimatedRuntimeMins = 15;
     [ObservableProperty] private double? _maximumRuntimeMins = 30;
@@ -954,6 +955,7 @@ public partial class SettingsViewModel : ObservableObject, ISettingsReload
 
         CompanyName = s.CompanyName;
         CheckForUpdatesAtStartup = s.CheckForUpdatesAtStartup;
+        ShowPackIcons = s.ShowPackIcons;
         SiteCode = s.SiteCode;
         ProviderMachine = s.ProviderMachine;
         Discovery.Load(s);
@@ -1071,6 +1073,7 @@ public partial class SettingsViewModel : ObservableObject, ISettingsReload
 
         s.CompanyName = CompanyName;
         s.CheckForUpdatesAtStartup = CheckForUpdatesAtStartup;
+        s.ShowPackIcons = ShowPackIcons;
         s.SiteCode = SiteCode;
         s.ProviderMachine = ProviderMachine.Trim();
         Discovery.ApplyTo(s);
@@ -1243,6 +1246,7 @@ public partial class SettingsViewModel : ObservableObject, ISettingsReload
 
         ThemeApplier.Apply(s.Theme);
         RefreshPublishState();
+        _packagesViewModel.RefreshIcons();
         // ConfigMgr versions and compare results describe one site.
         if (SiteIdentity.Key(s.SiteCode, s.ProviderMachine) != siteBefore)
             _packagesViewModel.ForgetSiteResults();

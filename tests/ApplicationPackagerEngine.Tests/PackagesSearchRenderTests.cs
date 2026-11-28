@@ -85,7 +85,7 @@ public sealed class PackagesSearchRenderTests
                     for (var i = 0; i < grid.Items.Count; i++)
                     {
                         var images = Descendants(Row(grid, i)).OfType<Image>()
-                            .Where(image => image.Parent is Grid g && AutomationProperties.GetAutomationId(g) == "PackagerIcon").ToList();
+                            .Where(image => image.Parent is Grid { Parent: Border mark } && AutomationProperties.GetAutomationId(mark) == "PackagerIcon").ToList();
                         var image = Assert.Single(images);
                         Assert.NotNull(image.Source);
                         Assert.True(image.ActualWidth > 0, $"{theme}: the icon of row {i} has no width.");

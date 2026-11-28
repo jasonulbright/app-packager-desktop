@@ -8,7 +8,8 @@ namespace ApplicationPackagerUI.Services;
 /// <summary>
 /// Keeps the packager icon pack on the machine without a click: at startup, in the background, it installs the pack
 /// when none is installed and installs a newer release when there is one. A failure or an offline machine stays
-/// silent (the Settings page has the manual download and reports the outcome); the app never waits for it.
+/// silent (the Settings page has the manual download and reports the outcome); the app never waits for it. While
+/// <see cref="Models.AppSettings.ShowPackIcons"/> is off, nothing is downloaded.
 /// </summary>
 public static class IconPackStartup
 {
@@ -17,6 +18,7 @@ public static class IconPackStartup
         try
         {
             var settings = new SettingsService().Load();
+            if (!settings.ShowPackIcons) return;
             var userFolder = IconPackService.UserDefinitionsDirectory();
             var status = IconPackService.ReadStatus(userFolder);
             // A pack that is installed is refreshed only while the check for updates at startup is on.

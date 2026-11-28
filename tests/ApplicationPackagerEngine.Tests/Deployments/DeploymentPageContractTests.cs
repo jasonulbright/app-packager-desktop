@@ -190,7 +190,7 @@ public sealed class DeploymentPageContractTests
         var form = await FormAsync();
         Assert.False(form.RequiredOnlyEnabled);
         Assert.Equal(DeploymentFormViewModel.RequiredOnlyText, form.RequiredOnlyNote);
-        Assert.Contains("ConfigMgr ignores", DeploymentFormViewModel.RequiredOnlyText);
+        Assert.Contains("Select Required", DeploymentFormViewModel.RequiredOnlyText);
         SetRequired(form);
         Assert.True(form.RequiredOnlyEnabled);
         Assert.Equal("", form.RequiredOnlyNote);

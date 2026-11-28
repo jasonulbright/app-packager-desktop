@@ -20,6 +20,7 @@ public sealed class SettingsTreeTests
 {
     private static readonly XNamespace Presentation = "http://schemas.microsoft.com/winfx/2006/xaml/presentation";
     private static readonly XNamespace Xaml = "http://schemas.microsoft.com/winfx/2006/xaml";
+    private static readonly XNamespace Mock = "clr-namespace:ApplicationPackagerUI.Controls.Mock";
 
     /// <summary>The 1920x1032 work area of a 1080p display (D-20 of the suite) and the clipping check size.</summary>
     private static readonly (int Width, int Height)[] Sizes = [(1920, 1032), (1024, 720)];
@@ -61,6 +62,8 @@ public sealed class SettingsTreeTests
     public void EveryNameOfTheTreeIsInTitleCase()
     {
         var problems = Page().Descendants(Presentation + "TreeViewItem").Select(i => (string)i.Attribute("Header")!)
+            // The approved mock writes this name in sentence case.
+            .Where(h => h != "Systems in use")
             .Select(h => (Heading: h, Problem: SettingsHeadingsAndGitHubTokenTests.TitleCaseProblem(h))).Where(x => x.Problem is not null)
             .Select(x => $"'{x.Heading}': {x.Problem}").ToList();
 
@@ -76,9 +79,9 @@ public sealed class SettingsTreeTests
         {
             var id = (string)leaf.Attribute("Tag")!;
             var root = page.Descendants().Single(e => (string?)e.Attribute(Xaml + "Name") == "page_" + id);
-            var first = root.Descendants(Presentation + "TextBlock").First(t => ((string?)t.Attribute("Style"))?.Contains("SectionHeader") == true);
-            // The ConfigMgr page names what it holds (overhaul V1, phase 7b); the list keeps the short name.
-            var expected = id == "configmgr" ? "ConfigMgr Connection" : (string)leaf.Attribute("Header")!;
+            var first = root.Descendants(Mock + "TrackedText").First(t => ((string?)t.Attribute("Style"))?.Contains("SectionHeader") == true);
+            // The two pages of the approved mock carry the headings of the mock; the list keeps its own names.
+            var expected = id switch { "configmgr" => "ConfigMgr connection", "supersedence" => "Application settings", _ => (string)leaf.Attribute("Header")! };
             if ((string?)first.Attribute("Text") != expected)
                 wrong.Add($"{id}: '{(string?)first.Attribute("Text")}' vs '{(string)leaf.Attribute("Header")!}'");
         }

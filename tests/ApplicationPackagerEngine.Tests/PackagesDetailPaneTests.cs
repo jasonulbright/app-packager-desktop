@@ -47,7 +47,7 @@ public sealed class PackagesDetailPaneTests
     public void ANotFoundRowSaysWhenTheCheckRanAndTheStatusHasTheGlyphOfItsClass()
     {
         var now = new DateTimeOffset(2026, 11, 26, 12, 0, 0, TimeZoneInfo.Local.GetUtcOffset(new DateTime(2026, 11, 26)));
-        var row = new PackagerInfo { Uid = "a", Application = "Alpha", Status = "Not found in ConfigMgr", SiteCheckedAt = now.AddDays(-3) };
+        var row = new PackagerInfo { Uid = "a", Application = "Alpha", Status = PackagesTab.NotFoundStatus, SiteCheckedAt = now.AddDays(-3) };
 
         var lines = PackagesDetail.Lines(row, "", now);
 
@@ -110,17 +110,29 @@ public sealed class PackagesDetailPaneTests
                 Assert.False(pane.IsVisible);
                 // A closed pane leaves no control that takes the keyboard: its buttons are collapsed.
                 Assert.False(RenderKit.ById<ButtonBase>(page, "btnDetailWorkbench").IsVisible);
-                var open = RenderKit.ById<ButtonBase>(page, "btnDetailPaneOpen");
-                Assert.True(open.IsVisible);
                 Assert.False(viewModel.IsDetailPaneOpen);
+                // The grid takes the focus back; the pane opens again from Show details in More and in the row menu.
+                Assert.True(((System.Windows.Controls.DataGrid)page.FindName("PackagerGrid")).IsKeyboardFocusWithin
+                    || System.Windows.Input.FocusManager.GetFocusedElement(window) is System.Windows.Controls.DataGrid or System.Windows.Controls.DataGridCell);
 
-                open.RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent));
+                ClickShowDetails(page, (System.Windows.Controls.DataGrid)page.FindName("PackagerGrid"), rows[0], window);
                 window.UpdateLayout();
                 Assert.True(pane.IsVisible);
                 Assert.True(viewModel.IsDetailPaneOpen);
             }
             finally { window.Close(); }
         });
+    }
+
+    /// <summary>The Show details entry of the More menu, for the selected row.</summary>
+    private static void ClickShowDetails(PackagesPage page, System.Windows.Controls.DataGrid grid, PackagerInfo row, Window window)
+    {
+        grid.SelectedItem = row;
+        RenderKit.Settle(window);
+        var details = page.BuildMoreMenu().Items.OfType<System.Windows.Controls.MenuItem>().Single(i => AutomationProperties.GetAutomationId(i) == "miShowDetails");
+        Assert.True(details.IsEnabled, "Show details is off with a selected row.");
+        details.RaiseEvent(new RoutedEventArgs(System.Windows.Controls.MenuItem.ClickEvent));
+        RenderKit.Settle(window);
     }
 
     private static PackagesViewModel PaneViewModel(double savedWidth)
@@ -183,7 +195,7 @@ public sealed class PackagesDetailPaneTests
                     Assert.False(pane.IsVisible);
                     Assert.False(splitter.IsVisible, "The splitter of a closed pane stays in the tab order.");
 
-                    RenderKit.ById<ButtonBase>(page, "btnDetailPaneOpen").RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent));
+                    page.ShowDetails();
                     RenderKit.Settle(window);
                     Assert.Equal(416, pane.ActualWidth, 1.0);
                 }
@@ -211,7 +223,7 @@ public sealed class PackagesDetailPaneTests
                 RenderKit.Settle(window);
                 var pane = RenderKit.ById<Border>(page, "pnlDetailPane");
                 Assert.False(pane.IsVisible, "A narrow window starts with the pane open.");
-                RenderKit.ById<ButtonBase>(page, "btnDetailPaneOpen").RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent));
+                page.ShowDetails();
                 RenderKit.Settle(window);
                 var grid = (System.Windows.Controls.DataGrid)page.FindName("PackagerGrid");
                 Assert.InRange(pane.ActualWidth, PackagesPage.DetailPaneMinimumWidth - 0.5, 300);
@@ -223,5 +235,5 @@ public sealed class PackagesDetailPaneTests
     }
 
     [Fact]
-    public void ANewSettingsFileHasTheDefaultPaneWidth() => Assert.Equal(320, new AppSettings().PackagesDetailPaneWidth);
+    public void ANewSettingsFileHasTheDefaultPaneWidth() => Assert.Equal(350, new AppSettings().PackagesDetailPaneWidth);
 }

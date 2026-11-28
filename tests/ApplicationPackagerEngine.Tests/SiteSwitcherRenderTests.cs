@@ -101,8 +101,8 @@ public sealed class SiteSwitcherRenderTests : IDisposable
                 new Typeface(text.FontFamily, text.FontStyle, text.FontWeight, text.FontStretch), text.FontSize, System.Windows.Media.Brushes.Black,
                 VisualTreeHelper.GetDpi(text).PixelsPerDip);
             Assert.True(text.ActualWidth + 0.5 >= measured.WidthIncludingTrailingWhitespace, $"{where}: the footer text is cut ({text.ActualWidth} < {measured.WidthIncludingTrailingWhitespace}).");
-            // The button holds the text and the chevron with room to spare.
-            Assert.True(switcher.ActualWidth > text.ActualWidth + 12, $"{where}: the button is not wider than its text.");
+            // The button holds the whole text. The status bar of the mock draws no chevron.
+            Assert.True(switcher.ActualWidth >= text.ActualWidth - 0.5, $"{where}: the button is narrower than its text.");
             Assert.False(string.IsNullOrWhiteSpace(switcher.ToolTip as string), $"{where}: the switcher has no tooltip.");
             Assert.Contains("switch", (string)switcher.ToolTip, StringComparison.OrdinalIgnoreCase);
             Assert.Equal("Site switcher. " + text.Text, System.Windows.Automation.AutomationProperties.GetName(switcher));

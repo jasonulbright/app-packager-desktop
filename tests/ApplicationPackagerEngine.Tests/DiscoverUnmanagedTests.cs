@@ -1134,7 +1134,7 @@ public sealed class DiscoverySettingsEditorTests
         editor.Load(new AppSettings { DiscoverySqlServer = "cm01", DiscoverySqlDatabase = "CM_MCM", DiscoveryDismissed = ["a", "b"] });
         Assert.Equal("cm01", editor.SqlServer);
         Assert.Equal("CM_MCM", editor.SqlDatabase);
-        Assert.Equal("2 app(s)", editor.DismissedSummary);
+        Assert.Equal("2 applications hidden from Discover", editor.DismissedSummary);
 
         editor.SqlServer = " sql01\\cm ";
         editor.SqlDatabase = " CM_LAB ";
@@ -1154,14 +1154,14 @@ public sealed class DiscoverySettingsEditorTests
         Assert.True(editor.ClearDismissedCommand.CanExecute(null));
 
         editor.ClearDismissedCommand.Execute(null);
-        Assert.Equal("0 app(s) after Save", editor.DismissedSummary);
+        Assert.Equal("0 applications hidden from Discover after Save settings", editor.DismissedSummary);
         Assert.False(editor.ClearDismissedCommand.CanExecute(null));
 
         var target = new AppSettings { DiscoveryDismissed = ["a"], DiscoveryEnabled = ["c"] };
         editor.ApplyTo(target);
         Assert.Empty(target.DiscoveryDismissed);
         Assert.Equal(["c"], target.DiscoveryEnabled);
-        Assert.Equal("0 app(s)", editor.DismissedSummary);
+        Assert.Equal("0 applications hidden from Discover", editor.DismissedSummary);
     }
 
     [Fact]

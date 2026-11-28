@@ -1,0 +1,103 @@
+﻿<ResourceDictionary
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:controls="clr-namespace:ApplicationPackagerUI.Controls"
+    xmlns:mk="clr-namespace:ApplicationPackagerUI.Controls.Mock">
+
+    <ResourceDictionary.MergedDictionaries>
+        <ResourceDictionary Source="/ApplicationPackagerUI;component/Views/Styles/Mock.xaml" />
+    </ResourceDictionary.MergedDictionaries>
+
+    <!-- .window: surface, 1 px edge border, radius 8. A 42 px head with the title and the close button, the context strip (43 px), the body
+         (padding 16 18) and the foot (padding 10 16, at least 55 px). -->
+    <Style TargetType="mk:DialogFrame">
+        <Setter Property="FontFamily" Value="Segoe UI" />
+        <Setter Property="FontSize" Value="14" />
+        <Setter Property="TextOptions.TextFormattingMode" Value="Ideal" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="mk:DialogFrame">
+                    <ControlTemplate.Resources>
+                        <Style x:Key="Close" TargetType="Button" BasedOn="{StaticResource Mk.Button.Quiet}">
+                            <Setter Property="mk:Mk.IconDrop" Value="1" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding HalfPixel, RelativeSource={RelativeSource AncestorType=mk:DialogFrame}}" Value="True">
+                                    <Setter Property="mk:Mk.IconDrop" Value="0" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </ControlTemplate.Resources>
+                    <Border Background="{DynamicResource MkSurfaceBrush}" BorderBrush="{DynamicResource MkEdgeBrush}" BorderThickness="1" CornerRadius="8" SnapsToDevicePixels="True">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="42" />
+                                <RowDefinition Height="43" />
+                                <RowDefinition Height="*" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+                            <Border x:Name="PART_Head" CornerRadius="7,7,0,0" Background="{DynamicResource MkBaseBrush}" BorderBrush="{DynamicResource MkLineBrush}" BorderThickness="0,0,0,1">
+                                <DockPanel Margin="16,0">
+                                    <Button x:Name="PART_Close" DockPanel.Dock="Right" Style="{DynamicResource Close}" mk:Mk.Icon="dismiss" Width="42"
+                                            WindowChrome.IsHitTestVisibleInChrome="True" AutomationProperties.Name="Close window" AutomationProperties.AutomationId="btnWindowClose"
+                                            ToolTip="Close the window." />
+                                    <TextBlock Text="{TemplateBinding Title}" FontWeight="Bold" VerticalAlignment="Center" Foreground="{DynamicResource MkTextBrush}" />
+                                </DockPanel>
+                            </Border>
+                            <controls:ContextStrip x:Name="PART_Strip" Grid.Row="1" Compact="True" />
+                            <ContentPresenter Grid.Row="2" Margin="18,16" Content="{TemplateBinding Body}" />
+                            <Border Grid.Row="3" MinHeight="55" Padding="16,10" CornerRadius="0,0,7,7" Background="{DynamicResource MkBaseBrush}" BorderBrush="{DynamicResource MkLineBrush}"
+                                    BorderThickness="0,1,0,0">
+                                <DockPanel LastChildFill="False">
+                                    <ContentPresenter DockPanel.Dock="Right" Content="{TemplateBinding FootRight}" VerticalAlignment="Center" />
+                                    <ContentPresenter DockPanel.Dock="Left" Content="{TemplateBinding FootLeft}" VerticalAlignment="Center" />
+                                </DockPanel>
+                            </Border>
+                        </Grid>
+                    </Border>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- h2 { font-size:19px; weight 650; letter-spacing:-.15px } -->
+    <Style x:Key="Mk.H2" TargetType="mk:TrackedText">
+        <Setter Property="FontSize" Value="19" />
+        <Setter Property="Tracking" Value="-0.15" />
+        <Setter Property="Foreground" Value="{DynamicResource MkTextBrush}" />
+        <Setter Property="Height" Value="26" />
+        <Setter Property="Margin" Value="0,1,0,-1" />
+        <Setter Property="HorizontalAlignment" Value="Left" />
+    </Style>
+
+    <!-- The appmark: a 22 px square with two characters of the application name. -->
+    <Style x:Key="Mk.AppMark" TargetType="Border">
+        <Setter Property="Width" Value="22" />
+        <Setter Property="Height" Value="22" />
+        <Setter Property="CornerRadius" Value="4" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="Margin" Value="0,1,9,-1" />
+        <Setter Property="Background" Value="{DynamicResource MkSubBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource MkEdgeBrush}" />
+    </Style>
+    <Style x:Key="Mk.AppMarkText" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="9" />
+        <Setter Property="FontWeight" Value="Bold" />
+        <Setter Property="HorizontalAlignment" Value="Center" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="Margin" Value="1,0,0,0" />
+        <Setter Property="Foreground" Value="{DynamicResource MkTextBrush}" />
+    </Style>
+
+    <!-- A table in a window: 38 px header, rows of 34.5 px, columns as wide as the mock's. The last row has no line under it. -->
+    <Style x:Key="Mk.PlainRow" TargetType="DataGridRow" BasedOn="{StaticResource Mk.GridRow}">
+        <Setter Property="MinHeight" Value="35" />
+    </Style>
+    <Style x:Key="Mk.PlainGrid" TargetType="DataGrid" BasedOn="{StaticResource Mk.Grid}">
+        <Setter Property="RowStyle" Value="{StaticResource Mk.PlainRow}" />
+        <Setter Property="MinRowHeight" Value="34" />
+        <Setter Property="IsReadOnly" Value="True" />
+        <Setter Property="SelectionMode" Value="Single" />
+        <Setter Property="Background" Value="Transparent" />
+    </Style>
+</ResourceDictionary>

@@ -21,7 +21,7 @@ namespace ApplicationPackagerEngine.Tests;
 public sealed class PackagesColumnRestartRenderTests : IDisposable
 {
     // Less than the column total of the page, so some columns show less than their width, and more than the minimum total.
-    private const double NarrowGrid = 1380;
+    private const double NarrowGrid = 1500;
     private const double WideGrid = 1800;
 
     private readonly string _root = Path.Combine(Path.GetTempPath(), "ap-columns-" + Guid.NewGuid().ToString("N"));
@@ -97,7 +97,7 @@ public sealed class PackagesColumnRestartRenderTests : IDisposable
         {
             var vendor = shown.Column("Vendor");
             var before = vendor.ActualWidth;
-            Assert.True(before < 139.5, "The grid takes no width from the Vendor column: " + shown.Widths());
+            Assert.True(vendor.Width.IsStar, "Vendor does not follow the page before the drag: " + shown.Widths());
             report = "Before the drag: " + shown.Widths();
             shown.Drag("Vendor", 60);
             seen = vendor.ActualWidth;
@@ -115,7 +115,7 @@ public sealed class PackagesColumnRestartRenderTests : IDisposable
 
             // In a wider grid each column that the operator did not size shows the width of the page definition.
             shown.Resize(WideGrid);
-            Assert.Equal(250, shown.Column("Status").ActualWidth, 1);
+            Assert.True(shown.Column("Status").Width.IsStar, shown.Widths());
             Assert.Equal(120, shown.Column("CVEs").ActualWidth, 1);
             Assert.Equal(seen, shown.Column("Vendor").ActualWidth, 1);
             Assert.True(shown.Column("Application").Width.IsStar);
@@ -134,7 +134,7 @@ public sealed class PackagesColumnRestartRenderTests : IDisposable
             typeof(PackagesPage).GetMethod("ResetColumnLayout", BindingFlags.NonPublic | BindingFlags.Instance)!.Invoke(shown.Page, null);
             Settle(shown.Window);
             var vendor = shown.Column("Vendor");
-            Assert.Equal(new DataGridLength(140).Value, vendor.Width.Value);
+            Assert.True(vendor.Width.IsStar && vendor.Width.Value == 328, shown.Widths());
             Assert.Equal(100, vendor.MinWidth);
         });
     });
@@ -167,14 +167,15 @@ public sealed class PackagesColumnRestartRenderTests : IDisposable
     {
         var settings = new SettingsService();
         var stored = settings.Load();
-        stored.PackagesGridLayout = new() { Columns = [new() { Id = "Vendor", Width = 179.67 }, new() { Id = "Status", Width = 250 }] };
+        stored.PackagesGridLayout = new() { Columns = [new() { Id = "Vendor", Width = 179.67 }, new() { Id = "CVEs", Width = 120 }] };
         settings.Save(stored);
 
         Run(settings, shown =>
         {
             Assert.True(Math.Abs(shown.Column("Vendor").ActualWidth - 179.67) < 0.5, shown.Widths());
-            Assert.True(shown.Column("Status").ActualWidth < 249, shown.Widths());
-            Assert.Equal(150, shown.Column("Status").MinWidth);
+            // A column that holds a choice has it as its least width; the width of the page holds nothing.
+            Assert.Equal(179.67, shown.Column("Vendor").MinWidth, 0.01);
+            Assert.Equal(90, shown.Column("CVEs").MinWidth);
         });
     });
 }

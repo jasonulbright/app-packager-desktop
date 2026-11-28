@@ -5,8 +5,12 @@
     xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
     xmlns:controls="clr-namespace:ApplicationPackagerUI.Controls"
     xmlns:helpers="clr-namespace:ApplicationPackagerUI.Helpers"
+    xmlns:mk="clr-namespace:ApplicationPackagerUI.Controls.Mock"
     xmlns:pages="clr-namespace:ApplicationPackagerUI.ViewModels.Pages"
     xmlns:views="clr-namespace:ApplicationPackagerUI.Views.Pages"
+    FontFamily="Segoe UI"
+    FontSize="14"
+    TextOptions.TextFormattingMode="Ideal"
     ScrollViewer.CanContentScroll="False">
 
     <Page.Resources>
@@ -14,156 +18,62 @@
             <ResourceDictionary.MergedDictionaries>
                 <ResourceDictionary Source="/ApplicationPackagerUI;component/Views/Styles/SelectableRows.xaml" />
                 <ResourceDictionary Source="/ApplicationPackagerUI;component/Views/Styles/Typography.xaml" />
+                <ResourceDictionary Source="/ApplicationPackagerUI;component/Views/Styles/Mock.WebDeploy.xaml" />
             </ResourceDictionary.MergedDictionaries>
 
             <BooleanToVisibilityConverter x:Key="BoolToVisibility" />
             <helpers:BindingProxy x:Key="HistoryProxy" Data="{Binding History}" />
             <views:DeploymentReviewSummaryConverter x:Key="ReviewSummary" />
+            <views:DeploymentReviewSourceConverter x:Key="ReviewSource" />
 
-            <Style x:Key="FieldLabel" TargetType="TextBlock">
-                <Setter Property="FontSize" Value="12" />
-                <Setter Property="Margin" Value="0,0,0,4" />
-                <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
-            </Style>
+            <Style TargetType="TabItem" BasedOn="{StaticResource WD.TabItem}" />
 
-            <Style x:Key="CardTitle" TargetType="TextBlock" BasedOn="{StaticResource CardTitleText}">
-                <Setter Property="Margin" Value="0,0,0,8" />
-            </Style>
-
-            <!-- The object type list reads as a row of tabs: the selected type has a tint and an accent underline. The text does not turn bold. -->
-            <Style x:Key="ObjectTypeTab" TargetType="ListBoxItem" BasedOn="{StaticResource SelectableListItem}">
-                <Setter Property="Template">
-                    <Setter.Value>
-                        <ControlTemplate TargetType="ListBoxItem">
-                            <Border x:Name="Cue" Background="Transparent" BorderThickness="0,0,0,2" BorderBrush="Transparent" SnapsToDevicePixels="True">
-                                <ContentPresenter Margin="{TemplateBinding Padding}" VerticalAlignment="Center" />
-                            </Border>
-                            <ControlTemplate.Triggers>
-                                <Trigger Property="IsMouseOver" Value="True">
-                                    <Setter TargetName="Cue" Property="Background" Value="{DynamicResource ListViewItemBackgroundPointerOver}" />
-                                </Trigger>
-                                <Trigger Property="IsSelected" Value="True">
-                                    <Setter TargetName="Cue" Property="Background" Value="{DynamicResource SelectedRowBackground}" />
-                                    <Setter TargetName="Cue" Property="BorderBrush" Value="{DynamicResource AccentFillColorDefaultBrush}" />
-                                </Trigger>
-                            </ControlTemplate.Triggers>
-                        </ControlTemplate>
-                    </Setter.Value>
-                </Setter>
-            </Style>
-
-            <Style x:Key="Note" TargetType="TextBlock">
-                <Setter Property="FontSize" Value="12" />
-                <Setter Property="TextWrapping" Value="Wrap" />
-                <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
-            </Style>
-
-            <Style x:Key="Warning" TargetType="TextBlock" BasedOn="{StaticResource Note}">
-                <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
-            </Style>
-
-            <Style x:Key="ToolButton" TargetType="ui:Button" BasedOn="{StaticResource {x:Type ui:Button}}">
-                <Setter Property="Margin" Value="0,0,8,8" />
-            </Style>
-
-            <!-- A string Content renders as one non-wrapping line, which a narrow window clips. -->
-            <Style x:Key="Option" TargetType="CheckBox" BasedOn="{StaticResource {x:Type CheckBox}}">
-                <Setter Property="Margin" Value="0,0,16,8" />
-                <Setter Property="ContentTemplate">
-                    <Setter.Value>
-                        <DataTemplate>
-                            <TextBlock Text="{Binding}" TextWrapping="Wrap" MaxWidth="560" />
-                        </DataTemplate>
-                    </Setter.Value>
-                </Setter>
-            </Style>
-
-            <Style x:Key="Card" TargetType="Border">
-                <Setter Property="BorderThickness" Value="1" />
-                <Setter Property="CornerRadius" Value="6" />
-                <Setter Property="Padding" Value="12" />
-                <Setter Property="BorderBrush" Value="{DynamicResource ControlStrokeColorDefaultBrush}" />
-                <Setter Property="Background" Value="{DynamicResource CardBackgroundFillColorDefaultBrush}" />
-            </Style>
-
-            <Style x:Key="Caution" TargetType="Border">
-                <Setter Property="Margin" Value="0,0,0,8" />
-                <Setter Property="Padding" Value="12,8" />
-                <Setter Property="CornerRadius" Value="6" />
-                <Setter Property="BorderThickness" Value="1" />
-                <Setter Property="BorderBrush" Value="{DynamicResource SystemFillColorCautionBrush}" />
-                <Setter Property="Background" Value="{DynamicResource CardBackgroundFillColorDefaultBrush}" />
-            </Style>
-
-            <DataTemplate x:Key="TabHeaderTemplate">
-                <StackPanel>
-                    <TextBlock x:Name="TabHeaderText" Text="{Binding}" FontSize="14" Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
-                    <Border x:Name="TabHeaderUnderline" Height="2" Margin="0,4,0,0" Background="Transparent" />
-                </StackPanel>
-                <DataTemplate.Triggers>
-                    <DataTrigger Binding="{Binding IsSelected, RelativeSource={RelativeSource AncestorType=TabItem}}" Value="True">
-                        <Setter TargetName="TabHeaderText" Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
-                        <Setter TargetName="TabHeaderUnderline" Property="Background" Value="{DynamicResource AccentFillColorDefaultBrush}" />
-                    </DataTrigger>
-                </DataTemplate.Triggers>
-            </DataTemplate>
-
-            <!-- The flat tabs of the V1 workspace: no tab frame; the selected tab has a tint, the primary text color and an accent underline. -->
-            <Style TargetType="TabItem" BasedOn="{StaticResource {x:Type TabItem}}">
-                <Setter Property="HeaderTemplate" Value="{StaticResource TabHeaderTemplate}" />
-                <Setter Property="Template">
-                    <Setter.Value>
-                        <ControlTemplate TargetType="TabItem">
-                            <Border x:Name="Cue" Background="Transparent" Padding="12,4,12,0" Margin="0,0,4,0" SnapsToDevicePixels="True">
-                                <ContentPresenter ContentSource="Header" HorizontalAlignment="Center" VerticalAlignment="Center" RecognizesAccessKey="True" />
-                            </Border>
-                            <ControlTemplate.Triggers>
-                                <Trigger Property="IsMouseOver" Value="True">
-                                    <Setter TargetName="Cue" Property="Background" Value="{DynamicResource ListViewItemBackgroundPointerOver}" />
-                                </Trigger>
-                                <Trigger Property="IsSelected" Value="True">
-                                    <Setter TargetName="Cue" Property="Background" Value="{DynamicResource SelectedRowBackground}" />
-                                </Trigger>
-                            </ControlTemplate.Triggers>
-                        </ControlTemplate>
-                    </Setter.Value>
-                </Setter>
-            </Style>
-
-            <Style x:Key="TrimmedCell" TargetType="TextBlock" BasedOn="{x:Static DataGridTextColumn.DefaultElementStyle}">
-                <Setter Property="TextTrimming" Value="CharacterEllipsis" />
-                <Setter Property="ToolTip" Value="{Binding Text, RelativeSource={RelativeSource Self}}" />
-            </Style>
-
-            <Style x:Key="TabStopCell" TargetType="DataGridCell" BasedOn="{StaticResource FocusableCell}">
-                <Setter Property="KeyboardNavigation.IsTabStop" Value="True" />
-            </Style>
-
-            <Style x:Key="GridBase" TargetType="DataGrid" BasedOn="{StaticResource {x:Type DataGrid}}">
-                <Setter Property="AutoGenerateColumns" Value="False" />
-                <Setter Property="CanUserAddRows" Value="False" />
-                <Setter Property="CanUserDeleteRows" Value="False" />
+            <Style x:Key="GridBase" TargetType="DataGrid" BasedOn="{StaticResource Mk.Grid}">
                 <Setter Property="IsReadOnly" Value="True" />
-                <Setter Property="HeadersVisibility" Value="Column" />
-                <Setter Property="RowHeaderWidth" Value="0" />
-                <Setter Property="GridLinesVisibility" Value="Horizontal" />
-                <Setter Property="HorizontalScrollBarVisibility" Value="Auto" />
                 <Setter Property="CanUserResizeColumns" Value="True" />
                 <Setter Property="SelectionMode" Value="Single" />
+                <Setter Property="RowHeight" Value="31" />
                 <Setter Property="EnableRowVirtualization" Value="True" />
                 <Setter Property="VirtualizingPanel.IsVirtualizing" Value="True" />
                 <Setter Property="VirtualizingPanel.VirtualizationMode" Value="Recycling" />
-                <Setter Property="ScrollViewer.CanContentScroll" Value="True" />
                 <Setter Property="helpers:DataGridColumnSizing.FixStarWidthsOnResize" Value="True" />
-                <Setter Property="RowStyle" Value="{StaticResource SelectableRow}" />
-                <Setter Property="CellStyle" Value="{StaticResource TabStopCell}" />
+                <Setter Property="RowStyle" Value="{StaticResource WD.GridRow}" />
+                <Setter Property="CellStyle" Value="{StaticResource WD.GridCell}" />
                 <Setter Property="helpers:DataGridKeyboard.SelectsFocusedRow" Value="True" />
                 <EventSetter Event="PreviewMouseRightButtonDown" Handler="OnGridPreviewMouseRightButtonDown" />
+            </Style>
+
+            <!-- The status of a distribution point group: a glyph and a word in the color of the state, so no state is shown by color alone. -->
+            <DataTemplate x:Key="DpStatus">
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Top" Margin="12,0,0,4" ToolTip="{Binding StatusText}">
+                    <mk:Ico x:Name="Glyph" Glyph="clock" Foreground="{DynamicResource MkTextBrush}" />
+                    <TextBlock x:Name="Word" Text="{Binding StatusText}" Margin="6,-1,0,0" VerticalAlignment="Center" Foreground="{DynamicResource MkTextBrush}" />
+                </StackPanel>
+                <DataTemplate.Triggers>
+                    <DataTrigger Binding="{Binding Status}" Value="Distributed">
+                        <Setter TargetName="Glyph" Property="Glyph" Value="checkmark_circle" />
+                        <Setter TargetName="Glyph" Property="Foreground" Value="{DynamicResource MkOkBrush}" />
+                        <Setter TargetName="Word" Property="Foreground" Value="{DynamicResource MkOkBrush}" />
+                    </DataTrigger>
+                    <DataTrigger Binding="{Binding Status}" Value="Failed">
+                        <Setter TargetName="Glyph" Property="Glyph" Value="error_circle" />
+                        <Setter TargetName="Glyph" Property="Foreground" Value="{DynamicResource MkBadBrush}" />
+                        <Setter TargetName="Word" Property="Foreground" Value="{DynamicResource MkBadBrush}" />
+                    </DataTrigger>
+                    <DataTrigger Binding="{Binding Status}" Value="InProgress">
+                        <Setter TargetName="Glyph" Property="Foreground" Value="{DynamicResource MkWarnBrush}" />
+                        <Setter TargetName="Word" Property="Foreground" Value="{DynamicResource MkWarnBrush}" />
+                    </DataTrigger>
+                </DataTemplate.Triggers>
+            </DataTemplate>
+            <Style x:Key="BareCell" TargetType="DataGridCell" BasedOn="{StaticResource WD.GridCell}">
+                <Setter Property="Padding" Value="0" />
             </Style>
         </ResourceDictionary>
     </Page.Resources>
 
-    <Grid Margin="24,8,24,12">
+    <!-- .workspace { padding:0 24px 16px; gap:14px }. The foot of the Deploy tab ends 3 px into the lower padding, as in the mock. -->
+    <Grid Margin="24,0,24,12.7">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
@@ -172,61 +82,77 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <controls:PageHeader Grid.Row="0" Title="Deployment Helper" Icon="Rocket24" Compact="True" TitleAutomationId="txtDeploymentTitle" />
+        <controls:PageHeader Grid.Row="0" Title="Deployment Helper" Compact="True" TitleAutomationId="txtDeploymentTitle" />
 
-        <Border Grid.Row="1" Style="{StaticResource Caution}" Visibility="{Binding Shared.HasConnectionMessage, Converter={StaticResource BoolToVisibility}}"
+        <Border Grid.Row="1" Style="{StaticResource Mk.Notice.Warn}" Margin="0,0,0,14" Visibility="{Binding Shared.HasConnectionMessage, Converter={StaticResource BoolToVisibility}}"
                 AutomationProperties.AutomationId="pnlDeploymentConnection">
-            <TextBlock Text="{Binding Shared.ConnectionMessage}" TextWrapping="Wrap" Foreground="{DynamicResource TextFillColorPrimaryBrush}"
+            <TextBlock Text="{Binding Shared.ConnectionMessage}" TextWrapping="Wrap" Foreground="{DynamicResource MkTextBrush}"
                        AutomationProperties.AutomationId="txtDeploymentConnection" AutomationProperties.LiveSetting="Polite" />
         </Border>
 
-        <TabControl Grid.Row="2" SelectedIndex="{Binding SelectedTabIndex}" AutomationProperties.AutomationId="tabDeploymentHelper">
+        <TabControl Grid.Row="2" Style="{StaticResource WD.TabControl}" SelectedIndex="{Binding SelectedTabIndex}" AutomationProperties.AutomationId="tabDeploymentHelper">
             <TabItem Header="Deploy" AutomationProperties.AutomationId="tabDeploy" DataContext="{Binding Deploy}">
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="*" />
                         <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
-                <ScrollViewer Grid.Row="0" x:Name="scrollDeployTab" Margin="0,12,0,0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
-                              AutomationProperties.AutomationId="scrollDeployTab">
-                    <!-- The scroll bar lies over the content, so the content ends before it. -->
-                    <StackPanel x:Name="pnlDeploy" SizeChanged="OnDeploySizeChanged" Margin="0,0,16,0">
-                        <WrapPanel Margin="0,0,0,4">
-                            <ListBox ItemsSource="{Binding TypeNames}" SelectedIndex="{Binding TypeIndex}" ItemContainerStyle="{StaticResource ObjectTypeTab}"
-                                     Margin="0,0,16,8" AutomationProperties.Name="Object type" AutomationProperties.AutomationId="lstObjectType">
-                                <ListBox.ItemsPanel>
-                                    <ItemsPanelTemplate>
-                                        <WrapPanel />
-                                    </ItemsPanelTemplate>
-                                </ListBox.ItemsPanel>
-                                <ListBox.ItemTemplate>
-                                    <DataTemplate>
-                                        <TextBlock Text="{Binding}" Margin="8,4" Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
-                                    </DataTemplate>
-                                </ListBox.ItemTemplate>
-                            </ListBox>
-                            <ComboBox ItemsSource="{Binding Templates}" SelectedItem="{Binding SelectedTemplate}" DisplayMemberPath="Name" MinWidth="200" Margin="0,0,8,8"
-                                      VerticalAlignment="Top" AutomationProperties.Name="Template" ToolTip="Select a deployment template. Apply template fills the purpose, notification, time basis and options from it." AutomationProperties.AutomationId="cboTemplate" />
-                            <ui:Button Content="Apply template" Icon="{ui:SymbolIcon DocumentArrowRight24}" Command="{Binding ApplyTemplateCommand}" VerticalAlignment="Top"
-                                       ToolTip="Fills the purpose, notification, time basis and options from the template." Style="{StaticResource ToolButton}"
-                                       AutomationProperties.AutomationId="btnApplyTemplate" />
-                            <ui:Button Content="Save as template" Icon="{ui:SymbolIcon Save24}" Command="{Binding SaveAsTemplateCommand}" VerticalAlignment="Top"
-                                       ToolTip="Saves the purpose, notification, time basis and options as a user template." Style="{StaticResource ToolButton}"
-                                       AutomationProperties.AutomationId="btnSaveTemplate" />
-                            <ui:Button Content="Refresh" Icon="{ui:SymbolIcon ArrowSync24}" Command="{Binding RefreshCommand}" VerticalAlignment="Top"
-                                       ToolTip="Reads the objects, the collections and the templates again." Style="{StaticResource ToolButton}"
-                                       AutomationProperties.Name="Refresh objects and collections" AutomationProperties.AutomationId="btnDeployRefresh" />
-                            <ui:Button Content="Cancel" Icon="{ui:SymbolIcon Dismiss24}" Command="{Binding CancelLoadCommand}" VerticalAlignment="Top"
-                                       ToolTip="Stops the read of the objects and collections." Style="{StaticResource ToolButton}"
-                                       AutomationProperties.Name="Cancel the read" AutomationProperties.AutomationId="btnDeployCancel" />
-                            <TextBlock Text="{Binding TemplateMessage}" Style="{StaticResource Note}" VerticalAlignment="Top" Margin="0,4,0,8" MaxWidth="420"
+                <!-- The scroll bar lies in the page margin, so the content keeps the width of the mock. -->
+                <ScrollViewer Grid.Row="0" x:Name="scrollDeployTab" Margin="0,14,-12,0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                              Focusable="False" AutomationProperties.AutomationId="scrollDeployTab">
+                    <StackPanel x:Name="pnlDeploy" SizeChanged="OnDeploySizeChanged" Margin="0,0,12,0">
+                        <!-- .toolbar: the object types at the left, the template and the reads at the right. -->
+                        <Grid x:Name="gridToolbar" UseLayoutRounding="False">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" MinHeight="36" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+                            <ListBox Style="{StaticResource WD.ObjectTabs}" ItemsSource="{Binding TypeNames}" SelectedIndex="{Binding TypeIndex}" VerticalAlignment="Top"
+                                     AutomationProperties.Name="Object type" AutomationProperties.AutomationId="lstObjectType" />
+                            <TextBlock Grid.Column="1" Text="{Binding TemplateMessage}" Style="{StaticResource QuietNote}" VerticalAlignment="Center" Margin="12,0,12,0"
+                                       HorizontalAlignment="Right" TextTrimming="CharacterEllipsis" ToolTip="{Binding TemplateMessage}"
                                        AutomationProperties.AutomationId="txtTemplateMessage" />
-                        </WrapPanel>
+                            <WrapPanel x:Name="pnlTemplateActions" Grid.Column="2" VerticalAlignment="Top" HorizontalAlignment="Right">
+                                <Grid Width="180" Height="35" Margin="0,0.5,8,0.5">
+                                    <ComboBox x:Name="cboTemplates" ItemsSource="{Binding Templates}" SelectedItem="{Binding SelectedTemplate}" DisplayMemberPath="Name" Height="35"
+                                              AutomationProperties.Name="Template" ToolTip="Select a deployment template. Apply template fills the purpose, notification, time basis and options from it."
+                                              AutomationProperties.AutomationId="cboTemplate" />
+                                    <TextBlock Text="Select template" IsHitTestVisible="False" VerticalAlignment="Center" Margin="15,1,24,0" Foreground="{DynamicResource MkTextBrush}">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="Visibility" Value="Collapsed" />
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding SelectedItem, ElementName=cboTemplates}" Value="{x:Null}">
+                                                        <Setter Property="Visibility" Value="Visible" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+                                </Grid>
+                                <Button Style="{StaticResource Mk.Button}" Content="Apply template" Command="{Binding ApplyTemplateCommand}" Margin="0,2,8,2"
+                                        ToolTip="Fills the purpose, notification, time basis and options from the template." AutomationProperties.AutomationId="btnApplyTemplate" />
+                                <Button Style="{StaticResource Mk.Button}" mk:Mk.Icon="save" Content="Save as template" Command="{Binding SaveAsTemplateCommand}" Margin="0,2,8,2"
+                                        ToolTip="Saves the purpose, notification, time basis and options as a user template." AutomationProperties.AutomationId="btnSaveTemplate" />
+                                <Button Style="{StaticResource Mk.Button}" mk:Mk.Icon="arrow_sync" Content="Refresh" Command="{Binding RefreshCommand}" Margin="0,2,8,2"
+                                        ToolTip="Reads the objects, the collections and the templates again."
+                                        AutomationProperties.Name="Refresh objects and collections" AutomationProperties.AutomationId="btnDeployRefresh" />
+                                <Button Style="{StaticResource Mk.Button}" mk:Mk.Icon="dismiss" Content="Cancel load" Command="{Binding CancelLoadCommand}" Margin="0,2,0,2"
+                                        ToolTip="Stops the read of the objects and collections."
+                                        AutomationProperties.Name="Cancel the read" AutomationProperties.AutomationId="btnDeployCancel" />
+                            </WrapPanel>
+                        </Grid>
 
-                        <Grid x:Name="gridPickers" Margin="0,0,0,12">
+                        <Grid x:Name="gridPickers" Margin="0,14,0,0">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="16" />
+                                <ColumnDefinition Width="14" />
                                 <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
                             <Grid.RowDefinitions>
@@ -234,52 +160,58 @@
                                 <RowDefinition Height="Auto" />
                                 <RowDefinition Height="Auto" />
                             </Grid.RowDefinitions>
-                            <Border x:Name="pnlObjects" Grid.Row="0" Grid.Column="0" Style="{StaticResource Card}" AutomationProperties.AutomationId="pnlObjects">
+                            <Border x:Name="pnlObjects" Grid.Row="0" Grid.Column="0" Style="{StaticResource Mk.Panel}" AutomationProperties.AutomationId="pnlObjects">
                                 <DockPanel>
-                                    <DockPanel DockPanel.Dock="Top">
-                                        <TextBlock DockPanel.Dock="Right" Text="{Binding ObjectCount}" Style="{StaticResource Note}" Margin="8,0,0,8" AutomationProperties.AutomationId="txtObjectCount" />
-                                        <TextBlock Text="{Binding ObjectHeader}" Style="{StaticResource CardTitle}" />
-                                    </DockPanel>
-                                    <ui:TextBox DockPanel.Dock="Top" Text="{Binding ObjectFilter, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="Filter by name, version or ID"
-                                                Icon="{ui:SymbolIcon Search24}" Margin="0,0,0,8" AutomationProperties.Name="Object filter" ToolTip="Enter text to show only the objects whose name, version or ID contains it." AutomationProperties.AutomationId="txtObjectFilter" />
-                                    <StackPanel DockPanel.Dock="Bottom" Margin="0,8,0,0" Visibility="{Binding IsPackage, Converter={StaticResource BoolToVisibility}}">
+                                    <StackPanel DockPanel.Dock="Top" Margin="16,16,16,14">
+                                        <DockPanel Height="20" Margin="0,0,0,14">
+                                            <TextBlock DockPanel.Dock="Right" Text="{Binding ObjectCount}" Style="{StaticResource Note}" VerticalAlignment="Center" Margin="8,2,0,0" AutomationProperties.AutomationId="txtObjectCount" />
+                                            <TextBlock Text="{Binding ObjectHeader}" Style="{StaticResource Mk.H3}" />
+                                        </DockPanel>
+                                        <TextBox Style="{StaticResource Mk.Search}" mk:Mk.IconDrop="-1" HorizontalAlignment="Left" Text="{Binding ObjectFilter, UpdateSourceTrigger=PropertyChanged}"
+                                                 mk:Mk.Placeholder="Filter by name, version or ID" AutomationProperties.Name="Object filter"
+                                                 ToolTip="Enter text to show only the objects whose name, version or ID contains it." AutomationProperties.AutomationId="txtObjectFilter" />
+                                    </StackPanel>
+                                    <StackPanel DockPanel.Dock="Bottom" Margin="16,8,16,12" Visibility="{Binding IsPackage, Converter={StaticResource BoolToVisibility}}">
                                         <TextBlock Text="Program" Style="{StaticResource FieldLabel}" />
                                         <ComboBox ItemsSource="{Binding Programs}" SelectedItem="{Binding SelectedProgram}" AutomationProperties.Name="Program"
                                                   ToolTip="Select the Program of the Package to deploy." AutomationProperties.AutomationId="cboProgram" />
                                     </StackPanel>
-                                    <TextBlock DockPanel.Dock="Bottom" Text="{Binding ObjectListNote}" Style="{StaticResource Warning}" Margin="0,8,0,0"
+                                    <TextBlock DockPanel.Dock="Bottom" Text="{Binding ObjectListNote}" Style="{StaticResource Warning}" Margin="16,8,16,8"
                                                Visibility="{Binding HasObjectListNote, Converter={StaticResource BoolToVisibility}}" AutomationProperties.AutomationId="txtObjectListNote"
                                                AutomationProperties.LiveSetting="Polite" />
-                                    <DataGrid x:Name="dgObjects" Style="{StaticResource GridBase}" ItemsSource="{Binding Objects}" SelectedItem="{Binding SelectedObject}" Height="240"
+                                    <DataGrid x:Name="dgObjects" Style="{StaticResource GridBase}" ItemsSource="{Binding Objects}" SelectedItem="{Binding SelectedObject}" Height="224" Background="Transparent"
                                               AutomationProperties.AutomationId="dgObjects" AutomationProperties.Name="Objects">
                                         <DataGrid.Columns>
-                                            <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="2*" MinWidth="160" ElementStyle="{StaticResource TrimmedCell}" />
-                                            <DataGridTextColumn Header="Version" Binding="{Binding Version}" Width="*" MinWidth="90" ElementStyle="{StaticResource TrimmedCell}" />
-                                            <DataGridTextColumn Header="ID" Binding="{Binding Id}" Width="*" MinWidth="90" ElementStyle="{StaticResource TrimmedCell}" />
-                                            <DataGridTextColumn Header="Packaged" Binding="{Binding Packaged}" Width="100" MinWidth="100" ElementStyle="{StaticResource TrimmedCell}" />
+                                            <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="368.1*" MinWidth="160" ElementStyle="{StaticResource TrimmedCell}" />
+                                            <DataGridTextColumn Header="Version" Binding="{Binding Version}" Width="131.6*" MinWidth="90" ElementStyle="{StaticResource TrimmedCell}" />
+                                            <DataGridTextColumn Header="ID" Binding="{Binding Id}" Width="168.7*" MinWidth="90" ElementStyle="{StaticResource TrimmedCell}" />
+                                            <DataGridTextColumn Header="Packaged" Binding="{Binding Packaged}" Width="155.6*" MinWidth="100" ElementStyle="{StaticResource TrimmedCell}" />
                                         </DataGrid.Columns>
                                     </DataGrid>
                                 </DockPanel>
                             </Border>
-                            <Border x:Name="pnlCollections" Grid.Row="0" Grid.Column="2" Style="{StaticResource Card}" AutomationProperties.AutomationId="pnlCollections">
+                            <Border x:Name="pnlCollections" Grid.Row="0" Grid.Column="2" Style="{StaticResource Mk.Panel}" AutomationProperties.AutomationId="pnlCollections">
                                 <DockPanel>
-                                    <DockPanel DockPanel.Dock="Top">
-                                        <TextBlock DockPanel.Dock="Right" Text="{Binding CollectionCount}" Style="{StaticResource Note}" Margin="8,0,0,8" AutomationProperties.AutomationId="txtCollectionCount" />
-                                        <TextBlock Text="Device collection" Style="{StaticResource CardTitle}" />
-                                    </DockPanel>
-                                    <ui:TextBox DockPanel.Dock="Top" Text="{Binding CollectionFilter, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="Filter by name, ID or folder"
-                                                Icon="{ui:SymbolIcon Search24}" Margin="0,0,0,8" AutomationProperties.Name="Collection filter" ToolTip="Enter text to show only the Device Collections whose name, ID or folder path contains it." AutomationProperties.AutomationId="txtCollectionFilter" />
-                                    <TextBlock DockPanel.Dock="Bottom" Text="{Binding CollectionMessage}" Style="{StaticResource Warning}" Margin="0,8,0,0"
+                                    <StackPanel DockPanel.Dock="Top" Margin="16,16,16,14">
+                                        <DockPanel Height="20" Margin="0,0,0,14">
+                                            <TextBlock DockPanel.Dock="Right" Text="{Binding CollectionCount}" Style="{StaticResource Note}" VerticalAlignment="Center" Margin="8,2,0,0" AutomationProperties.AutomationId="txtCollectionCount" />
+                                            <TextBlock Text="Device collection" Style="{StaticResource Mk.H3}" />
+                                        </DockPanel>
+                                        <TextBox Style="{StaticResource Mk.Search}" mk:Mk.IconDrop="-1" HorizontalAlignment="Left" Text="{Binding CollectionFilter, UpdateSourceTrigger=PropertyChanged}"
+                                                 mk:Mk.Placeholder="Filter by name, ID or folder" AutomationProperties.Name="Collection filter"
+                                                 ToolTip="Enter text to show only the Device Collections whose name, ID or folder path contains it." AutomationProperties.AutomationId="txtCollectionFilter" />
+                                    </StackPanel>
+                                    <TextBlock DockPanel.Dock="Bottom" Text="{Binding CollectionMessage}" Style="{StaticResource Warning}" Margin="16,8,16,8"
                                                Visibility="{Binding HasCollectionMessage, Converter={StaticResource BoolToVisibility}}" AutomationProperties.AutomationId="txtCollectionMessage"
                                                AutomationProperties.LiveSetting="Polite" />
-                                    <DataGrid x:Name="dgCollections" Style="{StaticResource GridBase}" ItemsSource="{Binding Collections}" SelectedItem="{Binding SelectedCollection}" Height="240"
+                                    <DataGrid x:Name="dgCollections" Style="{StaticResource GridBase}" ItemsSource="{Binding Collections}" SelectedItem="{Binding SelectedCollection}" Height="224" Background="Transparent"
                                               AutomationProperties.AutomationId="dgCollections" AutomationProperties.Name="Device collections">
                                         <DataGrid.Columns>
-                                            <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="2*" MinWidth="140" ElementStyle="{StaticResource TrimmedCell}" />
-                                            <DataGridTextColumn Header="ID" Binding="{Binding CollectionId}" Width="96" MinWidth="96" ElementStyle="{StaticResource TrimmedCell}" />
-                                            <DataGridTextColumn Header="Members" Binding="{Binding MemberCount}" Width="96" MinWidth="96" ElementStyle="{StaticResource TrimmedCell}" />
-                                            <DataGridTextColumn Header="Folder" Binding="{Binding FolderPath}" Width="*" MinWidth="80" ElementStyle="{StaticResource TrimmedCell}" />
-                                            <DataGridTextColumn Header="Type" Binding="{Binding Kind}" Width="80" MinWidth="80" ElementStyle="{StaticResource TrimmedCell}" />
+                                            <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="301.2*" MinWidth="140" ElementStyle="{StaticResource TrimmedCell}" />
+                                            <DataGridTextColumn Header="ID" Binding="{Binding CollectionId}" Width="167.1*" MinWidth="96" ElementStyle="{StaticResource TrimmedCell}" />
+                                            <DataGridTextColumn Header="Members" Binding="{Binding MemberCount}" Width="131.5*" MinWidth="80" ElementStyle="{StaticResource TrimmedCell}" />
+                                            <DataGridTextColumn Header="Folder" Binding="{Binding FolderPath}" Width="102*" MinWidth="64" ElementStyle="{StaticResource TrimmedCell}" />
+                                            <DataGridTextColumn Header="Type" Binding="{Binding Kind}" Width="122.2*" MinWidth="72" ElementStyle="{StaticResource TrimmedCell}" />
                                         </DataGrid.Columns>
                                     </DataGrid>
                                 </DockPanel>
@@ -287,10 +219,10 @@
                         </Grid>
 
                         <!-- Stacked here; the code puts the two cards side by side when the tab is wide enough. -->
-                        <Grid x:Name="gridCards" Margin="0,0,0,12">
+                        <Grid x:Name="gridCards" Margin="0,14,0,0">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="16" />
+                                <ColumnDefinition Width="14" />
                                 <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
                             <Grid.RowDefinitions>
@@ -298,146 +230,224 @@
                                 <RowDefinition Height="Auto" />
                                 <RowDefinition Height="Auto" />
                             </Grid.RowDefinitions>
-                            <Border x:Name="pnlSettings" Grid.Row="0" Grid.ColumnSpan="3" Style="{StaticResource Card}" AutomationProperties.AutomationId="pnlSettings">
+                            <Border x:Name="pnlSettings" Grid.Row="0" Grid.ColumnSpan="3" Style="{StaticResource Mk.Panel}" Padding="20" AutomationProperties.AutomationId="pnlSettings">
                                 <StackPanel>
                                     <TextBlock Text="Schedule and options" Style="{StaticResource CardTitle}" />
-                                    <WrapPanel>
-                                        <StackPanel Margin="0,0,24,8">
-                                            <TextBlock Text="Purpose" Style="{StaticResource FieldLabel}" />
-                                            <StackPanel Orientation="Horizontal">
-                                                <RadioButton Content="Available" GroupName="DeploymentPurpose" IsChecked="{Binding IsAvailable}" Margin="0,0,16,0"
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="14" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel>
+                                            <TextBlock Text="Purpose" Style="{StaticResource Mk.FieldName}" Height="19" Margin="2,0,0,6" />
+                                            <WrapPanel UseLayoutRounding="False">
+                                                <RadioButton Content="Available" GroupName="DeploymentPurpose" IsChecked="{Binding IsAvailable}" Margin="0,0,8,0" Height="29"
                                                              ToolTip="Makes the deployment available: users install the software from Software Center when they choose." AutomationProperties.AutomationId="rbAvailable" />
-                                                <RadioButton Content="Required" GroupName="DeploymentPurpose" IsChecked="{Binding IsRequired}" ToolTip="Makes the deployment required: Configuration Manager installs the software at the deadline." AutomationProperties.AutomationId="rbRequired" />
-                                            </StackPanel>
+                                                <RadioButton Content="Required" GroupName="DeploymentPurpose" IsChecked="{Binding IsRequired}" Height="29"
+                                                             ToolTip="Makes the deployment required: Configuration Manager installs the software at the deadline." AutomationProperties.AutomationId="rbRequired" />
+                                            </WrapPanel>
                                         </StackPanel>
-                                        <StackPanel Margin="0,0,24,8">
-                                            <TextBlock Text="Time basis" Style="{StaticResource FieldLabel}" />
-                                            <StackPanel Orientation="Horizontal">
-                                                <RadioButton Content="Local time" GroupName="DeploymentTimeBasis" IsChecked="{Binding IsLocalTime}" Margin="0,0,16,0"
+                                        <StackPanel Grid.Column="2">
+                                            <TextBlock Text="Time basis" Style="{StaticResource Mk.FieldName}" Height="19" Margin="2,0,0,6" />
+                                            <WrapPanel UseLayoutRounding="False">
+                                                <RadioButton Content="Client local time" GroupName="DeploymentTimeBasis" IsChecked="{Binding IsLocalTime}" Margin="0,0,8,0" Height="29"
                                                              ToolTip="Bases the available and deadline times on the local time of each device." AutomationProperties.AutomationId="rbLocalTime" />
-                                                <RadioButton Content="UTC" GroupName="DeploymentTimeBasis" IsChecked="{Binding UtcBasis}" ToolTip="Bases the available and deadline times on UTC, so every device uses the same moment." AutomationProperties.AutomationId="rbUtc" />
-                                            </StackPanel>
+                                                <RadioButton Content="UTC" GroupName="DeploymentTimeBasis" IsChecked="{Binding UtcBasis}" Height="29"
+                                                             ToolTip="Bases the available and deadline times on UTC, so every device uses the same moment." AutomationProperties.AutomationId="rbUtc" />
+                                            </WrapPanel>
                                         </StackPanel>
-                                        <StackPanel Margin="0,0,24,8">
-                                            <TextBlock Text="Available" Style="{StaticResource FieldLabel}" />
-                                            <StackPanel Orientation="Horizontal">
-                                                <DatePicker helpers:TemplatePartNames.FromOwner="True" SelectedDate="{Binding AvailableDate}" SelectedDateFormat="Short" ToolTip="{Binding AvailableDateTip}" Width="150" Margin="0,0,8,0" AutomationProperties.Name="Available date"
-                                                            AutomationProperties.AutomationId="dpAvailableDate" />
-                                                <ui:TextBox Text="{Binding AvailableTimeText, UpdateSourceTrigger=PropertyChanged}" Width="90" PlaceholderText="08:30"
-                                                            AutomationProperties.Name="Available time" ToolTip="Enter the time of day the deployment becomes available, as hours and minutes, for example 08:30." AutomationProperties.AutomationId="txtAvailableTime" />
-                                            </StackPanel>
+                                    </Grid>
+                                    <Grid Margin="0,14,0,0">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="145" />
+                                            <ColumnDefinition Width="14" />
+                                            <ColumnDefinition Width="95" />
+                                            <ColumnDefinition Width="14" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel>
+                                            <TextBlock Text="Available date" Style="{StaticResource FieldLabel}" />
+                                            <DatePicker Style="{StaticResource WD.DatePicker}" helpers:TemplatePartNames.FromOwner="True" SelectedDate="{Binding AvailableDate}" SelectedDateFormat="Short"
+                                                        ToolTip="{Binding AvailableDateTip}" AutomationProperties.Name="Available date" AutomationProperties.AutomationId="dpAvailableDate" />
                                         </StackPanel>
-                                        <StackPanel Margin="0,0,24,8" Visibility="{Binding IsRequired, Converter={StaticResource BoolToVisibility}}">
-                                            <TextBlock Text="Deadline" Style="{StaticResource FieldLabel}" />
-                                            <StackPanel Orientation="Horizontal">
-                                                <DatePicker helpers:TemplatePartNames.FromOwner="True" SelectedDate="{Binding DeadlineDate}" SelectedDateFormat="Short" ToolTip="{Binding DeadlineDateTip}" Width="150" Margin="0,0,8,0" AutomationProperties.Name="Deadline date"
-                                                            AutomationProperties.AutomationId="dpDeadlineDate" />
-                                                <ui:TextBox Text="{Binding DeadlineTimeText, UpdateSourceTrigger=PropertyChanged}" Width="90" PlaceholderText="18:00"
-                                                            AutomationProperties.Name="Deadline time" ToolTip="Enter the time of day of the deadline, as hours and minutes, for example 18:00." AutomationProperties.AutomationId="txtDeadlineTime" />
-                                            </StackPanel>
+                                        <StackPanel Grid.Column="2">
+                                            <TextBlock Text="Time" Style="{StaticResource FieldLabel}" />
+                                            <TextBox Text="{Binding AvailableTimeText, UpdateSourceTrigger=PropertyChanged}" Height="34" mk:Mk.Placeholder="08:30"
+                                                     AutomationProperties.Name="Available time" ToolTip="Enter the time of day the deployment becomes available, as hours and minutes, for example 08:30." AutomationProperties.AutomationId="txtAvailableTime" />
                                         </StackPanel>
-                                        <StackPanel Margin="0,0,24,8" Visibility="{Binding ShowNotification, Converter={StaticResource BoolToVisibility}}">
+                                        <StackPanel Grid.Column="4" Visibility="{Binding ShowNotification, Converter={StaticResource BoolToVisibility}}">
                                             <TextBlock Text="User notification" Style="{StaticResource FieldLabel}" />
-                                            <ComboBox ItemsSource="{Binding Notifications}" SelectedItem="{Binding Notification}" DisplayMemberPath="Text" MinWidth="280"
+                                            <ComboBox ItemsSource="{Binding Notifications}" SelectedItem="{Binding Notification}" DisplayMemberPath="Text" Height="35" mk:Mk.IconDrop="-1"
                                                       AutomationProperties.Name="User notification" ToolTip="Select whether the deployment shows in Software Center and which notifications users see. An Available deployment cannot hide all notifications." AutomationProperties.AutomationId="cboNotification" />
                                         </StackPanel>
-                                    </WrapPanel>
-                                    <TextBlock Text="{Binding TimeBasisNote}" Style="{StaticResource Note}" Margin="0,0,0,8" AutomationProperties.AutomationId="txtTimeBasisNote" />
-                                    <WrapPanel Margin="0,4,0,0">
-                                        <CheckBox Content="{x:Static pages:DeploymentText.ShowProgressLabel}" IsChecked="{Binding ShowProgress}" Style="{StaticResource Option}"
+                                    </Grid>
+
+                                    <!-- The settings of one object type; an application has none. -->
+                                    <WrapPanel>
+                                        <CheckBox Content="{x:Static pages:DeploymentText.ShowProgressLabel}" IsChecked="{Binding ShowProgress}" Style="{StaticResource Option}" Margin="0,14,16,0"
                                                   Visibility="{Binding IsTaskSequence, Converter={StaticResource BoolToVisibility}}" ToolTip="Shows the progress of the Task Sequence on the device while it runs." AutomationProperties.AutomationId="chkShowProgress" />
-                                        <CheckBox Content="{x:Static pages:DeploymentText.FallbackLabel}" IsChecked="{Binding AllowFallback}" Style="{StaticResource Option}"
+                                        <CheckBox Content="{x:Static pages:DeploymentText.FallbackLabel}" IsChecked="{Binding AllowFallback}" Style="{StaticResource Option}" Margin="0,14,16,0"
                                                   Visibility="{Binding ShowAllowFallback, Converter={StaticResource BoolToVisibility}}" ToolTip="Lets devices that find no content in their own boundary group use distribution points from the default site boundary group." AutomationProperties.AutomationId="chkAllowFallback" />
-                                        <CheckBox Content="{x:Static pages:DeploymentText.FullScanLabel}" IsChecked="{Binding PostRebootScan}" Style="{StaticResource Option}"
+                                        <CheckBox Content="{x:Static pages:DeploymentText.FullScanLabel}" IsChecked="{Binding PostRebootScan}" Style="{StaticResource Option}" Margin="0,14,16,0"
                                                   Visibility="{Binding IsUpdateGroup, Converter={StaticResource BoolToVisibility}}" ToolTip="Makes devices run a full scan for software updates after the restart that follows the installation." AutomationProperties.AutomationId="chkPostRebootScan" />
-                                    </WrapPanel>
-                                    <WrapPanel Margin="0,4,0,0">
-                                        <StackPanel Margin="0,0,24,8" Visibility="{Binding IsPackage, Converter={StaticResource BoolToVisibility}}">
+                                        <StackPanel Margin="0,14,14,0" Visibility="{Binding IsPackage, Converter={StaticResource BoolToVisibility}}">
                                             <TextBlock Text="Fast network" Style="{StaticResource FieldLabel}" />
-                                            <ComboBox ItemsSource="{Binding NetworkBehaviors}" SelectedItem="{Binding NetworkBehavior}" DisplayMemberPath="Text" MinWidth="300"
+                                            <ComboBox ItemsSource="{Binding NetworkBehaviors}" SelectedItem="{Binding NetworkBehavior}" DisplayMemberPath="Text" Width="350"
                                                       AutomationProperties.Name="Fast network" ToolTip="Select how devices on a fast network get the content of the Package: download it and run locally, or run the program from the distribution point." AutomationProperties.AutomationId="cboNetwork" />
                                         </StackPanel>
-                                        <StackPanel Margin="0,0,24,8" Visibility="{Binding IsPackage, Converter={StaticResource BoolToVisibility}}">
+                                        <StackPanel Margin="0,14,0,0" Visibility="{Binding IsPackage, Converter={StaticResource BoolToVisibility}}">
                                             <TextBlock Text="Slow network" Style="{StaticResource FieldLabel}" />
-                                            <ComboBox ItemsSource="{Binding SlowNetworkBehaviors}" SelectedItem="{Binding SlowNetworkBehavior}" DisplayMemberPath="Text" MinWidth="300"
+                                            <ComboBox ItemsSource="{Binding SlowNetworkBehaviors}" SelectedItem="{Binding SlowNetworkBehavior}" DisplayMemberPath="Text" Width="350"
                                                       AutomationProperties.Name="Slow network" ToolTip="Select how devices on a slow network get the content of the Package: do not run the program, or download the content and run locally." AutomationProperties.AutomationId="cboSlowNetwork" />
                                         </StackPanel>
-                                        <StackPanel Margin="0,0,24,8" Visibility="{Binding IsTaskSequence, Converter={StaticResource BoolToVisibility}}">
+                                        <StackPanel Margin="0,14,14,0" Visibility="{Binding IsTaskSequence, Converter={StaticResource BoolToVisibility}}">
                                             <TextBlock Text="Available to" Style="{StaticResource FieldLabel}" />
-                                            <ComboBox ItemsSource="{Binding TaskSequenceAvailabilities}" SelectedItem="{Binding TaskSequenceAvailability}" DisplayMemberPath="Text" MinWidth="260"
+                                            <ComboBox ItemsSource="{Binding TaskSequenceAvailabilities}" SelectedItem="{Binding TaskSequenceAvailability}" DisplayMemberPath="Text" Width="300"
                                                       AutomationProperties.Name="Available to" ToolTip="Select which devices and boot media can see the Task Sequence deployment." AutomationProperties.AutomationId="cboTaskSequenceAvailability" />
                                         </StackPanel>
-                                        <StackPanel Margin="0,0,24,8" Visibility="{Binding IsTaskSequence, Converter={StaticResource BoolToVisibility}}">
+                                        <StackPanel Margin="0,14,0,0" Visibility="{Binding IsTaskSequence, Converter={StaticResource BoolToVisibility}}">
                                             <TextBlock Text="Content" Style="{StaticResource FieldLabel}" />
-                                            <ComboBox ItemsSource="{Binding TaskSequenceContents}" SelectedItem="{Binding TaskSequenceContent}" DisplayMemberPath="Text" MinWidth="320"
+                                            <ComboBox ItemsSource="{Binding TaskSequenceContents}" SelectedItem="{Binding TaskSequenceContent}" DisplayMemberPath="Text" Width="450"
                                                       AutomationProperties.Name="Task sequence content" ToolTip="Select when devices download the content of the Task Sequence: when the Task Sequence needs it, or all before it starts." AutomationProperties.AutomationId="cboTaskSequenceContent" />
                                         </StackPanel>
                                     </WrapPanel>
-                                    <TextBlock Text="Required only" Style="{StaticResource FieldLabel}" Margin="0,4,0,4" />
-                                    <TextBlock Text="{Binding RequiredOnlyNote}" Style="{StaticResource Note}" Margin="0,0,0,8" AutomationProperties.AutomationId="txtRequiredOnlyNote" />
-                                    <WrapPanel IsEnabled="{Binding RequiredOnlyEnabled}" AutomationProperties.AutomationId="pnlRequiredOnly">
-                                        <CheckBox Content="{x:Static pages:DeploymentText.OverrideWindowLabel}" IsChecked="{Binding OverrideServiceWindow}" Style="{StaticResource Option}"
-                                                  ToolTip="At the deadline, installs the software even when no maintenance window is open." AutomationProperties.AutomationId="chkOverrideWindow" />
-                                        <CheckBox Content="{x:Static pages:DeploymentText.RebootOutsideLabel}" IsChecked="{Binding RebootOutsideServiceWindow}" Style="{StaticResource Option}"
-                                                  ToolTip="Lets devices restart after the installation even when no maintenance window is open." AutomationProperties.AutomationId="chkRebootOutside" />
-                                        <CheckBox Content="{x:Static pages:DeploymentText.MeteredLabel}" IsChecked="{Binding AllowMetered}" Style="{StaticResource Option}"
-                                                  Visibility="{Binding ShowMetered, Converter={StaticResource BoolToVisibility}}" ToolTip="Lets devices on a metered connection download content after the installation deadline. This can cost extra." AutomationProperties.AutomationId="chkMetered" />
-                                        <CheckBox Content="{x:Static pages:DeploymentText.FallbackLabel}" IsChecked="{Binding FallbackToDp}" Style="{StaticResource Option}"
-                                                  Visibility="{Binding IsUpdateGroup, Converter={StaticResource BoolToVisibility}}" ToolTip="Lets devices that find no software updates on a preferred distribution point use distribution points from the default site boundary group." AutomationProperties.AutomationId="chkFallbackToDp" />
-                                        <CheckBox Content="{x:Static pages:DeploymentText.MicrosoftUpdateLabel}" IsChecked="{Binding AllowMicrosoftUpdate}" Style="{StaticResource Option}"
-                                                  Visibility="{Binding IsUpdateGroup, Converter={StaticResource BoolToVisibility}}" ToolTip="Lets devices download the software updates from Microsoft Update when no distribution point has them." AutomationProperties.AutomationId="chkMicrosoftUpdate" />
-                                        <CheckBox Content="{Binding SuppressRestartLabel}" IsChecked="{Binding SuppressRestart}" Style="{StaticResource Option}"
-                                                  Visibility="{Binding IsUpdateGroup, Converter={StaticResource BoolToVisibility}}" ToolTip="Stops servers and workstations from restarting after the installation." AutomationProperties.AutomationId="chkSuppressRestart" />
-                                        <StackPanel Margin="0,0,24,8" Visibility="{Binding ShowRerun, Converter={StaticResource BoolToVisibility}}">
-                                            <TextBlock Text="Rerun behavior" Style="{StaticResource FieldLabel}" />
-                                            <ComboBox ItemsSource="{Binding RerunBehaviors}" SelectedItem="{Binding RerunBehavior}" DisplayMemberPath="Text" MinWidth="280"
-                                                      AutomationProperties.Name="Rerun behavior" ToolTip="Select when Configuration Manager reruns the program on a device that ran it before." AutomationProperties.AutomationId="cboRerun" />
+
+                                    <!-- An available application on client local time has this note in the tooltips of the time basis only. -->
+                                    <TextBlock Text="{Binding TimeBasisNote}" Margin="0,14,0,0" AutomationProperties.AutomationId="txtTimeBasisNote">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock" BasedOn="{StaticResource Note}">
+                                                <Style.Triggers>
+                                                    <MultiDataTrigger>
+                                                        <MultiDataTrigger.Conditions>
+                                                            <Condition Binding="{Binding UtcBasis}" Value="False" />
+                                                            <Condition Binding="{Binding IsRequired}" Value="False" />
+                                                            <Condition Binding="{Binding ShowRerun}" Value="False" />
+                                                        </MultiDataTrigger.Conditions>
+                                                        <Setter Property="Visibility" Value="Collapsed" />
+                                                    </MultiDataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+
+                                    <!-- .notice: it stands where the Required options stand once Required is selected. -->
+                                    <Border Margin="0,14,0,0">
+                                        <Border.Style>
+                                            <Style TargetType="Border" BasedOn="{StaticResource Mk.Notice}">
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsRequired}" Value="True">
+                                                        <Setter Property="Visibility" Value="Collapsed" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Border.Style>
+                                        <StackPanel>
+                                            <TextBlock Text="Required deployment options" Style="{StaticResource Mk.Strong}" Height="19" />
+                                            <TextBlock Text="{Binding RequiredOnlyNote}" Style="{StaticResource Mk.Help}" Margin="0,2.3,0,-1" AutomationProperties.AutomationId="txtRequiredOnlyNote" />
                                         </StackPanel>
-                                    </WrapPanel>
+                                    </Border>
+
+                                    <StackPanel Visibility="{Binding IsRequired, Converter={StaticResource BoolToVisibility}}">
+                                        <Grid Margin="0,14,0,0">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="145" />
+                                                <ColumnDefinition Width="14" />
+                                                <ColumnDefinition Width="95" />
+                                                <ColumnDefinition Width="14" />
+                                                <ColumnDefinition Width="*" />
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel>
+                                                <TextBlock Text="Deadline date" Style="{StaticResource FieldLabel}" />
+                                                <DatePicker Style="{StaticResource WD.DatePicker}" helpers:TemplatePartNames.FromOwner="True" SelectedDate="{Binding DeadlineDate}" SelectedDateFormat="Short"
+                                                            ToolTip="{Binding DeadlineDateTip}" AutomationProperties.Name="Deadline date" AutomationProperties.AutomationId="dpDeadlineDate" />
+                                            </StackPanel>
+                                            <StackPanel Grid.Column="2">
+                                                <TextBlock Text="Time" Style="{StaticResource FieldLabel}" />
+                                                <TextBox Text="{Binding DeadlineTimeText, UpdateSourceTrigger=PropertyChanged}" Height="34" mk:Mk.Placeholder="18:00"
+                                                         AutomationProperties.Name="Deadline time" ToolTip="Enter the time of day of the deadline, as hours and minutes, for example 18:00." AutomationProperties.AutomationId="txtDeadlineTime" />
+                                            </StackPanel>
+                                            <StackPanel Grid.Column="4" Visibility="{Binding ShowRerun, Converter={StaticResource BoolToVisibility}}">
+                                                <TextBlock Text="Rerun behavior" Style="{StaticResource FieldLabel}" />
+                                                <ComboBox ItemsSource="{Binding RerunBehaviors}" SelectedItem="{Binding RerunBehavior}" DisplayMemberPath="Text" Height="35"
+                                                          AutomationProperties.Name="Rerun behavior" ToolTip="Select when Configuration Manager reruns the program on a device that ran it before." AutomationProperties.AutomationId="cboRerun" />
+                                            </StackPanel>
+                                        </Grid>
+                                        <WrapPanel Margin="0,14,0,0" IsEnabled="{Binding RequiredOnlyEnabled}" AutomationProperties.AutomationId="pnlRequiredOnly">
+                                            <CheckBox Content="{x:Static pages:DeploymentText.OverrideWindowLabel}" IsChecked="{Binding OverrideServiceWindow}" Style="{StaticResource Option}"
+                                                      ToolTip="At the deadline, installs the software even when no maintenance window is open." AutomationProperties.AutomationId="chkOverrideWindow" />
+                                            <CheckBox Content="{x:Static pages:DeploymentText.RebootOutsideLabel}" IsChecked="{Binding RebootOutsideServiceWindow}" Style="{StaticResource Option}"
+                                                      ToolTip="Lets devices restart after the installation even when no maintenance window is open." AutomationProperties.AutomationId="chkRebootOutside" />
+                                            <CheckBox Content="{x:Static pages:DeploymentText.MeteredLabel}" IsChecked="{Binding AllowMetered}" Style="{StaticResource Option}"
+                                                      Visibility="{Binding ShowMetered, Converter={StaticResource BoolToVisibility}}" ToolTip="Lets devices on a metered connection download content after the installation deadline. This can cost extra." AutomationProperties.AutomationId="chkMetered" />
+                                            <CheckBox Content="{x:Static pages:DeploymentText.FallbackLabel}" IsChecked="{Binding FallbackToDp}" Style="{StaticResource Option}"
+                                                      Visibility="{Binding IsUpdateGroup, Converter={StaticResource BoolToVisibility}}" ToolTip="Lets devices that find no software updates on a preferred distribution point use distribution points from the default site boundary group." AutomationProperties.AutomationId="chkFallbackToDp" />
+                                            <CheckBox Content="{x:Static pages:DeploymentText.MicrosoftUpdateLabel}" IsChecked="{Binding AllowMicrosoftUpdate}" Style="{StaticResource Option}"
+                                                      Visibility="{Binding IsUpdateGroup, Converter={StaticResource BoolToVisibility}}" ToolTip="Lets devices download the software updates from Microsoft Update when no distribution point has them." AutomationProperties.AutomationId="chkMicrosoftUpdate" />
+                                            <CheckBox Content="{Binding SuppressRestartLabel}" IsChecked="{Binding SuppressRestart}" Style="{StaticResource Option}"
+                                                      Visibility="{Binding IsUpdateGroup, Converter={StaticResource BoolToVisibility}}" ToolTip="Stops servers and workstations from restarting after the installation." AutomationProperties.AutomationId="chkSuppressRestart" />
+                                        </WrapPanel>
+                                    </StackPanel>
                                 </StackPanel>
                             </Border>
 
-                            <Border x:Name="pnlDistribution" Grid.Row="2" Grid.ColumnSpan="3" Margin="0,12,0,0" Style="{StaticResource Card}" AutomationProperties.AutomationId="pnlDistribution"
+                            <Border x:Name="pnlDistribution" Grid.Row="2" Grid.ColumnSpan="3" Margin="0,14,0,0" Style="{StaticResource Mk.Panel}" Padding="20" AutomationProperties.AutomationId="pnlDistribution"
                                     Visibility="{Binding ShowContent, Converter={StaticResource BoolToVisibility}}">
                                 <StackPanel>
-                                    <TextBlock Text="Content" Style="{StaticResource CardTitle}" />
-                                    <TextBlock Text="Select an object to see the content status of each distribution point group. Check the groups that get the content."
-                                               Style="{StaticResource Note}" Margin="0,0,0,8" />
-                                    <DataGrid x:Name="dgDpGroups" Style="{StaticResource GridBase}" ItemsSource="{Binding DpGroups}" MaxHeight="220" MinHeight="96"
+                                    <TextBlock Text="Content" Style="{StaticResource CardTitle}"
+                                               ToolTip="Select an object to see the content status of each distribution point group. Check the groups that get the content." />
+                                    <DataGrid x:Name="dgDpGroups" Style="{StaticResource GridBase}" ItemsSource="{Binding DpGroups}" MaxHeight="220" RowHeight="31.5" Background="Transparent"
                                               AutomationProperties.AutomationId="dgDpGroups" AutomationProperties.Name="Distribution point groups">
                                         <DataGrid.Columns>
-                                            <DataGridTemplateColumn Header="" Width="56" MinWidth="56">
+                                            <DataGridTemplateColumn Header="Distribute" Width="80.3*" MinWidth="76">
                                                 <DataGridTemplateColumn.CellTemplate>
                                                     <DataTemplate>
-                                                        <!-- The default padding leaves the box less width than it draws, which cuts the box in half. -->
-                                                        <CheckBox IsChecked="{Binding IsChecked, UpdateSourceTrigger=PropertyChanged}" HorizontalAlignment="Center" MinWidth="0" Padding="0"
+                                                        <CheckBox IsChecked="{Binding IsChecked, UpdateSourceTrigger=PropertyChanged}" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="0,6.5,0,2"
                                                                   ToolTip="Include this distribution point group when you distribute the content."
                                                                   AutomationProperties.Name="{Binding Name}" />
                                                     </DataTemplate>
                                                 </DataGridTemplateColumn.CellTemplate>
                                             </DataGridTemplateColumn>
-                                            <DataGridTextColumn Header="Group" Binding="{Binding Name}" Width="2*" MinWidth="140" ElementStyle="{StaticResource TrimmedCell}" />
-                                            <DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="*" MinWidth="100" ElementStyle="{StaticResource StatusCell}" />
-                                            <DataGridTextColumn Header="Targeted" Binding="{Binding Targeted}" Width="96" MinWidth="96" ElementStyle="{StaticResource TrimmedCell}" />
-                                            <DataGridTextColumn Header="Success" Binding="{Binding Success}" Width="90" MinWidth="90" ElementStyle="{StaticResource TrimmedCell}" />
-                                            <DataGridTextColumn Header="In progress" Binding="{Binding InProgress}" Width="110" MinWidth="110" ElementStyle="{StaticResource TrimmedCell}" />
-                                            <DataGridTextColumn Header="Error" Binding="{Binding Error}" Width="80" MinWidth="80" ElementStyle="{StaticResource TrimmedCell}" />
+                                            <DataGridTextColumn Header="Distribution point group" Binding="{Binding Name}" Width="210.2*" MinWidth="160" ElementStyle="{StaticResource TrimmedCell}" />
+                                            <DataGridTemplateColumn Header="Status" Width="133.3*" MinWidth="116" SortMemberPath="StatusText" CellTemplate="{StaticResource DpStatus}" CellStyle="{StaticResource BareCell}" />
+                                            <DataGridTextColumn Header="Targeted" Binding="{Binding Targeted}" Width="95*" MinWidth="76" ElementStyle="{StaticResource TrimmedCell}" />
+                                            <DataGridTextColumn Header="Success" Binding="{Binding Success}" Width="85.8*" MinWidth="70" ElementStyle="{StaticResource TrimmedCell}" />
+                                            <DataGridTextColumn Header="In progress" Binding="{Binding InProgress}" Width="112.3*" MinWidth="90" ElementStyle="{StaticResource TrimmedCell}" />
+                                            <DataGridTextColumn Header="Error" Binding="{Binding Error}" Width="67.1*" MinWidth="60" ElementStyle="{StaticResource TrimmedCell}" />
                                         </DataGrid.Columns>
                                     </DataGrid>
-                                    <WrapPanel Margin="0,8,0,0">
-                                        <ui:Button Content="Refresh status" Icon="{ui:SymbolIcon ArrowSync24}" Command="{Binding RefreshDpGroupsCommand}" Style="{StaticResource ToolButton}"
-                                                   ToolTip="Reads the content status of the selected object again." AutomationProperties.AutomationId="btnRefreshDpGroups" />
-                                        <ui:Button Content="Distribute content" Icon="{ui:SymbolIcon CloudArrowUp24}" Command="{Binding DistributeCommand}" Style="{StaticResource ToolButton}"
-                                                   ToolTip="Shows a plan that sends the content to the checked groups." AutomationProperties.AutomationId="btnDistribute" />
-                                        <CheckBox Content="Distribute to the checked groups first when I deploy (the plan offers to create the deployment while the content distributes)"
-                                                  IsChecked="{Binding DistributeFirst}" Style="{StaticResource Option}" AutomationProperties.AutomationId="chkDistributeFirst" />
+                                    <CheckBox Content="Distribute to checked groups when deploying" IsChecked="{Binding DistributeFirst}" Margin="0,15,0,-1" Height="29" HorizontalAlignment="Left"
+                                              ToolTip="Distributes the content to the checked groups first when you deploy. The plan offers to create the deployment while the content distributes."
+                                              mk:Mk.IconDrop="-1" AutomationProperties.AutomationId="chkDistributeFirst" />
+                                    <WrapPanel Margin="0,13,0,1" UseLayoutRounding="False">
+                                        <Button Style="{StaticResource Mk.Button}" mk:Mk.Icon="arrow_sync" mk:Mk.IconDrop="1" mk:Mk.FaceDrop="1" Content="Refresh status" Command="{Binding RefreshDpGroupsCommand}" Margin="0,0,8,0"
+                                                ToolTip="Reads the content status of the selected object again." AutomationProperties.AutomationId="btnRefreshDpGroups" />
+                                        <Button Style="{StaticResource Mk.Button}" mk:Mk.Icon="cloud_arrow_up" mk:Mk.IconDrop="1" mk:Mk.FaceDrop="1" Content="Distribute content" Command="{Binding DistributeCommand}"
+                                                ToolTip="Shows a plan that sends the content to the checked groups." AutomationProperties.AutomationId="btnDistribute" />
                                     </WrapPanel>
-                                    <TextBlock Text="{Binding DpMessage}" Style="{StaticResource Note}" AutomationProperties.AutomationId="txtDpMessage" AutomationProperties.LiveSetting="Polite" />
+                                    <TextBlock Text="{Binding DpMessage}" Style="{StaticResource QuietNote}" Margin="0,8,0,0" AutomationProperties.AutomationId="txtDpMessage" AutomationProperties.LiveSetting="Polite" />
                                 </StackPanel>
                             </Border>
                         </Grid>
 
-                        <Border x:Name="pnlValidation" Style="{StaticResource Card}" Margin="0,0,0,12" AutomationProperties.AutomationId="pnlValidation">
+                        <!-- The checks show after Validate, with a message of the form, or when View validation checks asks for them. -->
+                        <Border x:Name="pnlValidation" Margin="0,14,0,0" AutomationProperties.AutomationId="pnlValidation">
+                            <Border.Style>
+                                <Style TargetType="Border" BasedOn="{StaticResource Mk.Panel}">
+                                    <Setter Property="Padding" Value="16" />
+                                    <Style.Triggers>
+                                        <MultiDataTrigger>
+                                            <MultiDataTrigger.Conditions>
+                                                <Condition Binding="{Binding Checks.Count}" Value="0" />
+                                                <Condition Binding="{Binding ValidationMessage}" Value="" />
+                                                <Condition Binding="{Binding HasFormMessage}" Value="False" />
+                                                <Condition Binding="{Binding Tag, RelativeSource={RelativeSource Self}}" Value="{x:Null}" />
+                                            </MultiDataTrigger.Conditions>
+                                            <Setter Property="Visibility" Value="Collapsed" />
+                                        </MultiDataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Border.Style>
                             <StackPanel>
                                 <TextBlock Text="Checks" Style="{StaticResource CardTitle}" />
                                 <DataGrid x:Name="dgChecks" Style="{StaticResource GridBase}" ItemsSource="{Binding Checks}" MinHeight="96"
@@ -448,7 +458,7 @@
                                         <DataGridTextColumn Header="Message" Binding="{Binding Message}" Width="2*" MinWidth="160" ElementStyle="{StaticResource TrimmedCell}" />
                                     </DataGrid.Columns>
                                 </DataGrid>
-                                <TextBlock Text="{Binding ValidationMessage}" Style="{StaticResource Note}" Margin="0,8,0,0" AutomationProperties.AutomationId="txtValidationMessage"
+                                <TextBlock Text="{Binding ValidationMessage}" Style="{StaticResource QuietNote}" Margin="0,8,0,0" AutomationProperties.AutomationId="txtValidationMessage"
                                            AutomationProperties.LiveSetting="Polite" />
                                 <TextBlock Text="{Binding FormMessage}" Style="{StaticResource Warning}" Margin="0,8,0,0" Visibility="{Binding HasFormMessage, Converter={StaticResource BoolToVisibility}}"
                                            AutomationProperties.AutomationId="txtFormMessage" AutomationProperties.LiveSetting="Assertive" />
@@ -456,14 +466,13 @@
                         </Border>
                     </StackPanel>
                 </ScrollViewer>
-                <StackPanel Grid.Row="1" Margin="0,8,0,0">
                     <!-- What Deploy would create, beside the way to the checks. It stays in view at every scroll position. -->
-                    <DockPanel Margin="0,0,0,8">
-                        <ui:Button DockPanel.Dock="Right" Content="View validation checks" Icon="{ui:SymbolIcon CheckmarkCircle24}" Click="OnViewChecksClick" Margin="12,0,0,0" VerticalAlignment="Center"
-                                   ToolTip="Scrolls to the Checks list. Select Validate to fill it." AutomationProperties.AutomationId="btnViewChecks" />
-                        <StackPanel VerticalAlignment="Center">
-                            <TextBlock Text="Deployment to review" Style="{StaticResource FieldLabel}" Margin="0" />
-                            <TextBlock TextWrapping="Wrap" Foreground="{DynamicResource TextFillColorPrimaryBrush}" AutomationProperties.AutomationId="txtDeploymentReview">
+                    <DockPanel Grid.Row="1" Margin="0,14,0,0" Height="42">
+                        <Button DockPanel.Dock="Right" Style="{StaticResource Mk.Button}" mk:Mk.Icon="checkmark_circle" mk:Mk.FaceDrop="-1" Content="View validation checks" Click="OnViewChecksClick"
+                                Margin="12,2,0,0" VerticalAlignment="Center" ToolTip="Shows the Checks list. Select Validate to fill it." AutomationProperties.AutomationId="btnViewChecks" />
+                        <StackPanel VerticalAlignment="Top">
+                            <TextBlock Text="Deployment to review" Style="{StaticResource Mk.Strong}" Height="19" />
+                            <TextBlock Style="{StaticResource Mk.Body}" Margin="0,4,0,0" TextTrimming="CharacterEllipsis" AutomationProperties.AutomationId="txtDeploymentReview">
                                 <TextBlock.Text>
                                     <MultiBinding Converter="{StaticResource ReviewSummary}">
                                         <Binding Path="SelectedObject" />
@@ -473,16 +482,28 @@
                                         <Binding Path="PreparedCreate" />
                                     </MultiBinding>
                                 </TextBlock.Text>
+                                <TextBlock.ToolTip>
+                                    <Binding Path="PreparedCreate" Converter="{StaticResource ReviewSource}" />
+                                </TextBlock.ToolTip>
                             </TextBlock>
                         </StackPanel>
                     </DockPanel>
-                    <WrapPanel HorizontalAlignment="Right" AutomationProperties.AutomationId="pnlDeployActions">
-                        <ui:Button x:Name="btnValidate" Content="Validate" Icon="{ui:SymbolIcon CheckmarkCircle24}" Command="{Binding ValidateCommand}" Style="{StaticResource ToolButton}"
-                                   ToolTip="Runs the checks and the schedule rules. Nothing is changed." AutomationProperties.AutomationId="btnValidate" />
-                        <ui:Button Content="Deploy" Appearance="Primary" Icon="{ui:SymbolIcon Rocket24}" Command="{Binding DeployCommand}" Style="{StaticResource ToolButton}"
-                                   ToolTip="Shows the plan of the deployment. Nothing is changed before you confirm it." AutomationProperties.AutomationId="btnDeploy" />
-                    </WrapPanel>
-                </StackPanel>
+                    <!-- .foot: the site at the left, Validate and Review deployment at the right. -->
+                    <Border Grid.Row="2" Margin="0,14,0,0" Padding="0,10,0,0" BorderThickness="0,1,0,0" BorderBrush="{DynamicResource MkLineBrush}">
+                        <DockPanel Height="32" UseLayoutRounding="False">
+                            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" AutomationProperties.AutomationId="pnlDeployActions">
+                                <Button x:Name="btnValidate" Style="{StaticResource Mk.Button}" mk:Mk.Icon="checkmark_circle" Content="Validate" Command="{Binding ValidateCommand}"
+                                        ToolTip="Runs the checks and the schedule rules. Nothing is changed." AutomationProperties.AutomationId="btnValidate" />
+                                <Button Style="{StaticResource Mk.Button.Primary}" mk:Mk.Icon="arrow_right" Content="Review deployment" Command="{Binding DeployCommand}" Margin="8,0,0,0"
+                                        ToolTip="Shows the plan of the deployment. Nothing is changed before you confirm it." AutomationProperties.AutomationId="btnDeploy" />
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <mk:Ico Glyph="info" Foreground="{DynamicResource MkAccentBrush}" />
+                                <TextBlock Text="{Binding Shared.SiteText}" Margin="6,1,0,0" Foreground="{DynamicResource MkAccentBrush}" VerticalAlignment="Center"
+                                           AutomationProperties.AutomationId="txtDeploymentSite" />
+                            </StackPanel>
+                        </DockPanel>
+                    </Border>
                 </Grid>
             </TabItem>
 
@@ -491,7 +512,7 @@
             </TabItem>
 
             <TabItem Header="History" AutomationProperties.AutomationId="tabHistory" DataContext="{Binding History}">
-                <ScrollViewer x:Name="scrollHistoryTab" Margin="0,12,0,0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                <ScrollViewer x:Name="scrollHistoryTab" Margin="0,14,0,0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
                               AutomationProperties.AutomationId="scrollHistoryTab">
                     <Grid Height="{Binding ViewportHeight, ElementName=scrollHistoryTab}" MinHeight="480">
                         <Grid.RowDefinitions>
@@ -502,8 +523,8 @@
                             <RowDefinition Height="Auto" />
                         </Grid.RowDefinitions>
                         <WrapPanel Grid.Row="0" Margin="0,0,0,4">
-                            <ui:TextBox Text="{Binding TextFilter, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="Filter by object, collection, deployment ID or user"
-                                        Icon="{ui:SymbolIcon Search24}" MinWidth="300" Margin="0,0,8,8" AutomationProperties.Name="History filter" ToolTip="Enter text to show only the audit records whose object, collection, deployment ID, user, result, plan, ring or run contains it." AutomationProperties.AutomationId="txtHistoryFilter" />
+                            <TextBox Style="{StaticResource Mk.Search}" Text="{Binding TextFilter, UpdateSourceTrigger=PropertyChanged}" mk:Mk.Placeholder="Filter by object, collection, deployment ID or user"
+                                        MinWidth="300" Margin="0,0,8,8" AutomationProperties.Name="History filter" ToolTip="Enter text to show only the audit records whose object, collection, deployment ID, user, result, plan, ring or run contains it." AutomationProperties.AutomationId="txtHistoryFilter" />
                             <ComboBox ItemsSource="{Binding Events}" SelectedItem="{Binding EventFilter}" MinWidth="120" Margin="0,0,8,8"
                                       AutomationProperties.Name="Event" ToolTip="Select an event to show only the audit records of that event, or select all." AutomationProperties.AutomationId="cboHistoryEvent" />
                             <ComboBox ItemsSource="{Binding Types}" SelectedItem="{Binding TypeFilter}" MinWidth="170" Margin="0,0,8,8"
@@ -513,17 +534,17 @@
                             <TextBlock Text="{Binding RowCount}" Style="{StaticResource Note}" VerticalAlignment="Center" Margin="0,0,0,8" AutomationProperties.AutomationId="txtHistoryCount" />
                         </WrapPanel>
                         <WrapPanel Grid.Row="1" Margin="0,0,0,4">
-                            <ui:Button Content="Refresh" Icon="{ui:SymbolIcon ArrowSync24}" Command="{Binding RefreshCommand}" Style="{StaticResource ToolButton}"
+                            <Button Style="{StaticResource ToolButton}" mk:Mk.Icon="arrow_sync" Content="Refresh" Command="{Binding RefreshCommand}"
                                        ToolTip="Reads the audit log again." AutomationProperties.AutomationId="btnHistoryRefresh" />
-                            <ui:Button Content="Cancel" Icon="{ui:SymbolIcon Dismiss24}" Command="{Binding CancelLoadCommand}" Style="{StaticResource ToolButton}"
+                            <Button Style="{StaticResource ToolButton}" mk:Mk.Icon="dismiss" Content="Cancel" Command="{Binding CancelLoadCommand}"
                                        ToolTip="Stops the read of the audit log." AutomationProperties.Name="Cancel the read" AutomationProperties.AutomationId="btnHistoryCancel" />
-                            <ui:Button Content="Remove deployment" Icon="{ui:SymbolIcon Delete24}" Appearance="Danger" Command="{Binding RemoveDeploymentCommand}" Style="{StaticResource ToolButton}"
+                            <Button Style="{StaticResource ToolButton.Danger}" Content="Remove deployment" Command="{Binding RemoveDeploymentCommand}"
                                        ToolTip="Shows a plan that removes the deployment of the selected create record." AutomationProperties.AutomationId="btnRemoveDeployment" />
-                            <ui:Button Content="Export CSV" Icon="{ui:SymbolIcon DocumentTable24}" Command="{Binding ExportCsvCommand}" Style="{StaticResource ToolButton}"
+                            <Button Style="{StaticResource ToolButton}" mk:Mk.Icon="document" Content="Export CSV" Command="{Binding ExportCsvCommand}"
                                        ToolTip="Saves the rows the filters show as a CSV file." AutomationProperties.AutomationId="btnHistoryCsv" />
-                            <ui:Button Content="Export HTML" Icon="{ui:SymbolIcon Globe24}" Command="{Binding ExportHtmlCommand}" Style="{StaticResource ToolButton}"
+                            <Button Style="{StaticResource ToolButton}" mk:Mk.Icon="globe" Content="Export HTML" Command="{Binding ExportHtmlCommand}"
                                        ToolTip="Saves the rows the filters show as an HTML file." AutomationProperties.AutomationId="btnHistoryHtml" />
-                            <ui:Button Content="Open folder" Icon="{ui:SymbolIcon FolderOpen24}" Command="{Binding OpenReportsFolderCommand}" Style="{StaticResource ToolButton}"
+                            <Button Style="{StaticResource ToolButton}" mk:Mk.Icon="folder_open" Content="Open folder" Command="{Binding OpenReportsFolderCommand}"
                                        ToolTip="Opens the folder of the last report." AutomationProperties.AutomationId="btnHistoryFolder" />
                         </WrapPanel>
                         <StackPanel Grid.Row="2" Margin="0,0,0,8">
@@ -541,7 +562,7 @@
                                 <DataGridTextColumn Header="Time" Binding="{Binding Time}" Width="130" MinWidth="130" ElementStyle="{StaticResource TrimmedCell}" />
                                 <DataGridTextColumn Header="Event" Binding="{Binding Event}" Width="72" MinWidth="72" ElementStyle="{StaticResource TrimmedCell}" />
                                 <DataGridTextColumn Header="Result" Binding="{Binding Result}" Width="80" MinWidth="80" ElementStyle="{StaticResource StatusCell}" />
-                                <DataGridTextColumn Header="Verified" Binding="{Binding Verified}" Width="98" MinWidth="98" ElementStyle="{StaticResource VerifiedStatusCell}" />
+                                <DataGridTextColumn Header="Verified" Binding="{Binding Verified}" Width="102" MinWidth="102" ElementStyle="{StaticResource VerifiedStatusCell}" />
                                 <DataGridTextColumn Header="Object" Binding="{Binding Object}" Width="2*" MinWidth="96" ElementStyle="{StaticResource TrimmedCell}" />
                                 <DataGridTextColumn Header="Deployment ID" Binding="{Binding DeploymentId}" Width="*" MinWidth="120" ElementStyle="{StaticResource TrimmedCell}" />
                                 <DataGridTextColumn Header="Collection" Binding="{Binding Collection}" Width="2*" MinWidth="110" ElementStyle="{StaticResource TrimmedCell}" />
@@ -567,17 +588,17 @@
             </TabItem>
 
             <TabItem Header="Options" AutomationProperties.AutomationId="tabOptions" DataContext="{Binding Options}">
-                <ScrollViewer x:Name="scrollOptionsTab" Margin="0,12,0,0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                <ScrollViewer x:Name="scrollOptionsTab" Margin="0,14,-12,0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
                               AutomationProperties.AutomationId="scrollOptionsTab">
-                    <StackPanel>
+                    <StackPanel Margin="0,0,12,0">
                         <WrapPanel Margin="0,0,0,4">
-                            <ui:Button Content="Refresh" Icon="{ui:SymbolIcon ArrowSync24}" Command="{Binding RefreshCommand}" Style="{StaticResource ToolButton}"
+                            <Button Style="{StaticResource ToolButton}" mk:Mk.Icon="arrow_sync" Content="Refresh" Command="{Binding RefreshCommand}"
                                        ToolTip="Reads the templates, the audit log check and the connection again." AutomationProperties.Name="Refresh options"
                                        AutomationProperties.AutomationId="btnOptionsRefresh" />
-                            <ui:Button Content="Cancel" Icon="{ui:SymbolIcon Dismiss24}" Command="{Binding CancelLoadCommand}" Style="{StaticResource ToolButton}"
+                            <Button Style="{StaticResource ToolButton}" mk:Mk.Icon="dismiss" Content="Cancel" Command="{Binding CancelLoadCommand}"
                                        ToolTip="Stops the read of the options." AutomationProperties.Name="Cancel the read" AutomationProperties.AutomationId="btnOptionsCancel" />
                         </WrapPanel>
-                        <Border Style="{StaticResource Card}" Margin="0,0,0,12" AutomationProperties.AutomationId="pnlAuditLog">
+                        <Border Style="{StaticResource Card}" AutomationProperties.AutomationId="pnlAuditLog">
                             <StackPanel>
                                 <TextBlock Text="Audit log" Style="{StaticResource CardTitle}" />
                                 <TextBlock Text="Every create, distribution and removal writes one record. A deployment is created only when the audit log can be written. Leave the path empty for the default under the data root; a share path is allowed."
@@ -588,11 +609,11 @@
                                         <ColumnDefinition Width="Auto" />
                                         <ColumnDefinition Width="Auto" />
                                     </Grid.ColumnDefinitions>
-                                    <ui:TextBox Grid.Column="0" Text="{Binding AuditLogPath, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="Default under the data root"
+                                    <TextBox Grid.Column="0" Text="{Binding AuditLogPath, UpdateSourceTrigger=PropertyChanged}" mk:Mk.Placeholder="Default under the data root"
                                                 AutomationProperties.Name="Audit log path" ToolTip="Enter the path of the audit log file. Leave it empty for the default under the data root." AutomationProperties.AutomationId="txtAuditLogPath" />
-                                    <ui:Button Grid.Column="1" Content="Save path" Icon="{ui:SymbolIcon Save24}" Command="{Binding SavePathCommand}" Margin="8,0,0,0"
+                                    <Button Style="{StaticResource Mk.Button}" mk:Mk.Icon="save" Grid.Column="1" Content="Save path" Command="{Binding SavePathCommand}" Margin="8,0,0,0"
                                                ToolTip="Saves the audit log path after the page checks it." AutomationProperties.AutomationId="btnSaveAuditPath" />
-                                    <ui:Button Grid.Column="2" Content="Check" Icon="{ui:SymbolIcon CheckmarkCircle24}" Command="{Binding CheckLogCommand}" Margin="8,0,0,0"
+                                    <Button Style="{StaticResource Mk.Button}" mk:Mk.Icon="checkmark_circle" Grid.Column="2" Content="Check" Command="{Binding CheckLogCommand}" Margin="8,0,0,0"
                                                ToolTip="Checks that the audit log can be written now." AutomationProperties.AutomationId="btnCheckAuditLog" />
                                 </Grid>
                                 <TextBlock Style="{StaticResource Note}" Margin="0,8,0,0" TextWrapping="Wrap" AutomationProperties.AutomationId="txtAuditLogInUse">
@@ -604,7 +625,7 @@
                             </StackPanel>
                         </Border>
 
-                        <Border Style="{StaticResource Card}" Margin="0,0,0,12" DataContext="{Binding RingFolders}" AutomationProperties.AutomationId="pnlRingFolders">
+                        <Border Style="{StaticResource Card}" DataContext="{Binding RingFolders}" AutomationProperties.AutomationId="pnlRingFolders">
                             <StackPanel>
                                 <TextBlock Text="Ring folders" Style="{StaticResource CardTitle}" />
                                 <TextBlock Text="The rings folder holds the plan files; the runs folder holds one file for each run and the lock files. Leave a path empty for the default under the data root. A share path lets sessions on several computers share the runs and their locks."
@@ -619,16 +640,16 @@
                                         <RowDefinition Height="Auto" />
                                     </Grid.RowDefinitions>
                                     <TextBlock Grid.Row="0" Grid.Column="0" Text="Rings folder" Style="{StaticResource FieldLabel}" VerticalAlignment="Center" Margin="0,0,12,8" />
-                                    <ui:TextBox Grid.Row="0" Grid.Column="1" Text="{Binding RingsFolder, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="Default under the data root"
+                                    <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding RingsFolder, UpdateSourceTrigger=PropertyChanged}" mk:Mk.Placeholder="Default under the data root"
                                                 Margin="0,0,0,8" AutomationProperties.Name="Rings folder" ToolTip="Enter the path of the folder that holds the ring plan files. Leave it empty for the default under the data root." AutomationProperties.AutomationId="txtRingsFolder" />
                                     <TextBlock Grid.Row="1" Grid.Column="0" Text="Runs folder" Style="{StaticResource FieldLabel}" VerticalAlignment="Center" Margin="0,0,12,8" />
-                                    <ui:TextBox Grid.Row="1" Grid.Column="1" Text="{Binding RunsFolder, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="Default under the rings folder"
+                                    <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding RunsFolder, UpdateSourceTrigger=PropertyChanged}" mk:Mk.Placeholder="Default under the rings folder"
                                                 Margin="0,0,0,8" AutomationProperties.Name="Runs folder" ToolTip="Enter the path of the folder that holds the run files and the lock files. Leave it empty for the default under the rings folder." AutomationProperties.AutomationId="txtRunsFolder" />
                                 </Grid>
                                 <WrapPanel>
-                                    <ui:Button Content="Save paths" Icon="{ui:SymbolIcon Save24}" Command="{Binding SaveFoldersCommand}" Style="{StaticResource ToolButton}"
+                                    <Button Style="{StaticResource ToolButton}" mk:Mk.Icon="save" Content="Save paths" Command="{Binding SaveFoldersCommand}"
                                                AutomationProperties.Name="Save the ring folders" ToolTip="Saves the rings folder and the runs folder paths." AutomationProperties.AutomationId="btnSaveRingFolders" />
-                                    <ui:Button Content="Check" Icon="{ui:SymbolIcon CheckmarkCircle24}" Command="{Binding CheckFoldersCommand}" Style="{StaticResource ToolButton}"
+                                    <Button Style="{StaticResource ToolButton}" mk:Mk.Icon="checkmark_circle" Content="Check" Command="{Binding CheckFoldersCommand}"
                                                ToolTip="Checks that the folders can be written and that a lock file can be made in the runs folder."
                                                AutomationProperties.Name="Check the ring folders" AutomationProperties.AutomationId="btnCheckRingFolders" />
                                 </WrapPanel>
@@ -644,17 +665,17 @@
                             </StackPanel>
                         </Border>
 
-                        <Border Style="{StaticResource Card}" Margin="0,0,0,12" AutomationProperties.AutomationId="pnlTemplates">
+                        <Border Style="{StaticResource Card}" AutomationProperties.AutomationId="pnlTemplates">
                             <StackPanel>
                                 <TextBlock Text="Templates" Style="{StaticResource CardTitle}" />
                                 <TextBlock Text="A template keeps the purpose, notification, time basis, options and deadline offset. It keeps no object or collection. Shipped templates cannot be changed."
                                            Style="{StaticResource Note}" Margin="0,0,0,8" />
                                 <WrapPanel>
-                                    <ui:Button Content="New" Icon="{ui:SymbolIcon Add24}" Command="{Binding NewTemplateCommand}" Style="{StaticResource ToolButton}"
+                                    <Button Style="{StaticResource ToolButton}" mk:Mk.Icon="add" Content="New" Command="{Binding NewTemplateCommand}"
                                                AutomationProperties.Name="New template" ToolTip="Opens the template editor to create a deployment template." AutomationProperties.AutomationId="btnNewTemplate" />
-                                    <ui:Button Content="Edit" Icon="{ui:SymbolIcon Edit24}" Command="{Binding EditTemplateCommand}" Style="{StaticResource ToolButton}"
+                                    <Button Style="{StaticResource ToolButton}" Content="Edit" Command="{Binding EditTemplateCommand}"
                                                AutomationProperties.Name="Edit template" ToolTip="Opens the selected deployment template in the template editor. Shipped templates cannot be changed." AutomationProperties.AutomationId="btnEditTemplate" />
-                                    <ui:Button Content="Delete" Icon="{ui:SymbolIcon Delete24}" Command="{Binding DeleteTemplateCommand}" Style="{StaticResource ToolButton}"
+                                    <Button Style="{StaticResource ToolButton}" Content="Delete" Command="{Binding DeleteTemplateCommand}"
                                                AutomationProperties.Name="Delete template" ToolTip="Deletes the selected deployment template after you confirm. Shipped templates cannot be deleted." AutomationProperties.AutomationId="btnDeleteTemplate" />
                                     <TextBlock Text="{Binding TemplateMessage}" Style="{StaticResource Note}" VerticalAlignment="Center" Margin="0,0,0,8" MaxWidth="520"
                                                AutomationProperties.AutomationId="txtOptionsTemplateMessage" />
@@ -672,7 +693,7 @@
                             </StackPanel>
                         </Border>
 
-                        <Border Style="{StaticResource Card}" AutomationProperties.AutomationId="pnlConnection">
+                        <Border Style="{StaticResource Card}" Margin="0" AutomationProperties.AutomationId="pnlConnection">
                             <StackPanel>
                                 <TextBlock Text="Connection" Style="{StaticResource CardTitle}" />
                                 <TextBlock Text="{Binding ConnectionText}" Style="{StaticResource Note}" AutomationProperties.AutomationId="txtConnection" />
@@ -683,7 +704,7 @@
             </TabItem>
         </TabControl>
 
-        <Border Grid.Row="3" x:Name="pnlDeploymentResults" Margin="0,12,0,0" Style="{StaticResource Card}" Visibility="{Binding ShowsResultPanel, Converter={StaticResource BoolToVisibility}}"
+        <Border Grid.Row="3" x:Name="pnlDeploymentResults" Margin="0,14,0,0" Style="{StaticResource Mk.Panel}" Padding="12" Visibility="{Binding ShowsResultPanel, Converter={StaticResource BoolToVisibility}}"
                 AutomationProperties.AutomationId="pnlDeploymentResults">
             <Grid>
                 <Grid.RowDefinitions>
@@ -692,7 +713,7 @@
                     <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
                 <DockPanel Grid.Row="0" Margin="0,0,0,8">
-                    <ui:Button DockPanel.Dock="Right" Content="Undo last change" Icon="{ui:SymbolIcon ArrowUndo24}" Command="{Binding Shared.UndoLastCommand}"
+                    <Button Style="{StaticResource Mk.Button}" DockPanel.Dock="Right" Content="Undo last change" Command="{Binding Shared.UndoLastCommand}"
                                AutomationProperties.AutomationId="btnDeploymentUndo" ToolTip="Shows a plan that removes the deployments of the last change."
                                Visibility="{Binding Shared.HasUndo, Converter={StaticResource BoolToVisibility}}" />
                     <CheckBox DockPanel.Dock="Right" Content="Rows" IsChecked="{Binding Shared.ShowResultRows}" Margin="12,0,12,0" VerticalAlignment="Center"
@@ -718,7 +739,21 @@
             </Grid>
         </Border>
 
-        <DockPanel Grid.Row="4" Margin="0,8,0,0">
+        <DockPanel Grid.Row="4">
+            <DockPanel.Style>
+                <Style TargetType="DockPanel">
+                    <Setter Property="Margin" Value="0,8,0,0" />
+                    <Style.Triggers>
+                        <MultiDataTrigger>
+                            <MultiDataTrigger.Conditions>
+                                <Condition Binding="{Binding Shared.StatusMessage}" Value="" />
+                                <Condition Binding="{Binding CurrentTab.IsLoading}" Value="False" />
+                            </MultiDataTrigger.Conditions>
+                            <Setter Property="Visibility" Value="Collapsed" />
+                        </MultiDataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </DockPanel.Style>
             <ui:ProgressRing DockPanel.Dock="Left" IsIndeterminate="True" Width="16" Height="16" Margin="0,0,8,0"
                              Visibility="{Binding CurrentTab.IsLoading, Converter={StaticResource BoolToVisibility}}" />
             <TextBlock Text="{Binding Shared.StatusMessage}" Style="{StaticResource Note}" VerticalAlignment="Center"

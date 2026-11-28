@@ -5,377 +5,373 @@
     xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
     xmlns:helpers="clr-namespace:ApplicationPackagerUI.Helpers"
     xmlns:controls="clr-namespace:ApplicationPackagerUI.Controls"
-    Margin="24,8,24,16"
+    xmlns:mk="clr-namespace:ApplicationPackagerUI.Controls.Mock"
+    FontFamily="Segoe UI"
+    FontSize="14"
+    TextOptions.TextFormattingMode="Ideal"
     ScrollViewer.CanContentScroll="False">
 
     <Page.Resources>
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
                 <ResourceDictionary Source="/ApplicationPackagerUI;component/Views/Styles/AddFlow.xaml" />
+                <ResourceDictionary Source="/ApplicationPackagerUI;component/Views/Styles/Mock.WebDeploy.xaml" />
             </ResourceDictionary.MergedDictionaries>
             <helpers:StepVisibilityConverter x:Key="StepVisibilityConverter" />
             <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
-            <Style x:Key="FieldLabel" TargetType="TextBlock">
-                <Setter Property="Margin" Value="0,0,0,4" />
-                <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
-            </Style>
-            <Style x:Key="WizardField" TargetType="ui:TextBox" BasedOn="{StaticResource {x:Type ui:TextBox}}">
-                <Setter Property="Margin" Value="0,0,0,12" />
+
+            <!-- .field > span, then 5 px to the box; .field has 18 px under it (the gap of the section). -->
+            <Style x:Key="WizardField" TargetType="TextBox" BasedOn="{StaticResource Mk.TextBox}">
+                <Setter Property="Height" Value="34" />
                 <Setter Property="AutomationProperties.HelpText" Value="{Binding ToolTip, RelativeSource={RelativeSource Self}, Converter={x:Static helpers:ToolTipTextConverter.Instance}}" />
             </Style>
-            <Style x:Key="WizardCombo" TargetType="ComboBox" BasedOn="{StaticResource {x:Type ComboBox}}">
-                <Setter Property="Margin" Value="0,0,0,12" />
+            <Style x:Key="WizardCombo" TargetType="ComboBox" BasedOn="{StaticResource Mk.ComboBox}">
+                <Setter Property="Height" Value="35" />
                 <Setter Property="HorizontalAlignment" Value="Stretch" />
                 <Setter Property="AutomationProperties.HelpText" Value="{Binding ToolTip, RelativeSource={RelativeSource Self}, Converter={x:Static helpers:ToolTipTextConverter.Instance}}" />
             </Style>
-            <Style x:Key="FieldMarker" TargetType="TextBlock" BasedOn="{StaticResource AddNote}">
-                <Setter Property="Margin" Value="8,0,0,12" />
-                <Setter Property="VerticalAlignment" Value="Center" />
+            <Style x:Key="Field" TargetType="StackPanel">
+                <Setter Property="Margin" Value="0,18,0,0" />
             </Style>
+            <Style x:Key="FieldMarker" TargetType="TextBlock" BasedOn="{StaticResource Mk.Help}">
+                <Setter Property="Margin" Value="8,24,0,0" />
+                <Setter Property="VerticalAlignment" Value="Center" />
+                <Style.Triggers>
+                    <Trigger Property="Text" Value="">
+                        <Setter Property="Visibility" Value="Collapsed" />
+                    </Trigger>
+                </Style.Triggers>
+            </Style>
+            <!-- .kv: the h2 of a step and its help line, 4 px apart. -->
+            <Style x:Key="StepHelp" TargetType="TextBlock" BasedOn="{StaticResource Mk.Help}">
+                <Setter Property="Margin" Value="0,5,0,-1" />
+            </Style>
+
+            <!-- A proposed value of the analysis: the check box that accepts it, the label, the value and the evidence marker. -->
+            <DataTemplate x:Key="WebProposalRow">
+                <Grid Margin="0,0,0,8">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" SharedSizeGroup="ProposalAccept" />
+                        <ColumnDefinition Width="Auto" SharedSizeGroup="ProposalLabel" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" SharedSizeGroup="ProposalMarker" />
+                    </Grid.ColumnDefinitions>
+                    <CheckBox Grid.Column="0" IsChecked="{Binding IsAccepted}" Margin="0,0,8,0" VerticalAlignment="Center"
+                              ToolTip="Copies this value into the wizard fields." AutomationProperties.Name="{Binding Label, StringFormat=Accept {0}}" />
+                    <TextBlock Grid.Column="1" Text="{Binding Label}" Style="{StaticResource Mk.FieldName}" VerticalAlignment="Center" Margin="0,0,12,0" />
+                    <TextBox Grid.Column="2" Text="{Binding Value, UpdateSourceTrigger=PropertyChanged}" IsReadOnly="{Binding IsReadOnly}" ToolTip="The proposed value. Edit it before you use it."
+                             Visibility="{Binding IsText, Converter={StaticResource AddBoolToVisibility}}"
+                             AutomationProperties.Name="{Binding Label}" AutomationProperties.AutomationId="{Binding AutomationId}" />
+                    <ComboBox Grid.Column="2" ItemsSource="{Binding Options}" SelectedItem="{Binding Value}" ToolTip="The proposed value. Select another one before you use it."
+                              Visibility="{Binding IsChoice, Converter={StaticResource AddBoolToVisibility}}"
+                              AutomationProperties.Name="{Binding Label}" AutomationProperties.AutomationId="{Binding AutomationId}" />
+                    <Border Grid.Column="3" Style="{StaticResource EvidenceChip}" Margin="8,0,0,0" ToolTip="{Binding MarkerToolTip}"
+                            AutomationProperties.Name="{Binding MarkerAutomationName}">
+                        <TextBlock Text="{Binding MarkerText}" Style="{StaticResource EvidenceChipText}" />
+                    </Border>
+                </Grid>
+            </DataTemplate>
         </ResourceDictionary>
     </Page.Resources>
 
-    <Grid>
+    <!-- .workspace { padding:0 24px 16px; gap:14px } -->
+    <Grid Margin="24,0,24,16">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
-        <controls:PageHeader Grid.Row="0" Title="Add from web" Icon="Globe24" TitleAutomationId="txtAddWebHeader" DescriptionAutomationId="txtAddWebStep">
-            <controls:PageHeader.Style>
-                <Style TargetType="controls:PageHeader">
-                    <Setter Property="Description" Value="{Binding StepTitle}" />
-                    <Style.Triggers>
-                        <DataTrigger Binding="{Binding IsWizardVisible}" Value="False">
-                            <Setter Property="Description" Value="" />
-                        </DataTrigger>
-                    </Style.Triggers>
-                </Style>
-            </controls:PageHeader.Style>
-        </controls:PageHeader>
+        <controls:PageHeader Grid.Row="0" Title="Add from web" Eyebrow="Applications" Compact="True" TitleAutomationId="txtAddWebHeader" />
 
-        <!-- The step list, then the form with a maximum width of 840. The buttons stay under the form. -->
+        <!-- .split { grid-template-columns: 245px 1fr; gap:16px }: the step list, then the form with a maximum width of 840. -->
         <Grid Grid.Row="1" x:Name="gridWizard" Visibility="{Binding IsWizardVisible, Converter={StaticResource BooleanToVisibilityConverter}}">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="220" />
+                <ColumnDefinition Width="245" />
                 <ColumnDefinition Width="16" />
                 <ColumnDefinition Width="1000*" MaxWidth="840" />
                 <!-- Takes the width that the form leaves. Without it the columns do not fill the grid, and layout rounding then adds a pixel
                      to each of them, so the form would be 841 wide. -->
                 <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
-            <Grid.RowDefinitions>
-                <RowDefinition Height="*" />
-                <RowDefinition Height="Auto" />
-            </Grid.RowDefinitions>
 
-        <controls:StepList Grid.Column="0" Grid.RowSpan="2" VerticalAlignment="Top" AutomationProperties.AutomationId="lstAddWebSteps" />
+            <controls:StepList Grid.Column="0" VerticalAlignment="Top" AutomationProperties.AutomationId="lstAddWebSteps" />
 
-        <ScrollViewer Grid.Column="2" VerticalScrollBarVisibility="Auto" Focusable="False"
-                      AutomationProperties.AutomationId="scrollAddWeb">
-            <Grid Margin="0,0,12,0">
-                <StackPanel Visibility="{Binding CurrentStep, Converter={StaticResource StepVisibilityConverter}, ConverterParameter=1}">
-                    <Border Style="{StaticResource AddCard}" Padding="12" Margin="0,0,0,8">
-                        <StackPanel>
-                        <StackPanel Orientation="Horizontal" Margin="8,0,0,4">
-                            <ui:SymbolIcon Symbol="Info24" FontSize="20" VerticalAlignment="Center" Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
-                            <TextBlock Text="Basic information" Style="{StaticResource AddHeading}" Margin="8,0,0,0" VerticalAlignment="Center" />
-                        </StackPanel>
-                        <StackPanel Margin="8">
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="16" />
-                                    <ColumnDefinition Width="*" />
-                                </Grid.ColumnDefinitions>
-                                <StackPanel Grid.Column="0">
-                                    <TextBlock Text="Vendor" Style="{StaticResource FieldLabel}" />
-                                    <ui:TextBox Text="{Binding Vendor, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource WizardField}"
-                                                PlaceholderText="For example Mozilla, Google or Microsoft"
-                                                ToolTip="The publisher of the application. Used for the folder of the content share and the Publisher field of the ConfigMgr application."
-                                                AutomationProperties.Name="Vendor" AutomationProperties.AutomationId="txtAddWebVendor" />
-                                </StackPanel>
-                                <StackPanel Grid.Column="2">
-                                    <TextBlock Text="Application name" Style="{StaticResource FieldLabel}" />
-                                    <ui:TextBox Text="{Binding ApplicationName, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource WizardField}"
-                                                PlaceholderText="For example Mozilla Firefox (x64)"
-                                                ToolTip="The full application name with the bitness. The App Packager shows this name, and the file names use it."
-                                                AutomationProperties.Name="Application name" AutomationProperties.AutomationId="txtAddWebName" />
-                                </StackPanel>
-                            </Grid>
-                            <TextBlock Text="ConfigMgr display name (optional)" Style="{StaticResource FieldLabel}" />
-                            <ui:TextBox Text="{Binding CmName, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource WizardField}" Margin="0,0,0,4"
-                                        PlaceholderText="Empty: the application name"
-                                        ToolTip="The name in the ConfigMgr console and Software Center. Empty uses the application name."
-                                        AutomationProperties.Name="ConfigMgr display name" AutomationProperties.AutomationId="txtAddWebCmName" />
-                            <TextBlock Text="Leave this field empty to use the application name in ConfigMgr." Style="{StaticResource AddNote}" Margin="0,0,0,12" />
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="16" />
-                                    <ColumnDefinition Width="*" />
-                                </Grid.ColumnDefinitions>
-                                <StackPanel Grid.Column="0">
-                                    <TextBlock Text="Architecture" Style="{StaticResource FieldLabel}" />
-                                    <ComboBox ItemsSource="{Binding ArchitectureOptions}" SelectedItem="{Binding Architecture}" Style="{StaticResource WizardCombo}"
-                                              ToolTip="The target architecture. It selects the installer variant to download."
-                                              AutomationProperties.Name="Architecture" AutomationProperties.AutomationId="cboAddWebArchitecture" />
-                                </StackPanel>
-                                <StackPanel Grid.Column="2">
-                                    <TextBlock Text="Vendor URL" Style="{StaticResource FieldLabel}" />
-                                    <ui:TextBox Text="{Binding VendorUrl, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource WizardField}"
-                                                PlaceholderText="https://www.example.com"
-                                                ToolTip="The website of the vendor. For reference only. The scraper does not use it."
-                                                AutomationProperties.Name="Vendor URL" AutomationProperties.AutomationId="txtAddWebVendorUrl" />
-                                </StackPanel>
-                            </Grid>
-                        </StackPanel>
-                    </StackPanel>
+            <!-- .panel.block { padding:20px; gap:18px }: the step, then the foot with Back and Next. -->
+            <Border Grid.Column="2" Style="{StaticResource Mk.Panel}" Padding="20" VerticalAlignment="Top">
+                <DockPanel>
+                    <Border DockPanel.Dock="Bottom" Margin="0,18,0,0" Padding="0,10,0,0" BorderThickness="0,1,0,0" BorderBrush="{DynamicResource MkLineBrush}">
+                        <DockPanel LastChildFill="True" Height="32" UseLayoutRounding="False">
+                            <Button DockPanel.Dock="Left" Style="{StaticResource Mk.Button}" mk:Mk.Icon="arrow_left" Content="Back" VerticalAlignment="Top"
+                                    Command="{Binding PreviousStepCommand}" IsEnabled="{Binding CanGoBack}"
+                                    AutomationProperties.AutomationId="btnAddWebBack" ToolTip="Go back to the previous step." />
+                            <ui:SplitButton x:Name="SaveSplit" DockPanel.Dock="Right" Style="{StaticResource WD.SplitButton}" Content="Save Definition"
+                                            Command="{Binding SaveDefinitionCommand}" IsDefault="{Binding CanSave}"
+                                            Visibility="{Binding CanSave, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                            ToolTip="Saves the definition. The arrow opens Save and open in Workbench."
+                                            AutomationProperties.Name="Save Definition" AutomationProperties.AutomationId="btnAddWebSave">
+                                <ui:SplitButton.Flyout>
+                                    <ContextMenu>
+                                        <MenuItem Header="Save and open in Workbench" Click="SaveAndOpenWorkbench_Click"
+                                                  AutomationProperties.AutomationId="mnuAddWebSaveAndOpen" />
+                                    </ContextMenu>
+                                </ui:SplitButton.Flyout>
+                            </ui:SplitButton>
+                            <Button DockPanel.Dock="Right" Style="{StaticResource Mk.Button.Primary}" mk:Mk.Icon="arrow_right" Content="{Binding NextText}"
+                                    Command="{Binding NextStepCommand}" IsEnabled="{Binding CanGoNext}" IsDefault="{Binding CanGoNext}"
+                                    Visibility="{Binding CanGoNext, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                    AutomationProperties.AutomationId="btnAddWebNext" ToolTip="Go to the next step." />
+                            <TextBlock Text="{Binding StatusText}" Style="{StaticResource Mk.Muted}" VerticalAlignment="Center" Margin="8,0,8,0"
+                                       TextTrimming="CharacterEllipsis" ToolTip="{Binding StatusText}" AutomationProperties.AutomationId="txtAddWebStatus" />
+                        </DockPanel>
                     </Border>
-                </StackPanel>
 
-                <StackPanel Visibility="{Binding CurrentStep, Converter={StaticResource StepVisibilityConverter}, ConverterParameter=2}">
-                    <Border Style="{StaticResource AddCard}" Padding="12" Margin="0,0,0,8">
-                        <StackPanel>
-                        <StackPanel Orientation="Horizontal" Margin="8,0,0,4">
-                            <ui:SymbolIcon Symbol="Search24" FontSize="20" VerticalAlignment="Center" Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
-                            <TextBlock Text="Version source" Style="{StaticResource AddHeading}" Margin="8,0,0,0" VerticalAlignment="Center" />
-                        </StackPanel>
-                        <StackPanel Margin="8">
-                            <TextBlock Text="Scraper type" Style="{StaticResource FieldLabel}" />
-                            <ComboBox ItemsSource="{Binding ScraperTypeOptions}" SelectedItem="{Binding ScraperType}" Style="{StaticResource WizardCombo}"
-                                      ToolTip="HttpRegex reads a web page with a regular expression. JsonQuery reads a JSON API. FileVersion downloads the installer and reads its version."
-                                      AutomationProperties.Name="Scraper type" AutomationProperties.AutomationId="cboAddWebScraperType" />
-                            <TextBlock Text="Scraper URL" Style="{StaticResource FieldLabel}" />
-                            <ui:TextBox Text="{Binding ScraperUrl, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource WizardField}"
-                                        PlaceholderText="https://api.github.com/repos/owner/repo/releases/latest"
-                                        ToolTip="The URL that the scraper reads. HttpRegex: any page. JsonQuery: a JSON API endpoint."
-                                        AutomationProperties.Name="Scraper URL" AutomationProperties.AutomationId="txtAddWebScraperUrl" />
-                            <TextBlock Text="Pattern" Style="{StaticResource FieldLabel}" />
-                            <ui:TextBox Text="{Binding ScraperPattern, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource WizardField}"
-                                        PlaceholderText="HttpRegex: a regular expression with a capture group. JsonQuery: a path expression."
-                                        ToolTip="HttpRegex: a regular expression with one capture group for the version. JsonQuery: a JSON path, for example tag_name."
-                                        AutomationProperties.Name="Pattern" AutomationProperties.AutomationId="txtAddWebPattern" />
-                            <TextBlock Text="Version transform (optional)" Style="{StaticResource FieldLabel}" />
-                            <ui:TextBox Text="{Binding VersionTransform, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource WizardField}"
-                                        PlaceholderText="For example strip_prefix:v, insert_dot:2 or replace:+:-"
-                                        ToolTip="A transform after the capture. Join transforms with |. Options: strip_prefix:X, insert_dot:N, replace:X:Y, regex_replace:pattern:replacement."
-                                        AutomationProperties.Name="Version transform" AutomationProperties.AutomationId="txtAddWebTransform" />
-                            <DockPanel>
-                                <ui:Button DockPanel.Dock="Right" Content="Test Scrape" Appearance="Primary"
-                                           Command="{Binding TestScrapeCommand}" Margin="8,0,0,0"
-                                           ToolTip="Runs the scraper and shows the version it reads."
-                                           AutomationProperties.AutomationId="btnAddWebTestScrape" />
-                                <ui:TextBox Text="{Binding TestVersionResult, Mode=OneWay}" IsReadOnly="True"
-                                            PlaceholderText="Select Test Scrape to read the version"
-                                            AutomationProperties.Name="Scrape result" AutomationProperties.AutomationId="txtAddWebScrapeResult" />
-                            </DockPanel>
-                        </StackPanel>
-                    </StackPanel>
-                    </Border>
-                </StackPanel>
-
-                <StackPanel Visibility="{Binding CurrentStep, Converter={StaticResource StepVisibilityConverter}, ConverterParameter=3}">
-                    <Border Style="{StaticResource AddCard}" Padding="12" Margin="0,0,0,8">
-                        <StackPanel>
-                        <StackPanel Orientation="Horizontal" Margin="8,0,0,4">
-                            <ui:SymbolIcon Symbol="ArrowDownload24" FontSize="20" VerticalAlignment="Center" Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
-                            <TextBlock Text="Download configuration" Style="{StaticResource AddHeading}" Margin="8,0,0,0" VerticalAlignment="Center" />
-                        </StackPanel>
-                        <StackPanel Margin="8">
-                            <TextBlock Text="Download URL template" Style="{StaticResource FieldLabel}" />
-                            <ui:TextBox Text="{Binding DownloadUrl, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource WizardField}"
-                                        PlaceholderText="https://example.com/download/app-{version}-x64.msi"
-                                        ToolTip="The URL template of the installer download. {version} is the raw version and {display_version} is the transformed version."
-                                        AutomationProperties.Name="Download URL template" AutomationProperties.AutomationId="txtAddWebDownloadUrl" />
-                            <TextBlock Text="Installer file name (optional)" Style="{StaticResource FieldLabel}" />
-                            <ui:TextBox Text="{Binding InstallerFileName, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource WizardField}"
-                                        PlaceholderText="Empty: the file name in the URL"
-                                        ToolTip="The file name to use when the download URL has none, for example a redirect link. {version} is allowed."
-                                        AutomationProperties.Name="Installer file name" AutomationProperties.AutomationId="txtAddWebFileName" />
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="16" />
-                                    <ColumnDefinition Width="*" />
-                                </Grid.ColumnDefinitions>
-                                <StackPanel Grid.Column="0">
-                                    <TextBlock Text="Installer type" Style="{StaticResource FieldLabel}" />
-                                    <ComboBox ItemsSource="{Binding InstallerTypeOptions}" SelectedItem="{Binding InstallerType}" Style="{StaticResource WizardCombo}"
-                                              ToolTip="MSI: Windows Installer. EXE: an installer program. ZIP: an archive to extract. MSIX: a Windows app package."
-                                              AutomationProperties.Name="Installer type" AutomationProperties.AutomationId="cboAddWebInstallerType" />
+                    <ScrollViewer x:Name="scrollForm" VerticalScrollBarVisibility="Auto" Focusable="False" AutomationProperties.AutomationId="scrollAddWeb">
+                        <Grid>
+                            <StackPanel Visibility="{Binding CurrentStep, Converter={StaticResource StepVisibilityConverter}, ConverterParameter=1}">
+                                <mk:TrackedText Text="Basic information" FontSize="19" Tracking="-0.15" Height="26" Foreground="{DynamicResource MkTextBrush}"
+                                                AutomationProperties.HeadingLevel="Level2" />
+                                <TextBlock Text="Enter the application details and the vendor page that provides the installer." Style="{StaticResource StepHelp}" />
+                                <Grid Margin="0,18,0,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="14" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0">
+                                        <TextBlock Text="Vendor" Style="{StaticResource FieldLabel}" />
+                                        <TextBox Text="{Binding Vendor, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource WizardField}"
+                                                 mk:Mk.Placeholder="For example, Mozilla"
+                                                 ToolTip="The publisher of the application. Used for the folder of the content share and the Publisher field of the ConfigMgr application."
+                                                 AutomationProperties.Name="Vendor" AutomationProperties.AutomationId="txtAddWebVendor" />
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="2">
+                                        <TextBlock Text="Application name" Style="{StaticResource FieldLabel}" />
+                                        <TextBox Text="{Binding ApplicationName, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource WizardField}"
+                                                 mk:Mk.Placeholder="For example, Mozilla Firefox (x64)"
+                                                 ToolTip="The full application name with the bitness. The App Packager shows this name, and the file names use it."
+                                                 AutomationProperties.Name="Application name" AutomationProperties.AutomationId="txtAddWebName" />
+                                    </StackPanel>
+                                </Grid>
+                                <StackPanel Style="{StaticResource Field}">
+                                    <TextBlock Text="ConfigMgr display name (optional)" Style="{StaticResource FieldLabel}" />
+                                    <TextBox Text="{Binding CmName, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource WizardField}"
+                                             mk:Mk.Placeholder="Use the application name"
+                                             ToolTip="The name in the ConfigMgr console and Software Center. Empty uses the application name."
+                                             AutomationProperties.Name="ConfigMgr display name" AutomationProperties.AutomationId="txtAddWebCmName" />
+                                    <TextBlock Text="Leave this field empty to use the application name in ConfigMgr." Style="{StaticResource Mk.Help}" LineHeight="16" Margin="0,5,0,0" />
                                 </StackPanel>
-                                <StackPanel Grid.Column="2">
-                                    <TextBlock Text="Installer framework" Style="{StaticResource FieldLabel}" />
-                                    <ui:TextBox Text="{Binding InstallerFramework, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource WizardField}"
-                                                PlaceholderText="Empty: found by the analysis or at stage"
-                                                ToolTip="NativeMSI, NSIS, InnoSetup, WixBurn, InstallShield, Squirrel, Velopack, MSIX or ZIP. The analysis on step 4 proposes it."
-                                                AutomationProperties.Name="Installer framework" AutomationProperties.AutomationId="txtAddWebFramework" />
-                                </StackPanel>
-                            </Grid>
-                        </StackPanel>
-                    </StackPanel>
-                    </Border>
-                </StackPanel>
-
-                <StackPanel Visibility="{Binding CurrentStep, Converter={StaticResource StepVisibilityConverter}, ConverterParameter=4}">
-                    <Border Style="{StaticResource AddCard}" Padding="12" Margin="0,0,0,8">
-                        <StackPanel>
-                        <StackPanel Orientation="Horizontal" Margin="8,0,0,4">
-                            <ui:SymbolIcon Symbol="BoxSearch24" FontSize="20" VerticalAlignment="Center" Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
-                            <TextBlock Text="Installer analysis" Style="{StaticResource AddHeading}" Margin="8,0,0,0" VerticalAlignment="Center" />
-                        </StackPanel>
-                        <StackPanel Margin="8">
-                            <TextBlock Style="{StaticResource AddNote}" Margin="0,0,0,8"
-                                       Text="Downloads the installer one time to the download root and reads it. Nothing in the installer is started. This step is optional." />
-                            <WrapPanel Margin="0,0,0,8">
-                                <ui:Button Content="Download and analyze" Icon="{ui:SymbolIcon ArrowDownload24}" Appearance="Primary" Margin="0,0,8,8"
-                                           Command="{Binding AnalyzeCommand}"
-                                           ToolTip="Downloads the installer from the URL of step 3 and analyzes it."
-                                           AutomationProperties.AutomationId="btnAddWebAnalyze" />
-                                <ui:Button Content="Cancel" Icon="{ui:SymbolIcon Dismiss24}" Margin="0,0,8,8" Command="{Binding CancelAnalysisCommand}"
-                                           Visibility="{Binding IsBusy, Converter={StaticResource BooleanToVisibilityConverter}}"
-                                           ToolTip="Stops the download or the analysis." AutomationProperties.AutomationId="btnAddWebCancelAnalysis" />
-                            </WrapPanel>
-                            <ProgressBar IsIndeterminate="{Binding IsBusy}" Height="4" Margin="0,0,0,8"
-                                         Visibility="{Binding IsBusy, Converter={StaticResource BooleanToVisibilityConverter}}" AutomationProperties.Name="Analysis progress" />
-                            <TextBlock Text="{Binding AnalysisStatus}" Style="{StaticResource AddWarningText}" Margin="0,0,0,4" AutomationProperties.AutomationId="txtAddWebAnalysisStatus" />
-                            <TextBlock Text="{Binding AnalysisProgress}" Style="{StaticResource AddNote}" Margin="0,0,0,8" AutomationProperties.AutomationId="txtAddWebAnalysisProgress" />
-
-                            <StackPanel Visibility="{Binding HasAnalysis, Converter={StaticResource BooleanToVisibilityConverter}}" AutomationProperties.AutomationId="pnlAddWebProposals">
-                                <TextBlock Text="{Binding AnalyzedFile}" Style="{StaticResource AddNote}" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap"
-                                           ToolTip="{Binding AnalyzedFile}" Margin="0,0,0,8" />
-                                <Border Style="{StaticResource AddCaution}" Visibility="{Binding HasAnalysisWarning, Converter={StaticResource BooleanToVisibilityConverter}}">
-                                    <TextBlock Text="{Binding AnalysisWarning}" Style="{StaticResource AddWarningText}" AutomationProperties.AutomationId="txtAddWebAnalysisWarning" />
-                                </Border>
-                                <ItemsControl ItemsSource="{Binding AnalysisRows}" ItemTemplate="{StaticResource ProposalAcceptRowTemplate}" Grid.IsSharedSizeScope="True"
-                                              Focusable="False" AutomationProperties.Name="Proposed values" AutomationProperties.AutomationId="lstAddWebProposals" />
-                                <CheckBox IsChecked="{Binding AcceptDetection}" Margin="0,0,0,8" AutomationProperties.AutomationId="chkAddWebAcceptDetection"
-                                          AutomationProperties.Name="Use the proposed detection" ToolTip="Use the detection rule that the analysis proposed. Clear the check box to set the detection yourself.">
-                                    <TextBlock Text="{Binding ProposedDetectionText}" TextWrapping="Wrap" />
-                                </CheckBox>
-                                <ItemsControl ItemsSource="{Binding AnalysisNotes}" Focusable="False" Margin="0,0,0,8" AutomationProperties.Name="Notes">
-                                    <ItemsControl.ItemTemplate>
-                                        <DataTemplate>
-                                            <TextBlock Text="{Binding}" Style="{StaticResource AddNote}" Margin="0,0,0,4" />
-                                        </DataTemplate>
-                                    </ItemsControl.ItemTemplate>
-                                </ItemsControl>
-                                <ui:Button Content="Use selected values" Icon="{ui:SymbolIcon Checkmark24}" Command="{Binding AcceptProposalsCommand}"
-                                           ToolTip="Copies the selected values into steps 5 and 6." AutomationProperties.AutomationId="btnAddWebAccept" />
+                                <Grid Margin="0,18,0,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="180" />
+                                        <ColumnDefinition Width="14" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0">
+                                        <TextBlock Text="Architecture" Style="{StaticResource FieldLabel}" />
+                                        <ComboBox ItemsSource="{Binding ArchitectureOptions}" SelectedItem="{Binding Architecture}" Style="{StaticResource WizardCombo}" mk:Mk.IconDrop="-1"
+                                                  ToolTip="The target architecture. It selects the installer variant to download."
+                                                  AutomationProperties.Name="Architecture" AutomationProperties.AutomationId="cboAddWebArchitecture" />
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="2">
+                                        <TextBlock Text="Vendor URL" Style="{StaticResource FieldLabel}" />
+                                        <TextBox Text="{Binding VendorUrl, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource WizardField}"
+                                                 mk:Mk.Placeholder="https://www.example.com"
+                                                 ToolTip="The website of the vendor. For reference only. The scraper does not use it."
+                                                 AutomationProperties.Name="Vendor URL" AutomationProperties.AutomationId="txtAddWebVendorUrl" />
+                                    </StackPanel>
+                                </Grid>
                             </StackPanel>
-                        </StackPanel>
-                    </StackPanel>
-                    </Border>
-                </StackPanel>
 
-                <StackPanel Visibility="{Binding CurrentStep, Converter={StaticResource StepVisibilityConverter}, ConverterParameter=5}">
-                    <Border Style="{StaticResource AddCard}" Padding="12" Margin="0,0,0,8">
-                        <StackPanel>
-                        <StackPanel Orientation="Horizontal" Margin="8,0,0,4">
-                            <ui:SymbolIcon Symbol="WrenchScrewdriver24" FontSize="20" VerticalAlignment="Center" Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
-                            <TextBlock Text="Install and uninstall" Style="{StaticResource AddHeading}" Margin="8,0,0,0" VerticalAlignment="Center" />
-                        </StackPanel>
-                        <Grid Margin="8">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto" />
-                                <RowDefinition Height="Auto" />
-                                <RowDefinition Height="Auto" />
-                                <RowDefinition Height="Auto" />
-                                <RowDefinition Height="Auto" />
-                                <RowDefinition Height="Auto" />
-                            </Grid.RowDefinitions>
-                            <TextBlock Grid.Row="0" Text="Install arguments" Style="{StaticResource FieldLabel}" />
-                            <ui:TextBox Grid.Row="1" Text="{Binding InstallArgs, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource WizardField}"
-                                        PlaceholderText="/qn /norestart or /S or /VERYSILENT /NORESTART"
-                                        ToolTip="The silent install arguments. MSI: /qn /norestart. NSIS: /S. Inno Setup: /VERYSILENT /NORESTART /SP-."
-                                        AutomationProperties.Name="Install arguments" AutomationProperties.AutomationId="txtAddWebInstallArgs" />
-                            <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding InstallArgsMarker}" Style="{StaticResource FieldMarker}" AutomationProperties.AutomationId="txtAddWebInstallArgsMarker" />
-                            <TextBlock Grid.Row="2" Text="Uninstall arguments" Style="{StaticResource FieldLabel}" />
-                            <ui:TextBox Grid.Row="3" Text="{Binding UninstallArgs, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource WizardField}"
-                                        PlaceholderText="/x {ProductCode} /qn /norestart or /S"
-                                        ToolTip="The silent uninstall arguments. Use {ProductCode} for an MSI application."
-                                        AutomationProperties.Name="Uninstall arguments" AutomationProperties.AutomationId="txtAddWebUninstallArgs" />
-                            <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding UninstallArgsMarker}" Style="{StaticResource FieldMarker}" AutomationProperties.AutomationId="txtAddWebUninstallArgsMarker" />
-                            <TextBlock Grid.Row="4" Text="Install context" Style="{StaticResource FieldLabel}" />
-                            <ComboBox Grid.Row="5" ItemsSource="{Binding InstallContextOptions}" SelectedItem="{Binding InstallContext}" Style="{StaticResource WizardCombo}"
-                                      ToolTip="Machine installs for all users (Program Files, HKLM). User installs for one user (AppData, HKCU). It sets the deployment type behavior."
-                                      AutomationProperties.Name="Install context" AutomationProperties.AutomationId="cboAddWebInstallContext" />
-                            <TextBlock Grid.Row="5" Grid.Column="1" Text="{Binding InstallContextMarker}" Style="{StaticResource FieldMarker}" AutomationProperties.AutomationId="txtAddWebInstallContextMarker" />
+                            <StackPanel Visibility="{Binding CurrentStep, Converter={StaticResource StepVisibilityConverter}, ConverterParameter=2}">
+                                <mk:TrackedText Text="Version source" FontSize="19" Tracking="-0.15" Height="26" Foreground="{DynamicResource MkTextBrush}"
+                                                AutomationProperties.HeadingLevel="Level2" />
+                                <TextBlock Text="Say where the application reads the latest version." Style="{StaticResource StepHelp}" />
+                                <StackPanel Style="{StaticResource Field}">
+                                    <TextBlock Text="Scraper type" Style="{StaticResource FieldLabel}" />
+                                    <ComboBox ItemsSource="{Binding ScraperTypeOptions}" SelectedItem="{Binding ScraperType}" Style="{StaticResource WizardCombo}"
+                                              ToolTip="HttpRegex reads a web page with a regular expression. JsonQuery reads a JSON API. FileVersion downloads the installer and reads its version."
+                                              AutomationProperties.Name="Scraper type" AutomationProperties.AutomationId="cboAddWebScraperType" />
+                                </StackPanel>
+                                <StackPanel Style="{StaticResource Field}">
+                                    <TextBlock Text="Scraper URL" Style="{StaticResource FieldLabel}" />
+                                    <TextBox Text="{Binding ScraperUrl, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource WizardField}"
+                                             mk:Mk.Placeholder="https://api.github.com/repos/owner/repo/releases/latest"
+                                             ToolTip="The URL that the scraper reads. HttpRegex: any page. JsonQuery: a JSON API endpoint."
+                                             AutomationProperties.Name="Scraper URL" AutomationProperties.AutomationId="txtAddWebScraperUrl" />
+                                </StackPanel>
+                                <StackPanel Style="{StaticResource Field}">
+                                    <TextBlock Text="Pattern" Style="{StaticResource FieldLabel}" />
+                                    <TextBox Text="{Binding ScraperPattern, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource WizardField}"
+                                             mk:Mk.Placeholder="HttpRegex: a regular expression with a capture group. JsonQuery: a path expression."
+                                             ToolTip="HttpRegex: a regular expression with one capture group for the version. JsonQuery: a JSON path, for example tag_name."
+                                             AutomationProperties.Name="Pattern" AutomationProperties.AutomationId="txtAddWebPattern" />
+                                </StackPanel>
+                                <StackPanel Style="{StaticResource Field}">
+                                    <TextBlock Text="Version transform (optional)" Style="{StaticResource FieldLabel}" />
+                                    <TextBox Text="{Binding VersionTransform, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource WizardField}"
+                                             mk:Mk.Placeholder="For example strip_prefix:v, insert_dot:2 or replace:+:-"
+                                             ToolTip="A transform after the capture. Join transforms with |. Options: strip_prefix:X, insert_dot:N, replace:X:Y, regex_replace:pattern:replacement."
+                                             AutomationProperties.Name="Version transform" AutomationProperties.AutomationId="txtAddWebTransform" />
+                                </StackPanel>
+                                <DockPanel Margin="0,18,0,0">
+                                    <Button DockPanel.Dock="Right" Style="{StaticResource Mk.Button}" mk:Mk.Icon="play" Content="Test Scrape" Command="{Binding TestScrapeCommand}"
+                                            Margin="8,0,0,0" ToolTip="Runs the scraper and shows the version it reads."
+                                            AutomationProperties.AutomationId="btnAddWebTestScrape" />
+                                    <TextBox Text="{Binding TestVersionResult, Mode=OneWay}" IsReadOnly="True" Height="34"
+                                             mk:Mk.Placeholder="Select Test Scrape to read the version"
+                                             AutomationProperties.Name="Scrape result" AutomationProperties.AutomationId="txtAddWebScrapeResult" />
+                                </DockPanel>
+                            </StackPanel>
+
+                            <StackPanel Visibility="{Binding CurrentStep, Converter={StaticResource StepVisibilityConverter}, ConverterParameter=3}">
+                                <mk:TrackedText Text="Download configuration" FontSize="19" Tracking="-0.15" Height="26" Foreground="{DynamicResource MkTextBrush}"
+                                                AutomationProperties.HeadingLevel="Level2" />
+                                <TextBlock Text="Say where the installer is downloaded from and what kind of installer it is." Style="{StaticResource StepHelp}" />
+                                <StackPanel Style="{StaticResource Field}">
+                                    <TextBlock Text="Download URL template" Style="{StaticResource FieldLabel}" />
+                                    <TextBox Text="{Binding DownloadUrl, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource WizardField}"
+                                             mk:Mk.Placeholder="https://example.com/download/app-{version}-x64.msi"
+                                             ToolTip="The URL template of the installer download. {version} is the raw version and {display_version} is the transformed version."
+                                             AutomationProperties.Name="Download URL template" AutomationProperties.AutomationId="txtAddWebDownloadUrl" />
+                                </StackPanel>
+                                <StackPanel Style="{StaticResource Field}">
+                                    <TextBlock Text="Installer file name (optional)" Style="{StaticResource FieldLabel}" />
+                                    <TextBox Text="{Binding InstallerFileName, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource WizardField}"
+                                             mk:Mk.Placeholder="Empty: the file name in the URL"
+                                             ToolTip="The file name to use when the download URL has none, for example a redirect link. {version} is allowed."
+                                             AutomationProperties.Name="Installer file name" AutomationProperties.AutomationId="txtAddWebFileName" />
+                                </StackPanel>
+                                <Grid Margin="0,18,0,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="180" />
+                                        <ColumnDefinition Width="14" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0">
+                                        <TextBlock Text="Installer type" Style="{StaticResource FieldLabel}" />
+                                        <ComboBox ItemsSource="{Binding InstallerTypeOptions}" SelectedItem="{Binding InstallerType}" Style="{StaticResource WizardCombo}"
+                                                  ToolTip="MSI: Windows Installer. EXE: an installer program. ZIP: an archive to extract. MSIX: a Windows app package."
+                                                  AutomationProperties.Name="Installer type" AutomationProperties.AutomationId="cboAddWebInstallerType" />
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="2">
+                                        <TextBlock Text="Installer framework" Style="{StaticResource FieldLabel}" />
+                                        <TextBox Text="{Binding InstallerFramework, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource WizardField}"
+                                                 mk:Mk.Placeholder="Empty: found by the analysis or at stage"
+                                                 ToolTip="NativeMSI, NSIS, InnoSetup, WixBurn, InstallShield, Squirrel, Velopack, MSIX or ZIP. The analysis on step 4 proposes it."
+                                                 AutomationProperties.Name="Installer framework" AutomationProperties.AutomationId="txtAddWebFramework" />
+                                    </StackPanel>
+                                </Grid>
+                            </StackPanel>
+
+                            <StackPanel Visibility="{Binding CurrentStep, Converter={StaticResource StepVisibilityConverter}, ConverterParameter=4}">
+                                <mk:TrackedText Text="Installer analysis" FontSize="19" Tracking="-0.15" Height="26" Foreground="{DynamicResource MkTextBrush}"
+                                                AutomationProperties.HeadingLevel="Level2" />
+                                <TextBlock Text="Downloads the installer one time to the download root and reads it. Nothing in the installer is started. This step is optional."
+                                           Style="{StaticResource StepHelp}" />
+                                <WrapPanel Margin="0,18,0,0">
+                                    <Button Style="{StaticResource Mk.Button.Primary}" mk:Mk.Icon="arrow_download" Content="Download and analyze" Margin="0,0,8,8"
+                                            Command="{Binding AnalyzeCommand}" ToolTip="Downloads the installer from the URL of step 3 and analyzes it."
+                                            AutomationProperties.AutomationId="btnAddWebAnalyze" />
+                                    <Button Style="{StaticResource Mk.Button}" mk:Mk.Icon="dismiss" Content="Cancel" Margin="0,0,8,8" Command="{Binding CancelAnalysisCommand}"
+                                            Visibility="{Binding IsBusy, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                            ToolTip="Stops the download or the analysis." AutomationProperties.AutomationId="btnAddWebCancelAnalysis" />
+                                </WrapPanel>
+                                <ProgressBar IsIndeterminate="{Binding IsBusy}" Height="4" Margin="0,0,0,8"
+                                             Visibility="{Binding IsBusy, Converter={StaticResource BooleanToVisibilityConverter}}" AutomationProperties.Name="Analysis progress" />
+                                <TextBlock Text="{Binding AnalysisStatus}" Style="{StaticResource Mk.Body}" TextWrapping="Wrap" Margin="0,0,0,4" AutomationProperties.AutomationId="txtAddWebAnalysisStatus" />
+                                <TextBlock Text="{Binding AnalysisProgress}" Style="{StaticResource Mk.Help}" Margin="0,0,0,8" AutomationProperties.AutomationId="txtAddWebAnalysisProgress" />
+
+                                <StackPanel Visibility="{Binding HasAnalysis, Converter={StaticResource BooleanToVisibilityConverter}}" AutomationProperties.AutomationId="pnlAddWebProposals">
+                                    <TextBlock Text="{Binding AnalyzedFile}" Style="{StaticResource Mk.Help}" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap"
+                                               ToolTip="{Binding AnalyzedFile}" Margin="0,0,0,8" />
+                                    <Border Style="{StaticResource Mk.Notice.Warn}" Margin="0,0,0,8"
+                                            Visibility="{Binding HasAnalysisWarning, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                        <TextBlock Text="{Binding AnalysisWarning}" Style="{StaticResource Mk.Body}" TextWrapping="Wrap" AutomationProperties.AutomationId="txtAddWebAnalysisWarning" />
+                                    </Border>
+                                    <ItemsControl ItemsSource="{Binding AnalysisRows}" ItemTemplate="{StaticResource WebProposalRow}" Grid.IsSharedSizeScope="True"
+                                                  Focusable="False" AutomationProperties.Name="Proposed values" AutomationProperties.AutomationId="lstAddWebProposals" />
+                                    <CheckBox IsChecked="{Binding AcceptDetection}" Margin="0,0,0,8" AutomationProperties.AutomationId="chkAddWebAcceptDetection"
+                                              AutomationProperties.Name="Use the proposed detection" ToolTip="Use the detection rule that the analysis proposed. Clear the check box to set the detection yourself.">
+                                        <TextBlock Text="{Binding ProposedDetectionText}" TextWrapping="Wrap" MaxWidth="740" />
+                                    </CheckBox>
+                                    <ItemsControl ItemsSource="{Binding AnalysisNotes}" Focusable="False" Margin="0,0,0,8" AutomationProperties.Name="Notes">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <TextBlock Text="{Binding}" Style="{StaticResource Mk.Help}" Margin="0,0,0,4" />
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                    <Button Style="{StaticResource Mk.Button}" mk:Mk.Icon="checkmark" Content="Use selected values" HorizontalAlignment="Left"
+                                            Command="{Binding AcceptProposalsCommand}" ToolTip="Copies the selected values into steps 5 and 6."
+                                            AutomationProperties.AutomationId="btnAddWebAccept" />
+                                </StackPanel>
+                            </StackPanel>
+
+                            <StackPanel Visibility="{Binding CurrentStep, Converter={StaticResource StepVisibilityConverter}, ConverterParameter=5}">
+                                <mk:TrackedText Text="Install and uninstall" FontSize="19" Tracking="-0.15" Height="26" Foreground="{DynamicResource MkTextBrush}"
+                                                AutomationProperties.HeadingLevel="Level2" />
+                                <TextBlock Text="Set the silent arguments and the install context." Style="{StaticResource StepHelp}" />
+                                <DockPanel Margin="0,18,0,0">
+                                    <TextBlock DockPanel.Dock="Right" Text="{Binding InstallArgsMarker}" Style="{StaticResource FieldMarker}" AutomationProperties.AutomationId="txtAddWebInstallArgsMarker" />
+                                    <StackPanel>
+                                        <TextBlock Text="Install arguments" Style="{StaticResource FieldLabel}" />
+                                        <TextBox Text="{Binding InstallArgs, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource WizardField}"
+                                                 mk:Mk.Placeholder="/qn /norestart or /S or /VERYSILENT /NORESTART"
+                                                 ToolTip="The silent install arguments. MSI: /qn /norestart. NSIS: /S. Inno Setup: /VERYSILENT /NORESTART /SP-."
+                                                 AutomationProperties.Name="Install arguments" AutomationProperties.AutomationId="txtAddWebInstallArgs" />
+                                    </StackPanel>
+                                </DockPanel>
+                                <DockPanel Margin="0,18,0,0">
+                                    <TextBlock DockPanel.Dock="Right" Text="{Binding UninstallArgsMarker}" Style="{StaticResource FieldMarker}" AutomationProperties.AutomationId="txtAddWebUninstallArgsMarker" />
+                                    <StackPanel>
+                                        <TextBlock Text="Uninstall arguments" Style="{StaticResource FieldLabel}" />
+                                        <TextBox Text="{Binding UninstallArgs, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource WizardField}"
+                                                 mk:Mk.Placeholder="/x {ProductCode} /qn /norestart or /S"
+                                                 ToolTip="The silent uninstall arguments. Use {ProductCode} for an MSI application."
+                                                 AutomationProperties.Name="Uninstall arguments" AutomationProperties.AutomationId="txtAddWebUninstallArgs" />
+                                    </StackPanel>
+                                </DockPanel>
+                                <DockPanel Margin="0,18,0,0">
+                                    <TextBlock DockPanel.Dock="Right" Text="{Binding InstallContextMarker}" Style="{StaticResource FieldMarker}" AutomationProperties.AutomationId="txtAddWebInstallContextMarker" />
+                                    <StackPanel>
+                                        <TextBlock Text="Install context" Style="{StaticResource FieldLabel}" />
+                                        <ComboBox ItemsSource="{Binding InstallContextOptions}" SelectedItem="{Binding InstallContext}" Style="{StaticResource WizardCombo}"
+                                                  ToolTip="Machine installs for all users (Program Files, HKLM). User installs for one user (AppData, HKCU). It sets the deployment type behavior."
+                                                  AutomationProperties.Name="Install context" AutomationProperties.AutomationId="cboAddWebInstallContext" />
+                                    </StackPanel>
+                                </DockPanel>
+                            </StackPanel>
+
+                            <StackPanel Visibility="{Binding CurrentStep, Converter={StaticResource StepVisibilityConverter}, ConverterParameter=6}">
+                                <mk:TrackedText Text="Detection" FontSize="19" Tracking="-0.15" Height="26" Foreground="{DynamicResource MkTextBrush}"
+                                                AutomationProperties.HeadingLevel="Level2" />
+                                <TextBlock Text="Set the rule that tells ConfigMgr and Intune that the application is installed." Style="{StaticResource StepHelp}" />
+                                <controls:DetectionEditorPanel x:Name="DetectionEditor" Margin="0,18,0,0" DataContext="{Binding Detection}"
+                                                               AutomationProperties.AutomationId="pnlAddWebDetection" />
+                            </StackPanel>
+
+                            <StackPanel Visibility="{Binding CurrentStep, Converter={StaticResource StepVisibilityConverter}, ConverterParameter=7}">
+                                <mk:TrackedText Text="Review and save" FontSize="19" Tracking="-0.15" Height="26" Foreground="{DynamicResource MkTextBrush}"
+                                                AutomationProperties.HeadingLevel="Level2" />
+                                <TextBlock Text="Check the definition before you save it." Style="{StaticResource StepHelp}" />
+                                <Border Style="{StaticResource Mk.Notice.Warn}" Margin="0,18,0,0"
+                                        Visibility="{Binding ShowDetectionWarning, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                        AutomationProperties.AutomationId="pnlAddWebDetectionWarning">
+                                    <TextBlock Text="{Binding DetectionWarning}" Style="{StaticResource Mk.Body}" TextWrapping="Wrap" AutomationProperties.AutomationId="txtAddWebDetectionWarning" />
+                                </Border>
+                                <TextBox Text="{Binding ReviewSummary, Mode=OneWay}" Style="{StaticResource WD.TextArea}" IsReadOnly="True" AcceptsReturn="True"
+                                         FontFamily="Cascadia Code,Consolas,Courier New" MinHeight="300" Margin="0,18,0,0"
+                                         AutomationProperties.Name="Review" AutomationProperties.AutomationId="txtAddWebReview" />
+                            </StackPanel>
                         </Grid>
-                    </StackPanel>
-                    </Border>
-                </StackPanel>
-
-                <StackPanel Visibility="{Binding CurrentStep, Converter={StaticResource StepVisibilityConverter}, ConverterParameter=6}">
-                    <Border Style="{StaticResource AddCard}" Padding="12" Margin="0,0,0,8">
-                        <StackPanel>
-                        <StackPanel Orientation="Horizontal" Margin="8,0,0,4">
-                            <ui:SymbolIcon Symbol="CheckboxChecked24" FontSize="20" VerticalAlignment="Center" Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
-                            <TextBlock Text="Detection" Style="{StaticResource AddHeading}" Margin="8,0,0,0" VerticalAlignment="Center" />
-                        </StackPanel>
-                        <controls:DetectionEditorPanel Margin="8" DataContext="{Binding Detection}" AutomationProperties.AutomationId="pnlAddWebDetection" />
-                    </StackPanel>
-                    </Border>
-                </StackPanel>
-
-                <StackPanel Visibility="{Binding CurrentStep, Converter={StaticResource StepVisibilityConverter}, ConverterParameter=7}">
-                    <Border Style="{StaticResource AddCaution}" Visibility="{Binding ShowDetectionWarning, Converter={StaticResource BooleanToVisibilityConverter}}"
-                            AutomationProperties.AutomationId="pnlAddWebDetectionWarning">
-                        <TextBlock Text="{Binding DetectionWarning}" Style="{StaticResource AddWarningText}" AutomationProperties.AutomationId="txtAddWebDetectionWarning" />
-                    </Border>
-                    <Border Style="{StaticResource AddCard}" Padding="12" Margin="0,0,0,8">
-                        <StackPanel>
-                        <StackPanel Orientation="Horizontal" Margin="8,0,0,4">
-                            <ui:SymbolIcon Symbol="Checkmark24" FontSize="20" VerticalAlignment="Center" Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
-                            <TextBlock Text="Review" Style="{StaticResource AddHeading}" Margin="8,0,0,0" VerticalAlignment="Center" />
-                        </StackPanel>
-                        <ui:TextBox Text="{Binding ReviewSummary, Mode=OneWay}" IsReadOnly="True" AcceptsReturn="True"
-                                    FontFamily="Cascadia Code,Consolas,Courier New" MinHeight="300"
-                                    AutomationProperties.Name="Review" AutomationProperties.AutomationId="txtAddWebReview" />
-                    </StackPanel>
-                    </Border>
-                </StackPanel>
-            </Grid>
-        </ScrollViewer>
-
-        <DockPanel Grid.Column="2" Grid.Row="1" Margin="0,16,12,0" LastChildFill="False">
-            <ui:Button DockPanel.Dock="Left" Content="Back"
-                       Command="{Binding PreviousStepCommand}"
-                       IsEnabled="{Binding CanGoBack}"
-                       Icon="{ui:SymbolIcon ArrowLeft24}" AutomationProperties.AutomationId="btnAddWebBack" ToolTip="Go back to the previous step." />
-            <ui:SplitButton x:Name="SaveSplit" DockPanel.Dock="Right" Content="Save Definition" Appearance="Primary"
-                            Command="{Binding SaveDefinitionCommand}" IsDefault="{Binding CanSave}"
-                            Visibility="{Binding CanSave, Converter={StaticResource BooleanToVisibilityConverter}}"
-                            Icon="{ui:SymbolIcon Save24}"
-                            ToolTip="Saves the definition. The arrow opens Save and open in Workbench."
-                            AutomationProperties.Name="Save Definition" AutomationProperties.AutomationId="btnAddWebSave">
-                <ui:SplitButton.Flyout>
-                    <ContextMenu>
-                        <MenuItem Header="Save and open in Workbench" Click="SaveAndOpenWorkbench_Click"
-                                  AutomationProperties.AutomationId="mnuAddWebSaveAndOpen" />
-                    </ContextMenu>
-                </ui:SplitButton.Flyout>
-            </ui:SplitButton>
-            <ui:Button DockPanel.Dock="Right" Content="{Binding NextText}" Appearance="Primary"
-                       Command="{Binding NextStepCommand}"
-                       IsEnabled="{Binding CanGoNext}" IsDefault="{Binding CanGoNext}"
-                       Visibility="{Binding CanGoNext, Converter={StaticResource BooleanToVisibilityConverter}}"
-                       Icon="{ui:SymbolIcon ArrowRight24}"
-                       AutomationProperties.AutomationId="btnAddWebNext" ToolTip="Go to the next step." />
-            <TextBlock DockPanel.Dock="Left" Text="{Binding StatusText}"
-                       VerticalAlignment="Center" Margin="16,0,0,0" TextWrapping="Wrap"
-                       Foreground="{DynamicResource TextFillColorSecondaryBrush}" AutomationProperties.AutomationId="txtAddWebStatus" />
-        </DockPanel>
+                    </ScrollViewer>
+                </DockPanel>
+            </Border>
         </Grid>
 
         <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Focusable="False"
                       Visibility="{Binding IsResultVisible, Converter={StaticResource BooleanToVisibilityConverter}}">
-            <controls:AddResultPanel DataContext="{Binding Result}" VerticalAlignment="Top" AutomationProperties.AutomationId="pnlAddWebResult" />
+            <controls:AddResultPanel x:Name="ResultPanel" DataContext="{Binding Result}" VerticalAlignment="Top" AutomationProperties.AutomationId="pnlAddResult" />
         </ScrollViewer>
     </Grid>
 </Page>

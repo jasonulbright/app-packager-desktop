@@ -1,4 +1,4 @@
-using ApplicationPackagerUI.Models;
+﻿using ApplicationPackagerUI.Models;
 using ApplicationPackagerUI.Services;
 
 namespace ApplicationPackagerUI.Helpers;
@@ -9,7 +9,8 @@ public enum PackagesTabKind
     Other,
     Update,
     NotFound,
-    NotChecked
+    NotChecked,
+    UpToDate
 }
 
 /// <summary>The tab the grid shows: every row, one status tab, or the checked rows (the "Show selected" link of the selection line).</summary>
@@ -19,7 +20,8 @@ public enum PackagesTabChoice
     Update,
     NotFound,
     NotChecked,
-    Selected
+    Selected,
+    UpToDate
 }
 
 /// <summary>The row counts of the status tabs.</summary>
@@ -36,7 +38,12 @@ public sealed record PackagesTabCounts(int All, int Update, int NotFound, int No
 /// </summary>
 public static class PackagesTab
 {
-    public const string NotFoundStatus = "Not found in ConfigMgr";
+    public const string NotFoundStatus = "Absent from ConfigMgr";
+
+    public const string UpToDateStatus = "Up to date";
+
+    /// <summary>True for a status that says nothing was compared with the site yet.</summary>
+    public static bool IsUncheckedStatus(string? status) => UncheckedStatuses.Contains(status ?? "");
 
     /// <summary>The statuses of a row that no check has compared yet.</summary>
     private static readonly HashSet<string> UncheckedStatuses = new(StringComparer.Ordinal)
@@ -48,6 +55,7 @@ public static class PackagesTab
     {
         if (CveRowState.IsUpdateAvailable(status)) return PackagesTabKind.Update;
         if (status == NotFoundStatus) return PackagesTabKind.NotFound;
+        if (status == UpToDateStatus) return PackagesTabKind.UpToDate;
         if (string.IsNullOrEmpty(currentVersion) && UncheckedStatuses.Contains(status ?? "")) return PackagesTabKind.NotChecked;
         return PackagesTabKind.Other;
     }
@@ -64,6 +72,7 @@ public static class PackagesTab
         PackagesTabChoice.Update => Of(row) == PackagesTabKind.Update,
         PackagesTabChoice.NotFound => Of(row) == PackagesTabKind.NotFound,
         PackagesTabChoice.NotChecked => Of(row) == PackagesTabKind.NotChecked,
+        PackagesTabChoice.UpToDate => Of(row) == PackagesTabKind.UpToDate,
         _ => row.IsSelected
     };
 

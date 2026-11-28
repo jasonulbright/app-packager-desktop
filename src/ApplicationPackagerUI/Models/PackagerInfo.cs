@@ -1,4 +1,4 @@
-using ApplicationPackagerEngine.Models;
+﻿using ApplicationPackagerEngine.Models;
 using ApplicationPackagerEngine.Models.Workbench;
 
 namespace ApplicationPackagerUI.Models;
@@ -45,11 +45,15 @@ public partial class PackagerInfo : ObservableObject, IPackagerExecutionRequest
     public string? DefinitionPath { get; init; }
     private string? _iconPath;
 
+    /// <summary>False while the operator turned the icons of the icon pack off: the row shows its two letters.</summary>
+    public bool ShowPackIcon { get; set; } = true;
+
     /// <summary>The icon file of the packager from the installed icon pack (the lookup of the staging step); empty when the pack has none. A found path is kept; a missing one is looked up again, because the pack installs in the background at startup.</summary>
     public string IconPath
     {
         get
         {
+            if (!ShowPackIcon) return "";
             if (_iconPath is not null) return _iconPath;
             if (!IsJsonDefined || string.IsNullOrWhiteSpace(DefinitionPath)) return "";
             _iconPath = ApplicationPackagerEngine.Services.IconExtractionService.FindExternalIconPathForFile(DefinitionPath);
@@ -73,7 +77,8 @@ public partial class PackagerInfo : ObservableObject, IPackagerExecutionRequest
         OnPropertyChanged(nameof(IconTooltip));
     }
 
-    public string IconTooltip => IconPath.Length > 0 ? "Icon from the icon pack: " + System.IO.Path.GetFileName(IconPath) : "No icon in the icon pack";
+    public string IconTooltip => !ShowPackIcon ? "Icon pack icons are off in Settings"
+        : IconPath.Length > 0 ? "Icon from the icon pack: " + System.IO.Path.GetFileName(IconPath) : "No icon in the icon pack";
 
     /// <summary>Workbench namespace for a JSON definition: shipped/overridden catalog or user-authored custom.</summary>
     public ApplicationOrigin DefinitionOrigin { get; init; } = ApplicationOrigin.Catalog;
@@ -98,6 +103,15 @@ public partial class PackagerInfo : ObservableObject, IPackagerExecutionRequest
     /// version, which can differ from LatestVersion; Package publishes this version then.
     /// </summary>
     public string? LocalSourceStagedVersion { get; set; }
+
+    private string? _mark;
+
+    /// <summary>The two characters of the mark before the name, which the grid shows while the icon pack has no icon for the application.</summary>
+    public string Mark
+    {
+        get => _mark ?? Helpers.PackagesCells.MarkOf(Application);
+        init => _mark = value;
+    }
 
     public bool IsRunnable => true;
 }

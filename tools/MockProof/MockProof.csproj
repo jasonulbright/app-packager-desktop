@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- The image proof of the interface: it starts the real application on a lab client, fills it with the rows and texts of the mock images
+       and saves each window at 1930 x 1032. It is not part of the installer. See README.md. -->
+  <Import Project="..\..\src\DesktopRuntime.props" />
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\ApplicationPackagerUI\ApplicationPackagerUI.csproj" />
+  </ItemGroup>
+</Project>

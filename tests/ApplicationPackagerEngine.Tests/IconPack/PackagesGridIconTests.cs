@@ -50,6 +50,41 @@ public sealed class PackagesGridIconTests
     }
 
     [Fact]
+    public void ARowWithPackIconsOffGivesNoIconAndGivesItAgainWhenTheyAreOn()
+    {
+        var root = Directory.CreateTempSubdirectory("apd-icon-off-").FullName;
+        try
+        {
+            Directory.CreateDirectory(Path.Combine(root, "Icons"));
+            var definition = Path.Combine(root, "tool.json");
+            File.WriteAllText(definition, "{}");
+            File.WriteAllBytes(Path.Combine(root, "Icons", "tool.png"), [0x89, 0x50, 0x4E, 0x47]);
+            var row = new ApplicationPackagerUI.Models.PackagerInfo { IsJsonDefined = true, DefinitionPath = definition };
+            Assert.EndsWith("tool.png", row.IconPath);
+
+            row.ShowPackIcon = false;
+            row.RefreshIcon();
+            Assert.Equal("", row.IconPath);
+            Assert.Null(row.IconUri);
+            Assert.Null(row.IconImage);
+            Assert.Equal("Icon pack icons are off in Settings", row.IconTooltip);
+
+            row.ShowPackIcon = true;
+            row.RefreshIcon();
+            Assert.EndsWith("tool.png", row.IconPath);
+        }
+        finally { Directory.Delete(root, recursive: true); }
+    }
+
+    [Fact]
+    public void PackIconsAreOnByDefaultAndTheSavedChoiceIsRead()
+    {
+        Assert.True(System.Text.Json.JsonSerializer.Deserialize<ApplicationPackagerUI.Models.AppSettings>("{}")!.ShowPackIcons);
+        var json = System.Text.Json.JsonSerializer.Serialize(new ApplicationPackagerUI.Models.AppSettings { ShowPackIcons = false });
+        Assert.False(System.Text.Json.JsonSerializer.Deserialize<ApplicationPackagerUI.Models.AppSettings>(json)!.ShowPackIcons);
+    }
+
+    [Fact]
     public void RefreshIconTellsTheGridThatTheIconChanged()
     {
         var row = new ApplicationPackagerUI.Models.PackagerInfo();
@@ -99,7 +134,8 @@ public sealed class PackagesGridIconTests
     {
         var xaml = File.ReadAllText(FindRepoFile("src/ApplicationPackagerUI/Views/Pages/PackagesPage.xaml"));
         Assert.Contains("Source=\"{Binding IconImage,", xaml);
-        Assert.DoesNotContain("AlternationIndex", xaml);
+        // The alternation index only moves the mark and the status text by a unit; it never picks the picture.
+        Assert.DoesNotMatch("(Source|Text|IconImage|IconPath)=\"[^\"]*AlternationIndex", xaml);
         Assert.DoesNotContain("IconIndex", xaml);
     }
 

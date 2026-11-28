@@ -81,6 +81,10 @@ internal static class RenderKit
         });
     }
 
+    /// <summary>The palette of a theme, which App.xaml merges after the control library. It holds the brushes of the mock.</summary>
+    public static ResourceDictionary Palette(ApplicationTheme theme) =>
+        new() { Source = new Uri($"pack://application:,,,/ApplicationPackagerUI;component/Views/Styles/Palette.{theme}.xaml", UriKind.Absolute) };
+
     public static void Show(Window window)
     {
         window.Left = -32000;

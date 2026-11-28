@@ -98,6 +98,10 @@ public sealed class WorkbenchInheritedIconTests : IDisposable
 
         Assert.Equal("", WorkbenchInheritedIcon.Resolve(_pack, "", "Installer", _stageRoot));
         Assert.Equal("Inherited from the packager. No staged icon or icon pack entry was found.", WorkbenchInheritedIcon.InheritedStateText(""));
-        Assert.Equal(@"Inherited from the packager: C:\x.png", WorkbenchInheritedIcon.InheritedStateText(@"C:\x.png"));
+        // The line of the mock is short; the path of the icon is the tooltip of the line.
+        Assert.Equal("Inherited from the packager", WorkbenchInheritedIcon.InheritedStateText(@"C:\x.png"));
+        var window = System.Xml.Linq.XDocument.Load(Path.Combine(Compliance.CatalogServiceTests.RepositoryRoot(), "src", "ApplicationPackagerUI", "Views", "Windows", "WorkbenchWindow.xaml"));
+        var line = window.Descendants().Single(e => e.Attributes().Any(a => a.Name.LocalName == "Name" && a.Value == "txtIconState"));
+        Assert.Equal("{Binding IconPreviewPath}", (string?)line.Attribute("ToolTip"));
     }
 }

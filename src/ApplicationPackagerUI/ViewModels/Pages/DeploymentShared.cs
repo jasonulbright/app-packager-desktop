@@ -58,6 +58,9 @@ public sealed partial class DeploymentShared(DeploymentPageServices services) : 
 
     [ObservableProperty] private string _statusMessage = "";
 
+    /// <summary>The site of the connection, as the foot of the Deploy tab names it; empty when no site code is set.</summary>
+    [ObservableProperty] private string _siteText = "";
+
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasConnectionMessage))]
     private string _connectionMessage = "";
@@ -96,7 +99,9 @@ public sealed partial class DeploymentShared(DeploymentPageServices services) : 
     /// <summary>The setting to change before the page can reach ConfigMgr, or null.</summary>
     public string? ConnectionProblem()
     {
-        var problem = CollectionComplianceViewModel.ConnectionProblem(Services.LoadSettings());
+        var settings = Services.LoadSettings();
+        SiteText = string.IsNullOrWhiteSpace(settings.SiteCode) ? "" : "Site " + settings.SiteCode.Trim();
+        var problem = CollectionComplianceViewModel.ConnectionProblem(settings);
         ConnectionMessage = problem ?? "";
         return problem;
     }

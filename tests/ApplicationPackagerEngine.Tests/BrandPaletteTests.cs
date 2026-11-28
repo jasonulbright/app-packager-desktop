@@ -101,17 +101,20 @@ public sealed class BrandPaletteTests
         Check(theme, "BorderStrongColor", Color_(theme, "BorderStrongColor"), 3.0);
     }
 
-    // Some status colors fall below 4.5 to 1 on the selected-row tint, so the status text takes the cell color on a selected row.
-    [Fact]
-    public void TheStatusColumnTakesTheCellColorOnASelectedRow()
+    // A checked row of the application grid has the tint of the mock, and the status keeps its color there. So every status color of
+    // the mock passes on the surface, the tint of a checked row and the color under the pointer.
+    [Theory]
+    [MemberData(nameof(Themes))]
+    public void TheStatusColorsOfTheGridPassOnEveryRowColor(ApplicationTheme theme)
     {
-        var folder = new DirectoryInfo(AppContext.BaseDirectory);
-        string Page(DirectoryInfo f) => Path.Combine(f.FullName, "src", "ApplicationPackagerUI", "Views", "Pages", "PackagesPage.xaml");
-        while (folder is not null && !File.Exists(Page(folder))) folder = folder.Parent;
-        Assert.NotNull(folder);
-        var xaml = File.ReadAllText(Page(folder));
-        Assert.Contains("Binding IsSelected, RelativeSource={RelativeSource AncestorType=DataGridRow}", xaml);
-        Assert.Contains("Binding Foreground, RelativeSource={RelativeSource AncestorType=DataGridCell}", xaml);
+        var entries = Entries(theme);
+        Color Mk(string name) => (Color)System.Windows.Media.ColorConverter.ConvertFromString(entries[$"Mk{name}Color"].Value.Trim());
+        foreach (var row in new[] { "Surface", "Tint", "Sub" })
+            foreach (var text in new[] { "Text", "Ok", "Accent", "Warn", "Bad" })
+            {
+                var ratio = ThemeContrastReportTests.Ratio(Mk(text), Mk(row));
+                Assert.True(ratio >= 4.5, $"{theme}: Mk{text} on Mk{row} is {ratio:0.00}.");
+            }
     }
 
     // The surface list above is fixed. This test fails when a library update changes a surface of the theme file.

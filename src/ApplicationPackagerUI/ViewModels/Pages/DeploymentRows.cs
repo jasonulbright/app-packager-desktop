@@ -9,7 +9,7 @@ public sealed class DeploymentObjectRow(DeployableObject obj)
     public string Name => Object.Name;
     public string Version => Object.Type == DeploymentObjectType.SoftwareUpdateGroup ? DeploymentText.Count(Object.UpdateCount, "update") : Object.Version;
     public string Id => Object.Id;
-    public string Packaged => Object.PackagedByProduct ? "Yes" : "";
+    public string Packaged => Object.PackagedByProduct ? "Yes" : "\u2014";
 
     public override string ToString() => $"{Name} {Version}".Trim();
 }
@@ -42,6 +42,15 @@ public sealed partial class DpGroupRow(DpGroupInfo info) : ObservableObject
     public DpGroupInfo Info { get; } = info;
     public string Name => Info.Name;
     public string Status => Info.Status;
+
+    /// <summary>The status in words: content that is on every distribution point of the group is available there.</summary>
+    public string StatusText => Info.Status switch
+    {
+        "Distributed" => "Available",
+        "InProgress" => "In progress",
+        "NotTargeted" => "Not targeted",
+        var other => other
+    };
     public int Targeted => Info.Targeted;
     public int Success => Info.Success;
     public int InProgress => Info.InProgress;

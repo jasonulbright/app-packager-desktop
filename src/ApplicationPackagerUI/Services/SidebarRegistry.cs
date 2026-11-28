@@ -93,7 +93,7 @@ public sealed class SidebarRegistry
     public static SidebarRegistry CreateDefault()
     {
         var registry = new SidebarRegistry();
-        registry.RegisterGroup(new SidebarGroup(Id: SidebarGroupIds.Tools, Caption: "TOOLS", AutomationName: "Tools group"));
+        registry.RegisterGroup(new SidebarGroup(Id: SidebarGroupIds.Tools, Caption: "Tools", AutomationName: "Tools group"));
 
         registry.Register(new SidebarItemDefinition(Id: SidebarIds.Packages, Title: "App Packager", Symbol: "Box24", Kind: SidebarItemKind.Page)
         {

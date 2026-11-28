@@ -86,6 +86,7 @@ public sealed class SettingsUnsavedChangesTests : IDisposable
     {
         ["CompanyName"] = v => v.CompanyName = "Fabrikam",
         ["CheckForUpdatesAtStartup"] = v => v.CheckForUpdatesAtStartup = !v.CheckForUpdatesAtStartup,
+        ["ShowPackIcons"] = v => v.ShowPackIcons = !v.ShowPackIcons,
         ["CurrentTheme"] = v => v.CurrentTheme = Wpf.Ui.Appearance.ApplicationTheme.Light,
         ["SiteCode"] = v => v.SiteCode = "AB1",
         ["ProviderMachine"] = v => v.ProviderMachine = "cm01.contoso.com",

@@ -27,8 +27,8 @@ public sealed class AppPackagerFitTests
     /// <summary>The least number of complete data rows that the grid shows at every size in <see cref="Sizes"/>.</summary>
     internal const int MinimumWholeRows = 10;
 
-    /// <summary>A row of a grid is 28 to 32 px high at 14 pt (decision D-20).</summary>
-    internal const double MinimumRowHeight = 28, MaximumRowHeight = 32;
+    /// <summary>A row of a grid is 28 to 33 px high at 14 pt (decision D-20); the rows of this page are 33 and 32 px in turn, as in the mock.</summary>
+    internal const double MinimumRowHeight = 28, MaximumRowHeight = 33;
 
     public static TheoryData<ApplicationTheme, int, int> Sizes => new()
     {
@@ -99,26 +99,33 @@ public sealed class AppPackagerFitTests
                 Settle(window);
                 var where = $"App Packager {theme} {width}x{height}";
                 var toolbar = ById<FrameworkElement>(page, "pnlAppPackagerToolbar");
-                foreach (var button in Descendants(toolbar).OfType<ButtonBase>().Where(b => b.IsVisible))
+                // The run buttons, the count of checked applications, and the search row with Select updates, Columns and More.
+                var rowsOfActions = new[] { ById<FrameworkElement>(page, "pnlBatchBar"), (FrameworkElement)page.FindName("FilterBar") };
+                foreach (var bar in rowsOfActions)
                 {
-                    var right = button.TransformToAncestor(window).TransformBounds(new Rect(button.RenderSize)).Right;
-                    Assert.True(right <= window.ActualWidth + 0.5, $"{where}: {AutomationProperties.GetAutomationId(button)} ends at {right:0} px of {window.ActualWidth:0} px.");
+                    foreach (var control in Descendants(bar).OfType<System.Windows.Controls.Control>().Where(c => c.IsVisible && c is ButtonBase or System.Windows.Controls.ComboBox or System.Windows.Controls.TextBox && c.TemplatedParent is not System.Windows.Controls.ComboBox))
+                    {
+                        var at = control.TransformToAncestor(window).TransformBounds(new Rect(control.RenderSize));
+                        Assert.True(at.Left >= -0.5 && at.Right <= window.ActualWidth + 0.5, $"{where}: {AutomationProperties.GetAutomationId(control)} lies at {at.Left:0} to {at.Right:0} px of {window.ActualWidth:0} px.");
+                    }
+                    PageChromeKit.AssertNothingClipped(bar, where);
                 }
-                PageChromeKit.AssertNothingClipped(toolbar, where);
 
                 var buttons = Descendants(toolbar).OfType<ButtonBase>().Where(b => b.IsVisible).ToList();
-                Assert.NotEmpty(buttons);
-                Assert.All(buttons, b => Assert.True(b.ActualHeight <= CompactButtonHeight + 0.5,
+                Assert.Equal(["btnCheckLatest", "btnCheckConfigMgr", "btnCheckCves", "btnStage", "btnPublishAll", "btnOneClick"], buttons.Select(AutomationProperties.GetAutomationId));
+                Assert.All(buttons, b => Assert.True(Math.Abs(b.ActualHeight - CompactButtonHeight) <= 0.5,
                     $"{where}: {AutomationProperties.GetAutomationId(b)} is {b.ActualHeight:0.#} px high; the compact size is {CompactButtonHeight} px."));
-                var batch = ById<FrameworkElement>(page, "pnlBatchActions");
-                foreach (var button in Descendants(batch).OfType<ButtonBase>().Where(b => b.IsVisible))
-                {
-                    var right = button.TransformToAncestor(window).TransformBounds(new Rect(button.RenderSize)).Right;
-                    Assert.True(right <= window.ActualWidth + 0.5, $"{where}: {AutomationProperties.GetAutomationId(button)} ends at {right:0} px of {window.ActualWidth:0} px.");
-                }
-                PageChromeKit.AssertNothingClipped(batch, where);
-                // Q-102: the toolbar is one row at every size of this list. It shows the labels where they fit in that row and the icons only where they do not.
-                Assert.True(ToolbarLines(toolbar) == 1, $"{where}: the toolbar uses {ToolbarLines(toolbar)} lines.");
+                // No button lies over another.
+                var places = buttons.Select(b => b.TransformToAncestor(window).TransformBounds(new Rect(b.RenderSize))).ToList();
+                for (var i = 0; i < places.Count; i++)
+                    for (var j = i + 1; j < places.Count; j++)
+                    {
+                        var shared = Rect.Intersect(places[i], places[j]);
+                        Assert.True(shared.IsEmpty || shared.Width < 0.5 || shared.Height < 0.5, $"{where}: {AutomationProperties.GetAutomationId(buttons[i])} lies over {AutomationProperties.GetAutomationId(buttons[j])}.");
+                    }
+                // The run buttons are one line where they fit; only a narrower window wraps them.
+                if (width >= 1269) Assert.True(ToolbarLines(toolbar) == 1, $"{where}: the toolbar uses {ToolbarLines(toolbar)} lines.");
+                else Assert.InRange(ToolbarLines(toolbar), 1, 2);
 
                 Pixels(window, toolbar, $"app-packager-{theme}-{width}");
                 var grid = (DataGrid)page.FindName("PackagerGrid");
@@ -144,7 +151,7 @@ public sealed class AppPackagerFitTests
         });
     }
 
-    // Q-98: while a run is active the toolbar shows Cancel; it has the height and the top of its neighbours, also when the row wraps.
+    // While a run is active the line under the grid shows Cancel; it has the height and the line of Operation history and Logs beside it.
     [Theory]
     [MemberData(nameof(Sizes))]
     public void TheCancelButtonHasTheHeightAndTheLineOfItsNeighboursWhileARunIsActive(ApplicationTheme theme, int width, int height)
@@ -162,16 +169,20 @@ public sealed class AppPackagerFitTests
             {
                 Settle(window);
                 var where = $"App Packager {theme} {width}x{height}, run active";
-                var toolbar = ById<FrameworkElement>(page, "pnlBatchActions");
-                Pixels(window, toolbar, $"app-packager-running-{theme}-{width}");
-                var buttons = Descendants(toolbar).OfType<ButtonBase>().Where(b => b.IsVisible).ToList();
+                var line = ById<FrameworkElement>(page, "pnlLogBar");
+                Pixels(window, line, $"app-packager-running-{theme}-{width}");
+                var buttons = Descendants(line).OfType<ButtonBase>().Where(b => b.IsVisible).ToList();
+                Assert.Equal(["btnCancelOperation", "btnLogs", "btnOperationHistory"], buttons.Select(AutomationProperties.GetAutomationId).Order(StringComparer.Ordinal));
                 var cancel = buttons.Single(b => AutomationProperties.GetAutomationId(b) == "btnCancelOperation");
-                var publish = buttons.Single(b => AutomationProperties.GetAutomationId(b) == "btnPublishAll");
-                Point Top(FrameworkElement e) => e.TransformToAncestor(toolbar).Transform(new Point(0, 0));
-                Assert.True(Math.Abs(cancel.ActualHeight - publish.ActualHeight) < 0.5, $"{where}: Cancel is {cancel.ActualHeight:0.#} px high, Publish All {publish.ActualHeight:0.#}.");
-                // Cancel, Stage and Publish All stay on one line while a run is active.
+                Point Top(FrameworkElement e) => e.TransformToAncestor(line).Transform(new Point(0, 0));
                 Assert.All(buttons, b => Assert.True(Math.Abs(Top(b).Y - Top(cancel).Y) < 1, $"{where}: {AutomationProperties.GetAutomationId(b)} is not on the line of Cancel."));
                 Assert.All(buttons, b => Assert.True(Math.Abs(b.ActualHeight - cancel.ActualHeight) < 0.5, $"{where}: {AutomationProperties.GetAutomationId(b)} is {b.ActualHeight:0.#} px high."));
+                foreach (var button in buttons)
+                {
+                    var at = button.TransformToAncestor(window).TransformBounds(new Rect(button.RenderSize));
+                    Assert.True(at.Left >= -0.5 && at.Right <= window.ActualWidth + 0.5 && at.Bottom <= window.ActualHeight + 0.5, $"{where}: {AutomationProperties.GetAutomationId(button)} lies at {at}.");
+                }
+                PageChromeKit.AssertNothingClipped(line, where);
             }
             finally { window.Close(); }
         });

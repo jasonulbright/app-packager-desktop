@@ -94,6 +94,7 @@ public sealed class ClippedColumnAndRowTests
         content.DataContext = viewModel;
         return new Window
         {
+            Resources = window.Resources,
             Width = width,
             Height = height,
             WindowStyle = WindowStyle.None,
@@ -112,13 +113,31 @@ public sealed class ClippedColumnAndRowTests
         AssertWholeText(caption, section, section.ActualWidth, $"{where}, {name}");
     }
 
+    /// <summary>
+    /// An inherited value of the Application section is the gray text of its empty field, as the mock draws it; the title mode names its source in the
+    /// tooltip of its label. Each field shows the whole gray text.
+    /// </summary>
+    private static void AssertWholeInheritedHints(WorkbenchWindow window, FrameworkElement section, string where)
+    {
+        foreach (var name in new[] { "txtDisplayName", "txtPublisher", "txtDescription" })
+        {
+            var box = (System.Windows.Controls.TextBox)window.FindName(name);
+            Assert.Equal(Inherited, ApplicationPackagerUI.Controls.Mock.Mk.GetPlaceholder(box));
+            Assert.Equal("", box.Text);
+            var hint = Descendants(box).OfType<TextBlock>().Single(t => t.IsVisible && t.Text == Inherited);
+            AssertWholeText(hint, section, section.ActualWidth, $"{where}, {name}");
+        }
+        var title = Descendants(section).OfType<TextBlock>().Single(t => t.Text == "Application title");
+        Assert.Equal(Inherited, title.ToolTip);
+    }
+
     /// <summary>The Return codes box shows its whole placeholder, and no box of its rows is cut.</summary>
     private static void AssertWholeReturnCodeRows(WorkbenchWindow window, FrameworkElement section, string where)
     {
         var codes = (Wpf.Ui.Controls.TextBox)window.FindName("txtReturnCodes");
         var needed = TextWidth(new TextBlock
         {
-            Text = codes.PlaceholderText, FontFamily = codes.FontFamily, FontStyle = codes.FontStyle,
+            Text = ApplicationPackagerUI.Controls.Mock.Mk.GetPlaceholder(codes), FontFamily = codes.FontFamily, FontStyle = codes.FontStyle,
             FontWeight = codes.FontWeight, FontStretch = codes.FontStretch, FontSize = codes.FontSize
         }) + codes.Padding.Left + codes.Padding.Right + codes.BorderThickness.Left + codes.BorderThickness.Right;
         Assert.True(codes.ActualWidth + 0.5 >= needed, $"{where}: Return codes is {codes.ActualWidth:0} px wide; its placeholder needs {needed:0} px.");
@@ -173,8 +192,7 @@ public sealed class ClippedColumnAndRowTests
 
                 var sections = new (int Index, string Panel, string[] Buttons, string[] Texts)[]
                 {
-                    (0, "pnlApplication", ["btnDisplayNameReset", "btnPublisherReset", "btnDescriptionReset", "btnTitleModeReset"],
-                        ["lblDisplayNameSrc", "lblPublisherSrc", "lblDescriptionSrc", "lblTitleModeSrc"]),
+                    (0, "pnlApplication", ["btnDisplayNameReset", "btnPublisherReset", "btnDescriptionReset", "btnTitleModeReset"], []),
                     (1, "pnlInstall", ["btnInstallReset"], ["lblInstallModeSrc"]),
                     (2, "pnlDetection", ["btnDetectionReset"], ["lblDetectionSrc"]),
                     (3, "pnlRequirements", ["btnReqAdd", "btnReqReplace", "btnReqRemove", "btnInstallForReset", "btnInstallerTypeReset"],
@@ -191,6 +209,7 @@ public sealed class ClippedColumnAndRowTests
                     foreach (var name in buttons) AssertWholeButton(window, name, section, where);
                     foreach (var name in texts)
                         AssertWholeText((TextBlock)window.FindName(name), section, section.ActualWidth, $"{where}, {name}");
+                    if (index == 0) AssertWholeInheritedHints(window, section, where);
                     if (index == 1) AssertWholeReturnCodeRows(window, section, where);
                 }
             }
@@ -270,9 +289,9 @@ public sealed class ClippedColumnAndRowTests
                 var where = $"One Click plan {theme} {window.Width:0}x{window.Height:0}, {applications} rows";
                 var shown = grid.Columns.Where(c => c.Visibility == Visibility.Visible).ToList();
                 Assert.Contains(shown, c => Equals(c.Header, "Last published"));
-                Assert.Contains(shown, c => Equals(c.Header, "Destinations from"));
+                Assert.Contains(shown, c => Equals(c.Header, "Planned action / reason"));
                 foreach (var column in shown) AssertWholeHeader(grid, column, where);
-                var reason = shown.Single(c => Equals(c.Header, "Reason"));
+                var reason = shown.Single(c => Equals(c.Header, "Planned action / reason"));
                 Assert.True(reason.ActualWidth >= 170 - 0.5, $"{where}: Reason is {reason.ActualWidth:0} px wide.");
                 // At the size that the window opens with, no header needs a sideways scroll.
                 if (width == 0) AssertNoSidewaysScroll(grid, where);

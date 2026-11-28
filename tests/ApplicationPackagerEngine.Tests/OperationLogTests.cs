@@ -10,7 +10,7 @@ using ListBox = System.Windows.Controls.ListBox;
 
 namespace ApplicationPackagerEngine.Tests;
 
-/// <summary>The capped log behind the Logs button and the last line under the grid (overhaul V1, section 2.7).</summary>
+/// <summary>The capped log behind the Logs button and the line of the last run under the grid (overhaul V1, section 2.7).</summary>
 [Collection(ProcessEnvironmentCollection.Name)]
 public sealed class OperationLogTests
 {
@@ -85,7 +85,7 @@ public sealed class OperationLogTests
     [Theory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
-    public void ThePageShowsTheLastLineAndTheTwoButtonsUnderTheGrid(ApplicationTheme theme)
+    public void ThePageShowsTheRunLineAndTheTwoButtonsUnderTheGrid(ApplicationTheme theme)
     {
         WithApplication(theme, () =>
         {
@@ -95,18 +95,29 @@ public sealed class OperationLogTests
             try
             {
                 Settle(window);
+                // The line of the mock states what the last run did; each line of the log is in the log window.
+                viewModel.StatusText = "Check Latest: 4 of 4 applications checked.";
                 viewModel.AppendLog("The last line.");
                 Settle(window);
                 var summary = ById<TextBlock>(page, "txtLogSummary");
-                Assert.EndsWith("The last line.", summary.Text);
+                Assert.True(summary.IsVisible);
+                Assert.Equal("Check Latest: 4 of 4 applications checked.", summary.Text);
+                Assert.Equal(summary.Text, summary.ToolTip);
+                Assert.EndsWith("The last line.", viewModel.LastLogLine);
                 var logs = ById<ButtonBase>(page, "btnLogs");
                 var history = ById<ButtonBase>(page, "btnOperationHistory");
                 Assert.True(logs.IsVisible && logs.IsEnabled && logs.Focusable && logs.IsTabStop);
-                Assert.False(history.IsEnabled, "Operation history is on with no selected row.");
+                // The button of the mock is always on. With no selected and no checked row it says what to select.
+                Assert.True(history.IsEnabled);
+                Assert.Contains("selected application", (string)history.ToolTip);
+                var historyRow = typeof(ApplicationPackagerUI.Views.Pages.PackagesPage)
+                    .GetMethod("HistoryRow", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!;
+                viewModel.Packagers = new(viewModel.FilteredPackagers);
+                Assert.Null(historyRow.Invoke(page, null));
                 var grid = (System.Windows.Controls.DataGrid)page.FindName("PackagerGrid");
                 grid.SelectedItem = viewModel.FilteredPackagers[0];
                 Settle(window);
-                Assert.True(history.IsEnabled);
+                Assert.Same(viewModel.FilteredPackagers[0], historyRow.Invoke(page, null));
                 PageChromeKit.AssertNothingClipped(ById<Border>(page, "pnlLogBar"), $"log bar {theme}");
             }
             finally { window.Close(); }

@@ -38,23 +38,13 @@ public partial class SettingsPage
 
     private static string ColumnKey(DataGridColumn column) => column.Header as string ?? "";
 
+    private bool _tracksApplicationLayout;
+
     private void TrackApplicationLayout()
     {
+        _tracksApplicationLayout = true;
         dgApplications.ColumnReordered += (_, _) => SaveApplicationLayout();
         dgApplications.Sorting += (_, _) => Dispatcher.BeginInvoke(SaveApplicationLayout);
-        // A click on a grip that moves nothing sets no width.
-        (DataGridColumn Column, double Width)? pressed = null;
-        dgApplications.AddHandler(Thumb.DragStartedEvent, new DragStartedEventHandler((_, e) =>
-            pressed = ColumnGrips.SizedColumn(dgApplications, e.OriginalSource) is { } column ? (column, column.ActualWidth) : null), true);
-        dgApplications.AddHandler(Thumb.DragCompletedEvent, new DragCompletedEventHandler((_, e) =>
-        {
-            var start = pressed;
-            pressed = null;
-            if (ColumnGrips.SizedColumn(dgApplications, e.OriginalSource) is not { } column || start is not { } before
-                || !ReferenceEquals(before.Column, column) || Math.Abs(column.ActualWidth - before.Width) < 0.5) return;
-            _sizedApplicationColumns.Add(ColumnKey(column));
-            Dispatcher.BeginInvoke(SaveApplicationLayout);
-        }), true);
         dgApplications.AddHandler(UIElement.PreviewMouseLeftButtonDownEvent, new MouseButtonEventHandler((_, e) =>
         {
             if (e.ClickCount != 2 || ColumnGrips.SizedColumn(dgApplications, e.OriginalSource) is not { } column) return;
@@ -94,6 +84,13 @@ public partial class SettingsPage
             sorted.SortDirection = direction;
         }
         finally { _applyingApplicationLayout = false; }
+    }
+
+    /// <summary>A grip release that changed a width: the width is the operator's, and the layout is saved.</summary>
+    private void NoteSizedApplicationColumn(DataGridColumn column)
+    {
+        _sizedApplicationColumns.Add(ColumnKey(column));
+        Dispatcher.BeginInvoke(SaveApplicationLayout);
     }
 
     private void SaveApplicationLayout()

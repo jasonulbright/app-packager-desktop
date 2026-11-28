@@ -14,7 +14,7 @@ public sealed class StatusCategoryTests
     [InlineData("ConfigMgr version retrieved", "Success")]
     [InlineData("Update available", "Warning")]
     [InlineData("Update available (16 CVEs, 1 in KEV)", "Warning")]
-    [InlineData("Not found in ConfigMgr", "Info")]
+    [InlineData("Absent from ConfigMgr", "Info")]
     [InlineData("Current newer", "Info")]
     [InlineData("Download error: timeout", "Error")]
     [InlineData("Ready", "Neutral")]
@@ -31,11 +31,25 @@ public sealed class StatusCategoryTests
         while (folder is not null && !File.Exists(Relative(folder))) folder = folder.Parent;
         Assert.NotNull(folder);
         var doc = XDocument.Load(Relative(folder));
-        var triggers = doc.Descendants().Where(e => e.Name.LocalName == "DataTrigger" && ((string?)e.Attribute("Binding") ?? "").Contains("StatusCategoryConverter") && e.Descendants().Any(s => s.Name.LocalName == "Setter" && (string?)s.Attribute("Property") == "Foreground")).ToList();
-        var brushes = triggers.ToDictionary(t => (string)t.Attribute("Value")!, t => (string)t.Descendants().Single(e => e.Name.LocalName == "Setter").Attribute("Value")!);
-        Assert.Equal("{DynamicResource StatusSuccessBrush}", brushes["Success"]);
-        Assert.Equal("{DynamicResource StatusWarningBrush}", brushes["Warning"]);
-        Assert.Equal("{DynamicResource StatusInfoBrush}", brushes["Info"]);
-        Assert.Equal("{DynamicResource StatusErrorBrush}", brushes["Error"]);
+        var style = doc.Descendants().Single(e => e.Name.LocalName == "Style" && e.Attributes().Any(a => a.Name.LocalName == "Key" && a.Value == "StatusText"));
+        var brushes = style.Descendants().Where(e => e.Name.LocalName == "DataTrigger" && ((string?)e.Attribute("Binding") ?? "").Contains("ConverterParameter=StatusKind"))
+            .ToDictionary(t => (string)t.Attribute("Value")!, t => (string)t.Descendants().Single(e => (string?)e.Attribute("Property") == "Foreground").Attribute("Value")!);
+        Assert.Equal(4, brushes.Count);
+        Assert.Equal("{DynamicResource MkOkBrush}", brushes["good"]);
+        Assert.Equal("{DynamicResource MkWarnBrush}", brushes["warn"]);
+        Assert.Equal("{DynamicResource MkAccentBrush}", brushes["info"]);
+        Assert.Equal("{DynamicResource MkBadBrush}", brushes["bad"]);
+    }
+
+    [Theory]
+    [InlineData("Up to date", "good")]
+    [InlineData("Absent from ConfigMgr", "info")]
+    [InlineData("Update available", "warn")]
+    [InlineData("Stage error", "bad")]
+    [InlineData("Ready", "")]
+    public void EachStatusClassHasItsCellColorAndAGlyph(string status, string kind)
+    {
+        Assert.Equal(kind, PackagesCells.StatusKind(status));
+        Assert.NotEmpty(PackagesCells.StatusIcon(status));
     }
 }

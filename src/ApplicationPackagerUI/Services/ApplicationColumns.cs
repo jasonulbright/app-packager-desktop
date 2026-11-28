@@ -88,7 +88,8 @@ public sealed class ApplicationColumn
     public required string AutomationName { get; init; }
 
     public required string Tooltip { get; init; }
-    public required int Width { get; init; }
+    /// <summary>The width of the column; the first five are the widths of the mock at 1930 px.</summary>
+    public required double Width { get; init; }
 
     /// <summary>The choices of the cell; null for a text cell.</summary>
     public IReadOnlyList<string>? Choices { get; init; }
@@ -173,7 +174,7 @@ public static class ApplicationColumns
     [
         new ApplicationColumn
         {
-            Id = "source", Header = "Architecture", AutomationName = "Architecture of the application", Width = 150, DefaultVisible = true,
+            Id = "source", Header = "Architecture", AutomationName = "Architecture of the application", Width = 179, DefaultVisible = true,
             Choices = ApplicationGridSettings.ArchitectureChoices,
             Tooltip = "Select the architecture that the package targets. It is offered only for an application that has an architecture choice; the others show the fixed architecture.",
             Get = (w, r) => r.OffersArchitecture ? ApplicationGridSettings.ArchitectureOf(ApplicationGridSettings.Find(w.Conditions, r.DefinitionId)) : r.ArchitectureText,
@@ -182,7 +183,7 @@ public static class ApplicationColumns
         },
         new ApplicationColumn
         {
-            Id = "scope", Header = "Install scope", AutomationName = "Install scope of the application", Width = 165, DefaultVisible = true,
+            Id = "scope", Header = "Install scope", AutomationName = "Install scope of the application", Width = 145, DefaultVisible = true,
             Choices = ApplicationGridSettings.ScopeChoices,
             Tooltip = "Select System to install for all users or User to install for the signed-in user. It is offered only for an installer that supports both.",
             Get = (w, r) => r.OffersInstallScope ? ApplicationGridSettings.ScopeOf(ApplicationGridSettings.Find(w.Conditions, r.DefinitionId)) : "Per installer",
@@ -201,7 +202,7 @@ public static class ApplicationColumns
         },
         new ApplicationColumn
         {
-            Id = "supersedence", Header = "Supersedence", AutomationName = "Supersedence of the application", Width = 190, DefaultVisible = true,
+            Id = "supersedence", Header = "Supersedence", AutomationName = "Supersedence of the application", Width = 208, DefaultVisible = true,
             Choices = SupersedenceGrid.Choices,
             Tooltip = "Supersedence mode of this application. Follow the default uses the default mode above. Replace and uninstall needs the version rule Exact.",
             Get = (w, r) => SupersedenceGrid.ChoiceOf(w.Supersedence, r.ApplicationId),
@@ -209,7 +210,7 @@ public static class ApplicationColumns
         },
         new ApplicationColumn
         {
-            Id = "title", Header = "Version in title", AutomationName = "Version in the title of the application", Width = 190, DefaultVisible = true,
+            Id = "title", Header = "Version in title", AutomationName = "Version in the title of the application", Width = 188, DefaultVisible = true,
             Choices = ApplicationGridSettings.TitleChoices,
             Tooltip = "Include version adds the version to the Application name. No version removes it, so one Application carries every release. It is locked to Include version while supersedence is on.",
             Get = (w, r) => SupersedenceSettingsEditor.LocksVersionInTitle(w.Supersedence, r.ApplicationId)
@@ -222,7 +223,7 @@ public static class ApplicationColumns
         },
         new ApplicationColumn
         {
-            Id = "rule", Header = "Version rule", AutomationName = "Version rule of the application", Width = 195, DefaultVisible = true,
+            Id = "rule", Header = "Version rule", AutomationName = "Version rule of the application", Width = 188, DefaultVisible = true,
             Choices = SupersedenceGrid.RuleChoices,
             Tooltip = "Minimum is this version or newer. Exact is this version only (the detection operator equals). Follow the default uses the version rule above.",
             Get = (w, r) => SupersedenceGrid.RuleChoiceOf(w.Supersedence, r.ApplicationId),

@@ -33,7 +33,7 @@ public sealed partial class DeploymentFormViewModel : DeploymentTabViewModel
     public const string TemplateNameTaken = "A shipped template has this name. Choose another name.";
     public const string TimeFormatMessage = "Enter the time as hours and minutes, for example 08:30.";
     public const string RequiredOnlyText =
-        "Rerun, maintenance window, metered connection and restart settings apply to Required deployments only. ConfigMgr ignores them for Available.";
+        "Select Required to set a deadline, maintenance window behavior, restart, rerun and metered connection options.";
     public const string LocalNote = "Local time: each client reads the available time and the deadline in its own time zone.";
     public const string UtcNote = "UTC: the available time and the deadline are UTC times, the same moment on every client.";
     public const string NoExpirationNote = " No expiration time is set.";

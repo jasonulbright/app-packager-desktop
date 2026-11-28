@@ -1,4 +1,4 @@
-using System.Globalization;
+﻿using System.Globalization;
 using System.Windows.Data;
 
 namespace ApplicationPackagerUI.Helpers;
@@ -12,7 +12,7 @@ public static class StatusCategory
     {
         "Staged" or "Packaged" or "Up to date" or "Latest retrieved" or "ConfigMgr version retrieved" => Success,
         var s when Services.CveRowState.IsUpdateAvailable(s) => Warning,
-        "Not found in ConfigMgr" or "Current newer" => Info,
+        PackagesTab.NotFoundStatus or "Current newer" => Info,
         var s when s is not null && s.Contains("error", StringComparison.OrdinalIgnoreCase) => Error,
         _ => Neutral
     };

@@ -263,7 +263,7 @@ public sealed class SidebarGroupWindowTests
                 "[tools]", SidebarIds.InstallerAnalysis, SidebarIds.DetectionTester, SidebarIds.DeploymentHelper, SidebarIds.PivotsScripts,
                 SidebarIds.CollectionCompliance, SidebarIds.MaintenanceWindows, SidebarIds.DpContentManager, SidebarIds.SiteHygiene
             ], h.Menu());
-            Assert.Equal("TOOLS", h.Presenter.CaptionFor(SidebarGroupIds.Tools).Text.Text);
+            Assert.Equal("Tools", h.Presenter.CaptionFor(SidebarGroupIds.Tools).Text.Text);
             Assert.Equal("Tools group", AutomationProperties.GetName(h.Presenter.CaptionFor(SidebarGroupIds.Tools)));
 
             var packager = h.Presenter.ItemFor(SidebarIds.Packages);

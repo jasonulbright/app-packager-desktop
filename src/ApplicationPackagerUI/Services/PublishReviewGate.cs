@@ -18,12 +18,14 @@ public static class PublishReviewGate
     /// <returns>The confirmed review, or null when nothing is to be published.</returns>
     public static async Task<PublishReviewViewModel?> ConfirmAsync(PublishPlan plan, string comment,
         Func<PublishReviewViewModel, bool> show, Func<PublishPlan, Task<PublishPlan?>> reread, Action<string> log,
-        Action<string>? keepComment = null)
+        Action<string>? keepComment = null, Func<PublishReviewViewModel, PublishReviewViewModel>? name = null)
     {
         IReadOnlyDictionary<string, string>? changes = null;
         while (true)
         {
             var review = new PublishReviewViewModel(plan, comment, changes);
+            // The page names the columns and the marks of the applications.
+            if (name is not null) review = name(review);
             var confirmed = show(review);
             keepComment?.Invoke(review.Comment);
             if (!confirmed)

@@ -73,17 +73,18 @@ public sealed class KeyboardAndNameTests
                 ById<ButtonBase>(page, "btnDetailPaneClose").RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent));
                 Settle(window);
                 Assert.True(PressTab(FocusFirstCell(window, grid)));
-                Assert.Equal("btnDetailPaneOpen", FocusedId(window));
+                // With the pane closed the next stop is the line under the grid.
+                Assert.Equal("btnOperationHistory", FocusedId(window));
 
                 Assert.True(page.LeaveGrid(back: true));
                 Assert.Equal("btnMore", FocusedId(window));
 
-                // The page order after the grid: the pane before the batch bar, and Stage and Publish All in the batch bar.
+                // The page order of the mock: the run buttons, the search row, the grid with its last line, then the pane.
                 var order = Descendants(page).OfType<FrameworkElement>().Select(AutomationProperties.GetAutomationId).Where(id => id.Length > 0).ToList();
-                int At(string id) => order.IndexOf(id);
-                Assert.True(At("txtAppPackagerSearch") >= 0 && At("txtAppPackagerSearch") < At("btnColumns") && At("btnColumns") < At("pnlDetailPane"));
-                Assert.True(At("pnlDetailPane") < At("pnlBatchBar"));
-                Assert.True(At("btnStage") < At("btnLogs"));
+                int At(string id) { var at = order.IndexOf(id); Assert.True(at >= 0, id + " is not on the page."); return at; }
+                Assert.True(At("pnlBatchBar") < At("txtAppPackagerSearch") && At("txtAppPackagerSearch") < At("cboStatusFilter"));
+                Assert.True(At("cboStatusFilter") < At("btnSelectUpdates") && At("btnSelectUpdates") < At("btnColumns") && At("btnColumns") < At("btnMore"));
+                Assert.True(At("btnStage") < At("btnPublishAll") && At("btnMore") < At("btnLogs") && At("btnLogs") < At("pnlDetailPane"));
             }
             finally { window.Close(); }
         });
@@ -98,7 +99,7 @@ public sealed class KeyboardAndNameTests
             try
             {
                 window.Activate();
-                var search = Descendants(page).OfType<Wpf.Ui.Controls.TextBox>().Single(b => AutomationProperties.GetAutomationId(b) == "txtAppPackagerSearch");
+                var search = Descendants(page).OfType<TextBox>().Single(b => AutomationProperties.GetAutomationId(b) == "txtAppPackagerSearch");
                 Keyboard.Focus(search);
                 Settle(window);
                 var walk = PageChromeKit.Tabs(5);
@@ -195,7 +196,7 @@ public sealed class KeyboardAndNameTests
     [Theory]
     [InlineData(1920, 1032)]
     [InlineData(1024, 720)]
-    public void TheCompactColumnsFitTheGridWithNoSidewaysScroll(int width, int height)
+    public void TheCompactColumnsFitTheFullWindowAndScrollIntoViewInASmallOne(int width, int height)
     {
         WithApplication(ApplicationTheme.Light, () =>
         {
@@ -206,11 +207,22 @@ public sealed class KeyboardAndNameTests
                     column.Visibility = PackagesColumns.Compact.Contains((string)column.Header) ? Visibility.Visible : Visibility.Collapsed;
                 Settle(window);
                 var scroller = Descendants(grid).OfType<ScrollViewer>().First();
-                Assert.True(scroller.ExtentWidth <= scroller.ViewportWidth + 1,
-                    $"{width}x{height}: the columns need {scroller.ExtentWidth:0} px of {scroller.ViewportWidth:0} px.");
-                // With the pane open the grid keeps the Application, version and Status columns in view.
-                foreach (var header in new[] { "Application", "ConfigMgr version", "Status" })
-                    Assert.True(grid.Columns.Single(c => c.Header as string == header).ActualWidth > 0, header);
+                if (width >= 1920)
+                    Assert.True(scroller.ExtentWidth <= scroller.ViewportWidth + 1,
+                        $"{width}x{height}: the columns need {scroller.ExtentWidth:0} px of {scroller.ViewportWidth:0} px.");
+                // A smaller window may scroll sideways: no column goes below its least width, and every column can be brought into view.
+                else if (scroller.ExtentWidth > scroller.ViewportWidth + 1)
+                    Assert.Equal(Visibility.Visible, scroller.ComputedHorizontalScrollBarVisibility);
+                foreach (var header in new[] { "Application", "Vendor", "ConfigMgr version", "Latest version", "Status", "CVE check" })
+                {
+                    var column = grid.Columns.Single(c => c.Header as string == header);
+                    Assert.True(column.ActualWidth >= column.MinWidth - 0.5, $"{header} is {column.ActualWidth:0} px wide.");
+                    grid.ScrollIntoView(grid.Items[0], column);
+                    Settle(window);
+                    var shown = Descendants(grid).OfType<System.Windows.Controls.Primitives.DataGridColumnHeader>().Single(h => ReferenceEquals(h.Column, column));
+                    var bounds = shown.TransformToAncestor(grid).TransformBounds(new Rect(shown.RenderSize));
+                    Assert.True(shown.IsVisible && bounds.Right > 0 && bounds.Left < grid.ActualWidth, $"{header} cannot be brought into view at {width}x{height}.");
+                }
             }
             finally { window.Close(); }
         });
@@ -256,21 +268,29 @@ public sealed class KeyboardAndNameTests
     {
         var xaml = File.ReadAllText(Path.Combine(ApplicationPackagerEngine.Tests.Compliance.CatalogServiceTests.RepositoryRoot(),
             "src", "ApplicationPackagerUI", "Views", "Pages", "PackagesPage.xaml"));
-        foreach (var (label, glyph) in new[]
+        foreach (var (label, property, glyph) in new[]
                  {
-                     ("Check", "CheckmarkCircle24"), ("Stage", "ArrowCircleDown24"), ("Publish All", "ArrowCircleUp24"),
-                     ("Columns", "TableSettings24"), ("More", "MoreHorizontal24"), ("Add or import", "Add24"), ("Logs", "DocumentText24"),
-                     ("Operation history", "History24"), ("One Click", "Play24")
+                     ("Check latest", "Icon", "arrow_sync"), ("Check ConfigMgr", "Icon", "server"), ("Check CVEs", "Icon", "shield"), ("Stage", "Icon", "box"),
+                     ("Review publish", "Icon", "arrow_right"), ("One Click", "Icon", "play"), ("Catalog", "Icon", "list"), ("Add or import", "TrailingIcon", "chevron_down"),
+                     ("Columns", "TrailingIcon", "chevron_down"), ("More", "TrailingIcon", "chevron_down"), ("Select updates", "Icon", "checkmark"),
+                     ("Logs", "Icon", "document"), ("Operation history", "Icon", "history"), ("Cancel", "Icon", "dismiss")
                  })
-            Assert.Matches($"Content=\"{label}\"[^>]*SymbolIcon {glyph}\\}}", xaml);
+        {
+            Assert.Matches($"mk:Mk\\.{property}=\"{glyph}\"[^>]*Content=\"{label}\"", xaml);
+            Assert.True(ApplicationPackagerUI.Controls.Mock.Ico.Knows(glyph), glyph);
+        }
         foreach (var id in new[]
                  {
-                     "btnCatalog", "btnAddOrImport", "btnOneClick", "btnCheckMenu", "btnColumns", "btnMore", "txtAppPackagerSearch",
-                     "btnStage", "btnPublishAll", "btnSelectUpdates", "btnCancelOperation", "btnShowSelected", "btnClearSelection",
+                     "btnCatalog", "btnAddOrImport", "btnOneClick", "btnCheckLatest", "btnCheckConfigMgr", "btnCheckCves", "btnColumns", "btnMore",
+                     "txtAppPackagerSearch", "cboStatusFilter", "btnStage", "btnPublishAll", "btnSelectUpdates", "btnCancelOperation",
                      "splDetailPane", "pnlDetailPane", "btnDetailWorkbench", "btnDetailMoreActions", "btnDetailSystems", "btnLogs",
-                     "btnOperationHistory", "txtLogSummary", "pnlBatchBar", "pnlStatusTabs"
+                     "btnOperationHistory", "txtLogSummary", "pnlBatchBar", "txtSelectionCount", "txtRunComment"
                  })
             Assert.Contains($"AutomationProperties.AutomationId=\"{id}\"", xaml);
+        // Show selected, Clear selection and Show details are entries of the More menu.
+        var menus = File.ReadAllText(Path.Combine(ApplicationPackagerEngine.Tests.Compliance.CatalogServiceTests.RepositoryRoot(),
+            "src", "ApplicationPackagerUI", "Views", "Pages", "PackagesPage.Menus.cs"));
+        foreach (var id in new[] { "miShowSelected", "miClearSelection", "miShowDetails" }) Assert.Contains($"\"{id}\"", menus);
         Assert.Contains("x:Name=\"PackagerGrid\"", xaml);
     }
 }

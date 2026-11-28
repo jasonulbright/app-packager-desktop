@@ -102,7 +102,7 @@ public sealed class OneClickPlanReviewTests : IDisposable
         Assert.Equal(1, results.Published);
         // Bravo failed at ConfigMgr, and its WSUS publish was never tried.
         Assert.Equal(2, results.Failed);
-        Assert.Equal("Publish completed with issues", results.Headline);
+        Assert.Equal("One Click completed with issues", results.Headline);
     }
 
     [Fact]

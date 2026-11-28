@@ -15,7 +15,9 @@ public sealed partial class DiscoverySettingsEditor : ObservableObject
     [ObservableProperty] private int _dismissedCount;
     [ObservableProperty] private bool _clearPending;
 
-    public string DismissedSummary => ClearPending ? "0 app(s) after Save" : $"{DismissedCount} app(s)";
+    public string DismissedSummary => ClearPending ? "0 applications hidden from Discover after Save settings" : Hidden(DismissedCount);
+
+    private static string Hidden(int count) => $"{count} {(count == 1 ? "application" : "applications")} hidden from Discover";
 
     public bool CanClearDismissed => DismissedCount > 0 && !ClearPending;
 

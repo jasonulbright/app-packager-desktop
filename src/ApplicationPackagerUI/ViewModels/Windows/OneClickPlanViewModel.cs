@@ -1,4 +1,4 @@
-using System.ComponentModel;
+﻿using System.ComponentModel;
 using System.IO;
 using ApplicationPackagerEngine.Models;
 using ApplicationPackagerEngine.Services.OneClick;
@@ -42,6 +42,8 @@ public sealed record OneClickPlanContext
     /// <summary>Asks for missing local installer folders before Run; returns the rows that keep one.</summary>
     public Func<IReadOnlyList<PackagerInfo>, IReadOnlyList<PackagerInfo>>? ConfirmLocalSources { get; init; }
     public Action<string>? Log { get; init; }
+    /// <summary>True when the effective supersedence mode of the application is on; null when the caller does not say.</summary>
+    public Func<PackagerInfo, bool>? Supersedes { get; init; }
 }
 
 /// <summary>
@@ -84,6 +86,55 @@ public partial class OneClickPlanViewModel : ObservableObject
     /// <summary>The comment that the run writes to each published application.</summary>
     [ObservableProperty] private string _comment = "";
 
+    /// <summary>
+    /// True when a run that publishes opened with a comment: the window then shows it, so no old comment is published unseen.
+    /// </summary>
+    public bool ShowsComment { get; private set; }
+
+    /// <summary>
+    /// What the run risks, as text: first each distribution, deployment or approval, then the saved setting that overwrites without a question
+    /// and the supersedence question that can open during the run. Empty for a run with none of these.
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowsHint))]
+    private string _riskText = "";
+
+    /// <summary>The tooltip of the risk text: each application with supersedence on, where the text gives only their count; else null.</summary>
+    [ObservableProperty] private string? _riskDetail;
+
+    /// <summary>The most application names that the risk text spells out; a longer list gives its count.</summary>
+    public const int MostNamedApplications = 3;
+
+    /// <summary>The general note of a run that publishes; a warning takes its place.</summary>
+    public bool ShowsHint => IsPublishRun && RiskText.Length == 0;
+
+    /// <summary>The state of a run or of the written plan: "Nothing to run.", "Complete: …". Empty before Plan only or Run.</summary>
+    [ObservableProperty] private string _statusLine = "";
+
+    private string Risks(IReadOnlyList<OneClickPlanRow> included)
+    {
+        RiskDetail = null;
+        if (!IsPublishRun) return "";
+        var lines = new List<string>();
+        if (new[] { "distribute to ", "deploy to ", "approved for group " }.Any(w => ScopeText.Contains(w, StringComparison.Ordinal)))
+            lines.Add(ScopeText);
+        if (OneClickOnExisting.Normalize(_context.OnExisting) == OneClickOnExisting.Overwrite
+            && included.Any(r => r.PublishTo.Contains(OneClickDestinations.ConfigMgr)))
+            lines.Add("The saved One Click setting overwrites an existing ConfigMgr application. Run asks nothing about it after it starts.");
+        var superseded = included
+            .Where(r => r.PublishTo.Contains(OneClickDestinations.ConfigMgr) || r.PublishTo.Contains(OneClickDestinations.Intune))
+            .Where(r => _apps.TryGetValue(r.Key, out var app) && app.Row is { } row && _context.Supersedes?.Invoke(row) == true)
+            .Select(r => r.Application).ToList();
+        if (superseded.Count > 0)
+        {
+            var many = superseded.Count > MostNamedApplications;
+            if (many) RiskDetail = "Supersedence is on for:" + Environment.NewLine + string.Join(Environment.NewLine, superseded);
+            var which = many ? $"{superseded.Count} applications" : string.Join(", ", superseded);
+            lines.Add($"Supersedence is on for {which}. The run can ask before it supersedes an older application.");
+        }
+        return string.Join(Environment.NewLine, lines);
+    }
+
     /// <summary>"2 applications included, 1 not included. ConfigMgr site MCM."</summary>
     [ObservableProperty] private string _headerText = "";
 
@@ -115,9 +166,18 @@ public partial class OneClickPlanViewModel : ObservableObject
     private List<string> _runSystems = [];
 
     /// <summary>The results of the finished run for the shared results window: one row for each included application.</summary>
-    public PublishResultsViewModel BuildResults() => new(
+    public PublishResultsViewModel BuildResults(Action<System.Windows.Window>? runHistory = null) => new(
         Rows.Where(r => r.Include).Select(r => (r.Application, new PublishRowResult(r.Key, r.Version, r.Cells.ToList()))).ToList(),
-        _runCanceled, _runSystems) { ReportPath = ReportPath };
+        _runCanceled, _runSystems)
+    {
+        ReportPath = ReportPath,
+        IsOneClick = true,
+        SiteCode = _context.PlannedSite.Split('|')[0],
+        RunNote = _context.Clock().ToString("d MMM yyyy, HH:mm", System.Globalization.CultureInfo.InvariantCulture),
+        Versions = Rows.Where(r => r.Include).GroupBy(r => r.Key).ToDictionary(g => g.Key, g => g.First().Version),
+        Mark = name => _context.Apps.FirstOrDefault(a => a.Row?.Application == name).Row?.Mark ?? Helpers.PackagesCells.MarkOf(name),
+        ShowRunHistory = runHistory,
+    };
 
     /// <summary>Raised after a run that has results, so the window can show them.</summary>
     public event EventHandler? ResultsReady;
@@ -137,6 +197,7 @@ public partial class OneClickPlanViewModel : ObservableObject
         _runner = runner;
         _force = context.Force;
         _comment = context.Comment;
+        ShowsComment = IsPublishRun && context.Comment.Trim().Length > 0;
         _apps = context.Apps.ToDictionary(a => a.App.Key, StringComparer.OrdinalIgnoreCase);
         Refresh();
     }
@@ -182,9 +243,8 @@ public partial class OneClickPlanViewModel : ObservableObject
     }
 
     /// <summary>The saved settings with this window's destination boxes in place of the saved ones.</summary>
-    private OneClickPlanSettings RunSettings()
+    private OneClickPlanSettings RunSettings(OneClickPlanSettings saved)
     {
-        var saved = _context.Settings();
         if (Rows.Count == 0) return saved;
         return saved with
         {
@@ -200,7 +260,9 @@ public partial class OneClickPlanViewModel : ObservableObject
         RefreshCount++;
         try
         {
-            var settings = RunSettings();
+            // One read of the saved settings for each replan.
+            var saved = _context.Settings();
+            var settings = RunSettings(saved);
             var plan = OneClickPlanner.Plan(_context.Apps.Select(a => a.App), settings, _context.History, _context.Action, Force, _context.Clock());
             var existing = Rows.ToDictionary(r => r.Key, StringComparer.OrdinalIgnoreCase);
             foreach (var p in plan)
@@ -240,7 +302,6 @@ public partial class OneClickPlanViewModel : ObservableObject
 
             var byKey = Rows.ToDictionary(r => r.Key, StringComparer.OrdinalIgnoreCase);
             // The source is read from the saved settings: the run settings of this window give every row a selection of its own.
-            var saved = _context.Settings();
             foreach (var item in Rows)
             {
                 var (set, source) = OneClickPlanner.DestinationsFor(saved, item.Key);
@@ -250,16 +311,20 @@ public partial class OneClickPlanViewModel : ObservableObject
             bool Included(OneClickPlanRow r) => byKey.TryGetValue(r.Key, out var i) && i.Include;
             foreach (var planned in plan)
                 if (byKey.TryGetValue(planned.Key, out var row))
-                    row.ChangeDetails = string.Join(Environment.NewLine,
-                        planned.PublishTo.Select(d => d + ": " + OneClickPlanner.Scope(d, settings.Scope)));
+                    row.ChangeDetails = string.Join(Environment.NewLine, planned.PublishTo.Select(d => d + ": "
+                        + (d == OneClickDestinations.ConfigMgr && row.Row is { IsJsonDefined: false, StagedManifestPath: null }
+                            ? "the PS1 packager script decides distribution and deployment" : OneClickPlanner.Scope(d, settings.Scope))));
             var summary = OneClickPlanner.Summarize(plan, settings, _context.Action, Included);
             SummaryText = summary.Line;
             HeaderText = HeaderLine(plan.Count(Included), plan.Count);
             ActionText = OneClickPlanner.ActionLine(_context.Action, _context.OnExisting);
             ScopeText = OneClickPlanner.ScopeLine(plan.Where(Included), settings.Scope);
             BlockingText = summary.Blocking.Count > 0 ? "Not ready: " + string.Join("; ", summary.Blocking) : "";
+            RiskText = Risks(plan.Where(Included).ToList());
+            StatusLine = "";
             OnPropertyChanged(nameof(CanRun));
             RunCommand.NotifyCanExecuteChanged();
+            RaisePresentation();
         }
         finally
         {
@@ -314,7 +379,7 @@ public partial class OneClickPlanViewModel : ObservableObject
     {
         _started = _context.Clock();
         var paths = WriteReport(_context.Clock(), false, "One Click plan");
-        SummaryText = "Plan written: " + paths.MarkdownPath;
+        SummaryText = StatusLine = "Plan written: " + paths.MarkdownPath;
     }
 
     [RelayCommand(CanExecute = nameof(CanRun))]
@@ -349,7 +414,7 @@ public partial class OneClickPlanViewModel : ObservableObject
             HeaderText = HeaderLine(included.Count, Rows.Count);
             if (included.Count == 0)
             {
-                SummaryText = "Nothing to run.";
+                SummaryText = StatusLine = "Nothing to run.";
                 OnPropertyChanged(nameof(CanRun));
                 return;
             }
@@ -367,7 +432,7 @@ public partial class OneClickPlanViewModel : ObservableObject
             r.Cells.Clear();
         }
         _runSystems = OneClickDestinations.All.Where(d => included.Any(r => r.Destinations.Has(d))).ToList();
-        SummaryText = $"Running: {included.Count} application(s)";
+        SummaryText = StatusLine = $"Running: {included.Count} application(s)";
         _context.Log?.Invoke($"One Click: {included.Count} app(s), action={OneClickActionNames.Normalize(_context.Action)}{(Force ? ", force=on" : "")}");
 
         _runCts = new CancellationTokenSource();
@@ -418,7 +483,7 @@ public partial class OneClickPlanViewModel : ObservableObject
         var superseded = Rows.Count(r => r.Outcome == OneClickOutcomes.Superseded);
         var label = stopped is not null ? $"Failed: {stopped}."
             : $"{(canceled ? "Canceled" : "Complete")}: {published} published, {failed} failed{(superseded > 0 ? $", {superseded} superseded" : "")}.";
-        SummaryText = $"{label} Report: {Path.GetFileName(paths.MarkdownPath)}";
+        SummaryText = StatusLine = $"{label} Report: {Path.GetFileName(paths.MarkdownPath)}";
         _runCanceled = canceled;
         HasFailure = FirstFailed is not null;
         HasResults = included.Any(r => r.Cells.Count > 0);

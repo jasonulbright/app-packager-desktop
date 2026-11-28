@@ -114,8 +114,8 @@ public sealed class ApplicationSettingsGridRenderTests
 
         // The grid scrolls, so no other column has width to give.
         Drag("Vendor", 80);
-        Shows("Vendor", 200);
-        Drag("Vendor", -110);
+        Shows("Vendor", 316);
+        Drag("Vendor", -226);
         Shows("Vendor", 90);
         Assert.True(Column("Application").Width.IsStar, Widths());
         Shows("Install scope", scope);
@@ -180,9 +180,11 @@ public sealed class ApplicationSettingsGridRenderTests
                 Show1(first, (window, grid) =>
                 {
                     // A click on a grip saves nothing.
+                    var shownBefore = string.Join("; ", grid.Columns.Select(c => $"{c.Header} {c.ActualWidth:0.##}"));
                     ColumnGripKit.Drag(window, grid, Column(grid, "Vendor"), 0);
                     Settle(window);
-                    Assert.Null(settings.Load().ApplicationSettingsGridLayout);
+                    Assert.True(settings.Load().ApplicationSettingsGridLayout is null,
+                        "A click on a grip saved a layout. Before: " + shownBefore + ". After: " + string.Join("; ", grid.Columns.Select(c => $"{c.Header} {c.ActualWidth:0.##}")));
                     ColumnGripKit.Drag(window, grid, Column(grid, "Vendor"), 60);
                     Settle(window);
                     Column(grid, "Install scope").DisplayIndex = 1;
@@ -191,13 +193,13 @@ public sealed class ApplicationSettingsGridRenderTests
                 });
                 var saved = settings.Load().ApplicationSettingsGridLayout!;
                 Assert.Equal("Install scope", saved.Columns[0].Id);
-                Assert.Equal(180, saved.Columns.Single(c => c.Id == "Vendor").Width, 1.0);
+                Assert.Equal(296, saved.Columns.Single(c => c.Id == "Vendor").Width, 1.0);
                 Assert.Equal(("Application", true), (saved.SortId, saved.SortDescending));
 
                 Show1(Open(), (_, grid) =>
                 {
                     Assert.Equal(1, Column(grid, "Install scope").DisplayIndex);
-                    Assert.Equal(180, Column(grid, "Vendor").ActualWidth, 1.0);
+                    Assert.Equal(296, Column(grid, "Vendor").ActualWidth, 1.0);
                     Assert.Equal(System.ComponentModel.ListSortDirection.Descending, Column(grid, "Application").SortDirection);
                 });
             });

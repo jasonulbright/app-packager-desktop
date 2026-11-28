@@ -219,14 +219,19 @@ public sealed class ContextStripTests
             Assert.Contains("ConfigMgr connected", texts);
             Assert.Contains("Intune not configured", texts);
             Assert.Contains("WSUS off", texts);
-            Assert.Equal(3, RenderKit.Descendants(strip).OfType<Wpf.Ui.Controls.SymbolIcon>().Count(i => i.Symbol != Wpf.Ui.Controls.SymbolRegular.PlugConnected24));
+            var systems = RenderKit.Descendants(strip).OfType<ItemsControl>().Single();
+            var glyphs = RenderKit.Descendants(systems).OfType<ApplicationPackagerUI.Controls.Mock.Ico>().ToList();
+            Assert.Equal(3, glyphs.Count);
+            Assert.All(glyphs, g => Assert.NotEmpty(g.Text));
 
             // The name of the control is read from the same state.
             var peer = UIElementAutomationPeer.CreatePeerForElement(strip);
             Assert.Equal("Site MCM, cm01.contoso.com, ConfigMgr connected, Intune not configured, WSUS off", peer.GetName());
             Assert.True(strip.ActualHeight >= 40 && strip.ActualHeight <= 64, $"The strip is {strip.ActualHeight} high.");
 
-            Assert.NotNull(RenderKit.ById<Wpf.Ui.Controls.Button>(strip, "btnContextConnections"));
+            var connections = RenderKit.ById<System.Windows.Controls.Button>(strip, "btnContextConnections");
+            Assert.Equal("Connections", connections.Content);
+            Assert.False(string.IsNullOrWhiteSpace(connections.ToolTip as string));
         });
     }
 }

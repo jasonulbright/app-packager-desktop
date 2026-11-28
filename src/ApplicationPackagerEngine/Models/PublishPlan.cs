@@ -1,4 +1,4 @@
-using System.Security.Cryptography;
+﻿using System.Security.Cryptography;
 using System.Text;
 
 namespace ApplicationPackagerEngine.Models;
@@ -31,6 +31,12 @@ public sealed record PublishPlanApp(string Uid, string Application, string Versi
     /// <summary>The steps that the ConfigMgr run takes after it creates the application: distribution, test deployment, supersedence. Empty when none.</summary>
     public string ConfigMgrSteps { get; init; } = "";
 
+    /// <summary>True for a PS1 packager: its script decides distribution, deployment and supersedence, so the plan claims none of them.</summary>
+    public bool ScriptDecides { get; init; }
+
+    /// <summary>True when the run applies supersedence to this application: the effective mode of the application is not Off.</summary>
+    public bool Supersedes => ConfigMgrSteps.Contains(PublishPlan.SupersedenceStep, StringComparison.Ordinal);
+
     /// <summary>When the version of this application was last checked; null when no check time is stored.</summary>
     public DateTime? CheckedAt { get; init; }
 
@@ -45,6 +51,9 @@ public sealed record PublishPlanApp(string Uid, string Application, string Versi
 
     /// <summary>The key of the build that this run would publish; empty when not known.</summary>
     public string BuildKey { get; init; } = "";
+
+    /// <summary>The folder that the content is published from; empty when the card names the File Share Root only.</summary>
+    public string ContentSource { get; init; } = "";
 
     /// <summary>The detection method of the definition, for the ConfigMgr card.</summary>
     public string Detection { get; init; } = "";
@@ -150,6 +159,15 @@ public sealed record PublishPlan(IReadOnlyList<string> Systems, IReadOnlyList<Pu
     public const string ConfigMgrAction = "Create application and deployment type";
     public const string IntuneAction = "Create Win32 app";
     public const string WsusAction = "Create software update";
+
+    /// <summary>The step of <see cref="PublishPlanApp.ConfigMgrSteps"/> for an application whose effective supersedence mode is on.</summary>
+    public const string SupersedenceStep = "apply supersedence";
+
+    /// <summary>The words of a ConfigMgr cell when the run may replace an application.</summary>
+    public const string ReplaceAsk = "if the title matches, the run asks before it replaces it";
+
+    /// <summary>What stands before each warning at the end of a cell.</summary>
+    public const string WarningMark = ". Warning: ";
 }
 
 public static class PublishPlanner
@@ -220,7 +238,7 @@ public static class PublishPlanner
 
     private static string UnverifiedWarning(PublishPlanApp app, string destination) =>
         app.History?.Published.TryGetValue(destination, out var record) == true && record.Unverified
-            ? $". Warning: the earlier published version cannot be verified (the record names {record.Version}, and its build record is gone)"
+            ? $"{PublishPlan.WarningMark}the earlier published version cannot be verified (the record names {record.Version}, and its build record is gone)"
             : "";
 
     /// <summary>
@@ -229,8 +247,8 @@ public static class PublishPlanner
     private static string RefusalWarning(PublishPlanApp app, string destination) => EarlierRefusal(app, destination) switch
     {
         null => "",
-        "" => ". Warning: this version was refused before",
-        var reason => ". Warning: this version was refused before (" + reason.TrimEnd('.', ' ') + ")"
+        "" => PublishPlan.WarningMark + "this version was refused before",
+        var reason => PublishPlan.WarningMark + "this version was refused before (" + reason.TrimEnd('.', ' ') + ")"
     };
 
     private static string ConfigMgrText(PublishPlanApp app) =>
@@ -245,8 +263,8 @@ public static class PublishPlanner
     {
         // The run asks only when the title of the new application matches one on the site, and the title is known when the run stages. So the cell says "if".
         ConfigMgrFactKind.Found when app.ConfigMgrIncomplete => PublishPlan.ConfigMgrAction +
-            " (the last publish of this version did not finish, verify it in ConfigMgr; if the title matches, the run asks before it replaces it)",
-        ConfigMgrFactKind.Found => PublishPlan.ConfigMgrAction + " (ConfigMgr has " + Has(app) + "; if the title matches, the run asks before it replaces it)",
+            " (the last publish of this version did not finish, verify it in ConfigMgr; " + PublishPlan.ReplaceAsk + ")",
+        ConfigMgrFactKind.Found => PublishPlan.ConfigMgrAction + " (ConfigMgr has " + Has(app) + "; " + PublishPlan.ReplaceAsk + ")",
         ConfigMgrFactKind.Unreadable => PublishPlan.ConfigMgrAction + " (ConfigMgr was not read)",
         _ => PublishPlan.ConfigMgrAction
     };

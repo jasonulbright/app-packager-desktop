@@ -1,4 +1,4 @@
-using System.Windows;
+﻿using System.Windows;
 using System.Windows.Automation;
 using System.Windows.Documents;
 using System.Windows.Input;
@@ -165,6 +165,8 @@ public sealed class SidebarPresenter
             TargetPageTag = definition.Id,
             ToolTip = definition.Description ?? definition.Title
         };
+        item.SetResourceReference(FrameworkElement.StyleProperty, "Mk.NavItem");
+        ApplicationPackagerUI.Controls.Mock.Mk.SetIcon(item, MockIconOf(definition.Id));
         AutomationProperties.SetAutomationId(item, "nav-" + definition.Id);
         AutomationProperties.SetName(item, definition.Title);
         if (definition.Kind == SidebarItemKind.Page)
@@ -183,6 +185,25 @@ public sealed class SidebarPresenter
         _items[definition.Id] = item;
         return item;
     }
+
+    /// <summary>The glyph of the icon font that the mock draws for a sidebar entry.</summary>
+    public static string MockIconOf(string id) => id switch
+    {
+        SidebarIds.Packages => "box",
+        SidebarIds.AddApp => "globe",
+        SidebarIds.AddFile => "document_add",
+        SidebarIds.WsusUpdates => "arrow_sync",
+        SidebarIds.Workbench => "wrench",
+        SidebarIds.InstallerAnalysis => "box_search",
+        SidebarIds.DetectionTester => "beaker",
+        SidebarIds.DeploymentHelper => "rocket",
+        SidebarIds.PivotsScripts => "code",
+        SidebarIds.CollectionCompliance => "people_community",
+        SidebarIds.MaintenanceWindows => "calendar_clock",
+        SidebarIds.DpContentManager => "server",
+        SidebarIds.SiteHygiene => "broom",
+        _ => "box"
+    };
 
     private SidebarGroupCaption Caption(SidebarGroup group)
     {

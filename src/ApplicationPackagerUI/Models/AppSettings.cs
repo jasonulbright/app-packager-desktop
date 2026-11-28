@@ -13,6 +13,12 @@ public sealed class AppSettings
     /// <summary>Look up the latest GitHub release when the app starts. The manual check is always available.</summary>
     public bool CheckForUpdatesAtStartup { get; set; } = true;
 
+    /// <summary>
+    /// The application list shows the icons of the icon pack. Off: it shows two letters of the name, and the app does not download
+    /// or update the pack at startup. A staged application takes the icon of an installed pack with either value.
+    /// </summary>
+    public bool ShowPackIcons { get; set; } = true;
+
     public string SiteCode { get; set; } = "MCM";
 
     /// <summary>
@@ -98,10 +104,10 @@ public sealed class AppSettings
     public ApplicationPackagerUI.Helpers.PackagesColumnLayout? ApplicationSettingsGridLayout { get; set; }
 
     /// <summary>The detail pane of the Packages page is open. The pane starts closed in a window narrower than 1100 whatever this says.</summary>
-    public bool PackagesDetailPaneOpen { get; set; } = true;
+    public bool PackagesDetailPaneOpen { get; set; }
 
     /// <summary>The width of the detail pane that the operator set with the splitter. The page limits it to the room beside the grid.</summary>
-    public double PackagesDetailPaneWidth { get; set; } = 320;
+    public double PackagesDetailPaneWidth { get; set; } = 350;
 
     /// <summary>Definition ids that Discover unmanaged software no longer offers. Disjoint from <see cref="DiscoveryEnabled"/>.</summary>
     public string[] DiscoveryDismissed { get; set; } = [];

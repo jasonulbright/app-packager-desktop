@@ -1,4 +1,4 @@
-using System.Windows;
+﻿using System.Windows;
 using System.Windows.Automation;
 using System.Windows.Automation.Peers;
 using System.Windows.Controls;
@@ -34,11 +34,14 @@ public sealed class SidebarGroupCaption : Decorator
             Text = group.Caption,
             TextWrapping = TextWrapping.NoWrap,
             TextTrimming = TextTrimming.None,
-            Margin = new Thickness(16, 12, 12, 4),
+            // .navlabel { font-size:12px; margin:18px 10px 5px } and the 3 px gap of the sidebar.
+            Margin = new Thickness(10, 18, 10, 8),
+            Height = 16,
+            FontSize = 12,
+            FontFamily = new System.Windows.Media.FontFamily("Segoe UI"),
             VerticalAlignment = VerticalAlignment.Center
         };
-        Text.SetResourceReference(TextBlock.ForegroundProperty, "TextFillColorSecondaryBrush");
-        Text.SetResourceReference(TextBlock.FontSizeProperty, "CaptionTextBlockFontSize");
+        Text.SetResourceReference(TextBlock.ForegroundProperty, "MkMutedBrush");
 
         Divider = new Border { Height = 1, Margin = new Thickness(8, 8, 8, 8), VerticalAlignment = VerticalAlignment.Center };
         Divider.SetResourceReference(Border.BackgroundProperty, "ControlStrongStrokeColorDefaultBrush");

@@ -171,6 +171,7 @@ See [One Click](one-click.md). The page has **Action on update** (**Report only*
 ### Packager Icon Pack and GitHub API
 
 - **Install from file...** and **Download icon pack** install application icons. The download checks a SHA-256 value.
+- **Show icons from the icon pack** switches the application list between the pack icons and two letters of each name. While it is off, the app does not download or update the pack when it starts.
 - **Refresh** under **GitHub API** shows the one status line of the GitHub sign-in: the source of the token (`Signed in via GitHub CLI as <account>`, `Token saved in settings as <account>`, `Environment variable GITHUB_TOKEN as <account>`), or `Not authenticated: 60 requests per hour`, with the requests that are left. A token that GitHub refuses shows `Token rejected (401)`. The **GitHub token** box below it says which source provides the token now; a token that you save there wins over the environment and the GitHub CLI. Any token raises the limit from 60 to 5,000 requests each hour.
 
 ![The GitHub API page with the status line and the token box](../images/core-settings-github-api.png)
