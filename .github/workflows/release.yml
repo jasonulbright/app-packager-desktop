@@ -146,7 +146,8 @@ jobs:
 
       - name: Engine tests
         shell: pwsh
-        run: dotnet test tests/ApplicationPackagerEngine.Tests/ApplicationPackagerEngine.Tests.csproj --configuration Release --nologo --blame --blame-hang-timeout 8m --blame-hang-dump-type mini
+        # CI does not run TableauDownloadFallbackTests.
+        run: dotnet test tests/ApplicationPackagerEngine.Tests/ApplicationPackagerEngine.Tests.csproj --configuration Release --filter "FullyQualifiedName!~TableauDownloadFallbackTests" --nologo --blame --blame-hang-timeout 8m --blame-hang-dump-type mini
 
       - name: Publish the application
         shell: pwsh

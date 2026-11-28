@@ -94,7 +94,8 @@ jobs:
           APD_GUIDE_CAPTURE_DIR: ${{ runner.temp }}/guide-images
         run: |
           if ($env:TEST_FILTER) { dotnet test tests/ApplicationPackagerEngine.Tests/ApplicationPackagerEngine.Tests.csproj --configuration Release --filter $env:TEST_FILTER --blame --blame-hang-timeout 8m --blame-hang-dump-type mini }
-          else { dotnet test tests/ApplicationPackagerEngine.Tests/ApplicationPackagerEngine.Tests.csproj --configuration Release --blame --blame-hang-timeout 8m --blame-hang-dump-type mini }
+          # CI does not run TableauDownloadFallbackTests.
+          else { dotnet test tests/ApplicationPackagerEngine.Tests/ApplicationPackagerEngine.Tests.csproj --configuration Release --filter "FullyQualifiedName!~TableauDownloadFallbackTests" --blame --blame-hang-timeout 8m --blame-hang-dump-type mini }
 
       - name: Guide images of the capture run
         if: always()
