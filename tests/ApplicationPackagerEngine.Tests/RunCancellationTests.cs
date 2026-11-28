@@ -11,6 +11,9 @@ namespace ApplicationPackagerEngine.Tests;
 /// product step so each cancel point can be hit exactly. The processes are real, so the kill
 /// by process id is observed rather than assumed.
 /// </summary>
+// RunChildProcesses.KillAll ends every tracked child of the test process, so a test that calls it ends the children of any test that runs beside it.
+// These tests run alone.
+[Collection(TrackedChildrenCollection.Name)]
 public class RunCancellationTests
 {
     private static readonly TimeSpan Seconds5 = TimeSpan.FromSeconds(5);
@@ -180,4 +183,10 @@ public class RunCancellationTests
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => run);
         Assert.True(sw.Elapsed < KillLimit, $"took {sw.Elapsed}");
     }
+}
+
+[CollectionDefinition(Name, DisableParallelization = true)]
+public sealed class TrackedChildrenCollection
+{
+    public const string Name = "Tracked child processes";
 }
