@@ -49,7 +49,7 @@ internal static class InstallerAnalysisTestFiles
         public const string BurnVcRedist = @"C:\ProgramData\Package Cache\{ca67548a-5ebe-413a-b50c-4b9ceb6d66c6}\vcredist_x64.exe";
         public const string SfxNdp = @"C:\ProgramData\Package Cache\99B1D7F9264E7D5AEA7B01B69EF541065030055A37CFD76F9846B3CC84FD6F2B\redist\NDP472-KB4054531-Web.exe";
         public const string Squirrel = @"C:\temp\ap\Postman\12.31.7\Postman-x64-Setup.exe";
-        public const string NuGet = @"C:\Users\jason\.nuget\packages\drippyal\2.1.3\drippyal.2.1.3.nupkg";
+        public static readonly string NuGet = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), @".nuget\packages\drippyal\2.1.3\drippyal.2.1.3.nupkg");
 
         public static bool Has(string path) => File.Exists(path);
     }
