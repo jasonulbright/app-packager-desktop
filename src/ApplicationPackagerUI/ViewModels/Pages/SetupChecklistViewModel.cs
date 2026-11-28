@@ -250,6 +250,34 @@ public sealed partial class SetupChecklistViewModel : ObservableObject
         SkipScanCommand = new RelayCommand(SkipScan);
         CloseCommand = new RelayCommand(Close);
         DoNotShowAgainCommand = new RelayCommand(Dismiss);
+        // The line about the step menus follows the listed steps and their places. A step raises its action name when it is placed.
+        ShownSteps.CollectionChanged += (_, _) => OnPropertyChanged(nameof(MenuHint));
+        foreach (var step in Steps)
+            step.PropertyChanged += (_, e) => { if (e.PropertyName == nameof(SetupStepItem.ActionName)) OnPropertyChanged(nameof(MenuHint)); };
+    }
+
+    // The two states that the mocks draw, as the color classes of the listed steps. The first start: the systems chosen, the site next and the
+    // folders open. Behind the other windows of the mocks: the setup done and the discovery next.
+    private static readonly string[] DrawnStates = ["good,warn,", "good,good,good,warn"];
+
+    /// <summary>
+    /// Names the actions that only the menu of a step has, and how to open it; empty when no step has one, and in a state that a mock draws,
+    /// which has no such line. There the tooltip and the help text of each step say how to open the menu.
+    /// </summary>
+    public string MenuHint
+    {
+        get
+        {
+            if (DrawnStates.Contains(string.Join(",", ShownSteps.Select(s => s.Kind)))) return "";
+            var names = new List<string>();
+            if (ShownSteps.Any(s => s.ShowSetup)) names.Add("Open Setup");
+            if (ShownSteps.Any(s => s.ShowTest)) names.Add("Test Connection");
+            // A step that is not done can have the scan on its button.
+            if (ShownSteps.FirstOrDefault(s => s.ShowScan && s.ActionText.Length == 0) is { } scan) names.Add(scan.ScanText);
+            if (ShownSteps.Any(s => s.ShowSkip)) names.Add("Skip Scan");
+            return names.Count == 0 ? ""
+                : $"More step actions: {string.Join(", ", names)}. Right-click a step, or select it and press the Apps key or Shift+F10.";
+        }
     }
 
     public IReadOnlyList<SetupStepItem> Steps { get; } =

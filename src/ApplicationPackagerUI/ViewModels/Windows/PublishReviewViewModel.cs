@@ -162,9 +162,12 @@ public partial class PublishReviewViewModel : ObservableObject
         foreach (var warning in parts.Skip(1)) yield return "Warning: " + warning.TrimEnd('.') + ".";
     }
 
+    /// <summary>The line of the Intune review that can open during the run.</summary>
+    public const string IntuneReviewText = "The run may ask Intune review, when a stage has a finding that needs a decision. Cancel stops the whole run.";
+
     /// <summary>
-    /// What the run risks, as text: the warnings that the table of one system cuts, the prompt that can overwrite an application, and what a retry
-    /// does not do. Empty for a plan with none of these.
+    /// What the run risks, as text: the warnings that the table of one system cuts, the prompt that can overwrite an application, what a retry
+    /// does not do and the Intune review. Empty for a plan with none of these.
     /// </summary>
     public string RiskText
     {
@@ -180,6 +183,10 @@ public partial class PublishReviewViewModel : ObservableObject
                 lines.Add("The run may ask Application Already Exists (Overwrite, Skip or Cancel remaining). Overwrite replaces the application in ConfigMgr.");
             if (Plan.RetryDestination == OneClickDestinations.ConfigMgr)
                 lines.Add("The retry does not replace an application. It publishes nothing when ConfigMgr has this version.");
+            // The mock draws the review of all three systems with no warning and no such line, so there only the tooltip of the button has it.
+            if ((Plan.Systems.Count < 3 || lines.Count > 0)
+                && Plan.Rows.Any(r => r.Cells.Any(c => c.Destination == OneClickDestinations.Intune && c.Kind == PublishCellKind.Create)))
+                lines.Add(IntuneReviewText);
             return string.Join(Environment.NewLine, lines);
         }
     }

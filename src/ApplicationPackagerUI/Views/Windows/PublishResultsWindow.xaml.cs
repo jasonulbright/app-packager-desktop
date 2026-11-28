@@ -9,6 +9,9 @@ namespace ApplicationPackagerUI.Views.Windows;
 
 public partial class PublishResultsWindow
 {
+    /// <summary>What a row is higher than the content of its cells: the edge of a cell, and the line under the row.</summary>
+    private const double RowEdges = 3;
+
     public PublishResultsWindow(PublishResultsViewModel viewModel)
     {
         DataContext = viewModel;
@@ -33,12 +36,14 @@ public partial class PublishResultsWindow
             e.Row.Resources["SignalShift"] = Down(several && index == 0 ? -2 : -1);
             e.Row.Resources["GlyphShift"] = Down(several && index == 1 ? -1 : 0);
             e.Row.Resources["DashShift"] = Down(several && index == 0 ? 0 : 1);
-            // A failure message of the Details column can take two lines, so such a row keeps no fixed height.
-            var wraps = !viewModel.IsMatrix && viewModel.Rows.Count > index && viewModel.Rows[index].Failed;
-            // The grid sets the least height of a row itself, so the height is set.
-            if (wraps) e.Row.ClearValue(FrameworkElement.HeightProperty);
-            else if (index == 0) e.Row.Height = viewModel.IsOneClick || viewModel.IsMatrix ? 37 : 36;
-            else if (index == 1 && viewModel.IsMatrix) e.Row.Height = 35;
+            // A message of the Result column can wrap in a row of any state, so such a table has no fixed row height: its first row has a
+            // least height, which the content of its first cell gives it, because the grid sets the least height of a row itself.
+            e.Row.Resources["RowContent"] = !viewModel.IsMatrix && index == 0 ? (viewModel.IsOneClick ? 37d : 36d) - RowEdges : 0d;
+            // A row that the grid uses again keeps no height of its last place. No cell of several systems wraps, so those rows have the
+            // heights of the mock.
+            e.Row.ClearValue(FrameworkElement.HeightProperty);
+            if (viewModel.IsMatrix && index == 0) e.Row.Height = 37;
+            else if (viewModel.IsMatrix && index == 1) e.Row.Height = 35;
         };
         if (viewModel.IsMatrix)
         {
@@ -54,6 +59,12 @@ public partial class PublishResultsWindow
         // The mock draws the window of several systems without these lines: the amber notice and the cells name the failure. The row menu shows them.
         if (viewModel.IsMatrix) lstFailures.Visibility = Visibility.Collapsed;
         btnResultsHistory.Visibility = viewModel.HasHistory && !viewModel.IsOneClick ? Visibility.Visible : Visibility.Collapsed;
+        // The table says what its menu has, also where the window has no line for it.
+        if (viewModel.RowMenuTip.Length > 0)
+        {
+            Matrix.ToolTip = viewModel.RowMenuTip;
+            System.Windows.Automation.AutomationProperties.SetHelpText(Matrix, viewModel.RowMenuTip);
+        }
         // The button of the mock stands on a One Click run. The other results offer it in the row menu.
         btnResultsReview.Visibility = viewModel.IsOneClick && viewModel.HasFailure ? Visibility.Visible : Visibility.Collapsed;
     }
@@ -71,7 +82,7 @@ public partial class PublishResultsWindow
         {
             Header = "Application", Width = Star(application), MinWidth = 160, SortMemberPath = "Application",
             CellTemplate = Template("""
-                <DockPanel Background="Transparent" ToolTip="{Binding Tip}">
+                <DockPanel Background="Transparent" ToolTip="{Binding Tip}" MinHeight="{DynamicResource RowContent}">
                     <Border RenderTransform="{DynamicResource MarkShift}" DockPanel.Dock="Left" Width="22" Height="22" CornerRadius="4" BorderThickness="1" VerticalAlignment="Center" Margin="0,1,9,-1"
                             Background="{DynamicResource MkSubBrush}" BorderBrush="{DynamicResource MkEdgeBrush}">
                         <TextBlock Text="{Binding Mark}" FontSize="9" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="1,0,0,0"

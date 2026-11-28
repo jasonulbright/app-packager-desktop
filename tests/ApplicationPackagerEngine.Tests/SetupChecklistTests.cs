@@ -77,6 +77,73 @@ public sealed class SetupChecklistTests : IDisposable
     }
 
     [Fact]
+    public void AVisibleLineNamesTheStepMenuActionsInEveryStateThatNoMockDraws()
+    {
+        using var scope = SiteContext.Scope(null, _root);
+        File.WriteAllText(SettingsService.SettingsPath,
+            """{ "FirstRunCompleted": false, "Systems": { "ConfigMgr": true, "Intune": false, "Wsus": false }, "SiteCode": "P01", "SiteCodeSaved": true }""");
+        var service = new SettingsService();
+        var vm = Checklist(service);
+        var told = 0;
+        vm.PropertyChanged += (_, e) => { if (e.PropertyName == nameof(vm.MenuHint)) told++; };
+        vm.Refresh();
+        // The systems are chosen, the site is next and the folders are open: the window of the mock, which has no such line.
+        Assert.Equal("", vm.MenuHint);
+        Assert.True(told > 0);
+
+        _connection = ConfigMgrConnectionState.Failed;
+        vm.Refresh();
+        Assert.StartsWith("More step actions: Open Setup, Test Connection.", vm.MenuHint);
+        Assert.Contains("Shift+F10", vm.MenuHint);
+
+        // A step beyond the mock is complete: the connection is verified.
+        _connection = ConfigMgrConnectionState.Connected;
+        vm.Refresh();
+        Assert.StartsWith("More step actions: Open Setup.", vm.MenuHint);
+
+        // The folders are set and the connection is not verified yet.
+        _connection = ConfigMgrConnectionState.Unknown;
+        var settings = service.Load();
+        settings.DownloadRoot = Path.Combine(_root, "stage");
+        settings.FileShareRoot = @"\\cm01.contoso.com\content$";
+        service.Save(settings);
+        vm.Refresh();
+        Assert.Contains("Test Connection", vm.MenuHint);
+
+        // The setup is done and the discovery is next: the state behind the other windows of the mocks.
+        _connection = ConfigMgrConnectionState.Connected;
+        vm.Refresh();
+        Assert.Equal(4, vm.ShownSteps.Count);
+        Assert.Equal("", vm.MenuHint);
+
+        // Every step is done: the line names the actions of the finished steps.
+        Scanned("P01", settings.ProviderMachine, 1);
+        vm.Show();
+        Assert.StartsWith("More step actions: Open Setup, Scan Again.", vm.MenuHint);
+    }
+
+    [Theory]
+    [InlineData(ApplicationTheme.Light)]
+    [InlineData(ApplicationTheme.Dark)]
+    public void TheStepMenuLineShowsBesideTheStepsOfAFailedConnection(ApplicationTheme theme)
+    {
+        RenderKit.WithApplication(theme, () =>
+        {
+            using var scope = SiteContext.Scope(null, _root);
+            var (page, window) = ChecklistWindow(DesignPageWidth, DesignPageHeight);
+            try
+            {
+                var panel = RenderKit.ById<UserControl>(page, "pnlSetupChecklist");
+                var hint = RenderKit.ById<TextBlock>(panel, "txtSetupMenuHint");
+                Assert.True(hint.IsVisible);
+                Assert.Contains("Test Connection", hint.Text);
+                AssertInsideOf(StepScroller(panel), hint, $"setup checklist {theme}");
+            }
+            finally { window.Close(); }
+        });
+    }
+
+    [Fact]
     public void TheSystemsSiteAndFolderStepsFollowTheSettingsAndTheConnectionTest()
     {
         var s = Fresh();

@@ -49,7 +49,8 @@
                         <DataTemplate>
                             <UserControl Focusable="True" IsTabStop="True" FocusVisualStyle="{StaticResource Mk.Focus}" ContextMenuOpening="Step_ContextMenuOpening"
                                          AutomationProperties.Name="{Binding AccessibleName}"
-                                         AutomationProperties.HelpText="Press the Apps key or Shift+F10 for the actions of this step.">
+                                         AutomationProperties.HelpText="Press the Apps key or Shift+F10 for the actions of this step."
+                                         ToolTip="Right-click the step, or press the Apps key or Shift+F10, for the actions of this step.">
                                 <UserControl.ContextMenu>
                                     <ContextMenu />
                                 </UserControl.ContextMenu>
@@ -98,6 +99,19 @@
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>
                 </ItemsControl>
+                <TextBlock Text="{Binding MenuHint}" AutomationProperties.AutomationId="txtSetupMenuHint">
+                    <TextBlock.Style>
+                        <Style TargetType="TextBlock" BasedOn="{StaticResource Mk.Help}">
+                            <Setter Property="Margin" Value="0,14,0,0" />
+                            <Setter Property="TextWrapping" Value="Wrap" />
+                            <Style.Triggers>
+                                <Trigger Property="Text" Value="">
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                </Trigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TextBlock.Style>
+                </TextBlock>
                 <Rectangle Height="1" Fill="{DynamicResource MkLineBrush}" Margin="0,14,0,0" />
                 <TextBlock Text="Return to this checklist from Settings." Style="{StaticResource Mk.Help}" Margin="0,15,0,0" />
             </StackPanel>

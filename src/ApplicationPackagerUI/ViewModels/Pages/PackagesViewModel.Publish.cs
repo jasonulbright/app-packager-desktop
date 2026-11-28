@@ -123,11 +123,12 @@ public partial class PackagesViewModel : IOneClickRunner, IPublishActionHost
         }
 
         var consoleFound = ConfigMgrConsole.IsInstalled();
+        var sources = new OneClickPlanSources(_settingsService.Load, consoleFound, rows, _executionService.SupersedenceApplicationId);
         var context = new OneClickPlanContext
         {
             Apps = rows.Select(p => (new OneClickApp(p.Uid, p.Application, p.Vendor, p.LatestVersion, p.CurrentVersion)
                 { WsusNotSupported = p.WsusNotSupported, StageVersion = _executionService.LocalStageVersion(p) }, (PackagerInfo?)p)).ToList(),
-            Settings = () => OneClickSettingsMap.PlanSettings(_settingsService.Load(), consoleFound),
+            Settings = sources.PlanSettings,
             History = history,
             Action = action,
             Force = settings.OneClick.ForceOnLaunch,
@@ -140,10 +141,7 @@ public partial class PackagesViewModel : IOneClickRunner, IPublishActionHost
             ReportFolder = OneClickReportFolder,
             ConfirmLocalSources = selected => ConfirmLocalSourceFolders(selected.ToList()),
             Log = AddLogLine,
-            // A PS1 packager decides by its own script, so the plan says nothing about it.
-            Supersedes = p => (p.IsJsonDefined || p.StagedManifestPath is not null)
-                && ApplicationPackagerEngine.Services.Supersedence.SupersedenceSettingsEditor.EffectiveMode(_settingsService.Load().Supersedence,
-                    _executionService.SupersedenceApplicationId(p)) != ApplicationPackagerEngine.Services.Supersedence.SupersedenceMode.Off
+            Supersedes = sources.Supersedes
         };
         AddLogLine($"One Click: the checks are done, the plan opens for {rows.Count} application(s).");
         _publishDialogs.ShowOneClickPlan(new OneClickPlanViewModel(context, this));

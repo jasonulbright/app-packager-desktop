@@ -4,6 +4,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
     xmlns:mk="clr-namespace:ApplicationPackagerUI.Controls.Mock"
+    xmlns:controls="clr-namespace:ApplicationPackagerUI.Controls"
     xmlns:sys="clr-namespace:System;assembly=System.Runtime"
     Title="One Click"
     Width="1336" Height="625"
@@ -60,9 +61,12 @@
     <Grid>
         <mk:DialogFrame Title="One Click">
             <mk:DialogFrame.Body>
-                <DockPanel>
+                <!-- The table takes the room that the parts above it leave, and never less than a few rows. Where the window cannot give that,
+                     the code puts the body into a scroll area. It is not in one before, because a scroll area changes how its text is drawn. -->
+                <Border x:Name="BodyHost">
+                <controls:LeastFillPanel x:Name="pnlBody">
                     <!-- The title, the count line and the way to the saved settings. -->
-                    <DockPanel DockPanel.Dock="Top" Height="51">
+                    <DockPanel Height="51">
                         <Button x:Name="btnOneClickSettings" DockPanel.Dock="Right" Style="{StaticResource Mk.Button}" mk:Mk.Icon="settings" Content="One Click settings"
                                 VerticalAlignment="Center" Click="Settings_Click" IsEnabled="{Binding CanClose}" AutomationProperties.AutomationId="btnOneClickSettings"
                                 ToolTip="Closes this plan and opens Settings, One Click, where the action, the destinations and the tracked applications are saved. Select One Click again to plan with the saved values. The button is off while a run is active." />
@@ -74,7 +78,7 @@
                     </DockPanel>
 
                     <!-- The action of the run, the systems and the steps. -->
-                    <Border DockPanel.Dock="Top" Style="{StaticResource Mk.Panel}" Margin="0,13,0,0" Padding="16">
+                    <Border Style="{StaticResource Mk.Panel}" Margin="0,13,0,0" Padding="16">
                         <StackPanel>
                             <DockPanel Height="35">
                                 <ItemsControl DockPanel.Dock="Right" ItemsSource="{Binding SystemSignals}" Focusable="False" IsTabStop="False" VerticalAlignment="Center"
@@ -135,7 +139,7 @@
                         </StackPanel>
                     </Border>
 
-                    <Border DockPanel.Dock="Top" Style="{StaticResource Mk.Notice}" Margin="0,13,0,0" Height="38.5"
+                    <Border Style="{StaticResource Mk.Notice}" Margin="0,13,0,0" Height="38.5"
                             Visibility="{Binding ShowsHint, Converter={StaticResource BoolToVisibility}}">
                         <DockPanel ToolTip="{Binding PlanDetail}">
                             <mk:Ico DockPanel.Dock="Left" Glyph="info" Foreground="{DynamicResource MkTextBrush}" FontSize="16" Width="16" Height="16" Margin="0,0,6,0" />
@@ -143,19 +147,19 @@
                                        AutomationProperties.AutomationId="txtPlanHint"><Run FontWeight="Bold" Text="Changes apply to this run." /> Review destination overrides and application changes before you start.</TextBlock>
                         </DockPanel>
                     </Border>
-                    <Border DockPanel.Dock="Top" Style="{StaticResource Mk.Banner}" Margin="0,13,0,0" Height="43"
+                    <Border Style="{StaticResource Mk.Banner}" Margin="0,13,0,0" Height="43"
                             Visibility="{Binding IsCheckRun, Converter={StaticResource BoolToVisibility}}">
                         <DockPanel ToolTip="{Binding PlanDetail}">
                             <mk:Ico DockPanel.Dock="Left" Glyph="info" Foreground="{DynamicResource MkTextBrush}" Margin="0,0,8,0" />
                             <TextBlock Text="{Binding CheckBanner}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Foreground="{DynamicResource MkTextBrush}" />
                         </DockPanel>
                     </Border>
-                    <TextBlock DockPanel.Dock="Top" x:Name="txtPlanBlocking" Text="{Binding BlockingText}" Style="{StaticResource OptionalNotice}"
+                    <TextBlock x:Name="txtPlanBlocking" Text="{Binding BlockingText}" Style="{StaticResource OptionalNotice}"
                                AutomationProperties.AutomationId="txtPlanBlocking" Visibility="{Binding HasBlocking, Converter={StaticResource BoolToVisibility}}" />
 
                     <!-- What the run risks, in the place of the general note; then the state of the run and a comment that is not empty. A plan with none
                          of them is the window of the mock. -->
-                    <Border DockPanel.Dock="Top" Margin="0,13,0,0">
+                    <Border Margin="0,13,0,0">
                         <Border.Style>
                             <Style TargetType="Border" BasedOn="{StaticResource Mk.Notice.Warn}">
                                 <Style.Triggers>
@@ -165,12 +169,10 @@
                                 </Style.Triggers>
                             </Style>
                         </Border.Style>
-                        <ScrollViewer MaxHeight="60" VerticalScrollBarVisibility="Auto" Focusable="False">
-                            <TextBlock Text="{Binding RiskText}" TextWrapping="Wrap" Foreground="{DynamicResource MkTextBrush}"
-                                       AutomationProperties.AutomationId="txtPlanRisk" AutomationProperties.LiveSetting="Polite" />
-                        </ScrollViewer>
+                        <TextBlock Text="{Binding RiskText}" TextWrapping="Wrap" Foreground="{DynamicResource MkTextBrush}" ToolTip="{Binding RiskDetail}"
+                                   AutomationProperties.AutomationId="txtPlanRisk" AutomationProperties.LiveSetting="Polite" />
                     </Border>
-                    <TextBlock DockPanel.Dock="Top" Text="{Binding StatusLine}" TextWrapping="Wrap" Margin="0,13,0,0" Foreground="{DynamicResource MkTextBrush}"
+                    <TextBlock Text="{Binding StatusLine}" TextWrapping="Wrap" Margin="0,13,0,0" Foreground="{DynamicResource MkTextBrush}"
                                AutomationProperties.AutomationId="txtPlanSummary" AutomationProperties.LiveSetting="Polite">
                         <TextBlock.Style>
                             <Style TargetType="TextBlock">
@@ -182,7 +184,7 @@
                             </Style>
                         </TextBlock.Style>
                     </TextBlock>
-                    <DockPanel DockPanel.Dock="Top" Margin="0,13,0,0" Visibility="{Binding ShowsComment, Converter={StaticResource BoolToVisibility}}">
+                    <DockPanel Margin="0,13,0,0" Visibility="{Binding ShowsComment, Converter={StaticResource BoolToVisibility}}">
                         <TextBlock Text="Administrative comment" VerticalAlignment="Center" Margin="0,0,8,0" Foreground="{DynamicResource MkTextBrush}" />
                         <TextBox x:Name="txtPlanComment" Style="{StaticResource Mk.TextBox}" Text="{Binding Comment, UpdateSourceTrigger=PropertyChanged}"
                                  IsEnabled="{Binding CanPlanOnly}" AutomationProperties.AutomationId="txtPlanComment" AutomationProperties.Name="Administrative comment"
@@ -288,7 +290,8 @@
                     </DockPanel>
 
                     </Grid>
-                </DockPanel>
+                </controls:LeastFillPanel>
+                </Border>
             </mk:DialogFrame.Body>
             <!-- The report commands stand apart at the left (R-14); the buttons that start or end the work stand at the right, Run last (R-13). -->
             <mk:DialogFrame.FootLeft>

@@ -14,6 +14,11 @@ public partial class OneClickPlanWindow : ApplicationPackagerUI.Services.IDialog
     private readonly OneClickPlanViewModel _viewModel;
     private readonly string _reportFolder;
 
+    /// <summary>The rows whose height the table keeps, whatever stands above it.</summary>
+    public const int LeastRows = 5;
+
+    private const double LeastRowHeight = 34, LeastTableFrame = 95;
+
     public OneClickPlanWindow(OneClickPlanViewModel viewModel, string reportFolder)
     {
         _viewModel = viewModel;
@@ -25,6 +30,13 @@ public partial class OneClickPlanWindow : ApplicationPackagerUI.Services.IDialog
         Width = viewModel.IsPublishRun ? 1336 : 1240;
         Height = viewModel.IsPublishRun ? 625 : 600;
         Controls.Mock.DialogFrame.RoundAs(this, Height);
+        SourceInitialized += (_, _) => Controls.Mock.DialogFrame.FitToWorkArea(this, SystemParameters.WorkArea);
+        // The least height of the table with its note: the margins, the header and the note, and up to five rows.
+        pnlBody.LeastFill = LeastTableFrame + Math.Min(viewModel.Rows.Count, LeastRows) * LeastRowHeight;
+        Loaded += (_, _) => FitBody();
+        // A later change of the lines above the table, or of the size of the window, places the body again.
+        pnlBody.NeededHeightChanged += (_, _) => Dispatcher.BeginInvoke(FitBody, System.Windows.Threading.DispatcherPriority.Loaded);
+        BodyHost.SizeChanged += (_, _) => Dispatcher.BeginInvoke(PlaceBody, System.Windows.Threading.DispatcherPriority.Loaded);
         Controls.Mock.Mk.SetFaceDrop(btnOneClickSettings, viewModel.IsPublishRun ? -1 : 0);
         Controls.Mock.Mk.SetIconDrop(cboPlanAction, -1);
         // Places where the mock rounds to another pixel than the layout does.
@@ -96,6 +108,45 @@ public partial class OneClickPlanWindow : ApplicationPackagerUI.Services.IDialog
         if (e.PropertyName is nameof(OneClickPlanViewModel.IsRunView) or nameof(OneClickPlanViewModel.ShowResultConfigMgr)
             or nameof(OneClickPlanViewModel.ShowResultWsus) or nameof(OneClickPlanViewModel.ShowResultIntune))
             ApplyColumns();
+    }
+
+    /// <summary>The scroll area of the body, while the window cannot show the lines above the table and the least rows of the table.</summary>
+    public ScrollViewer BodyScroll { get; } = new()
+    {
+        VerticalScrollBarVisibility = ScrollBarVisibility.Auto, HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled, Focusable = false
+    };
+
+    /// <summary>Makes the window taller where the work area has room, and then places the body.</summary>
+    private void FitBody()
+    {
+        if (!IsLoaded) return;
+        UpdateLayout();
+        Controls.Mock.DialogFrame.Grow(this, pnlBody.NeededHeight - BodyHost.ActualHeight);
+        PlaceBody();
+    }
+
+    private void PlaceBody()
+    {
+        if (!IsLoaded) return;
+        UpdateLayout();
+        var scrolls = pnlBody.NeededHeight > BodyHost.ActualHeight + 0.5;
+        if (scrolls == (BodyHost.Child == BodyScroll)) return;
+        var focused = System.Windows.Input.Keyboard.FocusedElement;
+        BodyHost.Child = null;
+        if (scrolls)
+        {
+            BodyScroll.Content = pnlBody;
+            pnlBody.SetBinding(Controls.LeastFillPanel.ViewportHeightProperty,
+                new System.Windows.Data.Binding(nameof(ScrollViewer.ViewportHeight)) { Source = BodyScroll });
+            BodyHost.Child = BodyScroll;
+        }
+        else
+        {
+            BodyScroll.Content = null;
+            BodyHost.Child = pnlBody;
+        }
+        UpdateLayout();
+        focused?.Focus();
     }
 
     /// <summary>

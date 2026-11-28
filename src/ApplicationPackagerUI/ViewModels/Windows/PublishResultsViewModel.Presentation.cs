@@ -113,9 +113,28 @@ public sealed partial class PublishResultsViewModel
     /// <summary>What to verify before a retry, or what a retry does, for each failed system of a window that can retry.</summary>
     public IReadOnlyList<string> RetryLines => Retries.Select(o => o.Text).ToList();
 
-    /// <summary>Where the retry is, in a window that has one: the mock draws no button for it.</summary>
-    public string RowMenuHelp => !Retries.Any(o => o.CanRetry) ? ""
-        : "Retry and Review failed application are in the menu of the result row. Select the row, then right-click it or press the Apps key or Shift+F10.";
+    /// <summary>
+    /// The commands of the row menu that act on a failure, with how to open the menu; empty when the menu has none of them. It is the tooltip
+    /// and the help text of the table.
+    /// </summary>
+    public string RowMenuTip
+    {
+        get
+        {
+            var names = new List<string>();
+            if (Retries.Any(o => o.CanRetry)) names.Add("Retry");
+            if (HasFailure) names.Add("Review failed application");
+            if (IsMatrix && FailureLines.Count > 0) names.Add("Show failure messages");
+            return names.Count == 0 ? ""
+                : $"{Join(names)} {(names.Count == 1 ? "is" : "are")} in the menu of the result row. Select the row, then right-click it or press the Apps key or Shift+F10.";
+        }
+    }
+
+    /// <summary>
+    /// <see cref="RowMenuTip"/> as a line of the window. The mock draws two windows with a failure and no such line, so they have none: a One
+    /// Click run, which has a button for the review, and several systems with a failure and no word on a retry.
+    /// </summary>
+    public string RowMenuHelp => IsOneClick || (IsMatrix && HasFailure && Retries.Count == 0) ? "" : RowMenuTip;
 
     /// <summary>What to do before a retry, under the table of several systems.</summary>
     public string FailureHelp

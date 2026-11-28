@@ -92,12 +92,18 @@ public partial class OneClickPlanViewModel : ObservableObject
     public bool ShowsComment { get; private set; }
 
     /// <summary>
-    /// What the run risks, as text: the saved setting that overwrites without a question, the supersedence question that can open during the run,
-    /// and each distribution, deployment or approval. Empty for a run with none of these.
+    /// What the run risks, as text: first each distribution, deployment or approval, then the saved setting that overwrites without a question
+    /// and the supersedence question that can open during the run. Empty for a run with none of these.
     /// </summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(ShowsHint))]
     private string _riskText = "";
+
+    /// <summary>The tooltip of the risk text: each application with supersedence on, where the text gives only their count; else null.</summary>
+    [ObservableProperty] private string? _riskDetail;
+
+    /// <summary>The most application names that the risk text spells out; a longer list gives its count.</summary>
+    public const int MostNamedApplications = 3;
 
     /// <summary>The general note of a run that publishes; a warning takes its place.</summary>
     public bool ShowsHint => IsPublishRun && RiskText.Length == 0;
@@ -107,8 +113,11 @@ public partial class OneClickPlanViewModel : ObservableObject
 
     private string Risks(IReadOnlyList<OneClickPlanRow> included)
     {
+        RiskDetail = null;
         if (!IsPublishRun) return "";
         var lines = new List<string>();
+        if (new[] { "distribute to ", "deploy to ", "approved for group " }.Any(w => ScopeText.Contains(w, StringComparison.Ordinal)))
+            lines.Add(ScopeText);
         if (OneClickOnExisting.Normalize(_context.OnExisting) == OneClickOnExisting.Overwrite
             && included.Any(r => r.PublishTo.Contains(OneClickDestinations.ConfigMgr)))
             lines.Add("The saved One Click setting overwrites an existing ConfigMgr application. Run asks nothing about it after it starts.");
@@ -117,9 +126,12 @@ public partial class OneClickPlanViewModel : ObservableObject
             .Where(r => _apps.TryGetValue(r.Key, out var app) && app.Row is { } row && _context.Supersedes?.Invoke(row) == true)
             .Select(r => r.Application).ToList();
         if (superseded.Count > 0)
-            lines.Add($"Supersedence is on for {string.Join(", ", superseded)}. The run can ask before it supersedes an older application.");
-        if (new[] { "distribute to ", "deploy to ", "approved for group " }.Any(w => ScopeText.Contains(w, StringComparison.Ordinal)))
-            lines.Add(ScopeText);
+        {
+            var many = superseded.Count > MostNamedApplications;
+            if (many) RiskDetail = "Supersedence is on for:" + Environment.NewLine + string.Join(Environment.NewLine, superseded);
+            var which = many ? $"{superseded.Count} applications" : string.Join(", ", superseded);
+            lines.Add($"Supersedence is on for {which}. The run can ask before it supersedes an older application.");
+        }
         return string.Join(Environment.NewLine, lines);
     }
 
@@ -231,9 +243,8 @@ public partial class OneClickPlanViewModel : ObservableObject
     }
 
     /// <summary>The saved settings with this window's destination boxes in place of the saved ones.</summary>
-    private OneClickPlanSettings RunSettings()
+    private OneClickPlanSettings RunSettings(OneClickPlanSettings saved)
     {
-        var saved = _context.Settings();
         if (Rows.Count == 0) return saved;
         return saved with
         {
@@ -249,7 +260,9 @@ public partial class OneClickPlanViewModel : ObservableObject
         RefreshCount++;
         try
         {
-            var settings = RunSettings();
+            // One read of the saved settings for each replan.
+            var saved = _context.Settings();
+            var settings = RunSettings(saved);
             var plan = OneClickPlanner.Plan(_context.Apps.Select(a => a.App), settings, _context.History, _context.Action, Force, _context.Clock());
             var existing = Rows.ToDictionary(r => r.Key, StringComparer.OrdinalIgnoreCase);
             foreach (var p in plan)
@@ -289,7 +302,6 @@ public partial class OneClickPlanViewModel : ObservableObject
 
             var byKey = Rows.ToDictionary(r => r.Key, StringComparer.OrdinalIgnoreCase);
             // The source is read from the saved settings: the run settings of this window give every row a selection of its own.
-            var saved = _context.Settings();
             foreach (var item in Rows)
             {
                 var (set, source) = OneClickPlanner.DestinationsFor(saved, item.Key);

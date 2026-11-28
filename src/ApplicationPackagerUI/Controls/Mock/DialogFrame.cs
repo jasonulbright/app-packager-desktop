@@ -119,11 +119,17 @@ public sealed class DialogFrame : System.Windows.Controls.Control
         window.Loaded += (_, _) =>
         {
             window.UpdateLayout();
-            var more = Math.Min(body.ScrollableHeight, SystemParameters.WorkArea.Height - window.Height);
-            if (more < 1) return;
-            window.Height += more;
-            if (!double.IsNaN(window.Top)) window.Top = Math.Max(Math.Min(window.Top, SystemParameters.WorkArea.Top), window.Top - more / 2);
+            Grow(window, body.ScrollableHeight);
         };
+    }
+
+    /// <summary>Makes a window taller by what its body does not show, up to the height of the work area. The window keeps its center.</summary>
+    public static void Grow(System.Windows.Window window, double shortfall)
+    {
+        var more = Math.Min(shortfall, SystemParameters.WorkArea.Height - window.Height);
+        if (more < 1) return;
+        window.Height += more;
+        if (!double.IsNaN(window.Top)) window.Top = Math.Max(Math.Min(window.Top, SystemParameters.WorkArea.Top), window.Top - more / 2);
     }
 
     /// <summary>
